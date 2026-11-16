@@ -25,6 +25,10 @@ test. The handoff is design input, not proof of implementation.
   clients for race, audio and visibility acceptance. See ADR-017.
 - Private GitHub: `d-addison/hollow-country`. No public or Workshop publication.
   Deliver a portable transfer package and rollback without purchased game files.
+- User subsequently requested implementation before their client connection.
+  Client join/playtesting is deferred, not a prerequisite for authoring source.
+  Installed-source API inspection remains mandatory; runtime acceptance and
+  production feature enablement remain gated on actual observations.
 
 ## Goals
 

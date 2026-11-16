@@ -1,0 +1,25 @@
+{
+  "scope": "Crafting authored source stable for integration",
+  "crafting_tests": {
+    "count": 11,
+    "failures": 0,
+    "exit": 0
+  },
+  "full_suite_snapshot": {
+    "count": 244,
+    "failures": 1,
+    "exit": 1,
+    "outside_scope_failure": "test_package.PackageBehavior.test_windows_python_preflight_is_explicit"
+  },
+  "native_compile": "not claimed",
+  "native_self_tests": "authored; execution pending",
+  "runtime_acceptance": "pending",
+  "sha256": {
+    "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c": "3d41141c6af214647e90171c616ab855a74c24f46d5ad4b45894bc849d302bab",
+    "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingNativeChecks.c": "1ff00803edff505f6afacbf545c939221bf38828f5c0e3e3772e368d6b0a3154",
+    "mods/HollowCountry/scripts/4_World/Crafting/HCRecipeRegistration.c": "a0ca89c2b6e5355953c612094399e85d7a3b3c6aa59cca130593f60d12409230",
+    "mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c": "e7737e54ae2428f93af7d309cf7b44a55fc6331845f1c94b3ce0ad5f4d199ffb",
+    "tests/unit/test_crafting_contract.py": "47c3209f1704ba928fe688fa35c33741b8f885a4fd9c576f8b3ebab5ffa4657b",
+    "research/experiments/EXP-crafting-implementation.md": "f5f1322080e6ac5bf8fa7593b0aa280ac3ca6993751a5397d961053f001338e2"
+  }
+}

@@ -1,0 +1,222 @@
+"""Synthetic original text only: no game data or fixtures."""
+import hashlib
+import io
+from pathlib import Path
+import struct
+import tempfile
+import unittest
+import zipfile
+
+from tools.package import pbo
+from unittest.mock import Mock
+
+
+class PackageBehavior(unittest.TestCase):
+    def test_stored_roundtrip_exact_prefix_and_reproducibility(self):
+        files = {'scripts/4_World/HC.c': b'// synthetic\n', 'config.cpp': b'class Synthetic {};'}
+        blob = pbo.pack(files)
+        self.assertEqual(blob, pbo.pack(dict(reversed(list(files.items())))))
+        prefix, entries = pbo.parse(blob)
+        self.assertEqual(prefix, 'HollowCountry')
+        self.assertEqual(entries, files)
+        self.assertEqual(blob[-21:], b'\0' + hashlib.sha1(blob[:-21]).digest())
+        self.assertIn(b'scripts\\4_World\\HC.c\0', blob)
+
+    def test_independent_wire_layout(self):
+        # Hand-authored structural fixture, independent of the writer.
+        body = b'\0' + struct.pack('<5I', 0x56657273, 0, 0, 0, 0)
+        body += b'prefix\0HollowCountry\0\0'
+        body += b'config.cpp\0' + struct.pack('<5I', 0, 0, 0, 0, 3)
+        body += bytes(21) + b'abc'
+        self.assertEqual(pbo.parse(body + b'\0' + hashlib.sha1(body).digest()),
+                         ('HollowCountry', {'config.cpp': b'abc'}))
+
+    def test_corrupt_checksum_truncation_and_trailing_data_rejected(self):
+        blob = pbo.pack({'config.cpp': b'synthetic'})
+        for bad in [blob[:-1], blob + b'x', blob[:-22] + b'X' + blob[-21:], b'']:
+            with self.subTest(bad=bad[:20]), self.assertRaises(ValueError):
+                pbo.parse(bad)
+
+    def test_unsafe_names_and_windows_collisions_rejected(self):
+        for name in ['../a.c', '/a.c', 'C:/x.c', 'a//b.c', 'a/./b.c', 'a\\b.c',
+                     'a\0.c', 'a/CON.c', 'a./b.c', 'a:stream.c', 'a/../b.c', 'a\nb.c']:
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                pbo.pack({name: b'x'})
+        with self.assertRaises(ValueError):
+            pbo.pack({'a.c': b'1', 'A.c': b'2'})
+
+    def test_parser_rejects_unsafe_name_even_with_valid_checksum(self):
+        blob = pbo.pack({'safe.c': b'x'})
+        body = blob[:-21].replace(b'safe.c\0', b'../x.c\0')
+        with self.assertRaises(ValueError):
+            pbo.parse(body + b'\0' + hashlib.sha1(body).digest())
+
+    def test_parser_rejects_compression_and_false_lengths(self):
+        blob = pbo.pack({'config.cpp': b'x'})
+        off = blob.index(b'config.cpp\0') + len(b'config.cpp\0')
+        for field, value in [(0, 0x43707273), (1, 100), (2, 1), (4, 100)]:
+            body = bytearray(blob[:-21])
+            struct.pack_into('<I', body, off + 4 * field, value)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                pbo.parse(bytes(body) + b'\0' + hashlib.sha1(body).digest())
+
+    def test_addon_allowlist_and_symlink_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            scripts = root / 'scripts/4_World'
+            scripts.mkdir(parents=True)
+            (scripts / 'Synthetic.c').write_text('// synthetic')
+            self.assertEqual(len(pbo.collect_addon(root)), 2)
+            for bad in ['secret.biprivatekey', 'model.p3d', 'types.xml', 'profile.json', 'config.bin']:
+                p = root / bad
+                p.write_bytes(b'not allowed')
+                with self.subTest(bad=bad), self.assertRaises(ValueError):
+                    pbo.collect_addon(root)
+                p.unlink()
+            (scripts / 'link.c').symlink_to(root / 'config.cpp')
+            with self.assertRaises(ValueError):
+                pbo.collect_addon(root)
+
+    def test_handoff_allowlist_determinism_and_release_gate(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            addon = root / 'addon'
+            addon.mkdir()
+            (addon / 'config.cpp').write_text('class Synthetic {};')
+            mission = root / 'mission'
+            mission.mkdir()
+            (mission / 'README.md').write_text('Synthetic original instructions')
+            one = pbo.handoff(addon, mission)
+            self.assertEqual(one, pbo.handoff(addon, mission))
+            with zipfile.ZipFile(io.BytesIO(one)) as z:
+                self.assertIn('@HollowCountry/addons/hollowcountry.pbo', z.namelist())
+                self.assertIn('manifest.json', z.namelist())
+                self.assertIn(b'unsigned-development', z.read('manifest.json'))
+                self.assertFalse(any('privatekey' in n for n in z.namelist()))
+            (mission / 'mapgroupproto.xml').write_text('<prototype/>')
+            with self.assertRaises(ValueError):
+                pbo.handoff(addon, mission)
+            with self.assertRaises(ValueError):
+                pbo.handoff(addon, mission, release=True)
+
+    def test_mod_metadata_outside_pbo(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            (root / 'mod.cpp').write_text('name="Synthetic";')
+            (root / 'mission').mkdir()
+            entries = pbo.collect_addon(root)
+            self.assertNotIn('mod.cpp', entries)
+            blob = pbo.handoff(root, root / 'mission')
+            with zipfile.ZipFile(io.BytesIO(blob)) as z:
+                self.assertEqual(z.read('@HollowCountry/mod.cpp'), b'name="Synthetic";')
+
+    def test_zip_verification_detects_tampering(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            mission = root / 'mission'
+            mission.mkdir()
+            blob = pbo.handoff(root, mission)
+            report = pbo.verify_handoff(blob)
+            self.assertEqual(report['status'], 'unsigned-development')
+            output = io.BytesIO()
+            with zipfile.ZipFile(io.BytesIO(blob)) as src, zipfile.ZipFile(output, 'w') as dst:
+                for name in src.namelist():
+                    dst.writestr(name, b'tampered' if name.endswith('.pbo') else src.read(name))
+            with self.assertRaises(ValueError):
+                pbo.verify_handoff(output.getvalue())
+
+    def test_windows_signing_arguments_and_failing_verifier(self):
+        from tools.package import sign
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            source = root / 'synthetic.pbo'
+            source.write_bytes(pbo.pack({'config.cpp': b'class Synthetic {};'}))
+            private = root / 'test.biprivatekey'
+            public = root / 'test.bikey'
+            private.write_text('SYNTHETIC-NOT-A-KEY')
+            public.write_text('SYNTHETIC-NOT-A-KEY')
+            tools = root / 'tools/Bin/DsUtils'
+            tools.mkdir(parents=True)
+            for name in ['DSSignFile.exe', 'DSCheckSignatures.exe']:
+                (tools / name).write_text('SYNTHETIC-NOT-EXECUTABLE')
+            calls = []
+            def fake_run(argv, **kwargs):
+                calls.append(argv)
+                self.assertFalse(kwargs.get('shell', False))
+                if argv[0].endswith('DSSignFile.exe'):
+                    Path(argv[2] + '.test.bisign').write_text('SYNTHETIC-NOT-A-SIGNATURE')
+                    return Mock(returncode=0, stdout='', stderr='')
+                return Mock(returncode=0, stdout='Signature synthetic.pbo.test.bisign is OK\n', stderr='')
+            result = sign.sign_and_verify(source, root / 'tools', private, public, root / 'signed', runner=fake_run)
+            self.assertEqual(calls[0][1], str(private.resolve()))
+            self.assertEqual(len(calls[0]), 3)
+            self.assertEqual(calls[1][1:], [str(root / 'signed/addons'), str(root / 'signed/keys')])
+            self.assertEqual(result['runtime_acceptance'], 'pending')
+            self.assertFalse((root / 'signed/test.biprivatekey').exists())
+            def bad_run(argv, **kwargs):
+                result = fake_run(argv, **kwargs)
+                if argv[0].endswith('DSCheckSignatures.exe'):
+                    result.stdout = 'Signature synthetic.pbo.test.bisign is wrong'
+                return result
+            with self.assertRaises(ValueError):
+                sign.sign_and_verify(source, root / 'tools', private, public, root / 'rejected', runner=bad_run)
+
+    def test_native_smoke_controls(self):
+        script = Path('tools/package/Invoke-NativeSmoke.ps1').read_text()
+        for token in ['SupportsShouldProcess', '127.0.0.1', 'MaxSeconds', 'HasExited',
+                      'Kill()', 'Server initialized', 'runtime-acceptance-pending',
+                      'verifySignatures = 0', 'Get-FileHash', '-mod=']:
+            self.assertIn(token, script)
+
+    def test_native_smoke_reports_actual_sockets_without_isolation_claim(self):
+        script = Path('tools/package/Invoke-NativeSmoke.ps1').read_text()
+        self.assertNotIn('unsigned_loopback_only', script)
+        self.assertIn('requested_gameplay_loopback', script)
+        self.assertIn('Get-NetUDPEndpoint -OwningProcess $server.Id', script)
+        self.assertIn('Get-NetTCPConnection -OwningProcess $server.Id', script)
+        self.assertIn('$MaxSeconds = 180', script)
+        native_tests = Path('tools/package/Test-NativePackage.ps1').read_text()
+        self.assertIn('Parser]::ParseFile', native_tests)
+        self.assertIn('-WhatIf', native_tests)
+        self.assertIn('SYNTHETIC-NOT-EXECUTABLE', native_tests)
+        self.assertIn('Steam', native_tests)
+
+    def test_operator_settings_and_install_rollback_guide_are_packaged(self):
+        mission = Path('mission/hollow-country')
+        settings = __import__('json').loads((mission / 'operator/settings.json').read_text())
+        self.assertFalse(any(v for k, v in settings.items() if k.startswith('Enable')))
+        self.assertEqual(settings['SchemaVersion'], 1)
+        with tempfile.TemporaryDirectory() as t:
+            addon = Path(t)
+            (addon / 'config.cpp').write_text('class Synthetic {};')
+            blob = pbo.handoff(addon, mission)
+            with zipfile.ZipFile(io.BytesIO(blob)) as z:
+                self.assertIn('mission/hollow-country/operator/settings.json', z.namelist())
+                text = z.read('mission/hollow-country/INSTALL_AND_ROLLBACK.md').decode()
+                for word in ['settings.json', 'rollback', 'pending', '-mod=', 'private']:
+                    self.assertIn(word, text)
+
+    def test_windows_python_preflight_is_explicit(self):
+        for name in ['Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1']:
+            script = Path('tools/package', name).read_text()
+            self.assertIn('Get-Command -Name $Python', script)
+            self.assertIn('WindowsApps', script)
+            self.assertIn('sys.version_info', script)
+            self.assertLess(script.index('Get-Command -Name $Python'), script.index('$null = New-Item'))
+
+    def test_signing_command_contract(self):
+        script = Path('tools/package/Build-Sign-Verify.ps1').read_text()
+        self.assertIn('DSSignFile.exe', script)
+        self.assertIn('DSCheckSignatures.exe', script)
+        self.assertIn('sign.py', script)
+        self.assertIn('PrivateKey', script)
+        self.assertIn('PublicKey', script)
+        self.assertIn('$LASTEXITCODE', script)
+        self.assertIn('Unsigned', script)
+
+
+if __name__ == '__main__':
+    unittest.main()

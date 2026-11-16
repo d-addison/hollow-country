@@ -1,0 +1,64 @@
+test_authored_profiles_are_explicitly_opt_in_and_counts_are_unchanged (test_economy_contract.EconomyBehavior.test_authored_profiles_are_explicitly_opt_in_and_counts_are_unchanged) ... ERROR
+test_baseline_has_no_economy_changes (test_economy_contract.EconomyBehavior.test_baseline_has_no_economy_changes) ... ok
+test_install_rejects_tamper_stock_target_and_symlinks (test_economy_contract.EconomyBehavior.test_install_rejects_tamper_stock_target_and_symlinks) ... ok
+test_minimal_delta_preserves_replaced_usage_list_and_stock_budgets (test_economy_contract.EconomyBehavior.test_minimal_delta_preserves_replaced_usage_list_and_stock_budgets) ... ok
+test_reject_unknown_item_usage_or_unsupported_policy_and_modular_conflicts (test_economy_contract.EconomyBehavior.test_reject_unknown_item_usage_or_unsupported_policy_and_modular_conflicts) ... ok
+test_stage_install_and_rollback_preserve_stock_bytes_and_reject_drift (test_economy_contract.EconomyBehavior.test_stage_install_and_rollback_preserve_stock_bytes_and_reject_drift) ... ok
+test_stage_symlink_and_modified_rollback_are_refused (test_economy_contract.EconomyBehavior.test_stage_symlink_and_modified_rollback_are_refused) ... ok
+test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) ...
+  test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>-1</nominal><min>5</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_cargo="0" count_in_hoarder="1" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>') ... FAIL
+  test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>10</nominal><min>11</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_cargo="0" count_in_hoarder="1" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>') ... FAIL
+  test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>10</nominal><min>5</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_cargo="0" count_in_hoarder="1" count_in_map="2" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>') ... FAIL
+  test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>10</nominal><min>5</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_hoarder="1" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>') ... FAIL
+
+======================================================================
+ERROR: test_authored_profiles_are_explicitly_opt_in_and_counts_are_unchanged (test_economy_contract.EconomyBehavior.test_authored_profiles_are_explicitly_opt_in_and_counts_are_unchanged)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_economy_contract.py", line 148, in test_authored_profiles_are_explicitly_opt_in_and_counts_are_unchanged
+    baseline = json.loads((profiles / 'baseline.json').read_text())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'mission/hollow-country/economy-profiles/baseline.json'
+
+======================================================================
+FAIL: test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>-1</nominal><min>5</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_cargo="0" count_in_hoarder="1" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_economy_contract.py", line 120, in test_targeted_type_must_have_valid_native_budget_and_complete_flags
+    with self.subTest(bad=bad), self.assertRaises(ValueError):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>10</nominal><min>11</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_cargo="0" count_in_hoarder="1" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_economy_contract.py", line 120, in test_targeted_type_must_have_valid_native_budget_and_complete_flags
+    with self.subTest(bad=bad), self.assertRaises(ValueError):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>10</nominal><min>5</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_cargo="0" count_in_hoarder="1" count_in_map="2" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_economy_contract.py", line 120, in test_targeted_type_must_have_valid_native_budget_and_complete_flags
+    with self.subTest(bad=bad), self.assertRaises(ValueError):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_targeted_type_must_have_valid_native_budget_and_complete_flags (test_economy_contract.EconomyBehavior.test_targeted_type_must_have_valid_native_budget_and_complete_flags) (bad='<types><type name="SyntheticSupply">\n<nominal>10</nominal><min>5</min><lifetime>1000</lifetime><restock>100</restock>\n<flags count_in_hoarder="1" count_in_map="1" count_in_player="0" crafted="0" deloot="0"/>\n<category name="tools"/><usage name="Village"/><value name="Tier2"/>\n</type></types>')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_economy_contract.py", line 120, in test_targeted_type_must_have_valid_native_budget_and_complete_flags
+    with self.subTest(bad=bad), self.assertRaises(ValueError):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.020s
+
+FAILED (failures=4, errors=1)

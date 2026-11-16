@@ -1,7 +1,8 @@
 # Documentation
 
-Hollow Country is in planning, offline tooling and local environment preparation.
-Gameplay modules and native runtime acceptance remain gated. Start with the
+Hollow Country now includes gameplay source implementation and offline tooling.
+Native gameplay acceptance remains pending; the user deferred client connection
+until implementation is ready. Start with the
 [active feature specification](specs/001-survival-overhaul/spec.md): it records
 session decisions that supersede assumptions in the original handoff.
 
@@ -17,6 +18,8 @@ session decisions that supersede assumptions in the original handoff.
 | Test layers, runtime protocols and provisional budgets | [Testing and performance](TESTING_PERFORMANCE.md) |
 | Setup sequence from the handoff | [Setup and execution runbook](SETUP_AND_EXECUTION.md) |
 | Current native Windows staging procedure | [Local Windows setup](LOCAL_WINDOWS_SETUP.md) |
+| Addon architecture, settings and validation order | [Addon development](MOD_DEVELOPMENT.md), [module contract](RUNTIME_IMPLEMENTATION_CONTRACT.md) |
+| Authored functionality versus missing gameplay and validation | [Module status](MODULE_STATUS.md) |
 | Reproduce the project workflow | [Banso commands](BANSO_WORKFLOW.md) |
 | Private transfer and recovery requirements | [Transfer and rollback](TRANSFER_AND_ROLLBACK.md) |
 | Source references and current observations | [Sources](SOURCES.md), [research index](../research/README.md) |

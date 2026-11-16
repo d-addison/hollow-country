@@ -18,6 +18,11 @@ Keep all planned requirements and deferred work traceable; never mark missing
 engine experiments accepted. No teleports, omniscient AI, silent movement fixes,
 blocked doors, unlimited alerts, duplicate loot or client-owned inventory state.
 
+User now requests source/package implementation before connecting the client.
+Do not block source authoring on client join. Inspect installed APIs first and
+keep runtime acceptance/production enablement pending rather than claiming proof.
+Use docs/RUNTIME_IMPLEMENTATION_CONTRACT.md for shared module interfaces/scopes.
+
 Parallel workers own disjoint files. Do not change another worker's scope. Never
 commit game assets, full vanilla dumps, Workshop mods, signing private keys,
 credentials or local profiles. Source stays private. User authorized pushing to

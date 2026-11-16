@@ -1,0 +1,76 @@
+test_addon_allowlist_and_symlink_rejected (test_package.PackageBehavior.test_addon_allowlist_and_symlink_rejected) ... ok
+test_corrupt_checksum_truncation_and_trailing_data_rejected (test_package.PackageBehavior.test_corrupt_checksum_truncation_and_trailing_data_rejected) ... ok
+test_handoff_allowlist_determinism_and_release_gate (test_package.PackageBehavior.test_handoff_allowlist_determinism_and_release_gate) ... ok
+test_independent_wire_layout (test_package.PackageBehavior.test_independent_wire_layout) ... ok
+test_mod_metadata_outside_pbo (test_package.PackageBehavior.test_mod_metadata_outside_pbo) ... ERROR
+test_native_smoke_controls (test_package.PackageBehavior.test_native_smoke_controls) ... ERROR
+test_parser_rejects_compression_and_false_lengths (test_package.PackageBehavior.test_parser_rejects_compression_and_false_lengths) ... ok
+test_parser_rejects_unsafe_name_even_with_valid_checksum (test_package.PackageBehavior.test_parser_rejects_unsafe_name_even_with_valid_checksum) ... ok
+test_signing_command_contract (test_package.PackageBehavior.test_signing_command_contract) ... ERROR
+test_stored_roundtrip_exact_prefix_and_reproducibility (test_package.PackageBehavior.test_stored_roundtrip_exact_prefix_and_reproducibility) ... ok
+test_unsafe_names_and_windows_collisions_rejected (test_package.PackageBehavior.test_unsafe_names_and_windows_collisions_rejected) ... ok
+test_windows_signing_arguments_and_failing_verifier (test_package.PackageBehavior.test_windows_signing_arguments_and_failing_verifier) ... ERROR
+test_zip_verification_detects_tampering (test_package.PackageBehavior.test_zip_verification_detects_tampering) ... ERROR
+
+======================================================================
+ERROR: test_mod_metadata_outside_pbo (test_package.PackageBehavior.test_mod_metadata_outside_pbo)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_package.py", line 109, in test_mod_metadata_outside_pbo
+    entries = pbo.collect_addon(root)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tools/package/pbo.py", line 156, in collect_addon
+    raise ValueError(f'addon file outside allowlist: {name}')
+ValueError: addon file outside allowlist: mod.cpp
+
+======================================================================
+ERROR: test_native_smoke_controls (test_package.PackageBehavior.test_native_smoke_controls)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_package.py", line 168, in test_native_smoke_controls
+    script = Path('tools/package/Invoke-NativeSmoke.ps1').read_text()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'tools/package/Invoke-NativeSmoke.ps1'
+
+======================================================================
+ERROR: test_signing_command_contract (test_package.PackageBehavior.test_signing_command_contract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_package.py", line 175, in test_signing_command_contract
+    script = Path('tools/package/Build-Sign-Verify.ps1').read_text()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'tools/package/Build-Sign-Verify.ps1'
+
+======================================================================
+ERROR: test_windows_signing_arguments_and_failing_verifier (test_package.PackageBehavior.test_windows_signing_arguments_and_failing_verifier)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_package.py", line 132, in test_windows_signing_arguments_and_failing_verifier
+    from tools.package import sign
+ImportError: cannot import name 'sign' from 'tools.package' (unknown location)
+
+======================================================================
+ERROR: test_zip_verification_detects_tampering (test_package.PackageBehavior.test_zip_verification_detects_tampering)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_package.py", line 122, in test_zip_verification_detects_tampering
+    report = pbo.verify_handoff(blob)
+             ^^^^^^^^^^^^^^^^^^
+AttributeError: module 'tools.package.pbo' has no attribute 'verify_handoff'
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.006s
+
+FAILED (errors=5)

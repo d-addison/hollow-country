@@ -17,6 +17,18 @@ jobs:
       - name: Native Windows PowerShell synthetic setup regression
         shell: powershell
         run: ./tools/setup/Test-LocalVanillaRuntime.ps1
+      - name: Parse package PowerShell helpers with the native parser
+        shell: powershell
+        run: |
+          Get-ChildItem tools/package -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          }
+      - name: Native Windows synthetic package guards
+        shell: powershell
+        run: ./tools/package/Test-NativePackage.ps1
   offline:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -31,7 +43,23 @@ jobs:
         run: python3 -m unittest discover -s tests/unit -v
       - name: SDD requirement and task integrity
         run: python3 -B -m tools.validate.project
+      - name: Operator runtime settings admission
+        run: python3 -B -m tools.validate.runtime
       - name: Windows setup static checks (no native execution)
         run: python3 -B -m unittest discover -s tools/setup -v
       - name: Executable offline BDD bindings
         run: python3 -B -m tools.validate.bdd
+      - name: Build and verify unsigned development containers
+        run: |
+          python3 -B -m tools.package.pbo pbo --addon mods/HollowCountry --out "$RUNNER_TEMP/hollowcountry-dev.pbo"
+          python3 -B -m tools.package.pbo verify "$RUNNER_TEMP/hollowcountry-dev.pbo"
+          python3 -B -m tools.package.pbo handoff --addon mods/HollowCountry --mission mission/hollow-country --out "$RUNNER_TEMP/hollow-country-private-dev.zip"
+          python3 -B -m tools.package.pbo verify "$RUNNER_TEMP/hollow-country-private-dev.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hollow-country-unsigned-development-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/hollowcountry-dev.pbo
+            ${{ runner.temp }}/hollow-country-private-dev.zip
+          if-no-files-found: error
+          retention-days: 14

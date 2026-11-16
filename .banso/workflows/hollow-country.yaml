@@ -36,4 +36,8 @@ pipelines:
         type: deterministic
         run: "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/setup -v"
         capabilities: {sandbox: workspace-write, egress: []}
+      - name: runtime-settings-admission
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.runtime"
+        capabilities: {sandbox: workspace-write, egress: []}
 phase_map: {}

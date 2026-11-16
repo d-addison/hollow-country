@@ -1,0 +1,321 @@
+{
+  "evidence_layer": "installed_private_source_inspection_only",
+  "runtime_accepted": false,
+  "native_compilation_observed": false,
+  "build": "1.30.164289",
+  "snapshot": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289",
+  "apis": [
+    {
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 417,
+      "purpose": "OpenFile",
+      "file_sha256": "8be625999a04df22813052e93fe658c24c82c97b257ebef86b106279a95db188"
+    },
+    {
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 425,
+      "purpose": "ReadFile bounded byte count",
+      "file_sha256": "8be625999a04df22813052e93fe658c24c82c97b257ebef86b106279a95db188"
+    },
+    {
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 443,
+      "purpose": "CloseFile",
+      "file_sha256": "8be625999a04df22813052e93fe658c24c82c97b257ebef86b106279a95db188"
+    },
+    {
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 462,
+      "purpose": "FPrint",
+      "file_sha256": "8be625999a04df22813052e93fe658c24c82c97b257ebef86b106279a95db188"
+    },
+    {
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 525,
+      "purpose": "MakeDirectory",
+      "file_sha256": "8be625999a04df22813052e93fe658c24c82c97b257ebef86b106279a95db188"
+    },
+    {
+      "file": "1_Core/proto/EnMath.c",
+      "line": 237,
+      "purpose": "AbsInt",
+      "file_sha256": "2511cbd8ecc027ef4799dc07c06295714d548a846d468f66aeada096d724a00f"
+    },
+    {
+      "file": "1_Core/proto/EnMath.c",
+      "line": 427,
+      "purpose": "Floor",
+      "file_sha256": "2511cbd8ecc027ef4799dc07c06295714d548a846d468f66aeada096d724a00f"
+    },
+    {
+      "file": "1_Core/proto/EnMath.c",
+      "line": 553,
+      "purpose": "Min",
+      "file_sha256": "2511cbd8ecc027ef4799dc07c06295714d548a846d468f66aeada096d724a00f"
+    },
+    {
+      "file": "3_Game/tools/JsonFileLoader.c",
+      "line": 42,
+      "purpose": "SaveFile; FPrint/CloseFile at 63/64, no demonstrated durable flush",
+      "file_sha256": "2d96c61dfabd99967683d0856ee5e2b1c7d06c18166b7f245bba4da1617bfff4"
+    },
+    {
+      "file": "3_Game/tools/JsonFileLoader.c",
+      "line": 69,
+      "purpose": "LoadData",
+      "file_sha256": "2d96c61dfabd99967683d0856ee5e2b1c7d06c18166b7f245bba4da1617bfff4"
+    },
+    {
+      "file": "3_Game/tools/JsonFileLoader.c",
+      "line": 85,
+      "purpose": "MakeData",
+      "file_sha256": "2d96c61dfabd99967683d0856ee5e2b1c7d06c18166b7f245bba4da1617bfff4"
+    },
+    {
+      "file": "3_Game/Global/Game.c",
+      "line": 612,
+      "purpose": "ConfigIsExisting",
+      "file_sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+    },
+    {
+      "file": "3_Game/Global/Game.c",
+      "line": 703,
+      "purpose": "CreateObjectEx",
+      "file_sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+    },
+    {
+      "file": "3_Game/Global/Game.c",
+      "line": 705,
+      "purpose": "ObjectDelete",
+      "file_sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+    },
+    {
+      "file": "3_Game/Global/Game.c",
+      "line": 914,
+      "purpose": "GetTickTime",
+      "file_sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+    },
+    {
+      "file": "3_Game/Global/Game.c",
+      "line": 930,
+      "purpose": "GetObjectsAtPosition3D",
+      "file_sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+    },
+    {
+      "file": "3_Game/Global/Game.c",
+      "line": 934,
+      "purpose": "GetWorldName string wrapper",
+      "file_sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+    },
+    {
+      "file": "3_Game/Entities/Object.c",
+      "line": 287,
+      "purpose": "GetPosition",
+      "file_sha256": "1b1b031948b82c111e9be8b9b0bbef8495c07842d7436d9c3111950e8a3ee95b"
+    },
+    {
+      "file": "3_Game/Entities/Object.c",
+      "line": 305,
+      "purpose": "GetOrientation",
+      "file_sha256": "1b1b031948b82c111e9be8b9b0bbef8495c07842d7436d9c3111950e8a3ee95b"
+    },
+    {
+      "file": "3_Game/Entities/Object.c",
+      "line": 311,
+      "purpose": "SetOrientation",
+      "file_sha256": "1b1b031948b82c111e9be8b9b0bbef8495c07842d7436d9c3111950e8a3ee95b"
+    },
+    {
+      "file": "3_Game/Entities/Object.c",
+      "line": 873,
+      "purpose": "ModelToWorld",
+      "file_sha256": "1b1b031948b82c111e9be8b9b0bbef8495c07842d7436d9c3111950e8a3ee95b"
+    },
+    {
+      "file": "3_Game/CE/CentralEconomy.c",
+      "line": 28,
+      "purpose": "ECE_KEEPHEIGHT",
+      "file_sha256": "f0d6825945d41ad24bf91c44a9b8f7f77d75e9e376940a5f567ca3d2ce504076"
+    },
+    {
+      "file": "3_Game/CE/CentralEconomy.c",
+      "line": 30,
+      "purpose": "ECE_NOLIFETIME",
+      "file_sha256": "f0d6825945d41ad24bf91c44a9b8f7f77d75e9e376940a5f567ca3d2ce504076"
+    },
+    {
+      "file": "3_Game/CE/CentralEconomy.c",
+      "line": 33,
+      "purpose": "ECE_DYNAMIC_PERSISTENCY explicitly starts without persistence",
+      "file_sha256": "f0d6825945d41ad24bf91c44a9b8f7f77d75e9e376940a5f567ca3d2ce504076"
+    },
+    {
+      "file": "3_Game/CE/CentralEconomy.c",
+      "line": 57,
+      "purpose": "RF_IGNORE",
+      "file_sha256": "f0d6825945d41ad24bf91c44a9b8f7f77d75e9e376940a5f567ca3d2ce504076"
+    },
+    {
+      "file": "3_Game/ObjectSpawner.c",
+      "line": 48,
+      "purpose": "native spawner flags",
+      "file_sha256": "7955aca08479686ffe6a70a431050cdd62c24035c09011b16028bd69981ea368"
+    },
+    {
+      "file": "3_Game/ObjectSpawner.c",
+      "line": 56,
+      "purpose": "native spawn/orientation usage",
+      "file_sha256": "7955aca08479686ffe6a70a431050cdd62c24035c09011b16028bd69981ea368"
+    },
+    {
+      "file": "3_Game/Global/DayZPhysics.c",
+      "line": 199,
+      "purpose": "RaycastRV nearest-contact signature",
+      "file_sha256": "279ce05c528e467cbf7de820954ee0ce98355d47f8efdd04eca4c5de50d86b07"
+    },
+    {
+      "file": "3_Game/Systems/Inventory/Inventory.c",
+      "line": 291,
+      "purpose": "FindFirstFreeLocationForNewEntity",
+      "file_sha256": "e259fbd18febd32b5874603d480547b371534639bc1d814383c2608e4942fcaf"
+    },
+    {
+      "file": "3_Game/Systems/Inventory/Inventory.c",
+      "line": 876,
+      "purpose": "CreateInInventory; null on full, no automatic ground fallback",
+      "file_sha256": "e259fbd18febd32b5874603d480547b371534639bc1d814383c2608e4942fcaf"
+    },
+    {
+      "file": "3_Game/Systems/Inventory/HumanInventory.c",
+      "line": 16,
+      "purpose": "GetEntityInHands",
+      "file_sha256": "c8c6e0391dfd5d0fdfbe182b1ca4d310ff5504be403f2026de5d69db856d8b89"
+    },
+    {
+      "file": "3_Game/Entities/Man.c",
+      "line": 81,
+      "purpose": "GetHumanInventory",
+      "file_sha256": "8dc9c76f3acccfca9a99745a1984dbc11f1f536d85d16ba7b2a0cb1c88db394c"
+    },
+    {
+      "file": "3_Game/gameplay.c",
+      "line": 368,
+      "purpose": "PlayerIdentityBase.GetId",
+      "file_sha256": "9c406c3015a141c567e943908b1f4cc6b3c39b20854c374d3e8226bbceaa3f27"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionConstructor.c",
+      "line": 27,
+      "purpose": "RegisterActions",
+      "file_sha256": "32ad7f03f73a4915486532afdfbb13ae9146cd0bee96e656349830fa39aa7dab"
+    },
+    {
+      "file": "4_World/Entities/ManBase/PlayerBase.c",
+      "line": 1695,
+      "purpose": "SetActions(out TInputActionMap)",
+      "file_sha256": "3e931a7ea9912fa75632c3171b6bc18381e14b931feb92952015629e873e032e"
+    },
+    {
+      "file": "4_World/Entities/ManBase/PlayerBase.c",
+      "line": 6911,
+      "purpose": "Message dispatch using native ChatMP",
+      "file_sha256": "3e931a7ea9912fa75632c3171b6bc18381e14b931feb92952015629e873e032e"
+    },
+    {
+      "file": "4_World/Entities/ManBase/PlayerBase.c",
+      "line": 6924,
+      "purpose": "MessageStatus",
+      "file_sha256": "3e931a7ea9912fa75632c3171b6bc18381e14b931feb92952015629e873e032e"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionTargets.c",
+      "line": 115,
+      "purpose": "ActionTarget; GetObject 142, GetComponentIndex 159, GetCursorHitPos 169",
+      "file_sha256": "2506bcd3dde984fe3c32d5ab2c78991a6a11ea8a3bc13aebee1896bf762c8a59"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/TargetConditionsComponents/CCTCursor.c",
+      "line": 32,
+      "purpose": "server distance differs from client cursor check; custom server anchor validation required",
+      "file_sha256": "10dcde5536ee1d530c9c0c30235b80f0349b8761a17548602610501327a078da"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionBase.c",
+      "line": 240,
+      "purpose": "CreateActionData",
+      "file_sha256": "d2ea678ff76a8c384dd2b7d9427b838240a0432112b50a35f683e67d2f128475"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionBase.c",
+      "line": 436,
+      "purpose": "ActionConditionContinue",
+      "file_sha256": "d2ea678ff76a8c384dd2b7d9427b838240a0432112b50a35f683e67d2f128475"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionBase.c",
+      "line": 1391,
+      "purpose": "OnStartServer",
+      "file_sha256": "d2ea678ff76a8c384dd2b7d9427b838240a0432112b50a35f683e67d2f128475"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionBase.c",
+      "line": 1409,
+      "purpose": "OnEndServer",
+      "file_sha256": "d2ea678ff76a8c384dd2b7d9427b838240a0432112b50a35f683e67d2f128475"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/Actions/ActionContinuousBase.c",
+      "line": 257,
+      "purpose": "dispatches OnFinishProgressServer only on server",
+      "file_sha256": "5ca3c9d368b7e31749cf84e7114fc8528bd20861d7df5e7cfefe741d29a335a4"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/Actions/ActionContinuousBase.c",
+      "line": 289,
+      "purpose": "OnFinishProgressServer",
+      "file_sha256": "5ca3c9d368b7e31749cf84e7114fc8528bd20861d7df5e7cfefe741d29a335a4"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/ActionComponents/CAContinuousTime.c",
+      "line": 9,
+      "purpose": "continuous action duration constructor",
+      "file_sha256": "0386698e9b2d2735489cee80afa4b7e18ec1481a62fad9917bf435148dba1c8e"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/Actions/Continuous/ActionMineBushByHand.c",
+      "line": 6,
+      "purpose": "native empty-hand CMD_ACTIONFB_INTERACT use",
+      "file_sha256": "e11b7518445c32a4c6caf4a832707f09f01356457213714ce6a1c6ab101097e7"
+    },
+    {
+      "file": "4_World/Classes/UserActionsComponent/Actions/Continuous/ActionMineBushByHand.c",
+      "line": 15,
+      "purpose": "CCINone",
+      "file_sha256": "e11b7518445c32a4c6caf4a832707f09f01356457213714ce6a1c6ab101097e7"
+    },
+    {
+      "file": "4_World/Static/MiscGameplayFunctions.c",
+      "line": 778,
+      "purpose": "GetPlayerHeadPosition is stance-based approximation, not camera proof",
+      "file_sha256": "40a02625fba5ac9dd28568e511d988f5ed5e91cdc0177af1a07c3a0f9097d4e2"
+    },
+    {
+      "file": "4_World/Entities/ItemBase.c",
+      "line": 3319,
+      "purpose": "SetQuantity, NOT jointly atomic with creation/ledger",
+      "file_sha256": "05a51f125766ca9cff4d0e5fed82ccdd209942aaf5dc30e8a2df7120be2e49c5"
+    },
+    {
+      "file": "4_World/Entities/ItemBase.c",
+      "line": 3485,
+      "purpose": "HasQuantity",
+      "file_sha256": "05a51f125766ca9cff4d0e5fed82ccdd209942aaf5dc30e8a2df7120be2e49c5"
+    },
+    {
+      "file": "4_World/Entities/Building/Residential/Houses/Land_House_1W01.c",
+      "line": 1,
+      "purpose": "native residential script class",
+      "file_sha256": "7385577cab0070b0e324578d3e1354017563c48489b8704fa68083e383971ff6"
+    }
+  ]
+}

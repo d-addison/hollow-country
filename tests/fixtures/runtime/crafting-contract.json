@@ -1,0 +1,112 @@
+{
+  "evidence": "SYNTHETIC typed material accounting; not engine evidence",
+  "build": "1.30.164289",
+  "runtime_acceptance": "pending",
+  "materials": {
+    "CamoNet": {
+      "mesh": 4
+    },
+    "Netting": {
+      "mesh": 1
+    },
+    "BurlapStrip": {
+      "cloth": 1
+    },
+    "GhillieAtt_Tan": {
+      "mesh": 1,
+      "cloth": 2
+    },
+    "CableReel": {
+      "wire": 4
+    },
+    "MetalWire": {
+      "wire": 1
+    },
+    "LeatherBelt_ColorBase": {
+      "hide": 2
+    },
+    "LeatherBelt_Lizard": {
+      "hide": 2
+    },
+    "TannedLeather": {
+      "hide": 1
+    },
+    "LizardPelt": {
+      "hide": 2
+    }
+  },
+  "native_boundary": [
+    {
+      "name": "CraftGhillieAttachment",
+      "inputs": {
+        "Netting": 1,
+        "BurlapStrip": 2
+      },
+      "outputs": {
+        "GhillieAtt_Tan": 1
+      }
+    },
+    {
+      "name": "DeCraftGhillieAttachment",
+      "inputs": {
+        "GhillieAtt_Tan": 1
+      },
+      "outputs": {
+        "Netting": 1,
+        "BurlapStrip": 1
+      }
+    },
+    {
+      "name": "CraftLeatherBelt",
+      "inputs": {
+        "LizardPelt": 1
+      },
+      "outputs": {
+        "LeatherBelt_Lizard": 1
+      },
+      "kit_quantity_cost": 25
+    }
+  ],
+  "pilots": [
+    {
+      "class": "HCSalvageCamoNet",
+      "input": "CamoNet",
+      "tool": "KitchenKnife",
+      "output": "Netting",
+      "quantity": 2,
+      "wear": 5,
+      "animation_units": 2
+    },
+    {
+      "class": "HCSalvageCableReel",
+      "input": "CableReel",
+      "tool": "Pliers",
+      "output": "MetalWire",
+      "quantity": 1,
+      "wear": 5,
+      "animation_units": 2
+    },
+    {
+      "class": "HCSalvageLeatherBelt",
+      "input": "LeatherBelt_ColorBase",
+      "tool": "KitchenKnife",
+      "output": "TannedLeather",
+      "quantity": 1,
+      "wear": 3,
+      "animation_units": 2
+    }
+  ],
+  "pending_scenarios": [
+    "CRF-001 netting -> native ghillie attachment -> visible rifle wrap",
+    "CRF-002 wrong/missing/ruined tool, health at wear boundary, typed inputs, attached/worn/loaded input, connected reel",
+    "CRF-003 cancel 0/50/99 percent, death/unconsciousness, kill switch during action",
+    "CRF-004 two-client same item, transfer/drop/steal, replay completion",
+    "CRF-005 full inventory ground fallback, spawn failure, disconnect and crash at spawn/consume/delete boundaries",
+    "CRF-006 graph and condition conservation against native boundaries",
+    "CRF-007 Diag and normal PBO, both ingredient orders, stacks, output classes, animation/audio",
+    "NET-001 NET-002 NET-003 NET-007 latency/replay/forged requests; 3-6 player profiling"
+  ],
+  "aliases": {
+    "LeatherBelt_Lizard": "LeatherBelt_ColorBase"
+  }
+}

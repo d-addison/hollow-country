@@ -23,6 +23,12 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [Evidence admission](unit/test_evidence.py) | Manifest requirements, artifact hashes/paths and unsupported capability promotions. |
 | [Project contract](unit/test_project_contract.py) | Requirement/test mappings and task graph integrity. |
 | [BDD bindings](unit/test_bdd_bindings.py) | Exact scenario/step admission and rejection of unsupported or missing assertions. |
+| [Runtime settings](unit/test_runtime_settings.py) | Operator JSON flags, limits and feature dependencies; no native serializer claim. |
+| [Crafting contracts](unit/test_crafting_contract.py) | Salvage material ledger and native recipe source contracts; no transaction/crash proof. |
+| [Interiors contracts](unit/test_interiors_contract.py) | Restricted scalar authored policies and source invariants; no native placement/transaction proof. |
+| [Infected contracts](unit/test_infected_contract.py) | Restricted scalar authored policies, finite budgets and source invariants; no AI/audio/runtime proof. |
+| [Package behavior](unit/test_package.py) | Deterministic containers, path/allowlist validation and signature command contracts; no native signature acceptance. |
+| [Economy contracts](unit/test_economy_contract.py) | Synthetic profile/delta generation, isolated install and rollback; no effective CE merge/eligibility proof. |
 
 The bound [offline feature](features/offline.feature) executes its associated
 behavioral suites through:

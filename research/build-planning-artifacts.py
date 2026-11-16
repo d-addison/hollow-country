@@ -10,7 +10,7 @@ TASKS = [
  ("T001", "P0", "Private source, confirmed decisions and lossless traceability", [], "AC-001", ["docs/specs/001-survival-overhaul/spec.md", "docs/specs/001-survival-overhaul/traceability.json"], ["NET-008"], "All confirmed requirements and catalog tests mapped; private repository verified; no assets/secrets committed"),
  ("T002", "P0", "Inventory local official binaries, host and sources", ["T001"], "AC-002", ["research/P0-build-inventory.md"], ["CE-001"], "Exact client/server/Tools versions and paths, actual OS/hardware, source pins; missing installs explicit"),
  ("T003", "P0", "Install official Tools and Server; vanilla local join", ["T002"], "AC-002", ["research/P0-server-launch.md"], ["NET-004", "NET-005"], "Vanilla Chernarus local join, respawn, inventory, reconnect and persistence restart observed with logs"),
- ("T004", "P0", "Diagnostic hello-world, official package and signature smoke test", ["T003"], "AC-002", ["research/P0-first-mod.md", "mods/Smoke/config.cpp", "mods/Smoke/scripts/5_Mission/HCSmoke.c"], ["NET-006", "NET-008"], "Inspect current scripts, verify diagnostic hook then signed PBO in normal client/server, record hashes; no unproven API"),
+ ("T004", "P0", "Diagnostic hello-world, official package and signature smoke test", ["T003"], "AC-002", ["research/P0-first-mod.md", "mods/HollowCountry/scripts/4_World/Core/HCNativeSelfTests.c", "tools/package/Invoke-NativeSmoke.ps1"], ["NET-006", "NET-008"], "Inspect current scripts, verify diagnostic hook then signed PBO in normal client/server, record hashes; no unproven API"),
  ("T005", "P0", "Native baseline fixtures and 3–6-player budget calibration", ["T003"], "AC-009", ["research/P0-baseline.md", "metrics/baseline.csv"], ["CE-001", "AI-001", "AUD-001"], "Verified building fixtures, controlled repeated warm/cold runs, host contention, proposed p95/p99/client budgets approved"),
  ("T006", "P0", "TDD native CE offline audit and modular input validation", ["T001"], "AC-003", ["tools/audit/ce_audit.py", "tests/unit/test_ce_audit.py"], ["CE-001", "CE-011"], "Recorded red/green; malformed/duplicate/nonfinite/negative inputs rejected; raw point/placement counts and hashes; no engine eligibility claim"),
  ("T007", "P0", "TDD repeated paired benchmark comparator", ["T001"], "AC-009", ["tools/benchmark/compare.py", "tests/unit/test_benchmark.py"], ["HOR-008"], "Recorded red/green; incompatible evidence rejected; p95/p99 and client lows checked; missing calibrated thresholds/manifests INCOMPLETE"),
@@ -20,15 +20,15 @@ TASKS = [
  ("T011", "P1", "Minimal supported CE coverage fix and controlled comparison", ["T010"], "AC-004", ["mission/hollow-country/README.md", "research/experiments/EXP-CE-override.md"], ["CE-002", "CE-003", "CE-004", "CE-011"], "Observed correct override/point update mechanism, valid placements and zero CE errors; backup/rollback and matched benchmark"),
  ("T012", "P3", "Contextual economy routes and conservative budgets", ["T011"], "AC-004", ["research/experiments/EXP-loot-balance.md", "metrics/loot_routes.csv"], ["CE-005", "CE-006", "CE-007", "CE-008", "CE-009", "CE-012"], "Essentials have two credible routes; soft high-tier exceptions, diversity and world counts measured; tune rates only after baseline"),
  ("T013", "P2", "Native object and furniture targeting feasibility", ["T004", "T005"], "AC-005", ["research/experiments/EXP-interior-feasibility.md"], ["INT-004", "INT-005", "INT-008", "INT-010", "INT-011"], "One verified house, safe asset catalog, target/proxy feasibility and 0/5/10/20 prop sweep; no blocked doors/nav regression"),
- ("T014", "P2", "Stable building identity and three persistent layouts", ["T013"], "AC-005", ["mods/Interiors/README.md", "research/experiments/EXP-layout-persistence.md"], ["INT-001", "INT-002", "INT-004", "INT-005", "INT-006", "INT-009", "INT-010", "INT-011"], "Three layouts/two histories for tested class, deterministic instance IDs with collision handling; restart/migration idempotence and two-client sync"),
- ("T015", "P3", "Server search allocation and crash-safe depletion", ["T012", "T014", "T008"], "AC-005", ["mods/Interiors/SEARCH.md", "research/experiments/EXP-search-transaction.md"], ["INT-003", "INT-006", "INT-007", "INT-008", "CE-009", "CE-010", "NET-001", "NET-002", "NET-003", "NET-005", "NET-007"], "Server range/LOS/item whitelist, quota and depletion journal; two-client same-site retry/crash/full inventory no duplication; no drawer refill"),
+ ("T014", "P2", "Stable building identity and three persistent layouts", ["T013"], "AC-005", ["mods/HollowCountry/scripts/4_World/Interiors/README.md", "research/experiments/EXP-layout-persistence.md"], ["INT-001", "INT-002", "INT-004", "INT-005", "INT-006", "INT-009", "INT-010", "INT-011"], "Three layouts/two histories for tested class, deterministic instance IDs with collision handling; restart/migration idempotence and two-client sync"),
+ ("T015", "P3", "Server search allocation and crash-safe depletion", ["T012", "T014", "T008"], "AC-005", ["mods/HollowCountry/scripts/4_World/Interiors/SEARCH.md", "research/experiments/EXP-search-transaction.md"], ["INT-003", "INT-006", "INT-007", "INT-008", "CE-009", "CE-010", "NET-001", "NET-002", "NET-003", "NET-005", "NET-007"], "Server range/LOS/item whitelist, quota and depletion journal; two-client same-site retry/crash/full inventory no duplication; no drawer refill"),
  ("T016", "P4", "Vanilla recipe audit and three salvage pilot definitions", ["T004"], "AC-006", ["research/experiments/EXP-salvage-feasibility.md"], ["CRF-001", "CRF-006", "CRF-007"], "Avoid duplicate vanilla recipes; three useful permitted pilots including camo-net feasibility; typed material and wear ledger, no positive resource cycles"),
- ("T017", "P4", "Native authoritative salvage implementation", ["T016", "T008"], "AC-006", ["mods/Crafting/README.md", "research/experiments/EXP-salvage-transaction.md"], ["CRF-001", "CRF-002", "CRF-003", "CRF-004", "CRF-005", "CRF-006", "CRF-007", "NET-001", "NET-002", "NET-003", "NET-007"], "Inspect native transaction semantics before atomicity design; cancellation/death/disconnect/tool wear/full inventory and two-client races all observed"),
+ ("T017", "P4", "Native authoritative salvage implementation", ["T016", "T008"], "AC-006", ["mods/HollowCountry/scripts/4_World/Crafting/README.md", "research/experiments/EXP-salvage-transaction.md"], ["CRF-001", "CRF-002", "CRF-003", "CRF-004", "CRF-005", "CRF-006", "CRF-007", "NET-001", "NET-002", "NET-003", "NET-007"], "Inspect native transaction semantics before atomicity design; cancellation/death/disconnect/tool wear/full inventory and two-client races all observed"),
  ("T018", "P5", "Risk-first native AI doorway/LOS/door/audio/injury experiments", ["T004", "T005"], "AC-007", ["research/experiments/EXP-AI-native.md"], ["AI-001", "AI-003", "AI-008", "AI-010", "AI-011", "AUD-001", "AUD-002", "AUD-003", "AUD-007"], "Timebox 100 doorway trials where practical, two-client audio surfaces, current hooks/hitpoints; document inherited bugs, no speculative fix"),
- ("T019", "P5", "Smallest proven competence and injury corrections", ["T018"], "AC-007", ["mods/Infected/COMPETENCE.md", "research/experiments/EXP-AI-competence.md"], ["AI-001", "AI-002", "AI-003", "AI-008", "AI-010", "AI-011", "AI-012", "AUD-005", "AUD-006"], "Evidence-backed hooks, actual contacts and lock policy; bounded fallback; never teleport or bypass collisions; native control unregressed"),
- ("T020", "P6", "Observed-memory investigation and two variant trade-offs", ["T019"], "AC-007", ["mods/Infected/INVESTIGATION.md", "research/experiments/EXP-AI-search.md"], ["AI-004", "AI-005", "AI-006", "AI-007", "AI-009", "AI-012", "AUD-001", "AUD-002", "AUD-003", "AUD-004", "AUD-006"], "Last observed clues expire; reachable room anchors and bounded retries; player can escape; slower stalker remains audible to two clients"),
- ("T021", "P7", "Native-first local audible chains with bounded propagation", ["T018", "T020"], "AC-008", ["mods/Infected/ALERTS.md", "research/experiments/EXP-alert-chain.md"], ["HOR-001", "HOR-002", "HOR-003", "HOR-008", "HOR-011"], "Native hearing first; real audible provenance, spatial nearby query, TTL/hops/attenuation/dedupe/cooldown/rate/queue caps; no hidden coordinates"),
- ("T022", "P7", "Persistent horde accounting and safe activation", ["T020", "T021"], "AC-008", ["mods/Infected/HORDES.md", "research/experiments/EXP-horde-lifecycle.md"], ["HOR-004", "HOR-005", "HOR-006", "HOR-007", "HOR-008", "HOR-009", "HOR-010", "HOR-011"], "Finite shared CE budget, persistent identity/epoch/member reconciliation, reachable routes, two-observer safe activation and hysteresis, no duplicate or visible spawning"),
+ ("T019", "P5", "Smallest proven competence and injury corrections", ["T018"], "AC-007", ["mods/HollowCountry/scripts/4_World/Infected/COMPETENCE.md", "research/experiments/EXP-AI-competence.md"], ["AI-001", "AI-002", "AI-003", "AI-008", "AI-010", "AI-011", "AI-012", "AUD-005", "AUD-006"], "Evidence-backed hooks, actual contacts and lock policy; bounded fallback; never teleport or bypass collisions; native control unregressed"),
+ ("T020", "P6", "Observed-memory investigation and two variant trade-offs", ["T019"], "AC-007", ["mods/HollowCountry/scripts/4_World/Infected/INVESTIGATION.md", "research/experiments/EXP-AI-search.md"], ["AI-004", "AI-005", "AI-006", "AI-007", "AI-009", "AI-012", "AUD-001", "AUD-002", "AUD-003", "AUD-004", "AUD-006"], "Last observed clues expire; reachable room anchors and bounded retries; player can escape; slower stalker remains audible to two clients"),
+ ("T021", "P7", "Native-first local audible chains with bounded propagation", ["T018", "T020"], "AC-008", ["mods/HollowCountry/scripts/4_World/Infected/ALERTS.md", "research/experiments/EXP-alert-chain.md"], ["HOR-001", "HOR-002", "HOR-003", "HOR-008", "HOR-011"], "Native hearing first; real audible provenance, spatial nearby query, TTL/hops/attenuation/dedupe/cooldown/rate/queue caps; no hidden coordinates"),
+ ("T022", "P7", "Persistent horde accounting and safe activation", ["T020", "T021"], "AC-008", ["mods/HollowCountry/scripts/4_World/Infected/HORDES.md", "research/experiments/EXP-horde-lifecycle.md"], ["HOR-004", "HOR-005", "HOR-006", "HOR-007", "HOR-008", "HOR-009", "HOR-010", "HOR-011"], "Finite shared CE budget, persistent identity/epoch/member reconciliation, reachable routes, two-observer safe activation and hysteresis, no duplicate or visible spawning"),
  ("T023", "P8", "Combined modules, authority, migration and adversarial regression", ["T015", "T017", "T022"], "AC-011", ["research/experiments/EXP-integration.md"], ["NET-001", "NET-002", "NET-003", "NET-004", "NET-005", "NET-006", "NET-007", "NET-008"], "Individual and combined flags, malformed RPC, late join/crash/restart, corruption/migration/backup and throttling tests; all original test catalog covered"),
  ("T024", "P8", "Paired performance, endurance and destination capacity", ["T023", "T007"], "AC-009", ["research/experiments/EXP-performance.md", "metrics/candidate.csv"], ["HOR-008", "HOR-011"], "Repeat controlled runs at 3–6-player intended load; p95/p99/client lows/memory/net/write slopes pass calibrated budgets; record host contention and friend hardware recheck"),
  ("T025", "P8", "Signed private handoff, install, clean rollback and legal inventory", ["T023", "T024"], "AC-011", ["docs/TRANSFER_AND_ROLLBACK.md", "research/experiments/EXP-transfer.md"], ["NET-005", "NET-006", "NET-008"], "Pinned package hashes/signatures, no assets or secrets; friend OS/build verified, save backup, install/join/restart and rollback exercised; no public release"),
@@ -37,19 +37,34 @@ TASKS = [
 
 def main():
     nodes, edges = [], []
+    # Documentation stays outside the strict authored-addon package allowlist.
+    scope_aliases = {
+        "mods/HollowCountry/scripts/4_World/Interiors/README.md": "research/experiments/EXP-interiors-implementation.md",
+        "mods/HollowCountry/scripts/4_World/Interiors/SEARCH.md": "research/experiments/EXP-interiors-implementation.md",
+        "mods/HollowCountry/scripts/4_World/Crafting/README.md": "research/experiments/EXP-crafting-implementation.md",
+        "mods/HollowCountry/scripts/4_World/Infected/COMPETENCE.md": "research/experiments/EXP-infected-implementation.md",
+        "mods/HollowCountry/scripts/4_World/Infected/INVESTIGATION.md": "research/experiments/EXP-infected-implementation.md",
+        "mods/HollowCountry/scripts/4_World/Infected/ALERTS.md": "research/experiments/EXP-infected-implementation.md",
+        "mods/HollowCountry/scripts/4_World/Infected/HORDES.md": "research/experiments/EXP-infected-implementation.md",
+    }
     implementation_paths = {
-        "T011": ["mission/hollow-country/ce/coverage.xml", "mission/hollow-country/cfgeconomycore.xml"],
-        "T012": ["mission/hollow-country/ce/types.xml"],
-        "T014": ["mods/Interiors/config.cpp", "mods/Interiors/scripts/4_World/HCLayouts.c"],
-        "T015": ["mods/Interiors/scripts/4_World/HCSearch.c"],
-        "T017": ["mods/Crafting/config.cpp", "mods/Crafting/scripts/4_World/HCSalvage.c"],
-        "T019": ["mods/Infected/config.cpp", "mods/Infected/scripts/4_World/HCCompetence.c"],
-        "T020": ["mods/Infected/scripts/4_World/HCInvestigation.c"],
-        "T021": ["mods/Infected/scripts/4_World/HCAlerts.c"],
-        "T022": ["mods/Infected/scripts/4_World/HCHordes.c"],
+        "T004": ["mods/HollowCountry/config.cpp", "mods/HollowCountry/scripts/3_Game/HCSettings.c", "mods/HollowCountry/scripts/4_World/Core/HCServer.c", "mods/HollowCountry/scripts/5_Mission/HCMissionServer.c"],
+        "T009": ["tools/validate/runtime.py", "tests/unit/test_runtime_settings.py", "config/hollow-country-settings.json"],
+        "T011": ["tools/package/economy.py", "tests/unit/test_economy_contract.py", "mission/hollow-country/cfgeconomycore.append.xml"],
+        "T012": ["mission/hollow-country/ce/types.xml", "mission/hollow-country/economy-profiles/contextual-pilot.json"],
+        "T014": ["mods/HollowCountry/scripts/4_World/Interiors/HCInteriorCatalog.c", "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c"],
+        "T015": ["mods/HollowCountry/scripts/4_World/Interiors/HCInteriorAction.c", "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c"],
+        "T017": ["mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c", "mods/HollowCountry/scripts/4_World/Crafting/HCRecipeRegistration.c", "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c"],
+        "T019": ["mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c"],
+        "T020": ["mods/HollowCountry/scripts/4_World/Infected/HCInfectedPolicy.c", "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c"],
+        "T021": ["mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c"],
+        "T022": ["mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c"],
+        "T023": ["docs/MODULE_STATUS.md", "docs/RUNTIME_IMPLEMENTATION_CONTRACT.md"],
+        "T025": ["tools/package/pbo.py", "tools/package/sign.py", "tools/package/Build-Sign-Verify.ps1", "tests/unit/test_package.py", "mission/hollow-country/INSTALL_AND_ROLLBACK.md"],
     }
     for tid, phase, title, deps, ac, paths, tests, done in TASKS:
         paths = paths + implementation_paths.get(tid, [])
+        paths = [scope_aliases.get(path, path) for path in paths]
         if tid == "T020":
             done += "; reject blanket health/damage inflation, sample variable densities below cap, verify recognizable variant appearance and location tendencies against native controls"
         nodes.append({"id": tid, "title": f"{phase}: {title}", "kind": "task", "dispatch": "agent",
@@ -59,7 +74,7 @@ def main():
                                    "modifies": [p for p in paths if (ROOT / p).is_file()],
                                    "creates": [p for p in paths if not (ROOT / p).is_file()], "traces": [ac] + tests,
                                    "verify_commands": ["PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v", "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"]},
-                      "must_not": ["Claim offline checks prove DayZ behavior", "Bundle proprietary game assets or secrets", "Advance without prerequisite runtime evidence"],
+                      "must_not": ["Claim offline checks prove DayZ behavior", "Bundle proprietary game assets or secrets", "Enable production features without prerequisite runtime evidence"],
                       "tags": [f"#phase:{phase}", "#method:tdd", "#method:sdd", "#method:bdd"]})
         edges.extend({"from": dep, "to": tid, "kind": "depends_on"} for dep in deps)
     graph = {"schema_kind": "banso.task_graph", "schema_version": "3.0.0", "feature": "001-survival-overhaul",
@@ -115,8 +130,8 @@ Native CE owns ordinary world loot and population first. Interiors own stable
 building/layout/site identities and request bounded allocations from Loot.
 Crafting extends native actions and server inventory transactions. Infected adds
 only proven decisions; native physics/navigation/animation/audio remain authority.
-A shared support layer is added only when reuse is demonstrated, never as a
-speculative framework. Offline Python audit/benchmark/evidence tools have no
+One addon at mods/HollowCountry owns shared settings, bounded module lifecycle,
+and server mission hooks; see docs/RUNTIME_IMPLEMENTATION_CONTRACT.md. Offline Python audit/benchmark/evidence tools have no
 runtime gameplay role. See the full handoff for data models and invariants.
 
 ## Data and transaction design gates
@@ -137,8 +152,9 @@ Immediate independent leaves: T006 CE audit, T007 benchmark comparator, T008
 evidence validator, plus read-only platform/source research while T001 planning
 is authored. Their write sets are disjoint. T009 integrates them. P1 economy and
 P5 native AI research overlap after P0 runtime proof; interiors and recipe research
-can also proceed independently after P0. Do not dispatch P1–P8 implementations
-merely because the graph parses. Each predecessor's runtime evidence is mandatory.
+can also proceed independently after P0. User authorized source/package authoring before client join. Installed-script API
+inspection and offline regressions permit that work; predecessor runtime evidence
+remains mandatory for acceptance and production enablement.
 The graph is a complete roadmap, not a claim every leaf is executable today.
 
 ## Implementation Tasks
@@ -146,6 +162,7 @@ The graph is a complete roadmap, not a claim every leaf is executable today.
 """
     for tid, phase, title, deps, ac, paths, tests, done in TASKS:
         paths = paths + implementation_paths.get(tid, [])
+        paths = [scope_aliases.get(path, path) for path in paths]
         if tid == "T020":
             done += "; reject blanket health/damage inflation, sample variable densities below cap, verify recognizable variant appearance and location tendencies against native controls"
         plan += f"### {tid}: {phase} — {title}\n\n- Depends: {', '.join(deps) or 'none'}.\n- Scope: {', '.join(paths)}.\n- Acceptance: {ac}; {done}.\n- Behavior tests: {', '.join(tests)}.\n- Method: write failing test/scenario, inspect native surface, smallest change, green + regression + performance; runtime tests require real artifacts.\n\n"

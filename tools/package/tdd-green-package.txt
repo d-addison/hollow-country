@@ -1,0 +1,21 @@
+test_addon_allowlist_and_symlink_rejected (test_package.PackageBehavior.test_addon_allowlist_and_symlink_rejected) ... ok
+test_corrupt_checksum_truncation_and_trailing_data_rejected (test_package.PackageBehavior.test_corrupt_checksum_truncation_and_trailing_data_rejected) ... ok
+test_handoff_allowlist_determinism_and_release_gate (test_package.PackageBehavior.test_handoff_allowlist_determinism_and_release_gate) ... ok
+test_independent_wire_layout (test_package.PackageBehavior.test_independent_wire_layout) ... ok
+test_mod_metadata_outside_pbo (test_package.PackageBehavior.test_mod_metadata_outside_pbo) ... ok
+test_native_smoke_controls (test_package.PackageBehavior.test_native_smoke_controls) ... ok
+test_native_smoke_reports_actual_sockets_without_isolation_claim (test_package.PackageBehavior.test_native_smoke_reports_actual_sockets_without_isolation_claim) ... ok
+test_operator_settings_and_install_rollback_guide_are_packaged (test_package.PackageBehavior.test_operator_settings_and_install_rollback_guide_are_packaged) ... ok
+test_parser_rejects_compression_and_false_lengths (test_package.PackageBehavior.test_parser_rejects_compression_and_false_lengths) ... ok
+test_parser_rejects_unsafe_name_even_with_valid_checksum (test_package.PackageBehavior.test_parser_rejects_unsafe_name_even_with_valid_checksum) ... ok
+test_signing_command_contract (test_package.PackageBehavior.test_signing_command_contract) ... ok
+test_stored_roundtrip_exact_prefix_and_reproducibility (test_package.PackageBehavior.test_stored_roundtrip_exact_prefix_and_reproducibility) ... ok
+test_unsafe_names_and_windows_collisions_rejected (test_package.PackageBehavior.test_unsafe_names_and_windows_collisions_rejected) ... ok
+test_windows_python_preflight_is_explicit (test_package.PackageBehavior.test_windows_python_preflight_is_explicit) ... ok
+test_windows_signing_arguments_and_failing_verifier (test_package.PackageBehavior.test_windows_signing_arguments_and_failing_verifier) ... ok
+test_zip_verification_detects_tampering (test_package.PackageBehavior.test_zip_verification_detects_tampering) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.011s
+
+OK

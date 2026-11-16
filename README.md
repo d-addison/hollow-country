@@ -14,9 +14,15 @@ Browse [docs](docs/README.md), [research](research/README.md),
 See [contribution and issue workflow](CONTRIBUTING.md) and
 [measurement templates](metrics/README.md) for ongoing work.
 
-Current deliverable: native-source research and tested offline CE auditing,
-paired benchmark comparison, evidence validation and executable BDD bindings.
-Game modules are pending P0 runtime proof; this is not a playable overhaul yet.
+Current work: the `mods/HollowCountry` addon, native-source research and tested
+offline CE auditing, paired benchmark comparison, evidence validation and BDD.
+Source/package implementation is proceeding before the user's client connection.
+Native mod compilation/loading and gameplay acceptance remain pending; the
+vanilla server has reached CE initialization and connection readiness.
+See the [runtime integration contract](docs/RUNTIME_IMPLEMENTATION_CONTRACT.md)
+and [addon development guide](docs/MOD_DEVELOPMENT.md); the
+[task ledger](docs/specs/001-survival-overhaul/tasks.md) records precise status.
+See [gameplay coverage and gaps](docs/MODULE_STATUS.md) before using a development package.
 The imported handoff below preserves the original design. Session decisions in
 [ADR-017](docs/adr/ADR-017-local-coop-development.md) supersede its initial
 mandatory two-machine setup. Two clients remain required for multiplayer tests.
@@ -26,6 +32,7 @@ Run local offline checks with Python 3.12 and no third-party dependencies:
 ```sh
 python3 -B -m unittest discover -s tests/unit -v
 python3 -B -m tools.validate.project
+python3 -B -m tools.validate.runtime
 python3 -B -m tools.validate.bdd
 python3 -B -m unittest discover -s tools/setup -v
 ```

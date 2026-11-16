@@ -12,6 +12,8 @@ inputs or supplied evidence and do not establish completed gameplay.
 | [Project validator](validate/project.py) | Planning mappings, acceptance coverage and task dependency integrity. |
 | [Evidence validator](validate/evidence.py) | Version-1 capability manifest admission and artifact verification; `--help` documents its schema. |
 | [BDD bindings](validate/bdd.py) | Execute the explicitly bound offline feature's behavioral suites. |
+| [Runtime settings admission](validate/runtime.py) | Validate operator flags, limits and dependencies before native staging. |
+| [Package tooling](package/README.md) | Authored-source PBO/ZIP containers, local CE delta install/rollback and official Windows signing/smoke helpers. |
 | [Windows runtime staging](setup/New-LocalVanillaRuntime.ps1) | Prepare a fresh external vanilla runtime using the [pinned installed inventory](setup/installed-vanilla-baseline.json); does not launch it. |
 
 Planning and bound offline checks:

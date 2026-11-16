@@ -44,7 +44,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -92,7 +92,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -124,10 +124,10 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
-        "creates": [
+        "modifies": [
           "research/P0-server-launch.md"
         ],
+        "creates": [],
         "traces": [
           "AC-002",
           "NET-004",
@@ -141,7 +141,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -173,12 +173,16 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
-        "creates": [
+        "modifies": [
           "research/P0-first-mod.md",
-          "mods/Smoke/config.cpp",
-          "mods/Smoke/scripts/5_Mission/HCSmoke.c"
+          "mods/HollowCountry/scripts/4_World/Core/HCNativeSelfTests.c",
+          "tools/package/Invoke-NativeSmoke.ps1",
+          "mods/HollowCountry/config.cpp",
+          "mods/HollowCountry/scripts/3_Game/HCSettings.c",
+          "mods/HollowCountry/scripts/4_World/Core/HCServer.c",
+          "mods/HollowCountry/scripts/5_Mission/HCMissionServer.c"
         ],
+        "creates": [],
         "traces": [
           "AC-002",
           "NET-006",
@@ -192,7 +196,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -243,7 +247,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -293,7 +297,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -342,7 +346,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -391,7 +395,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -427,7 +431,10 @@
           "tools/validate/project.py",
           "tests/unit/test_project_contract.py",
           "tests/features/offline.feature",
-          ".github/workflows/static.yml"
+          ".github/workflows/static.yml",
+          "tools/validate/runtime.py",
+          "tests/unit/test_runtime_settings.py",
+          "config/hollow-country-settings.json"
         ],
         "creates": [],
         "traces": [
@@ -442,7 +449,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P0",
@@ -494,7 +501,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P1",
@@ -526,12 +533,14 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
-        "creates": [
+        "modifies": [
           "mission/hollow-country/README.md",
-          "research/experiments/EXP-CE-override.md",
-          "mission/hollow-country/ce/coverage.xml",
-          "mission/hollow-country/cfgeconomycore.xml"
+          "tools/package/economy.py",
+          "tests/unit/test_economy_contract.py",
+          "mission/hollow-country/cfgeconomycore.append.xml"
+        ],
+        "creates": [
+          "research/experiments/EXP-CE-override.md"
         ],
         "traces": [
           "AC-004",
@@ -548,7 +557,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P1",
@@ -580,11 +589,13 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "mission/hollow-country/ce/types.xml",
+          "mission/hollow-country/economy-profiles/contextual-pilot.json"
+        ],
         "creates": [
           "research/experiments/EXP-loot-balance.md",
-          "metrics/loot_routes.csv",
-          "mission/hollow-country/ce/types.xml"
+          "metrics/loot_routes.csv"
         ],
         "traces": [
           "AC-004",
@@ -603,7 +614,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P3",
@@ -655,7 +666,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P2",
@@ -687,12 +698,13 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-interiors-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorCatalog.c",
+          "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c"
+        ],
         "creates": [
-          "mods/Interiors/README.md",
-          "research/experiments/EXP-layout-persistence.md",
-          "mods/Interiors/config.cpp",
-          "mods/Interiors/scripts/4_World/HCLayouts.c"
+          "research/experiments/EXP-layout-persistence.md"
         ],
         "traces": [
           "AC-005",
@@ -713,7 +725,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P2",
@@ -745,11 +757,13 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-interiors-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorAction.c",
+          "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c"
+        ],
         "creates": [
-          "mods/Interiors/SEARCH.md",
-          "research/experiments/EXP-search-transaction.md",
-          "mods/Interiors/scripts/4_World/HCSearch.c"
+          "research/experiments/EXP-search-transaction.md"
         ],
         "traces": [
           "AC-005",
@@ -773,7 +787,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P3",
@@ -823,7 +837,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P4",
@@ -855,12 +869,14 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-crafting-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c",
+          "mods/HollowCountry/scripts/4_World/Crafting/HCRecipeRegistration.c",
+          "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c"
+        ],
         "creates": [
-          "mods/Crafting/README.md",
-          "research/experiments/EXP-salvage-transaction.md",
-          "mods/Crafting/config.cpp",
-          "mods/Crafting/scripts/4_World/HCSalvage.c"
+          "research/experiments/EXP-salvage-transaction.md"
         ],
         "traces": [
           "AC-006",
@@ -884,7 +900,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P4",
@@ -940,7 +956,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P5",
@@ -972,12 +988,12 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-infected-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c"
+        ],
         "creates": [
-          "mods/Infected/COMPETENCE.md",
-          "research/experiments/EXP-AI-competence.md",
-          "mods/Infected/config.cpp",
-          "mods/Infected/scripts/4_World/HCCompetence.c"
+          "research/experiments/EXP-AI-competence.md"
         ],
         "traces": [
           "AC-007",
@@ -999,7 +1015,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P5",
@@ -1031,11 +1047,13 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-infected-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Infected/HCInfectedPolicy.c",
+          "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c"
+        ],
         "creates": [
-          "mods/Infected/INVESTIGATION.md",
-          "research/experiments/EXP-AI-search.md",
-          "mods/Infected/scripts/4_World/HCInvestigation.c"
+          "research/experiments/EXP-AI-search.md"
         ],
         "traces": [
           "AC-007",
@@ -1059,7 +1077,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P6",
@@ -1091,11 +1109,12 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-infected-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c"
+        ],
         "creates": [
-          "mods/Infected/ALERTS.md",
-          "research/experiments/EXP-alert-chain.md",
-          "mods/Infected/scripts/4_World/HCAlerts.c"
+          "research/experiments/EXP-alert-chain.md"
         ],
         "traces": [
           "AC-008",
@@ -1113,7 +1132,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P7",
@@ -1145,11 +1164,12 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "research/experiments/EXP-infected-implementation.md",
+          "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c"
+        ],
         "creates": [
-          "mods/Infected/HORDES.md",
-          "research/experiments/EXP-horde-lifecycle.md",
-          "mods/Infected/scripts/4_World/HCHordes.c"
+          "research/experiments/EXP-horde-lifecycle.md"
         ],
         "traces": [
           "AC-008",
@@ -1170,7 +1190,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P7",
@@ -1202,7 +1222,10 @@
           "docs/SPECIFICATION.md",
           "docs/TESTING_PERFORMANCE.md"
         ],
-        "modifies": [],
+        "modifies": [
+          "docs/MODULE_STATUS.md",
+          "docs/RUNTIME_IMPLEMENTATION_CONTRACT.md"
+        ],
         "creates": [
           "research/experiments/EXP-integration.md"
         ],
@@ -1225,7 +1248,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P8",
@@ -1275,7 +1298,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P8",
@@ -1308,7 +1331,12 @@
           "docs/TESTING_PERFORMANCE.md"
         ],
         "modifies": [
-          "docs/TRANSFER_AND_ROLLBACK.md"
+          "docs/TRANSFER_AND_ROLLBACK.md",
+          "tools/package/pbo.py",
+          "tools/package/sign.py",
+          "tools/package/Build-Sign-Verify.ps1",
+          "tests/unit/test_package.py",
+          "mission/hollow-country/INSTALL_AND_ROLLBACK.md"
         ],
         "creates": [
           "research/experiments/EXP-transfer.md"
@@ -1327,7 +1355,7 @@
       "must_not": [
         "Claim offline checks prove DayZ behavior",
         "Bundle proprietary game assets or secrets",
-        "Advance without prerequisite runtime evidence"
+        "Enable production features without prerequisite runtime evidence"
       ],
       "tags": [
         "#phase:P8",

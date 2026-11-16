@@ -202,15 +202,14 @@ Get-NetTCPConnection -OwningProcess $server.Id -ErrorAction SilentlyContinue |
     Format-Table LocalAddress, LocalPort, RemoteAddress, RemotePort, State
 ~~~
 
-Require game UDP port 2302 on 127.0.0.1. Confirm listeners/query endpoints are
-loopback too; a wildcard or non-loopback local bind is not acceptable for this
-task. Steam/BattlEye outbound connections are not the same thing as listeners,
-but inspect rather than assume the difference. If a wildcard/non-loopback listener
-appears, do not connect or widen access: abort that test process immediately
-(Stop-Process -Id $server.Id is an emergency containment option, not a graceful
-save operation), preserve its isolated logs and report the bind mismatch. No
-firewall, UPnP or public-IP workaround belongs to this runbook. Loopback access
-does not provide the eventual friend's/LAN server setup.
+Require game UDP port 2302 on 127.0.0.1. Record Steam/query endpoints separately:
+the actual native launch bound game UDP 2302/2304 to loopback but query UDP 27016
+to 0.0.0.0. The earlier all-listeners-loopback assumption was not established by
+the installed engine. Do not describe this process as fully loopback-only or
+infer external reachability from the bind alone. No firewall, UPnP or router
+change is part of local preparation. A non-loopback game listener fails the
+intended local-game configuration; preserve evidence and resolve it before
+connection. The later friend's/LAN setup remains separate.
 
 ## Logs, manual connection and safe stop
 
@@ -299,3 +298,13 @@ documents mission/storage/profiles arguments, and
 [Server Messages](https://community.bistudio.com/wiki/DayZ:Server_Messages)
 documents scheduled graceful shutdown. These references support preparation,
 not this machine's runtime behavior.
+
+## Local Python for addon helpers
+
+Read-only inspection found
+`C:\Users\David\AppData\Local\Programs\Python\Python312\python.exe` and its
+`python312.dll`. The executable's embedded FileVersion/ProductVersion are
+3.12.10. Native execution is still unverified from this WSL session; the package
+helpers perform their own executable/version preflight. Use this discovered path
+for their `-Python` parameter rather than a WindowsApps alias. See
+[package tooling](../tools/package/README.md) for native compiler/signing commands.
