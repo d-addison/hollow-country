@@ -100,6 +100,19 @@ def classify(text):
     return None
 
 
+def native_observation(text, direct):
+    prefix = '[HC Native Actor]' if direct else '[HC Native Autotest]'
+    if prefix + ' FAIL' in text:
+        return 'FAIL-marker'
+    completion = (' PASS authored assertions; not native harness acceptance' if direct
+                  else ' PASS; XML and logs still require verification')
+    if prefix + completion in text:
+        return 'PASS-marker; receipt verification required' if direct else 'PASS-marker; XML verification required'
+    if prefix + ' BEGIN' in text:
+        return 'begun-but-incomplete'
+    return None
+
+
 def negative_settings(name):
     fixtures = {'malformed-json': b'{', 'oversized': b' ' * 16385,
                 'unsupported-schema': b'{"SchemaVersion":2}'}
@@ -240,12 +253,15 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['executable_kind'] = 'diagnostic-server' if diagnostic else 'dedicated-server'
     report['diagnostic_mission'] = diagnostic_mission
     report['native_autotest_observation'] = 'not-run'
+    report['native_autotest_timed_out'] = False
+    report['engine_error_observed'] = False
     report['settings_sha256'] = hashlib.sha256(settings_blob).hexdigest() if settings_blob is not None else None
     report['negative_settings_experiment'] = settings_case
     report['state_seed_sha256'] = {name: hashlib.sha256(data).hexdigest() for name, data in seeds.items()}
     report['hold_seconds_requested'] = hold_seconds
     report['hold_seconds_observed'] = 0
     process = None
+    deadline_expired = False
     try:
         with (experiment / 'wine-output.log').open('wb') as output:
             process = subprocess.Popen(command, cwd=root, env=env, stdout=output,
@@ -253,24 +269,27 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             report['launcher_pid'] = process.pid
             deadline = time.monotonic() + seconds
             initialized_at = None
-            saw_engine_error = False
             while time.monotonic() < deadline:
                 text, _, _ = collect_logs(profiles)
                 result = classify(text)
+                report['engine_error_observed'] = report['engine_error_observed'] or result == 'compiler-error'
                 if native_autotest_scripts is not None:
-                    saw_engine_error = saw_engine_error or result == 'compiler-error'
+                    observation = native_observation(text, native_actor_direct)
+                    if observation == 'begun-but-incomplete':
+                        report['native_autotest_observation'] = 'begun-but-incomplete'
                     if time.monotonic() >= deadline:
+                        deadline_expired = True
                         break
-                    if ('[HC Native Actor] FAIL' if native_actor_direct else '[HC Native Autotest] FAIL') in text:
-                        report['native_autotest_observation'] = 'FAIL-marker'
-                        report['status'] = 'compiler-error' if saw_engine_error else 'native-autotest-failed'
+                    if observation == 'FAIL-marker':
+                        report['native_autotest_observation'] = observation
+                        report['status'] = 'compiler-error' if report['engine_error_observed'] else 'native-autotest-failed'
                         break
-                    if ('[HC Native Actor] PASS authored assertions; not native harness acceptance' if native_actor_direct else '[HC Native Autotest] PASS; XML and logs still require verification') in text:
-                        report['native_autotest_observation'] = 'PASS-marker; receipt verification required' if native_actor_direct else 'PASS-marker; XML verification required'
-                        report['status'] = 'compiler-error' if saw_engine_error else 'native-autotest-completed'
+                    if observation and observation.startswith('PASS-marker;'):
+                        report['native_autotest_observation'] = observation
+                        report['status'] = 'compiler-error' if report['engine_error_observed'] else 'native-autotest-completed'
                         break
                     if process.poll() is not None:
-                        report['status'] = 'compiler-error' if saw_engine_error else 'exited-before-native-autotest-completion'
+                        report['status'] = 'compiler-error' if report['engine_error_observed'] else 'exited-before-native-autotest-completion'
                         break
                     time.sleep(1)
                     continue
@@ -278,6 +297,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
                     # Reading bounded logs can still cross the wall-clock limit;
                     # a historical marker cannot prove the launcher remains live.
                     if time.monotonic() >= deadline:
+                        deadline_expired = True
                         break
                     if process.poll() is not None:
                         report['status'] = 'exited-during-initialization-hold'
@@ -295,11 +315,34 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
                     report['status'] = 'exited-before-initialization'
                     break
                 time.sleep(1)
+            else:
+                deadline_expired = True
+    except Exception:
+        # Re-raise the original failure after preserving a truthful report.
+        # A launch/I/O exception is not evidence that the deadline expired.
+        report['status'] = 'probe-error'
+        raise
     finally:
         if process is not None:
             report['forced_stop'] = stop_group(process)
         report['launcher_exit_code'] = process.returncode if process else None
-        _, report['logs'], report['skipped_logs'] = collect_logs(experiment)
+        final_text, report['logs'], report['skipped_logs'] = collect_logs(experiment)
+        report['engine_error_observed'] = report['engine_error_observed'] or classify(final_text) == 'compiler-error'
+        if native_autotest_scripts is not None:
+            report['native_autotest_timed_out'] = deadline_expired
+            final_observation = native_observation(final_text, native_actor_direct)
+            previous = report['native_autotest_observation']
+            if final_observation == 'FAIL-marker':
+                report['native_autotest_observation'] = final_observation
+                if report['status'] == 'native-autotest-completed':
+                    report['status'] = 'native-autotest-failed'
+            elif previous in {'not-run', 'begun-but-incomplete'} and final_observation:
+                # Retain late evidence, without converting timeout/exit/error
+                # into success after the deadline or process cleanup.
+                report['native_autotest_observation'] = final_observation.replace(
+                    'PASS-marker; ', 'PASS-marker; observed during final collection; ')
+        if report['engine_error_observed']:
+            report['status'] = 'compiler-error'
         if settings_blob is not None:
             with (profiles / 'HollowCountry/settings.json').open('rb') as stream:
                 report['settings_original_preserved'] = stream.read(16386) == settings_blob

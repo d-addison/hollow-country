@@ -35,7 +35,7 @@ class MockedWineRunTests(unittest.TestCase):
         self.process.poll.return_value = None
         self.now = 0
 
-    def run_mocked(self, frames=None, probe_seconds=15, **kwargs):
+    def run_mocked(self, frames=None, probe_seconds=15, final_logs='', launch_error=None, **kwargs):
         frames = frames or (lambda now: '[HollowCountry] Server initialized; synthetic')
         native_is_file = Path.is_file
 
@@ -44,7 +44,7 @@ class MockedWineRunTests(unittest.TestCase):
 
         def logs(root):
             if root == self.experiment:
-                return '', {}, {}
+                return final_logs, {}, {}
             return frames(self.now), {}, {}
 
         def sleep(seconds):
@@ -59,7 +59,8 @@ class MockedWineRunTests(unittest.TestCase):
             stack.enter_context(patch.object(Path, 'is_file', is_file))
             stack.enter_context(patch.object(probe.shutil, 'which', return_value='/synthetic/xvfb-run'))
             stack.enter_context(patch.object(probe.subprocess, 'run', return_value=Mock(returncode=1)))
-            self.launch = stack.enter_context(patch.object(probe.subprocess, 'Popen', return_value=self.process))
+            self.launch = stack.enter_context(patch.object(probe.subprocess, 'Popen', return_value=self.process,
+                                                         side_effect=launch_error))
             self.stop = stack.enter_context(patch.object(probe, 'stop_group', side_effect=stop))
             stack.enter_context(patch.object(probe, 'collect_logs', side_effect=logs))
             stack.enter_context(patch.object(probe.time, 'monotonic', side_effect=lambda: self.now))
@@ -132,6 +133,118 @@ class MockedWineRunTests(unittest.TestCase):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 self.run_mocked(native_autotest_scripts=self.root / 'interfaces', **kwargs)
             self.assertFalse(self.experiment.exists())
+
+    def native_timeout(self, frames, final_logs=''):
+        (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
+        def prepare(source, destination, scripts, **kwargs):
+            destination.mkdir()
+            return {'kind': 'synthetic-test-only'}
+        with patch('tools.testing.native_autotest.prepare_autotest', side_effect=prepare):
+            return self.run_mocked(frames, final_logs=final_logs, diagnostic=True,
+                                   native_autotest_scripts=self.root / 'interfaces',
+                                   native_actor_direct=True)
+
+    def test_native_timeout_retains_started_state_and_engine_failure(self):
+        report = self.native_timeout(lambda now: 'SCRIPT (E): synthetic error\n[HC Native Actor] BEGIN authored_direct_runner real_clients=0')
+        self.assertEqual(report['status'], 'compiler-error')
+        self.assertEqual(report['native_autotest_observation'], 'begun-but-incomplete')
+        self.assertTrue(report['native_autotest_timed_out'])
+        self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_final_native_error_cannot_be_hidden_by_timeout(self):
+        report = self.native_timeout(lambda now: '[HC Native Actor] BEGIN authored_direct_runner real_clients=0',
+                                     final_logs='SCRIPT    (E): synthetic late error')
+        self.assertEqual(report['status'], 'compiler-error')
+        self.assertTrue(report['native_autotest_timed_out'])
+        self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_final_smoke_error_overrides_initialization_and_sets_error_evidence(self):
+        report = self.run_mocked(final_logs='SCRIPT (E): synthetic error flushed during cleanup')
+        self.assertEqual(report['status'], 'compiler-error')
+        self.assertTrue(report['engine_error_observed'])
+        self.assertEqual(report['runtime_acceptance'], 'pending')
+        self.assert_cleaned_report(report)
+
+    def test_final_diagnostic_selftest_error_cannot_leave_initialized(self):
+        (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
+        stock = self.server / 'mpmissions/dayzOffline.chernarusplus/init.c'
+        stock.write_bytes(b'class CustomMission: MissionServer {}; Mission CreateCustomMission(string path) { return new CustomMission(); }')
+        report = self.run_mocked(diagnostic=True, diagnostic_selftests=True,
+                                 final_logs='SCRIPT (E): synthetic late selftest error')
+        self.assertEqual(report['status'], 'compiler-error')
+        self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_normal_poll_error_evidence_is_sticky_when_final_snapshot_is_empty(self):
+        report = self.run_mocked(lambda now: 'SCRIPT (E): synthetic polling error')
+        self.assertEqual(report['status'], 'compiler-error')
+        self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_native_launch_exception_is_not_a_deadline_timeout(self):
+        (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
+        def prepare(source, destination, scripts, **kwargs):
+            destination.mkdir()
+            return {'kind': 'synthetic-test-only'}
+        with patch('tools.testing.native_autotest.prepare_autotest', side_effect=prepare):
+            with self.assertRaisesRegex(OSError, 'synthetic launch failure'):
+                self.run_mocked(diagnostic=True, native_autotest_scripts=self.root / 'interfaces',
+                                launch_error=OSError('synthetic launch failure'))
+        report = json.loads((self.experiment / 'compiler-report.json').read_text())
+        self.assertFalse(report['native_autotest_timed_out'])
+        self.assertEqual(report['status'], 'probe-error')
+        self.assertEqual(self.now, 0)
+        self.stop.assert_not_called()
+
+    def test_native_poll_exception_is_not_a_deadline_timeout(self):
+        def broken_log(now):
+            raise OSError('synthetic native polling failure')
+        with self.assertRaisesRegex(OSError, 'synthetic native polling failure'):
+            self.native_timeout(broken_log)
+        report = json.loads((self.experiment / 'compiler-report.json').read_text())
+        self.assertFalse(report['native_autotest_timed_out'])
+        self.assertEqual(report['status'], 'probe-error')
+        self.assertEqual(self.now, 0)
+        self.assert_cleaned_report(report)
+
+    def test_native_begin_first_in_final_snapshot_is_preserved(self):
+        report = self.native_timeout(lambda now: '', final_logs='[HC Native Actor] BEGIN authored_direct_runner real_clients=0')
+        self.assertEqual(report['native_autotest_observation'], 'begun-but-incomplete')
+        self.assertEqual(report['status'], 'timeout')
+        self.assertTrue(report['native_autotest_timed_out'])
+        self.assert_cleaned_report(report)
+
+    def test_native_pass_first_in_final_snapshot_never_promotes_timeout(self):
+        report = self.native_timeout(lambda now: '', final_logs='[HC Native Actor] PASS authored assertions; not native harness acceptance')
+        self.assertEqual(report['native_autotest_observation'],
+                         'PASS-marker; observed during final collection; receipt verification required')
+        self.assertEqual(report['status'], 'timeout')
+        self.assertTrue(report['native_autotest_timed_out'])
+        self.assertEqual(report['runtime_acceptance'], 'pending')
+        self.assert_cleaned_report(report)
+
+    def test_native_pass_during_log_read_crossing_deadline_cannot_complete(self):
+        marker = '[HC Native Actor] PASS authored assertions; not native harness acceptance'
+        def slow_logs(now):
+            if now == 14:
+                self.now += 2
+                return marker
+            return ''
+        report = self.native_timeout(slow_logs, final_logs=marker)
+        self.assertEqual(report['status'], 'timeout')
+        self.assertTrue(report['native_autotest_timed_out'])
+        self.assertIn('observed during final collection', report['native_autotest_observation'])
+        self.assert_cleaned_report(report)
+
+    def test_final_native_fail_cannot_leave_an_earlier_pass_completed(self):
+        report = self.native_timeout(lambda now: '[HC Native Actor] PASS authored assertions; not native harness acceptance',
+                                     final_logs='[HC Native Actor] FAIL synthetic late assertion')
+        self.assertEqual(report['native_autotest_observation'], 'FAIL-marker')
+        self.assertEqual(report['status'], 'native-autotest-failed')
+        self.assertFalse(report['native_autotest_timed_out'])
+        self.assert_cleaned_report(report)
 
     def test_selftests_stage_separate_mission_and_preserve_native_error(self):
         (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
@@ -215,7 +328,7 @@ class MockedWineRunTests(unittest.TestCase):
         with self.assertRaisesRegex(OSError, 'synthetic polling failure'):
             self.run_mocked(broken_log, hold_seconds=3)
         report = json.loads((self.experiment / 'compiler-report.json').read_text())
-        self.assertEqual(report['status'], 'timeout')
+        self.assertEqual(report['status'], 'probe-error')
         self.assert_cleaned_report(report)
 
     def test_all_three_maximum_size_seed_files_are_staged_and_hashed_without_mutation(self):
