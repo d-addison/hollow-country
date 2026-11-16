@@ -161,7 +161,10 @@ class PackageBehavior(unittest.TestCase):
                     return Mock(returncode=0, stdout='', stderr='')
                 return Mock(returncode=0, stdout='Signature synthetic.pbo.test.bisign is OK\n', stderr='')
             result = sign.sign_and_verify(source, root / 'tools', private, public, root / 'signed', runner=fake_run)
-            self.assertEqual(calls[0][1], str(private.resolve()))
+            # Keep lexical paths: resolve() expands native Windows 8.3 parents.
+            # The signer intentionally checks links before invoking the tools.
+            self.assertEqual(calls[0][1], str(private.absolute()))
+            self.assertTrue(Path(calls[0][1]).samefile(private))
             self.assertEqual(len(calls[0]), 3)
             self.assertEqual(calls[1][1:], [str(root / 'signed/addons'), str(root / 'signed/keys')])
             self.assertEqual(result['runtime_acceptance'], 'pending')
