@@ -6,7 +6,7 @@
 
 Richer places to search. More reasons to salvage. Infected encounters grounded in the world.
 
-[Components](#components) · [Setup](#server-setup) · [Configuration](#configuration) · [Development](#development) · [Roadmap](#roadmap)
+[Scavenging](#scavenge-with-purpose) · [Crafting](#make-what-you-find-useful) · [Infected](#the-infected-remember) · [Phase 2](#the-road-ahead--phase-2)
 
 **IN DEVELOPMENT** · DayZ PC · ChernarusPlus first · All rights reserved
 
@@ -14,157 +14,180 @@ Richer places to search. More reasons to salvage. Infected encounters grounded i
 
 ---
 
-## The field guide
+## Your guide to the country
 
-Hollow Country combines loot-economy tools, persistent interior experiments,
-searchable spaces, salvage crafting, and infected behavior systems. The aim is a
-world that rewards observation and resourcefulness while keeping encounters fair,
-server work bounded, and the server authoritative.
+Read the room. Travel light. Leave quietly.
 
-This repository contains addon source, mission integration, operator tools and
-reproducible tests. **All gameplay feature switches default to off.** Several
-systems remain deliberately gated while their native gameplay behavior is
-validated. This guide distinguishes authored functionality from the experience
-still being built.
+Hollow Country aims to make ordinary survival decisions matter again. A neglected
+apartment could be worth searching. A damaged item could be worth carrying. A
+gunshot could change the route home. Familiar buildings should tell different
+stories, and the world should offer more to do without requiring a mission list.
 
-## Components
+This guide covers **the whole mod vision, including Phase 2**, not just the
+current build. **Being built** means work exists but the complete feature still
+needs testing. **Planned** means implementation remains. **Feasibility testing**
+means DayZ's limits may require a different approach. The experimental gameplay
+systems currently default to disabled.
 
-| Component | What it does | Current boundary |
-| :--- | :--- | :--- |
-| **Runtime core** | Loads versioned settings, manages module startup/shutdown and schedules bounded server work. | Compiled and initialized in an actual DayZ server under Wine; native Windows and multiplayer qualification remain separate. |
-| **Loot economy** | Audits Central Economy data and prepares conservative, reviewable changes with exact rollback. | Tooling is available. Building-coverage corrections and contextual loot require measured map data and engine eligibility checks. |
-| **Interiors** | Assigns stable building identities, trial prop layouts and persistent layout history; rejects ambiguous recovery data. | Diagnostic layouts exist. Normal-build placement awaits surveyed geometry, navigation, collision and replication checks. |
-| **Searching** | Provides a native continuous action with server checks for range, visibility, duration, ownership and finite allocation. | Normal-build searching is gated on CE integration and durable inventory/reward reconciliation. |
-| **Salvage crafting** | Registers three recipes using existing DayZ items, with tool wear, condition loss and ownership checks. | Registration has been observed in DayZ; inventory outcomes, concurrency, recovery and balance need gameplay validation. |
-| **Infected encounters** | Tracks observed clues, bounded alert relays, pack-route intent, progress and retarget scheduling. | Native perception, audibility, traversal and restart recovery need validation. Safe horde activation/abstraction and a full variant roster remain unfinished. |
-| **Observer safeguards** | Rejects transitions when visibility, observer coverage, timing or provider evidence is incomplete. | A veto policy exists; it does not authorize spawning, deleting or teleporting infected. |
-| **Deployment tools** | Builds packages and supports signing, verified installation, upgrade recovery and rollback. | Development signature verification and disposable install/rollback have passed; connected-client loading and production qualification remain pending. |
+## Scavenge with purpose
 
-### Salvage, deliberately
+**Being built · Loot, interiors and searching**
 
-Recover **netting from a camo net**, **wire from a cable reel**, and **tanned
-leather from an empty leather belt**. The authored recipes require a knife or
-pliers, consume the source, wear the tool and reduce output condition. Ownership
-and container checks reject shared storage and worn attachments. Crash-safe
-inventory transactions remain a validation gate.
+| Change | What it means for your next run |
+| :--- | :--- |
+| **More places worth checking** | Accessible buildings and meaningful spaces should have a sensible chance of supplies, including neglected apartments and military accommodation. A chance is not a guarantee. |
+| **Coherent loot and variety** | Look for supplies where they belong, with less repetitive junk and more useful finds. |
+| **Soft progression** | Better equipment comes through exploration and risk, while essentials retain multiple acquisition routes. |
+| **Varied familiar houses** | Existing buildings gain compatible furnishings, clutter and histories that reward observation. Doors, stairs and routes must remain usable. |
+| **Visible and searchable finds** | Check suitable cupboards, wardrobes and storage as well as floors. Searching takes time and exposes you to danger. |
+| **A place remembers** | Restarting should not refill a searched cupboard or reroll a house into another free supply cache. |
 
-### Infected that follow evidence
+Searching and visible loot must share a finite economy. Previous visits,
+depletion and the character of a location should matter.
 
-The infected foundation works with observed stimuli and finite relay chains.
-Route intent and cohort ownership are tracked rather than inferred from hidden
-player locations. Uncertain visibility or provider capability blocks transitions.
-Persistent but escapable pressure is the goal; complete production horde behavior
-has not yet been demonstrated.
+## Make what you find useful
 
-## How the pieces fit
+**Being built · Crafting and salvage**
+
+Repair, reuse, disassembly and salvage should give appropriate existing items a
+believable purpose, balanced against materials, tools, wear and time.
+
+The first prototypes recover netting from a camo net, wire from a cable reel and
+leather from an empty leather belt. **These are starting points, not a finished
+crafting feature.** A full audit of existing items and recipes will determine the
+complete, justified set of changes. This does not mean a recipe for every object:
+additions and exclusions must make sense for survival and the economy.
+
+**Planned · Phase 2: fuel siphoning.** Suitable cars should offer gasoline when
+you have appropriate equipment and a compatible container. Transfers must draw
+from actual finite fuel, respect capacity and stop safely when interrupted.
+Decorative wrecks will not become endless petrol stations. Supported vehicles,
+tools and any finite wreck supplies remain part of the audit.
+
+## The infected remember
+
+**Being built · Infected, local alerts and persistent hordes**
+
+Infected should pressure you through what they can perceive: sightings, sounds
+and clues from an encounter. Nearby infected may relay an alarm, turning a
+careless fight into a local problem. Breaking contact and choosing a quieter
+route should remain meaningful ways to escape.
+
+The intended experience includes distinct infected roles and trade-offs,
+investigation of observed clues, coherent group movement and persistent hordes.
+Room traversal, door interactions, injuries and audible warnings must behave
+fairly. Infected must not secretly track your live position or teleport into
+pursuit. Changes to distant hordes must preserve the population and never make
+infected appear in view.
+
+**Feasibility testing · Phase 2: death reactions.** More convincing folding or
+ragdoll-like deaths are a goal. The result depends on DayZ's animation and
+physics capabilities and must preserve corpse access, loot and multiplayer
+consistency. Full ragdoll is not confirmed.
+
+## The road ahead — Phase 2
+
+These features are part of the intended whole experience. They are not yet
+available as a qualified gameplay package.
+
+### Travel together
+
+| Planned system | Intended experience |
+| :--- | :--- |
+| **Extended stamina** | More practical travel through an original stamina model that keeps exertion, recovery and load meaningful. |
+| **Weight display** | See your burden and understand how it affects endurance. |
+| **Groups** | Team membership with teammate icons both in the world and on the map; visibility rules configurable by the server. |
+| **Interactive map** | Press **M** to pan and zoom the map and share group markers. The action should be rebindable. |
+| **Useful information** | Appropriate navigation, discovery and mission layers, without exposing information your group should not know. Exact layers remain to be selected. |
+
+Group information must respect membership and privacy through death, leaving,
+reconnecting and stale position reports.
+
+### Choose your own trouble
+
+**Planned · PvE groups, missions and events**
+
+Follow a radio lead, investigate an incident, recover supplies or take part in an
+encounter—or pass it by and continue surviving. Events should fit the world's
+scarcity and danger, with rewards drawn from a controlled economy.
+
+AI players and groups are a goal. Native support comes first; a maintained AI
+dependency may be used if needed and suitable. Armed patrols, rescues, escorts and
+convoys are possibilities to evaluate, not confirmed mission types. Navigation,
+combat fairness, performance and permissions determine the supported roster.
+
+Northmen's public events and map experience are references. Hollow Country will
+use independent work or appropriately permitted dependencies.
+
+### A world with its own rhythm
+
+| Direction | Intended impact |
+| :--- | :--- |
+| **Ecology** | More believable movement around food, water and resources, investigating animals and infected separately. |
+| **Migration** | Reasons for familiar routes to change over time, grounded in supported movement and population behavior. |
+| **More firearms** | A believable mix of wood-stock and conventional modern weapons from existing permitted mods, appropriate to the setting. No new gun assets are planned. |
+| **Weather and lighting** | Stronger atmosphere and changing travel conditions using supported controls while preserving readable, fair gameplay. |
+| **Existing DayZ mechanics** | Audit and extend useful native systems where they improve the whole survival experience. |
+
+Ecology, migration and visual changes need feasibility testing. This is not a
+promise of a new renderer or unrestricted wildlife simulation. Base-building
+expansion and futuristic equipment are outside the mod's direction.
+
+## A day in Hollow Country
 
 ```mermaid
-flowchart TB
-    Settings["Versioned server settings"] --> Core["Runtime core · lifecycle and work budgets"]
-    Core --> Craft["Salvage recipes"]
-    Core --> Interior["Interior layouts and search"]
-    Core --> Infected["Clues, alerts and cohort intent"]
-    CE["DayZ Central Economy"] -. "integration under validation" .-> Interior
-    Maps["Surveyed map data"] -. "required for placement" .-> Interior
-    Maps -. "required for routes" .-> Infected
-    Infected --> Guard["Observer and capability safeguards"]
-    Interior --> Store["Versioned persistent state"]
-    Infected --> Store
-    Tools["Audit · package · sign · install · rollback"] --> Package["Development addon and mission integration"]
-    Package --> Core
+flowchart LR
+    A["Choose a route"] --> B["Search and read the surroundings"]
+    B --> C["Repair, salvage and manage your load"]
+    C --> D["Avoid, distract or fight infected"]
+    D --> E["Follow an optional lead—or head home"]
+    E --> F["Share discoveries with your group"]
+    F --> A
 ```
 
-This diagram shows source responsibilities and required integrations. It does
-not imply that every gameplay path is enabled or verified.
+This illustrates the intended survival loop, including planned features. Actual
+in-game screenshots will follow when the corresponding experience can be
+captured and verified.
 
-## Server setup
+## Where we are
 
-Use a disposable server copy and back up the mission, configuration and storage.
-The current development build has not completed production gameplay qualification.
+Experimental search and interior systems, salvage prototypes and infected clue
+and alert logic exist. Some code has compiled and initialized in a real DayZ
+server. Full inventory recovery, navigation, audio, multiplayer behavior, balance
+and performance still need qualification.
 
-1. Read the [installation and rollback guide](docs/INSTALL_ROLLBACK.md).
-2. Build and verify a development package using the
-   [packaging tools](tools/package/README.md).
-3. Integrate the [mission files](mission/hollow-country/README.md) and install
-   the addon according to the operator guide. Addon and CE changes are separate.
-4. Review the [settings template](config/hollow-country-settings.json). Keep
-   unqualified features disabled and follow their documented validation gates.
-5. Verify startup, client loading, persistence and rollback for the exact build,
-   map and mod combination before considering live deployment.
+Every area requires a full audit of relevant existing content and behavior.
+Pilots are checkpoints: a feature finishes only when its agreed scope is
+implemented, documented and validated. Unsupported ideas and exclusions must be
+explained rather than silently dropped.
 
-Initial engine work targets **DayZ PC 1.30.164289** and **ChernarusPlus**. Other
-maps, future builds and mod combinations require explicit qualification. The
-longer-term capacity target is approximately 90 players; offline and zero-client
-results do not establish that capacity. No Workshop release is available here.
+## For server owners and contributors
 
-## Configuration
+Setup, settings, backups and rollback live in the [operator guide](docs/README.md)
+and [installation guide](docs/INSTALL_ROLLBACK.md). Source and testing details
+live in [addon development](docs/MOD_DEVELOPMENT.md), [tools](tools/README.md),
+[tests](tests/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Settings are server-owned and versioned. The template uses `SchemaVersion: 1`;
-the reader rejects oversized or unsupported input. See
-[addon development](docs/MOD_DEVELOPMENT.md) for loading and module behavior.
-
-| Setting | Default | Purpose |
-| :--- | :---: | :--- |
-| `EnableInteriors` | `false` | Interior admission; placement has additional gates. |
-| `EnableSearch` | `false` | Search admission; rewards have additional gates. |
-| `EnableCrafting` | `false` | Salvage recipe admission. |
-| `EnableInfected` | `false` | Experimental infected module admission. |
-| `EnableHordes` | `false` | Horde work admission; capability gates still apply. |
-| `EnableAlertChains` | `false` | Bounded infected alert relays. |
-| `TickIntervalMs` | `1000` | Requested scheduling interval. |
-| `MaxTickWorkItems` | `32` | Per-tick work budget. |
-| `MaxActiveHordes` / `MaxActiveHordeMembers` | `2` / `24` | Configured horde bounds. |
-| `MaxActiveInteriors` / `MaxPropsPerInterior` | `12` / `5` | Configured interior bounds. |
-
-These are development defaults, not measured production recommendations. A switch
-does not bypass a module's safety or capability checks.
-
-## Development
-
-Python tooling uses the standard library. With Python 3.12 installed:
-
-```sh
-python3 -B -m unittest discover -s tests/unit -v
-python3 -B -m tools.validate.runtime
-python3 -B -m tools.validate.hygiene
-python3 -B -m tools.validate.bdd
-```
-
-Offline tests and executable scenarios support development; they cannot prove
-DayZ collision, perception, audio, inventory durability, replication or
-performance. Native engine and connected-client checks remain necessary.
-
-| Looking for | Start here |
-| :--- | :--- |
-| Addon source | [mods/HollowCountry](mods/HollowCountry) |
-| Mission integration | [mission/hollow-country](mission/hollow-country/README.md) |
-| Operator documentation | [docs](docs/README.md) |
-| Audit and packaging commands | [tools](tools/README.md) |
-| Test suites and scenarios | [tests](tests/README.md) |
-| Issues and milestones | [Project tracker](https://github.com/d-addison/hollow-country/issues) |
-| Contribution workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
+The development build is not yet qualified for live-server use. ChernarusPlus is
+the first map; compatibility across maps and server setups is a goal, including
+servers around 90 players. That capacity has not been demonstrated. Workshop
+preparation is planned; there is no Workshop release yet.
 
 ## Roadmap
 
 Current work closes native gameplay, persistence, multiplayer and performance
-gates for the components above. Follow the
-[milestones](https://github.com/d-addison/hollow-country/milestones) for progress.
+gates for the components above. The
+[execution queue](https://github.com/d-addison/hollow-country/issues/39) groups
+outstanding work into dependency-ordered batches, followed by integrated
+qualification. Follow the [milestones](https://github.com/d-addison/hollow-country/milestones)
+for progress.
 
-Phase 2 exploration includes:
-
-- **Groups and navigation:** teammate icons, shared markers and an interactive
-  map opened with M, with useful optional information layers.
-- **Optional PvE missions:** radio-led recovery, investigation and encounters;
-  AI groups, rescue, escorts and convoys depend on demonstrated capabilities.
-- **Survival systems:** original extended stamina with a weight display, plus
-  ecology and migration research.
-- **Equipment and presentation:** weapons with verified permissions, infected
-  death reactions, and supported weather/lighting improvements.
-- **Distribution and portability:** Workshop preparation and explicitly tested
-  map/server adapters.
-
-These are planned investigations and features, not current gameplay promises.
-Base-building expansion is outside the requested direction.
+Internal testing runs throughout development, leading to one consolidated
+Phase 2 playtest once the candidate satisfies its required checks. Follow the
+[crafting audit](https://github.com/d-addison/hollow-country/issues/52),
+[fuel siphoning](https://github.com/d-addison/hollow-country/issues/53) and
+[whole-feature completion criteria](https://github.com/d-addison/hollow-country/issues/54)
+for those work streams.
 
 ## License and assets
 
