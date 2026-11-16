@@ -1,0 +1,93 @@
+test_authoritative_catalog_is_optional_and_unknowns_fail (test_ce_audit.CEAuditTests.test_authoritative_catalog_is_optional_and_unknowns_fail) ... ok
+test_backslash_declaration_paths_and_repeated_source (test_ce_audit.CEAuditTests.test_backslash_declaration_paths_and_repeated_source) ... ok
+test_bad_coordinates_and_point_dimensions (test_ce_audit.CEAuditTests.test_bad_coordinates_and_point_dimensions) ... ok
+test_bounded_bytes_files_nodes_and_depth (test_ce_audit.CEAuditTests.test_bounded_bytes_files_nodes_and_depth) ... ok
+test_cli_usage_and_no_bytecode (test_ce_audit.CEAuditTests.test_cli_usage_and_no_bytecode) ... ok
+test_declaration_path_escape_and_symlinks_are_rejected (test_ce_audit.CEAuditTests.test_declaration_path_escape_and_symlinks_are_rejected) ... ok
+test_declared_unparsed_files_are_protected_from_output (test_ce_audit.CEAuditTests.test_declared_unparsed_files_are_protected_from_output) ... FAIL
+test_deterministic_json_and_relative_provenance (test_ce_audit.CEAuditTests.test_deterministic_json_and_relative_provenance) ... ok
+test_dtd_and_entities_rejected_including_utf16 (test_ce_audit.CEAuditTests.test_dtd_and_entities_rejected_including_utf16) ... ok
+test_duplicate_prototypes_are_not_silently_merged (test_ce_audit.CEAuditTests.test_duplicate_prototypes_are_not_silently_merged) ... ok
+test_duplicate_types_within_and_between_sources (test_ce_audit.CEAuditTests.test_duplicate_types_within_and_between_sources) ... ok
+test_explicit_alias_construct_is_visible_and_not_resolved (test_ce_audit.CEAuditTests.test_explicit_alias_construct_is_visible_and_not_resolved) ... ok
+test_group_container_and_default_count_validation (test_ce_audit.CEAuditTests.test_group_container_and_default_count_validation) ... ok
+test_malformed_xml_in_every_parsed_file (test_ce_audit.CEAuditTests.test_malformed_xml_in_every_parsed_file) ... ok
+test_min_nominal_relationship_and_repeated_fields (test_ce_audit.CEAuditTests.test_min_nominal_relationship_and_repeated_fields) ... ok
+test_missing_coverage_input_does_not_invent_zero_totals (test_ce_audit.CEAuditTests.test_missing_coverage_input_does_not_invent_zero_totals) ... FAIL
+test_missing_declared_types_and_optional_core_visibility (test_ce_audit.CEAuditTests.test_missing_declared_types_and_optional_core_visibility) ... ok
+test_missing_empty_and_invalid_catalog_fail (test_ce_audit.CEAuditTests.test_missing_empty_and_invalid_catalog_fail) ... ok
+test_missing_group_and_possible_alias_are_visible_unresolved (test_ce_audit.CEAuditTests.test_missing_group_and_possible_alias_are_visible_unresolved) ... ok
+test_missing_modular_source_is_not_reported_as_audited (test_ce_audit.CEAuditTests.test_missing_modular_source_is_not_reported_as_audited) ... FAIL
+test_modular_types_are_declared_not_recursively_discovered (test_ce_audit.CEAuditTests.test_modular_types_are_declared_not_recursively_discovered) ... ok
+test_negative_noninteger_and_nonfinite_type_counts (test_ce_audit.CEAuditTests.test_negative_noninteger_and_nonfinite_type_counts) ... ok
+test_nonexistent_mission_is_explicit_json_failure (test_ce_audit.CEAuditTests.test_nonexistent_mission_is_explicit_json_failure) ... ok
+test_nonfinite_rotations_and_missing_positions (test_ce_audit.CEAuditTests.test_nonfinite_rotations_and_missing_positions) ... ok
+test_other_ce_file_kinds_are_listed_without_merging (test_ce_audit.CEAuditTests.test_other_ce_file_kinds_are_listed_without_merging) ... ok
+test_output_cannot_overwrite_a_source_or_fail_with_traceback (test_ce_audit.CEAuditTests.test_output_cannot_overwrite_a_source_or_fail_with_traceback) ... ok
+test_output_file_matches_stdout_and_invalid_still_written (test_ce_audit.CEAuditTests.test_output_file_matches_stdout_and_invalid_still_written) ... ok
+test_provenance_changes_with_input_and_relocation_is_stable (test_ce_audit.CEAuditTests.test_provenance_changes_with_input_and_relocation_is_stable) ... ok
+test_quantity_sentinel_partial_entries_and_flags (test_ce_audit.CEAuditTests.test_quantity_sentinel_partial_entries_and_flags) ... ok
+test_required_missing_inputs_are_each_explicit (test_ce_audit.CEAuditTests.test_required_missing_inputs_are_each_explicit) ... ok
+test_root_types_fallback_and_ambiguous_base_inputs (test_ce_audit.CEAuditTests.test_root_types_fallback_and_ambiguous_base_inputs) ... ok
+test_unresolvable_mission_path_is_json_failure (test_ce_audit.CEAuditTests.test_unresolvable_mission_path_is_json_failure) ... ERROR
+test_unresolved_placements_have_partial_subtotal_not_false_total (test_ce_audit.CEAuditTests.test_unresolved_placements_have_partial_subtotal_not_false_total) ... FAIL
+test_valid_raw_coverage_and_unplaced_groups (test_ce_audit.CEAuditTests.test_valid_raw_coverage_and_unplaced_groups) ... ok
+test_wrong_roots_and_empty_names_rejected (test_ce_audit.CEAuditTests.test_wrong_roots_and_empty_names_rejected) ... ok
+test_xml_catalog_support (test_ce_audit.CEAuditTests.test_xml_catalog_support) ... ok
+
+======================================================================
+ERROR: test_unresolvable_mission_path_is_json_failure (test_ce_audit.CEAuditTests.test_unresolvable_mission_path_is_json_failure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_ce_audit.py", line 374, in test_unresolvable_mission_path_is_json_failure
+    self.assertIn("invalid_mission", self.codes(json.loads(result.stdout)))
+                                                ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+======================================================================
+FAIL: test_declared_unparsed_files_are_protected_from_output (test_ce_audit.CEAuditTests.test_declared_unparsed_files_are_protected_from_output)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_ce_audit.py", line 359, in test_declared_unparsed_files_are_protected_from_output
+    self.assertNotEqual(result.returncode, 0)
+AssertionError: 0 == 0
+
+======================================================================
+FAIL: test_missing_coverage_input_does_not_invent_zero_totals (test_ce_audit.CEAuditTests.test_missing_coverage_input_does_not_invent_zero_totals)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_ce_audit.py", line 342, in test_missing_coverage_input_does_not_invent_zero_totals
+    self.assertIsNone(report["coverage"]["raw_point_count"])
+AssertionError: 0 is not None
+
+======================================================================
+FAIL: test_missing_modular_source_is_not_reported_as_audited (test_ce_audit.CEAuditTests.test_missing_modular_source_is_not_reported_as_audited)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_ce_audit.py", line 366, in test_missing_modular_source_is_not_reported_as_audited
+    self.assertEqual(report["ce_declarations"][0]["status"], "unavailable")
+AssertionError: 'audited' != 'unavailable'
+- audited
++ unavailable
+
+
+======================================================================
+FAIL: test_unresolved_placements_have_partial_subtotal_not_false_total (test_ce_audit.CEAuditTests.test_unresolved_placements_have_partial_subtotal_not_false_total)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_ce_audit.py", line 351, in test_unresolved_placements_have_partial_subtotal_not_false_total
+    self.assertIsNone(report["coverage"]["placed_raw_point_count"])
+AssertionError: 3 is not None
+
+----------------------------------------------------------------------
+Ran 36 tests in 0.400s
+
+FAILED (failures=4, errors=1)

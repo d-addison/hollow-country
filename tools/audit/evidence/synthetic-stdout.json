@@ -1,0 +1,113 @@
+{
+  "ce_declarations": [],
+  "coverage": {
+    "building_classes_verified": false,
+    "engine_eligible_loot_points": null,
+    "groups": [
+      {
+        "alias_candidates": [],
+        "container_count": 1,
+        "name": "SyntheticEmpty",
+        "placed_raw_point_count": 0,
+        "placement_count": 1,
+        "raw_point_count": 0,
+        "resolution": "exact"
+      },
+      {
+        "alias_candidates": [],
+        "container_count": 2,
+        "name": "SyntheticHouse",
+        "placed_raw_point_count": 6,
+        "placement_count": 2,
+        "raw_point_count": 3,
+        "resolution": "exact"
+      },
+      {
+        "alias_candidates": [],
+        "container_count": 1,
+        "name": "SyntheticUnplaced",
+        "placed_raw_point_count": 0,
+        "placement_count": 0,
+        "raw_point_count": 1,
+        "resolution": "exact"
+      }
+    ],
+    "inputs_complete": true,
+    "placed_raw_point_count": 6,
+    "placement_count": 3,
+    "prototype_count": 3,
+    "raw_point_count": 4,
+    "resolved_placed_raw_point_count": 6,
+    "unresolved_placement_count": 0
+  },
+  "diagnostics": [
+    {
+      "code": "zero_raw_points",
+      "context": "SyntheticEmpty",
+      "message": "Placed prototype has zero raw XML points; this is not an engine eligibility conclusion.",
+      "severity": "warning",
+      "source": "mapgroupproto.xml"
+    }
+  ],
+  "inputs_complete": true,
+  "limitations": [
+    "T0 offline structural audit only; no installed game or engine behavior verified.",
+    "Raw XML points, including points under lootmax=0, are not engine eligible loot opportunities.",
+    "Group/model names are not verified building classnames; accessibility, geometry and aliases require engine proof.",
+    "Only base types and explicit CE type=types declarations are inventoried; no effective override or merge behavior is simulated.",
+    "Other CE file kinds are listed but not audited; this is not a full DayZ schema validator.",
+    "Omitted numeric fields are not defaulted; quantity -1 is retained as an unspecified sentinel.",
+    "Catalog authority belongs to the supplied snapshot; no catalog means unknown classnames cannot be checked."
+  ],
+  "limits": {
+    "max_file_bytes": 33554432,
+    "max_source_files": 128,
+    "max_total_bytes": 134217728,
+    "max_xml_depth": 64,
+    "max_xml_nodes": 500000
+  },
+  "schema_version": 1,
+  "sources": [
+    {
+      "path": "@known-types",
+      "role": "known_types",
+      "sha256": "6cb9118321c671f4ed3d4dad3b52274f79a321fba072f1ba54f637a60da8684f",
+      "size_bytes": 127
+    },
+    {
+      "path": "cfgeconomycore.xml",
+      "role": "economycore",
+      "sha256": "10c1cbd1aecc18f3a3a5551c6443f2019d1a75fcb854027c4c8bf076305a910f",
+      "size_bytes": 15
+    },
+    {
+      "path": "db/types.xml",
+      "role": "types",
+      "sha256": "26618f8601131414bbd2af65c7591aa426f17126b5fe086838c868e97a011de2",
+      "size_bytes": 377
+    },
+    {
+      "path": "mapgrouppos.xml",
+      "role": "placements",
+      "sha256": "420e865a3c89cf55026a7d6656a9ec89abedd0e7c8735aa76a7167ea6c69d00a",
+      "size_bytes": 268
+    },
+    {
+      "path": "mapgroupproto.xml",
+      "role": "prototypes",
+      "sha256": "1f8b3ea0fb4bc098b7355795f3edf4aed66ab7173b3247e31f8c9fac2e8a7c81",
+      "size_bytes": 550
+    }
+  ],
+  "types": {
+    "catalog_status": "supplied",
+    "entries": 2,
+    "names": [
+      "SyntheticApple",
+      "SyntheticTool"
+    ],
+    "unique_names": 2,
+    "unknown_names": []
+  },
+  "valid": true
+}

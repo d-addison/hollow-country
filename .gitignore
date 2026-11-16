@@ -1,0 +1,51 @@
+# Runtime and machine-specific state
+.env
+.env.*
+!.env.example
+*.key
+*.bikey
+*.pem
+*.pfx
+*.p12
+*.token
+*.secret
+secrets/
+profiles/
+logs/
+*.RPT
+*.ADM
+*.log
+*.mdmp
+*.dmp
+storage_*/
+server_runtime/
+client_runtime/
+project_drive/
+P_Drive/
+third_party/
+workshop_mods/
+steamapps/
+DayZ/
+DayZ_Tools/
+# Generated/binary game artifacts, not source
+*.pbo
+*.bisign
+*.p3d
+*.paa
+*.edds
+*.rvmat
+*.wrp
+*.rap
+# Python and tools
+__pycache__/
+.pytest_cache/
+.venv/
+*.py[cod]
+build/
+dist/
+out/
+# OS and IDE
+.DS_Store
+Thumbs.db
+.vscode/*.log
+.idea/

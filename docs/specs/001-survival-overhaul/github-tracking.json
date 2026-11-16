@@ -1,0 +1,116 @@
+{
+  "repository": "d-addison/hollow-country",
+  "milestones": {
+    "P0": 1,
+    "P1": 2,
+    "P2": 3,
+    "P3": 4,
+    "P4": 5,
+    "P5": 6,
+    "P6": 7,
+    "P7": 8,
+    "P8": 9
+  },
+  "tasks": {
+    "T001": {
+      "number": 1,
+      "url": "https://github.com/d-addison/hollow-country/issues/1"
+    },
+    "T002": {
+      "number": 2,
+      "url": "https://github.com/d-addison/hollow-country/issues/2"
+    },
+    "T003": {
+      "number": 3,
+      "url": "https://github.com/d-addison/hollow-country/issues/3"
+    },
+    "T004": {
+      "number": 4,
+      "url": "https://github.com/d-addison/hollow-country/issues/4"
+    },
+    "T005": {
+      "number": 5,
+      "url": "https://github.com/d-addison/hollow-country/issues/5"
+    },
+    "T006": {
+      "number": 6,
+      "url": "https://github.com/d-addison/hollow-country/issues/6"
+    },
+    "T007": {
+      "number": 7,
+      "url": "https://github.com/d-addison/hollow-country/issues/7"
+    },
+    "T008": {
+      "number": 8,
+      "url": "https://github.com/d-addison/hollow-country/issues/8"
+    },
+    "T009": {
+      "number": 9,
+      "url": "https://github.com/d-addison/hollow-country/issues/9"
+    },
+    "T010": {
+      "number": 10,
+      "url": "https://github.com/d-addison/hollow-country/issues/10"
+    },
+    "T011": {
+      "number": 11,
+      "url": "https://github.com/d-addison/hollow-country/issues/11"
+    },
+    "T012": {
+      "number": 12,
+      "url": "https://github.com/d-addison/hollow-country/issues/12"
+    },
+    "T013": {
+      "number": 13,
+      "url": "https://github.com/d-addison/hollow-country/issues/13"
+    },
+    "T014": {
+      "number": 14,
+      "url": "https://github.com/d-addison/hollow-country/issues/14"
+    },
+    "T015": {
+      "number": 15,
+      "url": "https://github.com/d-addison/hollow-country/issues/15"
+    },
+    "T016": {
+      "number": 16,
+      "url": "https://github.com/d-addison/hollow-country/issues/16"
+    },
+    "T017": {
+      "number": 17,
+      "url": "https://github.com/d-addison/hollow-country/issues/17"
+    },
+    "T018": {
+      "number": 18,
+      "url": "https://github.com/d-addison/hollow-country/issues/18"
+    },
+    "T019": {
+      "number": 19,
+      "url": "https://github.com/d-addison/hollow-country/issues/19"
+    },
+    "T020": {
+      "number": 20,
+      "url": "https://github.com/d-addison/hollow-country/issues/20"
+    },
+    "T021": {
+      "number": 21,
+      "url": "https://github.com/d-addison/hollow-country/issues/21"
+    },
+    "T022": {
+      "number": 22,
+      "url": "https://github.com/d-addison/hollow-country/issues/22"
+    },
+    "T023": {
+      "number": 23,
+      "url": "https://github.com/d-addison/hollow-country/issues/23"
+    },
+    "T024": {
+      "number": 24,
+      "url": "https://github.com/d-addison/hollow-country/issues/24"
+    },
+    "T025": {
+      "number": 25,
+      "url": "https://github.com/d-addison/hollow-country/issues/25"
+    }
+  }
+}

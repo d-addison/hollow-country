@@ -1,0 +1,39 @@
+kind: workflow
+format: banso.workflow/2026-07-31
+name: hollow-country
+description: Hollow Country authored SDD/BDD/TDD workflow; offline gates do not grant game acceptance.
+pipelines:
+  - name: specify
+    phase: spec
+    steps:
+      - name: requirement-integrity
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        capabilities: {sandbox: workspace-write, egress: []}
+  - name: plan
+    phase: plan
+    steps:
+      - name: task-contracts
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: scenario-syntax
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.bdd"
+        capabilities: {sandbox: workspace-write, egress: []}
+  - name: verify-offline
+    phase: verify
+    steps:
+      - name: behavioral-tests
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: executable-scenarios
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.bdd"
+        capabilities: {sandbox: workspace-write, egress: []}
+      - name: windows-setup-static
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools/setup -v"
+        capabilities: {sandbox: workspace-write, egress: []}
+phase_map: {}

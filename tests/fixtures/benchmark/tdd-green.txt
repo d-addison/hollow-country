@@ -1,0 +1,45 @@
+Command: python3 -B -m unittest discover -s tests/unit -p test_benchmark.py -v
+Exit code: 0
+
+test_aggregate_is_mean_paired_percent_not_ratio_of_means (test_benchmark.BenchmarkTests.test_aggregate_is_mean_paired_percent_not_ratio_of_means) ... ok
+test_all_template_fields_required (test_benchmark.BenchmarkTests.test_all_template_fields_required) ... ok
+test_all_three_metrics_gate_in_correct_direction (test_benchmark.BenchmarkTests.test_all_three_metrics_gate_in_correct_direction) ... ok
+test_ambiguous_pairs_require_explicit_pair_id (test_benchmark.BenchmarkTests.test_ambiguous_pairs_require_explicit_pair_id) ... ok
+test_bad_manifest_is_invalid (test_benchmark.BenchmarkTests.test_bad_manifest_is_invalid) ... ok
+test_calibrated_verified_repeated_pairs_pass (test_benchmark.BenchmarkTests.test_calibrated_verified_repeated_pairs_pass) ... ok
+test_counts_integral_and_errors_zero (test_benchmark.BenchmarkTests.test_counts_integral_and_errors_zero) ... ok
+test_duplicate_run_ids_rejected (test_benchmark.BenchmarkTests.test_duplicate_run_ids_rejected) ... ok
+test_empty_and_malformed_csv (test_benchmark.BenchmarkTests.test_empty_and_malformed_csv) ... ok
+test_empty_identity_fields_rejected (test_benchmark.BenchmarkTests.test_empty_identity_fields_rejected) ... ok
+test_extreme_finite_values_do_not_emit_nonfinite_json (test_benchmark.BenchmarkTests.test_extreme_finite_values_do_not_emit_nonfinite_json) ... ok
+test_frame_and_fps_metrics_strictly_positive (test_benchmark.BenchmarkTests.test_frame_and_fps_metrics_strictly_positive) ... ok
+test_git_commits_must_differ (test_benchmark.BenchmarkTests.test_git_commits_must_differ) ... ok
+test_improvements_and_exact_threshold_pass (test_benchmark.BenchmarkTests.test_improvements_and_exact_threshold_pass) ... ok
+test_incomplete_manifest_prevents_acceptance (test_benchmark.BenchmarkTests.test_incomplete_manifest_prevents_acceptance) ... ok
+test_invalid_context_values (test_benchmark.BenchmarkTests.test_invalid_context_values) ... ok
+test_invalid_thresholds (test_benchmark.BenchmarkTests.test_invalid_thresholds) ... ok
+test_large_values_have_safe_means (test_benchmark.BenchmarkTests.test_large_values_have_safe_means) ... ok
+test_manifest_context_mismatch_is_invalid (test_benchmark.BenchmarkTests.test_manifest_context_mismatch_is_invalid) ... ok
+test_manifest_overrides (test_benchmark.BenchmarkTests.test_manifest_overrides) ... ok
+test_missing_csv_is_invalid (test_benchmark.BenchmarkTests.test_missing_csv_is_invalid) ... ok
+test_missing_explicit_manifest_is_invalid (test_benchmark.BenchmarkTests.test_missing_explicit_manifest_is_invalid) ... ok
+test_missing_manifests_is_unverified_incomplete (test_benchmark.BenchmarkTests.test_missing_manifests_is_unverified_incomplete) ... ok
+test_missing_prerequisites_take_precedence_over_regression (test_benchmark.BenchmarkTests.test_missing_prerequisites_take_precedence_over_regression) ... ok
+test_mixed_commits_rejected (test_benchmark.BenchmarkTests.test_mixed_commits_rejected) ... ok
+test_module_importable (test_benchmark.BenchmarkTests.test_module_importable) ... ok
+test_no_threshold_is_incomplete (test_benchmark.BenchmarkTests.test_no_threshold_is_incomplete) ... ok
+test_numeric_values_finite_nonnegative (test_benchmark.BenchmarkTests.test_numeric_values_finite_nonnegative) ... ok
+test_object_count_change_requires_switch_and_is_reported (test_benchmark.BenchmarkTests.test_object_count_change_requires_switch_and_is_reported) ... ok
+test_one_missing_manifest_prevents_acceptance (test_benchmark.BenchmarkTests.test_one_missing_manifest_prevents_acceptance) ... ok
+test_output_cannot_overwrite_evidence (test_benchmark.BenchmarkTests.test_output_cannot_overwrite_evidence) ... ok
+test_output_file_matches_stdout (test_benchmark.BenchmarkTests.test_output_file_matches_stdout) ... ok
+test_pairing_context_must_match (test_benchmark.BenchmarkTests.test_pairing_context_must_match) ... ok
+test_reordered_rows_pair_by_context (test_benchmark.BenchmarkTests.test_reordered_rows_pair_by_context) ... ok
+test_scenarios_are_aggregated_separately (test_benchmark.BenchmarkTests.test_scenarios_are_aggregated_separately) ... ok
+test_single_pair_per_group_is_incomplete (test_benchmark.BenchmarkTests.test_single_pair_per_group_is_incomplete) ... ok
+test_unmatched_runs_rejected (test_benchmark.BenchmarkTests.test_unmatched_runs_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 37 tests in 4.866s
+
+OK

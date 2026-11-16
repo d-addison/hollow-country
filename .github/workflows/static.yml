@@ -1,0 +1,29 @@
+name: Static research tooling
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: static-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: TDD behavior suites
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s tests/unit -v
+      - name: SDD requirement and task integrity
+        run: python3 -B -m tools.validate.project
+      - name: Windows setup static checks (no native execution)
+        run: python3 -B -m unittest discover -s tools/setup -v
+      - name: Executable offline BDD bindings
+        run: python3 -B -m tools.validate.bdd

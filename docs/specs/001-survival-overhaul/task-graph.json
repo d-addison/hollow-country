@@ -1,0 +1,1537 @@
+{
+  "schema_kind": "banso.task_graph",
+  "schema_version": "3.0.0",
+  "feature": "001-survival-overhaul",
+  "description": "Complete P0\u2013P8 roadmap; not a blanket live dispatch authorization. Runtime leaves wait for evidence gates.",
+  "nodes": [
+    {
+      "id": "T001",
+      "title": "P0: Private source, confirmed decisions and lossless traceability",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T001",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Private source, confirmed decisions and lossless traceability",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-001: All confirmed requirements and catalog tests mapped; private repository verified; no assets/secrets committed"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "docs/specs/001-survival-overhaul/spec.md",
+          "docs/specs/001-survival-overhaul/traceability.json"
+        ],
+        "creates": [],
+        "traces": [
+          "AC-001",
+          "NET-008"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T002",
+      "title": "P0: Inventory local official binaries, host and sources",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T002",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Inventory local official binaries, host and sources",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-002: Exact client/server/Tools versions and paths, actual OS/hardware, source pins; missing installs explicit"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "research/P0-build-inventory.md"
+        ],
+        "creates": [],
+        "traces": [
+          "AC-002",
+          "CE-001"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T003",
+      "title": "P0: Install official Tools and Server; vanilla local join",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T003",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Install official Tools and Server; vanilla local join",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-002: Vanilla Chernarus local join, respawn, inventory, reconnect and persistence restart observed with logs"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/P0-server-launch.md"
+        ],
+        "traces": [
+          "AC-002",
+          "NET-004",
+          "NET-005"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T004",
+      "title": "P0: Diagnostic hello-world, official package and signature smoke test",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T004",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Diagnostic hello-world, official package and signature smoke test",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-002: Inspect current scripts, verify diagnostic hook then signed PBO in normal client/server, record hashes; no unproven API"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/P0-first-mod.md",
+          "mods/Smoke/config.cpp",
+          "mods/Smoke/scripts/5_Mission/HCSmoke.c"
+        ],
+        "traces": [
+          "AC-002",
+          "NET-006",
+          "NET-008"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T005",
+      "title": "P0: Native baseline fixtures and 3\u20136-player budget calibration",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T005",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Native baseline fixtures and 3\u20136-player budget calibration",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-009: Verified building fixtures, controlled repeated warm/cold runs, host contention, proposed p95/p99/client budgets approved"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/P0-baseline.md",
+          "metrics/baseline.csv"
+        ],
+        "traces": [
+          "AC-009",
+          "CE-001",
+          "AI-001",
+          "AUD-001"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T006",
+      "title": "P0: TDD native CE offline audit and modular input validation",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T006",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "TDD native CE offline audit and modular input validation",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-003: Recorded red/green; malformed/duplicate/nonfinite/negative inputs rejected; raw point/placement counts and hashes; no engine eligibility claim"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "tools/audit/ce_audit.py",
+          "tests/unit/test_ce_audit.py"
+        ],
+        "creates": [],
+        "traces": [
+          "AC-003",
+          "CE-001",
+          "CE-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T007",
+      "title": "P0: TDD repeated paired benchmark comparator",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T007",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "TDD repeated paired benchmark comparator",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-009: Recorded red/green; incompatible evidence rejected; p95/p99 and client lows checked; missing calibrated thresholds/manifests INCOMPLETE"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "tools/benchmark/compare.py",
+          "tests/unit/test_benchmark.py"
+        ],
+        "creates": [],
+        "traces": [
+          "AC-009",
+          "HOR-008"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T008",
+      "title": "P0: TDD evidence promotion validator",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T008",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "TDD evidence promotion validator",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-010: Recorded red/green; runtime promotions require build/method/artifact hashes, two-client and performance evidence; missing/tampered files fail"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "tools/validate/evidence.py",
+          "tests/unit/test_evidence.py"
+        ],
+        "creates": [],
+        "traces": [
+          "AC-010",
+          "NET-006"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T009",
+      "title": "P0: Spec/task integrity, executable offline BDD and static CI",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T009",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Spec/task integrity, executable offline BDD and static CI",
+        "context": "Read spec.md, handoff and P0 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-012: Unmapped IDs/cycles fail, all behavior bindings execute; Banso spec/plan/task/BDD checks run; inexpensive static CI excludes game builds"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "tools/validate/project.py",
+          "tests/unit/test_project_contract.py",
+          "tests/features/offline.feature",
+          ".github/workflows/static.yml"
+        ],
+        "creates": [],
+        "traces": [
+          "AC-012",
+          "NET-008"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P0",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T010",
+      "title": "P1: Audit actual CE snapshot and identify apartment/barracks",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T010",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Audit actual CE snapshot and identify apartment/barracks",
+        "context": "Read spec.md, handoff and P1 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-004: Pinned local source hashes, exact classes/positions and eligible point evidence; zero raw points not mistaken for verified no-loot"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-CE-coverage.md",
+          "metrics/building_coverage.csv"
+        ],
+        "traces": [
+          "AC-004",
+          "CE-001",
+          "CE-003",
+          "CE-004",
+          "CE-012"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P1",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T011",
+      "title": "P1: Minimal supported CE coverage fix and controlled comparison",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T011",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Minimal supported CE coverage fix and controlled comparison",
+        "context": "Read spec.md, handoff and P1 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-004: Observed correct override/point update mechanism, valid placements and zero CE errors; backup/rollback and matched benchmark"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mission/hollow-country/README.md",
+          "research/experiments/EXP-CE-override.md",
+          "mission/hollow-country/ce/coverage.xml",
+          "mission/hollow-country/cfgeconomycore.xml"
+        ],
+        "traces": [
+          "AC-004",
+          "CE-002",
+          "CE-003",
+          "CE-004",
+          "CE-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P1",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T012",
+      "title": "P3: Contextual economy routes and conservative budgets",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T012",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Contextual economy routes and conservative budgets",
+        "context": "Read spec.md, handoff and P3 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-004: Essentials have two credible routes; soft high-tier exceptions, diversity and world counts measured; tune rates only after baseline"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-loot-balance.md",
+          "metrics/loot_routes.csv",
+          "mission/hollow-country/ce/types.xml"
+        ],
+        "traces": [
+          "AC-004",
+          "CE-005",
+          "CE-006",
+          "CE-007",
+          "CE-008",
+          "CE-009",
+          "CE-012"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P3",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T013",
+      "title": "P2: Native object and furniture targeting feasibility",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T013",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Native object and furniture targeting feasibility",
+        "context": "Read spec.md, handoff and P2 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-005: One verified house, safe asset catalog, target/proxy feasibility and 0/5/10/20 prop sweep; no blocked doors/nav regression"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-interior-feasibility.md"
+        ],
+        "traces": [
+          "AC-005",
+          "INT-004",
+          "INT-005",
+          "INT-008",
+          "INT-010",
+          "INT-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P2",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T014",
+      "title": "P2: Stable building identity and three persistent layouts",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T014",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Stable building identity and three persistent layouts",
+        "context": "Read spec.md, handoff and P2 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-005: Three layouts/two histories for tested class, deterministic instance IDs with collision handling; restart/migration idempotence and two-client sync"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Interiors/README.md",
+          "research/experiments/EXP-layout-persistence.md",
+          "mods/Interiors/config.cpp",
+          "mods/Interiors/scripts/4_World/HCLayouts.c"
+        ],
+        "traces": [
+          "AC-005",
+          "INT-001",
+          "INT-002",
+          "INT-004",
+          "INT-005",
+          "INT-006",
+          "INT-009",
+          "INT-010",
+          "INT-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P2",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T015",
+      "title": "P3: Server search allocation and crash-safe depletion",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T015",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Server search allocation and crash-safe depletion",
+        "context": "Read spec.md, handoff and P3 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-005: Server range/LOS/item whitelist, quota and depletion journal; two-client same-site retry/crash/full inventory no duplication; no drawer refill"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Interiors/SEARCH.md",
+          "research/experiments/EXP-search-transaction.md",
+          "mods/Interiors/scripts/4_World/HCSearch.c"
+        ],
+        "traces": [
+          "AC-005",
+          "INT-003",
+          "INT-006",
+          "INT-007",
+          "INT-008",
+          "CE-009",
+          "CE-010",
+          "NET-001",
+          "NET-002",
+          "NET-003",
+          "NET-005",
+          "NET-007"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P3",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T016",
+      "title": "P4: Vanilla recipe audit and three salvage pilot definitions",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T016",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Vanilla recipe audit and three salvage pilot definitions",
+        "context": "Read spec.md, handoff and P4 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-006: Avoid duplicate vanilla recipes; three useful permitted pilots including camo-net feasibility; typed material and wear ledger, no positive resource cycles"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-salvage-feasibility.md"
+        ],
+        "traces": [
+          "AC-006",
+          "CRF-001",
+          "CRF-006",
+          "CRF-007"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P4",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T017",
+      "title": "P4: Native authoritative salvage implementation",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T017",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Native authoritative salvage implementation",
+        "context": "Read spec.md, handoff and P4 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-006: Inspect native transaction semantics before atomicity design; cancellation/death/disconnect/tool wear/full inventory and two-client races all observed"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Crafting/README.md",
+          "research/experiments/EXP-salvage-transaction.md",
+          "mods/Crafting/config.cpp",
+          "mods/Crafting/scripts/4_World/HCSalvage.c"
+        ],
+        "traces": [
+          "AC-006",
+          "CRF-001",
+          "CRF-002",
+          "CRF-003",
+          "CRF-004",
+          "CRF-005",
+          "CRF-006",
+          "CRF-007",
+          "NET-001",
+          "NET-002",
+          "NET-003",
+          "NET-007"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P4",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T018",
+      "title": "P5: Risk-first native AI doorway/LOS/door/audio/injury experiments",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T018",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Risk-first native AI doorway/LOS/door/audio/injury experiments",
+        "context": "Read spec.md, handoff and P5 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-007: Timebox 100 doorway trials where practical, two-client audio surfaces, current hooks/hitpoints; document inherited bugs, no speculative fix"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-AI-native.md"
+        ],
+        "traces": [
+          "AC-007",
+          "AI-001",
+          "AI-003",
+          "AI-008",
+          "AI-010",
+          "AI-011",
+          "AUD-001",
+          "AUD-002",
+          "AUD-003",
+          "AUD-007"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P5",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T019",
+      "title": "P5: Smallest proven competence and injury corrections",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T019",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Smallest proven competence and injury corrections",
+        "context": "Read spec.md, handoff and P5 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-007: Evidence-backed hooks, actual contacts and lock policy; bounded fallback; never teleport or bypass collisions; native control unregressed"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Infected/COMPETENCE.md",
+          "research/experiments/EXP-AI-competence.md",
+          "mods/Infected/config.cpp",
+          "mods/Infected/scripts/4_World/HCCompetence.c"
+        ],
+        "traces": [
+          "AC-007",
+          "AI-001",
+          "AI-002",
+          "AI-003",
+          "AI-008",
+          "AI-010",
+          "AI-011",
+          "AI-012",
+          "AUD-005",
+          "AUD-006"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P5",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T020",
+      "title": "P6: Observed-memory investigation and two variant trade-offs",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T020",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Observed-memory investigation and two variant trade-offs",
+        "context": "Read spec.md, handoff and P6 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-007: Last observed clues expire; reachable room anchors and bounded retries; player can escape; slower stalker remains audible to two clients; reject blanket health/damage inflation, sample variable densities below cap, verify recognizable variant appearance and location tendencies against native controls"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Infected/INVESTIGATION.md",
+          "research/experiments/EXP-AI-search.md",
+          "mods/Infected/scripts/4_World/HCInvestigation.c"
+        ],
+        "traces": [
+          "AC-007",
+          "AI-004",
+          "AI-005",
+          "AI-006",
+          "AI-007",
+          "AI-009",
+          "AI-012",
+          "AUD-001",
+          "AUD-002",
+          "AUD-003",
+          "AUD-004",
+          "AUD-006"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P6",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T021",
+      "title": "P7: Native-first local audible chains with bounded propagation",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T021",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Native-first local audible chains with bounded propagation",
+        "context": "Read spec.md, handoff and P7 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-008: Native hearing first; real audible provenance, spatial nearby query, TTL/hops/attenuation/dedupe/cooldown/rate/queue caps; no hidden coordinates"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Infected/ALERTS.md",
+          "research/experiments/EXP-alert-chain.md",
+          "mods/Infected/scripts/4_World/HCAlerts.c"
+        ],
+        "traces": [
+          "AC-008",
+          "HOR-001",
+          "HOR-002",
+          "HOR-003",
+          "HOR-008",
+          "HOR-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P7",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T022",
+      "title": "P7: Persistent horde accounting and safe activation",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T022",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Persistent horde accounting and safe activation",
+        "context": "Read spec.md, handoff and P7 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-008: Finite shared CE budget, persistent identity/epoch/member reconciliation, reachable routes, two-observer safe activation and hysteresis, no duplicate or visible spawning"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "mods/Infected/HORDES.md",
+          "research/experiments/EXP-horde-lifecycle.md",
+          "mods/Infected/scripts/4_World/HCHordes.c"
+        ],
+        "traces": [
+          "AC-008",
+          "HOR-004",
+          "HOR-005",
+          "HOR-006",
+          "HOR-007",
+          "HOR-008",
+          "HOR-009",
+          "HOR-010",
+          "HOR-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P7",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T023",
+      "title": "P8: Combined modules, authority, migration and adversarial regression",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T023",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Combined modules, authority, migration and adversarial regression",
+        "context": "Read spec.md, handoff and P8 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-011: Individual and combined flags, malformed RPC, late join/crash/restart, corruption/migration/backup and throttling tests; all original test catalog covered"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-integration.md"
+        ],
+        "traces": [
+          "AC-011",
+          "NET-001",
+          "NET-002",
+          "NET-003",
+          "NET-004",
+          "NET-005",
+          "NET-006",
+          "NET-007",
+          "NET-008"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P8",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T024",
+      "title": "P8: Paired performance, endurance and destination capacity",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T024",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Paired performance, endurance and destination capacity",
+        "context": "Read spec.md, handoff and P8 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-009: Repeat controlled runs at 3\u20136-player intended load; p95/p99/client lows/memory/net/write slopes pass calibrated budgets; record host contention and friend hardware recheck"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [],
+        "creates": [
+          "research/experiments/EXP-performance.md",
+          "metrics/candidate.csv"
+        ],
+        "traces": [
+          "AC-009",
+          "HOR-008",
+          "HOR-011"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P8",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    },
+    {
+      "id": "T025",
+      "title": "P8: Signed private handoff, install, clean rollback and legal inventory",
+      "kind": "task",
+      "dispatch": "agent",
+      "lineage": {
+        "origin_task_id": "T025",
+        "depth": 0,
+        "created_by": "author",
+        "generation": 0
+      },
+      "scope": {
+        "objective": "Signed private handoff, install, clean rollback and legal inventory",
+        "context": "Read spec.md, handoff and P8 gate; TDD/SDD/BDD required. Do not implement against unobserved engine APIs.",
+        "acceptance_criteria": [
+          "AC-011: Pinned package hashes/signatures, no assets or secrets; friend OS/build verified, save backup, install/join/restart and rollback exercised; no public release"
+        ]
+      },
+      "contract": {
+        "reads": [
+          "docs/SPECIFICATION.md",
+          "docs/TESTING_PERFORMANCE.md"
+        ],
+        "modifies": [
+          "docs/TRANSFER_AND_ROLLBACK.md"
+        ],
+        "creates": [
+          "research/experiments/EXP-transfer.md"
+        ],
+        "traces": [
+          "AC-011",
+          "NET-005",
+          "NET-006",
+          "NET-008"
+        ],
+        "verify_commands": [
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v",
+          "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.project"
+        ]
+      },
+      "must_not": [
+        "Claim offline checks prove DayZ behavior",
+        "Bundle proprietary game assets or secrets",
+        "Advance without prerequisite runtime evidence"
+      ],
+      "tags": [
+        "#phase:P8",
+        "#method:tdd",
+        "#method:sdd",
+        "#method:bdd"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "T001",
+      "to": "T002",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T002",
+      "to": "T003",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T003",
+      "to": "T004",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T003",
+      "to": "T005",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T001",
+      "to": "T006",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T001",
+      "to": "T007",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T001",
+      "to": "T008",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T006",
+      "to": "T009",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T007",
+      "to": "T009",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T008",
+      "to": "T009",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T004",
+      "to": "T010",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T005",
+      "to": "T010",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T006",
+      "to": "T010",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T010",
+      "to": "T011",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T011",
+      "to": "T012",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T004",
+      "to": "T013",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T005",
+      "to": "T013",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T013",
+      "to": "T014",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T012",
+      "to": "T015",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T014",
+      "to": "T015",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T008",
+      "to": "T015",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T004",
+      "to": "T016",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T016",
+      "to": "T017",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T008",
+      "to": "T017",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T004",
+      "to": "T018",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T005",
+      "to": "T018",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T018",
+      "to": "T019",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T019",
+      "to": "T020",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T018",
+      "to": "T021",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T020",
+      "to": "T021",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T020",
+      "to": "T022",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T021",
+      "to": "T022",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T015",
+      "to": "T023",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T017",
+      "to": "T023",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T022",
+      "to": "T023",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T023",
+      "to": "T024",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T007",
+      "to": "T024",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T023",
+      "to": "T025",
+      "kind": "depends_on"
+    },
+    {
+      "from": "T024",
+      "to": "T025",
+      "kind": "depends_on"
+    }
+  ]
+}
