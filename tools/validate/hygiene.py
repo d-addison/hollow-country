@@ -36,9 +36,7 @@ MAX_DISCOVERY_BYTES = 2 * 1024 * 1024
 MAX_FILE_BYTES = 8 * 1024 * 1024
 MAX_TOTAL_BYTES = 64 * 1024 * 1024
 REQUIRED_DOCUMENTS = (
-    "AGENTS.md", "README.md", "LICENSE.md", "docs/SPECIFICATION.md",
-    "docs/specs/001-survival-overhaul/spec.md", "docs/SOURCES.md",
-    "docs/DECISIONS_AND_RISKS.md", "docs/MODULE_STATUS.md",
+    "README.md", "LICENSE.md", "docs/SOURCES.md", "docs/MODULE_STATUS.md",
     "docs/PROVENANCE_AND_LICENSES.md",
 )
 _PRIVATE_SUFFIXES = {

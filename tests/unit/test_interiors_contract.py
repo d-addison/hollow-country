@@ -115,8 +115,8 @@ class InteriorsContractTests(unittest.TestCase):
             self.assertNotRegex(code, r"\b(?:int|Object)\s+owned\b", path.name)
 
     def test_native_compiler_reported_type_names_are_not_interior_identifiers(self):
-        evidence = json.loads((FIX.parent / "interiors-completion-native-inspection.json").read_text())
-        reserved = set(evidence["reported_native_types"])
+        # Native names protected by this regression; raw compiler logs stay local.
+        reserved = {"World", "Slot"}
         for path in SRC.glob("*.c"):
             declarations = re.findall(r"^\s*(?:(?:protected|static|const|ref)\s+)*\w+(?:<[^;\n]+>)?\s+(\w+)\s*(?:[;=]|\()", path.read_text(), re.M)
             self.assertFalse(reserved.intersection(declarations), path.name)

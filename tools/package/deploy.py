@@ -169,7 +169,7 @@ def _names(directory):
 def _root(destination):
     root = _safe(destination, directory=True)
     source = Path(__file__).absolute().parents[2]
-    if root == Path(root.anchor) or (source / 'AGENTS.md').exists() and (
+    if root == Path(root.anchor) or (source / 'mods/HollowCountry/config.cpp').is_file() and (
             root == source or source in root.parents or root in source.parents):
         raise ValueError('destination must be outside source/root directories')
     for part in (root, *root.parents):

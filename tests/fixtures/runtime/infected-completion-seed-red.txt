@@ -1,7 +1,0 @@
-Command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_infected_completion.py -v
-Actual result before seed provenance fix: exit 1; Ran 13 tests in 0.018s;
-FAILED (failures=1).
-test_seed_cannot_investigate_its_own_voice_or_seed_from_calm_noise failed:
-actor.HeardExternally = false was absent. The first source version lacked an
-explicit distinction between a seed's self-dedupe clue and external hearing.
-The fix also refuses calm ambient voices as new alarm roots.

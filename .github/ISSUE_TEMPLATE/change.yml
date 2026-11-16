@@ -12,7 +12,7 @@ body:
     id: traceability
     attributes:
       label: Affected requirements, tasks and milestones
-      description: Link spec/plan/ADR updates and prerequisite evidence; preserve deferred requirements.
+      description: Link affected issues, component documentation and prerequisite evidence; keep internal planning files local.
     validations:
       required: true
   - type: textarea

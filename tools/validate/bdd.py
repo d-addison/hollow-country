@@ -97,10 +97,6 @@ BINDINGS = {
         ("Given synthetic capability manifests and hashed artifact files",
          "When the evidence behavior tests execute",
          "Then missing runtime proof and tampered artifacts prevent promotion"), "test_evidence.py"),
-    "Reject dropped requirements and cyclic tasks": (
-        ("Given authored requirement mappings and task dependencies",
-         "When the project contract behavior tests execute",
-         "Then unmapped obligations and dependency cycles fail admission"), "test_project_contract.py"),
 }
 
 

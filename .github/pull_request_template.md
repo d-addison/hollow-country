@@ -1,5 +1,5 @@
 Describe the concrete problem and resulting behavior. Link the tracking issue,
-requirement/AC IDs and spec/plan changes.
+acceptance criteria and affected component documentation.
 
 Validation: actual red/green commands, relevant regressions, native build and
 artifact hashes where required. Identify runtime checks still pending; offline

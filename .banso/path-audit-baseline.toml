@@ -1,2 +1,0 @@
-# No path-portability debt is accepted. Any new hard finding fails verification.
-allow = []

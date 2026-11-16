@@ -148,9 +148,13 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False):
+    if native_actor_direct and native_autotest_scripts is None:
+        raise ValueError('direct actor requires native script interfaces')
     if diagnostic_selftests and not diagnostic:
         raise ValueError('selftests require explicit diagnostic server mode')
+    if native_autotest_scripts is not None and (not diagnostic or diagnostic_selftests):
+        raise ValueError('native autotest requires diagnostic mode and one mission hook')
     if not 15 <= seconds <= 300:
         raise ValueError('probe duration must be 15..300 seconds')
     if not 0 <= hold_seconds <= 240 or hold_seconds >= seconds:
@@ -215,6 +219,15 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         mission = experiment / 'diagnostic.chernarusplus'
         diagnostic_mission = prepare_diagnostic_mission(root / 'mpmissions/dayzOffline.chernarusplus', mission)
         command.append('-mission=' + win(mission))
+    if native_autotest_scripts is not None:
+        from tools.testing.native_autotest import prepare_autotest
+        mission = experiment / 'native.chernarusplus'
+        diagnostic_mission = prepare_autotest(root / 'mpmissions/dayzOffline.chernarusplus', mission,
+                                               native_autotest_scripts, x=autotest_x, z=autotest_z,
+                                               mode='direct-actor' if native_actor_direct else 'harness')
+        command.append('-mission=' + win(mission))
+        if not native_actor_direct:
+            command.append('-autotest=' + win(mission / 'hc-autotest.json'))
     env = dict(os.environ, WINEPREFIX=str(prefix), WINEARCH='win64', WINEDEBUG='-all')
     report = {'schema': 1, 'environment': 'actual-DayZ-server-under-Wine',
               'runtime_acceptance': 'pending', 'signature_verified': False,
@@ -226,6 +239,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['config_sha256'] = hashlib.sha256(config.read_bytes()).hexdigest()
     report['executable_kind'] = 'diagnostic-server' if diagnostic else 'dedicated-server'
     report['diagnostic_mission'] = diagnostic_mission
+    report['native_autotest_observation'] = 'not-run'
     report['settings_sha256'] = hashlib.sha256(settings_blob).hexdigest() if settings_blob is not None else None
     report['negative_settings_experiment'] = settings_case
     report['state_seed_sha256'] = {name: hashlib.sha256(data).hexdigest() for name, data in seeds.items()}
@@ -239,9 +253,27 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             report['launcher_pid'] = process.pid
             deadline = time.monotonic() + seconds
             initialized_at = None
+            saw_engine_error = False
             while time.monotonic() < deadline:
                 text, _, _ = collect_logs(profiles)
                 result = classify(text)
+                if native_autotest_scripts is not None:
+                    saw_engine_error = saw_engine_error or result == 'compiler-error'
+                    if time.monotonic() >= deadline:
+                        break
+                    if ('[HC Native Actor] FAIL' if native_actor_direct else '[HC Native Autotest] FAIL') in text:
+                        report['native_autotest_observation'] = 'FAIL-marker'
+                        report['status'] = 'compiler-error' if saw_engine_error else 'native-autotest-failed'
+                        break
+                    if ('[HC Native Actor] PASS authored assertions; not native harness acceptance' if native_actor_direct else '[HC Native Autotest] PASS; XML and logs still require verification') in text:
+                        report['native_autotest_observation'] = 'PASS-marker; receipt verification required' if native_actor_direct else 'PASS-marker; XML verification required'
+                        report['status'] = 'compiler-error' if saw_engine_error else 'native-autotest-completed'
+                        break
+                    if process.poll() is not None:
+                        report['status'] = 'compiler-error' if saw_engine_error else 'exited-before-native-autotest-completion'
+                        break
+                    time.sleep(1)
+                    continue
                 if result == 'initialized':
                     # Reading bounded logs can still cross the wall-clock limit;
                     # a historical marker cannot prove the launcher remains live.
@@ -284,12 +316,16 @@ def main():
     parser.add_argument('--state-seed', type=Path)
     parser.add_argument('--diagnostic', action='store_true', help='use explicitly staged DayZDiag_x64.exe in server mode')
     parser.add_argument('--diagnostic-selftests', action='store_true', help='instrument a fresh disposable mission for native scalar/storage probes')
+    parser.add_argument('--native-autotest-scripts', type=Path, help='installed extracted script interfaces for a fresh native TestHarness mission')
+    parser.add_argument('--autotest-x', type=float, default=6500)
+    parser.add_argument('--autotest-z', type=float, default=6500)
+    parser.add_argument('--native-actor-direct', action='store_true', help='use authored direct actor assertions rather than native TestHarness')
     setting_options = parser.add_mutually_exclusive_group()
     setting_options.add_argument('--settings', type=Path)
     setting_options.add_argument('--settings-case', choices=['malformed-json', 'oversized', 'unsupported-schema'])
     args = parser.parse_args()
     try:
-        report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests)
+        report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct)
         print(json.dumps(report, indent=2))
         expected = 'settings-rejected' if args.settings_case else 'initialized'
         return 0 if report['status'] == expected and report.get('settings_original_preserved', True) else 1

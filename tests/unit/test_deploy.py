@@ -76,6 +76,19 @@ class DeploymentBehavior(unittest.TestCase):
             self.assertEqual(self.installed(), {n: archive.read(n) for n in archive.namelist()})
         self.assert_profiles()
 
+    def test_source_export_without_agent_metadata_is_not_a_runtime_destination(self):
+        source = self.root / 'synthetic-source-export'
+        module = source / 'tools/package/deploy.py'
+        module.parent.mkdir(parents=True)
+        module.write_text('# synthetic exported helper')
+        marker = source / 'mods/HollowCountry/config.cpp'
+        marker.parent.mkdir(parents=True)
+        marker.write_text('// synthetic authored addon')
+        with patch.object(deploy, '__file__', str(module)):
+            for target in (source, module.parent, self.root):
+                with self.subTest(target=target), self.assertRaisesRegex(ValueError, 'source/root'):
+                    deploy._root(target)
+
     def test_native_short_name_parent_allows_exact_install_and_rollback(self):
         # Hosted Windows uses RUNNER~1 in TEMP. Host paths are not PBO members.
         short = self.root / 'RUNNER~1'

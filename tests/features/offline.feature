@@ -92,12 +92,6 @@ Feature: Research tooling preserves honest evidence
     When the evidence behavior tests execute
     Then missing runtime proof and tampered artifacts prevent promotion
 
-  @AC-001
-  Scenario: Reject dropped requirements and cyclic tasks
-    Given authored requirement mappings and task dependencies
-    When the project contract behavior tests execute
-    Then unmapped obligations and dependency cycles fail admission
-
   @AC-011
   Scenario: Admit bounded operator settings before native execution
     Given authored settings with default-off features and bounded work limits

@@ -95,6 +95,44 @@ class MockedWineRunTests(unittest.TestCase):
             self.run_mocked(diagnostic_selftests=True)
         self.assertFalse(self.experiment.exists())
 
+    def test_native_autotest_waits_for_real_completion_and_keeps_engine_error(self):
+        (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
+        def prepare(source, destination, scripts, **kwargs):
+            destination.mkdir()
+            (destination / 'init.c').write_bytes(b'// synthetic native adapter boundary')
+            return {'kind': 'synthetic-test-only', 'generated': {}}
+        def frames(now):
+            return ('SCRIPT (E): native plugin error\n[HollowCountry] Server initialized;\n' +
+                    ('[HC Native Autotest] PASS; XML and logs still require verification' if now >= 3 else ''))
+        with patch('tools.testing.native_autotest.prepare_autotest', side_effect=prepare):
+            report = self.run_mocked(frames, diagnostic=True, native_autotest_scripts=self.root / 'interfaces')
+        self.assertEqual(self.now, 3)
+        self.assertEqual(report['status'], 'compiler-error')
+        self.assertEqual(report['native_autotest_observation'], 'PASS-marker; XML verification required')
+        self.assertIn('-mission=' + probe.win(self.experiment / 'native.chernarusplus'), self.launch.call_args.args[0])
+        self.assertIn('-autotest=' + probe.win(self.experiment / 'native.chernarusplus/hc-autotest.json'), self.launch.call_args.args[0])
+        self.assert_cleaned_report(report)
+
+    def test_direct_actor_uses_authored_runner_without_native_harness_flag(self):
+        (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
+        def prepare(source, destination, scripts, **kwargs):
+            self.assertEqual(kwargs['mode'], 'direct-actor')
+            destination.mkdir()
+            return {'kind': 'synthetic-test-only'}
+        with patch('tools.testing.native_autotest.prepare_autotest', side_effect=prepare):
+            report = self.run_mocked(lambda now: '[HC Native Actor] PASS authored assertions; not native harness acceptance',
+                                     diagnostic=True, native_autotest_scripts=self.root / 'interfaces',
+                                     native_actor_direct=True)
+        self.assertEqual(report['native_autotest_observation'], 'PASS-marker; receipt verification required')
+        self.assertFalse(any(arg.startswith('-autotest=') for arg in self.launch.call_args.args[0]))
+        self.assert_cleaned_report(report)
+
+    def test_native_autotest_cannot_use_normal_server_or_two_mission_hooks(self):
+        for kwargs in ({'diagnostic': False}, {'diagnostic': True, 'diagnostic_selftests': True}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                self.run_mocked(native_autotest_scripts=self.root / 'interfaces', **kwargs)
+            self.assertFalse(self.experiment.exists())
+
     def test_selftests_stage_separate_mission_and_preserve_native_error(self):
         (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
         stock = self.server / 'mpmissions/dayzOffline.chernarusplus/init.c'

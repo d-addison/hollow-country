@@ -3,8 +3,8 @@
 All runtime acceptance is pending. This package contains original code/config,
 operator defaults and tooling, with no game assets, vanilla mission dump or keys.
 Install DayZ/DayZ Server/DayZ Tools independently through Steam. Use a disposable
-private local mission/profile/storage copy before the eventual friend's server.
-The intended load is 3–6 players; budgets have not been calibrated.
+local mission/profile/storage copy before production installation.
+Performance budgets require calibration at the workload being qualified.
 
 ## Package and mod installation
 
@@ -94,7 +94,7 @@ Run `tools/package/Invoke-NativeSmoke.ps1` in native Windows PowerShell with a
 fresh external RuntimeRoot and the built PBO. It launches the installed server
 on loopback, bounds the observation, records compiler errors/hashes and looks for
 the core initialization log marker. Unsigned smoke uses verifySignatures=0 and
-BattlEye=0 strictly for the fresh disposable runtime, never a friend/live server.
+BattlEye=0 strictly for the fresh disposable runtime, never a live server.
 It requests gameplay binding to 127.0.0.1; Steam query can bind 0.0.0.0. This is
 not process-wide network isolation. PID-owned UDP/TCP socket observations and
 query errors are recorded. The default observation window is 180 seconds. It stops its own process
@@ -105,8 +105,8 @@ Use Build-Sign-Verify.ps1 with external private/public keys for the official
 DSSignFile and DSCheckSignatures pipeline. Only the public .bikey belongs on the
 server in keys; .bisign stays beside its PBO. Never transfer the private key.
 A signature still leaves normal client/server load, DayZDiag, two-client races/
-audio/visibility, restart/persistence, CE eligibility and matched 3–6-player
-benchmarks pending. The friend's host requires its own final install/join test.
+audio/visibility, restart/persistence, CE eligibility and representative workload
+benchmarks pending. Each destination requires its own final install/join test.
 
 ## Rollback
 

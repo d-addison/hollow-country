@@ -24,24 +24,23 @@ Unknown native behavior must be tested on an isolated profile and storage copy.
 
 ## Validation order
 
-1. Run unit tests, operator settings admission, project integrity and executable
+1. Run unit tests, operator settings admission, repository hygiene and executable
    offline BDD. These validate authored policies, data and tooling.
 2. Build with the installed official Tools; load the addon into DayZDiag and a
    normal dedicated server. Capture exact build/source/package hashes, compiler
    output and native self-test logs. A PBO container checksum is not a signature.
-3. Test individual features, then combined flags, against the catalog in
-   [TESTING_PERFORMANCE.md](TESTING_PERFORMANCE.md). Include malformed inputs,
+3. Test individual features, then combined flags, against their tracked issue
+   acceptance criteria. Include malformed inputs,
    cancellation, full inventories, concurrency, crash/restart and save recovery.
 4. Use two real clients for replication, authority, visibility and sound, then
-   measure the intended 3–6-player load against calibrated performance budgets.
+   measure representative workloads against calibrated performance budgets.
 5. Sign with a private key kept outside Git; hand off only approved authored
    content, signatures and the public verification key. Exercise clean rollback.
 
-The user has deferred client connection. Offline checks and installed API
-inspection continue now; native compilation and all unobserved acceptance remain
-open in [the task ledger](specs/001-survival-overhaul/tasks.md). The vanilla server
-startup report is not a mod smoke test. Do not copy experimental packages into a
-friend's live save or weaken signature verification to make them load.
+Record unobserved acceptance in the
+[issue tracker](https://github.com/d-addison/hollow-country/issues).
+A vanilla server startup is not a mod smoke test. Test experimental packages
+against disposable storage and retain signature verification for signed loading.
 
 ## Persistence and rollback
 

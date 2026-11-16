@@ -1,4 +1,4 @@
-name: Static research tooling
+name: Source and tooling validation
 on:
   push:
   pull_request:
@@ -29,9 +29,6 @@ jobs:
       - name: Native Windows repository hygiene behavior
         shell: powershell
         run: python -B -m unittest discover -s tests/unit -p test_hygiene.py -v
-      - name: Native Windows PowerShell synthetic setup regression
-        shell: powershell
-        run: ./tools/setup/Test-LocalVanillaRuntime.ps1
       - name: Parse package PowerShell helpers with the native parser
         shell: powershell
         run: |
@@ -56,14 +53,10 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 -m unittest discover -s tests/unit -v
-      - name: SDD requirement and task integrity
-        run: python3 -B -m tools.validate.project
       - name: Private source content and documentation admission
         run: python3 -B -m tools.validate.hygiene
       - name: Operator runtime settings admission
         run: python3 -B -m tools.validate.runtime
-      - name: Windows setup static checks (no native execution)
-        run: python3 -B -m unittest discover -s tools/setup -v
       - name: Executable offline BDD bindings
         run: python3 -B -m tools.validate.bdd
       - name: Build and verify unsigned development containers

@@ -211,6 +211,14 @@ class HygieneTests(unittest.TestCase):
         self.assertEqual("missing", report["license"]["project"])
         self.assertFalse(report["valid"])
 
+    def test_portable_checkout_does_not_require_local_planning_records(self):
+        for relative in ('AGENTS.md', 'docs/SPECIFICATION.md',
+                         'docs/specs/001-survival-overhaul/spec.md',
+                         'docs/DECISIONS_AND_RISKS.md'):
+            (self.root / relative).unlink()
+        report = self.check()
+        self.assertTrue(report['valid'], report['errors'])
+
     def test_license_lint_refuses_unapproved_switch_to_open_reuse(self):
         self.put("LICENSE.md", "Synthetic MIT license: Permission is hereby granted.")
         self.assertIn("license_policy", self.codes(self.check()))

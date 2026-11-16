@@ -106,7 +106,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m tools.audit.ce_audit --mission tests/fixtur
 The synthetic example has 2 item types, 3 placements, 4 raw prototype points
 and 6 placement-weighted raw points. One placed group has zero raw points, so
 it reports a warning. These numbers establish parser arithmetic only.
-See [EVIDENCE.md](EVIDENCE.md) for captured red/green results.
+Run the audit regression suite for current results; captured output stays local.
 
 XML shape references inspected during implementation:
 [official group prototypes](https://github.com/BohemiaInteractive/DayZ-Central-Economy/blob/master/dayzOffline.chernarusplus/mapgroupproto.xml)

@@ -21,7 +21,6 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [CE audit](unit/test_ce_audit.py) | Synthetic XML, declared sources, catalogs, raw coverage, numeric/path validation and CLI behavior. |
 | [Benchmark comparison](unit/test_benchmark.py) | Synthetic repeated pairs, compatible contexts, explicit budgets and incomplete evidence. |
 | [Evidence admission](unit/test_evidence.py) | Manifest requirements, artifact hashes/paths and unsupported capability promotions. |
-| [Project contract](unit/test_project_contract.py) | Requirement/test mappings and task graph integrity. |
 | [BDD bindings](unit/test_bdd_bindings.py) | Exact scenario/step admission and rejection of unsupported or missing assertions. |
 | [Runtime settings](unit/test_runtime_settings.py) | Operator JSON flags, limits and feature dependencies; no native serializer claim. |
 | [Crafting contracts](unit/test_crafting_contract.py) | Salvage material ledger and native recipe source contracts; no transaction/crash proof. |
@@ -34,6 +33,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [Crafting completion](unit/test_crafting_completion.py) | Actual authored admission and registry-audit methods with synthetic native objects. |
 | [Infected completion](unit/test_infected_completion.py) | Bounded authored relay/recovery policies and wiring; no native audibility or population proof. |
 | [Compiler probe](unit/test_wine_compile_probe.py) | Log classification, byte budgets and owned-process cleanup, including a real disposable surviving child. |
+| [Native actor adapter](unit/test_native_autotest.py) | Bounded diagnostic mission generation and result admission; synthetic tests do not prove actor movement. |
 | [Core lifecycle](unit/test_core_lifecycle.py) | Execute authored lifecycle methods on interrupted synthetic callbacks and cleanup retries. |
 | [Infected profiles and clues](unit/test_infected_wave.py) | Authored profile, membership ambiguity and frozen-clue policies. |
 | [Durable cohort intent](unit/test_infected_persistence.py) | Pre-transfer journal ordering, schema/generation admission and no replay after ambiguous transfer; no native CE transaction proof. |
@@ -50,26 +50,16 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.bdd
 ```
 
 [Runtime scenarios](features/runtime.feature) are manual, pending protocols.
-They are not executable offline acceptance. See the [testing plan](../docs/TESTING_PERFORMANCE.md)
-for T0–T5 boundaries, repeated measurements and two-client requirements.
+They are not executable offline acceptance. Native tests require recorded build,
+scenario, repeated measurements and connected clients where applicable.
 
 The [CE fixtures](fixtures/ce/README.md), [benchmark fixtures](fixtures/benchmark/)
-and [evidence captures](fixtures/evidence/) are synthetic. Saved red/green logs
-record historical runs; a fresh test run establishes the current suite result.
+are synthetic. Captured result logs stay local; a fresh test run establishes the
+current suite result.
 Tests create and clean temporary synthetic inputs, so execution requires write
 access to their temporary locations, including fixture directories where used.
 
-Setup-script static checks live outside `tests/unit`; run them separately:
-
-```sh
-python3 -B tools/setup/test_windows_setup_static.py
-```
-
-Those checks inspect authored PowerShell text and pinned inventory data. They do
-not execute PowerShell or DayZ. See [tools](../tools/README.md) for utility usage.
-
 Windows CI additionally executes deployment/coverage/package suites and actual
-PowerShell verified-copy functions on synthetic bytes. Actual DayZ compilation
-and lifecycle evidence is separate in
-[the native execution experiment](../research/experiments/EXP-native-access-completion.md).
+PowerShell package guards on synthetic bytes. Actual DayZ compilation and
+lifecycle evidence is maintained separately in local experiment records.
 Wine runs of the official server do not establish native Windows/client behavior.

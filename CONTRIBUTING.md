@@ -1,33 +1,34 @@
 # Contributing to Hollow Country
 
-Start with [project tracking](docs/PROJECT_TRACKING.md), the
-[active spec](docs/specs/001-survival-overhaul/spec.md) and [plan](docs/specs/001-survival-overhaul/plan.md).
-Select the matching issue, read its prerequisites and agree a disjoint write
-scope before parallel work. Do not treat completed offline tooling as native
-feasibility proof. The full product remains tracked through P0–P8.
+Select an [issue](https://github.com/d-addison/hollow-country/issues), describe
+the expected behavior and acceptance criteria, and agree on disjoint file scopes
+before parallel implementation. Keep internal specifications, interviews and
+agent records local; summarize reviewable decisions in the issue or pull request.
 
-For each change, update affected requirement/AC/test mappings and record a
-failing behavioral test before the smallest implementation. Run:
+Use specification-driven development, behavioral scenarios and test-first changes.
+Record an actual failing behavior, implement the change, and run the relevant
+tests. New or changed offline scenarios require explicit executable bindings.
 
 ```sh
 python3 -B -m unittest discover -s tests/unit -v
-python3 -B -m tools.validate.project
+python3 -B -m tools.validate.runtime
+python3 -B -m tools.validate.hygiene
 python3 -B -m tools.validate.bdd
-python3 -B -m unittest discover -s tools/setup -v
 ```
 
-Follow [Banso commands](docs/BANSO_WORKFLOW.md) for spec, plan and graph checks.
-New or changed BDD steps require explicit bindings and actual executed tests.
-For native work, inspect the installed API first; attach pinned build/commit,
-sanitized artifact hashes, relevant multiplayer and performance results, and
-rollback evidence. Keep unobserved acceptance unchecked and complex features off.
+For native changes, inspect the installed DayZ API first and record the tested
+build, source/package hashes, observed behavior and rollback result. Multiplayer,
+visibility and audio changes require connected-client evidence. Keep incomplete
+acceptance open and unqualified features disabled. Offline tests cannot establish
+engine behavior or production capacity.
 
-Use the bug/spec issue templates and PR template. Link the task issue, summarize
-resulting behavior and actual validation, and record unresolved limitations.
-Update canonical spec/plan/graph before regenerating tracking descriptions; put
-execution evidence in issue comments. Close an issue only after its scoped
-acceptance is satisfied. Leave its phase milestone open until every native gate
-for that phase passes.
+Pull requests should explain the behavior change, link the issue, summarize actual
+validation and identify remaining limitations. Update operator documentation and
+configuration examples when behavior changes. Close issues only when their scoped
+acceptance has been satisfied.
 
-Source is private. Do not commit game dumps/assets, Workshop packages, profiles,
-credentials or private signing keys. Public/Workshop publication is unauthorized.
+Original source is private and all rights reserved. Do not commit game assets,
+vanilla dumps, Workshop packages, runtime saves/profiles, credentials, signing
+private keys, machine inventories, raw test outputs or local planning records.
+Keep reusable synthetic fixtures and tests in Git. Publication requires a separate
+decision; possession of a dependency does not grant redistribution rights.

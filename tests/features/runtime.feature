@@ -41,7 +41,7 @@ Feature: Hollow Country runtime acceptance
     Then population and identity reconcile without doubling or visible pop-in
 
   @AC-009 @AC-011
-  Scenario: The private transfer is reversible at the intended co-op load
-    Given calibrated repeated 3 to 6 player benchmarks and a signed package
-    When the friend installs on a matching server and restores a save backup
+  Scenario: Installation is reversible at the qualified workload
+    Given calibrated repeated representative benchmarks and a signed package
+    When an operator installs on a matching server and restores a save backup
     Then module combinations and rollback preserve state within approved budgets

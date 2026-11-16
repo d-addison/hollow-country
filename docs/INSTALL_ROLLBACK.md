@@ -1,10 +1,9 @@
 # Private portable package installation and rollback
 
-This procedure implements the offline package part of FR-012/NFR-004 and
-T023/T025 (AC-011). It does not accept the gameplay, signed normal-server load,
-friend-server installation or save-schema migration gates. See
-[module status](https://github.com/d-addison/hollow-country/blob/main/docs/MODULE_STATUS.md) and the
-[deployment experiment](https://github.com/d-addison/hollow-country/blob/main/research/experiments/EXP-deployment-completion.md).
+This procedure covers development-package installation and rollback. Gameplay,
+signed normal-server loading, production installation and save-schema migration
+require separate validation. See [module status](MODULE_STATUS.md) and the
+[issue tracker](https://github.com/d-addison/hollow-country/issues).
 
 `tools/package/deploy.py` uses Python 3.10+ and the standard library. Run the
 trusted helper beside the trusted repository `pbo.py`, or from the repository
@@ -75,8 +74,8 @@ explicit operation using the existing `economy.py` procedure.
    not process detection or proof that the world was saved cleanly.
 2. Keep a trusted tool copy **outside the managed active tree** so recovery
    remains available while that tree is parked. Use a fresh existing destination
-   for initial installation. Do not test these commands against the friend's
-   live server until the runtime handoff is accepted.
+   for initial installation. Keep experiments separate from a live server until
+   the runtime handoff is accepted.
 3. Run the read-only plan. It verifies the ZIP, PBO source manifest, managed
    state and current active bytes. Plan emits JSON and writes nothing.
 4. Install and save the JSON transaction ID. Upgrade and rollback require the
@@ -212,7 +211,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_dep
 Tests cover real file operations and subprocess termination, package roundtrips,
 profile sentinels, both recovery outcomes, idempotence and tampered data. They
 do not establish Windows filesystem behavior, actual save compatibility, native
-module loading, public-key authenticity, native gameplay or friend-server
+module loading, public-key authenticity, native gameplay or destination-server
 rollback. The Windows reparse guard is exercised with explicit synthetic stat
 attributes; an actual NTFS junction test still belongs in native validation.
 

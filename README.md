@@ -1,91 +1,176 @@
-# Hollow Country
+<div align="center">
 
-Private DayZ survival overhaul for ChernarusPlus and 3–6-player co-op.
-Original project material is [all rights reserved](LICENSE.md); see the
-[provenance inventory](docs/PROVENANCE_AND_LICENSES.md). Public and Workshop
-publication are not authorized.
-Development and local server tests run here; the final mod will be transferred
-to a friend's server. See [the execution spec](docs/specs/001-survival-overhaul/spec.md),
-[plan](docs/specs/001-survival-overhaul/plan.md) and
-[task graph](docs/specs/001-survival-overhaul/task-graph.json).
-The [remaining-work execution plan](docs/specs/001-survival-overhaul/completion-plan.md)
-breaks outstanding implementation, native validation and later player tests into
-ordered work packages with explicit evidence requirements.
+# HOLLOW COUNTRY
 
-Project tracking: [P0–P8 milestones](https://github.com/d-addison/hollow-country/milestones),
-[all task issues](https://github.com/d-addison/hollow-country/issues) and
-[issue-to-spec index](docs/PROJECT_TRACKING.md).
-Browse [docs](docs/README.md), [research](research/README.md),
-[tests](tests/README.md) and [tools](tools/README.md) for area guides.
-See [contribution and issue workflow](CONTRIBUTING.md) and
-[measurement templates](metrics/README.md) for ongoing work.
+**A survival overhaul for DayZ.**
 
-Current work: the `mods/HollowCountry` addon, native-source research and tested
-offline CE auditing, paired benchmark comparison, evidence validation and BDD.
-Source/package implementation is proceeding before the user's client connection.
-An actual server run under Wine compiled the addon, passed its core script-VM
-self-test and reached mission initialization. Integrated build 018 repeated this
-and passed official development-signature verification. The actual delivery ZIP
-passed disposable install/rollback. See [validation and delivery evidence](research/VALIDATION-COMPLETION-2026-11-16.md).
-Native Windows and gameplay acceptance remain separate gates; client connection is deferred.
-See the [runtime integration contract](docs/RUNTIME_IMPLEMENTATION_CONTRACT.md)
-and [addon development guide](docs/MOD_DEVELOPMENT.md); the
-[task ledger](docs/specs/001-survival-overhaul/tasks.md) records precise status.
-See [gameplay coverage and gaps](docs/MODULE_STATUS.md) before using a development package.
-The imported handoff below preserves the original design. Session decisions in
-[ADR-017](docs/adr/ADR-017-local-coop-development.md) supersede its initial
-mandatory two-machine setup. Two clients remain required for multiplayer tests.
+Richer places to search. More reasons to salvage. Infected encounters grounded in the world.
 
-Run local offline checks with Python 3.12 and no third-party dependencies:
+[Components](#components) · [Setup](#server-setup) · [Configuration](#configuration) · [Development](#development) · [Roadmap](#roadmap)
+
+**IN DEVELOPMENT** · DayZ PC · ChernarusPlus first · All rights reserved
+
+</div>
+
+---
+
+## The field guide
+
+Hollow Country combines loot-economy tools, persistent interior experiments,
+searchable spaces, salvage crafting, and infected behavior systems. The aim is a
+world that rewards observation and resourcefulness while keeping encounters fair,
+server work bounded, and the server authoritative.
+
+This repository contains addon source, mission integration, operator tools and
+reproducible tests. **All gameplay feature switches default to off.** Several
+systems remain deliberately gated while their native gameplay behavior is
+validated. This guide distinguishes authored functionality from the experience
+still being built.
+
+## Components
+
+| Component | What it does | Current boundary |
+| :--- | :--- | :--- |
+| **Runtime core** | Loads versioned settings, manages module startup/shutdown and schedules bounded server work. | Compiled and initialized in an actual DayZ server under Wine; native Windows and multiplayer qualification remain separate. |
+| **Loot economy** | Audits Central Economy data and prepares conservative, reviewable changes with exact rollback. | Tooling is available. Building-coverage corrections and contextual loot require measured map data and engine eligibility checks. |
+| **Interiors** | Assigns stable building identities, trial prop layouts and persistent layout history; rejects ambiguous recovery data. | Diagnostic layouts exist. Normal-build placement awaits surveyed geometry, navigation, collision and replication checks. |
+| **Searching** | Provides a native continuous action with server checks for range, visibility, duration, ownership and finite allocation. | Normal-build searching is gated on CE integration and durable inventory/reward reconciliation. |
+| **Salvage crafting** | Registers three recipes using existing DayZ items, with tool wear, condition loss and ownership checks. | Registration has been observed in DayZ; inventory outcomes, concurrency, recovery and balance need gameplay validation. |
+| **Infected encounters** | Tracks observed clues, bounded alert relays, pack-route intent, progress and retarget scheduling. | Native perception, audibility, traversal and restart recovery need validation. Safe horde activation/abstraction and a full variant roster remain unfinished. |
+| **Observer safeguards** | Rejects transitions when visibility, observer coverage, timing or provider evidence is incomplete. | A veto policy exists; it does not authorize spawning, deleting or teleporting infected. |
+| **Deployment tools** | Builds packages and supports signing, verified installation, upgrade recovery and rollback. | Development signature verification and disposable install/rollback have passed; connected-client loading and production qualification remain pending. |
+
+### Salvage, deliberately
+
+Recover **netting from a camo net**, **wire from a cable reel**, and **tanned
+leather from an empty leather belt**. The authored recipes require a knife or
+pliers, consume the source, wear the tool and reduce output condition. Ownership
+and container checks reject shared storage and worn attachments. Crash-safe
+inventory transactions remain a validation gate.
+
+### Infected that follow evidence
+
+The infected foundation works with observed stimuli and finite relay chains.
+Route intent and cohort ownership are tracked rather than inferred from hidden
+player locations. Uncertain visibility or provider capability blocks transitions.
+Persistent but escapable pressure is the goal; complete production horde behavior
+has not yet been demonstrated.
+
+## How the pieces fit
+
+```mermaid
+flowchart TB
+    Settings["Versioned server settings"] --> Core["Runtime core · lifecycle and work budgets"]
+    Core --> Craft["Salvage recipes"]
+    Core --> Interior["Interior layouts and search"]
+    Core --> Infected["Clues, alerts and cohort intent"]
+    CE["DayZ Central Economy"] -. "integration under validation" .-> Interior
+    Maps["Surveyed map data"] -. "required for placement" .-> Interior
+    Maps -. "required for routes" .-> Infected
+    Infected --> Guard["Observer and capability safeguards"]
+    Interior --> Store["Versioned persistent state"]
+    Infected --> Store
+    Tools["Audit · package · sign · install · rollback"] --> Package["Development addon and mission integration"]
+    Package --> Core
+```
+
+This diagram shows source responsibilities and required integrations. It does
+not imply that every gameplay path is enabled or verified.
+
+## Server setup
+
+Use a disposable server copy and back up the mission, configuration and storage.
+The current development build has not completed production gameplay qualification.
+
+1. Read the [installation and rollback guide](docs/INSTALL_ROLLBACK.md).
+2. Build and verify a development package using the
+   [packaging tools](tools/package/README.md).
+3. Integrate the [mission files](mission/hollow-country/README.md) and install
+   the addon according to the operator guide. Addon and CE changes are separate.
+4. Review the [settings template](config/hollow-country-settings.json). Keep
+   unqualified features disabled and follow their documented validation gates.
+5. Verify startup, client loading, persistence and rollback for the exact build,
+   map and mod combination before considering live deployment.
+
+Initial engine work targets **DayZ PC 1.30.164289** and **ChernarusPlus**. Other
+maps, future builds and mod combinations require explicit qualification. The
+longer-term capacity target is approximately 90 players; offline and zero-client
+results do not establish that capacity. No Workshop release is available here.
+
+## Configuration
+
+Settings are server-owned and versioned. The template uses `SchemaVersion: 1`;
+the reader rejects oversized or unsupported input. See
+[addon development](docs/MOD_DEVELOPMENT.md) for loading and module behavior.
+
+| Setting | Default | Purpose |
+| :--- | :---: | :--- |
+| `EnableInteriors` | `false` | Interior admission; placement has additional gates. |
+| `EnableSearch` | `false` | Search admission; rewards have additional gates. |
+| `EnableCrafting` | `false` | Salvage recipe admission. |
+| `EnableInfected` | `false` | Experimental infected module admission. |
+| `EnableHordes` | `false` | Horde work admission; capability gates still apply. |
+| `EnableAlertChains` | `false` | Bounded infected alert relays. |
+| `TickIntervalMs` | `1000` | Requested scheduling interval. |
+| `MaxTickWorkItems` | `32` | Per-tick work budget. |
+| `MaxActiveHordes` / `MaxActiveHordeMembers` | `2` / `24` | Configured horde bounds. |
+| `MaxActiveInteriors` / `MaxPropsPerInterior` | `12` / `5` | Configured interior bounds. |
+
+These are development defaults, not measured production recommendations. A switch
+does not bypass a module's safety or capability checks.
+
+## Development
+
+Python tooling uses the standard library. With Python 3.12 installed:
 
 ```sh
 python3 -B -m unittest discover -s tests/unit -v
-python3 -B -m tools.validate.project
 python3 -B -m tools.validate.runtime
 python3 -B -m tools.validate.hygiene
 python3 -B -m tools.validate.bdd
-python3 -B -m unittest discover -s tools/setup -v
 ```
 
-Tools: [CE audit](tools/audit/README.md),
-[benchmark comparator](tools/benchmark/README.md),
-[evidence schema](tools/validate/evidence.py).
-Native Windows setup: [local server runbook](docs/LOCAL_WINDOWS_SETUP.md).
-Behavioral test inputs are synthetic; separately labeled reports preserve actual
-compiler and official-tool observations. Offline PASS cannot certify engine
-eligibility, collision, audio, multiplayer behavior or real performance.
+Offline tests and executable scenarios support development; they cannot prove
+DayZ collision, perception, audio, inventory durability, replication or
+performance. Native engine and connected-client checks remain necessary.
 
-## Original handoff
+| Looking for | Start here |
+| :--- | :--- |
+| Addon source | [mods/HollowCountry](mods/HollowCountry) |
+| Mission integration | [mission/hollow-country](mission/hollow-country/README.md) |
+| Operator documentation | [docs](docs/README.md) |
+| Audit and packaging commands | [tools](tools/README.md) |
+| Test suites and scenarios | [tests](tests/README.md) |
+| Issues and milestones | [Project tracker](https://github.com/d-addison/hollow-country/issues) |
+| Contribution workflow | [CONTRIBUTING.md](CONTRIBUTING.md) |
 
-**Status:** specification and R&D handoff, not an implemented or verified game mod.  
-**Specification version:** 1.0.0-draft | **Prepared:** 2026-11-16  
-**Target baseline:** DayZ PC stable **1.30.164289** (published 2026-11-03; reverify at R&D start).  
-**Target map:** ChernarusPlus first (provisional operating assumption; not a final user preference).  
-**Repository:** intended **private GitHub repository**, not created or populated by this handoff.
+## Roadmap
 
-## Start here
+Current work closes native gameplay, persistence, multiplayer and performance
+gates for the components above. Follow the
+[milestones](https://github.com/d-addison/hollow-country/milestones) for progress.
 
-1. Read [docs/SPECIFICATION.md](docs/SPECIFICATION.md): complete product requirements, game rules, architecture, system design, dependencies, exclusions, and acceptance criteria.
-2. Read [docs/RND_CAPABILITY_MATRIX.md](docs/RND_CAPABILITY_MATRIX.md): **verify** engine/tool capabilities before implementing anything. Mark evidence with observed results, not assumptions.
-3. Execute [docs/SETUP_AND_EXECUTION.md](docs/SETUP_AND_EXECUTION.md) in order: private repo, two-machine development environment, baseline capture, prototype, implementation gates.
-4. Follow [docs/TESTING_PERFORMANCE.md](docs/TESTING_PERFORMANCE.md) for regression, multiplayer, determinism, game-world rule, and perf tests.
-5. Use [docs/DECISIONS_AND_RISKS.md](docs/DECISIONS_AND_RISKS.md) for confirmed decisions, unresolved choices, licenses, known engine constraints, and decision records.
-6. Pass [NEXT_SESSION_PROMPT.md](NEXT_SESSION_PROMPT.md) into a new ChatGPT session along with this folder or ZIP.
-7. Review [docs/SOURCES.md](docs/SOURCES.md) for official documentation, version, and license reference links.
+Phase 2 exploration includes:
 
-## Hard constraints
+- **Groups and navigation:** teammate icons, shared markers and an interactive
+  map opened with M, with useful optional information layers.
+- **Optional PvE missions:** radio-led recovery, investigation and encounters;
+  AI groups, rescue, escorts and convoys depend on demonstrated capabilities.
+- **Survival systems:** original extended stamina with a weight display, plus
+  ecology and migration research.
+- **Equipment and presentation:** weapons with verified permissions, infected
+  death reactions, and supported weather/lighting improvements.
+- **Distribution and portability:** Workshop preparation and explicitly tested
+  map/server adapters.
 
-- **Physics/fairness:** no silent physically impossible infected, magical tracking, attacks through walls, phantom horde pop-ins, or objects blocking legitimate access.
-- **Performance:** optimization is a design constraint; benchmark every change; bound script work, objects, spawns, networking, and persistence; prefer native functionality.
-- **Reuse-first:** official settings and Central Economy first, then native script hooks, then tested external dependencies, then minimally-scoped custom components.
-- **Gameplay:** survival-first but rewarding; soft tier progression with believable exceptions and dynamic conditions; chance to loot every accessible building/meaningful area; visible plus searchable opportunities; broad, believable crafting; persistent interior layout.
-- **Infected:** dynamic hordes **and** local chain reactions; methodical search; persistent but escapable pursuit; ordinary individual infected, dangerous groups; behavior/location-based variants with individual differences; advanced stealth subject to real sound constraints; meaningful injuries.
-- **Environment:** two computers (client/development and dedicated server), multiplayer authority from day one; private GitHub, possible public distribution later; minimal external mod dependencies.
+These are planned investigations and features, not current gameplay promises.
+Base-building expansion is outside the requested direction.
 
-## Handoff condition
+## License and assets
 
-The package is **design documentation only**. No DayZ executable, game installation, mod code, CI runner, private GitHub repository, benchmark, local server, or engine/API experiment has been set up by the author. R&D must check every game-specific function against the installed stable version before creating production implementations. When a requirement is engine-blocked, record evidence and propose a measurable alternative rather than claiming a fix.
+Copyright © 2026 David Addison. **All rights reserved.** No open-source or public
+reuse license is granted. Third-party materials retain their owners' terms; see
+the [provenance inventory](docs/PROVENANCE_AND_LICENSES.md).
 
-## Repository guidance
-
-Use a GitHub **private** repository with branch protections, issues and small PRs. Never commit purchased game assets, unpacked proprietary files, keys, passwords, server credentials, Steam tokens, or third-party Workshop PBOs. The source of any Bohemia CE examples retains its own license; read the licensing notes before copying configurations into the repo.
+Game files, purchased assets, Workshop packages, signing private keys, credentials
+and runtime profiles do not belong in this repository.

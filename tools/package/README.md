@@ -69,15 +69,13 @@ not isolate the process: Steam query may listen on 0.0.0.0. The default window i
 180 seconds, configurable 15–300. Only its own launched process is stopped; use
 -LeaveRunning explicitly to keep it. A forced stop does not test persistence.
 The disposable smoke has signature verification/BattlEye off; never reuse that
-configuration for a friend/live server. No successful marker or live socket is
+configuration for a live server. No successful marker or live socket is
 client, signature, CE merge, geometry, restart, gameplay or performance acceptance.
 
-WSL interop is unavailable in this session. Later isolated Linux-filesystem
-copies enabled actual DayZ compiler/core self-test/initialization runs under
-Wine, including the integrated gameplay source. That is separate from native
-Windows execution of these helpers and client/gameplay acceptance. Exact hashes,
-failed attempts and limits are recorded in the private repository's
-`research/experiments/EXP-native-access-completion.md`.
+Actual DayZ compiler/core self-test/initialization runs have been observed under
+Wine, including integrated gameplay source. This is separate from native Windows
+execution and client/gameplay acceptance. Raw reports stay in local experiment
+storage; attach sanitized summaries to the relevant tracking issue.
 
 ## Official Windows build/sign/verify controls
 
@@ -107,8 +105,8 @@ used. sign.py checks both exit statuses, requires the expected nonempty bisign a
 an explicit positive checker result, rejects warnings/errors and a changed PBO,
 and hashes public outputs/tools. Unit tests exercise these commands using fake
 tools and synthetic non-keys. Separate actual official-tool execution under Wine
-positively verified the integrated source PBO; reports and checker output are in
-the private repository's `research/evidence/signing-018-*` files. This does not
+positively verified an integrated source PBO; checker output is retained locally.
+This does not
 make the unsigned development ZIP signed or prove client signature enforcement.
 Private keys are never read/copied into a package. Install the .bikey in server
 keys and .bisign beside its PBO. The output remains signed-development and gated
@@ -140,13 +138,12 @@ These build instructions are a native control procedure, not an executed build.
 `coverage.py` prepares a full-file point candidate from a pinned diagnostic export.
 It requires exact source/export/log hashes and rejects unrelated geometry/policy
 changes; it never invents points or installs a coverage fix. Invoke `--help` for
-the fresh-output CLI. The evidence contract and limits are in the source and
-`research/experiments/EXP-coverage-completion.md` in the private repository.
+the fresh-output CLI. The evidence contract and limits are documented in source.
 
 `interior_catalog.py` validates pinned measured pilot layout and contextual
 policy candidates and exports only to a fresh directory. No runtime catalog
 loader, placement, CE allocation or engine eligibility is established. Its
-`--help` and `research/experiments/EXP-interior-data-completion.md` describe the
+`--help` and source describe the
 strict source/evidence schema. The private handoff includes `LICENSE.md` and
 `docs/PROVENANCE_AND_LICENSES.md`; original code remains all rights reserved.
 
