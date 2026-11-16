@@ -242,6 +242,8 @@ def verify_handoff(blob):
             manifest = json.loads(z.read('manifest.json'))
             if (manifest.get('schema') != 1 or manifest.get('prefix') != PREFIX
                     or manifest.get('status') != 'unsigned-development'
+                    or manifest.get('distribution') != 'private-only'
+                    or manifest.get('runtime_acceptance') != 'pending'
                     or manifest.get('release_allowed') is not False
                     or manifest.get('signature') is not None):
                 raise ValueError('unsupported handoff manifest')

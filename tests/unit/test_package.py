@@ -1,6 +1,7 @@
 """Synthetic original text only: no game data or fixtures."""
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import re
@@ -176,6 +177,27 @@ class PackageBehavior(unittest.TestCase):
                 return result
             with self.assertRaises(ValueError):
                 sign.sign_and_verify(source, root / 'tools', private, public, root / 'rejected', runner=bad_run)
+
+    def test_structural_verifier_rejects_forged_distribution_and_acceptance(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            mission = root / 'mission'
+            mission.mkdir()
+            blob = pbo.handoff(root, mission)
+            for field, value in [('distribution', 'public'), ('runtime_acceptance', 'accepted')]:
+                with self.subTest(field=field):
+                    output = io.BytesIO()
+                    with zipfile.ZipFile(io.BytesIO(blob)) as source, zipfile.ZipFile(output, 'w') as target:
+                        for name in source.namelist():
+                            data = source.read(name)
+                            if name == 'manifest.json':
+                                manifest = json.loads(data)
+                                manifest[field] = value
+                                data = json.dumps(manifest).encode()
+                            target.writestr(name, data)
+                    with self.assertRaises(ValueError):
+                        pbo.verify_handoff(output.getvalue())
 
     def test_native_smoke_controls(self):
         script = Path('tools/package/Invoke-NativeSmoke.ps1').read_text()
