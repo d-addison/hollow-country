@@ -3,6 +3,12 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $id = [Guid]::NewGuid().ToString('N')
+foreach ($scriptName in @('New-LocalVanillaRuntime.ps1', 'Start-VerifiedLocalServer.ps1')) {
+    $tokens = $null
+    $parseErrors = $null
+    $null = [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $scriptName), [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count -ne 0) { throw "Native syntax error in $scriptName : $($parseErrors | Out-String)" }
+}
 $fixture = Join-Path $env:TEMP "hc-setup-$id"
 $runtime = "D:\HollowCountryLocal\ci-$id"
 $server = Join-Path $fixture 'server'
