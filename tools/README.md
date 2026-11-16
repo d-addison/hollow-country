@@ -6,6 +6,7 @@ inputs or supplied evidence and do not establish completed gameplay.
 
 | Tool | Purpose and details |
 | --- | --- |
+| [GitHub roadmap sync](project/sync_github.py) | Dry-run preview or explicit `--apply` to maintain all phase milestones/task issues; [policy and index](../docs/PROJECT_TRACKING.md). |
 | [CE auditor](audit/ce_audit.py) | Bounded mission XML/source audit; [usage](audit/README.md), [installed findings](../research/experiments/EXP-CE-offline-audit.md). |
 | [Benchmark comparator](benchmark/compare.py) | Repeated paired CSV summaries with explicit context/budget checks; [usage and manifest format](benchmark/README.md). |
 | [Project validator](validate/project.py) | Planning mappings, acceptance coverage and task dependency integrity. |

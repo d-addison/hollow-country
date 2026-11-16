@@ -40,5 +40,9 @@ load and calibrated baseline. The original WSL UNC path failed in the user's
 Windows shell; reviewed setup files were copied to Windows Downloads and hashes
 matched. The friend can join later for two-client acceptance.
 
-Remote CI and publication are recorded in the final task ledger after the source
-push. Do not infer them from this local verification record.
+Source commit `1bd1e23a5776cc8dfa18c5897926b2647c05c28f` was pushed to the
+authorized private repository. [GitHub CI run 43939865618](https://github.com/d-addison/hollow-country/actions/runs/43939865618)
+completed successfully, executing unit, project, setup-static and BDD checks.
+All 25 task issues have a P0–P8 milestone; all 9 milestones remain open.
+T001 and T006–T009 meet their scoped foundation/offline deliverables. Their
+closure does not advance P0's pending native acceptance.

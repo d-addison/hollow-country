@@ -7,6 +7,7 @@ requirements; none of these offline records establishes completed gameplay.
 
 | Record | What it establishes |
 | --- | --- |
+| [Verification record](VALIDATION-2026-11-16.md) | Executed offline checks, review fixes and pending native gates. |
 | [P0 build inventory](P0-build-inventory.md) | Observed installation/build/tool details; runtime checks remain pending. |
 | [Official CE source research](official-sources-2026-11-16.md) | Pinned upstream revision, documented interfaces, license/source references and file hashes. |
 | [Installed CE experiment](experiments/EXP-CE-offline-audit.md) | Read-only installed-file comparison, raw XML findings, regressions and unresolved alias concerns. |

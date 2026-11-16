@@ -11,6 +11,8 @@ Project tracking: [P0–P8 milestones](https://github.com/d-addison/hollow-count
 [issue-to-spec index](docs/PROJECT_TRACKING.md).
 Browse [docs](docs/README.md), [research](research/README.md),
 [tests](tests/README.md) and [tools](tools/README.md) for area guides.
+See [contribution and issue workflow](CONTRIBUTING.md) and
+[measurement templates](metrics/README.md) for ongoing work.
 
 Current deliverable: native-source research and tested offline CE auditing,
 paired benchmark comparison, evidence validation and executable BDD bindings.

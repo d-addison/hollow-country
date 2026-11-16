@@ -7,6 +7,7 @@ session decisions that supersede assumptions in the original handoff.
 
 | Find | Read |
 | --- | --- |
+| GitHub milestones and all roadmap issues | [Project tracking](PROJECT_TRACKING.md) |
 | Full product requirements and native-first policy | [Specification](SPECIFICATION.md) |
 | Current architecture and implementation order | [Feature plan](specs/001-survival-overhaul/plan.md) |
 | Work breakdown and dependencies | [Tasks](specs/001-survival-overhaul/tasks.md), [task graph](specs/001-survival-overhaul/task-graph.json) |
