@@ -168,13 +168,13 @@ class InfectedContractTests(unittest.TestCase):
 
     def test_snapshot_rejects_corruption_world_mismatch_and_clock_rollback(self):
         p = self.p["ValidSnapshotHeader"]
-        self.assertTrue(p(1, True, 1, 2, 12, 24, 100, 101))
-        for args in [(2, True, 1, 2, 12, 24, 100, 101),
-                     (1, False, 1, 2, 12, 24, 100, 101),
-                     (1, True, 1, 3, 12, 24, 100, 101),
-                     (1, True, 1, 2, 25, 24, 100, 101),
-                     (1, True, 1, 2, 12, 24, 100, 99),
-                     (1, True, 0, 2, 12, 24, 100, 101)]:
+        self.assertTrue(p(2, True, 1, 2, 12, 24, 100, 101))
+        for args in [(3, True, 1, 2, 12, 24, 100, 101),
+                     (2, False, 1, 2, 12, 24, 100, 101),
+                     (2, True, 1, 3, 12, 24, 100, 101),
+                     (2, True, 1, 2, 25, 24, 100, 101),
+                     (2, True, 1, 2, 12, 24, 100, 99),
+                     (2, True, 0, 2, 12, 24, 100, 101)]:
             self.assertFalse(p(*args))
 
     def test_snapshot_member_ledger_rejects_missing_fields_and_refill(self):

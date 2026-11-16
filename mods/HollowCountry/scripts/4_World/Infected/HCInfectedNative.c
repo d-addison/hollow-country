@@ -1,5 +1,20 @@
 modded class ZombieBase
 {
+    protected bool m_HCLoadedFromStorage;
+
+    bool HCLoadedFromStorage()
+    {
+        return m_HCLoadedFromStorage;
+    }
+
+    override void AfterStoreLoad()
+    {
+        super.AfterStoreLoad();
+        m_HCLoadedFromStorage = true;
+        if (GetGame().IsServer() && HCInfectedModule.Instance)
+            HCInfectedModule.Instance.Track(this);
+    }
+
     int HCIndividualStance()
     {
         return m_StanceVariation;

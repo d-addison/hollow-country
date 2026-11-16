@@ -196,12 +196,17 @@ def handoff(addon, mission, release=False):
     metadata = Path(addon) / 'mod.cpp'
     if metadata.exists():
         files['@HollowCountry/mod.cpp'] = metadata.read_bytes()
+    for name in ('docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'):
+        guide = Path(__file__).resolve().parents[2] / name
+        if guide.is_symlink():
+            raise ValueError('symlinked portable documentation forbidden')
+        files[name] = guide.read_bytes()
     for name, path in _regular_files(mission):
         if name not in MISSION_FILES:
             raise ValueError(f'mission handoff file outside allowlist: {name}')
         files['mission/hollow-country/' + name] = path.read_bytes()
     # Only these authored helpers, never arbitrary repository or build outputs.
-    for name in ('economy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'):
+    for name in ('economy.py', 'coverage.py', 'interior_catalog.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'):
         path = Path(__file__).with_name(name)
         if path.is_file():
             files['tools/package/' + name] = path.read_bytes()
@@ -242,10 +247,10 @@ def verify_handoff(blob):
                 raise ValueError('unsupported handoff manifest')
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
-            helper_names = {'economy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
+            helper_names = {'economy.py', 'coverage.py', 'interior_catalog.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
                             'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'}
             for name, expected in manifest['files'].items():
-                if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp'}
+                if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp', 'docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'}
                         or name in {'mission/hollow-country/' + n for n in MISSION_FILES}
                         or name in {'tools/package/' + n for n in helper_names}):
                     raise ValueError('handoff file outside allowlist')

@@ -1,0 +1,47 @@
+---------------------------------------------
+Log Z:\home\david\.cache\hollow-country\wine-server-20261116\experiments\compile-020-diagnostic-storage\profiles\script_2026-11-16_17-02-12.log started at 2026-11-16 17:02:21 (2026-11-16 22:02:21 UTC)
+
+17:02:21.811 SCRIPT       : Module: GameLib; loaded 13x files; 13x classes; used 8/2097 kB (0%) of static memory; defines: "DAYZ_1_30,SERVER_FOR_WINDOWS,SERVER,PLATFORM_WINDOWS,DIAG,DIAG_DEVELOPER,NO_GUI,NO_GUI_INGAME,ENABLE_LOGGING,ROBOCLIENT,INPUT_OVERRIDE,sakhal,nasdara,HollowCountry,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION,LOG_TO_FILE,LOG_TO_SCRIPT"; CRC32: dd77776f
+17:02:21.844 SCRIPT       : Registered 324 temporary action enum(s), UAN==324
+17:02:22.280 SCRIPT    (W): @"scripts/3_Game/human.c,17": Missing script declaration for method 'HumanInputController.DisableCrouchCameraHorizontalRotation'
+17:02:22.280 SCRIPT    (W): @"scripts/3_Game/human.c,241": Method not linked 'HumanInputController.DisableCrouchCameratHorizontalRotation'
+17:02:22.280 SCRIPT    (W): @"scripts/3_Game/human.c,240": Method not linked 'HumanInputController.DisableErectCameratHorizontalRotation'
+17:02:22.280 SCRIPT    (W): @"scripts/3_Game/human.c,17": Missing script declaration for method 'HumanInputController.DisableErectHorizontalRotation'
+17:02:22.280 SCRIPT       : Module: Game; loaded 441x files; 1508x classes; used 5245/33554 kB (15%) of static memory; defines: "DAYZ_1_30,SERVER_FOR_WINDOWS,SERVER,PLATFORM_WINDOWS,DIAG,DIAG_DEVELOPER,NO_GUI,NO_GUI_INGAME,ENABLE_LOGGING,ROBOCLIENT,INPUT_OVERRIDE,sakhal,nasdara,HollowCountry,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION,LOG_TO_FILE,LOG_TO_SCRIPT"; CRC32: 3eed037d
+17:02:22.283 SCRIPT       : ... Backlit Effects Enabled
+17:02:24.254 SCRIPT    (W): @"scripts/4_World/entities/building/underground/entrance/land_underground_entrance.c,149": 'UpdatePathgraphDoorByAnimationSourceName' is obsolete: 1.30: Use UpdatePathgraphEntityState
+17:02:24.561 SCRIPT       : Module: World; loaded 2349x files; 6446x classes; used 13203/33554 kB (39%) of static memory; defines: "DAYZ_1_30,SERVER_FOR_WINDOWS,SERVER,PLATFORM_WINDOWS,DIAG,DIAG_DEVELOPER,NO_GUI,NO_GUI_INGAME,ENABLE_LOGGING,ROBOCLIENT,INPUT_OVERRIDE,sakhal,nasdara,HollowCountry,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION,LOG_TO_FILE,LOG_TO_SCRIPT"; CRC32: 2275a9b1
+17:03:16.223  SCRIPT       : Module: Mission; loaded 220x files; 487x classes; used 3950/33554 kB (11%) of static memory; defines: "DAYZ_1_30,SERVER_FOR_WINDOWS,SERVER,PLATFORM_WINDOWS,DIAG,DIAG_DEVELOPER,NO_GUI,NO_GUI_INGAME,ENABLE_LOGGING,ROBOCLIENT,INPUT_OVERRIDE,sakhal,nasdara,HollowCountry,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION,LOG_TO_FILE,LOG_TO_SCRIPT,ENABLE_CAROUSEL,BROADCAST_BUNKER_SP_VIS_ENABLED"; CRC32: ec1bab63
+17:03:17.018  SCRIPT       : string s =    'Module PluginConfigDebugProfile is not Registred in PluginManager.c!'
+17:03:17.018  SCRIPT    (E):    -- Stack trace --
+17:03:17.019  SCRIPT    (E):    GetPlugin() scripts/4_World/plugins/pluginmanager.c : 341
+17:03:17.021  SCRIPT    (E):    OnInit() scripts/4_World/plugins/pluginbase/pluginitemdiagnostic.c : 94
+17:03:17.022  SCRIPT    (E):    PluginsInit() scripts/4_World/plugins/pluginmanager.c : 136
+17:03:17.022  SCRIPT    (E):    PluginManagerInit() scripts/4_World/plugins/pluginmanager.c : 304
+17:03:17.022  SCRIPT    (E):    MissionBase() scripts/5_Mission/mission/missionbase.c : 21
+17:03:17.022  SCRIPT    (E):    CreateCustomMission() Z:\home\david\.cache\hollow-country\wine-server-20261116\experiments\compile-020-diagnostic-storage\diagnostic.chernarusplus\init.c : 97
+17:03:17.022  SCRIPT    (E):    -----------------
+17:03:17.111  SCRIPT       : [HollowCountry][SelfTest] Core settings PASS in native script VM
+17:03:17.119  SCRIPT       : [HollowCountry] Server initialized; experimental features require explicit settings
+17:03:17.119  SCRIPT       : [HC Diagnostic Mission] BEGIN epoch=900001; synthetic storage only
+17:03:17.122  SCRIPT       : [HC Infected] scalar policy selftest result=true
+17:03:17.122  SCRIPT       : [HC Diagnostic Mission] infected scalar result=true
+17:03:17.159  SCRIPT       : [HC Interiors] slot 0 quarantined: reservation already exists; never retry output
+17:03:17.162  SCRIPT    (E): JSON ERROR Z:\home\david\.cache\hollow-country\wine-server-20261116\experiments\compile-020-diagnostic-storage\diagnostic.chernarusplus\init.c:115
+17:03:17.162  SCRIPT       : [HC Interiors] slot 1 quarantined: orphan/torn/interrupted journal; allocation retained, no output replay
+17:03:17.171  SCRIPT    (E): JSON ERROR Z:\home\david\.cache\hollow-country\wine-server-20261116\experiments\compile-020-diagnostic-storage\diagnostic.chernarusplus\init.c:115
+17:03:17.171  SCRIPT       : [HC Interiors] slot 1 quarantined: orphan/torn/interrupted journal; allocation retained, no output replay
+17:03:17.172  SCRIPT       : [HC Interiors] slot 2 quarantined: orphan/torn/interrupted journal; allocation retained, no output replay
+17:03:17.174  SCRIPT       : [HC Interiors] slot 2 quarantined: orphan/torn/interrupted journal; allocation retained, no output replay
+17:03:17.174  SCRIPT       : [HC Interiors] storage probe PASS; synthetic state only, no inventory atomicity proof
+17:03:17.174  SCRIPT       : [HC Diagnostic Mission] interior storage result=true
+17:03:17.174  SCRIPT       : [HC Diagnostic Mission] PASS; no inventory/gameplay acceptance
+17:03:17.263  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Ship-Bow
+17:03:17.495  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Ship-Center
+17:03:17.502  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Ship-Stern
+17:03:17.512  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Ship-East
+17:03:17.523  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Pavlovo-North-Uphill
+17:03:17.532  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Pavlovo-South-Building1
+17:03:17.545  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Pavlovo-South-Building2
+17:03:17.570  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Pavlovo-South-Downhill
+17:03:17.574  SCRIPT       : 11-16 17:03:17 | Server | Debug | n/a | n/a | n/a | >>>> SetupZoneData: Finished: Pavlovo-West-Uphill

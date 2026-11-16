@@ -14,6 +14,21 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native Windows package install recovery and rollback behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_deploy.py -v
+      - name: Native Windows CE candidate preparation behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_coverage_patch.py -v
+      - name: Native Windows package and verified smoke dependency behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_package.py -v
+      - name: Native Windows repository hygiene behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_hygiene.py -v
       - name: Native Windows PowerShell synthetic setup regression
         shell: powershell
         run: ./tools/setup/Test-LocalVanillaRuntime.ps1
@@ -43,6 +58,8 @@ jobs:
         run: python3 -m unittest discover -s tests/unit -v
       - name: SDD requirement and task integrity
         run: python3 -B -m tools.validate.project
+      - name: Private source content and documentation admission
+        run: python3 -B -m tools.validate.hygiene
       - name: Operator runtime settings admission
         run: python3 -B -m tools.validate.runtime
       - name: Windows setup static checks (no native execution)

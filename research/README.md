@@ -13,6 +13,10 @@ requirements; none of these offline records establishes completed gameplay.
 | [Official CE source research](official-sources-2026-11-16.md) | Pinned upstream revision, documented interfaces, license/source references and file hashes. |
 | [Installed CE experiment](experiments/EXP-CE-offline-audit.md) | Read-only installed-file comparison, raw XML findings, regressions and unresolved alias concerns. |
 | [Installed CE audit JSON](evidence/installed-ce-audit.json) | Machine-readable raw counts, diagnostics and mission-relative input hash provenance. |
+| [Native execution](experiments/EXP-native-access-completion.md) | Actual official signing tools and DayZ compiler/core self-test/initialization under Wine; Windows and client gates remain separate. |
+| [Completion review](experiments/EXP-completion-review.md) | Independent findings, reproductions and resolutions for current source work. |
+| [Deployment completion](experiments/EXP-deployment-completion.md) | Transactional install/recovery/rollback tests and input-bound review corrections. |
+| [Coverage preparation](experiments/EXP-coverage-completion.md) | Pinned export candidate authoring, synthetic regressions and missing real geometry. |
 
 The installed CE experiment records matching hashes for six compared source
 files; the auditor processes four of them. Its unresolved possible aliases are

@@ -1,0 +1,96 @@
+test_abort_every_precommit_checkpoint (test_deploy.DeploymentBehavior.test_abort_every_precommit_checkpoint) ... ok
+test_abort_recovery_itself_can_crash_and_resume_idempotently (test_deploy.DeploymentBehavior.test_abort_recovery_itself_can_crash_and_resume_idempotently) ... ok
+test_active_edits_extra_files_and_directories_refuse_all_mutations (test_deploy.DeploymentBehavior.test_active_edits_extra_files_and_directories_refuse_all_mutations) ... ok
+test_archived_journal_checksum_drift_refused_before_rollback (test_deploy.DeploymentBehavior.test_archived_journal_checksum_drift_refused_before_rollback) ... ok
+test_backup_tampering_refuses_rollback (test_deploy.DeploymentBehavior.test_backup_tampering_refuses_rollback) ... ok
+test_committed_metadata_and_owned_payload_links_are_refused (test_deploy.DeploymentBehavior.test_committed_metadata_and_owned_payload_links_are_refused) ... ok
+test_compressed_oversize_manifest_refused_without_opening_any_member (test_deploy.DeploymentBehavior.test_compressed_oversize_manifest_refused_without_opening_any_member)
+CR-01: rejection must precede decompression, not just JSON parsing. ... ok
+test_compression_without_bounded_native_decompression_refused_before_open (test_deploy.DeploymentBehavior.test_compression_without_bounded_native_decompression_refused_before_open) ...
+  test_compression_without_bounded_native_decompression_refused_before_open (test_deploy.DeploymentBehavior.test_compression_without_bounded_native_decompression_refused_before_open) (compression=12) ... FAIL
+  test_compression_without_bounded_native_decompression_refused_before_open (test_deploy.DeploymentBehavior.test_compression_without_bounded_native_decompression_refused_before_open) (compression=14) ... FAIL
+test_custom_steam_library_and_windows_unsafe_destination_names_refused (test_deploy.DeploymentBehavior.test_custom_steam_library_and_windows_unsafe_destination_names_refused) ... ok
+test_duplicate_manifest_keys_and_nonregular_zip_members_refused (test_deploy.DeploymentBehavior.test_duplicate_manifest_keys_and_nonregular_zip_members_refused) ... ok
+test_every_member_has_bounded_stream_read_before_existing_verifier (test_deploy.DeploymentBehavior.test_every_member_has_bounded_stream_read_before_existing_verifier) ... ok
+test_executable_deployment_bdd_scenarios (test_deploy.DeploymentBehavior.test_executable_deployment_bdd_scenarios)
+Execute every Given/When/Then line; an unknown step is a test failure. ... ok
+test_initial_install_and_rollback_interruptions (test_deploy.DeploymentBehavior.test_initial_install_and_rollback_interruptions) ... ok
+test_lock_refuses_second_process_without_breaking_owner (test_deploy.DeploymentBehavior.test_lock_refuses_second_process_without_breaking_owner) ... ok
+test_metadata_validation_does_not_read_the_windows_locked_byte (test_deploy.DeploymentBehavior.test_metadata_validation_does_not_read_the_windows_locked_byte) ... ERROR
+test_operation_and_stopped_server_preconditions (test_deploy.DeploymentBehavior.test_operation_and_stopped_server_preconditions) ... ok
+test_partial_atomic_journal_and_unpublished_stage_file_preserved (test_deploy.DeploymentBehavior.test_partial_atomic_journal_and_unpublished_stage_file_preserved) ... ok
+test_partial_stage_resume_refused_abort_works (test_deploy.DeploymentBehavior.test_partial_stage_resume_refused_abort_works) ... ok
+test_plan_read_only_and_install_verified_roundtrip (test_deploy.DeploymentBehavior.test_plan_read_only_and_install_verified_roundtrip) ... ok
+test_private_distribution_and_no_bundled_keys_or_assets (test_deploy.DeploymentBehavior.test_private_distribution_and_no_bundled_keys_or_assets) ... ok
+test_real_process_exit_releases_lock_and_recovery_restores_commit_boundary (test_deploy.DeploymentBehavior.test_real_process_exit_releases_lock_and_recovery_restores_commit_boundary) ... ok
+test_recovery_drift_and_journal_traversal_refused (test_deploy.DeploymentBehavior.test_recovery_drift_and_journal_traversal_refused) ... ok
+test_recovery_receipt_drift_refused_before_directory_changes (test_deploy.DeploymentBehavior.test_recovery_receipt_drift_refused_before_directory_changes) ... ok
+test_repeated_install_noop (test_deploy.DeploymentBehavior.test_repeated_install_noop) ... ok
+test_resume_complete_stage_and_committed_transactions_cannot_be_aborted (test_deploy.DeploymentBehavior.test_resume_complete_stage_and_committed_transactions_cannot_be_aborted) ... ok
+test_stale_transaction_and_corrupt_state_refused (test_deploy.DeploymentBehavior.test_stale_transaction_and_corrupt_state_refused) ... ok
+test_standalone_cli_readonly_json_plan (test_deploy.DeploymentBehavior.test_standalone_cli_readonly_json_plan) ... ok
+test_steam_checkout_symlink_hardlink_reparse_path_guards (test_deploy.DeploymentBehavior.test_steam_checkout_symlink_hardlink_reparse_path_guards) ... ok
+test_tampered_archive_refused_before_writes (test_deploy.DeploymentBehavior.test_tampered_archive_refused_before_writes) ... ok
+test_unowned_tree_metadata_and_case_alias_refused (test_deploy.DeploymentBehavior.test_unowned_tree_metadata_and_case_alias_refused) ... ok
+test_upgrade_migration_exact_backup_and_targeted_rollback_idempotence (test_deploy.DeploymentBehavior.test_upgrade_migration_exact_backup_and_targeted_rollback_idempotence) ... ok
+test_zip_entry_count_and_aggregate_budget_checked_before_member_reads (test_deploy.DeploymentBehavior.test_zip_entry_count_and_aggregate_budget_checked_before_member_reads) ... ok
+
+======================================================================
+ERROR: test_metadata_validation_does_not_read_the_windows_locked_byte (test_deploy.DeploymentBehavior.test_metadata_validation_does_not_read_the_windows_locked_byte)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_deploy.py", line 563, in test_metadata_validation_does_not_read_the_windows_locked_byte
+    state = deploy._metadata(control)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tools/package/deploy.py", line 423, in _metadata
+    if _read(control / 'lock', 1) != b'0':
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/unittest/mock.py", line 1199, in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_deploy.py", line 560, in locked_byte_read
+    raise PermissionError('SYNTHETIC Windows byte-range lock denies reading this byte')
+PermissionError: SYNTHETIC Windows byte-range lock denies reading this byte
+
+======================================================================
+FAIL: test_compression_without_bounded_native_decompression_refused_before_open (test_deploy.DeploymentBehavior.test_compression_without_bounded_native_decompression_refused_before_open) (compression=12)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_deploy.py", line 552, in test_compression_without_bounded_native_decompression_refused_before_open
+    self.assertEqual(opened, [], 'unsupported decompressor ran before rejection')
+AssertionError: Lists differ: [<ZipInfo filename='manifest.json' compres[78 chars]son'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+<ZipInfo filename='manifest.json' compress_type=bzip2 filemode='?rw-------' file_size=12 compress_size=51>
+
++ []
+- [<ZipInfo filename='manifest.json' compress_type=bzip2 filemode='?rw-------' file_size=12 compress_size=51>,
+-  'manifest.json'] : unsupported decompressor ran before rejection
+
+======================================================================
+FAIL: test_compression_without_bounded_native_decompression_refused_before_open (test_deploy.DeploymentBehavior.test_compression_without_bounded_native_decompression_refused_before_open) (compression=14)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_deploy.py", line 552, in test_compression_without_bounded_native_decompression_refused_before_open
+    self.assertEqual(opened, [], 'unsupported decompressor ran before rejection')
+AssertionError: Lists differ: [<ZipInfo filename='manifest.json' compres[77 chars]son'] != []
+
+First list contains 2 additional elements.
+First extra element 0:
+<ZipInfo filename='manifest.json' compress_type=lzma filemode='?rw-------' file_size=12 compress_size=32>
+
++ []
+- [<ZipInfo filename='manifest.json' compress_type=lzma filemode='?rw-------' file_size=12 compress_size=32>,
+-  'manifest.json'] : unsupported decompressor ran before rejection
+
+----------------------------------------------------------------------
+Ran 32 tests in 7.502s
+
+FAILED (failures=2, errors=1)

@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "environment": "actual-DayZ-server-under-Wine",
+  "runtime_acceptance": "pending",
+  "signature_verified": false,
+  "client_count": 0,
+  "status": "initialized",
+  "forced_stop": true,
+  "requested_gameplay_bind": "127.0.0.1:2402",
+  "steam_query_may_bind_wildcard": true,
+  "command": [
+    "xvfb-run",
+    "-a",
+    "/usr/lib/wine/wine64",
+    "/home/david/.cache/hollow-country/wine-server-20261116/DayZServer_x64.exe",
+    "-ip=127.0.0.1",
+    "-port=2402",
+    "-config=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-008\\serverDZ.cfg",
+    "-profiles=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-008\\profiles",
+    "-storage=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-008\\storage",
+    "-mod=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-008\\@HollowCountry",
+    "-BEpath=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-008\\battleye",
+    "-doLogs",
+    "-adminLog",
+    "-noPause"
+  ],
+  "pbo_sha256": "c71579a4d2f498771bcb81cbe7450a34ccc0522618d965432bfb7a39f0f273b4",
+  "server_sha256": "987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805",
+  "launcher_pid": 3093981,
+  "launcher_exit_code": -15,
+  "logs": {
+    "wine-output.log": "a45af13ec5cb662d07ee59d015b7af1cd5a8d4d45f0aac34099ade88b4ebc046",
+    "profiles/script_2026-11-16_16-05-55.log": "fbfe9032d90c462b3e080fbfd87f7c024c4b89d11dc61795b2ef1ead6e14c033",
+    "profiles/DayZServer_x64_2026-11-16_16-05-55.RPT": "7cdaca105b955c7f8c70b13dea965890dc32f2190a888c1be8b24a62ff21441a",
+    "profiles/DayZServer_x64_2026-11-16_16-05-56.ADM": "123a461a1df7ed8b227a1ef98fe8da54bcd61f85dff403b1b157cf43f92b2dd1",
+    "profiles/error_2026-11-16_16-05-55.log": "798cac4797400f3c1b992776d596aee0500cdd2762ed35a00fa173bec656ae6e"
+  }
+}

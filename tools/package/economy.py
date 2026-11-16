@@ -42,10 +42,16 @@ def child(root, name):
 
 
 def xml(data, tag):
-    if len(data) > 16 * 1024 * 1024 or b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
+    if len(data) > 16 * 1024 * 1024:
         raise ValueError('unsupported XML declarations or size')
     try:
-        root = ET.fromstring(data)
+        text = data.decode('utf-8-sig')
+    except UnicodeError as e:
+        raise ValueError('XML must use UTF-8') from e
+    if '\x00' in text or '<!DOCTYPE' in text.upper() or '<!ENTITY' in text.upper():
+        raise ValueError('unsupported XML declarations or encoding')
+    try:
+        root = ET.fromstring(text)
     except ET.ParseError as e:
         raise ValueError('malformed XML') from e
     if root.tag != tag:

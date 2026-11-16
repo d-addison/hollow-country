@@ -5,6 +5,8 @@ class HCNativeSelfTests
     static bool Run()
     {
         HCSettings settings = new HCSettings();
+        if (HCSettings.AcceptDocumentLength(0) || HCSettings.AcceptDocumentLength(16385)) return false;
+        if (!HCSettings.AcceptDocumentLength(1) || !HCSettings.AcceptDocumentLength(16384)) return false;
         string error;
         if (!settings.Validate(error)) return false;
         if (settings.EnableInteriors || settings.EnableSearch || settings.EnableCrafting || settings.EnableInfected || settings.EnableHordes || settings.EnableAlertChains) return false;

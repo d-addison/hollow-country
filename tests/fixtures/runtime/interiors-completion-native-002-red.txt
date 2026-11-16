@@ -1,0 +1,19 @@
+---------------------------------------------
+Log Z:\home\david\.cache\hollow-country\wine-server-20261116\experiments\compile-002\profiles\error_2026-11-16_15-53-33.log started at 2026-11-16 15:53:41 (2026-11-16 20:53:41 UTC)
+
+15:53:41.702 SCRIPT    (W): @"scripts/3_Game/human.c,17": Missing script declaration for method 'HumanInputController.DisableCrouchCameraHorizontalRotation'
+15:53:41.702 SCRIPT    (W): @"scripts/3_Game/human.c,241": Method not linked 'HumanInputController.DisableCrouchCameratHorizontalRotation'
+15:53:41.702 SCRIPT    (W): @"scripts/3_Game/human.c,240": Method not linked 'HumanInputController.DisableErectCameratHorizontalRotation'
+15:53:41.702 SCRIPT    (W): @"scripts/3_Game/human.c,17": Missing script declaration for method 'HumanInputController.DisableErectHorizontalRotation'
+15:53:41.765 ANIMATION (E): Can't load Z:\home\david\.cache\hollow-country\wine-server-20261116\experiments\compile-002\@HollowCountry/Anims/cfg/skeletons.anim.xml
+15:53:41.765 ANIMATION (E): Failed to open file, line 0, column 0
+15:53:41.765 ANIMATION (E): Can't load nasdara/Anims/cfg/skeletons.anim.xml
+15:53:41.765 ANIMATION (E): Failed to open file, line 0, column 0
+15:53:41.765 ANIMATION (E): Can't load sakhal/Anims/cfg/skeletons.anim.xml
+15:53:41.765 ANIMATION (E): Failed to open file, line 0, column 0
+15:53:43.008 SCRIPT    (E): @"HollowCountry/scripts/4_World/infected/hcinfectedrooms.c,67": Broken expression (missing ';'?)
+15:53:43.008 SCRIPT    (E): @"HollowCountry/scripts/4_World/infected/hcinfectedrooms.c,119": Broken expression (missing ';'?)
+15:53:43.008 SCRIPT    (E): @"HollowCountry/scripts/4_World/interiors/hcinteriormodule.c,207": Broken expression (missing ';'?)
+15:53:43.010 SCRIPT    (E): Can't compile "World" script module!
+
+HollowCountry/scripts/4_World/infected/hcinfectedrooms.c(67): Broken expression (missing ';'?)

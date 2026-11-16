@@ -7,6 +7,14 @@ class HCInfectedConfig
     bool EnableContactGuard = false;
     bool EnableNativePackRoutes = false;
     bool EnableInvestigation = false;
+    bool EnableSupplementaryChains = false;
+    bool EnableMemberRecovery = false;
+    bool EnableVariantPolicies = false;
+    bool EnableHordeStimulusRoutes = false;
+    // Explicit stance-indexed mappings only. Empty by default: no guessed
+    // class/location weights or automatically enabled variant distribution.
+    ref array<int> CivilianVariants = new array<int>;
+    ref array<int> MilitaryVariants = new array<int>;
     bool RunPolicySelfTests = false;
     int MaxTracked = 24;
     int MaxVoiceQueue = 16;
@@ -17,7 +25,19 @@ class HCInfectedConfig
 
     bool IsValid()
     {
-        return SchemaVersion == 1 && MaxTracked >= 1 && MaxTracked <= 24 && MaxVoiceQueue >= 1 && MaxVoiceQueue <= 32 && MaxVoicePerTick >= 1 && MaxVoicePerTick <= 8 && VoiceCooldownSeconds >= 10 && VoiceCooldownSeconds <= 60 && SaveIntervalSeconds >= 30 && SaveIntervalSeconds <= 300 && MaxInvestigators >= 1 && MaxInvestigators <= 2;
+        if (!HCInfectedProfiles.ValidateMap(CivilianVariants, EnableVariantPolicies))
+            return false;
+        if (!HCInfectedProfiles.ValidateMap(MilitaryVariants, EnableVariantPolicies))
+            return false;
+        if (EnableHordeStimulusRoutes && !EnableNativePackRoutes)
+            return false;
+        if (!(SchemaVersion == 1 && MaxTracked >= 1 && MaxTracked <= 24))
+            return false;
+        if (!(MaxVoiceQueue >= 1 && MaxVoiceQueue <= 32 && MaxVoicePerTick >= 1 && MaxVoicePerTick <= 8))
+            return false;
+        if (!(VoiceCooldownSeconds >= 10 && VoiceCooldownSeconds <= 60))
+            return false;
+        return SaveIntervalSeconds >= 30 && SaveIntervalSeconds <= 300 && MaxInvestigators >= 1 && MaxInvestigators <= 2;
     }
 }
 
@@ -39,9 +59,10 @@ class HCInfectedClue
 
 class HCInfectedActor
 {
-    ZombieBase Entity;
+    ZombieBase InfectedEntity;
     int GroupId = 0;
     bool EverAssigned = false; // No same-session recycling of finite reservations.
+    bool RecoveredMember = false;
     float NextVoice = 0;
     int LastEventId = -1;
     float LastEventAt = -1;
@@ -51,24 +72,53 @@ class HCInfectedActor
     float NextSearch;
     float NextVisualSample;
     ref HCNativeInfectedPack SearchPack;
+    ref HCInfectedClue Heard;
+    float NextHearing;
+    int HeardRootId;
+    bool HeardExternally;
     string Profile;
     float ClueLifetime;
+    int BaseVariant = -1;
+    int RequestedVariant = -1;
+    int SearchAnchorLimit;
+    bool ConfirmedDead;
+
+    void InitializeProfile(HCInfectedConfig config)
+    {
+        // Called once at registration. Injury never changes base personality.
+        if (config.EnableVariantPolicies)
+        {
+            RequestedVariant = HCInfectedProfiles.ConfiguredVariant(InfectedEntity, config);
+            BaseVariant = HCInfectedPolicy.ResolveVariant(RequestedVariant);
+        }
+        RefreshProfile();
+    }
 
     void RefreshProfile()
     {
         // Recognizable *existing* CE appearance/location distribution is kept.
         // These traits affect logical group attention, not native senses/stats.
         Profile = "civilian_searcher";
-        if (Entity.IsZombieMilitary())
+        if (InfectedEntity.IsZombieMilitary())
         {
             Profile = "military_reactive";
         }
-        bool injured = Entity.GetHealth("LeftLeg", "Health") <= 0 || Entity.GetHealth("RightLeg", "Health") <= 0;
+        bool injured = InfectedEntity.GetHealth("LeftLeg", "Health") <= 0 || InfectedEntity.GetHealth("RightLeg", "Health") <= 0;
         if (injured)
         {
             Profile = "native_injured";
         }
-        ClueLifetime = HCInfectedPolicy.ProfileLifetime(Entity.IsZombieMilitary(), injured, Entity.HCIndividualStance());
+        int stance = InfectedEntity.HCIndividualStance();
+        ClueLifetime = HCInfectedPolicy.ProfileLifetime(InfectedEntity.IsZombieMilitary(), injured, stance);
+        SearchAnchorLimit = HCInfectedPolicy.SearchAnchorBudget(InfectedEntity.IsZombieMilitary(), injured);
+        if (BaseVariant >= 0)
+        {
+            Profile = HCInfectedProfiles.DescriptorName(BaseVariant);
+            ClueLifetime = HCInfectedPolicy.VariantLifetime(BaseVariant, stance, injured);
+            SearchAnchorLimit = HCInfectedPolicy.VariantAnchorBudget(BaseVariant, injured);
+            if (injured)
+                Profile = "native_injured";
+        }
     }
 }
 
@@ -84,6 +134,8 @@ class HCHordeRecord
     int State = -1;
     int Reserved = -1;
     int Living = -1;
+    // 1=durable prepared reservation; 2=committed; 3=aborted/unresolved.
+    int AdoptionStage = -1;
     int CreatedUtc;
     int LastSignalUtc;
     vector Anchor = "999999 999999 999999";
@@ -91,13 +143,22 @@ class HCHordeRecord
     vector PreviousAnchor = "999999 999999 999999";
     bool HasRoute = false;
     vector RouteEnd;
+    // 1=frozen sensed clue; 2=measured room investigation. No invented migration.
+    int RoutePurpose;
+    int RouteResult;
+    int RoutePlanned;
+    int RouteCompleted;
+    // Empty on legacy/unproven CE identity; never infer missing identities.
+    ref array<ref HCHordeMemberId> MemberIds = new array<ref HCHordeMemberId>;
+    // Durable ambiguity latch. It is never silently cleared on restart.
+    bool RecoveryConflicted;
 }
 
 class HCInfectedSnapshot
 {
     int SchemaVersion = -1;
     string Build;
-    string World;
+    string WorldName;
     int Epoch = 0;
     int Generation = 0;
     int SavedUtc = 0;
@@ -169,7 +230,7 @@ class HCInfectedStore
     {
         if (!snapshot || !snapshot.Groups || snapshot.Build != "1.30.164289")
             return false;
-        if (!HCInfectedPolicy.ValidSnapshotHeader(snapshot.SchemaVersion, snapshot.World == world, snapshot.Epoch, snapshot.Groups.Count(), snapshot.Reserved, memberCap, snapshot.SavedUtc, now))
+        if (!HCInfectedPolicy.ValidSnapshotHeader(snapshot.SchemaVersion, snapshot.WorldName == world, snapshot.Epoch, snapshot.Groups.Count(), snapshot.Reserved, memberCap, snapshot.SavedUtc, now))
             return false;
         if (snapshot.Generation < 1 || snapshot.Generation > 1000000 || snapshot.Groups.Count() > groupCap)
             return false;
@@ -181,9 +242,26 @@ class HCInfectedStore
                 return false;
             if (!HCInfectedPolicy.ValidGroupRecord(group.Id, i, group.Reserved, group.Living, group.State, group.CreatedUtc, group.LastSignalUtc, snapshot.SavedUtc))
                 return false;
+            if (!HCInfectedPolicy.ValidAdoptionRecord(group.AdoptionStage, group.State, group.RecoveryConflicted))
+                return false;
             if (!ValidPosition(group.Anchor) || !ValidPosition(group.PreviousAnchor))
                 return false;
-            if (group.HasRoute && !ValidPosition(group.RouteEnd))
+            if (!HCHordeRecovery.ValidateRoster(group))
+                return false;
+            for (int olderGroup = 0; olderGroup < i; olderGroup++)
+            {
+                foreach (HCHordeMemberId member : group.MemberIds)
+                {
+                    foreach (HCHordeMemberId previousMember : snapshot.Groups[olderGroup].MemberIds)
+                    {
+                        if (member.SameId(previousMember))
+                            return false;
+                    }
+                }
+            }
+            if (!HCInfectedPolicy.ValidRouteMetadata(group.RoutePurpose, group.RouteResult, group.RoutePlanned, group.RouteCompleted, group.HasRoute))
+                return false;
+            if (group.RoutePlanned > 0 && !ValidPosition(group.RouteEnd))
                 return false;
             total += group.Reserved;
         }
@@ -206,9 +284,9 @@ class HCInfectedStore
         if (!existsA && !existsB)
         {
             snapshot = new HCInfectedSnapshot;
-            snapshot.SchemaVersion = 1;
+            snapshot.SchemaVersion = 2;
             snapshot.Build = "1.30.164289";
-            snapshot.World = world;
+            snapshot.WorldName = world;
             snapshot.Epoch = 1;
             snapshot.Reserved = 0;
             snapshot.Groups = new array<ref HCHordeRecord>;
@@ -235,7 +313,13 @@ class HCInfectedStore
             {
                 HCHordeRecord previous = older.Groups[i];
                 HCHordeRecord current = snapshot.Groups[i];
-                if (!HCInfectedPolicy.CanAdvanceRecord(previous.Id, current.Id, previous.Reserved, current.Reserved, previous.Living, current.Living, previous.State, current.State, previous.CreatedUtc, current.CreatedUtc))
+                if (!HCInfectedPolicy.ValidAdoptionStagePair(previous.AdoptionStage, current.AdoptionStage))
+                    return false;
+                bool normalAdvance = HCInfectedPolicy.CanAdvanceRecord(previous.Id, current.Id, previous.Reserved, current.Reserved, previous.Living, current.Living, previous.State, current.State, previous.CreatedUtc, current.CreatedUtc);
+                bool adoptionCommit = HCInfectedPolicy.CommitAdoptionRecord(previous.Id, current.Id, previous.Reserved, current.Reserved, previous.Living, current.Living, previous.State, current.State, previous.CreatedUtc, current.CreatedUtc, previous.AdoptionStage, current.AdoptionStage);
+                if (!normalAdvance && !adoptionCommit)
+                    return false;
+                if (!HCHordeRecovery.SameRoster(previous, current))
                     return false;
             }
         }
@@ -243,7 +327,12 @@ class HCInfectedStore
         {
             // Native CE identity cannot be proved across restart. Preserve each
             // reservation; never infer membership from classname or proximity.
+            group.AdoptionStage = HCInfectedPolicy.AdoptionAfterRestart(group.AdoptionStage);
+            if (group.AdoptionStage == 3)
+                group.RecoveryConflicted = true;
             group.State = HCInfectedPolicy.AfterRestart(group.State);
+            if (group.HasRoute)
+                group.RouteResult = 5; // Restart interrupts native intent, never replays it.
             group.HasRoute = false; // RouteEnd remains historical, never active intent.
         }
         return true;
@@ -253,7 +342,7 @@ class HCInfectedStore
     {
         snapshot.Generation++;
         snapshot.SavedUtc = HCInfectedClock.UtcSeconds();
-        if (!Validate(snapshot, snapshot.World, memberCap, groupCap, snapshot.SavedUtc))
+        if (!Validate(snapshot, snapshot.WorldName, memberCap, groupCap, snapshot.SavedUtc))
             return false;
         string content, error;
         if (!JsonFileLoader<HCInfectedSnapshot>.MakeData(snapshot, content, error) || content.Length() > 65536)

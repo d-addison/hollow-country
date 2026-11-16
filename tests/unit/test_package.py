@@ -1,8 +1,12 @@
 """Synthetic original text only: no game data or fixtures."""
 import hashlib
 import io
+import os
 from pathlib import Path
+import re
+import shutil
 import struct
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -94,6 +98,12 @@ class PackageBehavior(unittest.TestCase):
                 self.assertIn('manifest.json', z.namelist())
                 self.assertIn(b'unsigned-development', z.read('manifest.json'))
                 self.assertFalse(any('privatekey' in n for n in z.namelist()))
+                self.assertIn('tools/package/coverage.py', z.namelist())
+                self.assertIn('tools/package/deploy.py', z.namelist())
+                self.assertIn('docs/INSTALL_ROLLBACK.md', z.namelist())
+                for portable in ('tools/package/interior_catalog.py', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'):
+                    with self.subTest(portable=portable):
+                        self.assertIn(portable, z.namelist())
             (mission / 'mapgroupproto.xml').write_text('<prototype/>')
             with self.assertRaises(ValueError):
                 pbo.handoff(addon, mission)
@@ -183,6 +193,84 @@ class PackageBehavior(unittest.TestCase):
         self.assertIn('-WhatIf', native_tests)
         self.assertIn('SYNTHETIC-NOT-EXECUTABLE', native_tests)
         self.assertIn('Steam', native_tests)
+
+    def test_native_smoke_config_contains_required_stock_instance_fields(self):
+        script = Path('tools/package/Invoke-NativeSmoke.ps1').read_text()
+        config = re.search(r'\$configText = @"\r?\n(.*?)\r?\n"@', script, re.S).group(1)
+        for field, value in [('instanceId', '1'), ('guaranteedUpdates', '1'), ('shardId', '"hcdev1"')]:
+            self.assertEqual(re.findall(r'(?m)^' + field + r'\s*=\s*([^;]+);', config), [value])
+        self.assertRegex(config, r'(?m)^BattlEye\s*=\s*0;')
+
+    def test_native_smoke_uses_verified_isolated_battleye_dependency(self):
+        script = Path('tools/package/Invoke-NativeSmoke.ps1').read_text()
+        self.assertIn("$sourceBattleye = Join-Path $ServerRoot 'battleye\\BEServer_x64.dll'", script)
+        self.assertIn("$battleye = Join-Path $runtimeFull 'battleye'", script)
+        self.assertIn('"-BEpath=$battleye"', script)
+        self.assertIn("Copy-NewVerifiedFile $sourceBattleye (Join-Path $battleye 'BEServer_x64.dll') $battleyeExpected", script)
+        for field in ['battleye_source_sha256', 'battleye_staged_sha256', 'battleye_bytes']:
+            self.assertIn(field, script)
+        gate = script.index('if (-not $PSCmdlet.ShouldProcess')
+        capture = script.index('sha256 = (Get-ReadOnlySha256 $sourceBattleye)')
+        copy = script.index('Copy-NewVerifiedFile $sourceBattleye')
+        launch = script.index('$server = Start-Process')
+        self.assertLess(gate, capture, 'WhatIf must not require the synthetic fixture to contain BE DLLs')
+        self.assertLess(capture, script.index('$null = New-Item'), 'dependency admission must precede staging')
+        self.assertLess(capture, copy)
+        self.assertLess(copy, launch)
+
+    @unittest.skipUnless(os.name == 'nt', 'Native Windows PowerShell helper execution belongs to Windows CI')
+    def test_native_smoke_verified_copy_rejects_drift_and_overwrite(self):
+        """Execute actual smoke-helper AST functions against synthetic files only."""
+        powershell = shutil.which('powershell.exe')
+        self.assertIsNotNone(powershell, 'native Windows PowerShell is required on the Windows runner')
+        helper = Path('tools/package/Invoke-NativeSmoke.ps1').resolve()
+        harness = r'''
+param([string]$Helper, [string]$Fixture)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Helper, [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw 'Smoke helper AST parse failed.' }
+foreach ($name in @('Assert-NoReparseAncestors', 'Get-ReadOnlySha256', 'Assert-PinnedFile', 'Copy-NewVerifiedFile')) {
+    $definition = $ast.Find({ param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
+    }, $true)
+    if ($null -eq $definition) { throw "Missing real smoke helper: $name" }
+    . ([scriptblock]::Create($definition.Extent.Text))
+}
+$source = Join-Path $Fixture 'synthetic-BEServer_x64.dll'
+$destination = Join-Path $Fixture 'staged-BEServer_x64.dll'
+[IO.File]::WriteAllText($source, 'SYNTHETIC-NOT-A-DLL')
+$expected = [pscustomobject]@{ bytes = (Get-Item -LiteralPath $source).Length; sha256 = (Get-ReadOnlySha256 $source) }
+Copy-NewVerifiedFile $source $destination $expected
+if ((Get-ReadOnlySha256 $destination) -ne $expected.sha256) { throw 'Copy checksum differs.' }
+Assert-PinnedFile $source $expected
+[IO.File]::WriteAllText($destination, 'UNRELATED-DO-NOT-OVERWRITE')
+$rejected = $false
+try { Copy-NewVerifiedFile $source $destination $expected } catch { $rejected = $true }
+if (-not $rejected -or [IO.File]::ReadAllText($destination) -ne 'UNRELATED-DO-NOT-OVERWRITE') {
+    throw 'Existing destination was overwritten.'
+}
+[IO.File]::WriteAllText($source, 'SYNTHETIC-NOT-A-DLX')
+$driftTarget = Join-Path $Fixture 'must-not-be-created.dll'
+$rejected = $false
+try { Copy-NewVerifiedFile $source $driftTarget $expected } catch { $rejected = $true }
+if (-not $rejected -or (Test-Path -LiteralPath $driftTarget)) { throw 'Changed source was copied.' }
+[IO.File]::WriteAllText($destination, 'SYNTHETIC-NOT-A-DLY')
+$rejected = $false
+try { Assert-PinnedFile $destination $expected } catch { $rejected = $true }
+if (-not $rejected) { throw 'Changed staged dependency was accepted.' }
+Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on synthetic bytes; no DayZ launch.'
+'''
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            script = root / 'test-smoke-copy.ps1'
+            script.write_text(harness, encoding='utf-8')
+            result = subprocess.run([powershell, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                                     '-File', str(script), '-Helper', str(helper), '-Fixture', str(root)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('PASS actual smoke helper', result.stdout)
 
     def test_operator_settings_and_install_rollback_guide_are_packaged(self):
         mission = Path('mission/hollow-country')

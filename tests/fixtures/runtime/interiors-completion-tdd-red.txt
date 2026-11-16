@@ -1,0 +1,239 @@
+test_authored_allocation_never_exceeds_finite_supplementary_quotas (test_interiors_contract.InteriorsContractTests.test_authored_allocation_never_exceeds_finite_supplementary_quotas) ... ok
+test_authored_assignment_is_bounded_and_spans_all_layouts (test_interiors_contract.InteriorsContractTests.test_authored_assignment_is_bounded_and_spans_all_layouts) ... ok
+test_authored_authority_requires_every_gate (test_interiors_contract.InteriorsContractTests.test_authored_authority_requires_every_gate) ... ok
+test_authored_claim_has_no_refill_or_rollback_transition (test_interiors_contract.InteriorsContractTests.test_authored_claim_has_no_refill_or_rollback_transition) ... ok
+test_authored_quantization_signed_and_boundary (test_interiors_contract.InteriorsContractTests.test_authored_quantization_signed_and_boundary) ... ok
+test_authored_recovery_never_reissues_ambiguous_claim (test_interiors_contract.InteriorsContractTests.test_authored_recovery_never_reissues_ambiguous_claim) ... ok
+test_authored_yaw_identity_normalizes_full_turns (test_interiors_contract.InteriorsContractTests.test_authored_yaw_identity_normalizes_full_turns) ... ok
+test_both_independent_acceptance_gates_report_operator_reasons (test_interiors_contract.InteriorsContractTests.test_both_independent_acceptance_gates_report_operator_reasons) ... ok
+test_bounded_manifest_registration_and_default_off_acceptance (test_interiors_contract.InteriorsContractTests.test_bounded_manifest_registration_and_default_off_acceptance) ... ok
+test_catalog_has_three_native_layouts_two_histories (test_interiors_contract.InteriorsContractTests.test_catalog_has_three_native_layouts_two_histories) ... ok
+test_claim_marker_precedes_inventory_and_never_retries_output (test_interiors_contract.InteriorsContractTests.test_claim_marker_precedes_inventory_and_never_retries_output) ... ok
+test_client_hooks_preview_without_settings_or_profile_io (test_interiors_contract.InteriorsContractTests.test_client_hooks_preview_without_settings_or_profile_io) ... ok
+test_completion_grant_attempt_is_recorded_before_inventory (test_interiors_contract.InteriorsContractTests.test_completion_grant_attempt_is_recorded_before_inventory) ... ERROR
+test_completion_migration_preserves_legacy_paths_and_bindings (test_interiors_contract.InteriorsContractTests.test_completion_migration_preserves_legacy_paths_and_bindings) ... ERROR
+test_completion_orphan_recovery_does_not_adopt_foreign_props (test_interiors_contract.InteriorsContractTests.test_completion_orphan_recovery_does_not_adopt_foreign_props) ... FAIL
+test_completion_pool_conserves_units_across_retirement_and_restart (test_interiors_contract.InteriorsContractTests.test_completion_pool_conserves_units_across_retirement_and_restart) ... FAIL
+test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) ... 
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='no claim or output attempt') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='crash after schema-2 intent before attempt') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='crash after attempt before output') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='output may exist but result missing') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='schema-2 exact completion') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='schema-2 completion missing attempt') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='legacy exact completion retained') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='unsupported downgrade or future schema') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='completion without claim') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='torn reservation') ... FAIL
+  test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='mismatched result actor or allocation') ... FAIL
+test_completion_recovery_rejects_every_inconsistent_journal (test_interiors_contract.InteriorsContractTests.test_completion_recovery_rejects_every_inconsistent_journal) ... FAIL
+test_completion_shared_pool_reconciles_every_slot_before_search (test_interiors_contract.InteriorsContractTests.test_completion_shared_pool_reconciles_every_slot_before_search) ... FAIL
+test_completion_version_migration_is_explicit_forward_only (test_interiors_contract.InteriorsContractTests.test_completion_version_migration_is_explicit_forward_only) ... FAIL
+test_full_inventory_and_empty_results_have_native_feedback (test_interiors_contract.InteriorsContractTests.test_full_inventory_and_empty_results_have_native_feedback) ... ok
+test_furnishings_are_created_during_startup_not_live_ticks (test_interiors_contract.InteriorsContractTests.test_furnishings_are_created_during_startup_not_live_ticks) ... ok
+test_identity_and_candidate_collisions_do_not_depend_on_object_order (test_interiors_contract.InteriorsContractTests.test_identity_and_candidate_collisions_do_not_depend_on_object_order) ... ok
+test_native_self_tests_call_real_algorithm_without_spawn (test_interiors_contract.InteriorsContractTests.test_native_self_tests_call_real_algorithm_without_spawn) ... ok
+test_no_inventory_mutation_until_duration_and_exact_lock_owner (test_interiors_contract.InteriorsContractTests.test_no_inventory_mutation_until_duration_and_exact_lock_owner) ... ok
+test_persistence_write_and_read_are_bounded_and_no_stale_restore (test_interiors_contract.InteriorsContractTests.test_persistence_write_and_read_are_bounded_and_no_stale_restore) ... ok
+test_server_condition_never_uses_cursor_preview (test_interiors_contract.InteriorsContractTests.test_server_condition_never_uses_cursor_preview) ... ok
+test_server_measures_duration_and_rechecks_empty_hands (test_interiors_contract.InteriorsContractTests.test_server_measures_duration_and_rechecks_empty_hands) ... ok
+test_server_uses_authored_anchor_not_client_cursor_for_commit (test_interiors_contract.InteriorsContractTests.test_server_uses_authored_anchor_not_client_cursor_for_commit) ... ok
+
+======================================================================
+ERROR: test_completion_grant_attempt_is_recorded_before_inventory (test_interiors_contract.InteriorsContractTests.test_completion_grant_attempt_is_recorded_before_inventory)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 121, in test_completion_grant_attempt_is_recorded_before_inventory
+    self.assertLess(body.index("m_Store.BeginGrant"), body.index("CreateInInventory"))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: substring not found
+
+======================================================================
+ERROR: test_completion_migration_preserves_legacy_paths_and_bindings (test_interiors_contract.InteriorsContractTests.test_completion_migration_preserves_legacy_paths_and_bindings)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 126, in test_completion_migration_preserves_legacy_paths_and_bindings
+    body = method_body("HCInteriorStore.c", "OpenJournal")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 46, in method_body
+    start = text.index(name + "(")
+            ^^^^^^^^^^^^^^^^^^^^^^
+ValueError: substring not found
+
+======================================================================
+FAIL: test_completion_orphan_recovery_does_not_adopt_foreign_props (test_interiors_contract.InteriorsContractTests.test_completion_orphan_recovery_does_not_adopt_foreign_props)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 98, in test_completion_orphan_recovery_does_not_adopt_foreign_props
+    self.assertEqual(authored("OrphanDecision", True, 0, 0, True), 0)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: OrphanDecision
+
+======================================================================
+FAIL: test_completion_pool_conserves_units_across_retirement_and_restart (test_interiors_contract.InteriorsContractTests.test_completion_pool_conserves_units_across_retirement_and_restart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 67, in test_completion_pool_conserves_units_across_retirement_and_restart
+    after = authored("ReconcilePhase", before, recovered)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: ReconcilePhase
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='no claim or output attempt')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='crash after schema-2 intent before attempt')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='crash after attempt before output')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='output may exist but result missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='schema-2 exact completion')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='schema-2 completion missing attempt')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='legacy exact completion retained')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='unsupported downgrade or future schema')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='completion without claim')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='torn reservation')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_crash_cuts_never_replay_a_grant (test_interiors_contract.InteriorsContractTests.test_completion_recovery_crash_cuts_never_replay_a_grant) (case='mismatched result actor or allocation')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 62, in test_completion_recovery_crash_cuts_never_replay_a_grant
+    self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_recovery_rejects_every_inconsistent_journal (test_interiors_contract.InteriorsContractTests.test_completion_recovery_rejects_every_inconsistent_journal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 87, in test_completion_recovery_rejects_every_inconsistent_journal
+    phase = authored("RecoverJournal", *flags, 2, 2)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: RecoverJournal
+
+======================================================================
+FAIL: test_completion_shared_pool_reconciles_every_slot_before_search (test_interiors_contract.InteriorsContractTests.test_completion_shared_pool_reconciles_every_slot_before_search)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 109, in test_completion_shared_pool_reconciles_every_slot_before_search
+    self.assertIn("OpenJournal", opened)
+AssertionError: 'OpenJournal' not found in '\n        m_Root = "$profile:HollowCountry/interiors_s1_e" + config.Epoch.ToString();\n        bool existed = FileExist(m_Root);\n        if (!existed)\n        {\n            if (!config.InitializeNewEpoch) return Fail("new epoch requires explicit initialization; no automatic refill");\n            if (!MakeDirectory(m_Root)) return Fail("cannot create epoch directory");\n            // A crash now leaves an incomplete root which cannot auto-initialize.\n            if (!HCInteriorJson<HCInteriorManifest>.WriteNew(m_Root + "/manifest.json", expected)) return Fail("initial manifest write/readback failed; preserve incomplete root");\n            if (!HCInteriorJson<HCInteriorManifest>.WriteNew(m_Root + "/manifest.backup.json", expected)) return Fail("initial manifest backup failed; preserve root");\n        }\n        HCInteriorManifest actual;\n        if (!HCInteriorJson<HCInteriorManifest>.Load(m_Root + "/manifest.json", actual)) return Fail("missing/corrupt/oversized manifest; no backup rewind");\n        string left;\n        string right;\n        string error;\n        if (!JsonFileLoader<HCInteriorManifest>.MakeData(expected, left, error)) return Fail("expected manifest serialization failed");\n        if (!JsonFileLoader<HCInteriorManifest>.MakeData(actual, right, error)) return Fail("loaded manifest serialization failed");\n        if (left != right) Print("[HC Interiors] manifest changed: preserve state; explicit migration required");\n        return left == right;\n    '
+
+======================================================================
+FAIL: test_completion_version_migration_is_explicit_forward_only (test_interiors_contract.InteriorsContractTests.test_completion_version_migration_is_explicit_forward_only)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 79, in test_completion_version_migration_is_explicit_forward_only
+    self.assertTrue(authored("MigrationAllowed", 1, 2, True, True))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/dayzsa_mods/tests/unit/test_interiors_contract.py", line 23, in authored
+    raise AssertionError("missing executable scalar algorithm: " + name)
+AssertionError: missing executable scalar algorithm: MigrationAllowed
+
+----------------------------------------------------------------------
+Ran 29 tests in 0.041s
+
+FAILED (failures=16, errors=2)

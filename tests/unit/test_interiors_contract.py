@@ -4,6 +4,7 @@ import json
 import math
 from pathlib import Path
 import re
+from types import SimpleNamespace
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,8 +44,10 @@ def authored(name, *args):
 
 def method_body(filename, name):
     text = (SRC / filename).read_text()
-    start = text.index(name + "(")
-    start = text.index("{", start)
+    declaration = re.search(r"^\s*(?:(?:static|override|protected)\s+)*\w+(?:<[^>\n]+>)?\s+" + re.escape(name) + r"\([^;\n]*\)\s*\{", text, re.M)
+    if not declaration:
+        raise AssertionError("missing method declaration: " + name)
+    start = declaration.end() - 1
     depth = 1
     end = start + 1
     while depth:
@@ -54,7 +57,220 @@ def method_body(filename, name):
     return text[start + 1:end - 1]
 
 
+def authored_pool():
+    """Restricted execution of the authored collection methods, with synthetic DTOs.
+
+    This is not an Enforce compiler: only the pool's if/foreach/assignment subset
+    is admitted, with explicit Python lists instead of engine collections.
+    """
+    class SyntheticArray(list):
+        def Clear(self): self.clear()
+        def Insert(self, value): self.append(value)
+        def Count(self): return len(self)
+
+    pool = SimpleNamespace()
+    namespace = {
+        "m_Entries": SyntheticArray(), "m_Opened": False, "HCInteriorRules": SimpleNamespace(
+            ReconcilePhase=lambda *args: authored("ReconcilePhase", *args),
+            PoolWithinBounds=lambda *args: authored("PoolWithinBounds", *args)),
+        "HCInteriorCatalog": SimpleNamespace(ItemAllowed=lambda item: item in ("", "Rag", "Battery9V")),
+        "HCInteriorAllocation": lambda: SimpleNamespace(SlotId=0, SiteId="", Item="", Phase=0),
+        "HCInteriorSupplyCount": lambda: SimpleNamespace(Allocated=0, Available=0, Reserved=0, Spent=0, Quarantined=0),
+    }
+    signatures = {"Open": "manifest", "FindSlot": "slot", "Matches": "site", "Reserved": "site",
+                  "TryReserve": "site", "Reconcile": "site,phase", "Count": "item"}
+    for name, params in signatures.items():
+        body = re.sub(r"//[^\n]*", "", method_body("HCInteriorSearchPool.c", name))
+        statements = re.split(r"([{};])", body)
+        indent = 1
+        lines = []
+        for part in statements:
+            part = part.strip()
+            if not part or part == ";": continue
+            if part == "{": indent += 1; continue
+            if part == "}": indent -= 1; continue
+            part = part.replace("&&", " and ").replace("||", " or ")
+            part = re.sub(r"!(?!=)", "not ", part)
+            for native, python in [("null", "None"), ("true", "True"), ("false", "False")]:
+                part = re.sub(r"\b" + native + r"\b", python, part)
+            part = re.sub(r"\bnew (HCInteriorAllocation|HCInteriorSupplyCount)\b", r"\1()", part)
+            part = re.sub(r"\b\w+ (\w+) =", r"\1 =", part)
+            part = re.sub(r"^(?:int|bool) (\w+)$", r"\1 = 0", part)
+            part = re.sub(r"([\w.]+)\+\+", r"\1 += 1", part)
+            part = re.sub(r"([\w.]+)\.Count\(\)", r"len(\1)", part)
+            part = re.sub(r"([\w.]+)\.Length\(\)", r"len(\1)", part)
+            part = re.sub(r"^foreach \(\w+ (\w+) : (.*)\)$", r"for \1 in \2:", part)
+            part = re.sub(r"^if \((.*)\)\s+(.*)$", r"if \1: \2", part, flags=re.S)
+            lines.append("    " * indent + part.replace("\n", " "))
+        code = "def " + name + "(" + params + "):\n    global m_Opened\n" + "\n".join(lines)
+        exec(compile(code, "authored-enforce-pool:" + name, "exec"), namespace)
+        setattr(pool, name, namespace[name])
+    return pool
+
+
 class InteriorsContractTests(unittest.TestCase):
+    def test_native_owned_keyword_is_never_an_interior_variable_or_parameter(self):
+        for path in SRC.glob("*.c"):
+            code = re.sub(r"//[^\n]*", "", path.read_text())
+            self.assertNotRegex(code, r"\b(?:int|Object)\s+owned\b", path.name)
+
+    def test_native_compiler_reported_type_names_are_not_interior_identifiers(self):
+        evidence = json.loads((FIX.parent / "interiors-completion-native-inspection.json").read_text())
+        reserved = set(evidence["reported_native_types"])
+        for path in SRC.glob("*.c"):
+            declarations = re.findall(r"^\s*(?:(?:protected|static|const|ref)\s+)*\w+(?:<[^;\n]+>)?\s+(\w+)\s*(?:[;=]|\()", path.read_text(), re.M)
+            self.assertFalse(reserved.intersection(declarations), path.name)
+
+    def test_completion_interrupted_allocation_cannot_be_resumed_by_resetting_site_phase(self):
+        pool = authored_pool()
+        manifest = SimpleNamespace(SchemaVersion=1, Assignments=[SimpleNamespace(SlotId=0, InstanceId="SYNTHETIC_A", Item="Rag")])
+        self.assertTrue(pool.Open(manifest))
+        site = SimpleNamespace(SlotId=0, Id="SYNTHETIC_A_storage_v1", Item="Rag", Phase=0)
+        self.assertTrue(pool.TryReserve(site))
+        site.Phase = 1
+        self.assertTrue(pool.Reserved(site))
+        self.assertEqual(pool.Reconcile(site, 3), 3)
+        site.Phase = 1  # stale action data must not revive an interrupted grant
+        self.assertFalse(pool.Reserved(site))
+        self.assertIn("m_Pool.Reserved(site)", method_body("HCInteriorStore.c", "BeginGrant"))
+        self.assertIn("m_Pool.Reserved(site)", method_body("HCInteriorStore.c", "Finish"))
+
+    def test_completion_journal_omitted_version_is_not_accepted_from_dto_defaults(self):
+        source = (SRC / "HCInteriorSearchPool.c").read_text().split("class HCInteriorJournalIdentity", 1)[1].split("}", 1)[0]
+        defaults = {}
+        for field in ("SchemaVersion", "SourceSchema"):
+            match = re.search(r"int " + field + r"(?: = (\d+))?;", source)
+            self.assertIsNotNone(match)
+            defaults[field] = int(match[1] or 0)
+        self.assertFalse(authored("JournalVersionAccepted", defaults["SchemaVersion"], defaults["SourceSchema"]))
+        for schema, origin in itertools.product(range(4), repeat=2):
+            self.assertEqual(authored("JournalVersionAccepted", schema, origin), (schema, origin) == (2, 1))
+
+    def test_completion_actual_pool_cannot_reopen_to_refund_spent_units(self):
+        manifest = SimpleNamespace(SchemaVersion=1, Assignments=[SimpleNamespace(SlotId=0, InstanceId="SYNTHETIC_A", Item="Rag")])
+        pool = authored_pool()
+        self.assertTrue(pool.Open(manifest))
+        site = SimpleNamespace(SlotId=0, Id="SYNTHETIC_A_storage_v1", Item="Rag", Phase=0)
+        self.assertTrue(pool.TryReserve(site))
+        self.assertEqual(pool.Reconcile(site, 2), 2)
+        self.assertFalse(pool.Open(manifest))
+        self.assertFalse(pool.TryReserve(site))
+
+    def test_completion_actual_pool_two_consumers_cannot_share_one_unit(self):
+        pool = authored_pool()
+        manifest = SimpleNamespace(SchemaVersion=1, Assignments=[SimpleNamespace(SlotId=0, InstanceId="SYNTHETIC_A", Item="Rag")])
+        self.assertTrue(pool.Open(manifest))
+        a = SimpleNamespace(SlotId=0, Id="SYNTHETIC_A_storage_v1", Item="Rag", Phase=0)
+        b = SimpleNamespace(**vars(a))
+        self.assertTrue(pool.TryReserve(a))
+        self.assertFalse(pool.TryReserve(b))
+        self.assertEqual(pool.Reconcile(a, 2), 2)
+        self.assertFalse(pool.TryReserve(b))
+        count = pool.Count("Rag")
+        self.assertEqual((count.Allocated, count.Available, count.Reserved, count.Spent, count.Quarantined), (1, 0, 0, 1, 0))
+
+    def test_completion_actual_pool_restart_reconciles_missing_building_escrow(self):
+        manifest = SimpleNamespace(SchemaVersion=1, Assignments=[SimpleNamespace(SlotId=i, InstanceId="SYNTHETIC_" + str(i), Item="Rag") for i in range(4)])
+        pool = authored_pool()
+        self.assertTrue(pool.Open(manifest))
+        for slot, phase in enumerate([2, 3, 3, 0]):
+            site = SimpleNamespace(SlotId=slot, Id="SYNTHETIC_" + str(slot) + "_storage_v1", Item="Rag", Phase=0)
+            self.assertEqual(pool.Reconcile(site, phase), phase)
+        count = pool.Count("Rag")
+        self.assertEqual((count.Allocated, count.Available, count.Spent, count.Quarantined), (4, 1, 1, 2))
+        held = SimpleNamespace(SlotId=1, Id="SYNTHETIC_1_storage_v1", Item="Rag", Phase=0)
+        self.assertFalse(pool.TryReserve(held))
+        self.assertEqual(pool.Reconcile(held, 0), 3)
+
+    def test_completion_actual_pool_rejects_overquota_and_aliased_owners(self):
+        for count in (0, 5, 13):
+            manifest = SimpleNamespace(SchemaVersion=1, Assignments=[SimpleNamespace(SlotId=i, InstanceId="SYNTHETIC_" + str(i), Item="Rag") for i in range(count)])
+            self.assertFalse(authored_pool().Open(manifest))
+        for assignments in (
+            [SimpleNamespace(SlotId=0, InstanceId="A", Item="Rag"), SimpleNamespace(SlotId=0, InstanceId="B", Item="Rag")],
+            [SimpleNamespace(SlotId=0, InstanceId="A", Item="Rag"), SimpleNamespace(SlotId=1, InstanceId="A", Item="Rag")],
+            [SimpleNamespace(SlotId=0, InstanceId="A", Item="M4A1")],
+        ):
+            self.assertFalse(authored_pool().Open(SimpleNamespace(SchemaVersion=1, Assignments=assignments)))
+
+    def test_completion_recovery_crash_cuts_never_replay_a_grant(self):
+        cases = json.loads((FIX.parent / "interiors-completion-synthetic.json").read_text())
+        for case in cases["journal"]:
+            with self.subTest(case=case["given"]):
+                self.assertEqual(authored("RecoverJournal", *case["flags"]), case["then_phase"])
+
+    def test_completion_pool_conserves_units_across_retirement_and_restart(self):
+        # Synthetic owner phases; policy itself is executed from authored Enforce.
+        for before, recovered in itertools.product(range(4), repeat=2):
+            after = authored("ReconcilePhase", before, recovered)
+            if before != 0:
+                self.assertNotEqual(after, 0)
+            if before == recovered:
+                self.assertEqual(after, before)
+        for count in range(-1, 15):
+            self.assertEqual(authored("PoolWithinBounds", count, 4, 2), 1 <= count <= 12)
+        self.assertFalse(authored("PoolWithinBounds", 12, 5, 2))
+        self.assertFalse(authored("PoolWithinBounds", 12, 4, 3))
+        self.assertFalse(authored("PoolWithinBounds", 12, -1, 0))
+
+    def test_completion_version_migration_is_explicit_forward_only(self):
+        self.assertTrue(authored("MigrationAllowed", 1, 2, True, True))
+        for source, target, approval, exact in itertools.product(range(4), range(4), [False, True], [False, True]):
+            if (source, target, approval, exact) != (1, 2, True, True):
+                self.assertFalse(authored("MigrationAllowed", source, target, approval, exact))
+
+    def test_completion_recovery_rejects_every_inconsistent_journal(self):
+        for flags in itertools.product([False, True], repeat=6):
+            claim, valid_claim, attempt, valid_attempt, result, valid_result = flags
+            phase = authored("RecoverJournal", *flags, 2, 2)
+            if not claim and (attempt or result):
+                self.assertEqual(phase, 3)
+            if claim and not valid_claim:
+                self.assertEqual(phase, 3)
+            if claim and not result:
+                self.assertEqual(phase, 3)
+            if phase == 0:
+                self.assertFalse(claim or attempt or result)
+
+    def test_completion_orphan_recovery_does_not_adopt_foreign_props(self):
+        self.assertEqual(authored("OrphanDecision", True, 0, 0, True), 0)
+        self.assertEqual(authored("OrphanDecision", True, 1, 1, True), 1)
+        for bounded, matches, owners, exact in itertools.product([False, True], range(4), range(4), [False, True]):
+            decision = authored("OrphanDecision", bounded, matches, owners, exact)
+            if decision == 1:
+                self.assertEqual((bounded, matches, owners, exact), (True, 1, 1, True))
+            if not bounded or matches > 1:
+                self.assertEqual(decision, 3)
+
+    def test_completion_shared_pool_reconciles_every_slot_before_search(self):
+        opened = method_body("HCInteriorStore.c", "Open")
+        self.assertIn("OpenJournal", opened)
+        self.assertIn("ReconcileAll", opened)
+        body = method_body("HCInteriorStore.c", "ReconcileAll")
+        self.assertIn("slot < 12", body)
+        self.assertIn("orphan journal", body)
+        reserve = method_body("HCInteriorStore.c", "Reserve")
+        self.assertIn("m_Pool.TryReserve", reserve)
+        self.assertIn("ResultPath", reserve)
+        self.assertIn("AttemptPath", reserve)
+
+    def test_completion_grant_attempt_is_recorded_before_inventory(self):
+        body = method_body("HCInteriorModule.c", "CommitSearch")
+        self.assertLess(body.index("m_Store.BeginGrant"), body.index("CreateInInventory"))
+        self.assertIn("m_Store.Finish(site, playerId, 2, output)", body)
+        self.assertIn("GetPersistentID", (SRC / "HCInteriorStore.c").read_text())
+
+    def test_completion_migration_preserves_legacy_paths_and_bindings(self):
+        body = method_body("HCInteriorStore.c", "OpenJournal")
+        self.assertIn("MigrationAllowed", body)
+        self.assertIn("MigrateLegacyJournal", body)
+        self.assertIn("journal-v2.json", body)
+        self.assertIn("WriteNew", body)
+        source = (SRC / "HCInteriorStore.c").read_text()
+        self.assertNotIn("DeleteFile", source)
+        self.assertNotIn("CopyFile", source)
+        self.assertIn("result.PlayerId == claim.PlayerId", source)
+
     def test_authored_quantization_signed_and_boundary(self):
         for value, expected in json.loads(FIX.read_text())["quantize"]:
             self.assertEqual(authored("Quantize", value), expected)
@@ -216,10 +432,10 @@ class InteriorsContractTests(unittest.TestCase):
     def test_identity_and_candidate_collisions_do_not_depend_on_object_order(self):
         source = (SRC / "HCInteriorCatalog.c").read_text()
         self.assertIn('Type + "_" + HCInteriorRules.TransformKey(Position, Orientation)', source)
-        self.assertIn('Slot.ToString()', source)
+        self.assertIn('SlotId.ToString()', source)
         config = method_body("HCInteriorModule.c", "ValidateConfig")
         self.assertIn("previous.Key() == candidate.Key()", config)
-        self.assertIn("previous.Slot == candidate.Slot", config)
+        self.assertIn("previous.SlotId == candidate.SlotId", config)
         resolved = method_body("HCInteriorModule.c", "ResolveBuilding")
         self.assertIn("if (found) return null", resolved)
         self.assertIn("objects.Count() > 256", resolved)

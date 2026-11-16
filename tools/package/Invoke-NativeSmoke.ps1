@@ -13,6 +13,50 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Match the setup script's read-only hashing and no-overwrite verified copy.
+# These source snapshots record local provenance, not Steam authenticity.
+function Assert-NoReparseAncestors {
+    param([string]$Path)
+    $cursor = [IO.Path]::GetFullPath($Path)
+    while ($cursor) {
+        $item = Get-Item -LiteralPath $cursor -ErrorAction SilentlyContinue
+        if ($null -ne $item -and ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            throw "ReparsePoint/junction/symlink is not allowed: $cursor"
+        }
+        $cursor = [IO.Path]::GetDirectoryName($cursor)
+    }
+}
+function Get-ReadOnlySha256 {
+    param([string]$Path)
+    $stream = $null
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [IO.File]::OpenRead($Path)
+        return ([BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+        $algorithm.Dispose()
+    }
+}
+function Assert-PinnedFile {
+    param([string]$Path, $Expected)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Required file missing: $Path" }
+    Assert-NoReparseAncestors $Path
+    if ((Get-Item -LiteralPath $Path).Length -ne [long]$Expected.bytes -or
+        (Get-ReadOnlySha256 $Path) -ne $Expected.sha256) {
+        throw "Dependency source/staged hash or size mismatch: $Path"
+    }
+}
+function Copy-NewVerifiedFile {
+    param([string]$Source, [string]$Destination, $Expected)
+    Assert-PinnedFile $Source $Expected
+    Assert-NoReparseAncestors $Destination
+    [IO.File]::Copy($Source, $Destination, $false)
+    Assert-PinnedFile $Destination $Expected
+    Assert-PinnedFile $Source $Expected
+}
+
 $exe = Join-Path $ServerRoot 'DayZServer_x64.exe'
 $missionSource = Join-Path $ServerRoot 'mpmissions\dayzOffline.chernarusplus'
 foreach ($path in @($exe, $Pbo, (Join-Path $missionSource 'init.c'))) {
@@ -26,6 +70,16 @@ $repo = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 if ($runtimeFull.StartsWith($repo.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Runtime cannot be under the source checkout.' }
 if (Test-Path -LiteralPath $runtimeFull) { throw 'Runtime already exists; choose a fresh directory.' }
 if (-not $PSCmdlet.ShouldProcess($runtimeFull, 'Copy local mission and run a bounded unsigned server smoke requesting gameplay loopback')) { return }
+# Even with BattlEye=0, initialization can require the server DLL. Never let
+# the smoke write BE state into the installed tree or reuse another runtime.
+$sourceBattleye = Join-Path $ServerRoot 'battleye\BEServer_x64.dll'
+if (-not (Test-Path -LiteralPath $sourceBattleye -PathType Leaf)) { throw "Required BattlEye dependency missing: $sourceBattleye" }
+Assert-NoReparseAncestors $sourceBattleye
+Assert-NoReparseAncestors $runtimeFull
+$battleyeExpected = [pscustomobject]@{
+    bytes = (Get-Item -LiteralPath $sourceBattleye).Length
+    sha256 = (Get-ReadOnlySha256 $sourceBattleye)
+}
 $pythonCommand = Get-Command -Name $Python -CommandType Application -ErrorAction Stop
 if ($pythonCommand.Source -match '(?i)\\WindowsApps\\') { throw 'Windows Store python alias is unverified. Supply -Python with a real Python 3.10+ executable.' }
 $Python = $pythonCommand.Source
@@ -44,7 +98,9 @@ $null = New-Item -ItemType Directory -Path $addons
 Copy-Item -LiteralPath $Pbo -Destination (Join-Path $addons 'hollowcountry.pbo')
 $profiles = Join-Path $runtimeFull 'profiles'
 $storage = Join-Path $runtimeFull 'storage'
-$null = New-Item -ItemType Directory -Path $profiles, $storage
+$battleye = Join-Path $runtimeFull 'battleye'
+$null = New-Item -ItemType Directory -Path $profiles, $storage, $battleye
+Copy-NewVerifiedFile $sourceBattleye (Join-Path $battleye 'BEServer_x64.dll') $battleyeExpected
 $config = Join-Path $runtimeFull 'serverDZ.cfg'
 $configText = @"
 hostname = "Hollow Country private native smoke";
@@ -52,6 +108,9 @@ password = "local-native-smoke";
 maxPlayers = 6;
 verifySignatures = 0;
 forceSameBuild = 1;
+instanceId = 1;
+guaranteedUpdates = 1;
+shardId = "hcdev1";
 BattlEye = 0;
 disableVoN = 1;
 steamQueryPort = $($Port + 3);
@@ -59,7 +118,7 @@ class Missions { class DayZ { template = "dayzOffline.chernarusplus"; }; };
 "@
 [IO.File]::WriteAllText($config, $configText)
 $argsList = @('-ip=127.0.0.1', "-port=$Port", "-config=$config", "-mission=$mission",
-    "-storage=$storage", "-profiles=$profiles", "-mod=$mod", '-doLogs', '-adminLog', '-noPause')
+    "-storage=$storage", "-profiles=$profiles", "-mod=$mod", "-BEpath=$battleye", '-doLogs', '-adminLog', '-noPause')
 # Start-Process joins arguments into one Windows command line; reject embedded
 # quote characters and quote each complete argument to preserve spaces.
 foreach ($arg in $argsList) { if ($arg.Contains('"')) { throw 'Quote in native argument.' } }
@@ -70,6 +129,9 @@ $report = [ordered]@{
     compile_errors = @(); pbo_sha256 = (Get-FileHash -LiteralPath $Pbo -Algorithm SHA256).Hash.ToLowerInvariant()
     server_sha256 = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
     config_sha256 = (Get-FileHash -LiteralPath $config -Algorithm SHA256).Hash.ToLowerInvariant()
+    battleye_source = $sourceBattleye; battleye_path = $battleye; battleye_bytes = $battleyeExpected.bytes
+    battleye_source_sha256 = $battleyeExpected.sha256
+    battleye_staged_sha256 = (Get-ReadOnlySha256 (Join-Path $battleye 'BEServer_x64.dll'))
     requested_gameplay_loopback = $true; signature_verified = $false; client_count = 0
     forced_stop = $false; runtime_acceptance = 'pending'; logs = @(); socket_samples = @()
 }

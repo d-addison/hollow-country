@@ -19,6 +19,8 @@ class HCServer
     void Start()
     {
         if (m_Started || !GetGame() || !GetGame().IsServer()) return;
+        // A prior startup/stop callback may have aborted before cleanup finished.
+        if (m_Active.Count() > 0) Stop();
         if (!HCNativeSelfTests.Run())
         {
             Print("[HollowCountry] Core native self-test FAILED; no modules started");
@@ -32,8 +34,8 @@ class HCServer
         foreach (HCModule module : m_Registry.GetModules())
         {
             if (!module.IsEnabled(m_Settings)) continue;
-            module.OnStart(m_Settings);
             m_Active.Insert(module);
+            module.OnStart(m_Settings);
             Print("[HollowCountry] Requested module start; inspect module admission result: " + module.GetName());
         }
         m_Started = true;
@@ -61,10 +63,16 @@ class HCServer
 
     void Stop()
     {
-        if (!m_Started) return;
+        if (!m_Started && m_Active.Count() == 0) return;
         m_Started = false;
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
-        for (int i = m_Active.Count() - 1; i >= 0; i--) m_Active[i].OnStop();
+        for (int i = m_Active.Count() - 1; i >= 0; i--)
+        {
+            HCModule module = m_Active[i];
+            // Remove before callback: an abort must not repeat this module's stop.
+            m_Active.Remove(i);
+            module.OnStop();
+        }
         m_Active.Clear();
         Print("[HollowCountry] Server modules stopped");
     }

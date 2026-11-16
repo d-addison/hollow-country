@@ -1,0 +1,23 @@
+test_executable_deployment_bdd_scenarios (test_deploy.DeploymentBehavior.test_executable_deployment_bdd_scenarios)
+Execute every Given/When/Then line; an unknown step is a test failure. ... ERROR
+
+======================================================================
+ERROR: test_executable_deployment_bdd_scenarios (test_deploy.DeploymentBehavior.test_executable_deployment_bdd_scenarios)
+Execute every Given/When/Then line; an unknown step is a test failure.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_deploy.py", line 464, in test_executable_deployment_bdd_scenarios
+    feature = Path('tests/fixtures/deploy/deployment.feature').read_text()
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'tests/fixtures/deploy/deployment.feature'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.004s
+
+FAILED (errors=1)

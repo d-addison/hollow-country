@@ -17,6 +17,26 @@ def synthetic_feature(names=None):
 
 
 class BDDBindingsTests(unittest.TestCase):
+    def test_completion_scenarios_cannot_be_omitted(self):
+        expected = {
+            'Admit measured room catalogs without enabling production search': 'test_room_catalog_completion.py',
+            'Veto observer transitions until complete trustworthy evidence exists': 'test_observer_transition.py',
+            'Reject unsafe private repository content without echoing secrets': 'test_hygiene.py',
+            'Prepare interior candidates only from explicit measured evidence': 'test_interior_catalog.py',
+            'Persist cohort intent before native ownership transfer': 'test_infected_persistence.py',
+            'Observe route progress and fairly schedule cohort clues': 'test_infected_routes.py',
+            'Keep infected profiles and pack retargets bound to observed evidence': 'test_infected_wave.py',
+            'Unwind interrupted module lifecycle without repeating callbacks': 'test_core_lifecycle.py',
+            'Reject salvage admission after failed core startup': 'test_crafting_completion.py',
+            'Prepare pinned CE geometry candidates without inventing eligibility': 'test_coverage_patch.py',
+            'Recover private installation transactions without overwriting drift': 'test_deploy.py',
+            'Bound supplementary infected propagation and restart recovery': 'test_infected_completion.py',
+        }
+        for name, pattern in expected.items():
+            with self.subTest(name=name):
+                self.assertIn(name, bdd.BINDINGS)
+                self.assertEqual(pattern, bdd.BINDINGS[name][1])
+
     def admit(self, text):
         with patch.object(bdd.sys, "argv", ["bdd", "synthetic.feature"]), \
              patch.object(bdd.Path, "read_text", return_value=text), \

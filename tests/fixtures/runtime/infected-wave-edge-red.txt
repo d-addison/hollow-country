@@ -1,0 +1,33 @@
+test_all_seven_descriptors_and_explicit_unsupported_fallback (test_infected_wave.InfectedWaveTests.test_all_seven_descriptors_and_explicit_unsupported_fallback) ... ok
+test_cohort_route_clue_is_wired_and_work_reserved (test_infected_wave.InfectedWaveTests.test_cohort_route_clue_is_wired_and_work_reserved) ... ok
+test_frozen_clue_excludes_self_voice_and_does_not_refresh_expiry (test_infected_wave.InfectedWaveTests.test_frozen_clue_excludes_self_voice_and_does_not_refresh_expiry) ... ok
+test_group_ambiguity_latches_without_reservation_refund (test_infected_wave.InfectedWaveTests.test_group_ambiguity_latches_without_reservation_refund) ... ok
+test_missing_member_never_counts_as_confirmed_death (test_infected_wave.InfectedWaveTests.test_missing_member_never_counts_as_confirmed_death) ... ok
+test_no_known_enforce_keywords_as_new_parameters_or_locals (test_infected_wave.InfectedWaveTests.test_no_known_enforce_keywords_as_new_parameters_or_locals) ... FAIL
+test_profiles_use_explicit_maps_and_keep_base_stable_across_injury (test_infected_wave.InfectedWaveTests.test_profiles_use_explicit_maps_and_keep_base_stable_across_injury) ... ok
+test_retarget_requires_live_fresh_owned_evidence_and_budget (test_infected_wave.InfectedWaveTests.test_retarget_requires_live_fresh_owned_evidence_and_budget) ... ok
+test_retarget_updates_only_existing_pack_without_membership_transfer (test_infected_wave.InfectedWaveTests.test_retarget_updates_only_existing_pack_without_membership_transfer) ... ok
+test_terminal_cohort_retains_last_observed_population_count (test_infected_wave.InfectedWaveTests.test_terminal_cohort_retains_last_observed_population_count) ... FAIL
+test_variant_attention_and_search_are_bounded_and_injury_is_overlay (test_infected_wave.InfectedWaveTests.test_variant_attention_and_search_are_bounded_and_injury_is_overlay) ... ok
+test_visible_evidence_has_priority_then_newer_then_stronger (test_infected_wave.InfectedWaveTests.test_visible_evidence_has_priority_then_newer_then_stronger) ... ok
+
+======================================================================
+FAIL: test_no_known_enforce_keywords_as_new_parameters_or_locals (test_infected_wave.InfectedWaveTests.test_no_known_enforce_keywords_as_new_parameters_or_locals)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_infected_wave.py", line 12, in test_no_known_enforce_keywords_as_new_parameters_or_locals
+    self.assertIsNone(re.search(r"\b(?:bool|float|int|vector|string)\s+(?:owned|local)\b", path.read_text()), path.name)
+AssertionError: <re.Match object; span=(3702, 3712), match='bool owned'> is not None : HCInfectedPolicy.c
+
+======================================================================
+FAIL: test_terminal_cohort_retains_last_observed_population_count (test_infected_wave.InfectedWaveTests.test_terminal_cohort_retains_last_observed_population_count)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/dayzsa_mods/tests/unit/test_infected_wave.py", line 17, in test_terminal_cohort_retains_last_observed_population_count
+    self.assertIn("if (record.State == 5)\n                continue;", finish)
+AssertionError: 'if (record.State == 5)\n                continue;' not found in '(int nowUtc)\n    {\n        for (int i = 0; i < m_Sweeps.Count(); i++)\n        {\n            HCHordeRecord record = m_State.Groups[i];\n            HCHordeSweep sweep = m_Sweeps[i];\n            if (record.State != 5 && record.State != 6)\n            {\n                if (!HCInfectedPolicy.CompleteMembership(record.Reserved, sweep.Living, sweep.ConfirmedDead, sweep.Accounted, sweep.Ambiguous))\n                {\n                    record.State = 6;\n                    record.RecoveryConflicted = true;\n                    record.HasRoute = false;\n                    if (m_Packs[i])\n                    {\n                        m_Packs[i].Release();\n                        m_Packs[i] = null;\n                    }\n                    m_Dirty = true;\n                    Print("[HC Infected] ambiguous membership; reservation retained for horde " + record.Id);\n                }\n            }\n            sweep.Clue = sweep.Stimulus && sweep.Stimulus.IsLive(m_Now);\n            int living = sweep.Living;\n            if (record.State == 6)\n                living = record.Living; // Unresolved is not evidence of death.\n            if (sweep.Engaged || sweep.Clue)\n                record.LastSignalUtc = nowUtc;\n            int next = HCInfectedPolicy.NextHordeState(record.State, living, sweep.Clue, sweep.Engaged, nowUtc - record.LastSignalUtc, nowUtc - record.CreatedUtc);\n            if (next != record.State)\n            {\n                Print("[HC Infected] horde " + record.Id + " state " + record.State + " -> " + next);\n                record.State = next;\n                m_Dirty = true;\n            }\n            if (record.State != 5 && record.State != 6 && !sweep.Engaged)\n            {\n                if (m_Config.EnableHordeStimulusRoutes && m_Packs[i] && sweep.Clue && m_RoutesRemaining > 0)\n                {\n                    m_RoutesRemaining--;\n                    if (m_Packs[i].Retarget(sweep.Stimulus, m_Now))\n                    {\n                        record.RouteEnd = m_Packs[i].RouteEnd;\n                        record.HasRoute = true;\n                        m_Dirty = true;\n                    }\n                }\n            }\n            if (record.State == 5 && m_Packs[i])\n            {\n                m_Packs[i].Release();\n                m_Packs[i] = null;\n                record.HasRoute = false;\n                m_Dirty = true;\n            }\n            if (record.State != 6)\n            {\n                if (record.Living != living)\n                    m_Dirty = true;\n                record.Living = living;\n                if (living > 0 && record.State != 5)\n                {\n                    vector centroid = sweep.Sum * HCInfectedPolicy.CentroidWeight(living);\n                    if (vector.DistanceSq(record.Anchor, centroid) > 25)\n                    {\n                        record.PreviousAnchor = record.Anchor;\n                        record.Anchor = centroid;\n                        m_Dirty = true;\n                    }\n                }\n            }\n        }\n        ResetSweep();\n    }\n\n    '
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.012s
+
+FAILED (failures=2)

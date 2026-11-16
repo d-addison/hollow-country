@@ -8,14 +8,39 @@ class HCNativeInfectedPack
     protected ref PGFilter m_Filter;
     protected float m_Expires;
     protected float m_LastProgress;
+    protected float m_NextRetarget;
+    protected float m_LastRetargetObserved = -1;
+    protected int m_RetargetAttempts;
     protected vector m_LastPosition;
     protected bool m_Search;
     protected bool m_Releasing;
     protected int m_ReleaseAttempts;
     protected int m_NextReleaseUtc;
+    protected ref array<ref BehaviourGroupInfectedPackWaypointParams> m_RoutePlan;
+    protected float m_BestRouteDistanceSq = -1;
     vector RouteEnd;
+    int RoutePurpose;
+    int RouteResult;
+    int RoutePlanned;
+    int RouteCompleted;
 
-    protected AIWorld World()
+    protected bool ActivateWaypoint(float now)
+    {
+        if (!Group || !m_RoutePlan || RouteCompleted >= m_RoutePlan.Count())
+            return false;
+        BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
+        if (!behaviour) return false;
+        ref array<ref BehaviourGroupInfectedPackWaypointParams> currentRoute = new array<ref BehaviourGroupInfectedPackWaypointParams>;
+        currentRoute.Insert(m_RoutePlan[RouteCompleted]);
+        // Native loop=false is patrol, not one-shot stop. Supply one point at a
+        // time and advance only on bounded observations of actual owned members.
+        behaviour.SetWaypoints(currentRoute, 0, true, false);
+        m_BestRouteDistanceSq = -1;
+        m_LastProgress = now;
+        return true;
+    }
+
+    protected AIWorld GetAIWorld()
     {
         if (!GetGame() || !GetGame().GetWorld()) return null;
         return GetGame().GetWorld().GetAIWorld();
@@ -40,16 +65,16 @@ class HCNativeInfectedPack
 
     protected bool Reachable(vector from, vector desired, float maxSegment, out vector sampled)
     {
-        if (!World() || !HCInfectedStore.ValidPosition(from) || !HCInfectedStore.ValidPosition(desired))
+        if (!GetAIWorld() || !HCInfectedStore.ValidPosition(from) || !HCInfectedStore.ValidPosition(desired))
             return false;
         if (vector.DistanceSq(from, desired) > maxSegment * maxSegment)
             return false;
-        if (!World().SampleNavmeshPosition(desired, 1.5, m_Filter, sampled))
+        if (!GetAIWorld().SampleNavmeshPosition(desired, 1.5, m_Filter, sampled))
             return false;
         if (Math.AbsFloat(sampled[1] - desired[1]) > 1.5)
             return false;
         TVectorArray path = new TVectorArray;
-        if (!World().FindPath(from, sampled, m_Filter, path) || !path || path.Count() < 2 || path.Count() > 32)
+        if (!GetAIWorld().FindPath(from, sampled, m_Filter, path) || !path || path.Count() < 2 || path.Count() > 32)
             return false;
         float length = 0;
         for (int i = 1; i < path.Count(); i++)
@@ -60,18 +85,18 @@ class HCNativeInfectedPack
     bool Start(array<HCInfectedActor> actors, vector destination, bool search, float now, float expires)
     {
         if (s_PendingRelease.Count() > 0) return false;
-        if (!GetGame().IsServer() || !actors || actors.Count() < 1 || actors.Count() > 6 || !World() || expires <= now)
+        if (!GetGame().IsServer() || !actors || actors.Count() < 1 || actors.Count() > 6 || !GetAIWorld() || expires <= now)
             return false;
         // The exact template and its type=InfectedPack exist in installed
         // DZ/aiconfigs/config.bin. Check again in the running config database.
         if (!GetGame().ConfigIsExisting("GroupBehaviourTemplates DZInfectedPackBeh"))
             return false;
-        ZombieBase leader = actors[0].Entity;
+        ZombieBase leader = actors[0].InfectedEntity;
         if (!leader || !leader.IsAlive())
             return false;
         InitFilter();
         vector start;
-        if (!World().SampleNavmeshPosition(leader.GetPosition(), 1.5, m_Filter, start))
+        if (!GetAIWorld().SampleNavmeshPosition(leader.GetPosition(), 1.5, m_Filter, start))
             return false;
         vector end;
         float radius = 120;
@@ -81,27 +106,32 @@ class HCNativeInfectedPack
             return false;
         ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
         route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 1.5));
-        if (search && HCInfectedPolicy.SearchAnchorBudget(leader.IsZombieMilitary(), false) > 1)
+        if (search && actors[0].SearchAnchorLimit > 1)
         {
-            // At most two reachable nearby anchors on the observed floor. These
-            // are navmesh anchors, not an invented semantic room inventory.
-            vector next;
-            if (Reachable(end, end + "4 0 0", 8, next))
-                route.Insert(new BehaviourGroupInfectedPackWaypointParams(next, 1));
-            vector last;
-            if (Reachable(end, end + "0 0 4", 8, last))
-                route.Insert(new BehaviourGroupInfectedPackWaypointParams(last, 1));
-        }
-        else if (!search)
-        {
-            route.Insert(new BehaviourGroupInfectedPackWaypointParams(start, 3));
+            // Only explicitly surveyed rooms may extend the frozen clue route.
+            // No fabricated offsets. Every segment is tested before membership
+            // changes; failed anchors consume the finite catalog budget.
+            TVectorArray rooms;
+            HCInfectedRoomCatalog.BuildOrder(destination, Math.Min(2, actors[0].SearchAnchorLimit - 1), rooms);
+            vector previousPoint = end;
+            foreach (vector desiredRoom : rooms)
+            {
+                vector sampledRoom;
+                if (vector.DistanceSq(previousPoint, desiredRoom) < 1)
+                    continue;
+                if (Reachable(previousPoint, desiredRoom, 8, sampledRoom))
+                {
+                    route.Insert(new BehaviourGroupInfectedPackWaypointParams(sampledRoom, 1));
+                    previousPoint = sampledRoom;
+                }
+            }
         }
         // Validate every agent before changing any native membership.
         foreach (HCInfectedActor candidate : actors)
         {
-            if (!candidate.Entity || !candidate.Entity.IsAlive() || !candidate.Entity.GetAIAgent())
+            if (!candidate.InfectedEntity || !candidate.InfectedEntity.IsAlive() || !candidate.InfectedEntity.GetAIAgent())
                 return false;
-            int mind = candidate.Entity.GetMindStateSynced();
+            int mind = candidate.InfectedEntity.GetMindStateSynced();
             if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT || candidate.Profile == "native_injured")
                 return false;
         }
@@ -110,7 +140,7 @@ class HCNativeInfectedPack
         m_Expires = expires;
         m_LastProgress = now;
         RouteEnd = end;
-        Group = World().CreateGroup("DZInfectedPackBeh");
+        Group = GetAIWorld().CreateGroup("DZInfectedPackBeh");
         if (!Group)
             return false;
         BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
@@ -119,15 +149,27 @@ class HCNativeInfectedPack
             Group = null; // Empty groups are deleted next frame by AIWorld.
             return false;
         }
-        behaviour.SetWaypoints(route, 0, true, false);
+        m_RoutePlan = route;
+        RoutePlanned = route.Count();
+        RouteCompleted = 0;
+        RoutePurpose = 1;
+        if (search && route.Count() > 1) RoutePurpose = 2;
+        RouteResult = 1;
+        RouteEnd = route[route.Count() - 1].m_CenterPosition;
+        if (!ActivateWaypoint(now))
+        {
+            Group = null; // Still empty; no agents are destroyed.
+            RouteResult = 6;
+            return false;
+        }
         foreach (HCInfectedActor actor : actors)
         {
-            AIAgent agent = actor.Entity.GetAIAgent();
+            AIAgent agent = actor.InfectedEntity.GetAIAgent();
             AIGroup previous = agent.GetGroup();
             if (previous)
                 previous.RemoveAgent(agent);
             Group.AddAgent(agent);
-            m_Members.Insert(actor.Entity);
+            m_Members.Insert(actor.InfectedEntity);
             if (agent.GetGroup() != Group)
             {
                 // A partial transfer may still own agents. Returning true while
@@ -139,43 +181,143 @@ class HCNativeInfectedPack
         m_Expires = expires;
         m_LastProgress = now;
         m_LastPosition = leader.GetPosition();
-        RouteEnd = end;
+        RouteEnd = route[route.Count() - 1].m_CenterPosition;
         return true;
+    }
+
+    bool OwnsMember(ZombieBase infected)
+    {
+        if (!Group || !infected || m_Releasing) return false;
+        AIAgent agent = infected.GetAIAgent();
+        return agent && agent.GetGroup() == Group;
+    }
+
+    int Retarget(HCInfectedClue clue, float now)
+    {
+        if (!GetGame().IsServer() || m_Search || m_Releasing || !Group || !clue)
+            return 0;
+        if (!clue.IsLive(now) || !HCInfectedStore.ValidPosition(clue.Origin))
+            return 0;
+        if (m_Members.Count() < 1 || m_Members.Count() > 6 || now >= m_Expires)
+            return 0;
+        ZombieBase leader;
+        foreach (ZombieBase member : m_Members)
+        {
+            if (!member) return 0;
+            if (!member.IsAlive()) continue;
+            AIAgent currentAgent = member.GetAIAgent();
+            if (!currentAgent || currentAgent.GetGroup() != Group) return 0;
+            int mind = member.GetMindStateSynced();
+            if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
+                return 0;
+            if (member.GetHealth("LeftLeg", "Health") <= 0 || member.GetHealth("RightLeg", "Health") <= 0)
+                return 0;
+            if (!leader) leader = member;
+        }
+        if (!HCInfectedPolicy.RetargetAllowed(now, m_NextRetarget, clue.Observed, m_LastRetargetObserved, clue.Expires, m_RetargetAttempts, leader != null, false))
+            return 0;
+        // Failed geometry still spends an attempt/cooldown. A repeated blocked
+        // clue cannot repeatedly consume native pathfinding work.
+        m_RetargetAttempts++;
+        m_NextRetarget = now + 10;
+        m_LastRetargetObserved = clue.Observed;
+        vector end;
+        if (!Reachable(leader.GetPosition(), clue.Origin, 120, end))
+            return 1;
+        BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
+        if (!behaviour) return 1;
+        ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
+        route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 1.5));
+        // ActivateWaypoint uses the inspected SetWaypoints API on this group.
+        m_RoutePlan = route;
+        RoutePlanned = 1;
+        RouteCompleted = 0;
+        RoutePurpose = 1;
+        RouteResult = 1;
+        if (!ActivateWaypoint(now))
+        {
+            RouteResult = 6;
+            return 1;
+        }
+        // Absolute inherited expiry: never turn fresh processing time into a
+        // longer pursuit. Native combat remains authoritative.
+        m_Expires = Math.Min(m_Expires, clue.Expires);
+        m_LastProgress = now;
+        m_LastPosition = leader.GetPosition();
+        RouteEnd = end;
+        return 2;
     }
 
     bool Tick(float now)
     {
         if (m_Releasing)
             return !Release();
-        ZombieBase leader;
+        if (!Group || !m_RoutePlan || RouteCompleted >= RoutePlanned)
+        {
+            RouteResult = 6;
+            return !Release();
+        }
+        int ownedMembers = 0;
+        int arrivedMembers = 0;
+        bool ambiguous = false;
         bool interrupted = false;
+        float worstDistanceSq = 0;
+        vector destination = m_RoutePlan[RouteCompleted].m_CenterPosition;
+        float radius = m_RoutePlan[RouteCompleted].m_Radius;
+        ZombieBase leader;
         foreach (ZombieBase member : m_Members)
         {
-            if (!member || !member.IsAlive())
+            if (!member)
+            {
+                ambiguous = true;
                 continue;
+            }
+            if (!member.IsAlive()) continue;
             AIAgent currentAgent = member.GetAIAgent();
             bool sameGroup = currentAgent && currentAgent.GetGroup() == Group;
             if (!HCInfectedPolicy.CountsOwnedMember(member.IsAlive(), currentAgent != null, sameGroup))
+            {
+                ambiguous = true;
                 continue;
-            if (!leader)
-                leader = member;
-            // Keep native combat and injury control: investigations end as soon
-            // as native AI reacquires a threat; horde packs use native combat.
+            }
+            vector position = member.GetPosition();
+            if (!HCInfectedStore.ValidPosition(position))
+            {
+                ambiguous = true;
+                continue;
+            }
+            if (!leader) leader = member;
+            ownedMembers++;
+            float distanceSq = vector.DistanceSq(position, destination);
+            worstDistanceSq = Math.Max(worstDistanceSq, distanceSq);
+            if (distanceSq <= radius * radius) arrivedMembers++;
             int mind = member.GetMindStateSynced();
-            if (m_Search && (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT))
+            if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
                 interrupted = true;
-            if (m_Search && (member.GetHealth("LeftLeg", "Health") <= 0 || member.GetHealth("RightLeg", "Health") <= 0))
+            if (member.GetHealth("LeftLeg", "Health") <= 0 || member.GetHealth("RightLeg", "Health") <= 0)
                 interrupted = true;
         }
-        if (leader && vector.DistanceSq(leader.GetPosition(), m_LastPosition) >= 1)
+        if (leader) m_LastPosition = leader.GetPosition();
+        if (m_BestRouteDistanceSq < 0)
+            m_BestRouteDistanceSq = worstDistanceSq;
+        if (HCInfectedPolicy.RouteMadeProgress(worstDistanceSq, m_BestRouteDistanceSq))
         {
-            m_LastPosition = leader.GetPosition();
+            m_BestRouteDistanceSq = worstDistanceSq;
             m_LastProgress = now;
         }
-        if (!Group || !HCInfectedPolicy.RouteAlive(now, m_Expires, now - m_LastProgress, leader != null, interrupted))
+        RouteResult = HCInfectedPolicy.RouteObservationResult(now, m_Expires, now - m_LastProgress, ownedMembers, arrivedMembers, ambiguous, interrupted);
+        if (RouteResult == 2)
         {
-            return !Release();
+            RouteCompleted++;
+            if (RouteCompleted < RoutePlanned)
+            {
+                RouteResult = 1;
+                if (ActivateWaypoint(now)) return true;
+                RouteResult = 6;
+            }
         }
+        if (RouteResult != 1)
+            return !Release();
         return true;
     }
 
@@ -186,6 +328,7 @@ class HCNativeInfectedPack
 
     bool Release()
     {
+        if (RouteResult == 1) RouteResult = 5;
         // A previous empty CE group may already have been deleted by AIWorld.
         // Rehome surviving agents in a native default group; never DeleteGroup,
         // which destroys its agents. Ownership/CE cleanup still need native tests.
@@ -233,7 +376,7 @@ class HCNativeInfectedPack
             return false;
         m_ReleaseAttempts++;
         m_NextReleaseUtc = nowUtc + 5;
-        AIWorld world = World();
+        AIWorld world = GetAIWorld();
         if (!world) return false;
         AIGroup fallback = world.CreateDefaultGroup();
         if (!fallback)
@@ -263,7 +406,7 @@ class HCInfectedObservation
 {
     static bool SampleVisual(HCInfectedActor actor, float now)
     {
-        ZombieBase infected = actor.Entity;
+        ZombieBase infected = actor.InfectedEntity;
         if (!infected || !infected.IsAlive())
             return false;
         DayZInfectedInputController controller = infected.GetInputController();

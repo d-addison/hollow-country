@@ -1,10 +1,16 @@
 # Hollow Country
 
 Private DayZ survival overhaul for ChernarusPlus and 3–6-player co-op.
+Original project material is [all rights reserved](LICENSE.md); see the
+[provenance inventory](docs/PROVENANCE_AND_LICENSES.md). Public and Workshop
+publication are not authorized.
 Development and local server tests run here; the final mod will be transferred
 to a friend's server. See [the execution spec](docs/specs/001-survival-overhaul/spec.md),
 [plan](docs/specs/001-survival-overhaul/plan.md) and
 [task graph](docs/specs/001-survival-overhaul/task-graph.json).
+The [remaining-work execution plan](docs/specs/001-survival-overhaul/completion-plan.md)
+breaks outstanding implementation, native validation and later player tests into
+ordered work packages with explicit evidence requirements.
 
 Project tracking: [P0–P8 milestones](https://github.com/d-addison/hollow-country/milestones),
 [all task issues](https://github.com/d-addison/hollow-country/issues) and
@@ -17,8 +23,11 @@ See [contribution and issue workflow](CONTRIBUTING.md) and
 Current work: the `mods/HollowCountry` addon, native-source research and tested
 offline CE auditing, paired benchmark comparison, evidence validation and BDD.
 Source/package implementation is proceeding before the user's client connection.
-Native mod compilation/loading and gameplay acceptance remain pending; the
-vanilla server has reached CE initialization and connection readiness.
+An actual server run under Wine compiled the addon, passed its core script-VM
+self-test and reached mission initialization. Integrated build 018 repeated this
+and passed official development-signature verification. The actual delivery ZIP
+passed disposable install/rollback. See [validation and delivery evidence](research/VALIDATION-COMPLETION-2026-11-16.md).
+Native Windows and gameplay acceptance remain separate gates; client connection is deferred.
 See the [runtime integration contract](docs/RUNTIME_IMPLEMENTATION_CONTRACT.md)
 and [addon development guide](docs/MOD_DEVELOPMENT.md); the
 [task ledger](docs/specs/001-survival-overhaul/tasks.md) records precise status.
@@ -33,6 +42,7 @@ Run local offline checks with Python 3.12 and no third-party dependencies:
 python3 -B -m unittest discover -s tests/unit -v
 python3 -B -m tools.validate.project
 python3 -B -m tools.validate.runtime
+python3 -B -m tools.validate.hygiene
 python3 -B -m tools.validate.bdd
 python3 -B -m unittest discover -s tools/setup -v
 ```
@@ -41,7 +51,8 @@ Tools: [CE audit](tools/audit/README.md),
 [benchmark comparator](tools/benchmark/README.md),
 [evidence schema](tools/validate/evidence.py).
 Native Windows setup: [local server runbook](docs/LOCAL_WINDOWS_SETUP.md).
-All committed test inputs are synthetic. Offline PASS cannot certify engine
+Behavioral test inputs are synthetic; separately labeled reports preserve actual
+compiler and official-tool observations. Offline PASS cannot certify engine
 eligibility, collision, audio, multiplayer behavior or real performance.
 
 ## Original handoff

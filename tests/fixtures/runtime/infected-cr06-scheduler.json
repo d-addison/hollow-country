@@ -1,0 +1,29 @@
+{
+  "evidence": "synthetic-authored-scheduler-with-fake-native-packs",
+  "cases": [
+    {
+      "geometry_fails": false,
+      "retarget_callbacks": [
+        8,
+        8
+      ],
+      "charged_path_attempts": [
+        0,
+        1
+      ],
+      "final_start_cursor": 1
+    },
+    {
+      "geometry_fails": true,
+      "retarget_callbacks": [
+        8,
+        8
+      ],
+      "charged_path_attempts": [
+        0,
+        1
+      ],
+      "final_start_cursor": 1
+    }
+  ]
+}

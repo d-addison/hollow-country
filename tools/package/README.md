@@ -72,10 +72,12 @@ The disposable smoke has signature verification/BattlEye off; never reuse that
 configuration for a friend/live server. No successful marker or live socket is
 client, signature, CE merge, geometry, restart, gameplay or performance acceptance.
 
-WSL interop is unavailable in this session. The earlier Wine32 BankRev and
-Wine64 missing-config server attempts are not native compiler results. These
-Windows scripts have not been executed here; their Python contract checks are
-not a native syntax/engine claim.
+WSL interop is unavailable in this session. Later isolated Linux-filesystem
+copies enabled actual DayZ compiler/core self-test/initialization runs under
+Wine, including the integrated gameplay source. That is separate from native
+Windows execution of these helpers and client/gameplay acceptance. Exact hashes,
+failed attempts and limits are recorded in the private repository's
+`research/experiments/EXP-native-access-completion.md`.
 
 ## Official Windows build/sign/verify controls
 
@@ -104,7 +106,10 @@ DSSignFile defaults to v3 in this installed version. No guessed checker flags ar
 used. sign.py checks both exit statuses, requires the expected nonempty bisign and
 an explicit positive checker result, rejects warnings/errors and a changed PBO,
 and hashes public outputs/tools. Unit tests exercise these commands using fake
-tools and synthetic non-keys; no real signature has been produced or verified.
+tools and synthetic non-keys. Separate actual official-tool execution under Wine
+positively verified the integrated source PBO; reports and checker output are in
+the private repository's `research/evidence/signing-018-*` files. This does not
+make the unsigned development ZIP signed or prove client signature enforcement.
 Private keys are never read/copied into a package. Install the .bikey in server
 keys and .bisign beside its PBO. The output remains signed-development and gated
 for normal server/client, two-client, performance and destination acceptance.
@@ -131,6 +136,26 @@ and check using the official commands above, preserving logs/exit statuses.
 These build instructions are a native control procedure, not an executed build.
 
 ## CE and verification
+
+`coverage.py` prepares a full-file point candidate from a pinned diagnostic export.
+It requires exact source/export/log hashes and rejects unrelated geometry/policy
+changes; it never invents points or installs a coverage fix. Invoke `--help` for
+the fresh-output CLI. The evidence contract and limits are in the source and
+`research/experiments/EXP-coverage-completion.md` in the private repository.
+
+`interior_catalog.py` validates pinned measured pilot layout and contextual
+policy candidates and exports only to a fresh directory. No runtime catalog
+loader, placement, CE allocation or engine eligibility is established. Its
+`--help` and `research/experiments/EXP-interior-data-completion.md` describe the
+strict source/evidence schema. The private handoff includes `LICENSE.md` and
+`docs/PROVENANCE_AND_LICENSES.md`; original code remains all rights reserved.
+
+`deploy.py` implements private development ZIP install, explicit upgrade,
+interrupted recovery and targeted rollback. It preserves external profiles and
+storage, rejects managed-tree drift and keeps exact prior package backups. Use
+`plan` first; mutating commands require a stopped-server acknowledgement. This
+does not migrate opaque DayZ saves or accept native gameplay. See
+`docs/INSTALL_ROLLBACK.md` in the private repository for commands and crash limits.
 
 See the packaged mission install/rollback guide for exact source-bound generation
 and isolated install commands. Merge/default behavior and eligible geometry need

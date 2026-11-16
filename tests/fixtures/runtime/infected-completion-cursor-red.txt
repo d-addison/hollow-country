@@ -1,0 +1,7 @@
+Command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_infected_completion.py
+Actual result before recipient cursor fix: exit 1; Ran 16 tests in 0.025s;
+FAILED (failures=1).
+test_short_voice_window_rotates_recipient_start_instead_of_starving_tail failed:
+m_RecipientCursor absent. Starting every emission at actor zero biased the short
+processing window toward early registrations. Emissions now rotate start slots;
+overload still drops supplementary work and never disables native sound/hearing.

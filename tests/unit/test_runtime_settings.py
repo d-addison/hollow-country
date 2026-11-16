@@ -1,6 +1,7 @@
 """Offline admission checks for operator settings, not Enforce execution."""
 import copy
 import json
+import re
 from pathlib import Path
 import unittest
 from tools.validate.runtime import validate_settings
@@ -8,6 +9,18 @@ from tools.validate.runtime import validate_settings
 ROOT = Path(__file__).resolve().parents[2]
 
 class RuntimeSettingsTests(unittest.TestCase):
+    def test_native_settings_reader_is_bounded_before_json_parsing(self):
+        source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
+        match = re.search(r'static bool AcceptDocumentLength\(int length\)\s*\{\s*return ([^;]+);', source)
+        self.assertIsNotNone(match)
+        expression = match[1].replace('&&', ' and ')
+        self.assertRegex(expression, r'^[a-z0-9 ><=&]+$')
+        for length, expected in ((-1, False), (0, False), (1, True), (16384, True), (16385, False), (100000000, False)):
+            self.assertEqual(expected, eval(expression, {'__builtins__': {}}, {'length': length}))
+        self.assertIn('ReadFile(handle, content, 16385);', source)
+        self.assertIn('AcceptDocumentLength(content.Length())', source)
+        self.assertNotIn('JsonFileLoader<HCSettings>.LoadFile', source)
+
     def setUp(self):
         self.value = json.loads((ROOT / 'config/hollow-country-settings.json').read_text())
 

@@ -1,7 +1,31 @@
-// Original authored settings. Native JsonFileLoader<T>::LoadFile/SaveFile and
+// Original authored settings. Native JsonFileLoader<T>::LoadData/SaveFile and
 // filesystem helpers verified against the installed 1.30 script snapshot.
 class HCSettings
 {
+    static bool AcceptDocumentLength(int length)
+    {
+        return length > 0 && length <= 16384;
+    }
+
+    static bool LoadBounded(string path, out HCSettings settings, out string error)
+    {
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle)
+        {
+            error = "Cannot open settings file";
+            return false;
+        }
+        string content;
+        ReadFile(handle, content, 16385);
+        CloseFile(handle);
+        if (!AcceptDocumentLength(content.Length()))
+        {
+            error = "Settings document must contain 1..16384 bytes";
+            return false;
+        }
+        return JsonFileLoader<HCSettings>.LoadData(content, settings, error);
+    }
+
     int SchemaVersion = 1;
     bool EnableInteriors = false;
     bool EnableSearch = false;
@@ -44,7 +68,7 @@ class HCSettings
         string error;
         if (FileExist(path))
         {
-            if (!JsonFileLoader<HCSettings>.LoadFile(path, settings, error) || !settings)
+            if (!LoadBounded(path, settings, error) || !settings)
             {
                 Print("[HollowCountry] Invalid settings; original file preserved; features disabled: " + error);
                 return null;

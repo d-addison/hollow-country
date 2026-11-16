@@ -56,14 +56,14 @@ friend's destination server later; 3–6 players. Private repository created at
 - [ ] Record licenses for examples, schemas, source snippets and third-party assets.
 - [ ] Do NOT bundle, repack or modify restricted Workshop mods or Northmen-specific mods absent permission; a mod's Steam Workshop availability is not blanket license for reuse.
 - [ ] Verify independent names/icons/textures/animations if releasing; keep project and Workshop publishing disabled until approval.
-- [ ] Decide future source license separately; `private` does not mean a chosen open-source license.
+- [x] Session decision 2026-11-16: Hollow Country stays private; original code is all rights reserved. No open-source reuse grant or public/Workshop publication is authorized. Third-party/Bohemia material retains its own terms.
 - [ ] Keep client keys, remote access, signing private keys, Steam credentials, RCon secrets, logs with identifiable data and large binaries out of Git.
 
 ## Non-blocking unresolved decisions
 
 - Actual server hardware OS, IP/network setup, server capacity/player count, target max active infected/horde size, renderer/client hardware and budgets.
 - Concrete world population and progression rates, loot items that currently feel rare by classname, final recipes and archetype weights.
-- Final mod/repo name, future license, optional third-party compatibility and public release date (none selected).
+- Session decisions select Hollow Country, private `d-addison/hollow-country` and all rights reserved for original code. Optional third-party compatibility and public release date remain unselected.
 - Whether full map Chernarus interior variety is a v1 goal versus iterative subset; first milestone is small and measurable.
 - Exact host OS: default explore Windows first for least ambiguous setup; Linux support a separate explicit compatibility experiment.
 

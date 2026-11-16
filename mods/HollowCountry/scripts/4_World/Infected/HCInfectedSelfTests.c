@@ -20,8 +20,14 @@ class HCInfectedSelfTests
         ok = ok && !HCInfectedPolicy.AdoptionWorkReady(8) && HCInfectedPolicy.AdoptionWorkReady(9);
         ok = ok && !HCInfectedPolicy.CountsOwnedMember(true, true, false);
         ok = ok && HCInfectedPolicy.MayRetryRelease(2, 110, 105) && !HCInfectedPolicy.MayRetryRelease(3, 110, 105);
+        ok = ok && HCInfectedPolicy.MayRelay(12, 10, 25, 1, 0.5, true, true);
+        ok = ok && !HCInfectedPolicy.MayRelay(25, 10, 25, 1, 0.5, true, true);
+        ok = ok && !HCInfectedPolicy.MayRelay(12, 10, 25, 2, 0.25, true, true);
+        ok = ok && !HCInfectedPolicy.ValidMemberIdentity(0, 0, 0, 0, true);
+        ok = ok && HCInfectedPolicy.PreferRoom(true, false, 20, 1, 9, 1);
         HCInfectedConfig config = new HCInfectedConfig;
         ok = ok && config.IsValid() && !config.EnableCEAdoption && !config.EnableNativePackRoutes && !config.EnableInvestigation && !config.EnableContactGuard;
+        ok = ok && !config.EnableSupplementaryChains && !config.EnableMemberRecovery;
         Print("[HC Infected] scalar policy selftest result=" + ok);
         return ok;
     }

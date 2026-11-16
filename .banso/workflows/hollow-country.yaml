@@ -40,4 +40,8 @@ pipelines:
         type: deterministic
         run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.runtime"
         capabilities: {sandbox: workspace-write, egress: []}
+      - name: private-source-hygiene
+        type: deterministic
+        run: "PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.hygiene"
+        capabilities: {sandbox: workspace-write, egress: []}
 phase_map: {}

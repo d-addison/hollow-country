@@ -3,3 +3,7 @@
 tests/fixtures/**/tdd-*.txt whitespace=-blank-at-eol
 # Python csv.writer produces CRLF; retain exact fixture bytes.
 *.csv whitespace=cr-at-eol
+# Preserve exact native evidence bytes, including Windows CRLF.
+research/evidence/diagnostic-020-script.txt whitespace=cr-at-eol
+research/evidence/signing-018-check.txt whitespace=-blank-at-eof
+tests/fixtures/runtime/interiors-completion-tdd-red.txt whitespace=-blank-at-eol

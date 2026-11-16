@@ -3,6 +3,7 @@
 .env.*
 !.env.example
 *.key
+*.biprivatekey
 *.bikey
 *.pem
 *.pfx

@@ -1,0 +1,11 @@
+{
+  "synthetic": true,
+  "finding": "CR-01",
+  "compressed_bytes": 8282,
+  "declared_manifest_bytes": 8388608,
+  "post_fix_peak_tracemalloc_bytes": 59166,
+  "post_fix_refusal": "ZIP member exceeds uncompressed byte budget",
+  "deploy_source_sha256": "481522c82f63c427febe56ffbd27dcb92f22825aca7d0fc3626cc12278b31c1c",
+  "test_source_sha256": "6a8de7271ad7cfac501b85f061cd3d39f8a019f04fedf281aa9695628a17b6b5",
+  "note": "Actual Linux in-memory review repro; allocation measurement is descriptive, not a portable heap threshold. Regression observes no ZIP member opened before rejection."
+}

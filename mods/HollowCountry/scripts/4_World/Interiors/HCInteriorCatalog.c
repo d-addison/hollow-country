@@ -71,7 +71,7 @@ class HCInteriorCatalog
 
 class HCInteriorCandidate
 {
-    int Slot = -1; // Stable explicit discriminator, never array index.
+    int SlotId = -1; // Stable explicit discriminator, never array index.
     string Type;
     vector Position;
     vector Orientation;
@@ -83,18 +83,20 @@ class HCInteriorCandidate
 
     string Id(int epoch)
     {
-        return "chernarusplus_130164289_s1_e" + epoch.ToString() + "_" + Key() + "_d" + Slot.ToString();
+        return "chernarusplus_130164289_s1_e" + epoch.ToString() + "_" + Key() + "_d" + SlotId.ToString();
     }
 }
 
 class HCInteriorConfig
 {
     int SchemaVersion;
-    string World;
+    string MapName;
     string Build;
     int Epoch;
     int Seed;
     bool InitializeNewEpoch = false;
+    // Explicit one-way journal migration only. Never rerolls layouts or allocations.
+    bool MigrateLegacyJournal = false;
     bool DiagnosticPlacementTrial = false;
     bool DiagnosticSearchTrial = false;
     ref array<ref HCInteriorCandidate> Candidates = new array<ref HCInteriorCandidate>;
@@ -102,7 +104,7 @@ class HCInteriorConfig
 
 class HCInteriorAssignment
 {
-    int Slot;
+    int SlotId;
     string InstanceId;
     string LayoutId;
     string History;
@@ -113,7 +115,7 @@ class HCInteriorManifest
 {
     int SchemaVersion;
     int CatalogVersion;
-    string World;
+    string MapName;
     string Build;
     int Epoch;
     int Seed;
@@ -127,12 +129,18 @@ class HCInteriorClaim
     string Item;
     string PlayerId;
     int Phase;
+    // Forensic output reference only; zero IDs may precede native persistence.
+    // Never used to recreate, relocate, delete or take ownership of player loot.
+    int OutputA;
+    int OutputB;
+    int OutputC;
+    int OutputD;
 }
 
 class HCInteriorSite
 {
     string Id;
-    int Slot;
+    int SlotId;
     Object Target;
     vector Point;
     string Item;

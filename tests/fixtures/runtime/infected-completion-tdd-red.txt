@@ -1,0 +1,7 @@
+Command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_infected_completion.py -v
+Actual result before implementation: exit 1; Ran 10 tests in 0.011s; FAILED (errors=10).
+Missing scalar functions raised KeyError: MayRelay, MayHearRelay, RootSlotReusable,
+PreferRoom, AdmitRoomCatalog, ValidMemberIdentity and RecoveryComplete.
+Missing authored files raised FileNotFoundError: HCAlertChain.c,
+HCInfectedRooms.c and HCHordeRecovery.c.
+These were actual offline failures. No native engine was executed.

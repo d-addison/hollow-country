@@ -1,6 +1,10 @@
 class HCHordeSweep
 {
     int Living;
+    int ConfirmedDead;
+    int Accounted;
+    bool Ambiguous;
+    ref HCInfectedClue Stimulus;
     vector Sum;
     bool Clue;
     bool Engaged;
@@ -8,6 +12,10 @@ class HCHordeSweep
     void Clear()
     {
         Living = 0;
+        ConfirmedDead = 0;
+        Accounted = 0;
+        Ambiguous = false;
+        Stimulus = null;
         Sum = vector.Zero;
         Clue = false;
         Engaged = false;
@@ -24,6 +32,7 @@ class HCInfectedModule : HCModule
     protected ref array<ref HCHordeSweep> m_Sweeps = new array<ref HCHordeSweep>;
     protected ref array<ref HCNativeInfectedPack> m_Packs = new array<ref HCNativeInfectedPack>;
     protected ref array<ref HCInfectedActor> m_Investigators = new array<ref HCInfectedActor>;
+    protected ref HCAlertChain m_AlertChain = new HCAlertChain;
     protected bool m_Healthy;
     protected bool m_Hordes;
     protected bool m_Chains;
@@ -33,6 +42,8 @@ class HCInfectedModule : HCModule
     protected int m_MemberCap;
     protected int m_Cursor;
     protected int m_AdoptionCursor;
+    protected int m_RecoveryCursor;
+    protected int m_RetargetCursor;
     protected int m_VoiceAttempts;
     protected int m_RegistrationAttempts;
     protected int m_LastUtc;
@@ -91,6 +102,11 @@ class HCInfectedModule : HCModule
             Quarantine("cohort adoption requires work budget at least 9");
             return;
         }
+        if (m_Config.EnableHordeStimulusRoutes && (!settings.EnableHordes || m_WorkCap < 24))
+        {
+            Quarantine("stimulus routes require hordes and at least 24 bounded work items");
+            return;
+        }
         m_GroupCap = Math.Min(settings.MaxActiveHordes, 2);
         m_MemberCap = Math.Min(settings.MaxActiveHordeMembers, 24);
         m_Hordes = settings.EnableHordes;
@@ -145,10 +161,20 @@ class HCInfectedModule : HCModule
     {
         foreach (HCInfectedActor actor : m_Actors)
         {
-            if (actor.Entity == entity)
+            if (actor.InfectedEntity == entity)
                 return actor;
         }
         return null;
+    }
+
+    protected bool CanRecycleActor(HCInfectedActor actor)
+    {
+        // Keep assigned tombstones until terminal retirement; otherwise a new
+        // CE registration can erase the only confirmed death/missing evidence.
+        if (actor.GroupId == 0) return true;
+        if (!m_State || actor.GroupId < 1 || actor.GroupId > m_State.Groups.Count())
+            return false;
+        return m_State.Groups[actor.GroupId - 1].State == 5;
     }
 
     void Track(ZombieBase entity)
@@ -161,7 +187,7 @@ class HCInfectedModule : HCModule
         int slot = -1;
         for (int i = 0; i < m_Actors.Count(); i++)
         {
-            if (!m_Actors[i].Entity || !m_Actors[i].Entity.IsAlive())
+            if (CanRecycleActor(m_Actors[i]) && (!m_Actors[i].InfectedEntity || !m_Actors[i].InfectedEntity.IsAlive()))
             {
                 slot = i;
                 break;
@@ -170,8 +196,8 @@ class HCInfectedModule : HCModule
         if (slot < 0 && m_Actors.Count() >= Math.Min(m_Config.MaxTracked, m_MemberCap))
             return;
         HCInfectedActor actor = new HCInfectedActor;
-        actor.Entity = entity;
-        actor.RefreshProfile();
+        actor.InfectedEntity = entity;
+        actor.InitializeProfile(m_Config);
         if (slot < 0)
             m_Actors.Insert(actor);
         else
@@ -223,8 +249,11 @@ class HCInfectedModule : HCModule
         actor.LastEventId = soundEvent.m_iID;
         actor.LastEventAt = m_Now;
         actor.NextVoice = m_Now + m_Config.VoiceCooldownSeconds;
+        if (m_Config.EnableSupplementaryChains)
+            m_AlertChain.NativeEmission(actor, soundEvent.m_iID, m_Now, m_Config.MaxVoiceQueue, m_Actors.Count());
         // super.ProcessSoundVoiceEvent already delivered the native hearing
-        // signal. Never synthesize a second sound or assign remote recipients.
+        // signal. Supplementary local attention can only use that real origin;
+        // it never synthesizes another sound, targets or client RPC.
     }
 
     protected void ResetSweep()
@@ -240,30 +269,70 @@ class HCInfectedModule : HCModule
             actor.Clue = null;
         if (actor.Visual && !actor.Visual.IsLive(m_Now))
             actor.Visual = null;
-        if (!actor.Entity || !actor.Entity.IsAlive())
-            return;
-        actor.RefreshProfile();
-        if (m_Config.EnableInvestigation && m_ObservationsRemaining > 0 && m_Now >= actor.NextVisualSample)
+        if (actor.InfectedEntity && actor.InfectedEntity.IsAlive())
         {
-            HCInfectedObservation.SampleVisual(actor, m_Now);
-            actor.NextVisualSample = m_Now + Math.Max(2, m_Actors.Count());
-            m_ObservationsRemaining--;
+            actor.RefreshProfile();
+            if (m_Config.EnableInvestigation && m_ObservationsRemaining > 0 && m_Now >= actor.NextVisualSample)
+            {
+                HCInfectedObservation.SampleVisual(actor, m_Now);
+                actor.NextVisualSample = m_Now + Math.Max(2, m_Actors.Count());
+                m_ObservationsRemaining--;
+            }
+            TryInvestigate(actor);
         }
-        TryInvestigate(actor);
+        SampleMembership(actor);
+    }
+
+    protected void SampleMembership(HCInfectedActor actor)
+    {
         if (!m_Hordes || actor.GroupId < 1 || actor.GroupId > m_Sweeps.Count())
             return;
         HCHordeRecord record = m_State.Groups[actor.GroupId - 1];
         if (record.State == 5 || record.State == 6)
             return;
-        vector position = actor.Entity.GetPosition();
-        if (!HCInfectedStore.ValidPosition(position))
-            return;
         HCHordeSweep sweep = m_Sweeps[actor.GroupId - 1];
+        sweep.Accounted++;
+        if (!actor.InfectedEntity)
+        {
+            if (actor.ConfirmedDead)
+                sweep.ConfirmedDead++;
+            else
+                sweep.Ambiguous = true;
+            return;
+        }
+        if (!actor.InfectedEntity.IsAlive())
+        {
+            actor.ConfirmedDead = true;
+            sweep.ConfirmedDead++;
+            return;
+        }
+        if (actor.ConfirmedDead)
+        {
+            sweep.Ambiguous = true;
+            return;
+        }
+        if (record.HasRoute)
+        {
+            HCNativeInfectedPack pack = m_Packs[actor.GroupId - 1];
+            if (!pack || !pack.OwnsMember(actor.InfectedEntity))
+            {
+                sweep.Ambiguous = true;
+                return;
+            }
+        }
+        vector position = actor.InfectedEntity.GetPosition();
+        if (!HCInfectedStore.ValidPosition(position))
+        {
+            sweep.Ambiguous = true;
+            return;
+        }
         sweep.Living++;
         sweep.Sum = sweep.Sum + position;
-        if (actor.Clue && actor.Clue.IsLive(m_Now))
-            sweep.Clue = true;
-        int mind = actor.Entity.GetMindStateSynced();
+        bool hearing = m_Chains && m_Config.EnableSupplementaryChains;
+        HCInfectedClue sensed = HCHordeStimulus.ChooseClue(actor, m_Now, hearing);
+        if (HCHordeStimulus.PreferClue(sensed, sweep.Stimulus, m_Now))
+            sweep.Stimulus = sensed;
+        int mind = actor.InfectedEntity.GetMindStateSynced();
         if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
             sweep.Engaged = true;
     }
@@ -274,6 +343,26 @@ class HCInfectedModule : HCModule
         {
             HCHordeRecord record = m_State.Groups[i];
             HCHordeSweep sweep = m_Sweeps[i];
+            if (record.State == 5)
+                continue;
+            if (record.State != 5 && record.State != 6)
+            {
+                if (!HCInfectedPolicy.CompleteMembership(record.Reserved, sweep.Living, sweep.ConfirmedDead, sweep.Accounted, sweep.Ambiguous))
+                {
+                    record.State = 6;
+                    record.RecoveryConflicted = true;
+                    record.HasRoute = false;
+                    if (m_Packs[i])
+                    {
+                        m_Packs[i].Release();
+                        SnapshotRoute(record, m_Packs[i]);
+                        m_Packs[i] = null;
+                    }
+                    m_Dirty = true;
+                    Print("[HC Infected] ambiguous membership; reservation retained for horde " + record.Id);
+                }
+            }
+            sweep.Clue = sweep.Stimulus && sweep.Stimulus.IsLive(m_Now);
             int living = sweep.Living;
             if (record.State == 6)
                 living = record.Living; // Unresolved is not evidence of death.
@@ -289,6 +378,7 @@ class HCInfectedModule : HCModule
             if (record.State == 5 && m_Packs[i])
             {
                 m_Packs[i].Release();
+                SnapshotRoute(record, m_Packs[i]);
                 m_Packs[i] = null;
                 record.HasRoute = false;
                 m_Dirty = true;
@@ -300,7 +390,7 @@ class HCInfectedModule : HCModule
                 record.Living = living;
                 if (living > 0 && record.State != 5)
                 {
-                    vector centroid = sweep.Sum / living;
+                    vector centroid = sweep.Sum * HCInfectedPolicy.CentroidWeight(living);
                     if (vector.DistanceSq(record.Anchor, centroid) > 25)
                     {
                         record.PreviousAnchor = record.Anchor;
@@ -310,7 +400,78 @@ class HCInfectedModule : HCModule
                 }
             }
         }
+        RetargetCohorts();
         ResetSweep();
+    }
+
+    protected void SnapshotRoute(HCHordeRecord record, HCNativeInfectedPack pack)
+    {
+        if (!pack || pack.RoutePlanned == 0) return;
+        if (record.RoutePurpose != pack.RoutePurpose || record.RouteResult != pack.RouteResult)
+            m_Dirty = true;
+        if (record.RouteCompleted != pack.RouteCompleted || record.HasRoute == pack.IsReleasing())
+            m_Dirty = true;
+        if (record.RoutePlanned != pack.RoutePlanned || vector.DistanceSq(record.RouteEnd, pack.RouteEnd) > 0)
+            m_Dirty = true;
+        record.RoutePurpose = pack.RoutePurpose;
+        record.RouteResult = pack.RouteResult;
+        record.RoutePlanned = pack.RoutePlanned;
+        record.RouteCompleted = pack.RouteCompleted;
+        record.RouteEnd = pack.RouteEnd;
+        record.HasRoute = pack.RouteResult == 1 && !pack.IsReleasing();
+    }
+
+    protected void RetargetCohorts()
+    {
+        int count = m_Sweeps.Count();
+        if (!m_Config.EnableHordeStimulusRoutes || count < 1 || m_RoutesRemaining < 1)
+        {
+            return;
+        }
+        int startIndex = m_RetargetCursor % count;
+        m_RetargetCursor = HCInfectedPolicy.NextAdoptionCursor(startIndex, count);
+        for (int offset = 0; offset < count; offset++)
+        {
+            int index = (startIndex + offset) % count;
+            HCHordeRecord record = m_State.Groups[index];
+            HCHordeSweep sweep = m_Sweeps[index];
+            HCNativeInfectedPack pack = m_Packs[index];
+            if (record.State == 5 || record.State == 6 || sweep.Engaged || !pack)
+            {
+                continue;
+            }
+            if (!sweep.Clue || !sweep.Stimulus.IsLive(m_Now))
+            {
+                continue;
+            }
+            int result = pack.Retarget(sweep.Stimulus, m_Now);
+            // 0=pre-path rejection; 1=path attempted/failed; 2=accepted.
+            // Failed geometry remains charged, cooldown/attempts remain spent.
+            if (HCInfectedPolicy.RetargetSpent(result))
+            {
+                m_RoutesRemaining--;
+                m_RetargetCursor = HCInfectedPolicy.NextAdoptionCursor(index, count);
+                SnapshotRoute(record, pack);
+            }
+            if (m_RoutesRemaining < 1)
+            {
+                return;
+            }
+        }
+    }
+
+    protected bool SaveAdoptionBoundary(string boundary)
+    {
+        // Close/readback is the inspected native guarantee available here.
+        // It is not an fsync or atomic native CE/group transaction.
+        if (!HCInfectedStore.Save(m_State, m_MemberCap, m_GroupCap))
+        {
+            Quarantine("adoption " + boundary + " write/readback failed; preserving spent intent");
+            return false;
+        }
+        m_Dirty = false;
+        m_NextSave = m_Now + m_Config.SaveIntervalSeconds;
+        return true;
     }
 
     protected void TryAdopt(int nowUtc)
@@ -318,6 +479,13 @@ class HCInfectedModule : HCModule
         if (!HCInfectedPolicy.AdoptionWorkReady(m_WorkCap)) return;
         if (!m_Hordes || !m_Config.EnableCEAdoption || m_State.Groups.Count() >= m_GroupCap)
             return;
+        foreach (HCHordeRecord pending : m_State.Groups)
+        {
+            // Restored members must never be adopted as a fresh population while
+            // a prior reservation is unresolved. Retirement never refunds it.
+            if (pending.State == 6)
+                return;
+        }
         ref array<HCInfectedActor> candidates = new array<HCInfectedActor>;
         vector anchor;
         int scanCount = Math.Min(m_Actors.Count(), m_WorkCap - 6);
@@ -326,9 +494,12 @@ class HCInfectedModule : HCModule
             m_AdoptionCursor = m_AdoptionCursor % m_Actors.Count();
             HCInfectedActor actor = m_Actors[m_AdoptionCursor];
             m_AdoptionCursor = HCInfectedPolicy.NextAdoptionCursor(m_AdoptionCursor, m_Actors.Count());
-            if (actor.EverAssigned || actor.SearchPack || !actor.Entity || !actor.Entity.IsAlive() || actor.Profile == "native_injured")
+            if (actor.EverAssigned || actor.SearchPack || !actor.InfectedEntity || !actor.InfectedEntity.IsAlive() || actor.Profile == "native_injured")
                 continue;
-            vector position = actor.Entity.GetPosition();
+            int mind = actor.InfectedEntity.GetMindStateSynced();
+            if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
+                continue;
+            vector position = actor.InfectedEntity.GetPosition();
             if (!HCInfectedStore.ValidPosition(position))
                 continue;
             if (candidates.Count() == 0)
@@ -341,17 +512,25 @@ class HCInfectedModule : HCModule
         int requested = candidates.Count();
         if (requested < 3 || !HCInfectedPolicy.CanReserve(m_State.Groups.Count(), m_GroupCap, m_State.Reserved, m_MemberCap, requested))
             return;
-        HCNativeInfectedPack pack;
-        if (m_Config.EnableNativePackRoutes)
+        HCInfectedClue adoptionClue;
+        foreach (HCInfectedActor observer : candidates)
         {
-            pack = new HCNativeInfectedPack;
-            vector destination = anchor + "40 0 0";
-            destination[1] = GetGame().SurfaceY(destination[0], destination[2]);
-            if (!pack.Start(candidates, destination, false, m_Now, m_Now + 3600))
-                return;
+            HCInfectedClue observedClue = HCHordeStimulus.ChooseClue(observer, m_Now, m_Chains && m_Config.EnableSupplementaryChains);
+            if (HCHordeStimulus.PreferClue(observedClue, adoptionClue, m_Now))
+                adoptionClue = observedClue;
         }
+        // No invented migration destination: without a genuine cue, leave the
+        // existing CE population in its native group and try a later interval.
+        if (m_Config.EnableNativePackRoutes && !adoptionClue)
+            return;
         HCHordeRecord record = new HCHordeRecord;
-        record.State = 0;
+        HCHordeRecovery.Capture(candidates, record);
+        if (record.RecoveryConflicted)
+            return;
+        // PREPARE: the reservation is durable before any native membership
+        // transfer. A restart never replays this incomplete intent.
+        record.State = 6;
+        record.AdoptionStage = 1;
         record.Id = m_State.Groups.Count() + 1;
         record.Reserved = requested;
         record.Living = requested;
@@ -359,33 +538,73 @@ class HCInfectedModule : HCModule
         record.LastSignalUtc = nowUtc;
         record.Anchor = anchor;
         record.PreviousAnchor = anchor;
-        if (pack)
-        {
-            record.HasRoute = true;
-            record.RouteEnd = pack.RouteEnd;
-        }
         m_State.Reserved += requested;
         m_State.Groups.Insert(record);
         m_Sweeps.Insert(new HCHordeSweep);
-        m_Packs.Insert(pack);
+        m_Packs.Insert(null);
+        m_Dirty = true;
+        if (!SaveAdoptionBoundary("prepare"))
+            return;
         foreach (HCInfectedActor candidate : candidates)
         {
             candidate.GroupId = record.Id;
             candidate.EverAssigned = true;
         }
         ResetSweep();
+        HCNativeInfectedPack pack;
+        bool attempted = m_Config.EnableNativePackRoutes;
+        bool succeeded = false;
+        bool releasing = false;
+        if (attempted)
+        {
+            pack = new HCNativeInfectedPack;
+            m_Packs[record.Id - 1] = pack;
+            float routeNow = HCInfectedClock.UtcSeconds() - m_StartedUtc;
+            if (adoptionClue.IsLive(routeNow))
+                succeeded = pack.Start(candidates, adoptionClue.Origin, false, routeNow, adoptionClue.Expires);
+            releasing = pack.IsReleasing();
+        }
+        record.AdoptionStage = HCInfectedPolicy.AdoptionOutcome(true, attempted, succeeded, releasing);
+        if (record.AdoptionStage == 2)
+        {
+            record.State = 0;
+            if (pack)
+            {
+                SnapshotRoute(record, pack);
+            }
+        }
+        else
+        {
+            record.State = 6;
+            record.RecoveryConflicted = true;
+            record.HasRoute = false;
+        }
         m_Dirty = true;
-        // No entities are created, removed, moved or respawned by script.
-        // Optional pack waypoints are followed by native AI/navigation only.
+        if (!SaveAdoptionBoundary("outcome"))
+            return;
+        if (record.AdoptionStage != 2)
+            Quarantine("adoption transfer failed or ambiguous; durable reservation retained");
+        // Native entities are never spawned, deleted or moved by script.
     }
 
     protected void TryInvestigate(HCInfectedActor actor)
     {
-        bool visual = actor.Visual && actor.Visual.Provenance == 2 && actor.Visual.IsLive(m_Now);
-        int mind = actor.Entity.GetMindStateSynced();
+        HCInfectedClue clue;
+        if (actor.Visual && actor.Visual.Provenance == 2 && actor.Visual.IsLive(m_Now))
+            clue = actor.Visual;
+        if (m_Chains && m_Config.EnableSupplementaryChains && actor.HeardExternally && actor.Heard)
+        {
+            if (actor.Heard.Provenance == 1 && actor.Heard.IsLive(m_Now))
+            {
+                if (!clue || actor.Heard.Observed > clue.Observed)
+                    clue = actor.Heard;
+            }
+        }
+        bool observedClue = clue != null;
+        int mind = actor.InfectedEntity.GetMindStateSynced();
         bool engaged = mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT;
         bool grouped = actor.GroupId > 0 || actor.SearchPack != null;
-        if (!HCInfectedPolicy.MayInvestigate(m_Config.EnableInvestigation, visual, engaged, actor.Profile == "native_injured", grouped, actor.SearchAttempts, m_Now, actor.NextSearch))
+        if (!HCInfectedPolicy.MayInvestigate(m_Config.EnableInvestigation, observedClue, engaged, actor.Profile == "native_injured", grouped, actor.SearchAttempts, m_Now, actor.NextSearch))
             return;
         if (m_RoutesRemaining < 1 || m_Investigators.Count() >= m_Config.MaxInvestigators)
             return;
@@ -395,9 +614,10 @@ class HCInfectedModule : HCModule
         ref array<HCInfectedActor> single = new array<HCInfectedActor>;
         single.Insert(actor);
         HCNativeInfectedPack pack = new HCNativeInfectedPack;
-        // Frozen, directly observed clue only. Never a current hidden position.
-        float expires = Math.Min(actor.Visual.Expires, m_Now + 15);
-        if (pack.Start(single, actor.Visual.Origin, true, m_Now, expires))
+        // Frozen direct observation or actual emitted local voice, never a
+        // current hidden target. Investigation cannot extend root lifetime.
+        float expires = Math.Min(clue.Expires, m_Now + 15);
+        if (pack.Start(single, clue.Origin, true, m_Now, expires))
         {
             actor.SearchPack = pack;
             m_Investigators.Insert(actor);
@@ -427,6 +647,7 @@ class HCInfectedModule : HCModule
                 if (record.HasRoute)
                 {
                     record.HasRoute = false;
+                    record.RouteResult = 5;
                     m_Dirty = true;
                 }
             }
@@ -464,12 +685,15 @@ class HCInfectedModule : HCModule
                 if (m_Packs[p])
                 {
                     m_Packs[p].Release();
+                    SnapshotRoute(record, m_Packs[p]);
                     m_Packs[p] = null;
                 }
             }
             if (m_Packs[p])
             {
-                if (!m_Packs[p].Tick(m_Now))
+                bool routeAlive = m_Packs[p].Tick(m_Now);
+                SnapshotRoute(record, m_Packs[p]);
+                if (!routeAlive)
                     m_Packs[p] = null;
             }
             if (record.HasRoute && (!m_Packs[p] || m_Packs[p].IsReleasing()))
@@ -497,14 +721,37 @@ class HCInfectedModule : HCModule
         }
         else
         {
-            int work = m_WorkCap - 2 - maintenance;
+            // At most two cohort eligibility scans (six members each), plus
+            // one charged bounded path. Rejections cannot starve another pack.
+            int retargetReserve = 0;
+            if (m_Hordes && m_Config.EnableHordeStimulusRoutes)
+                retargetReserve = 16;
+            int work = m_WorkCap - 2 - maintenance - retargetReserve;
+            if (m_Hordes && m_Config.EnableMemberRecovery && m_Actors.Count() > 0 && work > 1)
+            {
+                // Dedicated cursor: the first actor in a completed sweep must
+                // not monopolize the one-per-tick reconciliation allowance.
+                m_RecoveryCursor = m_RecoveryCursor % m_Actors.Count();
+                HCInfectedActor recovering = m_Actors[m_RecoveryCursor];
+                m_RecoveryCursor = HCInfectedPolicy.NextAdoptionCursor(m_RecoveryCursor, m_Actors.Count());
+                if (HCHordeRecovery.Reconcile(recovering, m_State, m_Actors, true, nowUtc))
+                    m_Dirty = true;
+                work--;
+            }
+            if (m_Chains && m_Config.EnableSupplementaryChains && work > 2)
+            {
+                // Leave an actor slot so a sustained voice stream cannot starve
+                // observations/recovery/expiry. One recipient costs <=2 rays.
+                int alertWork = Math.Min(2, (work - 1) / 3);
+                work -= m_AlertChain.ProcessPending(m_Actors, m_Now, alertWork) * 3;
+            }
             int voices = Math.Min(m_Config.MaxVoicePerTick, work / 2);
             while (voices > 0 && m_Voices.Count() > 0)
             {
                 HCInfectedVoice voice = m_Voices[0];
                 m_Voices.Remove(0);
                 HCInfectedActor actor = FindActor(voice.Emitter);
-                if (actor && actor.Entity && actor.Entity.IsAlive() && voice.Clue.IsLive(m_Now))
+                if (actor && actor.InfectedEntity && actor.InfectedEntity.IsAlive() && voice.Clue.IsLive(m_Now))
                     actor.Clue = voice.Clue;
                 voices--;
                 work--;
@@ -545,6 +792,8 @@ class HCInfectedModule : HCModule
         m_Actors.Clear();
         m_Sweeps.Clear();
         m_Packs.Clear();
+        HCInfectedRoomCatalog.Clear();
+        m_AlertChain = new HCAlertChain;
     }
 }
 

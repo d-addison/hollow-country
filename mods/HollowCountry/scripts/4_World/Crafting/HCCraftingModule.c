@@ -10,6 +10,9 @@ class HCCraftingGate
             return false;
         if (!GetGame().IsServer())
             return true;
+        // A later module may abort startup before the core admits any actions.
+        if (!HCServer.Get().IsStarted())
+            return false;
         HCSettings settings = HCServer.Get().GetSettings();
         return m_Started && m_Validated && settings && settings.EnableCrafting;
     }

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "environment": "actual-DayZ-server-under-Wine",
+  "runtime_acceptance": "pending",
+  "signature_verified": false,
+  "client_count": 0,
+  "status": "compiler-error",
+  "forced_stop": true,
+  "requested_gameplay_bind": "127.0.0.1:2402",
+  "steam_query_may_bind_wildcard": true,
+  "command": [
+    "xvfb-run",
+    "-a",
+    "/usr/lib/wine/wine64",
+    "/home/david/.cache/hollow-country/wine-server-20261116/DayZServer_x64.exe",
+    "-ip=127.0.0.1",
+    "-port=2402",
+    "-config=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-012-malformed-settings\\serverDZ.cfg",
+    "-profiles=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-012-malformed-settings\\profiles",
+    "-storage=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-012-malformed-settings\\storage",
+    "-mod=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-012-malformed-settings\\@HollowCountry",
+    "-BEpath=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-012-malformed-settings\\battleye",
+    "-doLogs",
+    "-adminLog",
+    "-noPause"
+  ],
+  "pbo_sha256": "1ba4caa424f5ebf84362196aee6a73d242c8b2d3e4e30d9a0a919207b9dae502",
+  "server_sha256": "987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805",
+  "config_sha256": "0e6810499a8ae0aef5c3f51024e3f4ceff0f8c53775283e1a649759fd023376b",
+  "settings_sha256": "021fb596db81e6d02bf3d2586ee3981fe519f275c0ac9ca76bbcf2ebb4097d96",
+  "negative_settings_experiment": "malformed-json",
+  "launcher_pid": 3132126,
+  "launcher_exit_code": -15,
+  "logs": {
+    "wine-output.log": "a45af13ec5cb662d07ee59d015b7af1cd5a8d4d45f0aac34099ade88b4ebc046",
+    "profiles/script_2026-11-16_16-23-56.log": "d49ea2413aca500a8a001c098366232bbf1cc3fe87d0a4e00a5fed3292c65fdd",
+    "profiles/DayZServer_x64_2026-11-16_16-23-57.ADM": "a790d235f6e2f4192a5591259a9a1d0b7e4b5320dd8e97320ed4c21587bde7a6",
+    "profiles/error_2026-11-16_16-23-56.log": "27c232e9f6fa0cbcf393c7cf4ce195fd5b8bf893e4537f89d745ef040790b45c",
+    "profiles/DayZServer_x64_2026-11-16_16-23-56.RPT": "2a01422397d8d91df36b12c6247a10c6bc66d30bbe67e682c7b0d517eb9c9e9e"
+  },
+  "skipped_logs": {},
+  "settings_original_preserved": true
+}

@@ -35,11 +35,11 @@ class HCInteriorsModule : HCModule
 
     bool ValidateConfig(HCSettings settings)
     {
-        if (!m_Config || m_Config.SchemaVersion != 1 || m_Config.World != "chernarusplus" || m_Config.Build != "1.30.164289") return Reject("config schema/map/build mismatch; migration is manual");
+        if (!m_Config || m_Config.SchemaVersion != 1 || m_Config.MapName != "chernarusplus" || m_Config.Build != "1.30.164289") return Reject("config schema/map/build mismatch; migration is manual");
         if (m_Config.Epoch < 1 || m_Config.Epoch > 899999 || m_Config.Seed < 1 || m_Config.Seed > 1000000) return Reject("epoch or seed outside supported bounds");
         string world = GetGame().GetWorldName();
         world.ToLower();
-        if (world != m_Config.World) return Reject("running map differs from manifest");
+        if (world != m_Config.MapName) return Reject("running map differs from manifest");
         if (!m_Config.Candidates || m_Config.Candidates.Count() < 1 || m_Config.Candidates.Count() > 12 || m_Config.Candidates.Count() > settings.MaxActiveInteriors) return Reject("candidate count exceeds manifest/core bounds or is empty");
         if (settings.MaxTickWorkItems < m_Config.Candidates.Count() * 2 || settings.MaxPropsPerInterior < 2) return Reject("startup/prop work exceeds core budgets");
         m_PropLimit = Math.Min(settings.MaxPropsPerInterior, 5);
@@ -48,14 +48,14 @@ class HCInteriorsModule : HCModule
         {
             foreach (HCInteriorCandidate candidate : m_Config.Candidates)
             {
-                if (!candidate || candidate.Slot < 0 || candidate.Slot >= 12 || candidate.Type != HCInteriorCatalog.BUILDING) return Reject("invalid stable slot or unsupported building class");
+                if (!candidate || candidate.SlotId < 0 || candidate.SlotId >= 12 || candidate.Type != HCInteriorCatalog.BUILDING) return Reject("invalid stable slot or unsupported building class");
                 if (!HCInteriorRules.SaneVector(candidate.Position, 20000) || !HCInteriorRules.SaneVector(candidate.Orientation, 360)) return Reject("nonfinite or out-of-bounds building transform");
                 // Yaw-only pilot. No invented conversion of tilted local rotations.
                 if (candidate.Orientation[1] != 0 || candidate.Orientation[2] != 0) return Reject("tilted building unsupported by yaw-only pilot");
-                if (candidate.Slot != slot) continue;
+                if (candidate.SlotId != slot) continue;
                 foreach (HCInteriorCandidate previous : sorted)
                 {
-                    if (previous.Slot == candidate.Slot || previous.Key() == candidate.Key()) return Reject("duplicate slot/quantized building identity");
+                    if (previous.SlotId == candidate.SlotId || previous.Key() == candidate.Key()) return Reject("duplicate slot/quantized building identity");
                 }
                 sorted.Insert(candidate);
             }
@@ -69,7 +69,7 @@ class HCInteriorsModule : HCModule
         HCInteriorManifest manifest = new HCInteriorManifest;
         manifest.SchemaVersion = 1;
         manifest.CatalogVersion = HCInteriorCatalog.VERSION;
-        manifest.World = m_Config.World;
+        manifest.MapName = m_Config.MapName;
         manifest.Build = m_Config.Build;
         manifest.Epoch = m_Config.Epoch;
         manifest.Seed = m_Config.Seed;
@@ -93,7 +93,7 @@ class HCInteriorsModule : HCModule
                 }
             }
             HCInteriorAssignment assignment = new HCInteriorAssignment;
-            assignment.Slot = candidate.Slot;
+            assignment.SlotId = candidate.SlotId;
             assignment.InstanceId = candidate.Id(m_Config.Epoch);
             assignment.LayoutId = layout.Id;
             assignment.History = layout.History;
@@ -196,47 +196,77 @@ class HCInteriorsModule : HCModule
         return found;
     }
 
-    bool Vacant(vector point, string type)
+    int InspectProp(vector point, vector orientation, string type, out Object reusable)
     {
+        reusable = null;
         array<Object> objects = new array<Object>;
         array<CargoBase> cargos = new array<CargoBase>;
         GetGame().GetObjectsAtPosition3D(point, 0.75, objects, cargos);
-        if (objects.Count() > 256) return false;
+        if (objects.Count() > 256) return 3;
+        int matches;
+        int ownedCount;
+        bool exact = true;
         foreach (Object object : objects)
         {
-            if (object && object.GetType() == type && vector.DistanceSq(object.GetPosition(), point) < 0.0625) return false;
+            if (!object || object.GetType() != type || vector.DistanceSq(object.GetPosition(), point) >= 0.0625) continue;
+            matches++;
+            if (m_Objects.Find(object) >= 0)
+            {
+                ownedCount++;
+                reusable = object;
+            }
+            if (HCInteriorRules.TransformKey(object.GetPosition(), object.GetOrientation()) != HCInteriorRules.TransformKey(point, orientation)) exact = false;
         }
-        return true;
+        int decision = HCInteriorRules.OrphanDecision(true, matches, ownedCount, exact);
+        if (decision != 1) reusable = null;
+        return decision;
     }
 
     void PlaceCandidate(int index)
     {
+        if (!m_Store || !m_Store.Healthy()) return;
         HCInteriorCandidate candidate = m_Config.Candidates[index];
         HCInteriorAssignment assignment = m_Manifest.Assignments[index];
+        if (m_Store.IsHeld(candidate.SlotId)) return;
         Object building = ResolveBuilding(candidate);
         if (!building)
         {
-            Print("[HC Interiors] unresolved/ambiguous building slot " + candidate.Slot.ToString());
+            Print("[HC Interiors] unresolved/ambiguous building slot " + candidate.SlotId.ToString());
+            m_Store.HoldSlot(candidate.SlotId, "unresolved-building");
             return;
         }
         int choice = HCInteriorRules.Layout(HCInteriorRules.Quantize(candidate.Position[0]), HCInteriorRules.Quantize(candidate.Position[1]), HCInteriorRules.Quantize(candidate.Position[2]), HCInteriorRules.Yaw(candidate.Orientation[0]), m_Config.Seed);
         HCInteriorLayout layout = HCInteriorCatalog.Get(choice);
+        array<Object> reusableProps = new array<Object>;
         foreach (HCInteriorProp check : layout.Props)
         {
-            if (!Vacant(building.ModelToWorld(check.Position), check.Type))
+            vector checkOrientation = check.Orientation;
+            checkOrientation[0] = checkOrientation[0] + building.GetOrientation()[0];
+            Object reusable;
+            if (InspectProp(building.ModelToWorld(check.Position), checkOrientation, check.Type, reusable) == 3)
             {
-                Print("[HC Interiors] possible orphan/native prop; slot quarantined " + candidate.Slot.ToString());
+                Print("[HC Interiors] possible orphan/native prop; slot quarantined " + candidate.SlotId.ToString());
+                m_Store.HoldSlot(candidate.SlotId, "foreign-or-ambiguous-prop");
                 return;
             }
+            reusableProps.Insert(reusable);
         }
         array<Object> created = new array<Object>;
         HCInteriorSite site;
+        int propIndex;
         foreach (HCInteriorProp prop : layout.Props)
         {
             int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY;
-            Object object = GetGame().CreateObjectEx(prop.Type, building.ModelToWorld(prop.Position), flags, RF_IGNORE);
+            Object object = reusableProps[propIndex];
+            propIndex++;
             if (!object)
             {
+                object = GetGame().CreateObjectEx(prop.Type, building.ModelToWorld(prop.Position), flags, RF_IGNORE);
+                if (object) created.Insert(object);
+            }
+            if (!object)
+            {
+                m_Store.HoldSlot(candidate.SlotId, "partial-placement");
                 foreach (Object partial : created) GetGame().ObjectDelete(partial);
                 Print("[HC Interiors] partial layout rolled back; no search site");
                 return;
@@ -244,20 +274,19 @@ class HCInteriorsModule : HCModule
             vector orientation = prop.Orientation;
             orientation[0] = orientation[0] + building.GetOrientation()[0];
             object.SetOrientation(orientation);
-            created.Insert(object);
             if (prop.Searchable)
             {
                 site = new HCInteriorSite;
                 site.Id = assignment.InstanceId + "_storage_v1";
-                site.Slot = candidate.Slot;
+                site.SlotId = candidate.SlotId;
                 site.Target = object;
                 site.Point = object.ModelToWorld(prop.SearchPoint);
                 site.Item = assignment.Item;
                 site.Phase = m_Store.RecoverSite(site);
             }
         }
-        foreach (Object owned : created) m_Objects.Insert(owned);
-        if (site) m_Sites.Insert(site);
+        foreach (Object ownedObject : created) m_Objects.Insert(ownedObject);
+        if (site && !FindSite(site.Target)) m_Sites.Insert(site);
     }
 
     override void OnTick(float deltaTime)
@@ -357,6 +386,12 @@ class HCInteriorsModule : HCModule
             site.Phase = 3;
             return;
         }
+        if (!m_Store.BeginGrant(site, playerId))
+        {
+            site.Phase = 3;
+            data.m_Player.MessageStatus("Search failed; this storage is unavailable.");
+            return;
+        }
         if (site.Item == "")
         {
             m_Store.Finish(site, playerId, 2);
@@ -374,7 +409,7 @@ class HCInteriorsModule : HCModule
         // Allocated unit count is one, not a native default multi-unit stack.
         ItemBase item = ItemBase.Cast(output);
         if (item && item.HasQuantity()) item.SetQuantity(1);
-        m_Store.Finish(site, playerId, 2);
+        m_Store.Finish(site, playerId, 2, output);
         data.m_Player.MessageStatus("Found supplies.");
     }
 

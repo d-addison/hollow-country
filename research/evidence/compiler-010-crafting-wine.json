@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "environment": "actual-DayZ-server-under-Wine",
+  "runtime_acceptance": "pending",
+  "signature_verified": false,
+  "client_count": 0,
+  "status": "initialized",
+  "forced_stop": true,
+  "requested_gameplay_bind": "127.0.0.1:2402",
+  "steam_query_may_bind_wildcard": true,
+  "command": [
+    "xvfb-run",
+    "-a",
+    "/usr/lib/wine/wine64",
+    "/home/david/.cache/hollow-country/wine-server-20261116/DayZServer_x64.exe",
+    "-ip=127.0.0.1",
+    "-port=2402",
+    "-config=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-010-crafting\\serverDZ.cfg",
+    "-profiles=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-010-crafting\\profiles",
+    "-storage=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-010-crafting\\storage",
+    "-mod=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-010-crafting\\@HollowCountry",
+    "-BEpath=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-010-crafting\\battleye",
+    "-doLogs",
+    "-adminLog",
+    "-noPause"
+  ],
+  "pbo_sha256": "1ba4caa424f5ebf84362196aee6a73d242c8b2d3e4e30d9a0a919207b9dae502",
+  "server_sha256": "987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805",
+  "config_sha256": "0e6810499a8ae0aef5c3f51024e3f4ceff0f8c53775283e1a649759fd023376b",
+  "settings_sha256": "74ea6001c7c8ed6680d573256b9e1e8b7293ce6ca9f0dac7d3bd06f1694902b0",
+  "launcher_pid": 3127395,
+  "launcher_exit_code": -15,
+  "logs": {
+    "wine-output.log": "a45af13ec5cb662d07ee59d015b7af1cd5a8d4d45f0aac34099ade88b4ebc046",
+    "profiles/error_2026-11-16_16-20-27.log": "d8cc540d7e945c70230b95c5cbae688b7cede22d4ace0974cc9ccc95d0c4fc5d",
+    "profiles/DayZServer_x64_2026-11-16_16-20-28.ADM": "d0aad28d5370212224fcf2c1c5cdc7ad235034ba4936e0e1b203394241a3966e",
+    "profiles/DayZServer_x64_2026-11-16_16-20-27.RPT": "aa4de81f21fd2195194e5e93b63204f448d83da2414e80dae70b74fc33c9fcc1",
+    "profiles/script_2026-11-16_16-20-27.log": "7d1ace791249c529ee04d7833d1bae45159cc3516a1378a7beb35042dc47619a"
+  },
+  "skipped_logs": {}
+}

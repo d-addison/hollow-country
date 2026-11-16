@@ -1,0 +1,64 @@
+{
+  "evidence": "actual-DayZ-server-under-Wine-compiler-init-not-gameplay-acceptance",
+  "compiler_report": {
+    "schema": 1,
+    "environment": "actual-DayZ-server-under-Wine",
+    "runtime_acceptance": "pending",
+    "signature_verified": false,
+    "client_count": 0,
+    "status": "initialized",
+    "forced_stop": true,
+    "requested_gameplay_bind": "127.0.0.1:2402",
+    "steam_query_may_bind_wildcard": true,
+    "command": [
+      "xvfb-run",
+      "-a",
+      "/usr/lib/wine/wine64",
+      "/home/david/.cache/hollow-country/wine-server-20261116/DayZServer_x64.exe",
+      "-ip=127.0.0.1",
+      "-port=2402",
+      "-config=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-009\\serverDZ.cfg",
+      "-profiles=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-009\\profiles",
+      "-storage=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-009\\storage",
+      "-mod=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-009\\@HollowCountry",
+      "-BEpath=Z:\\home\\david\\.cache\\hollow-country\\wine-server-20261116\\experiments\\compile-009\\battleye",
+      "-doLogs",
+      "-adminLog",
+      "-noPause"
+    ],
+    "pbo_sha256": "8339c144c658862e293bd5eadba65cc6d81b1ea0f61959334230799ff4f87159",
+    "server_sha256": "987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805",
+    "config_sha256": "0e6810499a8ae0aef5c3f51024e3f4ceff0f8c53775283e1a649759fd023376b",
+    "settings_sha256": null,
+    "launcher_pid": 3116312,
+    "launcher_exit_code": -15,
+    "logs": {
+      "wine-output.log": "a45af13ec5cb662d07ee59d015b7af1cd5a8d4d45f0aac34099ade88b4ebc046",
+      "profiles/DayZServer_x64_2026-11-16_16-16-57.RPT": "b5929cc2e29bd51ce2b1c7f92b3e6a652f7b4c2775da3294547b0b18019cd588",
+      "profiles/script_2026-11-16_16-16-57.log": "e915b4d1773e78ba50c90c0d4458cc8cffd0748b4a48a04e7c1cb33b7fcaeac6",
+      "profiles/DayZServer_x64_2026-11-16_16-16-58.ADM": "2b7915fd54cc13e6de270455b8eed0b962e2ae977e49cf1ed23ed26e67b2cefe",
+      "profiles/error_2026-11-16_16-16-57.log": "54a187c99e6a1cca866fe49057c26303efa66a84315dbc3461e71ab03809aa11"
+    },
+    "skipped_logs": {}
+  },
+  "compiler_report_sha256": "ae560c0581b1e53de96e32e26b2fd117e733f101267e0d866cfc9223885022a3",
+  "matched_frozen_infected_source_files": [
+    "scripts/4_World/Infected/HCAlertChain.c",
+    "scripts/4_World/Infected/HCHordeRecovery.c",
+    "scripts/4_World/Infected/HCHordeStimulus.c",
+    "scripts/4_World/Infected/HCInfectedModule.c",
+    "scripts/4_World/Infected/HCInfectedNative.c",
+    "scripts/4_World/Infected/HCInfectedNavigation.c",
+    "scripts/4_World/Infected/HCInfectedPolicy.c",
+    "scripts/4_World/Infected/HCInfectedProfiles.c",
+    "scripts/4_World/Infected/HCInfectedRooms.c",
+    "scripts/4_World/Infected/HCInfectedSelfTests.c",
+    "scripts/4_World/Infected/HCInfectedState.c"
+  ],
+  "observed_script_markers": [
+    "16:17:11.459 SCRIPT       : Module: World; loaded 2348x files; 6298x classes; used 10049/33554 kB (29%) of static memory; defines: \"DAYZ_1_30,SERVER_FOR_WINDOWS,SERVER,PLATFORM_WINDOWS,RELEASE,NO_GUI,NO_GUI_INGAME,sakhal,nasdara,HollowCountry,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION\"; CRC32: 1f543d73",
+    "16:18:09.857  SCRIPT       : Module: Mission; loaded 220x files; 470x classes; used 3168/33554 kB (9%) of static memory; defines: \"DAYZ_1_30,SERVER_FOR_WINDOWS,SERVER,PLATFORM_WINDOWS,RELEASE,NO_GUI,NO_GUI_INGAME,sakhal,nasdara,HollowCountry,DayZ,FEATURE_CURSOR,FEATURE_NETWORK_RECONCILIATION,FEATURE_NETWORK_RECONCILATION,ENABLE_CAROUSEL\"; CRC32: ec1bab63",
+    "16:18:10.569  SCRIPT       : [HollowCountry][SelfTest] Core settings PASS in native script VM",
+    "16:18:10.575  SCRIPT       : [HollowCountry] Server initialized; experimental features require explicit settings"
+  ]
+}
