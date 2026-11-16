@@ -54,7 +54,9 @@ def _safe(path, directory=None, missing=False):
     if path.drive.startswith('\\\\') or str(path).startswith('//'):
         raise ValueError('network/UNC destination unsupported')
     for part in path.parts[1:]:
-        pbo.safe_name(part)  # Also reject ADS/reserved Windows names on POSIX.
+        # Existing Windows host components may use 8.3 names (RUNNER~1).
+        # Keep archive member validation strict; only host paths admit tilde.
+        pbo.safe_name(part.replace('~', '_'))
     for parent in reversed(path.parents):
         _check_stat(parent.lstat(), directory=True)
     try:

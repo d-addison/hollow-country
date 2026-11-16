@@ -76,6 +76,22 @@ class DeploymentBehavior(unittest.TestCase):
             self.assertEqual(self.installed(), {n: archive.read(n) for n in archive.namelist()})
         self.assert_profiles()
 
+    def test_native_short_name_parent_allows_exact_install_and_rollback(self):
+        # Hosted Windows uses RUNNER~1 in TEMP. Host paths are not PBO members.
+        short = self.root / 'RUNNER~1'
+        short.mkdir()
+        archive = short / 'package.zip'
+        archive.write_bytes(self.one.read_bytes())
+        destination = short / 'runtime'
+        destination.mkdir()
+        result = deploy.install(archive, destination, server_stopped=True)
+        self.assertEqual(result['status'], 'committed')
+        restored = deploy.rollback(destination, result['transaction'], server_stopped=True)
+        self.assertEqual(restored['status'], 'committed')
+        self.assertFalse((destination / deploy.ACTIVE).exists())
+        with self.assertRaises(ValueError):
+            pbo.safe_name('RUNNER~1')  # Archive allowlist is unchanged.
+
     def test_upgrade_migration_exact_backup_and_targeted_rollback_idempotence(self):
         first = self.install()
         original = self.installed()
