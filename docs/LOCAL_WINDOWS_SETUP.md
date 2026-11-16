@@ -1,18 +1,20 @@
 # Local Windows vanilla P0 setup
 
-Ready for native Windows review and dry run. Validation here is **static only**:
-PowerShell parsing, native -WhatIf, staging, launch, binding, client join and
-persistence have **not executed** in this agent environment. WSL Windows launches
+The user's native Windows `-WhatIf` now passes and reports 43 pinned mission
+files verified. Windows CI also passes synthetic native hashing, dry-run,
+staging and overwrite-refusal tests. Original agent checks were **static only**;
+real installation staging, launch, binding, client join and persistence have
+**not executed** as of this recorded dry run. WSL Windows launches
 previously failed with UtilAcceptVsock/timeout. Do the next step in an ordinary
 Windows PowerShell 5.1+ terminal, not WSL. No administrator shell is required.
 
 The first actual Windows dry run reached the installed server executable but
 failed because the hash helper returned no `Hash` property under `-WhatIf`.
 The revised script uses read-only .NET SHA-256 streams and disposes them without
-provider helper operations. Seven local static checks pass after the fix; the
-user's installed-file dry run still requires a successful rerun. A separate
-Windows CI synthetic integration test checks hashing, dry-run non-creation,
-staging and overwrite refusal without game assets or a server process.
+provider helper operations. Seven local static checks pass after the fix. The
+user reran successfully against the installation, reporting the expected single
+runtime creation WhatIf operation. [Windows CI](https://github.com/d-addison/hollow-country/actions/runs/43941012695)
+passed the synthetic integration test without game assets or a server process.
 
 ## Next concrete command
 

@@ -7,6 +7,7 @@ requirements; none of these offline records establishes completed gameplay.
 
 | Record | What it establishes |
 | --- | --- |
+| [Native setup dry run](P0-native-setup-dry-run.md) | User-observed installed-file WhatIf success after the hash fix, native synthetic CI and remaining runtime gate. |
 | [Verification record](VALIDATION-2026-11-16.md) | Executed offline checks, review fixes and pending native gates. |
 | [P0 build inventory](P0-build-inventory.md) | Observed installation/build/tool details; runtime checks remain pending. |
 | [Official CE source research](official-sources-2026-11-16.md) | Pinned upstream revision, documented interfaces, license/source references and file hashes. |
