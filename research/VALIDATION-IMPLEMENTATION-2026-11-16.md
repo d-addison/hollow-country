@@ -41,6 +41,8 @@ native compilation/signing, durable transactions, two-client tests, actual CE
 eligibility, calibrated performance and destination rollback remain open in
 [module status](../docs/MODULE_STATUS.md) and the roadmap issues.
 
-CI additionally runs native Windows PowerShell syntax/synthetic setup/package
-guards and builds private development artifacts. The pending push must supply
-the fresh CI result; no native DayZ engine exists on that hosted runner.
+Commit `796175f8e919145d59c04921c1dee44c2db7a45c` passed
+[GitHub CI run 43950077596](https://github.com/d-addison/hollow-country/actions/runs/43950077596).
+Both offline validation/artifact packaging and native Windows PowerShell
+syntax/synthetic setup/package guards passed. These Windows checks do not run
+DayZ: no native DayZ engine exists on that hosted runner.
