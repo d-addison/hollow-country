@@ -27,12 +27,26 @@ function Assert-NoReparseAncestors {
         $cursor = [System.IO.Path]::GetDirectoryName($cursor)
     }
 }
+function Get-ReadOnlySha256 {
+    param([string]$Path)
+    # Direct read-only .NET IO avoids provider helper operations affected by
+    # the caller's WhatIf preference in Windows PowerShell 5.1.
+    $stream = $null
+    $algorithm = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        return ([System.BitConverter]::ToString($algorithm.ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+        $algorithm.Dispose()
+    }
+}
 function Assert-PinnedFile {
     param([string]$Path, $Expected)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "Required file missing: $Path" }
     Assert-NoReparseAncestors $Path
     if ((Get-Item -LiteralPath $Path).Length -ne [long]$Expected.bytes -or
-        (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash -ne $Expected.sha256) {
+        (Get-ReadOnlySha256 $Path) -ne $Expected.sha256) {
         throw "Installed baseline mismatch: $Path. Stop; review Steam updates or local edits."
     }
 }
@@ -214,7 +228,7 @@ foreach ($entry in $missionFiles) { Assert-PinnedFile $entry.Source $expectedByP
 $stagedMission = @(
     foreach ($entry in $missionFiles) {
         $stagedPath = Join-Path $missionDestination $entry.Path
-        [ordered]@{ path = $entry.Path; sha256 = (Get-FileHash -LiteralPath $stagedPath -Algorithm SHA256).Hash.ToLowerInvariant() }
+        [ordered]@{ path = $entry.Path; sha256 = (Get-ReadOnlySha256 $stagedPath) }
     }
 )
 $launchPlan = [ordered]@{
@@ -231,9 +245,9 @@ $launchPlan = [ordered]@{
     profiles = $profilesDestination
     storage = $storageDestination
     session_minutes = $SessionMinutes
-    config_sha256 = (Get-FileHash -LiteralPath $configDestination -Algorithm SHA256).Hash.ToLowerInvariant()
+    config_sha256 = (Get-ReadOnlySha256 $configDestination)
     mission_files = $stagedMission
-    source_baseline_sha256 = (Get-FileHash -LiteralPath $baselinePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    source_baseline_sha256 = (Get-ReadOnlySha256 $baselinePath)
 }
 Write-NewUtf8File (Join-Path $RuntimeRoot 'start-command.txt') $startCommandText
 Write-NewUtf8File (Join-Path $RuntimeRoot 'launch-plan.json') ($launchPlan | ConvertTo-Json -Depth 8)

@@ -57,11 +57,19 @@ class WindowsSetupStaticTests(unittest.TestCase):
 
     def test_stock_backup_and_only_scheduled_shutdown_delta(self):
         self.assertIn("stock-backup", self.script)
-        self.assertIn("Get-FileHash", self.script)
+        self.assertIn("Get-ReadOnlySha256", self.script)
         self.assertIn("<shutdown>1</shutdown>", self.script)
         self.assertIn("<deadline>$SessionMinutes</deadline>", self.script)
         self.assertIn("Copy-NewVerifiedFile", self.script)
         self.assertIn("Get-ChildItem -LiteralPath", self.script)
+
+    def test_hash_reads_do_not_inherit_whatif_provider_operations(self):
+        self.assertNotIn("Get-FileHash", self.script)
+        self.assertIn("[System.Security.Cryptography.SHA256]::Create()", self.script)
+        self.assertIn("[System.IO.File]::OpenRead($Path)", self.script)
+        self.assertIn("$algorithm.ComputeHash($stream)", self.script)
+        self.assertIn("$stream.Dispose()", self.script)
+        self.assertIn("$algorithm.Dispose()", self.script)
 
     def test_runbook_has_concrete_windows_paths_and_unmet_gates(self):
         for required in (r"D:\SteamLibrary\steamapps\common\DayZ Tools", r"D:\SteamLibrary\steamapps\common\DayZServer", r"\\wsl.localhost\Ubuntu-24.04\code\dayzsa_mods", "-WhatIf", "Start-Process", "Get-NetUDPEndpoint", "127.0.0.1", "static only", "not executed", "T003", "NET-004", "NET-005", "stock-backup", "graceful"):

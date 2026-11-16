@@ -9,6 +9,14 @@ concurrency:
   group: static-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  windows-setup:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Native Windows PowerShell synthetic setup regression
+        shell: powershell
+        run: ./tools/setup/Test-LocalVanillaRuntime.ps1
   offline:
     runs-on: ubuntu-latest
     timeout-minutes: 5
