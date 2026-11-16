@@ -66,14 +66,28 @@ _LICENSE_MARKERS = (
 
 def _candidates(root):
     def git(*args):
+        timed_out = threading.Event()
         with subprocess.Popen(["git", "-C", str(root), *args],
                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL) as child:
             def stop():
                 try:
-                    child.kill()
+                    if child.poll() is None:
+                        if os.name == 'nt':
+                            # Git for Windows may launch a native child. Killing
+                            # only its wrapper can leave that child holding -C.
+                            try:
+                                subprocess.run(['taskkill', '/PID', str(child.pid), '/T', '/F'],
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL, timeout=5)
+                            except (OSError, subprocess.SubprocessError):
+                                pass  # Still terminate/reap the owned launcher.
+                        child.kill()
                 except OSError:
                     pass
-            timer = threading.Timer(15, stop)
+            def watchdog():
+                timed_out.set()
+                stop()
+            timer = threading.Timer(15, watchdog)
             timer.daemon = True
             timer.start()
             try:
@@ -82,8 +96,18 @@ def _candidates(root):
                     raise ValueError("Git discovery limit or failure")
             finally:
                 timer.cancel()
-                stop()
-                child.wait(timeout=5)
+                # Close before terminating: an oversized writer can finish via
+                # broken-pipe handling, allowing its wrapper to reap it normally.
+                child.stdout.close()
+                try:
+                    child.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    stop()
+                    child.wait(timeout=5)
+                finally:
+                    timer.join(timeout=6)
+        if timed_out.is_set():
+            raise ValueError('Git discovery timeout')
         return data.decode("utf-8", errors="strict")
     if Path(git("rev-parse", "--show-toplevel").strip()).resolve() != root.resolve():
         raise ValueError("not checkout root")

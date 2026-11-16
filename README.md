@@ -64,6 +64,12 @@ from actual finite fuel, respect capacity and stop safely when interrupted.
 Decorative wrecks will not become endless petrol stations. Supported vehicles,
 tools and any finite wreck supplies remain part of the audit.
 
+**Planned · Phase 2: improvised light mounts.** Use duct tape to attach a
+flashlight to a suitable gun, backpack or helmet, keeping your hands available.
+Supported combinations need a useful beam direction, working battery and switch,
+and sensible attachment/removal and wear. Existing item geometry will determine
+which combinations can work properly.
+
 ## The infected remember
 
 **Being built · Infected, local alerts and persistent hordes**
@@ -75,10 +81,17 @@ route should remain meaningful ways to escape.
 
 The intended experience includes distinct infected roles and trade-offs,
 investigation of observed clues, coherent group movement and persistent hordes.
+Roles should be recognizable through appearance and believable locations, with
+different abilities to open, force or be stopped by doors. Individual health and
+damage should remain broadly familiar; occasional concentrations should create
+danger without turning every location into a permanent swarm.
 Room traversal, door interactions, injuries and audible warnings must behave
 fairly. Infected must not secretly track your live position or teleport into
 pursuit. Changes to distant hordes must preserve the population and never make
 infected appear in view.
+
+Footsteps, shuffling and contact sounds should help you read a threat, including
+stealthier variants. Surfaces, distance and obstacles should affect what you hear.
 
 **Feasibility testing · Phase 2: death reactions.** More convincing folding or
 ragdoll-like deaths are a goal. The result depends on DayZ's animation and
@@ -95,9 +108,9 @@ available as a qualified gameplay package.
 | Planned system | Intended experience |
 | :--- | :--- |
 | **Extended stamina** | More practical travel through an original stamina model that keeps exertion, recovery and load meaningful. |
-| **Weight display** | See your burden and understand how it affects endurance. |
+| **Stamina and weight bars** | See your exertion and burden, and understand how your load affects endurance. |
 | **Groups** | Team membership with teammate icons both in the world and on the map; visibility rules configurable by the server. |
-| **Interactive map** | Press **M** to pan and zoom the map and share group markers. The action should be rebindable. |
+| **Interactive map** | Press **M** to pan and zoom the map and share editable group markers and notes. The action should be rebindable. |
 | **Useful information** | Appropriate navigation, discovery and mission layers, without exposing information your group should not know. Exact layers remain to be selected. |
 
 Group information must respect membership and privacy through death, leaving,

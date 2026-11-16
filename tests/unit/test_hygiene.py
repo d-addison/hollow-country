@@ -263,11 +263,41 @@ class HygieneTests(unittest.TestCase):
         with mock.patch.object(hygiene, "MAX_DISCOVERY_BYTES", 128):
             self.assertIn("repository_discovery", self.codes(self.check()))
 
+    def test_oversized_discovery_closes_pipe_and_reaps_before_directory_cleanup(self):
+        child = mock.MagicMock()
+        child.__enter__.return_value = child
+        child.stdout.read.return_value = b'x' * 129
+        child.wait.return_value = 0
+        with mock.patch.object(hygiene, 'MAX_DISCOVERY_BYTES', 128), \
+                mock.patch.object(hygiene.subprocess, 'Popen', return_value=child), \
+                mock.patch.object(hygiene.threading, 'Timer') as timer:
+            with self.assertRaises(ValueError):
+                hygiene._candidates(self.root)
+        child.stdout.close.assert_called_once()
+        child.kill.assert_not_called()
+        child.wait.assert_called()
+        timer.return_value.join.assert_called_once()
+
     def test_metadata_size_preflight_never_opens_candidate_content(self):
         self.put("large.txt", b"x" * 257)
         with mock.patch.object(hygiene, "MAX_FILE_BYTES", 256), \
                 mock.patch.object(hygiene, "_read", side_effect=AssertionError("must not open")):
             self.assertIn("size_limit", self.codes(self.check()))
+
+    def test_discovery_cannot_accept_zero_exit_after_watchdog_expired(self):
+        child = mock.MagicMock()
+        child.__enter__.return_value = child
+        child.stdout.read.return_value = str(self.root.resolve()).encode()
+        child.wait.return_value = 0
+        child.poll.return_value = 0
+        def timer_factory(seconds, callback):
+            timer = mock.Mock()
+            timer.start.side_effect = callback
+            return timer
+        with mock.patch.object(hygiene.subprocess, 'Popen', return_value=child), \
+                mock.patch.object(hygiene.threading, 'Timer', side_effect=timer_factory):
+            with self.assertRaises(ValueError):
+                hygiene._candidates(self.root)
 
     def test_replaced_source_after_preflight_is_refused(self):
         self.put("changing.txt", "synthetic first")
