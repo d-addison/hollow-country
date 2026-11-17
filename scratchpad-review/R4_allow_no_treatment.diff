@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -690,7 +690,7 @@
+     issues += _progression_issues(stock_result, candidate_result)
+     treated = {name: _treated(stock_result["phenomena"][name], candidate_result["phenomena"][name])
+                for name in PHENOMENA}
+-    if not any(treated.values()):
++    if False:
+         issues.append("the candidate's cfgweather.xml changes no phenomenon's limits, change limits or time limits; "
+                       "there is no treatment to compare")
+     blocked = bool(issues)

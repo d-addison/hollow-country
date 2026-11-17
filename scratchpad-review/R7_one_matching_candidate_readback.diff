@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -598,7 +598,7 @@
+     for key in attributes:
+         wanted = candidate["xml"][key]
+         theirs, ours = candidate["live_pairs"][key], stock["live_pairs"][key]
+-        matches = bool(theirs) and all(_close(pair, wanted) for pair in theirs)
++        matches = bool(theirs) and any(_close(pair, wanted) for pair in theirs)
+         differs = bool(ours) and not any(_close(pair, wanted) for pair in ours)
+         detail[key] = {"candidate_live_matches_candidate_xml": matches, "stock_live_differs_from_candidate_xml": differs,
+                        "candidate_live": theirs, "stock_live": ours}

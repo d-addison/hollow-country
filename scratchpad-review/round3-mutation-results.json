@@ -1,0 +1,42 @@
+[
+  {
+    "mutation": "R1_bypass_live_application",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "R2_ignore_stock_differential",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "R3_treat_every_attribute",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "R4_allow_no_treatment",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "R5_crossing_alone_is_cycle",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "R6_ignore_cycle_gate",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "R7_one_matching_candidate_readback",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "R8_one_different_stock_readback",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  }
+]

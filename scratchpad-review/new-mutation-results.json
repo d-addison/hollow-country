@@ -1,0 +1,27 @@
+[
+  {
+    "mutation": "N1_weather_time_in_milliseconds",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "N2_swap_volfog_density_getters",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "N3_remove_reconstruction",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "N4_drop_future_deadline_guard",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "N5_reconstruction_pins_wrong_expected_hash",
+    "exit_code": 1,
+    "result": "KILLED"
+  }
+]

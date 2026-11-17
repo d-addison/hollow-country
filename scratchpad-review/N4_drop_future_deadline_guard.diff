@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -484,7 +484,7 @@
+         if crossed:
+             if (next_change > time and not _same(next_change, deadline)) or not _same(forecast, before):
+                 return True, True
+-        elif next_change > time and (deadline is None or next_change < deadline):
++        elif deadline is None or next_change < deadline:
+             deadline = next_change
+         previous = forecast
+     return crossed, False

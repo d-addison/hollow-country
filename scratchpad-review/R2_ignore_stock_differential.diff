@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -602,7 +602,7 @@
+         differs = bool(ours) and not any(_close(pair, wanted) for pair in ours)
+         detail[key] = {"candidate_live_matches_candidate_xml": matches, "stock_live_differs_from_candidate_xml": differs,
+                        "candidate_live": theirs, "stock_live": ours}
+-        applied = applied and matches and differs
++        applied = applied and matches
+     return detail, applied
+ 
+ 

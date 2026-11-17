@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -613,7 +613,7 @@
+         return "pending", "a run has too few valid samples for this phenomenon"
+     if not candidate["boundary_crossed"]:
+         return "pending", "no forecast deadline (next_change) was crossed in the candidate run"
+-    if not candidate["cycle_observed"]:
++    if False:
+         return "pending", ("a deadline was crossed in the candidate run but next_change never moved to a new deadline "
+                            "and the forecast never changed afterwards; interpolation alone is not a new cycle")
+     if candidate["status"] == "violates_candidate":

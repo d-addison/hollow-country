@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -585,7 +585,7 @@
+ 
+ def _treated(stock, candidate):
+     """The attributes (limits, changelimits, timelimits) whose cfgweather.xml values differ between the runs."""
+-    return [key for key in _ATTRIBUTES if not _close(stock["xml"][key], candidate["xml"][key])]
++    return list(_ATTRIBUTES)
+ 
+ 
+ def _readback(stock, candidate, attributes):
