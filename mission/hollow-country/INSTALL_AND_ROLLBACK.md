@@ -59,9 +59,11 @@ engine version of `1.30.164289` or `1.30.164289.70`, the local acceptance marker
 generator's canonical disabled, non-resetting `v1-script` cfgweather.xml candidate.
 Production qualification remains false. Restart after changing admission inputs.
 Missing or non-delegated XML leaves vanilla in control. Admitted atmosphere changes
-lightingConfig from 0 to 1 and disablePersonalLight from false to true only;
-other operator values are retained and logged once alongside applied previous
-values. Seasonal temperature arrays remain native/operator owned. A missing
+lightingConfig to the bright-night native config 0 whatever the operator value
+(owner rule: no dark nights; the previous value is logged) and leaves
+disablePersonalLight untouched. From 20:00 to 05:00 the overcast limit is 0.55 (set at startup and at
+each dusk/dawn check, with a transition of at most 60 s; dawn restores 0..1), so
+there is no night storm or rain. Other operator values are retained and logged. Seasonal temperature arrays remain native/operator owned. A missing
 native noise system preserves the vanilla supplementary relay radius and logs once.
 For atmosphere rollback, stop the server, set EnableAtmosphere=false, remove the
 local marker and restore the backed-up mission/settings before restarting. DayZDiag,

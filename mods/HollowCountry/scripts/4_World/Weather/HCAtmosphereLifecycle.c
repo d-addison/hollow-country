@@ -28,4 +28,20 @@ modded class HCServer
         if (atmosphereData)
             atmosphereData.HCStartAtmosphere();
     }
+
+    override void Stop()
+    {
+        // Stop the weather owner first (removes its queued check), then the server.
+        if (GetGame())
+        {
+            Mission stopMission = GetGame().GetMission();
+            if (stopMission)
+            {
+                ChernarusPlusData stopData = ChernarusPlusData.Cast(stopMission.GetWorldData());
+                if (stopData)
+                    stopData.HCStopAtmosphere();
+            }
+        }
+        super.Stop();
+    }
 }

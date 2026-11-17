@@ -142,9 +142,18 @@ class V1WeatherPolicyTests(unittest.TestCase):
         for phase, expected in ((0, .35), (2699, .35), (2700, .72), (3599, .72),
                                 (3600, .95), (5399, .95), (5400, .25), (7199, .25)):
             self.assertEqual(f32(expected), p.CloudTarget(phase, 12))
-        for hour, expected in ((-1, .35), (0, .55), (4.5, .55), (5, .35), (5.5, .35),
-                               (19.5, .35), (20, .55), (23, .55), (24, .35), (math.inf, .35)):
-            self.assertEqual(f32(expected), p.CloudTarget(0, hour))
+        # Owner decision 2026-11-17: never dark nights. Dusk to dawn (20..5) caps cloud
+        # at .55; day bands are untouched and out-of-range hours count as day.
+        for hour in (0, 4.5, 20, 23, 23.9):
+            self.assertEqual(f32(.35), p.CloudTarget(0, hour))
+            self.assertEqual(f32(.55), p.CloudTarget(3600, hour))
+            self.assertEqual(f32(.55), p.CloudTarget(2700, hour))
+            self.assertEqual(f32(.25), p.CloudTarget(5400, hour))
+        for hour in (-1, 5, 5.5, 12, 19.5, 24, math.inf, math.nan):
+            self.assertEqual(f32(.35), p.CloudTarget(0, hour))
+            self.assertEqual(f32(.72), p.CloudTarget(2700, hour))
+            self.assertEqual(f32(.95), p.CloudTarget(3600, hour))
+            self.assertEqual(f32(.25), p.CloudTarget(5400, hour))
         for cloud, rain, wind in ((-.1, 0, 4), (0, 0, 4), (.6, 0, 4), (.65, .25, 8),
                                   (.84, .25, 8), (.85, .85, 14), (1, .85, 14), (1.1, 0, 4)):
             self.assertEqual(f32(rain), p.RainTarget(cloud))
@@ -177,7 +186,33 @@ class V1WeatherPolicyTests(unittest.TestCase):
             self.assertEqual(0., p.RainTarget(p.CloudTarget(seconds, 12.)))
             self.assertLessEqual(p.WindTarget(p.CloudTarget(seconds, 12.)), 6.)
         self.assertEqual(p.CloudTarget(0., 12.), p.CloudTarget(7200., 12.))
-        self.assertGreater(p.CloudTarget(0., 23.), p.CloudTarget(0., 12.))
+        # Daytime storms are unchanged; the night storm band is capped below rain.
+        for hour in (5., 12., 19.9):
+            self.assertEqual(f32(.95), p.CloudTarget(3600., hour))
+            self.assertEqual(f32(.85), p.RainTarget(p.CloudTarget(3600., hour)))
+        for hour in (0., 3., 4.9, 20., 23., 23.9):
+            for seconds in (0., 2700., 3600., 4499., 5399., 5400., 7199.):
+                cloud = p.CloudTarget(seconds, hour)
+                self.assertLessEqual(cloud, f32(.55), (seconds, hour))
+                self.assertEqual(0., p.RainTarget(cloud))
+                self.assertEqual(4, p.WindTarget(cloud))
+            for seconds in (0., 2699., 5400., 7199.):
+                self.assertEqual(p.CloudTarget(seconds, 12.), p.CloudTarget(seconds, hour))
+        # Lagging actual cloud (storm cloud still present at dusk) is capped too.
+        for hour in (0., 4.9, 20., 23.):
+            self.assertEqual(f32(.55), p.NightCapped(.95, hour))
+            self.assertEqual(f32(.35), p.NightCapped(.35, hour))
+            self.assertEqual(0., p.RainTarget(p.NightCapped(.95, hour)))
+        for hour in (5., 12., 19.9, 24., -1.):
+            self.assertEqual(f32(.95), p.NightCapped(.95, hour))
+
+    def test_night_window_and_cap_constants(self):
+        p = self.policy
+        self.assertEqual(f32(.55), p.NightCloudCap())
+        for hour in (0., 4.99, 20., 23.99):
+            self.assertTrue(p.IsNight(hour), hour)
+        for hour in (5., 12., 19.99, 24., -1., math.inf, math.nan):
+            self.assertFalse(p.IsNight(hour), hour)
 
     def test_morning_fog_is_stronger_and_wind_reduces_it(self):
         p = self.policy
@@ -373,10 +408,163 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         self.assertTrue(authored(WORLD, 'WeatherOnBeforeChange', context, NS(), 'FOG', .2, .1, 30.))
         self.assertEqual(['FOG'], calls)
 
+    def test_night_forecasts_cap_cloud_rain_and_wind_even_with_lagging_storm_cloud(self):
+        enum_names = ('OVERCAST', 'RAIN', 'FOG', 'WIND_MAGNITUDE', 'WIND_DIRECTION',
+                      'SNOWFALL', 'VOLFOG_HEIGHT_DENSITY', 'VOLFOG_DISTANCE_DENSITY', 'VOLFOG_HEIGHT_BIAS')
+        kinds = NS(**{name: name for name in enum_names})
+        calls = []
+        def phenomenon(name):
+            return NS(GetActual=lambda: .95, Set=lambda *args: calls.append((name, args)))
+        weather = NS(GetTime=lambda: 4000., GetWindSpeed=lambda: 14.)
+        for name in ('Overcast', 'Rain', 'Fog', 'WindMagnitude', 'WindDirection', 'Snowfall'):
+            setattr(weather, 'Get' + name, lambda name=name: phenomenon(name))
+        context = {'GetGame': lambda: NS(GetDayTime=lambda: 22.),
+                   'HCAtmospherePolicy': authored_policy(), 'EWeatherPhenomenon': kinds,
+                   'm_Weather': weather, 'CalculateVolFog': lambda *args: calls.append(('volfog', args))}
+        for kind, expected in (('OVERCAST', (f32(.55), 300, 300)), ('RAIN', (0, 180, 120)),
+                               ('WIND_MAGNITUDE', (4, 180, 120))):
+            calls.clear()
+            self.assertTrue(authored(WORLD, 'HCForecast', context, NS(), kind))
+            self.assertEqual(expected, calls[0][1], kind)
+
+    def night_world(self, daytime, actual, server=True, started=True):
+        """Synthetic native collaborators; never evidence of DayZ clamp timing."""
+        state = NS(day=daytime, actual=actual)
+        calls = []
+        overcast = NS(GetActual=lambda: state.actual,
+                      SetLimits=lambda low, high: calls.append(('limits', low, high)),
+                      Set=lambda *args: calls.append(('set',) + args))
+        context = {'GetGame': lambda: NS(GetDayTime=lambda: state.day, IsServer=lambda: server),
+                   'HCAtmospherePolicy': authored_policy(),
+                   'm_Weather': NS(GetOvercast=lambda: overcast)}
+        actor = NS(m_HCAtmosphereStarted=started, m_HCNightLimited=False)
+        def apply(force):
+            return authored(WORLD, 'HCApplyNightLimits', context, actor, force)
+        return state, calls, actor, apply
+
+    def test_startup_at_night_during_a_storm_caps_actual_overcast_natively(self):
+        state, calls, actor, apply = self.night_world(22., .95)
+        apply(True)
+        self.assertEqual([('limits', 0, f32(.55)), ('set', f32(.55), 60, 60)], calls)
+        self.assertTrue(actor.m_HCNightLimited)
+
+    def test_startup_at_night_with_clear_sky_limits_without_forcing_a_change(self):
+        state, calls, actor, apply = self.night_world(2., .35)
+        apply(True)
+        self.assertEqual([('limits', 0, f32(.55))], calls)
+
+    def test_dusk_boundary_caps_storm_cloud_once_and_is_idempotent(self):
+        state, calls, actor, apply = self.night_world(19.99, .95)
+        apply(True)
+        self.assertEqual([('limits', 0, 1)], calls)
+        calls.clear()
+        apply(False)
+        self.assertEqual([], calls)
+        state.day = 20.
+        apply(False)
+        self.assertEqual([('limits', 0, f32(.55)), ('set', f32(.55), 60, 60)], calls)
+        calls.clear()
+        for hour in (20., 22., 1., 4.99):
+            state.day = hour
+            apply(False)
+        self.assertEqual([], calls)
+
+    def test_dawn_boundary_restores_daytime_limits_once(self):
+        state, calls, actor, apply = self.night_world(4.99, .5)
+        apply(True)
+        calls.clear()
+        state.day = 5.
+        apply(False)
+        self.assertEqual([('limits', 0, 1)], calls)
+        self.assertFalse(actor.m_HCNightLimited)
+        calls.clear()
+        state.day = 12.
+        apply(False)
+        self.assertEqual([], calls)
+
+    def test_daytime_start_leaves_limits_full_and_never_forces_a_forecast(self):
+        state, calls, actor, apply = self.night_world(12., .95)
+        apply(True)
+        self.assertEqual([('limits', 0, 1)], calls)
+        self.assertFalse(actor.m_HCNightLimited)
+
+    def test_night_limits_are_server_only_and_need_the_started_chernarus_owner(self):
+        for server, started in ((False, True), (True, False), (False, False)):
+            state, calls, actor, apply = self.night_world(22., .95, server=server, started=started)
+            apply(True)
+            apply(False)
+            self.assertEqual([], calls)
+            self.assertFalse(actor.m_HCNightLimited)
+
+    def stop_world(self, daytime=22., actual=.95):
+        """Queue-aware synthetic fixture: Remove drops the queued callback."""
+        state, calls, actor, apply = self.night_world(daytime, actual)
+        queue = []
+        context = {'GetGame': lambda: NS(GetDayTime=lambda: state.day, IsServer=lambda: True,
+                       GetCallQueue=lambda category: NS(Remove=lambda fn: queue.remove(fn) if fn in queue else None,
+                                                        category=category)),
+                   'CALL_CATEGORY_SYSTEM': 1,
+                   'HCAtmospherePolicy': authored_policy(), 'm_Weather': NS(GetOvercast=lambda: NS(
+                       GetActual=lambda: state.actual, SetLimits=lambda *a: calls.append(('limits',) + a),
+                       Set=lambda *a: calls.append(('set',) + a)))}
+        def callback(force):
+            return authored(WORLD, 'HCApplyNightLimits', context, actor, force)
+        queue.append(callback)
+        context['HCApplyNightLimits'] = callback
+        stop = lambda: authored(WORLD, 'HCStopAtmosphere', context, actor)
+        return state, calls, actor, queue, callback, stop, context
+
+    def test_stopped_owner_removes_the_dusk_callback_and_a_late_run_writes_nothing(self):
+        state, calls, actor, queue, callback, stop, context = self.stop_world(19.99, .95)
+        stop()
+        self.assertEqual([], queue)
+        self.assertFalse(actor.m_HCAtmosphereStarted)
+        state.day = 20.
+        callback(False)
+        callback(True)
+        self.assertEqual([], calls)
+        stop()
+        self.assertEqual([], queue)
+
+    def test_dusk_callback_does_nothing_without_a_game_instance(self):
+        state, calls, actor, queue, callback, stop, context = self.stop_world(22., .95)
+        context['GetGame'] = lambda: None
+        callback(True)
+        self.assertEqual([], calls)
+
+    def test_stop_uses_the_queue_category_that_scheduled_the_callback(self):
+        source = WORLD.read_text()
+        self.assertEqual(1, source.count('GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyNightLimits'))
+        self.assertEqual(1, source.count('GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCApplyNightLimits)'))
+
+    def test_server_stop_stops_atmosphere_then_super_and_tolerates_other_worlds(self):
+        for mission_present, castable in ((True, True), (False, True), (True, False)):
+            calls = []
+            data = NS(HCStopAtmosphere=lambda: calls.append('atmosphere-stop'))
+            mission = NS(GetWorldData=lambda: data) if mission_present else None
+            game = NS(GetMission=lambda: mission)
+            context = dict(GetGame=lambda: game, base=NS(Stop=lambda: calls.append('super')),
+                           ChernarusPlusData=NS(Cast=lambda value: value if castable else None))
+            authored(WEATHER / 'HCAtmosphereLifecycle.c', 'Stop', context, NS())
+            expected = ['atmosphere-stop', 'super'] if mission_present and castable else ['super']
+            self.assertEqual(expected, calls, (mission_present, castable))
+        context = dict(GetGame=lambda: None, base=NS(Stop=lambda: calls.append('late')),
+                       ChernarusPlusData=NS(Cast=lambda value: value))
+        calls.clear()
+        authored(WEATHER / 'HCAtmosphereLifecycle.c', 'Stop', context, NS())
+        self.assertEqual(['late'], calls)
+
+    def test_startup_registers_one_boundary_check_and_non_chernarus_registers_none(self):
+        source = WORLD.read_text()
+        self.assertEqual(1, source.count('CallLater(HCApplyNightLimits, 10000, true, false)'))
+        self.assertNotIn('SetLimits(0, 1);\n        m_Weather.GetFog', source)
+        lifecycle = (WEATHER / 'HCAtmosphereLifecycle.c').read_text()
+        self.assertNotIn('CallLater', lifecycle)
+
     def test_startup_blocks_foreign_drivers_and_uses_synced_native_lighting_once(self):
-        for (mission, frozen), lighting, personal in product(
-                ((True, False), (False, True), (False, False)), (0, 2), (False, True)):
-            calls, logs = [], []
+        for (mission, frozen), lighting, personal, daytime in product(
+                ((True, False), (False, True), (False, False)), (0, 1, 2, 3, 7), (False, True), (12., 22.)):
+            calls, logs, later = [], [], []
             weather = NS(GetMissionWeather=lambda: mission, GetWeatherUpdateFrozen=lambda: frozen,
                          SetWindMaximumSpeed=lambda *args: calls.append(('maxwind', args)),
                          SetStorm=lambda *args: calls.append(('storm', args)),
@@ -393,27 +581,38 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                        'HCConfigureAtmosphereDefaults': lambda: calls.append(('defaults', ())),
                        'HCForecast': lambda kind: calls.append(('forecast', kind)),
                        'CalculateVolFog': lambda *args: calls.append(('volfog', args)),
+                       'GetGame': lambda: NS(GetDayTime=lambda: daytime, IsServer=lambda: True,
+                           GetCallQueue=lambda category: NS(CallLater=lambda *args: later.append(args))),
+                       'CALL_CATEGORY_SYSTEM': 1, 'HCAtmospherePolicy': authored_policy(),
                        'CfgGameplayHandler': NS(m_Data=data), 'Print': lambda msg: None,
                        'PrintFormat': lambda fmt, value: logs.append((fmt, value)),
                        'EWeatherPhenomenon': NS(**{name: name for name in
                            ('OVERCAST', 'RAIN', 'FOG', 'WIND_MAGNITUDE', 'WIND_DIRECTION', 'SNOWFALL')})}
             context['HCConfigureAtmosphereDefaults'] = lambda: (calls.append(('defaults', ())),
                 authored(WORLD, 'HCConfigureAtmosphereDefaults', context, None))
-            actor = NS(m_HCAtmosphereStarted=False)
+            actor = NS(m_HCAtmosphereStarted=False, m_HCNightLimited=False)
+            context['HCApplyNightLimits'] = lambda force: authored(
+                WORLD, 'HCApplyNightLimits', context, actor, force)
             result = authored(WORLD, 'HCStartAtmosphere', context, actor)
             self.assertEqual(not (mission or frozen), result)
             if mission or frozen:
                 self.assertEqual([], calls)
+                self.assertEqual([], later)
                 self.assertEqual(lighting, data.WorldsData.lightingConfig)
                 self.assertEqual(personal, data.PlayerData.disablePersonalLight)
                 self.assertEqual([], logs)
             else:
-                self.assertEqual(1 if lighting == 0 else lighting, data.WorldsData.lightingConfig)
-                self.assertTrue(data.PlayerData.disablePersonalLight)
+                # Owner rule: never dark nights; lightingConfig is forced to 0 whatever
+                # the operator value is. The personal light is never written.
+                self.assertEqual(0, data.WorldsData.lightingConfig)
+                self.assertEqual(personal, data.PlayerData.disablePersonalLight)
                 self.assertEqual(2, len(logs))
-                self.assertIn('previous=' if lighting == 0 else 'operator-set; retained', logs[0][0])
+                self.assertEqual('[HollowCountry][Atmosphere] lightingConfig previous=%1; forcing 0 (bright nights, owner rule)', logs[0][0])
+                self.assertNotIn('retained', logs[0][0])
                 self.assertEqual(lighting, logs[0][1])
-                self.assertIn('previous=' if not personal else 'operator-set; retained', logs[1][0])
+                self.assertIn('disablePersonalLight', logs[1][0])
+                self.assertIn('untouched', logs[1][0])
+                self.assertNotIn('applying true', logs[1][0])
                 self.assertEqual(personal, logs[1][1])
                 self.assertEqual(dict(m_RainThreshold=.65, m_StormThreshold=.85,
                     m_OvercastMinTime=300, m_OvercastMaxTime=300,
@@ -421,7 +620,7 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                     m_CalmAfterStormTimeMin=1800, m_CalmAfterStormTimeMax=1800,
                     m_DefaultHeigthBias=50, m_GlobalSuddenChance=0, m_BadWeatherSuddenChance=0),
                     vars(context['m_WeatherDefaultSettings']))
-                self.assertEqual([('limits-Overcast', (0, 1)), ('limits-Fog', (0, .25)),
+                self.assertEqual([('limits-Overcast', (0, 1 if daytime == 12. else f32(.55))), ('limits-Fog', (0, .25)),
                     ('limits-Rain', (0, .9)), ('limits-Snowfall', (0, 0)),
                     ('limits-WindMagnitude', (0, 16)), ('limits-WindDirection', (-3.14159, 3.14159)),
                     ('maxwind', (16,)), ('storm', (1, .85, 90)), ('rain-thresholds', (.65, 1, 90))],
@@ -429,8 +628,10 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                 self.assertEqual(['OVERCAST', 'RAIN', 'FOG', 'WIND_MAGNITUDE', 'WIND_DIRECTION', 'SNOWFALL'],
                     [row[1] for row in calls if row[0] == 'forecast'])
                 self.assertEqual([-3.]*12, data.WorldsData.environmentMinTemps)
+                self.assertEqual([(context['HCApplyNightLimits'], 10000, True, False)], later)
                 count = len(calls)
                 self.assertTrue(authored(WORLD, 'HCStartAtmosphere', context, actor))
+                self.assertEqual(1, len(later))
                 self.assertEqual(count, len(calls))
                 self.assertEqual(2, len(logs))
 
@@ -548,8 +749,11 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         source = '\n'.join(p.read_text() for p in WEATHER.glob('*.c'))
         for unwanted in ('extends HCModule', 'RegisterModules', 'SetBrightness(', 'LoadNewLightingCfg(', 'AddNoiseTarget('):
             self.assertNotIn(unwanted, source)
-        self.assertIn('CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 1;', source)
-        self.assertIn('CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight = true;', source)
+        self.assertIn('CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 0;', source)
+        self.assertNotIn('lightingConfig = 1;', source)
+        self.assertNotIn('operator-set; retained', source)
+        self.assertNotIn('disablePersonalLight = true;', source)
+        self.assertNotIn('PlayerData.disablePersonalLight =', source)
         self.assertIn('GetMissionWeather()', source)
         self.assertIn('GetWeatherUpdateFrozen()', source)
         self.assertIn('$mission:cfgweather.xml', source)
