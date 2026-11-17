@@ -343,6 +343,16 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
             self.assertEqual(content if accepted else '',e['Read']('synthetic','index'))
             self.assertEqual([32768],lengths); self.assertEqual([7],closed)
 
+    def test_file_keys_reach_the_engine_as_FileName(self):
+        # A loaded dependency declares a type named File (compile with the Expansion stack: "Variable name
+        # 'File' already used as type name"), so DTO members cannot be called File or Slot.
+        e=fixture()[0]
+        text=e['NativeText'](json.dumps(pack()['index.json']),'index')
+        self.assertNotIn('"File"',text); self.assertEqual(4,text.count('"FileName"'))
+        data=(SRC/'HCInteriorTemplatesData.c').read_text()
+        self.assertEqual([],re.findall(r'^\s*(?:ref )?[\w<>, ]+ (File|Slot);',data,re.M))
+        self.assertTrue(self.load()[0]['Loaded']())
+
     def test_read_totals_are_refused_before_publication(self):
         for key,value in [('s_Files',610),('s_Bytes',20971520)]:
             result=fixture(); e=result[0]; e[key]=value

@@ -1,5 +1,6 @@
 // Flat schema-v2 DTOs. Coordinates are model-frame arrays, never world guesses.
-// Slot JSON keys are span-remapped to SlotId: Slot is a native type name.
+// Slot JSON keys are span-remapped to SlotId and File keys to FileName: Slot is a native type name and
+// a loaded dependency declares a type File.
 class HCInteriorTemplateCursor
 {
     string Content;
@@ -12,13 +13,13 @@ class HCInteriorTemplateCursor
 
 class HCInteriorTemplateFile
 {
-    string File;
+    string FileName;
     string Sha256;
 }
 
 class HCInteriorTemplateFileBinding
 {
-    string File;
+    string FileName;
     string BuildingClass;
     string Sha256;
 }

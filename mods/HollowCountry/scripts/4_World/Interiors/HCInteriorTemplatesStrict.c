@@ -624,12 +624,23 @@ class HCInteriorTemplatesStrict
                 }
             }
             seen.Insert(key);
+            string nativeKey = "";
             if (schema == "furnish-row" && key == "Slot")
+
+            {
+                nativeKey = "SlotId";
+            }
+            if ((schema == "file" || schema == "template-file") && key == "File")
+
+            {
+                nativeKey = "FileName";
+            }
+            if (nativeKey != "")
 
             {
                 int prefixLength = keyBegin - cursor.CopyFrom;
                 string prefixText = cursor.Content.Substring(cursor.CopyFrom, prefixLength);
-                cursor.NativeText = cursor.NativeText + prefixText + "SlotId";
+                cursor.NativeText = cursor.NativeText + prefixText + nativeKey;
                 cursor.CopyFrom = keyBegin + key.Length();
             }
             if (!Take(cursor, 58))

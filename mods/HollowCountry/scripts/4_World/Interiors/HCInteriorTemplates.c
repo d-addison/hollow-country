@@ -256,7 +256,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateFile row : rows)
 
         {
-            if (!row || row.File != Numbered(prefix, number, 3) || !HCSearchRules.PinValid(row.Sha256))
+            if (!row || row.FileName != Numbered(prefix, number, 3) || !HCSearchRules.PinValid(row.Sha256))
 
             {
                 return false;
@@ -324,7 +324,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateFileBinding binding : index.TemplateFiles)
 
         {
-            if (!binding || binding.File != Numbered("t-", number, 4) || !HCSearchRules.PinValid(binding.Sha256) || !HCSearchRules.TextValid(binding.BuildingClass, 128) || seen.Find(binding.BuildingClass) >= 0)
+            if (!binding || binding.FileName != Numbered("t-", number, 4) || !HCSearchRules.PinValid(binding.Sha256) || !HCSearchRules.TextValid(binding.BuildingClass, 128) || seen.Find(binding.BuildingClass) >= 0)
 
             {
                 return false;
@@ -771,7 +771,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateFile classFile : index.ClassFiles)
 
         {
-            content = ReadStrict(classFile.File, "classes", "classes" + chunk.ToString());
+            content = ReadStrict(classFile.FileName, "classes", "classes" + chunk.ToString());
             HCInteriorTemplateClasses classes = new HCInteriorTemplateClasses;
             if (content == "" || !JsonFileLoader<HCInteriorTemplateClasses>.LoadData(content, classes, error) || classes.SchemaVersion != 2 || classes.Chunk != chunk || !classes.Rows || classes.Rows.Count() < 1 || classes.Rows.Count() > 160)
 
@@ -808,7 +808,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateFile groupFile : index.GroupFiles)
 
         {
-            content = ReadStrict(groupFile.File, "groups", "groups" + chunk.ToString());
+            content = ReadStrict(groupFile.FileName, "groups", "groups" + chunk.ToString());
             HCInteriorTemplateGroups groups = new HCInteriorTemplateGroups;
             if (content == "" || !JsonFileLoader<HCInteriorTemplateGroups>.LoadData(content, groups, error) || groups.SchemaVersion != 2 || groups.Chunk != chunk || !groups.Groups || groups.Groups.Count() < 1 || groups.Groups.Count() > 512)
 
@@ -852,7 +852,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateFileBinding templateFile : index.TemplateFiles)
 
         {
-            content = ReadStrict(templateFile.File, "template", "template" + chunk.ToString());
+            content = ReadStrict(templateFile.FileName, "template", "template" + chunk.ToString());
             HCInteriorTemplate templateRow = new HCInteriorTemplate;
             if (content == "" || !JsonFileLoader<HCInteriorTemplate>.LoadData(content, templateRow, error) || templateRow.BuildingClass != templateFile.BuildingClass || FindTemplate(templateRow.BuildingClass) || !TemplateValid(templateRow))
 
@@ -877,7 +877,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateFile furnishFile : index.FurnishFiles)
 
         {
-            content = ReadStrict(furnishFile.File, "furnish", "furnish" + chunk.ToString());
+            content = ReadStrict(furnishFile.FileName, "furnish", "furnish" + chunk.ToString());
             HCInteriorTemplateFurnish furnish = new HCInteriorTemplateFurnish;
             if (content == "" || !JsonFileLoader<HCInteriorTemplateFurnish>.LoadData(content, furnish, error) || furnish.SchemaVersion != 2 || furnish.Chunk != chunk || !furnish.Rows || furnish.Rows.Count() < 1 || furnish.Rows.Count() > 128)
 
