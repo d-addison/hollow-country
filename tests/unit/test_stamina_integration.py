@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HOOK = ROOT / "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c"
 SETTINGS = ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCStaminaSettings.c"
 
-def hook(name, params, gate):
+def hook(name, params, gate, configuration=None):
     lines, indent = [f"def actual(self,{params}):"], 1
     for token in re.split(r"([{};])", re.sub(r"//[^\n]*", "", body(str(HOOK), name))):
         token = token.strip()
@@ -36,7 +36,7 @@ def hook(name, params, gate):
         if token.startswith("if ("): token = "if " + token[4:-1] + ":"
         elif token == "else": token += ":"
         lines.append("    " * indent + token)
-    ns = dict(gate=gate, policy=NS(**policy_functions()), Math=NS(Max=max),
+    ns = dict(HCStaminaConfiguration=configuration, gate=gate, policy=NS(**policy_functions()), Math=NS(Max=max),
               HCStaminaSettings=lambda: NS(Enabled=False, ContinuousExertionScale=1., RecoveryScale=1.),
               DayZPlayerInstanceType=NS(INSTANCETYPE_CLIENT=1),
               cfg=NS(GetStaminaMax=lambda: 200., GetStaminaMinCap=lambda: 5.,
@@ -105,18 +105,26 @@ class StaminaIntegrationTests(unittest.TestCase):
         fn(h)
         self.assertEqual([True], calls)
 
-    def test_installer_snapshots_once_and_rejects_invalid_configuration(self):
-        runtime = NS(s_Settings=None)
-        install = hook("InstallTrusted", "settings", None)
-        self.assertFalse(install(runtime, None))
-        config = NS(Enabled=True, ContinuousExertionScale=2., RecoveryScale=1.,
-                    Validate=lambda: False)
-        self.assertFalse(install(runtime, config))
-        config.Validate = lambda: True
-        self.assertTrue(install(runtime, config))
-        config.ContinuousExertionScale = 4.
-        self.assertEqual(2., runtime.s_Settings.ContinuousExertionScale)
-        self.assertFalse(install(runtime, config))
+    def test_installer_requires_current_opted_in_native_configuration(self):
+        from tests.unit.test_stamina_configuration import ConfigurationTests
+        f=ConfigurationTests()
+        f.setUp()
+        configuration=NS(**{n:f.e[n] for n in
+            ('InstallTrusted','Enabled','ExertionScale','RecoveryScale')})
+        runtime=NS(s_Settings=None)
+        install=hook("InstallTrusted","settings",None,configuration)
+        enabled=hook("Enabled","",None,configuration)
+        exertion=hook("ExertionScale","",None,configuration)
+        candidate=f.settings(Enabled=True)
+        self.assertFalse(install(runtime,candidate))
+        f.call('NativeReceipt',f.wire(HCExperimental=True),None)
+        self.assertTrue(install(runtime,f.call('Snapshot')))
+        self.assertTrue(enabled(runtime))
+        self.assertEqual(.499992,exertion(runtime))
+        f.call('Reset',True,False)
+        self.assertFalse(enabled(runtime))
+        self.assertEqual(1.,exertion(runtime))
+        self.assertFalse(install(runtime,candidate))
 
     def test_settings_default_off_and_reject_invalid_scales(self):
         self.assertIn("bool Enabled = false;", SETTINGS.read_text())

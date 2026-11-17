@@ -235,3 +235,87 @@ Feature: Research tooling preserves honest evidence
     Given synthetic native interfaces stock missions and correlated result receipts
     When the infected death diagnostic preparation and result checks execute
     Then missing cleanup incomplete cases and outer timeouts cannot qualify the observation
+
+  @phase2 @offline
+  Scenario: Retain whole-content item and recipe evidence within bounded review work
+    Given synthetic native rows and a complete source recipe census
+    When the bounded whole-content review joins class and recipe evidence
+    Then every input remains counted and truncated links never become gameplay approval
+
+  @phase2 @offline
+  Scenario: Authorize a single diagnostic fuel transfer without replay
+    Given synthetic native vehicle vessel actor and action collaborators
+    When the authored diagnostic fuel action guards and transfer methods execute
+    Then unauthorized cancelled or replayed attempts cannot credit fuel
+
+  @phase2 @offline
+  Scenario: Prepare fuel observations without accepting an unobserved transfer
+    Given synthetic installed interfaces fresh missions and correlated fuel receipts
+    When the fixed fuel probe preparation and result validator execute
+    Then missing conservation callbacks cleanup or timely completion reject the observation
+
+  @phase2 @offline
+  Scenario: Compare native stamina transport with bounded numeric tolerance
+    Given synthetic native contexts and the observed finite quantization sample
+    When the stamina transport control generator and numeric comparisons execute
+    Then harmless rounding is accepted while mismatches and nonfinite fields fail
+
+  @phase2 @offline
+  Scenario: Schedule resource attraction only from bounded fresh native observations
+    Given synthetic resource zones actor observations and explicit navigation capabilities
+    When the authored ecology scheduling and receipt commit policies execute
+    Then stale null oversized overflowing or replayed proposals cannot mutate assignments
+
+  @phase2 @offline
+  Scenario: Admit fuel receipts only inside an owned bounded native run
+    Given synthetic process clocks isolated missions and fuel observation receipts
+    When the fixed fuel runner enforces launch staging deadline and cleanup ownership
+    Then startup late receipts foreign directories and surviving processes cannot pass
+
+  @phase2 @offline
+  Scenario: Require all death cases before the native probe deadline
+    Given synthetic server logs process lifetimes and five-case death receipts
+    When the receipt-aware native compiler harness evaluates the fixed death purpose
+    Then initialization stale nonces late completion and missing cleanup cannot qualify the run
+
+  @phase2 @offline
+  Scenario: Activate stamina only from an opted-in trusted session configuration
+    Given synthetic native configuration receipts server profiles and session callbacks
+    When the authored stamina configuration loader and activation gates execute
+    Then missing opt-in invalid profiles unauthenticated receipts and session resets cannot retain custom stamina
+
+  @phase2 @offline
+  Scenario: Retain whole-source action and item-use evidence without evaluating dispatch
+    Given synthetic complete source trees with action registration calls and item callbacks
+    When the bounded action census retains declarations controls and unresolved ancestry
+    Then no omitted input ambiguous receiver or disabled reference becomes effective gameplay approval
+
+  @phase2 @offline
+  Scenario: Preserve taped-light identity while consuming tape on each mount
+    Given synthetic qualified bindings inventory custody snapshots and journal receipts
+    When the authored taped-light mount and hand-removal policies execute
+    Then replay failed writes and changed identities cannot retry a move or refund consumed tape
+
+  @phase2 @offline
+  Scenario: Admit actor-free startup controls only from unchanged bounded evidence
+    Given synthetic isolated native processes and nonce-bound startup receipts
+    When the fixed startup runner checks staging publication deadlines and cleanup
+    Then changed evidence uncertain reports and incomplete callbacks cannot pass admission
+
+  @offline
+  Scenario: Bind measured interior records without inventing layout qualification
+    Given synthetic measured records pinned source documents and live house collaborators
+    When the bounded interior import and contextual binding methods execute
+    Then ambiguous houses invalid transforms and mismatched provenance cannot enable placement
+
+  @offline
+  Scenario: Preserve audited cutting tools through salvage registration and completion
+    Given the complete audited cutting class set and synthetic native recipe collaborators
+    When salvage registration eligibility and completion guards execute
+    Then every supported tool retains its identity wear and material checks without native transaction claims
+
+  @offline
+  Scenario: Observe bounded owned-process counters without inferring engine liveness
+    Given synthetic procfs identities counters log metadata and monotonic clocks
+    When the bounded process observer samples explicit owned process and log inputs
+    Then reuse missing data rollback and work limits remain explicit without readiness or deadlock claims

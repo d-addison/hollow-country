@@ -58,6 +58,24 @@ class HCInteriorCatalog
         return layout;
     }
 
+    // Measured selection is instance-bound. The authored Get() remains an
+    // explicitly unmeasured fixture/diagnostic source, never normal fallback.
+    static HCInteriorLayout GetFor(int index, HCInteriorCandidate candidate, bool allowUnmeasuredTrial = false)
+    {
+        HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
+        if (HCInteriorMeasuredCatalog.MeasuredRequested())
+        {
+            return HCInteriorMeasuredCatalog.MeasuredSelect(index, candidate);
+        }
+        #ifdef DIAG_DEVELOPER
+        if (allowUnmeasuredTrial)
+        {
+            return Get(index);
+        }
+        #endif
+        return null;
+    }
+
     static bool SearchType(string type)
     {
         return type == "StaticObj_Furniture_case_a" || type == "StaticObj_Furniture_case_bedroom_b" || type == "StaticObj_Furniture_case_a_open";
@@ -108,6 +126,9 @@ class HCInteriorAssignment
     string InstanceId;
     string LayoutId;
     string History;
+    // Externally qualified record digest participates in exact manifest
+    // comparison. Changed measured records require explicit epoch handling.
+    string MeasuredRecordSha256;
     string Item;
 }
 

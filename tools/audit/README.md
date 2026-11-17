@@ -35,6 +35,49 @@ recipe counts and merged item counts remain unknown. This census is the starting
 inventory for the full-content audit, not permission to declare three recipes or
 a few attachment combinations feature-complete.
 
+## Action and item-use source inventory
+
+```sh
+python3 -B -m tools.audit.action_audit --root PATH_TO_SCRIPT_TREE
+python3 -B -m tools.audit.action_audit --root PATH_TO_SCRIPT_TREE --expect-manifest-sha256 HASH
+```
+
+This census uses the same bounded source traversal and manifest as the recipe
+audit. It retains action candidates, `AddAction`/`RemoveAction`/`SetActions`
+observations, constructor registration candidates, method declarations and
+repair, consumption, cooking and attachment callbacks. Source conditions,
+comment-disabled references and unresolved inheritance remain explicit.
+It does not evaluate dispatch, effective inheritance, runtime registration,
+configuration-to-script identity or item usefulness.
+
+The pinned local scan consumed all 3,056 installed script files and retained
+460 action candidates, 2,118 call observations, 32,603 method/function declarations
+(including 365 global functions) and 301 categorized callbacks. Its 399
+unresolved call observations and 473 unresolved ancestries remain in the inventory.
+The corrected r2 census charges 2,205,483 analysis-work units. Independent
+rebuilding and source rehashing matched; the 30,523,514-byte census stays outside
+Git in the local `action-audit-full-r2-20261116` directory. Earlier checkpoint
+artifacts remain unchanged.
+
+R2 SHA-256 pins:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `action-census.json` | `ad114537a1b83d837fb04089e3d441664ac67294f004a68eacfdedb1c30f643e` |
+| `provenance.json` | `5cc3f09f2a62129c7fdbc64d8d8095f5d53836fdb9e156992722004f0eb201a4` |
+| `verification.json` | `d28cf944bcca2a7e6af13d227dee0e6409c938b78187bbb2dfc1765a451cc59d` |
+
+The full installed-source manifest is
+`b7ed9fa47f1285f8aa436c18fc9c8681a7e017b2441a7923c8eae0f2a019af33`.
+R2 tool source hashes are
+`e4114966168d3006e5097dd7190b3f5fb8f5fa958c816a6ffc162d6d233aaaad`
+for `action_audit.py` and
+`2035ea2e788b162c3548ef4da4ab6d38df4d8584f3f560713a00b964a074b9bc`
+for the shared `crafting_audit.py`.
+
+These counts establish source coverage for this slice, with gameplay decisions
+and native behavior still outstanding.
+
 ## Effective item metadata acquisition
 
 `HCItemCompatibilityAudit` is an opt-in diagnostic exporter inside the addon.
@@ -94,6 +137,31 @@ requires POSIX support and refuses unsupported platforms. Exit 0 means complete
 metadata enumeration, not compatible items or finished gameplay. Raw files stay
 outside Git. Run 035's pinned manifest and all 15 chunks passed this reader;
 rehashed rows retained all 7,389 classes and all 47,888 candidate light pairs.
+
+## Whole-content item and recipe review
+
+`item_review.build_review(rows, census, provenance)` joins already admitted native
+rows to a complete source crafting census. It retains every supplied class and
+recipe, counts all registration states, and keeps config inheritance separate
+from script inheritance. Root names are observations, including projectile
+definitions; they do not establish inventory eligibility.
+
+The deterministic workbook records literal ingredient/output references,
+unresolved or ambiguous matches, explicit hidden/abstract/legacy evidence and
+source provenance. Fixed byte, node, collection and link budgets bound the work.
+When links are capped, possible/emitted/omitted counts remain explicit. This API
+does not read manifests, authenticate supplied provenance, approve recipes or
+decide balance. Use the strict reader above and pin the exact consumed bytes
+before interpreting a real export. Raw game metadata and generated workbooks
+remain outside Git.
+
+The pinned local run-035/source workbook retained 7,389 classes and 234 recipe
+classes from all 3,056 inspected source files. It emitted all 9,674 possible
+links, with 2,289 single-class reference matches and 55 unresolved references.
+Malformed bounded vanilla literals are preserved as unresolved evidence. The
+667 explicit hidden definitions remain represented with exclusion reasons;
+they are not silently removed from the denominator. This records a complete
+input census for that slice, not a completed item-usefulness/action audit.
 
 ## Central Economy audit
 

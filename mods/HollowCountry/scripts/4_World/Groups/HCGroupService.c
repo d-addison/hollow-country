@@ -24,10 +24,10 @@ class HCGroupClock
 
     static int CalendarUtc(int year, int month, int day, int hour, int minute, int second)
     {
-        // Compatibility guard only: issue37 still tracks removal of this
-        // arbitrary year window and the signed epoch/expiry ceilings. Do not
-        // widen it without replacing the durable/wire timestamp representation.
-        if (year < 2026 || year > 2032) return -1;
+        // Preserve the existing group service/wire epoch ceiling. Reject years
+        // before bounded arithmetic: at most 63 year and 11 month iterations.
+        // Even 2033-12-31 is 2019686399, below native int.MAX (2147483647).
+        if (year < 1970 || year > 2033) return -1;
         int monthDays = HCGroupClock.DaysInMonth(year, month);
         if (day < 1 || day > monthDays) return -1;
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return -1;
@@ -46,7 +46,9 @@ class HCGroupClock
             days += HCGroupClock.DaysInMonth(year, m);
             m++;
         }
-        return (days + day - 1) * 86400 + hour * 3600 + minute * 60 + second;
+        int stamp = (days + day - 1) * 86400 + hour * 3600 + minute * 60 + second;
+        if (stamp > 1990000000) return -1;
+        return stamp;
     }
 
     static int Utc()
@@ -64,7 +66,8 @@ class HCGroupClock
             int candidate = HCGroupClock.CalendarUtc(year, month, day, hour, minute, second);
             int beforeDate = HCGroupClock.CalendarUtc(year, month, day, 0, 0, 0);
             int afterDate = HCGroupClock.CalendarUtc(afterYear, afterMonth, afterDay, 0, 0, 0);
-            if (candidate < 1 || beforeDate < 1 || afterDate < 1) return -1;
+            // Epoch-zero midnight is a valid bracket date, not a usable sample.
+            if (candidate < 1 || beforeDate < 0 || afterDate < 0) return -1;
             if (afterDate < beforeDate) return -1;
             if (afterDate != beforeDate)
             {

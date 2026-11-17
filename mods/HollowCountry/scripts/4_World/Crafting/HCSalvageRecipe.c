@@ -17,6 +17,93 @@ class HCCraftingCommitGuard
 
 // Original salvage policy over installed 1.30.164289 RecipeBase mutations.
 // This is NOT an atomic transaction or a persistence/crash-recovery layer.
+// Exact alternatives observed in registered native cloth/net cutting recipes.
+// KitchenKnife is the existing recipe's selector for this bounded family;
+// Pliers remains a distinct single-tool policy. No per-preview allocation.
+class HCSalvageTools
+{
+    static int ToolCount(string seed)
+    {
+        if (seed == "KitchenKnife")
+            return 36;
+        if (seed == "Pliers")
+            return 1;
+        return 0;
+    }
+
+    static string ToolAt(string seed, int index)
+    {
+        if (seed == "Pliers" && index == 0)
+            return "Pliers";
+        if (seed != "KitchenKnife")
+            return "";
+        if (index == 0) return "KitchenKnife";
+        if (index == 1) return "AK_Bayonet";
+        if (index == 2) return "Akinaka";
+        if (index == 3) return "BoneKnife";
+        if (index == 4) return "BrickTrowel";
+        if (index == 5) return "Cleaver";
+        if (index == 6) return "CombatKnife";
+        if (index == 7) return "Crowbar";
+        if (index == 8) return "CrudeMachete";
+        if (index == 9) return "DonerKnife";
+        if (index == 10) return "FangeKnife";
+        if (index == 11) return "FarmingHoe";
+        if (index == 12) return "FieldShovel";
+        if (index == 13) return "FirefighterAxe";
+        if (index == 14) return "Hacksaw";
+        if (index == 15) return "HandSaw";
+        if (index == 16) return "Hatchet";
+        if (index == 17) return "HayHook";
+        if (index == 18) return "HuntingKnife";
+        if (index == 19) return "Iceaxe";
+        if (index == 20) return "Jambiya";
+        if (index == 21) return "KukriKnife";
+        if (index == 22) return "M9A1_Bayonet";
+        if (index == 23) return "Machete";
+        if (index == 24) return "Mosin_Bayonet";
+        if (index == 25) return "OrientalMachete";
+        if (index == 26) return "Pickaxe";
+        if (index == 27) return "SKS_Bayonet";
+        if (index == 28) return "Scimitar";
+        if (index == 29) return "Screwdriver";
+        if (index == 30) return "Shovel";
+        if (index == 31) return "Sickle";
+        if (index == 32) return "SteakKnife";
+        if (index == 33) return "StoneKnife";
+        if (index == 34) return "Sword";
+        if (index == 35) return "WoodAxe";
+        return "";
+    }
+
+    static bool Allows(string seed, string actualType)
+    {
+        int count = ToolCount(seed);
+        for (int i = 0; i < count; i++)
+        {
+            if (ToolAt(seed, i) == actualType)
+                return true;
+        }
+        return false;
+    }
+
+    static bool CheckRegistered(array<string> tools, string seed)
+    {
+        int count = ToolCount(seed);
+        if (!tools || count == 0 || tools.Count() != count)
+            return false;
+        for (int i = 0; i < count; i++)
+        {
+            string tool = ToolAt(seed, i);
+            if (tools[i] != tool)
+                return false;
+            if (!GetGame().ConfigIsExisting("CfgVehicles " + tool))
+                return false;
+        }
+        return true;
+    }
+}
+
 class HCSalvageRecipe extends RecipeBase
 {
     protected string m_HCInputType;
@@ -48,7 +135,11 @@ class HCSalvageRecipe extends RecipeBase
             m_IngredientUseSoftSkills[i] = false;
         }
         InsertIngredient(0, inputType);
-        InsertIngredient(1, toolType);
+        int toolCount = HCSalvageTools.ToolCount(toolType);
+        for (int toolIndex = 0; toolIndex < toolCount; toolIndex++)
+        {
+            InsertIngredient(1, HCSalvageTools.ToolAt(toolType, toolIndex));
+        }
         m_IngredientDestroy[0] = true;
         m_IngredientAddHealth[1] = -wear;
         AddResult(outputType);
@@ -84,7 +175,7 @@ class HCSalvageRecipe extends RecipeBase
         if (!ingredients[0] || !ingredients[1] || ingredients[0] == ingredients[1])
             return false;
         // RecipeBase.CheckRecipe checks conditions, not class membership. Recheck types here.
-        if (!ingredients[0].IsKindOf(m_HCInputType) || ingredients[1].GetType() != m_HCToolType)
+        if (!ingredients[0].IsKindOf(m_HCInputType) || !HCSalvageTools.Allows(m_HCToolType, ingredients[1].GetType()))
             return false;
         if (!IsOwnedEmptyLooseItem(ingredients[0], player) || !IsOwnedEmptyLooseItem(ingredients[1], player))
             return false;

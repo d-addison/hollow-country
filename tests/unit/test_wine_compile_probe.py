@@ -75,6 +75,118 @@ class MockedWineRunTests(unittest.TestCase):
         self.assertEqual(json.loads((self.experiment / 'compiler-report.json').read_text()), report)
         self.assertTrue(self.launch.call_args.kwargs['start_new_session'])
 
+    def death_run(self, complete_at=2, mutate=None, slow=False, **kwargs):
+        """Synthetic staging boundary; real five-case receipt validator."""
+        from tools.setup import infected_death_probe as death
+        from tests.unit import test_infected_death_probe as fixtures
+
+        def prepare(source, destination, scripts, **options):
+            self.assertFalse(options['diagnostic_only'])
+            destination.mkdir()
+            data = b'// synthetic fixed death mission, never executed'
+            (destination / 'init.c').write_bytes(data)
+            manifest = dict(schema=1, kind=death.KIND, cases=list(death.CASES),
+                            run_id=options['run_id'], spawn_xz=[options['x'], options['z']],
+                            seconds_per_case=2, impulse=[0, 0, 0], allow_observers=False,
+                            execution_mode='normal-server',
+                            files={'init.c': {'staged_sha256': hashlib.sha256(data).hexdigest()}})
+            (destination / death.MARKER).write_text(json.dumps(manifest))
+            self.death_manifest = manifest
+            return manifest
+
+        def frames(now):
+            text = '[HollowCountry] Server initialized; synthetic'
+            if complete_at is not None and now >= complete_at:
+                receipt = fixtures.InfectedDeathProbeTests.result(self, self.death_manifest)
+                if mutate:
+                    mutate(receipt)
+                path = self.experiment / 'profiles' / death.RESULT
+                path.write_text(json.dumps(receipt))
+                if slow:
+                    self.now += 2
+                text += '\n[HC Infected Death] COMPLETE run=' + self.death_manifest['run_id']
+            return text
+
+        with patch.object(death, 'prepare_probe', side_effect=prepare) as staged:
+            # Fifteen process seconds plus ten reserved cleanup seconds.
+            kwargs.setdefault('probe_seconds', 25)
+            report = self.run_mocked(frames, infected_death_scripts=self.root / 'interfaces',
+                                     **kwargs)
+        self.death_staged = staged
+        return report
+
+    def test_death_normal_server_waits_for_five_case_receipt_and_cleanup(self):
+        report = self.death_run()
+        self.assertEqual(2, self.now)
+        self.assertEqual('infected-death-completed', report['status'])
+        self.assertTrue(report['infected_death_requested'])
+        self.assertFalse(report['infected_death_timed_out'])
+        self.assertTrue(report['infected_death_receipt']['authoritative_observations_complete'])
+        self.assertFalse(report['infected_death_receipt']['feature_complete'])
+        self.assertEqual(self.death_manifest['run_id'], report['infected_death_run_id'])
+        self.assertEqual('dedicated-server', report['executable_kind'])
+        self.assertIn('-mission=' + probe.win(self.experiment / 'infected-death.chernarusplus'),
+                      self.launch.call_args.args[0])
+        self.assertFalse(any(arg.startswith('-autotest=') for arg in self.launch.call_args.args[0]))
+        self.assertEqual('pending', report['runtime_acceptance'])
+        self.assert_cleaned_report(report)
+
+    def test_death_initialization_alone_times_out_without_acceptance(self):
+        report = self.death_run(complete_at=None)
+        self.assertEqual('timeout', report['status'])
+        self.assertTrue(report['infected_death_timed_out'])
+        self.assertIsNone(report['infected_death_receipt'])
+        self.assert_cleaned_report(report)
+
+    def test_death_explicit_startup_allowance_retains_short_fixture_and_total_bound(self):
+        report = self.death_run(complete_at=100, probe_seconds=180)
+        self.assertEqual('infected-death-completed', report['status'])
+        self.assertEqual(180, report['infected_death_outer_budget_seconds'])
+        self.assertEqual(170, report['infected_death_process_budget_seconds'])
+        self.assertEqual(2, report['diagnostic_mission']['seconds_per_case'])
+        self.assert_cleaned_report(report)
+
+    def test_death_missing_cleanup_rejects_complete_marker(self):
+        def corrupt(receipt):
+            receipt['cases'][4]['cleanup_confirmed'] = False
+        report = self.death_run(mutate=corrupt)
+        self.assertEqual('infected-death-failed', report['status'])
+        self.assertIsNone(report['infected_death_receipt'])
+        self.assert_cleaned_report(report)
+
+    def test_death_stale_nonce_rejected_even_with_all_five_cases(self):
+        report = self.death_run(mutate=lambda value: value.update(run_id='not-current'))
+        self.assertEqual('infected-death-failed', report['status'])
+        self.assertIsNone(report['infected_death_receipt'])
+        self.assert_cleaned_report(report)
+
+    def test_death_receipt_after_log_read_deadline_never_promotes(self):
+        report = self.death_run(complete_at=14, slow=True)
+        self.assertEqual('timeout', report['status'])
+        self.assertTrue(report['infected_death_timed_out'])
+        self.assertIsNone(report['infected_death_receipt'])
+        self.assert_cleaned_report(report)
+
+    def test_death_launcher_exit_cannot_pass_an_old_complete_marker(self):
+        self.process.poll.side_effect = lambda: 0 if self.now >= 2 else None
+        report = self.death_run()
+        self.assertNotEqual('infected-death-completed', report['status'])
+        self.assertIsNone(report['infected_death_receipt'])
+        self.assert_cleaned_report(report)
+
+    def test_death_is_one_bounded_purpose_before_staging(self):
+        with self.assertRaisesRegex(ValueError, 'normal server executable'):
+            self.run_mocked(infected_death_scripts=self.root / 'interfaces', diagnostic=True)
+        for options in ({'group_checks': True}, {'item_compatibility_audit': True},
+                        {'diagnostic': True},
+                        {'diagnostic': True, 'diagnostic_selftests': True},
+                        {'diagnostic': True, 'native_autotest_scripts': self.root},
+                        {'probe_seconds': 181}, {'hold_seconds': 1},
+                        {'state_seed': self.root}, {'settings_case': 'malformed-json'}):
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                self.run_mocked(infected_death_scripts=self.root / 'interfaces', **options)
+            self.assertFalse(self.experiment.exists())
+
     def test_hold_starts_at_initialization_and_waits_full_requested_time(self):
         report = self.run_mocked(lambda now: '[HollowCountry] Server initialized;' if now >= 5 else '', hold_seconds=3)
         self.assertEqual(report['status'], 'initialized')
@@ -200,6 +312,28 @@ class MockedWineRunTests(unittest.TestCase):
         self.assertEqual(report['status'], 'compiler-error')
         self.assertTrue(report['native_autotest_timed_out'])
         self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_death_settings_rejection_cannot_admit_a_complete_receipt(self):
+        original = self.run_mocked
+        rejection = '[HollowCountry] Settings rejected; original file preserved: synthetic'
+        def with_rejection(frames, **kwargs):
+            return original(lambda now: frames(now) + '\n' + rejection, **kwargs)
+        self.run_mocked = with_rejection
+        report = self.death_run()
+        self.assertEqual('settings-rejected', report['status'])
+        self.assertIsNone(report['infected_death_receipt'])
+        self.assert_cleaned_report(report)
+
+    def test_final_settings_rejection_revokes_smoke_initialization(self):
+        report = self.run_mocked(final_logs='[HollowCountry] Settings rejected; original file preserved: synthetic')
+        self.assertEqual('settings-rejected', report['status'])
+        self.assert_cleaned_report(report)
+
+    def test_final_settings_rejection_revokes_death_completion(self):
+        report = self.death_run(final_logs='[HollowCountry] Settings rejected; original file preserved: synthetic')
+        self.assertEqual('settings-rejected', report['status'])
+        self.assertIsNone(report['infected_death_receipt'])
         self.assert_cleaned_report(report)
 
     def test_final_smoke_error_overrides_initialization_and_sets_error_evidence(self):

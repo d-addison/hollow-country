@@ -1,7 +1,10 @@
 """Prepare a disposable five-case native infected death diagnostic; never launch.
 
 API: prepare_probe(source,destination,scripts_root,*,x,z,seconds_per_case=2,
-impulse=(0,0,0),allow_observers=False,run_id=None). Source/destination are outside
+impulse=(0,0,0),allow_observers=False,run_id=None,diagnostic_only=True).
+The explicit diagnostic_only=False mode uses inspected normal-server APIs;
+the standalone generator retains its existing diagnostic-only default.
+Source/destination are outside
 Steam/source, stock factory preserved, fresh destination only. Interface records
 contain hashes, not installed code. Partial staging is retained and not reusable.
 
@@ -15,7 +18,8 @@ Generated vectors use six decimal places; nonzero values rounding to zero fail.
 No physics body, collision, gravity, inventory, production class or PBO is changed.
 
 OnInit starts synchronously. SYSTEM queue and update callbacks remain subject to
-native scheduling/clock progress: an EXTERNAL wall-clock timeout <=90s is mandatory.
+native scheduling/clock progress: an EXTERNAL wall-clock timeout <=180s is mandatory.
+This includes map startup; the internal observation watchdog remains 60 seconds.
 Internal observation watchdog 60s, one actor, five cases, <=32 samples/case,
 <=20 heartbeat logs, <=20000 frames, 2s observed-deletion windows. A requested
 delete never counts as confirmation. Mission shutdown requests owned cleanup but
@@ -48,6 +52,7 @@ MARKER='.hc-infected-death-probe.json'
 KIND='native-infected-death-observations'
 RESULT='hc-infected-death-result.json'
 MAX_JSON_BYTES=256*1024
+MAX_OUTER_SECONDS=180
 INTERFACES={
     '3_Game/Entities/DayZInfected.c': ('class DayZInfected extends DayZCreatureAI',
         'ANIM_DEATH_DEFAULT = 0','ANIM_DEATH_IMPULSE = 1','ANIM_DEATH_BACKSTAB = 2',
@@ -117,9 +122,13 @@ def _pairs(pairs):
 
 
 def _json(path):
+    return _decode_json(_read(path,MAX_JSON_BYTES))
+
+
+def _decode_json(data):
     def constant(_): raise ValueError('nonfinite JSON')
     try:
-        value=json.loads(_read(path,MAX_JSON_BYTES).decode('utf-8-sig'),object_pairs_hook=_pairs,parse_constant=constant)
+        value=json.loads(data.decode('utf-8-sig'),object_pairs_hook=_pairs,parse_constant=constant)
     except (UnicodeError,json.JSONDecodeError,RecursionError) as exc:
         raise ValueError('malformed bounded UTF-8 JSON') from exc
     if type(value) is not dict: raise ValueError('JSON object required')
@@ -144,6 +153,13 @@ def _number(value,low,high):
     return value
 
 
+def _native_bool(value):
+    """Native JSON bools are integer 0/1; never coerce other JSON values."""
+    if type(value) not in (bool,int) or value not in (0,1):
+        raise ValueError('exact boolean or native integer 0/1 required')
+    return value == 1
+
+
 def _options(x,z,seconds_per_case,impulse,allow_observers,run_id):
     for value in (x,z): _number(value,1,100000)
     if type(seconds_per_case) is not int or not 1<=seconds_per_case<=5:
@@ -160,7 +176,39 @@ def _options(x,z,seconds_per_case,impulse,allow_observers,run_id):
         raise ValueError('explicit observer policy and hexadecimal run ID required')
 
 
-def prepare_probe(source,destination,scripts_root,*,x,z,seconds_per_case=2,impulse=(0,0,0),allow_observers=False,run_id=None):
+def _execution_hook(diagnostic_only):
+    if type(diagnostic_only) is not bool:
+        raise ValueError('explicit boolean diagnostic policy required')
+    if diagnostic_only:
+        return HOOK
+    # Fixed authored template only; never accept arbitrary script text.
+    # Select the inspected implementation branch of each diagnostic guard.
+    output=[]
+    guarded=False
+    include=True
+    for line in HOOK.splitlines(keepends=True):
+        directive=line.strip()
+        if directive=='#ifdef DIAG_DEVELOPER':
+            if guarded: raise ValueError('nested fixed probe guard')
+            guarded=True
+            include=True
+        elif directive=='#else':
+            if not guarded or not include: raise ValueError('unexpected fixed probe branch')
+            include=False
+        elif directive=='#endif':
+            if not guarded: raise ValueError('unmatched fixed probe guard')
+            guarded=False
+            include=True
+        elif directive.startswith('#'):
+            raise ValueError('unsupported fixed probe directive')
+        elif include:
+            output.append(line)
+    if guarded: raise ValueError('unterminated fixed probe guard')
+    return ''.join(output)
+
+
+def prepare_probe(source,destination,scripts_root,*,x,z,seconds_per_case=2,impulse=(0,0,0),allow_observers=False,run_id=None,diagnostic_only=True):
+    template=_execution_hook(diagnostic_only)
     run_id=secrets.token_hex(16) if run_id is None else run_id
     _options(x,z,seconds_per_case,impulse,allow_observers,run_id)
     # Record the actual emitted vector, not higher precision Python inputs.
@@ -185,15 +233,16 @@ def prepare_probe(source,destination,scripts_root,*,x,z,seconds_per_case=2,impul
     replaced,count=staging._FACTORY.subn(rb'\g<1>HCInfectedDeathProbeMission\g<2>',original)
     if count!=1 or len(re.findall(rb'\bCreateCustomMission\s*\(',original))!=1:
         raise ValueError('exact stock factory required')
-    hook=HOOK.replace('@X@',format(x,'.6f')).replace('@Z@',format(z,'.6f'))
+    hook=template.replace('@X@',format(x,'.6f')).replace('@Z@',format(z,'.6f'))
     hook=hook.replace('@SECONDS@',str(seconds_per_case)).replace('@RUN@',run_id)
     hook=hook.replace('@IMPULSE@',' '.join(format(v,'.6f') for v in impulse))
     hook=hook.replace('@OBSERVERS@','true' if allow_observers else 'false').encode()
     generated=replaced+hook
     manifest={'schema':1,'kind':KIND,'run_id':run_id,'cases':list(CASES),
+        'execution_mode':'diagnostic-only' if diagnostic_only else 'normal-server',
         'max_owned_actors':1,'seconds_per_case':seconds_per_case,'impulse':list(impulse),
         'allow_observers':allow_observers,'spawn_xz':[x,z],'interfaces':interfaces,
-        'runtime_acceptance':'pending','outer_timeout_required':True,'outer_timeout_max_seconds':90,
+        'runtime_acceptance':'pending','outer_timeout_required':True,'outer_timeout_max_seconds':MAX_OUTER_SECONDS,
         'source_root':str(source),'mission_path':str(destination),'source_bytes':total,'files':{},
         'render_capture':'MakeScreenshot declaration inspected; not invoked in server mission',
         'command_observation':'requested enum + animation UUID; no infected command-ID getter inspected'}
@@ -229,6 +278,8 @@ def validate_result(path,mission,*,outer_timed_out):
     if (type(manifest.get('schema')) is not int or manifest['schema']!=1 or
             manifest.get('kind')!=KIND or manifest.get('cases')!=list(CASES)):
         raise ValueError('prepared mission marker mismatch')
+    if manifest.get('execution_mode') not in ('diagnostic-only','normal-server'):
+        raise ValueError('explicit prepared execution mode required')
     spawn=manifest.get('spawn_xz')
     if type(spawn) is not list or len(spawn)!=2:
         raise ValueError('missing/bounded spawn coordinate pair required')
@@ -242,13 +293,17 @@ def validate_result(path,mission,*,outer_timed_out):
             raise ValueError('invalid staged path')
         if type(record) is not dict or _sha(_read(mission/name,staging.MAX_FILE_BYTES))!=record.get('staged_sha256'):
             raise ValueError('staged source drift')
-    value=_json(path)
+    receipt_bytes=_read(path,MAX_JSON_BYTES)
+    value=_decode_json(receipt_bytes)
     if (type(value.get('schema')) is not int or value['schema']!=1 or
             value.get('kind')!=KIND or value.get('run_id')!=manifest['run_id'] or
-            value.get('complete') is not True or value.get('failed') is not False or value.get('reason')!='' or
-            value.get('server_context') is not True or value.get('render_observed') is not False or
-            value.get('replication_observed') is not False or value.get('allow_observers') is not manifest['allow_observers']):
+            value.get('reason')!=''):
         raise ValueError('incomplete/failed/stale receipt')
+    for field,expected in (('complete',True),('failed',False),('server_context',True),
+            ('render_observed',False),('replication_observed',False),
+            ('allow_observers',manifest['allow_observers'])):
+        if _native_bool(value.get(field)) is not expected:
+            raise ValueError('incomplete/failed/context mismatch: '+field)
     for field,high in (('frames',20000),('heartbeat_count',20),('max_observed_clients',90)):
         if type(value.get(field)) is not int or not 0<=value[field]<=high: raise ValueError('invalid bounded telemetry')
     if not manifest['allow_observers'] and value['max_observed_clients']:
@@ -262,12 +317,12 @@ def validate_result(path,mission,*,outer_timed_out):
         if type(case) is not dict or type(case.get('index')) is not int or case['index']!=index or case.get('name')!=name:
             raise ValueError('case identity mismatch')
         for field in ('spawned','dead_observed','cleanup_requested','cleanup_confirmed'):
-            if case.get(field) is not True: raise ValueError('missing observed lifecycle/cleanup')
-        if case.get('command_requested') is not (index>0): raise ValueError('wrong death case method')
+            if not _native_bool(case.get(field)): raise ValueError('missing observed lifecycle/cleanup')
+        if _native_bool(case.get('command_requested')) is not (index>0): raise ValueError('wrong death case method')
         impulse=index==2 and any(manifest['impulse'])
-        if case.get('impulse_requested') is not impulse or type(case.get('impulse_applied')) is not bool:
+        if _native_bool(case.get('impulse_requested')) is not impulse:
             raise ValueError('wrong impulse record')
-        if case['impulse_applied'] and not impulse: raise ValueError('unexpected impulse')
+        if _native_bool(case.get('impulse_applied')) and not impulse: raise ValueError('unexpected impulse')
         samples=case.get('samples')
         if type(samples) is not list or not 2<=len(samples)<=32: raise ValueError('bounded nonempty samples required')
         previous=-1
@@ -278,7 +333,7 @@ def validate_result(path,mission,*,outer_timed_out):
             previous=elapsed
             _number(sample.get('health'),0,1000000)
             for field in ('alive','body_present','body_dynamic','body_active','velocity_sampled','bone_available','death_processed'):
-                if type(sample.get(field)) is not bool: raise ValueError('invalid observed flag')
+                _native_bool(sample.get(field))
             if (sample['body_dynamic'] or sample['body_active'] or sample['velocity_sampled']) and not sample['body_present']:
                 raise ValueError('body telemetry without a body')
             if type(sample.get('animation_uuid')) is not int: raise ValueError('missing native animation telemetry')
@@ -286,13 +341,14 @@ def validate_result(path,mission,*,outer_timed_out):
                 vector=sample.get(field)
                 if type(vector) is not list or len(vector)!=3: raise ValueError('invalid vector sample')
                 for component in vector: _number(component,-1000000,1000000)
-        if samples[0]['alive'] is not True or samples[0]['health']<=0:
+        if not _native_bool(samples[0]['alive']) or samples[0]['health']<=0:
             raise ValueError('no live spawn control observation')
-        if samples[-1]['alive'] is not False or samples[-1]['health']!=0 or previous<manifest['seconds_per_case']:
+        if _native_bool(samples[-1]['alive']) or samples[-1]['health']!=0 or previous<manifest['seconds_per_case']:
             raise ValueError('missing death observation/window')
-    return {'authoritative_observations_complete':True,'visual_acceptance':False,
+    return {'authoritative_observations_complete':True,
+            'execution_mode':manifest['execution_mode'],'visual_acceptance':False,
             'replication_acceptance':False,'feature_complete':False,'runtime_acceptance':'pending',
-            'receipt_sha256':_sha(_read(path,MAX_JSON_BYTES)),'run_id':manifest['run_id']}
+            'receipt_sha256':_sha(receipt_bytes),'run_id':manifest['run_id']}
 
 
 HOOK=r'''
@@ -678,6 +734,8 @@ def main(argv=None):
     prepare.add_argument('--seconds-per-case',type=int,default=2)
     prepare.add_argument('--impulse',nargs=3,type=float,default=(0,0,0))
     prepare.add_argument('--allow-observers',action='store_true')
+    prepare.add_argument('--normal-server',action='store_true',
+                         help='explicitly select inspected normal-server execution; default remains diagnostic-only')
     check=commands.add_parser('validate')
     check.add_argument('--receipt',type=Path,required=True);check.add_argument('--mission',type=Path,required=True)
     check.add_argument('--outer-outcome',choices=('finished','timed-out'),required=True)
@@ -685,7 +743,8 @@ def main(argv=None):
     try:
         if args.command=='prepare':
             result=prepare_probe(args.source,args.out,args.scripts,x=args.x,z=args.z,
-                seconds_per_case=args.seconds_per_case,impulse=args.impulse,allow_observers=args.allow_observers)
+                seconds_per_case=args.seconds_per_case,impulse=args.impulse,
+                allow_observers=args.allow_observers,diagnostic_only=not args.normal_server)
             print(json.dumps({'run_id':result['run_id'],'runtime_acceptance':'pending','outer_timeout_required':True}))
         else:
             print(json.dumps(validate_result(args.receipt,args.mission,outer_timed_out=args.outer_outcome=='timed-out')))

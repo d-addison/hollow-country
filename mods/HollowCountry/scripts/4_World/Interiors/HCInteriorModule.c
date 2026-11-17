@@ -78,7 +78,7 @@ class HCInteriorsModule : HCModule
         foreach (HCInteriorCandidate candidate : m_Config.Candidates)
         {
             int choice = HCInteriorRules.Layout(HCInteriorRules.Quantize(candidate.Position[0]), HCInteriorRules.Quantize(candidate.Position[1]), HCInteriorRules.Quantize(candidate.Position[2]), HCInteriorRules.Yaw(candidate.Orientation[0]), m_Config.Seed);
-            HCInteriorLayout layout = HCInteriorCatalog.Get(choice);
+            HCInteriorLayout layout = HCInteriorCatalog.GetFor(choice, candidate, m_Config.DiagnosticPlacementTrial);
             if (!layout || layout.Props.Count() > m_PropLimit)
             {
                 Reject("layout missing or over prop budget");
@@ -97,9 +97,19 @@ class HCInteriorsModule : HCModule
             assignment.InstanceId = candidate.Id(m_Config.Epoch);
             assignment.LayoutId = layout.Id;
             assignment.History = layout.History;
+            assignment.MeasuredRecordSha256 = HCInteriorMeasuredCatalog.MeasuredDigest(candidate);
+            if (HCInteriorMeasuredCatalog.MeasuredRequested() && assignment.MeasuredRecordSha256 == "")
+            {
+                Reject("measured binding changed during manifest construction");
+                return null;
+            }
             // Supplementary escrow only, NOT a replacement for CE accounting.
             // Explicit no-result and finite per-epoch quotas; never replenish.
             int allocation = HCInteriorRules.Allocation(choice, rags, batteries);
+            if (HCInteriorMeasuredCatalog.MeasuredRequested())
+            {
+                allocation = HCInteriorMeasuredCatalog.MeasuredAllocation(choice, candidate, allocation, rags, batteries);
+            }
             if (allocation == 1)
             {
                 assignment.Item = "Rag";
@@ -140,6 +150,7 @@ class HCInteriorsModule : HCModule
             Print("[HC Interiors] missing/invalid manifest configuration; disabled");
             return;
         }
+        HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
         m_PlacementProof = HCInteriorRules.PlacementAccepted();
         m_SearchProof = HCInteriorRules.SearchAccepted();
         #ifdef DIAG_DEVELOPER
@@ -236,7 +247,12 @@ class HCInteriorsModule : HCModule
             return;
         }
         int choice = HCInteriorRules.Layout(HCInteriorRules.Quantize(candidate.Position[0]), HCInteriorRules.Quantize(candidate.Position[1]), HCInteriorRules.Quantize(candidate.Position[2]), HCInteriorRules.Yaw(candidate.Orientation[0]), m_Config.Seed);
-        HCInteriorLayout layout = HCInteriorCatalog.Get(choice);
+        HCInteriorLayout layout = HCInteriorCatalog.GetFor(choice, candidate, m_Config.DiagnosticPlacementTrial);
+        if (!layout || layout.Id != assignment.LayoutId || layout.History != assignment.History || HCInteriorMeasuredCatalog.MeasuredDigest(candidate) != assignment.MeasuredRecordSha256)
+        {
+            m_Store.HoldSlot(candidate.SlotId, "changed-measured-binding");
+            return;
+        }
         array<Object> reusableProps = new array<Object>;
         foreach (HCInteriorProp check : layout.Props)
         {
@@ -424,6 +440,7 @@ class HCInteriorsModule : HCModule
     override void OnStop()
     {
         m_Ready = false;
+        HCInteriorMeasuredCatalog.MeasuredClear();
         foreach (HCInteriorSite site : m_Sites) site.Owner = null;
         m_Sites.Clear();
         // Owned nonpersistent decorations only. Never remove generated/player items.

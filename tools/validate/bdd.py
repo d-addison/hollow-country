@@ -13,6 +13,62 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Observe bounded owned-process counters without inferring engine liveness": (
+        ("Given synthetic procfs identities counters log metadata and monotonic clocks",
+         "When the bounded process observer samples explicit owned process and log inputs",
+         "Then reuse missing data rollback and work limits remain explicit without readiness or deadlock claims"), "test_process_observation.py"),
+    "Admit actor-free startup controls only from unchanged bounded evidence": (
+        ("Given synthetic isolated native processes and nonce-bound startup receipts",
+         "When the fixed startup runner checks staging publication deadlines and cleanup",
+         "Then changed evidence uncertain reports and incomplete callbacks cannot pass admission"), "test_native_startup_runner.py"),
+    "Bind measured interior records without inventing layout qualification": (
+        ("Given synthetic measured records pinned source documents and live house collaborators",
+         "When the bounded interior import and contextual binding methods execute",
+         "Then ambiguous houses invalid transforms and mismatched provenance cannot enable placement"), "test_interior_measured_catalog.py"),
+    "Preserve audited cutting tools through salvage registration and completion": (
+        ("Given the complete audited cutting class set and synthetic native recipe collaborators",
+         "When salvage registration eligibility and completion guards execute",
+         "Then every supported tool retains its identity wear and material checks without native transaction claims"), "test_salvage_tools.py"),
+    "Preserve taped-light identity while consuming tape on each mount": (
+        ("Given synthetic qualified bindings inventory custody snapshots and journal receipts",
+         "When the authored taped-light mount and hand-removal policies execute",
+         "Then replay failed writes and changed identities cannot retry a move or refund consumed tape"), "test_taped_light_service.py"),
+    "Retain whole-source action and item-use evidence without evaluating dispatch": (
+        ("Given synthetic complete source trees with action registration calls and item callbacks",
+         "When the bounded action census retains declarations controls and unresolved ancestry",
+         "Then no omitted input ambiguous receiver or disabled reference becomes effective gameplay approval"), "test_action_audit.py"),
+    "Activate stamina only from an opted-in trusted session configuration": (
+        ("Given synthetic native configuration receipts server profiles and session callbacks",
+         "When the authored stamina configuration loader and activation gates execute",
+         "Then missing opt-in invalid profiles unauthenticated receipts and session resets cannot retain custom stamina"), "test_stamina_configuration.py"),
+    "Schedule resource attraction only from bounded fresh native observations": (
+        ("Given synthetic resource zones actor observations and explicit navigation capabilities",
+         "When the authored ecology scheduling and receipt commit policies execute",
+         "Then stale null oversized overflowing or replayed proposals cannot mutate assignments"), "test_ecology_rules.py"),
+    "Admit fuel receipts only inside an owned bounded native run": (
+        ("Given synthetic process clocks isolated missions and fuel observation receipts",
+         "When the fixed fuel runner enforces launch staging deadline and cleanup ownership",
+         "Then startup late receipts foreign directories and surviving processes cannot pass"), "test_fuel_probe_runner.py"),
+    "Require all death cases before the native probe deadline": (
+        ("Given synthetic server logs process lifetimes and five-case death receipts",
+         "When the receipt-aware native compiler harness evaluates the fixed death purpose",
+         "Then initialization stale nonces late completion and missing cleanup cannot qualify the run"), "test_wine_compile_probe.py"),
+    "Retain whole-content item and recipe evidence within bounded review work": (
+        ("Given synthetic native rows and a complete source recipe census",
+         "When the bounded whole-content review joins class and recipe evidence",
+         "Then every input remains counted and truncated links never become gameplay approval"), "test_item_review.py"),
+    "Authorize a single diagnostic fuel transfer without replay": (
+        ("Given synthetic native vehicle vessel actor and action collaborators",
+         "When the authored diagnostic fuel action guards and transfer methods execute",
+         "Then unauthorized cancelled or replayed attempts cannot credit fuel"), "test_siphon_fuel_action.py"),
+    "Prepare fuel observations without accepting an unobserved transfer": (
+        ("Given synthetic installed interfaces fresh missions and correlated fuel receipts",
+         "When the fixed fuel probe preparation and result validator execute",
+         "Then missing conservation callbacks cleanup or timely completion reject the observation"), "test_fuel_siphon_probe.py"),
+    "Compare native stamina transport with bounded numeric tolerance": (
+        ("Given synthetic native contexts and the observed finite quantization sample",
+         "When the stamina transport control generator and numeric comparisons execute",
+         "Then harmless rounding is accepted while mismatches and nonfinite fields fail"), "test_stamina_transport_probe.py"),
     "Display bounded native stamina and carried-weight samples": (
         ("Given synthetic cached native load and stamina samples with widget collaborators",
          "When the authored stamina HUD sampling and display methods execute",

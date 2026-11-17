@@ -184,14 +184,62 @@ class GroupClockTests(unittest.TestCase):
                                  clock['CalendarUtc'](year,month,day,23,59,59))
                 self.assertEqual(-1,clock['CalendarUtc'](year,month,day+1,0,0,0))
 
-    def test_existing_year_and_epoch_contract_remains_explicitly_limited(self):
-        for year in (2025,2033):
-            native = SyntheticUTC([(year,1,1)] * 2, [(0,0,0)])
-            self.assertEqual(-1, authored_clock(native)['Utc']())
-        native = SyntheticUTC([(2032,12,31)] * 2, [(23,59,59)])
-        result = authored_clock(native)['Utc']()
-        self.assertEqual(epoch(2032,12,31,23,59,59), result)
-        self.assertLess(result,1990000000)
+    def test_positive_epoch_range_preserves_service_ceiling(self):
+        for stamp in (1, 86399, 86400, epoch(2000,2,29,12,34,56),
+                      epoch(2025,12,31,23,59,59), epoch(2033,1,1),
+                      1989999999, 1990000000):
+            with self.subTest(stamp=stamp):
+                date = datetime.fromtimestamp(stamp, timezone.utc)
+                native = SyntheticUTC([(date.year,date.month,date.day)] * 2,
+                                      [(date.hour,date.minute,date.second)])
+                self.assertEqual(stamp, authored_clock(native)['Utc']())
+        for stamp in (1990000001, 2000000000, 2147483647):
+            with self.subTest(rejected_stamp=stamp):
+                date = datetime.fromtimestamp(stamp, timezone.utc)
+                native = SyntheticUTC([(date.year,date.month,date.day)] * 2,
+                                      [(date.hour,date.minute,date.second)])
+                self.assertEqual(-1, authored_clock(native)['Utc']())
+
+    def test_epoch_zero_is_calendar_only_and_does_not_advance_watermark(self):
+        native = SyntheticUTC([(1970,1,1)] * 6,
+                              [(0,0,1),(0,0,0),(0,0,2)])
+        clock = authored_clock(native)
+        self.assertEqual(0, clock['CalendarUtc'](1970,1,1,0,0,0))
+        self.assertEqual(1, clock['Utc']())
+        self.assertEqual(-1, clock['Utc']())
+        self.assertEqual(2, clock['Utc']())
+
+    def test_all_admitted_calendar_month_ends_match_independent_utc(self):
+        clock = authored_clock(SyntheticUTC())
+        for year in range(1970,2034):
+            for month in range(1,13):
+                day = monthrange(year,month)[1]
+                expected = epoch(year,month,day,23,59,59)
+                if expected > 1990000000:
+                    expected = -1
+                self.assertEqual(expected, clock['CalendarUtc'](
+                    year,month,day,23,59,59))
+        for year in (-2147483648, -1, 0, 1969, 2034, 2147483647):
+            self.assertEqual(-1, clock['CalendarUtc'](year,1,1,0,0,0))
+
+    def test_upper_ceiling_does_not_poison_last_accepted_second(self):
+        date = (2033,1,22)
+        native = SyntheticUTC([date] * 8,
+                              [(9,46,39),(9,46,41),(9,46,40),(9,46,40)])
+        clock = authored_clock(native)
+        self.assertEqual(1989999999, clock['Utc']())
+        self.assertEqual(-1, clock['Utc']())
+        self.assertEqual(1990000000, clock['Utc']())
+        self.assertEqual(1990000000, clock['Utc']())
+
+    def test_extended_range_keeps_bounded_midnight_retry(self):
+        for before, after in (((1999,12,31),(2000,1,1)),
+                              ((2032,12,31),(2033,1,1))):
+            native = SyntheticUTC([before,after,after,after],
+                                  [(0,0,0),(0,0,1)])
+            self.assertEqual(epoch(*after,0,0,1),
+                             authored_clock(native)['Utc']())
+            self.assertEqual(['date','time','date'] * 2, native.calls)
 
 
 if __name__ == '__main__':

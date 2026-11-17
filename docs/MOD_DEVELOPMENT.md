@@ -22,6 +22,71 @@ also validates its own configuration and persistence. Enabling a flag does not
 establish safe gameplay or bypass a module's independent acceptance checks.
 Unknown native behavior must be tested on an isolated profile and storage copy.
 
+## Experimental stamina profile
+
+The separate `$profile:HollowCountry/stamina.json` file controls the experimental
+stamina handler. It is read once when native gameplay configuration loads, with a
+16 KiB limit. An absent or invalid profile retains native behavior. A neutral,
+disabled operator example is:
+
+```json
+{
+  "SchemaVersion": 1,
+  "Profile": "custom",
+  "Experimental": false,
+  "Settings": {
+    "SchemaVersion": 1,
+    "Enabled": false,
+    "ContinuousExertionScale": 1.0,
+    "RecoveryScale": 1.0
+  }
+}
+```
+
+Both `Experimental` and `Settings.Enabled` must be true for isolated experimental
+activation. Scales must be finite within `0.05–5.0`; the example selects no new
+balance. `Profile: "vanilla"` requires disabled settings and unit scales.
+Restart the mission and reconnect clients after editing. The server carries the
+settings in native gameplay configuration; the client admits only the native
+server receipt during an active session. Session reset clears activation.
+
+Run 046 compiled this default-off wiring in normal DayZ Server under Wine.
+Enabled loading, native network delivery/order, prediction, reconnect and rendered
+HUD agreement still require qualification before production use.
+
+## Fixed native observation probes
+
+The development helpers provide fixed disposable missions for infected death and
+fuel-transfer observations. Inspect their CLI options before supplying isolated
+server, prefix, PBO, native-interface and fresh experiment paths:
+
+```sh
+python3 -B -m tools.setup.wine_compile_probe --help
+python3 -B -m tools.setup.fuel_probe_runner --help
+python3 -B -m tools.setup.native_startup_runner --help
+```
+
+The death purpose is `--infected-death-scripts`; fuel requires explicit
+`--execute` and bounded fixture inputs. Initialization cannot finish either
+purpose. Fresh nonces, admitted receipts and confirmed owned-entity cleanup are
+required. A fixed internal fixture watchdog remains 60 seconds; an explicit
+outer budget allows map startup and process cleanup. The original 90-second
+attempts timed out before mission initialization and remain failed attempts.
+Server observations cannot establish rendered corpse physics, player input,
+connected-client action behavior or durable save recovery.
+
+The actor-free startup control records entry/exit around mission lifecycle,
+CreateHive and InitOffline, plus real SYSTEM update and queue callbacks. Its
+explicit `ce-disabled-control` mode omits only InitOffline for comparison with
+`stock-ce`; it is a diagnostic environment, not a gameplay profile. Run the
+controls serially against fresh directories. A returned mission initialization
+message does not establish that main or economy initialization has completed.
+The runner rechecks the complete staged mission and launch inputs after cleanup.
+Consume its persisted reports through `native_startup_runner.read_report()` and
+require a zero CLI exit. A sibling `.pending` file marks incomplete publication;
+reading a success-shaped JSON file alone is insufficient. Verified readback and
+rename do not establish filesystem crash durability or authenticate the engine.
+
 ## Validation order
 
 1. Run unit tests, operator settings admission, repository hygiene and executable

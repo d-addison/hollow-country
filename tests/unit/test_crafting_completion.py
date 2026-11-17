@@ -55,10 +55,16 @@ def execute_flat(filename, method, params, context):
 
 
 def recipe(pilot, recipe_id=0):
+    try:
+        from .test_salvage_tools import tool_policy, NativeArray
+    except ImportError:
+        from test_salvage_tools import tool_policy, NativeArray
     name, material, tool, result, quantity, wear = pilot
+    policy = tool_policy()
+    tools = NativeArray(policy.ToolAt(tool, i) for i in range(policy.ToolCount(tool)))
     return SimpleNamespace(
         m_NumberOfResults=1, m_ItemsToCreate=[result],
-        m_Ingredients=[[material], [tool]], m_IngredientDestroy=[True, False],
+        m_Ingredients=[[material], tools], m_IngredientDestroy=[True, False],
         m_IngredientAddHealth=[0, -wear], m_ResultSetQuantity=[quantity],
         m_ResultToInventory=[-1], m_ResultInheritsHealth=[0],
         m_ResultSetFullQuantity=[False], m_ResultReplacesIngredient=[-1],
@@ -71,12 +77,17 @@ def recipe(pilot, recipe_id=0):
 
 
 def audit_context():
+    try:
+        from .test_salvage_tools import tool_policy
+    except ImportError:
+        from test_salvage_tools import tool_policy
     cached = [recipe(pilot, index) for index, pilot in enumerate(PILOTS)]
     names = {pilot[0]: index for index, pilot in enumerate(PILOTS)}
     plugin = SimpleNamespace(RecipeIDFromClassname=lambda name: names.get(name, -1), Cast=lambda value: value)
     game = SimpleNamespace(ConfigIsExisting=lambda path: True, ConfigGetInt=lambda path: 2,
                            ConfigGetFloat=lambda path: 8)
     context = {"GetGame": lambda: game, "PluginRecipesManager": plugin,
+               "HCSalvageTools": tool_policy(game),
                "CheckCompletionGuard": lambda: True,
                "m_RecipeList": cached, "RecipeIDFromClassname": plugin.RecipeIDFromClassname}
     manager = SimpleNamespace()

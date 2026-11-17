@@ -132,7 +132,7 @@ class CraftingContractTests(unittest.TestCase):
                          "item.GetHierarchyRootPlayer() != player", "item.GetInventory().IsAttachment()",
                          "item.IsSetForDeletion()",
                          "item.GetInventory().AttachmentCount()", "cargo.GetItemCount()",
-                         "ingredients[0].IsKindOf(m_HCInputType)", "ingredients[1].GetType() != m_HCToolType",
+                         "ingredients[0].IsKindOf(m_HCInputType)",
                          'ingredients[1].GetHealth("", "") <= m_HCWear', "GetCompEM().IsPlugged()",
                          "GetCompEM().GetPluggedDevicesCount()", "super.CanDo(ingredients, player)"):
             self.assertIn(fragment, self.source)

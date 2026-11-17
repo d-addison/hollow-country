@@ -29,11 +29,21 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [Group UTC clock](unit/test_group_clock.py) | Actual authored calendar/sampling methods across midnight, invalid dates and rollback; signed epoch limits remain tracked. |
 | [Group fixture runner](unit/test_group_native_checks.py) | Opt-in synthetic policy fixtures and failure/completion-marker behavior; native VM results are recorded separately. |
 | [Stamina integration](unit/test_stamina_integration.py) | Disabled fallback, bounded settings, authority and inputs passed to the native stamina handler; no connected-client prediction or HUD proof. |
+| [Stamina configuration](unit/test_stamina_configuration.py) | Bounded explicit server opt-in, native receipt guards, immutable settings views, connection/session reset and adapter authority; no actual client network delivery proof. |
 | [Stamina HUD](unit/test_stamina_hud.py) | Separate weight/stamina samples, native HUD-hide flags, reference bounds and lifecycle with synthetic widgets; no rendered viewport proof. |
 | [Event director](unit/test_event_director.py) | Bounded opt-in participation, server observations, replay/transition limits and blocked unimplemented rewards; no live mission or AI delivery. |
+| [Ecology policy](unit/test_ecology_rules.py) | Bounded fresh resource/path inputs, separate species/resource eligibility, session-bound receipts, partial acceptance, capacity and explicit retirement; no real perception or movement provider. |
 | [Item manifest reader](unit/test_item_compatibility_manifest.py) | Strict pinned contiguous export/coverage admission and hostile file controls; POSIX input opening fails closed on unsupported platforms. |
+| [Whole-content review](unit/test_item_review.py) | Complete input denominators, separate config/script inheritance, explicit ambiguity and bounded link work; no item-usefulness or craftability approval. |
+| [Action source inventory](unit/test_action_audit.py) | Whole-source action calls, methods, item callbacks, ambiguity and analysis-work limits; no evaluated dispatch or effective gameplay claim. |
+| [Taped-light service](unit/test_taped_light_service.py) | Consumed tape, hand removal, item/energy conservation, full binding replay, damaged journals and recovered-history quarantine with synthetic custody; no qualified native host or attachment geometry. |
+| [Stamina transport controls](unit/test_stamina_transport_probe.py) | Pinned native interfaces, local/context controls and finite numeric tolerance; no connected-client RPC acceptance. |
 | [Fuel action](unit/test_siphon_fuel_action.py) | Server authority, leases, one-shot diagnostic debit/credit and mismatch refusal with synthetic native collaborators; no durable native fluid transaction proof. |
+| [Fuel observation probe](unit/test_fuel_siphon_probe.py) | Native-interface admission, fixed disposable mission, correlated conservation/callback/cleanup receipts and external-deadline rejection; no autonomous player proof. |
+| [Fuel process runner](unit/test_fuel_probe_runner.py) | Fixed launch opt-in, fresh staging, live receipt admission, total wall-clock limits and owned process cleanup; synthetic process tests never establish actual fuel movement. |
 | [Infected death probe](unit/test_infected_death_probe.py) | Five-case mission preparation, result correlation, observed cleanup and timeout refusal; no rendered ragdoll or loot/replication acceptance. |
+| [Startup control](unit/test_native_startup_probe.py) and [process runner](unit/test_native_startup_runner.py) | Fixed actor-free stock-CE and CE-disabled controls, nonce-bound callback receipts, actual snapshot/entry budgets, final mission/launch-input checks, guarded report publication and cleanup; CE-disabled success cannot establish normal startup or gameplay. |
+| [Process observations](unit/test_process_observation.py) | Pinned Linux PID/group/start time, bounded counter and log-metadata sampling, explicit unavailable data, reuse/rollback rejection and report limits; no game readiness, progress or deadlock proof. |
 | [Automation planning](unit/test_automation.py) | Portable criteria, explicit capabilities and planning-only status; no gameplay execution or automatic acceptance. |
 | [Benchmark comparison](unit/test_benchmark.py) | Synthetic repeated pairs, compatible contexts, explicit budgets and incomplete evidence. |
 | [Evidence admission](unit/test_evidence.py) | Manifest requirements, artifact hashes/paths and unsupported capability promotions. |
@@ -47,8 +57,10 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [CE candidates](unit/test_coverage_patch.py) | Hash-pinned synthetic geometry exports, minimal changes, encoding and point validation. |
 | [Deployment](unit/test_deploy.py) | Real disposable filesystem transactions, process interruption, upgrade, recovery, drift refusal and byte-exact rollback; four executable deployment BDD scenarios. |
 | [Crafting completion](unit/test_crafting_completion.py) | Actual authored admission and registry-audit methods with synthetic native objects. |
+| [Salvage tools](unit/test_salvage_tools.py) | All 36 audited exact cutting classes across registration, eligibility and startup checks, with original tool handles retained; no native wear, inventory or concurrency proof. |
+| [Measured interior import](unit/test_interior_measured_catalog.py) | Strict bounded source documents, schema-key remapping, explicit build admission, unique live-house binding and context-group restrictions with synthetic native adapters; no measured layout fit or production placement proof. |
 | [Infected completion](unit/test_infected_completion.py) | Bounded authored relay/recovery policies and wiring; no native audibility or population proof. |
-| [Compiler probe](unit/test_wine_compile_probe.py) | Log classification, byte budgets and owned-process cleanup, including a real disposable surviving child. |
+| [Compiler probe](unit/test_wine_compile_probe.py) | Log classification, byte budgets, owned-process cleanup and fixed five-case death receipt/deadline admission. Includes a real disposable surviving child; mocked receipts do not prove native deaths. |
 | [Native actor adapter](unit/test_native_autotest.py) | Bounded diagnostic mission generation and result admission; synthetic tests do not prove actor movement. |
 | [Core lifecycle](unit/test_core_lifecycle.py) | Execute authored lifecycle methods on interrupted synthetic callbacks and cleanup retries. |
 | [Infected profiles and clues](unit/test_infected_wave.py) | Authored profile, membership ambiguity and frozen-clue policies. |

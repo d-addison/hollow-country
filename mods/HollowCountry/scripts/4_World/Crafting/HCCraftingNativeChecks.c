@@ -13,7 +13,7 @@ class HCCraftingNativeChecks
             return false;
         if (recipe.m_Ingredients[0].Count() != 1 || recipe.m_Ingredients[0][0] != inputType)
             return false;
-        if (recipe.m_Ingredients[1].Count() != 1 || recipe.m_Ingredients[1][0] != toolType)
+        if (!HCSalvageTools.CheckRegistered(recipe.m_Ingredients[1], toolType))
             return false;
         if (!recipe.m_IngredientDestroy[0] || recipe.m_IngredientDestroy[1])
             return false;

@@ -91,6 +91,32 @@ class InfectedDeathProbeTests(unittest.TestCase):
         self.assertIn('m_Receipt.frames > 20000',text)
         self.assertLess(text.index('HCDeathTick();'),text.index('CallLater(HCDeathTick'))
 
+    def test_normal_server_mode_emits_real_unguarded_hook_and_matching_hashes(self):
+        manifest=self.prepare(diagnostic_only=False)
+        text=(self.dest/'init.c').read_text()
+        self.assertEqual('normal-server',manifest['execution_mode'])
+        self.assertNotIn('#ifdef DIAG_DEVELOPER',text)
+        self.assertNotIn('#else',text)
+        self.assertNotIn('#endif',text)
+        self.assertNotIn('FAIL DIAG_DEVELOPER required',text)
+        for token in ('HCDeathTick();','CreateObjectEx','StartCommand_Death',
+                      'cleanup_confirmed = !m_Owned','HCDeathFinish'):
+            self.assertIn(token,text)
+        self.assertEqual(hashlib.sha256((self.dest/'init.c').read_bytes()).hexdigest(),
+                         manifest['files']['init.c']['staged_sha256'])
+        result=probe.validate_result(self.write_result(self.result(manifest)),
+                                     self.dest,outer_timed_out=False)
+        self.assertEqual('normal-server',result['execution_mode'])
+        self.assertFalse(result['feature_complete'])
+
+    def test_default_execution_mode_preserved_and_nonboolean_mode_refused(self):
+        with self.assertRaises(ValueError):
+            self.prepare(diagnostic_only=1)
+        self.assertFalse(self.dest.exists())
+        manifest=self.prepare()
+        self.assertEqual('diagnostic-only',manifest['execution_mode'])
+        self.assertIn('#ifdef DIAG_DEVELOPER',(self.dest/'init.c').read_text())
+
     def test_arguments_fail_before_output(self):
         for args in (dict(x=math.nan),dict(z=0),dict(x=True),dict(x=100001),
                      dict(seconds_per_case=0),dict(seconds_per_case=6),dict(seconds_per_case=True),
@@ -136,6 +162,24 @@ class InfectedDeathProbeTests(unittest.TestCase):
         self.assertEqual([0,0,0],manifest['impulse'])
         self.assertFalse(manifest['allow_observers'])
         self.assertTrue(manifest['outer_timeout_required'])
+        self.assertEqual(180, manifest['outer_timeout_max_seconds'])
+
+    def test_receipt_digest_pins_the_same_bounded_snapshot_that_was_validated(self):
+        manifest = self.prepare()
+        path = self.write_result(self.result(manifest))
+        original = path.read_bytes()
+        replacement = json.dumps(dict(self.result(manifest), complete=False)).encode()
+        native_read = probe._read
+        reads = []
+        def changing_read(candidate, limit):
+            if candidate == path:
+                reads.append(candidate)
+                return original if len(reads) == 1 else replacement
+            return native_read(candidate, limit)
+        with mock.patch.object(probe, '_read', side_effect=changing_read):
+            report = probe.validate_result(path, self.dest, outer_timed_out=False)
+        self.assertEqual(1, len(reads))
+        self.assertEqual(hashlib.sha256(original).hexdigest(), report['receipt_sha256'])
 
     def test_reparse_guard_does_not_require_windows_symlink_privilege(self):
         with mock.patch.object(probe.os,'lstat',return_value=NS(st_mode=0o100644,st_file_attributes=1024)):
@@ -169,6 +213,47 @@ class InfectedDeathProbeTests(unittest.TestCase):
         self.assertFalse(report['replication_acceptance'])
         self.assertFalse(report['feature_complete'])
         self.assertEqual('synthetic-result.json',path.name)
+
+    def test_native_integer_flags_at_receipt_case_and_sample_levels_pass(self):
+        manifest=self.prepare()
+        def native(value):
+            if type(value) is bool: return int(value)
+            if type(value) is dict: return {k:native(v) for k,v in value.items()}
+            if type(value) is list: return [native(v) for v in value]
+            return value
+        value=native(self.result(manifest))
+        report=probe.validate_result(self.write_result(value),self.dest,outer_timed_out=False)
+        self.assertTrue(report['authoritative_observations_complete'])
+        self.assertFalse(report['feature_complete'])
+
+    def test_all_observed_flags_reject_nonbinary_types_and_missing_values(self):
+        manifest=self.prepare(); original=self.result(manifest)
+        def paths(value,prefix=()):
+            if type(value) is dict:
+                for key,item in value.items():
+                    if type(item) is bool: yield prefix+(key,)
+                    else: yield from paths(item,prefix+(key,))
+            elif type(value) is list:
+                for index,item in enumerate(value): yield from paths(item,prefix+(index,))
+        for path in paths(original):
+            for bad in (1.0,0.0,'1','0',None,2,-1,'MISSING'):
+                value=copy.deepcopy(original); parent=value
+                for component in path[:-1]: parent=parent[component]
+                if bad=='MISSING': del parent[path[-1]]
+                else: parent[path[-1]]=bad
+                with self.subTest(path=path,bad=bad),self.assertRaises(ValueError):
+                    probe.validate_result(self.write_result(value),self.dest,outer_timed_out=False)
+
+    def test_native_observer_and_impulse_flags_match_the_prepared_policy(self):
+        manifest=self.prepare(allow_observers=True,impulse=(5,0,0))
+        value=self.result(manifest); value['allow_observers']=1; value['max_observed_clients']=1
+        value['cases'][2]['impulse_requested']=1; value['cases'][2]['impulse_applied']=1
+        report=probe.validate_result(self.write_result(value),self.dest,outer_timed_out=False)
+        self.assertTrue(report['authoritative_observations_complete'])
+        for flag in ('allow_observers',):
+            value[flag]=0
+            with self.assertRaises(ValueError):
+                probe.validate_result(self.write_result(value),self.dest,outer_timed_out=False)
 
     def test_timeout_never_promotes_even_structurally_complete_receipt(self):
         manifest=self.prepare();path=self.write_result(self.result(manifest))

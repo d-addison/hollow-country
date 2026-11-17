@@ -19,6 +19,20 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Observe bounded owned-process counters without inferring engine liveness': 'test_process_observation.py',
+            'Admit actor-free startup controls only from unchanged bounded evidence': 'test_native_startup_runner.py',
+            'Bind measured interior records without inventing layout qualification': 'test_interior_measured_catalog.py',
+            'Preserve audited cutting tools through salvage registration and completion': 'test_salvage_tools.py',
+            'Preserve taped-light identity while consuming tape on each mount': 'test_taped_light_service.py',
+            'Retain whole-source action and item-use evidence without evaluating dispatch': 'test_action_audit.py',
+            'Activate stamina only from an opted-in trusted session configuration': 'test_stamina_configuration.py',
+            'Schedule resource attraction only from bounded fresh native observations': 'test_ecology_rules.py',
+            'Admit fuel receipts only inside an owned bounded native run': 'test_fuel_probe_runner.py',
+            'Require all death cases before the native probe deadline': 'test_wine_compile_probe.py',
+            'Retain whole-content item and recipe evidence within bounded review work': 'test_item_review.py',
+            'Authorize a single diagnostic fuel transfer without replay': 'test_siphon_fuel_action.py',
+            'Prepare fuel observations without accepting an unobserved transfer': 'test_fuel_siphon_probe.py',
+            'Compare native stamina transport with bounded numeric tolerance': 'test_stamina_transport_probe.py',
             'Display bounded native stamina and carried-weight samples': 'test_stamina_hud.py',
             'Track optional event progress only from admitted observations': 'test_event_director.py',
             'Admit complete item export manifests without upgrading metadata to compatibility': 'test_item_compatibility_manifest.py',

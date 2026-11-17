@@ -1,24 +1,14 @@
 // Reference: scripts-1.30.164289. Matching trusted settings required on both peers.
 class HCStaminaIntegration
 {
-    protected static ref HCStaminaSettings s_Settings;
-
     static bool InstallTrusted(HCStaminaSettings settings)
     {
-        if (s_Settings || !settings || !settings.Validate())
-        {
-            return false;
-        }
-        s_Settings = new HCStaminaSettings;
-        s_Settings.Enabled = settings.Enabled;
-        s_Settings.ContinuousExertionScale = settings.ContinuousExertionScale;
-        s_Settings.RecoveryScale = settings.RecoveryScale;
-        return true;
+        return HCStaminaConfiguration.InstallTrusted(settings);
     }
 
-    static bool Enabled() { return s_Settings && s_Settings.Enabled; }
-    static float ExertionScale() { return s_Settings.ContinuousExertionScale; }
-    static float RecoveryScale() { return s_Settings.RecoveryScale; }
+    static bool Enabled() { return HCStaminaConfiguration.Enabled(); }
+    static float ExertionScale() { return HCStaminaConfiguration.ExertionScale(); }
+    static float RecoveryScale() { return HCStaminaConfiguration.RecoveryScale(); }
 }
 
 modded class StaminaHandler

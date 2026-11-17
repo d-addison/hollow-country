@@ -57,6 +57,8 @@ leather from an empty leather belt. **These are starting points, not a finished
 crafting feature.** A full audit of existing items and recipes will determine the
 complete, justified set of changes. This does not mean a recipe for every object:
 additions and exclusions must make sense for survival and the economy.
+Cloth, rope, camouflage, repair materials and practical storage are among the
+uses being reviewed, alongside the tools needed to work them.
 
 **Planned · Phase 2: fuel siphoning.** Suitable cars should offer gasoline when
 you have appropriate equipment and a compatible container. Transfers must draw
@@ -91,6 +93,8 @@ Room traversal, door interactions, injuries and audible warnings must behave
 fairly. Infected must not secretly track your live position or teleport into
 pursuit. Changes to distant hordes must preserve the population and never make
 infected appear in view.
+Supported injury effects should also make wounded movement readable, including
+leg injuries and crawling where the native behavior permits it.
 
 Footsteps, shuffling and contact sounds should help you read a threat, including
 stealthier variants. Surfaces, distance and obstacles should affect what you hear.
@@ -168,8 +172,10 @@ captured and verified.
 
 Experimental search and interior systems, salvage prototypes and infected clue
 and alert logic exist. Group navigation, separate weight and stamina displays,
-optional-event rules and fuel-transfer prototypes are also being built. These
-systems are still disabled or isolated for testing. Some code has compiled and
+optional-event rules and fuel-transfer prototypes are also being built.
+Experimental taped-light mounting and recovery rules exist, with no qualified
+host and flashlight combination yet. These systems remain disabled or isolated
+for testing. Some code has compiled and
 initialized in a real DayZ server. Full inventory recovery, navigation, audio,
 multiplayer behavior, balance and performance still need qualification.
 

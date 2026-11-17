@@ -1,4 +1,4 @@
-// Standalone settings: no loader, RPC or automatic enablement.
+// Settings DTO; HCStaminaConfiguration owns trusted profile/session admission.
 class HCStaminaSettings
 {
     int SchemaVersion = 1;

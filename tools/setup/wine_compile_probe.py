@@ -10,12 +10,14 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shutil
 import signal
 import subprocess
 import time
 
 from tools.package import pbo
+from tools.setup import infected_death_probe as death_probe
 from tools.validate.runtime import validate_settings
 
 MAX_LOG_FILE = 16 * 1024 * 1024
@@ -161,7 +163,19 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None):
+    death_mode = infected_death_scripts is not None
+    if death_mode:
+        if diagnostic:
+            raise ValueError('infected death mode requires the normal server executable')
+        if group_checks or item_compatibility_audit or diagnostic_selftests or native_autotest_scripts is not None:
+            raise ValueError('infected death requires one mission hook')
+        if native_actor_direct or hold_seconds or state_seed is not None:
+            raise ValueError('infected death is a fixed purpose without actor/hold/seed options')
+        if settings is not None or settings_case is not None:
+            raise ValueError('infected death requires fresh default settings')
+        if type(seconds) is not int or not 15 <= seconds <= death_probe.MAX_OUTER_SECONDS:
+            raise ValueError('infected death outer budget must be integer 15..180 seconds')
     if group_checks and (item_compatibility_audit or diagnostic_selftests or native_autotest_scripts is not None):
         raise ValueError('group checks require one mission hook')
     if item_compatibility_audit and (diagnostic_selftests or native_autotest_scripts is not None):
@@ -257,6 +271,16 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         command.append('-mission=' + win(mission))
         if not native_actor_direct:
             command.append('-autotest=' + win(mission / 'hc-autotest.json'))
+    death_manifest = None
+    death_mission = None
+    if death_mode:
+        death_mission = experiment / 'infected-death.chernarusplus'
+        death_manifest = death_probe.prepare_probe(
+            root / 'mpmissions/dayzOffline.chernarusplus', death_mission,
+            infected_death_scripts, x=autotest_x, z=autotest_z,
+            run_id=secrets.token_hex(16), diagnostic_only=False)
+        diagnostic_mission = death_manifest
+        command.append('-mission=' + win(death_mission))
     env = dict(os.environ, WINEPREFIX=str(prefix), WINEARCH='win64', WINEDEBUG='-all')
     report = {'schema': 1, 'environment': 'actual-DayZ-server-under-Wine',
               'runtime_acceptance': 'pending', 'signature_verified': False,
@@ -270,9 +294,21 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['diagnostic_mission'] = diagnostic_mission
     report['item_compatibility_audit_requested'] = bool(item_compatibility_audit)
     report['group_checks_requested'] = bool(group_checks)
+    report['infected_death_requested'] = death_mode
+    report['infected_death_run_id'] = death_manifest['run_id'] if death_manifest else None
+    report['infected_death_timed_out'] = False
+    report['infected_death_receipt'] = None
+    report['infected_death_observation'] = 'not-run'
+    report['infected_death_receipt_error'] = None
+    report['infected_death_outer_outcome'] = 'not-run'
+    if death_mode:
+        report['infected_death_outer_budget_seconds'] = seconds
+        report['infected_death_cleanup_reserve_seconds'] = 10
+        report['infected_death_process_budget_seconds'] = seconds - 10
     report['native_autotest_observation'] = 'not-run'
     report['native_autotest_timed_out'] = False
     report['engine_error_observed'] = False
+    report['settings_rejection_observed'] = False
     report['settings_sha256'] = hashlib.sha256(settings_blob).hexdigest() if settings_blob is not None else None
     report['negative_settings_experiment'] = settings_case
     report['state_seed_sha256'] = {name: hashlib.sha256(data).hexdigest() for name, data in seeds.items()}
@@ -280,17 +316,77 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['hold_seconds_observed'] = 0
     process = None
     deadline_expired = False
+    outer_started = time.monotonic() if death_mode else None
+    outer_deadline = outer_started + seconds if death_mode else None
+
+    def checked_death_receipt(timed_out):
+        receipt = death_probe.validate_result(
+            profiles / death_probe.RESULT, death_mission, outer_timed_out=timed_out)
+        if receipt['run_id'] != report['infected_death_run_id']:
+            raise ValueError('receipt differs from generated harness nonce')
+        if receipt.get('execution_mode') != 'normal-server':
+            raise ValueError('receipt not from prepared normal-server mission')
+        return receipt
+
     try:
         with (experiment / 'wine-output.log').open('wb') as output:
             process = subprocess.Popen(command, cwd=root, env=env, stdout=output,
                                        stderr=subprocess.STDOUT, start_new_session=True)
             report['launcher_pid'] = process.pid
             deadline = time.monotonic() + seconds
+            if death_mode:
+                # Includes cold startup. Keep ten seconds for the existing
+                # bounded TERM/KILL/wait cleanup; never extend a slow run.
+                deadline = outer_deadline - 10
             initialized_at = None
             while time.monotonic() < deadline:
                 text, _, _ = collect_logs(profiles)
                 result = classify(text)
                 report['engine_error_observed'] = report['engine_error_observed'] or result == 'compiler-error'
+                report['settings_rejection_observed'] |= result == 'settings-rejected'
+                if report['settings_rejection_observed']:
+                    report['status'] = 'settings-rejected'
+                    break
+                if death_mode:
+                    if '[HC Infected Death] BEGIN' in text:
+                        report['infected_death_observation'] = 'begun-but-incomplete'
+                    if time.monotonic() >= deadline:
+                        deadline_expired = True
+                        break
+                    if report['engine_error_observed']:
+                        report['status'] = 'compiler-error'
+                        break
+                    if '[HC Infected Death] FAIL' in text:
+                        report['status'] = 'infected-death-failed'
+                        report['infected_death_observation'] = 'FAIL-marker'
+                        break
+                    if process.poll() is not None:
+                        report['status'] = 'exited-before-infected-death-completion'
+                        break
+                    marker = '[HC Infected Death] COMPLETE run=' + report['infected_death_run_id']
+                    if re.search(re.escape(marker) + r'(?=\s|$)', text):
+                        try:
+                            receipt = checked_death_receipt(False)
+                        except (OSError, ValueError) as exc:
+                            report['infected_death_receipt_error'] = str(exc)[:512]
+                            report['infected_death_observation'] = 'invalid-receipt'
+                            report['status'] = 'infected-death-failed'
+                            break
+                        # Evidence reads can cross the deadline or outlive
+                        # the launcher; neither condition permits completion.
+                        if time.monotonic() >= deadline:
+                            deadline_expired = True
+                            break
+                        if process.poll() is not None:
+                            report['status'] = 'exited-before-infected-death-completion'
+                            break
+                        report['infected_death_receipt'] = receipt
+                        report['infected_death_observation'] = 'verified-five-case-receipt'
+                        report['status'] = 'infected-death-completed'
+                        break
+                    # Initialization alone cannot finish this purpose.
+                    time.sleep(1)
+                    continue
                 if native_autotest_scripts is not None:
                     observation = native_observation(text, native_actor_direct)
                     if observation == 'begun-but-incomplete':
@@ -345,7 +441,52 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             report['forced_stop'] = stop_group(process)
         report['launcher_exit_code'] = process.returncode if process else None
         final_text, report['logs'], report['skipped_logs'] = collect_logs(experiment)
-        report['engine_error_observed'] = report['engine_error_observed'] or classify(final_text) == 'compiler-error'
+        final_result = classify(final_text)
+        report['engine_error_observed'] = report['engine_error_observed'] or final_result == 'compiler-error'
+        report['settings_rejection_observed'] |= final_result == 'settings-rejected'
+        if report['settings_rejection_observed']:
+            report['status'] = 'settings-rejected'
+        if death_mode:
+            if time.monotonic() >= outer_deadline:
+                deadline_expired = True
+            if '[HC Infected Death] FAIL' in final_text:
+                report['infected_death_observation'] = 'FAIL-marker'
+                if report['status'] == 'infected-death-completed':
+                    report['status'] = 'infected-death-failed'
+            # Always supply the bounded run's real timeout outcome.
+            # Final evidence may revoke completion but never promote a late run.
+            try:
+                final_receipt = checked_death_receipt(deadline_expired)
+            except (OSError, ValueError) as exc:
+                report['infected_death_receipt_error'] = str(exc)[:512]
+                report['infected_death_receipt'] = None
+                if report['status'] == 'infected-death-completed':
+                    report['status'] = 'infected-death-failed'
+            else:
+                if report['status'] == 'infected-death-completed' and not report['engine_error_observed']:
+                    report['infected_death_receipt'] = final_receipt
+                else:
+                    report['infected_death_receipt'] = None
+            # Account for process cleanup and final evidence reads too.
+            if time.monotonic() >= outer_deadline:
+                deadline_expired = True
+            report['infected_death_timed_out'] = deadline_expired
+            report['infected_death_outer_elapsed_seconds'] = round(time.monotonic() - outer_started, 3)
+            if deadline_expired:
+                report['infected_death_receipt'] = None
+                if report['status'] in {'infected-death-completed', 'infected-death-failed'}:
+                    report['status'] = 'timeout'
+            if report['engine_error_observed']:
+                report['infected_death_receipt'] = None
+                report['status'] = 'compiler-error'
+            if deadline_expired:
+                report['infected_death_outer_outcome'] = 'timed-out'
+            elif report['status'] == 'infected-death-completed':
+                report['infected_death_outer_outcome'] = 'completed-before-deadline'
+            elif report['status'].startswith('exited-'):
+                report['infected_death_outer_outcome'] = 'exited-before-completion'
+            else:
+                report['infected_death_outer_outcome'] = 'failed'
         if native_autotest_scripts is not None:
             report['native_autotest_timed_out'] = deadline_expired
             final_observation = native_observation(final_text, native_actor_direct)
@@ -379,6 +520,8 @@ def main():
     parser.add_argument('--diagnostic-selftests', action='store_true', help='instrument a fresh disposable mission for native scalar/storage probes')
     parser.add_argument('--item-compatibility-audit', action='store_true', help='request fixed metadata export in a fresh mission; inspect export completeness separately from startup')
     parser.add_argument('--group-checks', action='store_true', help='request fixed native policy fixtures; inspect fixture result separately from startup')
+    parser.add_argument('--infected-death-scripts', type=Path,
+                        help='fixed five-case normal-server mission; installed interfaces required; <=180s including map startup and cleanup, fixture watchdog stays 60s')
     parser.add_argument('--native-autotest-scripts', type=Path, help='installed extracted script interfaces for a fresh native TestHarness mission')
     parser.add_argument('--autotest-x', type=float, default=6500)
     parser.add_argument('--autotest-z', type=float, default=6500)
@@ -388,9 +531,12 @@ def main():
     setting_options.add_argument('--settings-case', choices=['malformed-json', 'oversized', 'unsupported-schema'])
     args = parser.parse_args()
     try:
-        report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct, args.item_compatibility_audit, args.group_checks)
+        report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct, args.item_compatibility_audit, args.group_checks,
+                     infected_death_scripts=args.infected_death_scripts)
         print(json.dumps(report, indent=2))
         expected = 'settings-rejected' if args.settings_case else 'initialized'
+        if args.infected_death_scripts is not None:
+            expected = 'infected-death-completed'
         return 0 if report['status'] == expected and report.get('settings_original_preserved', True) else 1
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
         parser.exit(1, f'{exc}\n')

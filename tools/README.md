@@ -15,6 +15,11 @@ evidence and do not establish completed gameplay.
 | [BDD runner](validate/bdd.py) | Executes explicitly bound offline behavioral suites. |
 | [Diagnostic mission preparation](setup/diagnostic_mission.py) | Creates a fresh isolated mission for narrow native storage probes. |
 | [Wine compiler probe](setup/wine_compile_probe.py) | Bounded local engine experiment with retained errors and owned-process cleanup; explicit external paths required. |
+| [Actor-free startup control](setup/native_startup_runner.py) | Compares fixed stock-CE and CE-disabled startup modes with correlated lifecycle and real callback receipts; requires explicit execution and isolated paths. |
+| [Process observations](setup/process_observation.py) | Read-only bounded Linux counter and log-metadata sampling for an explicitly owned PID; unavailable data stays explicit. Callers retain startup deadlines and cleanup. |
+| [Fuel fixture runner](setup/fuel_probe_runner.py) | Fixed owned-entity diagnostic observation, conservation/replay receipt admission and bounded process cleanup; no autonomous player or durable transaction claim. |
+| [Death fixture preparation](setup/infected_death_probe.py) | Prepares five fixed infected-death observations and checks bounded correlated receipts; launch through the compiler probe. |
+| [Stamina transport controls](setup/stamina_transport_probe.py) | Inspects pinned configuration interfaces and prepares isolated controls; no connected-client synchronization claim. |
 | [Native actor adapter](testing/native_autotest.py) | Prepares disposable diagnostic harness/direct-actor missions and checks result structure; no client control or gameplay acceptance claim. |
 
 ```sh
@@ -40,3 +45,8 @@ Keep game installations, extracted native interfaces, machine inventories,
 profiles, experiment outputs and planning records outside versioned deliverables.
 The setup helpers use disposable external destinations; a forced stop is not a
 persistence test. See [tests](../tests/README.md) for regression commands.
+
+Startup controls add no actors. The `ce-disabled-control` mode omits only the
+stock `ce.InitOffline()` call, retaining explicit mode attribution in evidence.
+Its success does not establish ordinary CE startup or gameplay. Both modes need
+real balanced SYSTEM update/queue observations; initialization alone cannot pass.
