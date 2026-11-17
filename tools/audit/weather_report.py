@@ -147,9 +147,10 @@ NON_CLAIMS = (
     "<current> actual, the first countdown was about time plus duration minus the weather time, and the actual reached "
     "that value by about time, while the stock run's first forecast did not equal it. current_inconclusive carries no "
     "native conclusion and does not mean the engine ignored <current>. The tolerances are provisional.",
-    "Actual values outside the limits before the actual first reaches the initial forecast (or before the first "
-    "scheduled change) are reported as an initial transition, not counted as violations; this does not show how the "
-    "engine starts from a pre-existing state.",
+    "Actual values outside the limits in the initial transition are reported, not counted as violations. The excused "
+    "prefix ends at the earliest of the actual reaching the first forecast, the actual first enters the limits, or "
+    "the first scheduled change; the sample that ends it is assessed, and a window that never ends is not excused. "
+    "This does not show how the engine starts from a pre-existing state.",
     "Two single runs sample random weather. Nothing here is runtime acceptance; runtime acceptance and feature "
     "enablement stay pending.",
 )
@@ -938,7 +939,7 @@ def compare(stock_result, candidate_result):
             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
             "values_in_range": None if not candidate["actual_range"] else candidate["raw_actual_outside_limits"] == 0,
             "values_in_range_after_initial_transition": (
-                None if not candidate["actual_range"] else candidate["status"] == "within_candidate"),
+                None if not candidate["actual_range"] else candidate["actual_violations"] == 0),
             "raw_actual_outside_limits": candidate["raw_actual_outside_limits"],
             "stock_values_vs_candidate_limits": _stock_values_vs_candidate_limits(stock, candidate),
             "live_readback": readback,
