@@ -8,11 +8,38 @@ class HCInfectedProfiles
         return HCBuildIdentity.Matches(build);
     }
 
+    protected static bool s_ContactGuardChecked;
+    protected static bool s_ContactGuardOptIn;
+
     // Preference is not evidence that the experimental attack filter is safe.
     // Requires an accepted native wall-hit/queued-attack regression first.
     static bool ContactGuardQualified()
     {
         return false;
+    }
+
+    // Local acceptance only: a server operator may create this marker so the
+    // owner's local server run can exercise the experimental invocation filter.
+    // It stays server-only, is probed once per process and is never persisted.
+    static bool ContactGuardOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_contact_guard.enable");
+    }
+
+    static bool ContactGuardAdmitted()
+    {
+        if (ContactGuardQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_ContactGuardChecked)
+        {
+            s_ContactGuardChecked = true;
+            s_ContactGuardOptIn = ContactGuardOptIn();
+            if (s_ContactGuardOptIn)
+                Print("[HC Infected] contact guard EXPERIMENTAL local acceptance opt-in (infected_contact_guard.enable), wall-hit runtime acceptance PENDING");
+        }
+        return s_ContactGuardOptIn;
     }
 
     static string DescriptorName(int variant)

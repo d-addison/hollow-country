@@ -274,8 +274,11 @@ class SearchIntegrationTests(unittest.TestCase):
         self.t.RestoreLayoutManifest=lambda:failure!='restore'
         self.env['load_config']=lambda:True
         self.env['FileExist']=lambda path:True
+        # OnStart asks the Admitted() forms (Accepted OR a local-acceptance marker); stub both.
         self.env['HCInteriorRules'].PlacementAccepted=lambda:failure!='placement'
         self.env['HCInteriorRules'].SearchAccepted=lambda:False
+        self.env['HCInteriorRules'].PlacementAdmitted=lambda:failure!='placement'
+        self.env['HCInteriorRules'].SearchAdmitted=lambda:False
         self.env['HCInteriorMeasuredCatalog'].MeasuredEnsureLoaded=lambda:None
         self.env['HCInteriorStore']=lambda:N(Open=lambda *args:failure!='store',Healthy=lambda:True)
 

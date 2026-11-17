@@ -94,6 +94,11 @@ class HCInteriorRules
         return server && interiors && search && proof && ready && livePlayer && available;
     }
 
+    protected static bool s_PlacementChecked;
+    protected static bool s_PlacementOptIn;
+    protected static bool s_SearchChecked;
+    protected static bool s_SearchOptIn;
+
     // Only change alongside recorded runtime artifacts and normal signed-PBO tests.
     static bool PlacementAccepted()
     {
@@ -103,6 +108,57 @@ class HCInteriorRules
     static bool SearchAccepted()
     {
         return false;
+    }
+
+    // Local acceptance only: a server operator may create these marker files so the
+    // owner's local server run can exercise placement and search. Each is probed once
+    // per process, server-only, and logs one EXPERIMENTAL line only when it opens.
+    // Markers are independent and never auto-opened. interior_search is only
+    // meaningful with interior_placement: MaySearch also needs a started, healthy
+    // layout (m_Ready), a bound search economy (BindSearchEconomy, which has no
+    // caller on this build) and EnableInteriors/EnableSearch. Placement needs the
+    // operator interiors.json and the measured catalog; without them the module logs
+    // "missing/invalid manifest configuration; disabled" and places nothing.
+    static bool PlacementOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/interior_placement.enable");
+    }
+
+    static bool SearchOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/interior_search.enable");
+    }
+
+    static bool PlacementAdmitted()
+    {
+        if (PlacementAccepted())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_PlacementChecked)
+        {
+            s_PlacementChecked = true;
+            s_PlacementOptIn = PlacementOptIn();
+            if (s_PlacementOptIn)
+                Print("[HC Interiors] placement EXPERIMENTAL local acceptance opt-in (interior_placement.enable); runtime acceptance PENDING");
+        }
+        return s_PlacementOptIn;
+    }
+
+    static bool SearchAdmitted()
+    {
+        if (SearchAccepted())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_SearchChecked)
+        {
+            s_SearchChecked = true;
+            s_SearchOptIn = SearchOptIn();
+            if (s_SearchOptIn)
+                Print("[HC Interiors] search EXPERIMENTAL local acceptance opt-in (interior_search.enable); runtime acceptance PENDING");
+        }
+        return s_SearchOptIn;
     }
 
     static string TransformKey(vector position, vector orientation)

@@ -221,8 +221,8 @@ class HCInteriorsModule : HCModule
             return;
         }
         HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
-        m_PlacementProof = HCInteriorRules.PlacementAccepted();
-        m_SearchProof = HCInteriorRules.SearchAccepted();
+        m_PlacementProof = HCInteriorRules.PlacementAdmitted();
+        m_SearchProof = HCInteriorRules.SearchAdmitted();
         #ifdef DIAG_DEVELOPER
         // Explicit diagnostic-only experiment switches. Never production approval.
         m_PlacementProof = m_PlacementProof || m_Config.DiagnosticPlacementTrial;
