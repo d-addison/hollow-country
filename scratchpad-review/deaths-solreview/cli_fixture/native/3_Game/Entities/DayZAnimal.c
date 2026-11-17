@@ -1,0 +1,2 @@
+GetBoneIndexByName(string pBoneName)
+IsDeathProcessed()

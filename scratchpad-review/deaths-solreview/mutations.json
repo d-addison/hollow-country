@@ -1,0 +1,79 @@
+[
+  {
+    "name": "policy_front_90",
+    "status": "KILLED",
+    "tests": 19,
+    "failures": 2,
+    "errors": 0
+  },
+  {
+    "name": "policy_ignore_finisher",
+    "status": "KILLED",
+    "tests": 19,
+    "failures": 2,
+    "errors": 0
+  },
+  {
+    "name": "policy_ignore_ammo_heavy",
+    "status": "KILLED",
+    "tests": 19,
+    "failures": 1,
+    "errors": 0
+  },
+  {
+    "name": "policy_overwrite_native",
+    "status": "KILLED",
+    "tests": 19,
+    "failures": 2,
+    "errors": 0
+  },
+  {
+    "name": "production_reverse_server_guard",
+    "status": "SURVIVED",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "name": "production_reverse_admission",
+    "status": "SURVIVED",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "name": "production_invert_heavy_input",
+    "status": "SURVIVED",
+    "tests": 19,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "name": "probe_wrong_surface_flags",
+    "status": "KILLED",
+    "tests": 28,
+    "failures": 1,
+    "errors": 0
+  },
+  {
+    "name": "probe_allow_side_policy_receipt",
+    "status": "KILLED",
+    "tests": 28,
+    "failures": 2,
+    "errors": 0
+  },
+  {
+    "name": "packer_bad_entry_length",
+    "status": "SURVIVED",
+    "tests": 28,
+    "failures": 0,
+    "errors": 0
+  },
+  {
+    "name": "probe_alter_legacy_ce_guard",
+    "status": "SURVIVED",
+    "tests": 28,
+    "failures": 0,
+    "errors": 0
+  }
+]

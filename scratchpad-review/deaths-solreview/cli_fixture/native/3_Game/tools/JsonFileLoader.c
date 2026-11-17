@@ -1,0 +1,1 @@
+static bool SaveFile(string filename, T data, out string errorMessage)

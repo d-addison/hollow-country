@@ -1,0 +1,89 @@
+{
+  "cases": [
+    "vanilla",
+    "impulse-selection"
+  ],
+  "ce_initialization": "omitted",
+  "files": {
+    "addon/$PBOPREFIX$": {
+      "bytes": 21,
+      "sha256": "cae8c6deeb6316389f15d512049168a52a28a983adb28438fe3f0191d4642f40"
+    },
+    "addon/config.cpp": {
+      "bytes": 562,
+      "sha256": "867d2821eda9285bc46f281e443afd896650d94e21064fddd423361452fafdd3"
+    },
+    "addon/scripts/4_World/HCDeathSelection.c": {
+      "bytes": 13742,
+      "sha256": "2b0b34a29e5aed4aed3f5dd8ccb69fc5dd0df55f9e2f0d5458c9ef925ecafd87"
+    },
+    "init.c": {
+      "bytes": 335,
+      "sha256": "c7a212d59f74a42925f7a243657c79d5adcd4c2b6de1a94bf0f5fe1d746d902b"
+    }
+  },
+  "interfaces": {
+    "3_Game/DayZGame.c": {
+      "bytes": 105,
+      "sha256": "9da00112cb8eb124b97ae005b8b58d462847d82765f860985a8136cf560dcc74"
+    },
+    "3_Game/Entities/DayZAnimal.c": {
+      "bytes": 55,
+      "sha256": "2a4ec67b110fb0eb7882ac77509e308897b16664d8a60843ed9d74551e81a4c4"
+    },
+    "3_Game/Entities/DayZInfected.c": {
+      "bytes": 103,
+      "sha256": "498176bfa111e71416804c5f2cf59eb15e6e46cae3059584ada119413cb03c78"
+    },
+    "3_Game/Entities/DayZInfectedType.c": {
+      "bytes": 31,
+      "sha256": "cf6e71e6c3941a59a94d29add29d457896bedcbacdee65a65c98887c2353411d"
+    },
+    "3_Game/Entities/Object.c": {
+      "bytes": 241,
+      "sha256": "f6ab74c6f53e0ebb210de981907a7f72d484f5067adece8a6c9b20c65c5fb5dd"
+    },
+    "3_Game/Global/Game.c": {
+      "bytes": 230,
+      "sha256": "172364c703cd4043e4ceeceebe2b87eb5832ecf224ba4cbddea0d86e16f8daa7"
+    },
+    "3_Game/Hive/Hive.c": {
+      "bytes": 64,
+      "sha256": "518fabebd839b006df5cc4975d6ab0f41b89b36e38500a2105628ac24d4a0b7b"
+    },
+    "3_Game/tools/JsonFileLoader.c": {
+      "bytes": 70,
+      "sha256": "cda0c22150bf1e62a78a08b21018f69918aef7e4403d352aa139e484b64ec17b"
+    },
+    "4_World/Entities/Creatures/Infected/ZombieBase.c": {
+      "bytes": 307,
+      "sha256": "36ae85a9b6b041260d38d002b632021ef0e92f0b26f155c52fb82cf2ac3c5dc6"
+    },
+    "4_World/Plugins/PluginBase/PluginDiagMenu/PluginDiagMenu.c": {
+      "bytes": 72,
+      "sha256": "5a70adb44a7d3ae13ddc6fcc1f3289bf0b4ed78dba7e30dd347f1a45c40bedc1"
+    }
+  },
+  "kind": "native-death-selection-observations",
+  "max_outer_seconds": 180,
+  "max_owned_entities": 2,
+  "native_watchdog_seconds": 60,
+  "request": {
+    "engine_version": "1.30.164289.70",
+    "source_position": [
+      102.0,
+      0,
+      100.0
+    ],
+    "stock_init_sha256": "91e2a608faa2ac4c93086df4e7c27b315c2a1c90110d3de0098cea1ad7207e45",
+    "victim_position": [
+      100.0,
+      0,
+      100.0
+    ],
+    "world_name": "chernarusplus"
+  },
+  "request_sha256": "59a74de61c6bbdc0843d4e3fe6af5894e91e5ab42ed065b2f20db58ebb460ee7",
+  "run_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "schema": 1
+}

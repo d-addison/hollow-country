@@ -1,0 +1,4 @@
+ANIM_DEATH_DEFAULT = 0
+ANIM_DEATH_IMPULSE = 1
+COMMANDID_DEATH
+class DayZInfected extends DayZCreatureAI

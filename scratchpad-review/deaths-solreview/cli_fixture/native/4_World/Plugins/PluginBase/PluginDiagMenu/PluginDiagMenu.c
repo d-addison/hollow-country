@@ -1,0 +1,1 @@
+ProcessDirectDamage(DamageType.CUSTOM, player, "", "MeleeFist", "0 0 0")
