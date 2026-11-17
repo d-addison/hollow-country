@@ -174,7 +174,8 @@ class InfectedCompletionTests(unittest.TestCase):
         voice = module.split("void NativeVoice(", 1)[1].split("protected void ResetSweep", 1)[0]
         self.assertLess(voice.index("m_Admission.SupplementaryChains"), voice.index("m_AlertChain.NativeEmission"))
         investigation = module.split("protected void TryInvestigate", 1)[1].split("protected void ReleasePacks", 1)[0]
-        self.assertIn("m_Admission.SupplementaryChains && actor.HeardExternally", investigation)
+        self.assertIn("HeardAdmitted() && actor.HeardExternally", investigation)
+        self.assertIn("return m_Chains && m_Admission.SupplementaryChains;", module)
         self.assertIn("MayInvestigate(m_Admission.Investigation,", investigation)
         for name in ("EnableMemberRecovery", "EnableSupplementaryChains", "EnableInvestigation"):
             self.assertNotIn("m_Config." + name, module)

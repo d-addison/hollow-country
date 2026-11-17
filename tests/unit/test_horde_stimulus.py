@@ -131,6 +131,37 @@ class HordeStimulusTests(unittest.TestCase):
             with self.subTest(memory=vars(memory)):
                 self.assertEqual((heard, 2), self.select(memory, heard))
 
+    def test_stale_but_live_visual_beats_a_fresher_sound_by_deliberate_precedence(self):
+        # "Live" means inside its TTL. The oldest still-live visual clue wins over
+        # the newest sound; recency only orders clues of the same category.
+        # Two-client perception acceptance of this precedence is pending.
+        visual = SyntheticClue(2, observed=71, expires=100.5)
+        heard = SyntheticClue(1, observed=99.9, expires=129.5)
+        self.assertEqual((visual, 1), self.select(visual, heard))
+        actor = NS(Visual=visual, Heard=heard, HeardExternally=True)
+        frozen = stimulus_api().ChooseClue(actor, 100, True)
+        self.assertEqual(vars(visual), vars(frozen))
+        # One tick later the same visual is memory and the sound is selected.
+        self.assertEqual((heard, 2), self.select(visual, heard, now=100.5))
+        text = (SOURCE / "HCHordeStimulus.c").read_text()
+        header = text.split("enum HCStimulusCategory", 1)[0]
+        for phrase in ("stale-but-live", "two-client", "pending"):
+            self.assertIn(phrase, header)
+
+    def test_freeze_preserves_hops_including_the_two_hop_boundary(self):
+        api = stimulus_api()
+        for hops in (0, 1, 2):
+            with self.subTest(hops=hops):
+                original = SyntheticClue(1, hops=hops)
+                frozen = api.FreezeClue(original)
+                self.assertIsNot(original, frozen)
+                self.assertEqual(hops, frozen.Hops)
+                self.assertEqual(vars(original), vars(frozen))
+        original = SyntheticClue(1, hops=2)
+        frozen = api.FreezeClue(original)
+        original.Hops = 0
+        self.assertEqual(2, frozen.Hops)
+
     def test_memory_is_explicit_but_never_promoted_to_observation(self):
         api = stimulus_api()
         self.assertEqual(0, api.Category(None, 100))

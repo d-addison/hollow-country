@@ -10,8 +10,10 @@ from types import SimpleNamespace as NS
 import unittest
 if __package__:
     from .test_infected_contract import SOURCE, policy_functions
+    from .test_horde_stimulus import stimulus_api
 else:
     from test_infected_contract import SOURCE, policy_functions
+    from test_horde_stimulus import stimulus_api
 
 PATHS = ("CEAdoption", "NativePackRoutes", "Investigation",
          "SupplementaryChains", "MemberRecovery", "HordeStimulusRoutes")
@@ -117,10 +119,18 @@ def translate(filename, signature, bound, fields=(), statics=(), **namespace):
 
 MODULE_METHODS = ("FindActor", "CanRecycleActor", "ResetSweep", "SampleActor", "SampleMembership",
     "FinishSweep", "SnapshotRoute", "RetargetCohorts", "SaveAdoptionBoundary", "TryAdopt",
-    "TryInvestigate", "ReleasePacks", "Quarantine")
+    "TryInvestigate", "ReleasePacks", "Quarantine", "HeardAdmitted")
+
+
+def bind_heard_admitted(context):
+    """Bind the real authored HeardAdmitted body; never a test-side re-implementation."""
+    translated = translate("HCInfectedModule.c", "protected bool HeardAdmitted(", MODULE_METHODS)
+    context.HeardAdmitted = lambda: translated(context)
 
 
 def module_call(signature, context, *args, **namespace):
+    if not hasattr(context, "HeardAdmitted"):
+        bind_heard_admitted(context)
     fn = translate("HCInfectedModule.c", signature, MODULE_METHODS, **namespace)
     return fn(context, *args)
 
@@ -418,7 +428,8 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
     def run_investigate(self, ctx, actor, rec):
         return module_call("protected void TryInvestigate(", ctx, actor,
             HCInfectedPolicy=NS(**policy_functions()), HCNativeInfectedPack=pack_factory(rec),
-            DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4), Math=NS(Min=min))
+            DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4), Math=NS(Min=min),
+            **self.stimulus_namespace())
 
     def test_investigation_requested_but_unadmitted_routes_nothing(self):
         rec = Recorder(); ctx, actor = self.investigate_context(rec, {"NativePackRoutes": True})
@@ -434,6 +445,64 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
         self.run_investigate(ctx, actor, rec)
         self.assertIn("pack_start", rec.events)
         self.assertEqual(1, actor.SearchAttempts)
+
+    def stimulus_namespace(self):
+        real = stimulus_api()
+        return dict(HCHordeStimulus=NS(SelectClue=lambda v, h, admit, now, reason:
+            real.SelectClue(v, h, admit, now, NS(value=0))))
+
+    def heard_investigation(self, rec, chains=True, supplementary=True, external=True):
+        ctx, actor = self.investigate_context(rec, {"Investigation": True, "SupplementaryChains": supplementary})
+        ctx.m_Chains = chains
+        actor.Visual = None
+        actor.Heard = self.clue(provenance=1)
+        actor.HeardExternally = external
+        return ctx, actor
+
+    def test_investigation_uses_the_shared_selector_with_the_single_heard_gate(self):
+        text = (SOURCE / "HCInfectedModule.c").read_text()
+        _, body = _body(_mask(text)[0], "protected void TryInvestigate(")
+        self.assertIn("HCHordeStimulus.SelectClue(actor.Visual, actor.Heard, admitHeard, m_Now, stimulusReason)", text)
+        self.assertIn("bool admitHeard = HeardAdmitted() && actor.HeardExternally;", text)
+        self.assertNotIn("actor.Heard.Observed", body)
+        self.assertNotIn("Provenance ==", body)
+        self.assertIn("return m_Chains && m_Admission.SupplementaryChains;", text)
+        # The pair is spelled once in the helper; the only other uses are the
+        # NativeVoice emission gate and the relay-work gate, not heard-clue sites.
+        self.assertEqual(3, text.count("m_Admission.SupplementaryChains"))
+        for signature in ("protected void SampleMembership(", "protected void TryAdopt("):
+            _, site = _body(_mask(text)[0], signature)
+            self.assertIn("HeardAdmitted()", site)
+            self.assertNotIn("SupplementaryChains", site)
+
+    def test_investigation_refuses_heard_clues_unless_chains_are_admitted_and_external(self):
+        for label, kwargs in (("unadmitted", dict(supplementary=False)), ("chains_off", dict(chains=False)),
+                              ("self_voice", dict(external=False))):
+            with self.subTest(label):
+                rec = Recorder(); ctx, actor = self.heard_investigation(rec, **kwargs)
+                self.run_investigate(ctx, actor, rec)
+                self.assertEqual([], rec.events)
+                self.assertEqual(1, ctx.m_RoutesRemaining)
+                self.assertEqual(0, actor.SearchAttempts)
+
+    def test_investigation_accepts_heard_clue_when_hypothetically_qualified(self):
+        rec = Recorder(); ctx, actor = self.heard_investigation(rec)
+        self.run_investigate(ctx, actor, rec)
+        self.assertIn("pack_start", rec.events)
+        self.assertEqual(1, actor.SearchAttempts)
+        self.assertEqual(0, ctx.m_RoutesRemaining)
+
+    def test_investigation_live_visual_still_investigates_without_chains(self):
+        rec = Recorder(); ctx, actor = self.investigate_context(rec, {"Investigation": True})
+        ctx.m_Chains = False
+        self.run_investigate(ctx, actor, rec)
+        self.assertIn("pack_start", rec.events)
+
+    def test_investigation_visual_is_unchanged_when_heard_is_refused(self):
+        rec = Recorder(); ctx, actor = self.heard_investigation(rec, supplementary=False)
+        actor.Visual = self.clue(provenance=2)
+        self.run_investigate(ctx, actor, rec)
+        self.assertIn("pack_start", rec.events)
 
     def test_investigation_visual_sampling_is_gated_by_admission(self):
         for admitted, expected in ((False, []), (True, ["sample"])):
@@ -684,7 +753,8 @@ class StartedModule:
 
     def bind_real_methods(self):
         for signature in ("protected void FinishSweep(", "protected void ReleasePacks(", "protected void ResetSweep(",
-                          "protected void TryAdopt(", "protected void SnapshotRoute(", "protected void SampleMembership("):
+                          "protected void TryAdopt(", "protected void SnapshotRoute(", "protected void SampleMembership(",
+                          "protected bool HeardAdmitted("):
             name = signature.split()[-1].rstrip("(")
             function = self.module_function(signature)
             setattr(self.ctx, name, lambda *args, function=function: function(self.ctx, *args))

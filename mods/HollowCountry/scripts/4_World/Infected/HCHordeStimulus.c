@@ -6,6 +6,9 @@
 // Priority: qualified live visual observation (2) > admitted live heard cue (1)
 // > retained memory > idle. IsLive validates time, TTL, provenance, strength and
 // hops. Expired/unknown/invalid evidence is memory, never a routing destination.
+// Precedence is deliberate: "live" means inside its TTL, so a stale-but-live
+// visual clue beats a fresher sound; recency only orders clues of one category.
+// The two-client perception check of this precedence is pending, not accepted.
 // A retained visual clue is not a currently visible threat: provenance alone
 // cannot keep it eligible after expiry or establish continued native sight.
 // Provenance 2 must come from a qualified observation adapter; a retained native
