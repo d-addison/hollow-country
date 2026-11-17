@@ -110,6 +110,23 @@ class SampBuilding(cep.MockObject):
     def __init__(self, *args, doors=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.doors = list(doors)
+        # REFERENCE door state. A door is open and unlocked unless a test says otherwise, so a scenario that does
+        # not care about doors never triggers the open pass. ``ops`` logs every state change the hook makes.
+        self.state, self.locked, self.ops = {}, set(), []
+
+    def IsDoorOpen(self, index):
+        return self.state.get(index, True)
+
+    def IsDoorLocked(self, index):
+        return index in self.locked
+
+    def OpenDoor(self, index):
+        self.ops.append(("open", index))
+        self.state[index] = True
+
+    def CloseDoor(self, index):
+        self.ops.append(("close", index))
+        self.state[index] = False
 
     def GetType(self):
         return StrictS(self.type_name)
@@ -277,6 +294,20 @@ class NavMesh:
         return True
 
 
+class DoorGatedNav(NavMesh):
+    """A reference mesh whose zone links exist only while door ``gate`` of the building is open (REFERENCE model)."""
+
+    def __init__(self, building, zones, gate=0, **kwargs):
+        super().__init__(building, zones, **kwargs)
+        self.gate, self.open_links, self.open_player_links = gate, self.links, self.player_links
+
+    def path(self, start, end, waypoints, flt=None):
+        closed = not self.building.IsDoorOpen(self.gate)
+        self.links = set() if closed else self.open_links
+        self.player_links = set() if closed else self.open_player_links
+        return super().path(start, end, waypoints, flt)
+
+
 class MockFilter:
     """A PGFilter stand-in: only the three getters the census header reads."""
 
@@ -415,10 +446,14 @@ MODELLED = ("HCProbeKey", "HCProbeStr", "HCProbeBool", "HCProbeVector", "HCProbe
             "HCProbeHitNote", "HCProbeTypeNote", "HCProbeTypesText", "HCProbeTraceEntry", "HCProbeDiagColumn",
             "HCProbeReachDoor", "HCProbeDiagReset", "HCProbeDiagSample", "HCProbeReasonName", "HCProbeReachDiagVariant",
             "HCProbeReachDiagText", "HCProbeControlDetail", "HCProbeColumnFlush", "HCProbeFilterText",
-            "HCProbeFlagEntry", "HCProbeFlagsText", "HCProbeReachResult")
+            "HCProbeFlagEntry", "HCProbeFlagsText", "HCProbeReachResult",
+            "HCProbeVariantState", "HCProbeSetState", "HCProbeUseEntrance", "HCProbeSetEntrance",
+            "HCProbeUseFilter", "HCProbeEnteredCheck", "HCProbeDoorsOpen", "HCProbeWait",
+            "HCProbeOpenControl", "HCProbeOpenFloors", "HCProbeDoorsClose", "HCProbeDoorsRestored",
+            "HCProbeDoorRunText", "HCProbeEnteredText", "HCProbeFrameProbe", "HCProbeFrameCheck")
 # Methods the reference transpiler deliberately does not execute: the loaders are literal data and
 # HCProbeStart only touches the engine file system and the call queue.
-UNMODELLED = frozenset({"HCProbeAdd", "HCProbeStart"})
+UNMODELLED = frozenset({"HCProbeAdd", "HCProbeFrameAdd", "HCProbeStart"})
 _MEMBER = re.compile(r"^    protected (?:ref )?([\w<>]+) (m_HCProbe\w+)(?: = (.+))?;$", re.M)
 _TO_STRING = re.compile(r"\b(\w+)\.ToString\(\)")
 
@@ -442,7 +477,7 @@ class HookRun:
     """
 
     def __init__(self, hook_text, building, planes, nav=None, extra_world=(), ai=True, overrides=None, walls=(),
-                 strict=False, ground_offset=0.0):
+                 strict=False, ground_offset=0.0, frame_points=()):
         self.text = rewrite_for_model(hook_text)
         self.building, self.scene = building, Scene(building, planes, walls)
         self.nav = nav
@@ -475,6 +510,9 @@ class HookRun:
         self.model.m_HCProbeClasses.Insert(text_type(building.type_name))
         self.model.m_HCProbeRoles.Insert(text_type("tenement"))
         self.model.m_HCProbePositions.Insert(building.pos)
+        for class_name, fx, fy, fz in frame_points:
+            self.model.m_HCProbeFrameClasses.Insert(text_type(class_name))
+            self.model.m_HCProbeFramePos.Insert((fx, fy, fz))
 
     def run(self, limit=200000):
         self.model.HCProbeHeader(cep.S("chernarusplus"), cep.S("1.30.test"))
@@ -1001,6 +1039,11 @@ def battery(hook_text, first_failure=False):
         row = run_far_door_downhill(hook_text)
         return row["reach"]["state"] == "tested" and row["reach"]["player"]["state"] == "tested"
 
+    def unknown_final_gap_ray():
+        clear, _ = run_final_gap_with_ray(hook_text, 0)
+        unknown, level = run_final_gap_with_ray(hook_text, -1)
+        return level > 0 and mesh_code(clear, -3.5, 0.5) == 3 and mesh_code(unknown, -3.5, 0.5) == 0
+
     def blocked_fail_closed():
         clear, hit, run_capped, building_capped = blocked_answers(hook_text)
         return clear is False and hit is True and run_capped is True and building_capped is True
@@ -1122,7 +1165,8 @@ def battery(hook_text, first_failure=False):
                            ("seed-standoff", seed_standoff), ("overhang", overhang), ("sky-cap", sky_cap),
                            ("zero-paths", zero_paths), ("disconnected-control", disconnected_control),
                            ("end-tolerance", end_tolerance), ("hidden-wall", hidden_wall),
-                           ("small-snap", small_snap), ("trivial-snap", trivial_snap), ("blocked-fail-closed", blocked_fail_closed), ("far-door-downhill", far_door_downhill), ("final-gap-wall", final_gap_wall),
+                           ("small-snap", small_snap), ("trivial-snap", trivial_snap), ("blocked-fail-closed", blocked_fail_closed),
+                           ("unknown-final-gap-ray", unknown_final_gap_ray), ("far-door-downhill", far_door_downhill), ("final-gap-wall", final_gap_wall),
                            ("other-roof", other_roof), ("native-shape", native_shape),
                            ("sloped-ground", sloped_ground), ("clutter-floor-cap", clutter_floor_cap), ("floor-cap", floor_cap),
                            ("step-cap", step_cap), ("thick-clutter", thick_clutter),
@@ -1242,11 +1286,8 @@ MUTATIONS = (
      "        if (capKind > 0)\n            return HCProbeReachResult(variant, 11, floorPos);",
      "        if (false)\n            return HCProbeReachResult(variant, 11, floorPos);"),
     ("player variant uses the strict filter",
-     "            state = m_HCProbePlayerState;\n            meshFilter = m_HCProbePlayerFilter;",
-     "            state = m_HCProbePlayerState;\n            meshFilter = m_HCProbeFilter;"),
-    ("player control uses the strict filter",
-     "        if (variant == 1)\n            meshFilter = m_HCProbePlayerFilter;\n        HCProbeDiagReset();",
-     "        if (variant == 1)\n            meshFilter = m_HCProbeFilter;\n        HCProbeDiagReset();"),
+     "        if (variant == 1 || variant == 3)\n            m_HCProbeUsedFilter = m_HCProbePlayerFilter;",
+     "        if (variant == 3)\n            m_HCProbeUsedFilter = m_HCProbePlayerFilter;"),
     ("player path budget removed",
      "if (m_HCProbePlayerPaths >= m_HCProbePathLimit)",
      "if (false)"),
@@ -1400,6 +1441,9 @@ class RenderTests(unittest.TestCase):
         text = default_hook()
         names = {m.group(1) for m in map(cep._SIGNATURE.match, text.splitlines()) if m}
         loaders = {n for n in names if re.fullmatch(r"HCProbeLoadTargets\d+", n)}
+        frame_text = samp.render_hook(sampler_targets(), frame_points=[("Land_HouseBlock_2F1", 1.0, 0.1, 2.0)]).decode()
+        names |= {m.group(1) for m in map(cep._SIGNATURE.match, frame_text.splitlines()) if m}
+        loaders |= {n for n in names if re.fullmatch(r"HCProbeLoadFrame\d+", n)}
         self.assertTrue(loaders)
         self.assertEqual(set(), names - set(MODELLED) - UNMODELLED - loaders)
         self.assertEqual(set(), set(MODELLED) - names)
@@ -1407,7 +1451,7 @@ class RenderTests(unittest.TestCase):
     def test_hook_only_observes_the_world(self):
         text = default_hook()
         for forbidden in (r"\bSetPosition\b", r"\bCreateObject", r"\bSpawn", r"\bDelete\b", r"\bSetOrientation\b",
-                          r"\bTeleport", r"\bSetHealth\b", r"\bOpenDoor", r"\bGetCEApi\b", r"\bExport"):
+                          r"\bTeleport", r"\bSetHealth\b", r"\bLockDoor", r"\bUnlockDoor", r"\bGetCEApi\b", r"\bExport"):
             self.assertIsNone(re.search(forbidden, text), forbidden)
 
     def test_native_calls_match_the_observed_prototypes_in_the_installed_scripts(self):
@@ -2441,6 +2485,52 @@ class Round3AddendumTests(unittest.TestCase):
         self.assertEqual(len(capped), diag(row, "column_capped")["count"])
 
 
+def run_final_gap_with_ray(hook_text, horizontal_result):
+    """The final waypoint is 0.4 m short of the floor with no wall; every level (waist) ray answers ``horizontal_result``.
+
+    Only the final-gap ray is level here (no snap, and the sky/descent/clearance rays are vertical), so this
+    drives the HCProbeBlocked call site of the final gap with a chosen ray answer, including the unknown -1.
+    """
+    building = flat_building()
+    nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
+    run = HookRun(hook_text, building, storey_planes(building), nav=nav)
+    original = run.model.HCProbeRay
+    state = {"level_rays": 0}
+
+    def ray(ray_from, ray_to):
+        if abs(ray_from[1] - ray_to[1]) < 1e-6 and (abs(ray_from[0] - ray_to[0]) > 1e-6 or abs(ray_from[2] - ray_to[2]) > 1e-6):
+            state["level_rays"] += 1
+            run.model.m_HCProbeHitCount = 0
+            run.model.m_HCProbeHitRel = 0
+            run.model.m_HCProbeHitType = cep.S("")
+            return horizontal_result
+        return original(ray_from, ray_to)
+
+    run.model.HCProbeRay = ray
+    row = run.run().row()
+    return row, state["level_rays"]
+
+
+class Round5UnknownFinalGapRayTests(unittest.TestCase):
+    """Round 5: an unknown (-1) answer on the final-gap level ray fails closed at the call site, not only in HCProbeBlocked."""
+
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_a_clear_level_ray_leaves_a_nontrivial_final_gap_unqualified(self):
+        row, level = run_final_gap_with_ray(self.hook, 0)
+        self.assertGreater(level, 0)
+        self.assertEqual(3, mesh_code(row, -3.5, 0.5))
+        self.assertGreater(diag(row, "gap_unqualified")["count"], 0)
+
+    def test_an_unknown_level_ray_blocks_the_final_gap_instead_of_leaving_it_unqualified(self):
+        row, level = run_final_gap_with_ray(self.hook, -1)
+        self.assertGreater(level, 0)
+        self.assertEqual(0, mesh_code(row, -3.5, 0.5))
+        self.assertGreater(diag(row, "gap_blocked")["count"], 0)
+        self.assertEqual(0, diag(row, "gap_unqualified")["count"])
+
+
 def blocked_answers(hook_text):
     """HCProbeBlocked called directly: a clear line, a line that hits something, and a ray the budget refuses."""
     building = flat_building()
@@ -2479,6 +2569,9 @@ class Round4BlockedTests(unittest.TestCase):
 class SamplerWorkspace(cep.Workspace):
     def setUp(self):
         super().setUp()
+        proto = mock.patch.object(cep, "SYNTH_PROTO", SAMPLER_PROTO)
+        proto.start()
+        self.addCleanup(proto.stop)
         # probe_runtime lists the launcher's per-kind rows; the sampler's row is added by its owner.
         patcher = mock.patch.dict(rt.LAUNCHER_PROBES, {samp.KIND: samp.LAUNCHER_ROW})
         patcher.start()
@@ -2662,6 +2755,274 @@ class LauncherCompatibilityTests(SamplerWorkspace):
         for kind, row in rt.LAUNCHER_PROBES.items():
             if kind != "interior-sampler":
                 self.assertEqual(tuple(row), table[kind])
+
+
+SAMPLER_PROTO = (
+    b'<prototype>'
+    b'<group name="Land_Tenement_Small" lootmax="0" />'
+    b'<group name="Land_HouseBlock_2F1" lootmax="6"><container name="lootFloor" lootmax="3">'
+    b'<point pos="1.5 0.1 3.0" range="1.0" height="1.5" /><point pos="-1.0 0.1 -3.5" range="1.0" height="1.5" />'
+    b'<point pos="0.0 0.1 0.0" range="1.0" height="1.5" /></container>'
+    b'<container name="shelves" lootmax="2"><point pos="9.0 1.0 9.0" range="1.0" height="1.5" /></container></group>'
+    b'<group name="Land_Mil_Barracks2" lootmax="6"><container name="lootFloor" lootmax="3">'
+    b'<point pos="2.0 0.1 1.0" range="1.0" height="1.5" /></container></group>'
+    b'</prototype>\n')
+
+
+def gated_run(hook_text, building=None, overrides=None, planes=None):
+    """One door gating the only zone link: with it closed nothing inside the building is reachable."""
+    building = building or flat_building()
+    building.state[0] = False
+    nav = DoorGatedNav(building, nav_for(building).zones, links=[("out", "g")])
+    run = HookRun(hook_text, building, planes or storey_planes(building), nav=nav, overrides=overrides)
+    return run.run(), building
+
+
+def ones(codes):
+    return sum(1 for code in codes if code == 1)
+
+
+class Round5FrameCheckTests(unittest.TestCase):
+    """Vertical raycasts at each stock lootFloor point under the as-is and the rotate +90 transforms."""
+
+    POINTS = [("Land_Tenement_Small", 1.5, 0.1, 3.0), ("Land_Tenement_Small", -1.0, 0.1, -3.5),
+              ("Land_Tenement_Small", 0.0, 0.1, 0.0), ("Land_Tenement_Small", 5.0, 0.1, 0.0)]
+
+    def frame_row(self, points=POINTS, hook=None):
+        building = flat_building()
+        run = HookRun(hook or samp.render_hook(sampler_targets(), frame_points=points).decode(), building,
+                      storey_planes(building), nav=nav_for(building), frame_points=points)
+        return run.run().row()
+
+    def test_each_record_holds_the_stock_point_and_the_two_vertical_ray_answers(self):
+        row = self.frame_row()
+        self.assertEqual(4, len(row["frame"]))
+        for record in row["frame"]:
+            self.assertEqual(7, len(record))
+        by_point = {(r[0], r[2]): r for r in row["frame"]}
+        rot_only, as_is_only, both = by_point[(1.5, 3.0)], by_point[(5.0, 0.0)], by_point[(0.0, 0.0)]
+        self.assertEqual((0, 1), (rot_only[3], rot_only[5]))        # sampler = (-z, y, x) = (-3.0, 0.1, 1.5)
+        self.assertEqual((1, 0), (as_is_only[3], as_is_only[5]))
+        self.assertEqual((1, 1), (both[3], both[5]))
+        self.assertAlmostEqual(0.0, both[4], places=3)               # the contact height in the building frame
+        self.assertEqual((0, 1), (by_point[(-1.0, -3.5)][3], by_point[(-1.0, -3.5)][5]))
+
+    def test_the_check_uses_two_rays_per_point_from_the_building_ray_budget(self):
+        building = flat_building()
+        plain = HookRun(default_hook(), building, storey_planes(building), nav=nav_for(building)).run().row()
+        row = self.frame_row()
+        self.assertEqual(plain["stats"]["rays"] + 2 * len(self.POINTS), row["stats"]["rays"])
+
+    def test_a_class_without_frame_points_carries_no_frame_records_and_no_extra_rays(self):
+        building = flat_building()
+        plain = HookRun(default_hook(), building, storey_planes(building), nav=nav_for(building)).run().row()
+        self.assertNotIn("frame", plain)
+        row = self.frame_row(points=[("Land_Mil_Barracks2", 1.0, 0.1, 1.0)])
+        self.assertEqual([], row.get("frame", []))
+        self.assertEqual(plain["stats"]["rays"], row["stats"]["rays"])
+
+    def test_the_default_hook_inlines_no_frame_points_and_a_staged_one_inlines_them_as_literals(self):
+        self.assertNotIn('HCProbeFrameAdd("', default_hook())
+        text = samp.render_hook(sampler_targets(), frame_points=[("Land_HouseBlock_2F1", 1.5, 0.1, 3.0)]).decode()
+        self.assertIn('HCProbeFrameAdd("Land_HouseBlock_2F1", 1.500000, 0.100000, 3.000000);', text)
+        self.assertEqual([], samp.lint_sampler_hook(text))
+
+    def test_frame_points_are_validated(self):
+        for bad in ([("Not A Class", 0.0, 0.0, 0.0)], [("Land_HouseBlock_2F1", float("nan"), 0.0, 0.0)],
+                    [("Land_HouseBlock_2F1", 1e7, 0.0, 0.0)], [("Land_HouseBlock_2F1", 1.0, 2.0)],
+                    [("Land_HouseBlock_2F1", 0.0, 0.0, 0.0)] * (samp.MAX_FRAME_POINTS + 1)):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                samp.render_hook(sampler_targets(), frame_points=bad)
+
+
+class Round5DoorRunTests(unittest.TestCase):
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_the_hook_opens_unlocked_doors_and_restores_them_and_never_locks_or_moves_anything(self):
+        for needle in ("OpenDoor(", "CloseDoor(", "IsDoorOpen(", "IsDoorLocked(", "m_HCProbeDoorDelayTicks"):
+            self.assertIn(needle, self.hook)
+        self.assertEqual(1, self.hook.count(".OpenDoor("))
+        self.assertEqual(1, self.hook.count(".CloseDoor("))
+        for forbidden in (r"\bLockDoor", r"\bUnlockDoor", r"\bSetPosition\b", r"\bDelete\b"):
+            self.assertIsNone(re.search(forbidden, self.hook), forbidden)
+
+    def test_every_door_is_recorded_beyond_the_old_four_door_cap_with_its_locked_and_open_state(self):
+        building = flat_building()
+        building.doors = [building.to_world((-4.9 + 0.1 * i, 1.0, -0.5)) for i in range(6)]
+        building.locked = {2}
+        building.state = {3: True, 4: True, 5: True}
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+        run = row["door_run"]
+        self.assertEqual(6, run["count"])
+        self.assertEqual(1, run["locked"])
+        self.assertEqual(6, run["open_at_start"])
+        self.assertEqual(6, len(run["doors"]))
+        self.assertEqual(6, len(row["reach"]["doors"]))
+        self.assertEqual([0, 0, 1, 0, 0, 0], [d[3] for d in run["doors"]])
+        self.assertEqual([1, 1, 1, 1, 1, 1], [d[4] for d in run["doors"]])
+        self.assertAlmostEqual(-4.8, run["doors"][1][0], places=3)
+
+    def test_a_building_whose_doors_are_all_open_or_locked_is_not_touched_and_copies_its_codes(self):
+        for locked, state in ((set(), {}), ({0}, {0: False})):
+            building = flat_building()
+            building.locked, building.state = locked, dict(state)
+            row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+            with self.subTest(locked=sorted(locked)):
+                self.assertEqual([], building.ops)
+                self.assertEqual("no-change", row["door_run"]["state"])
+                self.assertEqual(0, row["door_run"]["opened"])
+                self.assertEqual([h[5] for h in row["hits"]], row["open_codes"])
+                self.assertEqual(row["player_codes"], row["open_player_codes"])
+                self.assertEqual(row["entered"]["strict"]["closed"], row["entered"]["strict"]["open"])
+
+    def test_a_building_without_doors_copies_the_codes_and_says_so(self):
+        building = flat_building()
+        building.doors = []
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+        self.assertEqual("no-door", row["door_run"]["state"])
+        self.assertEqual(0, row["door_run"]["count"])
+        self.assertEqual([h[5] for h in row["hits"]], row["open_codes"])
+        self.assertEqual("untested", row["entered"]["strict"]["open"])
+
+    def test_closed_doors_are_opened_the_codes_are_recorded_again_and_the_doors_are_closed_again(self):
+        run, building = gated_run(self.hook)
+        row = run.row()
+        self.assertEqual([("open", 0), ("close", 0)], building.ops)
+        self.assertFalse(building.IsDoorOpen(0))
+        door_run = row["door_run"]
+        self.assertEqual((1, 1, 1, "done"), (door_run["opened"], door_run["observed_open"], door_run["restored"], door_run["state"]))
+        self.assertEqual(0, door_run["open_at_start"])
+        self.assertEqual(len(row["hits"]), len(row["open_codes"]))
+        self.assertEqual(len(row["hits"]), len(row["open_player_codes"]))
+        self.assertEqual(len(row["hits"]), len(row["player_codes"]))
+        self.assertEqual(0, ones([h[5] for h in row["hits"]]))
+        self.assertGreater(ones(row["open_codes"]), 0)
+        self.assertGreater(ones(row["open_player_codes"]), 0)
+        self.assertEqual(0, ones(row["player_codes"]))
+
+    def test_the_control_through_a_closed_door_does_not_enter_and_through_the_open_door_it_does(self):
+        row = gated_run(self.hook)[0].row()
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertEqual({"closed": "not-entered", "open": "entered"}, row["entered"]["strict"])
+        self.assertEqual({"closed": "not-entered", "open": "entered"}, row["entered"]["player"])
+
+    def test_a_door_that_does_not_gate_anything_gives_equal_codes_and_an_entered_control_in_both_runs(self):
+        building = flat_building()
+        building.state[0] = False
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+        self.assertEqual([("open", 0), ("close", 0)], building.ops)
+        self.assertEqual([h[5] for h in row["hits"]], row["open_codes"])
+        self.assertEqual({"closed": "entered", "open": "entered"}, row["entered"]["strict"])
+
+    def test_the_open_control_tries_later_doors_until_one_enters(self):
+        building = flat_building()
+        building.doors = [building.to_world((-4.9, 1.0, 20.0)), building.to_world((-4.9, 1.0, -0.5))]
+        building.state = {0: False, 1: False}
+        nav = DoorGatedNav(building, nav_for(building).zones, gate=1, links=[("out", "g")])
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav).run().row()
+        self.assertEqual("entered", row["entered"]["strict"]["open"])
+        self.assertGreater(ones(row["open_codes"]), 0)
+
+    def test_the_delay_between_opening_and_closing_is_the_bounded_tick_count(self):
+        for ticks in (3, 11):
+            building = flat_building()
+            building.state[0] = False
+            nav = DoorGatedNav(building, nav_for(building).zones, links=[("out", "g")])
+            run = HookRun(self.hook, building, storey_planes(building), nav=nav, overrides={"m_HCProbeDoorDelayTicks": ticks})
+            run.model.HCProbeHeader(cep.S("chernarusplus"), cep.S("1.30.test"))
+            steps, seen = 0, {}
+            while run.sentinel() is None and steps < 100000:
+                run.model.HCProbeStep()
+                steps += 1
+                for index, op in enumerate(building.ops):
+                    seen.setdefault(op, steps)
+            with self.subTest(ticks=ticks):
+                self.assertGreaterEqual(seen[("open", 0)], 1)
+                self.assertGreaterEqual(seen[("close", 0)] - seen[("open", 0)], ticks)
+                self.assertTrue(run.census()["placements"][0]["door_run"]["delay_ticks"] == ticks)
+
+    def test_a_capped_building_is_not_opened_and_its_doors_are_left_as_found(self):
+        building = flat_building()
+        building.state[0] = False
+        nav = DoorGatedNav(building, nav_for(building).zones, links=[("out", "g")])
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav,
+                      overrides={"m_HCProbeBuildingRayLimit": 120}).run().row()
+        self.assertEqual([], building.ops)
+        self.assertEqual("skipped-capped", row["door_run"]["state"])
+        self.assertEqual(len(row["hits"]), len(row["open_codes"]))
+        self.assertTrue(row["stats"]["ray_capped"])
+
+    def test_open_pass_paths_are_counted_apart_so_the_closed_counters_do_not_change(self):
+        run, _building = gated_run(self.hook)
+        stats = run.row()["stats"]
+        self.assertGreater(stats["open_paths"], 0)
+        self.assertGreater(stats["open_player_paths"], 0)
+        building = flat_building()
+        plain = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()["stats"]
+        self.assertEqual(0, plain["open_paths"])
+
+    @staticmethod
+    def player_gain(hook):
+        building = flat_building()
+        building.state[0] = False
+        nav = DoorGatedNav(building, nav_for(building).zones, links=[("out", "g")], player_links=[("out", "up")])
+        row = HookRun(hook, building, storey_planes(building), nav=nav).run().row()
+        return ones(row["open_player_codes"]) - ones(row["open_codes"])
+
+    def test_the_open_player_run_uses_the_player_filter_and_the_open_strict_run_does_not(self):
+        self.assertGreater(self.player_gain(self.hook), 0)
+        old = "        if (variant == 1 || variant == 3)\n            m_HCProbeUsedFilter = m_HCProbePlayerFilter;"
+        self.assertEqual(1, self.hook.count(old))
+        mutant = self.hook.replace(old, "        if (variant == 1)\n            m_HCProbeUsedFilter = m_HCProbePlayerFilter;")
+        self.assertEqual(0, self.player_gain(mutant))
+
+    def test_reach_diag_names_the_open_runs(self):
+        row = gated_run(self.hook)[0].row()
+        self.assertEqual({"strict", "player", "strict_open", "player_open"}, set(row["reach_diag"]))
+        self.assertIn("reached", row["reach_diag"]["strict_open"])
+        self.assertNotIn("reached", row["reach_diag"]["strict"])
+
+
+class Round5StagerFrameTests(SamplerWorkspace):
+    def setUp(self):
+        patcher = mock.patch.object(cep, "SYNTH_PROTO", SAMPLER_PROTO)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
+
+    def plan_hook(self):
+        return (self.dest / "mpmissions/dayzOffline.chernarusplus/init.c").read_text()
+
+    def test_stage_inlines_the_stock_lootfloor_points_of_both_calibration_classes_and_reports_them(self):
+        plan = self.stage()
+        text = self.plan_hook()
+        self.assertIn('HCProbeFrameAdd("Land_HouseBlock_2F1", 1.500000, 0.100000, 3.000000);', text)
+        self.assertIn('HCProbeFrameAdd("Land_Mil_Barracks2", 2.000000, 0.100000, 1.000000);', text)
+        self.assertNotIn("9.000000, 1.000000, 9.000000", text)            # shelves are not frame points
+        self.assertEqual({"Land_HouseBlock_2F1": 3, "Land_Mil_Barracks2": 1}, plan["frame_check"]["points"])
+        self.assertEqual(["as-is", "rot90"], plan["frame_check"]["transforms"])
+        self.assertEqual("lootFloor", plan["frame_check"]["container"])
+
+    def test_stage_refuses_when_a_calibration_class_has_no_lootfloor_points(self):
+        bare = b'<prototype><group name="Land_HouseBlock_2F1" lootmax="6"><container name="lootFloor">' \
+               b'<point pos="1 0.1 1" range="1" height="1" /></container></group></prototype>\n'
+        shutil.rmtree(self.source)
+        with mock.patch.object(cep, "SYNTH_PROTO", bare):
+            self.source = cep.make_source_runtime(self.root / "vanilla-s", counts=sampler_counts())
+        with self.assertRaisesRegex(ValueError, "Land_Mil_Barracks2"):
+            self.stage()
+        self.assertFalse(self.dest.exists())
+
+    def test_the_frame_points_are_bounded_per_class(self):
+        many = b'<prototype><group name="Land_HouseBlock_2F1"><container name="lootFloor">%s</container></group>' \
+               b'<group name="Land_Mil_Barracks2"><container name="lootFloor"><point pos="1 0 1" /></container></group></prototype>' \
+               % b"".join(b'<point pos="%d 0.1 0" />' % i for i in range(100))
+        shutil.rmtree(self.source)
+        with mock.patch.object(cep, "SYNTH_PROTO", many):
+            self.source = cep.make_source_runtime(self.root / "vanilla-s", counts=sampler_counts())
+        plan = self.stage()
+        self.assertEqual(samp.MAX_FRAME_POINTS_PER_CLASS, plan["frame_check"]["points"]["Land_HouseBlock_2F1"])
 
 
 if __name__ == "__main__":

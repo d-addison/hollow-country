@@ -29,12 +29,39 @@ def storey_hits(reach=1):
     return cells(0.0, XS0, ZS, reach=reach) + cells(3.0, XS1, ZS, reach=reach)
 
 
+def frame_records(frame="as-is", count=8):
+    """Synthetic native frame-check records [sx, sy, sz, as_is_result, as_is_hit_y, rot_result, rot_hit_y]."""
+    as_is, rotated = {"as-is": (1, 0), "rot90": (0, 1), "ambiguous": (1, 1), "neither": (0, 0)}[frame]
+    return [[float(i), 0.0, float(-i), as_is, 0.0, rotated, 0.0] for i in range(count)]
+
+
+def door_run(doors=1, opened=1):
+    return {"count": doors, "locked": 0, "open_at_start": 0, "opened": opened, "observed_open": opened,
+            "restored": opened, "delay_ticks": 5, "state": "done", "doors": [[0.0, 0.0, 0.0, 0, 0]] * doors}
+
+
 def placement(name, hits, index=0, role="tenement", found=True, box_source="clipping", reach_state="tested",
-              ray_capped=False, output_capped=False, step=1.0):
-    return {"i": index, "class": name, "role": role, "found": found, "box_source": box_source,
-            "box_min": list(BOX_MIN), "box_max": [7.0, 9.0, 3.0],
-            "grid": {"step": step, "rows": 12, "cols": 7}, "reach": {"state": reach_state, "doors": [], "entrances": []},
-            "hits": hits, "stats": {"ray_capped": ray_capped, "output_capped": output_capped}}
+              ray_capped=False, output_capped=False, step=1.0, entered="entered", frame="as-is"):
+    """A synthetic row. The reach code of each ``hits`` entry is the code of the run with the doors OPENED
+    (``open_codes``); the run with the doors as found (hit[5]) reaches nothing, as for closed doors."""
+    closed = [list(h[:5]) + [0 if h[5] == 1 else h[5]] for h in hits]
+    row = {"i": index, "class": name, "role": role, "found": found, "box_source": box_source,
+           "box_min": list(BOX_MIN), "box_max": [7.0, 9.0, 3.0],
+           "grid": {"step": step, "rows": 12, "cols": 7},
+           "reach": {"state": reach_state, "doors": [], "entrances": []},
+           "entered": {"strict": {"closed": "not-entered", "open": entered},
+                       "player": {"closed": "not-entered", "open": entered}},
+           "hits": closed, "open_codes": [h[5] for h in hits], "door_run": door_run(),
+           "stats": {"ray_capped": ray_capped, "output_capped": output_capped}}
+    if role == "calibration" and frame:
+        row["frame"] = frame_records(frame)
+    return row
+
+
+def drop(row, keep):
+    """Keep only the hits for which ``keep(hit)`` holds, with the parallel open-run codes."""
+    pairs = [(h, c) for h, c in zip(row["hits"], row["open_codes"]) if keep(h)]
+    row["hits"], row["open_codes"] = [h for h, _c in pairs], [c for _h, c in pairs]
 
 
 def census(rows, complete=True):
@@ -58,7 +85,7 @@ STOCK = b"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 \t\t\t<category name="tools" />
 \t\t\t<tag name="floor" />
 \t\t\t<point pos="-4.4 0.0 -3.4" range="0.4" height="1.0" />
-\t\t\t<point pos="-3.0 0.0 -2.0" range="0.4" height="1.0" />
+\t\t\t<point pos="-3.4 0.0 -1.6" range="0.4" height="1.0" />
 \t\t\t<point pos="-1.0 0.0 -2.0" range="0.4" height="1.0" />
 \t\t\t<point pos="-4.5 0.0 3.5" range="0.4" height="1.0" />
 \t\t</container>
@@ -219,7 +246,7 @@ class CandidateTests(unittest.TestCase):
 
     def test_agreement_counts_only_usable_placements_and_is_per_cell_and_storey(self):
         rows = four_placements("Land_Tenement_Small")
-        rows[3]["hits"] = [h for h in rows[3]["hits"] if h[0] != -4.5]
+        drop(rows[3], lambda h: h[0] != -4.5)
         rows.append(placement("Land_Tenement_Small", [], index=4, found=False))
         rows.append(placement("Land_Tenement_Small", storey_hits(), index=5, ray_capped=True))
         rows.append(placement("Land_Tenement_Small", storey_hits(), index=6, output_capped=True))
@@ -364,8 +391,8 @@ class CandidateTests(unittest.TestCase):
 
     def test_eligibility_requires_clearance_walkability_and_agreement(self):
         rows = four_placements("Land_Tenement_Small", hits=cells(0.0, XS0, ZS))
-        rows[0]["hits"] = [h for h in rows[0]["hits"] if h[0] != -0.5]
-        rows[1]["hits"] = [h for h in rows[1]["hits"] if h[0] != -0.5]
+        drop(rows[0], lambda h: h[0] != -0.5)
+        drop(rows[1], lambda h: h[0] != -0.5)
         got = candidates_of(rows)
         self.assertEqual(20, len(pts.eligible(got["candidates"], got["reach_mode"], min_agreement=0.5)))
         self.assertEqual(16, len(pts.eligible(got["candidates"], got["reach_mode"], min_agreement=0.75)))
@@ -422,7 +449,7 @@ class CalibrationTests(unittest.TestCase):
         self.stock = pts.parse_stock_points(STOCK, "Land_HouseBlock_2F1")
 
     def calibrate(self, radius):
-        return pts.calibrate(self.candidates, self.stock, radius=radius, min_agreement=0.75)
+        return pts.calibrate(self.candidates, self.stock, radius=radius, min_agreement=0.75, frame="as-is")
 
     def test_stock_points_are_parsed_per_container(self):
         self.assertEqual({"lootFloor": 4, "lootshelves": 3}, {k: len(v) for k, v in self.stock.items()})
@@ -430,12 +457,12 @@ class CalibrationTests(unittest.TestCase):
 
     def test_coverage_at_half_a_metre_counts_xz_and_vertical_separately_with_exact_expected_numbers(self):
         result = self.calibrate(0.5)
-        self.assertEqual(7, result["points"])
-        self.assertEqual(4, result["xz_covered"])
-        self.assertEqual(3, result["v3_covered"])
-        self.assertAlmostEqual(4 / 7, result["xz_coverage"])
-        self.assertAlmostEqual(3 / 7, result["v3_coverage"])
-        self.assertEqual({"points": 4, "xz_covered": 1, "v3_covered": 1}, {k: result["containers"]["lootFloor"][k] for k in ("points", "xz_covered", "v3_covered")})
+        self.assertEqual(4, result["points"])                      # lootFloor only; shelves are reported, not gated
+        self.assertEqual(2, result["xz_covered"])
+        self.assertEqual(2, result["v3_covered"])
+        self.assertAlmostEqual(2 / 4, result["xz_coverage"])
+        self.assertAlmostEqual(2 / 4, result["v3_coverage"])
+        self.assertEqual({"points": 4, "xz_covered": 2, "v3_covered": 2}, {k: result["containers"]["lootFloor"][k] for k in ("points", "xz_covered", "v3_covered")})
         self.assertEqual({"points": 3, "xz_covered": 3, "v3_covered": 2}, {k: result["containers"]["lootshelves"][k] for k in ("points", "xz_covered", "v3_covered")})
         self.assertEqual(32, result["candidates"])
         self.assertEqual(2, result["candidates_used"])
@@ -443,23 +470,23 @@ class CalibrationTests(unittest.TestCase):
 
     def test_coverage_at_three_quarters_of_a_metre_reaches_the_grid_diagonal(self):
         result = self.calibrate(0.75)
-        self.assertEqual(6, result["xz_covered"])
-        self.assertEqual(10, result["candidates_used"])
-        self.assertEqual(22, result["candidates_unused"])
+        self.assertEqual(3, result["xz_covered"])
+        self.assertEqual(6, result["candidates_used"])
+        self.assertEqual(26, result["candidates_unused"])
 
     def test_the_radius_boundary_is_inclusive_and_just_outside_is_not_covered(self):
         stock = pts.parse_stock_points(
-            b'<lootmax><group name="G"><container name="c"><point pos="0.0 0.0 -2.5" range="1" height="1" />'
+            b'<lootmax><group name="G"><container name="lootFloor"><point pos="0.0 0.0 -2.5" range="1" height="1" />'
             b'<point pos="0.01 0.0 -2.5" range="1" height="1" /></container></group></lootmax>', "G")
-        result = pts.calibrate(self.candidates, stock, radius=0.5, min_agreement=0.75)
+        result = pts.calibrate(self.candidates, stock, radius=0.5, min_agreement=0.75, frame="as-is")
         self.assertEqual(1, result["xz_covered"])
 
     def test_vertical_band_runs_from_half_a_metre_below_the_floor_to_the_clearance(self):
         def covered(y):
             stock = pts.parse_stock_points(
-                ('<lootmax><group name="G"><container name="c"><point pos="-4.5 %s -3.5" range="1" height="1" />'
+                ('<lootmax><group name="G"><container name="lootFloor"><point pos="-4.5 %s -3.5" range="1" height="1" />'
                  '</container></group></lootmax>' % y).encode(), "G")
-            return pts.calibrate(self.candidates, stock, radius=0.5, min_agreement=0.75)["v3_covered"]
+            return pts.calibrate(self.candidates, stock, radius=0.5, min_agreement=0.75, frame="as-is")["v3_covered"]
         self.assertEqual(1, covered(-0.5))
         self.assertEqual(0, covered(-0.51))
         self.assertEqual(1, covered(2.8))
@@ -469,7 +496,7 @@ class CalibrationTests(unittest.TestCase):
     def test_ineligible_candidates_do_not_count_as_coverage(self):
         low = four_placements("Land_HouseBlock_2F1", role="calibration", hits=cells(0.0, XS0, ZS, clearance=1.5))
         candidates = pts.class_candidates(pts.parse_census(encode(census(low))), "Land_HouseBlock_2F1")
-        result = pts.calibrate(candidates, self.stock, radius=0.5, min_agreement=0.75)
+        result = pts.calibrate(candidates, self.stock, radius=0.5, min_agreement=0.75, frame="as-is")
         self.assertEqual(0, result["xz_covered"])
         self.assertEqual(0, result["candidates"])
 
@@ -477,14 +504,14 @@ class CalibrationTests(unittest.TestCase):
         hits = [[x, 0.0, z, 2.8, 1.0, 1 if x < -2.0 else 0] for x in XS0 for z in ZS]
         rows = four_placements("Land_HouseBlock_2F1", role="calibration", hits=hits, reach_state="tested")
         candidates = pts.class_candidates(pts.parse_census(encode(census(rows))), "Land_HouseBlock_2F1")
-        result = pts.calibrate(candidates, self.stock, radius=0.75, min_agreement=0.75)
+        result = pts.calibrate(candidates, self.stock, radius=0.75, min_agreement=0.75, frame="as-is")
         self.assertEqual("known", result["reach_mode"])
         self.assertEqual(12, result["candidates"])
-        self.assertEqual(7, result["points"])
-        self.assertEqual(5, result["xz_covered"])      # the (-1.0, -2.0) stock point has only unreachable cells nearby
+        self.assertEqual(4, result["points"])
+        self.assertEqual(2, result["xz_covered"])      # the (-1.0, -2.0) stock point has only unreachable cells nearby
 
     def test_empty_stock_points_report_zero_points_without_dividing_by_zero(self):
-        result = pts.calibrate(self.candidates, {}, radius=0.5, min_agreement=0.75)
+        result = pts.calibrate(self.candidates, {}, radius=0.5, min_agreement=0.75, frame="as-is")
         self.assertEqual(0, result["points"])
         self.assertIsNone(result["xz_coverage"])
 
@@ -683,9 +710,9 @@ class BuildTreatmentTests(unittest.TestCase):
         data, report = self.build()
         self.assertEqual("interior-points-report", report["kind"])
         self.assertTrue(report["calibration"]["passed"])
-        self.assertAlmostEqual(4 / 7, report["calibration"]["classes"]["Land_HouseBlock_2F1"]["xz_coverage"])
-        self.assertAlmostEqual(3 / 7, report["calibration"]["min_coverage"])         # the gated 3D coverage
-        self.assertAlmostEqual(4 / 7, report["calibration"]["min_xz_coverage"])
+        self.assertAlmostEqual(2 / 4, report["calibration"]["classes"]["Land_HouseBlock_2F1"]["xz_coverage"])
+        self.assertAlmostEqual(2 / 4, report["calibration"]["min_coverage"])         # the gated 3D coverage, lootFloor only
+        self.assertAlmostEqual(2 / 4, report["calibration"]["min_xz_coverage"])
         self.assertAlmostEqual(1.0, report["calibration"]["classes"]["Land_Mil_Barracks2"]["v3_coverage"])
         self.assertEqual(0.4, report["calibration"]["threshold"])
         self.assertEqual({"Land_Tenement_Small", "Land_Tenement_Big"}, set(report["classes"]))
@@ -701,11 +728,11 @@ class BuildTreatmentTests(unittest.TestCase):
     def test_coverage_below_the_threshold_is_refused_with_the_numbers(self):
         with self.assertRaises(pts.CoverageError) as caught:
             self.build(min_calibration=0.6)
-        self.assertIn("0.429", str(caught.exception))
+        self.assertIn("0.500", str(caught.exception))
         self.assertIn("Land_HouseBlock_2F1", str(caught.exception))
         _data, report = self.build(min_calibration=0.6, radius=0.75)
         self.assertGreaterEqual(report["calibration"]["min_coverage"], 0.6)
-        self.assertGreaterEqual(report["calibration"]["min_xz_coverage"], 6 / 7 - 1e-9)
+        self.assertGreaterEqual(report["calibration"]["min_xz_coverage"], 3 / 4 - 1e-9)
 
     def test_calibration_enforces_vertical_agreement_so_floors_moved_100_m_fail(self):
         document = full_census()
@@ -846,7 +873,8 @@ def with_player(rows, player_hits):
     result = []
     for row in rows:
         row = json.loads(json.dumps(row))
-        row["player_codes"] = [h[5] for h in player_hits]
+        row["open_player_codes"] = [h[5] for h in player_hits]
+        row["player_codes"] = [0 if h[5] == 1 else h[5] for h in player_hits]
         row["reach"]["player"] = {"state": "tested"}
         result.append(row)
     return result
@@ -861,6 +889,7 @@ class Round3CodeAndSourceTests(unittest.TestCase):
     def test_code_three_is_a_valid_hit_code_and_nothing_above_it_is(self):
         good = full_census()
         good["placements"][0]["hits"].append([1.0, 2.0, 3.0, 2.0, 1.0, 3])
+        good["placements"][0]["open_codes"].append(3)
         pts.parse_census(encode(good))
         for bad in (4, -2, 1.5, True):
             document = json.loads(json.dumps(full_census()))
@@ -1062,10 +1091,10 @@ class Round3ReportTests(unittest.TestCase):
         self.assertEqual("player", report["parameters"]["reach_source"])
         self.assertEqual(32, report["funnel"]["Land_Tenement_Small"]["stages"]["eligible"])
 
-    def test_bad_arguments_still_raise_without_a_report(self):
+    def test_bad_arguments_still_raise_with_an_invalid_input_report(self):
         with self.assertRaises(ValueError) as caught:
             self.build(full_census(), radius=0.0)
-        self.assertFalse(hasattr(caught.exception, "report"))
+        self.assertEqual("invalid-input", caught.exception.report["refusal"]["kind"])     # round 5: always a report
 
 
 class Round3CliTests(unittest.TestCase):
@@ -1143,6 +1172,7 @@ def tenement_census(strict_state="tested", player_state="tested", failed=4, play
     seen = {}
     for row in document["placements"]:
         if player_codes:
+            row["open_player_codes"] = list(row["open_codes"])
             row["player_codes"] = [h[5] for h in row["hits"]]
             row["reach"]["player"] = {"state": "tested"}
         if row["class"] not in pts.TENEMENT_CLASSES:
@@ -1276,6 +1306,318 @@ class Round4CliTests(unittest.TestCase):
             self.assertEqual("reach-source-unavailable", report["refusal"]["kind"])
             self.assertEqual("player", report["parameters"]["reach_source"])
             self.assertEqual("not-computable", report["funnel"]["Land_Tenement_Small"]["status"])
+
+
+def rotated_stock():
+    """STOCK with the calibration groups' points moved into the stock frame of a building whose sampler-frame
+    floor cells are the original positions (sampler = stock rotated +90, so stock = (z, y, -x))."""
+    text = STOCK.decode()
+    for name in pts.CALIBRATION_CLASSES:
+        start, end = pts._group_block(text, name)
+
+        def convert(match):
+            x, y, z = (float(v) for v in match.group(1).split())
+            sx, sy, sz = pts.sampler_to_stock((x, y, z), "rot90")
+            return 'pos="%.6f %.6f %.6f"' % (sx, sy, sz)
+        text = text[:start] + re.sub(r'pos="([^"]+)"', convert, text[start:end]) + text[end:]
+    return text.encode()
+
+
+def census_with(document, **changes):
+    """Deep copy of a census with ``changes`` applied to every row by a callable per key."""
+    document = json.loads(json.dumps(document))
+    for row in document["placements"]:
+        for key, mutate in changes.items():
+            mutate(row)
+    return document
+
+
+def refusal_of(test, data, stock=STOCK, min_calibration=0.4, **kwargs):
+    with test.assertRaises(ValueError) as caught:
+        pts.build_treatment(data, stock, min_calibration, **kwargs)
+    return caught.exception
+
+
+class Round5FrameTests(unittest.TestCase):
+    """Issue #11 round 5: the stock mapgroupproto frame is the sampler frame rotated +90 degrees."""
+
+    def test_the_rotate_plus_90_transform_has_a_pinned_direction_and_round_trips_to_identity(self):
+        self.assertEqual((-3.0, 2.0, 1.0), pts.stock_to_sampler((1.0, 2.0, 3.0), "rot90"))
+        self.assertEqual((3.0, 2.0, -1.0), pts.sampler_to_stock((1.0, 2.0, 3.0), "rot90"))
+        for point in ((0.0, 0.0, 0.0), (1.5, -2.0, 7.25), (-4.4, 3.0, -3.4)):
+            for frame in pts.FRAMES:
+                with self.subTest(point=point, frame=frame):
+                    self.assertEqual(point, tuple(v + 0.0 for v in pts.sampler_to_stock(
+                        pts.stock_to_sampler(point, frame), frame)))
+                    self.assertEqual(point, tuple(v + 0.0 for v in pts.stock_to_sampler(
+                        pts.sampler_to_stock(point, frame), frame)))
+        self.assertEqual((1.0, 2.0, 3.0), pts.stock_to_sampler((1.0, 2.0, 3.0), "as-is"))
+        with self.assertRaises(ValueError):
+            pts.stock_to_sampler((1.0, 2.0, 3.0), "sideways")
+
+    def test_the_verdict_follows_the_recorded_raycasts_and_every_calibration_class_must_agree(self):
+        cases = {"as-is": "as-is", "rot90": "rot90", "ambiguous": None, "neither": None}
+        for frame, expected in cases.items():
+            with self.subTest(frame=frame):
+                verdict = pts.frame_verdict(pts.parse_census(encode(full_census_frame(frame))))
+                self.assertEqual(expected, verdict["verdict"])
+        rows = four_placements("Land_HouseBlock_2F1", role="calibration", frame="rot90") + four_placements(
+            "Land_Mil_Barracks2", role="calibration", frame="as-is")
+        split = pts.frame_verdict(pts.parse_census(encode(census(rows))))
+        self.assertIsNone(split["verdict"])
+        self.assertIn("disagree", split["reason"])
+        mostly = four_placements("Land_HouseBlock_2F1", role="calibration", frame="rot90")
+        for row in mostly:
+            row["frame"][0][3], row["frame"][0][5] = 1, 0            # 7 of 8 still say rot90: below nothing, above 0.8
+        self.assertEqual("rot90", pts.frame_verdict(pts.parse_census(encode(census(
+            mostly + four_placements("Land_Mil_Barracks2", role="calibration", frame="rot90")))))["verdict"])
+
+    def test_a_census_without_a_native_frame_verdict_is_refused_with_a_report(self):
+        document = census_with(full_census(), frame=lambda row: row.pop("frame", None))
+        error = refusal_of(self, encode(document))
+        self.assertIsInstance(error, pts.CoverageError)
+        self.assertEqual("frame-verdict-missing", error.report["refusal"]["kind"])
+        self.assertIn("no native frame verdict", str(error))
+        self.assertEqual("refused", error.report["status"])
+        self.assertIn("Land_Tenement_Small", error.report["funnel"])
+
+    def test_an_ambiguous_frame_verdict_is_refused(self):
+        error = refusal_of(self, encode(full_census_frame("ambiguous")))
+        self.assertEqual("frame-verdict-missing", error.report["refusal"]["kind"])
+
+    def test_a_malformed_frame_record_is_a_parse_error(self):
+        for mutate in (lambda row: row.update(frame="nope"), lambda row: row["frame"].append([1, 2, 3]),
+                       lambda row: row["frame"][0].__setitem__(3, 2), lambda row: row["frame"][0].__setitem__(0, "x")):
+            document = full_census()
+            row = next(r for r in document["placements"] if r["role"] == "calibration")
+            mutate(row)
+            with self.subTest(), self.assertRaises(ValueError):
+                pts.parse_census(encode(document))
+
+    def test_calibration_is_scored_in_the_sampler_frame_and_the_wrong_stock_frame_fails(self):
+        data = encode(full_census_frame("rot90"))
+        treatment, report = pts.build_treatment(data, rotated_stock(), 0.4)
+        self.assertEqual("rot90", report["calibration"]["frame"]["verdict"])
+        self.assertEqual("ok", report["status"])
+        error = refusal_of(self, data, stock=STOCK, min_calibration=0.9)
+        self.assertEqual("calibration", error.report["refusal"]["kind"])
+
+    def test_the_treatment_is_written_in_the_stock_frame_and_the_report_keeps_both_frames(self):
+        document = full_census_frame("rot90")
+        treatment, report = pts.build_treatment(encode(document), rotated_stock(), 0.4)
+        selected = report["classes"]["Land_Tenement_Small"]["points"]
+        self.assertTrue(selected)
+        written = [tuple(float(v) for v in p.get("pos").split())
+                   for p in ET.fromstring(treatment).find("./group[@name='Land_Tenement_Small']/container[@name='lootFloor']")
+                   .findall("point")]
+        expected = [tuple(round(v + 0.0, 6) for v in pts.sampler_to_stock((p["x"], p["y"], p["z"]), "rot90"))
+                    for p in selected]
+        self.assertEqual(expected, written)
+        self.assertEqual(expected, [tuple(p["stock"]) for p in selected])
+        self.assertNotEqual([(p["x"], p["y"], p["z"]) for p in selected], written)
+
+    def test_write_treatment_converts_back_from_the_sampler_frame_and_never_writes_negative_zero(self):
+        points = [{"x": 0.0, "y": 0.0, "z": 2.0}]
+        data = pts.write_treatment(STOCK, {"Land_Tenement_Small": points}, frame="rot90")
+        positions = [p.get("pos") for p in ET.fromstring(data).find(
+            "./group[@name='Land_Tenement_Small']/container[@name='lootFloor']").findall("point")]
+        self.assertEqual(["2.000000 0.000000 0.000000"], positions)
+        asis = pts.write_treatment(STOCK, {"Land_Tenement_Small": points}, frame="as-is")
+        self.assertIn("0.000000 0.000000 2.000000", asis.decode())
+
+    def test_calibration_gates_on_the_floor_container_only_and_reports_shelves_ungated(self):
+        candidates = pts.class_candidates(pts.parse_census(encode(full_census())), "Land_HouseBlock_2F1")
+        stock = pts.parse_stock_points(STOCK, "Land_HouseBlock_2F1")
+        result = pts.calibrate(candidates, stock, radius=0.5, min_agreement=0.75, frame="as-is")
+        self.assertEqual(4, result["points"])
+        self.assertEqual(4, result["containers"]["lootFloor"]["points"])
+        self.assertTrue(result["containers"]["lootFloor"]["gated"])
+        self.assertFalse(result["containers"]["lootshelves"]["gated"])
+        self.assertEqual(3, result["containers"]["lootshelves"]["points"])
+        self.assertEqual(result["containers"]["lootFloor"]["v3_covered"], result["v3_covered"])
+        self.assertEqual(result["containers"]["lootFloor"]["v3_covered"] / 4, result["v3_coverage"])
+        with self.assertRaises(ValueError):
+            pts.calibrate(candidates, stock, radius=0.5, min_agreement=0.75)      # no frame verdict, no score
+
+    def test_uncovered_shelves_and_weapons_do_not_fail_calibration(self):
+        text = STOCK.decode().replace('pos="-4.5 3.4 -3.5"', 'pos="40 40 40"').replace('pos="-2.5 5.9 -2.5"', 'pos="50 50 50"')
+        floor_only, _ = pts.build_treatment(encode(full_census()), text.encode(), 0.4)
+        self.assertTrue(floor_only)
+
+
+def full_census_frame(frame):
+    document = full_census()
+    for row in document["placements"]:
+        if row["role"] == "calibration":
+            row["frame"] = frame_records(frame)
+    return document
+
+
+class Round5ControlEntryTests(unittest.TestCase):
+    def test_a_control_that_never_entered_makes_every_hit_unknown_and_is_refused(self):
+        document = census_with(full_census(), entered=lambda row: row["entered"]["strict"].update(open="not-entered"))
+        result = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small")
+        self.assertEqual("unknown", result["reach_mode"])
+        self.assertEqual({"not-entered": 4}, result["entered_states"])
+        self.assertTrue(all(c["reachable"] is None for c in result["candidates"]))
+        error = refusal_of(self, encode(document))
+        self.assertEqual("control-not-entered", error.report["refusal"]["kind"])
+        self.assertIsInstance(error, pts.CoverageError)
+
+    def test_a_control_without_an_entered_stage_is_the_same_as_not_entered(self):
+        document = census_with(full_census(), entered=lambda row: row.pop("entered"))
+        self.assertEqual("control-not-entered", refusal_of(self, encode(document)).report["refusal"]["kind"])
+
+    def test_a_tested_control_that_did_not_enter_cannot_authorize_tenement_cells_alone(self):
+        document = full_census()
+        for row in document["placements"]:
+            if row["class"] == "Land_Tenement_Small":
+                row["entered"]["strict"]["open"] = "not-entered"
+        result = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small")
+        self.assertEqual("unknown", result["reach_mode"])
+        self.assertEqual([], pts.eligible(result["candidates"], result["reach_mode"], 0.75))
+
+    def test_the_player_source_needs_its_own_entered_stage(self):
+        document = tenement_census()
+        for row in document["placements"]:
+            row["entered"]["player"]["open"] = "not-entered"
+        strict = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small")
+        player = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small", reach_source="player")
+        self.assertEqual("known", strict["reach_mode"])
+        self.assertEqual("unknown", player["reach_mode"])
+
+
+class Round5DoorSemanticsTests(unittest.TestCase):
+    def test_open_must_reach_strictly_more_than_closed_or_door_semantics_are_unobserved(self):
+        same = census_with(full_census(), same=lambda row: row.update(
+            hits=[h[:5] + [c] for h, c in zip(row["hits"], row["open_codes"])]))
+        error = refusal_of(self, encode(same))
+        self.assertEqual("door-semantics-unobserved", error.report["refusal"]["kind"])
+        self.assertIn("door semantics unobserved", str(error))
+        self.assertEqual(error.report["door_semantics"]["closed_reached"], error.report["door_semantics"]["open_reached"])
+        self.assertFalse(error.report["door_semantics"]["observed"])
+
+    def test_a_census_without_open_run_codes_is_refused_even_when_the_closed_run_reaches(self):
+        legacy = census_with(full_census(), legacy=lambda row: (row.update(
+            hits=[h[:5] + [1 if c == 1 else c] for h, c in zip(row["hits"], row["open_codes"])]), row.pop("open_codes")))
+        error = refusal_of(self, encode(legacy))
+        self.assertEqual("door-semantics-unobserved", error.report["refusal"]["kind"])
+
+    def test_the_gate_uses_the_open_run_and_the_report_counts_both_runs(self):
+        treatment, report = pts.build_treatment(encode(full_census()), STOCK, 0.4)
+        semantics = report["door_semantics"]
+        self.assertTrue(semantics["observed"])
+        self.assertEqual(0, semantics["closed_reached"])
+        self.assertGreater(semantics["open_reached"], 0)
+        self.assertEqual("strict", semantics["reach_source"])
+        self.assertIn("Land_Tenement_Small", semantics["classes"])
+        self.assertGreater(report["classes"]["Land_Tenement_Small"]["eligible"], 0)
+
+    def test_open_run_codes_must_parallel_the_hits_with_known_codes(self):
+        for mutate in (lambda row: row["open_codes"].pop(), lambda row: row["open_codes"].append(1),
+                       lambda row: row.update(open_codes="nope"), lambda row: row["open_codes"].__setitem__(0, 4),
+                       lambda row: row.update(open_player_codes=[1])):
+            document = full_census()
+            mutate(document["placements"][0])
+            with self.subTest(), self.assertRaises(ValueError):
+                pts.parse_census(encode(document))
+
+    def test_a_row_without_open_codes_has_unknown_codes_not_the_closed_ones(self):
+        document = full_census()
+        for row in document["placements"]:
+            row["hits"] = [h[:5] + [1] for h in row["hits"]]
+            row.pop("open_codes")
+        result = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small")
+        self.assertEqual("unknown", result["reach_mode"])
+
+
+class Round5InvalidCensusTests(unittest.TestCase):
+    """Ported from the round-4 follow-up: an unparseable census is a refusal with an identity report."""
+
+    BAD = (b"not json", b"[]", b"", b'{"schema": 2}')
+
+    def test_the_builder_attaches_the_identity_report_to_a_parse_refusal(self):
+        for data in self.BAD:
+            with self.subTest(data=data[:12]):
+                with self.assertRaises(ValueError) as caught:
+                    pts.build_treatment(data, STOCK, 0.4)
+                report = caught.exception.report
+                self.assertEqual("refused", report["status"])
+                self.assertEqual("census-invalid", report["refusal"]["kind"])
+                self.assertEqual(report["refusal"]["message"], str(caught.exception))
+                self.assertEqual(hash_of(data), report["census_sha256"])
+                self.assertEqual(hash_of(STOCK), report["stock_mapgroupproto_sha256"])
+                self.assertEqual("strict", report["parameters"]["reach_source"])
+                self.assertEqual({}, report["funnel"])
+                self.assertNotIn("treatment", report)
+
+    def test_the_requested_reach_source_is_recorded_in_the_parse_refusal(self):
+        with self.assertRaises(ValueError) as caught:
+            pts.build_treatment(b"not json", STOCK, 0.4, reach_source="player")
+        self.assertEqual("player", caught.exception.report["parameters"]["reach_source"])
+
+    def test_a_bad_parameter_is_not_a_census_invalid_refusal(self):
+        with self.assertRaises(ValueError) as caught:
+            pts.build_treatment(b"not json", STOCK, 7.0)
+        self.assertEqual("invalid-input", caught.exception.report["refusal"]["kind"])
+
+    def test_the_cli_writes_the_report_and_no_treatment_for_an_unparseable_census(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "census.json").write_bytes(b"not json")
+            (root / "stock.xml").write_bytes(STOCK)
+            out, report_path = root / "out" / "treatment.xml", root / "out" / "report.json"
+            argv = ["--census", str(root / "census.json"), "--stock-proto", str(root / "stock.xml"),
+                    "--output", str(out), "--report", str(report_path)]
+            with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+                self.assertEqual(1, pts.main(argv))
+            self.assertFalse(out.exists())
+            report = json.loads(report_path.read_text())
+            self.assertEqual("census-invalid", report["refusal"]["kind"])
+            self.assertEqual(hash_of(b"not json"), report["census_sha256"])
+
+
+class Round5RefusalReportTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.stock = self.root / "stock.xml"
+        self.stock.write_bytes(STOCK)
+        self.census = self.root / "census.json"
+        self.out, self.report = self.root / "out" / "t.xml", self.root / "out" / "report.json"
+
+    def run_main(self, data, code):
+        self.census.write_bytes(data)
+        argv = ["--census", str(self.census), "--stock-proto", str(self.stock), "--output", str(self.out),
+                "--report", str(self.report), "--min-calibration", "0.4"]
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+            self.assertEqual(code, pts.main(argv))
+        self.assertFalse(self.out.exists())
+        return json.loads(self.report.read_text())
+
+    def test_every_refusal_writes_a_report_with_the_kind_and_the_census_hash(self):
+        no_frame = census_with(full_census(), frame=lambda row: row.pop("frame", None))
+        report = self.run_main(encode(no_frame), 2)
+        self.assertEqual("frame-verdict-missing", report["refusal"]["kind"])
+        self.assertEqual("refused", report["status"])
+
+    def test_an_unparseable_or_incomplete_census_still_writes_a_refusal_report(self):
+        for data, label in ((b"not json", "census-invalid"), (encode(census([], complete=False)), "census-invalid")):
+            self.report = self.root / ("out-%s" % len(data)) / "report.json"
+            self.out = self.report.parent / "t.xml"
+            with self.subTest(label=label):
+                report = self.run_main(data, 1)
+                self.assertEqual("refused", report["status"])
+                self.assertEqual(label, report["refusal"]["kind"])
+                self.assertIn("census_sha256", report)
+
+    def test_a_missing_input_file_writes_a_refusal_report_when_the_report_path_is_valid(self):
+        argv = ["--census", str(self.root / "gone.json"), "--stock-proto", str(self.stock), "--output", str(self.out),
+                "--report", str(self.report)]
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+            self.assertEqual(1, pts.main(argv))
+        self.assertEqual("refused", json.loads(self.report.read_text())["status"])
 
 
 if __name__ == "__main__":

@@ -17,6 +17,15 @@ player-flag filter computed in the same run. ``--reach-source`` selects which on
 (default strict; there is no silent switch and a census without player_codes is refused for player).
 The report carries a per-class eligibility funnel, also when the run is refused, and a refusal
 writes that report (never a treatment).
+
+Round 5 (issue #11). hit[5] and ``player_codes`` are the run with every door AS FOUND; ``open_codes`` and
+``open_player_codes`` are the parallel codes of the run with the unlocked doors OPENED, which is the run that
+gates eligibility. A control only counts when it tested AND its ``entered`` stage (open run) entered the
+building. The run is refused unless the open runs reached strictly more cells than the closed runs (otherwise
+door semantics are unobserved) and unless the sampler recorded a native frame verdict: the stock
+mapgroupproto frame is the sampler frame rotated +90 degrees (stock = (z, y, -x)). Calibration transforms
+stock lootFloor points into the sampler frame and gates on lootFloor only (shelves and weapons are reported,
+not gated); selected points are converted back to the stock frame before they are written.
 """
 import argparse
 from bisect import bisect_left, bisect_right
@@ -51,6 +60,12 @@ DEFAULT_MIN_CALIBRATION = 0.6
 OFF_GRID_TOLERANCE = 0.1
 EPSILON = 1e-9
 FLOOR_CONTAINER = "lootFloor"
+FRAMES = ("as-is", "rot90")
+FRAME_MIN_RECORDS = 4
+FRAME_MIN_FRACTION = 0.8
+FRAME_MIN_MARGIN = 0.25
+MAX_FRAME_RECORDS = 4096
+ENTERED_STATES = ("entered", "not-entered", "untested")
 
 
 class CoverageError(ValueError):
@@ -97,10 +112,19 @@ def parse_census(data):
             if (not isinstance(hit, list) or len(hit) != 6 or not all(_number(v) for v in hit)
                     or hit[3] < 0 or hit[5] not in HIT_CODES):
                 raise ValueError(f"placement {index} has a malformed hit row")
-        player = row.get("player_codes")
-        if player is not None and (not isinstance(player, list) or len(player) != len(hits)
-                                   or not all(_code(v) for v in player)):
-            raise ValueError(f"placement {index} player_codes must parallel the hits with known codes")
+        for key in ("player_codes", "open_codes", "open_player_codes"):
+            codes = row.get(key)
+            if codes is not None and (not isinstance(codes, list) or len(codes) != len(hits)
+                                      or not all(_code(v) for v in codes)):
+                raise ValueError(f"placement {index} {key} must parallel the hits with known codes")
+        frame = row.get("frame")
+        if frame is not None:
+            if not isinstance(frame, list) or len(frame) > MAX_FRAME_RECORDS:
+                raise ValueError(f"placement {index} frame must be a bounded list")
+            for record in frame:
+                if (not isinstance(record, list) or len(record) != 7 or not all(_number(v) for v in record)
+                        or record[3] not in (0, 1) or record[5] not in (0, 1)):
+                    raise ValueError(f"placement {index} has a malformed frame record")
         if row.get("found") is True and row.get("box_source") != "none":
             box = row.get("box_min")
             grid = row.get("grid")
@@ -109,6 +133,70 @@ def parse_census(data):
             if not isinstance(grid, dict) or not _number(grid.get("step")) or grid["step"] <= 0:
                 raise ValueError(f"placement {index} grid step must be a positive number")
     return document
+
+
+def _check_frame(frame):
+    if frame not in FRAMES:
+        raise ValueError(f"frame must be one of {', '.join(FRAMES)}")
+
+
+def stock_to_sampler(point, frame):
+    """Stock mapgroupproto position -> sampler frame. The stock frame is the sampler frame rotated +90."""
+    _check_frame(frame)
+    x, y, z = point[0], point[1], point[2]
+    if frame == "rot90":
+        return (-z + 0.0, y + 0.0, x + 0.0)
+    return (x + 0.0, y + 0.0, z + 0.0)
+
+
+def sampler_to_stock(point, frame):
+    """Exact inverse of stock_to_sampler."""
+    _check_frame(frame)
+    a, y, b = point[0], point[1], point[2]
+    if frame == "rot90":
+        return (b + 0.0, y + 0.0, -a + 0.0)
+    return (a + 0.0, y + 0.0, b + 0.0)
+
+
+def frame_verdict(census):
+    """Native frame verdict from the sampler's vertical raycasts at stock lootFloor points.
+
+    Per calibration class the fraction of stock points whose vertical ray hit the building as-is and under
+    the rotate +90 transform decide the frame: one must reach FRAME_MIN_FRACTION and beat the other by
+    FRAME_MIN_MARGIN (thresholds are provisional). Every calibration class must agree; anything else, or no
+    record, gives verdict None. The verdict only says which transform matched a raycast, nothing about spawning.
+    """
+    classes, verdicts = {}, []
+    for name in CALIBRATION_CLASSES:
+        total = as_is = rotated = 0
+        for row in census["placements"]:
+            if row["class"] != name:
+                continue
+            for record in row.get("frame") or []:
+                total += 1
+                as_is += record[3] == 1
+                rotated += record[5] == 1
+        verdict = None
+        if total >= FRAME_MIN_RECORDS:
+            fa, fr = as_is / total, rotated / total
+            if fr >= FRAME_MIN_FRACTION and fr - fa >= FRAME_MIN_MARGIN:
+                verdict = "rot90"
+            elif fa >= FRAME_MIN_FRACTION and fa - fr >= FRAME_MIN_MARGIN:
+                verdict = "as-is"
+        classes[name] = {"records": total, "as_is_hits": as_is, "rot90_hits": rotated, "verdict": verdict}
+        verdicts.append(verdict)
+    result = {"verdict": None, "classes": classes, "reason": "", "min_records": FRAME_MIN_RECORDS,
+              "min_fraction": FRAME_MIN_FRACTION, "min_margin": FRAME_MIN_MARGIN}
+    if all(v is not None for v in verdicts) and len(set(verdicts)) == 1:
+        result["verdict"] = verdicts[0]
+    elif any(c["records"] == 0 for c in classes.values()):
+        result["reason"] = "no native frame verdict recorded: " + ", ".join(
+            name for name, c in classes.items() if c["records"] == 0) + " carry no frame check records"
+    elif len(set(v for v in verdicts if v is not None)) > 1:
+        result["reason"] = "no native frame verdict: the calibration classes disagree"
+    else:
+        result["reason"] = "no native frame verdict: the raycasts do not separate the frames"
+    return result
 
 
 def _usable(row):
@@ -141,24 +229,83 @@ def _bands(support, tolerance):
     return {height: centres[centre] for height, centre in claimed.items()}
 
 
-def _control_state(row, reach_source):
+def _reach_block(row, reach_source):
     reach = row.get("reach") if isinstance(row.get("reach"), dict) else {}
     if reach_source == "player":
         reach = reach.get("player") if isinstance(reach.get("player"), dict) else {}
-    state = reach.get("state")
+    return reach
+
+
+def _control_state(row, reach_source):
+    state = _reach_block(row, reach_source).get("state")
     return state if isinstance(state, str) else "absent"
 
 
-def _row_codes(row, reach_source, name):
+def _entered(row, reach_source):
+    """The control's entered stage per run: did the control path reach ~1 m inside a door."""
+    block = row.get("entered") if isinstance(row.get("entered"), dict) else {}
+    entered = block.get(reach_source)
+    result = {}
+    for run in ("closed", "open"):
+        value = entered.get(run) if isinstance(entered, dict) else None
+        result[run] = value if value in ENTERED_STATES else "absent"
+    return result
+
+
+def _gate_passed(row, reach_source):
+    """Evidence needs the selected filter's control tested AND entered with the doors opened."""
+    return _control_state(row, reach_source) == "tested" and _entered(row, reach_source)["open"] == "entered"
+
+
+def _closed_codes(row, reach_source):
+    """Codes of the run with the doors as found, or None when the census lacks them."""
     if reach_source == "strict":
         return [hit[5] for hit in row["hits"]]
-    codes = row.get("player_codes")
+    return row.get("player_codes")
+
+
+def _row_codes(row, reach_source, name):
+    """Codes of the run with the doors opened: the codes that gate eligibility. A row without them is unknown."""
+    if reach_source == "strict":
+        codes = row.get("open_codes")
+        return codes if codes is not None else [-1] * len(row["hits"])
+    codes = row.get("open_player_codes")
     if codes is None:
         if row["hits"]:
-            raise ValueError(f"{name}: placement {row.get('i')} has no player_codes; the player reach source "
-                             "needs a census from the round 3 sampler (never falls back to strict)")
+            raise ValueError(f"{name}: placement {row.get('i')} has no open_player_codes; the player reach source "
+                             "needs a census from the round 5 sampler (never falls back to strict)")
         return []
     return codes
+
+
+def door_semantics(census, reach_source):
+    """Do open doors reach strictly more cells than closed doors, over every usable row that passed its gate."""
+    classes, closed_total, open_total, compared = {}, 0, 0, 0
+    doors = {"count": 0, "locked": 0, "opened": 0, "observed_open": 0, "restored": 0, "rows": 0}
+    for name in TENEMENT_CLASSES + CALIBRATION_CLASSES:
+        closed = opened = rows = 0
+        for row in census["placements"]:
+            if row["class"] != name or not _usable(row) or not _gate_passed(row, reach_source):
+                continue
+            open_codes = row.get("open_codes") if reach_source == "strict" else row.get("open_player_codes")
+            closed_codes = _closed_codes(row, reach_source)
+            if open_codes is None or closed_codes is None:
+                continue
+            rows += 1
+            closed += sum(1 for code in closed_codes if code == 1)
+            opened += sum(1 for code in open_codes if code == 1)
+            record = row.get("door_run")
+            if isinstance(record, dict):
+                doors["rows"] += 1
+                for key in ("count", "locked", "opened", "observed_open", "restored"):
+                    doors[key] += record[key] if _number(record.get(key)) else 0
+        classes[name] = {"rows_compared": rows, "closed_reached": closed, "open_reached": opened}
+        closed_total += closed
+        open_total += opened
+        compared += rows
+    return {"reach_source": reach_source, "rows_compared": compared, "closed_reached": closed_total,
+            "open_reached": open_total, "observed": compared > 0 and open_total > closed_total,
+            "classes": classes, "doors": doors}
 
 
 def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=MIN_CLEARANCE,
@@ -168,12 +315,15 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
         raise ValueError(f"reach_source must be one of {', '.join(REACH_SOURCES)}")
     rows = [row for row in census["placements"] if row["class"] == name]
     usable = [row for row in rows if _usable(row)]
-    states = {}
+    states, entered_states = {}, {}
     for row in rows:
         state = _control_state(row, reach_source)
         states[state] = states.get(state, 0) + 1
+        entered = _entered(row, reach_source)["open"]
+        entered_states[entered] = entered_states.get(entered, 0) + 1
     result = {"candidates": [], "usable_placements": len(usable), "rows": len(rows), "reach_mode": "unknown",
-              "off_grid_hits": 0, "step": 1.0, "reach_source": reach_source, "control_states": states}
+              "off_grid_hits": 0, "step": 1.0, "reach_source": reach_source, "control_states": states,
+              "entered_states": entered_states, "gated_rows": sum(1 for row in usable if _gate_passed(row, reach_source))}
     if not usable:
         return result
     step = float(usable[0]["grid"]["step"])
@@ -187,10 +337,11 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
         bx, bz = float(row["box_min"][0]) + row_step / 2.0, float(row["box_min"][2]) + row_step / 2.0
         entries = []
         codes = _row_codes(row, reach_source, name)
-        # An observation is only evidence when the SELECTED filter's control passed on this very row. A
-        # failed, unavailable or missing control (or one where only the other filter passed) makes every
-        # hit of the row unknown; the row stays in the usable denominator, so agreement is never inflated.
-        control_passed = _control_state(row, reach_source) == "tested"
+        # An observation is only evidence when the SELECTED filter's control passed on this very row AND
+        # entered the building with the doors opened. A failed, unavailable, missing or non-entering control
+        # (or one where only the other filter passed) makes every hit of the row unknown; the row stays in
+        # the usable denominator, so agreement is never inflated.
+        control_passed = _gate_passed(row, reach_source)
         for (x, y, z, clearance, ny, _strict), code in zip(row["hits"], codes):
             ix, iz = round((x - bx) / row_step), round((z - bz) / row_step)
             if abs(x - (bx + ix * row_step)) > OFF_GRID_TOLERANCE or abs(z - (bz + iz * row_step)) > OFF_GRID_TOLERANCE:
@@ -305,7 +456,8 @@ def funnel(result, min_agreement):
     return {"status": "computed", "rows": result["rows"], "usable_placements": result["usable_placements"],
             "reach_source": result.get("reach_source", "strict"), "reach_mode": result["reach_mode"],
             "stages": stages, "reach_cells": reach_cells, "reach_observations": observations,
-            "control_states": dict(result.get("control_states", {}))}
+            "control_states": dict(result.get("control_states", {})),
+            "entered_states": dict(result.get("entered_states", {}))}
 
 
 def _parse_xml(data):
@@ -350,28 +502,40 @@ def _covering(candidate_list, point, radius):
     return xz, bool(used), used
 
 
-def calibrate(candidates, stock, radius, min_agreement):
-    """How many stock points lie within ``radius`` of an eligible candidate, and which candidates stock uses."""
+def calibrate(candidates, stock, radius, min_agreement, frame=None, gate_container=FLOOR_CONTAINER):
+    """How many stock points lie within ``radius`` of an eligible candidate, and which candidates stock uses.
+
+    Stock points are moved into the sampler frame first (``frame`` is the native verdict; there is no default).
+    Only ``gate_container`` (lootFloor) counts toward the totals and the gate: a floor sampler cannot cover
+    shelf or weapon containers, so those are reported per container but not gated.
+    """
+    if frame is None:
+        raise ValueError("calibration needs a native frame verdict")
+    _check_frame(frame)
     pool = eligible(candidates["candidates"], candidates["reach_mode"], min_agreement)
     used = set()
     containers = {}
     total = xz_total = v3_total = 0
     for name in sorted(stock):
-        stats = {"points": 0, "xz_covered": 0, "v3_covered": 0}
+        gated = name == gate_container
+        stats = {"points": 0, "xz_covered": 0, "v3_covered": 0, "gated": gated}
         for point in stock[name]:
-            xz, v3, indices = _covering(pool, point, radius)
+            xz, v3, indices = _covering(pool, stock_to_sampler(point, frame), radius)
             stats["points"] += 1
             stats["xz_covered"] += xz
             stats["v3_covered"] += v3
-            used.update(indices)
+            if gated:
+                used.update(indices)
         containers[name] = stats
-        total += stats["points"]
-        xz_total += stats["xz_covered"]
-        v3_total += stats["v3_covered"]
-    return {"radius": radius, "points": total, "xz_covered": xz_total, "v3_covered": v3_total,
-            "xz_coverage": xz_total / total if total else None, "v3_coverage": v3_total / total if total else None,
-            "containers": containers, "candidates": len(pool), "candidates_used": len(used),
-            "candidates_unused": len(pool) - len(used), "reach_mode": candidates["reach_mode"]}
+        if gated:
+            total += stats["points"]
+            xz_total += stats["xz_covered"]
+            v3_total += stats["v3_covered"]
+    return {"radius": radius, "frame": frame, "gate": gate_container, "points": total, "xz_covered": xz_total,
+            "v3_covered": v3_total, "xz_coverage": xz_total / total if total else None,
+            "v3_coverage": v3_total / total if total else None, "containers": containers,
+            "candidates": len(pool), "candidates_used": len(used), "candidates_unused": len(pool) - len(used),
+            "reach_mode": candidates["reach_mode"]}
 
 
 def select_points(candidates, reach_mode, min_agreement, max_per_storey, max_total, spacing):
@@ -440,7 +604,12 @@ def _lootmax_for(count, loot_ratio, max_lootmax):
     return max(1, min(max_lootmax, math.ceil(count * loot_ratio - EPSILON)))
 
 
-def _edit_group(block, points, loot_ratio=0.25, max_lootmax=12):
+def _stock_pos(point, frame):
+    x, y, z = sampler_to_stock((point["x"], point["y"], point["z"]), frame)
+    return "%.6f %.6f %.6f" % (x, y, z)
+
+
+def _edit_group(block, points, loot_ratio=0.25, max_lootmax=12, frame="as-is"):
     eol = "\r\n" if "\r\n" in block else "\n"
     lootmax = _lootmax_for(len(points), loot_ratio, max_lootmax)
     opening = re.match(r"<group\b[^>]*>", block)
@@ -461,8 +630,8 @@ def _edit_group(block, points, loot_ratio=0.25, max_lootmax=12):
         indent = re.match(r"[ \t]*", children[-1]).group(0)
     else:
         indent = block[line_start:close] + "\t"
-    lines = "".join('%s<point pos="%.6f %.6f %.6f" range="%s" height="%s" />%s'
-                    % (indent, p["x"], p["y"], p["z"], POINT_RANGE, POINT_HEIGHT, eol) for p in points)
+    lines = "".join('%s<point pos="%s" range="%s" height="%s" />%s'
+                    % (indent, _stock_pos(p, frame), POINT_RANGE, POINT_HEIGHT, eol) for p in points)
     return (block[:container.start()] + _set_lootmax(container.group(0), lootmax) + block[container.end():line_start]
             + lines + block[line_start:])
 
@@ -475,8 +644,13 @@ def _check_points(points):
             raise ValueError("every point needs bounded finite x, y and z")
 
 
-def write_treatment(stock_bytes, selections, loot_ratio=0.25, max_lootmax=12):
-    """Return stock mapgroupproto bytes with points and lootmax added to the tenement groups only."""
+def write_treatment(stock_bytes, selections, loot_ratio=0.25, max_lootmax=12, frame="as-is"):
+    """Return stock mapgroupproto bytes with points and lootmax added to the tenement groups only.
+
+    ``selections`` are in the sampler frame; ``frame`` is the native verdict used to convert them back to the
+    stock frame the file is written in.
+    """
+    _check_frame(frame)
     unknown = sorted(set(selections) - set(TENEMENT_CLASSES))
     if unknown:
         raise ValueError("only the tenement groups may be treated, not: " + ", ".join(unknown))
@@ -498,13 +672,15 @@ def write_treatment(stock_bytes, selections, loot_ratio=0.25, max_lootmax=12):
         start, end = _group_block(text, name)
         edits.append((start, end, name, points))
     for start, end, name, points in sorted(edits, reverse=True):
-        text = text[:start] + _edit_group(text[start:end], points, loot_ratio=loot_ratio, max_lootmax=max_lootmax) + text[end:]
+        text = text[:start] + _edit_group(text[start:end], points, loot_ratio=loot_ratio, max_lootmax=max_lootmax,
+                                                  frame=frame) + text[end:]
     output = text.encode("utf-8")
-    _verify(stock_bytes, output, before, {name: points for _s, _e, name, points in edits}, loot_ratio, max_lootmax)
+    _verify(stock_bytes, output, before, {name: points for _s, _e, name, points in edits}, loot_ratio, max_lootmax,
+            frame)
     return output
 
 
-def _verify(stock, output, before, edited, loot_ratio, max_lootmax):
+def _verify(stock, output, before, edited, loot_ratio, max_lootmax, frame="as-is"):
     after = {g.get("name"): g for g in _parse_xml(output).iter("group")}
     if set(after) != set(before):
         raise ValueError("treatment changed the set of groups")
@@ -520,7 +696,7 @@ def _verify(stock, output, before, edited, loot_ratio, max_lootmax):
         for container in group.findall("container"):
             written = container.findall("point")
             if container.get("name") == FLOOR_CONTAINER:
-                expected = ["%.6f %.6f %.6f" % (p["x"], p["y"], p["z"]) for p in points]
+                expected = [_stock_pos(p, frame) for p in points]
                 if [w.get("pos") for w in written] != expected or container.get("lootmax") != lootmax:
                     raise ValueError(f"treatment points of {name} do not match the selection")
             elif written or container.get("lootmax") != "0":
@@ -563,8 +739,34 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
                     allow_empty_classes=False, reach_source="strict"):
     """Return (treatment bytes, report). Raise CoverageError when calibration is missing or too low.
 
-    A refusal that has a census to describe carries ``error.report`` with the per-class funnel.
+    Every refusal carries ``error.report`` (status, reason, census/stock hashes, whatever was analysed); the
+    CLI writes it. Nothing is ever written as a treatment on a refusal.
     """
+    base = {
+        "kind": "interior-points-report", "schema_version": 2,
+        "note": "offline aggregation of a native census; candidate only, spawning is not accepted by this tool",
+        "parameters": {"radius": radius, "max_per_storey": max_per_storey, "max_total": max_total,
+                       "spacing": spacing, "loot_ratio": loot_ratio, "max_lootmax": max_lootmax,
+                       "min_agreement": min_agreement, "min_clearance": MIN_CLEARANCE, "max_slope": MAX_SLOPE,
+                       "band_tolerance": BAND_TOLERANCE, "height_spread_bound": HEIGHT_SPREAD_BOUND,
+                       "reach_source": reach_source, "min_calibration": min_calibration},
+        "funnel": {},
+        "stock_mapgroupproto_sha256": hashlib.sha256(stock_bytes).hexdigest()
+        if isinstance(stock_bytes, (bytes, bytearray)) else None,
+        "census_sha256": hashlib.sha256(census_bytes).hexdigest()
+        if isinstance(census_bytes, (bytes, bytearray)) else None,
+    }
+    try:
+        return _build(census_bytes, stock_bytes, base, min_calibration, radius, max_per_storey, max_total, spacing,
+                      loot_ratio, max_lootmax, min_agreement, allow_empty_classes, reach_source)
+    except ValueError as error:
+        if getattr(error, "report", None) is None:
+            raise _refusal(error, "invalid-input", base)
+        raise
+
+
+def _build(census_bytes, stock_bytes, base, min_calibration, radius, max_per_storey, max_total, spacing,
+           loot_ratio, max_lootmax, min_agreement, allow_empty_classes, reach_source):
     if reach_source not in REACH_SOURCES:
         raise ValueError(f"reach_source must be one of {', '.join(REACH_SOURCES)}")
     _bounded("min_calibration", min_calibration, 0.0, 1.0)
@@ -575,25 +777,16 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
     _bounded("loot_ratio", loot_ratio, 0.01, 1.0)
     _bounded("max_lootmax", max_lootmax, 1, 64, integer=True)
     _bounded("min_agreement", min_agreement, 0.01, 1.0)
-    census = parse_census(census_bytes)
-    parameters = {"radius": radius, "max_per_storey": max_per_storey, "max_total": max_total,
-                  "spacing": spacing, "loot_ratio": loot_ratio, "max_lootmax": max_lootmax,
-                  "min_agreement": min_agreement, "min_clearance": MIN_CLEARANCE, "max_slope": MAX_SLOPE,
-                  "band_tolerance": BAND_TOLERANCE, "height_spread_bound": HEIGHT_SPREAD_BOUND,
-                  "reach_source": reach_source}
-    base = {
-        "kind": "interior-points-report", "schema_version": 1,
-        "note": "offline aggregation of a native census; candidate only, spawning is not accepted by this tool",
-        "parameters": parameters, "funnel": {},
-        "stock_mapgroupproto_sha256": hashlib.sha256(stock_bytes).hexdigest(),
-        "census_sha256": hashlib.sha256(census_bytes).hexdigest(),
-    }
+    try:
+        census = parse_census(census_bytes)
+    except ValueError as problem:
+        raise _refusal(problem, "census-invalid", base)
     analysed, funnels, unavailable = {}, base["funnel"], []
     for name in TENEMENT_CLASSES + CALIBRATION_CLASSES:
         try:
             analysed[name] = class_candidates(census, name, reach_source=reach_source)
         except ValueError as problem:
-            # The requested source cannot be computed from this census (a legacy census has no player_codes).
+            # The requested source cannot be computed from this census (a legacy census has no open codes).
             # Say so per class; never substitute the other source's codes.
             funnels[name] = {"status": "not-computable", "reach_source": reach_source, "refusal": str(problem)}
             unavailable.append(str(problem))
@@ -601,19 +794,37 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
         funnels[name] = funnel(analysed[name], min_agreement)
     if unavailable:
         raise _refusal(ValueError("; ".join(unavailable)), "reach-source-unavailable", base)
+    frame = frame_verdict(census)
+    base["frame"] = frame
+    if frame["verdict"] is None:
+        raise _refusal(CoverageError(frame["reason"] + "; the builder refuses to guess the stock frame"),
+                       "frame-verdict-missing", base)
+    blind = [name for name in CALIBRATION_CLASSES if analysed[name]["usable_placements"] and not analysed[name]["gated_rows"]]
+    if blind:
+        raise _refusal(CoverageError("control did not enter the building (tested control with the doors opened "
+                                     "and an entered stage are required) for " + ", ".join(blind)),
+                       "control-not-entered", base)
+    semantics = door_semantics(census, reach_source)
+    base["door_semantics"] = semantics
+    if not semantics["observed"]:
+        raise _refusal(CoverageError(
+            "door semantics unobserved: the run with the doors opened reached %d cells, the run with the doors as "
+            "found %d (rows compared %d); open must reach strictly more"
+            % (semantics["open_reached"], semantics["closed_reached"], semantics["rows_compared"])),
+            "door-semantics-unobserved", base)
     calibration, missing = {}, []
     for name in CALIBRATION_CLASSES:
         candidates = analysed[name]
         stock = parse_stock_points(stock_bytes, name)
         if not candidates["usable_placements"]:
             missing.append(f"{name} (no usable placement)")
-        elif not any(stock.values()):
-            missing.append(f"{name} (no stock points)")
+        elif not stock.get(FLOOR_CONTAINER):
+            missing.append(f"{name} (no stock {FLOOR_CONTAINER} points)")
         else:
-            calibration[name] = calibrate(candidates, stock, radius, min_agreement)
+            calibration[name] = calibrate(candidates, stock, radius, min_agreement, frame=frame["verdict"])
             calibration[name]["usable_placements"] = candidates["usable_placements"]
     if missing:
-        base["calibration"] = {"passed": False, "missing": missing, "classes": calibration}
+        base["calibration"] = {"passed": False, "missing": missing, "classes": calibration, "frame": frame}
         raise _refusal(CoverageError("calibration data missing for " + ", ".join(missing)
                                      + "; every calibration class is required"), "calibration-missing", base)
     coverage = min(entry["v3_coverage"] for entry in calibration.values())
@@ -621,17 +832,19 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
     worst = min(calibration, key=lambda name: calibration[name]["v3_coverage"])
     passed = coverage >= min_calibration - EPSILON
     base["calibration"] = {"passed": passed, "min_coverage": coverage, "min_xz_coverage": xz_coverage,
-                           "gate": "vertical (3D) coverage", "threshold": min_calibration,
-                           "classes": calibration}
+                           "gate": "vertical (3D) coverage of %s points only" % FLOOR_CONTAINER,
+                           "threshold": min_calibration, "frame": frame, "classes": calibration}
     if not passed:
         raise _refusal(CoverageError(f"calibration vertical (3D) coverage {coverage:.3f} ({worst}, radius {radius}, "
-                                     f"xz-only {xz_coverage:.3f}) is below the threshold {min_calibration:.3f}"),
-                       "calibration", base)
+                                     f"xz-only {xz_coverage:.3f}, frame {frame['verdict']}) is below the threshold "
+                                     f"{min_calibration:.3f}"), "calibration", base)
     selections, classes, empty = {}, {}, []
     for name in TENEMENT_CLASSES:
         candidates = analysed[name]
         chosen = select_points(candidates["candidates"], candidates["reach_mode"], min_agreement, max_per_storey,
                                max_total, spacing)
+        for point in chosen:
+            point["stock"] = [round(v, 6) for v in sampler_to_stock((point["x"], point["y"], point["z"]), frame["verdict"])]
         if not chosen:
             empty.append(f"{name}: no eligible candidates (usable placements {candidates['usable_placements']}, "
                          f"reachability {candidates['reach_mode']}, source {reach_source}; unknown reachability "
@@ -648,12 +861,14 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
     if empty and not allow_empty_classes:
         base["classes"] = classes
         raise _refusal(ValueError("; ".join(empty)), "no-eligible-candidates", base)
-    treatment = write_treatment(stock_bytes, selections, loot_ratio=loot_ratio, max_lootmax=max_lootmax)
+    treatment = write_treatment(stock_bytes, selections, loot_ratio=loot_ratio, max_lootmax=max_lootmax,
+                                frame=frame["verdict"])
     report = dict(base)
     report["status"] = "ok"
     report["classes"] = classes
     report["treatment"] = {"sha256": hashlib.sha256(treatment).hexdigest(), "bytes": len(treatment),
-                           "groups_changed": sorted(name for name, chosen in selections.items() if chosen)}
+                           "groups_changed": sorted(name for name, chosen in selections.items() if chosen),
+                           "stock_frame": frame["verdict"]}
     return treatment, report
 
 
@@ -679,14 +894,21 @@ def _output_path(value):
 
 
 def _write_refusal(path, error):
-    """Write the refusal report (funnel and reason) next to where the run report would go; never a treatment."""
-    report = getattr(error, "report", None)
-    if path is None or report is None:
+    """Write the refusal report next to where the run report would go; never a treatment.
+
+    A refusal that never got far enough to build a report (unreadable census, bad arguments) still writes a
+    minimal one saying why.
+    """
+    if path is None:
         return
+    report = getattr(error, "report", None)
+    if report is None:
+        report = {"kind": "interior-points-report", "schema_version": 2, "status": "refused",
+                  "refusal": {"kind": "input-error", "message": str(error)}}
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "x", encoding="utf-8") as stream:
-            json.dump(report, stream, indent=2, sort_keys=True)
+            json.dump(report, stream, indent=2, sort_keys=True, default=str)
             stream.write("\n")
     except OSError as problem:
         print(f"interior_points: refusal report not written: {problem}", file=sys.stderr)
@@ -714,7 +936,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     report_path = None
     try:
-        output, report_path = _output_path(args.output), _output_path(args.report)
+        report_path = _output_path(args.report)
+        output = _output_path(args.output)
         if output == report_path:
             raise ValueError("output and report must differ")
         census = _read_bounded(args.census, MAX_CENSUS_BYTES)
