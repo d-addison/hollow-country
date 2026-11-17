@@ -1,6 +1,20 @@
 // Supplementary local attention graph. All emissions originate in the installed
 // native animation voice path. Receiving a clue never forces a sound or creates
 // a synthetic NoiseTarget. Each next hop waits for a real native vocalization.
+// Stimulus category/provenance contract: HCHordeStimulus.c. Only actual local
+// native voice supplies provenance 1; strength halves per hop, expiry is rooted.
+// Native surface inspected in the installed scripts-1.30.164289 snapshot at
+// /home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/:
+// 3_Game/gameplay.c:636 GetGame; 3_Game/Global/Game.c:1120 IsServer;
+// 3_Game/Entities/Object.c:517 IsAlive, :287 GetPosition;
+// 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
+// :556 native voice callback; 3_Game/Entities/DayZInfected.c:13 MINDSTATE_CALM;
+// 3_Game/constants.c:33/:34 fire/view geometry constants;
+// 1_Core/proto/EnMath.c:553 Math.Min; 1_Core/proto/EnConvert.c:210 DistanceSq;
+// 3_Game/Global/DayZPhysics.c:199 RaycastRV (out locals declared before calls);
+// 1_Core/proto/EnScript.c:380/:385/:394/:407/:463 array Count/Clear/Find/Insert/Remove,
+// :743/:744 set Count/Clear. Geometry is a conservative relay gate, not proof of
+// native hearing or rendered audio. Two-client runtime qualification is pending.
 class HCAlertRoot
 {
     int RootId;
@@ -90,6 +104,7 @@ class HCAlertChain
             m_Roots.Insert(root);
             // The seed cannot hear itself or relay its own root again.
             actor.Heard = new HCInfectedClue;
+            actor.Heard.Provenance = 1;
             actor.Heard.Observed = now;
             actor.Heard.Expires = root.RootExpires;
             actor.Heard.Hops = 0;
@@ -105,6 +120,7 @@ class HCAlertChain
         m_RecipientCursor = HCInfectedPolicy.NextAdoptionCursor(m_RecipientCursor, trackedCount);
         emission.Root = root;
         emission.Clue = new HCInfectedClue;
+        emission.Clue.Provenance = 1;
         emission.Clue.Origin = actor.InfectedEntity.GetPosition();
         if (!HCInfectedStore.ValidPosition(emission.Clue.Origin))
             return;
