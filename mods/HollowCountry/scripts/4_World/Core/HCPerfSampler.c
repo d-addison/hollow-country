@@ -7,11 +7,17 @@
 // proto native int TickCount(int prev) (1_Core/proto/EnSystem.c:106: ticks between prev and now).
 // The TickCount unit is NOT documented and vanilla never calls it, so work is passed in as raw ticks and
 // converted per window: ticks_per_ms = TickCount(window start) / server-clock milliseconds of the window.
-// Both are deltas, so int wrap is not a concern while the window stays at or below 120 s (1.2e9 ticks at 10 MHz).
-// A non-positive delta or interval prints calibration=invalid and omits every work_* value.
+// Both are deltas, so int wrap is not a concern while the window stays at or below 120 s at the observed rate
+// (about 10000 ticks per ms, so 1.2 billion ticks per 120 s window, below 2^31).
+// A negative or zero delta, an interval longer than twice the window clamp, or a ticks_per_ms outside
+// [HC_PERF_MIN_TICKS_PER_MS, HC_PERF_MAX_TICKS_PER_MS] prints calibration=invalid and omits every work_* value.
+// Players: the count is read at every sample; the line carries the window minimum and maximum.
+// The line is printed through the expression "" + report. Print(report) with a variable makes the engine print
+// the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
 const int HC_PERF_MAX_WINDOW_SECONDS = 120;
 const float HC_PERF_MIN_TICKS_PER_MS = 0.01;
+const float HC_PERF_MAX_TICKS_PER_MS = 100000.0;
 
 class HCPerfSampler
 {
@@ -22,6 +28,8 @@ class HCPerfSampler
     protected int m_Cursor;
     protected float m_TickMax;
     protected int m_WorkMaxTicks;
+    protected int m_PlayersMin;
+    protected int m_PlayersMax;
     protected int m_WindowTick0;
     protected float m_WindowTime0;
     protected ref array<float> m_Ticks = new array<float>();
@@ -58,6 +66,7 @@ class HCPerfSampler
         if (!m_Active) return;
         float tickMs = elapsedSeconds * 1000;
         int safeTicks = workTicks;
+        int playerCount = CountPlayers();
         if (tickMs < 0) tickMs = 0;
         if (safeTicks < 0) safeTicks = 0;
         // Both buffers share one cursor; it only moves once the ring was already full before this sample.
@@ -71,6 +80,9 @@ class HCPerfSampler
         }
         if (tickMs > m_TickMax) m_TickMax = tickMs;
         if (safeTicks > m_WorkMaxTicks) m_WorkMaxTicks = safeTicks;
+        if (m_PlayersMin < 0) m_PlayersMin = playerCount;
+        if (playerCount < m_PlayersMin) m_PlayersMin = playerCount;
+        if (playerCount > m_PlayersMax) m_PlayersMax = playerCount;
         if (elapsedSeconds > 0) m_WindowElapsed += elapsedSeconds;
         if (m_WindowElapsed >= m_WindowSeconds) EmitWindow();
     }
@@ -99,6 +111,8 @@ class HCPerfSampler
         m_Cursor = 0;
         m_TickMax = 0;
         m_WorkMaxTicks = 0;
+        m_PlayersMin = -1;
+        m_PlayersMax = 0;
         m_WindowTick0 = TickCount(0);
         m_WindowTime0 = 0;
         if (GetGame()) m_WindowTime0 = GetGame().GetTickTime();
@@ -155,8 +169,12 @@ class HCPerfSampler
         float intervalMs = 0;
         if (GetGame()) intervalMs = (GetGame().GetTickTime() - m_WindowTime0) * 1000;
         float ticksPerMs = 0;
-        if (ticksDelta > 0 && intervalMs > 0) ticksPerMs = ticksDelta / intervalMs;
-        bool calibrated = ticksPerMs >= HC_PERF_MIN_TICKS_PER_MS;
+        bool calibrated = false;
+        if (ticksDelta > 0 && intervalMs > 0 && intervalMs <= HC_PERF_MAX_WINDOW_SECONDS * 2000)
+        {
+            ticksPerMs = ticksDelta / intervalMs;
+            calibrated = ticksPerMs >= HC_PERF_MIN_TICKS_PER_MS && ticksPerMs <= HC_PERF_MAX_TICKS_PER_MS;
+        }
         string report = "[HC Perf] window=" + m_WindowIndex.ToString();
         report = report + " samples=" + m_Ticks.Count().ToString();
         report = report + " tick_p50=" + FormatMs(Percentile(m_SortedTicks, 50));
@@ -169,10 +187,11 @@ class HCPerfSampler
             report = report + " work_p95=" + FormatMs(Percentile(m_SortedWorks, 95) / ticksPerMs);
             report = report + " work_max=" + FormatMs(m_WorkMaxTicks / ticksPerMs);
         }
-        report = report + " players=" + CountPlayers().ToString();
+        report = report + " players_min=" + m_PlayersMin.ToString();
+        report = report + " players_max=" + m_PlayersMax.ToString();
         if (calibrated) report = report + " ticks_per_ms=" + FormatMs(ticksPerMs);
         if (!calibrated) report = report + " calibration=invalid";
-        Print(report);
+        Print("" + report);
         ResetWindow();
     }
 }
