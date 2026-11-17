@@ -1,0 +1,215 @@
+[
+  {
+    "id": "baseline",
+    "file": null,
+    "old": "",
+    "new": "",
+    "exit": 0,
+    "outcome": "PASS",
+    "failed_tests": [],
+    "review_behavior_exit": 0,
+    "review_behavior_failed_tests": [],
+    "existing_perception_exit": 0,
+    "existing_perception_failed_tests": [],
+    "existing_interiors_exit": 0
+  },
+  {
+    "id": "a1_remove_schedule",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+    "old": "HCInteriorPathgraph.Schedule(created);",
+    "new": "",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_place_candidate_updates_only_created_props_after_the_whole_batch (test_native_wiring_batch_a.PathgraphTests.test_place_candidate_updates_only_created_props_after_the_whole_batch)"
+    ]
+  },
+  {
+    "id": "a1_raise_cap",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+    "old": "MAX_OBJECTS = 8;",
+    "new": "MAX_OBJECTS = 800;",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_batch_is_bounded_skips_null_and_requires_server (test_native_wiring_batch_a.PathgraphTests.test_batch_is_bounded_skips_null_and_requires_server)"
+    ]
+  },
+  {
+    "id": "a1_wrong_delay",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+    "old": "DELAY_MS = 100;",
+    "new": "DELAY_MS = 1000;",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_each_placed_prop_gets_one_short_vanilla_style_deferred_update (test_native_wiring_batch_a.PathgraphTests.test_each_placed_prop_gets_one_short_vanilla_style_deferred_update)"
+    ]
+  },
+  {
+    "id": "a1_repeat_updates",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+    "old": "DELAY_MS, false, placedObject",
+    "new": "DELAY_MS, true, placedObject",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_each_placed_prop_gets_one_short_vanilla_style_deferred_update (test_native_wiring_batch_a.PathgraphTests.test_each_placed_prop_gets_one_short_vanilla_style_deferred_update)",
+      "FAIL: test_source_uses_only_the_vanilla_call_later_form_with_no_retained_queue (test_native_wiring_batch_a.PathgraphTests.test_source_uses_only_the_vanilla_call_later_form_with_no_retained_queue)"
+    ]
+  },
+  {
+    "id": "a1_no_server_guard",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+    "old": " || !GetGame().IsServer()",
+    "new": "",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_batch_is_bounded_skips_null_and_requires_server (test_native_wiring_batch_a.PathgraphTests.test_batch_is_bounded_skips_null_and_requires_server)"
+    ]
+  },
+  {
+    "id": "a1_no_null_prop_guard",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c",
+    "old": "if (!placedObject) continue;",
+    "new": "",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_batch_is_bounded_skips_null_and_requires_server (test_native_wiring_batch_a.PathgraphTests.test_batch_is_bounded_skips_null_and_requires_server)"
+    ]
+  },
+  {
+    "id": "a1_dead_schedule_branch",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+    "old": "HCInteriorPathgraph.Schedule(created);",
+    "new": "if (false) { HCInteriorPathgraph.Schedule(created); }",
+    "exit": 0,
+    "outcome": "SURVIVED",
+    "failed_tests": [],
+    "review_behavior_exit": 1,
+    "review_behavior_failed_tests": [
+      "FAIL: test_reused_props_are_neither_requeued_nor_duplicated_in_ownership (__main__.PlacementIntegration.test_reused_props_are_neither_requeued_nor_duplicated_in_ownership)",
+      "FAIL: test_success_queues_new_props_after_orientation_and_ownership (__main__.PlacementIntegration.test_success_queues_new_props_after_orientation_and_ownership)"
+    ],
+    "existing_interiors_exit": 0
+  },
+  {
+    "id": "a1_return_before_schedule",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+    "old": "foreach (Object ownedObject : created) m_Objects.Insert(ownedObject);",
+    "new": "foreach (Object ownedObject : created) m_Objects.Insert(ownedObject);\n        return;",
+    "exit": 0,
+    "outcome": "SURVIVED",
+    "failed_tests": [],
+    "review_behavior_exit": 1,
+    "review_behavior_failed_tests": [
+      "FAIL: test_reused_props_are_neither_requeued_nor_duplicated_in_ownership (__main__.PlacementIntegration.test_reused_props_are_neither_requeued_nor_duplicated_in_ownership)",
+      "FAIL: test_success_queues_new_props_after_orientation_and_ownership (__main__.PlacementIntegration.test_success_queues_new_props_after_orientation_and_ownership)"
+    ],
+    "existing_interiors_exit": 0
+  },
+  {
+    "id": "a1_remove_rollback_return",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+    "old": "Print(\"[HC Interiors] partial layout rolled back; no search site\");\n                return;",
+    "new": "Print(\"[HC Interiors] partial layout rolled back; no search site\");",
+    "exit": 0,
+    "outcome": "SURVIVED",
+    "failed_tests": [],
+    "review_behavior_exit": 1,
+    "review_behavior_failed_tests": [
+      "ERROR: test_partial_failure_deletes_only_new_props_and_never_schedules (__main__.PlacementIntegration.test_partial_failure_deletes_only_new_props_and_never_schedules)"
+    ],
+    "existing_interiors_exit": 0
+  },
+  {
+    "id": "a1_queue_reused_props",
+    "file": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+    "old": "if (object) created.Insert(object);\n            }",
+    "new": "}\n            if (object) created.Insert(object);",
+    "exit": 0,
+    "outcome": "SURVIVED",
+    "failed_tests": [],
+    "review_behavior_exit": 1,
+    "review_behavior_failed_tests": [
+      "FAIL: test_reused_props_are_neither_requeued_nor_duplicated_in_ownership (__main__.PlacementIntegration.test_reused_props_are_neither_requeued_nor_duplicated_in_ownership)"
+    ],
+    "existing_interiors_exit": 0
+  },
+  {
+    "id": "a17_enable_visual_sampling",
+    "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
+    "old": "static bool VisualSamplingAvailable()\n    {\n        return false;",
+    "new": "static bool VisualSamplingAvailable()\n    {\n        return true;",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_visual_provenance_is_assigned_in_exactly_one_gated_place (test_native_wiring_batch_a.NoiseIntakeTests.test_visual_provenance_is_assigned_in_exactly_one_gated_place)"
+    ]
+  },
+  {
+    "id": "a17_invert_visual_gate",
+    "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
+    "old": "if (!visualObserved)",
+    "new": "if (visualObserved)",
+    "exit": 0,
+    "outcome": "SURVIVED",
+    "failed_tests": [],
+    "review_behavior_exit": 0,
+    "review_behavior_failed_tests": [],
+    "existing_perception_exit": 1,
+    "existing_perception_failed_tests": [
+      "FAIL: test_unknown_visual_provenance_does_not_acquire_hidden_coordinates (test_infected_perception.InfectedPerceptionTests.test_unknown_visual_provenance_does_not_acquire_hidden_coordinates) (mind=2)",
+      "FAIL: test_unknown_visual_provenance_does_not_acquire_hidden_coordinates (test_infected_perception.InfectedPerceptionTests.test_unknown_visual_provenance_does_not_acquire_hidden_coordinates) (mind=3)"
+    ]
+  },
+  {
+    "id": "a17_noise_target",
+    "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+    "old": "super.ProcessSoundVoiceEvent(sound_event, aw);",
+    "new": "super.ProcessSoundVoiceEvent(sound_event, aw);\n        if (GetGame().IsServer() && sound_event.m_NoiseParams) GetGame().GetNoiseSystem().AddNoiseTarget(GetPosition(), 1, sound_event.m_NoiseParams);",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_hc_never_creates_noise_or_noise_targets_and_has_no_noise_callback (test_native_wiring_batch_a.NoiseIntakeTests.test_hc_never_creates_noise_or_noise_targets_and_has_no_noise_callback)",
+      "FAIL: test_native_voice_adapter_runs_after_super_and_emits_no_second_noise (test_native_wiring_batch_a.VoiceNoiseTests.test_native_voice_adapter_runs_after_super_and_emits_no_second_noise)"
+    ]
+  },
+  {
+    "id": "c4_remove_super",
+    "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+    "old": "super.ProcessSoundVoiceEvent(sound_event, aw);",
+    "new": "",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "ERROR: test_native_voice_adapter_runs_after_super_and_emits_no_second_noise (test_native_wiring_batch_a.VoiceNoiseTests.test_native_voice_adapter_runs_after_super_and_emits_no_second_noise)",
+      "FAIL: test_override_calls_super_unconditionally_as_its_first_statement (test_native_wiring_batch_a.VoiceNoiseTests.test_override_calls_super_unconditionally_as_its_first_statement)"
+    ]
+  },
+  {
+    "id": "c4_conditional_super",
+    "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+    "old": "super.ProcessSoundVoiceEvent(sound_event, aw);",
+    "new": "if (GetGame().IsServer()) { super.ProcessSoundVoiceEvent(sound_event, aw); }",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_override_calls_super_unconditionally_as_its_first_statement (test_native_wiring_batch_a.VoiceNoiseTests.test_override_calls_super_unconditionally_as_its_first_statement)"
+    ]
+  },
+  {
+    "id": "c4_super_after_adapter",
+    "file": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+    "old": "super.ProcessSoundVoiceEvent(sound_event, aw);",
+    "new": "HCInfectedModule.Instance.NativeVoice(this, sound_event);\n        super.ProcessSoundVoiceEvent(sound_event, aw);",
+    "exit": 1,
+    "outcome": "KILLED",
+    "failed_tests": [
+      "FAIL: test_native_voice_adapter_runs_after_super_and_emits_no_second_noise (test_native_wiring_batch_a.VoiceNoiseTests.test_native_voice_adapter_runs_after_super_and_emits_no_second_noise)",
+      "FAIL: test_override_calls_super_unconditionally_as_its_first_statement (test_native_wiring_batch_a.VoiceNoiseTests.test_override_calls_super_unconditionally_as_its_first_statement)"
+    ]
+  }
+]

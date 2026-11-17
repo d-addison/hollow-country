@@ -1,0 +1,10 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c
+@@ -356,7 +356,6 @@
+                 m_Store.HoldSlot(candidate.SlotId, "partial-placement");
+                 foreach (Object partial : created) GetGame().ObjectDelete(partial);
+                 Print("[HC Interiors] partial layout rolled back; no search site");
+-                return;
+             }
+             vector orientation = prop.Orientation;
+             orientation[0] = orientation[0] + building.GetOrientation()[0];

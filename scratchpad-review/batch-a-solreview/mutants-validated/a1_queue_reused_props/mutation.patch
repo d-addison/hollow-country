@@ -1,0 +1,13 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c
+@@ -349,8 +349,8 @@
+             if (!object)
+             {
+                 object = GetGame().CreateObjectEx(prop.Type, building.ModelToWorld(prop.Position), flags, RF_IGNORE);
+-                if (object) created.Insert(object);
+-            }
++                }
++            if (object) created.Insert(object);
+             if (!object)
+             {
+                 m_Store.HoldSlot(candidate.SlotId, "partial-placement");

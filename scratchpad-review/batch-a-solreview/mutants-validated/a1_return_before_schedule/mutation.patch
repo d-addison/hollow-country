@@ -1,0 +1,10 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c
+@@ -373,6 +373,7 @@
+             }
+         }
+         foreach (Object ownedObject : created) m_Objects.Insert(ownedObject);
++        return;
+         HCInteriorPathgraph.Schedule(created);
+         if (site && !FindSite(site.Target)) m_Sites.Insert(site);
+     }

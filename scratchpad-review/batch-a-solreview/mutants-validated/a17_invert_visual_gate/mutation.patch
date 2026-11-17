@@ -1,0 +1,11 @@
+--- a/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c
++++ b/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c
+@@ -508,7 +508,7 @@
+         if (mind != DayZInfectedConstants.MINDSTATE_CHASE && mind != DayZInfectedConstants.MINDSTATE_FIGHT)
+             return false;
+         bool visualObserved = HCInfectedObservation.VisualProvenanceEstablished(controller);
+-        if (!visualObserved)
++        if (visualObserved)
+             return false;
+         // GetTargetEntity may retain an occluded target. It is only a candidate
+         // for this bounded sensor check, never directly a pursuit destination.

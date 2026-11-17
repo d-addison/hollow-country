@@ -1,0 +1,11 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
+@@ -26,7 +26,7 @@
+         {
+             Object placedObject = placed[index];
+             index++;
+-            if (!placedObject) continue;
++            
+             GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, DELAY_MS, false, placedObject);
+             scheduled++;
+         }

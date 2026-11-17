@@ -1,0 +1,11 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
+@@ -18,7 +18,7 @@
+     // batch was placed, oriented and recorded; never for a rolled-back layout.
+     static int Schedule(array<Object> placed)
+     {
+-        if (!placed || !GetGame() || !GetGame().IsServer()) return 0;
++        if (!placed || !GetGame()) return 0;
+         int count = Math.Min(placed.Count(), MAX_OBJECTS);
+         int scheduled = 0;
+         int index = 0;

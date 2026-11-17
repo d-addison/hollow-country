@@ -1,0 +1,10 @@
+--- a/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c
++++ b/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c
+@@ -65,6 +65,7 @@
+         // Exactly one native render/hearing path, including native environment
+         // attenuation. A noise parameter is not proof a human client heard it.
+         super.ProcessSoundVoiceEvent(sound_event, aw);
++        if (GetGame().IsServer() && sound_event.m_NoiseParams) GetGame().GetNoiseSystem().AddNoiseTarget(GetPosition(), 1, sound_event.m_NoiseParams);
+         if (GetGame().IsServer() && HCInfectedModule.Instance)
+             HCInfectedModule.Instance.NativeVoice(this, sound_event);
+     }

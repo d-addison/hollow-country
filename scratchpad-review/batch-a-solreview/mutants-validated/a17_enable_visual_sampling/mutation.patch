@@ -1,0 +1,11 @@
+--- a/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c
++++ b/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c
+@@ -484,7 +484,7 @@
+     // observed evidence source, so no sampling slot is spent on a known no-op.
+     static bool VisualSamplingAvailable()
+     {
+-        return false;
++        return true;
+     }
+ 
+     static bool VisualProvenanceEstablished(DayZInfectedInputController controller)

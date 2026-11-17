@@ -1,0 +1,11 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
+@@ -12,7 +12,7 @@
+ {
+     // A layout places at most 5 props (HCInteriorsModule.m_PropLimit); the cap is a backstop.
+     static const int MAX_OBJECTS = 8;
+-    static const int DELAY_MS = 100;
++    static const int DELAY_MS = 1000;
+ 
+     // Returns how many deferred updates were queued. Call only after the whole
+     // batch was placed, oriented and recorded; never for a rolled-back layout.

@@ -1,0 +1,11 @@
+--- a/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
++++ b/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorPathgraph.c
+@@ -27,7 +27,7 @@
+             Object placedObject = placed[index];
+             index++;
+             if (!placedObject) continue;
+-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, DELAY_MS, false, placedObject);
++            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, DELAY_MS, true, placedObject);
+             scheduled++;
+         }
+         Print("[HC Interiors] pathgraph update queued for " + scheduled.ToString() + " of " + placed.Count().ToString() + " placed prop(s)");
