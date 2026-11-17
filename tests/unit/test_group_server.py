@@ -81,7 +81,7 @@ def execute_member(source, name, env, *args):
             token=bare[2]+' = '+{'int':'0','float':'0.0','bool':'False','string':"''"}.get(bare[1],'None')
         token=re.sub(r'\b(?:int|float|bool|string|vector|ScriptRPC|HCGroup\w+)\s+(?=\w+\s*=)','',token)
         token=re.sub(r'\bm_\w+\b',lambda m:'self.'+m[0],token)
-        for method in ('Fault','PathFor','Live','Peer','HasGPS','Member','SendSnapshot'):
+        for method in ('Fault','PathFor','Live','Peer','HasGPS','Member','SendSnapshot','VisibilityAllows'):
             token=re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(',token)
         token=token.replace('HCGroupRules.','')
         token=token.replace('&&',' and ').replace('||',' or ')
@@ -89,6 +89,7 @@ def execute_member(source, name, env, *args):
         for original,target in [('true','True'),('false','False'),('null','None')]:
             token=re.sub(r'\b'+original+r'\b',target,token)
         if token.startswith('if ('): token='if '+token[4:-1]+':'
+        elif token.startswith('while ('): token='while '+token[7:-1]+':'
         elif token.startswith('foreach ('):
             loop=re.fullmatch(r'foreach \(\w+ (\w+) : (.+)\)',token)
             token=f'for {loop[1]} in {loop[2]}:'
@@ -128,7 +129,7 @@ def translated_rules():
             return instance
         env[match[1]] = make
     source = re.sub(r'//[^\n]*', '', source)
-    for match in re.finditer(r'static ([\w<>]+) (\w+)\(([^)]*)\)\s*\{', source):
+    for match in re.finditer(r'static ([\w<> ]+?) (\w+)\(([^)]*)\)\s*\{', source):
         args = [a.strip().split()[-1] for a in match[3].split(',') if a.strip()]
         lines, indent = [f'def {match[2]}({", ".join(args)}):'], 1
         for token in re.split(r'([{};])', body(source, match.end())):
@@ -267,9 +268,9 @@ class GroupServerTests(unittest.TestCase):
             self.assertEqual(self.code.INVALID,self.apply('alice',self.op.MARKER_CREATE,Name='Bad',Position=position))
         self.assertEqual(self.code.INVALID,self.apply('alice',self.op.MARKER_CREATE,Name='A',Note='x'*513))
 
-    def test_validated_settings_disable_unknown_restriction_capabilities(self):
+    def test_validated_settings_reject_invalid_bounds(self):
         self.assertTrue(self.e['SettingsValid'](self.cfg))
-        for field,value in [('MaxMembers',0),('MaxMembers',91),('MaxMarkers',257),('PositionIntervalSeconds',math.nan),('RequireLOS',True),('RequireRadio',True),('KeepRevisions',1)]:
+        for field,value in [('MaxMembers',0),('MaxMembers',91),('MaxMarkers',257),('PositionIntervalSeconds',math.nan),('KeepRevisions',1)]:
             c=self.e['HCGroupSettings']();setattr(c,field,value)
             self.assertFalse(self.e['SettingsValid'](c))
         self.assertTrue(self.e['HCGroupSettings']().Enabled)
@@ -312,7 +313,7 @@ class GroupServerTests(unittest.TestCase):
             self.assertEqual(expected,valid(config))
         for field in ('RequireLOS','RequireRadio'):
             config=self.e['HCGroupSettings']();setattr(config,field,True)
-            self.assertFalse(valid(config))
+            self.assertTrue(valid(config))
         config=self.e['HCGroupSettings']();config.SchemaVersion=2
         self.assertFalse(valid(config))
 
@@ -529,7 +530,7 @@ class GroupServerTests(unittest.TestCase):
         recipient=SimpleNamespace(Player=Player([101.,0.,100.]),online=True,gps=True)
         service=SimpleNamespace(m_Config=self.cfg,m_LastUtc=1000,
             m_Names=SimpleNamespace(Get=lambda uid:'Alice'),Peer=lambda uid:source,
-            Live=lambda p:p.online,HasGPS=lambda p:p.gps)
+            Live=lambda p:p.online,HasGPS=lambda p:p.gps,VisibilityAllows=lambda s,r:True)
         text=(ROOT/'4_World/Groups/HCGroupService.c').read_text()
         def projected():return execute_member(text,'Member',dict(self.e),service,'alice',recipient,True)
         self.assertTrue(projected().HasPosition)
@@ -590,7 +591,8 @@ class GroupServerTests(unittest.TestCase):
             def Write(self,value):self.value=value
             def Send(self,*args):sent.append(self.value)
         peer=SimpleNamespace(Id='alice',Session='fresh',LastRequest=5,
-            LastReply=None,Identity=object(),Sequence=0,LastGroup=0)
+            LastReply=None,Identity=object(),Sequence=0,LastGroup=0,
+            Player=SimpleNamespace(IsAlive=lambda:True))
         service=SimpleNamespace(m_State=self.state,m_Config=self.cfg,
             m_Healthy=True,m_LastUtc=1000,m_Peers=EArray(),Live=lambda p:True)
         source=(ROOT/'4_World/Groups/HCGroupService.c').read_text()
@@ -732,3 +734,10 @@ class GroupServerTests(unittest.TestCase):
 
 
 if __name__=='__main__': unittest.main()
+
+
+def load_tests(loader, standard_tests, pattern):
+    # Keep the stable groups BDD binding while extending its behavior coverage.
+    from tests.unit import test_v1_groups
+    standard_tests.addTests(loader.loadTestsFromModule(test_v1_groups))
+    return standard_tests

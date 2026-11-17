@@ -1,0 +1,2 @@
+Group Enforce shape issues: []
+Existing HCGroupStore FindFile glob literal excluded from comment-marker heuristic.

@@ -12,7 +12,7 @@ enum HCGroupOp
 {
     SYNC = 0, CREATE = 1, INVITE = 2, ACCEPT = 3, DECLINE = 4,
     LEAVE = 5, KICK = 6, TRANSFER = 7, DISBAND = 8,
-    MARKER_CREATE = 9, MARKER_UPDATE = 10, MARKER_DELETE = 11, RENAME = 12
+    MARKER_CREATE = 9, MARKER_UPDATE = 10, MARKER_DELETE = 11, RENAME = 12, SET_ROLE = 13
 }
 enum HCGroupCode
 {
@@ -22,4 +22,9 @@ enum HCGroupCode
 enum HCGroupSnapshotKind
 {
     FULL = 0, POSITIONS = 1, CLEAR = 2
+}
+
+enum HCGroupRole
+{
+    MEMBER = 0, OFFICER = 1, OWNER = 2
 }

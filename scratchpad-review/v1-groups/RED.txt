@@ -1,0 +1,78 @@
+test_additive_legacy_roles_and_transfer_cleanup (test_v1_groups.V1GroupsBehavior.test_additive_legacy_roles_and_transfer_cleanup) ... ERROR
+test_officer_matrix_and_owner_only_role_assignment (test_v1_groups.V1GroupsBehavior.test_officer_matrix_and_owner_only_role_assignment) ... FAIL
+test_radio_matching_requires_a_shared_actual_frequency (test_v1_groups.V1GroupsBehavior.test_radio_matching_requires_a_shared_actual_frequency) ... ERROR
+test_required_native_and_privacy_wiring (test_v1_groups.V1GroupsBehavior.test_required_native_and_privacy_wiring) ... ERROR
+test_visibility_settings_are_supported_and_bounded (test_v1_groups.V1GroupsBehavior.test_visibility_settings_are_supported_and_bounded) ... FAIL
+test_visit_requires_actual_proximity_and_is_bounded_persistent_private (test_v1_groups.V1GroupsBehavior.test_visit_requires_actual_proximity_and_is_bounded_persistent_private) ... ERROR
+
+======================================================================
+ERROR: test_additive_legacy_roles_and_transfer_cleanup (test_v1_groups.V1GroupsBehavior.test_additive_legacy_roles_and_transfer_cleanup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 36, in test_additive_legacy_roles_and_transfer_cleanup
+    self.assertEqual((2, 0, -1), tuple(self.e['Role'](g, x) for x in ('alice','bob','outsider')))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 36, in <genexpr>
+    self.assertEqual((2, 0, -1), tuple(self.e['Role'](g, x) for x in ('alice','bob','outsider')))
+                                       ~~~~~~^^^^^^^^
+KeyError: 'Role'
+
+======================================================================
+ERROR: test_radio_matching_requires_a_shared_actual_frequency (test_v1_groups.V1GroupsBehavior.test_radio_matching_requires_a_shared_actual_frequency)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 73, in test_radio_matching_requires_a_shared_actual_frequency
+    source=(ROOT/'mods/HollowCountry/scripts/4_World/Groups/HCGroupVisibility.c').read_text()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/code/hc-worktrees/v1-groups/mods/HollowCountry/scripts/4_World/Groups/HCGroupVisibility.c'
+
+======================================================================
+ERROR: test_required_native_and_privacy_wiring (test_v1_groups.V1GroupsBehavior.test_required_native_and_privacy_wiring)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 81, in test_required_native_and_privacy_wiring
+    native=(base/'4_World/Groups/HCGroupVisibility.c').read_text()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/code/hc-worktrees/v1-groups/mods/HollowCountry/scripts/4_World/Groups/HCGroupVisibility.c'
+
+======================================================================
+ERROR: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (test_v1_groups.V1GroupsBehavior.test_visit_requires_actual_proximity_and_is_bounded_persistent_private)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 47, in test_visit_requires_actual_proximity_and_is_bounded_persistent_private
+    p = self.e['HCGroupPlace'](); p.Id='synthetic-well'; p.Name='Synthetic well'; p.Position=[100,0,200]; p.Radius=25
+        ~~~~~~^^^^^^^^^^^^^^^^
+KeyError: 'HCGroupPlace'
+
+======================================================================
+FAIL: test_officer_matrix_and_owner_only_role_assignment (test_v1_groups.V1GroupsBehavior.test_officer_matrix_and_owner_only_role_assignment)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 20, in test_officer_matrix_and_owner_only_role_assignment
+    self.assertEqual(0, self.apply('alice', 13, TargetId='bob', Role=1))
+AssertionError: 0 != 2
+
+======================================================================
+FAIL: test_visibility_settings_are_supported_and_bounded (test_v1_groups.V1GroupsBehavior.test_visibility_settings_are_supported_and_bounded)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 67, in test_visibility_settings_are_supported_and_bounded
+    self.assertTrue(self.e['SettingsValid'](self.cfg))
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.048s
+
+FAILED (failures=2, errors=4)

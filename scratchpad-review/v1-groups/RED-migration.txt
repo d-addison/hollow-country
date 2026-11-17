@@ -1,0 +1,38 @@
+test_additive_legacy_roles_and_transfer_cleanup (test_v1_groups.V1GroupsBehavior.test_additive_legacy_roles_and_transfer_cleanup) ... ok
+test_officer_matrix_and_owner_only_role_assignment (test_v1_groups.V1GroupsBehavior.test_officer_matrix_and_owner_only_role_assignment) ... ok
+test_radio_matching_requires_a_shared_actual_frequency (test_v1_groups.V1GroupsBehavior.test_radio_matching_requires_a_shared_actual_frequency) ... ok
+test_required_native_and_privacy_wiring (test_v1_groups.V1GroupsBehavior.test_required_native_and_privacy_wiring) ... ok
+test_visibility_settings_are_supported_and_bounded (test_v1_groups.V1GroupsBehavior.test_visibility_settings_are_supported_and_bounded) ... ok
+test_visit_requires_actual_proximity_and_is_bounded_persistent_private (test_v1_groups.V1GroupsBehavior.test_visit_requires_actual_proximity_and_is_bounded_persistent_private) ... ok
+test_roles_visits_and_legacy_defaults_reopen_through_actual_journal (test_v1_groups.V1GroupsJournalBehavior.test_roles_visits_and_legacy_defaults_reopen_through_actual_journal) ... ERROR
+test_client_can_send_role_assignment_without_changing_retry_payload (test_v1_groups.V1GroupsTransportBehavior.test_client_can_send_role_assignment_without_changing_retry_payload) ... ok
+test_equipment_requires_owned_working_handheld_and_bounded_inventory (test_v1_groups.V1GroupsTransportBehavior.test_equipment_requires_owned_working_handheld_and_bounded_inventory) ... ok
+test_mission_list_consumes_only_fresh_public_rows (test_v1_groups.V1GroupsTransportBehavior.test_mission_list_consumes_only_fresh_public_rows) ... ok
+test_visibility_budget_and_radio_are_fail_closed_before_projection (test_v1_groups.V1GroupsTransportBehavior.test_visibility_budget_and_radio_are_fail_closed_before_projection) ... ok
+
+======================================================================
+ERROR: test_roles_visits_and_legacy_defaults_reopen_through_actual_journal (test_v1_groups.V1GroupsJournalBehavior.test_roles_visits_and_legacy_defaults_reopen_through_actual_journal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 195, in test_roles_visits_and_legacy_defaults_reopen_through_actual_journal
+    ok,loaded=h.store(rules.cfg).Open(rules.cfg,None)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_persistence.py", line 103, in <lambda>
+    setattr(store,name,lambda *a,n=name:self.invoke(store,n,*a))
+                                        ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_persistence.py", line 141, in invoke
+    return execute_member(wrapper,name,self.env,instance,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 100, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Open", line 47, in member
+  File "/code/hc-worktrees/v1-groups/mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c", line 17, in StateValid
+    }
+      
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Officers'
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.166s
+
+FAILED (errors=1)

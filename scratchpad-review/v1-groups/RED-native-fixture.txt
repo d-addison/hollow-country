@@ -1,0 +1,21 @@
+test_fixture_calls_do_not_bind_native_step_attribute_constructor (test_group_native_checks.GroupNativeChecksTests.test_fixture_calls_do_not_bind_native_step_attribute_constructor) ... ok
+test_opt_in_and_side_effect_contract (test_group_native_checks.GroupNativeChecksTests.test_opt_in_and_side_effect_contract) ... ok
+test_rejected_mutation_cannot_print_completion (test_group_native_checks.GroupNativeChecksTests.test_rejected_mutation_cannot_print_completion) ... ok
+test_step_budget_rejects_before_apply (test_group_native_checks.GroupNativeChecksTests.test_step_budget_rejects_before_apply) ... ok
+test_success_executes_all_thirteen_ops_before_completion (test_group_native_checks.GroupNativeChecksTests.test_success_executes_all_thirteen_ops_before_completion) ... FAIL
+test_unexpected_result_cannot_print_completion (test_group_native_checks.GroupNativeChecksTests.test_unexpected_result_cannot_print_completion) ... ok
+test_wire_version_pin_cannot_silently_drift (test_group_native_checks.GroupNativeChecksTests.test_wire_version_pin_cannot_silently_drift) ... ok
+
+======================================================================
+FAIL: test_success_executes_all_thirteen_ops_before_completion (test_group_native_checks.GroupNativeChecksTests.test_success_executes_all_thirteen_ops_before_completion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_native_checks.py", line 71, in test_success_executes_all_thirteen_ops_before_completion
+    self.assertEqual(set(range(1, 14)),
+AssertionError: Items in the first set but not the second:
+13
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.212s
+
+FAILED (failures=1)

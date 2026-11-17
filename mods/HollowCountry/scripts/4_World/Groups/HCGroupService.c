@@ -117,6 +117,10 @@ class HCGroupService
     protected int m_Serial;
     protected int m_LastUtc;
     protected float m_PositionTime;
+    protected int m_LOSRays;
+    protected float m_DiscoveryTime;
+    protected int m_DiscoveryCursor;
+    protected ref HCGroupPlaceCatalog m_Places;
     protected float m_GlobalWindow;
     protected int m_GlobalCount;
 
@@ -126,6 +130,15 @@ class HCGroupService
     {
         if (!GetGame().IsServer() || !HCGroupRules.SettingsValid(config) || !config.Enabled || s_Instance) return false;
         m_Config = config;
+        if (config.DiscoveryLayer)
+        {
+            m_Places = HCGroupPlaces.Load();
+            if (!m_Places)
+            {
+                Print("[HC Groups] invalid or over-budget places catalog; start refused");
+                return false;
+            }
+        }
         m_LastUtc = HCGroupClock.Utc();
         float worldSize = GetGame().GetWorld().GetWorldSize();
         if (m_LastUtc < 1 || worldSize < 1 || worldSize > 50000) return false;
@@ -344,6 +357,55 @@ class HCGroupService
         return (navigation & EMapNavigationType.GPS) != 0 || (navigation & EMapNavigationType.ALL) != 0;
     }
 
+    bool VisibilityAllows(HCGroupPeer source, HCGroupPeer recipient)
+    {
+        if (source.Id == recipient.Id) return true;
+        if (source.Player.IsUnconscious() || recipient.Player.IsUnconscious()) return false;
+        if (m_Config.RequireRadio)
+        {
+            HCGroupEquipment sourceGear = HCGroupEquipment.Read(source.Player);
+            HCGroupEquipment recipientGear = HCGroupEquipment.Read(recipient.Player);
+            if (!HCGroupVisibility.RadioMatches(sourceGear, recipientGear)) return false;
+        }
+        if (m_Config.RequireLOS)
+        {
+            // Global tick quota also covers mutation/SYNC-triggered snapshots.
+            // Exhaustion removes positions; it never reuses a cached permission.
+            if (m_LOSRays >= m_Config.MaxLOSRaysPerTick) return false;
+            m_LOSRays++;
+            if (!HCGroupVisibility.HasLOS(source.Player, recipient.Player)) return false;
+        }
+        return true;
+    }
+
+    void Discover()
+    {
+        if (!m_Config.DiscoveryLayer || !m_Places || m_Peers.Count() == 0) return;
+        // Up to six peers per pass covers the intended load without a long
+        // per-player delay. Larger populations rotate in bounded batches.
+        HCGroupState candidate;
+        if (!Clone(candidate)) { Stop(); return; }
+        bool changed = false;
+        int examined = 0;
+        while (examined < 6 && examined < m_Peers.Count())
+        {
+            if (m_DiscoveryCursor >= m_Peers.Count()) m_DiscoveryCursor = 0;
+            HCGroupPeer explorer = m_Peers.Get(m_DiscoveryCursor);
+            m_DiscoveryCursor++;
+            examined++;
+            if (!Live(explorer) || !explorer.Player.IsAlive() || explorer.Player.IsUnconscious()) continue;
+            vector actual = explorer.Player.GetPosition();
+            foreach (HCGroupPlace place : m_Places.Places)
+            {
+                if (HCGroupRules.RecordVisit(candidate, m_Config, explorer.Id, place, actual)) changed = true;
+            }
+        }
+        if (!changed) return;
+        int result = Commit(candidate);
+        if (result == HCGroupCode.STORAGE) { Stop(); return; }
+        if (result == HCGroupCode.OK) Broadcast();
+    }
+
     HCGroupMember Member(string uid, HCGroupPeer recipient, bool position)
     {
         HCGroupMember member = new HCGroupMember;
@@ -363,7 +425,7 @@ class HCGroupService
             float dx = actual[0] - viewer[0];
             float dy = actual[1] - viewer[1];
             float dz = actual[2] - viewer[2];
-            if (HCGroupRules.PositionValid(actual) && (m_Config.MapIcons || dx * dx + dy * dy + dz * dz <= m_Config.MaxIconDistance * m_Config.MaxIconDistance))
+            if (HCGroupRules.PositionValid(actual) && (m_Config.MapIcons || dx * dx + dy * dy + dz * dz <= m_Config.MaxIconDistance * m_Config.MaxIconDistance) && VisibilityAllows(source, recipient))
             {
                 member.Position = actual;
                 member.HasPosition = true;
@@ -396,7 +458,12 @@ class HCGroupService
             snapshot.Epoch = group.Epoch;
             snapshot.Name = group.Name;
             snapshot.OwnerId = group.OwnerId;
-            foreach (string uid : group.Members) snapshot.Members.Insert(Member(uid, peer, true));
+            foreach (string uid : group.Members)
+            {
+                HCGroupMember rosterMember = Member(uid, peer, true);
+                rosterMember.Role = HCGroupRules.Role(group, uid);
+                snapshot.Members.Insert(rosterMember);
+            }
             if (kind == HCGroupSnapshotKind.FULL)
             {
                 foreach (HCGroupMarker marker : group.Markers)
@@ -416,6 +483,8 @@ class HCGroupService
                 if (invitation.InviteeId == peer.Id && invitation.ExpiresUtc > m_LastUtc) snapshot.Invitations.Insert(invitation);
             }
         }
+        if (m_Healthy && kind == HCGroupSnapshotKind.FULL && peer.Player.IsAlive())
+            snapshot.Places = HCGroupRules.KnownPlaces(m_State, m_Config, peer.Id);
         peer.LastGroup = snapshot.GroupId;
         ScriptRPC rpc = new ScriptRPC;
         rpc.Write(snapshot);
@@ -431,6 +500,7 @@ class HCGroupService
     void Tick(float deltaTime)
     {
         if (!m_Healthy) return;
+        m_LOSRays = 0;
         int now = HCGroupClock.Utc();
         if (!HCGroupRules.TimestampValid(now) || now < m_LastUtc) { Stop(); return; }
         if (!(deltaTime > 0.0) || deltaTime > 300.0) { Stop(); return; }
@@ -465,6 +535,13 @@ class HCGroupService
             int expiryResult = Commit(expired);
             if (expiryResult == HCGroupCode.STORAGE) { Stop(); return; }
             if (expiryResult == HCGroupCode.OK) Broadcast();
+        }
+        m_DiscoveryTime += deltaTime;
+        if (m_DiscoveryTime >= m_Config.DiscoveryIntervalSeconds)
+        {
+            m_DiscoveryTime = 0;
+            Discover();
+            if (!m_Healthy) return;
         }
         m_PositionTime += deltaTime;
         if (m_PositionTime >= m_Config.PositionIntervalSeconds)

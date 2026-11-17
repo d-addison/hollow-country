@@ -9,6 +9,11 @@ FrameWidgetClass HCGroupIconRoot {
 
  priority 1000
  {
+  ImageWidgetClass HCBackdrop {
+   ignorepointer 1 position 0 0 size 1 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.01 0.01 0.01 0.85
+  }
   ImageWidgetClass HCMark {
    ignorepointer 1 position 0 4
    size 16 16
@@ -27,7 +32,7 @@ FrameWidgetClass HCGroupIconRoot {
    vexactsize 1
 
    font "gui/fonts/sdf_MetronBook24"
-   "text color" 0.3 1 0.85 1
+   "text color" 1 1 1 1
    text ""
   }
  }

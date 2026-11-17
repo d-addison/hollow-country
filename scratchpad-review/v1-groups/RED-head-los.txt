@@ -1,0 +1,36 @@
+test_additive_legacy_roles_and_transfer_cleanup (test_v1_groups.V1GroupsBehavior.test_additive_legacy_roles_and_transfer_cleanup) ... ok
+test_officer_matrix_and_owner_only_role_assignment (test_v1_groups.V1GroupsBehavior.test_officer_matrix_and_owner_only_role_assignment) ... ok
+test_radio_matching_requires_a_shared_actual_frequency (test_v1_groups.V1GroupsBehavior.test_radio_matching_requires_a_shared_actual_frequency) ... ok
+test_required_native_and_privacy_wiring (test_v1_groups.V1GroupsBehavior.test_required_native_and_privacy_wiring) ... ok
+test_visibility_settings_are_supported_and_bounded (test_v1_groups.V1GroupsBehavior.test_visibility_settings_are_supported_and_bounded) ... ok
+test_visit_requires_actual_proximity_and_is_bounded_persistent_private (test_v1_groups.V1GroupsBehavior.test_visit_requires_actual_proximity_and_is_bounded_persistent_private) ... ok
+test_roles_visits_and_legacy_defaults_reopen_through_actual_journal (test_v1_groups.V1GroupsJournalBehavior.test_roles_visits_and_legacy_defaults_reopen_through_actual_journal) ... ok
+test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton (test_v1_groups.V1GroupsLOSBehavior.test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton) ... FAIL
+test_client_can_send_role_assignment_without_changing_retry_payload (test_v1_groups.V1GroupsTransportBehavior.test_client_can_send_role_assignment_without_changing_retry_payload) ... ok
+test_equipment_requires_owned_working_handheld_and_bounded_inventory (test_v1_groups.V1GroupsTransportBehavior.test_equipment_requires_owned_working_handheld_and_bounded_inventory) ... ok
+test_mission_list_consumes_only_fresh_public_rows (test_v1_groups.V1GroupsTransportBehavior.test_mission_list_consumes_only_fresh_public_rows) ... ok
+test_visibility_budget_and_radio_are_fail_closed_before_projection (test_v1_groups.V1GroupsTransportBehavior.test_visibility_budget_and_radio_are_fail_closed_before_projection) ... ok
+
+======================================================================
+FAIL: test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton (test_v1_groups.V1GroupsLOSBehavior.test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 216, in test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton
+    self.assertEqual(([100,0.3,200],[110,1.6,200]),calls[-1][:2])
+AssertionError: Tuples differ: ([100, 0.3, 200], [110, 1.6, 200]) != ([100, 1.5, 200], [110, 1.5, 200])
+
+First differing element 0:
+[100, 0.3, 200]
+[100, 1.5, 200]
+
+- ([100, 0.3, 200], [110, 1.6, 200])
+?        ^ ^                ^
+
++ ([100, 1.5, 200], [110, 1.5, 200])
+?        ^ ^                ^
+
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.197s
+
+FAILED (failures=1)

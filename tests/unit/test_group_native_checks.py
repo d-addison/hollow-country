@@ -66,9 +66,9 @@ class GroupNativeChecksTests(unittest.TestCase):
     def run_fixture(self):
         return self.invoke(SimpleNamespace(), 'Run', 'previous error')
 
-    def test_success_executes_all_twelve_ops_before_completion(self):
+    def test_success_executes_all_thirteen_ops_before_completion(self):
         self.assertEqual((True, ''), self.run_fixture())
-        self.assertEqual(set(range(1, 13)),
+        self.assertEqual(set(range(1, 14)),
                          {op for op, result in self.calls if result == 0})
         self.assertGreater(len(self.calls), 12)
         self.assertLessEqual(len(self.calls), 64)

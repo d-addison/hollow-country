@@ -20,6 +20,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     protected bool mHCOpening = true;
     protected float mHCRenderTime;
     protected ref HCGroupMarker mHCOriginal;
+    protected ref HCGroupMapLayers mHCLayers;
     protected bool mHCConflict;
     protected bool mHCRefreshing;
     protected string mHCMessage;
@@ -44,6 +45,8 @@ class HCGroupMapMenu extends UIScriptedMenu
             mHCMap.SetMapPos(GetGame().ConfigGetVector("CfgWorlds " + worldName + " centerPosition"));
             mHCMap.SetScale(0.33);
         }
+        mHCLayers = new HCGroupMapLayers;
+        mHCLayers.Init(layoutRoot);
         return layoutRoot;
     }
 
@@ -128,7 +131,7 @@ class HCGroupMapMenu extends UIScriptedMenu
         mHCRenderTime += timeslice;
         if (mHCRenderTime >= 0.25)
         {
-            HCGroupWorldIcons.DrawMap(mHCMap, frame);
+            if (mHCLayers) mHCLayers.Draw(mHCMap, frame, viewer);
             mHCRenderTime = 0;
         }
         if (mHCStatus)
@@ -202,7 +205,7 @@ class HCGroupMapMenu extends UIScriptedMenu
         {
             if (mHCMembers)
             {
-                int ur = mHCMembers.AddItem(member.Name, null, 0);
+                int ur = mHCMembers.AddItem(member.Name + " [" + HCGroupWorldIcons.RoleLabel(member.Role) + "]", null, 0);
                 if (member.Id == memberId) mHCMembers.SelectRow(ur);
             }
         }
@@ -269,6 +272,8 @@ class HCGroupMapMenu extends UIScriptedMenu
             case "HCAccept": q.Op = HCGroupOp.ACCEPT; break;
             case "HCDecline": q.Op = HCGroupOp.DECLINE; break;
             case "HCLeave": q.Op = HCGroupOp.LEAVE; break;
+            case "HCOfficer": q.Op = HCGroupOp.SET_ROLE; q.Role = HCGroupRole.OFFICER; break;
+            case "HCMember": q.Op = HCGroupOp.SET_ROLE; q.Role = HCGroupRole.MEMBER; break;
             case "HCKick": q.Op = HCGroupOp.KICK; break;
             case "HCTransfer": q.Op = HCGroupOp.TRANSFER; break;
             case "HCDisband": q.Op = HCGroupOp.DISBAND; break;
@@ -302,7 +307,7 @@ class HCGroupMapMenu extends UIScriptedMenu
             if (row < 0) return false;
             q.EntityId = mHCBound.Invitations.Get(row).Id;
         }
-        if (q.Op == HCGroupOp.KICK || q.Op == HCGroupOp.TRANSFER)
+        if (q.Op == HCGroupOp.KICK || q.Op == HCGroupOp.TRANSFER || q.Op == HCGroupOp.SET_ROLE)
         {
             row = Selected(mHCMembers, mHCBound.Members.Count());
             if (row < 0) return false;
@@ -384,8 +389,16 @@ class HCGroupMapMenu extends UIScriptedMenu
         ResetEditor();
     }
 
+    override void OnShow()
+    {
+        super.OnShow();
+        HCEventClient.Get().SetBrowsing(true);
+    }
+
     override void OnHide()
     {
+        HCEventClient.Get().SetBrowsing(false);
+        if (mHCLayers) mHCLayers.Clear();
         if (mHCMap)
             mHCMap.ClearUserMarks();
         ClearLists();

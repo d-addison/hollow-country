@@ -71,11 +71,18 @@ class StoreHarness:
         return NativeText(json.dumps(value, default=vars, sort_keys=True, separators=(',',':')))
 
     def decode(self, text, kind):
-        def dto(value):
+        # Explicit synthetic JSON adapter: native class field initializers are
+        # represented at every DTO level, including additive legacy defaults.
+        children = {'Groups':'HCGroupRecord', 'Markers':'HCGroupMarker',
+                    'Explorers':'HCGroupExplorer', 'Visits':'HCGroupPlace',
+                    'Invitations':'HCGroupInvitation'}
+        def dto(value, dto_kind=None):
             if isinstance(value, list):
-                return EArray(dto(v) for v in value)
+                return EArray(dto(v, dto_kind) for v in value)
             if isinstance(value, dict):
-                return N(**{k:dto(v) for k,v in value.items()})
+                result = self.rules[dto_kind]() if dto_kind else N()
+                result.__dict__.update({k:dto(v,children.get(k)) for k,v in value.items()})
+                return result
             return value
         try:
             result = self.rules[kind]()
@@ -230,6 +237,7 @@ class GroupPersistenceTests(unittest.TestCase):
                        GetPlayers=lambda players:calls.append('GetPlayers'))
                 env=dict(self.h.rules,GetGame=lambda:game,HCGroupClock=N(Utc=lambda:now),
                          HCGroupStore=lambda:store,open_state=open_state,runtime=runtime,
+                         HCGroupPlaces=N(Load=lambda:N(Places=EArray())),
                          Math=N(RandomIntInclusive=lambda a,b:123),EArray=EArray,str=str,
                          Print=self.h.logs.append)
                 match=re.search(r'bool Start\(([^)]*)\)\s*\{',source)
