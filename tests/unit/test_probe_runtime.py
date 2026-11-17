@@ -33,6 +33,74 @@ BAD_NAMES = ("vanilla-p0-001.", "vanilla-p0-001 ", "Vanilla-P0-001", "VANILLA-P0
 GOOD_NAMES = ("ce-probe-001", "taped-light-probe-002", "COM10", "console", "com0", "lpt", "a", "x" * 64, "a.b-c_d")
 
 
+def powershell_accepts(name):
+    """Static emulation of the launcher's name conditions (Start-CEProbeServer.ps1), read from its text.
+
+    PowerShell is never run: the four literals are extracted from the script and evaluated with Python's re,
+    case-insensitive as -match is. This is an offline mirror check, not proof of PowerShell's behavior.
+    """
+    def literal(pattern):
+        found = re.search(pattern, SCRIPT)
+        assert found, f"launcher condition not found: {pattern}"
+        return found.group(1)
+    consecutive = literal(r"\$root -match '([^']+)'")
+    plain = literal(r"\$name -notmatch '([^']+)'")
+    device = literal(r"\$name -match '(\^\(\?i:[^']+)'")
+    verified = literal(r"ToLowerInvariant\(\) -eq '([^']+)'")
+    root = "D:\\HollowCountryLocal\\" + name
+    if re.search(consecutive, root, re.I) or not re.search(plain, name, re.I) or re.search(device, name):
+        return False
+    return name.rstrip(". ").lower() != verified
+
+
+# One executable table shared by the Python rule and the launcher mirror: (name, accepted by both).
+NAME_CASES = (
+    ("ce-probe-001", True), ("taped-light-probe-002", True), ("a", True), ("x" * 64, True), ("a.b-c_d", True),
+    ("COM10", True), ("console", True), ("com0", True), ("lpt", True), ("a_.b", True),
+    ("a..b", False), ("a...b", False), ("a..", False), ("..", False), ("a.", False), ("a ", False), (".a", False),
+    ("-a", False), ("a b", False), ("x" * 65, False), ("a:b", False), ("a*b", False),
+    ("vanilla-p0-001", False), ("vanilla-p0-001.", False), ("Vanilla-P0-001", False), ("VANILLA-P0-001. ", False),
+    ("CON", False), ("con", False), ("nul.txt", False), ("NUL.", False), ("aux.log", False), ("PRN", False),
+    ("COM1", False), ("com9.log", False), ("LPT1", False), ("lpt9.tar.gz", False),
+)
+
+
+class NameRuleAlignmentTests(unittest.TestCase):
+    parent = Path("/mnt/d/HollowCountryLocal")
+
+    def test_python_and_launcher_accept_exactly_the_same_names(self):
+        for name, expected in NAME_CASES:
+            with self.subTest(name=name):
+                try:
+                    rt.windows_runtime_root(self.parent / name, self.parent)
+                    python_accepts = True
+                except ValueError:
+                    python_accepts = False
+                self.assertEqual(expected, python_accepts, "python rule")
+                self.assertEqual(expected, powershell_accepts(name), "launcher text rule")
+
+    def test_the_staged_plan_check_applies_the_same_rule(self):
+        for name, expected in NAME_CASES:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as temp:
+                plan = {"kind": "ce-probe", "runtime_root": "D:\\HollowCountryLocal\\" + name}
+                problems = rt.launcher_problems(plan, temp, "ce-probe-plan.json")
+                self.assertEqual(not expected, "runtime root is not an allowed launcher name" in problems)
+
+    def test_the_launcher_mirror_extractor_reads_the_real_script(self):
+        self.assertTrue(powershell_accepts("ce-probe-001"))
+        self.assertFalse(powershell_accepts("a..b"))      # the launcher's own substring rule
+
+
+class CompatibilitySurfaceTests(unittest.TestCase):
+    def test_ce_probe_keeps_the_module_attributes_it_exported_before_the_shared_runtime(self):
+        import datetime
+        import hashlib
+        from pathlib import PureWindowsPath
+        self.assertIs(ce.datetime, datetime)
+        self.assertIs(ce.hashlib, hashlib)
+        self.assertIs(ce.PureWindowsPath, PureWindowsPath)
+
+
 class WindowsAliasTests(unittest.TestCase):
     parent = Path("/mnt/d/HollowCountryLocal")
 
@@ -173,6 +241,111 @@ KINDS = (("ce", make_ce), ("taped", make_taped))
 MISSION = "stock-backup/mpmissions/dayzOffline.chernarusplus"
 
 
+class HookExpressionLintTests(unittest.TestCase):
+    """The native compiler refused a 27-term concatenation ("Formula too complex") and a bare int in a
+    string concatenation; the shared lint must refuse both shapes before staging."""
+
+    def wrap(self, body, header="void F(int count, float ratio, string name)", extra=""):
+        return ("class HCSample : CustomMission\n{\n    protected int m_Total;\n%s"
+                "    %s\n    {\n        string row = \"\";\n%s\n    }\n}\n") % (extra, header, body)
+
+    def issues(self, body, explicit_numbers=True, **kw):
+        return rt.lint_hook(self.wrap(body, **kw), explicit_numbers=explicit_numbers)
+
+    def chain(self, plus_count):
+        return '        row = ' + " + ".join(['"x"'] * (plus_count + 1)) + ";"
+
+    def test_the_bound_is_the_observed_native_maximum_and_cites_its_evidence(self):
+        self.assertEqual(9, rt.MAX_STATEMENT_PLUS)
+        for phrase in ("Formula too complex", "164289", "ce-probe-001"):
+            self.assertIn(phrase, rt.lint_hook.__doc__ + (rt.__doc__ or "") + rt.HOOK_EXPRESSION_EVIDENCE)
+
+    def test_a_statement_over_the_bound_is_flagged_and_one_at_the_bound_is_not(self):
+        self.assertEqual([], self.issues(self.chain(rt.MAX_STATEMENT_PLUS)))
+        found = self.issues(self.chain(rt.MAX_STATEMENT_PLUS + 1))
+        self.assertTrue(any("binary '+' operators" in i and "Formula too complex" in i for i in found), found)
+
+    def test_the_count_is_per_statement_across_lines_and_ignores_strings_and_compound_operators(self):
+        spread = "        row = row + \"a\"\n            + \"b\" + \"c\" + \"d\" + \"e\" + \"f\"\n            + \"g\" + \"h\" + \"i\" + \"j\";"
+        self.assertTrue(any("binary '+'" in i for i in self.issues(spread)), spread)
+        in_strings = '        row = "+++++++++++++ + + + + + + + + + + + +";'
+        self.assertEqual([], self.issues(in_strings))
+        compound = "        int n = 0;\n        n++;\n        n += 1;\n        n++; n++; n++; n++; n++; n++; n++; n++; n++; n++; n++;"
+        self.assertEqual([], self.issues(compound, header="void F()"))
+        self.assertTrue(any("binary '+'" in i for i in self.issues(
+            "        row = row" + " + \"a\"" * 10 + ";")))
+
+    def test_statements_are_counted_separately(self):
+        two = self.chain(rt.MAX_STATEMENT_PLUS) + "\n" + self.chain(rt.MAX_STATEMENT_PLUS)
+        self.assertEqual([], self.issues(two))
+
+    def test_a_bare_int_float_or_bool_local_in_a_string_concatenation_is_flagged(self):
+        for body, name in (('        row = row + "n=" + count;', "count"),
+                           ('        row = "r=" + ratio + ",";', "ratio"),
+                           ('        row = count + "n";', "count"),
+                           ('        row = "t" + m_Total;', "m_Total"),
+                           ('        bool ready = true;\n        row = "b" + ready;', "ready"),
+                           ('        row = Foo("k") + count;', "count")):
+            with self.subTest(body=body):
+                found = self.issues(body, extra="    string Foo(string key)\n    {\n        return key;\n    }\n")
+                self.assertTrue(any("bare numeric" in i and name in i for i in found), found)
+
+    def test_a_bare_numeric_literal_or_numeric_returning_call_in_a_concatenation_is_flagged(self):
+        self.assertTrue(any("bare numeric" in i for i in self.issues('        row = "n" + 5;')))
+        self.assertTrue(any("bare numeric" in i for i in self.issues('        row = "n" + 1.5;')))
+        helper = "    int Total()\n    {\n        return 1;\n    }\n"
+        self.assertTrue(any("bare numeric" in i for i in self.issues('        row = "n" + Total();', extra=helper)))
+        self.assertTrue(any("bare numeric" in i for i in self.issues('        row = "n" + Count_(count);',
+                                                                     extra=helper.replace("Total", "Count_"))))
+        self.assertTrue(any("bare numeric" in i for i in self.issues('        TStringArray items = new TStringArray;\n        row = "n" + items.Count();')))
+
+    def test_a_vector_component_in_a_string_concatenation_is_a_bare_float(self):
+        found = self.issues('        row = "[" + where[0] + "]";', header="void F(vector where)")
+        self.assertTrue(any("bare numeric" in i and "where[0]" in i for i in found), found)
+        self.assertEqual([], self.issues('        row = "[" + where[0].ToString() + "]";', header="void F(vector where)"))
+
+    def test_the_numeric_rule_is_opt_in_because_the_ce_hook_compiled_natively_without_it(self):
+        self.assertEqual([], self.issues('        row = "n=" + count;', explicit_numbers=False))
+        self.assertEqual([], rt.lint_hook(self.wrap('        row = "n=" + count;')))
+        self.assertTrue(self.issues('        row = "n=" + count;'))
+
+    def test_explicit_to_string_and_plain_arithmetic_are_accepted(self):
+        for body in ('        row = row + "n=" + count.ToString();',
+                     '        row = "r=" + ratio.ToString() + ",";',
+                     '        row = name + "=" + name;',
+                     '        int next = count + 1;\n        float scaled = ratio + 0.5 + next;',
+                     '        if (count + 1 > 2)\n            row = "x";',
+                     '        row = Foo("a", count + 1);',
+                     '        row = "n" + Foo2(count + 1);'):
+            with self.subTest(body=body):
+                found = self.issues(body, extra="    string Foo(string key, int v)\n    {\n        return key;\n    }\n"
+                                                "    string Foo2(int v)\n    {\n        return \"\";\n    }\n")
+                self.assertEqual([], found)
+
+    def test_nested_call_arguments_are_checked_too(self):
+        found = self.issues('        Print("n" + count);')
+        self.assertTrue(any("bare numeric" in i for i in found), found)
+
+
+class GeneratedHookExpressionTests(unittest.TestCase):
+    def test_the_ce_probe_hook_passes_the_expression_lint_unchanged(self):
+        hook = ce.render_hook(cet.targets_for(), export_delay_s=30, census_delay_s=240).decode()
+        self.assertEqual([], rt.lint_hook(hook))
+        self.assertLessEqual(rt.max_statement_plus(hook), rt.MAX_STATEMENT_PLUS)
+        self.assertEqual(9, rt.max_statement_plus(hook))
+
+    def test_the_taped_light_hook_passes_with_headroom_below_the_native_maximum(self):
+        hook = taped.render_hook(taped.select_targets(tlt.classification())).decode()
+        self.assertEqual([], rt.lint_hook(hook, explicit_numbers=True))
+        self.assertLessEqual(rt.max_statement_plus(hook), 8)
+
+    def test_both_stagers_run_the_expression_lint_before_writing(self):
+        text = Path(taped.__file__).read_text() + Path(ce.__file__).read_text()
+        self.assertEqual(2, text.count("lint_hook(hook.decode"))
+        self.assertIn("explicit_numbers=True", Path(taped.__file__).read_text())
+        self.assertNotIn("explicit_numbers", Path(ce.__file__).read_text())
+
+
 class IntegrityCase(unittest.TestCase):
     def workspace(self, factory):
         temp = tempfile.TemporaryDirectory()
@@ -290,6 +463,90 @@ class CopyIntegrityTests(IntegrityCase):
                 self.assertEqual(plan["arguments"], rt.server_arguments(plan["runtime_root"]))
 
 
+def swap_for_link(path, target):
+    """Replace the directory or file at ``path`` by a symlink to ``target`` (a link-swap race)."""
+    path = Path(path)
+    if path.is_dir() and not path.is_symlink():
+        for child in sorted(path.rglob("*"), reverse=True):
+            child.rmdir() if child.is_dir() else child.unlink()
+        path.rmdir()
+    else:
+        path.unlink()
+    os.symlink(target, path)
+
+
+class LinkRaceTests(IntegrityCase):
+    """A path component swapped for a symlink between a check and its use must be refused by the very call
+    that would have followed it. Sol P2: the earlier lstat checks left a gap before each open/write."""
+
+    def test_a_source_battleye_directory_swapped_for_a_symlink_right_before_the_dll_read_is_refused(self):
+        for label, factory in KINDS:
+            with self.subTest(kind=label):
+                root, source, dest, stage = self.workspace(factory)
+                real_read = rt.read_identified
+
+                def swapping(path, limit):
+                    if Path(path).name == "BEServer_x64.dll":
+                        copy = root / "elsewhere-battleye"
+                        (copy).mkdir()
+                        (copy / "BEServer_x64.dll").write_bytes((Path(path)).read_bytes())    # same bytes: a follow would pass
+                        swap_for_link(Path(path).parent, copy)
+                    return real_read(path, limit)
+                with mock.patch.object(rt, "read_identified", side_effect=swapping):
+                    self.assert_refused_and_clean(dest, stage, source)
+                self.assertFalse(dest.exists())
+
+    def test_a_destination_battleye_directory_swapped_before_the_dll_write_writes_nothing_outside(self):
+        for label, factory in KINDS:
+            with self.subTest(kind=label):
+                root, source, dest, stage = self.workspace(factory)
+                outside = root / "outside"
+                outside.mkdir()
+                real_new = rt.new_file
+
+                def swapping(path, data):
+                    if Path(path).name == "BEServer_x64.dll":
+                        swap_for_link(Path(path).parent, outside)
+                    real_new(path, data)
+                with mock.patch.object(rt, "new_file", side_effect=swapping):
+                    self.assert_refused_and_clean(dest, stage, source)
+                self.assertEqual([], list(outside.iterdir()))
+
+    def test_a_staged_mission_file_swapped_for_a_symlink_before_the_final_tree_check_is_refused(self):
+        for label, factory in KINDS:
+            with self.subTest(kind=label):
+                root, source, dest, stage = self.workspace(factory)
+                outside = root / "outside-types.xml"
+                real_create = dm.create_exclusive
+
+                def swapping(path, data):
+                    real_create(path, data)
+                    if Path(path).name == dm.MARKER_NAME:       # last write of the mission copy
+                        outside.write_bytes((Path(path).parent / "db/types.xml").read_bytes())
+                        swap_for_link(Path(path).parent / "db/types.xml", outside)
+                with mock.patch.object(dm, "create_exclusive", side_effect=swapping):
+                    self.assert_refused_and_clean(dest, stage, source)
+
+    def test_staging_is_refused_where_directory_descriptor_operations_are_unavailable(self):
+        for label, factory in KINDS:
+            with self.subTest(kind=label):
+                root, source, dest, stage = self.workspace(factory)
+                with mock.patch("sys.platform", "win32"):
+                    self.assert_refused_and_clean(dest, stage, source)
+                self.assertFalse(dest.exists())
+        with mock.patch.object(dm.os, "supports_dir_fd", frozenset()), self.assertRaises(ValueError):
+            dm.require_fd_anchoring()
+
+    def test_the_drvfs_junction_residual_is_documented_and_left_to_the_launcher_reverification(self):
+        """PINNED RESIDUAL, not a behavior test: O_NOFOLLOW and *at() calls cannot see an NTFS junction or
+        reparse point that a Windows process swaps in on /mnt/d. The launcher must keep re-verifying."""
+        text = Path(dm.__file__).read_text()
+        for needle in ("DrvFs", "junction", "reparse", "Windows launcher re-verifies"):
+            self.assertIn(needle, text)
+        self.assertGreaterEqual(SCRIPT.count("Assert-NoReparsePoints -Path $root"), 2)
+        self.assertIn("Reparse point refused", SCRIPT)
+
+
 class DiagnosticMissionAdmissionTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -323,6 +580,32 @@ class DiagnosticMissionAdmissionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.prepare("entry", entry_check=rt._check_mission_entry)
         self.assertFalse((self.root / "entry/secrets.json").exists())
+
+    def test_a_staged_symlink_with_the_same_bytes_never_passes_admitted_preparation(self):
+        """The re-read must not follow a link: a same-byte symlink at the staged name would pass a following read."""
+        outside = self.root / "outside-types.xml"
+        real = dm._reread_digest
+
+        def swapping(path):
+            if Path(path).name == "types.xml":
+                outside.write_bytes(b"<types/>\n")
+                swap_for_link(path, outside)
+            return real(path)
+        with mock.patch.object(dm, "_reread_digest", swapping), self.assertRaises(ValueError):
+            self.prepare("linked", admitted=self.admitted, entry_check=rt._check_mission_entry)
+        self.assertEqual(b"<types/>\n", outside.read_bytes())
+
+    def test_a_staged_symlink_is_refused_even_without_admission(self):
+        outside = self.root / "outside-types.xml"
+        real = dm.create_exclusive
+
+        def swapping(path, data):
+            real(path, data)
+            if Path(path).name == dm.MARKER_NAME:
+                outside.write_bytes(b"<types/>\n")
+                swap_for_link(Path(path).parent / "db/types.xml", outside)
+        with mock.patch.object(dm, "create_exclusive", swapping), self.assertRaises(ValueError):
+            self.prepare("linked-final")
 
     def test_existing_purposes_keep_working_without_admission(self):
         (self.source / "secrets.json").unlink() if (self.source / "secrets.json").exists() else None

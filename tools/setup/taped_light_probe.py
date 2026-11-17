@@ -217,7 +217,7 @@ class HCDisposableDiagnosticMission : CustomMission
         }
         float surfaceY = GetGame().SurfaceY(@@POS_X@@, @@POS_Z@@);
         m_HCTLPos = Vector(@@POS_X@@, surfaceY + 1.0, @@POS_Z@@);
-        Print("[HC Taped Light Probe] ARMED; observation only; classes=" + m_HCTLClasses.Count());
+        Print("[HC Taped Light Probe] ARMED; observation only; classes=" + m_HCTLClasses.Count().ToString());
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCTLStep, @@START_MS@@, false);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCTLWatchdog, @@WATCHDOG_MS@@, false);
     }
@@ -280,7 +280,7 @@ class HCDisposableDiagnosticMission : CustomMission
 
     string HCTLVector(vector value)
     {
-        return "[" + value[0] + "," + value[1] + "," + value[2] + "]";
+        return "[" + value[0].ToString() + "," + value[1].ToString() + "," + value[2].ToString() + "]";
     }
 
     Object HCTLSpawn(string typeName)
@@ -334,7 +334,7 @@ class HCDisposableDiagnosticMission : CustomMission
         if (m_HCTLCursor == 0)
         {
             m_HCTLBeginMs = GetGame().GetTime();
-            Print("[HC Taped Light Probe] BEGIN; observation only; classes=" + m_HCTLClasses.Count());
+            Print("[HC Taped Light Probe] BEGIN; observation only; classes=" + m_HCTLClasses.Count().ToString());
             HCTLObserveSlots();
             HCTLObserveLights();
         }
@@ -391,7 +391,11 @@ class HCDisposableDiagnosticMission : CustomMission
                 selectionKnown = InventorySlots.GetSelectionForSlotId(slotId, selection);
                 boneKnown = InventorySlots.GetBoneNameForSlotId(slotId, bone);
             }
-            m_HCTLSlotRows.Insert("{" + HCTLKey("slot") + HCTLStr(slotName) + "," + HCTLKey("id") + slotId + "," + HCTLKey("valid") + HCTLBool(slotValid) + "," + HCTLKey("selection") + HCTLStr(selection) + "," + HCTLKey("selection_known") + HCTLBool(selectionKnown) + "," + HCTLKey("bone") + HCTLStr(bone) + "," + HCTLKey("bone_known") + HCTLBool(boneKnown) + "}");
+            string slotRowText = "{" + HCTLKey("slot") + HCTLStr(slotName) + "," + HCTLKey("id") + slotId.ToString() + ",";
+            slotRowText = slotRowText + HCTLKey("valid") + HCTLBool(slotValid) + "," + HCTLKey("selection") + HCTLStr(selection) + ",";
+            slotRowText = slotRowText + HCTLKey("selection_known") + HCTLBool(selectionKnown) + "," + HCTLKey("bone") + HCTLStr(bone) + ",";
+            slotRowText = slotRowText + HCTLKey("bone_known") + HCTLBool(boneKnown) + "}";
+            m_HCTLSlotRows.Insert(slotRowText);
         }
     }
 
@@ -437,7 +441,7 @@ class HCDisposableDiagnosticMission : CustomMission
                 matchCount = matchCount + 1;
             }
         }
-        return HCTLKey("selection_count") + total + "," + HCTLKey("selection_matches") + "[" + matches + "]";
+        return HCTLKey("selection_count") + total.ToString() + "," + HCTLKey("selection_matches") + "[" + matches + "]";
     }
 
     string HCTLAttachSlotNames(EntityAI subject, int limit)
@@ -490,7 +494,9 @@ class HCDisposableDiagnosticMission : CustomMission
             startPos = subject.GetMemoryPointPos("beamStart");
         if (endExists)
             endPos = subject.GetMemoryPointPos("beamEnd");
-        return HCTLKey("beam_start") + HCTLBool(startExists) + "," + HCTLKey("beam_start_pos") + HCTLVector(startPos) + "," + HCTLKey("beam_end") + HCTLBool(endExists) + "," + HCTLKey("beam_end_pos") + HCTLVector(endPos);
+        string beamText = HCTLKey("beam_start") + HCTLBool(startExists) + "," + HCTLKey("beam_start_pos") + HCTLVector(startPos) + ",";
+        beamText = beamText + HCTLKey("beam_end") + HCTLBool(endExists) + "," + HCTLKey("beam_end_pos") + HCTLVector(endPos);
+        return beamText;
     }
 
     void HCTLObserveLights()
@@ -579,8 +585,10 @@ class HCDisposableDiagnosticMission : CustomMission
             }
             if (slotIndex > 0)
                 result = result + ",";
-            result = result + "{" + HCTLKey("slot") + HCTLStr(slotName) + "," + HCTLKey("host_has_slot") + HCTLBool(hostHasSlot) + "," + HCTLKey("selection") + HCTLStr(selection) + ",";
-            result = result + HCTLKey("selection_on_model") + HCTLBool(onModel) + "," + HCTLKey("memory_point") + HCTLBool(memoryPoint) + "," + HCTLKey("bone_index") + boneIndex + "," + HCTLKey("bone_object") + HCTLStr(boneType) + "}";
+            result = result + "{" + HCTLKey("slot") + HCTLStr(slotName) + "," + HCTLKey("host_has_slot") + HCTLBool(hostHasSlot) + ",";
+            result = result + HCTLKey("selection") + HCTLStr(selection) + ",";
+            result = result + HCTLKey("selection_on_model") + HCTLBool(onModel) + "," + HCTLKey("memory_point") + HCTLBool(memoryPoint) + ",";
+            result = result + HCTLKey("bone_index") + boneIndex.ToString() + "," + HCTLKey("bone_object") + HCTLStr(boneType) + "}";
             slotIndex = slotIndex + 1;
         }
         return result;
@@ -652,7 +660,8 @@ class HCDisposableDiagnosticMission : CustomMission
             }
             if (slotIndex > 0)
                 result = result + ",";
-            result = result + "{" + HCTLKey("slot") + HCTLStr(m_HCTLSlots.Get(slotIndex)) + "," + HCTLKey("light_fits") + HCTLBool(lightItem.GetInventory().HasInventorySlot(slotId)) + "," + HCTLKey("can_add") + HCTLBool(canAddSlot) + "," + HCTLKey("attach_ok") + HCTLBool(attachOk) + ",";
+            result = result + "{" + HCTLKey("slot") + HCTLStr(m_HCTLSlots.Get(slotIndex)) + "," + HCTLKey("light_fits") + HCTLBool(lightItem.GetInventory().HasInventorySlot(slotId)) + ",";
+            result = result + HCTLKey("can_add") + HCTLBool(canAddSlot) + "," + HCTLKey("attach_ok") + HCTLBool(attachOk) + ",";
             result = result + HCTLKey("found_type") + HCTLStr(foundType) + "," + HCTLKey("proxy_after_attach") + HCTLStr(boneType);
             if (beamFacts != "")
                 result = result + "," + beamFacts;
@@ -702,7 +711,8 @@ class HCDisposableDiagnosticMission : CustomMission
             }
             if (prereqIndex > 0)
                 result = result + ",";
-            result = result + "{" + HCTLKey("slot") + HCTLStr(m_HCTLPrereqSlots.Get(prereqIndex)) + "," + HCTLKey("host_has_slot") + HCTLBool(owns) + "," + HCTLKey("rail_functional") + HCTLBool(railFunctional) + "," + HCTLKey("attached_type") + HCTLStr(occupantType) + "}";
+            result = result + "{" + HCTLKey("slot") + HCTLStr(m_HCTLPrereqSlots.Get(prereqIndex)) + "," + HCTLKey("host_has_slot") + HCTLBool(owns) + ",";
+            result = result + HCTLKey("rail_functional") + HCTLBool(railFunctional) + "," + HCTLKey("attached_type") + HCTLStr(occupantType) + "}";
             prereqIndex = prereqIndex + 1;
         }
         return result;
@@ -768,11 +778,23 @@ class HCDisposableDiagnosticMission : CustomMission
         int slotId = InventorySlots.GetSlotIdFromString(slotName);
         EntityAI variantHost = EntityAI.Cast(HCTLSpawn(className));
         EntityAI handguard = null;
+        EntityAI readBack = null;
         bool attached = false;
+        bool occupied = false;
+        bool railFunctional = false;
+        string foundType = "";
         string lightRows = "";
         if (variantHost && variantHost.GetInventory())
         {
             handguard = variantHost.GetInventory().CreateAttachmentEx(handguardName, slotId);
+            // What the slot really holds afterwards, read back natively; the requested label is not evidence.
+            readBack = variantHost.GetInventory().FindAttachment(slotId);
+            if (readBack)
+            {
+                occupied = true;
+                foundType = readBack.GetType();
+                railFunctional = HCTLRail(readBack);
+            }
             if (handguard)
             {
                 m_HCTLLive.Insert(handguard);
@@ -782,7 +804,9 @@ class HCDisposableDiagnosticMission : CustomMission
             }
         }
         result = "{" + HCTLKey("performed") + "true," + HCTLKey("slot") + HCTLStr(slotName) + "," + HCTLKey("handguard") + HCTLStr(handguardName) + ",";
-        return result + HCTLKey("handguard_attached") + HCTLBool(attached) + "," + HCTLKey("lights") + "[" + lightRows + "]}";
+        result = result + HCTLKey("handguard_attached") + HCTLBool(attached) + "," + HCTLKey("handguard_found_type") + HCTLStr(foundType) + ",";
+        result = result + HCTLKey("handguard_slot_occupied") + HCTLBool(occupied) + "," + HCTLKey("handguard_rail_functional") + HCTLBool(railFunctional) + ",";
+        return result + HCTLKey("lights") + "[" + lightRows + "]}";
     }
 
     string HCTLObserveHost(int index)
@@ -793,7 +817,8 @@ class HCDisposableDiagnosticMission : CustomMission
             groupName = "slot_host";
         int beginMs = GetGame().GetTime();
         m_HCTLClassTimedOut = false;
-        string row = "{" + HCTLKey("i") + index + "," + HCTLKey("class") + HCTLStr(className) + "," + HCTLKey("root") + HCTLStr(m_HCTLRoots.Get(index)) + "," + HCTLKey("group") + HCTLStr(groupName) + ",";
+        string row = "{" + HCTLKey("i") + index.ToString() + "," + HCTLKey("class") + HCTLStr(className) + ",";
+        row = row + HCTLKey("root") + HCTLStr(m_HCTLRoots.Get(index)) + "," + HCTLKey("group") + HCTLStr(groupName) + ",";
         EntityAI hostItem = EntityAI.Cast(HCTLSpawn(className));
         if (!hostItem)
             return row + HCTLKey("spawned") + "false," + HCTLKey("timed_out") + "false}";
@@ -805,7 +830,7 @@ class HCDisposableDiagnosticMission : CustomMission
         int elapsedMs = GetGame().GetTime() - beginMs;
         if (m_HCTLClassTimedOut)
             m_HCTLTimeouts = m_HCTLTimeouts + 1;
-        row = row + HCTLKey("timed_out") + HCTLBool(m_HCTLClassTimedOut) + "," + HCTLKey("ms") + elapsedMs + "}";
+        row = row + HCTLKey("timed_out") + HCTLBool(m_HCTLClassTimedOut) + "," + HCTLKey("ms") + elapsedMs.ToString() + "}";
         HCTLReleaseAll();
         return row;
     }
@@ -890,10 +915,21 @@ class HCDisposableDiagnosticMission : CustomMission
         FPrintln(handle, "{");
         FPrintln(handle, HCTLKey("schema") + "1," + HCTLKey("kind") + HCTLStr("@@OBSERVATIONS_KIND@@") + "," + HCTLKey("status") + HCTLStr(m_HCTLStatus) + ",");
         FPrintln(handle, HCTLKey("world") + HCTLStr(world) + "," + HCTLKey("version") + HCTLStr(version) + ",");
-        FPrintln(handle, HCTLKey("begin_ms") + m_HCTLBeginMs + "," + HCTLKey("end_ms") + m_HCTLEndMs + "," + HCTLKey("hard_cap") + m_HCTLHardCap + "," + HCTLKey("per_class_ms") + m_HCTLPerClassMs + ",");
-        FPrintln(handle, HCTLKey("classes") + m_HCTLClasses.Count() + "," + HCTLKey("observed") + m_HCTLRows.Count() + "," + HCTLKey("position") + HCTLVector(m_HCTLPos) + ",");
-        FPrintln(handle, HCTLKey("counters") + "{" + HCTLKey("spawned") + m_HCTLSpawned + "," + HCTLKey("deleted") + m_HCTLDeleted + "," + HCTLKey("timeouts") + m_HCTLTimeouts + "," + HCTLKey("attach_ok") + m_HCTLAttachOk + "," + HCTLKey("live_after_release") + m_HCTLLiveAfterRelease + "," + HCTLKey("residual_probe_types") + m_HCTLResidualProbe + "," + HCTLKey("residual_other") + m_HCTLResidualOther + ",");
-        FPrintln(handle, HCTLKey("census_total") + m_HCTLCensusTotal + "," + HCTLKey("census_scanned") + m_HCTLCensusScanned + "," + HCTLKey("census_truncated") + HCTLBool(m_HCTLCensusTruncated) + "," + HCTLKey("census_complete") + HCTLBool(!m_HCTLCensusTruncated && m_HCTLCensusScanned == m_HCTLCensusTotal) + "},");
+        string outLine = HCTLKey("begin_ms") + m_HCTLBeginMs.ToString() + "," + HCTLKey("end_ms") + m_HCTLEndMs.ToString() + ",";
+        outLine = outLine + HCTLKey("hard_cap") + m_HCTLHardCap.ToString() + "," + HCTLKey("per_class_ms") + m_HCTLPerClassMs.ToString() + ",";
+        FPrintln(handle, outLine);
+        outLine = HCTLKey("classes") + m_HCTLClasses.Count().ToString() + "," + HCTLKey("observed") + m_HCTLRows.Count().ToString() + ",";
+        outLine = outLine + HCTLKey("position") + HCTLVector(m_HCTLPos) + ",";
+        FPrintln(handle, outLine);
+        outLine = HCTLKey("counters") + "{" + HCTLKey("spawned") + m_HCTLSpawned.ToString() + "," + HCTLKey("deleted") + m_HCTLDeleted.ToString() + ",";
+        outLine = outLine + HCTLKey("timeouts") + m_HCTLTimeouts.ToString() + "," + HCTLKey("attach_ok") + m_HCTLAttachOk.ToString() + ",";
+        outLine = outLine + HCTLKey("live_after_release") + m_HCTLLiveAfterRelease.ToString() + ",";
+        outLine = outLine + HCTLKey("residual_probe_types") + m_HCTLResidualProbe.ToString() + "," + HCTLKey("residual_other") + m_HCTLResidualOther.ToString() + ",";
+        FPrintln(handle, outLine);
+        bool censusComplete = !m_HCTLCensusTruncated && m_HCTLCensusScanned == m_HCTLCensusTotal;
+        outLine = HCTLKey("census_total") + m_HCTLCensusTotal.ToString() + "," + HCTLKey("census_scanned") + m_HCTLCensusScanned.ToString() + ",";
+        outLine = outLine + HCTLKey("census_truncated") + HCTLBool(m_HCTLCensusTruncated) + "," + HCTLKey("census_complete") + HCTLBool(censusComplete) + "},";
+        FPrintln(handle, outLine);
         HCTLWriteRows(handle, "slots", m_HCTLSlotRows, false);
         HCTLWriteRows(handle, "lights", m_HCTLLightRows, false);
         HCTLWriteRows(handle, "hosts", m_HCTLRows, true);
@@ -910,9 +946,13 @@ class HCDisposableDiagnosticMission : CustomMission
             Print("[HC Taped Light Probe] FAILED cannot open sentinel file");
             return;
         }
-        FPrintln(sentinel, "status=" + m_HCTLStatus + " observed=" + m_HCTLRows.Count() + " spawned=" + m_HCTLSpawned + " deleted=" + m_HCTLDeleted);
+        string sentinelText = "status=" + m_HCTLStatus + " observed=" + m_HCTLRows.Count().ToString();
+        sentinelText = sentinelText + " spawned=" + m_HCTLSpawned.ToString() + " deleted=" + m_HCTLDeleted.ToString();
+        FPrintln(sentinel, sentinelText);
         CloseFile(sentinel);
-        Print("[HC Taped Light Probe] observed=" + m_HCTLRows.Count() + " spawned=" + m_HCTLSpawned + " deleted=" + m_HCTLDeleted + " residual=" + m_HCTLResidualProbe);
+        string summaryText = "[HC Taped Light Probe] observed=" + m_HCTLRows.Count().ToString() + " spawned=" + m_HCTLSpawned.ToString();
+        summaryText = summaryText + " deleted=" + m_HCTLDeleted.ToString() + " residual=" + m_HCTLResidualProbe.ToString();
+        Print(summaryText);
         Print("[HC Taped Light Probe] COMPLETE");
     }
 }
@@ -1006,7 +1046,7 @@ def stage(source_runtime, destination, classification, *, start_delay_s=DEFAULT_
     targets = select_targets(classification)
     hook = render_hook(targets, start_delay_s, per_class_ms, position)
     native = native_type_names(native_scripts) if native_scripts else frozenset()
-    problems = lint_hook(hook.decode("ascii"), native_types=native)
+    problems = lint_hook(hook.decode("ascii"), native_types=native, explicit_numbers=True)
     if problems:
         raise ValueError("generated hook violates native compile rules: " + "; ".join(problems[:3]))
     worst_minutes = math.ceil(watchdog_ms(len(targets["hosts"]), start_delay_s, per_class_ms) / 60000) + 3

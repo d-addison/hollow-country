@@ -15,9 +15,11 @@ mapgroupproto.xml. Storage and profiles start empty so the census sees the initi
 spawn. Launch with tools/setup/Start-CEProbeServer.ps1 on Windows.
 """
 import argparse
+import datetime  # noqa: F401  (module attribute kept for callers that patched it before the shared runtime)
+import hashlib  # noqa: F401
 import json
 import math
-from pathlib import Path
+from pathlib import Path, PureWindowsPath  # noqa: F401  (PureWindowsPath kept as an attribute)
 import re
 import sys
 import xml.etree.ElementTree as ET

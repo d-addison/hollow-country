@@ -185,13 +185,48 @@ class DiagnosticMissionTests(unittest.TestCase):
         self.prepare()
         self.assertTrue((self.dest / "empty").is_dir())
 
+    def test_anchored_primitives_never_follow_a_link_at_the_leaf_or_in_any_directory(self):
+        import os
+        import stat
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "target.xml").write_bytes(b"<types>synthetic</types>\r\n")
+        leaf = self.source / "db/leaf-link.xml"
+        leaf.symlink_to(outside / "target.xml")
+        linked_dir = self.source / "dir-link"
+        linked_dir.symlink_to(outside, target_is_directory=True)
+        for label, call in (
+                ("leaf open", lambda: dm.open_file_at(leaf, os.O_RDONLY)),
+                ("leaf re-read", lambda: dm._reread_digest(leaf)),
+                ("directory open", lambda: dm.open_dir_at(linked_dir)),
+                ("file below a linked directory", lambda: dm.open_file_at(linked_dir / "target.xml", os.O_RDONLY)),
+                ("exclusive create below a linked directory", lambda: dm.create_exclusive(linked_dir / "new.xml", b"x")),
+                ("mkdir below a linked directory", lambda: dm.mkdir_at(linked_dir / "sub"))):
+            with self.subTest(label), self.assertRaises(ValueError):
+                call()
+        self.assertEqual({"target.xml"}, {p.name for p in outside.iterdir()})
+        self.assertTrue(stat.S_ISLNK(dm.lstat_at(leaf).st_mode))      # lstat describes the link, never its target
+
+    def test_walk_plain_lists_regular_files_and_refuses_links_and_special_files(self):
+        import os
+        listed = dm.walk_plain(self.source)
+        self.assertEqual({"init.c": len(STOCK), "db/types.xml": 26}, listed)
+        link = self.source / "db/alias.xml"
+        link.symlink_to(self.source / "db/types.xml")
+        with self.assertRaises(ValueError):
+            dm.walk_plain(self.source)
+        link.unlink()
+        os.mkfifo(self.source / "pipe")
+        with self.assertRaises(ValueError):
+            dm.walk_plain(self.source)
+
     def test_copy_uses_exclusive_creation_and_preserves_partial_output_on_failure(self):
-        native = Path.open
-        def fail_open(path, mode="r", *args, **kwargs):
-            if path == self.dest / "init.c" and "x" in mode:
+        native = dm._create_staged     # creation is anchored on directory descriptors (O_EXCL), not Path.open
+        def fail_create(path, data):
+            if path == self.dest / "init.c":
                 raise OSError("synthetic copy failure")
-            return native(path, mode, *args, **kwargs)
-        with patch.object(Path, "open", fail_open), self.assertRaises(OSError):
+            return native(path, data)
+        with patch.object(dm, "_create_staged", fail_create), self.assertRaises(OSError):
             self.prepare()
         self.assertTrue(self.dest.is_dir())
         self.assertFalse((self.dest / dm.MARKER_NAME).exists())
