@@ -10,6 +10,8 @@ class HCEventModule : HCModule
     protected ref HCEventRuntime m_Runtime;
     protected ref HCEventRPC m_EventRPC;
     protected bool m_Stopping = false;
+    protected bool m_Quarantined = false;
+    protected int m_CleanupAttempts = 0;
     protected float m_StartedAt;
     protected string m_Session;
 
@@ -93,6 +95,8 @@ class HCEventModule : HCModule
             OnStop();
             return;
         }
+        // Runtime canonicalizes the nonce with its persisted session generation.
+        m_Session = context.Session;
         BindReviewedTargets(observer, m_Config);
         int admitted = 0;
         foreach (HCEventSite site : m_Config.Sites)
@@ -120,7 +124,10 @@ class HCEventModule : HCModule
         }
         if (m_Stopping)
         {
-            OnStop();
+            if (!m_Quarantined)
+            {
+                OnStop();
+            }
             return;
         }
         // Admit opt-in requests only after runtime and current-world roster.
@@ -145,7 +152,10 @@ class HCEventModule : HCModule
     {
         if (m_Stopping)
         {
-            OnStop();
+            if (!m_Quarantined)
+            {
+                OnStop();
+            }
             return;
         }
         if (m_Runtime)
@@ -187,14 +197,25 @@ class HCEventModule : HCModule
         {
             m_Stopping = true;
             s_CleanupOwner = this;
+            m_CleanupAttempts = m_CleanupAttempts + 1;
             if (!m_Runtime.Stop(Context()))
             {
-                Print("[HC Events] shutdown pending: runtime/provider/journal ownership retained");
+                if (m_CleanupAttempts == 1)
+                {
+                    Print("[HC Events] shutdown pending: runtime/provider/journal ownership retained");
+                }
+                if (m_CleanupAttempts >= 8 && !m_Quarantined)
+                {
+                    m_Quarantined = true;
+                    Print("[HC Events] cleanup quarantined: owner/entities retained; automatic retries stopped; fresh start rechecks closure, journal faults require explicit recovery");
+                }
                 return;
             }
             m_Runtime = null;
         }
         m_Stopping = false;
+        m_Quarantined = false;
+        m_CleanupAttempts = 0;
         if (s_CleanupOwner == this)
         {
             s_CleanupOwner = null;

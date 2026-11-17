@@ -178,7 +178,8 @@ class HCEventDirector
         {
             return false;
         }
-        if (state.Sessions.Count() < 1 || state.Sessions.Count() > 32)
+        // At most one session per retained record, plus the current session.
+        if (state.Sessions.Count() < 1 || state.Sessions.Count() > 33)
         {
             return false;
         }
@@ -186,7 +187,15 @@ class HCEventDirector
         {
             return false;
         }
-        if (state.NextId != state.Records.Count() + 1)
+        if (state.PrunedThrough < 0 || state.PrunedThrough > 1000000000 || state.NextId > 1000000001)
+        {
+            return false;
+        }
+        if (state.SessionGeneration < 0 || state.SessionGeneration > 1000000000)
+        {
+            return false;
+        }
+        if (state.NextId != state.PrunedThrough + state.Records.Count() + 1)
         {
             return false;
         }
@@ -212,7 +221,7 @@ class HCEventDirector
             }
             sessionIndex = sessionIndex + 1;
         }
-        int recordIndex = 1;
+        int recordIndex = state.PrunedThrough + 1;
         int actors = 0;
         int items = 0;
         foreach (HCEventRecord record : state.Records)
@@ -261,7 +270,7 @@ class HCEventDirector
         {
             return HCEventCode.INVALID;
         }
-        if (state.Records.Count() >= 32)
+        if (state.Records.Count() >= 32 || state.NextId > 1000000000)
         {
             return HCEventCode.LIMIT;
         }
@@ -516,6 +525,44 @@ class HCEventDirector
         state.LastNow = context.Now;
         return HCEventCode.OK;
     }
+    static void CompactSessions(HCEventState state)
+    {
+        array<string> retained = new array<string>();
+        foreach (string session : state.Sessions)
+        {
+            bool needed = session == state.Session;
+            foreach (HCEventRecord record : state.Records)
+            {
+                if (record.Session == session)
+                {
+                    needed = true;
+                }
+            }
+            if (needed)
+            {
+                retained.Insert(session);
+            }
+        }
+        state.Sessions = retained;
+    }
+    static bool PruneFirst(HCEventState state)
+    {
+        // Runtime must additionally confirm the corresponding run is CLOSED.
+        // Never remove current-session duplicate tombstones or live records.
+        if (!StateValid(state) || state.Records.Count() == 0)
+        {
+            return false;
+        }
+        HCEventRecord oldest = state.Records[0];
+        if (!Terminal(oldest.Status) || oldest.Session == state.Session)
+        {
+            return false;
+        }
+        state.PrunedThrough = oldest.Id;
+        state.Records.RemoveOrdered(0);
+        CompactSessions(state);
+        return true;
+    }
     static int Restart(HCEventState state, HCEventContext context, string newSession)
     {
         if (!ContextValid(state, context))
@@ -530,9 +577,15 @@ class HCEventDirector
         {
             return HCEventCode.CONFLICT;
         }
-        if (state.Sessions.Count() >= 32)
+        if (state.SessionGeneration >= 1000000000)
         {
             return HCEventCode.LIMIT;
+        }
+        int generation = state.SessionGeneration + 1;
+        string canonical = generation.ToString() + ":" + newSession;
+        if (!TextValid(canonical, 96) || state.Sessions.Find(canonical) >= 0)
+        {
+            return HCEventCode.INVALID;
         }
         // This is an in-memory lifecycle restart, not disk crash recovery.
         // No native entities exist here; cancellation releases reservations.
@@ -544,8 +597,10 @@ class HCEventDirector
                 record.Revision = record.Revision + 1;
             }
         }
-        state.Sessions.Insert(newSession);
-        state.Session = newSession;
+        state.SessionGeneration = generation;
+        state.Sessions.Insert(canonical);
+        state.Session = canonical;
+        CompactSessions(state);
         state.LastNow = 0;
         return HCEventCode.OK;
     }

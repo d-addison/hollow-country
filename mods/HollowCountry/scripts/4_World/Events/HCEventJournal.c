@@ -199,6 +199,7 @@ class HCEventJournal : HCEventPersistence
         }
         if (!HCEventRuntimePolicy.StateValid(state) || state.Revision != latest || state.Director.WorldName != world)
         {
+            Print("[HC Events] journal schema/state admission failed; preserve image, no reset or fallback");
             Fault();
             return null;
         }

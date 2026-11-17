@@ -10,6 +10,7 @@ class HCEventPeer
     int Sequence = 0;
     float RateWindow = 0;
     int RateCount = 0;
+    float NextMutation = 0;
 }
 // Main attaches this adapter to the frozen module lifecycle. Context is always
 // derived from that module; client fields never supply identity or authority.
@@ -23,6 +24,7 @@ class HCEventRPC
     protected float m_GlobalWindow = 0;
     protected int m_GlobalCount = 0;
     protected float m_LastTime = 0;
+    protected ref HCEventRuntimeState m_ProjectionState;
 
     bool Start(HCEventModule module)
     {
@@ -35,8 +37,13 @@ class HCEventRPC
         int second = Math.RandomIntInclusive(1, 1000000000);
         m_Boot = first.ToString() + "-" + second.ToString();
         m_LastTime = GetGame().GetTickTime();
+        if (m_LastTime != m_LastTime || m_LastTime < 0 || m_LastTime > 1000000000)
+        {
+            return false;
+        }
         m_GlobalWindow = m_LastTime;
         m_GlobalCount = 0;
+        m_ProjectionState = null;
         m_Started = true;
         DayZGame.Event_OnRPC.Insert(OnRPC);
         return true;
@@ -89,17 +96,34 @@ class HCEventRPC
         peer.Player = player;
         m_Serial = m_Serial + 1;
         peer.Session = m_Boot + ":" + m_Serial.ToString();
-        peer.RateWindow = GetGame().GetTickTime();
+        // Authentication can run before Admit rejects an invalid clock sample.
+        // Only a previously validated sample may initialize a peer baseline.
+        peer.RateWindow = m_LastTime;
         m_Peers.Insert(peer);
         return peer;
     }
     bool Admit(HCEventPeer peer)
     {
         float now = GetGame().GetTickTime();
-        if (now != now || now < m_LastTime || now > 1000000000)
+        if (now != now || now < 0 || now > 1000000000)
         {
-            Stop();
             return false;
+        }
+        if (now < m_LastTime)
+        {
+            // GetTickTime rollback resets budgets; it must not detach the sole
+            // listener behind the module's back or bypass mutation cooldowns.
+            m_GlobalWindow = now;
+            m_GlobalCount = 0;
+            foreach (HCEventPeer tracked : m_Peers)
+            {
+                tracked.RateWindow = now;
+                tracked.RateCount = 0;
+                if (tracked.NextMutation > 0)
+                {
+                    tracked.NextMutation = now + 3;
+                }
+            }
         }
         m_LastTime = now;
         if (now - m_GlobalWindow >= 1)
@@ -163,13 +187,24 @@ class HCEventRPC
             view.Code = HCEventWireCode.DISABLED;
             return view;
         }
-        HCEventRuntimeState state = runtime.Snapshot();
-        if (!HCEventRuntimePolicy.StateValid(state))
+        // Snapshot clones via JSON. Cache that immutable private projection
+        // source once per revision, while rebuilding peer/time fields below.
+        if (!m_ProjectionState || m_ProjectionState.Revision != runtime.Revision())
+        {
+            m_ProjectionState = runtime.Snapshot();
+            if (!HCEventRuntimePolicy.StateValid(m_ProjectionState))
+            {
+                m_ProjectionState = null;
+            }
+        }
+        HCEventRuntimeState state = m_ProjectionState;
+        if (!state)
         {
             view.Enabled = false;
             view.Code = HCEventWireCode.DISABLED;
             return view;
         }
+        int slot = 0;
         foreach (HCEventRun run : state.Runs)
         {
             HCEventRecord record = HCEventDirector.FindRecord(state.Director, run.EventId);
@@ -177,8 +212,9 @@ class HCEventRPC
             // remain visible so a participant can see expiry/completion.
             if (record.Session == context.Session)
             {
+                slot = slot + 1;
                 HCEventPublicRow row = new HCEventPublicRow;
-                row.EventId = record.Id;
+                row.EventId = slot;
                 row.Revision = record.Revision;
                 row.Family = run.Mission.Family;
                 row.Title = Title(row.Family);
@@ -256,17 +292,29 @@ class HCEventRPC
         peer.LastCode = HCEventCode.DENIED;
         HCEventRuntime runtime = m_Module.Runtime();
         HCEventContext context = m_Module.Context();
-        if (runtime)
+        float now = GetGame().GetTickTime();
+        if (now < peer.NextMutation)
         {
-            if (request.Op == HCEventWireOp.LEAVE)
+            peer.LastCode = HCEventCode.LIMIT;
+        }
+        else
+        {
+            // Stored on the already bounded (90) native peer list, discarded
+            // on disconnect. Consumed refusals also have replayable receipts.
+            peer.NextMutation = now + 3;
+            if (runtime)
             {
-                peer.LastCode = runtime.Leave(request.EventId, peer.Player, context);
-            }
-            else
-            {
-                if (!peer.Player.IsUnconscious())
+                int id = runtime.PublicEventId(request.EventId);
+                if (request.Op == HCEventWireOp.LEAVE)
                 {
-                    peer.LastCode = runtime.Join(request.EventId, peer.Player, context);
+                    peer.LastCode = runtime.Leave(id, peer.Player, context);
+                }
+                else
+                {
+                    if (!peer.Player.IsUnconscious())
+                    {
+                        peer.LastCode = runtime.Join(id, peer.Player, context);
+                    }
                 }
             }
         }
@@ -301,5 +349,6 @@ class HCEventRPC
         }
         m_Started = false;
         m_Peers.Clear();
+        m_ProjectionState = null;
     }
 }

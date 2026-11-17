@@ -79,6 +79,12 @@ class HCEventState
     string Session;
     int LastNow = 0;
     int NextId = 1;
+    // Additive schema-1 migration: absent legacy fields default to zero.
+    // Records retain a contiguous suffix; IDs below this floor never return.
+    int PrunedThrough = 0;
+    // Canonical session tokens include a durable generation, so forgetting an
+    // unused old token cannot allow an old context to become current again.
+    int SessionGeneration = 0;
     ref array<string> Sessions = new array<string>();
     ref array<ref HCEventRecord> Records = new array<ref HCEventRecord>();
 }
