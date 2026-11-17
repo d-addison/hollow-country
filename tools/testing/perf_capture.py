@@ -9,6 +9,9 @@ Line format (written by HCPerfSampler.c, times in milliseconds). The sampler con
 milliseconds with a per-window calibration (ticks_per_ms) measured against the server clock:
   [HC Perf] window=<n> samples=<k> tick_p50=<ms> tick_p95=<ms> tick_p99=<ms> tick_max=<ms>
             work_p50=<ms> work_p95=<ms> work_max=<ms> players_min=<n> players_max=<n> ticks_per_ms=<rate>
+Optional breakdown: slowest_module=<name> slowest_module_max_ms=<ms> slow_ticks=<n>
+mod_max=<name>:<ms>,... (up to 16 modules, sorted by name). slow_ticks counts module-loop
+samples strictly over 10 ms. These calibrated fields are omitted on invalid calibration.
 players_min/players_max are the lowest and highest player counts seen at the window's samples. The older form
 with one `players=<count>` (taken at window end) is still read as min == max.
 A window whose calibration failed carries no work_* values and ends `players_min=<n> players_max=<n>
@@ -45,6 +48,8 @@ MAX_EXAMPLES = 5
 EXAMPLE_CHARS = 200
 PAIR = re.compile(r"([a-z0-9_]+)=(\S+)")
 INT_TEXT = re.compile(r"[0-9]{1,9}\Z")
+MODULE_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_.-]{0,63}\Z")
+MODULE_FIELDS = ("slowest_module", "slowest_module_max_ms", "slow_ticks", "mod_max")
 WRAPPER = re.compile(r"string\s+report\s*=\s*'\s*\Z")
 
 
@@ -115,7 +120,64 @@ def parse_line(text):
         for low, high in zip(chain, chain[1:]):
             if record[low] > record[high]:
                 raise ValueError("%s above %s" % (low, high))
+    if invalid is not None and any(name in values for name in MODULE_FIELDS):
+        raise ValueError("calibration=invalid line carries module values")
+    if "slow_ticks" in values:
+        raw_count = values["slow_ticks"]
+        if not INT_TEXT.fullmatch(raw_count) or int(raw_count) > record["samples"]:
+            raise ValueError("out of range slow_ticks")
+        record["slow_ticks"] = int(raw_count)
+    if "slowest_module" in values:
+        if not MODULE_NAME.fullmatch(values["slowest_module"]):
+            raise ValueError("bad slowest_module")
+        record["slowest_module"] = values["slowest_module"]
+    if "slowest_module_max_ms" in values:
+        record["slowest_module_max_ms"] = _module_ms(values["slowest_module_max_ms"])
+    if "mod_max" in values:
+        modules = {}
+        entries = values["mod_max"].split(",")
+        if len(entries) > 16:
+            raise ValueError("too many modules")
+        for entry in entries:
+            parts = entry.split(":")
+            if len(parts) != 2 or not MODULE_NAME.fullmatch(parts[0]) or parts[0] in modules:
+                raise ValueError("bad mod_max entry")
+            modules[parts[0]] = _module_ms(parts[1])
+        if list(modules) != sorted(modules):
+            raise ValueError("mod_max not sorted by name")
+        record["mod_max"] = modules
     return record
+
+
+def _module_ms(raw):
+    try:
+        value = float(raw)
+    except ValueError:
+        raise ValueError("bad module milliseconds") from None
+    if not math.isfinite(value) or value < 0:
+        raise ValueError("out of range module milliseconds")
+    return value
+
+
+def _module_stats(records):
+    maxima = {}
+    candidates = {}
+    for record in records:
+        for name, value in record.get("mod_max", {}).items():
+            maxima[name] = max(maxima.get(name, 0.), value)
+        if "slowest_module" in record and "slowest_module_max_ms" in record:
+            name = record["slowest_module"]
+            candidates[name] = max(candidates.get(name, 0.), record["slowest_module_max_ms"])
+    for name, value in maxima.items():
+        candidates[name] = max(candidates.get(name, 0.), value)
+    slowest = min(candidates, key=lambda name: (-candidates[name], name)) if candidates else None
+    slow_counts = [r["slow_ticks"] for r in records if "slow_ticks" in r]
+    return {"mod_max": dict(sorted(maxima.items())),
+            "module_windows": sum("mod_max" in r for r in records),
+            "slow_ticks": sum(slow_counts) if slow_counts else None,
+            "slow_tick_windows": len(slow_counts),
+            "slowest_module": slowest,
+            "slowest_module_max_ms": candidates[slowest] if slowest is not None else None}
 
 
 def _worst(records):
@@ -163,7 +225,8 @@ def _key_order(key):
 
 def _stats(records):
     return {"windows": len(records), "samples": sum(r["samples"] for r in records), "worst": _worst(records),
-            "calibration_invalid_windows": sum(1 for r in records if not r["calibration_valid"])}
+            "calibration_invalid_windows": sum(1 for r in records if not r["calibration_valid"]),
+            **_module_stats(records)}
 
 
 def read_run(path):
@@ -276,6 +339,16 @@ def render_text(report):
              "windows: %d, malformed lines: %d" % (report["overall"]["windows"], report["malformed_lines"])]
     lines.append("calibration_invalid windows: %d (work_* unknown; never counted as within budget)"
                  % report["calibration_invalid_windows"])
+    module_stats = report["overall"]
+    if module_stats["slow_ticks"] is not None:
+        lines.append("slow_ticks=%d (reported in %d windows)" % (
+            module_stats["slow_ticks"], module_stats["slow_tick_windows"]))
+    if module_stats["slowest_module"] is not None:
+        lines.append("slowest_module=%s slowest_module_max_ms=%.2f" % (
+            module_stats["slowest_module"], module_stats["slowest_module_max_ms"]))
+    if module_stats["module_windows"]:
+        lines.append("mod_max=" + ",".join("%s:%.2f" % pair for pair in module_stats["mod_max"].items())
+                     + " (reported in %d windows)" % module_stats["module_windows"])
     for players, group in report["by_players"].items():
         worst = group["worst"]
         work_p95 = "n/a" if worst["work_p95"] is None else "%.2f" % worst["work_p95"]

@@ -313,6 +313,136 @@ class Report(unittest.TestCase):
         self.assertEqual('over_budget', report['verdict'])
 
 
+class ModuleBreakdown(unittest.TestCase):
+    fields = ' slowest_module=Ecology slowest_module_max_ms=18.50 slow_ticks=2 mod_max=Crafting:0.30,Ecology:18.50'
+
+    def test_optional_fields_parse_and_legacy_lines_still_parse(self):
+        record = pc.parse_line(line() + self.fields)
+        self.assertEqual('Ecology', record['slowest_module'])
+        self.assertEqual(18.5, record['slowest_module_max_ms'])
+        self.assertEqual(2, record['slow_ticks'])
+        self.assertEqual({'Crafting': .3, 'Ecology': 18.5}, record['mod_max'])
+        self.assertNotIn('mod_max', pc.parse_line(line()))
+        self.assertEqual(2, pc.parse_line(line()+' slow_ticks=2')['slow_ticks'])
+
+    def test_malformed_optional_values_are_rejected(self):
+        for suffix in (' slow_ticks=-1', ' slow_ticks=61', ' slow_ticks=x',
+                       ' slowest_module_max_ms=nan', ' slowest_module_max_ms=-1',
+                       ' slowest_module=bad/name', ' mod_max=Ecology:nan',
+                       ' mod_max=Ecology:1,Ecology:2', ' mod_max=Bad:1:2',
+                       ' mod_max=' + ','.join('M%d:1'%i for i in range(17)),
+                       ' mod_max=B:1,A:2', ' mod_max=A:-1',
+                       ' slowest_module_max_ms=1 calibration=invalid'):
+            with self.subTest(suffix=suffix), self.assertRaises(ValueError):
+                pc.parse_line(line() + suffix)
+        with self.assertRaises(ValueError):
+            pc.parse_line(line(calibration_invalid=True) + self.fields)
+
+    def test_json_and_text_report_module_maxima_and_slow_counts_without_acceptance(self):
+        report = Report().build({'a.rpt':[line()+self.fields, line(window=2),
+            line(window=3)+' slow_ticks=1 mod_max=Ecology:21.00']})
+        stats = report['overall']
+        self.assertEqual(3, stats['slow_ticks'])
+        self.assertEqual(2, stats['module_windows'])
+        self.assertEqual({'Crafting':.3,'Ecology':21.}, stats['mod_max'])
+        self.assertEqual('Ecology', stats['slowest_module'])
+        self.assertEqual(21., stats['slowest_module_max_ms'])
+        text = pc.render_text(report)
+        self.assertIn('slow_ticks=3',text)
+        self.assertIn('mod_max=Crafting:0.30,Ecology:21.00',text)
+        self.assertEqual('pending',report['runtime_acceptance'])
+
+
+def sampler_fixture():
+    """Execute sampler source; clocks/arrays/players are explicit synthetic ports."""
+    from types import SimpleNamespace as N
+    from tests.unit.test_event_runtime import translate
+    from tests.unit.test_group_server import EArray
+    class Array(EArray):
+        def Reserve(self, count): pass
+        def Set(self, index, value): self[index] = value
+        def Sort(self): self.sort()
+        def Find(self, value): return self.index(value) if value in self else -1
+    source = code_of(SAMPLER.read_text()).replace('HCPerfSampler','HCEventPerfSampler')
+    source = source.replace('for (int i = 0; i < source.Count(); i++) sorted.Insert(source.Get(i));',
+                            'foreach (float item : source) { sorted.Insert(item); }')
+    source = re.sub(r'\((int|float)\)\(', r'\1(', source)
+    source = re.sub(r'\((int|float)\)([\w.]+)', r'\1(\2)', source)
+    source = source.replace('(stored * percent + 99) / 100', 'int((stored * percent + 99) / 100)')
+    source = source.replace('hundredths / 100', 'int(hundredths / 100)')
+    source = source.replace('m_Ticks.Count().ToString()', 'str(m_Ticks.Count())')
+    source = re.sub(r'(\b[\w.]+)\+\+;',r'\1 += 1;',source)
+    clock = N(now=0.,ticks=0)
+    logs = []
+    env = dict(EArray=Array, str=str, int=int, float=float, Print=logs.append,
+        Math=N(Round=lambda value: int(value+.5)),
+        TickCount=lambda prior: clock.ticks-prior,
+        GetGame=lambda:N(IsServer=lambda:True, GetTickTime=lambda:clock.now,
+                         GetPlayers=lambda players:players.extend([None]*4)))
+    env.update({key:float(value) if '.' in value else int(value)
+        for key,value in re.findall(r'const (?:int|float) (\w+) = ([\d.]+);',source)})
+    state = N()
+    for typ,name in re.findall(r'protected (?:ref )?(array<[^>]+>|int|float|bool|string) (m_\w+)',source):
+        setattr(state,name,Array() if typ.startswith('array') else
+                {'int':0,'float':0.,'bool':False,'string':''}[typ])
+    for name in re.findall(r'(?:protected )?(?:void|bool|int|float|string) (\w+)\(',source):
+        fn = translate(source,name,env,'HCEventPerfSampler',True)
+        setattr(state,name,lambda *args, fn=fn:fn(state,*args))
+    return state,clock,logs
+
+
+class SamplerModuleBehavior(unittest.TestCase):
+    def test_maxima_sorted_names_slow_threshold_and_window_reset(self):
+        sampler,clock,logs = sampler_fixture()
+        sampler.Start(3)
+        sampler.RegisterModule('Ecology');sampler.RegisterModule('Crafting')
+        for work,eco,craft in ((10000,7000,3000),(10001,8000,2000),(20000,19000,1000)):
+            sampler.SampleModule(0,eco);sampler.SampleModule(1,craft)
+            clock.now += 1.;clock.ticks += 1000000
+            sampler.Sample(1.,work)
+        record = pc.parse_line(logs[-1])
+        self.assertEqual({'Crafting':3.,'Ecology':19.},record['mod_max'])
+        self.assertEqual('Ecology',record['slowest_module'])
+        self.assertEqual(19.,record['slowest_module_max_ms'])
+        self.assertEqual(2,record['slow_ticks'])  # Exactly 10 ms is not slow.
+        clock.now += 3.;clock.ticks += 3000000
+        sampler.Sample(3.,0)
+        record = pc.parse_line(logs[-1])
+        self.assertEqual({'Crafting':0.,'Ecology':0.},record['mod_max'])
+        self.assertEqual(0,record['slow_ticks'])
+
+    def test_module_capacity_restart_and_invalid_calibration(self):
+        sampler,clock,logs = sampler_fixture()
+        sampler.Start(1)
+        for i in range(20):sampler.RegisterModule('M%02d'%i)
+        for i in range(20):sampler.SampleModule(i,1000+i)
+        sampler.SampleModule(-1,999999)
+        clock.now = 1.;clock.ticks = 1000000
+        sampler.Sample(1.,0)
+        self.assertEqual(16,len(pc.parse_line(logs[-1])['mod_max']))
+        sampler.Stop();sampler.Start(1);sampler.RegisterModule('Only')
+        sampler.SampleModule(0,1234)
+        clock.now = 2.;clock.ticks = 2000000
+        sampler.Sample(1.,1000)
+        self.assertEqual({'Only':1.23},pc.parse_line(logs[-1])['mod_max'])
+        sampler.Sample(1.,999999)
+        record = pc.parse_line(logs[-1])
+        self.assertFalse(record['calibration_valid'])
+        self.assertNotIn('mod_max',record)
+        self.assertNotIn('slow_ticks',record)
+
+    def test_no_allocation_or_name_lookup_in_tick_observer(self):
+        source = code_of(SAMPLER.read_text())
+        from tests.unit.test_group_server import body
+        for method in ('SampleModule','Sample'):
+            match = re.search(r'void '+method+r'\([^)]*\)\s*\{',source)
+            self.assertIsNotNone(match)
+            code = body(source,match.end())
+            for forbidden in ('new ','.Reserve(','.Sort(','.Find('):
+                self.assertNotIn(forbidden,code)
+        self.assertIn('HC_PERF_MAX_MODULES = 16',source)
+
+
 class Budgets(unittest.TestCase):
     def test_json_budget_file_overrides_defaults_and_cli_flags_override_file(self):
         with tempfile.TemporaryDirectory() as directory:

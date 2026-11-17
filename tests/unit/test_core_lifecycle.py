@@ -50,6 +50,7 @@ def expression(text):
     text = re.sub(r"!(?!=)", "not ", text)
     for old, new in (("true", "True"), ("false", "False"), ("null", "None")):
         text = re.sub(r"\b" + old + r"\b", new, text)
+    text = re.sub(r"(\b[\w.]+)\+\+", r"\1 += 1", text)
     return text
 
 
@@ -127,18 +128,39 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                "HCNativeSelfTests": SimpleNamespace(Run=lambda: self_test),
                "HCSettings": SimpleNamespace(LoadFromProfile=lambda: settings if loaded else None),
                "HCModuleRegistry": lambda: registry, "Print": lambda text: None,
-               "CALL_CATEGORY_SYSTEM": 0}
+               "CALL_CATEGORY_SYSTEM": 0, "TickCount": lambda prior: 0}
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
                             m_Registry=None, m_LastTick=0, Tick=lambda: None,
                             # The perf sampler is a passive observer; its own tests live in test_perf_capture.
                             m_Perf=SimpleNamespace(Start=lambda seconds: None, Stop=lambda: None,
-                                                   Sample=lambda elapsed, ticks: None))
+                                                   Sample=lambda elapsed, ticks: None,
+                                                   RegisterModule=lambda name: None,
+                                                   SampleModule=lambda index, ticks: None))
     state.Stop = lambda: actual_method("Stop", context)(state)
     state.Start = lambda: actual_method("Start", context)(state)
     return state, calls
 
 
 class CoreLifecycleTests(unittest.TestCase):
+    def test_tick_times_each_module_in_registration_order(self):
+        events = []
+        modules = [Module("Ecology",events),Module("Crafting",events)]
+        state,_ = fixture(modules=modules)
+        registered = []
+        state.m_Perf.RegisterModule = registered.append
+        state.Start()
+        self.assertEqual(["Ecology","Crafting"],registered)
+        ticks = [100,110,117,120,139,145]
+        observations = []
+        state.m_Perf.SampleModule = lambda index,work: observations.append((index,work))
+        state.m_Perf.Sample = lambda elapsed,work: observations.append(("total",work))
+        for module in modules: module.OnTick = lambda elapsed: events.append("tick")
+        context = dict(GetGame=lambda:SimpleNamespace(IsServer=lambda:True,GetTickTime=lambda:13.),
+                       TickCount=lambda prior:ticks.pop(0)-prior,Print=lambda text:None)
+        actual_method("Tick",context)(state)
+        self.assertEqual([(0,7),(1,19),("total",45)],observations)
+        self.assertEqual(2,events.count("tick"))
+
     def test_stop_unwinds_initial_partial_start_in_reverse_order(self):
         events = []
         modules = [Module("a", events), Module("b", events)]

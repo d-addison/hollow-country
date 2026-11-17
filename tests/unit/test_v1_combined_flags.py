@@ -142,17 +142,20 @@ class CoreFixture:
         self.state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None,
                        m_LastTick=0, m_Registry=None,
                        m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,
-                                Sample=lambda elapsed, ticks: None))
+                                Sample=lambda elapsed, ticks: None,
+                                RegisterModule=lambda name: None, SampleModule=lambda index,ticks: None))
         context = dict(GetGame=lambda: self.game, Print=self.profile.logs.append,
                        HCNativeSelfTests=N(Run=lambda: True),
                        HCSettings=N(LoadFromProfile=self.profile.load),
-                       HCModuleRegistry=lambda: self.registry, CALL_CATEGORY_SYSTEM=0)
+                       HCModuleRegistry=lambda: self.registry, CALL_CATEGORY_SYSTEM=0,
+                       TickCount=lambda prior:0)
         for name in ('Start', 'Tick', 'Stop'):
             if name == 'Tick':
                 source = core.SOURCE.read_text().replace(
                     'foreach (HCModule module : m_Active) module.OnTick(elapsed);',
                     'foreach (HCModule module : m_Active) { module.OnTick(elapsed); }')
                 source = source.replace('HCModule', 'HCEventBase')
+                source = re.sub(r'(\b[\w.]+)\+\+;',r'\1 += 1;',source)
                 fn = event.translate(source, name, dict(context), 'HCServer', True)
             else:
                 fn = core.actual_method(name, context)

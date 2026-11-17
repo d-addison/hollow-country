@@ -309,9 +309,9 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
             def GetPosition(self):return self.point
             def IsAlive(self):return self.alive
         for serial in range(1,4):
-            self.runtime.m_Actors.Insert(SimpleNamespace(Live=Handle([0.,0.,0.],0),Serial=serial))
+            self.runtime.m_Actors.Insert(SimpleNamespace(Live=Handle([0.,0.,0.],0),Serial=serial,LocalId="session-a:"+str(serial)))
         for serial in range(4,7):
-            self.runtime.m_Resources.Insert(SimpleNamespace(Live=Handle([1.,0.,0.],1),Serial=serial))
+            self.runtime.m_Resources.Insert(SimpleNamespace(Live=Handle([1.,0.,0.],1),Serial=serial,LocalId="session-a:"+str(serial)))
         def probe(actor,resource,aid,rid,kind,cfg,world,session,now):
             self.calls.append((aid,rid))
             result=self.e["HCEcologyRouteIntent"]()
@@ -340,6 +340,47 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.assertEqual(2,self.probe(self.runtime,100))
         self.assertEqual(2,len(self.calls))
         self.assertEqual([],self.runtime.m_Intents)
+
+    def test_distant_pairs_do_no_resource_capacity_or_id_work(self):
+        for binding in self.runtime.m_Resources:
+            binding.Live.point = [1000., 0., 0.]
+        def forbidden(*args): self.fail("distant pair did expensive work")
+        self.e["HCEcologyNative"].SampleResource = forbidden
+        self.e["HCEcologyRuntimeRules"].Capacity = forbidden
+        self.e["HCEcologyRuntimeRules"].Token = forbidden
+        self.assertEqual(0, self.probe(self.runtime, 100))
+
+    def test_near_pairs_use_cached_ids_without_token_validation(self):
+        def forbidden(*args): self.fail("pair regenerated a validated binding id")
+        self.e["HCEcologyRuntimeRules"].Token = forbidden
+        self.assertEqual(2, self.probe(self.runtime, 100))
+        self.assertEqual([("session-a:1", "session-a:4"),
+                          ("session-a:2", "session-a:5")], self.calls)
+
+    def test_64_pair_budget_resumes_exactly_and_covers_full_scattered_cohort(self):
+        # SYNTHETIC: 32 actors x 32 distant resources; trace actual distance calls.
+        actor_type = type(self.runtime.m_Actors[0].Live)
+        self.runtime.m_Actors = EArray(SimpleNamespace(Live=actor_type([float(i),0.,0.],0),
+            Serial=i+1, LocalId="session-a:"+str(i+1)) for i in range(32))
+        self.runtime.m_Resources = EArray(SimpleNamespace(Live=actor_type([1000.+i,0.,0.],1),
+            Serial=i+33, LocalId="session-a:"+str(i+33)) for i in range(32))
+        pairs = []
+        self.e["vector"].DistanceSq = lambda a,b: pairs.append((a[0],b[0])) or 1000000.
+        for pump in range(16):
+            before = len(pairs)
+            self.assertEqual(0, self.probe(self.runtime, 100+pump))
+            self.assertEqual(64, len(pairs)-before)
+        self.assertEqual([(float(a),1000.+r) for a in range(32) for r in range(32)], pairs)
+        self.probe(self.runtime, 200)
+        self.assertEqual(pairs[:64], pairs[1024:])
+
+    def test_cursor_normalizes_after_removal_and_empty_cohorts(self):
+        self.runtime.m_ActorCursor = 31; self.runtime.m_ResourceCursor = 31
+        self.runtime.m_Actors.Clear()
+        self.assertEqual(0, self.probe(self.runtime, 100))
+        self.runtime.m_Actors.Insert(SimpleNamespace(Live=self.runtime.m_Resources[0].Live,
+            Serial=9,LocalId="session-a:9"))
+        self.assertEqual(1, self.probe(self.runtime, 101))
 
 
 class EcologyLifecycleBehaviorTests(unittest.TestCase):
@@ -409,8 +450,8 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.assertEqual(0,len(self.runtime.m_Actors)+len(self.runtime.m_Resources)+len(self.runtime.m_Intents))
     def test_periodic_store_fault_releases_all_live_bindings(self):
         self.runtime.m_Intents.Insert(None)
-        self.runtime.m_Actors.Insert(SimpleNamespace(Live=object(),Serial=1))
-        self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(),Serial=2))
+        self.runtime.m_Actors.Insert(SimpleNamespace(Live=object(),Serial=1,LocalId="session-a:1"))
+        self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(),Serial=2,LocalId="session-a:2"))
         self.e["HCEcologyNative"].SampleActor=lambda *args:None
         self.e["HCEcologyNative"].SampleResource=lambda *args:0
         self.runtime.Checkpoint=lambda:False
@@ -469,6 +510,26 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         self.remove=translated(source,"RemoveFrom",self.e,"HCEcologyRuntime",True)
         self.runtime.ForgetIntents=lambda id:None
         self.actor=SimpleNamespace(IsPendingDeletion=lambda:False)
+    def test_binding_ids_cached_for_registration_and_prestart_session(self):
+        self.runtime.m_Session = ""
+        self.add(self.runtime, self.actor, True)
+        binding = self.runtime.m_Actors[0]
+        self.assertEqual("", binding.LocalId)
+        self.runtime.m_Session = "session-b"
+        source = (ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
+        cache = translated(source,"BindLocalIds",self.e,"HCEcologyRuntime",True)
+        cache(self.runtime)
+        self.assertEqual("session-b:1", binding.LocalId)
+        self.add(self.runtime, SimpleNamespace(IsPendingDeletion=lambda:False), True)
+        self.assertEqual("session-b:2", self.runtime.m_Actors[1].LocalId)
+        retired = []
+        self.runtime.ForgetIntents = retired.append
+        self.e["HCEcologyRuntimeRules"].Token = lambda value: self.fail("retirement rebuilt id")
+        self.remove(self.runtime,self.runtime.m_Actors,self.actor)
+        self.assertEqual(["session-b:1"],retired)
+        begin = body(source,re.search(r"bool Begin\([^)]*\)\s*\{",source).end())
+        self.assertLess(begin.index("m_Session = session"),begin.index("BindLocalIds()"))
+
     def test_closed_cohort_drops_late_hooks_and_null_registration(self):
         self.runtime.m_Collecting=False
         self.add(self.runtime,self.actor,True)
@@ -497,7 +558,7 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         self.assertEqual(1,len(self.runtime.m_Actors))
     def test_full_resource_cohort_returns_before_resource_inspection(self):
         self.runtime.m_Settings.MaxResources = 1
-        self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(),Serial=1))
+        self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(),Serial=1,LocalId="session-a:1"))
         def forbidden():
             self.fail("full cohort must return before native resource inspection")
         self.e['ItemBase'] = SimpleNamespace(Cast=lambda entity: forbidden())

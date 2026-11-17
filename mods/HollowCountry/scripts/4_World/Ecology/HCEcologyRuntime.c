@@ -6,6 +6,7 @@ class HCEcologyLiveBinding
 {
 	EntityAI Live;
 	int Serial;
+	string LocalId;
 }
 
 class HCEcologyRuntime
@@ -102,6 +103,7 @@ class HCEcologyRuntime
 		HCEcologyLiveBinding binding = new HCEcologyLiveBinding;
 		binding.Live = entity;
 		binding.Serial = m_NextSerial;
+		binding.LocalId = HCEcologyRuntimeRules.LocalId(m_Session, binding.Serial);
 		m_NextSerial++;
 		entries.Insert(binding);
 	}
@@ -120,7 +122,7 @@ class HCEcologyRuntime
 			HCEcologyLiveBinding binding = entries.Get(i);
 			if (!binding || !binding.Live || binding.Live == entity)
 			{
-				if (binding) { ForgetIntents(HCEcologyRuntimeRules.LocalId(m_Session, binding.Serial)); }
+				if (binding) { ForgetIntents(binding.LocalId); }
 				entries.Remove(i);
 			}
 			i--;
@@ -185,6 +187,8 @@ class HCEcologyRuntime
 			return false;
 		}
 		m_Session = session;
+		// EEInit may have registered handles before the session was admitted.
+		BindLocalIds();
 		m_Policy = new HCEcologyPolicy;
 		m_Policy.SchemaVersion = 1;
 		m_Policy.Enabled = true;
@@ -249,7 +253,7 @@ class HCEcologyRuntime
 		while (i < m_Actors.Count())
 		{
 			HCEcologyLiveBinding actorBinding = m_Actors.Get(i);
-			HCEcologyActorObservation observed = HCEcologyNative.SampleActor(actorBinding.Live, HCEcologyRuntimeRules.LocalId(m_Session, actorBinding.Serial), nowMs);
+			HCEcologyActorObservation observed = HCEcologyNative.SampleActor(actorBinding.Live, actorBinding.LocalId, nowMs);
 			if (observed) { batch.Actors.Insert(observed); }
 			// Native pond presence is observed at this live position only; no
 			// invented shore point, drinking access or reachability is inferred.
@@ -272,7 +276,7 @@ class HCEcologyRuntime
 			int kind = HCEcologyNative.SampleResource(resourceBinding.Live);
 			if (kind != 0)
 			{
-				HCEcologyZoneObservation zone = Zone(HCEcologyRuntimeRules.LocalId(m_Session, resourceBinding.Serial), kind, nowMs);
+				HCEcologyZoneObservation zone = Zone(resourceBinding.LocalId, kind, nowMs);
 				batch.Zones.Insert(zone);
 			}
 			i++;
@@ -331,48 +335,55 @@ class HCEcologyRuntime
 		return zone;
 	}
 
+	// Cache once per binding/session, including the bounded pre-start cohort.
+	void BindLocalIds()
+	{
+		foreach (HCEcologyLiveBinding actorBinding : m_Actors)
+		{
+			actorBinding.LocalId = HCEcologyRuntimeRules.LocalId(m_Session, actorBinding.Serial);
+		}
+		foreach (HCEcologyLiveBinding resourceBinding : m_Resources)
+		{
+			resourceBinding.LocalId = HCEcologyRuntimeRules.LocalId(m_Session, resourceBinding.Serial);
+		}
+	}
+
 	int ProbeCohort(int nowMs)
 	{
-		if (m_Actors.Count() == 0 || m_Resources.Count() == 0) { return 0; }
+		int actorCount = m_Actors.Count();
+		int resourceCount = m_Resources.Count();
+		if (actorCount == 0 || resourceCount == 0) { return 0; }
 		int queries = 0;
-		int actorStart = m_ActorCursor % m_Actors.Count();
-		int resourceStart = m_ResourceCursor % m_Resources.Count();
-		int actorStep = 0;
-		while (actorStep < m_Actors.Count() && queries < m_Settings.MaxPathQueries)
+		int examined = 0;
+		int totalPairs = actorCount * resourceCount;
+		m_ActorCursor = m_ActorCursor % actorCount;
+		m_ResourceCursor = m_ResourceCursor % resourceCount;
+		// Pair examinations and native path queries have independent budgets.
+		// These cursors identify the NEXT pair, even when a query exhausts its budget.
+		while (examined < 64 && examined < totalPairs && queries < m_Settings.MaxPathQueries)
 		{
-			int actorIndex = (actorStart + actorStep) % m_Actors.Count();
-			HCEcologyLiveBinding actor = m_Actors.Get(actorIndex);
-			int resourceStep = 0;
-			while (resourceStep < m_Resources.Count() && queries < m_Settings.MaxPathQueries)
+			HCEcologyLiveBinding actor = m_Actors.Get(m_ActorCursor);
+			HCEcologyLiveBinding resource = m_Resources.Get(m_ResourceCursor);
+			examined++;
+			m_ResourceCursor++;
+			if (m_ResourceCursor >= resourceCount)
 			{
-				int resourceIndex = (resourceStart + resourceStep) % m_Resources.Count();
-				HCEcologyLiveBinding resource = m_Resources.Get(resourceIndex);
-				string actorId = HCEcologyRuntimeRules.LocalId(m_Session, actor.Serial);
-				string resourceId = HCEcologyRuntimeRules.LocalId(m_Session, resource.Serial);
-				if (actor.Live && resource.Live)
-				{
-					int kind = HCEcologyNative.SampleResource(resource.Live);
-					bool room = HCEcologyRuntimeRules.Capacity(m_Intents, actorId, resourceId, nowMs, 8);
-					if (kind != 0 && actor.Live.IsAlive() && room)
-					{
-						vector actorPoint = actor.Live.GetPosition();
-						vector to = resource.Live.GetPosition();
-						if (HCEcologyRuntimeRules.PositionValid(actorPoint) && HCEcologyRuntimeRules.PositionValid(to))
-						{
-							if (vector.DistanceSq(actorPoint, to) <= m_Settings.Radius * m_Settings.Radius)
-							{
-								queries++;
-								HCEcologyRouteIntent intent = HCEcologyNative.ProbePath(actor.Live, resource.Live, actorId, resourceId, kind, m_Settings, m_Policy.WorldName, m_Session, nowMs);
-								if (intent) { m_Intents.Insert(intent); }
-							}
-						}
-					}
-				}
-				m_ResourceCursor = (resourceIndex + 1) % m_Resources.Count();
-				resourceStep++;
+				m_ResourceCursor = 0;
+				m_ActorCursor = (m_ActorCursor + 1) % actorCount;
 			}
-			m_ActorCursor = (actorIndex + 1) % m_Actors.Count();
-			actorStep++;
+			if (!actor || !resource || !actor.Live || !resource.Live) { continue; }
+			vector actorPoint = actor.Live.GetPosition();
+			vector to = resource.Live.GetPosition();
+			if (!HCEcologyRuntimeRules.PositionValid(actorPoint) || !HCEcologyRuntimeRules.PositionValid(to)) { continue; }
+			if (vector.DistanceSq(actorPoint, to) > m_Settings.Radius * m_Settings.Radius) { continue; }
+			string actorId = actor.LocalId;
+			string resourceId = resource.LocalId;
+			int kind = HCEcologyNative.SampleResource(resource.Live);
+			bool room = HCEcologyRuntimeRules.Capacity(m_Intents, actorId, resourceId, nowMs, 8);
+			if (kind == 0 || !actor.Live.IsAlive() || !room) { continue; }
+			queries++;
+			HCEcologyRouteIntent intent = HCEcologyNative.ProbePath(actor.Live, resource.Live, actorId, resourceId, kind, m_Settings, m_Policy.WorldName, m_Session, nowMs);
+			if (intent) { m_Intents.Insert(intent); }
 		}
 		return queries;
 	}

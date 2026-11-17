@@ -1,8 +1,9 @@
 // Server-only tick performance sampler. Not an HCModule; HCServer owns one instance.
 // Collects the HC tick interval and the time HC modules spent inside one tick, and prints one
 // summary line per window. Memory is bounded: two ring buffers and two sort buffers of at most
-// HC_PERF_MAX_SAMPLES floats, allocated once. No file I/O. Output is read by tools/testing/perf_capture.py.
-// Verified in the installed 1.30.164289 script dump: array<T>.Insert/Set/Get/Count/Clear/Sort/Reserve,
+// HC_PERF_MAX_SAMPLES floats plus three buffers capped at HC_PERF_MAX_MODULES entries, allocated once.
+// No file I/O. Output is read by tools/testing/perf_capture.py.
+// Verified in the installed 1.30.164289 script dump: array<T>.Insert/Set/Get/Count/Clear/Sort/Reserve/Find (1_Core/proto/EnScript.c:380-493),
 // CGame.GetPlayers(out array<Man>), CGame.GetTickTime, Math.Round, string.ToString, Print,
 // proto native int TickCount(int prev) (1_Core/proto/EnSystem.c:106: ticks between prev and now).
 // The TickCount unit is NOT documented and vanilla never calls it, so work is passed in as raw ticks and
@@ -15,6 +16,7 @@
 // The line is printed through the expression "" + report. Print(report) with a variable makes the engine print
 // the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
+const int HC_PERF_MAX_MODULES = 16;
 const int HC_PERF_MAX_WINDOW_SECONDS = 120;
 const float HC_PERF_MIN_TICKS_PER_MS = 0.01;
 const float HC_PERF_MAX_TICKS_PER_MS = 100000.0;
@@ -36,10 +38,18 @@ class HCPerfSampler
     protected ref array<float> m_Works = new array<float>();
     protected ref array<float> m_SortedTicks = new array<float>();
     protected ref array<float> m_SortedWorks = new array<float>();
+    protected int m_SlowTickCount;
+    // Stable registration slots: capped/reserved once; no name lookup in SampleModule.
+    protected ref array<string> m_ModuleNames = new array<string>();
+    protected ref array<int> m_ModuleMaxTicks = new array<int>();
+    protected ref array<string> m_SortedModuleNames = new array<string>();
     protected ref array<Man> m_Players = new array<Man>();
 
     void HCPerfSampler()
     {
+        m_ModuleNames.Reserve(HC_PERF_MAX_MODULES);
+        m_ModuleMaxTicks.Reserve(HC_PERF_MAX_MODULES);
+        m_SortedModuleNames.Reserve(HC_PERF_MAX_MODULES);
         m_Ticks.Reserve(HC_PERF_MAX_SAMPLES);
         m_Works.Reserve(HC_PERF_MAX_SAMPLES);
         m_SortedTicks.Reserve(HC_PERF_MAX_SAMPLES);
@@ -55,9 +65,26 @@ class HCPerfSampler
         m_WindowSeconds = windowSeconds;
         if (m_WindowSeconds > HC_PERF_MAX_WINDOW_SECONDS) m_WindowSeconds = HC_PERF_MAX_WINDOW_SECONDS;
         m_WindowIndex = 0;
+        m_ModuleNames.Clear();
+        m_ModuleMaxTicks.Clear();
+        m_SortedModuleNames.Clear();
         ResetWindow();
         m_Active = true;
         Print("[HollowCountry] Perf sampler started, window seconds: " + m_WindowSeconds.ToString());
+    }
+
+    // HCServer registers active modules once after Start, in tick-loop order.
+    void RegisterModule(string name)
+    {
+        if (!m_Active || m_ModuleNames.Count() >= HC_PERF_MAX_MODULES) return;
+        m_ModuleNames.Insert(name);
+        m_ModuleMaxTicks.Insert(0);
+    }
+
+    void SampleModule(int moduleIndex, int workTicks)
+    {
+        if (!m_Active || moduleIndex < 0 || moduleIndex >= m_ModuleMaxTicks.Count()) return;
+        if (workTicks > m_ModuleMaxTicks.Get(moduleIndex)) m_ModuleMaxTicks.Set(moduleIndex, workTicks);
     }
 
     // elapsedSeconds: wall time since the previous HC tick. workTicks: TickCount(start) around the module loop.
@@ -72,7 +99,7 @@ class HCPerfSampler
         // Both buffers share one cursor; it only moves once the ring was already full before this sample.
         bool wasFull = m_Ticks.Count() >= HC_PERF_MAX_SAMPLES;
         Store(m_Ticks, tickMs);
-        Store(m_Works, safeTicks);
+        Store(m_Works, (float)safeTicks);
         if (wasFull)
         {
             m_Cursor++;
@@ -111,6 +138,13 @@ class HCPerfSampler
         m_Cursor = 0;
         m_TickMax = 0;
         m_WorkMaxTicks = 0;
+        m_SlowTickCount = 0;
+        int moduleReset = 0;
+        while (moduleReset < m_ModuleMaxTicks.Count())
+        {
+            m_ModuleMaxTicks.Set(moduleReset, 0);
+            moduleReset++;
+        }
         m_PlayersMin = -1;
         m_PlayersMax = 0;
         m_WindowTick0 = TickCount(0);
@@ -144,7 +178,7 @@ class HCPerfSampler
     {
         float safe = value;
         if (safe < 0) safe = 0;
-        int hundredths = Math.Round(safe * 100);
+        int hundredths = (int)(Math.Round(safe * 100));
         int whole = hundredths / 100;
         int fraction = hundredths % 100;
         string fractionText = fraction.ToString();
@@ -172,7 +206,7 @@ class HCPerfSampler
         bool calibrated = false;
         if (ticksDelta > 0 && intervalMs > 0 && intervalMs <= HC_PERF_MAX_WINDOW_SECONDS * 2000)
         {
-            ticksPerMs = ticksDelta / intervalMs;
+            ticksPerMs = (float)ticksDelta / intervalMs;
             calibrated = ticksPerMs >= HC_PERF_MIN_TICKS_PER_MS && ticksPerMs <= HC_PERF_MAX_TICKS_PER_MS;
         }
         string report = "[HC Perf] window=" + m_WindowIndex.ToString();
@@ -185,12 +219,51 @@ class HCPerfSampler
         {
             report = report + " work_p50=" + FormatMs(Percentile(m_SortedWorks, 50) / ticksPerMs);
             report = report + " work_p95=" + FormatMs(Percentile(m_SortedWorks, 95) / ticksPerMs);
-            report = report + " work_max=" + FormatMs(m_WorkMaxTicks / ticksPerMs);
+            report = report + " work_max=" + FormatMs((float)m_WorkMaxTicks / ticksPerMs);
         }
         report = report + " players_min=" + m_PlayersMin.ToString();
         report = report + " players_max=" + m_PlayersMax.ToString();
         if (calibrated) report = report + " ticks_per_ms=" + FormatMs(ticksPerMs);
         if (!calibrated) report = report + " calibration=invalid";
+        if (calibrated)
+        {
+            // HCServer's validated >=500 ms interval and <=120 s window fit
+            // all samples in the 512-slot work buffer. Count strictly over 10 ms.
+            int workIndex = 0;
+            while (workIndex < m_Works.Count())
+            {
+                if (m_Works.Get(workIndex) / ticksPerMs > 10.0) m_SlowTickCount++;
+                workIndex++;
+            }
+            m_SortedModuleNames.Clear();
+            foreach (string registeredName : m_ModuleNames)
+            {
+                m_SortedModuleNames.Insert(registeredName);
+            }
+            m_SortedModuleNames.Sort();
+            string slowestName = "none";
+            int slowestTicks = -1;
+            string moduleReport = "";
+            int moduleOrder = 0;
+            while (moduleOrder < m_SortedModuleNames.Count())
+            {
+                string moduleName = m_SortedModuleNames.Get(moduleOrder);
+                int moduleSlot = m_ModuleNames.Find(moduleName);
+                int moduleTicks = m_ModuleMaxTicks.Get(moduleSlot);
+                if (moduleTicks > slowestTicks)
+                {
+                    slowestTicks = moduleTicks;
+                    slowestName = moduleName;
+                }
+                if (moduleOrder > 0) moduleReport = moduleReport + ",";
+                moduleReport = moduleReport + moduleName + ":" + FormatMs((float)moduleTicks / ticksPerMs);
+                moduleOrder++;
+            }
+            report = report + " slowest_module=" + slowestName;
+            report = report + " slowest_module_max_ms=" + FormatMs((float)slowestTicks / ticksPerMs);
+            report = report + " slow_ticks=" + m_SlowTickCount.ToString();
+            if (m_ModuleNames.Count() > 0) report = report + " mod_max=" + moduleReport;
+        }
         Print("" + report);
         ResetWindow();
     }

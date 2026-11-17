@@ -42,6 +42,10 @@ class HCServer
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
         m_Perf.Start(60);
+        foreach (HCModule perfModule : m_Active)
+        {
+            m_Perf.RegisterModule(perfModule.GetName());
+        }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, m_Settings.TickIntervalMs, true);
         Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
@@ -61,7 +65,14 @@ class HCServer
             return;
         }
         int perfStart = TickCount(0);
-        foreach (HCModule module : m_Active) module.OnTick(elapsed);
+        int moduleIndex = 0;
+        foreach (HCModule module : m_Active)
+        {
+            int moduleStart = TickCount(0);
+            module.OnTick(elapsed);
+            m_Perf.SampleModule(moduleIndex, TickCount(moduleStart));
+            moduleIndex++;
+        }
         m_Perf.Sample(elapsed, TickCount(perfStart));
     }
 
