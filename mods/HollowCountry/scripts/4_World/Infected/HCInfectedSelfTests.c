@@ -26,8 +26,10 @@ class HCInfectedSelfTests
         ok = ok && !HCInfectedPolicy.ValidMemberIdentity(0, 0, 0, 0, true);
         ok = ok && HCInfectedPolicy.PreferRoom(true, false, 20, 1, 9, 1);
         HCInfectedConfig config = new HCInfectedConfig;
-        ok = ok && config.IsValid() && !config.EnableCEAdoption && !config.EnableNativePackRoutes && !config.EnableInvestigation && !config.EnableContactGuard;
-        ok = ok && !config.EnableSupplementaryChains && !config.EnableMemberRecovery;
+        // Shipped defaults: every capability preference on; diagnostics opt-in.
+        ok = ok && config.IsValid() && config.EnableCEAdoption && config.EnableNativePackRoutes && config.EnableInvestigation && config.EnableContactGuard;
+        ok = ok && config.EnableSupplementaryChains && config.EnableMemberRecovery && config.EnableVariantPolicies && config.EnableHordeStimulusRoutes;
+        ok = ok && !config.RunPolicySelfTests;
         Print("[HC Infected] scalar policy selftest result=" + ok);
         return ok;
     }

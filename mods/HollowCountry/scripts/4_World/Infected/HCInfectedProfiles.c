@@ -1,7 +1,20 @@
-// Explicit opt-in personality policies using existing appearance/stance only.
+// Preference-controlled personality policies using existing appearance/stance only.
 // No health/damage, sensory, locomotion, sound or door capability is changed.
 class HCInfectedProfiles
 {
+    // Exact aliases of the inspected snapshot; future suffixes need qualification.
+    static bool NativeBuildSupported(string build)
+    {
+        return build == "1.30.164289" || build == "1.30.164289.70";
+    }
+
+    // Preference is not evidence that the experimental attack filter is safe.
+    // Requires an accepted native wall-hit/queued-attack regression first.
+    static bool ContactGuardQualified()
+    {
+        return false;
+    }
+
     static string DescriptorName(int variant)
     {
         if (variant == 0) return "ordinary_wanderer";
@@ -31,6 +44,8 @@ class HCInfectedProfiles
     static int ConfiguredVariant(ZombieBase infected, HCInfectedConfig config)
     {
         if (!infected || !config || !config.EnableVariantPolicies)
+            return -1;
+        if (!ValidateMap(config.CivilianVariants, true) || !ValidateMap(config.MilitaryVariants, true))
             return -1;
         int stance = infected.HCIndividualStance();
         if (stance < 0 || stance > 3) return -1;
