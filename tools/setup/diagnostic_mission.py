@@ -114,6 +114,10 @@ _PURPOSES = {
     'weather-probe': ('disposable-weather-probe', None,
                       ["server mode", "fresh storage and profiles", "no clients",
                        "inspect observation completeness separately from startup"]),
+    # Generated per run by tools/setup/infected_competence_probe.py (same `hook=` contract as ce-probe).
+    'infected-competence-probe': ('disposable-infected-competence-probe', None,
+                                  ["server mode", "fresh storage and profiles", "no clients",
+                                   "inspect observation completeness separately from startup"]),
 }
 
 _FACTORY = re.compile(

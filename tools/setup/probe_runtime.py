@@ -813,7 +813,9 @@ def plan_runtime_fields(context, built):
 LAUNCHER_PROBES = {"ce-probe": ("ce-probe-plan.json", "HCCEProbe", "census.json"),
                    "taped-light-probe": ("taped-light-probe-plan.json", "HCTapedLightProbe", "observations.json"),
                    "weather-probe": ("weather-probe-plan.json", "HCWeatherProbe", "observations.json"),
-                   "interior-sampler": ("interior-sampler-plan.json", "HCInteriorSampler", "census.json")}
+                   "interior-sampler": ("interior-sampler-plan.json", "HCInteriorSampler", "census.json"),
+                   "infected-competence-probe": ("infected-competence-probe-plan.json", "HCInfectedCompetence",
+                                                 "observations.json")}
 
 
 def launcher_problems(plan, destination, plan_name):

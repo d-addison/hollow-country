@@ -947,6 +947,14 @@ class LauncherKindTableTests(unittest.TestCase):
                            "inspect observation completeness separately from startup"]),
                          dm._PURPOSES["weather-probe"])
 
+    def test_infected_competence_probe_is_registered_with_its_module_rows(self):
+        """WP3 (#18 #19): the staged competence probe needs real rows, not test patches."""
+        from tools.setup import infected_competence_probe as competence
+        self.assertEqual(competence.LAUNCHER_ROW, rt.LAUNCHER_PROBES[competence.PURPOSE])
+        self.assertEqual(competence.LAUNCHER_ROW, launcher_kind_table(SCRIPT)[competence.PURPOSE])
+        self.assertIn(competence.PURPOSE, launcher_validate_set(SCRIPT))
+        self.assertEqual(competence.PURPOSE_ROW, dm._PURPOSES[competence.PURPOSE])
+
     def test_every_kind_has_distinct_plan_and_profile_directory(self):
         plans = [row[0] for row in rt.LAUNCHER_PROBES.values()]
         directories = [row[1].lower() for row in rt.LAUNCHER_PROBES.values()]
