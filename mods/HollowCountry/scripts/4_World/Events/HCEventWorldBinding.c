@@ -6,6 +6,10 @@
 // cache is created by HCEventCacheSpawner (4_World/Events/HCEventRewardCache.c).
 class HCEventWorldBinding
 {
+    // Bind diagnostics: why the last Select/Query refused, and the bounded set of
+    // (mission, reason) pairs already logged, so a retrying roster never spams.
+    protected static string s_FailReason;
+    protected static ref array<string> s_BindReported;
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
     {
         if (!observer || !settings || !HCEventRuntimePolicy.SettingsValid(settings)) { return; }
@@ -28,13 +32,22 @@ class HCEventWorldBinding
         array<Object> objects = new array<Object>();
         array<CargoBase> proxies = new array<CargoBase>();
         GetGame().GetObjectsAtPosition3D(anchor, radius, objects, proxies);
-        if (objects.Count() > 128) { return null; }
+        if (objects.Count() > 128)
+        {
+            s_FailReason = "query_overflow";
+            return null;
+        }
         return objects;
     }
     static HCEventTarget Select(array<Object> objects, string className, bool economy)
     {
         // This DTO preserves the exact native handle; no substitute loot.
-        if (!objects || objects.Count() > 128) { return null; }
+        if (!objects) { return null; }
+        if (objects.Count() > 128)
+        {
+            s_FailReason = "query_overflow";
+            return null;
+        }
         HCEventTarget found;
         foreach (Object candidate : objects)
         {
@@ -48,14 +61,32 @@ class HCEventWorldBinding
                 }
                 if (eligible)
                 {
-                    if (found) { return null; }
+                    if (found)
+                    {
+                        s_FailReason = "ambiguous";
+                        return null;
+                    }
                     found = new HCEventTarget;
                     found.Presence = candidate;
                     found.Item = item;
                 }
             }
         }
+        if (!found) { s_FailReason = "no_candidate"; }
         return found;
+    }
+    // Logs once per (mission, reason), at most 64 pairs; always returns false.
+    static bool BindFailed(HCEventMission mission)
+    {
+        string reason = s_FailReason;
+        s_FailReason = "";
+        if (reason == "") { return false; }
+        if (!s_BindReported) { s_BindReported = new array<string>(); }
+        string key = mission.Id + "|" + reason;
+        if (s_BindReported.Count() >= 64 || s_BindReported.Find(key) >= 0) { return false; }
+        s_BindReported.Insert(key);
+        Print("[HC Events] bind failed; " + mission.Id + "; reason=" + reason);
+        return false;
     }
     // Reviewed-site reward cache: created at most once per site and session by the
     // journaled spawner, then registered like any recovery target. An existing
@@ -80,8 +111,9 @@ class HCEventWorldBinding
         if (mission.Family == HCEventFamily.AI_ENCOUNTER) { return false; }
         if (mission.RewardCache) { return BindCache(observer, mission); }
         if (!observer.ResetUnleasedTarget(mission.Id)) { return true; }
+        s_FailReason = "";
         array<Object> nearby = Query(mission.Source, 15);
-        if (!nearby) { return false; }
+        if (!nearby) { return BindFailed(mission); }
         if (mission.Family == HCEventFamily.INFECTED_CLEAR)
         {
             ZombieBase selected;
@@ -90,11 +122,20 @@ class HCEventWorldBinding
                 ZombieBase infected = ZombieBase.Cast(candidate);
                 if (infected && infected.HCEventEconomyCandidate() && infected.IsAlive() && !infected.IsPendingDeletion())
                 {
-                    if (selected) { return false; }
+                    if (selected)
+                    {
+                        s_FailReason = "ambiguous";
+                        return BindFailed(mission);
+                    }
                     selected = infected;
                 }
             }
-            return selected && observer.RegisterInfected(mission.Id, selected);
+            if (!selected)
+            {
+                s_FailReason = "no_candidate";
+                return BindFailed(mission);
+            }
+            return observer.RegisterInfected(mission.Id, selected);
         }
         string wanted = mission.ItemClass;
         bool economy = true;
@@ -104,7 +145,7 @@ class HCEventWorldBinding
             economy = false;
         }
         HCEventTarget target = Select(nearby, wanted, economy);
-        if (!target) { return false; }
+        if (!target) { return BindFailed(mission); }
         if (mission.Family == HCEventFamily.PRESENCE)
         {
             return observer.RegisterPresence(mission.Id, target.Presence);
@@ -113,7 +154,7 @@ class HCEventWorldBinding
         if (mission.Family == HCEventFamily.DELIVERY)
         {
             destination = Select(Query(mission.Destination, 15), mission.ContainerClass, true);
-            if (!destination || destination.Item == target.Item) { return false; }
+            if (!destination || destination.Item == target.Item) { return BindFailed(mission); }
         }
         if (!observer.RegisterTarget(mission.Id, target.Item)) { return false; }
         if (destination) { return observer.RegisterContainer(mission.Id, destination.Item); }

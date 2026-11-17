@@ -44,7 +44,8 @@ def authored_module(env):
     source = re.sub(r"(void BindReviewedTargets\([^)]*\)\s*\{)(.*?)(\n    \})",
                     lambda m: m[1] + re.sub(r"//[^\n]*", "", m[2]) + "return;" + m[3],
                     source, flags=re.S)
-    cls = type("AuthoredEventModule", (), {"s_Instance": None, "s_CleanupOwner": None})
+    cls = type("AuthoredEventModule", (), {"s_Instance": None, "s_CleanupOwner": None,
+                                  "m_AIProvider": None})
     env["HCEventModule"] = cls
     names = re.findall(r"^    (?:static |override )?(?:bool|string|void|HCEvent\w+) (\w+)\(", source, re.M)
     for name in names:
@@ -74,7 +75,10 @@ class EventIntegrationTests(unittest.TestCase):
         self.sites_admitted = True
         self.env["HCEventSitesGate"] = N(Admitted=lambda: self.sites_admitted)
         self.env["HCEventWorldBinding"] = N(Bind=lambda observer, mission: True, BindSites=lambda observer, settings, world: None)
-        self.env["HCEventAISelection"] = N(Create=lambda: N(synthetic=True))
+        self.ai_ready = True
+        self.announce_code = 0
+        self.builds = []
+        self.env["HCEventAISelection"] = N(Create=lambda: N(synthetic=True, Ready=lambda world: self.ai_ready))
         self.env["GetGame"] = lambda: self.game
         self.env["HCEventContext"] = lambda: N(Server=False, WorldName="", Session="", Now=0)
         self.env["HCEventConfiguration"] = lambda: N(Load=lambda: self.cfg)
@@ -99,7 +103,10 @@ class EventIntegrationTests(unittest.TestCase):
 
             def Announce(self, mission, context):
                 owner.calls.append("runtime.announce")
-                return 0
+                return owner.announce_code
+
+            def HasMission(self, mission):
+                return False
 
             def Tick(self, context):
                 owner.calls.append(("runtime.observe", list(self.members)))
@@ -129,7 +136,8 @@ class EventIntegrationTests(unittest.TestCase):
 
     def roster(self, site, enabled):
         self.calls.append("roster.build")
-        return EArray([N(Id="synthetic-mission")])
+        self.builds.append(enabled)
+        return EArray([N(Id="synthetic-mission", Family=1)])
 
     def insert(self, callback):
         self.calls.append("rpc.attach")
@@ -192,6 +200,51 @@ class EventIntegrationTests(unittest.TestCase):
         self.assertEqual(["runtime.start", "roster.build", "runtime.announce", "rpc.attach"], self.calls)
         self.assertIs(self.module, self.cls.Get())
         self.assertEqual(1, len(self.callbacks))
+
+    def test_ai_encounter_is_offered_only_when_the_provider_is_ready(self):
+        for ready in (False, True):
+            self.builds.clear()
+            self.ai_ready = ready
+            self.cls.s_Instance = None
+            module = self.make_module()
+            module.IsEnabled(N())
+            module.OnStart(N())
+            self.assertEqual([ready], self.builds, "start roster")
+            module.RefreshRoster(module.Context())
+            self.assertEqual([ready, ready], self.builds, "late roster refresh")
+
+    def test_absent_provider_adds_no_ai_mission_and_no_code_seven_line(self):
+        self.ai_ready = False
+        self.env["HCEventRoster"] = N(Build=lambda site, include: EArray(
+            [N(Id="s-1", Family=1)] + ([N(Id="s-5", Family=5)] if include else [])))
+        self.start()
+        self.assertEqual([], [text for text in self.logs if "code 7" in text])
+        self.assertEqual(1, len([c for c in self.calls if c == "runtime.announce"]))
+
+    def test_late_admission_is_logged_once_per_mission(self):
+        self.announce_code = 7
+        self.start()
+        self.assertEqual([], [text for text in self.logs if "admitted later" in text])
+        self.announce_code = 0
+        context = self.module.Context()
+        for _ in range(3):
+            self.module.RefreshRoster(context)
+        self.assertEqual(["[HC Events] mission admitted later; synthetic-mission"],
+                         [text for text in self.logs if "admitted later" in text])
+
+    def test_start_admission_is_not_reported_as_late(self):
+        self.start()
+        self.module.RefreshRoster(self.module.Context())
+        self.assertEqual([], [text for text in self.logs if "admitted later" in text])
+
+    def test_start_summary_prints_the_admitted_count_plainly(self):
+        self.start()
+        self.assertEqual(1, len([text for text in self.logs if text.startswith("[HC Events] admitted missions 1;")]))
+
+    def test_roster_build_never_hard_codes_the_ai_flag(self):
+        source = MODULE.read_text()
+        self.assertNotIn("Build(site, true)", source)
+        self.assertEqual(2, source.count("HCEventRoster.Build(site, "))
 
     def test_admitted_line_reports_the_reward_pool_state_accurately(self):
         for admitted, expected in ((True, "reward caches from finite journaled pool"), (False, "reward caches unavailable")):

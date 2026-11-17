@@ -21,8 +21,9 @@ def load_class(filename, owner, env):
     source = source[start:]
     following = source.find('\nclass ', 1)
     if following >= 0: source = source[:following]
-    cls = type(owner, (), {})
+    cls = type(owner, (), {'s_' + n: None for n in re.findall(r'\bs_(\w+)\b', source)})
     env[owner] = cls
+    source = re.sub(r'\bs_(\w+)\b', owner + r'.s_\1', source)
     for static, name in re.findall(r'^    (?:override )?(static )?(?:bool|int|float|string|void|HCEvent\w+|array<[^>]+>) (\w+)\(', source, re.M):
         fn = translate(source, name, env, owner, not bool(static))
         setattr(cls, name, staticmethod(fn) if static else fn)
@@ -492,7 +493,7 @@ class V1EventsReviewFixes(unittest.TestCase):
         context = env['HCEventContext'](); context.WorldName = 'chernarusplus'
         for _ in range(6 * 7 * 3): module.RefreshRoster(context)
         self.assertEqual(len(announced), len(set(announced)))
-        self.assertEqual(6 * 7, len(announced))
+        self.assertEqual(6 * 6, len(announced), "no AI provider: the AI encounter family is never offered")
 
     def test_failed_announcement_stays_retryable_and_start_clears_session_memory(self):
         fixture = integration_fixtures.EventIntegrationTests(); fixture.setUp()
