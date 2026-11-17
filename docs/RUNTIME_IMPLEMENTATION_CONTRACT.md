@@ -9,8 +9,9 @@ Core owns config.cpp, scripts/3_Game, scripts/4_World/Core and scripts/5_Mission
 Workers own only their respective scripts/4_World/{Interiors,Crafting,Infected}
 directories and assigned tests/research. No purchased assets are included.
 
-Installed source snapshot (private, never commit):
-`/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289`.
+Installed source snapshot (local, never commit): use an external directory
+containing the scripts extracted from the installed DayZ 1.30.164289 build.
+Supply its actual path to tools through their `--scripts-root` option.
 Server scripts.pbo SHA-256:
 `09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a`.
 All 3076 entries use stored/uncompressed method 0. Official BankRev was tried

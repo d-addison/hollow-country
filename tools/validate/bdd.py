@@ -13,6 +13,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Retain complete utility cohorts without inferring repair compatibility": (
+        ("Given synthetic complete item recipe and action evidence with repeated source identities",
+         "When bounded utility indexing retains every admitted class reference and candidate cohort",
+         "Then ambiguity unknown typing and work limits remain explicit without gameplay approval"), "test_item_utility.py"),
+    "Prepare house measurements without inferring room fit or loot eligibility": (
+        ("Given synthetic pinned stock maps native interfaces and real-house acquisition receipts",
+         "When the fixed measurement bundle and bounded receipt validator execute",
+         "Then unmatched houses incomplete callbacks and changed evidence cannot establish a qualified interior"), "test_interior_measurement_probe.py"),
     "Observe bounded owned-process counters without inferring engine liveness": (
         ("Given synthetic procfs identities counters log metadata and monotonic clocks",
          "When the bounded process observer samples explicit owned process and log inputs",

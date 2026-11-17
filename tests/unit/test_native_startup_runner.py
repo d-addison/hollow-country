@@ -1,6 +1,7 @@
 """Synthetic processes/clocks/interfaces/receipts ONLY; no DayZ launch."""
-from contextlib import ExitStack
+from contextlib import ExitStack, redirect_stdout
 import importlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -40,12 +41,18 @@ class StartupRunnerTests(unittest.TestCase):
                cleanup_delay=1,cleanup_error=False,survivor=False,death=False,
                final_complete=False,final_error=False,final_drift=False,final_skipped=False,
                staging_delay=0,final_poll_delay=0,preflight_code=1,foreign=False,
-               final_input_drift=None,final_extra=None,**options):
+               final_input_drift=None,final_extra=None,ready_at=None,publication_delay=0,**options):
         original_file=Path.is_file; prepare=probe.prepare_probe; validate=probe.validate_result
+        publish=self.runner._publish_report
         emitted=False; validated=False
-        def write_receipt():
+        def write_receipt(partial=False):
             marker=json.loads((self.experiment/'startup.chernarusplus'/probe.MARKER).read_text())
             row=receipt(probe,run_id=marker['run_id'],mode=marker['mode'])
+            row.update(startup_allowance_seconds=marker['clock_policy']['startup_seconds'],
+                       outer_budget_seconds=marker['clock_policy']['total_seconds'])
+            if ready_at is not None:
+                row.update(startup_elapsed_seconds=ready_at-1,elapsed_seconds=self.now-ready_at)
+            if partial: row.update(complete=0,callbacks_detached=0)
             if mutate: mutate(row)
             (self.experiment/'profiles'/probe.RESULT).write_text(json.dumps(row))
         def logs(path):
@@ -68,6 +75,8 @@ class StartupRunnerTests(unittest.TestCase):
                 return text,{},({'synthetic':'unreadable'} if final_skipped else {})
             if complete_at is not None and self.now>=complete_at and not emitted:
                 write_receipt(); emitted=True
+            elif ready_at is not None and self.now>=ready_at and not emitted:
+                write_receipt(partial=True)
             self.now+=log_delay
             return text,{},{}
         def sleep(seconds): self.now+=seconds
@@ -88,6 +97,9 @@ class StartupRunnerTests(unittest.TestCase):
             if foreign:
                 self.experiment.mkdir(); (self.experiment/'foreign').write_text('other owner')
             return Mock(returncode=preflight_code)
+        def delayed_publish(*args):
+            self.now+=publication_delay
+            return publish(*args)
         self.process.poll.side_effect=poll
         with ExitStack() as stack:
             stack.enter_context(patch.object(Path,'is_file',lambda p:True if p==self.runner.WINE else original_file(p)))
@@ -101,6 +113,7 @@ class StartupRunnerTests(unittest.TestCase):
             stack.enter_context(patch.object(self.runner.time,'sleep',side_effect=sleep))
             stack.enter_context(patch.object(probe,'prepare_probe',side_effect=stage))
             stack.enter_context(patch.object(probe,'validate_result',side_effect=check))
+            stack.enter_context(patch.object(self.runner,'_publish_report',side_effect=delayed_publish))
             return self.invoke(**options)
 
     def test_execute_required_before_any_process_or_staging(self):
@@ -133,6 +146,155 @@ class StartupRunnerTests(unittest.TestCase):
         self.assertEqual('startup-control-completed',result['status'])
         self.assertEqual('ce-disabled-control',result['receipt']['mode'])
         self.assertFalse(result['gameplay_acceptance'])
+
+    def test_without_addon_control_changes_only_mod_argument_and_keeps_pins(self):
+        with patch.object(self.runner.secrets,'token_hex',return_value='a'*32):
+            with_addon=self.mocked()
+            normal_command=list(self.launch.call_args.args[0])
+            normal_root=self.runner.wine.win(self.experiment)
+            self.experiment=self.root/'fresh-without-addon'; self.now=0
+            self.process.returncode=None
+            without_addon=self.mocked(without_addon_control=True)
+        control_command=self.launch.call_args.args[0]
+        control_root=self.runner.wine.win(self.experiment)
+        expected=[arg.replace(normal_root,'EXPERIMENT') for arg in normal_command
+                  if not arg.startswith('-mod=')]
+        self.assertEqual(expected,[arg.replace(control_root,'EXPERIMENT') for arg in control_command])
+        self.assertEqual(self.runner.SUCCESS,without_addon['status'])
+        self.assertFalse(without_addon['addon_loaded'])
+        self.assertFalse(without_addon['addon_load_requested'])
+        self.assertEqual('without-addon-control',without_addon['control_label'])
+        self.assertEqual('stock-ce',without_addon['mode'])
+        self.assertFalse(without_addon['gameplay_acceptance'])
+        self.assertFalse(without_addon['addon_feature_flags_enabled'])
+        self.assertTrue(with_addon['addon_load_requested'])
+        self.assertIsNone(with_addon['addon_loaded'])  # -mod alone is not observed loading.
+        for field in ('pbo_sha256','settings_sha256','config_sha256','server_sha256',
+                      'battleye_sha256','mission_manifest_sha256'):
+            self.assertEqual(with_addon[field],without_addon[field],field)
+        self.assertEqual(self.source.read_bytes(),
+            (self.experiment/'@HollowCountry/addons/hollowcountry.pbo').read_bytes())
+
+    def test_without_addon_control_still_refuses_invalid_pbo_before_launch(self):
+        self.source.write_bytes(b'SYNTHETIC INVALID PBO')
+        result=self.mocked(without_addon_control=True)
+        self.assertEqual('probe-error',result['status']); self.launch.assert_not_called()
+        self.assertFalse(self.experiment.exists())
+
+    def test_without_addon_control_still_rejects_staged_pbo_drift(self):
+        result=self.mocked(without_addon_control=True,
+            final_input_drift='@HollowCountry/addons/hollowcountry.pbo')
+        self.assertEqual('input-drift',result['status']); self.assertIsNone(result['receipt'])
+
+    def test_without_addon_control_timeout_does_not_change_ce_mode_or_admit(self):
+        result=self.mocked(without_addon_control=True,complete_at=None)
+        self.assertEqual('timeout',result['status']); self.assertIsNone(result['receipt'])
+        self.assertEqual('stock-ce',result['mode']); self.assertFalse(result['addon_loaded'])
+        self.assertFalse(result['gameplay_acceptance'])
+
+    def test_without_addon_flag_requires_exact_bool_before_process_or_staging(self):
+        with patch.object(self.runner.subprocess,'Popen') as launch,patch.object(self.runner.subprocess,'run') as cmd:
+            for value in (1,0,None,'true',1.0):
+                with self.subTest(value=value),self.assertRaises(ValueError):
+                    self.invoke(without_addon_control=value)
+        launch.assert_not_called(); cmd.assert_not_called(); self.assertFalse(self.experiment.exists())
+
+    def test_without_addon_cli_is_explicit_and_preserves_clock_options(self):
+        paths=[]
+        for name in ('server-root','source-pbo','experiment','prefix','scripts-root'):
+            paths.extend(['--'+name,str(self.root/name)])
+        with patch.object(self.runner,'run',return_value=dict(status=self.runner.SUCCESS)) as run:
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(0,self.runner.main(paths+['--without-addon-control',
+                    '--startup-seconds','600','--seconds','674','--execute']))
+        self.assertIs(True,run.call_args.kwargs['without_addon_control'])
+        self.assertEqual('stock-ce',run.call_args.kwargs['mode'])
+        self.assertEqual(600,run.call_args.kwargs['startup_seconds'])
+        self.assertEqual(674,run.call_args.kwargs['seconds'])
+
+    def test_explicit_600_startup_can_finish_stock_ce_after_old_outer_limit(self):
+        result=self.mocked(complete_at=550,seconds=674,startup_seconds=600,
+            mutate=lambda row:row.update(startup_elapsed_seconds=540.))
+        self.assertEqual(self.runner.SUCCESS,result['status'])
+        self.assertEqual('stock-ce',result['mode'])
+        self.assertEqual(600,result['startup_allowance_seconds'])
+        self.assertEqual(60,result['fixture_budget_seconds'])
+        self.assertEqual(12,result['cleanup_reserve_seconds'])
+        self.assertLessEqual(self.now,674)
+
+    def test_startup_allowance_expires_without_readiness_despite_larger_total(self):
+        result=self.mocked(complete_at=None,seconds=674,startup_seconds=600)
+        self.assertEqual('timeout',result['status'])
+        self.assertEqual('startup',result['timeout_phase'])
+        self.assertLessEqual(self.now,602)
+
+    def test_long_total_requires_explicit_valid_startup_option(self):
+        with patch.object(self.runner.subprocess,'Popen') as launch:
+            for args in (dict(seconds=674),dict(seconds=674,startup_seconds=True),
+                         dict(seconds=674,startup_seconds=601),
+                         dict(seconds=671,startup_seconds=600),
+                         dict(seconds=675,startup_seconds=600),dict(startup_seconds=600)):
+                with self.subTest(args=args),self.assertRaises(ValueError): self.invoke(**args)
+        launch.assert_not_called(); self.assertFalse(self.experiment.exists())
+
+    def test_phase_budget_anchors_fixture_once_and_rejects_clock_rollback(self):
+        with patch.object(self.runner.time,'monotonic',side_effect=lambda:self.now):
+            budget=self.runner._StartupBudget(674,600)
+            self.now=550; budget.observe_ready(2.,540.)
+            self.assertEqual(608,budget.fixture_deadline)
+            self.now=560; budget.observe_ready(4.,540.)
+            self.assertEqual(608,budget.fixture_deadline)
+            with self.assertRaises(ValueError): budget.observe_ready(1.,540.)
+            self.now=608
+            with self.assertRaises(self.runner._Expired): budget.check()
+            self.now=559
+            with self.assertRaises(ValueError): budget.now()
+
+    def test_partial_readiness_starts_separate_fixture_budget_and_never_renews_it(self):
+        result=self.mocked(ready_at=550,complete_at=620,seconds=674,startup_seconds=600)
+        self.assertEqual('timeout',result['status'])
+        self.assertEqual('fixture',result['timeout_phase'])
+        self.assertEqual(550,result['readiness_observed_outer_seconds'])
+        self.assertEqual(610,result['fixture_deadline_outer_seconds'])
+        self.assertIsNone(result['receipt']); self.assertLessEqual(self.now,612)
+
+    def test_readiness_can_extend_past_startup_deadline_without_resetting_outer(self):
+        result=self.mocked(ready_at=590,complete_at=620,seconds=674,startup_seconds=600)
+        self.assertEqual(self.runner.SUCCESS,result['status'])
+        self.assertEqual(650,result['fixture_deadline_outer_seconds'])
+        self.assertEqual(674,result['outer_budget_seconds'])
+
+    def test_cleanup_has_own_twelve_second_cap_even_with_large_unused_total(self):
+        result=self.mocked(complete_at=550,cleanup_delay=13,seconds=674,startup_seconds=600,
+            mutate=lambda row:row.update(startup_elapsed_seconds=540.))
+        self.assertNotEqual(self.runner.SUCCESS,result['status'])
+        self.assertIsNone(result['receipt'])
+        self.assertEqual('cleanup',result['timeout_phase'])
+
+    def test_default_total_is_still_ninety_without_implicit_long_startup(self):
+        result=self.mocked(complete_at=None,seconds=90)
+        self.assertEqual('timeout',result['status'])
+        self.assertEqual(90,result['outer_budget_seconds'])
+        self.assertEqual(78,result['startup_allowance_seconds'])
+        self.assertFalse(result['startup_option_explicit'])
+        self.assertLessEqual(self.now,90)
+
+    def test_publication_timeout_reports_total_overrun_even_when_cleanup_limit_is_earlier(self):
+        result=self.mocked(publication_delay=30)
+        self.assertIsNone(result['receipt'])
+        self.assertTrue(result['outer_budget_exceeded'])
+        self.assertEqual('outer-budget-exceeded',result['status'])
+
+    def test_publication_only_cleanup_overrun_is_not_reported_as_total_overrun(self):
+        result=self.mocked(publication_delay=12)
+        self.assertIsNone(result['receipt'])
+        self.assertFalse(result['outer_budget_exceeded'])
+        self.assertEqual('cleanup-budget-exceeded',result['status'])
+
+    def test_phase_transition_cannot_cross_startup_limit_between_clock_reads(self):
+        with patch.object(self.runner.time,'monotonic',side_effect=[0.,599.,600.,600.]):
+            budget=self.runner._StartupBudget(674,600)
+            with self.assertRaises(self.runner._Expired): budget.observe_ready(0,599.)
 
     def test_init_only_and_late_final_receipt_never_pass(self):
         result=self.mocked(complete_at=None,final_complete=True)
@@ -321,6 +483,13 @@ class StartupPublicationTests(unittest.TestCase):
             self.publish()
         with self.assertRaises((ValueError, KeyError)):
             self.runner.read_report(self.path)
+
+    def test_cleanup_deadline_also_guards_final_publication(self):
+        self.budget.deadline=100
+        self.budget.cleanup_deadline=10
+        self.late_read=True
+        with self.assertRaises(self.runner._Expired): self.publish()
+        with self.assertRaises((ValueError,KeyError)): self.runner.read_report(self.path)
 
     def test_existing_report_is_not_overwritten(self):
         self.files[self.path] = b"foreign report"

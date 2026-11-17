@@ -2,12 +2,21 @@
 
 Run with python3 -B -m tools.setup.native_startup_runner --help. No arbitrary
 mission, executable, hook, shell command or entity fixture is accepted. Default
-total budget 90s; explicit --seconds 15..180, including staging/cleanup/logs.
-Native watchdog 60s. SYSTEM callbacks cannot preempt blocked native startup;
+total budget 90s; --seconds 15..180, including staging/cleanup/logs. Only an
+explicit --startup-seconds 1..600 permits explicit --seconds up to 674, which
+must include startup + 60s fixture + 12s outer cleanup. No automatic extension.
+The 60s native fixture watchdog starts after actual MAIN_EXIT/lifecycle readiness
+in a real SYSTEM callback. SYSTEM callbacks cannot preempt blocked native startup;
 keep an external wall-clock supervisor for OS/filesystem stalls. Success is
 startup-control ONLY, including ce-disabled-control; never gameplay acceptance.
 Final logs, changed evidence, surviving processes or exceeded deadlines revoke
 admission. Final cleanup cannot admit receipts that arrived too late.
+
+--without-addon-control deliberately omits ONLY the -mod argument. The supplied
+PBO is still staged, pinned and checked for drift. The mission instrumentation,
+stock CE mode, settings and clocks are unchanged; no CE fallback is introduced.
+addon_loaded=false labels this explicit omission; otherwise loading is unknown
+from a command line alone. All authored feature flags remain disabled.
 
 Report consumers must use read_report(), and require this run's zero exit code.
 A .pending sibling makes even success-shaped JSON untrusted. Publication uses
@@ -39,6 +48,44 @@ SUCCESS='startup-control-completed'
 
 MAX_REPORT_BYTES = 1024 * 1024
 REPORT_PROTOCOL = 'pending-guard-v1'
+
+
+class _StartupBudget(_Budget):
+    """Outer clock includes staging; readiness anchors fixture exactly once."""
+    def __init__(self,seconds,startup_seconds=None):
+        policy=probe.clock_policy(startup_seconds,seconds)
+        super().__init__(seconds)
+        self.startup_deadline=self.started+policy['startup_seconds']
+        self.fixture_deadline=None
+        self.last_fixture_elapsed=None
+        self.native_startup_elapsed=None
+        self.timeout_phase=None
+        self.cleanup_deadline=None
+
+    def check(self):
+        now=self.now()
+        phase='startup' if self.fixture_deadline is None else 'fixture'
+        limit=self.startup_deadline if self.fixture_deadline is None else self.fixture_deadline
+        if now>=min(limit,self.process_deadline):
+            self.timeout_phase=phase if limit<=self.process_deadline else 'total-process'
+            raise _Expired(self.timeout_phase+' deadline expired')
+
+    def observe_ready(self,fixture_elapsed,startup_elapsed):
+        probe._number(fixture_elapsed,0,60)
+        probe._number(startup_elapsed,0,600)
+        self.check()
+        now=self.now()
+        self.check()  # Do not switch phases after a slow clock read crossed startup.
+        if self.fixture_deadline is None:
+            if startup_elapsed+fixture_elapsed>now-self.started:
+                raise ValueError('native clock durations exceed actual elapsed')
+            self.fixture_deadline=min(self.process_deadline,now+60-fixture_elapsed)
+            self.native_startup_elapsed=startup_elapsed
+        elif (startup_elapsed!=self.native_startup_elapsed
+                or fixture_elapsed<self.last_fixture_elapsed):
+            raise ValueError('native fixture clock reset or startup duration changed')
+        self.last_fixture_elapsed=fixture_elapsed
+        self.check()
 
 
 def read_report(path):
@@ -74,13 +121,14 @@ def _publish_report(path, report, budget):
         _write(temporary, payload)
         if probe._read(temporary, MAX_REPORT_BYTES) != payload:
             raise ValueError('staged report readback mismatch')
-        if report['status'] == SUCCESS and budget.now() > budget.deadline:
+        limit=min(budget.deadline,getattr(budget,'cleanup_deadline',None) or budget.deadline)
+        if report['status'] == SUCCESS and budget.now() >= limit:
             raise _Expired('report staging exceeded outer deadline')
         os.replace(temporary, path)
         published = True
         if probe._read(path, MAX_REPORT_BYTES) != payload:
             raise ValueError('published report readback mismatch')
-        if report['status'] == SUCCESS and budget.now() > budget.deadline:
+        if report['status'] == SUCCESS and budget.now() >= limit:
             raise _Expired('report verification exceeded outer deadline')
         # Last publication operation: failed verification can never remove the
         # guard. A reader checks it both before and after reading report bytes.
@@ -106,11 +154,13 @@ def _verify_final_inputs(mission, manifest_hash, launch_inputs):
 
 
 def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
-        seconds=90,execute=False):
+        seconds=90,execute=False,startup_seconds=None,without_addon_control=False):
     if execute is not True: raise ValueError('explicit execute=True / --execute required')
-    if type(seconds) is not int or not 15<=seconds<=180 or mode not in probe.MODES:
-        raise ValueError('fixed mode and explicit total budget 15..180 seconds required')
-    budget=_Budget(seconds); run_id=secrets.token_hex(16)
+    if type(without_addon_control) is not bool:
+        raise ValueError('without_addon_control requires an exact bool')
+    policy=probe.clock_policy(startup_seconds,seconds)
+    if mode not in probe.MODES: raise ValueError('fixed startup control mode required')
+    budget=_StartupBudget(seconds,startup_seconds); run_id=secrets.token_hex(16)
     root,source,experiment,prefix,scripts=map(_safe,(server_root,source_pbo,experiment,prefix,scripts_root))
     for other in (root,prefix,scripts):
         if experiment==other or experiment in other.parents or other in experiment.parents:
@@ -127,8 +177,15 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
     report=dict(schema=1,kind='actor-free-native-startup-run',run_id=run_id,mode=mode,
         environment='actual-DayZ-normal-server-under-Wine',runtime_acceptance='pending',
         gameplay_acceptance=False,production_acceptance=False,signature_verified=False,
+        addon_load_requested=not without_addon_control,
+        addon_loaded=False if without_addon_control else None,
+        addon_feature_flags_enabled=False,
+        control_label='without-addon-control' if without_addon_control else 'with-addon-startup-control',
         client_count=0,owned_entity_count=0,status='not-run',timed_out=False,
         receipt=None,receipt_error=None,outer_budget_seconds=seconds,
+        startup_allowance_seconds=policy['startup_seconds'],fixture_budget_seconds=60,
+        startup_option_explicit=startup_seconds is not None,timeout_phase=None,
+        readiness_observed_outer_seconds=None,fixture_deadline_outer_seconds=None,
         cleanup_reserve_seconds=CLEANUP_RESERVE_SECONDS,
         process_budget_seconds=seconds-CLEANUP_RESERVE_SECONDS,launched=False,
         process_cleanup_confirmed=False,forced_stop=False,cleanup_error=None,
@@ -154,8 +211,10 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
         addon=experiment/'@HollowCountry/addons/hollowcountry.pbo'; _write(addon,blob)
         config=experiment/'serverDZ.cfg'; config_blob=wine.configuration().encode(); _write(config,config_blob)
         budget.check()
-        manifest=probe.prepare_probe(stock,mission,scripts,mode=mode,run_id=run_id)
+        manifest=probe.prepare_probe(stock,mission,scripts,mode=mode,run_id=run_id,
+                                     startup_seconds=startup_seconds,total_seconds=seconds)
         if manifest['run_id']!=run_id or manifest['mode']!=mode: raise ValueError('mission correlation mismatch')
+        if manifest['clock_policy']!=policy: raise ValueError('mission clock policy mismatch')
         manifest_hash=probe._sha(probe._read(mission/probe.MARKER,probe.MAX_JSON_BYTES))
         report.update(mission=manifest,mission_manifest_sha256=manifest_hash,
             pbo_sha256=probe._sha(blob),server_sha256=server_hash,
@@ -173,6 +232,8 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
             '-storage='+wine.win(experiment/'storage'),'-mod='+wine.win(addon.parent.parent),
             '-BEpath='+wine.win(experiment/'battleye'),'-mission='+wine.win(mission),
             '-doLogs','-adminLog','-noPause']
+        if without_addon_control:
+            command.remove('-mod='+wine.win(addon.parent.parent))
         report['command']=command
         environment=dict(os.environ,WINEPREFIX=str(prefix),WINEARCH='win64',WINEDEBUG='-all')
         budget.check()
@@ -199,6 +260,16 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
                     budget.check()
                     # Native JsonSerializer emits bool as 0/1, Python fixtures as bool.
                     terminal=any(type(candidate.get(k)) in (bool,int) and candidate[k]==1 for k in ('complete','failed'))
+                    ready=type(candidate.get('fixture_started')) in (bool,int) and candidate['fixture_started']==1
+                    if ready:
+                        try:
+                            elapsed,startup_elapsed=probe.validate_progress(candidate,manifest)
+                            budget.observe_ready(elapsed,startup_elapsed)
+                            if report['readiness_observed_outer_seconds'] is None:
+                                report['readiness_observed_outer_seconds']=budget.now()-budget.started
+                                report['fixture_deadline_outer_seconds']=budget.fixture_deadline-budget.started
+                        except (OSError,ValueError) as exc:
+                            report['status']='startup-control-failed'; report['receipt_error']=str(exc)[:512]; break
                     if terminal:
                         try:
                             admitted=probe.validate_result(receipt_path,mission,outer_timed_out=False,
@@ -214,13 +285,20 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
                         report['receipt']=admitted; report['status']=SUCCESS; break
                 time.sleep(min(.25,max(0,budget.process_deadline-budget.now())))
     except _Expired:
-        admitted=None; report.update(status='timeout',timed_out=True,receipt=None)
+        admitted=None; report.update(status='timeout',timed_out=True,receipt=None,
+                                     timeout_phase=budget.timeout_phase)
     except Exception as exc:
         admitted=None; report.update(status='probe-error',receipt=None,error=type(exc).__name__+': '+str(exc)[:512])
     finally:
+        try:
+            cleanup_started=budget.now()
+            budget.cleanup_deadline=min(budget.deadline,cleanup_started+CLEANUP_RESERVE_SECONDS)
+        except ValueError:
+            cleanup_started=None
+            budget.cleanup_deadline=budget.started
         if process is not None:
             try:
-                try: remaining=max(0,budget.deadline-budget.now())
+                try: remaining=max(0,budget.cleanup_deadline-budget.now())
                 except ValueError: remaining=0
                 report['forced_stop']=wine.stop_group(process,grace=max(0,min(5,remaining-5.5)))
                 report['process_cleanup_confirmed']=not wine.group_alive(process.pid) and process.returncode is not None
@@ -254,8 +332,13 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
             except Exception as exc:
                 report['status']='log-collection-error'; report['collection_error']=type(exc).__name__+': '+str(exc)[:512]
         try:
-            report['total_elapsed_seconds']=budget.now()-budget.started
+            finished=budget.now()
+            report['total_elapsed_seconds']=finished-budget.started
             report['outer_budget_exceeded']=report['total_elapsed_seconds']>seconds
+            report['cleanup_elapsed_seconds']=None if cleanup_started is None else finished-cleanup_started
+            report['cleanup_budget_exceeded']=finished>=budget.cleanup_deadline
+            if report['cleanup_budget_exceeded'] and report['status']==SUCCESS:
+                report.update(status='cleanup-budget-exceeded',timed_out=True,timeout_phase='cleanup')
         except ValueError as exc:
             report['status']='probe-error'; report['clock_error']=str(exc); report['outer_budget_exceeded']=False
         if report['outer_budget_exceeded']: report.update(status='outer-budget-exceeded',timed_out=True)
@@ -269,6 +352,9 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
                 report.update(status='outer-budget-exceeded', timed_out=True,
                     receipt=None, outer_budget_exceeded=True,
                     report_path_untrusted=True, report_error=str(exc)[:512])
+                if budget.cleanup_deadline<budget.deadline and budget.last<budget.deadline:
+                    report.update(status='cleanup-budget-exceeded',outer_budget_exceeded=False,
+                                  cleanup_budget_exceeded=True,timeout_phase='cleanup')
             except Exception as exc:
                 report.update(status='report-write-error', receipt=None,
                     report_path_untrusted=True,
@@ -282,6 +368,10 @@ def main(argv=None):
         parser.add_argument('--'+field,type=Path,required=True)
     parser.add_argument('--mode',choices=probe.MODES,default='stock-ce')
     parser.add_argument('--seconds',type=int,default=90)
+    parser.add_argument('--startup-seconds',type=int,default=None,
+        help='Explicit startup allowance 1..600; requires explicit total including 60+12 seconds')
+    parser.add_argument('--without-addon-control',action='store_true',
+        help='Omit only -mod; retain staged PBO pins and all startup-control checks')
     parser.add_argument('--execute',action='store_true')
     report=run(**vars(parser.parse_args(argv)))
     print(json.dumps(report,sort_keys=True,indent=2,allow_nan=False))

@@ -46,7 +46,7 @@ class FuelProbeRunnerTests(unittest.TestCase):
                cleanup_delay=1,cleanup_error=False,group_survives=False,death_at=None,
                final_complete=False,final_error=False,launch_error=None,staging_delay=0,
                final_poll_delay=0,preflight_code=1,foreign_experiment=False,
-               final_settings_error=False):
+               final_settings_error=False, final_mutation=None):
         original_is_file=Path.is_file; original_prepare=fuel.prepare_probe
         original_validate=fuel.validate_result; emitted=False; validated=False
         def is_file(path):
@@ -61,6 +61,7 @@ class FuelProbeRunnerTests(unittest.TestCase):
             nonlocal emitted
             text='[HollowCountry] Server initialized; SYNTHETIC'
             if path==self.experiment:
+                if final_mutation: final_mutation()
                 if final_complete: receipt(); text+='\n[HC Siphon Probe] COMPLETE run=late'
                 if final_error: text+='\nSCRIPT (E): SYNTHETIC final compiler error'
                 if final_settings_error:
@@ -293,6 +294,100 @@ class FuelProbeRunnerTests(unittest.TestCase):
         self.assertIsNone(report['receipt'])
         self.assertTrue(report['process_cleanup_confirmed'])
         self.assertLessEqual(self.now, 180)
+
+
+    def test_final_launch_or_complete_mission_drift_revokes_receipt(self):
+        targets = (
+            '@HollowCountry/addons/hollowcountry.pbo', 'serverDZ.cfg',
+            'battleye/BEServer_x64.dll', 'fuel.chernarusplus/init.c',
+            'fuel.chernarusplus/' + fuel.MARKER,
+        )
+        for index, relative in enumerate(targets):
+            self.experiment = self.root / ('final-drift-' + str(index))
+            self.now = 0
+            self.process.returncode = None
+            report = self.mocked(final_mutation=lambda:
+                (self.experiment / relative).write_bytes(b'SYNTHETIC drift'))
+            with self.subTest(relative=relative):
+                self.assertEqual('input-drift', report['status'])
+                self.assertIsNone(report['receipt'])
+                self.assertTrue(report['process_cleanup_confirmed'])
+                self.assertEqual(report, self.runner.read_report(
+                    self.experiment / self.runner.REPORT))
+
+    def test_final_mission_extra_missing_directory_and_link_are_rejected(self):
+        for index, change in enumerate(('extra', 'missing', 'directory', 'link')):
+            self.experiment = self.root / ('mission-inventory-' + str(index))
+            self.now = 0
+            self.process.returncode = None
+            def mutate():
+                mission = self.experiment / 'fuel.chernarusplus'
+                if change == 'extra':
+                    (mission / 'unexpected.c').write_bytes(b'// synthetic')
+                elif change == 'missing':
+                    (mission / 'init.c').unlink()
+                elif change == 'directory':
+                    (mission / 'unexpected').mkdir()
+                else:
+                    (mission / 'unexpected.c').symlink_to(self.source)
+            report = self.mocked(final_mutation=mutate)
+            with self.subTest(change=change):
+                self.assertEqual('input-drift', report['status'])
+                self.assertIsNone(report['receipt'])
+
+    def test_final_executable_drift_revokes_receipt(self):
+        report = self.mocked(final_mutation=lambda:
+            (self.server / 'DayZServer_x64.exe').write_bytes(b'SYNTHETIC drift'))
+        self.assertEqual('input-drift', report['status'])
+        self.assertIsNone(report['receipt'])
+
+    def test_final_engine_error_remains_sticky_with_input_drift(self):
+        report = self.mocked(final_error=True, final_mutation=lambda:
+            (self.experiment / 'serverDZ.cfg').write_bytes(b'SYNTHETIC drift'))
+        self.assertEqual('compiler-error', report['status'])
+        self.assertIsNone(report['receipt'])
+
+    def test_successful_report_requires_guarded_publication(self):
+        report = self.mocked()
+        path = self.experiment / self.runner.REPORT
+        self.assertEqual(report, self.runner.read_report(path))
+        self.assertFalse(path.with_name(path.name + '.pending').exists())
+
+    def test_failed_published_readback_keeps_success_artifact_untrusted(self):
+        original_read = fuel._read
+        original_unlink = Path.unlink
+        def read(path, limit):
+            if Path(path).name == self.runner.REPORT:
+                raise OSError('SYNTHETIC published readback failure')
+            return original_read(path, limit)
+        def unlink(path, *args, **kwargs):
+            if path.name == self.runner.REPORT:
+                raise OSError('SYNTHETIC cannot remove failed report')
+            return original_unlink(path, *args, **kwargs)
+        with patch.object(fuel, '_read', side_effect=read), patch.object(Path, 'unlink', unlink):
+            report = self.mocked()
+        path = self.experiment / self.runner.REPORT
+        self.assertEqual('report-write-error', report['status'])
+        self.assertIsNone(report['receipt'])
+        self.assertEqual('fuel-probe-completed', json.loads(path.read_text())['status'])
+        self.assertTrue(path.with_name(path.name + '.pending').exists())
+        with self.assertRaisesRegex(ValueError, 'publication incomplete'):
+            self.runner.read_report(path)
+
+    def test_report_verification_overrun_revokes_publication(self):
+        original_read = fuel._read
+        def read(path, limit):
+            data = original_read(path, limit)
+            if Path(path).name == self.runner.REPORT:
+                self.now += 30
+            return data
+        with patch.object(fuel, '_read', side_effect=read):
+            report = self.mocked()
+        self.assertEqual('outer-budget-exceeded', report['status'])
+        self.assertTrue(report['timed_out'])
+        self.assertIsNone(report['receipt'])
+        with self.assertRaises((ValueError, OSError)):
+            self.runner.read_report(self.experiment / self.runner.REPORT)
 
 
 if __name__=='__main__': unittest.main()

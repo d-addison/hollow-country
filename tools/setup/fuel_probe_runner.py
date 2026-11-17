@@ -11,6 +11,9 @@ The monotonic budget starts before staging, <=180 seconds INCLUDING startup and
 observed cleanup/log collection. Default remains 90; longer allowances require
 an explicit seconds argument / --seconds. Twelve seconds are reserved for the shared
 bounded TERM/KILL/wait helper. A clock/IO/cleanup overrun cannot retain success.
+Report consumers must use read_report() and require this run's zero exit code.
+A .pending sibling makes even success-shaped JSON untrusted. Publication uses
+verified staging, rename and final readback; no fsync/crash durability is claimed.
 An external wall-clock supervisor remains required for OS/filesystem stalls that
 Python cannot preempt; do not treat a requested timeout as observed completion.
 
@@ -42,6 +45,7 @@ import argparse
 import json
 import math
 import os
+import re
 from pathlib import Path
 import secrets
 import shutil
@@ -56,6 +60,8 @@ from tools.validate.runtime import FLAGS, validate_settings
 MAX_OUTER_SECONDS = fuel.MAX_OUTER_SECONDS
 CLEANUP_RESERVE_SECONDS = 12
 REPORT = 'fuel-probe-report.json'
+MAX_REPORT_BYTES = 1024 * 1024
+REPORT_PROTOCOL = 'pending-guard-v1'
 WINE = Path('/usr/lib/wine/wine64')
 
 
@@ -88,6 +94,61 @@ def _write(path, data):
     _safe(path)
     with path.open('xb') as stream: stream.write(data)
     if fuel._read(path,len(data))!=data: raise ValueError('staged readback mismatch')
+
+
+def read_report(path):
+    """Read a guarded report; consumers must also require this run's zero exit."""
+    path = _safe(path)
+    guard = path.with_name(path.name + '.pending')
+    if guard.exists():
+        raise ValueError('report publication incomplete')
+    row = fuel._decode_json(fuel._read(path, MAX_REPORT_BYTES))
+    if (guard.exists() or row.get('publication_protocol') != REPORT_PROTOCOL
+            or row.get('kind') != 'owned-fuel-probe-run'
+            or type(row.get('schema')) is not int or row['schema'] != 1
+            or type(row.get('run_id')) is not str
+            or not re.fullmatch('[0-9a-f]{32}', row['run_id'])):
+        raise ValueError('unverified report publication')
+    return row
+
+
+def _publish_report(path, report, budget):
+    """Readback/rename protocol, not fsync or crash-durable publication."""
+    path = _safe(path)
+    guard = path.with_name(path.name + '.pending')
+    temporary = path.with_name(path.name + '.tmp')
+    if path.exists() or guard.exists() or temporary.exists():
+        raise FileExistsError('fresh report publication paths required')
+    report['publication_protocol'] = REPORT_PROTOCOL
+    payload = fuel._encode(report)
+    if len(payload) > MAX_REPORT_BYTES:
+        raise ValueError('report byte budget exceeded')
+    published = False
+    try:
+        _write(guard, fuel._encode(dict(schema=1, run_id=report['run_id'])))
+        _write(temporary, payload)
+        if fuel._read(temporary, MAX_REPORT_BYTES) != payload:
+            raise ValueError('staged report readback mismatch')
+        if report['status'] == 'fuel-probe-completed' and budget.now() > budget.deadline:
+            raise _Expired('report staging exceeded outer deadline')
+        os.replace(temporary, path)
+        published = True
+        if fuel._read(path, MAX_REPORT_BYTES) != payload:
+            raise ValueError('published report readback mismatch')
+        if report['status'] == 'fuel-probe-completed' and budget.now() > budget.deadline:
+            raise _Expired('report verification exceeded outer deadline')
+        guard.unlink()
+    except Exception:
+        if published:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
 
 
 def _disabled_settings():
@@ -155,8 +216,15 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
             cap_ml=cap_ml,fuel_liters=fuel_liters,car_class=car_class,vessel_class=vessel_class,
             actor_class=actor_class,outer_timeout_seconds=seconds,run_id=run_id)
         if manifest['run_id']!=run_id: raise ValueError('generated mission nonce mismatch')
+        mission_snapshot=wine.snapshot_mission(mission)
         report.update(mission=manifest,pbo_sha256=fuel._sha(blob),server_sha256=server_hash,
             settings_sha256=fuel._sha(settings),config_sha256=fuel._sha(config.read_bytes()))
+        launch_inputs=(
+            (addon,len(blob),report['pbo_sha256']),
+            (config,config.stat().st_size,report['config_sha256']),
+            (executable,256*1024*1024,server_hash),
+            (experiment/'battleye/BEServer_x64.dll',len(be_blob),fuel._sha(be_blob)),
+        )
         command=['xvfb-run','-a',str(WINE),str(executable),'-ip=127.0.0.1','-port=2402',
             '-config='+wine.win(config),'-profiles='+wine.win(profiles),
             '-storage='+wine.win(experiment/'storage'),'-mod='+wine.win(addon.parent.parent),
@@ -247,6 +315,12 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
                         report['status']='receipt-changed-after-admission'
                     elif fuel._sha(fuel._read(profiles/'HollowCountry/settings.json',16384))!=report['settings_sha256']:
                         report['status']='settings-drift'
+                    else:
+                        try:
+                            wine.verify_final_inputs(mission,mission_snapshot,launch_inputs)
+                        except (OSError,ValueError) as exc:
+                            report['status']='input-drift'
+                            report['input_error']=str(exc)[:512]
             except Exception as exc:
                 report['status']='log-collection-error'
                 report['collection_error']=type(exc).__name__+': '+str(exc)[:512]
@@ -263,15 +337,13 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
         if owned_experiment:
             report_path=experiment/REPORT
             try:
-                _write(report_path,fuel._encode(report))
-                # If persistence itself crosses the outer deadline, revoke the
-                # owned report; never overwrite another experiment's artifact.
-                if budget.now()>budget.deadline and not report['outer_budget_exceeded']:
-                    report.update(status='outer-budget-exceeded',timed_out=True,receipt=None,
-                        outer_budget_exceeded=True,total_elapsed_seconds=budget.now()-budget.started)
-                    with report_path.open('wb') as stream: stream.write(fuel._encode(report))
+                _publish_report(report_path,report,budget)
+            except _Expired as exc:
+                report.update(status='outer-budget-exceeded',timed_out=True,receipt=None,
+                    outer_budget_exceeded=True,total_elapsed_seconds=budget.now()-budget.started,
+                    report_path_untrusted=True,report_error=str(exc)[:512])
             except Exception as exc:
-                report.update(status='report-write-error',receipt=None,
+                report.update(status='report-write-error',receipt=None,report_path_untrusted=True,
                     report_error=type(exc).__name__+': '+str(exc)[:512])
     return report
 

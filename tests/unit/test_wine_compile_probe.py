@@ -35,7 +35,7 @@ class MockedWineRunTests(unittest.TestCase):
         self.process.poll.return_value = None
         self.now = 0
 
-    def run_mocked(self, frames=None, probe_seconds=15, final_logs='', launch_error=None, **kwargs):
+    def run_mocked(self, frames=None, probe_seconds=15, final_logs='', launch_error=None, final_mutation=None, final_skipped=None, **kwargs):
         frames = frames or (lambda now: '[HollowCountry] Server initialized; synthetic')
         native_is_file = Path.is_file
 
@@ -44,7 +44,8 @@ class MockedWineRunTests(unittest.TestCase):
 
         def logs(root):
             if root == self.experiment:
-                return final_logs, {}, {}
+                if final_mutation: final_mutation()
+                return final_logs, {}, final_skipped or {}
             return frames(self.now), {}, {}
 
         def sleep(seconds):
@@ -67,6 +68,84 @@ class MockedWineRunTests(unittest.TestCase):
             stack.enter_context(patch.object(probe.time, 'sleep', side_effect=sleep))
             return probe.run(self.server, self.source, self.experiment, self.root / 'prefix',
                              seconds=probe_seconds, **kwargs)
+
+    def test_final_incomplete_logs_cannot_remain_clean_smoke(self):
+        report = self.run_mocked(final_skipped={
+            'hidden.rpt': 'log count or byte budget exceeded'})
+        self.assertEqual('log-collection-incomplete', report['status'])
+        self.assertFalse(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_final_input_drift_cannot_remain_clean_smoke(self):
+        targets = (
+            self.experiment / '@HollowCountry/addons/hollowcountry.pbo',
+            self.experiment / 'serverDZ.cfg',
+            self.experiment / 'battleye/BEServer_x64.dll',
+            self.server / 'DayZServer_x64.exe',
+            self.server / 'mpmissions/dayzOffline.chernarusplus/init.c',
+        )
+        for index, target in enumerate(targets):
+            self.experiment = self.root / ('wine-drift-' + str(index))
+            # Rebase staged targets to this fresh experiment.
+            if 'experiment' in target.parts:
+                target = self.experiment.joinpath(*target.relative_to(self.root / 'experiment').parts)
+            self.now = 0
+            self.process.returncode = None
+            report = self.run_mocked(final_mutation=lambda:
+                target.write_bytes(b'SYNTHETIC changed launch input'))
+            with self.subTest(target=str(target)):
+                self.assertEqual('input-drift', report['status'])
+                self.assert_cleaned_report(report)
+
+    def test_final_mission_added_file_or_directory_cannot_remain_clean(self):
+        for index, directory in enumerate((False, True)):
+            self.experiment = self.root / ('wine-inventory-' + str(index))
+            self.now = 0
+            self.process.returncode = None
+            def mutate():
+                target = self.server / 'mpmissions/dayzOffline.chernarusplus' / ('extra-dir' if directory else 'extra.c')
+                if directory:
+                    target.mkdir()
+                else:
+                    target.write_bytes(b'// synthetic extra source')
+            report = self.run_mocked(final_mutation=mutate)
+            self.assertEqual('input-drift', report['status'])
+            self.assert_cleaned_report(report)
+
+    def test_final_error_is_sticky_with_incomplete_logs_and_input_drift(self):
+        report = self.run_mocked(final_logs='SCRIPT (E): synthetic failure',
+            final_skipped={'hidden.rpt': 'byte budget exceeded'},
+            final_mutation=lambda:
+                (self.experiment / 'serverDZ.cfg').write_bytes(b'SYNTHETIC drift'))
+        self.assertEqual('compiler-error', report['status'])
+        self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
+    def test_final_diagnostic_mission_manifest_drift_is_rejected(self):
+        (self.server / 'DayZDiag_x64.exe').write_bytes(b'SYNTHETIC diagnostic')
+        stock = self.server / 'mpmissions/dayzOffline.chernarusplus/init.c'
+        stock.write_bytes(b'class CustomMission: MissionServer {}; Mission CreateCustomMission(string path) { return new CustomMission(); }')
+        report = self.run_mocked(diagnostic=True, diagnostic_selftests=True,
+            final_mutation=lambda:
+                (self.experiment / 'diagnostic.chernarusplus/.hollow-country-diagnostic-mission.json').unlink())
+        self.assertEqual('input-drift', report['status'])
+        self.assert_cleaned_report(report)
+
+    def test_final_seed_drift_is_rejected(self):
+        seed = self.root / 'seed'
+        seed.mkdir()
+        (seed / 'config.json').write_bytes(b'{}')
+        report = self.run_mocked(state_seed=seed,
+            final_mutation=lambda:
+                (self.experiment / 'profiles/HollowCountry/Infected/config.json').write_bytes(b'{"changed":true}'))
+        self.assertEqual('input-drift', report['status'])
+        self.assert_cleaned_report(report)
+
+    @staticmethod
+    def synthetic_stage(source, destination, **kwargs):
+        destination.mkdir()
+        (destination / 'init.c').write_bytes(b'// synthetic staged hook')
+        return {'kind': 'synthetic-' + kwargs['purpose'] + '-staging'}
 
     def assert_cleaned_report(self, report):
         self.stop.assert_called_once_with(self.process)
@@ -210,7 +289,7 @@ class MockedWineRunTests(unittest.TestCase):
 
     def test_item_audit_uses_normal_server_and_does_not_claim_export_completion(self):
         with patch('tools.setup.diagnostic_mission.prepare_diagnostic_mission',
-                   return_value={'kind': 'synthetic-item-audit-staging'}) as prepare:
+                   side_effect=self.synthetic_stage) as prepare:
             report = self.run_mocked(item_compatibility_audit=True)
         prepare.assert_called_once_with(self.server / 'mpmissions/dayzOffline.chernarusplus',
                                         self.experiment / 'item-audit.chernarusplus', purpose='item-audit')
@@ -231,7 +310,7 @@ class MockedWineRunTests(unittest.TestCase):
 
     def test_group_checks_stage_fixed_normal_server_mission_without_acceptance_claim(self):
         with patch('tools.setup.diagnostic_mission.prepare_diagnostic_mission',
-                   return_value={'kind': 'synthetic-group-check-staging'}) as prepare:
+                   side_effect=self.synthetic_stage) as prepare:
             report = self.run_mocked(group_checks=True)
         prepare.assert_called_once_with(self.server / 'mpmissions/dayzOffline.chernarusplus',
                                         self.experiment / 'group-checks.chernarusplus', purpose='group-checks')

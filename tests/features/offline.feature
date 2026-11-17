@@ -2,6 +2,18 @@
 Feature: Research tooling preserves honest evidence
   Offline checks validate authored data and never claim DayZ behavior.
 
+  @ISSUE-52 @ISSUE-54
+  Scenario: Retain complete utility cohorts without inferring repair compatibility
+    Given synthetic complete item recipe and action evidence with repeated source identities
+    When bounded utility indexing retains every admitted class reference and candidate cohort
+    Then ambiguity unknown typing and work limits remain explicit without gameplay approval
+
+  @AC-005
+  Scenario: Prepare house measurements without inferring room fit or loot eligibility
+    Given synthetic pinned stock maps native interfaces and real-house acquisition receipts
+    When the fixed measurement bundle and bounded receipt validator execute
+    Then unmatched houses incomplete callbacks and changed evidence cannot establish a qualified interior
+
   @ISSUE-35
   Scenario: Build weather candidates without silently changing native defaults
     Given synthetic native weather XML and explicit pinned operator profiles

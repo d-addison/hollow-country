@@ -13,11 +13,13 @@ import re
 import secrets
 import shutil
 import signal
+import stat
 import subprocess
 import time
 
 from tools.package import pbo
 from tools.setup import infected_death_probe as death_probe
+from tools.setup import diagnostic_mission as staging
 from tools.validate.runtime import validate_settings
 
 MAX_LOG_FILE = 16 * 1024 * 1024
@@ -148,6 +150,66 @@ def safe(path):
     return path
 
 
+def input_sha256(path, limit):
+    """Hash one bounded regular input, rejecting links and changing snapshots."""
+    path = safe(path)
+    before = path.lstat()
+    if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1 or before.st_size > limit:
+        raise ValueError('bounded regular launch input required')
+    digest = hashlib.sha256()
+    length = 0
+    with path.open('rb') as stream:
+        while length <= before.st_size:
+            chunk = stream.read(min(65536, before.st_size + 1 - length))
+            if not chunk:
+                break
+            digest.update(chunk)
+            length += len(chunk)
+    if length != before.st_size or staging._identity(path.lstat()) != staging._identity(before):
+        raise ValueError('launch input changed during snapshot')
+    return digest.hexdigest()
+
+
+def snapshot_mission(root):
+    """Bound and pin all static mission files/directories, including manifests."""
+    root = safe(root)
+    if not root.is_dir():
+        raise ValueError('mission directory required')
+    result, pending = {}, [(root, 0)]
+    entries = total = 0
+    while pending:
+        directory, depth = pending.pop()
+        with os.scandir(directory) as scan:
+            for entry in scan:
+                entries += 1
+                if entries > staging.MAX_ENTRIES:
+                    raise ValueError('mission entry budget exceeded')
+                path = safe(entry.path)
+                info = path.lstat()
+                relative = path.relative_to(root).as_posix()
+                if stat.S_ISDIR(info.st_mode):
+                    if depth + 1 > staging.MAX_DEPTH:
+                        raise ValueError('mission depth budget exceeded')
+                    result[relative + '/'] = None
+                    pending.append((path, depth + 1))
+                elif stat.S_ISREG(info.st_mode):
+                    total += info.st_size
+                    if info.st_size > staging.MAX_FILE_BYTES or total > staging.MAX_TOTAL_BYTES:
+                        raise ValueError('mission byte budget exceeded')
+                    result[relative] = input_sha256(path, info.st_size)
+                else:
+                    raise ValueError('regular mission files/directories required')
+    return result
+
+
+def verify_final_inputs(mission, expected_mission, launch_inputs):
+    if snapshot_mission(mission) != expected_mission:
+        raise ValueError('complete staged mission inventory drift')
+    for path, limit, digest in launch_inputs:
+        if input_sha256(path, limit) != digest:
+            raise ValueError('launch input drift: ' + path.name)
+
+
 def read_state_seed(root):
     root = safe(root)
     allowed = {'config.json', 'hordes-a.json', 'hordes-b.json'}
@@ -245,6 +307,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     if diagnostic:
         command.append('-server')
     diagnostic_mission = None
+    mission = root / 'mpmissions/dayzOffline.chernarusplus'
     if diagnostic_selftests:
         from tools.setup.diagnostic_mission import prepare_diagnostic_mission
         mission = experiment / 'diagnostic.chernarusplus'
@@ -280,6 +343,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             infected_death_scripts, x=autotest_x, z=autotest_z,
             run_id=secrets.token_hex(16), diagnostic_only=False)
         diagnostic_mission = death_manifest
+        mission = death_mission
         command.append('-mission=' + win(death_mission))
     env = dict(os.environ, WINEPREFIX=str(prefix), WINEARCH='win64', WINEDEBUG='-all')
     report = {'schema': 1, 'environment': 'actual-DayZ-server-under-Wine',
@@ -314,6 +378,19 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['state_seed_sha256'] = {name: hashlib.sha256(data).hexdigest() for name, data in seeds.items()}
     report['hold_seconds_requested'] = hold_seconds
     report['hold_seconds_observed'] = 0
+    mission_snapshot = snapshot_mission(mission)
+    launch_inputs = [
+        (addon / 'hollowcountry.pbo', len(blob), report['pbo_sha256']),
+        (config, config.stat().st_size, report['config_sha256']),
+        (executable, 256 * 1024 * 1024, report['server_sha256']),
+        (battleye / native_be.name, 16 * 1024 * 1024,
+         input_sha256(battleye / native_be.name, 16 * 1024 * 1024)),
+    ]
+    if settings_blob is not None:
+        launch_inputs.append((profiles / 'HollowCountry/settings.json',
+                              len(settings_blob), report['settings_sha256']))
+    launch_inputs.extend((profiles / 'HollowCountry/Infected' / name, len(data),
+                          report['state_seed_sha256'][name]) for name, data in seeds.items())
     process = None
     deadline_expired = False
     outer_started = time.monotonic() if death_mode else None
@@ -446,6 +523,17 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         report['settings_rejection_observed'] |= final_result == 'settings-rejected'
         if report['settings_rejection_observed']:
             report['status'] = 'settings-rejected'
+        clean_statuses = {'initialized', 'native-autotest-completed',
+                          'infected-death-completed', 'settings-rejected'}
+        if report['status'] in clean_statuses and not report['engine_error_observed']:
+            if report['skipped_logs']:
+                report['status'] = 'log-collection-incomplete'
+            else:
+                try:
+                    verify_final_inputs(mission, mission_snapshot, launch_inputs)
+                except (OSError, ValueError) as exc:
+                    report['status'] = 'input-drift'
+                    report['input_error'] = str(exc)[:512]
         if death_mode:
             if time.monotonic() >= outer_deadline:
                 deadline_expired = True

@@ -3,8 +3,10 @@
 prepare_probe(stock,freshdest,scripts_root,mode='stock-ce',run_id=None).
 The stock factory and all stock behavior are retained except that the explicit
 ce-disabled-control mode omits ONLY ce.InitOffline(). No gameplay acceptance.
-SYSTEM callbacks are registered, never invoked manually. Native watchdog 60s;
-an external <=180s supervisor is mandatory because blocked native calls cannot
+SYSTEM callbacks are registered, never invoked manually. Native fixture cap 60s
+starts only after real lifecycle readiness, not OnInit. Default outer cap 180s;
+explicit startup<=600 plus explicit total<=674 is opt-in. A supervisor is
+mandatory because blocked native calls cannot
 be preempted by script. Receipts are observations, not engine authentication.
 """
 from pathlib import Path, PurePosixPath
@@ -20,6 +22,8 @@ RESULT='hc-native-startup-result.json'
 KIND='native-actor-free-startup-control'
 MAX_JSON_BYTES=256*1024
 MAX_OUTER_SECONDS=180
+MAX_EXPLICIT_OUTER_SECONDS=674
+MAX_STARTUP_SECONDS=600
 MODES=('stock-ce','ce-disabled-control')
 LIFECYCLE=('INIT_ENTER','INIT_EXIT','MAIN_ENTER','CREATE_HIVE_ENTER',
     'CREATE_HIVE_EXIT','CE_INIT_ENTER','CE_INIT_EXIT','MAIN_EXIT','START_ENTER','START_EXIT')
@@ -67,7 +71,28 @@ def _block(masked, opening):
     raise ValueError('unbalanced stock block')
 
 
-def _instrument(data,mode,run_id):
+def clock_policy(startup_seconds=None,total_seconds=None):
+    """Validate finite clocks without silently extending an existing budget."""
+    explicit=startup_seconds is not None
+    if explicit and total_seconds is None:
+        raise ValueError('explicit startup requires explicit total budget')
+    total=MAX_OUTER_SECONDS if total_seconds is None else total_seconds
+    ceiling=MAX_EXPLICIT_OUTER_SECONDS if explicit else MAX_OUTER_SECONDS
+    if type(total) is not int or not 15<=total<=ceiling:
+        raise ValueError('total budget outside explicit bounds')
+    if explicit:
+        if type(startup_seconds) is not int or not 1<=startup_seconds<=MAX_STARTUP_SECONDS:
+            raise ValueError('startup allowance must be an integer 1..600')
+        if total<startup_seconds+60+12:
+            raise ValueError('explicit total must include startup, fixture and cleanup')
+    else:
+        startup_seconds=total-12
+    return dict(startup_seconds=startup_seconds,fixture_seconds=60,
+                cleanup_seconds=12,total_seconds=total)
+
+
+def _instrument(data,mode,run_id,policy=None):
+    policy=clock_policy() if policy is None else policy
     text=data.decode('utf-8-sig'); masked=_mask(text)
     if 'HCStartup' in text or '#' in masked:
         raise ValueError('instrumented/preprocessed mission forbidden')
@@ -101,10 +126,15 @@ def _instrument(data,mode,run_id):
            (copen+1,copen+1,LIFECYCLE_HOOK)]
     for start,end,replacement in sorted(edits,reverse=True):
         text=text[:start]+replacement+text[end:]
-    return (text+HOOK.replace('@RUN@',run_id).replace('@MODE@',mode)).encode()
+    hook=HOOK.replace('@RUN@',run_id).replace('@MODE@',mode)
+    hook=hook.replace('@STARTUP@',str(policy['startup_seconds']))
+    hook=hook.replace('@TOTAL@',str(policy['total_seconds']))
+    return (text+hook).encode()
 
 
-def prepare_probe(stock,freshdest,scripts_root,mode='stock-ce',run_id=None):
+def prepare_probe(stock,freshdest,scripts_root,mode='stock-ce',run_id=None,*,
+                  startup_seconds=None,total_seconds=None):
+    policy=clock_policy(startup_seconds,total_seconds)
     run_id=secrets.token_hex(16) if run_id is None else run_id
     if mode not in MODES or type(run_id) is not str or not re.fullmatch('[0-9a-f]{32}',run_id):
         raise ValueError('fixed mode and hexadecimal nonce required')
@@ -140,11 +170,11 @@ def prepare_probe(stock,freshdest,scripts_root,mode='stock-ce',run_id=None):
     original = snapshots.get('init.c', b'')
     if not original or len(original) > staging.MAX_INIT_BYTES:
         raise ValueError('bounded stock init required')
-    emitted = _instrument(original, mode, run_id)
+    emitted = _instrument(original, mode, run_id, policy)
     if len(emitted) > staging.MAX_FILE_BYTES:
         raise ValueError('generated init budget exceeded')
     manifest = dict(schema=1, kind=KIND, run_id=run_id, mode=mode,
-        native_watchdog_seconds=60, max_outer_seconds=MAX_OUTER_SECONDS,
+        native_watchdog_seconds=60, max_outer_seconds=policy['total_seconds'],clock_policy=policy,
         max_owned_entities=0, gameplay_acceptance=False, interfaces=interfaces,
         directories=[str(p) for p in sorted(dirs)], files={})
     for relative, data in sorted(snapshots.items()):
@@ -199,6 +229,17 @@ def validate_mission(mission, *, expected_sha256=None):
             or type(manifest.get('run_id')) is not str
             or not re.fullmatch('[0-9a-f]{32}', manifest['run_id'])):
         raise ValueError('staged manifest mismatch')
+    policy=manifest.get('clock_policy')
+    if type(policy) is not dict:
+        raise ValueError('explicit staged clock policy required')
+    total=policy.get('total_seconds'); startup=policy.get('startup_seconds')
+    if (set(policy)!={'total_seconds','startup_seconds','fixture_seconds','cleanup_seconds'}
+            or any(type(value) is not int for value in policy.values())):
+        raise ValueError('integer staged clock policy required')
+    # Legacy-sized totals may use the full process allowance for startup.
+    inferred=None if type(total) is int and total<=180 and startup==total-12 else startup
+    if policy!=clock_policy(inferred,total) or manifest.get('max_outer_seconds')!=total:
+        raise ValueError('staged clock policy mismatch')
     files = manifest.get('files')
     directories = manifest.get('directories', [])
     if (type(files) is not dict or not 1 <= len(files) < staging.MAX_ENTRIES
@@ -250,10 +291,38 @@ def _flag(value,expected):
         raise ValueError('native bool flag mismatch')
 
 
+def validate_progress(row,manifest):
+    """Correlate a ready native snapshot; never establish completion from it."""
+    policy=manifest['clock_policy']
+    if (type(row.get('schema')) is not int or row['schema']!=1 or row.get('kind')!=KIND
+            or row.get('run_id')!=manifest['run_id'] or row.get('mode')!=manifest['mode']):
+        raise ValueError('progress nonce/mode/schema mismatch')
+    for key,wanted in (('startup_allowance_seconds',policy['startup_seconds']),
+                       ('fixture_watchdog_seconds',60),('outer_budget_seconds',policy['total_seconds'])):
+        if type(row.get(key)) is not int or row[key]!=wanted:
+            raise ValueError('progress clock policy mismatch')
+    _flag(row.get('fixture_started'),True)
+    _flag(row.get('server_context'),True); _flag(row.get('ce_present'),True)
+    _flag(row.get('failed'),False); _flag(row.get('gameplay_acceptance'),False)
+    if type(row.get('entities_created')) is not int or row['entities_created']!=0:
+        raise ValueError('entity-bearing startup progress')
+    _number(row.get('startup_elapsed_seconds'),0,policy['startup_seconds'])
+    _number(row.get('elapsed_seconds'),0,60)
+    events=row.get('events')
+    _validate_lifecycle(events,row['mode'],callbacks_complete=False)
+    for kind,maximum in (('frame',1024),('queue',128)):
+        entries=row.get(kind+'_entries'); exits=row.get(kind+'_exits')
+        if type(entries) is not int or type(exits) is not int or not 0<=exits<=entries<=maximum:
+            raise ValueError('bounded real callback progress required')
+    if row['frame_entries']+row['queue_entries']<1:
+        raise ValueError('readiness requires a real SYSTEM entry')
+    return row['elapsed_seconds'],row['startup_elapsed_seconds']
+
+
 def validate_result(path,mission,*,outer_timed_out,outer_elapsed_seconds,_snapshot=None):
     if outer_timed_out is not False: raise ValueError('actual non-timeout outcome required')
-    _number(outer_elapsed_seconds,0,MAX_OUTER_SECONDS)
     manifest, manifest_data = validate_mission(mission)
+    _number(outer_elapsed_seconds,0,manifest['clock_policy']['total_seconds'])
     _safe(path)
     data=_read(path,MAX_JSON_BYTES) if _snapshot is None else _snapshot
     if type(data) is not bytes or len(data)>MAX_JSON_BYTES: raise ValueError('bounded receipt snapshot required')
@@ -262,6 +331,9 @@ def validate_result(path,mission,*,outer_timed_out,outer_elapsed_seconds,_snapsh
         raise ValueError('receipt schema mismatch')
     if row.get('run_id')!=manifest.get('run_id') or row.get('mode')!=manifest['mode']:
         raise ValueError('receipt nonce/mode mismatch')
+    validate_progress(row,manifest)
+    if row['startup_elapsed_seconds']+row['elapsed_seconds']>outer_elapsed_seconds:
+        raise ValueError('native durations exceed actual outer duration')
     for field,expected in (('server_context',True),('complete',True),('failed',False),
         ('callbacks_detached',True),('ce_present',True),('gameplay_acceptance',False)):
         _flag(row.get(field),expected)
@@ -277,11 +349,17 @@ def validate_result(path,mission,*,outer_timed_out,outer_elapsed_seconds,_snapsh
     ordinals=row.get('queue_update_ordinals')
     if type(ordinals) is not list or len(ordinals)!=2 or any(type(n) is not int for n in ordinals) or not 0<=ordinals[0]<ordinals[1]<row['frame_entries']:
         raise ValueError('two distinct actual update intervals required')
-    events=row.get('events')
+    _validate_lifecycle(row.get('events'),row['mode'],callbacks_complete=True)
+    return dict(schema=1,kind=KIND,run_id=row['run_id'],mode=row['mode'],
+        startup_control_complete=True,gameplay_acceptance=False,
+        receipt_sha256=_sha(data),receipt=row,mission_manifest_sha256=_sha(manifest_data))
+
+
+def _validate_lifecycle(events,mode,*,callbacks_complete):
     if type(events) is not list or not 1<=len(events)<=64 or any(type(e) is not str for e in events):
         raise ValueError('bounded checkpoint events required')
     required=list(LIFECYCLE)
-    if row['mode']=='ce-disabled-control':
+    if mode=='ce-disabled-control':
         required[required.index('CE_INIT_ENTER')]='CE_INIT_OMITTED'; required.remove('CE_INIT_EXIT')
     allowed=set(required)|{'QUEUE_ENTER','QUEUE_EXIT','UPDATE_ENTER','UPDATE_EXIT'}
     if any(e not in allowed for e in events) or any(events.count(e)!=1 for e in required):
@@ -290,16 +368,18 @@ def validate_result(path,mission,*,outer_timed_out,outer_elapsed_seconds,_snapsh
                       ('START_ENTER','START_EXIT'),('CREATE_HIVE_ENTER','CREATE_HIVE_EXIT')):
         if events.index(start)>=events.index(end): raise ValueError('checkpoint order invalid')
     mainchain=['MAIN_ENTER','CREATE_HIVE_ENTER','CREATE_HIVE_EXIT']
-    mainchain+=['CE_INIT_OMITTED'] if row['mode']=='ce-disabled-control' else ['CE_INIT_ENTER','CE_INIT_EXIT']
+    mainchain+=['CE_INIT_OMITTED'] if mode=='ce-disabled-control' else ['CE_INIT_ENTER','CE_INIT_EXIT']
     mainchain+=['MAIN_EXIT']
     if [events.index(e) for e in mainchain]!=sorted(events.index(e) for e in mainchain):
         raise ValueError('stock main checkpoints reordered')
-    for kind in ('QUEUE','UPDATE'):
-        if [e for e in events if e.startswith(kind+'_')]!=[kind+'_ENTER',kind+'_EXIT']*2:
-            raise ValueError('real balanced queue/update markers required')
-    return dict(schema=1,kind=KIND,run_id=row['run_id'],mode=row['mode'],
-        startup_control_complete=True,gameplay_acceptance=False,
-        receipt_sha256=_sha(data),receipt=row,mission_manifest_sha256=_sha(manifest_data))
+    last_lifecycle=max(events.index(e) for e in required)
+    if any(index<=last_lifecycle for index,e in enumerate(events)
+           if e in {'QUEUE_ENTER','QUEUE_EXIT','UPDATE_ENTER','UPDATE_EXIT'}):
+        raise ValueError('SYSTEM readiness must follow actual lifecycle exits')
+    if callbacks_complete:
+        for kind in ('QUEUE','UPDATE'):
+            if [e for e in events if e.startswith(kind+'_')]!=[kind+'_ENTER',kind+'_EXIT']*2:
+                raise ValueError('real balanced queue/update markers required')
 
 
 LIFECYCLE_HOOK='''
@@ -344,6 +424,11 @@ class HCStartupReceipt
     int queue_exits;
     ref array<int> queue_update_ordinals = new array<int>;
     float elapsed_seconds;
+    float startup_elapsed_seconds;
+    bool fixture_started;
+    int startup_allowance_seconds = @STARTUP@;
+    int fixture_watchdog_seconds = 60;
+    int outer_budget_seconds = @TOTAL@;
     bool callbacks_detached;
     bool ce_present;
     bool gameplay_acceptance = false;
@@ -355,6 +440,7 @@ class HCStartupControl
     static bool Armed;
     static bool Done;
     static float Started;
+    static float FixtureStarted;
     static float LastTime;
     static void Begin()
     {
@@ -415,13 +501,35 @@ class HCStartupControl
     {
         if (!State || Done) return false;
         float now = GetGame().GetTickTime();
-        State.elapsed_seconds = now - Started;
-        if (now != now || now < LastTime || State.elapsed_seconds > 60 || State.frame_entries > 1024 || State.queue_entries > 128)
+        if (now != now || now < LastTime)
+        {
+            Fail("watchdog-or-clock-or-callback-cap");
+            return false;
+        }
+        if (State.fixture_started) State.elapsed_seconds = now - FixtureStarted;
+        else State.startup_elapsed_seconds = now - Started;
+        if (State.startup_elapsed_seconds > State.startup_allowance_seconds || State.elapsed_seconds > 60 || State.frame_entries > 1024 || State.queue_entries > 128)
         {
             Fail("watchdog-or-clock-or-callback-cap");
             return false;
         }
         LastTime = now;
+        return true;
+    }
+    static bool BeginFixture()
+    {
+        if (!Check()) return false;
+        if (!Has("MAIN_EXIT") || !Has("INIT_EXIT") || !Has("START_EXIT")) return false;
+        if (!Has("CREATE_HIVE_EXIT") || !State.ce_present || !State.server_context) return false;
+        if (State.mode == "stock-ce" && !Has("CE_INIT_EXIT")) return false;
+        if (State.mode == "ce-disabled-control" && !Has("CE_INIT_OMITTED")) return false;
+        if (!State.fixture_started)
+        {
+            // Called ONLY by actual SYSTEM entry points, never lifecycle hooks.
+            FixtureStarted = LastTime;
+            State.fixture_started = true;
+            State.elapsed_seconds = 0;
+        }
         return true;
     }
     static void Mark(string checkpoint)
@@ -452,6 +560,7 @@ class HCStartupControl
     static void CompleteIfReady()
     {
         if (!Check()) return;
+        if (!State.fixture_started) return;
         if (State.frame_entries < 2 || State.frame_entries != State.frame_exits) return;
         if (State.queue_entries < 2 || State.queue_entries != State.queue_exits) return;
         if (State.queue_update_ordinals.Count() != 2) return;
@@ -465,7 +574,7 @@ class HCStartupControl
     }
     static void HCStartupQueue()
     {
-        if (!Check()) return;
+        if (!BeginFixture()) return;
         State.queue_entries++;
         bool record = false;
         int count = State.queue_update_ordinals.Count();
@@ -482,7 +591,7 @@ class HCStartupControl
     }
     static void HCStartupFrame(float timeslice)
     {
-        if (!Check()) return;
+        if (!BeginFixture()) return;
         State.frame_entries++;
         if (State.frame_entries <= 2) Mark("UPDATE_ENTER");
         State.frame_exits++;

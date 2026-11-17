@@ -33,6 +33,8 @@ def receipt(probe, run_id='a'*32, mode='stock-ce'):
         complete=1, failed=0, reason='', events=events, frame_entries=2,
         frame_exits=2, queue_entries=2, queue_exits=2, queue_update_ordinals=[0, 1],
         elapsed_seconds=1.0, callbacks_detached=1, ce_present=1,
+        fixture_started=1,startup_elapsed_seconds=1.,startup_allowance_seconds=168,
+        fixture_watchdog_seconds=60,outer_budget_seconds=180,
         gameplay_acceptance=0, entities_created=0)
 
 
@@ -305,6 +307,69 @@ class NativeStartupProbeTests(unittest.TestCase):
         (self.dest / self.probe.MARKER).write_bytes(self.probe._encode(manifest))
         with self.assertRaises(ValueError):
             self.validate()
+
+    def test_explicit_startup_allowance_binds_mission_and_late_ce_receipt(self):
+        manifest=self.prepare(startup_seconds=600,total_seconds=674)
+        self.assertEqual(dict(startup_seconds=600,fixture_seconds=60,cleanup_seconds=12,
+                              total_seconds=674),manifest['clock_policy'])
+        row=receipt(self.probe)
+        row.update(fixture_started=1,startup_elapsed_seconds=550.,
+                   startup_allowance_seconds=600,fixture_watchdog_seconds=60,
+                   outer_budget_seconds=674)
+        self.assertTrue(self.validate(row,outer_elapsed_seconds=560)['startup_control_complete'])
+        text=(self.dest/'init.c').read_text()
+        begin=text.split('static void Begin()',1)[1].split('static void Detach()',1)[0]
+        self.assertNotIn('FixtureStarted =',begin)
+        gate=text.split('static bool BeginFixture()',1)[1].split('static void Mark(',1)[0]
+        self.assertIn('Has("MAIN_EXIT")',gate)
+        self.assertIn('Has("START_EXIT")',gate)
+        self.assertIn('Has("INIT_EXIT")',gate)
+        self.assertIn('FixtureStarted = LastTime;',gate)
+        for name in ('HCStartupQueue()', 'HCStartupFrame(float timeslice)'):
+            body=text.split('static void '+name,1)[1]
+            self.assertIn('if (!BeginFixture()) return;',body)
+
+    def test_existing_generated_watchdog_does_not_charge_ce_time_to_fixture(self):
+        self.prepare()
+        text=(self.dest/'init.c').read_text()
+        check=text.split('static bool Check()',1)[1].split('static void Mark(',1)[0]
+        self.assertNotIn('State.elapsed_seconds = now - Started;',check)
+        self.assertIn('State.elapsed_seconds = now - FixtureStarted;',check)
+
+    def test_explicit_clock_options_are_strict_and_fail_before_staging(self):
+        for options in (dict(startup_seconds=600),dict(startup_seconds=601,total_seconds=674),
+                        dict(startup_seconds=True,total_seconds=674),
+                        dict(startup_seconds=1.0,total_seconds=90),
+                        dict(startup_seconds=600,total_seconds=671),
+                        dict(startup_seconds=600,total_seconds=675),dict(total_seconds=674)):
+            with self.subTest(options=options),self.assertRaises(ValueError): self.prepare(**options)
+            self.assertFalse(self.dest.exists())
+
+    def test_readiness_and_clock_policy_cannot_be_fabricated_in_receipt(self):
+        self.prepare(startup_seconds=600,total_seconds=674)
+        row=receipt(self.probe)
+        row.update(fixture_started=1,startup_elapsed_seconds=550.,
+                   startup_allowance_seconds=600,fixture_watchdog_seconds=60,
+                   outer_budget_seconds=674)
+        for change in (dict(fixture_started=0),dict(fixture_started=1.0),
+                       dict(startup_elapsed_seconds=601),dict(elapsed_seconds=61),
+                       dict(startup_allowance_seconds=599),dict(outer_budget_seconds=673),
+                       dict(events=[e for e in row['events'] if e!='MAIN_EXIT'])):
+            with self.subTest(change=change),self.assertRaises(ValueError):
+                self.validate(dict(row,**change),outer_elapsed_seconds=560)
+
+    def test_callback_readiness_requires_actual_lifecycle_exit_first(self):
+        self.prepare()
+        row=receipt(self.probe)
+        row['events'].remove('MAIN_EXIT')
+        row['events'].append('MAIN_EXIT')
+        with self.assertRaises(ValueError): self.validate(row)
+
+    def test_staged_clock_policy_rejects_equal_numeric_wrong_types(self):
+        manifest=self.prepare()
+        manifest['clock_policy']['startup_seconds']=168.0
+        (self.dest/self.probe.MARKER).write_bytes(self.probe._encode(manifest))
+        with self.assertRaises(ValueError): self.validate()
 
 
 if __name__ == '__main__': unittest.main()
