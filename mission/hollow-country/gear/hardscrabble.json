@@ -287,6 +287,8 @@
     {
       "name": "Rag",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "Rag"
       ],
       "simpleChildrenUseDefaultAttributes": true,
@@ -295,6 +297,8 @@
     {
       "name": "Chemlight_White",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "Chemlight_White"
       ],
       "simpleChildrenUseDefaultAttributes": true,
@@ -303,6 +307,8 @@
     {
       "name": "Chemlight_Yellow",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "Chemlight_Yellow"
       ],
       "simpleChildrenUseDefaultAttributes": true,
@@ -311,6 +317,8 @@
     {
       "name": "Chemlight_Green",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "Chemlight_Green"
       ],
       "simpleChildrenUseDefaultAttributes": true,
@@ -319,6 +327,8 @@
     {
       "name": "BakedBeansCan",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "BakedBeansCan"
       ],
       "simpleChildrenUseDefaultAttributes": true,
@@ -327,6 +337,8 @@
     {
       "name": "SpaghettiCan",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "SpaghettiCan"
       ],
       "simpleChildrenUseDefaultAttributes": true,
@@ -335,6 +347,8 @@
     {
       "name": "TunaCan",
       "simpleChildrenTypes": [
+        "KitchenKnife",
+        "BandageDressing",
         "TunaCan"
       ],
       "simpleChildrenUseDefaultAttributes": true,

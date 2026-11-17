@@ -10,6 +10,11 @@ reimplements it:
   mission deltas  tools/package/gameplay.py and tools/package/economy.py generate/install/rollback
   markers         tools/audit/acceptance_markers.py scan_tree/plan_profile/apply_plan
   optional mods   --snafu and --tactical-flava dirs are read-only (never copied); load order SNAFU, TF, HC
+  opt-in steps    --interiors (tools/package/interiors_profile.py into <profiles>/HollowCountry),
+                  --expansion-ai (stage @HollowCountryExpansionAI after Expansion's own Workshop folders, which
+                  are only checked and never copied; the AISettings merge is printed, never applied) and
+                  --markers all-local / NAME,... (names parsed from docs/LOCAL_ACCEPTANCE_V1.md at run time).
+                  Apply order: mod, keys, cfg, gameplay, economy, interiors, expansion_ai, markers; rollback reverses.
 
     python3 tools/setup/local_test_session.py plan  --server-root /mnt/d/HollowCountryLocal/runtime-001 \\
         --mission /mnt/d/HollowCountryLocal/candidate/mpmissions/dayzOffline.chernarusplus \\
@@ -35,6 +40,7 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 
@@ -51,6 +57,8 @@ RECEIPT_NAME = 'session-receipt.json'
 BACKUP_NAME = 'serverDZ.cfg.backup'
 CFG_NAME = 'serverDZ.cfg'
 PBO_NAME = 'hollowcountry.pbo'
+AI_PBO_NAME = 'hollowcountryexpansionai.pbo'
+AI_PREFIX = 'HollowCountryExpansionAI'
 MAX_BYTES = 256 * 1024 * 1024
 MAX_CFG = 1024 * 1024
 MISSION_ROOT = 'mission/hollow-country'
@@ -58,6 +66,26 @@ GAMEPLAY_PROFILE = MISSION_ROOT + '/gameplay-profiles/hollow-country-v1.json'
 GAMEPLAY_PRESET = MISSION_ROOT + '/gear/hardscrabble.json'
 ECONOMY_PROFILES = MISSION_ROOT + '/economy-profiles/'
 DEFAULT_ECONOMY_PROFILE = 'contextual-pilot'
+INTERIORS_PACK = MISSION_ROOT + '/interiors'
+AI_MERGE = MISSION_ROOT + '/ai/AISettings.merge.json'
+AI_SETTINGS_TARGET = 'ExpansionMod/Settings/AISettings.json'
+MARKER_DOC = 'docs/LOCAL_ACCEPTANCE_V1.md'
+MARKER_ROW = re.compile(r'^\|\s*`\$profile:HollowCountry/acceptance/(?P<name>[A-Za-z0-9_-]+)\.enable`\s*\|')
+# (label, Workshop id or None, accepted folder names after lowercasing and dropping '@' and punctuation)
+# Optional-subset CE deltas, in install order (rollback is the reverse): (step, tool name, label).
+OPTIONAL_DELTAS = (('snafu', 'snafu_optional', 'SNAFU'),
+                   ('tactical_flava', 'tactical_flava_optional', 'Tactical Flava'))
+STEP_TOOLS = {'tactical_flava': 'tactical_flava_optional', 'snafu': 'snafu_optional',
+              'economy': 'economy', 'gameplay': 'gameplay'}
+STACK_STEPS = ('tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
+
+EXPANSION_DEPENDENCIES = (
+    ('CF', '1559212036', ('cf', 'communityframework')),
+    ('Dabs Framework', '2545327648', ('dabsframework', 'dabs')),
+    ('Expansion-Animations', None, ('expansionanimations', 'dayzexpansionanimations')),
+    ('Expansion-Core', '2291785308', ('expansioncore', 'dayzexpansioncore')),
+    ('Expansion-AI', '2792982069', ('expansionai', 'dayzexpansionai')),
+)
 DEFAULT_CLIENT_ROOT = r'D:\SteamLibrary\steamapps\common\DayZ'
 DEFAULT_TIME_ACCELERATION = 4
 DEFAULT_NIGHT_ACCELERATION = 8
@@ -257,7 +285,10 @@ def mode_of(path):
 def load_tool(name):
     """Existing tooling, imported lazily so a missing sibling is a clear refusal (tests replace this)."""
     module = {'gameplay': 'tools.package.gameplay', 'economy': 'tools.package.economy',
-              'acceptance_markers': 'tools.audit.acceptance_markers'}[name]
+              'acceptance_markers': 'tools.audit.acceptance_markers',
+              'interiors_profile': 'tools.package.interiors_profile',
+              'snafu_optional': 'tools.package.snafu_optional',
+              'tactical_flava_optional': 'tools.package.tactical_flava_optional'}[name]
     try:
         return importlib.import_module(module)
     except ImportError as error:
@@ -488,16 +519,90 @@ def _optional(path, what):
     return regular(path, what)
 
 
-def plan_mod(source, destination, repo=ROOT):
+def check_ai_pbo(blob):
+    try:
+        return structure_ai_pbo(blob)
+    except ValueError as error:
+        raise ValueError('Expansion AI addon: %s' % str(error).replace('the Expansion AI addon ', '')) from None
+
+
+def structure_ai_pbo(blob):
+    """Structural check of the Expansion AI addon PBO: checksum, Vers header, its own prefix, a config member that
+    names the CfgPatches class. (tools.package.pbo.parse only accepts the HollowCountry prefix.)"""
+    if not isinstance(blob, bytes) or not 63 <= len(blob) <= MAX_BYTES + 21:
+        raise ValueError('invalid PBO length')
+    body, trailer = blob[:-21], blob[-21:]
+    if trailer != b'\0' + hashlib.sha1(body).digest():
+        raise ValueError('PBO checksum mismatch')
+    offset = 0
+
+    def string():
+        nonlocal offset
+        end = body.find(b'\0', offset, min(offset + 1025, len(body)))
+        if end < 0:
+            raise ValueError('unterminated string')
+        try:
+            value = body[offset:end].decode('ascii')
+        except UnicodeDecodeError:
+            raise ValueError('non-ASCII PBO string') from None
+        offset = end + 1
+        return value
+
+    def words():
+        nonlocal offset
+        if offset + pbo.WORDS.size > len(body):
+            raise ValueError('truncated header')
+        value = pbo.WORDS.unpack_from(body, offset)
+        offset += pbo.WORDS.size
+        return value
+
+    if string() != '' or words() != (pbo.VERS, 0, 0, 0, 0):
+        raise ValueError('expected a Vers header')
+    props = {}
+    while True:
+        key = string()
+        if not key:
+            break
+        if key in props:
+            raise ValueError('duplicate property')
+        props[key] = string()
+    if props.get('prefix') != AI_PREFIX:
+        raise ValueError('the Expansion AI addon PBO prefix must be %s, not %r' % (AI_PREFIX, props.get('prefix')))
+    sizes = {}
+    while True:
+        name = string()
+        meta = words()
+        if not name:
+            break
+        if name.lower() in (n.lower() for n in sizes) or len(sizes) >= pbo.MAX_ENTRIES:
+            raise ValueError('duplicate header or too many entries')
+        sizes[name] = meta[4]
+    if offset + sum(sizes.values()) != len(body):
+        raise ValueError('data sizes do not match the archive')
+    members, position = {}, offset
+    for name, size in sizes.items():
+        members[name.replace('\\', '/').lower()] = body[position:position + size]
+        position += size
+    config = members.get('config.cpp')
+    if config is not None:
+        found = re.search(rb'class\s+CfgPatches\s*\{\s*class\s+' + AI_PREFIX.encode() + rb'\b', config)
+    else:
+        config = members.get('config.bin')
+        found = config is not None and b'CfgPatches' in config and AI_PREFIX.encode() in config
+    if not found:
+        raise ValueError('the Expansion AI addon config.cpp or config.bin must declare the CfgPatches class %s' % AI_PREFIX)
+
+
+def plan_mod(source, destination, repo=ROOT, pbo_name=PBO_NAME, check=None):
     """Collect (relative name -> source path) for the new mod folder; verify the PBO structurally."""
     source = no_links(source, 'built mod')
     files, signed = {}, False
     if source.is_file():
-        files['addons/' + PBO_NAME] = regular(source, 'built PBO')
+        files['addons/' + pbo_name] = regular(source, 'built PBO')
     elif source.is_dir():
         addons = source / 'addons'
-        files['addons/' + PBO_NAME] = regular(addons / PBO_NAME, 'built addons/' + PBO_NAME)
-        signatures = sorted(p for p in addons.iterdir() if re.fullmatch(re.escape(PBO_NAME) + r'\.[A-Za-z0-9_-]+\.bisign', p.name))
+        files['addons/' + pbo_name] = regular(addons / pbo_name, 'built addons/' + pbo_name)
+        signatures = sorted(p for p in addons.iterdir() if re.fullmatch(re.escape(pbo_name) + r'\.[A-Za-z0-9_-]+\.bisign', p.name))
         keys = sorted(p for p in (source / 'keys').iterdir() if p.suffix == '.bikey') if (source / 'keys').is_dir() else []
         for path in signatures:
             files['addons/' + path.name] = regular(path, 'signature ' + path.name)
@@ -514,7 +619,7 @@ def plan_mod(source, destination, repo=ROOT):
         raise Refused('built mod must be a .pbo file or an @HollowCountry directory: %s' % source)
     blobs = {name: read_bytes(path, name) for name, path in files.items()}
     try:
-        pbo.parse(blobs['addons/' + PBO_NAME])
+        (check or pbo.parse)(blobs['addons/' + pbo_name])
     except ValueError as error:
         raise Refused('built PBO failed the existing structural check: %s' % error) from None
     destination = absolute(destination)
@@ -540,10 +645,15 @@ def assemble_mod(plan, stage=None):
     return plan['hashes']
 
 
+def has_addons(path):
+    """An addons folder, however the mod author cased it (the SNAFU Workshop folder is 'Addons')."""
+    return any(child.name.lower() == 'addons' and child.is_dir() and not child.is_symlink() for child in path.iterdir())
+
+
 def plan_tf(path, repo=ROOT):
     """Tactical Flava (@TacticalFlava or the Workshop 2646817942 dir): read-only; only its keys/*.bikey are read."""
     source = existing_dir(path, 'Tactical Flava directory', repo)
-    if not (source / 'addons').is_dir():
+    if not has_addons(source):
         raise Refused('Tactical Flava directory has no addons folder: %s' % source)
     keys = []
     directory = source / 'keys'
@@ -559,14 +669,16 @@ def plan_tf(path, repo=ROOT):
     return {'dir': source, 'keys': keys}
 
 
-def key_sources(mod_plan, tf):
+def key_sources(mod_plan, tf, extra_mods=()):
     sources = []
-    if mod_plan['signed']:
-        for name in sorted(n for n in mod_plan['blobs'] if n.startswith('keys/')):
+    for plan in (mod_plan, *extra_mods):
+        if not plan['signed']:
+            continue
+        for name in sorted(n for n in plan['blobs'] if n.startswith('keys/')):
             key = name.split('/', 1)[1]
             if not KEY_NAME.match(key):
                 raise Refused('built public key has an unsafe file name: %s' % key)
-            sources.append({'origin': 'hc', 'name': key, 'data': mod_plan['blobs'][name]})
+            sources.append({'origin': 'hc', 'name': key, 'data': plan['blobs'][name]})
     return sources + (tf['keys'] if tf else [])
 
 
@@ -593,12 +705,43 @@ def server_key_plan(server_root, sources):
 # ---------------------------------------------------------------- session plan
 
 def parse_markers(value):
-    if value in ('all', 'none'):
+    if value in ('all', 'none', 'all-local'):
         return value, None
     names = [item.strip() for item in value.split(',')]
     if not names or any(not MARKER_NAME.match(name) for name in names):
-        raise Refused('--markers must be all, none or a comma list of marker names')
+        raise Refused('--markers must be all, none, all-local or a comma list of marker names')
     return 'names', sorted(set(names))
+
+
+def local_marker_names(repo=ROOT):
+    """Marker names in the local-acceptance marker table, in table order: rows of docs/LOCAL_ACCEPTANCE_V1.md that
+    begin with a backticked `$profile:HollowCountry/acceptance/<name>.enable` literal (prose mentions and the
+    checklist rows below the table are not part of it). Read at run time so the doc stays the single list."""
+    try:
+        text = read_bytes(repo / MARKER_DOC, MARKER_DOC, limit=4 * 1024 * 1024).decode('utf-8')
+    except (Refused, UnicodeDecodeError):
+        raise Refused('cannot read the marker table in %s' % MARKER_DOC) from None
+    names = []
+    for line in text.splitlines():
+        match = MARKER_ROW.match(line)
+        if match and match.group('name') not in names:
+            names.append(match.group('name'))
+    if not names:
+        raise Refused('no marker rows found in the table of %s' % MARKER_DOC)
+    return names
+
+
+def resolve_markers(mode, only, repo):
+    """(mode, names): all-local and named lists are checked against the acceptance table before any write."""
+    if mode == 'all-local':
+        return mode, local_marker_names(repo)
+    if mode == 'names':
+        listed = local_marker_names(repo)
+        unlisted = sorted(set(only) - set(listed))
+        if unlisted:
+            raise Refused('marker(s) %s are not in the marker table of %s (allowed: %s)' %
+                          (', '.join(unlisted), MARKER_DOC, ', '.join(listed)))
+    return mode, only
 
 
 def marker_paths(plan, profiles, repo):
@@ -632,6 +775,291 @@ def repo_file(repo, relative):
     return read_bytes(repo / relative, relative, limit=4 * 1024 * 1024)
 
 
+DIAG_QUERY = ("Get-CimInstance Win32_Process -Filter \"Name='DayZDiag_x64.exe'\" | "
+              "ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }")
+
+
+def _csv_pids(stdout, image):
+    pids = []
+    for line in stdout.splitlines():
+        cells = [cell.strip('"') for cell in line.split('","')]
+        if len(cells) > 1 and cells[0].strip('"').lower() == image and cells[1].strip('"').isdigit():
+            pids.append(int(cells[1].strip('"')))
+    return pids
+
+
+def windows_task_list():
+    """PIDs of DayZServer_x64.exe and of DayZDiag_x64.exe started with -server, from the Windows side (WSL interop).
+
+    tasklist shows no command line, so DayZDiag is asked through PowerShell; when that cannot be done every
+    DayZDiag_x64.exe counts (fail closed). [] when Windows cannot be asked at all."""
+    tool = shutil.which('tasklist.exe')
+    if not tool:
+        return []
+
+    def tasklist(image):
+        return _csv_pids(subprocess.run([tool, '/FI', 'IMAGENAME eq ' + image, '/NH', '/FO', 'CSV'],
+                                        capture_output=True, text=True, timeout=15, check=False).stdout, image)
+    try:
+        pids = tasklist('dayzserver_x64.exe')
+    except (OSError, subprocess.SubprocessError):
+        return []
+    try:
+        shell = shutil.which('powershell.exe')
+        if not shell:
+            raise OSError('no powershell.exe')
+        done = subprocess.run([shell, '-NoProfile', '-NonInteractive', '-Command', DIAG_QUERY],
+                              capture_output=True, text=True, timeout=30, check=False)
+        if done.returncode != 0:
+            raise OSError('command line query failed')
+        for line in done.stdout.splitlines():
+            pid, _, command = line.partition('\t')
+            if pid.strip().isdigit() and not command.strip():
+                raise OSError('command line unavailable for pid %s' % pid.strip())  # unknown: fall back, fail closed
+            if pid.strip().isdigit() and re.search(r'(^|\s)"?-server"?(\s|$)', command, re.I):
+                pids.append(int(pid.strip()))
+    except (OSError, subprocess.SubprocessError):
+        try:
+            pids += tasklist('dayzdiag_x64.exe')
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return pids
+
+
+def find_server_processes(proc_root=Path('/proc'), query=windows_task_list):
+    """PIDs whose command line names DayZServer_x64 (Linux /proc and Wine), plus the Windows task list. Best effort:
+    a server started some way neither can see is not detected, so stop it before apply or rollback regardless."""
+    found = set(query())
+    try:
+        entries = list(Path(proc_root).iterdir())
+    except OSError:
+        entries = []
+    for entry in entries:
+        if not entry.name.isdigit():
+            continue
+        try:
+            command = (entry / 'cmdline').read_bytes()[:4096].decode('utf-8', 'replace').lower()
+        except OSError:
+            continue
+        words = command.split('\0')
+        program = words[0].replace('\\', '/').rsplit('/', 1)[-1]
+        if 'dayzserver_x64' in program or ('dayzdiag_x64' in program and any(w == '-server' for w in words[1:])):
+            found.add(int(entry.name))
+    return sorted(found)
+
+
+def running_servers():
+    return find_server_processes()
+
+
+def refuse_if_running():
+    pids = running_servers()
+    if pids:
+        raise Refused('the DayZ server is running (pid %s); stop it before apply or rollback' % ', '.join(map(str, pids)))
+
+
+def _normal(name):
+    return re.sub(r'[^a-z0-9]', '', name.lower())
+
+
+def locate_expansion(workshop):
+    """(found rows, missing rows) for the Expansion dependencies inside an existing Workshop/mods directory.
+
+    A dependency is a real folder with an addons directory whose name is the Workshop id or a known name
+    (case, '@' and punctuation ignored). Nothing here copies, opens for writing or modifies those folders."""
+    folders = []
+    for entry in sorted(workshop.iterdir()):
+        if entry.is_dir() and not entry.is_symlink() and has_addons(entry):
+            folders.append(entry)
+    found, missing = [], []
+    for label, workshop_id, aliases in EXPANSION_DEPENDENCIES:
+        wanted = set(aliases) | ({workshop_id} if workshop_id else set())
+        match = next((f for f in folders if _normal(f.name) in wanted), None)
+        (found if match else missing).append({'label': label, 'id': workshop_id, 'path': match})
+    return found, missing
+
+
+def plan_interiors(profiles, repo):
+    pack = no_links(repo / INTERIORS_PACK, 'interiors data pack')
+    if not pack.is_dir():
+        raise Refused('--interiors: the data pack is not in this checkout: %s' % INTERIORS_PACK)
+    tool = load_tool('interiors_profile')
+    try:
+        report = tool.validate(pack)
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        raise Refused('--interiors: the data pack failed validation: %s' % error) from None
+    if report['errors']:
+        raise Refused('--interiors: the data pack failed validation: %s' % '; '.join(map(str, report['errors'][:3])))
+    target = no_links(profiles / 'HollowCountry', 'profiles/HollowCountry')
+    if target.exists() and not target.is_dir():
+        raise Refused('--interiors: %s is not a directory' % target)
+    if os.path.lexists(target / tool.MANAGED):
+        raise Refused('--interiors: an interiors install already exists in %s; run its rollback first' % target)
+    rehearse_interiors(tool, pack, target, report)
+    return {'pack': pack, 'target': target, 'pending': [row['id'] for row in report.get('pending', [])]}
+
+
+def rehearse_interiors(tool, pack, target, report):
+    """Run the interiors installer's own conflict checks on a scratch copy of the profile paths it would touch, so a
+    different operator-owned interiors.json, a journal or a non-directory in the way refuses at plan time."""
+    names = set(report.get('files') or ())
+    try:
+        manifest = json.loads(read_bytes(pack / 'pack.json', 'interiors pack.json', 65536))
+        names |= set(manifest['files']) if isinstance(manifest.get('files'), dict) else set()
+        config = json.loads(read_bytes(pack / 'interiors.json', 'interiors.json', 65536))
+        if isinstance(config, dict) and isinstance(config.get('Epoch'), int) and not isinstance(config['Epoch'], bool):
+            names.add('interiors_s1_e%d' % config['Epoch'])
+    except (ValueError, OSError, AttributeError, Refused):
+        pass
+    scratch = Path(tempfile.mkdtemp(prefix='hc-interiors-rehearsal-'))
+    try:
+        copy = scratch / target.name
+        if target.exists():
+            copy.mkdir()
+            for name in sorted(names | {tool.MANAGED}):
+                relative = Path(name)
+                if relative.is_absolute() or '..' in relative.parts:
+                    continue
+                for number, part in enumerate(relative.parts):
+                    live = target.joinpath(*relative.parts[:number + 1])
+                    if not os.path.lexists(live):
+                        break
+                    no_links(live, 'profiles/HollowCountry/' + '/'.join(relative.parts[:number + 1]))
+                    here = copy.joinpath(*relative.parts[:number + 1])
+                    if live.is_dir():
+                        here.mkdir(exist_ok=True)
+                    elif number == len(relative.parts) - 1:
+                        here.write_bytes(read_bytes(live, '/'.join(relative.parts), MAX_BYTES))
+                    else:
+                        (copy.joinpath(*relative.parts[:number + 1])).write_bytes(b'')  # a file where a directory is needed
+        try:
+            tool.install(pack, copy)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            raise Refused('--interiors: the profile cannot take the data pack (nothing was changed): %s' % error) from None
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def inside_directory(path, directory):
+    """True when path is the directory or below it, after resolving symlinks and '..' on both sides."""
+    resolved, base = Path(os.path.realpath(path)), Path(os.path.realpath(directory))
+    return resolved == base or base in resolved.parents
+
+
+def plan_expansion_ai(args, mod_plan, repo):
+    if not (args.workshop_dir and args.expansion_ai_mod and args.expansion_ai_dest):
+        raise Refused('--expansion-ai needs --workshop-dir, --expansion-ai-mod and --expansion-ai-dest')
+    workshop = existing_dir(args.workshop_dir, 'Workshop mods directory', repo)
+    found, missing = locate_expansion(workshop)
+    if missing:
+        raise Refused('--expansion-ai: not present in %s: %s. Subscribe to them in the Steam Workshop; this tool never '
+                      'copies or repacks Expansion.' % (workshop, ', '.join(
+                          row['label'] + (' (%s)' % row['id'] if row['id'] else '') for row in missing)))
+    if absolute(args.expansion_ai_dest) == mod_plan['dest']:
+        raise Refused('--expansion-ai-dest must differ from --mod-dest')
+    inside = [(what, path) for what, path in (('--expansion-ai-mod', args.expansion_ai_mod),
+                                              ('--expansion-ai-dest', args.expansion_ai_dest),
+                                              ('--mod-dest', args.mod_dest), ('--profiles', args.profiles),
+                                              ('--mission', args.mission), ('--server-root', args.server_root))
+              if inside_directory(path, workshop)]
+    if inside:
+        raise Refused('%s must not be inside the Workshop directory %s (compared after resolving symlinks); the '
+                      'Workshop folders are never written, copied or repacked' % (inside[0][0], workshop))
+    mod = plan_mod(args.expansion_ai_mod, args.expansion_ai_dest, repo, AI_PBO_NAME, check=check_ai_pbo)
+    try:
+        json.loads(repo_file(repo, AI_MERGE))
+    except (ValueError, Refused) as error:
+        raise Refused('--expansion-ai: %s is not readable JSON: %s' % (AI_MERGE, error)) from None
+    return {'workshop': workshop, 'dependencies': found, 'mod': mod, 'merge': AI_MERGE}
+
+
+def verify_optional(tool_name, label, install, vanilla_dir):
+    """Read-only verification of an installed optional mod with the tool's own verify_install and allowlist.
+
+    Fail closed: only a 'verified' report may ever be turned into a delta."""
+    tool = load_tool(tool_name)
+    try:
+        allowlist = json.loads(read_bytes(Path(tool.ALLOWLIST_PATH), label + ' allowlist', MAX_BYTES))
+        kwargs = {} if vanilla_dir is None else {'vanilla': tool.load_vanilla(vanilla_dir)}
+        report = tool.verify_install(install, allowlist, **kwargs)
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        raise Refused('%s verification failed (nothing was changed): %s' % (label, error)) from None
+    if report.get('status') != 'verified':
+        problems = list(report.get('install', {}).get('problems', [])) + list(report.get('vanilla', {}).get('problems', []))
+        problems += ['%s: %s' % (name, ' '.join(row.get('reasons', []) or [row.get('status', '?')]))
+                     for name, row in sorted(report.get('classes', {}).items()) if row.get('status') != 'verified']
+        raise Refused('%s install is not verified by %s, so no CE delta can be generated (nothing was changed); '
+                      'drop the flag or fix the install: %s' % (label, tool_name, '; '.join(problems[:10]) or 'unverified'))
+    return {'install': install, 'allowlist': allowlist, 'report': report,
+            'allowlist_sha256': report.get('allowlist_sha256'), 'vanilla': vanilla_dir}
+
+
+def rehearse_deltas(plan, repo):
+    """Run economy, then the optional deltas, through the real installers on a scratch copy of the mission inputs.
+
+    The optional deltas are generated from the economy-patched core, so they cannot be generated before the economy
+    is installed; this is the only way to refuse a bad combination before apply writes anything."""
+    economy = load_tool('economy')
+    scratch = Path(tempfile.mkdtemp(prefix='hc-delta-rehearsal-'))
+    try:
+        copy = scratch / 'mission'
+        copy.mkdir()
+        for relative in getattr(economy, 'INPUTS', ()):
+            (copy / relative).parent.mkdir(parents=True, exist_ok=True)
+            (copy / relative).write_bytes(read_bytes(plan['mission'] / relative, relative, MAX_BYTES))
+        try:
+            economy.write_delta(scratch / 'economy', economy.generate(
+                copy, json.loads(repo_file(repo, plan['economy']['profile']))))
+            economy.install_delta(scratch / 'economy', copy)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            raise Refused('economy delta cannot be installed on a scratch copy of the mission: %s' % error) from None
+        for step, tool_name, label in OPTIONAL_DELTAS:
+            spec = plan[step + '_delta']
+            if not spec:
+                continue
+            tool = load_tool(tool_name)
+            try:
+                tool.write_delta(scratch / step, tool.generate(copy, spec['allowlist'], spec['report']))
+                tool.install(scratch / step, copy)
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                raise Refused('%s delta cannot be generated for this mission (nothing was changed): %s' %
+                              (label, error)) from None
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def check_destinations(plan, mission, snafu, tf, ai, keys, plan_interiors_target=None):
+    """Refuse when two planned write destinations, existing or not yet created, are equal or nested."""
+    rows = [('session state', 0, plan['state']), ('mod destination', 1, plan['mod']['dest'])]
+    if ai:
+        rows.append(('Expansion AI destination', 2, ai['mod']['dest']))
+    managed = []
+    if plan['gameplay']:
+        managed.append(('gameplay', 'gameplay'))
+    if plan['economy']:
+        managed.append(('economy', 'economy'))
+    if snafu:
+        managed.append(('SNAFU delta', 'snafu_optional'))
+    if tf:
+        managed.append(('Tactical Flava delta', 'tactical_flava_optional'))
+    for label, tool_name in managed:
+        rows.append((label + ' directory', 3, mission / load_tool(tool_name).MANAGED))
+    if plan_interiors_target:
+        rows.append(('interiors target', 4, plan_interiors_target))
+    for key in keys:
+        if key['state'] == 'missing':
+            rows.append(('server key ' + key['name'], 5, key['path']))
+    for first in range(len(rows)):
+        for second in range(first + 1, len(rows)):
+            (name_a, group_a, path_a), (name_b, group_b, path_b) = rows[first], rows[second]
+            if group_a == group_b == 5:
+                continue  # key files share the keys directory
+            a, b = Path(os.path.realpath(path_a)), Path(os.path.realpath(path_b))
+            if a == b or a in b.parents or b in a.parents:
+                raise Refused('planned destinations collide: %s (%s) and %s (%s) are the same or nested; '
+                              'choose another destination. Nothing was changed.' % (name_a, path_a, name_b, path_b))
+
+
 def build_plan(args, repo=ROOT):
     server_root = existing_dir(args.server_root, 'server root', repo)
     state = server_root / STATE_NAME
@@ -654,19 +1082,28 @@ def build_plan(args, repo=ROOT):
     snafu = None
     if args.snafu:
         snafu = existing_dir(args.snafu, 'SNAFU Weapons Workshop directory', repo)
-        if not (snafu / 'addons').is_dir():
+        if not has_addons(snafu):
             raise Refused('SNAFU directory has no addons folder: %s' % snafu)
     tf = plan_tf(args.tactical_flava, repo) if args.tactical_flava else None
-    keys = server_key_plan(server_root, key_sources(mod_plan, tf))
+    wanted_ai = bool(getattr(args, 'expansion_ai', False))
+    if not wanted_ai and any(getattr(args, name, None) for name in ('workshop_dir', 'expansion_ai_mod', 'expansion_ai_dest')):
+        raise Refused('--workshop-dir, --expansion-ai-mod and --expansion-ai-dest only apply with --expansion-ai')
+    ai = plan_expansion_ai(args, mod_plan, repo) if wanted_ai else None
+    vanilla_flag = getattr(args, 'vanilla_addons', None)
+    if vanilla_flag and not args.tactical_flava:
+        raise Refused('--vanilla-addons only applies with --tactical-flava')
+    keys = server_key_plan(server_root, key_sources(mod_plan, tf, [ai['mod']] if ai else ()))
     if args.install_key and not keys:
         raise Refused('--install-key needs a signed @HollowCountry with keys/ or a --tactical-flava with keys/')
-    mode, only = parse_markers(args.markers)
+    mode, only = resolve_markers(*parse_markers(args.markers), repo)
     plan = {'server_root': server_root, 'state': state, 'cfg_path': cfg_path, 'cfg_before': cfg_bytes,
             'cfg_after': new_text.encode('utf-8'), 'changes': changes, 'cfg_facts': cfg_facts(cfg_text),
             'mission': mission, 'profiles': profiles, 'mod': mod_plan, 'snafu': snafu, 'tf': tf, 'keys': keys,
             'time_accel': float(args.time_accel), 'night_accel': float(args.night_accel),
             'markers_mode': mode, 'markers_only': only, 'warnings': [], 'repo': repo,
-            'install_key': bool(args.install_key)}
+            'install_key': bool(args.install_key), 'expansion_ai': ai,
+            'interiors': plan_interiors(profiles, repo) if getattr(args, 'interiors', False) else None,
+            'running': running_servers()}
     for row in changes:
         if row['key'].lower() == 'thirdpersonview':
             row['to_confirm'] = TO_CONFIRM
@@ -699,6 +1136,31 @@ def build_plan(args, repo=ROOT):
         except (ValueError, OSError, KeyError, TypeError) as error:
             raise Refused('economy delta cannot be generated for this mission: %s' % error) from None
         plan['economy'] = {'profile': profile_path}
+    plan['snafu_delta'] = plan['tactical_flava_delta'] = None
+    check_destinations(plan, mission, snafu, tf, ai, keys if args.install_key else (),
+                       plan_interiors_target=getattr(args, 'interiors', False) and profiles / 'HollowCountry')
+    if snafu or tf:
+        if not plan['economy']:
+            raise Refused('--snafu and --tactical-flava install CE deltas on top of the economy delta; '
+                          'do not combine them with --economy-profile none')
+        for step, tool_name, label in OPTIONAL_DELTAS:
+            if (snafu if step == 'snafu' else tf) is None:
+                continue
+            managed = load_tool(tool_name).MANAGED
+            if os.path.lexists(mission / managed):
+                raise Refused('%s delta: %s already exists in the mission (an earlier install or an operator-owned '
+                              'path); remove it or run its rollback first. Nothing was changed.' %
+                              (label, mission / managed))
+        if snafu:
+            plan['snafu_delta'] = verify_optional('snafu_optional', 'SNAFU', snafu, None)
+        if tf:
+            vanilla = Path(vanilla_flag) if vanilla_flag else server_root / 'addons'
+            if not vanilla.is_dir():
+                raise Refused('Tactical Flava verification needs the game\'s own Addons folder; %s is not a directory '
+                              '(pass --vanilla-addons <DayZ server dir>/addons)' % vanilla)
+            vanilla = existing_dir(vanilla, 'vanilla addons directory', repo)
+            plan['tactical_flava_delta'] = verify_optional('tactical_flava_optional', 'Tactical Flava', tf['dir'], vanilla)
+        rehearse_deltas(plan, repo)
     plan['markers'] = None
     if mode != 'none':
         markers = load_tool('acceptance_markers')
@@ -722,15 +1184,21 @@ def launch_commands(plan, args):
                          'paths (for example %s); pass /mnt/<drive>/... paths' % path)
         return text
 
-    mods = [win(plan['snafu'])] if plan['snafu'] else []  # dependency order: SNAFU, Tactical Flava, then HC
+    ai = plan.get('expansion_ai')
+    # -mod= (server and client): Expansion's own folders, SNAFU, Tactical Flava, HC. The HC Expansion AI addon
+    # is server-only: -serverMod= on the server command, after HollowCountry; clients never load it.
+    mods = [win(row['path']) for row in ai['dependencies']] if ai else []
+    if plan['snafu']:
+        mods.append(win(plan['snafu']))
     if plan['tf']:
         mods.append(win(plan['tf']['dir']))
     mods.append(win(plan['mod']['dest']))
     mod_argument = '-mod=' + ';'.join(mods)
+    server_mod = ['-serverMod=' + win(ai['mod']['dest'])] if ai else []
     root = win(plan['server_root'])
     port, query = args.game_port, args.query_port
     server_arguments = ['-config=' + win(plan['cfg_path']), '-profiles=' + win(plan['profiles']), mod_argument,
-                        '-mission=' + win(plan['mission']), '-ip=127.0.0.1', '-port=%d' % port,
+                        *server_mod, '-mission=' + win(plan['mission']), '-ip=127.0.0.1', '-port=%d' % port,
                         '-doLogs', '-adminLog']
     server = ['Set-Location -LiteralPath ' + ps_quote(root),
               '& ' + ps_quote(root + '\\DayZServer_x64.exe') + ' ' + ' '.join(ps_quote(a) for a in server_arguments)]
@@ -739,7 +1207,8 @@ def launch_commands(plan, args):
     client = ['Start-Process -FilePath ' + ps_quote(args.client_root + '\\DayZ_BE.exe')
               + ' -WorkingDirectory ' + ps_quote(args.client_root)
               + ' -ArgumentList @(' + ', '.join(ps_arg(a) for a in client_arguments) + ')']
-    return {'server': server, 'client': client, 'warnings': notes[:1]}
+    return {'server': server, 'client': client, 'warnings': notes[:1], 'mod': mod_argument,
+            'server_mod': server_mod[0] if server_mod else None}
 
 
 def advisories(plan):
@@ -761,12 +1230,31 @@ def advisories(plan):
             rows.append('Tactical Flava key(s) %s are not in <server root>\\keys; signature checks need %s on the server. '
                         'Copy it there or add --install-key (only the public .bikey belongs on the server).' %
                         (', '.join(missing), 'it' if len(missing) == 1 else 'them'))
+    if plan.get('running'):
+        rows.append('The DayZ server is running (pid %s); apply and rollback refuse until it is stopped.' %
+                    ', '.join(map(str, plan['running'])))
     if facts.get('password_set'):
         rows.append('The server has a password; add -password=<yours> to the client command (it is not printed here).')
     return rows
 
 
 # ---------------------------------------------------------------- reporting
+
+def expansion_lines(ai, profiles):
+    mod = ai['mod']
+    out = ['6. Expansion AI (optional addon): stage %s (%s) from %d file(s), loaded server-only with -serverMod= '
+           'after HollowCountry (players do not need it):' %
+           (mod['dest'], 'signed, with keys/' if mod['signed'] else 'unsigned', len(mod['blobs']))]
+    out += ['     %s  sha256 %s' % (name, mod['hashes'][name][:16]) for name in sorted(mod['hashes'])]
+    out.append('     Required Workshop subscriptions (found in %s; read-only, never copied, never repacked):' % ai['workshop'])
+    for row in ai['dependencies']:
+        out.append('       %s%s -> %s' % (row['label'], ' ' + row['id'] if row['id'] else '', row['path']))
+    out.append('     MANUAL step, never applied by this tool: merge the fields of %s into %s/%s' %
+               (ai['merge'], profiles, AI_SETTINGS_TARGET))
+    out.append('       (a field merge into the existing file, not a replacement: keep every other field and its version;')
+    out.append('        keep Expansion admin unlimited-reload controls OFF). Patrols stay closed without the pve_patrols marker.')
+    return out
+
 
 def render_plan(plan, args, commands, applied=False):
     out = ['Local test session %s (nothing is launched; runtime acceptance stays pending)' %
@@ -793,10 +1281,27 @@ def render_plan(plan, args, commands, applied=False):
     out.append('4. Acceptance markers in %s: %s' % (plan['profiles'], plan['markers_mode'] if plan['markers_mode'] != 'names' else ','.join(plan['markers_only'])))
     for item in (plan['markers'] or {}).get('files', []):
         out.append('     %s.enable [%s]' % (item['name'], item['action']))
+    if plan.get('interiors'):
+        info = plan['interiors']
+        out.append('5. Interiors data pack: install %s into %s with interiors_profile (receipt, byte-exact rollback)' %
+                   (info['pack'], info['target']))
+        if info['pending']:
+            out.append('     pending components (not installed, need a native measurement): %s' % ', '.join(info['pending']))
+    if plan.get('expansion_ai'):
+        out += expansion_lines(plan['expansion_ai'], plan['profiles'])
     if plan['snafu']:
         out.append('   SNAFU (read-only, optional dependency): %s' % plan['snafu'])
+    if plan.get('snafu_delta'):
+        out.append('     SNAFU subset CE delta: snafu_optional verify (read-only install, status %s), generate, install '
+                   'after the economy delta; only the generated delta files are written to the mission' %
+                   plan['snafu_delta']['report']['status'])
     if plan['tf']:
         out.append('   Tactical Flava (read-only, optional dependency): %s' % plan['tf']['dir'])
+    if plan.get('tactical_flava_delta'):
+        out.append('     Tactical Flava subset CE delta: tactical_flava_optional verify (read-only install, vanilla '
+                   'classes from %s, status %s), generate, install after the economy delta; only the generated delta '
+                   'files are written to the mission' % (plan['tactical_flava_delta']['vanilla'],
+                                                         plan['tactical_flava_delta']['report']['status']))
     if plan['keys']:
         out.append('   Server keys (%s): %s' % ('copied with --install-key' if plan['install_key'] else
                                                  'not copied; add --install-key to copy them',
@@ -847,10 +1352,23 @@ def stage_directory(state, name):
     return stage
 
 
+def optional_receipt(spec):
+    if not spec:
+        return None
+    row = {'install': str(spec['install']), 'allowlist_sha256': spec['allowlist_sha256'],
+           'verification': spec['report']['status']}
+    if spec['vanilla'] is not None:
+        row['vanilla_addons'] = str(spec['vanilla'])
+    return row
+
+
 def apply_plan(plan, args):
     """Write the session. Every creation is recorded in the receipt (fsynced) BEFORE it happens, so a run that
     is killed at any point leaves a receipt that names everything the run may have created."""
     repo, state = plan['repo'], plan['state']
+    if plan.get('running'):  # a server seen while planning must stop apply before any write
+        raise Refused('the DayZ server is running (pid %s); stop it before apply or rollback' %
+                      ', '.join(map(str, plan['running'])))
     state.mkdir()
     receipt = Receipt(state / RECEIPT_NAME)
     receipt.create({'schema': SCHEMA, 'status': 'in-progress', 'server_root': str(plan['server_root']),
@@ -863,6 +1381,17 @@ def apply_plan(plan, args):
                             'signed': plan['mod']['signed']},
                     'server_keys': [], 'server_keys_dir': None, 'mission': str(plan['mission']),
                     'profiles': str(plan['profiles']), 'markers': {'created': [], 'dirs': []},
+                    'interiors': {'target': str(plan['interiors']['target']), 'pack': str(plan['interiors']['pack'])}
+                    if plan['interiors'] else None,
+                    'snafu_delta': optional_receipt(plan.get('snafu_delta')),
+                    'tactical_flava_delta': optional_receipt(plan.get('tactical_flava_delta')),
+                    'expansion_ai': {'dest': str(plan['expansion_ai']['mod']['dest']),
+                                     'files': plan['expansion_ai']['mod']['hashes'],
+                                     'sizes': {n: len(b) for n, b in plan['expansion_ai']['mod']['blobs'].items()},
+                                     'signed': plan['expansion_ai']['mod']['signed'],
+                                     'workshop': str(plan['expansion_ai']['workshop']),
+                                     'dependencies': {r['label']: str(r['path']) for r in plan['expansion_ai']['dependencies']}}
+                    if plan['expansion_ai'] else None,
                     'rollback': {'steps': {}}})
     # 1. mod folder (the intent: the dest folder and the listed files, all in the receipt already)
     receipt.step('mod', 'started')
@@ -925,7 +1454,35 @@ def apply_plan(plan, args):
         economy.write_delta(stage, economy.generate(plan['mission'], json.loads(repo_file(repo, plan['economy']['profile']))))
         economy.install_delta(stage, plan['mission'])
         receipt.step('economy', 'done')
-    # 5. markers
+    # 4b. optional-subset CE deltas through their own installers, on top of the economy-patched core (SNAFU first)
+    for step, tool_name, label in OPTIONAL_DELTAS:
+        spec = plan.get(step + '_delta')
+        if spec:
+            tool = load_tool(tool_name)
+            receipt.step(step, 'started')
+            stage = stage_directory(state, step)
+            tool.write_delta(stage, tool.generate(plan['mission'], spec['allowlist'], spec['report']))
+            tool.install(stage, plan['mission'])
+            receipt.step(step, 'done')
+    # 5. interiors data pack, through its own installer (own receipt, byte-exact rollback)
+    if plan['interiors']:
+        interiors = load_tool('interiors_profile')
+        receipt.step('interiors', 'started')
+        interiors.install(plan['interiors']['pack'], plan['interiors']['target'])
+        receipt.step('interiors', 'done')
+    # 6. the optional Expansion AI addon folder (Expansion's own Workshop folders are never touched)
+    if plan['expansion_ai']:
+        ai_mod = plan['expansion_ai']['mod']
+        receipt.step('expansion_ai', 'started')
+        try:
+            ai_mod['dest'].mkdir()
+        except FileExistsError:
+            receipt.data['expansion_ai']['files'] = {}
+            receipt.step('expansion_ai', 'refused')
+            raise Refused('Expansion AI addon destination appeared after the plan was made: %s' % ai_mod['dest']) from None
+        assemble_mod(ai_mod, stage=state)
+        receipt.step('expansion_ai', 'done')
+    # 7. markers
     if plan['markers']:
         markers = load_tool('acceptance_markers')
         receipt.step('markers', 'started')
@@ -992,34 +1549,90 @@ def owned_file(path, digest, what, stage=None):
     return None, 'left in place: not provably ours (%s)' % path, stale
 
 
-def trial_rollback(name, tool, mission, started):
+def trial_rollback(name, tool, mission, started, above=(), inputs=()):
     """Run the existing installer's real rollback on a scratch copy of what it reads: 'run' or 'noop'.
 
     The installers validate everything before they change anything, but they cannot be asked in advance
-    without changing something (economy has no dry run), so the same code runs on a copy first."""
-    managed = mission / tool.MANAGED
-    for path in (managed, *sorted(managed.rglob('*'))):
-        no_links(path, name + ' managed path')
-        if path.is_file():
-            regular(path, name + ' managed file ' + path.name)
+    without changing something (economy has no dry run), so the same code runs on a copy first.
+    `above` are the (name, tool) pairs whose real rollback runs before this one (the CE deltas installed after
+    it); they are rolled back on the copy first, because each later install patched the core this one reads."""
+    chain = list(above) + [(name, tool)]
+    for label, member in chain:
+        managed = mission / member.MANAGED
+        for path in (managed, *sorted(managed.rglob('*'))):
+            no_links(path, label + ' managed path')
+            if path.is_file():
+                regular(path, label + ' managed file ' + path.name)
     scratch = Path(tempfile.mkdtemp(prefix='hc-rollback-trial-'))
     try:
         copy = scratch / 'mission'
         copy.mkdir()
-        shutil.copytree(managed, copy / tool.MANAGED, symlinks=True)
-        for relative in getattr(tool, 'INPUTS', ()):
+        for label, member in chain:
+            shutil.copytree(mission / member.MANAGED, copy / member.MANAGED, symlinks=True)
+        for relative in (getattr(tool, 'INPUTS', None) or inputs):
             source = mission / relative
             if os.path.lexists(source):
                 (copy / relative).parent.mkdir(parents=True, exist_ok=True)
                 (copy / relative).write_bytes(read_bytes(source, relative, MAX_BYTES))
+        for label, member in above:
+            try:
+                member.rollback(copy)
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                raise Refused('%s rollback would be refused (nothing was changed; the receipt is kept): %s' %
+                              (label, error)) from None
         try:
             tool.rollback(copy)
         except (ValueError, OSError, KeyError, TypeError) as error:
             # An install that never wrote its own receipt has nothing to undo; anything else refuses now.
-            if started and ('nothing to roll back' in str(error) or isinstance(error, FileNotFoundError)):
+            if started and ('nothing to roll back' in str(error)):
                 return 'noop'
             raise Refused('%s rollback would be refused (nothing was changed; the receipt is kept): %s' %
                           (name, error)) from None
+        return 'run'
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def trial_interiors_rollback(tool, target, started, markers):
+    """The interiors installer's real rollback on a scratch copy of <profiles>/HollowCountry: 'run' or 'noop'.
+
+    The markers this session created are removed from the copy first, because the real rollback runs after the
+    marker step has removed them; anything else found in the directory (the operator's files) refuses now."""
+    managed = target / tool.MANAGED
+    for path in (managed, *sorted(managed.rglob('*'))):
+        no_links(path, 'interiors managed path')
+        if path.is_file():
+            regular(path, 'interiors managed file ' + path.name)
+    # The scratch copy below loses link counts, so every live file in the profile is checked first, where it is:
+    # a hard-linked, special or symlinked file refuses now, so the dry run and the real run agree and nothing moves.
+    for path in sorted(target.rglob('*')):
+        no_links(path, 'interiors profile path')
+        if path.is_file():
+            regular(path, 'interiors profile file ' + path.relative_to(target).as_posix())
+        elif not path.is_dir():
+            raise Refused('interiors profile path %s is not a regular file or directory' % path.relative_to(target))
+    scratch = Path(tempfile.mkdtemp(prefix='hc-rollback-trial-'))
+    try:
+        copy = scratch / target.name
+        shutil.copytree(target, copy, symlinks=True)
+        for text in markers['created']:
+            path = copy / absolute(text).relative_to(target) if target in absolute(text).parents else None
+            if path is not None and os.path.lexists(path):
+                path.unlink()
+        for text in sorted(markers.get('dirs', []), key=len, reverse=True):
+            path = absolute(text)
+            if path != target and target in path.parents and (copy / path.relative_to(target)).is_dir():
+                try:
+                    (copy / path.relative_to(target)).rmdir()
+                except OSError:
+                    pass
+        try:
+            tool.rollback(copy)
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            if started and ('nothing to roll back' in str(error)):
+                return 'noop'
+            raise Refused('interiors rollback would be refused (nothing was changed; the receipt is kept): %s' %
+                          error) from None
         return 'run'
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
@@ -1050,6 +1663,15 @@ def _remove_files(paths, directories=(), staged=()):
                     directory.rmdir()
             except OSError:
                 pass
+    return run
+
+
+def _remove_empty(directory):
+    def run():
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
     return run
 
 
@@ -1092,10 +1714,32 @@ def plan_rollback(server_root, repo=ROOT):
         directories.sort(key=lambda d: len(d.parts), reverse=True)
         todo.append(('markers', 'markers: remove %d empty file(s)' % len(files), _remove_files(files, directories)))
 
-    for name in ('economy', 'gameplay'):
+    if steps.get('expansion_ai') in ('started', 'done') and progress.get('expansion_ai') != 'done' and data.get('expansion_ai'):
+        todo.append(mod_removal('expansion_ai', 'Expansion AI addon folder', data['expansion_ai'], state,
+                                strict=steps['expansion_ai'] == 'done'))
+
+    if steps.get('interiors') and progress.get('interiors') != 'done' and data.get('interiors'):
+        target = absolute(data['interiors']['target'])
+        if target != profiles / 'HollowCountry':
+            raise Refused('receipt names an interiors target outside the profiles directory')
+        no_links(target, 'interiors target')
+        tool = load_tool('interiors_profile')
+        managed = target / tool.MANAGED
+        if not os.path.lexists(managed):
+            if progress.get('interiors') != 'started' and steps['interiors'] == 'done':
+                raise Refused('interiors: the installer directory %s is missing; reconcile by hand' % managed)
+            todo.append(('interiors', 'interiors: installer already rolled back, nothing to undo', noop))
+        elif trial_interiors_rollback(tool, target, steps['interiors'] == 'started', data['markers']) == 'noop':
+            todo.append(('interiors', 'interiors: installer wrote no receipt, nothing to undo', _remove_empty(managed)))
+        else:
+            todo.append(('interiors', 'interiors: existing installer rollback on %s' % target,
+                         lambda tool=tool, target=target: run_installer_rollback('interiors', tool, target)))
+
+    above = []  # CE-stack installers that roll back before the next one (their trial runs on top of them)
+    for name in ('tactical_flava', 'snafu', 'economy', 'gameplay'):
         if not steps.get(name) or progress.get(name) == 'done':
             continue
-        tool = load_tool(name)
+        tool = load_tool(STEP_TOOLS[name])
         managed = mission / tool.MANAGED
         if not os.path.lexists(managed):
             # Gone because an interrupted rollback already ran the installer, or the install never got that far;
@@ -1103,11 +1747,15 @@ def plan_rollback(server_root, repo=ROOT):
             if progress.get(name) != 'started' and steps[name] == 'done':
                 raise Refused('%s: the installer directory %s is missing; reconcile by hand' % (name, managed))
             todo.append((name, '%s: installer already rolled back, nothing to undo' % name, noop))
-        elif trial_rollback(name, tool, mission, steps[name] == 'started') == 'noop':
-            todo.append((name, '%s: installer wrote no receipt, nothing to undo' % name, noop))
+        elif trial_rollback(name, tool, mission, steps[name] == 'started',
+                            above if name in STACK_STEPS else (),
+                            getattr(load_tool('economy'), 'INPUTS', ()) if name in STACK_STEPS else ()) == 'noop':
+            todo.append((name, '%s: installer wrote no receipt, nothing to undo' % name, _remove_empty(managed)))
         else:
             todo.append((name, '%s: existing installer rollback on %s' % (name, mission),
                          lambda name=name, tool=tool: run_installer_rollback(name, tool, mission)))
+            if name in STACK_STEPS:
+                above.append((name, tool))
 
     if steps.get('cfg') in ('started', 'done') and progress.get('cfg') != 'done':
         before, after = data['cfg']['before_sha256'], data['cfg']['after_sha256']
@@ -1143,21 +1791,31 @@ def plan_rollback(server_root, repo=ROOT):
                      _remove_files(files, [keys_dir] if created_dir else [], staged)))
 
     if steps.get('mod') in ('started', 'done') and progress.get('mod') != 'done':
-        mod = data['mod']
-        mod_dest = no_links(mod['dest'], 'mod folder')
-        files, notes, staged = [], [], []
-        for name, digest in sorted(mod['files'].items()):
-            if not MOD_FILE.match(name):
-                raise Refused('receipt lists a mod file outside the mod folder')
-            owned, note, links = owned_file(mod_dest / name, digest, 'mod file ' + name, state)
-            staged.extend(links)
-            if owned:
-                files.append(owned)
-            if note:
-                notes.append(note)
-        todo.append(('mod', '; '.join(['mod folder: remove %d file(s) from %s' % (len(files), mod_dest)] + notes),
-                     _remove_files(files, [mod_dest / 'addons', mod_dest / 'keys', mod_dest], staged)))
+        todo.append(mod_removal('mod', 'mod folder', data['mod'], state))
     return receipt, state, todo
+
+
+def mod_removal(step, label, mod, state, strict=False):
+    """(step, description, action) removing the files a session recorded creating in one mod folder.
+
+    strict (a finished install): a recorded file that is no longer byte-for-byte what the receipt says refuses the
+    whole rollback now, before any step runs; otherwise such a file is left in place with a note."""
+    mod_dest = no_links(mod['dest'], label)
+    files, notes, staged = [], [], []
+    for name, digest in sorted(mod['files'].items()):
+        if not MOD_FILE.match(name):
+            raise Refused('receipt lists a mod file outside the mod folder')
+        owned, note, links = owned_file(mod_dest / name, digest, 'mod file ' + name, state)
+        staged.extend(links)
+        if owned:
+            files.append(owned)
+        if note:
+            if strict:
+                raise Refused('%s drift: %s no longer matches the receipt (%s); nothing was changed and the receipt is '
+                              'kept. Restore the file or remove it yourself, then run rollback again.' % (label, name, note))
+            notes.append(note)
+    return (step, '; '.join(['%s: remove %d file(s) from %s' % (label, len(files), mod_dest)] + notes),
+            _remove_files(files, [mod_dest / 'addons', mod_dest / 'keys', mod_dest], staged))
 
 
 def rollback(server_root, repo=ROOT, dry_run=False):
@@ -1205,7 +1863,19 @@ def build_parser():
         p.add_argument('--snafu', type=Path, help='optional SNAFU Weapons Workshop dir (read-only)')
         p.add_argument('--tactical-flava', type=Path, help='optional @TacticalFlava or Workshop 2646817942 dir '
                        '(read-only; loaded before HC; its keys/*.bikey is installed only with --install-key)')
-        p.add_argument('--markers', default='all', help='all, none or comma-separated marker names')
+        p.add_argument('--vanilla-addons', type=Path, help='the game\'s own Addons folder, read-only, used to verify '
+                       '--tactical-flava (default: <server root>/addons)')
+        p.add_argument('--markers', default='all', help='all (every marker the code scan finds), none, all-local '
+                       '(every marker in the docs/LOCAL_ACCEPTANCE_V1.md table) or comma-separated names from that table')
+        p.add_argument('--interiors', action='store_true',
+                       help='install the interiors data pack into <profiles>/HollowCountry (interiors_profile)')
+        p.add_argument('--expansion-ai', action='store_true',
+                       help='stage the optional @HollowCountryExpansionAI addon after the Expansion Workshop mods '
+                       '(needs --workshop-dir, --expansion-ai-mod, --expansion-ai-dest)')
+        p.add_argument('--workshop-dir', type=Path, help='directory holding the subscribed Workshop mod folders '
+                       '(CF, Dabs Framework, Expansion-Animations, Expansion-Core, Expansion-AI); read-only')
+        p.add_argument('--expansion-ai-mod', type=Path, help='built @HollowCountryExpansionAI dir (addons/%s) or a .pbo' % AI_PBO_NAME)
+        p.add_argument('--expansion-ai-dest', type=Path, help='fresh @HollowCountryExpansionAI folder to create')
         p.add_argument('--time-accel', type=float, default=DEFAULT_TIME_ACCELERATION)
         p.add_argument('--night-accel', type=float, default=DEFAULT_NIGHT_ACCELERATION)
         p.add_argument('--economy-profile', default=DEFAULT_ECONOMY_PROFILE, help='economy profile name or none')
@@ -1229,6 +1899,8 @@ def main(argv=None, repo=ROOT, out=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command == 'apply' or (args.command == 'rollback' and not args.dry_run):
+            refuse_if_running()
         if args.command == 'rollback':
             for line in rollback(args.server_root, repo, args.dry_run):
                 print(('would ' if args.dry_run else 'done: ') + line, file=out)

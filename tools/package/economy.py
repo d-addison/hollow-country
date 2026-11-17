@@ -4,6 +4,7 @@ Generate reads installed stock. Install/rollback target an explicitly chosen
 stopped, private mission copy, never the Steam installation. No placement edits.
 """
 import argparse
+import contextlib
 import copy
 import hashlib
 import json
@@ -382,6 +383,149 @@ def preflight_managed(managed, expected):
         plain_file(managed, p)
 
 
+ROLLED_BACK = 'rolled_back'
+RECOVERED_BOOTSTRAP = 'recovered_bootstrap'
+RECEIPT = 'receipt'
+HEX64 = re.compile(r'[0-9a-f]{64}')
+
+
+class MissingEvidence(ValueError):
+    """Required managed evidence is absent. A refusal: rollback changed nothing and must not be read as a noop."""
+
+
+@contextlib.contextmanager
+def refuse_missing(managed):
+    """Inside a rollback, a vanished file is MissingEvidence once the managed directory exists.
+
+    With no managed directory a FileNotFoundError is the honest answer: nothing was installed.
+    """
+    try:
+        yield
+    except FileNotFoundError:
+        if not os.path.lexists(managed):
+            raise
+        raise MissingEvidence('required managed evidence is missing; rollback refuses and changed nothing') from None
+
+
+def validate_receipt(receipt, digests=('types_sha256',), optional=()):
+    """Refuse a receipt that is not complete before any branch can delete anything because of it."""
+    if not isinstance(receipt, dict):
+        raise ValueError('unsupported receipt; rollback refuses')
+    if type(receipt.get('schema')) is not int or receipt['schema'] != 1:
+        raise ValueError('unsupported receipt schema; rollback refuses')
+    keys = ('before', 'after') + tuple(digests) + tuple(k for k in optional if k in receipt)
+    for key in keys:
+        if not isinstance(receipt.get(key), str) or not HEX64.fullmatch(receipt[key]):
+            raise ValueError(f'incomplete receipt ({key}); rollback refuses')
+    sources = receipt.get('sources')
+    if (not isinstance(sources, dict) or set(sources) != set(INPUTS)
+            or any(not isinstance(v, str) or not HEX64.fullmatch(v) for v in sources.values())
+            or sources['cfgeconomycore.xml'] != receipt['before']):
+        raise ValueError('incomplete receipt (sources); rollback refuses')
+    return receipt
+
+
+def read_receipt_or_recover(target, managed, core_name='cfgeconomycore.xml', backup_name='core.backup',
+                            digests=('types_sha256',), optional=()):
+    """Return (RECEIPT, receipt) or, after clearing an install that died before a complete receipt, (RECOVERED_BOOTSTRAP, None).
+
+    The outcome is a tag, never something parsed from receipt.json: a file holding ``null`` or any other
+    non-object is refused, not mistaken for recovery. Install writes a complete core.backup (staged as
+    core.backup.next, then renamed) and only then receipt.json, so a managed directory with no complete
+    receipt can hold nothing but those backups, a possibly half-written receipt.json and staging files, and
+    the core is still the original. That is re-proved before anything is removed: no other managed entry,
+    every entry a plain file, and the core byte-identical to EVERY backup present (core.backup and
+    core.backup.next). Anything else, including a half-written staged backup, refuses and changes nothing.
+    """
+    managed = Path(managed)
+    path = managed / 'receipt.json'
+    if os.path.lexists(path):
+        try:
+            receipt = json.loads(read_plain(managed, 'receipt.json'))
+        except json.JSONDecodeError:
+            pass  # half-written receipt: only the bootstrap evidence rules can clear it
+        else:
+            return RECEIPT, validate_receipt(receipt, digests, optional)
+    elif not os.path.lexists(managed):
+        read_plain(managed, 'receipt.json')  # raises the usual FileNotFoundError: nothing installed
+    if not managed.is_dir() or managed.is_symlink():
+        raise ValueError('managed path is not a plain directory; rollback refuses')
+    staged = backup_name + '.next'
+    entries = {}
+    for entry in managed.rglob('*'):
+        name = entry.relative_to(managed).as_posix()
+        child(managed, name)
+        if entry.is_dir() or name not in {backup_name, staged, 'receipt.json', 'receipt.next'}:
+            raise ValueError('no valid receipt and unexpected managed content; rollback refuses deletion')
+        entries[name] = plain_file(managed, entry).read_bytes()
+    core = plain_file(target, child(target, core_name)).read_bytes()
+    for name in (backup_name, staged):
+        if name in entries and core != entries[name]:
+            raise ValueError(f'no valid receipt and the core differs from {name}; manual reconciliation required')
+    if 'receipt.json' in entries and backup_name not in entries:
+        raise ValueError('no valid receipt and no backup to prove the core is unchanged; manual reconciliation required')
+    shutil.rmtree(managed)  # only our fixed directory, preflighted above
+    return RECOVERED_BOOTSTRAP, None
+
+
+COMPLETE = 'complete.json'
+COMPLETE_STAGED = 'complete.next'
+
+
+def completion_evidence(receipt_bytes):
+    """The marker an install writes last, after the core switch: it binds completion to this exact receipt."""
+    return encode({'schema': 1, 'receipt_sha256': sha(receipt_bytes)})
+
+
+def read_completion(managed):
+    """True when a valid completion marker is present, False when absent; a present but wrong marker refuses.
+
+    Without the marker a no-op install (before == after) cannot tell drift after success from an interrupted
+    write, so the marker is what keeps the drift refusal once an install has finished.
+    """
+    if not os.path.lexists(child(managed, COMPLETE)):
+        return False
+    if read_plain(managed, COMPLETE) != completion_evidence(read_plain(managed, 'receipt.json')):
+        raise ValueError('completion marker does not match the receipt; manual reconciliation required')
+    return True
+
+
+def needs_restore(managed, receipt, core_sha, delta, completed=False):
+    """Whether the install reached its core switch, proving the delta files whole when it did.
+
+    delta lists (file, receipt key, drift message) in install write order. The core hash shows the switch
+    only when the patch changed the core. When before == after it cannot, so the delta files decide: each file
+    is whole, or it is the last one written (the frontier) with nothing written after it. Absent or partial
+    delta with an unchanged core means the switch never happened; and an unchanged core never needs restoring.
+    ``completed`` is True when the install's completion marker was proven: every delta file must then be whole,
+    so a changed or missing one is drift or missing evidence, never a frontier.
+    """
+    if receipt['before'] != receipt['after']:
+        if core_sha != receipt['after']:
+            return False  # install died before the switch: delta files may be absent or partial
+        for name, key, message in delta:
+            if sha(read_plain(managed, name)) != receipt[key]:
+                raise ValueError(message)
+        return True
+    if completed:
+        for name, key, message in delta:
+            if not os.path.lexists(child(managed, name)):
+                raise MissingEvidence(f'required managed evidence is missing: {name}; rollback refuses')
+            if sha(read_plain(managed, name)) != receipt[key]:
+                raise ValueError(message)
+        return False
+    for i, (name, key, message) in enumerate(delta):
+        present = os.path.lexists(child(managed, name))
+        if present and sha(read_plain(managed, name)) == receipt[key]:
+            continue
+        if any(os.path.lexists(child(managed, n)) for n in [d[0] for d in delta[i + 1:]] + ['core.next']):
+            if not present:
+                raise MissingEvidence(f'required managed evidence is missing: {name}; rollback refuses')
+            raise ValueError(message)
+        break  # the frontier: absent or partial, nothing written after it
+    return False
+
+
 def restore_core(managed, core, backup):
     """Stage the backup as a fresh file in the managed directory and atomically swap it in."""
     staged = fresh_write(managed, 'core.next', backup)
@@ -456,19 +600,23 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     managed.mkdir()
     receipt = {'schema': 1, 'before': sha(original), 'after': sha(patched),
                'types_sha256': sha(files['ce/types.xml']), 'sources': manifest['sources']}
+    receipt_bytes = encode(receipt)
     # Receipt+backup exist before the atomic core switch. Rollback also handles
     # an interrupted install whose switch did not happen. Stop the server first.
     try:
-        fresh_write(managed, 'core.backup', original)
-        fresh_write(managed, 'receipt.json', encode(receipt))
+        os.replace(fresh_write(managed, 'core.backup.next', original), managed / 'core.backup')  # never half-written
+        fresh_write(managed, 'receipt.json', receipt_bytes)
         (managed / 'ce').mkdir()
         fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
         os.replace(fresh_write(managed, 'core.next', patched), child(target, 'cfgeconomycore.xml'))
+        # last, published by rename so a kill never leaves a half-written marker
+        os.replace(fresh_write(managed, COMPLETE_STAGED, completion_evidence(receipt_bytes)), managed / COMPLETE)
     except OSError:
         # Receipt/backup precede the core switch. A failed write before that
         # switch has changed no mission input; remove only preflighted intent.
         if read_plain(target, 'cfgeconomycore.xml') == original:
-            preflight_managed(managed, {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next'})
+            preflight_managed(managed, {'core.backup', 'core.backup.next', 'receipt.json', 'ce/types.xml', 'core.next',
+                                         COMPLETE, COMPLETE_STAGED})
             shutil.rmtree(managed)
         raise
     return receipt
@@ -506,21 +654,37 @@ def install_delta(stage, target):
 
 
 def rollback(target):
+    """Undo an install: returns ROLLED_BACK, or RECOVERED_BOOTSTRAP for an install killed before its receipt.
+
+    A core still equal to the backup means the switch never happened (the delta files may then be absent or
+    partial and are not compared); a core equal to the receipt's installed digest must carry every delta file
+    whole. Equal before/after digests are decided by the delta files (needs_restore). Missing evidence is a
+    MissingEvidence refusal, never a FileNotFoundError, once the managed directory exists.
+    """
     target = _target(target)
     managed = child(target, MANAGED)
-    receipt = json.loads(read_plain(managed, 'receipt.json'))
-    preflight_managed(managed, {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next'})
-    core = plain_file(target, child(target, 'cfgeconomycore.xml'))
-    backup = read_plain(managed, 'core.backup')
-    if sha(backup) != receipt['before'] or sha(core.read_bytes()) not in {receipt['before'], receipt['after']}:
-        raise ValueError('core drift; manual reconciliation required')
-    if sha(read_plain(managed, 'ce/types.xml')) != receipt['types_sha256']:
-        raise ValueError('installed delta drift; inspect before rollback')
-    if {n: sha(child(target, n).read_bytes()) for n in INPUTS if n != 'cfgeconomycore.xml'} != {
-            n: h for n, h in receipt['sources'].items() if n != 'cfgeconomycore.xml'}:
-        raise ValueError('stock drift; inspect before rollback')
-    restore_core(managed, core, backup)
-    shutil.rmtree(managed)  # only our fixed directory, preflighted above
+    with refuse_missing(managed):
+        outcome, receipt = read_receipt_or_recover(target, managed)
+        if outcome == RECOVERED_BOOTSTRAP:
+            return outcome
+        preflight_managed(managed, {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next', COMPLETE,
+                                    COMPLETE_STAGED})  # a staged marker never proves completion
+        completed = read_completion(managed)
+        core = plain_file(target, child(target, 'cfgeconomycore.xml'))
+        backup = read_plain(managed, 'core.backup')
+        core_sha = sha(core.read_bytes())
+        if sha(backup) != receipt['before'] or core_sha not in {receipt['before'], receipt['after']}:
+            raise ValueError('core drift; manual reconciliation required')
+        switched = needs_restore(managed, receipt, core_sha,
+                                 [('ce/types.xml', 'types_sha256', 'installed delta drift; inspect before rollback')],
+                                 completed)
+        if {n: sha(child(target, n).read_bytes()) for n in INPUTS if n != 'cfgeconomycore.xml'} != {
+                n: h for n, h in receipt['sources'].items() if n != 'cfgeconomycore.xml'}:
+            raise ValueError('stock drift; inspect before rollback')
+        if switched:
+            restore_core(managed, core, backup)
+        shutil.rmtree(managed)  # only our fixed directory, preflighted above
+        return ROLLED_BACK
 
 
 def main():
@@ -551,7 +715,8 @@ def main():
         elif args.command == 'install':
             install_delta(args.delta, args.target)
         else:
-            rollback(args.target)
+            if rollback(args.target) == RECOVERED_BOOTSTRAP:
+                print('Recovered an interrupted install: it never changed the core; managed directory removed.')
         print('Offline operation complete; DayZ runtime acceptance pending.')
     except (ValueError, OSError, KeyError, TypeError) as e:
         parser.exit(1, f'{e}\n')

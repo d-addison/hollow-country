@@ -68,6 +68,11 @@ CLOTHING = {
     'Feet': ('AthleticShoes_Black', 'AthleticShoes_Brown', 'AthleticShoes_Grey', 'JoggingShoes_Black',
              'HikingBootsLow_Black'),
 }
+# Every player spawns with exactly one knife and one bandage: the native loader picks one cargo set and
+# spawns every simpleChildrenTypes entry of it, so each set is [knife, bandage, one small item].
+# KitchenKnife is the one melee tool allowed; weapons and ammunition stay refused.
+KNIFE = 'KitchenKnife'
+BANDAGE = 'BandageDressing'
 SMALL_ITEMS = ('Rag', 'Chemlight_White', 'Chemlight_Yellow', 'Chemlight_Green',
                'BakedBeansCan', 'SpaghettiCan', 'TunaCan')
 # Native DAMAGE_WORN_VALUE is 0.7 (health >= 0.7 reads as pristine), so worn means strictly below it.
@@ -290,11 +295,12 @@ def validate_preset(preset):
                 or set(item) != {'name', 'spawnWeight', 'simpleChildrenTypes',
                                  'simpleChildrenUseDefaultAttributes'}
                 or not _int_in(item['spawnWeight'], 1, 1000)
-                or not isinstance(item['simpleChildrenTypes'], list) or len(item['simpleChildrenTypes']) != 1
-                or not isinstance(item['simpleChildrenTypes'][0], str)
-                or item['simpleChildrenTypes'][0] not in SMALL_ITEMS
                 or item['simpleChildrenUseDefaultAttributes'] is not True):
-            raise ValueError('each small item set must hold exactly one item')
+            raise ValueError('each kit set must use default attributes and a plain weight')
+        children = item['simpleChildrenTypes']
+        if (not isinstance(children, list) or len(children) != 3 or children[:2] != [KNIFE, BANDAGE]
+                or not isinstance(children[2], str) or children[2] not in SMALL_ITEMS):
+            raise ValueError(f'each kit set must hold exactly {KNIFE}, {BANDAGE} and one small item')
 
 
 def _merge(base, delta):

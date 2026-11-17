@@ -14,6 +14,7 @@ import shutil
 import struct
 import tempfile
 import unittest
+from unittest import mock
 
 from tests.unit import test_interior_catalog as measured_fixtures
 from tools.package import interiors_profile as ip
@@ -613,6 +614,121 @@ class InstallTests(TempCase):
         with self.assertRaises(ValueError):
             ip.rollback(target)
         self.assertTrue((target / 'interiors.json').exists())
+
+    def failing(self, fail_name, partial=0):
+        real = ip.fresh_write
+
+        def write(root, name, data):
+            if name == fail_name:
+                if partial:
+                    real(root, name, data[:partial])
+                raise OSError('injected write failure before ' + fail_name)
+            return real(root, name, data)
+        return mock.patch.object(ip, 'fresh_write', write)
+
+    def test_forged_replacement_evidence_never_deletes_the_only_operator_backup(self):
+        """Regression (P1): a replace row whose original digest equals its installed digest is impossible evidence."""
+        target = self.profile()
+        original = b'operator config\r\n'
+        (target / 'interiors.json').write_bytes(original)
+        with self.failing('receipt.next'):
+            with self.assertRaises(OSError):
+                ip.install(PACK, target, replace=True)
+        receipt_path = target / ip.MANAGED / 'receipt.json'
+        receipt = json.loads(receipt_path.read_text())
+        self.assertEqual(receipt['status'], 'intent')
+        row = receipt['files'][0]
+        self.assertEqual(row['action'], 'replace')
+        backup = target / ip.MANAGED / 'backup/0.bak'
+        self.assertEqual(backup.read_bytes(), original)
+        row['original_sha256'] = row['sha256']
+        receipt_path.write_bytes(ip.encode(receipt))
+        before = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
+        self.assertEqual(backup.read_bytes(), original)
+
+    def test_a_replacement_row_without_a_valid_original_digest_is_refused(self):
+        target = self.profile()
+        (target / 'interiors.json').write_bytes(b'operator config')
+        with self.failing('receipt.next'):
+            with self.assertRaises(OSError):
+                ip.install(PACK, target, replace=True)
+        receipt_path = target / ip.MANAGED / 'receipt.json'
+        receipt = json.loads(receipt_path.read_text())
+        for bad in ('nothex', None):
+            with self.subTest(bad=bad):
+                forged = json.loads(json.dumps(receipt))
+                forged['files'][0]['original_sha256'] = bad
+                receipt_path.write_bytes(ip.encode(forged))
+                before = snapshot(target)
+                with self.assertRaises(ValueError):
+                    ip.rollback(target)
+                self.assertEqual(snapshot(target), before)
+
+    def test_kill_before_receipt_with_an_operator_config_is_recovered_by_rollback(self):
+        target = self.profile()
+        (target / 'interiors.json').write_bytes(b'operator config\r\n')
+        before = snapshot(target)
+        with self.failing('receipt.json'):
+            with self.assertRaises(OSError):
+                ip.install(PACK, target, replace=True)
+        with self.assertRaises(ValueError):
+            ip.install(PACK, target, replace=True)
+        self.assertEqual(ip.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(snapshot(target), before)
+        ip.install(PACK, target, replace=True)
+        ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
+
+    def test_kill_in_the_middle_of_the_receipt_or_a_backup_is_recovered(self):
+        for fail, partial in (('receipt.json', 12), ('backup/0.bak', 4)):
+            target = self.profile(name='profiles-' + fail.replace('/', '-'))
+            (target / 'interiors.json').write_bytes(b'operator config\r\n')
+            before = snapshot(target)
+            with self.failing(fail, partial):
+                with self.assertRaises(OSError):
+                    ip.install(PACK, target, replace=True)
+            self.assertIn(ip.rollback(target), ('recovered_bootstrap', 'rolled_back'))
+            self.assertEqual(snapshot(target), before)
+            self.assertFalse((target / ip.MANAGED).exists())
+
+    def test_stranded_backup_without_a_receipt_is_recovered_only_while_the_operator_file_matches(self):
+        target = self.profile()
+        (target / 'interiors.json').write_bytes(b'operator config\r\n')
+        managed = target / ip.MANAGED
+        (managed / 'backup').mkdir(parents=True)
+        (managed / 'backup/0.bak').write_bytes(b'operator config\r\n')
+        (target / 'interiors.json').write_bytes(b'operator changed it later\r\n')
+        before = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
+        (target / 'interiors.json').write_bytes(b'operator config\r\n')
+        self.assertEqual(ip.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(snapshot(target), {'interiors.json': b'operator config\r\n'})
+
+    def test_receipt_less_managed_directory_with_unknown_files_is_refused(self):
+        target = self.profile()
+        managed = target / ip.MANAGED
+        managed.mkdir()
+        (managed / 'surprise.txt').write_bytes(b'x')
+        before = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
+
+    def test_a_null_or_non_object_receipt_is_refused_not_recovered(self):
+        target = self.profile()
+        managed = target / ip.MANAGED
+        managed.mkdir()
+        for text in (b'null', b'[]', b'7'):
+            (managed / 'receipt.json').write_bytes(text)
+            before = snapshot(target)
+            with self.assertRaises(ValueError):
+                ip.rollback(target)
+            self.assertEqual(snapshot(target), before)
 
     def test_rollback_without_install_is_refused(self):
         target = self.profile()

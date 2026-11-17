@@ -11,6 +11,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest import mock
@@ -42,13 +43,23 @@ CFG = (
 
 
 
-def vanilla_usage_vocabulary(mission):
+def vanilla_usage_vocabulary(mission, merge=False):
     """SYNTHETIC: give the fixture mission the vanilla usage names, because the default
-    economy delta now carries the datamined rows (for example Hunting)."""
+    economy delta now carries the datamined rows (for example Hunting). merge keeps the mission's own limits."""
     from tests.unit import test_datamined_items
     names = sorted(test_datamined_items.VOCAB)
-    (mission / 'cfglimitsdefinition.xml').write_text(
-        '<lists><usageflags>' + ''.join('<usage name="%s"/>' % n for n in names) + '</usageflags></lists>')
+    if merge:
+        import xml.etree.ElementTree as ET
+        limits = ET.fromstring((mission / 'cfglimitsdefinition.xml').read_text())
+        usages = limits.find('usageflags')
+        have = {u.get('name') for u in usages}
+        for name in names:
+            if name not in have:
+                ET.SubElement(usages, 'usage', {'name': name})
+        (mission / 'cfglimitsdefinition.xml').write_bytes(ET.tostring(limits))
+    else:
+        (mission / 'cfglimitsdefinition.xml').write_text(
+            '<lists><usageflags>' + ''.join('<usage name="%s"/>' % n for n in names) + '</usageflags></lists>')
     # SYNTHETIC unspawned stock entries for every datamined row the shipped list marks present.
     import xml.etree.ElementTree as ET
     types_path = mission / 'db' / 'types.xml'
@@ -56,6 +67,18 @@ def vanilla_usage_vocabulary(mission):
     for element in test_datamined_items.stock_for(test_datamined_items.dm.load_rows()).values():
         types.append(element)
     types_path.write_bytes(ET.tostring(types))
+
+def ai_pbo_blob(prefix='HollowCountryExpansionAI', config=None, member='config.cpp'):
+    """SYNTHETIC Expansion AI addon PBO: its own prefix and a CfgPatches class of the same name."""
+    import hashlib
+    if config is None:
+        config = b'class CfgPatches\n{\n    class HollowCountryExpansionAI\n    {\n        units[] = {};\n    };\n};\n'
+    header = bytearray(b'\0' + pbo.WORDS.pack(pbo.VERS, 0, 0, 0, 0))
+    header += b'prefix\0' + prefix.encode('ascii') + b'\0\0'
+    header += member.encode('ascii') + b'\0' + pbo.WORDS.pack(0, 0, 0, 0, len(config))
+    body = bytes(header + bytes(21) + config)
+    return body + b'\0' + hashlib.sha1(body).digest()
+
 
 class FakeGameplay:
     MANAGED = 'hollow-country-gameplay'
@@ -94,6 +117,7 @@ class FakeGameplay:
 
 class FakeEconomy:
     MANAGED = 'hollow-country'
+    INPUTS = ('cfgeconomycore.xml',)
 
     def __init__(self, log):
         self.log = log
@@ -116,6 +140,72 @@ class FakeEconomy:
         if (Path(target) / self.MANAGED / 'receipt.json').read_text() != '{}':
             raise ValueError('installed delta drift; inspect before rollback')
         shutil.rmtree(Path(target) / self.MANAGED)
+
+
+class FakeOptional:
+    """SYNTHETIC stand-in for snafu_optional / tactical_flava_optional.
+
+    install appends a marker to cfgeconomycore.xml (as the real installers patch the core) and keeps the original
+    in its receipt; rollback refuses unless its own marker is the last thing in the core (last-in-first-out)."""
+
+    def __init__(self, log, label, managed, allowlist_path, status='verified', fail_install=False, fail_generate=False,
+                 rollback_missing=False):
+        self.log, self.label, self.MANAGED = log, label, managed
+        self.ALLOWLIST_PATH = allowlist_path
+        self.status, self.fail_install, self.fail_generate = status, fail_install, fail_generate
+        self.rollback_missing = rollback_missing
+        self.marker = '<!--%s-->' % label
+
+    def load_vanilla(self, addons):
+        self.log.append((self.label + '.load_vanilla', str(addons)))
+        return {'CfgMagazines': {}, 'CfgAmmo': {}}
+
+    def verify_install(self, install, allowlist, vanilla=None, **kw):
+        self.log.append((self.label + '.verify_install', str(install)))
+        if self.label == 'tf' and vanilla is None:
+            return {'status': 'unverified', 'install': {'problems': ['vanilla-not-provided']}, 'classes': {}}
+        problems = [] if self.status == 'verified' else ['publishedid-mismatch']
+        return {'status': self.status, 'allowlist_sha256': 'a' * 64, 'install': {'problems': problems},
+                'classes': {'Synthetic_' + self.label: {'status': 'verified' if not problems else 'missing',
+                                                        'reasons': problems}}}
+
+    def generate(self, source, allowlist, report):
+        self.log.append((self.label + '.generate', str(source)))
+        if self.fail_generate:
+            raise ValueError('synthetic generate failure')
+        if not (Path(source) / FakeEconomy.MANAGED / 'receipt.json').is_file():
+            raise ValueError('economy delta is not installed in the source')
+        if report['status'] != 'verified':
+            raise ValueError('report is not verified')
+        return {'ce/types.xml': b'<types/>'}
+
+    def write_delta(self, stage, files):
+        Path(stage).mkdir(parents=True)
+        for name, data in files.items():
+            (Path(stage) / name).parent.mkdir(parents=True, exist_ok=True)
+            (Path(stage) / name).write_bytes(data)
+
+    def install(self, stage, target):
+        self.log.append((self.label + '.install', str(target)))
+        if self.fail_install and 'hc-delta-rehearsal' not in str(target):  # only the real run fails
+            raise ValueError('synthetic installer failure')
+        core = Path(target) / 'cfgeconomycore.xml'
+        before = core.read_text()
+        (Path(target) / self.MANAGED).mkdir()
+        (Path(target) / self.MANAGED / 'receipt.json').write_text(json.dumps({'before': before}))
+        core.write_text(before + self.marker)
+
+    def rollback(self, target):
+        self.log.append((self.label + '.rollback', str(target)))
+        if self.rollback_missing:
+            raise FileNotFoundError('synthetic missing managed file')
+        managed = Path(target) / self.MANAGED
+        receipt = json.loads((managed / 'receipt.json').read_text())
+        core = Path(target) / 'cfgeconomycore.xml'
+        if not core.read_text().endswith(self.marker):
+            raise ValueError('core drift (roll back later installs first); manual reconciliation required')
+        core.write_text(receipt['before'])
+        shutil.rmtree(managed)
 
 
 class FakeMarkers:
@@ -151,6 +241,53 @@ class FakeMarkers:
         return plan
 
 
+class FakeInteriors:
+    """SYNTHETIC stand-in for tools/package/interiors_profile.py: records calls, writes a managed folder."""
+    MANAGED = 'hc-interiors-pack'
+
+    def __init__(self, log, errors=()):
+        self.log, self.errors = log, list(errors)
+
+    def validate(self, pack):
+        self.log.append(('interiors.validate', str(pack)))
+        return {'errors': self.errors, 'pending': [{'id': 'measured-interiors', 'state': 'pending-measurement'}],
+                'files': {'interiors.json': 'x'}}
+
+    def install(self, pack, target, replace=False):
+        rehearsal = 'hc-interiors-rehearsal-' in str(target)
+        existing = Path(target) / 'interiors.json'
+        if existing.exists() and existing.read_bytes() != b'{}':  # the real tool refuses a different file
+            raise ValueError('a different interiors.json already exists; review it or pass --replace')
+        self.log.append(('interiors.rehearse' if rehearsal else 'interiors.install', str(pack), str(target)))
+        created = not Path(target).exists()
+        Path(target).mkdir(exist_ok=True)
+        (Path(target) / self.MANAGED).mkdir()
+        (Path(target) / self.MANAGED / 'receipt.json').write_text(json.dumps({'created': created}))
+        (Path(target) / 'interiors.json').write_text('{}')
+
+    def rollback(self, target):
+        self.log.append(('interiors.rollback', str(target)))
+        managed = Path(target) / self.MANAGED
+        receipt = json.loads((managed / 'receipt.json').read_text())
+        extra = sorted(p.name for p in Path(target).iterdir() if p.name not in (self.MANAGED, 'interiors.json'))
+        if extra:
+            raise ValueError('a created directory now holds other files; rollback refuses deletion')
+        shutil.rmtree(managed)
+        (Path(target) / 'interiors.json').unlink()
+        if receipt['created']:
+            Path(target).rmdir()
+
+
+MARKER_DOC = (
+    '| Marker | File and class | Source |\n| :--- | :--- | :--- |\n'
+    '| `$profile:HollowCountry/acceptance/fuel_siphon.enable` | `A.B` | `a.c` |\n'
+    '| `$profile:HollowCountry/acceptance/atmosphere.enable` | `A.B` | `a.c` |\n'
+    '| `$profile:HollowCountry/acceptance/events.enable` | `A.B` | `a.c` |\n'
+    '\nOther prose mentions `$profile:HollowCountry/acceptance/prose_only.enable` outside the table.\n'
+    '| #1 | row | `$profile:HollowCountry/acceptance/checklist_only.enable` | x |\n')
+EXPANSION_FOLDERS = ('@CF', '@Dabs Framework', '@Expansion-Animations', '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')
+
+
 class SessionCase(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='hc-synthetic-session-')
@@ -166,6 +303,14 @@ class SessionCase(unittest.TestCase):
                           (lts.ECONOMY_PROFILES + 'baseline.json', '{"name": "baseline"}')):
             (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.repo / rel).write_text(text)
+        (self.repo / 'docs').mkdir()
+        (self.repo / 'docs' / 'LOCAL_ACCEPTANCE_V1.md').write_text(MARKER_DOC)
+        (self.repo / 'mission' / 'hollow-country' / 'interiors').mkdir(parents=True)
+        (self.repo / 'mission' / 'hollow-country' / 'interiors' / 'pack.json').write_text('{}')
+        (self.repo / 'mission' / 'hollow-country' / 'ai').mkdir(parents=True)
+        (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AISettings.merge.json').write_text('{"MaxDifficulty": 1}')
+        self.interiors_errors = []
+        self.running = []
         self.world = self.base / 'world'
         self.server = self.world / 'server'
         self.mission = self.world / 'mission'
@@ -184,6 +329,11 @@ class SessionCase(unittest.TestCase):
         (self.tf / 'keys').mkdir()
         (self.tf / 'addons' / 'tf_synthetic.pbo').write_bytes(b'synthetic tactical flava bytes')
         (self.tf / 'keys' / 'Wayward.bikey').write_bytes(b'synthetic wayward public key')
+        self.vanilla = self.world / 'game-addons'
+        self.vanilla.mkdir()
+        self.allowlist = self.world / 'allowlist.json'
+        self.allowlist.write_text('{}')
+        self.optional = {'snafu': {}, 'tf': {}}  # per-label FakeOptional options (status, fail_install, ...)
         self.pbo_blob = pbo.pack({'config.cpp': b'synthetic'})
         self.make_built(signed=True)
         self.dest = self.world / 'session' / '@HollowCountry'
@@ -191,6 +341,9 @@ class SessionCase(unittest.TestCase):
         patcher = mock.patch.object(lts, 'load_tool', self.load_tool)
         patcher.start()
         self.addCleanup(patcher.stop)
+        running = mock.patch.object(lts, 'running_servers', lambda *a, **k: list(self.running), create=True)
+        running.start()
+        self.addCleanup(running.stop)
 
     def make_built(self, signed):
         shutil.rmtree(self.built.parent, ignore_errors=True)
@@ -207,9 +360,20 @@ class SessionCase(unittest.TestCase):
             return FakeGameplay(self.log, self.fail_install, self.fail_rollback)
         if name == 'economy':
             return FakeEconomy(self.log)
+        if name == 'interiors_profile':
+            return FakeInteriors(self.log, self.interiors_errors)
+        if name == 'snafu_optional':
+            return FakeOptional(self.log, 'snafu', 'hollow-country-snafu', self.allowlist, **self.optional['snafu'])
+        if name == 'tactical_flava_optional':
+            return FakeOptional(self.log, 'tf', 'hollow-country-tactical-flava', self.allowlist, **self.optional['tf'])
         return FakeMarkers(self.log)
 
+    auto_vanilla = True  # pass --vanilla-addons with --tactical-flava (the default is <server root>/addons)
+
     def args(self, command='plan', *extra):
+        extra = list(extra)
+        if self.auto_vanilla and '--tactical-flava' in extra and '--vanilla-addons' not in extra:
+            extra += ['--vanilla-addons', str(self.vanilla)]
         return [command, '--server-root', str(self.server), '--mission', str(self.mission),
                 '--profiles', str(self.profiles), '--mod', str(self.built), '--mod-dest', str(self.dest), *extra]
 
@@ -680,7 +844,7 @@ class Safety(SessionCase):
 class Apply(SessionCase):
     def test_apply_does_all_five_steps_with_backup_and_receipt_first(self):
         original = self.cfg.read_bytes()
-        code, out, err = self.run_cli(self.args('apply', '--snafu', str(self.snafu)))
+        code, out, err = self.run_cli(self.args('apply'))
         self.assertEqual(code, 0, err)
         self.assertIn('APPLIED', out)
         # 1. mod folder: addons plus keys because signed, hashes equal the source
@@ -708,8 +872,6 @@ class Apply(SessionCase):
         self.assertEqual(sorted(p.name for p in base.iterdir()), ['atmosphere.enable', 'events.enable', 'fuel_siphon.enable'])
         self.assertEqual(sorted(Path(p).name for p in receipt['markers']['created']),
                          ['atmosphere.enable', 'events.enable', 'fuel_siphon.enable'])
-        # SNAFU is read-only
-        self.assertEqual([p.name for p in self.snafu.rglob('*')], ['addons', 'snafu_synthetic.pbo'])
 
     def test_apply_markers_none_and_named_and_skipping_the_deltas(self):
         code, _, err = self.run_cli(self.args('apply', '--markers', 'fuel_siphon', '--no-gameplay',
@@ -1127,11 +1289,755 @@ class Interrupted(SessionCase):
         self.assertIs(FakeMarkers.apply_plan, original_apply)
 
 
+class OptionalSteps(SessionCase):
+    """--interiors, --expansion-ai and --markers (doc-listed names, all-local) as opt-in session steps."""
+
+    def setUp(self):
+        super().setUp()
+        self.workshop = self.world / 'workshop'
+        for name in EXPANSION_FOLDERS:
+            (self.workshop / name / 'addons').mkdir(parents=True)
+            (self.workshop / name / 'addons' / 'synthetic.pbo').write_bytes(b'synthetic third-party bytes ' + name.encode())
+        self.ai_built = self.world / 'built' / '@HollowCountryExpansionAI'
+        (self.ai_built / 'addons').mkdir(parents=True)
+        self.ai_blob = ai_pbo_blob()
+        (self.ai_built / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(self.ai_blob)
+        self.ai_dest = self.world / 'session' / '@HollowCountryExpansionAI'
+
+    def ai_args(self, command='plan', *extra):
+        return self.args(command, '--expansion-ai', '--workshop-dir', str(self.workshop),
+                         '--expansion-ai-mod', str(self.ai_built), '--expansion-ai-dest', str(self.ai_dest), *extra)
+
+    def receipt(self):
+        return json.loads((self.state / lts.RECEIPT_NAME).read_text())
+
+    def steps(self):
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server), '--dry-run'])
+        self.assertEqual((code, err), (0, ''), out)
+        names = {'serverDZ.cfg': 'cfg', 'server keys': 'server_keys', 'mod folder': 'mod',
+                 'Expansion AI addon folder': 'expansion_ai'}
+        found = [line[len('would '):].split(':')[0] for line in out.splitlines() if line.startswith('would ')]
+        return [names.get(name, name) for name in found]
+
+    def test_no_new_step_appears_unless_asked_for(self):
+        code, out, err = self.run_cli(self.args('plan'))
+        self.assertEqual(code, 0, err)
+        for word in ('Interiors', 'Expansion', 'AISettings'):
+            self.assertNotIn(word, out)
+        self.assertEqual([n for n, *_ in self.log if n.startswith('interiors')], [])
+
+    # ---- interiors
+    def test_plan_lists_the_interiors_install_and_writes_nothing(self):
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('plan', '--interiors'))
+        self.assertEqual(code, 0, err)
+        self.assertIn('Interiors data pack', out)
+        self.assertIn(str(self.profiles / 'HollowCountry'), out)
+        self.assertIn('measured-interiors', out)  # the pending component is surfaced, not hidden
+        self.assertEqual(before, self.tree(self.world))
+        self.assertNotIn('interiors.install', [n for n, *_ in self.log])
+
+    def test_apply_installs_after_the_economy_before_the_markers_and_records_it_in_the_receipt(self):
+        code, out, err = self.run_cli(self.args('apply', '--interiors'))
+        self.assertEqual(code, 0, err)
+        order = [n for n, *_ in self.log if n in ('economy.install_delta', 'interiors.install')]
+        self.assertEqual(order, ['economy.install_delta', 'interiors.install'])
+        install = [row for row in self.log if row[0] == 'interiors.install'][0]
+        self.assertEqual(install[1:], (str(self.repo / 'mission/hollow-country/interiors'), str(self.profiles / 'HollowCountry')))
+        receipt = self.receipt()
+        self.assertEqual(receipt['steps']['interiors'], 'done')
+        self.assertEqual(receipt['interiors']['target'], str(self.profiles / 'HollowCountry'))
+        self.assertTrue((self.profiles / 'HollowCountry' / 'hc-interiors-pack' / 'receipt.json').is_file())
+        self.assertTrue((self.profiles / 'HollowCountry' / 'acceptance').is_dir())  # markers coexist
+
+    def test_rollback_runs_in_reverse_order_and_leaves_the_world_byte_identical(self):
+        before = self.tree(self.world)
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors'))[0], 0)
+        self.assertEqual(self.steps(), ['markers', 'interiors', 'economy', 'gameplay', 'cfg', 'server_keys', 'mod'])
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual((code, err), (0, ''), out)
+        self.assertEqual(before, self.tree(self.world))
+        self.assertIn('interiors.rollback', [n for n, *_ in self.log])
+
+    def test_interiors_pack_that_fails_validation_is_refused_before_anything_is_written(self):
+        self.interiors_errors = ['interiors.json: synthetic validation failure']
+        before = self.tree(self.world)
+        for command in ('plan', 'apply'):
+            code, out, err = self.run_cli(self.args(command, '--interiors'))
+            self.assertEqual(code, 2, out)
+            self.assertIn('synthetic validation failure', err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_an_already_installed_interiors_pack_is_refused_and_not_touched(self):
+        managed = self.profiles / 'HollowCountry' / 'hc-interiors-pack'
+        managed.mkdir(parents=True)
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('apply', '--interiors'))
+        self.assertEqual(code, 2, out)
+        self.assertIn('interiors', err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_a_drifted_interiors_install_refuses_rollback_before_any_change(self):
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors'))[0], 0)
+        (self.profiles / 'HollowCountry' / 'stray.json').write_text('operator file')
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual(code, 2, out)
+        self.assertIn('interiors', err)
+        self.assertEqual(before, self.tree(self.world))  # markers, economy and cfg untouched by the refused attempt
+        (self.profiles / 'HollowCountry' / 'stray.json').unlink()
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+
+    # ---- Expansion AI
+    def test_expansion_ai_needs_its_inputs_and_the_flags_need_the_step(self):
+        for argv in (self.args('plan', '--expansion-ai'),
+                     self.args('plan', '--expansion-ai', '--workshop-dir', str(self.workshop)),
+                     self.args('plan', '--workshop-dir', str(self.workshop))):
+            code, out, err = self.run_cli(argv)
+            self.assertEqual(code, 2, out)
+            self.assertIn('expansion', err.lower())
+
+    def test_missing_expansion_dependencies_are_refused_by_name_and_nothing_is_copied(self):
+        shutil.rmtree(self.workshop / '@CF')
+        shutil.rmtree(self.workshop / '@DayZ-Expansion-AI')
+        before = self.tree(self.world)
+        for command in ('plan', 'apply'):
+            code, out, err = self.run_cli(self.ai_args(command))
+            self.assertEqual(code, 2, out)
+            self.assertIn('CF', err)
+            self.assertIn('Expansion-AI', err)
+            self.assertIn('2792982069', err)
+            self.assertNotIn('Dabs', err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_a_workshop_id_folder_satisfies_a_dependency(self):
+        (self.workshop / '@CF').rename(self.workshop / '1559212036')
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual(code, 0, err)
+        self.assertIn(str(self.workshop / '1559212036'), out)
+
+    def test_plan_prints_subscriptions_the_merge_instruction_and_the_mod_order_without_writing(self):
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.ai_args('plan', '--snafu', str(self.snafu), '--tactical-flava', str(self.tf)))
+        self.assertEqual(code, 0, err)
+        for text in ('CF', 'Dabs Framework', 'Expansion-Animations', 'Expansion-Core', '2291785308', 'Expansion-AI',
+                     '2792982069', 'never copied'):
+            self.assertIn(text, out)
+        self.assertIn('AISettings.merge.json', out)
+        self.assertIn('ExpansionMod', out)
+        self.assertIn('manual', out.lower())
+        deps = [self.workshop / n for n in ('@CF', '@Dabs Framework', '@Expansion-Animations',
+                                             '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')]
+        mods = ';'.join([str(d) for d in deps] + [str(self.snafu), str(self.tf), str(self.dest)])
+        self.assertEqual(out.count('-mod=' + mods), 2)  # server and client; HC last, the AI addon is not in either
+        self.assertNotIn(str(self.ai_dest) + ';', out)
+        self.assertNotIn('-mod=' + mods + ';' + str(self.ai_dest), out)
+        self.assertEqual(out.count('-serverMod=' + str(self.ai_dest)), 1)  # server only, after HollowCountry
+        server_lines = out.split('Client (PowerShell')[0]
+        client_lines = out.split('Client (PowerShell')[1]
+        self.assertIn('-serverMod=' + str(self.ai_dest), server_lines)
+        self.assertNotIn('serverMod', client_lines.split('NOTE:')[0])
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_apply_stages_only_the_hollow_country_addon_never_touches_expansion_or_the_settings(self):
+        workshop_before = self.tree(self.workshop)
+        code, out, err = self.run_cli(self.ai_args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(sorted(p.name for p in (self.ai_dest / 'addons').iterdir()), ['hollowcountryexpansionai.pbo'])
+        self.assertEqual(self.tree(self.workshop), workshop_before)
+        self.assertFalse((self.profiles / 'ExpansionMod').exists())  # the merge is printed, never applied
+        receipt = self.receipt()
+        self.assertEqual(receipt['steps']['expansion_ai'], 'done')
+        self.assertEqual(receipt['expansion_ai']['dest'], str(self.ai_dest))
+        self.assertIn('addons/hollowcountryexpansionai.pbo', receipt['expansion_ai']['files'])
+        self.assertIn('AISettings.merge.json', out)
+
+    def test_rollback_removes_the_ai_addon_before_anything_older_and_keeps_expansion(self):
+        before = self.tree(self.world)
+        self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors'))[0], 0)
+        self.assertEqual(self.steps(), ['markers', 'expansion_ai', 'interiors', 'economy', 'gameplay', 'cfg',
+                                        'server_keys', 'mod'])
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_an_ai_destination_equal_to_the_main_one_or_existing_is_refused(self):
+        for destination in (self.dest, self.world / 'session'):
+            code, out, err = self.run_cli(self.args(
+                'plan', '--expansion-ai', '--workshop-dir', str(self.workshop), '--expansion-ai-mod', str(self.ai_built),
+                '--expansion-ai-dest', str(destination)))
+            self.assertEqual(code, 2, out)
+
+    # ---- markers
+    def test_marker_names_come_from_the_acceptance_table_parsed_at_run_time(self):
+        for bad in ('prose_only', 'checklist_only', 'events,prose_only'):
+            code, out, err = self.run_cli(self.args('plan', '--markers', bad))
+            self.assertEqual(code, 2, bad)
+            self.assertIn('LOCAL_ACCEPTANCE_V1', err)
+        doc = self.repo / 'docs' / 'LOCAL_ACCEPTANCE_V1.md'
+        doc.write_text(MARKER_DOC + '| `$profile:HollowCountry/acceptance/atmosphere_two.enable` | `A.B` | `a.c` |\n')
+        code, out, err = self.run_cli(self.args('plan', '--markers', 'atmosphere_two'))
+        self.assertEqual(code, 2)  # in the table now, but the scan still has no such marker
+        self.assertIn('unknown marker', err)
+
+    def test_all_local_creates_every_listed_marker_and_rollback_removes_only_its_own(self):
+        base = self.profiles / 'HollowCountry' / 'acceptance'
+        base.mkdir(parents=True)
+        (base / 'events.enable').write_text('')  # pre-existing: the operator's, not ours
+        code, out, err = self.run_cli(self.args('apply', '--markers', 'all-local', '--no-gameplay',
+                                                '--economy-profile', 'none'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(sorted(p.name for p in base.iterdir()), ['atmosphere.enable', 'events.enable', 'fuel_siphon.enable'])
+        self.assertEqual(sorted(Path(p).name for p in self.receipt()['markers']['created']),
+                         ['atmosphere.enable', 'fuel_siphon.enable'])
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual([p.name for p in base.iterdir()], ['events.enable'])
+
+    def test_all_local_without_the_table_is_refused(self):
+        (self.repo / 'docs' / 'LOCAL_ACCEPTANCE_V1.md').write_text('no table here\n')
+        code, out, err = self.run_cli(self.args('plan', '--markers', 'all-local'))
+        self.assertEqual(code, 2)
+        self.assertIn('LOCAL_ACCEPTANCE_V1', err)
+
+    def test_the_default_all_and_none_do_not_need_the_table(self):
+        (self.repo / 'docs' / 'LOCAL_ACCEPTANCE_V1.md').unlink()
+        self.assertEqual(self.run_cli(self.args('plan', '--markers', 'all'))[0], 0)
+        self.assertEqual(self.run_cli(self.args('plan', '--markers', 'none'))[0], 0)
+
+    def test_real_acceptance_table_in_this_checkout_lists_only_names_the_code_scan_knows(self):
+        from tools.audit import acceptance_markers
+        names = lts.local_marker_names(ROOT)
+        self.assertGreaterEqual(len(names), 10)
+        self.assertEqual(len(names), len(set(names)))
+        self.assertFalse(set(names) - set(acceptance_markers.creatable_names(acceptance_markers.scan_tree(ROOT))))
+
+    # ---- running server
+    def test_apply_and_rollback_refuse_while_the_server_runs_and_plan_only_warns(self):
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors'))[0], 0)
+        self.running = [4242]
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual(code, 2)
+        self.assertIn('server is running', err)
+        self.assertEqual(before, self.tree(self.world))
+        self.running = []
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.running = [4242]
+        code, out, err = self.run_cli(self.args('apply', '--interiors'))
+        self.assertEqual(code, 2)
+        self.assertIn('server is running', err)
+        self.assertFalse(self.state.exists())
+        code, out, err = self.run_cli(self.args('plan', '--interiors'))
+        self.assertEqual(code, 0, err)
+        self.assertIn('server is running', out)
+
+    def test_a_running_dayzdiag_server_is_detected_but_a_diag_client_is_not(self):
+        proc = self.base / 'proc'
+        for pid, cmd in (('20', b'DayZDiag_x64.exe\0-server\0-config=serverDZ.cfg\0'),
+                         ('21', b'Z:\\srv\\DayZDiag_x64.exe\0-client\0-connect=127.0.0.1\0'),
+                         ('22', b'DayZDiag_x64.exe\0-mod=@x\0')):
+            (proc / pid).mkdir(parents=True)
+            (proc / pid / 'cmdline').write_bytes(cmd)
+        self.assertEqual(lts.find_server_processes(proc, query=lambda: []), [20])
+
+    def test_the_windows_query_finds_dayzdiag_servers_through_their_command_line(self):
+        def run(argv, **kwargs):
+            text = ' '.join(argv).lower()
+            out = ''
+            if 'dayzserver' in text:
+                out = '"DayZServer_x64.exe","300","Console","1","1,000 K"\n'
+            elif argv[0].endswith('powershell.exe'):
+                out = '400\tDayZDiag_x64.exe -server -config=serverDZ.cfg\n401\tDayZDiag_x64.exe -connect=1.2.3.4\n'
+            return subprocess.CompletedProcess(argv, 0, out, '')
+        which = {'tasklist.exe': '/x/tasklist.exe', 'powershell.exe': '/x/powershell.exe'}
+        with mock.patch.object(lts.shutil, 'which', lambda name: which.get(name)), \
+                mock.patch.object(lts.subprocess, 'run', run):
+            self.assertEqual(sorted(lts.windows_task_list()), [300, 400])
+        which.pop('powershell.exe')  # cannot read command lines: every DayZDiag counts (fail closed)
+
+        def run_no_shell(argv, **kwargs):
+            out = '"DayZDiag_x64.exe","500","Console","1","1 K"\n' if 'dayzdiag' in ' '.join(argv).lower() else ''
+            return subprocess.CompletedProcess(argv, 0, out, '')
+        with mock.patch.object(lts.shutil, 'which', lambda name: which.get(name)), \
+                mock.patch.object(lts.subprocess, 'run', run_no_shell):
+            self.assertEqual(lts.windows_task_list(), [500])
+
+    def test_running_servers_reads_process_command_lines_and_the_windows_task_list(self):
+        proc = self.base / 'proc'
+        for pid, cmd in (('10', b'/usr/bin/python3\0x'), ('11', b'Z:\\srv\\DayZServer_x64.exe\0-config=x'), ('abc', b'DayZServer_x64')):
+            (proc / pid).mkdir(parents=True)
+            (proc / pid / 'cmdline').write_bytes(cmd)
+        self.assertEqual(lts.find_server_processes(proc, query=lambda: []), [11])
+        self.assertEqual(lts.find_server_processes(proc, query=lambda: [77]), [11, 77])
+        self.assertEqual(lts.find_server_processes(self.base / 'missing', query=lambda: []), [])
+
+    # ---- everything together, and the Tactical Flava path
+    # ---- review round: P1 interiors preflight, P1 AI drift, P1 AI source, P2 casing, serverMod
+
+    def test_a_hard_linked_interiors_file_refuses_the_dry_run_and_the_real_rollback_before_any_change(self):
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors', '--markers', 'all-local'))[0], 0)
+        os.link(self.profiles / 'HollowCountry' / 'interiors.json', self.world / 'elsewhere.json')
+        before = self.tree(self.world)
+        for argv in (['rollback', '--server-root', str(self.server), '--dry-run'], ['rollback', '--server-root', str(self.server)]):
+            code, out, err = self.run_cli(argv)
+            self.assertEqual(code, 2, argv)
+            self.assertIn('interiors', err)
+            self.assertEqual(before, self.tree(self.world))  # all markers still present, receipt kept
+        (self.world / 'elsewhere.json').unlink()
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+
+    def test_drift_in_a_completed_ai_addon_refuses_the_whole_rollback_before_any_change(self):
+        self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors', '--markers', 'all-local'))[0], 0)
+        staged = self.ai_dest / 'addons' / 'hollowcountryexpansionai.pbo'
+        original = staged.read_bytes()
+        staged.write_bytes(original + b'drift')
+        before = self.tree(self.world)
+        for argv in (['rollback', '--server-root', str(self.server), '--dry-run'], ['rollback', '--server-root', str(self.server)]):
+            code, out, err = self.run_cli(argv)
+            self.assertEqual(code, 2, argv)
+            self.assertIn('Expansion AI', err)
+            self.assertIn('drift', err)
+            self.assertEqual(before, self.tree(self.world))
+        staged.write_bytes(original)
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertFalse(self.ai_dest.exists())
+
+    def test_an_ai_source_inside_the_workshop_dir_is_refused_even_through_a_symlink(self):
+        stolen = self.workshop / '@CF' / 'addons' / 'x.pbo'
+        stolen.write_bytes(self.ai_blob)
+        link = self.world / 'built' / 'link.pbo'
+        link.symlink_to(stolen)
+        for source in (stolen, self.workshop / '@CF' / 'addons', link, self.workshop / '@CF' / 'addons' / '..' / 'addons' / 'x.pbo'):
+            before = self.tree(self.world)
+            code, out, err = self.run_cli(self.args(
+                'apply', '--expansion-ai', '--workshop-dir', str(self.workshop), '--expansion-ai-mod', str(source),
+                '--expansion-ai-dest', str(self.ai_dest)))
+            self.assertEqual(code, 2, source)
+            self.assertIn('Workshop', err)
+            self.assertEqual(before, self.tree(self.world))
+
+    def test_every_write_destination_is_kept_out_of_the_workshop_dir(self):
+        base = ['--expansion-ai', '--workshop-dir', str(self.workshop), '--expansion-ai-mod', str(self.ai_built),
+                '--expansion-ai-dest', str(self.ai_dest)]
+        inner = self.workshop / '@DayZ-Expansion-AI' / 'sub'
+        (inner / 'profiles').mkdir(parents=True)
+        (inner / 'mission').mkdir()
+        link = self.world / 'link-to-workshop'
+        link.symlink_to(self.workshop / '@DayZ-Expansion-AI')
+        for flag, value in (('--mod-dest', inner / '@HollowCountry'), ('--mod-dest', link / 'sub' / '@HollowCountry'),
+                            ('--profiles', inner / 'profiles'), ('--mission', inner / 'mission')):
+            argv = self.args('apply', *base)
+            argv[argv.index(flag) + 1] = str(value)
+            before = self.tree(self.world)
+            with self.subTest(flag=flag, value=str(value)):
+                code, out, err = self.run_cli(argv)
+                self.assertEqual(code, 2, out)
+                self.assertIn('Workshop' if 'link-to' not in str(value) else 'symlink', err)
+                self.assertEqual(self.tree(self.world), before)
+                self.assertFalse(self.state.exists())
+                plan_code, _, plan_err = self.run_cli(['plan', *argv[1:]])
+                self.assertEqual(plan_code, 2)
+
+    def test_an_operator_interiors_file_refuses_at_plan_time_and_apply_changes_nothing(self):
+        (self.profiles / 'HollowCountry').mkdir()
+        (self.profiles / 'HollowCountry' / 'interiors.json').write_text('{"operator":true}')
+        before = self.tree(self.world)
+        for command in ('plan', 'apply'):
+            code, out, err = self.run_cli(self.args(command, '--interiors'))
+            self.assertEqual(code, 2, command)
+            self.assertIn('interiors', err)
+            self.assertEqual(self.tree(self.world), before, command)
+
+    def test_existing_optional_managed_paths_refuse_at_plan_time_and_apply_changes_nothing(self):
+        for flag, folder in (('--snafu', 'hollow-country-snafu'), ('--tactical-flava', 'hollow-country-tactical-flava')):
+            (self.mission / folder).mkdir()
+            (self.mission / folder / 'operator.txt').write_text('mine')
+            value = str(self.snafu if flag == '--snafu' else self.tf)
+            before = self.tree(self.world)
+            for command in ('plan', 'apply'):
+                with self.subTest(flag=flag, command=command):
+                    code, out, err = self.run_cli(self.args(command, flag, value))
+                    self.assertEqual(code, 2, out)
+                    self.assertIn(folder, err)
+                    self.assertEqual(self.tree(self.world), before)
+            shutil.rmtree(self.mission / folder)
+
+    def test_for_every_refusal_class_plan_already_refuses_and_apply_leaves_the_tree_byte_identical(self):
+        def operator_interiors():
+            (self.profiles / 'HollowCountry').mkdir(exist_ok=True)
+            (self.profiles / 'HollowCountry' / 'interiors.json').write_text('{"operator":true}')
+            return ['--interiors']
+
+        def optional_path():
+            (self.mission / 'hollow-country-snafu').mkdir()
+            (self.mission / 'hollow-country-snafu' / 'operator.txt').write_text('mine')
+            return ['--snafu', str(self.snafu)]
+
+        def workshop_dest():
+            argv = list(self.ai_args('apply')[1:])
+            inner = self.workshop / '@DayZ-Expansion-AI'
+            argv[argv.index('--mod-dest') + 1] = str(inner / '@HollowCountry')
+            return argv
+
+        def running_diag():
+            self.running = [4242]
+            return []
+
+        cases = (('operator interiors file', operator_interiors), ('optional managed path', optional_path),
+                 ('mod-dest in the Workshop', workshop_dest), ('server running', running_diag))
+        for label, setup in cases:
+            with self.subTest(label):
+                self.tearDown_world()
+                extra = setup()
+                argv_tail = extra
+                before = self.tree(self.world)
+                if label == 'mod-dest in the Workshop':
+                    plan_argv, apply_argv = ['plan', *argv_tail], ['apply', *argv_tail]
+                else:
+                    plan_argv, apply_argv = self.args('plan', *argv_tail), self.args('apply', *argv_tail)
+                if label == 'server running':
+                    self.assertEqual(self.run_cli(plan_argv)[0], 0)  # a plan only warns; apply is what refuses
+                else:
+                    self.assertEqual(self.run_cli(plan_argv)[0], 2, label)
+                self.assertEqual(self.run_cli(apply_argv)[0], 2, label)
+                self.assertEqual(self.tree(self.world), before, label)
+                self.running = []
+
+    def tearDown_world(self):
+        """Reset the synthetic mission, profiles and server to their starting content between sub-cases."""
+        for directory in (self.mission, self.profiles):
+            for child in list(directory.iterdir()):
+                shutil.rmtree(child) if child.is_dir() else child.unlink()
+        (self.mission / 'cfggameplay.json').write_text('{"version": 1}')
+        (self.mission / 'cfgeconomycore.xml').write_text('<economycore/>')
+        self.running = []
+
+    def test_an_ai_destination_inside_the_workshop_dir_is_refused(self):
+        code, out, err = self.run_cli(self.args(
+            'plan', '--expansion-ai', '--workshop-dir', str(self.workshop), '--expansion-ai-mod', str(self.ai_built),
+            '--expansion-ai-dest', str(self.workshop / '@HollowCountryExpansionAI')))
+        self.assertEqual(code, 2)
+        self.assertIn('Workshop', err)
+
+    def test_the_ai_pbo_must_carry_the_ai_prefix_and_cfgpatches_name(self):
+        pbo_path = self.ai_built / 'addons' / 'hollowcountryexpansionai.pbo'
+        for label, blob in (('the HollowCountry PBO', self.pbo_blob),
+                            ('another prefix', ai_pbo_blob(prefix='SomethingElse')),
+                            ('another CfgPatches name', ai_pbo_blob(config=b'class CfgPatches { class Other {}; };')),
+                            ('no config member', ai_pbo_blob(member='readme.txt')),
+                            ('a bad checksum', self.ai_blob[:-1] + bytes([self.ai_blob[-1] ^ 1]))):
+            pbo_path.write_bytes(blob)
+            code, out, err = self.run_cli(self.ai_args('plan'))
+            self.assertEqual(code, 2, label)
+            self.assertIn('Expansion AI', err, label)
+        pbo_path.write_bytes(ai_pbo_blob(member='config.bin', config=b'\0raP\0CfgPatches\0HollowCountryExpansionAI\0'))
+        self.assertEqual(self.run_cli(self.ai_args('plan'))[0], 0)  # a rapified config carries the same names
+        pbo_path.write_bytes(self.ai_blob)
+        self.assertEqual(self.run_cli(self.ai_args('plan'))[0], 0)
+
+    def test_expansion_folders_are_found_whatever_the_case_of_addons(self):
+        (self.workshop / '@CF' / 'addons').rename(self.workshop / '@CF' / 'Addons')
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual((code, err), (0, ''))
+
+    def test_the_ai_addon_loads_as_a_server_mod_after_hollow_country_and_both_arguments_are_printed(self):
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual((code, err), (0, ''))
+        server = [row for row in out.splitlines() if 'DayZServer_x64.exe' in row][0]
+        client = [row for row in out.splitlines() if 'DayZ_BE.exe' in row][0]
+        mods = server.index('-mod=')
+        self.assertIn(str(self.dest), server[mods:server.index("'", mods)])
+        self.assertNotIn(str(self.ai_dest), server[mods:server.index("'", mods)])
+        self.assertIn('-serverMod=' + str(self.ai_dest), server)
+        self.assertLess(server.index(str(self.dest)), server.index('-serverMod='))
+        self.assertNotIn(str(self.ai_dest), client)
+        self.assertNotIn('serverMod', client)
+        self.assertIn('-serverMod', out.split('6. Expansion AI')[1].split('Server (PowerShell)')[0])
+
+
+    def test_a_full_session_round_trips_and_orders_every_step(self):
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.ai_args('apply', '--interiors', '--markers', 'all-local',
+                                                   '--tactical-flava', str(self.tf), '--install-key'))
+        self.assertEqual(code, 0, err)
+        receipt = self.receipt()
+        self.assertEqual([k for k in ('mod', 'server_keys', 'cfg', 'gameplay', 'economy', 'tactical_flava', 'interiors',
+                                      'expansion_ai', 'markers') if receipt['steps'].get(k) == 'done'],
+                         ['mod', 'server_keys', 'cfg', 'gameplay', 'economy', 'tactical_flava', 'interiors',
+                          'expansion_ai', 'markers'])
+        self.assertEqual(self.steps(), ['markers', 'expansion_ai', 'interiors', 'tactical_flava', 'economy',
+                                        'gameplay', 'cfg', 'server_keys', 'mod'])
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual(before, self.tree(self.world))
+
+
+class OptionalDeltas(SessionCase):
+    """--snafu and --tactical-flava install the optional-subset CE deltas through snafu_optional and
+    tactical_flava_optional (their own verify/generate/install/rollback), after economy and before interiors."""
+    auto_vanilla = False
+
+    def setUp(self):
+        super().setUp()
+        (self.server / 'addons').mkdir()  # the game's own Addons folder, the --vanilla-addons default
+
+    def both(self, *extra):
+        return ['--snafu', str(self.snafu), '--tactical-flava', str(self.tf), *extra]
+
+    def real(self, *names):
+        """Log entries of the named calls that ran on the real mission (not a scratch rehearsal or trial)."""
+        return [name for name, *rest in self.log if name in names and str(self.mission) in rest]
+
+    def test_both_flags_install_snafu_then_tactical_flava_after_economy_before_interiors(self):
+        code, out, err = self.run_cli(self.args('apply', *self.both('--interiors')))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.real('economy.install_delta', 'snafu.install', 'tf.install'),
+                         ['economy.install_delta', 'snafu.install', 'tf.install'])
+        calls = [row[0] for row in self.log if row[0] in ('economy.install_delta', 'snafu.install', 'tf.install',
+                                                           'interiors.install')
+                 and (row[0] == 'interiors.install' or str(self.mission) in row[1:])]
+        self.assertEqual(calls, ['economy.install_delta', 'snafu.install', 'tf.install', 'interiors.install'])
+        receipt = json.loads((self.state / lts.RECEIPT_NAME).read_text())
+        for step in ('economy', 'snafu', 'tactical_flava', 'interiors'):
+            self.assertEqual(receipt['steps'][step], 'done')
+        self.assertEqual(receipt['snafu_delta']['install'], str(self.snafu))
+        self.assertEqual(receipt['tactical_flava_delta']['install'], str(self.tf))
+        self.assertEqual(receipt['tactical_flava_delta']['vanilla_addons'], str(self.server / 'addons'))
+        self.assertEqual(receipt['snafu_delta']['verification'], 'verified')
+        self.assertTrue((self.mission / 'hollow-country-snafu' / 'receipt.json').is_file())
+        self.assertTrue((self.mission / 'hollow-country-tactical-flava' / 'receipt.json').is_file())
+        self.assertTrue((self.state / 'deltas' / 'snafu').is_dir())
+        self.assertTrue((self.state / 'deltas' / 'tactical_flava').is_dir())
+
+    def test_an_installer_rollback_that_raises_file_not_found_refuses_the_session_rollback_with_nothing_changed(self):
+        self.assertEqual(self.run_cli(self.args('apply', '--snafu', str(self.snafu)))[0], 0)
+        self.optional['snafu']['rollback_missing'] = True
+        for stamp in (False, True):  # a finished step, then one an interrupted run left 'started'
+            if stamp:
+                path = self.state / lts.RECEIPT_NAME
+                data = json.loads(path.read_text())
+                data['steps']['snafu'] = 'started'
+                path.write_text(json.dumps(data))
+            self.assert_file_not_found_refuses()
+
+    def assert_file_not_found_refuses(self):
+        before = self.tree(self.world)
+        for extra in ([], ['--dry-run']):
+            code, out, err = self.run_cli(['rollback', '--server-root', str(self.server), *extra])
+            self.assertEqual(code, 2, (extra, out))
+            self.assertIn('synthetic missing managed file', err)
+            self.assertEqual(self.tree(self.world), before)
+        self.assertTrue((self.state / lts.RECEIPT_NAME).is_file())
+
+    def test_verification_precedes_every_write_and_tf_gets_the_vanilla_addons(self):
+        self.assertEqual(self.run_cli(self.args('apply', *self.both()))[0], 0)
+        names = [row[0] for row in self.log]
+        self.assertLess(names.index('snafu.verify_install'), names.index('snafu.install'))
+        self.assertLess(names.index('tf.verify_install'), names.index('economy.install_delta'))
+        self.assertIn(('tf.load_vanilla', str(self.server / 'addons')), self.log)
+        self.assertNotIn('snafu.load_vanilla', names)
+
+    def test_vanilla_addons_flag_overrides_the_default(self):
+        other = self.world / 'other-game-addons'
+        other.mkdir()
+        self.assertEqual(self.run_cli(self.args('apply', *self.both('--vanilla-addons', str(other))))[0], 0)
+        self.assertIn(('tf.load_vanilla', str(other)), self.log)
+        receipt = json.loads((self.state / lts.RECEIPT_NAME).read_text())
+        self.assertEqual(receipt['tactical_flava_delta']['vanilla_addons'], str(other))
+
+    def test_plan_rehearses_on_a_scratch_copy_and_writes_nothing(self):
+        before = self.tree(self.world, self.repo)
+        code, out, err = self.run_cli(self.args('plan', *self.both()))
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(before, self.tree(self.world, self.repo))
+        self.assertEqual(self.real('snafu.install', 'tf.install', 'economy.install_delta'), [])
+        scratch = [row for row in self.log if row[0] in ('snafu.install', 'tf.install')]
+        self.assertEqual([row[0] for row in scratch], ['snafu.install', 'tf.install'])
+        self.assertTrue(all('hc-delta-rehearsal' in row[1] for row in scratch))
+        self.assertIn('SNAFU subset CE delta', out)
+        self.assertIn('Tactical Flava subset CE delta', out)
+        self.assertIn('snafu_optional', out)
+        self.assertIn('read-only', out)
+
+    def test_without_the_flags_nothing_optional_is_verified_or_installed(self):
+        self.assertEqual(self.run_cli(self.args('apply'))[0], 0)
+        self.assertFalse([row for row in self.log if row[0].startswith(('snafu.', 'tf.'))])
+
+    def test_snafu_alone_installs_only_the_snafu_delta(self):
+        self.assertEqual(self.run_cli(self.args('apply', '--snafu', str(self.snafu)))[0], 0)
+        self.assertEqual(self.real('snafu.install', 'tf.install'), ['snafu.install'])
+        self.assertTrue((self.mission / 'hollow-country-snafu').is_dir())
+        self.assertFalse((self.mission / 'hollow-country-tactical-flava').exists())
+        receipt = json.loads((self.state / lts.RECEIPT_NAME).read_text())
+        self.assertIsNone(receipt['tactical_flava_delta'])
+        self.assertNotIn('tactical_flava', receipt['steps'])
+
+    def test_tactical_flava_alone_installs_only_its_delta(self):
+        self.assertEqual(self.run_cli(self.args('apply', '--tactical-flava', str(self.tf)))[0], 0)
+        self.assertEqual(self.real('snafu.install', 'tf.install'), ['tf.install'])
+        self.assertIsNone(json.loads((self.state / lts.RECEIPT_NAME).read_text())['snafu_delta'])
+
+    def test_rollback_runs_in_reverse_and_the_whole_tree_is_byte_identical(self):
+        before = self.tree(self.server, self.mission, self.profiles, self.snafu, self.tf, self.world / 'session')
+        args = self.both('--interiors', '--markers', 'all-local')
+        self.assertEqual(self.run_cli(self.args('apply', *args))[0], 0)
+        self.assertIn('<!--tf-->', (self.mission / 'cfgeconomycore.xml').read_text())
+        del self.log[:]
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(self.real('tf.rollback', 'snafu.rollback', 'economy.rollback', 'gameplay.rollback'),
+                         ['tf.rollback', 'snafu.rollback', 'economy.rollback', 'gameplay.rollback'])
+        order = [row[0] for row in self.log if row[0] in ('interiors.rollback', 'tf.rollback', 'snafu.rollback',
+                                                           'economy.rollback') and 'hc-rollback-trial' not in ''.join(row[1:])]
+        self.assertEqual(order, ['interiors.rollback', 'tf.rollback', 'snafu.rollback', 'economy.rollback'])
+        self.assertEqual(before, self.tree(self.server, self.mission, self.profiles, self.snafu, self.tf,
+                                           self.world / 'session'))
+        self.assertEqual((self.mission / 'cfgeconomycore.xml').read_text(), '<economycore/>')
+
+    def test_rollback_dry_run_changes_nothing_and_lists_the_optional_steps(self):
+        self.assertEqual(self.run_cli(self.args('apply', *self.both()))[0], 0)
+        before = self.tree(self.server, self.mission, self.profiles)
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server), '--dry-run'])
+        self.assertEqual((code, err), (0, ''))
+        self.assertEqual(before, self.tree(self.server, self.mission, self.profiles))
+        self.assertLess(out.index('tactical_flava'), out.index('snafu'))
+        self.assertLess(out.index('snafu'), out.index('economy'))
+
+    def test_a_drifted_snafu_delta_refuses_the_whole_rollback_before_any_change(self):
+        self.assertEqual(self.run_cli(self.args('apply', *self.both('--markers', 'none')))[0], 0)
+        core = (self.mission / 'cfgeconomycore.xml').read_text()
+        (self.mission / 'cfgeconomycore.xml').write_text(core + 'hand edit')  # tf is no longer the last writer
+        before = self.tree(self.server, self.mission, self.profiles)
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual(code, 2)
+        self.assertIn('tactical_flava', err)
+        self.assertIn('would be refused', err)
+        self.assertEqual(before, self.tree(self.server, self.mission, self.profiles))
+
+    def test_a_failed_tf_install_leaves_a_receipt_and_rollback_restores_everything(self):
+        before = self.tree(self.server, self.mission, self.profiles, self.world / 'session')
+        self.optional['tf']['fail_install'] = True
+        code, out, err = self.run_cli(self.args('apply', *self.both()))
+        self.assertEqual(code, 2)
+        self.assertIn('synthetic installer failure', err)
+        receipt = json.loads((self.state / lts.RECEIPT_NAME).read_text())
+        self.assertEqual((receipt['steps']['snafu'], receipt['steps']['tactical_flava']), ('done', 'started'))
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual(before, self.tree(self.server, self.mission, self.profiles, self.world / 'session'))
+
+    def test_an_unverified_snafu_install_is_refused_before_anything_is_written(self):
+        self.optional['snafu']['status'] = 'unverified'
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('apply', *self.both()))
+        self.assertEqual(code, 2)
+        self.assertIn('SNAFU', err)
+        self.assertIn('publishedid-mismatch', err)
+        self.assertEqual(before, self.tree(self.world))
+        self.assertFalse(self.state.exists())
+
+    def test_an_unverified_tactical_flava_install_is_refused_before_anything_is_written(self):
+        self.optional['tf']['status'] = 'unverified'
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('apply', '--tactical-flava', str(self.tf)))
+        self.assertEqual(code, 2)
+        self.assertIn('Tactical Flava', err)
+        self.assertIn('publishedid-mismatch', err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_the_plan_refuses_an_unverified_install_too(self):
+        self.optional['tf']['status'] = 'unverified'
+        code, out, err = self.run_cli(self.args('plan', '--tactical-flava', str(self.tf)))
+        self.assertEqual(code, 2)
+        self.assertEqual(out, '')
+
+    def test_a_delta_that_cannot_be_generated_is_refused_at_plan_time(self):
+        self.optional['tf']['fail_generate'] = True
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('apply', *self.both()))
+        self.assertEqual(code, 2)
+        self.assertIn('Tactical Flava delta cannot be generated', err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_the_deltas_need_the_economy_install(self):
+        for flag, path in (('--snafu', self.snafu), ('--tactical-flava', self.tf)):
+            code, out, err = self.run_cli(self.args('plan', flag, str(path), '--economy-profile', 'none'))
+            self.assertEqual(code, 2)
+            self.assertIn('economy', err)
+
+    def test_tactical_flava_needs_a_vanilla_addons_folder(self):
+        shutil.rmtree(self.server / 'addons')
+        code, out, err = self.run_cli(self.args('plan', '--tactical-flava', str(self.tf)))
+        self.assertEqual(code, 2)
+        self.assertIn('--vanilla-addons', err)
+        # SNAFU does not read the game files
+        self.assertEqual(self.run_cli(self.args('plan', '--snafu', str(self.snafu)))[0], 0)
+
+    def test_vanilla_addons_only_applies_with_tactical_flava(self):
+        code, out, err = self.run_cli(self.args('plan', '--vanilla-addons', str(self.server / 'addons')))
+        self.assertEqual(code, 2)
+        self.assertIn('--tactical-flava', err)
+
+    def test_optional_installs_stay_read_only_and_never_copy_their_content(self):
+        before = self.tree(self.snafu, self.tf)
+        self.assertEqual(self.run_cli(self.args('apply', *self.both('--install-key')))[0], 0)
+        self.assertEqual(before, self.tree(self.snafu, self.tf))
+        owned = {str(p) for p in self.state.rglob('*')} | {str(p) for p in self.mission.rglob('*')}
+        self.assertFalse([p for p in owned if p.endswith(('.pbo', '.bikey')) and '/deltas/' in p])
+
+
+class PlannedDestinations(SessionCase):
+    """Review P1s: planned write destinations may not collide; a server seen while planning refuses apply;
+    a DayZDiag process with no readable command line counts as a possible server."""
+
+    def test_a_mod_destination_on_an_optional_installer_directory_is_refused_before_any_write(self):
+        for label, dest, extra in (('snafu', self.mission / 'hollow-country-snafu', ['--snafu', str(self.snafu)]),
+                                   ('economy', self.mission / 'hollow-country', []),
+                                   ('state', self.server / lts.STATE_NAME, [])):
+            with self.subTest(label):
+                argv = self.args('plan', *extra)
+                argv[argv.index('--mod-dest') + 1] = str(dest)
+                before = self.tree(self.world)
+                code, out, err = self.run_cli(argv)
+                self.assertEqual(code, 2, (out, err))
+                self.assertIn('destination', err)
+                argv[0] = 'apply'
+                code, out, err = self.run_cli(argv)
+                self.assertEqual(code, 2, (out, err))
+                self.assertEqual(self.tree(self.world), before)  # nothing was written, cfg and mission untouched
+                self.assertFalse([row for row in self.log if 'install' in row[0]], self.log)
+
+    def test_a_server_seen_during_planning_refuses_apply_before_any_write(self):
+        before = self.tree(self.world)
+        with mock.patch.object(lts, 'running_servers', side_effect=[[], [4242]]):
+            code, out, err = self.run_cli(self.args('apply'))
+        self.assertEqual(code, 2, (out, err))
+        self.assertIn('4242', err)
+        self.assertEqual(self.tree(self.world), before)
+        self.assertFalse(self.state.exists())
+
+    def test_a_dayzdiag_with_a_blank_command_line_counts_as_a_possible_server(self):
+        def run(argv, **kwargs):
+            out = ''
+            if argv[0].endswith('powershell.exe'):
+                out = '4242\t\n'
+            elif 'dayzdiag' in ' '.join(argv).lower():
+                out = '"DayZDiag_x64.exe","4242","Console","1","1 K"\n'
+            return subprocess.CompletedProcess(argv, 0, out, '')
+        which = {'tasklist.exe': '/x/tasklist.exe', 'powershell.exe': '/x/powershell.exe'}
+        with mock.patch.object(lts.shutil, 'which', lambda name: which.get(name)), \
+                mock.patch.object(lts.subprocess, 'run', run):
+            self.assertEqual(lts.windows_task_list(), [4242])
+
+
 @unittest.skipUnless(all((ROOT / p).is_file() for p in (
     'tools/package/gameplay.py', 'tools/audit/acceptance_markers.py', lts.GAMEPLAY_PROFILE, lts.GAMEPLAY_PRESET,
     lts.ECONOMY_PROFILES + 'baseline.json')), 'sibling gameplay/acceptance tools or committed profiles absent')
 class RealInstallers(unittest.TestCase):
     """The actual gameplay.py, economy.py and acceptance_markers.py on a synthetic mission copy."""
+
+    def setUp(self):
+        # The host may run an unrelated DayZ server (a probe); the running-server refusal has its own tests.
+        patcher = mock.patch.object(lts, 'running_servers', lambda: [])
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def test_apply_and_rollback_leave_the_mission_and_profile_byte_identical(self):
         from tests.unit import test_economy_contract, test_gameplay_delta
@@ -1162,6 +2068,130 @@ class RealInstallers(unittest.TestCase):
             self.assertEqual(lts.main(['rollback', '--server-root', str(server)], out=io.StringIO()), 0)
             after = {p: p.read_bytes() for p in list(mission.rglob('*')) + list(server.rglob('*')) if p.is_file()}
             self.assertEqual(before, after)
+
+    def test_the_real_interiors_pack_and_all_local_markers_install_and_roll_back_byte_identically(self):
+        from tests.unit import test_economy_contract, test_gameplay_delta
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-real-') as t:
+            base = Path(t)
+            mission, server, profiles = base / 'mission', base / 'server', base / 'profiles'
+            mission.mkdir()
+            test_economy_contract.synthetic(mission)
+            vanilla_usage_vocabulary(mission)
+            test_gameplay_delta.synthetic_source(base / 'gp')
+            shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
+            for directory in (server, profiles, base / 'out'):
+                directory.mkdir()
+            (server / 'serverDZ.cfg').write_bytes(CFG.encode())
+            built = base / 'built' / '@HollowCountry'
+            (built / 'addons').mkdir(parents=True)
+            (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
+            argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
+                    '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
+                    '--economy-profile', 'baseline', '--interiors', '--markers', 'all-local']
+
+            def everything():
+                return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out')
+                        for p in root.rglob('*') if p.is_file()}
+            before = everything()
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(lts.main(['apply'] + argv, out=out), 0, err.getvalue())
+                self.assertTrue((profiles / 'HollowCountry' / 'hc-interiors-pack' / 'receipt.json').is_file())
+                self.assertTrue((profiles / 'HollowCountry' / 'interiors.json').is_file())
+                self.assertTrue(list((profiles / 'HollowCountry' / 'acceptance').glob('*.enable')))
+                self.assertEqual(lts.main(['rollback', '--server-root', str(server)], out=io.StringIO()), 0, err.getvalue())
+            self.assertEqual(before, everything())
+            self.assertFalse((profiles / 'HollowCountry').exists())
+
+    def test_the_real_interiors_installer_agrees_with_the_dry_run_when_a_profile_file_is_hard_linked(self):
+        from tests.unit import test_economy_contract, test_gameplay_delta
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-real-') as t:
+            base = Path(t)
+            mission, server, profiles = base / 'mission', base / 'server', base / 'profiles'
+            mission.mkdir()
+            test_economy_contract.synthetic(mission)
+            vanilla_usage_vocabulary(mission)
+            test_gameplay_delta.synthetic_source(base / 'gp')
+            shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
+            for directory in (server, profiles, base / 'out'):
+                directory.mkdir()
+            (server / 'serverDZ.cfg').write_bytes(CFG.encode())
+            built = base / 'built' / '@HollowCountry'
+            (built / 'addons').mkdir(parents=True)
+            (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
+            argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
+                    '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
+                    '--economy-profile', 'baseline', '--interiors', '--markers', 'all-local']
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(lts.main(['apply'] + argv, out=io.StringIO()), 0, err.getvalue())
+                os.link(profiles / 'HollowCountry' / 'interiors.json', base / 'elsewhere.json')
+
+                def everything():
+                    return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out')
+                            for p in root.rglob('*') if p.is_file()}
+                before = everything()
+                for command in (['rollback', '--server-root', str(server), '--dry-run'], ['rollback', '--server-root', str(server)]):
+                    self.assertEqual(lts.main(command, out=io.StringIO()), 2, command)
+                    self.assertEqual(before, everything())  # every marker is still there
+                (base / 'elsewhere.json').unlink()
+                self.assertEqual(lts.main(['rollback', '--server-root', str(server)], out=io.StringIO()), 0, err.getvalue())
+
+    def test_the_real_snafu_and_tactical_flava_deltas_install_and_roll_back_byte_identically(self):
+        """SYNTHETIC mod installs and allowlists (the fixtures of the two optional tools' own tests); the real
+        snafu_optional and tactical_flava_optional verify, generate, install and roll back."""
+        from tests.unit import test_firearms_roster, test_snafu_optional as snafu_fixture
+        from tests.unit import test_tactical_flava_optional as tf_fixture
+        from tools.package import snafu_optional, tactical_flava_optional
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-real-') as t:
+            base = Path(t)
+            patchers = [mock.patch.object(tactical_flava_optional, 'ALLOWLIST_PATH', base / 'tf-allowlist.json'),
+                        mock.patch.object(snafu_optional, 'ALLOWLIST_PATH', base / 'snafu-allowlist.json'),
+                        mock.patch.object(tactical_flava_optional, 'load_vanilla', lambda addons: tf_fixture.VANILLA)]
+            for patcher in patchers:
+                patcher.start()
+                self.addCleanup(patcher.stop)
+            test_firearms_roster.patch_roster(self, t)
+            (base / 'tf-allowlist.json').write_text(json.dumps(tf_fixture.allowlist(*tf_fixture.good())))
+            (base / 'snafu-allowlist.json').write_text(json.dumps(snafu_fixture.allowlist(*snafu_fixture.GOOD)))
+            tf_install, snafu_install = base / 'workshop' / '@TF', base / 'workshop' / '@SNAFU'
+            tf_fixture.build_install(tf_install)
+            snafu_fixture.build_install(snafu_install)
+            mission, server, profiles = base / 'mission', base / 'server', base / 'profiles'
+            for directory in (mission, server, profiles, server / 'addons', base / 'out'):
+                directory.mkdir()
+            tf_fixture.mission(mission)
+            vanilla_usage_vocabulary(mission, merge=True)
+            (mission / 'cfggameplay.json').write_text('{"version": 1}')
+            (server / 'serverDZ.cfg').write_bytes(CFG.encode())
+            built = base / 'built' / '@HollowCountry'
+            (built / 'addons').mkdir(parents=True)
+            (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
+            argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
+                    '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
+                    '--economy-profile', 'baseline', '--no-gameplay', '--snafu', str(snafu_install),
+                    '--tactical-flava', str(tf_install), '--interiors', '--markers', 'all-local']
+
+            def everything():
+                return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out', base / 'workshop')
+                        for p in root.rglob('*') if p.is_file()}
+            before = everything()
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(lts.main(['plan'] + argv, out=out), 0, err.getvalue())
+                self.assertEqual(before, everything())
+                self.assertEqual(lts.main(['apply'] + argv, out=out), 0, err.getvalue())
+                core = (mission / 'cfgeconomycore.xml').read_bytes()
+                for folder in (b'hollow-country/ce', b'hollow-country-snafu/ce', b'hollow-country-tactical-flava/ce'):
+                    self.assertIn(folder, core)
+                for managed in ('hollow-country', 'hollow-country-snafu', 'hollow-country-tactical-flava'):
+                    self.assertTrue((mission / managed / 'receipt.json').is_file(), managed)
+                self.assertEqual(lts.main(['rollback', '--server-root', str(server), '--dry-run'], out=io.StringIO()), 0)
+                self.assertEqual(lts.main(['rollback', '--server-root', str(server)], out=io.StringIO()), 0, err.getvalue())
+            self.assertEqual(before, everything())
+            self.assertFalse((profiles / 'HollowCountry').exists())
+            for managed in ('hollow-country', 'hollow-country-snafu', 'hollow-country-tactical-flava'):
+                self.assertFalse((mission / managed).exists(), managed)
 
     def test_a_changed_spawn_preset_refuses_rollback_before_anything_changes_and_the_retry_succeeds(self):
         from tests.unit import test_economy_contract, test_gameplay_delta

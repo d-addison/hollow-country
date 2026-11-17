@@ -541,6 +541,30 @@ def mission(root):
     (root / 'db/types.xml').write_text(types.replace('</types>', extra + '</types>'))
 
 
+class Killed(BaseException):
+    """A process kill: unlike OSError it is not handled by install's in-process cleanup."""
+
+
+def killing_write(real, fail_name, partial=0):
+    """fresh_write wrapper that is killed at fail_name (after writing `partial` bytes if asked)."""
+    def write(root, name, data):
+        if name == fail_name:
+            if partial:
+                real(root, name, data[:partial])
+            raise Killed(fail_name)
+        return real(root, name, data)
+    return write
+
+
+def killing_replace(real, staged_name):
+    """os.replace wrapper that is killed when it would rename staged_name."""
+    def replace(src, dst, *args, **kwargs):
+        if Path(src).name == staged_name:
+            raise Killed(staged_name)
+        return real(src, dst, *args, **kwargs)
+    return replace
+
+
 def files_of(target):
     return {p.relative_to(target).as_posix(): p.read_bytes() for p in target.rglob('*') if p.is_file()}
 
@@ -821,6 +845,103 @@ class InstallRollback(unittest.TestCase):
         (managed / 'receipt.json').write_bytes(economy.encode(receipt))
         tfo.rollback(self.source)
         self.assertEqual(before, files_of(self.source))
+
+    def staged_copy(self):
+        stage = self.stage()
+        target = Path(self.tmp.name) / 'copy'
+        shutil.copytree(self.source, target)
+        return stage, target, files_of(target)
+
+    def kill_install(self, stage, target, name, partial=0):
+        with mock.patch.object(economy, 'fresh_write', killing_write(economy.fresh_write, name, partial)):
+            with self.assertRaises(Killed):
+                tfo.install(stage, target)
+        self.assertTrue((target / tfo.MANAGED).is_dir())
+
+    def test_kill_before_receipt_is_recovered_and_a_changed_core_is_refused(self):
+        stage, target, before = self.staged_copy()
+        self.kill_install(stage, target, 'receipt.json')
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'] + b'<!--operator edit-->')
+        edited = files_of(target)
+        with self.assertRaises(ValueError):
+            tfo.rollback(target)
+        self.assertEqual(files_of(target), edited)
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'])
+        self.assertEqual(tfo.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(files_of(target), before)
+        tfo.install(stage, target)
+        tfo.rollback(target)
+        self.assertEqual(files_of(target), before)
+
+    def test_kill_after_the_receipt_rolls_back_a_partial_delta_including_the_spawnable_file(self):
+        stage, target, before = self.staged_copy()
+        for name in ('verification.json', 'ce/types.xml', 'ce/cfgspawnabletypes.xml'):
+            for partial in (0, 6):
+                with self.subTest(name=name, partial=partial):
+                    self.kill_install(stage, target, name, partial)
+                    self.assertEqual(tfo.rollback(target), 'rolled_back')
+                    self.assertEqual(files_of(target), before)
+
+    def test_null_receipt_is_refused_not_recovered(self):
+        stage, target, before = self.staged_copy()
+        self.kill_install(stage, target, 'receipt.json')
+        (target / tfo.MANAGED / 'receipt.json').write_bytes(b'null')
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'] + b'<!--operator edit-->')
+        edited = files_of(target)
+        with self.assertRaises(ValueError):
+            tfo.rollback(target)
+        self.assertEqual(files_of(target), edited)
+
+    def test_an_install_in_the_shape_af885df_wrote_still_rolls_back(self):
+        """The managed layout and receipt are unchanged: no staging leftovers, spawnable digest recognised."""
+        stage, target, before = self.staged_copy()
+        tfo.install(stage, target)
+        managed = target / tfo.MANAGED
+        names = {p.relative_to(managed).as_posix() for p in managed.rglob('*') if p.is_file()}
+        self.assertEqual(names, {'core.backup', 'receipt.json', 'verification.json', 'ce/types.xml',
+                                 'ce/cfgspawnabletypes.xml'})
+        receipt = json.loads((managed / 'receipt.json').read_bytes())
+        self.assertIn('spawnable_sha256', receipt)
+        installed = files_of(target)
+        (managed / 'ce/cfgspawnabletypes.xml').write_bytes(b'<spawnabletypes/>')
+        with self.assertRaisesRegex(ValueError, 'spawnable.*drift'):
+            tfo.rollback(target)
+        (managed / 'ce/cfgspawnabletypes.xml').write_bytes((stage / 'ce/cfgspawnabletypes.xml').read_bytes())
+        self.assertEqual(files_of(target), installed)
+        self.assertEqual(tfo.rollback(target), 'rolled_back')
+        self.assertEqual(files_of(target), before)
+
+    def test_an_install_from_before_the_spawnable_file_still_rolls_back(self):
+        stage, target, before = self.staged_copy()
+        tfo.install(stage, target)
+        managed = target / tfo.MANAGED
+        receipt = json.loads((managed / 'receipt.json').read_bytes())
+        del receipt['spawnable_sha256']
+        (managed / 'receipt.json').write_bytes(economy.encode(receipt))
+        (managed / 'ce/cfgspawnabletypes.xml').unlink()
+        self.assertEqual(tfo.rollback(target), 'rolled_back')
+        self.assertEqual(files_of(target), before)
+
+    def test_missing_evidence_and_incomplete_receipts_are_refusals(self):
+        stage, target, before = self.staged_copy()
+        tfo.install(stage, target)
+        managed = target / tfo.MANAGED
+        for name in ('verification.json', 'ce/cfgspawnabletypes.xml'):
+            saved = (managed / name).read_bytes()
+            (managed / name).unlink()
+            with self.assertRaises(economy.MissingEvidence):
+                tfo.rollback(target)
+            (managed / name).write_bytes(saved)
+        full = json.loads((managed / 'receipt.json').read_bytes())
+        (managed / 'ce/types.xml').write_bytes(b'operator data')
+        for broken in ({k: v for k, v in full.items() if k != 'verification_sha256'},
+                       {'before': full['before'], 'after': 'f' * 64, 'sources': full['sources']},
+                       dict(full, spawnable_sha256='nothex'),
+                       {k: v for k, v in full.items() if k != 'schema'}):
+            (managed / 'receipt.json').write_bytes(economy.encode(broken))
+            with self.assertRaises(ValueError):
+                tfo.rollback(target)
+            self.assertEqual((managed / 'ce/types.xml').read_bytes(), b'operator data')
 
     def test_install_and_rollback_are_byte_exact(self):
         stage = self.stage()

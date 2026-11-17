@@ -49,6 +49,8 @@ BUILD = '1.30.164289'
 BUILDING = 'Land_House_1W01'
 PROFILE_DIRECTORY = 'HollowCountry'
 MANAGED = 'hc-interiors-pack'
+ROLLED_BACK = 'rolled_back'
+RECOVERED_BOOTSTRAP = 'recovered_bootstrap'
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PACK = ROOT / 'mission/hollow-country/interiors'
 ENFORCE_SOURCES = ROOT / 'mods/HollowCountry/scripts/4_World/Interiors'
@@ -780,13 +782,14 @@ def install(pack, target, replace=False):
     receipt = {'schema': 1, 'status': 'intent', 'pack_sha256': sha((pack / 'pack.json').read_bytes()),
                'epoch': config['Epoch'], 'created_dirs': created_dirs,
                'files': [{k: v for k, v in row.items() if not k.startswith('_')} for row in rows]}
-    # Backups and the intent receipt exist before any profile file changes. Stop the server first.
+    # The intent receipt (it records every original digest) comes first, then the backups; both exist before
+    # any profile file changes, so a kill at any point leaves rollback something it can prove. Stop the server first.
+    fresh_write(managed, 'receipt.json', encode(receipt))
     if any(r['action'] == 'replace' for r in rows):
         (managed / 'backup').mkdir()
         for index, row in enumerate(rows):
             if row['action'] == 'replace':
                 fresh_write(managed, f'backup/{index}.bak', row['_original'])
-    fresh_write(managed, 'receipt.json', encode(receipt))
     for rel in created_dirs:
         if rel != '.':
             child(target, rel).mkdir(exist_ok=True)
@@ -798,13 +801,56 @@ def install(pack, target, replace=False):
     return json.loads(json.dumps(receipt))
 
 
+def _recover_bootstrap(target, managed):
+    """Clear a managed directory whose install died before its receipt was complete.
+
+    The receipt is written before backups and before any profile file changes, so a receipt-less managed
+    directory holds at most a half-written receipt (or, from an older build, backups made before the receipt).
+    Every backup must still be byte-identical to a pack-named file in the profile (proof the operator's bytes
+    are in place); anything else refuses and changes nothing.
+    """
+    if not os.path.lexists(managed):
+        raise ValueError('no installation receipt found; nothing to roll back')
+    require(managed.is_dir() and not managed.is_symlink(), 'managed path is not a plain directory; rollback refuses')
+    backups = []
+    for path in managed.rglob('*'):
+        name = path.relative_to(managed).as_posix()
+        child(managed, name)
+        if path.is_dir() and not path.is_symlink():
+            require(name == 'backup', 'no valid receipt and unexpected managed directory; rollback refuses deletion')
+            continue
+        require(name in ('receipt.json', 'receipt.next') or re.fullmatch(r'backup/\d+\.bak', name),
+                'no valid receipt and unexpected managed file; rollback refuses deletion')
+        data = plain_file(managed, path).read_bytes()
+        if name.startswith('backup/'):
+            backups.append(data)
+    if backups:
+        present = set()
+        for name in ALLOWED:
+            where = child(target, name)
+            if os.path.lexists(where):
+                st = os.lstat(where)
+                if stat.S_ISREG(st.st_mode) and not stat.S_ISLNK(st.st_mode) and st.st_size <= FILE_LIMIT:
+                    present.add(where.read_bytes())
+        require(all(data in present for data in backups),
+                'no valid receipt and a backup is not provably an unchanged profile file; manual reconciliation required')
+    shutil.rmtree(managed)  # only our fixed directory, preflighted above
+    return RECOVERED_BOOTSTRAP
+
+
 def rollback(target):
     target = _target(target)
     managed = child(target, MANAGED)
-    try:
-        receipt = parse(read_plain(managed, 'receipt.json'), 'receipt.json', 262144)
-    except OSError as exc:
-        raise ValueError('no installation receipt found; nothing to roll back') from exc
+    receipt, have_receipt = None, False  # the flag, never the parsed value: a JSON null is a receipt to refuse
+    if os.path.lexists(managed / 'receipt.json'):
+        try:
+            json.loads(read_plain(managed, 'receipt.json'))
+        except json.JSONDecodeError:
+            pass  # half-written receipt: only the bootstrap evidence rules can clear it
+        else:
+            receipt, have_receipt = parse(read_plain(managed, 'receipt.json'), 'receipt.json', 262144), True
+    if not have_receipt:
+        return _recover_bootstrap(target, managed)
     require(isinstance(receipt, dict) and receipt.get('schema') == 1 and receipt.get('status') in ('intent', 'installed')
             and isinstance(receipt.get('files'), list) and isinstance(receipt.get('created_dirs'), list), 'unsupported receipt')
     _preflight_managed(managed, receipt)
@@ -821,10 +867,16 @@ def rollback(target):
                 removable.add(row['path'])
             actions.append(('remove', dest, None))
         elif row['action'] == 'replace':
-            backup = read_plain(managed, f'backup/{index}.bak')
-            require(sha(backup) == row['original_sha256'], 'backup drift; inspect before rollback')
+            # A replacement changes the bytes: an original digest that is malformed or equals the installed digest
+            # is impossible evidence, and it must never reach the skip below (which would delete the backup).
+            require(hash_ok(row.get('original_sha256')) and row['original_sha256'] != row['sha256'],
+                    f'{row["path"]} has inconsistent replacement evidence; manual reconciliation required')
             require(current is not None and sha(current) in (row['sha256'], row['original_sha256']),
                     f'{row["path"]} changed since install; inspect before rollback')
+            if receipt['status'] == 'intent' and sha(current) == row['original_sha256']:
+                continue  # never replaced (the install died first): the original bytes are in place, nothing to restore
+            backup = read_plain(managed, f'backup/{index}.bak')
+            require(sha(backup) == row['original_sha256'], 'backup drift; inspect before rollback')
             actions.append(('restore', dest, backup))
     dirs = [d for d in receipt['created_dirs'] if d != '.']
     for rel in dirs:
@@ -849,6 +901,7 @@ def rollback(target):
             where.rmdir()
     if '.' in receipt['created_dirs']:
         target.rmdir()
+    return ROLLED_BACK
 
 
 # ---- command line -------------------------------------------------------------------------------------
@@ -926,8 +979,10 @@ def main(argv=None):
             print(scrub(f'installed {len(receipt["files"])} file(s) into {args.target}; roll back with the rollback command. '
                         'Runtime acceptance pending.'))
         else:
-            rollback(args.target)
-            print('rolled back; prior profile bytes restored.')
+            if rollback(args.target) == RECOVERED_BOOTSTRAP:
+                print('recovered an interrupted install: it never changed the profile; managed directory removed.')
+            else:
+                print('rolled back; prior profile bytes restored.')
     except (ValueError, OSError, KeyError, TypeError, RecursionError, OverflowError) as exc:
         parser.exit(1, scrub(exc) + '\n')
 

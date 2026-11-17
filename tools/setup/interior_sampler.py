@@ -27,6 +27,7 @@ import json
 import math
 from pathlib import Path
 import re
+import secrets
 import sys
 import xml.etree.ElementTree as ET
 
@@ -628,6 +629,7 @@ HOOK_TAIL = r"""
         }
         string head = "{" + HCProbeKey("schema") + "1," + HCProbeKey("kind") + HCProbeStr("interior-sampler-census") + ",";
         head = head + HCProbeKey("door_phase_contract") + "@@DOOR_CONTRACT@@,";
+        head = head + HCProbeKey("native_run_id") + HCProbeStr("@@RUN_ID@@") + ",";
         head = head + HCProbeKey("world") + HCProbeStr(world) + "," + HCProbeKey("version") + HCProbeStr(version) + ",";
         head = head + HCProbeKey("filters") + "{" + HCProbeKey("flags") + "{" + HCProbeFlagsText() + "},";
         head = head + HCProbeKey("strict") + HCProbeFilterText(m_HCProbeFilter) + ",";
@@ -1963,6 +1965,13 @@ HOOK_TAIL = r"""
 """
 
 
+RUN_ID_RULE = re.compile(r"[0-9a-f]{32}")
+
+
+def new_run_id():
+    return secrets.token_hex(16)
+
+
 def _bounded(name, value, low, high):
     if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
         raise ValueError(f"{name} must be an integer in {low}..{high}")
@@ -1972,13 +1981,20 @@ def _bounded(name, value, low, high):
 def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DEFAULT_RUN_RAY_LIMIT,
                 building_ray_limit=DEFAULT_BUILDING_RAY_LIMIT, hit_limit=DEFAULT_HIT_LIMIT,
                 path_limit=DEFAULT_PATH_LIMIT, output_limit=DEFAULT_OUTPUT_LIMIT, intersect="geom",
-                step_limit=DEFAULT_STEP_LIMIT, frame_points=()):
+                step_limit=DEFAULT_STEP_LIMIT, frame_points=(), native_run_id=None):
     """Return the generated Enforce text (bytes) with every target and limit inlined as literal data.
+
+    native_run_id (32 lowercase hex, chosen on the Python side; fresh when omitted) is echoed into the census
+    header as "native_run_id"; Enforce never generates it.
 
     frame_points is a sequence of (class, x, y, z) stock lootFloor points for the frame check.
     """
     if not targets or len(targets) > MAX_TARGETS:
         raise ValueError(f"1..{MAX_TARGETS} targets required")
+    if native_run_id is None:
+        native_run_id = new_run_id()
+    if not isinstance(native_run_id, str) or not RUN_ID_RULE.fullmatch(native_run_id):
+        raise ValueError("native run id must be 32 lowercase hex characters")
     _bounded("sample delay", sample_delay_s, *SAMPLE_DELAY_RANGE)
     _bounded("run ray limit", run_ray_limit, *RUN_RAY_RANGE)
     _bounded("building ray limit", building_ray_limit, *BUILDING_RAY_RANGE)
@@ -2019,7 +2035,8 @@ def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DE
         loaders += "".join("    void HCProbeLoadFrame%d()\n    {\n%s\n    }\n\n" % (n, "\n".join(chunk))
                            for n, chunk in enumerate(frame_chunks))
     shared = (("@@PROFILE_DIR@@", PROFILE_DIRECTORY), ("@@OUTPUT_NAME@@", OUTPUT_NAME),
-              ("@@SENTINEL_NAME@@", SENTINEL_NAME), ("@@DOOR_CONTRACT@@", str(DOOR_PHASE_CONTRACT)))
+              ("@@SENTINEL_NAME@@", SENTINEL_NAME), ("@@DOOR_CONTRACT@@", str(DOOR_PHASE_CONTRACT)),
+              ("@@RUN_ID@@", native_run_id))
     head = HOOK_HEAD
     for placeholder, value in (("@@LOADER_CALLS@@", calls), ("@@START_MS@@", str(sample_delay_s * 1000)),
                                ("@@GRID_STEP@@", repr(GRID_STEP)), ("@@HIT_LIMIT@@", str(hit_limit)), ("@@STEP_LIMIT@@", str(step_limit)),
@@ -2290,7 +2307,8 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
     calibration = [name for name, role in SAMPLE_CLASSES if role == "calibration"]
     frame = stock_frame_points(source["held"]["mapgroupproto.xml"], calibration)
     frame_points = [(name, *point) for name in calibration for point in frame[name]]
-    hook = render_hook(targets, frame_points=frame_points, **limits)
+    run_id = new_run_id()  # chosen here, never inside Enforce; the hook echoes it and the plan records it
+    hook = render_hook(targets, frame_points=frame_points, native_run_id=run_id, **limits)
     native = rt.native_type_names(native_scripts) if native_scripts else frozenset()
     problems = lint_sampler_hook(hook.decode("ascii"), native_types=native)
     if problems:
@@ -2306,8 +2324,8 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
         "treatment": None,
         "probe": {"tool": KIND, "sample_delay_s": sample_delay_s, "per_class_limit": per_class,
                   "hard_cap": MAX_TARGETS, "target_count": len(targets), "hook_sha256": rt.sha256(hook),
-                  "hook_bytes": len(hook), "wait_minutes": wait_minutes,
-                  "census_relative_path": f"profiles/{PROFILE_DIRECTORY}/{OUTPUT_NAME}",
+                  "hook_bytes": len(hook), "native_run_id": run_id,
+                  "wait_minutes": wait_minutes, "census_relative_path": f"profiles/{PROFILE_DIRECTORY}/{OUTPUT_NAME}",
                   "sentinel_relative_path": f"profiles/{PROFILE_DIRECTORY}/{SENTINEL_NAME}"},
         "sampler": {"grid_step": GRID_STEP, "per_class": per_class, "intersect": intersect,
                     "hit_limit": hit_limit, "step_limit": step_limit, "building_ray_limit": building_ray_limit,
@@ -2352,7 +2370,7 @@ def main(argv=None):
         return 1
     print(f"staged {plan['kind']} runtime: {Path(args.destination) / PLAN_NAME}")
     print(f"targets={plan['probe']['target_count']} hook_bytes={plan['probe']['hook_bytes']} "
-          f"hook_sha256={plan['probe']['hook_sha256']}")
+          f"hook_sha256={plan['probe']['hook_sha256']} native_run_id={plan['probe']['native_run_id']}")
     return 0
 
 

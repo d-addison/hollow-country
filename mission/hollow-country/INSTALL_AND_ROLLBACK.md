@@ -168,7 +168,7 @@ Chosen values, all provisional and compared with vanilla Chernarus:
 | Weapon obstruction | `PlayerData.WeaponObstructionData` `staticMode` / `dynamicMode` | 1 / 1 | 2 / 1 |
 | Wet weight | `WorldsData.wetnessWeightModifiers` (dry, damp, wet, soaking, drenched) | 1.0, 1.0, 1.33, 1.66, 2.0 | 1.0, 1.15, 1.5, 1.85, 2.25 |
 | Hit indication | `UIData.HitIndicationData` | override off | override on, dynamic direction, 3.5 s, breakpoint 0.5, scatter 4 |
-| Spawn kit | `PlayerData.spawnGearPresetFiles` | absent | `hollow-country-gameplay/gear/hardscrabble.json` |
+| Spawn kit | `PlayerData.spawnGearPresetFiles` | absent | `hollow-country-gameplay/gear/hardscrabble.json` (worn clothing, knife, bandage, one small item) |
 | Infected leg zones | `CfgVehicles` ZombieBase LeftLeg `hitpoints` (in the mod `config.cpp`) | 100 | 50 |
 
 - Obstruction enum (`EWeaponObstructionMode`): 0 disabled (no obstruction, still lifts),
@@ -186,8 +186,11 @@ Chosen values, all provisional and compared with vanilla Chernarus:
   wetness included). Hollow Country never recomputes weight, so the wet values need no
   second implementation.
 - Hardscrabble: randomised worn civilian clothing (health 0.6 to 0.69, strictly below the native worn cutoff of 0.7) and exactly
-  one small item (a rag, a chemlight or one can of food). No weapons or ammunition.
-  The native preset replaces the stock starting kit of the mission `init.c`.
+  one small item (a rag, a chemlight or one can of food), plus a kitchen knife (`KitchenKnife`) and a bandage
+  (`BandageDressing`) on every spawn: the native loader picks one cargo set and spawns every item in it, so each
+  set holds the knife, the bandage and its one small item. No firearms or ammunition.
+  The native preset replaces the stock starting kit of the mission `init.c`. An existing install keeps the old
+  preset until you rerun `generate` and reinstall (roll back first).
 - Crawlers: lowering the leg-zone health makes leg hits down an infected sooner. The
   other leg inherits the class and bosses that set their own zones are unchanged.
 

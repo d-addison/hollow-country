@@ -332,29 +332,84 @@ class SpawnKit(unittest.TestCase):
                 self.assertGreaterEqual(a['healthMin'], 0.6)
                 self.assertEqual((a['quantityMin'], a['quantityMax']), (0.0, 0.0))
 
-    def test_exactly_one_small_useful_item_and_no_weapons_or_ammo(self):
+    def test_every_set_holds_exactly_one_knife_one_bandage_and_one_small_item(self):
+        # CfgPlayerSpawnHandler.c: SelectAndSpawnCargoSet picks ONE discrete set (lines 142-164) and
+        # SpawnSimpleChildrenItems (234-268) spawns EVERY entry of the picked set, so a knife and a
+        # bandage in every set are guaranteed on every spawn.
         _, cargo = self.classes()
-        self.assertTrue(all(len(children) == 1 for children in cargo))
+        self.assertEqual(len(cargo), 7)
         allowed = re.compile(r'(Rag|Chemlight_(White|Yellow|Green)|(BakedBeans|Spaghetti|Tuna)Can)')
         families = set()
         for children in cargo:
-            self.assertRegex(children[0], allowed)
-            families.add('rag' if children[0] == 'Rag' else 'chemlight' if 'Chemlight' in children[0] else 'can')
+            self.assertEqual(len(children), 3, children)
+            self.assertEqual(children[:2], ['KitchenKnife', 'BandageDressing'])  # canonical order
+            self.assertEqual(children.count('KitchenKnife'), 1)
+            self.assertEqual(children.count('BandageDressing'), 1)
+            self.assertRegex(children[2], allowed)
+            families.add('rag' if children[2] == 'Rag' else 'chemlight' if 'Chemlight' in children[2] else 'can')
         self.assertEqual(families, {'rag', 'chemlight', 'can'})
         # Each of the three kinds is equally likely (weights sum per family).
         weights = {f: 0 for f in families}
         for item in self.preset['discreteUnsortedItemSets']:
-            name = item['simpleChildrenTypes'][0]
+            name = item['simpleChildrenTypes'][2]
             weights['rag' if name == 'Rag' else 'chemlight' if 'Chemlight' in name else 'can'] += item['spawnWeight']
         self.assertEqual(len(set(weights.values())), 1)
+        # Default attributes keep full bandage quantity (native ApplyAttributes is skipped, line 257).
+        self.assertTrue(all(i['simpleChildrenUseDefaultAttributes'] is True
+                            for i in self.preset['discreteUnsortedItemSets']))
         text = json.dumps(self.preset).lower()
-        for banned in ('ammo', 'mag_', 'rifle', 'pistol', 'knife', 'bandage', 'weapon', 'shotgun'):
+        for banned in ('ammo', 'mag_', 'rifle', 'pistol', 'weapon', 'shotgun', 'axe', 'bayonet', 'machete'):
             self.assertNotIn(banned, text)
+
+    def test_validator_requires_the_knife_and_bandage_in_every_set(self):
+        sets = len(self.preset['discreteUnsortedItemSets'])
+        mutations = {
+            'no knife': lambda c: c.remove('KitchenKnife'),
+            'no bandage': lambda c: c.remove('BandageDressing'),
+            'no small item': lambda c: c.pop(),
+            'only the small item': lambda c: c.__delitem__(slice(0, 2)),
+            'second knife': lambda c: c.insert(1, 'KitchenKnife'),
+            'second bandage': lambda c: c.insert(2, 'BandageDressing'),
+            'other knife': lambda c: c.__setitem__(0, 'SteakKnife'),
+            'other weapon': lambda c: c.__setitem__(0, 'Hatchet'),
+            'bandage swapped for a rag': lambda c: c.__setitem__(1, 'Rag'),
+            'extra item': lambda c: c.append('Rag'),
+            'wrong order': lambda c: c.reverse(),
+        }
+        for index in range(sets):
+            for label, mutate in mutations.items():
+                preset = copy.deepcopy(self.preset)
+                mutate(preset['discreteUnsortedItemSets'][index]['simpleChildrenTypes'])
+                with self.subTest(set=index, mutation=label), self.assertRaises(ValueError):
+                    gameplay.validate_preset(preset)
+        gameplay.validate_preset(self.preset)
+
+    def test_kit_fits_every_allowed_clothing_option(self):
+        # Native item sizes (cells, width x height) and worn-clothing cargo grids from the in-engine
+        # item audit of build 1.30.164289 (experiments/compile-034/-032 native-item-audit). Items are
+        # placed by CreateInInventory (CfgPlayerSpawnHandler.c:288) in any worn cargo, so the whole
+        # kit needs only fit the combined Body + Legs grids; the worst case is also checked per piece.
+        size = {'KitchenKnife': (1, 3), 'BandageDressing': (1, 2), 'Rag': (1, 3),
+                'Chemlight_White': (1, 2), 'Chemlight_Yellow': (1, 2), 'Chemlight_Green': (1, 2),
+                'BakedBeansCan': (2, 2), 'SpaghettiCan': (2, 2), 'TunaCan': (2, 1)}
+        cargo = {'TShirt_Beige': (3, 3), 'TShirt_Blue': (3, 3), 'TShirt_Green': (3, 3),
+                 'TShirt_Grey': (3, 3), 'TShirt_Black': (3, 3), 'Hoodie_Black': (5, 3),
+                 'Hoodie_Brown': (5, 3), 'Hoodie_Grey': (5, 3), 'Jeans_Black': (4, 3),
+                 'Jeans_Blue': (4, 3), 'Jeans_BlueDark': (4, 3), 'Jeans_Brown': (4, 3),
+                 'Jeans_Grey': (4, 3), 'CargoPants_Black': (5, 4)}
+        slots, kits = self.classes()
+        self.assertEqual(set(cargo), set(slots['Body']) | set(slots['Legs']))
+        worst = max(sum(w * h for w, h in (size[c] for c in kit)) for kit in kits)
+        for name in slots['Body'] + slots['Legs']:
+            w, h = cargo[name]
+            self.assertLessEqual(worst, w * h, name)  # even a single piece holds the whole kit
+            for kit in kits:
+                self.assertTrue(all(max(size[c]) <= max(w, h) and min(size[c]) <= min(w, h) for c in kit))
 
     def test_validator_allowlists_items_and_worn_health(self):
         for slot, name in ((None, 'M4A1'), (None, 'Mag_STANAG_30Rnd'), (None, 'Rag_Extra'), (None, 'Apple')):
             preset = copy.deepcopy(self.preset)
-            preset['discreteUnsortedItemSets'][0]['simpleChildrenTypes'] = [name]
+            preset['discreteUnsortedItemSets'][0]['simpleChildrenTypes'][2] = name
             with self.subTest(cargo=name), self.assertRaises(ValueError):
                 gameplay.validate_preset(preset)
         for slot, name in ((0, 'Jeans_Black'), (1, 'TShirt_Black'), (2, 'M4A1'), (0, 'PlateCarrierVest')):

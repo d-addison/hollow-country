@@ -4,7 +4,9 @@ The synthetic stock has none of the datamined classes, so these tests generate w
 switch off; the datamined rows are covered in test_datamined_items.
 """
 import json
+import os
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest import mock
@@ -218,3 +220,328 @@ class EconomyBehavior(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class Killed(BaseException):
+    """A process kill: unlike OSError it is not handled by install's in-process cleanup."""
+
+
+def killing_write(real, fail_name, partial=0):
+    """fresh_write wrapper that is killed at fail_name (after writing `partial` bytes if asked)."""
+    def write(root, name, data):
+        if name == fail_name:
+            if partial:
+                real(root, name, data[:partial])
+            raise Killed(fail_name)
+        return real(root, name, data)
+    return write
+
+
+def killing_replace(real, staged_name):
+    """os.replace wrapper that is killed when it would rename staged_name."""
+    def replace(src, dst, *args, **kwargs):
+        if Path(src).name == staged_name:
+            raise Killed(staged_name)
+        return real(src, dst, *args, **kwargs)
+    return replace
+
+
+class BootstrapRecovery(unittest.TestCase):
+    """An install killed part-way must be recoverable by rollback, never silently and never by overwriting."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        source = root / 'source'
+        source.mkdir()
+        profile = synthetic(source)
+        self.original = (source / 'cfgeconomycore.xml').read_bytes()
+        self.stage = root / 'delta'
+        economy.write_delta(self.stage, economy.generate(source, profile, include_datamined=False))
+        self.target = root / 'private-copy'
+        shutil.copytree(source, self.target)
+        self.before = self.files()
+        self.core = self.target / 'cfgeconomycore.xml'
+        self.managed = self.target / economy.MANAGED
+
+    def files(self):
+        return {p.relative_to(self.target).as_posix(): p.read_bytes() for p in self.target.rglob('*') if p.is_file()}
+
+    def kill(self, name, partial=0):
+        with mock.patch.object(economy, 'fresh_write', killing_write(economy.fresh_write, name, partial)):
+            with self.assertRaises(Killed):
+                economy.install(self.stage, self.target)
+        self.assertTrue(self.managed.is_dir())
+
+    def kill_backup_rename(self):
+        with mock.patch.object(economy.os, 'replace', killing_replace(os.replace, 'core.backup.next')):
+            with self.assertRaises(Killed):
+                economy.install(self.stage, self.target)
+        self.assertTrue((self.managed / 'core.backup.next').is_file())
+
+    def assert_refused_and_unchanged(self):
+        before = self.files()
+        with self.assertRaises(ValueError):
+            economy.rollback(self.target)
+        self.assertEqual(before, self.files())
+        self.assertTrue(self.managed.is_dir())
+
+    def test_kill_before_receipt_is_recovered_by_rollback_and_reinstall_works(self):
+        self.kill('receipt.json')
+        with self.assertRaises(ValueError):
+            economy.install(self.stage, self.target)
+        self.assertEqual(economy.rollback(self.target), 'recovered_bootstrap')
+        self.assertFalse(self.managed.exists())
+        self.assertEqual(self.files(), self.before)
+        economy.install(self.stage, self.target)
+        economy.rollback(self.target)
+        self.assertEqual(self.files(), self.before)
+
+    def test_kill_in_the_middle_of_the_receipt_is_recovered(self):
+        self.kill('receipt.json', partial=10)
+        self.assertEqual((self.managed / 'receipt.json').stat().st_size, 10)
+        self.assertEqual(economy.rollback(self.target), 'recovered_bootstrap')
+        self.assertEqual(self.files(), self.before)
+
+    def test_changed_core_after_a_kill_before_receipt_is_refused_and_nothing_changes(self):
+        self.kill('receipt.json')
+        self.core.write_bytes(self.original + b'<!--operator edit-->')
+        self.assert_refused_and_unchanged()
+
+    def test_kill_between_the_complete_staged_backup_and_its_rename(self):
+        self.kill_backup_rename()
+        self.assertFalse((self.managed / 'core.backup').exists())
+        self.core.write_bytes(self.original + b'<!--operator edit-->')
+        self.assert_refused_and_unchanged()
+        self.assertEqual((self.managed / 'core.backup.next').read_bytes(), self.original)
+        self.core.write_bytes(self.original)
+        self.assertEqual(economy.rollback(self.target), 'recovered_bootstrap')
+        self.assertEqual(self.files(), self.before)
+
+    def test_unexpected_managed_content_without_a_receipt_is_refused(self):
+        self.kill('receipt.json')
+        (self.managed / 'ce').mkdir()
+        (self.managed / 'ce/types.xml').write_bytes(b'<types/>')
+        self.assert_refused_and_unchanged()
+        (self.managed / 'ce/types.xml').unlink()
+        (self.managed / 'ce').rmdir()
+        (self.managed / 'surprise.txt').write_bytes(b'operator')
+        self.assert_refused_and_unchanged()
+        self.assertEqual((self.managed / 'surprise.txt').read_bytes(), b'operator')
+
+    def test_a_null_receipt_is_not_a_recovery_signal(self):
+        self.kill('receipt.json')
+        (self.managed / 'receipt.json').write_bytes(b'null')
+        self.core.write_bytes(self.original + b'<!--operator edit-->')
+        self.assert_refused_and_unchanged()
+        self.core.write_bytes(self.original)
+        self.assert_refused_and_unchanged()  # a parsed non-object receipt is unsupported, never "recovered"
+
+    def test_kill_after_the_receipt_rolls_back_the_partial_delta_with_the_core_untouched(self):
+        for name, partial in (('ce/types.xml', 0), ('ce/types.xml', 7), ('core.next', 0), ('core.next', 9)):
+            with self.subTest(name=name, partial=partial):
+                self.kill(name, partial)
+                self.assertTrue((self.managed / 'receipt.json').is_file())
+                self.assertEqual(economy.rollback(self.target), 'rolled_back')
+                self.assertFalse(self.managed.exists())
+                self.assertEqual(self.files(), self.before)
+
+    def test_kill_before_the_core_switch_with_a_changed_core_is_refused(self):
+        self.kill('ce/types.xml', 7)
+        self.core.write_bytes(self.original + b'<!--operator edit-->')
+        self.assert_refused_and_unchanged()
+
+    def test_a_complete_install_still_checks_every_delta_file(self):
+        economy.install(self.stage, self.target)
+        (self.managed / 'ce/types.xml').write_bytes(b'<types/>')
+        before = self.files()
+        with self.assertRaises(ValueError):
+            economy.rollback(self.target)
+        self.assertEqual(before, self.files())
+
+    def equal_hash_stage(self):
+        """A baseline delta that changes nothing in the core: before == after (the core hash cannot show the switch)."""
+        source = Path(self.tmp.name) / 'source'
+        profile = dict(synthetic(Path(self.tmp.name) / 'unused-synthetic'), add_usage={}, diagnostics=[])
+        stage = Path(self.tmp.name) / 'delta-equal'
+        economy.write_delta(stage, economy.generate(source, profile, include_datamined=False))
+        return stage
+
+    def test_equal_core_hashes_do_not_strand_an_interrupted_install(self):
+        self.stage = self.equal_hash_stage()
+        for name, partial in (('ce/types.xml', 0), ('ce/types.xml', 7), ('core.next', 0), ('core.next', 5)):
+            with self.subTest(name=name, partial=partial):
+                self.kill(name, partial)
+                receipt = json.loads((self.managed / 'receipt.json').read_bytes())
+                self.assertEqual(receipt['before'], receipt['after'])
+                self.assertEqual(economy.rollback(self.target), 'rolled_back')
+                self.assertFalse(self.managed.exists())
+                self.assertEqual(self.files(), self.before)
+                economy.install(self.stage, self.target)
+                economy.rollback(self.target)
+                self.assertEqual(self.files(), self.before)
+
+    def test_completed_noop_install_keeps_the_drift_refusal(self):
+        """Regression (P1): after a successful before == after install, an operator edit of the managed delta is drift."""
+        self.stage = self.equal_hash_stage()
+        receipt = economy.install(self.stage, self.target)
+        self.assertEqual(receipt['before'], receipt['after'])
+        for name, data in (('ce/types.xml', b'operator data'), ('ce/types.xml', b'<typ')):
+            with self.subTest(data=data):
+                saved = (self.managed / name).read_bytes()
+                (self.managed / name).write_bytes(data)
+                before = self.files()
+                with self.assertRaises(ValueError):
+                    economy.rollback(self.target)
+                self.assertEqual(before, self.files())
+                self.assertEqual((self.managed / name).read_bytes(), data)
+                (self.managed / name).write_bytes(saved)
+        self.assertEqual(economy.rollback(self.target), 'rolled_back')
+        self.assertEqual(self.files(), self.before)
+
+    def test_completed_noop_install_with_a_removed_delta_file_is_missing_evidence(self):
+        self.stage = self.equal_hash_stage()
+        economy.install(self.stage, self.target)
+        (self.managed / 'ce/types.xml').unlink()
+        before = self.files()
+        with self.assertRaises(economy.MissingEvidence):
+            economy.rollback(self.target)
+        self.assertEqual(before, self.files())
+
+    def test_noop_install_killed_before_its_completion_evidence_still_rolls_back(self):
+        self.stage = self.equal_hash_stage()
+        self.kill('complete.next')
+        self.assertEqual(economy.rollback(self.target), 'rolled_back')
+        self.assertEqual(self.files(), self.before)
+
+    def test_install_killed_while_staging_its_completion_marker_still_rolls_back(self):
+        for noop in (False, True):
+            with self.subTest(noop=noop):
+                self.setUp()
+                if noop:
+                    self.stage = self.equal_hash_stage()
+                self.kill('complete.next', partial=7)
+                self.assertFalse((self.managed / 'complete.json').exists())
+                self.assertEqual(economy.rollback(self.target), 'rolled_back')
+                self.assertEqual(self.files(), self.before)
+
+    def test_completion_marker_is_published_by_atomic_rename(self):
+        with mock.patch.object(economy.os, 'replace', killing_replace(os.replace, 'complete.next')):
+            with self.assertRaises(Killed):
+                economy.install(self.stage, self.target)
+        self.assertFalse((self.managed / 'complete.json').exists())
+        self.assertTrue((self.managed / 'complete.next').is_file())
+        self.assertEqual(economy.rollback(self.target), 'rolled_back')
+        self.assertEqual(self.files(), self.before)
+
+    def test_a_forged_or_foreign_completion_marker_is_refused(self):
+        self.stage = self.equal_hash_stage()
+        economy.install(self.stage, self.target)
+        (self.managed / 'complete.json').write_bytes(economy.encode({'schema': 1, 'receipt_sha256': 'a' * 64}))
+        before = self.files()
+        with self.assertRaises(ValueError):
+            economy.rollback(self.target)
+        self.assertEqual(before, self.files())
+
+    def test_missing_managed_evidence_is_a_refusal_not_a_file_not_found(self):
+        economy.install(self.stage, self.target)
+        for name in ('ce/types.xml', 'core.backup'):
+            with self.subTest(name=name):
+                saved = (self.managed / name).read_bytes()
+                (self.managed / name).unlink()
+                before = self.files()
+                with self.assertRaises(economy.MissingEvidence) as caught:
+                    economy.rollback(self.target)
+                self.assertIsInstance(caught.exception, ValueError)
+                self.assertNotIsInstance(caught.exception, FileNotFoundError)
+                self.assertEqual(before, self.files())
+                (self.managed / name).write_bytes(saved)
+        economy.rollback(self.target)
+        self.assertEqual(self.files(), self.before)
+
+    def test_missing_core_is_a_refusal_not_a_file_not_found(self):
+        economy.install(self.stage, self.target)
+        self.core.unlink()
+        with self.assertRaises(economy.MissingEvidence):
+            economy.rollback(self.target)
+        self.assertTrue(self.managed.is_dir())
+
+    def test_an_absent_managed_directory_stays_a_file_not_found(self):
+        with self.assertRaises(FileNotFoundError):
+            economy.rollback(self.target)
+
+    def test_an_incomplete_receipt_never_authorises_cleanup(self):
+        self.kill('ce/types.xml')
+        (self.managed / 'ce/types.xml').write_bytes(b'operator data')
+        full = json.loads((self.managed / 'receipt.json').read_bytes())
+        for broken in ({'before': full['before'], 'after': 'f' * 64, 'sources': full['sources']},
+                       {k: v for k, v in full.items() if k != 'schema'},
+                       {k: v for k, v in full.items() if k != 'types_sha256'},
+                       dict(full, types_sha256='nothex'),
+                       dict(full, sources={'cfgeconomycore.xml': full['before']}),
+                       dict(full, schema=2)):
+            with self.subTest(broken=sorted(broken)):
+                (self.managed / 'receipt.json').write_bytes(economy.encode(broken))
+                before = self.files()
+                with self.assertRaises(ValueError):
+                    economy.rollback(self.target)
+                self.assertEqual(before, self.files())
+                self.assertEqual((self.managed / 'ce/types.xml').read_bytes(), b'operator data')
+
+
+class NeedsRestoreEqualHashes(unittest.TestCase):
+    """The shared switch decision for installers whose patched core equals the original (SNAFU/TF always change it)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.managed = Path(self.tmp.name)
+        self.bodies = {'verification.json': b'v-whole', 'ce/types.xml': b'<types />', 'ce/cfgspawnabletypes.xml': b'<s />'}
+        (self.managed / 'ce').mkdir()
+        digest = economy.sha(b'x' * 64)
+        self.receipt = {'before': digest, 'after': digest, 'verification_sha256': economy.sha(self.bodies['verification.json']),
+                        'types_sha256': economy.sha(self.bodies['ce/types.xml']),
+                        'spawnable_sha256': economy.sha(self.bodies['ce/cfgspawnabletypes.xml'])}
+        self.delta = [('verification.json', 'verification_sha256', 'verification drift'),
+                      ('ce/types.xml', 'types_sha256', 'types drift'),
+                      ('ce/cfgspawnabletypes.xml', 'spawnable_sha256', 'spawnable drift')]
+
+    def put(self, name, data=None):
+        (self.managed / name).write_bytes(self.bodies[name] if data is None else data)
+
+    def decide(self):
+        return economy.needs_restore(self.managed, self.receipt, self.receipt['before'], self.delta)
+
+    def test_nothing_or_a_partial_frontier_file_is_not_switched_and_needs_no_restore(self):
+        self.assertFalse(self.decide())
+        self.put('verification.json')
+        self.assertFalse(self.decide())
+        self.put('ce/types.xml', b'<typ')
+        self.assertFalse(self.decide())
+        self.put('ce/types.xml')
+        self.put('ce/cfgspawnabletypes.xml', b'')
+        self.assertFalse(self.decide())
+        self.put('ce/cfgspawnabletypes.xml')
+        self.assertFalse(self.decide())  # whole: switched, but an unchanged core is never rewritten
+
+    def test_a_staged_core_means_the_delta_was_whole(self):
+        for name in self.bodies:
+            self.put(name)
+        (self.managed / 'core.next').write_bytes(b'partial')
+        self.assertFalse(self.decide())
+        (self.managed / 'ce/cfgspawnabletypes.xml').write_bytes(b'tampered')
+        with self.assertRaises(ValueError):
+            self.decide()
+
+    def test_a_changed_earlier_file_or_a_gap_before_later_evidence_refuses(self):
+        for name in self.bodies:
+            self.put(name)
+        self.put('verification.json', b'tampered')
+        with self.assertRaises(ValueError) as caught:
+            self.decide()
+        self.assertNotIsInstance(caught.exception, economy.MissingEvidence)
+        self.put('verification.json')
+        (self.managed / 'ce/types.xml').unlink()
+        with self.assertRaises(economy.MissingEvidence):
+            self.decide()

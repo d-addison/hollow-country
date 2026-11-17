@@ -691,7 +691,7 @@ def install(stage, target):
                'spawnable_sha256': economy.sha(files[SPAWNABLE]),
                'verification_sha256': economy.sha(economy.encode(verification))}
     try:
-        economy.fresh_write(managed, 'core.backup', original)
+        os.replace(economy.fresh_write(managed, 'core.backup.next', original), managed / 'core.backup')  # never half-written
         economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
         economy.fresh_write(managed, 'verification.json', economy.encode(verification))
         (managed / 'ce').mkdir()
@@ -702,8 +702,8 @@ def install(stage, target):
         # Receipt/backup precede the core switch. A failed write before that
         # switch has changed no mission input; remove only preflighted intent.
         if economy.read_plain(target, 'cfgeconomycore.xml') == original:
-            economy.preflight_managed(managed, {'core.backup', 'receipt.json',
-                                                'verification.json', 'ce/types.xml', SPAWNABLE, 'core.next'})
+            economy.preflight_managed(managed, {'core.backup', 'core.backup.next', 'receipt.json', 'verification.json',
+                                                'ce/types.xml', SPAWNABLE, 'core.next'})
             shutil.rmtree(managed)
         raise
     return receipt
@@ -712,29 +712,34 @@ def install(stage, target):
 def rollback(target):
     target = economy._target(target)
     managed = economy.child(target, MANAGED)
-    receipt = json.loads(economy.read_plain(managed, 'receipt.json'))
-    expected_files = {'core.backup', 'receipt.json', 'verification.json', 'ce/types.xml', 'core.next'}
-    if 'spawnable_sha256' in receipt:
-        expected_files.add(SPAWNABLE)
-    economy.preflight_managed(managed, expected_files)
-    core = economy.plain_file(target, economy.child(target, 'cfgeconomycore.xml'))
-    backup = economy.read_plain(managed, 'core.backup')
-    if economy.sha(backup) != receipt['before'] \
-            or economy.sha(core.read_bytes()) not in {receipt['before'], receipt['after']}:
-        raise ValueError('core drift (roll back later installs first); manual reconciliation required')
-    if economy.sha(economy.read_plain(managed, 'ce/types.xml')) != receipt['types_sha256']:
-        raise ValueError('installed delta drift; inspect before rollback')
-    if ('spawnable_sha256' in receipt
-            and economy.sha(economy.read_plain(managed, SPAWNABLE)) != receipt['spawnable_sha256']):
-        raise ValueError('spawnable delta drift; inspect before rollback')
-    if economy.sha(economy.read_plain(managed, 'verification.json')) != receipt['verification_sha256']:
-        raise ValueError('verification evidence drift; inspect before rollback')
-    if {n: economy.sha(economy.child(target, n).read_bytes()) for n in economy.INPUTS
-            if n != 'cfgeconomycore.xml'} != {n: h for n, h in receipt['sources'].items()
-                                              if n != 'cfgeconomycore.xml'}:
-        raise ValueError('stock drift; inspect before rollback')
-    economy.restore_core(managed, core, backup)
-    shutil.rmtree(managed)
+    with economy.refuse_missing(managed):
+        outcome, receipt = economy.read_receipt_or_recover(
+            target, managed, digests=('types_sha256', 'verification_sha256'), optional=('spawnable_sha256',))
+        if outcome == economy.RECOVERED_BOOTSTRAP:
+            return outcome
+        expected_files = {'core.backup', 'receipt.json', 'verification.json', 'ce/types.xml', 'core.next'}
+        if 'spawnable_sha256' in receipt:
+            expected_files.add(SPAWNABLE)
+        economy.preflight_managed(managed, expected_files)
+        core = economy.plain_file(target, economy.child(target, 'cfgeconomycore.xml'))
+        backup = economy.read_plain(managed, 'core.backup')
+        core_sha = economy.sha(core.read_bytes())
+        if economy.sha(backup) != receipt['before'] or core_sha not in {receipt['before'], receipt['after']}:
+            raise ValueError('core drift (roll back later installs first); manual reconciliation required')
+        # install order: verification.json, ce/types.xml, spawnable (absent before it existed), then the core switch
+        delta = [('verification.json', 'verification_sha256', 'verification evidence drift; inspect before rollback'),
+                 ('ce/types.xml', 'types_sha256', 'installed delta drift; inspect before rollback')]
+        if 'spawnable_sha256' in receipt:
+            delta.append((SPAWNABLE, 'spawnable_sha256', 'spawnable delta drift; inspect before rollback'))
+        switched = economy.needs_restore(managed, receipt, core_sha, delta)
+        if {n: economy.sha(economy.child(target, n).read_bytes()) for n in economy.INPUTS
+                if n != 'cfgeconomycore.xml'} != {n: h for n, h in receipt['sources'].items()
+                                                  if n != 'cfgeconomycore.xml'}:
+            raise ValueError('stock drift; inspect before rollback')
+        if switched:
+            economy.restore_core(managed, core, backup)
+        shutil.rmtree(managed)
+        return economy.ROLLED_BACK
 
 
 # ------------------------------------------------------------------------- CLI
@@ -788,7 +793,8 @@ def main(argv=None):
         elif args.command == 'install':
             install(args.delta, args.target)
         else:
-            rollback(args.target)
+            if rollback(args.target) == economy.RECOVERED_BOOTSTRAP:
+                print('Recovered an interrupted install: it never changed the core; managed directory removed.')
         print('Offline operation complete; DayZ runtime acceptance pending.')
     except (ValueError, OSError, KeyError, TypeError) as e:
         parser.exit(1, f'{e}\n')

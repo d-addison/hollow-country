@@ -29,6 +29,30 @@ TERMS = b'synthetic terms text'
 MODEL = 'Synth\\Guns\\Data\\{}.p3d'
 
 
+class Killed(BaseException):
+    """A process kill: unlike OSError it is not handled by install's in-process cleanup."""
+
+
+def killing_write(real, fail_name, partial=0):
+    """fresh_write wrapper that is killed at fail_name (after writing `partial` bytes if asked)."""
+    def write(root, name, data):
+        if name == fail_name:
+            if partial:
+                real(root, name, data[:partial])
+            raise Killed(fail_name)
+        return real(root, name, data)
+    return write
+
+
+def killing_replace(real, staged_name):
+    """os.replace wrapper that is killed when it would rename staged_name."""
+    def replace(src, dst, *args, **kwargs):
+        if Path(src).name == staged_name:
+            raise Killed(staged_name)
+        return real(src, dst, *args, **kwargs)
+    return replace
+
+
 def configs():
     weapons = {
         'Rifle_Base': klass('', scope=0),
@@ -415,6 +439,75 @@ class InstallRollback(unittest.TestCase):
             snafu_optional.install(stage, target)
         snafu_optional.rollback(target)
         self.assertEqual(before, self.files(target))
+
+    def staged_copy(self):
+        stage = Path(self.tmp.name) / 'delta'
+        snafu_optional.write_delta(stage, snafu_optional.generate(self.source, self.allow, self.report))
+        target = Path(self.tmp.name) / 'copy'
+        shutil.copytree(self.source, target)
+        return stage, target, self.files(target)
+
+    def kill_install(self, stage, target, name, partial=0):
+        with mock.patch.object(economy, 'fresh_write', killing_write(economy.fresh_write, name, partial)):
+            with self.assertRaises(Killed):
+                snafu_optional.install(stage, target)
+        self.assertTrue((target / snafu_optional.MANAGED).is_dir())
+
+    def test_kill_before_receipt_is_recovered_and_a_changed_core_is_refused(self):
+        stage, target, before = self.staged_copy()
+        self.kill_install(stage, target, 'receipt.json')
+        self.assertFalse((target / snafu_optional.MANAGED / 'receipt.json').exists())
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'] + b'<!--operator edit-->')
+        edited = self.files(target)
+        with self.assertRaises(ValueError):
+            snafu_optional.rollback(target)
+        self.assertEqual(self.files(target), edited)
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'])
+        self.assertEqual(snafu_optional.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(self.files(target), before)
+        snafu_optional.install(stage, target)
+        snafu_optional.rollback(target)
+        self.assertEqual(self.files(target), before)
+
+    def test_kill_after_the_receipt_rolls_back_a_partial_delta(self):
+        stage, target, before = self.staged_copy()
+        for name, partial in (('verification.json', 0), ('verification.json', 5), ('ce/types.xml', 0), ('ce/types.xml', 7)):
+            with self.subTest(name=name, partial=partial):
+                self.kill_install(stage, target, name, partial)
+                self.assertEqual(snafu_optional.rollback(target), 'rolled_back')
+                self.assertEqual(self.files(target), before)
+
+    def test_null_receipt_is_refused_not_recovered(self):
+        stage, target, before = self.staged_copy()
+        self.kill_install(stage, target, 'receipt.json')
+        managed = target / snafu_optional.MANAGED
+        (managed / 'receipt.json').write_bytes(b'null')
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'] + b'<!--operator edit-->')
+        edited = self.files(target)
+        with self.assertRaises(ValueError):
+            snafu_optional.rollback(target)
+        self.assertEqual(self.files(target), edited)
+
+    def test_missing_evidence_and_incomplete_receipts_are_refusals(self):
+        stage, target, before = self.staged_copy()
+        snafu_optional.install(stage, target)
+        managed = target / snafu_optional.MANAGED
+        installed = self.files(target)
+        saved = (managed / 'verification.json').read_bytes()
+        (managed / 'verification.json').unlink()
+        with self.assertRaises(economy.MissingEvidence):
+            snafu_optional.rollback(target)
+        (managed / 'verification.json').write_bytes(saved)
+        full = json.loads((managed / 'receipt.json').read_bytes())
+        (managed / 'ce/types.xml').write_bytes(b'operator data')
+        for broken in ({k: v for k, v in full.items() if k != 'verification_sha256'},
+                       {'before': full['before'], 'after': 'f' * 64, 'sources': full['sources']},
+                       {k: v for k, v in full.items() if k != 'schema'}):
+            (managed / 'receipt.json').write_bytes(economy.encode(broken))
+            with self.assertRaises(ValueError):
+                snafu_optional.rollback(target)
+            self.assertEqual((managed / 'ce/types.xml').read_bytes(), b'operator data')
+        self.assertEqual(self.files(target)['cfgeconomycore.xml'], installed['cfgeconomycore.xml'])
 
     def test_coexists_with_the_roster_and_requires_last_in_first_out_rollback(self):
         target = Path(self.tmp.name) / 'copy'

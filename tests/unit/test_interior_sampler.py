@@ -3275,5 +3275,41 @@ class Round5StagerFrameTests(SamplerWorkspace):
         self.assertEqual(samp.MAX_FRAME_POINTS_PER_CLASS, plan["frame_check"]["points"]["Land_HouseBlock_2F1"])
 
 
+class Round8NativeRunIdTests(SamplerWorkspace):
+    """The census must name its native run: the id is chosen when the plan is staged and echoed by the hook."""
+    RUN = "00112233445566778899aabbccddeeff"  # SYNTHETIC
+
+    def setUp(self):
+        patcher = mock.patch.object(cep, "SYNTH_PROTO", SAMPLER_PROTO)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
+
+    def test_the_census_header_echoes_the_run_id_the_hook_was_rendered_with(self):
+        hook = samp.render_hook(sampler_targets(), native_run_id=self.RUN).decode()
+        census = gated_run(hook)[0].census()
+        self.assertEqual(self.RUN, census["native_run_id"])
+
+    def test_a_malformed_run_id_is_refused_when_rendering(self):
+        for bad in ("", "ABCDEF0123456789ABCDEF0123456789", "abc", "0" * 31 + "g", 5, '0" + "'):
+            with self.subTest(run_id=bad), self.assertRaises(ValueError):
+                samp.render_hook(sampler_targets(), native_run_id=bad)
+
+    def test_the_plan_records_the_run_id_and_the_staged_hook_embeds_that_same_id(self):
+        plan = self.stage()
+        run_id = plan["probe"]["native_run_id"]
+        self.assertRegex(run_id, r"^[0-9a-f]{32}$")
+        text = (self.dest / "mpmissions/dayzOffline.chernarusplus/init.c").read_text()
+        self.assertIn(run_id, text)
+
+    def test_every_stage_gets_a_fresh_run_id(self):
+        first = self.stage()["probe"]["native_run_id"]
+        shutil.rmtree(self.dest)
+        self.assertNotEqual(first, self.stage()["probe"]["native_run_id"])
+
+    def test_the_hook_text_without_an_explicit_id_still_lints_clean(self):
+        self.assertEqual([], samp.lint_sampler_hook(samp.render_hook(sampler_targets()).decode()))
+
+
 if __name__ == "__main__":
     unittest.main()
