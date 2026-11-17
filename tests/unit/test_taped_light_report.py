@@ -68,20 +68,32 @@ def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True, found=
 LIGHT_PROXY_PATH = "/dz/weapons/attachments/light/weaponlight_universal"
 
 
-def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exists=True, model=None, cfg_class=None):
+def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exists=True, model=None, cfg_class=None,
+          slot_count=None, slot_complete=None, view_selection=None, vertex_ok=True, vertex=("0.5", "0.25", "-1.5")):
     """One probe-003 style proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
 
     The probe lists ``proxy:/dz/.../weaponlight_universal.001`` style selections; the config entry is
-    ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list."""
+    ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list.
+    ``slot_count``/``slot_complete`` are the hook's inventorySlot bookkeeping (the listed rows are capped at 8) and
+    ``view_selection``/``vertex_ok``/``vertex`` are the view-LOD join (the first view-LOD selection whose lowered name
+    contains the lowered model path, and the first vertex of that selection as number text)."""
     base = path.rsplit("/", 1)[-1]
     default_model = "\\" + path.strip("/").replace("/", "\\") + ".p3d"
-    return {"selection": "proxy:" + path + "." + number, "cfg_class": "Proxy" + base if cfg_class is None else cfg_class,
+    listed = list(slots) if exists else []
+    selection = "proxy:" + path + "." + number
+    return {"selection": selection, "cfg_class": "Proxy" + base if cfg_class is None else cfg_class,
             "cfg_exists": exists, "model": ("" if not exists else default_model) if model is None else model,
-            "inventory_slots": list(slots) if exists else []}
+            "inventory_slots": listed, "slot_count": len(listed) if slot_count is None else slot_count,
+            "slot_scan_complete": (slot_count is None or slot_count == len(listed)) if slot_complete is None else slot_complete,
+            "view_selection": selection.lower() if view_selection is None else view_selection,
+            "view_vertex_ok": vertex_ok, "view_vertex": list(vertex) if vertex_ok else []}
+
+
+VIEW_HOST = {"view_lod": True, "view_selection_count": 3, "view_scan_complete": True}
 
 
 def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
-        prereq_variant=None, proxies=None, proxy_count=None):
+        prereq_variant=None, proxies=None, proxy_count=None, view=None):
     if not spawned:
         return {"i": index, "class": name, "root": root, "group": group, "spawned": False, "timed_out": False}
     result = {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
@@ -93,6 +105,7 @@ def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeap
         result["proxy_count"] = len(proxies) if proxy_count is None else proxy_count
         result["proxy_scan_complete"] = True
         result["proxies"] = proxies
+        result.update(VIEW_HOST if view is None else view)
     return result
 
 
@@ -937,8 +950,8 @@ class ProxySlotEvidenceTests(unittest.TestCase):
 
     def test_a_proxy_with_an_existing_config_matching_model_and_slot_qualifies(self):
         slot, record, result = self.attach([proxy()])
-        self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
-        self.assertEqual("proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
         self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
         self.assertEqual("qualified", record["verdict"])
         self.assertEqual("PENDING", result["acceptance"])
@@ -958,7 +971,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                 item = proxy()
                 item["selection"] = prefix + item["selection"][len("proxy:"):]
                 slot, _record, _result = self.attach([item])
-                self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
+                self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_selection_without_the_proxy_prefix_is_malformed_evidence_not_a_match(self):
         item = proxy()
@@ -969,7 +982,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
     def test_a_qualifying_proxy_among_other_rows_and_a_truncated_list_still_qualifies(self):
         rows = [proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",)), proxy()]
         slot, _record, _result = self.attach(rows, proxy_count=40)
-        self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_proxy_that_names_a_different_slot_does_not_qualify(self):
         slot, record, _result = self.attach([proxy(slots=("pistolFlashlight",))])
@@ -1084,15 +1097,16 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                     prereq_variant=variant, proxies=[proxy()])]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("qualified", "native_attach_with_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
         self.assertTrue(slot["evidence"]["requires_prerequisite"])
-        self.assertEqual("proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
         rows[0]["proxies"] = [proxy(slots=("pistolFlashlight",))]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
         self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
-        del rows[0]["proxies"], rows[0]["proxy_count"], rows[0]["proxy_scan_complete"]
+        for key in ("proxies", "proxy_count", "proxy_scan_complete", *VIEW_HOST):
+            del rows[0][key]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
         self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
@@ -1102,8 +1116,244 @@ class ProxySlotEvidenceTests(unittest.TestCase):
         self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, result["unobserved_axes"])
 
     def test_the_consumed_keys_name_the_proxy_fields(self):
-        for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots"):
+        for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots",
+                    "slot_count", "slot_scan_complete", "view_lod", "view_selection_count", "view_scan_complete",
+                    "view_selection", "view_vertex_ok", "view_vertex"):
             self.assertIn(key, report.CONSUMED_KEYS)
+
+
+class ProxyIdentityTests(unittest.TestCase):
+    """Fix round 4 (hc-taped-light-review-004): contradictory or malformed proxy rows are judged before any slot match,
+    so a positive row cannot be selected from a host whose own read-back disagrees with itself."""
+
+    def judge(self, proxies, **extra):
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=proxies, **extra)]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        return result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], result
+
+    def assert_pending_malformed(self, proxies, label="", **extra):
+        slot, result = self.judge(proxies, **extra)
+        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+        self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+
+    def test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order(self):
+        negative = dict(proxy(), cfg_exists=False, model="", inventory_slots=[], slot_count=0)
+        for order in ((proxy(), negative), (negative, proxy())):
+            self.assert_pending_malformed(list(order), "conflicting duplicate")
+
+    def test_each_conflicting_field_of_a_duplicate_identity_is_caught(self):
+        for field, value in (("model", "\\dz\\other.p3d"), ("inventory_slots", ["pistolFlashlight"]),
+                             ("cfg_class", "Proxyweaponlight_universal2"), ("view_selection", ""),
+                             ("view_vertex_ok", False)):
+            with self.subTest(field=field):
+                self.assert_pending_malformed([proxy(), dict(proxy(), **{field: value})], field)
+
+    def test_duplicate_identities_are_malformed_even_when_they_agree_and_across_case_and_slash_spelling(self):
+        self.assert_pending_malformed([proxy(), proxy()], "identical duplicate")
+        other = proxy()
+        other["selection"] = "PROXY:\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.001"
+        self.assert_pending_malformed([proxy(), other], "case and slash variant")
+
+    def test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed(self):
+        self.assert_pending_malformed([proxy(number="001"), proxy(number="002", slots=("pistolFlashlight",))], "slots")
+        self.assert_pending_malformed([proxy(number="001"), proxy(number="002", exists=False)], "exists")
+        slot, _result = self.judge([proxy(number="001"), proxy(number="002")])
+        self.assertEqual("qualified", slot["verdict"])
+
+    def test_a_malformed_proxy_name_is_never_qualified(self):
+        for label, selection in (("non-numeric suffix", "proxy:" + LIGHT_PROXY_PATH + ".garbage"),
+                                 ("no suffix", "proxy:" + LIGHT_PROXY_PATH),
+                                 ("empty suffix", "proxy:" + LIGHT_PROXY_PATH + "."),
+                                 ("signed suffix", "proxy:" + LIGHT_PROXY_PATH + ".-1"),
+                                 ("unicode digit suffix", "proxy:" + LIGHT_PROXY_PATH + ".٣"),
+                                 ("empty basename", "proxy:/dz/weapons/attachments/light/.001"),
+                                 ("empty path", "proxy:.001"),
+                                 ("slashes only", "proxy://.001"),
+                                 ("no prefix", LIGHT_PROXY_PATH + ".001")):
+            with self.subTest(label):
+                self.assert_pending_malformed([dict(proxy(), selection=selection)], label)
+
+    def test_a_malformed_name_in_any_row_makes_the_host_pending_even_with_a_valid_matching_row_present(self):
+        self.assert_pending_malformed([proxy(), dict(proxy(path="/dz/x/muzzle"), selection="proxy:/dz/x/muzzle.garbage")])
+
+    def test_slot_bookkeeping_must_be_typed_and_consistent(self):
+        for label, change in (("slot_count missing", lambda r: r.pop("slot_count")),
+                              ("slot_count a bool", lambda r: r.update(slot_count=True)),
+                              ("slot_count a string", lambda r: r.update(slot_count="1")),
+                              ("slot_count below the listed slots", lambda r: r.update(slot_count=0)),
+                              ("slot_scan_complete missing", lambda r: r.pop("slot_scan_complete")),
+                              ("slot_scan_complete not a bool", lambda r: r.update(slot_scan_complete=1)),
+                              ("complete although slots were dropped", lambda r: r.update(slot_count=9)),
+                              ("incomplete although every slot is listed", lambda r: r.update(slot_scan_complete=False))):
+            with self.subTest(label):
+                item = proxy()
+                change(item)
+                self.assert_pending_malformed([item], label)
+
+
+class SlotListTruncationTests(unittest.TestCase):
+    """Fix round 4: the hook lists at most eight inventory slots per proxy row; a slot beyond the cap is unknown."""
+
+    FILLER = tuple("unrelated%d" % number for number in range(8))
+
+    def judge(self, proxies):
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=proxies)]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        return result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], result
+
+    def test_a_truncated_slot_list_without_the_slot_is_pending_not_negative(self):
+        slot, result = self.judge([proxy(slots=self.FILLER, slot_count=9)])
+        self.assertEqual(("pending", "proxy_slot_list_truncated"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(0, result["denominators"]["qualified"])
+
+    def test_a_listed_slot_still_qualifies_when_the_list_is_truncated(self):
+        slot, _result = self.judge([proxy(slots=self.FILLER[:7] + ("weaponFlashlight",), slot_count=12)])
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+
+    def test_a_complete_slot_list_without_the_slot_stays_a_negative_finding(self):
+        slot, _result = self.judge([proxy(slots=self.FILLER)])
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+
+    def test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending(self):
+        other = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=self.FILLER, slot_count=20)
+        slot, _result = self.judge([proxy(slots=("pistolFlashlight",)), other])
+        self.assertEqual(("pending", "proxy_slot_list_truncated"), (slot["verdict"], slot["reason"]))
+        mismatched = proxy(slots=self.FILLER, slot_count=20, model="\\dz\\weapons\\attachments\\light\\other.p3d")
+        slot, _result = self.judge([mismatched])
+        self.assertEqual("geometry_missing", slot["verdict"])
+
+    def test_the_older_selection_evidence_is_not_overridden_by_a_truncated_slot_list(self):
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=True), good_gun_lights(),
+                    proxies=[proxy(slots=self.FILLER, slot_count=9)])]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
+
+
+class ViewLodEvidenceTests(unittest.TestCase):
+    """Fix round 4: GetSelectionList does not establish view-LOD membership. A proxy qualifies only when the host's
+    view LOD (Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections) holds a selection that contains the proxy model
+    path and the selection has a first vertex. Anything unknown is pending. This is source-level evidence of the
+    pattern AttachmentsOutOfReach.c:97-135 reads; it does not prove client rendering."""
+
+    def judge(self, proxies=None, view=None, **row_extra):
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(),
+                    proxies=[proxy()] if proxies is None else proxies, view=view, **row_extra)]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        record = result["hosts"][0]
+        return record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], record, result
+
+    def test_a_view_lod_match_with_a_vertex_qualifies_and_the_evidence_is_reported(self):
+        slot, record, result = self.judge()
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        evidence = slot["evidence"]
+        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", evidence["proxy_selection"])
+        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", evidence["view_selection"])
+        self.assertEqual([0.5, 0.25, -1.5], evidence["view_vertex"])
+        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("PENDING", result["acceptance"])
+
+    def test_without_view_lod_membership_a_proxy_slot_match_is_pending_with_an_explicit_reason(self):
+        no_view = dict(proxy(), view_selection="", view_vertex_ok=False, view_vertex=[])
+        cases = {
+            "no view lod": (dict(VIEW_HOST, view_lod=False), [no_view], "view_lod_missing"),
+            "no view selection, complete scan": (None, [no_view], "view_selection_missing"),
+            "no view selection, truncated scan": (dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False),
+                                                  [no_view], "view_evidence_truncated"),
+            "view selection names another model": (None, [proxy(view_selection="proxy:/dz/other/thing.001")],
+                                                   "view_selection_mismatch"),
+            "no first vertex": (None, [proxy(vertex_ok=False)], "view_vertex_missing"),
+            "vertex not three numbers": (None, [proxy(vertex=("1", "2"))], "view_vertex_invalid"),
+            "vertex not numeric": (None, [proxy(vertex=("1", "x", "3"))], "view_vertex_invalid"),
+            "vertex not finite": (None, [proxy(vertex=("1", "nan", "3"))], "view_vertex_invalid"),
+            "vertex infinite": (None, [proxy(vertex=("1", "inf", "3"))], "view_vertex_invalid"),
+        }
+        for label, (view, proxies, reason) in cases.items():
+            with self.subTest(label):
+                slot, record, result = self.judge(proxies, view=view)
+                self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+                self.assertEqual("pending", record["verdict"], label)
+                self.assertEqual(0, result["denominators"]["qualified"], label)
+
+    def test_a_view_selection_that_was_found_stands_over_an_incomplete_scan(self):
+        slot, _record, _result = self.judge(view=dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False))
+        self.assertEqual("qualified", slot["verdict"])
+
+    def test_view_evidence_is_judged_only_for_a_row_that_would_match_the_slot(self):
+        unrelated = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",), view_selection="",
+                          vertex_ok=False)
+        slot, _record, _result = self.judge([proxy(), unrelated])
+        self.assertEqual("qualified", slot["verdict"])
+        slot, _record, _result = self.judge([proxy(slots=("pistolFlashlight",), view_selection="", vertex_ok=False)])
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+
+    def test_a_second_matching_row_with_view_evidence_rescues_a_first_row_without_it(self):
+        first = proxy(number="001", view_selection="", vertex_ok=False)
+        slot, _record, _result = self.judge([first, proxy(number="002")])
+        self.assertEqual("qualified", slot["verdict"])
+
+    def test_view_slash_and_case_spellings_are_normalised_before_the_match_is_checked(self):
+        for selection in ("PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001",
+                          "xx/dz/weapons/attachments/light/weaponlight_universal_extra"):
+            with self.subTest(selection):
+                slot, _record, _result = self.judge([proxy(view_selection=selection)])
+                self.assertEqual("qualified", slot["verdict"])
+
+    def test_malformed_view_fields_are_pending_malformed_evidence(self):
+        def host_view(**changes):
+            return dict(VIEW_HOST, **changes)
+
+        cases = {
+            "view_lod not a bool": (host_view(view_lod=1), None),
+            "view_lod missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_lod"}, None),
+            "view_selection_count not an int": (host_view(view_selection_count="3"), None),
+            "view_selection_count a bool": (host_view(view_selection_count=True), None),
+            "view_selection_count negative": (host_view(view_selection_count=-1), None),
+            "view_scan_complete not a bool": (host_view(view_scan_complete="yes"), None),
+            "view_scan_complete missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_scan_complete"}, None),
+            "view_selection not a string": (None, dict(proxy(), view_selection=7)),
+            "view_vertex_ok not a bool": (None, dict(proxy(), view_vertex_ok="true")),
+            "view_vertex not a list": (None, dict(proxy(), view_vertex="0.5,0.25,-1.5")),
+            "view_selection claimed with no view lod": (host_view(view_lod=False), proxy()),
+            "view_selection claimed with an empty view": (host_view(view_selection_count=0), proxy()),
+        }
+        for label, (view, item) in cases.items():
+            with self.subTest(label):
+                slot, _record, result = self.judge([item or proxy()], view=view)
+                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+                self.assertEqual(0, result["denominators"]["qualified"], label)
+
+    def test_a_row_missing_any_view_field_is_malformed(self):
+        for key in ("view_selection", "view_vertex_ok", "view_vertex"):
+            with self.subTest(key):
+                item = proxy()
+                del item[key]
+                slot, _record, _result = self.judge([item])
+                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+
+    def test_view_evidence_is_never_taken_from_the_older_selection_evidence(self):
+        slot, _record, _result = self.judge([proxy(view_selection="", vertex_ok=False)])
+        self.assertEqual("pending", slot["verdict"])
+
+    def test_the_prerequisite_variant_uses_the_view_lod_reason(self):
+        lights = good_gun_lights()
+        lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+        variant = variant_obs("weaponHandguardAK", [good_gun_lights()[2]])
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), lights, prereq=prereq_obs(has="weaponHandguardAK"),
+                    prereq_variant=variant, proxies=[proxy(view_selection="", vertex_ok=False)])]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("pending", "view_selection_missing"), (slot["verdict"], slot["reason"]))
+        rows[0]["proxies"] = [proxy()]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
+                         (slot["verdict"], slot["reason"]))
+
+    def test_the_module_documents_that_client_rendering_stays_pending(self):
+        self.assertIn("view LOD", report.__doc__)
+        self.assertIn("client rendering", report.__doc__)
 
 
 class CliTests(unittest.TestCase):

@@ -7,8 +7,9 @@ observations JSON written by a native run of the probe staged by
   qualified         the engine reported a native slot, the representative light attached in
                     it through the native call, the attachment is found in that slot and the
                     host model carries geometry for the slot: a proxy selection whose
-                    CfgNonAIVehicles entry exists, names the same model path and lists the slot
-                    in inventorySlot, or (older probes) a slot selection, memory point or bone.
+                    CfgNonAIVehicles entry exists, names the same model path, lists the slot
+                    in inventorySlot and is present in the host's view LOD, or (older probes) a
+                    slot selection, memory point or bone.
   geometry_missing  the engine reported no compatible native slot, refused the native attach
                     for a reason the observation can attribute to the host, or the attach has
                     no model selection to render at (no proxy is invented).
@@ -38,11 +39,29 @@ Evidence rules (the report never fills a gap with a favourable default):
 
 Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing natively, so the proxy join
 is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
-``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot). A slot has proxy evidence only when
-a listed proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the
-proxy path (case-insensitive, slashes and the .p3d extension normalised) and an inventorySlot list holding the
-slot. The proxy name alone is never evidence. Missing or malformed proxy evidence is pending, never qualified;
-a truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
+``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the view LOD
+(Object.GetLODByName(LOD.NAME_VIEW) and LOD.GetSelections, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
+:97-135 reads) with the first view-LOD selection whose lowered name contains the lowered model path and its first
+vertex. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
+proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path
+(case-insensitive, slashes and the .p3d extension normalised), an inventorySlot list holding the slot, AND view-LOD
+membership: a view LOD exists, a view selection contains the model path (re-verified here) and has a finite first
+vertex. The proxy name alone is never evidence.
+
+  * Contradictory proxy evidence is malformed before any slot is matched: a name that is not exactly
+    ``proxy:<path>.<digits>`` with a non-empty basename, a duplicate selection identity (even when the copies agree),
+    two rows reading the same config entry differently, a mistyped field, or slot/view bookkeeping that contradicts
+    itself. Malformed, missing or truncated proxy evidence is pending, never qualified.
+  * The hook lists at most eight inventory slots per proxy row and reports ``slot_count`` and ``slot_scan_complete``:
+    a row that matches the model but dropped slots, with the slot not among those listed, is pending
+    (``proxy_slot_list_truncated``). A listed slot still qualifies over a truncated tail.
+  * A view LOD that is absent, a missing, unmatched or truncated view selection scan, or a missing or non-finite first
+    vertex is pending with its own reason (view_lod_missing, view_selection_missing, view_evidence_truncated,
+    view_selection_mismatch, view_vertex_missing, view_vertex_invalid), never qualified and never negative. The
+    qualified reasons are native_attach_with_view_lod_proxy_slot and, with the rail handguard variant,
+    native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite. This is source-level evidence of the native
+    pattern; it does not prove client rendering, which stays pending with the other unobserved axes.
+  * A truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
 
 Attachment read-back must be self-consistent everywhere: found_type is filled only after a successful create,
 so a non-empty found_type with attach_ok false, or attach_ok true with an empty found_type, is contradictory
@@ -55,7 +74,9 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import math
 from pathlib import Path
+import re
 import sys
 
 CLASSIFICATION_KIND = "flashlight_host_light_classification"
@@ -84,7 +105,8 @@ CONSUMED_KEYS = (
     "attach_ok", "found_type", "fits_native_slots", "fits", "type", "prereq", "attached_type",
     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
     "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
-    "selection", "cfg_class", "cfg_exists", "model", "inventory_slots")
+    "selection", "cfg_class", "cfg_exists", "model", "inventory_slots", "slot_count", "slot_scan_complete",
+    "view_lod", "view_selection_count", "view_scan_complete", "view_selection", "view_vertex_ok", "view_vertex")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -252,58 +274,134 @@ def _path(text):
     return path[:-4] if path.endswith(".p3d") else path
 
 
-def _proxy_path(selection):
-    """Path of a ``proxy:<path>.<nnn>`` selection (the trailing .nnn dropped), or None for any other selection.
+def _proxy_name(selection):
+    """(path, number) of a ``proxy:<path>.<nnn>`` selection, or None when the name is not exactly that shape.
 
-    The prefix is matched case-insensitively, as the probe hook matches it."""
+    The prefix is matched case-insensitively, as the probe hook matches it. The instance suffix must be ASCII digits
+    and the path must end in a non-empty basename; ``.garbage``, no suffix and an empty basename are all refused."""
     if selection[:len("proxy:")].lower() != "proxy:":
         return None
-    text = selection[len("proxy:"):].replace("\\", "/")
-    stem, dot, _number = text.rpartition(".")
-    return _path(stem if dot and "/" not in _number else text)
+    stem, dot, number = selection[len("proxy:"):].replace("\\", "/").rpartition(".")
+    if not dot or not number or not set(number) <= _ASCII_DIGITS or stem.endswith("/"):
+        return None
+    path = _path(stem)
+    if not path or not path.rsplit("/", 1)[-1] or path.endswith("/"):
+        return None
+    return path, number
+
+
+_ASCII_DIGITS = frozenset("0123456789")
+_NUMBER_TEXT = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$")
+PROXY_ROW_KINDS = (("selection", "str"), ("cfg_class", "str"), ("cfg_exists", "bool"), ("model", "str"),
+                   ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"),
+                   ("view_selection", "str"), ("view_vertex_ok", "bool"), ("view_vertex", "list"))
+VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete")
+PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS
+
+
+def _proxy_row(entry):
+    """Typed values of one proxy row, or None when a key is missing, mistyped or contradicts its own bookkeeping."""
+    values = {key: _get(entry, key, kind) for key, kind in PROXY_ROW_KINDS}
+    if MISSING in values.values() or not all(isinstance(item, str) for item in values["inventory_slots"]):
+        return None
+    listed = len(values["inventory_slots"])
+    if values["slot_count"] < listed or values["slot_scan_complete"] != (values["slot_count"] == listed):
+        return None       # the hook caps the slot list: a count above the listed slots is a truncated list
+    return values
 
 
 def _proxies(row):
-    """Typed proxy evidence of a host row: ("missing",), ("malformed",) or ("ok", rows, truncated)."""
-    if "proxies" not in row and "proxy_count" not in row and "proxy_scan_complete" not in row:
+    """Typed proxy evidence of a host row: ("missing",), ("malformed",) or ("ok", rows, truncated, view).
+
+    Everything that makes the host's own read-back contradict itself is malformed here, before any slot is matched:
+    a malformed proxy name, a duplicate selection identity (even when the copies agree), rows that read the same
+    ``Proxy<basename>`` config entry differently, a view selection claimed by a host without a view LOD."""
+    if not any(key in row for key in PROXY_HOST_KEYS):
         return ("missing",)
     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
-    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
+    view = {"lod": _get(row, "view_lod", "bool"), "count": _get(row, "view_selection_count", "int"),
+            "complete": _get(row, "view_scan_complete", "bool")}
+    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count \
+            or MISSING in view.values() or view["count"] < 0:
         return ("malformed",)
-    rows = []
+    rows, identities, lookups = [], set(), {}
     for entry in entries:
-        values = {"selection": _get(entry, "selection", "str"), "cfg_class": _get(entry, "cfg_class", "str"),
-                  "cfg_exists": _get(entry, "cfg_exists", "bool"), "model": _get(entry, "model", "str"),
-                  "inventory_slots": _get(entry, "inventory_slots", "list")}
-        if MISSING in values.values() or not all(isinstance(item, str) for item in values["inventory_slots"]):
+        values = _proxy_row(entry)
+        name = _proxy_name(values["selection"]) if values else None
+        if name is None or values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
             return ("malformed",)
-        path = _proxy_path(values["selection"])
-        if path is None or values["cfg_class"].casefold() != ("Proxy" + path.rsplit("/", 1)[-1]).casefold():
+        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"])
+        if name in identities or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup \
+                or (values["view_selection"] and not (view["lod"] and view["count"] > 0)):
             return ("malformed",)
-        rows.append(dict(values, path=path))
-    return ("ok", rows, count > len(entries) or not complete)
+        identities.add(name)
+        rows.append(dict(values, path=name[0]))
+    return ("ok", rows, count > len(entries) or not complete, view)
+
+
+def _needle(model):
+    """The model path as the hook matches it against view-LOD selection names: lower case, slashes, no .p3d."""
+    text = model.replace("\\", "/").lower()
+    return text[:-4] if text.endswith(".p3d") else text
+
+
+def _vertex(values):
+    """Three finite numbers from the hook's number text, or None."""
+    if len(values) != 3 or not all(isinstance(item, str) and _NUMBER_TEXT.match(item) for item in values):
+        return None
+    numbers = [float(item) for item in values]
+    return numbers if all(math.isfinite(number) for number in numbers) else None
+
+
+def _view_problem(item, view):
+    """Pending reason when the row's view-LOD join does not hold up, else None. Nothing unknown is a pass."""
+    if not view["lod"]:
+        return "view_lod_missing"
+    if not item["view_selection"]:
+        return "view_selection_missing" if view["complete"] else "view_evidence_truncated"
+    if len(item["model"]) <= 5 or _needle(item["model"]) not in item["view_selection"].replace("\\", "/").lower():
+        return "view_selection_mismatch"       # the hook's claim is re-verified here, not trusted
+    if not item["view_vertex_ok"]:
+        return "view_vertex_missing"
+    return None if _vertex(item["view_vertex"]) else "view_vertex_invalid"
 
 
 def _model_evidence(host_slot, slot, proxies):
-    """(source, detail) for one slot: source is selection, proxy_slot, none or pending (detail names the reason).
+    """(source, detail, view) for one slot: source is selection, view_lod_proxy_slot, none or pending.
 
-    Selection, memory point and bone are the older evidence; proxy evidence is the join of a proxy selection to its
-    config entry. Malformed proxy evidence outranks both, because the row's evidence is then not trustworthy."""
+    ``detail`` is the pending reason, or the proxy selection of a view_lod_proxy_slot; ``view`` holds that row's view
+    selection and first vertex. Selection, memory point and bone are the older evidence; proxy evidence is the join of
+    a proxy selection to its config entry, and then to the host's view LOD (Object.GetLODByName(LOD.NAME_VIEW)). A
+    row that would match the slot but has no view-LOD membership is pending, never qualified and never negative.
+    Malformed proxy evidence outranks both kinds, because the row's evidence is then not trustworthy."""
     if proxies[0] == "malformed":
-        return "pending", "proxy_evidence_malformed"
+        return "pending", "proxy_evidence_malformed", None
     if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
-        return "selection", None
+        return "selection", None, None
     if proxies[0] == "missing":
-        return "pending", "proxy_evidence_missing"
-    for item in proxies[1]:
-        if item["cfg_exists"] and _path(item["model"]) == item["path"] \
-                and slot.casefold() in {name.casefold() for name in item["inventory_slots"]}:
-            return "proxy_slot", item["selection"]
-    if proxies[2]:
-        return "pending", "proxy_evidence_truncated"
-    if any(not item["cfg_exists"] for item in proxies[1]):
-        return "pending", "proxy_config_missing"
-    return "none", None
+        return "pending", "proxy_evidence_missing", None
+    _kind, rows, truncated, view = proxies
+    wanted, pending, slot_list_cut = slot.casefold(), None, False
+    for item in rows:
+        if not item["cfg_exists"] or _path(item["model"]) != item["path"]:
+            continue
+        if wanted in {name.casefold() for name in item["inventory_slots"]}:
+            problem = _view_problem(item, view)
+            if problem is None:
+                return "view_lod_proxy_slot", item["selection"], {"view_selection": item["view_selection"],
+                                                                  "view_vertex": _vertex(item["view_vertex"])}
+            pending = pending or problem
+        elif item["slot_count"] > len(item["inventory_slots"]):
+            slot_list_cut = True       # the hook capped this row's slot list: the slot may be among the dropped ones
+    if pending:
+        return "pending", pending, None
+    if truncated:
+        return "pending", "proxy_evidence_truncated", None
+    if slot_list_cut:
+        return "pending", "proxy_slot_list_truncated", None
+    if any(not item["cfg_exists"] for item in rows):
+        return "pending", "proxy_config_missing", None
+    return "none", None, None
 
 
 def _accepted(light, model, attempt):
@@ -314,8 +412,8 @@ def _accepted(light, model, attempt):
         return "pending", "attached_item_not_found_in_slot"
     if model[0] == "pending":
         return "pending", model[1]
-    if model[0] == "proxy_slot":
-        return "qualified", "native_attach_with_proxy_slot"
+    if model[0] == "view_lod_proxy_slot":
+        return "qualified", "native_attach_with_view_lod_proxy_slot"
     if model[0] == "selection":
         return "qualified", "native_attach_with_model_selection"
     return "geometry_missing", "attached_without_model_selection"
@@ -361,7 +459,8 @@ def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot
         return "geometry_missing", "native_attach_refused_with_prerequisite", True
     verdict, reason = _accepted(light, model, attempt)
     if verdict == "qualified":
-        reason = ("native_attach_with_proxy_slot_and_rail_handguard_prerequisite" if model[0] == "proxy_slot"
+        reason = ("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"
+                  if model[0] == "view_lod_proxy_slot"
                   else "native_attach_with_rail_handguard_prerequisite")
     return verdict, reason, True
 
@@ -408,7 +507,9 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
                                                        preflight, model)
             evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
                             attach_ok=attempt["attach_ok"], requires_prerequisite=requires, model_evidence=model[0],
-                            proxy_selection=model[1] if model[0] == "proxy_slot" else None)
+                            proxy_selection=model[1] if model[0] == "view_lod_proxy_slot" else None,
+                            view_selection=(model[2] or {}).get("view_selection"),
+                            view_vertex=(model[2] or {}).get("view_vertex"))
             evidence["bone_index"] = max(host_slot["bone_index"], -1)
         slots[slot] = {"verdict": verdict, "reason": reason, "evidence": evidence}
         verdicts.append(verdict)

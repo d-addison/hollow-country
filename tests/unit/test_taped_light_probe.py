@@ -198,7 +198,8 @@ class HookRenderingTests(unittest.TestCase):
     def test_observation_surface_uses_only_the_listed_engine_apis(self):
         for api in ("InventorySlots.GetSlotIdFromString", "InventorySlots.GetSelectionForSlotId", "HasAttachmentSlot",
                     "HasSelection", "MemoryPointExists", "GetBoneIndex", "GetMemoryPointPos", "CanAddAttachment(",
-                    "CanAddAttachmentEx(", "FindAttachment(", "GetSelectionList", "GetBoneObject"):
+                    "CanAddAttachmentEx(", "FindAttachment(", "GetSelectionList", "GetBoneObject", "GetLODByName(",
+                    "GetSelections(", "GetVertexPosition("):
             self.assertIn(api, self.hook)
         allowed = {"GetSlotIdFromString", "GetSelectionForSlotId", "GetSlotName", "HasAttachmentSlot", "HasSelection",
                    "MemoryPointExists", "GetBoneIndex", "GetMemoryPointPos", "CanAddAttachment", "CanAddAttachmentEx",
@@ -209,7 +210,8 @@ class HookRenderingTests(unittest.TestCase):
                    "GetAttachmentSlotsCount", "IsServer", "GetTime", "GetWorldName", "GetVersion", "Cast", "Replace", "Substring", "Length",
                    "Insert", "Get", "Count", "Find", "Print", "Vector", "OnInit", "GetGame", "AsciiToString",
                    "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString", "LastIndexOf",
-                   "ConfigGetText", "ConfigGetTextArray"}
+                   "ConfigGetText", "ConfigGetTextArray", "GetLODByName", "GetSelections", "GetName", "GetVertexCount",
+                   "GetLODVertexIndex", "GetVertexPosition"}
         called = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))))
         own = set(re.findall(r"\b(?:void|bool|int|float|string|vector|EntityAI|Object|array<[^>]+>)\s+(\w+)\s*\(", self.hook))
         keywords = {"if", "while", "for", "return", "override", "array", "super"}
@@ -732,9 +734,14 @@ SLOT_SELECTION = {"weaponFlashlight": "light_w", "pistolFlashlight": "light_p", 
                   "weaponHandguardAK": "hg_ak", "weaponHandguardM4": "hg_m4", "weaponHandguardMP5": "hg_mp5"}
 
 
-def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=()):
+def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=(), view=None,
+         view_no_vertex=(), view_unlisted=False):
+    """``view`` is the view-LOD selection names (None: the model has no view LOD, GetLODByName returns null);
+    ``view_no_vertex`` names view selections without a vertex; ``view_unlisted`` makes LOD.GetSelections return false."""
     return {"slots": tuple(slots), "fits": tuple(fits), "selections": tuple(selections), "memory": tuple(memory),
-            "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies)}
+            "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies),
+            "view": None if view is None else tuple(view), "view_no_vertex": tuple(view_no_vertex),
+            "view_unlisted": view_unlisted}
 
 
 LIGHT_UNIVERSAL_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_universal.001"
@@ -795,11 +802,64 @@ class Entity:
     def GetSelectionList(self, out):
         out.extend(S(name) for name in self.spec["selections"] + self.spec["proxies"])
 
+    def GetLODByName(self, name):
+        """Object.c:106: the LOD of that (lower case) name, or null. Only the view LOD is modelled."""
+        if name != "view" or self.spec["view"] is None:
+            return None
+        return ViewLod(self.spec)
+
     def ConfigIsExisting(self, key):
         return key == "hasRailFunctionality" and self.spec["rail"]
 
     def ConfigGetBool(self, key):
         return key == "hasRailFunctionality" and self.spec["rail"]
+
+
+class ViewSelection:
+    """gameplay.c:179 Selection: GetName, GetVertexCount, GetLODVertexIndex and the script GetVertexPosition(lod, index),
+    which calls Error() (here: raises) when the LOD vertex index is -1, as the native class does."""
+
+    def __init__(self, name, has_vertex):
+        self.name, self.has_vertex = name, has_vertex
+
+    def GetName(self):
+        return S(self.name)
+
+    def GetVertexCount(self):
+        return 1 if self.has_vertex else 0
+
+    def GetLODVertexIndex(self, index):
+        return 0 if self.has_vertex and index == 0 else -1
+
+    def GetVertexPosition(self, lod, index):
+        lod_index = self.GetLODVertexIndex(index)
+        if lod_index == -1:
+            raise AssertionError("Error(Vertex doesn't exist)")
+        return lod.GetVertexPosition(lod_index)
+
+
+class ViewLod:
+    """gameplay.c:203 LOD: GetSelectionCount, GetSelections(out array<Selection>) -> bool, GetVertexPosition(index)."""
+
+    def __init__(self, entity_spec):
+        self.selections = [ViewSelection(name, name not in entity_spec["view_no_vertex"]) for name in entity_spec["view"]]
+        self.listed = not entity_spec["view_unlisted"]
+
+    def GetSelectionCount(self):
+        return len(self.selections)
+
+    def GetSelections(self, out):
+        if self.listed:
+            out.extend(self.selections)
+        return self.listed
+
+    def GetVertexPosition(self, index):
+        return (0.5, 0.25, -1.5)
+
+
+class LODNames:
+    """The LOD class constants the hook reads (gameplay.c:207 NAME_VIEW)."""
+    NAME_VIEW = S("view")
 
 
 class Inventory:
@@ -1018,7 +1078,7 @@ def build_model(hook_text, world, slots=_Slots):
 
     namespace = {
         "NumberText": number_text, "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": slots,
-        "EntityAI": _EntityAI, "Vector": lambda x, y, z: (x, y, z), "FileMode": _FileMode,
+        "EntityAI": _EntityAI, "LOD": LODNames, "Vector": lambda x, y, z: (x, y, z), "FileMode": _FileMode,
         "Print": lambda text: world.printed.append(str(text)), "FPrintln": lambda handle, text: handle.lines.append(str(text)),
         "OpenFile": open_file, "CloseFile": close_file,
         "FileExist": lambda path: str(path) in world.files or str(path).endswith("HCTapedLightProbe"),
@@ -1254,10 +1314,12 @@ class HookBehaviorTests(unittest.TestCase):
         # The variant later gained three read-back fields (handguard_found_type, handguard_slot_occupied,
         # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
         # Fix round 3 added the per-host proxy facts (proxy_count, proxy_scan_complete, proxies); these hosts have no
-        # proxies, so the empty facts are stripped as well.
+        # proxies, so the empty facts are stripped as well. Fix round 4 added the per-host view-LOD facts, which these
+        # hosts (no view LOD in the synthetic table) report as absent.
         added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
                            r'"handguard_rail_functional":(?:true|false),'
-                           r'|"proxy_count":0,"proxy_scan_complete":true,"proxies":\[\],')
+                           r'|"proxy_count":0,"proxy_scan_complete":true,"view_lod":false,"view_selection_count":0,'
+                           r'"view_scan_complete":false,"proxies":\[\],')
         for name, (size, output_sha, printed_sha, make) in golden.items():
             with self.subTest(scenario=name):
                 world = make()
@@ -1321,10 +1383,17 @@ def proxy_types(old_evidence=False):
     types = catalogue()
     keep = {"selections": ("light_w", "hg_ak"), "memory": ("light_w",)} if old_evidence else {}
     types["AK74"] = spec(("weaponFlashlight", "weaponHandguardAK"), proxies=(
-        LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY, LIGHT_UNIVERSAL_PROXY), **keep)
-    types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,),
+        LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY, LIGHT_UNIVERSAL_PROXY), view=view_of(LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY),
+        **keep)
+    types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,), view=view_of(LIGHT_TLR_PROXY),
                             **({"selections": ("light_p",)} if old_evidence else {}))
     return types
+
+
+def view_of(*proxies):
+    """View-LOD selection names as the engine would hold them: the proxy selections, in the engine's backslash style
+    and upper case (the hook normalises both), after unrelated view selections."""
+    return ("components", "zbytek") + tuple(name.replace("/", "\\").upper() for name in proxies)
 
 
 class ProxyEvidenceHookTests(unittest.TestCase):
@@ -1378,7 +1447,9 @@ class ProxyEvidenceHookTests(unittest.TestCase):
     def test_the_hook_cites_the_native_api_locations_it_uses(self):
         hook = probe.render_hook(probe.select_targets(classification())).decode()
         for cite in ("Game.c:449", "Game.c:558", "Game.c:612", "constants.c:237", "SceneEditorMenu.c:1362",
-                     "SceneEditorMenu.c:1385", "EntityAI.c:3996", "AttachmentsOutOfReach.c", "EnString.c:253"):
+                     "SceneEditorMenu.c:1385", "EntityAI.c:3996", "AttachmentsOutOfReach.c", "EnString.c:253",
+                     "Object.c:98", "Object.c:106", "gameplay.c:179", "gameplay.c:184", "gameplay.c:185", "gameplay.c:186",
+                     "gameplay.c:188", "gameplay.c:207", "gameplay.c:216", "gameplay.c:218"):
             with self.subTest(cite=cite):
                 self.assertIn(cite, hook)
 
@@ -1391,9 +1462,9 @@ class ProxyEvidenceHookTests(unittest.TestCase):
         by_name = {h["class"]: h for h in joined["hosts"]}
         self.assertEqual("qualified", by_name["AK74"]["verdict"])
         self.assertEqual("qualified", by_name["Glock19"]["verdict"])
-        self.assertEqual("native_attach_with_proxy_slot_and_rail_handguard_prerequisite",
+        self.assertEqual("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite",
                          by_name["AK74"]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["reason"])
-        self.assertEqual("native_attach_with_proxy_slot",
+        self.assertEqual("native_attach_with_view_lod_proxy_slot",
                          by_name["Glock19"]["lights"]["TLRLight"]["slots"]["pistolFlashlight"]["reason"])
         self.assertEqual("PENDING", joined["acceptance"])
         self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, joined["unobserved_axes"])
@@ -1419,13 +1490,158 @@ class ProxyEvidenceHookTests(unittest.TestCase):
                 joined = report.build_report(classification(), observations)
                 ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
                 self.assertNotEqual("qualified", ak["verdict"])
-                self.assertNotIn("native_attach_with_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
+                self.assertNotIn("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
 
     def test_the_slot_selection_evidence_is_still_reported_unchanged(self):
         world, observations = self.run_world(proxy_types(old_evidence=True), slots=_Slots)
         slot = next(s for s in host_row(observations, "AK74")["slots"] if s["slot"] == "weaponFlashlight")
         self.assertEqual((True, True, "light_w"), (slot["selection_on_model"], slot["memory_point"], slot["selection"]))
         self.assertEqual([], world.live())
+
+
+class RoundFourProxyHookTests(unittest.TestCase):
+    """Fix round 4 (hc-taped-light-review-004): per-row slot bookkeeping and the view-LOD join, run through the
+    synthetic engine and then through the report. The synthetic engine models the signatures cited in the hook; it
+    establishes nothing about DayZ behaviour."""
+
+    SLOT_CONFIG = "CfgNonAIVehicles Proxyweaponlight_universal"
+
+    def run_world(self, types=None, config=None):
+        world = World(types=types or proxy_types(), config=config)
+        run_hook(world, slots=_NoSelectionSlots)
+        return world, observations_of(world)
+
+    def ak_slot(self, observations):
+        joined = report.build_report(classification(), observations)
+        ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
+        return ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], joined
+
+    def nine_slot_world(self, last="weaponFlashlight"):
+        types = proxy_types()
+        types["AK74"]["proxies"] = (LIGHT_UNIVERSAL_PROXY,)
+        config = proxy_config()
+        config[self.SLOT_CONFIG]["inventorySlot"] = ["unrelated%d" % number for number in range(8)] + [last]
+        return types, config
+
+    def test_a_slot_omitted_by_the_per_proxy_cap_stays_pending_end_to_end(self):
+        types, config = self.nine_slot_world()
+        _world, observations = self.run_world(types, config)
+        row = host_row(observations, "AK74")["proxies"][0]
+        self.assertEqual((8, 9, False), (len(row["inventory_slots"]), row["slot_count"], row["slot_scan_complete"]))
+        slot, joined = self.ak_slot(observations)
+        self.assertEqual(("pending", "proxy_slot_list_truncated"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("PENDING", joined["acceptance"])
+
+    def test_a_complete_slot_list_reports_its_count_and_a_text_slot_counts_one(self):
+        _world, observations = self.run_world()
+        light = host_row(observations, "AK74")["proxies"][0]
+        glock = host_row(observations, "Glock19")["proxies"][0]
+        muzzle = host_row(observations, "AK74")["proxies"][1]
+        self.assertEqual((1, True), (light["slot_count"], light["slot_scan_complete"]))
+        self.assertEqual((1, True), (glock["slot_count"], glock["slot_scan_complete"]))
+        self.assertEqual((0, True), (muzzle["slot_count"], muzzle["slot_scan_complete"]))
+
+    def test_the_slot_list_is_exactly_the_eight_listed_when_the_config_holds_exactly_eight(self):
+        types, config = self.nine_slot_world()
+        config[self.SLOT_CONFIG]["inventorySlot"] = ["weaponFlashlight"] + ["unrelated%d" % number for number in range(7)]
+        _world, observations = self.run_world(types, config)
+        row = host_row(observations, "AK74")["proxies"][0]
+        self.assertEqual((8, 8, True), (len(row["inventory_slots"]), row["slot_count"], row["slot_scan_complete"]))
+        slot, _joined = self.ak_slot(observations)
+        self.assertEqual("qualified", slot["verdict"])
+
+    def test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped(self):
+        types, config = self.nine_slot_world()
+        config[self.SLOT_CONFIG]["inventorySlot"] = ["weaponFlashlight"] + ["unrelated%d" % number for number in range(11)]
+        _world, observations = self.run_world(types, config)
+        slot, _joined = self.ak_slot(observations)
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
+                         (slot["verdict"], slot["reason"]))
+
+    def test_each_host_reports_the_view_lod_facts_and_each_proxy_row_its_view_selection_and_first_vertex(self):
+        _world, observations = self.run_world()
+        ak = host_row(observations, "AK74")
+        self.assertEqual((True, 4, True), (ak["view_lod"], ak["view_selection_count"], ak["view_scan_complete"]))
+        light, muzzle = ak["proxies"]
+        self.assertEqual(("proxy:/dz/weapons/attachments/light/weaponlight_universal.001", True, ["0.5", "0.25", "-1.5"]),
+                         (light["view_selection"], light["view_vertex_ok"], light["view_vertex"]))
+        self.assertEqual(("", False, []), (muzzle["view_selection"], muzzle["view_vertex_ok"], muzzle["view_vertex"]))
+        plain = host_row(observations, "PlainBag")
+        self.assertEqual((False, 0, False, []), (plain["view_lod"], plain["view_selection_count"],
+                                                 plain["view_scan_complete"], plain["proxies"]))
+
+    def test_a_view_lod_match_qualifies_through_the_report_with_the_view_evidence(self):
+        _world, observations = self.run_world()
+        slot, joined = self.ak_slot(observations)
+        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
+                         (slot["verdict"], slot["reason"]))
+        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual([0.5, 0.25, -1.5], slot["evidence"]["view_vertex"])
+        self.assertEqual("PENDING", joined["acceptance"])
+        self.assertEqual([], joined["integrity"]["issues"])
+
+    def test_a_proxy_selection_that_is_not_in_the_view_lod_never_qualifies(self):
+        cases = {
+            "no view lod at all": dict(view=None),
+            "view lod without the proxy model": dict(view=("components", "zbytek", "proxy:\\dz\\other\\thing.001")),
+            "view lod with an empty selection list": dict(view=()),
+            "view lod whose selection list call fails": dict(view=view_of(LIGHT_UNIVERSAL_PROXY), view_unlisted=True),
+            "view selection without a first vertex": dict(view=view_of(LIGHT_UNIVERSAL_PROXY),
+                                                          view_no_vertex=view_of(LIGHT_UNIVERSAL_PROXY)),
+        }
+        for label, changes in cases.items():
+            with self.subTest(label):
+                types = proxy_types()
+                types["AK74"] = dict(types["AK74"], **changes)
+                _world, observations = self.run_world(types)
+                slot, joined = self.ak_slot(observations)
+                self.assertEqual("pending", slot["verdict"], (label, slot["reason"]))
+                self.assertNotEqual("geometry_missing", slot["verdict"], label)
+                self.assertEqual("view_", slot["reason"][:5], label)
+                self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
+
+    def test_the_view_scan_is_bounded_and_a_truncated_scan_without_the_selection_is_pending(self):
+        names = tuple("filler%03d" % number for number in range(300))
+        types = proxy_types()
+        types["AK74"] = dict(types["AK74"], view=names + view_of(LIGHT_UNIVERSAL_PROXY))
+        _world, observations = self.run_world(types)
+        ak = host_row(observations, "AK74")
+        self.assertEqual((True, 303, False), (ak["view_lod"], ak["view_selection_count"], ak["view_scan_complete"]))
+        self.assertEqual("", ak["proxies"][0]["view_selection"])
+        slot, _joined = self.ak_slot(observations)
+        self.assertEqual(("pending", "view_evidence_truncated"), (slot["verdict"], slot["reason"]))
+        types["AK74"] = dict(types["AK74"], view=view_of(LIGHT_UNIVERSAL_PROXY) + names)
+        _world, observations = self.run_world(types)
+        self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+
+    def test_the_view_match_is_the_native_lowered_substring_of_the_model_path_without_its_extension(self):
+        types = proxy_types()
+        cases = {"substring of a longer name": ("xx\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal_v2", True),
+                 "different directory": ("proxy:\\dz\\weapons\\attachments\\light2\\weaponlight_universal.001", False),
+                 "only the basename": ("proxy:weaponlight_universal.001", False)}
+        for label, (name, expected) in cases.items():
+            with self.subTest(label):
+                types["AK74"] = dict(types["AK74"], view=("components", name))
+                _world, observations = self.run_world(types)
+                self.assertEqual(expected, self.ak_slot(observations)[0]["verdict"] == "qualified", label)
+
+    def test_a_missing_config_model_never_matches_the_view_lod(self):
+        config = proxy_config()
+        config[self.SLOT_CONFIG]["model"] = ""
+        _world, observations = self.run_world(config=config)
+        light = host_row(observations, "AK74")["proxies"][0]
+        self.assertEqual(("", "", False), (light["model"], light["view_selection"], light["view_vertex_ok"]))
+        self.assertNotEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+
+    def test_the_view_facts_are_emitted_for_every_host_and_stay_within_the_json_contract(self):
+        _world, observations = self.run_world()
+        for row in observations["hosts"]:
+            if row.get("spawned"):
+                self.assertEqual(bool, type(row["view_lod"]), row["class"])
+                self.assertEqual(int, type(row["view_selection_count"]), row["class"])
+                self.assertEqual(bool, type(row["view_scan_complete"]), row["class"])
+                for item in row["proxies"]:
+                    self.assertTrue(all(isinstance(number, str) for number in item["view_vertex"]))
 
 
 if __name__ == "__main__":

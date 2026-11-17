@@ -464,7 +464,69 @@ class HCDisposableDiagnosticMission : CustomMission
         return text;
     }
 
-    string HCTLProxyRow(string selectionName)
+    // View LOD join (fix round 4). GetSelectionList does not establish view-LOD membership, so each proxy model is also
+    // looked up in the host's view LOD the way 4_World/Systems/Inventory/AttachmentsOutOfReach.c:112-131 does it:
+    // Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections, Selection.GetName lower-cased, a substring match on the
+    // lower-cased model path without .p3d, then Selection.GetVertexPosition(lod, 0). Native cache 1.30.164289:
+    //   3_Game/Entities/Object.c:98 GetLODS(notnull out array<LOD> lods) and 3_Game/Entities/Object.c:106
+    //   LOD GetLODByName(string name) (script; null when the model has no such LOD);
+    //   3_Game/gameplay.c:179 class Selection with gameplay.c:184 GetName(), gameplay.c:185 GetVertexCount(),
+    //   gameplay.c:186 GetLODVertexIndex(int) and gameplay.c:188 GetVertexPosition(LOD lod, int index) (script; it calls
+    //   Error() when the LOD vertex index is -1, so a vertex is read only after GetVertexCount() > 0 and
+    //   GetLODVertexIndex(0) != -1); gameplay.c:203 class LOD with gameplay.c:207 NAME_VIEW "view", gameplay.c:216
+    //   GetSelections(notnull out array<Selection> selections) returning bool and gameplay.c:218 GetVertexPosition(int).
+    // The scan reads at most 256 view selections and says so (view_scan_complete); a vertex is emitted as number text.
+    // This is source-level evidence only: it does not show that a client renders the attachment.
+    string HCTLViewKey(string value)
+    {
+        string text = value;
+        text.Replace(m_HCTLSlash, "/");
+        text.ToLower();
+        return text;
+    }
+
+    string HCTLViewNeedle(string modelPath)
+    {
+        string needle = HCTLViewKey(modelPath);
+        int needleLength = needle.Length();
+        if (needleLength > 4 && needle.Substring(needleLength - 4, 4) == ".p3d")
+            needle = needle.Substring(0, needleLength - 4);
+        return needle;
+    }
+
+    string HCTLViewRow(string modelPath, LOD viewLod, array<Selection> viewSelections, array<string> viewNames)
+    {
+        string needle = "";
+        if (modelPath.Length() > 5)
+            needle = HCTLViewNeedle(modelPath);
+        string matchName = "";
+        int matchIndex = 0;
+        while (needle != "" && matchIndex < viewNames.Count())
+        {
+            if (viewNames.Get(matchIndex).IndexOf(needle) != -1)
+            {
+                matchName = viewNames.Get(matchIndex);
+                break;
+            }
+            matchIndex = matchIndex + 1;
+        }
+        bool vertexOk = false;
+        string vertexText = "";
+        if (matchName != "")
+        {
+            Selection matchSelection = viewSelections.Get(matchIndex);
+            if (matchSelection.GetVertexCount() > 0 && matchSelection.GetLODVertexIndex(0) != -1)
+            {
+                vector vertexPos = matchSelection.GetVertexPosition(viewLod, 0);
+                vertexText = HCTLStr(vertexPos[0].ToString()) + "," + HCTLStr(vertexPos[1].ToString()) + "," + HCTLStr(vertexPos[2].ToString());
+                vertexOk = true;
+            }
+        }
+        string viewText = HCTLKey("view_selection") + HCTLStr(matchName) + "," + HCTLKey("view_vertex_ok") + HCTLBool(vertexOk) + ",";
+        return viewText + HCTLKey("view_vertex") + "[" + vertexText + "]";
+    }
+
+    string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewNames)
     {
         string cfgClass = "Proxy" + HCTLProxyBase(selectionName);
         string cfgPath = "CfgNonAIVehicles " + cfgClass;
@@ -483,9 +545,13 @@ class HCDisposableDiagnosticMission : CustomMission
                     slotNames.Insert(slotText);
             }
         }
+        int slotTotal = slotNames.Count();
+        bool slotComplete = true;
+        if (slotTotal > 8)
+            slotComplete = false;
         string slotList = "";
         int slotIndex = 0;
-        while (slotIndex < slotNames.Count() && slotIndex < 8)
+        while (slotIndex < slotTotal && slotIndex < 8)
         {
             if (slotIndex > 0)
                 slotList = slotList + ",";
@@ -494,7 +560,9 @@ class HCDisposableDiagnosticMission : CustomMission
         }
         string rowText = "{" + HCTLKey("selection") + HCTLStr(selectionName) + "," + HCTLKey("cfg_class") + HCTLStr(cfgClass) + ",";
         rowText = rowText + HCTLKey("cfg_exists") + HCTLBool(cfgExists) + "," + HCTLKey("model") + HCTLStr(modelPath) + ",";
-        return rowText + HCTLKey("inventory_slots") + "[" + slotList + "]}";
+        rowText = rowText + HCTLKey("inventory_slots") + "[" + slotList + "]," + HCTLKey("slot_count") + slotTotal.ToString() + ",";
+        rowText = rowText + HCTLKey("slot_scan_complete") + HCTLBool(slotComplete) + ",";
+        return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewNames) + "}";
     }
 
     string HCTLProxyFacts(Object subject)
@@ -508,6 +576,29 @@ class HCDisposableDiagnosticMission : CustomMission
         bool scanComplete = true;
         if (scanLimit < total)
             scanComplete = false;
+        LOD viewLod = subject.GetLODByName(LOD.NAME_VIEW);
+        array<Selection> viewSelections = new array<Selection>;
+        array<string> viewNames = new array<string>;
+        bool viewPresent = false;
+        bool viewListed = false;
+        if (viewLod)
+        {
+            viewPresent = true;
+            viewListed = viewLod.GetSelections(viewSelections);
+        }
+        int viewTotal = viewSelections.Count();
+        int viewLimit = viewTotal;
+        if (viewLimit > 256)
+            viewLimit = 256;
+        bool viewComplete = false;
+        if (viewListed && viewTotal == viewLimit)
+            viewComplete = true;
+        int viewIndex = 0;
+        while (viewIndex < viewLimit)
+        {
+            viewNames.Insert(HCTLViewKey(viewSelections.Get(viewIndex).GetName()));
+            viewIndex = viewIndex + 1;
+        }
         TStringArray seen = new TStringArray;
         string rows = "";
         string selectionName = "";
@@ -525,13 +616,15 @@ class HCDisposableDiagnosticMission : CustomMission
                 {
                     if (seen.Count() > 0)
                         rows = rows + ",";
-                    rows = rows + HCTLProxyRow(selectionName);
+                    rows = rows + HCTLProxyRow(selectionName, viewLod, viewSelections, viewNames);
                 }
                 seen.Insert(selectionName);
             }
         }
         int proxyTotal = seen.Count();
         string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
+        facts = facts + HCTLKey("view_lod") + HCTLBool(viewPresent) + "," + HCTLKey("view_selection_count") + viewTotal.ToString() + ",";
+        facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + ",";
         return facts + HCTLKey("proxies") + "[" + rows + "]";
     }
 

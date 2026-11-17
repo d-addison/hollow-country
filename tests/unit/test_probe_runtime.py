@@ -20,6 +20,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import tempfile
 import unittest
 from unittest import mock
@@ -770,6 +771,48 @@ class LinkRaceTests(IntegrityCase):
                 self.assertFalse(dest.exists())
         with mock.patch.object(dm.os, "supports_dir_fd", frozenset()), self.assertRaises(ValueError):
             dm.require_fd_anchoring()
+
+    def test_the_concurrency_contract_names_what_is_guaranteed_and_the_matching_replacement_residual(self):
+        """Sol review 004: the comment must not say a displaced destination always ends refused. It states the
+        trusted-namespace assumption, the refusals that remain detectable and the undetectable matching replacement."""
+        text = " ".join(line.lstrip("# ").strip() for line in Path(dm.__file__).read_text().splitlines()
+                        if line.startswith("#"))
+        for needle in ("stable, trusted destination namespace", "still detectable", "NOT detected",
+                       "same names and bytes", "outside the requested destination", "Only a protected"):
+            self.assertIn(needle, text)
+        self.assertNotIn("ends refused with no plan", text)
+        self.assertNotIn("always refused", text)
+
+    def test_a_moved_directory_replaced_by_a_writer_with_the_same_bytes_is_a_known_undetected_residual(self):
+        """PINNED RESIDUAL (Sol review 004, synthetic): a concurrent writer moves the opened battleye directory away
+        and later supplies the same file bytes at the requested path. The stager cannot tell, so staging succeeds
+        although one leaf was written outside the destination. If this ever starts being refused, update the
+        concurrency comment in diagnostic_mission.py together with this test."""
+        root, source, dest, stage = self.workspace(make_taped)
+        real_child, real_new, moved = dm._open_child_dir, rt.new_file, root / "moved-battleye"
+        state = {"writing": False, "done": False}
+
+        def writing(path, data):
+            state["writing"] = Path(path).name == "BEServer_x64.dll"
+            try:
+                real_new(path, data)
+            finally:
+                state["writing"] = False
+            if Path(path).name == "BEServer_x64.dll" and state["done"]:
+                shutil.copyfile(moved / "BEServer_x64.dll", path)       # the concurrent writer's matching bytes
+
+        def child(descriptor, name):
+            opened = real_child(descriptor, name)
+            if state["writing"] and name == "battleye" and not state["done"]:
+                state["done"] = True
+                (dest / "battleye").rename(moved)
+                (dest / "battleye").mkdir()
+            return opened
+        with mock.patch.object(rt, "new_file", side_effect=writing), mock.patch.object(dm, "_open_child_dir", side_effect=child):
+            stage(source, dest)
+        self.assertTrue(state["done"])
+        self.assertTrue((moved / "BEServer_x64.dll").exists())          # the leaf that was written outside
+        self.assertEqual(1, len(list(root.rglob("*-probe-plan.json"))))
 
     def test_the_drvfs_junction_residual_is_documented_and_left_to_the_launcher_reverification(self):
         """PINNED RESIDUAL, not a behavior test: O_NOFOLLOW and *at() calls cannot see an NTFS junction or
