@@ -110,6 +110,10 @@ _PURPOSES = {
     'taped-light-probe': ('disposable-taped-light-probe', None,
                           ["server mode", "fresh storage and profiles", "no clients",
                            "inspect observation completeness separately from startup"]),
+    # Generated per run by tools/setup/weather_probe.py (same `hook=` contract as ce-probe).
+    'weather-probe': ('disposable-weather-probe', None,
+                      ["server mode", "fresh storage and profiles", "no clients",
+                       "inspect observation completeness separately from startup"]),
 }
 
 _FACTORY = re.compile(
