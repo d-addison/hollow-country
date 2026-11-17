@@ -56,10 +56,18 @@ class HygieneTests(unittest.TestCase):
         item = next(x for x in report["inventory"] if x["path"].endswith("source.c"))
         self.assertEqual(64, len(item["sha256"]))
         self.assertEqual(27, item["bytes"])
-        self.assertEqual("private-all-rights-reserved", report["license"]["project"])
+        self.assertEqual("all-rights-reserved", report["license"]["project"])
         self.assertFalse(report["license"]["publication_authorized"])
         self.assertEqual("pending-human-review", report["license"]["third_party_rights"])
         self.assertEqual(report, self.check())
+
+    def test_public_visibility_does_not_change_rights_or_make_scan_a_publication_approval(self):
+        notice = (self.root / "LICENSE.md").read_text()
+        self.put("LICENSE.md", "# Publicly viewable source\n" + notice)
+        report = self.check()
+        self.assertTrue(report["valid"], report)
+        self.assertEqual("all-rights-reserved", report["license"]["project"])
+        self.assertFalse(report["license"]["publication_authorized"])
 
     def test_given_ignored_local_key_when_forced_into_git_then_scan_refuses(self):
         self.put(".gitignore", "*.biprivatekey\n")

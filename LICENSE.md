@@ -1,4 +1,4 @@
-# Hollow Country — private source notice
+# Hollow Country — source notice
 
 Copyright (c) 2026 David Addison
 
@@ -14,6 +14,7 @@ not claim ownership of Bohemia Interactive's games, tools, APIs, data or assets,
 and does not grant rights to any Bohemia or other third-party material. Purchased
 game assets and restricted Workshop packages are not included in this project.
 
-The project and source repository remain private. Public or Workshop publication
-requires a separate decision and rights review. See the
+The source repository is publicly viewable by the owner's decision. The rights
+notice above remains in force. Workshop publication and third-party bundling
+require a separate decision and rights review. See the
 [provenance inventory](docs/PROVENANCE_AND_LICENSES.md).

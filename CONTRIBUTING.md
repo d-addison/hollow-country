@@ -27,8 +27,9 @@ validation and identify remaining limitations. Update operator documentation and
 configuration examples when behavior changes. Close issues only when their scoped
 acceptance has been satisfied.
 
-Original source is private and all rights reserved. Do not commit game assets,
+Original source is publicly viewable and all rights reserved. Do not commit game assets,
 vanilla dumps, Workshop packages, runtime saves/profiles, credentials, signing
 private keys, machine inventories, raw test outputs or local planning records.
-Keep reusable synthetic fixtures and tests in Git. Publication requires a separate
-decision; possession of a dependency does not grant redistribution rights.
+Keep reusable synthetic fixtures and tests in Git. Workshop publication and
+third-party bundling require separate decisions; possession of a dependency does
+not grant redistribution rights.

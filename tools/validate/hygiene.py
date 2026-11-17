@@ -1,10 +1,10 @@
-"""Bounded private-repository hygiene; no network, secret excerpts or legal approval.
+"""Bounded repository hygiene; no network, secret excerpts or legal approval.
 
 Run ``python3 -B -m tools.validate.hygiene`` from a Git checkout. Scan working
 bytes of tracked and unignored files, including force-added ignored files. Ignored
 local caches, game installs and Git history are outside this check. SHA-256 binds
 the scanned bytes, not authorship or redistribution rights. Required governance
-documents and the user's private/all-rights-reserved notice are linted; third-party
+documents and the user's all-rights-reserved notice are linted; third-party
 rights still need human review. A pass never authorizes publication or DayZ use.
 
 Secret detection deliberately covers precise private-key headers and GitHub token
@@ -324,7 +324,7 @@ def check_repository(root=ROOT):
             error("required_document", required)
     if "LICENSE.md" in documents:
         if all(marker in documents["LICENSE.md"] for marker in _LICENSE_MARKERS):
-            license_info["project"] = "private-all-rights-reserved"
+            license_info["project"] = "all-rights-reserved"
         else:
             license_info["project"] = "policy-mismatch"
             error("license_policy", "LICENSE.md")
