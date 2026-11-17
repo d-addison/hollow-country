@@ -1315,11 +1315,11 @@ class HookBehaviorTests(unittest.TestCase):
         # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
         # Fix round 3 added the per-host proxy facts (proxy_count, proxy_scan_complete, proxies); these hosts have no
         # proxies, so the empty facts are stripped as well. Fix round 4 added the per-host view-LOD facts, which these
-        # hosts (no view LOD in the synthetic table) report as absent.
+        # hosts (no view LOD in the synthetic table) report as absent; fix round 5 added view_list_ok.
         added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
                            r'"handguard_rail_functional":(?:true|false),'
                            r'|"proxy_count":0,"proxy_scan_complete":true,"view_lod":false,"view_selection_count":0,'
-                           r'"view_scan_complete":false,"proxies":\[\],')
+                           r'"view_scan_complete":false,"view_list_ok":false,"proxies":\[\],')
         for name, (size, output_sha, printed_sha, make) in golden.items():
             with self.subTest(scenario=name):
                 world = make()
@@ -1449,7 +1449,7 @@ class ProxyEvidenceHookTests(unittest.TestCase):
         for cite in ("Game.c:449", "Game.c:558", "Game.c:612", "constants.c:237", "SceneEditorMenu.c:1362",
                      "SceneEditorMenu.c:1385", "EntityAI.c:3996", "AttachmentsOutOfReach.c", "EnString.c:253",
                      "Object.c:98", "Object.c:106", "gameplay.c:179", "gameplay.c:184", "gameplay.c:185", "gameplay.c:186",
-                     "gameplay.c:188", "gameplay.c:207", "gameplay.c:216", "gameplay.c:218"):
+                     "gameplay.c:188", "gameplay.c:207", "gameplay.c:216", "gameplay.c:218", "EnScript.c:385"):
             with self.subTest(cite=cite):
                 self.assertIn(cite, hook)
 
@@ -1562,6 +1562,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
         _world, observations = self.run_world()
         ak = host_row(observations, "AK74")
         self.assertEqual((True, 4, True), (ak["view_lod"], ak["view_selection_count"], ak["view_scan_complete"]))
+        self.assertEqual(True, ak["view_list_ok"])
         light, muzzle = ak["proxies"]
         self.assertEqual(("proxy:/dz/weapons/attachments/light/weaponlight_universal.001", True, ["0.5", "0.25", "-1.5"]),
                          (light["view_selection"], light["view_vertex_ok"], light["view_vertex"]))
@@ -1569,6 +1570,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
         plain = host_row(observations, "PlainBag")
         self.assertEqual((False, 0, False, []), (plain["view_lod"], plain["view_selection_count"],
                                                  plain["view_scan_complete"], plain["proxies"]))
+        self.assertEqual(False, plain["view_list_ok"])
 
     def test_a_view_lod_match_qualifies_through_the_report_with_the_view_evidence(self):
         _world, observations = self.run_world()
@@ -1614,16 +1616,71 @@ class RoundFourProxyHookTests(unittest.TestCase):
         _world, observations = self.run_world(types)
         self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
 
-    def test_the_view_match_is_the_native_lowered_substring_of_the_model_path_without_its_extension(self):
+    def test_the_view_match_is_the_whole_normalised_proxy_path_never_a_substring(self):
+        """Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+        weaponlight_universal. Qualification needs the complete lower-case, forward-slash, .p3d-free path, the proxy:
+        prefix and an all-digit .NNN instance suffix, exactly."""
+        base = "/dz/weapons/attachments/light/weaponlight_universal"
         types = proxy_types()
-        cases = {"substring of a longer name": ("xx\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal_v2", True),
+        cases = {"longer model name": ("proxy:" + base + "_extra.001", False),
+                 "version suffix": ("xx\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal_v2", False),
+                 "longer directory": ("proxy:/xx" + base + ".001", False),
+                 "generic named selection": ("label" + base, False),
+                 "generic selection with an instance": ("label" + base + ".001", False),
+                 "no instance suffix": ("proxy:" + base, False),
+                 "non-numeric instance suffix": ("proxy:" + base + ".garbage", False),
                  "different directory": ("proxy:\\dz\\weapons\\attachments\\light2\\weaponlight_universal.001", False),
-                 "only the basename": ("proxy:weaponlight_universal.001", False)}
+                 "only the basename": ("proxy:weaponlight_universal.001", False),
+                 "backslashes and upper case": ("PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.007", True),
+                 "no leading slash": ("proxy:" + base[1:] + ".001", True),
+                 "another instance number": ("proxy:" + base + ".12", True)}
         for label, (name, expected) in cases.items():
             with self.subTest(label):
                 types["AK74"] = dict(types["AK74"], view=("components", name))
                 _world, observations = self.run_world(types)
+                item = host_row(observations, "AK74")["proxies"][0]
+                self.assertEqual(expected, item["view_selection"] != "", label)
                 self.assertEqual(expected, self.ak_slot(observations)[0]["verdict"] == "qualified", label)
+
+    def test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it(self):
+        base = "/dz/weapons/attachments/light/weaponlight_universal"
+        types = proxy_types()
+        types["AK74"] = dict(types["AK74"], view=("components", "proxy:" + base + "_extra.001", "label" + base,
+                                                  "proxy:" + base + ".003"))
+        _world, observations = self.run_world(types)
+        item = host_row(observations, "AK74")["proxies"][0]
+        self.assertEqual("proxy:" + base + ".003", item["view_selection"])
+        self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+
+    def test_a_failed_view_enumeration_is_emitted_as_unknown_and_its_output_array_is_ignored(self):
+        """Review 005: LOD.GetSelections (gameplay.c:216) returns bool and says nothing about its out array on failure.
+        The hook clears the array before the call, ignores it after a failure and emits view_list_ok=false."""
+        original = ViewLod.GetSelections
+
+        def failed(lod, out):
+            original(lod, out)       # a failed call that nevertheless left the matching selections in the out array
+            return False
+        world = World(types=proxy_types())
+        with mock.patch.object(ViewLod, "GetSelections", failed):
+            run_hook(world, slots=_NoSelectionSlots)
+        observations = observations_of(world)
+        ak = host_row(observations, "AK74")
+        self.assertEqual((True, False, False, 0), (ak["view_lod"], ak["view_list_ok"], ak["view_scan_complete"],
+                                                   ak["view_selection_count"]))
+        item = ak["proxies"][0]
+        self.assertEqual(("", False, []), (item["view_selection"], item["view_vertex_ok"], item["view_vertex"]))
+        slot, joined = self.ak_slot(observations)
+        self.assertEqual(("pending", "view_enumeration_failed"), (slot["verdict"], slot["reason"]))
+        self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
+
+    def test_the_out_array_is_cleared_before_the_call_and_again_after_a_failure(self):
+        """array.Clear is EnScript.c:385 (class array<Class T>, proto native void Clear())."""
+        hook = probe.render_hook(probe.select_targets(classification())).decode()
+        call = hook.index("viewLod.GetSelections(viewSelections)")
+        self.assertEqual(1, hook.count("viewLod.GetSelections("))
+        self.assertIn("viewSelections.Clear();", hook[:call])
+        self.assertIn("viewSelections.Clear();", hook[call:call + 200])
+        self.assertIn("EnScript.c:385", hook)
 
     def test_a_missing_config_model_never_matches_the_view_lod(self):
         config = proxy_config()
@@ -1640,6 +1697,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
                 self.assertEqual(bool, type(row["view_lod"]), row["class"])
                 self.assertEqual(int, type(row["view_selection_count"]), row["class"])
                 self.assertEqual(bool, type(row["view_scan_complete"]), row["class"])
+                self.assertEqual(bool, type(row["view_list_ok"]), row["class"])
                 for item in row["proxies"]:
                     self.assertTrue(all(isinstance(number, str) for number in item["view_vertex"]))
 

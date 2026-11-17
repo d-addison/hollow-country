@@ -41,12 +41,14 @@ Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing 
 is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
 ``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the view LOD
 (Object.GetLODByName(LOD.NAME_VIEW) and LOD.GetSelections, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
-:97-135 reads) with the first view-LOD selection whose lowered name contains the lowered model path and its first
-vertex. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
+:97-135 reads) with the first view-LOD proxy selection whose whole normalised path equals the model path and its first
+vertex. AttachmentsOutOfReach.c matches with Contains(); that heuristic is not used here, because a different model whose
+name merely contains the path (``weaponlight_universal_extra``) or a generic selection must not stand in for the proxy. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
 proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path
 (case-insensitive, slashes and the .p3d extension normalised), an inventorySlot list holding the slot, AND view-LOD
-membership: a view LOD exists, a view selection contains the model path (re-verified here) and has a finite first
-vertex. The proxy name alone is never evidence.
+membership: a view LOD exists, its selection list call succeeded, a view proxy selection ``proxy:<path>.<digits>``
+equals the model path as a whole (re-verified here) and has a finite first vertex. The view lookup is one result per
+model: rows of the same model that disagree on it are malformed. The proxy name alone is never evidence.
 
   * Contradictory proxy evidence is malformed before any slot is matched: a name that is not exactly
     ``proxy:<path>.<digits>`` with a non-empty basename, a duplicate selection identity (even when the copies agree),
@@ -57,7 +59,8 @@ vertex. The proxy name alone is never evidence.
     (``proxy_slot_list_truncated``). A listed slot still qualifies over a truncated tail.
   * A view LOD that is absent, a missing, unmatched or truncated view selection scan, or a missing or non-finite first
     vertex is pending with its own reason (view_lod_missing, view_selection_missing, view_evidence_truncated,
-    view_selection_mismatch, view_vertex_missing, view_vertex_invalid), never qualified and never negative. The
+    view_selection_mismatch, view_vertex_missing, view_vertex_invalid, and view_enumeration_failed when the
+    selection list call itself reported failure, whatever its out array held), never qualified and never negative. The
     qualified reasons are native_attach_with_view_lod_proxy_slot and, with the rail handguard variant,
     native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite. This is source-level evidence of the native
     pattern; it does not prove client rendering, which stays pending with the other unobserved axes.
@@ -106,7 +109,8 @@ CONSUMED_KEYS = (
     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
     "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
     "selection", "cfg_class", "cfg_exists", "model", "inventory_slots", "slot_count", "slot_scan_complete",
-    "view_lod", "view_selection_count", "view_scan_complete", "view_selection", "view_vertex_ok", "view_vertex")
+    "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok", "view_selection", "view_vertex_ok",
+    "view_vertex")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -295,7 +299,7 @@ _NUMBER_TEXT = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$")
 PROXY_ROW_KINDS = (("selection", "str"), ("cfg_class", "str"), ("cfg_exists", "bool"), ("model", "str"),
                    ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"),
                    ("view_selection", "str"), ("view_vertex_ok", "bool"), ("view_vertex", "list"))
-VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete")
+VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete", "view_list_ok")
 PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS
 
 
@@ -315,22 +319,26 @@ def _proxies(row):
 
     Everything that makes the host's own read-back contradict itself is malformed here, before any slot is matched:
     a malformed proxy name, a duplicate selection identity (even when the copies agree), rows that read the same
-    ``Proxy<basename>`` config entry differently, a view selection claimed by a host without a view LOD."""
+    ``Proxy<basename>`` config entry differently or with different view results (the view lookup is one result per
+    model, so the selection, the vertex flag and the vertex must agree too), a view selection claimed by a host without
+    a view LOD or without a successful selection list."""
     if not any(key in row for key in PROXY_HOST_KEYS):
         return ("missing",)
     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
     view = {"lod": _get(row, "view_lod", "bool"), "count": _get(row, "view_selection_count", "int"),
-            "complete": _get(row, "view_scan_complete", "bool")}
+            "complete": _get(row, "view_scan_complete", "bool"), "listed": _get(row, "view_list_ok", "bool")}
     if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count \
-            or MISSING in view.values() or view["count"] < 0:
-        return ("malformed",)
+            or MISSING in view.values() or view["count"] < 0 \
+            or (view["listed"] and not view["lod"]) or (not view["listed"] and (view["count"] or view["complete"])):
+        return ("malformed",)       # no list without a LOD; a failed or skipped list has no selections and is not complete
     rows, identities, lookups = [], set(), {}
     for entry in entries:
         values = _proxy_row(entry)
         name = _proxy_name(values["selection"]) if values else None
         if name is None or values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
             return ("malformed",)
-        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"])
+        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
+                  values["view_selection"], values["view_vertex_ok"], tuple(values["view_vertex"]))
         if name in identities or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup \
                 or (values["view_selection"] and not (view["lod"] and view["count"] > 0)):
             return ("malformed",)
@@ -339,10 +347,11 @@ def _proxies(row):
     return ("ok", rows, count > len(entries) or not complete, view)
 
 
-def _needle(model):
-    """The model path as the hook matches it against view-LOD selection names: lower case, slashes, no .p3d."""
-    text = model.replace("\\", "/").lower()
-    return text[:-4] if text.endswith(".p3d") else text
+def _view_path(selection):
+    """The whole proxy path a view selection names (lower case, forward slashes, no leading slash, no .p3d, the
+    ``proxy:`` prefix and the all-digit ``.NNN`` instance suffix stripped), or None for any other spelling."""
+    name = _proxy_name(selection)
+    return name[0] if name else None
 
 
 def _vertex(values):
@@ -357,9 +366,11 @@ def _view_problem(item, view):
     """Pending reason when the row's view-LOD join does not hold up, else None. Nothing unknown is a pass."""
     if not view["lod"]:
         return "view_lod_missing"
+    if not view["listed"]:
+        return "view_enumeration_failed"       # LOD.GetSelections reported failure: its output is unknown
     if not item["view_selection"]:
         return "view_selection_missing" if view["complete"] else "view_evidence_truncated"
-    if len(item["model"]) <= 5 or _needle(item["model"]) not in item["view_selection"].replace("\\", "/").lower():
+    if len(item["model"]) <= 5 or _view_path(item["view_selection"]) != _path(item["model"]):
         return "view_selection_mismatch"       # the hook's claim is re-verified here, not trusted
     if not item["view_vertex_ok"]:
         return "view_vertex_missing"
