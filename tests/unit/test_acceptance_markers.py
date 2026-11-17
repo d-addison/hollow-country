@@ -8,6 +8,11 @@ Actual TDD 2026-11-17:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_acceptance_markers -v
 RED: ImportError cannot import name 'acceptance_markers' from 'tools.audit' (module missing).
 GREEN: Ran 37 tests, OK (after docs/LOCAL_ACCEPTANCE_V1.md was written).
+
+Checklist refresh 2026-11-17 (landed work moved out of "Features pending landing"):
+RED: Ran 42 tests, FAILED (failures=5): pending rows still listed landed work, "(worker branch)" labels
+     remained, log literals missing from mods/ source, Session flow and Workshop notes absent.
+GREEN: Ran 42 tests, OK (after docs/LOCAL_ACCEPTANCE_V1.md was rewritten).
 """
 import io
 import json
@@ -363,13 +368,82 @@ class ChecklistShapeTests(unittest.TestCase):
         self.assertTrue(feature_rows)
         self.assertEqual({10}, {l.count("|") for l in feature_rows})
 
-    def test_pending_landing_rows_cover_every_unfinished_feature(self):
-        section = self.text.split("## Features pending landing", 1)[-1].split("\n## ", 1)[0]
-        # Ecology landed in batch 093 (feature rows #34 and #63 #34).
-        for feature in ("Weather", "Events", "Groups r2", "Crafting r2", "Deaths", "Noise/vision",
-                        "Batch A pathgraph", "Batch B cfggameplay", "Firearms", "Build-identity fix"):
+    PENDING_FEATURES = ("CE tenement coverage points", "Launcher follow-up", "Rostered optics",
+                        "Deferred datamined variants", "Interiors measured layouts and rooms",
+                        "Taped light other hosts")
+
+    def section(self, name):
+        return self.text.split(name, 1)[-1].split("\n## ", 1)[0]
+
+    def feature_rows(self, name):
+        return [l for l in self.section(name).splitlines() if re.match(r"\| (#\d+|\u2014|#\?)", l)]
+
+    def test_pending_landing_rows_cover_only_unlanded_work(self):
+        section = self.section("## Features pending landing")
+        rows = self.feature_rows("## Features pending landing")
+        for feature in self.PENDING_FEATURES:
             self.assertIn(feature, section)
-        self.assertGreaterEqual(section.count("pending landing"), 10)
+        # Every pending row is genuinely unlanded; the count tracks the list above exactly.
+        self.assertEqual(len(self.PENDING_FEATURES), len(rows))
+        self.assertEqual(len(self.PENDING_FEATURES), section.count("pending landing:"))
+        # Work that is on main moved to the per-feature table; none of it may stay pending.
+        for landed in ("Weather", "Groups r2", "Crafting r2", "Deaths", "Noise/vision", "Batch A pathgraph",
+                       "Batch B cfggameplay", "Build-identity fix", "Events (", "Firearms ("):
+            self.assertNotIn(landed, section)
+
+    def test_no_row_still_carries_a_worker_branch_label(self):
+        labelled = [l[:60] for l in self.text.splitlines() if "(worker branch)" in l]
+        self.assertEqual([], labelled)
+
+    def test_pending_issue_numbers_are_not_labelled_as_worker_branch_work(self):
+        pending = {n for row in self.feature_rows("## Features pending landing")
+                   for n in re.findall(r"#(\d+)", row.split("|")[1])}
+        branch_rows = [l for l in self.text.splitlines() if "(worker branch)" in l]
+        landed_labels = {n for row in branch_rows for n in re.findall(r"#(\d+)", row.split("|")[1])}
+        self.assertEqual(set(), pending & landed_labels)
+
+    def test_every_per_feature_and_pending_row_has_ten_pipes_and_nine_cells(self):
+        for name in ("## Per-feature checklist", "## Features pending landing"):
+            lines = [l for l in self.section(name).splitlines()
+                     if l.startswith("|") and not l.startswith("| Issue") and not l.startswith("| :---")]
+            self.assertTrue(lines, name)
+            for line in lines:
+                self.assertRegex(line, r"^\| (#\d+( #\d+)*|\u2014) \|", line[:80])
+                self.assertEqual(10, line.count("|"), line[:80])
+                cells = [c.strip() for c in line.split("|")[1:-1]]
+                self.assertEqual(9, len(cells), line[:80])
+                self.assertEqual(["[ ]", "[ ]"], cells[6:8], "checkboxes must stay unchecked: " + line[:80])
+                self.assertTrue(all(cells[:6]), "empty cell: " + line[:80])
+
+    def test_quoted_log_literals_exist_in_the_mod_source(self):
+        # Every complete backticked log literal in the "RPT line to grep" column must be a substring of a
+        # Print in mods/. Literals with placeholders (<..>, ...) or prose are skipped.
+        source = "\n".join(p.read_text(encoding="utf-8", errors="replace")
+                           for p in sorted((ROOT / "mods").rglob("*.c")))
+        checked = 0
+        missing = []
+        for name in ("## Per-feature checklist", "## Features pending landing"):
+            for row in self.feature_rows(name):
+                for literal in re.findall(r"`([^`]+)`", row.split("|")[6]):
+                    if "<" in literal or "..." in literal or literal.startswith("$"):
+                        continue
+                    checked += 1
+                    if literal not in source:
+                        missing.append(literal)
+        self.assertGreater(checked, 40)
+        self.assertEqual([], sorted(set(missing)))
+
+    def test_session_flow_and_workshop_prerequisites_are_documented(self):
+        for needle in ("### Session flow", "tools/setup/local_test_session.py", " plan ", " apply ", " rollback ",
+                       "--snafu", "--tactical-flava", "--install-key", "--markers", "(follow-up)",
+                       "2291785308", "2792982069", "2646817942", "Dabs Framework", "Expansion-Animations",
+                       "CC BY-NC-ND"):
+            self.assertIn(needle, self.text)
+        mods_text = "\n".join(p.read_text(encoding="utf-8", errors="replace")
+                              for base in ("mods", "mission", "config") if (ROOT / base).is_dir()
+                              for p in (ROOT / base).rglob("*") if p.is_file() and p.stat().st_size < 4000000)
+        for forbidden in ("2291785308", "2792982069", "2646817942"):
+            self.assertNotIn(forbidden, mods_text)
 
     def test_readme_v1_items_are_each_covered(self):
         lowered = self.text.lower()
