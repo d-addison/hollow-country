@@ -1155,6 +1155,44 @@ class RawValuesInRangeTests(unittest.TestCase):
         entry = report.compare(evaluated(STOCK, "stock", 0.3), candidate)["phenomena"]["overcast"]
         self.assertEqual((True, True), (entry["values_in_range"], entry["values_in_range_after_initial_transition"]))
 
+    def short_entry(self, actual):
+        points = list(zip(actual, [.9] * 3, [900, 870, 840]))
+        candidate = evaluated(DISTINCT, "candidate", count=3, mutate=series("overcast", points))
+        result = report.compare(evaluated(STOCK, "stock", 0.3, count=3), candidate)
+        self.assertEqual("insufficient_samples", candidate["phenomena"]["overcast"]["status"])
+        return result["phenomena"]["overcast"]
+
+    def test_short_clean_run_does_not_claim_post_transition_actuals_outside(self):
+        entry = self.short_entry([.9, .9, .9])
+        self.assertEqual("pending", entry["evidence"])
+        self.assertEqual("insufficient_samples", entry["candidate_status"])
+        self.assertIs(True, entry["values_in_range_after_initial_transition"])
+        self.assertIs(True, entry["values_in_range"])
+
+    def test_short_violating_run_reports_the_violation_and_stays_pending(self):
+        entry = self.short_entry([.9, .5, .9])
+        self.assertEqual("pending", entry["evidence"])
+        self.assertEqual("insufficient_samples", entry["candidate_status"])
+        self.assertIs(False, entry["values_in_range_after_initial_transition"])
+        self.assertIs(False, entry["values_in_range"])
+
+    def test_a_run_without_samples_has_no_range_booleans(self):
+        entry = report.compare(evaluated(STOCK, "stock", 0.3, count=0), evaluated(DISTINCT, "candidate", count=0)
+                               )["phenomena"]["overcast"]
+        self.assertIsNone(entry["values_in_range"])
+        self.assertIsNone(entry["values_in_range_after_initial_transition"])
+
+    def test_emitted_transition_prose_matches_first_entry_rule(self):
+        notes = [note for note in report.NON_CLAIMS if "initial transition" in note]
+        self.assertEqual(1, len(notes), notes)
+        note = notes[0]
+        for text in ("earliest", "forecast", "enters", "limits", "scheduled change", "is assessed", "never ends",
+                     "not excused"):
+            self.assertIn(text, note)
+        for result in (evaluated(DISTINCT, "candidate"), report.compare(evaluated(STOCK, "stock", 0.3),
+                                                                        evaluated(DISTINCT, "candidate", 0.9))):
+            self.assertIn(note, result["non_claims"])
+
     def test_the_notes_scope_a_clean_status_to_after_the_initial_transition(self):
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9))
         self.assertTrue(any("after the initial transition" in note and "not whole-run compliance" in note
