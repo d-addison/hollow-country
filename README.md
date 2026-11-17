@@ -53,8 +53,10 @@ depletion and the character of a location should matter.
 Repair, reuse, disassembly and salvage should give appropriate existing items a
 believable purpose, balanced against materials, tools, wear and time.
 
-The first prototypes recover netting from a camo net, wire from a cable reel and
-leather from an empty leather belt. **These are starting points, not a finished
+The first salvage recipes cut netting from a camo net, pull wire from a cable
+reel or a barbed bat, recover leather panels, saw bats into sticks, and break
+nailed bats and ruined crates down for wood and nails. Each recipe needs the
+right tool and takes time. **These are starting points, not a finished
 crafting feature.** A full audit of existing items and recipes will determine the
 complete, justified set of changes. This does not mean a recipe for every object:
 additions and exclusions must make sense for survival and the economy.
@@ -107,32 +109,38 @@ consistency. Full ragdoll is not confirmed.
 
 ## The road ahead — Phase 2
 
-These features are part of the intended whole experience. They are not yet
-available as a qualified gameplay package.
+These features are part of the intended whole experience. Some are already in the
+development build; none is yet a qualified gameplay package.
 
 ### Travel together
 
-| Planned system | Intended experience |
+**Being built · Stamina, groups and the shared map**
+
+| System | Intended experience |
 | :--- | :--- |
 | **Extended stamina** | Half the continuous movement drain and 25% faster recovery by default. Weight still limits capacity; jumps and melee retain their normal costs. Server owners can tune the balance. |
 | **Stamina and weight bars** | See your exertion and burden, and understand how your load affects endurance. |
 | **Groups** | Team membership with teammate icons both in the world and on the map; visibility rules configurable by the server. |
-| **Interactive map** | Press **M** to pan and zoom the map and share editable group markers and notes. The action should be rebindable. |
-| **Useful information** | Appropriate navigation, discovery and mission layers, without exposing information your group should not know. Exact layers remain to be selected. |
+| **Interactive map** | Press **M**, DayZ's own map key (rebind it in the game's controls), to pan and zoom the map and share editable group markers and notes. |
+| **Useful information** | *Planned.* Appropriate navigation, discovery and mission layers, without exposing information your group should not know. Exact layers remain to be selected. |
 
 Group information must respect membership and privacy through death, leaving,
 reconnecting and stale position reports.
 
 ### Choose your own trouble
 
-**Planned · PvE groups, missions and events**
+**Being built · Events · Planned · PvE groups**
 
 Follow a radio lead, investigate an incident, recover supplies or take part in an
 encounter—or pass it by and continue surviving. Events should fit the world's
-scarcity and danger, with rewards drawn from a controlled economy.
+scarcity and danger, with rewards drawn from a controlled economy. Press **O**
+(rebindable) to see the events you know about. Events run only at reviewed
+sites, and no site has been reviewed yet.
 
 AI players and groups are a goal. Native support comes first; a maintained AI
-dependency may be used if needed and suitable. Armed patrols, rescues, escorts and
+dependency may be used if needed and suitable. An optional companion addon can
+connect events to DayZ Expansion AI where a server already runs it; Hollow
+Country itself does not require it. Armed patrols, rescues, escorts and
 convoys are possibilities to evaluate, not confirmed mission types. Navigation,
 combat fairness, performance and permissions determine the supported roster.
 Human AI may use the selected provider's built-in stuck recovery, including
