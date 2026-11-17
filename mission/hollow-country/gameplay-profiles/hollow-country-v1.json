@@ -1,0 +1,66 @@
+{
+  "cfggameplay": {
+    "PlayerData": {
+      "WeaponObstructionData": {
+        "dynamicMode": 1,
+        "staticMode": 2
+      },
+      "spawnGearPresetFiles": [
+        "hollow-country-gameplay/gear/hardscrabble.json"
+      ]
+    },
+    "UIData": {
+      "HitIndicationData": {
+        "hitDirectionBehaviour": 2,
+        "hitDirectionBreakPointRelative": 0.5,
+        "hitDirectionIndicatorColorStr": "0xffbb0a1e",
+        "hitDirectionMaxDuration": 3.5,
+        "hitDirectionOverrideEnabled": true,
+        "hitDirectionScatter": 4.0,
+        "hitDirectionStyle": 0,
+        "hitIndicationPostProcessEnabled": true
+      }
+    },
+    "WorldsData": {
+      "wetnessWeightModifiers": [
+        1.0,
+        1.15,
+        1.5,
+        1.85,
+        2.25
+      ]
+    }
+  },
+  "name": "hollow-country-v1",
+  "schema": 1,
+  "temperature": {
+    "max_delta": [
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -1,
+      -2,
+      -2,
+      -1
+    ],
+    "min_delta": [
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -2,
+      -3,
+      -3,
+      -2
+    ]
+  }
+}

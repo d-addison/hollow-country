@@ -88,6 +88,76 @@ the delta, byte-exact core backup and receipt before the atomic core switch.
 Never copy that backup/receipt into a distributable package. Do not reset the hive
 to make a candidate appear successful. No player-owned inventory is generated.
 
+## Gameplay settings (cfggameplay delta and spawn kit)
+
+The native loader reads `cfggameplay.json` only when the server configuration
+(`serverDZ.cfg`) contains `enableCfgGameplayFile = 1`. That one line is an operator
+edit; no tool here changes server configuration. Without it every setting below
+is silently ignored by the engine.
+
+```powershell
+python tools/package/gameplay.py generate --source "<private mission copy>" --profile mission/hollow-country/gameplay-profiles/hollow-country-v1.json --preset mission/hollow-country/gear/hardscrabble.json --out D:\HollowCountryLocal\gameplay-delta
+python tools/package/gameplay.py install --delta D:\HollowCountryLocal\gameplay-delta --target "<private mission copy>" --dry-run
+python tools/package/gameplay.py install --delta D:\HollowCountryLocal\gameplay-delta --target "<private mission copy>"
+python tools/package/gameplay.py rollback --target "<private mission copy>" --dry-run
+python tools/package/gameplay.py rollback --target "<private mission copy>"
+```
+
+The delta sets only the keys Hollow Country owns and merges them into the copy's
+existing file. The native `version`, unknown keys and every other value survive.
+The installer checks the source hash, output checksums and that the delta still
+respects the ownership list and bounds, refuses a second install, and keeps a
+byte-exact backup and receipt in its own `hollow-country-gameplay` directory
+(separate from the economy `hollow-country` directory, so both can coexist).
+Rollback restores the original bytes and removes only that directory; drift or
+unexpected files cause refusal. `--dry-run` validates and lists changes without writing.
+Chosen values, all provisional and compared with vanilla Chernarus:
+
+| Area | Key | Vanilla | Hollow Country |
+| --- | --- | --- | --- |
+| Temperature | `WorldsData.environmentMinTemps` / `environmentMaxTemps` | see below | min -2 to -3 C, max -1 to -2 C per month |
+| Weapon obstruction | `PlayerData.WeaponObstructionData` `staticMode` / `dynamicMode` | 1 / 1 | 2 / 1 |
+| Wet weight | `WorldsData.wetnessWeightModifiers` (dry, damp, wet, soaking, drenched) | 1.0, 1.0, 1.33, 1.66, 2.0 | 1.0, 1.15, 1.5, 1.85, 2.25 |
+| Hit indication | `UIData.HitIndicationData` | override off | override on, dynamic direction, 3.5 s, breakpoint 0.5, scatter 4 |
+| Spawn kit | `PlayerData.spawnGearPresetFiles` | absent | `hollow-country-gameplay/gear/hardscrabble.json` |
+| Infected leg zones | `CfgVehicles` ZombieBase LeftLeg `hitpoints` (in the mod `config.cpp`) | 100 | 50 |
+
+- Obstruction enum (`EWeaponObstructionMode`): 0 disabled (no obstruction, still lifts),
+  1 enabled (obstructs, then lifts), 2 always (obstructs, never lifts). Static
+  obstacles use 2 and dynamic ones keep 1.
+- Temperatures: vanilla Chernarus minimum -3, -2, 0, 4, 9, 14, 18, 17, 13, 11, 9, 0 and
+  maximum 3, 5, 7, 14, 19, 24, 26, 25, 18, 14, 10, 5 (January to December). June to
+  August stay at minimum 12 or above and maximum 23 or above. The result is
+  clearly milder than the Sakhal curve. The vanilla Nasdara curve is itself warm (its
+  maximums exceed Chernarus by 8 C or more), so it is not a cold reference.
+- Hit indication: the native loader treats absent members as 0 and ignores the
+  server block unless `hitDirectionOverrideEnabled` is true, so the delta carries all
+  eight keys.
+- Weight: the HC stamina HUD reads native `GetPlayerLoad()` (the engine weight,
+  wetness included). Hollow Country never recomputes weight, so the wet values need no
+  second implementation.
+- Hardscrabble: randomised worn civilian clothing (health 0.6 to 0.85) and exactly
+  one small item (a rag, a chemlight or one can of food). No weapons or ammunition.
+  The native preset replaces the stock starting kit of the mission `init.c`.
+- Crawlers: lowering the leg-zone health makes leg hits down an infected sooner. The
+  other leg inherits the class and bosses that set their own zones are unchanged.
+
+Single owners. The delta never writes `StaminaData`, `MovementData` (including
+`allowStaminaAffectInertia`) or `DrowningData`; they stay vanilla. The
+Hollow Country stamina module (`HCStaminaConfiguration`, applied through the HC
+profile) is the only owner of the 50 percent exertion drain and the 25 percent faster
+recovery. Do not add `StaminaData` keys to this delta.
+
+Ecology budget. This change leaves the native CE globals `ZombieMaxCount` and
+`AnimalMaxCount` untouched. Hollow Country horde and ecology budgets are
+requests that stay subordinate to those native limits: the operator horde
+defaults and the script caps are far below the vanilla zombie cap.
+
+Every value is an offline-tested authoring choice. Whether each setting behaves as
+intended in DayZ (crawl rate, hit indicator readability, wet weight feel, the
+kit actually spawning, temperature comfort) is pending native and local-server
+acceptance with one client. Nothing here is accepted yet.
+
 ## Native compile, signature and acceptance
 
 Native Windows Python 3.10+ is an unverified prerequisite: supply a real
@@ -126,6 +196,10 @@ managed directory. Drift, unexpected files or symlinks cause refusal so operator
 changes are preserved for manual reconciliation. An interrupted install with its
 receipt/backup and types file complete can also roll back before the core switch;
 inspect incomplete earlier writes manually against your stopped backup.
+
+The gameplay delta has its own rollback (`gameplay.py rollback`, see Gameplay
+settings) that restores the original `cfggameplay.json` bytes. Roll back the CE
+install and the gameplay delta independently; neither touches the other's directory.
 
 For addon rollback, restore the previous @HollowCountry folder and matching client
 version while stopped, or remove its -mod argument on both server and clients.
