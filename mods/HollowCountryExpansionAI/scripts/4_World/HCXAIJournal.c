@@ -56,7 +56,8 @@ class HCXAIJournal
         }
         return HCXAIStore.SaveJournal(m_Data);
     }
-    bool Begin(string id, string session, string missionId)
+    // Admission preflight may shrink clean history, but never inserts an intent.
+    bool PrepareBegin(string id, string session, string missionId)
     {
         if (!this.Valid()) { return false; }
         if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return false; }
@@ -72,6 +73,18 @@ class HCXAIJournal
                 if (candidate.Closed && candidate.Prunable) { oldest = candidate; break; }
             }
             if (!oldest || !this.Prune(oldest.Id)) { return false; }
+        }
+        return true;
+    }
+    bool Begin(string id, string session, string missionId)
+    {
+        // Recheck without pruning: callers prepare capacity before reserving.
+        // After insertion, an uncertain save must keep the consumed intent.
+        if (!this.Valid() || m_Data.Rows.Count() >= m_Limit) { return false; }
+        if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return false; }
+        foreach (HCXAIJournalRow existingRow : m_Data.Rows)
+        {
+            if (existingRow.Id == id) { return false; }
         }
         HCXAIJournalRow row = new HCXAIJournalRow();
         row.Id = id;
@@ -113,7 +126,7 @@ class HCXAIJournal
             else { retained.Rows.Insert(row); }
         }
         // Do not discard in-memory evidence before durable shrink succeeds.
-        // Begin may already have evicted this clean row while loaded restart
+        // PrepareBegin may already have evicted this clean row while restart
         // tombstones occupied part of the journal's independent capacity.
         if (!found) { return true; }
         if (!HCXAIStore.SaveJournal(retained)) { return false; }

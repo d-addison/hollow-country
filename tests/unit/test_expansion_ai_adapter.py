@@ -140,7 +140,8 @@ class ExpansionAdapterTests(unittest.TestCase):
             setattr(self.rule_api, name, lambda *a,n=name: self.rules.call(n,None,*a))
         self.env["HCXAIRules"] = self.rule_api
         self.env["HCXAIQualification"] = N(Admitted=lambda:self.marker)
-        self.env["HCXAIJournal"] = N(Open=lambda *a:N(Begin=lambda *a:self.journal_ok,
+        self.env["HCXAIJournal"] = N(Open=lambda *a:N(PrepareBegin=lambda *a:True,
+                                                       Begin=lambda *a:self.journal_ok,
                                                        End=lambda *a:self.journal_ok) if self.reconciled else None)
         self.global_ai = N(s_eAI_UnlimitedReload=0,s_eAI_UnlimitedReloadAll=0)
         self.settings = N(EnableFlankingOutsideCombat=False,DamageMultiplier=1.,
@@ -199,7 +200,7 @@ class ExpansionAdapterTests(unittest.TestCase):
             Observers=lambda *a:N())
         self.engine=Authored(self.runtime_source,self.env)
         self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
-                   m_Leases=A(),m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
+                   m_Leases=A(),m_PrunedIds=A(),m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
                    m_LastReceiptSequence=0,m_LastReceiptAt=-1)
         for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
@@ -311,6 +312,116 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertTrue(self.start(lease="next"))
         self.assertEqual(before, self.calls)  # Admission pruning does no entity work.
         self.assertEqual(["clean-5", "next"], [r.Id for r in self.disk.Rows])
+
+    def test_gone_remains_true_when_cleanup_polls_after_same_tick_prune(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install()); self.assertTrue(self.start())
+        self.retire(self.mod.m_Leases[0])
+        self.assertTrue(self.mod.Gone("lease"))
+        self.assertTrue(self.start(lease="replacement"))
+        self.assertIsNone(self.mod.FindLease("lease"))
+        # Event Cleanup ignores Stop's result and polls Gone for closure.
+        self.assertFalse(self.mod.StopLease("lease"))
+        self.assertTrue(self.mod.Gone("lease"))
+        self.assertFalse(self.mod.Gone("unknown"))
+        self.assertFalse(self.mod.Gone("replacement"))
+        self.game.IsServer = lambda: False
+        self.assertFalse(self.mod.Gone("lease"))
+
+    def test_pruned_lease_id_cannot_reissue_kill_receipt_identity(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install()); self.assertTrue(self.start())
+        self.step()
+        actor = self.created[0]
+        actor.alive = False
+        self.mod.RecordDeath(actor, "enrolled")
+        self.assertEqual("lease:kill:0", self.mod.m_Leases[0].Kills[0].Token)
+        self.retire(self.mod.m_Leases[0])
+        self.assertTrue(self.start(lease="replacement"))
+        self.retire(self.mod.m_Leases[0])
+        before = copy.deepcopy(self.disk)
+        before_calls = list(self.calls)
+        self.assertFalse(self.start())
+        self.assertFalse(self.start(session="another-session"))
+        self.assertEqual(vars(before), vars(self.disk))
+        self.assertEqual(before_calls, self.calls)
+        self.assertEqual((0, 0, 0), (self.mod.m_ReservedGroups,
+                                    self.mod.m_ReservedActors, self.mod.m_ReservedItems))
+
+    def test_pruned_id_memory_is_bounded_without_forgetting_cleanup_or_identity(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install())
+        for index in range(65):
+            self.assertTrue(self.start(lease="clean-" + str(index)))
+            self.retire(self.mod.m_Leases[0])
+        before = copy.deepcopy(self.disk)
+        self.assertFalse(self.start(lease="overflow"))
+        self.assertEqual(64, len(self.mod.m_PrunedIds))
+        self.assertEqual(vars(before), vars(self.disk))
+        self.assertEqual(["clean-64"], [l.Id for l in self.mod.m_Leases])
+        self.assertTrue(all(self.mod.Gone("clean-" + str(i)) for i in range(65)))
+        self.assertFalse(self.start(lease="clean-0"))
+        self.assertFalse(self.mod.HasReservations())
+        self.assertEqual([], self.created)
+
+    def test_full_nonprunable_journal_rejects_without_publishing_reservation(self):
+        self.profile.MaxLeaseHistory = 2
+        self.use_authored_journal([self.journal_row("fault-" + str(i), closed=True)
+                                   for i in range(2)])
+        self.assertTrue(self.install())
+        begin_calls = []
+        group_calls = []
+        self.hooks.BeginLease = lambda *args: begin_calls.append(args) or True
+        self.env["eAIGroup"].CreateGroup = lambda faction: group_calls.append(faction)
+        before = copy.deepcopy(self.disk)
+        before_saves = len(self.saves)
+        for index in range(4):
+            self.assertFalse(self.start(lease="blocked-" + str(index)))
+            self.assertEqual([], self.mod.m_Leases)
+            self.assertEqual((0, 0, 0), (self.mod.m_ReservedGroups,
+                                        self.mod.m_ReservedActors, self.mod.m_ReservedItems))
+        self.assertEqual(vars(before), vars(self.disk))
+        self.assertEqual(before_saves, len(self.saves))
+        self.assertEqual([], begin_calls)
+        self.assertEqual([], group_calls)
+        self.assertEqual([], self.created)
+
+    def test_failed_journal_capacity_prune_does_not_publish_reservation(self):
+        self.profile.MaxLeaseHistory = 2
+        self.use_authored_journal([self.journal_row("fault", closed=True),
+                                   self.journal_row("clean", True, True)])
+        self.assertTrue(self.install())
+        self.journal_ok = False
+        self.assertFalse(self.start())
+        self.assertEqual([], self.mod.m_Leases)
+        self.assertFalse(self.mod.HasReservations())
+        self.assertEqual((0, 0), (self.mod.m_ReservedActors, self.mod.m_ReservedItems))
+        self.assertEqual(["fault", "clean"], [r.Id for r in self.disk.Rows])
+        self.assertEqual([], self.created)
+        self.journal_ok = True
+        self.assertTrue(self.start())
+        self.assertEqual(["fault", "lease"], [r.Id for r in self.disk.Rows])
+
+    def test_uncertain_journal_intent_write_keeps_reservation_and_consumes_id(self):
+        self.use_authored_journal()
+        self.assertTrue(self.install())
+        self.journal_ok = False
+        self.assertFalse(self.start())
+        self.assertEqual(["lease"], [r.Id for r in self.mod.m_Journal.m_Data.Rows])
+        self.assertEqual((1, 2, 2), (self.mod.m_ReservedGroups,
+                                    self.mod.m_ReservedActors, self.mod.m_ReservedItems))
+        self.assertFalse(self.mod.Gone("lease"))
+        self.assertEqual([], self.created)
+        self.journal_ok = True
+        self.retire(self.mod.m_Leases[0])
+        self.assertTrue(self.mod.Gone("lease"))
+        self.assertFalse(self.start())
 
     def test_pruning_skips_open_retiring_ambiguous_and_faulted_leases(self):
         self.profile.MaxLeaseHistory = 5

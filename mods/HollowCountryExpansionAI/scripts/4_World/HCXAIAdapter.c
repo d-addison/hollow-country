@@ -41,6 +41,7 @@ class HCXAIAdapter extends HCModule
     protected string m_Status = "not initialized";
     protected string m_Build;
     protected ref array<ref HCXAILease> m_Leases = new array<ref HCXAILease>();
+    protected ref array<string> m_PrunedIds = new array<string>();
     protected int m_ReservedActors;
     protected int m_ReservedItems;
     protected int m_ReservedGroups;
@@ -157,6 +158,9 @@ class HCXAIAdapter extends HCModule
     protected bool PruneHistory()
     {
         if (m_Leases.Count() < m_Profile.MaxLeaseHistory) { return true; }
+        // Preserve cleanup and consumed-id evidence for this adapter's lifetime.
+        // At the bound, refuse admission instead of forgetting an old cleanup.
+        if (m_PrunedIds.Count() >= 64) { return false; }
         int index = 0;
         while (index < m_Leases.Count())
         {
@@ -164,6 +168,7 @@ class HCXAIAdapter extends HCModule
             if (this.CanPrune(oldest))
             {
                 if (!m_Journal.Prune(oldest.Id)) { return false; }
+                m_PrunedIds.Insert(oldest.Id);
                 m_Leases.RemoveOrdered(index);
                 m_Cursor = 0;
                 return true;
@@ -184,6 +189,7 @@ class HCXAIAdapter extends HCModule
     {
         if (!GetGame() || !GetGame().IsServer() || !HCXAIRules.Token(id) || !HCXAIRules.Token(session)) { return false; }
         if (!m_Profile || !this.Ready(m_Profile.WorldName)) { return false; }
+        if (m_PrunedIds.Find(id) >= 0) { return false; }
         HCXAILease prior = this.FindLease(id);
         if (prior)
         {
@@ -200,6 +206,9 @@ class HCXAIAdapter extends HCModule
         if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return false; }
         if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return false; }
         if (!this.PruneHistory()) { return false; }
+        // Capacity/duplicate refusals and clean-row pruning create no intent.
+        // Resolve them before publishing a reservation that needs End to close.
+        if (!m_Journal.PrepareBegin(id, session, missionId)) { return false; }
         HCXAILease lease = new HCXAILease();
         lease.Id = id;
         lease.Session = session;
@@ -396,6 +405,7 @@ class HCXAIAdapter extends HCModule
     bool Gone(string id)
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
+        if (m_PrunedIds.Find(id) >= 0) { return true; }
         HCXAILease lease = this.FindLease(id);
         return lease && lease.Released;
     }
