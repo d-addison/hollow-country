@@ -41,19 +41,19 @@ class HCHordeStimulus
 {
     static int Category(HCInfectedClue candidate, float now)
     {
-        if (!candidate) return HC_STIMULUS_NONE;
-        if (!candidate.IsLive(now)) return HC_STIMULUS_MEMORY;
-        if (candidate.Provenance == 2) return HC_STIMULUS_VISUAL;
-        if (candidate.Provenance == 1) return HC_STIMULUS_HEARD;
-        return HC_STIMULUS_MEMORY;
+        if (!candidate) return HCStimulusCategory.HC_STIMULUS_NONE;
+        if (!candidate.IsLive(now)) return HCStimulusCategory.HC_STIMULUS_MEMORY;
+        if (candidate.Provenance == 2) return HCStimulusCategory.HC_STIMULUS_VISUAL;
+        if (candidate.Provenance == 1) return HCStimulusCategory.HC_STIMULUS_HEARD;
+        return HCStimulusCategory.HC_STIMULUS_MEMORY;
     }
 
     static bool PreferClue(HCInfectedClue candidate, HCInfectedClue previousClue, float now)
     {
         int candidateCategory = Category(candidate, now);
-        if (candidateCategory <= HC_STIMULUS_MEMORY) return false;
+        if (candidateCategory <= HCStimulusCategory.HC_STIMULUS_MEMORY) return false;
         int previousCategory = Category(previousClue, now);
-        if (previousCategory <= HC_STIMULUS_MEMORY) return true;
+        if (previousCategory <= HCStimulusCategory.HC_STIMULUS_MEMORY) return true;
         if (candidateCategory != previousCategory) return candidateCategory > previousCategory;
         if (candidate.Observed != previousClue.Observed) return candidate.Observed > previousClue.Observed;
         return candidate.Strength > previousClue.Strength;
@@ -64,23 +64,23 @@ class HCHordeStimulus
     // Slots are typed by provenance, not by which field happens to hold a clue.
     static HCInfectedClue SelectClue(HCInfectedClue visual, HCInfectedClue heard, bool admitExternalHeard, float now, out int reason)
     {
-        reason = HC_STIMULUS_NO_ADMISSIBLE_CLUE;
+        reason = HCStimulusReason.HC_STIMULUS_NO_ADMISSIBLE_CLUE;
         int visualCategory = Category(visual, now);
-        if (visualCategory == HC_STIMULUS_VISUAL)
+        if (visualCategory == HCStimulusCategory.HC_STIMULUS_VISUAL)
         {
-            reason = HC_STIMULUS_SELECTED_VISUAL;
+            reason = HCStimulusReason.HC_STIMULUS_SELECTED_VISUAL;
             return visual;
         }
-        int heardCategory = HC_STIMULUS_NONE;
+        int heardCategory = HCStimulusCategory.HC_STIMULUS_NONE;
         if (admitExternalHeard)
             heardCategory = Category(heard, now);
-        if (heardCategory == HC_STIMULUS_HEARD)
+        if (heardCategory == HCStimulusCategory.HC_STIMULUS_HEARD)
         {
-            reason = HC_STIMULUS_SELECTED_HEARD;
+            reason = HCStimulusReason.HC_STIMULUS_SELECTED_HEARD;
             return heard;
         }
-        if (visualCategory == HC_STIMULUS_MEMORY || heardCategory == HC_STIMULUS_MEMORY)
-            reason = HC_STIMULUS_RETAINED_ONLY;
+        if (visualCategory == HCStimulusCategory.HC_STIMULUS_MEMORY || heardCategory == HCStimulusCategory.HC_STIMULUS_MEMORY)
+            reason = HCStimulusReason.HC_STIMULUS_RETAINED_ONLY;
         return null;
     }
 

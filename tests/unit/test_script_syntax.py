@@ -75,6 +75,33 @@ def leading_operator_lines(paths):
     return found
 
 
+ENUM_BLOCK = re.compile(r'\benum\s+(\w+)\s*\{([^}]*)\}', re.S)
+
+
+def bare_enum_members(paths):
+    # Native compile 078: Enforce rejected `return HC_STIMULUS_NONE;` with
+    # "Can't find variable"; members must be referenced as Enum.MEMBER.
+    texts = {path: '\n'.join(strip_comments(path.read_text(encoding='utf-8'))) for path in paths}
+    members = {}
+    for text in texts.values():
+        for match in ENUM_BLOCK.finditer(text):
+            for entry in match.group(2).split(','):
+                name = entry.split('=')[0].strip()
+                if name:
+                    members[name] = match.group(1)
+    found = []
+    for path, text in texts.items():
+        body = ENUM_BLOCK.sub(lambda m: '\n' * m.group(0).count('\n'), text)
+        body = re.sub(r'"[^"\n]*"', '""', body)
+        # A class constant or local of the same name (HCEcologyCode.OK) shadows the enum member.
+        declared = set(re.findall(r'\b(?:int|float|bool|string)\s+(\w+)', body))
+        for number, line in enumerate(body.splitlines(), 1):
+            for match in re.finditer(r'(?<![\w.])(\w+)\b', line):
+                if match.group(1) in members and match.group(1) not in declared:
+                    found.append(f'{path.relative_to(ROOT)}:{number}: {match.group(1)} (use {members[match.group(1)]}.{match.group(1)})')
+    return found
+
+
 class ScriptSyntaxBehavior(unittest.TestCase):
     def test_detector_flags_the_observed_rejected_continuation(self):
         import tempfile
@@ -122,6 +149,29 @@ class ScriptSyntaxBehavior(unittest.TestCase):
                 if exponent.search(re.sub(r'"[^"]*"', '""', line)):
                     found.append(f'{path.relative_to(ROOT)}:{number}')
         self.assertEqual([], found)
+
+
+    def test_detector_flags_the_observed_unqualified_enum_member(self):
+        import tempfile
+        global ROOT
+        with tempfile.TemporaryDirectory() as temporary:
+            sample = Path(temporary) / 'sample.c'
+            sample.write_text('enum HCStimulusCategory\n{\n    HC_STIMULUS_NONE = 0,\n    HC_STIMULUS_HEARD = 1\n}\n'
+                              'int A() { return HC_STIMULUS_NONE; }\n'
+                              'int B() { return HCStimulusCategory.HC_STIMULUS_HEARD; }\n'
+                              '// HC_STIMULUS_NONE in a comment\nstring C() { return "HC_STIMULUS_NONE"; }\n'
+                              'class Other { static const int HC_STIMULUS_HEARD = 1; }\n',
+                              encoding='utf-8')
+            saved, ROOT = ROOT, Path(temporary)
+            try:
+                found = bare_enum_members([sample])
+            finally:
+                ROOT = saved
+        self.assertEqual(['sample.c:6: HC_STIMULUS_NONE (use HCStimulusCategory.HC_STIMULUS_NONE)'], found)
+
+    def test_authored_enum_members_are_referenced_through_their_enum(self):
+        sources = sorted((ROOT / 'mods').rglob('*.c'))
+        self.assertEqual([], bare_enum_members(sources))
 
 
 if __name__ == '__main__':
