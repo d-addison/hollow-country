@@ -109,7 +109,9 @@ class CombinedRpcTests(unittest.TestCase):
         self.assertEqual({
             '4_World/Groups/HCGroupService.c', '4_World/Events/HCEventRPC.c',
             '5_Mission/Groups/HCGroupClient.c', '5_Mission/Events/HCEventClient.c',
-            '3_Game/Survival/HCStaminaConfiguration.c'}, found)
+            '3_Game/Survival/HCStaminaConfiguration.c',
+            # Search prompt sites: the server answers class geometry only, rate-limited per sender.
+            '4_World/Interiors/HCSearchPreviewSites.c'}, found)
 
     def test_native_gameplay_sync_server_path_never_reads_any_payload(self):
         calls = []

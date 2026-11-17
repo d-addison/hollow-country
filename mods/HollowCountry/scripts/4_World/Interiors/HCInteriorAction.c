@@ -33,16 +33,18 @@ class HCActionSearchInterior : ActionContinuousBase
         m_ConditionTarget = new CCTCursor(1.8);
     }
 
-    // Client-only feasibility preview: no server config or profile reads.
-    // The registered action may be rejected by the authoritative server.
+    // Client geometry preview only. Session, supply and admission remain server-owned.
     static bool Preview(PlayerBase player, ActionTarget target)
     {
         if (!player || !player.IsAlive() || !target || target.GetComponentIndex() < 0) return false;
         Object object = target.GetObject();
-        // Templates are server profile data, so any House cursor target previews; the server
-        // decides (HCSearchHouses) and a refusal only logs. Baked-geometry targeting is CAP-09.
-        if (!object || (!HCInteriorCatalog.SearchType(object.GetType()) && !House.Cast(object) && !House.Cast(target.GetParent()))) return false;
-        return vector.DistanceSq(MiscGameplayFunctions.GetPlayerHeadPosition(player), target.GetCursorHitPos()) <= 3.24;
+        if (!object) return false;
+        if (HCInteriorCatalog.SearchType(object.GetType()))
+            return vector.DistanceSq(MiscGameplayFunctions.GetPlayerHeadPosition(player), target.GetCursorHitPos()) <= 3.24;
+        House building = HCSearchHouses.HouseOf(target);
+        if (!building) return false;
+        if (vector.DistanceSq(MiscGameplayFunctions.GetPlayerHeadPosition(player), target.GetCursorHitPos()) > 3.24) return false;
+        return HCSearchPreviewSites.Get().Matches(player, target, building);
     }
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
