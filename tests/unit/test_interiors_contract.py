@@ -254,10 +254,12 @@ class InteriorsContractTests(unittest.TestCase):
         self.assertIn("ResultPath", reserve)
         self.assertIn("AttemptPath", reserve)
 
-    def test_completion_grant_attempt_is_recorded_before_inventory(self):
+    def test_completion_routes_inventory_only_through_the_economy(self):
         body = method_body("HCInteriorModule.c", "CommitSearch")
-        self.assertLess(body.index("m_Store.BeginGrant"), body.index("CreateInInventory"))
-        self.assertIn("m_Store.Finish(site, playerId, 2, output)", body)
+        self.assertEqual(body.count("m_Economy.Grant("), 1)
+        self.assertNotIn("CreateInInventory", body)
+        self.assertNotIn("m_Store.BeginGrant", body)
+        self.assertNotIn("m_Store.Finish", body)
         self.assertIn("GetPersistentID", (SRC / "HCInteriorStore.c").read_text())
 
     def test_completion_migration_preserves_legacy_paths_and_bindings(self):
@@ -340,10 +342,10 @@ class InteriorsContractTests(unittest.TestCase):
 
     def test_claim_marker_precedes_inventory_and_never_retries_output(self):
         body = method_body("HCInteriorModule.c", "CommitSearch")
-        self.assertLess(body.index("FindFirstFreeLocationForNewEntity"), body.index("m_Store.Reserve"))
-        self.assertLess(body.index("m_Store.Reserve"), body.index("CreateInInventory"))
+        self.assertLess(body.index("site.Phase = 1"), body.index("m_Economy.Grant("))
         self.assertIn("site.Phase = 3", body)
-        self.assertEqual(body.count("CreateInInventory"), 1)
+        self.assertEqual(body.count("m_Economy.Grant("), 1)
+        self.assertNotIn("CreateInInventory", body)
         self.assertNotIn("CreateObject", body)
         store = (SRC / "HCInteriorStore.c").read_text()
         self.assertNotIn("DeleteFile", store)
@@ -406,12 +408,13 @@ class InteriorsContractTests(unittest.TestCase):
         self.assertNotIn("PlaceCandidate(", method_body("HCInteriorModule.c", "OnTick"))
         self.assertIn("PlaceCandidate(", method_body("HCInteriorModule.c", "OnStart"))
 
-    def test_full_inventory_and_empty_results_have_native_feedback(self):
+    def test_refused_or_completed_search_has_honest_native_feedback(self):
         body = method_body("HCInteriorModule.c", "CommitSearch")
-        self.assertIn('MessageStatus("Not enough inventory space.")', body)
-        self.assertIn('MessageStatus("The storage is empty.")', body)
+        self.assertIn('MessageStatus("Search unavailable: supply, inventory or service changed.")', body)
+        self.assertIn('MessageStatus("Search complete.")', body)
+        self.assertIn('MessageStatus("Search stopped; this storage is unavailable.")', body)
 
-    def test_authored_allocation_never_exceeds_finite_supplementary_quotas(self):
+    def test_legacy_allocation_is_bounded_and_new_layouts_allocate_no_items(self):
         for layout in range(-1, 5):
             for rags in range(7):
                 for batteries in range(5):
@@ -427,7 +430,8 @@ class InteriorsContractTests(unittest.TestCase):
             batteries += allocation == 2
         self.assertEqual((rags, batteries), (4, 2))
         body = method_body("HCInteriorModule.c", "AllocateManifest")
-        self.assertIn("HCInteriorRules.Allocation", body)
+        self.assertNotIn("HCInteriorRules.Allocation", body)
+        self.assertNotIn("assignment.Item =", body)
 
     def test_identity_and_candidate_collisions_do_not_depend_on_object_order(self):
         source = (SRC / "HCInteriorCatalog.c").read_text()
