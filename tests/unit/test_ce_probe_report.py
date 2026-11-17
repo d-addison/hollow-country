@@ -42,15 +42,16 @@ EXPORT_PROTO = b"""<lootmax>
 """
 
 
-def row(klass, index, found=True, box="clipping", items=0, types=(), truncated=False, role="target"):
+def row(klass, index, found=True, box="clipping", items=0, types=(), truncated=False, role="target", clamped=False):
     return {"i": index, "class": klass, "role": role, "found": found, "type": klass if found else "",
             "distance": 0.1, "box_source": box if found else "none", "sphere_loose": items,
-            "box_loose": items if found else 0, "truncated": truncated, "types": list(types)}
+            "box_loose": items if found else 0, "truncated": truncated, "radius_clamped": clamped,
+            "types": list(types)}
 
 
 def census(rows):
-    return {"schema": 1, "kind": "ce-probe-census", "world": "chernarusplus",
-            "version": "SYNTHETIC", "placements": rows}
+    return {"schema": 1, "kind": "ce-probe-census", "world": "chernarusplus", "version": "SYNTHETIC",
+            "targets": len(rows), "found": sum(1 for r in rows if r["found"]), "placements": rows}
 
 
 def by_class(result):
@@ -152,6 +153,69 @@ class StatusNeverOverclaimsTests(unittest.TestCase):
             report.build_report(STOCK_PROTO, None, {"placements": [{"class": "X"}]})
         with self.assertRaises(ValueError):
             report.build_report(STOCK_PROTO, None, {"placements": "no"})
+
+    def test_radius_clamped_rows_are_unreliable_and_excluded_from_statistics(self):
+        rows = [row("SynthBarracks", 0, items=7, types=["Z"], clamped=True), row("SynthBarracks", 1, items=2, types=["A"])]
+        result = by_class(self.build(rows))["SynthBarracks"]
+        self.assertEqual((2, 1), (result["placements_found"], result["placements_unreliable"]))
+        self.assertEqual(2.0, result["item_count_mean"])
+        self.assertEqual(1, result["distinct_item_types"])
+        all_clamped = by_class(self.build([row("SynthBarracks", 0, items=7, clamped=True)]))["SynthBarracks"]
+        self.assertEqual("census-box-unusable", all_clamped["status"])
+        self.assertIsNone(all_clamped["item_count_mean"])
+        self.assertTrue(any("excluded" in note for note in all_clamped["notes"]))
+
+    def test_found_rows_must_state_radius_clamped_as_a_boolean(self):
+        bad = row("SynthBarracks", 0, items=1)
+        del bad["radius_clamped"]
+        with self.assertRaises(ValueError):
+            self.build([bad])
+        bad["radius_clamped"] = 1
+        with self.assertRaises(ValueError):
+            self.build([bad])
+
+
+class CensusIntegrityTests(unittest.TestCase):
+    def good(self):
+        return census([row("SynthBarracks", 0, items=1), row("SynthHouse", 1, found=False), row("SynthHouse", 2, items=0)])
+
+    def refuse(self, mutate):
+        data = self.good()
+        mutate(data)
+        with self.assertRaises(ValueError):
+            report.build_report(STOCK_PROTO, None, data)
+
+    def test_a_consistent_census_is_accepted(self):
+        self.assertEqual(2, len(report.build_report(STOCK_PROTO, None, self.good())["classes"]))
+
+    def test_metadata_must_identify_a_ce_probe_census(self):
+        self.refuse(lambda d: d.update(schema=2))
+        self.refuse(lambda d: d.update(kind="other"))
+        self.refuse(lambda d: d.pop("kind"))
+        self.refuse(lambda d: d.pop("schema"))
+
+    def test_target_count_must_equal_the_number_of_rows(self):
+        self.refuse(lambda d: d.update(targets=4))
+        self.refuse(lambda d: d.update(targets=2))
+        self.refuse(lambda d: d.pop("targets"))
+        self.refuse(lambda d: d.update(targets=True))
+        self.refuse(lambda d: d.update(targets="3"))
+
+    def test_found_total_must_equal_the_found_rows(self):
+        self.refuse(lambda d: d.update(found=3))
+        self.refuse(lambda d: d.update(found=0))
+        self.refuse(lambda d: d.pop("found"))
+
+    def test_placement_ids_must_be_unique_integers_covering_zero_to_targets_minus_one(self):
+        self.refuse(lambda d: d["placements"][1].update(i=0))
+        self.refuse(lambda d: d["placements"][1].update(i=9))
+        self.refuse(lambda d: d["placements"][1].update(i="1"))
+        self.refuse(lambda d: d["placements"][1].update(i=True))
+        self.refuse(lambda d: d["placements"][1].pop("i"))
+        self.refuse(lambda d: d["placements"][1].update(i=-1))
+
+    def test_missing_rows_are_rejected_not_reported_as_complete(self):
+        self.refuse(lambda d: d["placements"].pop())
 
 
 class CsvTests(unittest.TestCase):

@@ -34,8 +34,9 @@ SERVER_INSTALL = r"D:\SteamLibrary\steamapps\common\DayZServer"
 SERVER_EXE_SHA256 = "987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805"
 BATTLEYE_SHA256 = "224ab091fd806245ac4f0c3ec896f45f4682ae97ebef599ea546a1bbe37531bc"
 WINDOWS_PARENT = r"D:\HollowCountryLocal"
+WSL_PARENT = Path("/mnt/d/HollowCountryLocal")
 VERIFIED_RUNTIME_NAME = "vanilla-p0-001"
-DEFAULT_SOURCE_RUNTIME = "/mnt/d/HollowCountryLocAL/vanilla-p0-001".replace("AL", "al")
+DEFAULT_SOURCE_RUNTIME = "/mnt/d/HollowCountryLocal/vanilla-p0-001"
 MISSION_NAME = "dayzOffline.chernarusplus"
 PORT = 2302
 PLAN_NAME = "ce-probe-plan.json"
@@ -177,6 +178,13 @@ HOOK_TAIL = r"""
             text = text.Substring(0, 96);
         text.Replace(m_HCProbeQuote, "'");
         return m_HCProbeQuote + text + m_HCProbeQuote;
+    }
+
+    string HCProbeBool(bool value)
+    {
+        if (value)
+            return "true";
+        return "false";
     }
 
     string HCProbeVector(vector value)
@@ -385,9 +393,9 @@ HOOK_TAIL = r"""
             }
         }
         string fragment = HCProbeKey("box_source") + HCProbeStr(boxSource) + "," + HCProbeKey("box_min") + HCProbeVector(boxMin) + "," + HCProbeKey("box_max") + HCProbeVector(boxMax) + ",";
-        fragment = fragment + HCProbeKey("clip_radius") + clipRadius + "," + HCProbeKey("collision_box") + hasCollision + ",";
-        fragment = fragment + HCProbeKey("query_radius") + queryRadius + "," + HCProbeKey("radius_clamped") + clamped + ",";
-        fragment = fragment + HCProbeKey("sphere_loose") + sphereLoose + "," + HCProbeKey("box_loose") + boxLoose + "," + HCProbeKey("truncated") + truncated + ",";
+        fragment = fragment + HCProbeKey("clip_radius") + clipRadius + "," + HCProbeKey("collision_box") + HCProbeBool(hasCollision) + ",";
+        fragment = fragment + HCProbeKey("query_radius") + queryRadius + "," + HCProbeKey("radius_clamped") + HCProbeBool(clamped) + ",";
+        fragment = fragment + HCProbeKey("sphere_loose") + sphereLoose + "," + HCProbeKey("box_loose") + boxLoose + "," + HCProbeKey("truncated") + HCProbeBool(truncated) + ",";
         fragment = fragment + HCProbeKey("types") + "[" + typeList + "]," + HCProbeKey("sphere_samples") + "[" + sampleList + "]";
         return fragment;
     }
@@ -652,24 +660,19 @@ def lint_hook(text, native_types=frozenset(), prototypes=None):
 # ---------------------------------------------------------------------------
 
 
-def windows_runtime_root(path):
+def windows_runtime_root(path, wsl_parent=None):
+    """Map a direct child of the probe parent to its Windows runtime root, or raise."""
     path = Path(path)
-    if path.parent != Path("/mnt/d/HollowCountryLocal"):
-        raise ValueError("destination must be a direct child of /mnt/d/HollowCountryLocal "
-                         "(or pass an explicit Windows runtime root)")
-    return _validated_windows_root(WINDOWS_PARENT + "\\" + path.name)
-
-
-def _validated_windows_root(value):
-    parts = PureWindowsPath(value)
-    if str(parts.parent) != WINDOWS_PARENT or not NAME_RULE.match(parts.name):
-        raise ValueError("Windows runtime root must be one named child of " + WINDOWS_PARENT)
-    if parts.name == VERIFIED_RUNTIME_NAME:
+    parent = Path(WSL_PARENT if wsl_parent is None else wsl_parent)
+    if path.parent != parent or not NAME_RULE.match(path.name):
+        raise ValueError(f"destination must be a new direct child of {parent} with a plain name")
+    if path.name.casefold() == VERIFIED_RUNTIME_NAME.casefold():
         raise ValueError("the verified runtime must not be reused")
+    root = WINDOWS_PARENT + "\\" + path.name
+    parts = PureWindowsPath(root)
+    if str(parts.parent) != WINDOWS_PARENT or parts.name != path.name:
+        raise ValueError("Windows runtime root must be one named child of " + WINDOWS_PARENT)
     return str(parts)
-
-
-_derive_windows_root = windows_runtime_root
 
 
 def _read_bounded(path, limit):
@@ -707,6 +710,29 @@ def _safe_plan_path(value):
     return value
 
 
+# Only these stock mission shapes may be copied into the disposable runtime. Anything else,
+# listed in the launch plan or not, is refused rather than silently staged.
+SENSITIVE_PART = re.compile(
+    r"(?i)^(?:keys?|profiles?|storage|players?|saves?|credentials?|secrets?|battleye|logs?|backups?)$"
+    r"|\.(?:biprivatekey|bikey|bisign|vars|pem|key|pfx|p12|pub|crt|sqlite|db|sav|log|rpt|adm|mdmp|cfg|bin|dll|exe|ps1|bat|cmd|sh)$"
+    r"|(?i:credential|password|secret|token|private)")
+ALLOWED_MISSION_DIRS = frozenset({"db", "env"})
+ALLOWED_MISSION_FILE = re.compile(r"^(?:(?:db|env)/)?[A-Za-z0-9_][A-Za-z0-9_.-]*\.(?:xml|json|map|c)$")
+
+
+def _check_mission_entry(relative, *, directory=False):
+    """Refuse sensitive or unvalidated mission content regardless of any manifest."""
+    name = relative.as_posix()
+    for part in relative.parts:
+        if SENSITIVE_PART.search(part):
+            raise ValueError(f"sensitive or unvalidated mission path refused: {name}")
+    if directory:
+        if name not in ALLOWED_MISSION_DIRS:
+            raise ValueError(f"unvalidated mission directory refused: {name}")
+    elif not ALLOWED_MISSION_FILE.match(name):
+        raise ValueError(f"unvalidated mission file refused: {name}")
+
+
 def _verify_source(source_runtime, battleye_sha256):
     mission = source_runtime / "stock-backup/mpmissions" / MISSION_NAME
     if not mission.is_dir():
@@ -717,10 +743,15 @@ def _verify_source(source_runtime, battleye_sha256):
     pinned = {}
     for entry in launch_plan.get("mission_files", []):
         path = _safe_plan_path(entry.get("path"))
+        _check_mission_entry(Path(path))
         if path in pinned or not re.match(r"^[a-f0-9]{64}$", str(entry.get("sha256"))):
             raise ValueError("duplicate or malformed launch-plan mission entry")
         pinned[path] = entry["sha256"]
-    files, _directories, _total = dm._inventory(mission)
+    files, directories, _total = dm._inventory(mission)
+    for relative in directories:
+        _check_mission_entry(relative, directory=True)
+    for relative, _info in files:
+        _check_mission_entry(relative)
     records, held = {}, {}
     for relative, _info in files:
         name = relative.as_posix()
@@ -758,19 +789,23 @@ def _new_file(path, data):
         stream.write(data)
 
 
-def stage(source_runtime, destination, *, treatment_mapgroupproto=None, windows_runtime_root=None,
+def stage(source_runtime, destination, *, treatment_mapgroupproto=None,
           export_delay_s=30, census_delay_s=240, per_class=DEFAULT_PER_CLASS, wait_minutes=25,
-          battleye_sha256=BATTLEYE_SHA256, native_scripts=None, now=None):
-    """Stage a fresh probe runtime and write ce-probe-plan.json. Never launches anything."""
+          battleye_sha256=BATTLEYE_SHA256, native_scripts=None, now=None, _wsl_parent=None):
+    """Stage a fresh probe runtime and write ce-probe-plan.json. Never launches anything.
+
+    ``_wsl_parent`` is an internal test hook; the production parent is always WSL_PARENT
+    and the Windows root is always derived from the destination, never supplied.
+    """
     source_runtime, destination = dm._safe_path(source_runtime), dm._safe_path(destination)
     if source_runtime == destination or source_runtime in destination.parents or destination in source_runtime.parents:
         raise ValueError("source/destination overlap forbidden")
     if destination.exists() or destination.is_symlink():
         raise ValueError("destination must be fresh; no overwrite")
-    if windows_runtime_root is None:
-        windows_root = _derive_windows_root(destination)
-    else:
-        windows_root = _validated_windows_root(windows_runtime_root)
+    parent = Path(WSL_PARENT if _wsl_parent is None else _wsl_parent)
+    if not parent.is_dir() or parent.is_symlink():
+        raise ValueError(f"probe parent directory {parent} must exist and not be a symlink")
+    windows_root = windows_runtime_root(destination, parent)
     if not 5 <= wait_minutes <= 120 or not 1 <= per_class <= 64:
         raise ValueError("wait minutes 5..120 and per-class 1..64 required")
     source = _verify_source(source_runtime, battleye_sha256)
@@ -861,7 +896,6 @@ def main(argv=None):
     parser.add_argument("--per-class", type=int, default=DEFAULT_PER_CLASS)
     parser.add_argument("--wait-minutes", type=int, default=25)
     parser.add_argument("--battleye-sha256", default=BATTLEYE_SHA256)
-    parser.add_argument("--windows-runtime-root")
     parser.add_argument("--native-scripts", help="extracted native script cache used to lint the hook")
     args = parser.parse_args(argv)
     cache = args.native_scripts
@@ -870,7 +904,7 @@ def main(argv=None):
         cache = default if (default / "3_Game").is_dir() else None
     try:
         plan = stage(args.source_runtime, args.destination, treatment_mapgroupproto=args.treatment_mapgroupproto,
-                     windows_runtime_root=args.windows_runtime_root, export_delay_s=args.export_delay_s,
+                     export_delay_s=args.export_delay_s,
                      census_delay_s=args.census_delay_s, per_class=args.per_class,
                      wait_minutes=args.wait_minutes, battleye_sha256=args.battleye_sha256,
                      native_scripts=cache)

@@ -70,22 +70,42 @@ def parse_proto(data, wanted=None):
     return groups
 
 
+def _is_int(value):
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
 def _validated_rows(census):
-    rows = census.get("placements") if isinstance(census, dict) else None
+    """Validate census metadata and rows; any inconsistency is refused, never summarised."""
+    if not isinstance(census, dict):
+        raise ValueError("census must be a JSON object")
+    if census.get("schema") != 1 or isinstance(census.get("schema"), bool) or census.get("kind") != "ce-probe-census":
+        raise ValueError("census must declare schema 1 and kind 'ce-probe-census'")
+    rows = census.get("placements")
     if not isinstance(rows, list) or len(rows) > MAX_ROWS:
         raise ValueError("census placements must be a bounded list")
-    clean = []
+    if not _is_int(census.get("targets")) or census["targets"] != len(rows):
+        raise ValueError("census 'targets' must be an integer equal to the number of placement rows")
+    clean, ids = [], set()
     for row in rows:
         if not isinstance(row, dict) or not isinstance(row.get("class"), str) or not isinstance(row.get("found"), bool):
             raise ValueError("census row needs a string 'class' and boolean 'found'")
+        identifier = row.get("i")
+        if not _is_int(identifier) or not 0 <= identifier < census["targets"] or identifier in ids:
+            raise ValueError("census row ids must be unique integers in 0..targets-1")
+        ids.add(identifier)
         if row["found"]:
-            if not isinstance(row.get("box_loose"), int) or row["box_loose"] < 0:
+            if not isinstance(row.get("box_loose"), int) or isinstance(row["box_loose"], bool) or row["box_loose"] < 0:
                 raise ValueError("found census row needs a non-negative integer 'box_loose'")
             if not isinstance(row.get("box_source"), str) or not isinstance(row.get("truncated"), bool):
                 raise ValueError("found census row needs 'box_source' and 'truncated'")
+            if not isinstance(row.get("radius_clamped"), bool):
+                raise ValueError("found census row needs boolean 'radius_clamped'")
             if not isinstance(row.get("types"), list) or not all(isinstance(t, str) for t in row["types"]):
                 raise ValueError("found census row needs a 'types' list of strings")
         clean.append(row)
+    found = sum(1 for row in clean if row["found"])
+    if not _is_int(census.get("found")) or census["found"] != found:
+        raise ValueError("census 'found' must be an integer equal to the number of found rows")
     return clean
 
 
@@ -104,7 +124,7 @@ def _status(stock, rows_found, usable, items):
 
 def _class_entry(name, rows, stock, export):
     found = [r for r in rows if r["found"]]
-    usable = [r for r in found if r["box_source"] != "none" and not r["truncated"]]
+    usable = [r for r in found if r["box_source"] != "none" and not r["truncated"] and not r["radius_clamped"]]
     items = [r["box_loose"] for r in usable]
     types = {t for r in usable for t in r["types"]}
     status = _status(stock, len(found), len(usable), items)
@@ -118,7 +138,7 @@ def _class_entry(name, rows, stock, export):
             (stock["points"], stock["containers"]) != (export["points"], export["containers"])):
         notes.append("export differs from stock (points/containers); engine export is an observation, not an override")
     if len(found) != len(usable):
-        notes.append("some found placements had an unusable box or truncated scan and are excluded from statistics")
+        notes.append("some found placements had an unusable box, a truncated scan or a clamped query radius and are excluded from statistics")
     roles = sorted({r.get("role") for r in rows if isinstance(r.get("role"), str)})
     return {
         "class": name, "role": roles[0] if len(roles) == 1 else (None if not roles else "mixed"),

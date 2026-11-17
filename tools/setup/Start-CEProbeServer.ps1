@@ -24,6 +24,34 @@ function Read-Sha256 {
         $algorithm.Dispose()
     }
 }
+function Test-ReparsePoint {
+    param([string]$Path)
+    $attributes = [System.IO.File]::GetAttributes($Path)
+    return (($attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0)
+}
+# Junctions, symlinks and mount points redirect paths the lexical checks cannot see. Reject
+# them on the runtime root, on every ancestor and (unless -AncestorsOnly) on every descendant.
+function Assert-NoReparsePoints {
+    param([string]$Path, [switch]$AncestorsOnly)
+    $current = $Path
+    while (-not [string]::IsNullOrEmpty($current)) {
+        if (Test-ReparsePoint $current) { throw "Reparse point refused (junction/symlink): $current" }
+        $current = Split-Path -Parent $current
+    }
+    if ($AncestorsOnly) { return }
+    $pending = New-Object System.Collections.Generic.Stack[string]
+    $pending.Push($Path)
+    $seen = 0
+    while ($pending.Count -gt 0) {
+        $directory = $pending.Pop()
+        foreach ($entry in [System.IO.Directory]::GetFileSystemEntries($directory)) {
+            $seen++
+            if ($seen -gt 5000) { throw 'Runtime tree is larger than the CE probe budget.' }
+            if (Test-ReparsePoint $entry) { throw "Reparse point refused (junction/symlink): $entry" }
+            if ([System.IO.Directory]::Exists($entry)) { $pending.Push($entry) }
+        }
+    }
+}
 function Get-FileRecords {
     param([string]$Directory, [string]$Pattern, [string]$Scope)
     $records = @()
@@ -43,6 +71,9 @@ $root = $Runtime.TrimEnd('\')
 $name = Split-Path -Leaf $root
 if ($root -match '\.\.' -or (Split-Path -Parent $root) -ne $parent -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' -or
     $name -eq 'vanilla-p0-001') { throw 'Runtime must be one named child of D:\HollowCountryLocal and not the verified vanilla-p0-001 runtime.' }
+if (-not [System.IO.Directory]::Exists($root)) { throw "Runtime directory not found: $root" }
+Assert-NoReparsePoints -Path $root
+Assert-NoReparsePoints -Path $install -AncestorsOnly
 $planPath = Join-Path $root 'ce-probe-plan.json'
 $plan = Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
 $mission = "$root\mpmissions\dayzOffline.chernarusplus"
@@ -80,6 +111,8 @@ $sentinel = Join-Path $root 'profiles\HCCEProbe\complete.txt'
 $census = Join-Path $root 'profiles\HCCEProbe\census.json'
 if (-not $PSCmdlet.ShouldProcess($root, "Launch the staged CE probe server and wait up to $minutes minutes for complete.txt")) { return }
 
+Assert-NoReparsePoints -Path $root
+if (Get-Process -Name DayZServer_x64 -ErrorAction SilentlyContinue) { throw 'A DayZ server is already running; do not start a duplicate.' }
 $quoted = @($expectedArguments | ForEach-Object { [char]34 + $_ + [char]34 })
 $startedUtc = [DateTime]::UtcNow
 $server = Start-Process -FilePath $exe -WorkingDirectory $install -ArgumentList $quoted -PassThru
