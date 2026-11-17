@@ -14,6 +14,10 @@ class HCNativeInfectedPack
     protected vector m_LastPosition;
     protected bool m_Search;
     protected bool m_Releasing;
+    // Presence records transfer intent; retain the expected native owner across
+    // failed/no-op AddAgent calls. A missing old owner is never a receipt.
+    protected ref map<ZombieBase, AIGroup> m_ReleaseFallbacks = new map<ZombieBase, AIGroup>;
+    protected bool m_ReleaseQuarantined;
     protected int m_ReleaseAttempts;
     protected int m_NextReleaseUtc;
     protected ref array<ref BehaviourGroupInfectedPackWaypointParams> m_RoutePlan;
@@ -326,6 +330,11 @@ class HCNativeInfectedPack
         return m_Releasing;
     }
 
+    bool IsReleaseQuarantined()
+    {
+        return m_ReleaseQuarantined;
+    }
+
     bool Release()
     {
         if (RouteResult == 1) RouteResult = 5;
@@ -345,20 +354,28 @@ class HCNativeInfectedPack
             }
         }
         m_Releasing = true;
-        // Prune only members whose actual native ownership has ended.
+        // Only a disappeared entity or confirmed expected fallback can leave
+        // this ledger. Even a temporarily missing AIAgent remains unresolved.
         for (int i = m_Members.Count() - 1; i >= 0; i--)
         {
             ZombieBase member = m_Members[i];
-            if (!member || !member.GetAIAgent())
+            if (!member)
             {
+                m_ReleaseFallbacks.Remove(member);
                 m_Members.Remove(i);
                 continue;
             }
-            if (!Group || member.GetAIAgent().GetGroup() != Group)
+            AIAgent observedAgent = member.GetAIAgent();
+            AIGroup expected = m_ReleaseFallbacks.Get(member);
+            if (observedAgent && expected && observedAgent.GetGroup() == expected)
+            {
+                m_ReleaseFallbacks.Remove(member);
                 m_Members.Remove(i);
+            }
         }
         if (m_Members.Count() == 0)
         {
+            m_ReleaseFallbacks.Clear();
             Group = null;
             s_PendingRelease.RemoveItem(this);
             return true;
@@ -373,27 +390,52 @@ class HCNativeInfectedPack
         }
         int nowUtc = HCInfectedClock.UtcSeconds();
         if (!HCInfectedPolicy.MayRetryRelease(m_ReleaseAttempts, nowUtc, m_NextReleaseUtc))
+        {
+            if (m_ReleaseAttempts >= 3 && !m_ReleaseQuarantined)
+            {
+                m_ReleaseQuarantined = true;
+                Print("[HC Infected] native release quarantined; fallback ownership unconfirmed");
+            }
             return false;
+        }
         m_ReleaseAttempts++;
         m_NextReleaseUtc = nowUtc + 5;
         AIWorld world = GetAIWorld();
         if (!world) return false;
-        AIGroup fallback = world.CreateDefaultGroup();
-        if (!fallback)
-            return false; // Retain members AND group; caller retains this pack.
         for (int j = m_Members.Count() - 1; j >= 0; j--)
         {
             AIAgent agent = m_Members[j].GetAIAgent();
-            if (agent && agent.GetGroup() == Group)
+            if (!agent)
+                continue;
+            // Never detach an unexpected native owner in order to make our
+            // bookkeeping succeed. Keep that member quarantinable instead.
+            if (agent.GetGroup() && agent.GetGroup() != Group)
+                continue;
+            AIGroup fallback = m_ReleaseFallbacks.Get(m_Members[j]);
+            if (!fallback)
             {
+                // AIWorld deletes empty groups next frame. If a failed add's
+                // expected group has disappeared, record a replacement before
+                // another transfer attempt; never accept null == null as proof.
+                fallback = world.CreateDefaultGroup();
+                if (!fallback)
+                    continue;
+                m_ReleaseFallbacks.Set(m_Members[j], fallback);
+            }
+            if (Group && agent.GetGroup() == Group)
                 Group.RemoveAgent(agent);
+            // RemoveAgent is void too: verify detachment before attempting add.
+            if (!agent.GetGroup())
                 fallback.AddAgent(agent);
-                if (agent.GetGroup() == fallback)
-                    m_Members.Remove(j);
+            if (agent.GetGroup() == fallback)
+            {
+                m_ReleaseFallbacks.Remove(m_Members[j]);
+                m_Members.Remove(j);
             }
         }
         if (m_Members.Count() == 0)
         {
+            m_ReleaseFallbacks.Clear();
             Group = null;
             s_PendingRelease.RemoveItem(this);
             return true;
@@ -404,6 +446,15 @@ class HCNativeInfectedPack
 
 class HCInfectedObservation
 {
+    static bool VisualProvenanceEstablished(DayZInfectedInputController controller)
+    {
+        // 1.30.164289 3_Game/Entities/DayZInfectedInputController.c:9-10
+        // exposes mind state and retained target, not a fresh visual receipt.
+        // No observed lighting-aware source exists here. Leave native pursuit
+        // alone; unknown sight must not read hidden coordinates or refresh clues.
+        return false;
+    }
+
     static bool SampleVisual(HCInfectedActor actor, float now)
     {
         ZombieBase infected = actor.InfectedEntity;
@@ -414,6 +465,9 @@ class HCInfectedObservation
             return false;
         int mind = controller.GetMindState();
         if (mind != DayZInfectedConstants.MINDSTATE_CHASE && mind != DayZInfectedConstants.MINDSTATE_FIGHT)
+            return false;
+        bool visualObserved = HCInfectedObservation.VisualProvenanceEstablished(controller);
+        if (!visualObserved)
             return false;
         // GetTargetEntity may retain an occluded target. It is only a candidate
         // for this bounded sensor check, never directly a pursuit destination.
@@ -441,7 +495,7 @@ class HCInfectedObservation
         hits.Clear();
         hit = DayZPhysics.RaycastRV(origin, point, contact, normal, component, hits, null, infected, true, false, ObjIntersectFire);
         bool fireTarget = hit && hits.Count() > 0 && hits[0] == candidate;
-        if (!HCInfectedPolicy.DirectlyObserved(true, distanceSq, facing, viewTarget, fireTarget))
+        if (!HCInfectedPolicy.DirectlyObserved(visualObserved, distanceSq, facing, viewTarget, fireTarget))
             return false;
         if (!HCInfectedStore.ValidPosition(point))
             return false;
