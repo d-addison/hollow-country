@@ -92,3 +92,38 @@ locally, never fetched or published, and only appears in the `-serverMod=` line.
 Port forwarding (the friend's router, UDP): the game port (`-port`, default 2302)
 plus the next three ports (2303–2305), and `steamQueryPort` (27016 by default) so
 the server shows up in the browser. Keep BattlEye and `verifySignatures = 2` on.
+
+## Friend bundle (the owner builds it, the friend unpacks it)
+
+`tools/setup/friend_bundle.py` packs everything our side owns into one folder the
+owner hands to the friend privately (zip it, then send it by a private channel). It
+contains no Workshop or game content, so the friend still runs `workshop_sync.py fetch`
+or the steamcmd lines in its `README.txt` for the dependencies.
+
+```
+python3 -B -m tools.setup.friend_bundle build \
+  --mission <server>/mpmissions/dayzOffline.chernarusplus \
+  --profiles <server profiles dir> \
+  --mod <signed @HollowCountry> [--addon <signed @HollowCountryExpansionAI>] \
+  --server-cfg <server>/serverDZ.cfg --out <new dir>
+```
+
+- `mpmissions/`: the installed mission without `storage_*` (player and world state),
+  rollback copies (`*.backup`, `*.next`), receipts and logs.
+- `profiles/`: an allowlist of Hollow Country and Expansion AI settings, enable
+  markers and the interior template pack. It leaves out runtime state (event commits,
+  group state, leases and search journals) and logs.
+- `@HollowCountry/` and, with `--addon`, `@HollowCountryExpansionAI/` (signed PBOs
+  only) plus `keys/` with the public `.bikey`.
+- `start-server.bat`: the `-mod=` and `-serverMod=` lines in manifest load order.
+  Without `--addon`, the PvE patrol set and the server mod are left out.
+- `serverDZ-hollow-country.txt`: the values to merge into the friend's own
+  `serverDZ.cfg` (camera, time acceleration, `enableCfgGameplayFile`, mission
+  template). It never carries passwords or the hostname.
+- `README.txt`: the steamcmd download line per Workshop dependency, the copy steps,
+  `verifySignatures = 2` and the ports.
+- `bundle-manifest.json`: SHA-256 for every file, so the friend can check the copy.
+
+It refuses a private key or symlink anywhere in the inputs, an unsigned PBO, a missing
+`.bikey` and an existing output directory. It has only run against the owner's local
+server. A friend's real install and join are still untested.
