@@ -130,9 +130,27 @@ class FriendBundleTests(unittest.TestCase):
             'HollowCountry/Ecology/settings.json', 'HollowCountry/Events/settings.json',
             'HollowCountry/Groups/settings.json', 'HollowCountry/Infected/config.json',
             'HollowCountry/acceptance/events.enable', 'HollowCountry/acceptance/interior_search.enable',
-            'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai.json', 'HollowCountry/interiors.json',
+            'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai.json',
             'HollowCountry/settings.json', 'HollowCountry/stamina.json',
             'HollowCountry/templates/index.json', 'HollowCountry/templates/t-0000.json']))
+
+    def test_legacy_room_owners_stay_out_when_the_template_pack_ships(self):
+        # HCInteriorTemplates refuses the whole pack (rooms_conflict) when the pilot interiors.json or the
+        # legacy production-rooms.json sits beside it, so a bundle with templates must not carry them.
+        put(self.profiles, 'HollowCountry/Infected/production-rooms.json', '{}')
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        got = self.files()
+        self.assertNotIn('profiles/HollowCountry/interiors.json', got)
+        self.assertNotIn('profiles/HollowCountry/Infected/production-rooms.json', got)
+        self.assertIn('rooms_conflict', text)
+
+    def test_pilot_interiors_config_ships_when_there_is_no_template_pack(self):
+        for name in ('index.json', 't-0000.json'):
+            (self.profiles / 'HollowCountry' / 'templates' / name).unlink()
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        self.assertIn('profiles/HollowCountry/interiors.json', self.files())
 
     def test_mods_and_public_keys_are_copied(self):
         code, text = self.run_cli()

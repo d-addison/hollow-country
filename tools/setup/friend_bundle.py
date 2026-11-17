@@ -113,6 +113,11 @@ def _profile_allowed(rel):
     return False
 
 
+# The template pack refuses to load (rooms_conflict) while either legacy room owner sits beside it.
+LEGACY_ROOM_OWNERS = ('HollowCountry/interiors.json', 'HollowCountry/Infected/production-rooms.json')
+TEMPLATE_INDEX = 'HollowCountry/templates/index.json'
+
+
 def profile_files(profiles):
     keep, dropped = [], 0
     for rel, path in _walk(profiles):
@@ -120,6 +125,13 @@ def profile_files(profiles):
             keep.append((rel, path))
         else:
             dropped += 1
+    if any(rel == TEMPLATE_INDEX for rel, _ in keep):
+        legacy = [rel for rel, _ in keep if rel in LEGACY_ROOM_OWNERS]
+        if legacy:
+            keep = [(rel, path) for rel, path in keep if rel not in LEGACY_ROOM_OWNERS]
+            dropped += len(legacy)
+            print('left out %s: the interior template pack refuses to load (rooms_conflict) beside them'
+                  % ', '.join(legacy))
     return keep, dropped
 
 

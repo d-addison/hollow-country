@@ -74,7 +74,9 @@ def authored(include_read=False):
                 token = bare[2] + ' = ' + {'int': '0', 'float': '0.', 'bool': 'False', 'string': "''", 'vector': '[0.,0.,0.]'}.get(bare[1], 'None')
             token = re.sub(r'([\w.]+)\.Get\(([^)]+)\)', r'\1[\2]', token)
             token = re.sub(r'(\w+)\.ToAscii\(\)', r'ord(\1)', token)
-            token = re.sub(r'([\w.]+)\.Substring\(([^,]+), ([^)]+)\)', r'\1[\2:(\2)+(\3)]', token)
+            # Enforce Substring returns at most 8191 characters (observed under Wine, diag-json-1:
+            # a 25 KB class chunk reached LoadData as exactly 8191), so the translation caps it too.
+            token = re.sub(r'([\w.]+)\.Substring\(([^,]+), ([^)]+)\)', r'\1[\2:(\2)+min((\3), 8191)]', token)
             token = re.sub(r'([\w.]+)\.Length\(\)', r'len(\1)', token)
             token = re.sub(r'(s_Refused.GetElement\([^)]+\))\.ToString\(\)', r'str(\1)', token)
             token = re.sub(r'([\w.]+)\.ToString\(\)', r'str(\1)', token)
@@ -352,6 +354,17 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         data=(SRC/'HCInteriorTemplatesData.c').read_text()
         self.assertEqual([],re.findall(r'^\s*(?:ref )?[\w<>, ]+ (File|Slot);',data,re.M))
         self.assertTrue(self.load()[0]['Loaded']())
+
+    def test_class_chunk_longer_than_one_native_substring_reaches_the_engine_whole(self):
+        # The release classes-000.json is ~25 KB; a single Substring copy cut it to 8191 characters
+        # and LoadData refused it ("Missing a closing quotation mark"), refusing the whole pack.
+        e=fixture()[0]; values=pack(); row=values['classes-000.json']['Rows'][0]
+        values['classes-000.json']['Rows']=[dict(row,BuildingClass='Land_House_%04d'%i) for i in range(160)]
+        text=json.dumps(values['classes-000.json']); self.assertGreater(len(text),2*8191)
+        self.assertEqual(text,e['NativeText'](text,'classes'))
+        index=values['index.json']; index['ClassFiles'][0]['File']='classes-000.json'
+        self.assertEqual(json.loads(json.dumps(index).replace('"File"','"FileName"')),
+                         json.loads(e['NativeText'](json.dumps(index),'index')))
 
     def test_read_totals_are_refused_before_publication(self):
         for key,value in [('s_Files',610),('s_Bytes',20971520)]:

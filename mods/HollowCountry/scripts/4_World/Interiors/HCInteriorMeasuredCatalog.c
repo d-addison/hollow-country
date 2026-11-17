@@ -581,7 +581,7 @@ class HCInteriorMeasuredCatalog
             if (code == 34)
             {
                 int length = cursor.Index - begin;
-                string result = cursor.Content.Substring(begin, length);
+                string result = MeasuredCopy(cursor.Content, begin, length);
                 cursor.Index = cursor.Index + 1;
                 return result;
             }
@@ -813,7 +813,7 @@ class HCInteriorMeasuredCatalog
                     return false;
                 }
                 int prefixLength = keyBegin - cursor.CopyFrom;
-                string prefixText = cursor.Content.Substring(cursor.CopyFrom, prefixLength);
+                string prefixText = MeasuredCopy(cursor.Content, cursor.CopyFrom, prefixLength);
                 cursor.NativeText = cursor.NativeText + prefixText + replacement;
                 cursor.CopyFrom = keyBegin + key.Length();
             }
@@ -863,6 +863,26 @@ class HCInteriorMeasuredCatalog
         return true;
     }
 
+    // Enforce Substring returns at most 8191 characters (observed under Wine, diag-json-1: a 25 KB
+    // class chunk reached LoadData as exactly 8191), so every copy of authored text goes in pieces.
+    static string MeasuredCopy(string text, int start, int length)
+    {
+        string result = "";
+        int done = 0;
+        int piece = 0;
+        while (done < length)
+        {
+            piece = length - done;
+            if (piece > 4096)
+            {
+                piece = 4096;
+            }
+            result = result + text.Substring(start + done, piece);
+            done = done + piece;
+        }
+        return result;
+    }
+
     static string MeasuredNativeText(string content, string schema)
     {
         if (content.Length() < 1 || content.Length() > 262144)
@@ -881,7 +901,7 @@ class HCInteriorMeasuredCatalog
             return "";
         }
         int remaining = content.Length() - cursor.CopyFrom;
-        string tail = content.Substring(cursor.CopyFrom, remaining);
+        string tail = MeasuredCopy(content, cursor.CopyFrom, remaining);
         return cursor.NativeText + tail;
     }
 

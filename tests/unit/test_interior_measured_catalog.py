@@ -125,7 +125,7 @@ def authored():
             token = re.sub(r"(\w+)\.ToAscii\(\)", r"ord(\1)", token)
             token = re.sub(
                 r"([\w.]+)\.Substring\(([^,]+), ([^)]+)\)",
-                r"\1[\2:(\2)+(\3)]", token)
+                r"\1[\2:(\2)+min((\3), 8191)]", token)  # engine cap, observed diag-json-1
             split = re.fullmatch(r"(\w+)\.Split\(([^,]+), (\w+)\)", token)
             if split:
                 token = split[3] + ".extend(part for part in " + split[1] + ".split(" + split[2] + ") if part)"
@@ -249,6 +249,14 @@ class InteriorMeasuredCatalogTests(unittest.TestCase):
         self.assertEqual(expected, json.loads(
             e["MeasuredNativeText"](json.dumps(record), "record")))
         self.assertEqual("", e["MeasuredNativeText"]('{"Unknown":1}', "record"))
+
+    def test_record_longer_than_one_native_substring_survives_the_key_remap(self):
+        # Enforce Substring returns at most 8191 characters; the remap must copy in pieces.
+        e, raw, calls, house, objects, candidate, profile = fixture()
+        record = json.loads(profile["ExpectedRecordText"])
+        record["Policy"]["Rules"][0]["Rationale"] = "x" * 20000
+        text = e["MeasuredNativeText"](json.dumps(record), "record")
+        self.assertEqual(20000, len(json.loads(text)["Policy"]["Rules"][0]["Rationale"]))
 
     def test_only_pinned_base_and_observed_full_version_are_admitted(self):
         e, raw, calls, house, objects, candidate, profile = fixture()
