@@ -8,9 +8,15 @@ windows recorded with 3 to 6 players. Fewer players is `insufficient_load`; more
 Line format (written by HCPerfSampler.c, times in milliseconds). The sampler converts engine ticks to
 milliseconds with a per-window calibration (ticks_per_ms) measured against the server clock:
   [HC Perf] window=<n> samples=<k> tick_p50=<ms> tick_p95=<ms> tick_p99=<ms> tick_max=<ms>
-            work_p50=<ms> work_p95=<ms> work_max=<ms> players=<count> ticks_per_ms=<rate>
-A window whose calibration failed carries no work_* values and ends `players=<count> calibration=invalid`.
-Such windows are reported separately and can never produce a within_provisional_budget verdict.
+            work_p50=<ms> work_p95=<ms> work_max=<ms> players_min=<n> players_max=<n> ticks_per_ms=<rate>
+players_min/players_max are the lowest and highest player counts seen at the window's samples. The older form
+with one `players=<count>` (taken at window end) is still read as min == max.
+A window whose calibration failed carries no work_* values and ends `players_min=<n> players_max=<n>
+calibration=invalid`. Such windows are reported separately and can never produce a within_provisional_budget
+verdict.
+The same line may sit behind the engine's variable-declaration wrapper (`SCRIPT : string report = '[HC Perf] ...'`,
+the closing quote possibly missing) because earlier sampler builds used Print(variable); both forms are read.
+A malformed or impossible `[HC Perf]` line is counted and makes the verdict `malformed_input` (exit 1).
 """
 import argparse
 import json
@@ -20,7 +26,8 @@ import re
 import sys
 
 MARKER = "[HC Perf]"
-INT_FIELDS = ("window", "samples", "players")
+INT_FIELDS = ("window", "samples")
+PLAYER_FIELDS = ("players_min", "players_max")
 TICK_FIELDS = ("tick_p50", "tick_p95", "tick_p99", "tick_max")
 WORK_FIELDS = ("work_p50", "work_p95", "work_max")
 WORST_FIELDS = ("tick_p95", "tick_p99", "tick_max", "work_p95", "work_max")
@@ -38,6 +45,7 @@ MAX_EXAMPLES = 5
 EXAMPLE_CHARS = 200
 PAIR = re.compile(r"([a-z0-9_]+)=(\S+)")
 INT_TEXT = re.compile(r"[0-9]{1,9}\Z")
+WRAPPER = re.compile(r"string\s+report\s*=\s*'\s*\Z")
 
 
 def parse_line(text):
@@ -48,6 +56,11 @@ def parse_line(text):
     tail = text[index + len(MARKER):]
     if len(tail) > MAX_LINE_CHARS:
         raise ValueError("line too long")
+    if WRAPPER.search(text[:index]):
+        # Print(variable) wrapper: the closing quote is part of the wrapper, and may be missing.
+        tail = tail.rstrip()
+        if tail.endswith("'"):
+            tail = tail[:-1]
     values = {}
     for name, raw in PAIR.findall(tail):
         if name in values:
@@ -64,11 +77,27 @@ def parse_line(text):
     missing = [name for name in required if name not in values]
     if missing:
         raise ValueError("missing field " + missing[0])
+    has_old = "players" in values
+    has_new = [name for name in PLAYER_FIELDS if name in values]
+    if has_old and has_new:
+        raise ValueError("players mixed with players_min/players_max")
+    if has_old:
+        values["players_min"] = values["players_max"] = values["players"]
+    elif len(has_new) != len(PLAYER_FIELDS):
+        raise ValueError("missing field " + ("players_min" if "players_min" not in values else "players_max"))
     record = {"calibration_valid": invalid is None}
-    for name in INT_FIELDS:
+    for name in INT_FIELDS + PLAYER_FIELDS:
         if not INT_TEXT.match(values[name]):
             raise ValueError("bad integer " + name)
         record[name] = int(values[name])
+    if has_old:
+        record["players"] = record["players_min"]
+    if record["window"] < 1:
+        raise ValueError("out of range window")
+    if record["samples"] < 1:
+        raise ValueError("out of range samples")
+    if record["players_min"] > record["players_max"]:
+        raise ValueError("players_min above players_max")
     for name in required[len(INT_FIELDS):]:
         try:
             number = float(values[name])
@@ -79,6 +108,13 @@ def parse_line(text):
         if name == "ticks_per_ms" and number <= 0:
             raise ValueError("out of range " + name)
         record[name] = number
+    for chain in (TICK_FIELDS, WORK_FIELDS):
+        if not record["calibration_valid"] and chain is WORK_FIELDS:
+            continue
+        # tick_p50 <= tick_p95 <= tick_p99 <= tick_max and work_p50 <= work_p95 <= work_max.
+        for low, high in zip(chain, chain[1:]):
+            if record[low] > record[high]:
+                raise ValueError("%s above %s" % (low, high))
     return record
 
 
@@ -102,16 +138,27 @@ def _violations(worst, budgets):
     return found
 
 
-def _group_verdict(players, violations, invalid_windows):
-    if players < TARGET_PLAYERS[0]:
+def _group_key(record):
+    if record["players_min"] == record["players_max"]:
+        return str(record["players_min"])
+    return "%d-%d" % (record["players_min"], record["players_max"])
+
+
+def _group_verdict(players_min, players_max, violations, invalid_windows):
+    # Load must stay inside the target for the whole window: any sample below 3 or above 6 disqualifies it.
+    if players_min < TARGET_PLAYERS[0]:
         return "insufficient_load"
-    if players > TARGET_PLAYERS[1]:
+    if players_max > TARGET_PLAYERS[1]:
         return "above_target_load"
     if violations:
         return "over_budget"
     if invalid_windows:
         return "calibration_invalid"
     return "within_provisional_budget"
+
+
+def _key_order(key):
+    return tuple(int(part) for part in key.split("-"))
 
 
 def _stats(records):
@@ -155,20 +202,24 @@ def build_report(paths, budgets):
         rates = [r["ticks_per_ms"] for r in records if r["calibration_valid"]]
         run.update({"ticks_per_ms": {"min": min(rates), "max": max(rates)} if rates else None,
                     "file": Path(path).name, "malformed_lines": malformed, "malformed_examples": examples,
-                    "players_seen": sorted({r["players"] for r in records})})
+                    "players_seen": sorted({_group_key(r) for r in records}, key=_key_order)})
         runs.append(run)
     by_players = {}
-    for players in sorted({r["players"] for r in everything}):
-        group_records = [r for r in everything if r["players"] == players]
+    for key in sorted({_group_key(r) for r in everything}, key=_key_order):
+        group_records = [r for r in everything if _group_key(r) == key]
         group = _stats(group_records)
         group["violations"] = _violations(group["worst"], budgets)
-        group["verdict"] = _group_verdict(players, group["violations"], group["calibration_invalid_windows"])
-        by_players[str(players)] = group
+        group["verdict"] = _group_verdict(group_records[0]["players_min"], group_records[0]["players_max"],
+                                          group["violations"], group["calibration_invalid_windows"])
+        by_players[key] = group
     verdicts = [g["verdict"] for g in by_players.values()]
-    if not everything:
-        verdict = "no_data"
-    elif "over_budget" in verdicts:
+    if "over_budget" in verdicts:
         verdict = "over_budget"
+    elif malformed_total:
+        # A line that could not be read may have been the over-budget one: never pass on partial evidence.
+        verdict = "malformed_input"
+    elif not everything:
+        verdict = "no_data"
     elif "calibration_invalid" in verdicts:
         verdict = "calibration_invalid"
     elif "within_provisional_budget" in verdicts:
@@ -245,6 +296,9 @@ def render_text(report):
         lines.append("note: target-load windows exist but at least one had no tick calibration; re-run before judging")
     if report["verdict"] == "no_data":
         lines.append("note: no valid [HC Perf] lines found")
+    if report["verdict"] == "malformed_input":
+        lines.append("note: malformed_input: at least one [HC Perf] line was unreadable or impossible; "
+                     "fix or remove it and re-run before judging")
     return "\n".join(lines) + "\n"
 
 
@@ -278,7 +332,7 @@ def main(argv=None):
     sys.stdout.write(text)
     if report["verdict"] == "no_data":
         return 2
-    return 1 if report["verdict"] in ("over_budget", "calibration_invalid") else 0
+    return 1 if report["verdict"] in ("over_budget", "calibration_invalid", "malformed_input") else 0
 
 
 if __name__ == "__main__":

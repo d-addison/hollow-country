@@ -19,13 +19,28 @@ SAMPLER = ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCPerfSampler.c'
 
 def line(window=1, samples=60, players=4, tick_p50=1000.0, tick_p95=1004.0, tick_p99=1010.0, tick_max=1020.0,
          work_p50=0.5, work_p95=2.0, work_max=8.0, ticks_per_ms=1000.0, calibration_invalid=False,
-         prefix='12:00:00.000 '):
+         prefix='12:00:00.000 ', players_max=None):
+    # players_max=None writes the old single `players=` form; otherwise `players` is the window minimum.
+    if players_max is None:
+        players_text = 'players=%d' % players
+    else:
+        players_text = 'players_min=%d players_max=%d' % (players, players_max)
     head = '%s[HC Perf] window=%d samples=%d tick_p50=%s tick_p95=%s tick_p99=%s tick_max=%s' % (
         prefix, window, samples, tick_p50, tick_p95, tick_p99, tick_max)
     if calibration_invalid:
-        return head + ' players=%d calibration=invalid' % players
-    return head + ' work_p50=%s work_p95=%s work_max=%s players=%d ticks_per_ms=%s' % (
-        work_p50, work_p95, work_max, players, ticks_per_ms)
+        return head + ' %s calibration=invalid' % players_text
+    return head + ' work_p50=%s work_p95=%s work_max=%s %s ticks_per_ms=%s' % (
+        work_p50, work_p95, work_max, players_text, ticks_per_ms)
+
+
+# Exact lines captured from a real server RPT. The Print(report) form wrapped them in a variable declaration;
+# the second one also lost its closing quote.
+REAL_WINDOW_2 = ("12:42:50.951 SCRIPT       : string report = '[HC Perf] window=2 samples=60 tick_p50=1000.00 "
+                 "tick_p95=1000.00 tick_p99=1005.00 tick_max=1005.00 work_p50=0.31 work_p95=12.54 work_max=17.89 "
+                 "players=0 ticks_per_ms=9999.97'")
+REAL_WINDOW_1 = ("12:41:50.945 SCRIPT       : string report = '[HC Perf] window=1 samples=22 tick_p50=1000.00 "
+                 "tick_p95=1320.00 tick_p99=39645.00 tick_max=39645.00 work_p50=0.31 work_p95=11.78 "
+                 "work_max=289.00 players=0 ticks_per_ms=9999.94")
 
 
 def write(directory, name, lines):
@@ -52,6 +67,63 @@ class ParseLine(unittest.TestCase):
         record = pc.parse_line(line(ticks_per_ms=9999.5))
         self.assertTrue(record['calibration_valid'])
         self.assertEqual(9999.5, record['ticks_per_ms'])
+
+    def test_real_rpt_lines_with_the_string_report_wrapper_parse(self):
+        two = pc.parse_line(REAL_WINDOW_2)
+        self.assertEqual(2, two['window'])
+        self.assertEqual(60, two['samples'])
+        self.assertEqual(17.89, two['work_max'])
+        self.assertEqual(9999.97, two['ticks_per_ms'])
+        self.assertEqual((0, 0), (two['players_min'], two['players_max']))
+        one = pc.parse_line(REAL_WINDOW_1)
+        self.assertEqual(1, one['window'])
+        self.assertEqual(39645.0, one['tick_max'])
+        self.assertEqual(9999.94, one['ticks_per_ms'])
+
+    def test_plain_line_and_wrapper_without_quote_agree(self):
+        plain = '[HC Perf]' + REAL_WINDOW_2.split('[HC Perf]')[1].rstrip("'")
+        self.assertEqual(pc.parse_line(REAL_WINDOW_2), pc.parse_line(plain))
+        self.assertEqual(pc.parse_line(REAL_WINDOW_2), pc.parse_line(REAL_WINDOW_2.rstrip("'")))
+
+    def test_stray_quote_on_a_plain_line_is_malformed(self):
+        with self.assertRaises(ValueError):
+            pc.parse_line(line() + "'")
+
+    def test_players_min_max_form_parses_and_old_form_means_min_equals_max(self):
+        record = pc.parse_line(line(players=2, players_max=5))
+        self.assertEqual((2, 5), (record['players_min'], record['players_max']))
+        self.assertNotIn('players', record)
+        old = pc.parse_line(line(players=4))
+        self.assertEqual((4, 4), (old['players_min'], old['players_max']))
+        self.assertEqual(4, old['players'])
+        invalid = pc.parse_line(line(players=3, players_max=3, calibration_invalid=True))
+        self.assertEqual((3, 3), (invalid['players_min'], invalid['players_max']))
+
+    def test_impossible_records_are_malformed(self):
+        bad = [
+            line(samples=0),
+            line(window=0),
+            line(tick_p50=1010.0, tick_p95=1004.0),
+            line(tick_p95=1011.0, tick_p99=1010.0),
+            line(tick_p99=1021.0, tick_max=1020.0),
+            line(work_p50=3.0, work_p95=2.0),
+            line(work_p95=9.0, work_max=8.0),
+            line(players=5, players_max=2),
+            line().replace('players=4', 'players_min=4'),
+            line().replace('players=4', 'players_max=4'),
+            line().replace('players=4', 'players=4 players_min=4 players_max=4'),
+            line(players=4, players_max=5).replace('players_min=4', 'players_min=-1'),
+            line(samples=0, calibration_invalid=True),
+            line(tick_p50=1010.0, tick_p95=1004.0, calibration_invalid=True),
+        ]
+        for text in bad:
+            with self.assertRaises(ValueError, msg=text):
+                pc.parse_line(text)
+
+    def test_equal_percentiles_are_possible_and_valid(self):
+        record = pc.parse_line(line(tick_p50=1000.0, tick_p95=1000.0, tick_p99=1000.0, tick_max=1000.0,
+                                    work_p50=0.0, work_p95=0.0, work_max=0.0, samples=1))
+        self.assertEqual(1, record['samples'])
 
     def test_non_perf_lines_are_ignored_not_malformed(self):
         self.assertIsNone(pc.parse_line('12:00:00.000 [HollowCountry] Server initialized'))
@@ -110,7 +182,7 @@ class Report(unittest.TestCase):
 
     def test_fewer_than_three_players_is_insufficient_load_even_when_fast(self):
         for players in (0, 1, 2):
-            report = self.build({'a.rpt': [line(players=players, work_p95=0.1, work_max=0.2)]})
+            report = self.build({'a.rpt': [line(players=players, work_p50=0.05, work_p95=0.1, work_max=0.2)]})
             self.assertEqual('insufficient_load', report['verdict'])
             self.assertEqual('insufficient_load', report['by_players'][str(players)]['verdict'])
 
@@ -154,7 +226,7 @@ class Report(unittest.TestCase):
     def test_groups_by_player_count_and_keeps_worst_values(self):
         report = self.build({'a.rpt': [
             line(window=1, players=3, work_p95=1.0, work_max=4.0, tick_p99=1010.0),
-            line(window=2, players=3, work_p95=3.0, work_max=9.0, tick_p99=1100.0),
+            line(window=2, players=3, work_p95=3.0, work_max=9.0, tick_p99=1100.0, tick_max=1200.0),
             line(window=3, players=5, work_p95=2.0, work_max=5.0),
         ]})
         three = report['by_players']['3']
@@ -186,6 +258,41 @@ class Report(unittest.TestCase):
         self.assertEqual(2, len(run['malformed_examples']))
         self.assertIn('malformed', pc.render_text(report))
 
+    def test_any_malformed_line_makes_the_report_non_passing(self):
+        for extra in ('[HC Perf] window=2 garbage', line(window=2, samples=0)):
+            report = self.build({'a.rpt': [line(players=4), extra]})
+            self.assertEqual('malformed_input', report['verdict'])
+            self.assertIn('malformed_input', pc.render_text(report))
+            self.assertEqual('pending', report['runtime_acceptance'])
+        report = self.build({'a.rpt': [line(players=1), '[HC Perf] bad']})
+        self.assertEqual('malformed_input', report['verdict'])
+        report = self.build({'a.rpt': ['[HC Perf] bad']})
+        self.assertEqual('malformed_input', report['verdict'])
+        report = self.build({'a.rpt': [line(players=4, work_max=50.0), '[HC Perf] bad']})
+        self.assertEqual('over_budget', report['verdict'])
+
+    def test_window_player_range_decides_the_load_group(self):
+        report = self.build({'a.rpt': [line(players=2, players_max=4)]})
+        self.assertEqual('insufficient_load', report['by_players']['2-4']['verdict'])
+        self.assertEqual('insufficient_load', report['verdict'])
+        report = self.build({'a.rpt': [line(players=3, players_max=6)]})
+        self.assertEqual('within_provisional_budget', report['by_players']['3-6']['verdict'])
+        self.assertEqual('within_provisional_budget', report['verdict'])
+        report = self.build({'a.rpt': [line(players=4, players_max=9)]})
+        self.assertEqual('above_target_load', report['by_players']['4-9']['verdict'])
+        report = self.build({'a.rpt': [line(players=4, players_max=4)]})
+        self.assertIn('4', report['by_players'])
+        report = self.build({'a.rpt': [line(players=0, players_max=5, work_max=90.0)]})
+        self.assertEqual('insufficient_load', report['verdict'])
+        self.assertEqual(['0-5'], report['runs'][0]['players_seen'])
+
+    def test_real_wrapped_lines_in_a_file_are_two_clean_windows(self):
+        report = self.build({'a.rpt': ['noise', REAL_WINDOW_1, REAL_WINDOW_2]})
+        self.assertEqual(0, report['malformed_lines'])
+        self.assertEqual(2, report['overall']['windows'])
+        self.assertEqual('insufficient_load', report['verdict'])
+        self.assertEqual(289.0, report['overall']['worst']['work_max'])
+
     def test_a_file_with_no_perf_lines_yields_no_data_verdict(self):
         report = self.build({'a.rpt': ['nothing here']})
         self.assertEqual('no_data', report['verdict'])
@@ -198,11 +305,11 @@ class Report(unittest.TestCase):
         self.assertEqual('over_budget', report['verdict'])
 
     def test_tick_p95_budget_is_optional_and_off_by_default(self):
-        report = self.build({'a.rpt': [line(players=4, tick_p95=5000.0)]})
+        report = self.build({'a.rpt': [line(players=4, tick_p95=5000.0, tick_p99=5100.0, tick_max=5200.0)]})
         self.assertEqual('within_provisional_budget', report['verdict'])
         budgets = dict(pc.DEFAULT_BUDGETS)
         budgets['tick_p95_ms'] = 1100.0
-        report = self.build({'a.rpt': [line(players=4, tick_p95=5000.0)]}, budgets)
+        report = self.build({'a.rpt': [line(players=4, tick_p95=5000.0, tick_p99=5100.0, tick_max=5200.0)]}, budgets)
         self.assertEqual('over_budget', report['verdict'])
 
 
@@ -247,6 +354,15 @@ class CommandLine(unittest.TestCase):
             result = self.run_cli(str(bad), '--max-work-max-ms', '100')
             self.assertEqual(0, result.returncode)
 
+    def test_cli_exits_non_zero_for_any_malformed_perf_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = write(directory, 'm.rpt', [line(players=4), '[HC Perf] window=2 garbage'])
+            result = self.run_cli(str(path))
+            self.assertEqual(1, result.returncode, result.stdout)
+            self.assertIn('malformed_input', result.stdout)
+            wrapped = write(directory, 'w.rpt', [REAL_WINDOW_1, REAL_WINDOW_2])
+            self.assertEqual(0, self.run_cli(str(wrapped)).returncode)
+
     def test_cli_missing_file_is_a_clean_error(self):
         result = self.run_cli('/nonexistent/none.rpt')
         self.assertEqual(2, result.returncode)
@@ -268,13 +384,15 @@ class SamplerSource(unittest.TestCase):
 
     def test_log_format_literal_and_fields_are_present_in_order(self):
         fields = ['window', 'samples', 'tick_p50', 'tick_p95', 'tick_p99', 'tick_max', 'work_p50', 'work_p95',
-                  'work_max', 'players']
+                  'work_max', 'players_min', 'players_max']
         self.assertIn('[HC Perf] window=', self.text)
         positions = [self.text.index(' ' + name + '=') for name in fields[1:]]
         self.assertEqual(sorted(positions), positions)
 
     def test_exactly_one_print_call_emits_the_window_line(self):
-        self.assertEqual(1, len(re.findall(r'\bPrint\(report\);', self.code)))
+        # Print(variable) makes the engine print the declaration (`string report = '...'`); an expression prints plain.
+        self.assertEqual(1, len(re.findall(r'\bPrint\("" \+ report\);', self.code)))
+        self.assertEqual(0, len(re.findall(r'\bPrint\(report\)', self.code)))
         self.assertEqual(1, self.code.count('[HC Perf]'))
 
     def test_sample_cap_is_a_named_constant_and_enforced(self):
@@ -296,11 +414,33 @@ class SamplerSource(unittest.TestCase):
         self.assertIn('" ticks_per_ms="', self.code)
         self.assertIn('" calibration=invalid"', self.code)
 
+    def test_calibration_rejects_negative_and_implausible_deltas(self):
+        self.assertRegex(self.code, r'const float HC_PERF_MAX_TICKS_PER_MS\s*=\s*\d+(?:\.\d+)?;')
+        emit = self.code.split('void EmitWindow()')[1]
+        self.assertRegex(emit, r'ticksDelta\s*>\s*0')
+        self.assertIn('HC_PERF_MAX_TICKS_PER_MS', emit)
+        self.assertIn('HC_PERF_MIN_TICKS_PER_MS', emit)
+        self.assertIn('HC_PERF_MAX_WINDOW_SECONDS', emit)
+        self.assertIn('ticksPerMs <= HC_PERF_MAX_TICKS_PER_MS', emit)
+
+    def test_players_are_tracked_per_sample_as_min_and_max(self):
+        sample = self.code.split('void Sample(')[1].split('void Stop()')[0]
+        self.assertIn('CountPlayers()', sample)
+        self.assertIn('m_PlayersMin', sample)
+        self.assertIn('m_PlayersMax', sample)
+        emit = self.code.split('void EmitWindow()')[1]
+        self.assertNotIn('CountPlayers()', emit)
+        reset = self.code.split('void ResetWindow()')[1].split('protected')[0]
+        self.assertIn('m_PlayersMin', reset)
+        self.assertIn('m_PlayersMax', reset)
+
     def test_invalid_calibration_skips_work_values(self):
         emit = self.code.split('void EmitWindow()')[1]
         self.assertLess(emit.index('if (calibrated)'), emit.index('" work_p50="'))
-        self.assertLess(emit.index('" work_max="'), emit.index('" players="'))
-        self.assertLess(emit.index('" players="'), emit.index('" ticks_per_ms="'))
+        self.assertLess(emit.index('" work_max="'), emit.index('" players_min="'))
+        self.assertLess(emit.index('" players_max="'), emit.index('" ticks_per_ms="'))
+        self.assertLess(emit.index('" players_min="'), emit.index('" players_max="'))
+        self.assertNotIn('" players="', self.code)
 
     def test_not_a_module_and_no_file_io(self):
         self.assertNotRegex(self.code, r'extends\s+HCModule')
