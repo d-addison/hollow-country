@@ -14,6 +14,7 @@ import shutil
 import struct
 import tempfile
 import unittest
+from unittest import mock
 
 from tests.unit import test_interior_catalog as measured_fixtures
 from tools.package import interiors_profile as ip
@@ -613,6 +614,69 @@ class InstallTests(TempCase):
         with self.assertRaises(ValueError):
             ip.rollback(target)
         self.assertTrue((target / 'interiors.json').exists())
+
+    def failing(self, fail_name, partial=0):
+        real = ip.fresh_write
+
+        def write(root, name, data):
+            if name == fail_name:
+                if partial:
+                    real(root, name, data[:partial])
+                raise OSError('injected write failure before ' + fail_name)
+            return real(root, name, data)
+        return mock.patch.object(ip, 'fresh_write', write)
+
+    def test_kill_before_receipt_with_an_operator_config_is_recovered_by_rollback(self):
+        target = self.profile()
+        (target / 'interiors.json').write_bytes(b'operator config\r\n')
+        before = snapshot(target)
+        with self.failing('receipt.json'):
+            with self.assertRaises(OSError):
+                ip.install(PACK, target, replace=True)
+        with self.assertRaises(ValueError):
+            ip.install(PACK, target, replace=True)
+        self.assertEqual(ip.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(snapshot(target), before)
+        ip.install(PACK, target, replace=True)
+        ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
+
+    def test_kill_in_the_middle_of_the_receipt_or_a_backup_is_recovered(self):
+        for fail, partial in (('receipt.json', 12), ('backup/0.bak', 4)):
+            target = self.profile(name='profiles-' + fail.replace('/', '-'))
+            (target / 'interiors.json').write_bytes(b'operator config\r\n')
+            before = snapshot(target)
+            with self.failing(fail, partial):
+                with self.assertRaises(OSError):
+                    ip.install(PACK, target, replace=True)
+            self.assertIn(ip.rollback(target), ('recovered_bootstrap', 'rolled_back'))
+            self.assertEqual(snapshot(target), before)
+            self.assertFalse((target / ip.MANAGED).exists())
+
+    def test_stranded_backup_without_a_receipt_is_recovered_only_while_the_operator_file_matches(self):
+        target = self.profile()
+        (target / 'interiors.json').write_bytes(b'operator config\r\n')
+        managed = target / ip.MANAGED
+        (managed / 'backup').mkdir(parents=True)
+        (managed / 'backup/0.bak').write_bytes(b'operator config\r\n')
+        (target / 'interiors.json').write_bytes(b'operator changed it later\r\n')
+        before = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
+        (target / 'interiors.json').write_bytes(b'operator config\r\n')
+        self.assertEqual(ip.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(snapshot(target), {'interiors.json': b'operator config\r\n'})
+
+    def test_receipt_less_managed_directory_with_unknown_files_is_refused(self):
+        target = self.profile()
+        managed = target / ip.MANAGED
+        managed.mkdir()
+        (managed / 'surprise.txt').write_bytes(b'x')
+        before = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.rollback(target)
+        self.assertEqual(snapshot(target), before)
 
     def test_rollback_without_install_is_refused(self):
         target = self.profile()

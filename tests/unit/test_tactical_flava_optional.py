@@ -12,6 +12,7 @@ import shutil
 import struct
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.audit import pbo_config
@@ -687,6 +688,35 @@ class InstallRollback(unittest.TestCase):
         self.assertEqual(outside.read_bytes(), b'operator data: preserve exactly\n')
         self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), core)
         self.assertTrue(managed.is_dir())
+
+    def test_kill_before_receipt_is_recovered_and_a_changed_core_is_refused(self):
+        stage = self.stage()
+        target = Path(self.tmp.name) / 'copy'
+        shutil.copytree(self.source, target)
+        before = files_of(target)
+        real = economy.fresh_write
+
+        def die(root, name, data):
+            if name == 'receipt.json':
+                raise OSError('injected write failure before receipt.json')
+            return real(root, name, data)
+        with mock.patch.object(economy, 'fresh_write', die):
+            with self.assertRaises(OSError):
+                tfo.install(stage, target)
+        managed = target / tfo.MANAGED
+        self.assertTrue((managed / 'core.backup').is_file())
+        self.assertFalse((managed / 'receipt.json').exists())
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'] + b'<!--operator edit-->')
+        edited = files_of(target)
+        with self.assertRaises(ValueError):
+            tfo.rollback(target)
+        self.assertEqual(files_of(target), edited)
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'])
+        self.assertEqual(tfo.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(files_of(target), before)
+        tfo.install(stage, target)
+        tfo.rollback(target)
+        self.assertEqual(files_of(target), before)
 
     def test_install_and_rollback_are_byte_exact(self):
         stage = self.stage()

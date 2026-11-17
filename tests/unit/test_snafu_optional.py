@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import economy, firearms, snafu_optional
@@ -336,6 +337,36 @@ class InstallRollback(unittest.TestCase):
             snafu_optional.install(stage, target)
         snafu_optional.rollback(target)
         self.assertEqual(before, self.files(target))
+
+    def test_kill_before_receipt_is_recovered_and_a_changed_core_is_refused(self):
+        stage = Path(self.tmp.name) / 'delta'
+        snafu_optional.write_delta(stage, snafu_optional.generate(self.source, self.allow, self.report))
+        target = Path(self.tmp.name) / 'copy'
+        shutil.copytree(self.source, target)
+        before = self.files(target)
+        real = economy.fresh_write
+
+        def die(root, name, data):
+            if name == 'receipt.json':
+                raise OSError('injected write failure before receipt.json')
+            return real(root, name, data)
+        with mock.patch.object(economy, 'fresh_write', die):
+            with self.assertRaises(OSError):
+                snafu_optional.install(stage, target)
+        managed = target / snafu_optional.MANAGED
+        self.assertTrue((managed / 'core.backup').is_file())
+        self.assertFalse((managed / 'receipt.json').exists())
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'] + b'<!--operator edit-->')
+        edited = self.files(target)
+        with self.assertRaises(ValueError):
+            snafu_optional.rollback(target)
+        self.assertEqual(self.files(target), edited)
+        (target / 'cfgeconomycore.xml').write_bytes(before['cfgeconomycore.xml'])
+        self.assertEqual(snafu_optional.rollback(target), 'recovered_bootstrap')
+        self.assertEqual(self.files(target), before)
+        snafu_optional.install(stage, target)
+        snafu_optional.rollback(target)
+        self.assertEqual(self.files(target), before)
 
     def test_coexists_with_the_roster_and_requires_last_in_first_out_rollback(self):
         target = Path(self.tmp.name) / 'copy'

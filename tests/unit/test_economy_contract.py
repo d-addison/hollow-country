@@ -5,8 +5,10 @@ switch off; the datamined rows are covered in test_datamined_items.
 """
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import economy
@@ -171,3 +173,91 @@ class EconomyBehavior(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+def failing_write(real, fail_name, partial=0):
+    """fresh_write wrapper that dies on fail_name (after writing `partial` bytes if asked), like a kill."""
+    def write(root, name, data):
+        if name == fail_name:
+            if partial:
+                real(root, name, data[:partial])
+            raise OSError('injected write failure before ' + fail_name)
+        return real(root, name, data)
+    return write
+
+
+class BootstrapRecovery(unittest.TestCase):
+    """An install that dies before receipt.json must not strand the operator (rollback recovers it)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        root = Path(self.tmp.name)
+        source = root / 'source'
+        source.mkdir()
+        profile = synthetic(source)
+        self.original = (source / 'cfgeconomycore.xml').read_bytes()
+        self.stage = root / 'delta'
+        economy.write_delta(self.stage, economy.generate(source, profile, include_datamined=False))
+        self.target = root / 'private-copy'
+        shutil.copytree(source, self.target)
+        self.core = self.target / 'cfgeconomycore.xml'
+        self.managed = self.target / economy.MANAGED
+
+    def strand(self, partial=0):
+        with mock.patch.object(economy, 'fresh_write', failing_write(economy.fresh_write, 'receipt.json', partial)):
+            with self.assertRaises(OSError):
+                economy.install(self.stage, self.target)
+        self.assertTrue(self.managed.is_dir())
+
+    def test_kill_before_receipt_is_recovered_by_rollback_and_reinstall_works(self):
+        self.strand()
+        with self.assertRaises(ValueError):
+            economy.install(self.stage, self.target)
+        self.assertEqual(economy.rollback(self.target), 'recovered_bootstrap')
+        self.assertFalse(self.managed.exists())
+        self.assertEqual(self.core.read_bytes(), self.original)
+        economy.install(self.stage, self.target)
+        economy.rollback(self.target)
+        self.assertEqual(self.core.read_bytes(), self.original)
+
+    def test_kill_in_the_middle_of_the_core_backup_is_recovered(self):
+        with mock.patch.object(economy, 'fresh_write', failing_write(economy.fresh_write, 'core.backup.next', 20)):
+            with self.assertRaises(OSError):
+                economy.install(self.stage, self.target)
+        self.assertEqual((self.managed / 'core.backup.next').read_bytes(), self.original[:20])
+        self.assertFalse((self.managed / 'core.backup').exists())
+        self.assertEqual(economy.rollback(self.target), 'recovered_bootstrap')
+        self.assertFalse(self.managed.exists())
+        self.assertEqual(self.core.read_bytes(), self.original)
+
+    def test_kill_in_the_middle_of_the_receipt_is_recovered(self):
+        self.strand(partial=10)
+        self.assertEqual((self.managed / 'receipt.json').stat().st_size, 10)
+        self.assertEqual(economy.rollback(self.target), 'recovered_bootstrap')
+        self.assertFalse(self.managed.exists())
+        self.assertEqual(self.core.read_bytes(), self.original)
+
+    def test_changed_core_is_refused_and_nothing_changes(self):
+        self.strand()
+        edited = self.original + b'<!--operator edit-->'
+        self.core.write_bytes(edited)
+        before = {p.relative_to(self.target).as_posix(): p.read_bytes() for p in self.target.rglob('*') if p.is_file()}
+        with self.assertRaises(ValueError):
+            economy.rollback(self.target)
+        self.assertEqual(before, {p.relative_to(self.target).as_posix(): p.read_bytes()
+                                  for p in self.target.rglob('*') if p.is_file()})
+
+    def test_unexpected_managed_content_without_a_receipt_is_refused(self):
+        self.strand()
+        (self.managed / 'ce').mkdir()
+        (self.managed / 'ce/types.xml').write_bytes(b'<types/>')
+        with self.assertRaises(ValueError):
+            economy.rollback(self.target)
+        (self.managed / 'ce/types.xml').unlink()
+        (self.managed / 'ce').rmdir()
+        (self.managed / 'surprise.txt').write_bytes(b'operator')
+        with self.assertRaises(ValueError):
+            economy.rollback(self.target)
+        self.assertEqual((self.managed / 'surprise.txt').read_bytes(), b'operator')
+        self.assertEqual(self.core.read_bytes(), self.original)

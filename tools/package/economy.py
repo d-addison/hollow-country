@@ -382,6 +382,47 @@ def preflight_managed(managed, expected):
         plain_file(managed, p)
 
 
+ROLLED_BACK = 'rolled_back'
+RECOVERED_BOOTSTRAP = 'recovered_bootstrap'
+
+
+def read_receipt_or_recover(target, managed, core_name='cfgeconomycore.xml', backup_name='core.backup'):
+    """Return the parsed receipt, or None after recovering an install that died before its receipt existed.
+
+    Install writes core.backup, then receipt.json, and only then anything else and the core switch, so a
+    managed directory with no complete receipt can hold nothing but a (complete, atomically placed) core.backup,
+    a possibly half-written receipt.json and staging files, and the core is still the original. That is re-proved
+    here before anything is removed: no other managed entry, every entry a plain file, and the core byte-identical
+    to the backup. Anything else refuses and changes nothing.
+    """
+    managed = Path(managed)
+    path = managed / 'receipt.json'
+    if os.path.lexists(path):
+        try:
+            return json.loads(read_plain(managed, 'receipt.json'))
+        except json.JSONDecodeError:
+            pass  # half-written receipt: same bootstrap evidence rules, and the backup becomes mandatory
+    elif not os.path.lexists(managed):
+        read_plain(managed, 'receipt.json')  # raises the usual FileNotFoundError: nothing installed
+    if not managed.is_dir() or managed.is_symlink():
+        raise ValueError('managed path is not a plain directory; rollback refuses')
+    entries = {}
+    for entry in managed.rglob('*'):
+        name = entry.relative_to(managed).as_posix()
+        child(managed, name)
+        if entry.is_dir() or name not in {backup_name, backup_name + '.next', 'receipt.json', 'receipt.next'}:
+            raise ValueError('no valid receipt and unexpected managed content; rollback refuses deletion')
+        entries[name] = plain_file(managed, entry).read_bytes()
+    core = plain_file(target, child(target, core_name)).read_bytes()
+    if backup_name in entries:
+        if core != entries[backup_name]:
+            raise ValueError('no valid receipt and the core differs from the backup; manual reconciliation required')
+    elif 'receipt.json' in entries:
+        raise ValueError('no valid receipt and no backup to prove the core is unchanged; manual reconciliation required')
+    shutil.rmtree(managed)  # only our fixed directory, preflighted above
+    return None
+
+
 def restore_core(managed, core, backup):
     """Stage the backup as a fresh file in the managed directory and atomically swap it in."""
     staged = fresh_write(managed, 'core.next', backup)
@@ -458,7 +499,7 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
                'types_sha256': sha(files['ce/types.xml']), 'sources': manifest['sources']}
     # Receipt+backup exist before the atomic core switch. Rollback also handles
     # an interrupted install whose switch did not happen. Stop the server first.
-    fresh_write(managed, 'core.backup', original)
+    os.replace(fresh_write(managed, 'core.backup.next', original), managed / 'core.backup')  # never half-written
     fresh_write(managed, 'receipt.json', encode(receipt))
     (managed / 'ce').mkdir()
     fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
@@ -491,7 +532,9 @@ def install_delta(stage, target):
 def rollback(target):
     target = _target(target)
     managed = child(target, MANAGED)
-    receipt = json.loads(read_plain(managed, 'receipt.json'))
+    receipt = read_receipt_or_recover(target, managed)
+    if receipt is None:
+        return RECOVERED_BOOTSTRAP
     preflight_managed(managed, {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next'})
     core = plain_file(target, child(target, 'cfgeconomycore.xml'))
     backup = read_plain(managed, 'core.backup')
@@ -504,6 +547,7 @@ def rollback(target):
         raise ValueError('stock drift; inspect before rollback')
     restore_core(managed, core, backup)
     shutil.rmtree(managed)  # only our fixed directory, preflighted above
+    return ROLLED_BACK
 
 
 def main():
@@ -534,7 +578,8 @@ def main():
         elif args.command == 'install':
             install_delta(args.delta, args.target)
         else:
-            rollback(args.target)
+            if rollback(args.target) == RECOVERED_BOOTSTRAP:
+                print('Recovered an interrupted install: it never changed the core; managed directory removed.')
         print('Offline operation complete; DayZ runtime acceptance pending.')
     except (ValueError, OSError, KeyError, TypeError) as e:
         parser.exit(1, f'{e}\n')

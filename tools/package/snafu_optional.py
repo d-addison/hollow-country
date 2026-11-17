@@ -493,7 +493,7 @@ def install(stage, target):
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
                'verification_sha256': economy.sha(economy.encode(verification))}
-    economy.fresh_write(managed, 'core.backup', original)
+    os.replace(economy.fresh_write(managed, 'core.backup.next', original), managed / 'core.backup')  # never half-written
     economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
     economy.fresh_write(managed, 'verification.json', economy.encode(verification))
     (managed / 'ce').mkdir()
@@ -505,7 +505,9 @@ def install(stage, target):
 def rollback(target):
     target = economy._target(target)
     managed = economy.child(target, MANAGED)
-    receipt = json.loads(economy.read_plain(managed, 'receipt.json'))
+    receipt = economy.read_receipt_or_recover(target, managed)
+    if receipt is None:
+        return economy.RECOVERED_BOOTSTRAP
     economy.preflight_managed(managed, {'core.backup', 'receipt.json', 'verification.json',
                                         'ce/types.xml', 'core.next'})
     core = economy.plain_file(target, economy.child(target, 'cfgeconomycore.xml'))
@@ -523,6 +525,7 @@ def rollback(target):
         raise ValueError('stock drift; inspect before rollback')
     economy.restore_core(managed, core, backup)
     shutil.rmtree(managed)
+    return economy.ROLLED_BACK
 
 
 # ------------------------------------------------------------------------- CLI
@@ -572,7 +575,8 @@ def main(argv=None):
         elif args.command == 'install':
             install(args.delta, args.target)
         else:
-            rollback(args.target)
+            if rollback(args.target) == economy.RECOVERED_BOOTSTRAP:
+                print('Recovered an interrupted install: it never changed the core; managed directory removed.')
         print('Offline operation complete; DayZ runtime acceptance pending.')
     except (ValueError, OSError, KeyError, TypeError) as e:
         parser.exit(1, f'{e}\n')
