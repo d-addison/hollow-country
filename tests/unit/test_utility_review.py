@@ -140,9 +140,9 @@ class UtilityReviewTests(unittest.TestCase):
 
     def test_source_files_must_match_complete_manifest_exactly(self):
         c, a, files = inputs()
-        for bad in ({}, dict(files, **{"Extra.c": b""}),
-                    {"Synthetic.c": files["Synthetic.c"] + b"\n"}, {"Synthetic.c": "not bytes"}):
-            with self.subTest(bad=list(bad)), self.assertRaises(ValueError):
+        for bad, code in (({}, "source-files-manifest"), (dict(files, **{"Extra.c": b""}), "source-files-manifest"),
+                    ({"Synthetic.c": files["Synthetic.c"] + b"\n"}, "source-bytes"), ({"Synthetic.c": "not bytes"}, "source-bytes")):
+            with self.subTest(bad=list(bad)), self.assertRaisesRegex(ValueError, '^'+code+'$'):
                 self.m.build_review(self.rows, c, a, {}, bad)
 
     def test_recipe_source_facts_must_match_pinned_bytes(self):
@@ -167,10 +167,10 @@ class UtilityReviewTests(unittest.TestCase):
         result = self.build(proposals=[proposed])
         self.assertEqual("acyclic-declared-graph", result["proposals"][0]["cycle_status"])
         self.assertFalse(result["proposals"][0]["implementation_approved"])
-        for changes in (dict(inputs=[]), dict(rationale=""), dict(id=True),
-                        dict(outputs=[dict(item="Missing", quantity=1)]),
-                        dict(outputs=[dict(item="CfgVehicles:Product", quantity=True)])):
-            with self.subTest(changes=changes), self.assertRaises(ValueError):
+        for changes, code in ((dict(inputs=[]), "proposal-arity"), (dict(rationale=""), "proposal-rationale"), (dict(id=True), "proposal-id"),
+                        (dict(outputs=[dict(item="Missing", quantity=1)]), "proposal-class"),
+                        (dict(outputs=[dict(item="CfgVehicles:Product", quantity=True)]), "proposal-quantity")):
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, '^'+code+'$'):
                 self.build(proposals=[dict(proposed, **changes)])
 
     def test_native_and_proposed_reverse_cycles_veto_new_edges(self):
@@ -205,7 +205,7 @@ class UtilityReviewTests(unittest.TestCase):
         self.assertEqual(first["classes"], second["classes"])
 
     def test_output_budget_refuses_partial_success(self):
-        with patch.object(self.m, "MAX_OUTPUT_BYTES", 32), self.assertRaises(ValueError):
+        with patch.object(self.m, "MAX_OUTPUT_BYTES", 32), self.assertRaisesRegex(ValueError, "^output-bytes-budget$"):
             self.build()
 
 
@@ -231,18 +231,18 @@ class UtilityReviewTests(unittest.TestCase):
         self.assertIn("conditional-or-unresolved-registration", family["holds"])
 
     def test_contradictory_or_untyped_native_ancestry_is_rejected(self):
-        for chain, parent in ((["Child"], "Material"), (["Material", "material"], "Material"),
-                              (["Product"], "Material"), ("Material", "Material")):
+        for chain, parent, code in ((["Child"], "Material", "config-ancestry-self"), (["Material", "material"], "Material", "config-ancestry-duplicates"),
+                              (["Product"], "Material", "config-parent-ancestry"), ("Material", "Material", "config-ancestry")):
             rows = copy.deepcopy(self.rows)
             rows[3].update(ConfigAncestors=chain, ParentClass=parent)
-            with self.subTest(chain=chain), self.assertRaises(ValueError):
+            with self.subTest(chain=chain), self.assertRaisesRegex(ValueError, "^"+code+"$"):
                 self.build(rows=rows)
 
     def test_proposals_cannot_target_ammo_config_definitions(self):
         rows = self.rows + [item("Projectile", root="CfgAmmo")]
         proposed = dict(id="Ammo", inputs=[dict(item="CfgVehicles:Product", quantity=1)],
                         outputs=[dict(item="CfgAmmo:Projectile", quantity=1)], rationale="SYNTHETIC")
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "^proposal-public-item-definition-required$"):
             self.build(rows=rows, proposals=[proposed])
 
 
@@ -341,6 +341,163 @@ class UtilityReviewTests(unittest.TestCase):
         self.assertEqual({"kind": "literal", "value": 2}, family["outputs"][0]["quantity"])
         self.assertEqual({"0": "material", "1": "tool"}, family["ingredient_roles"])
         self.assertEqual(0, family["parameters"]["m_ResultSetFullQuantity"][0]["value"])
+
+
+class WeightedCycleTests(unittest.TestCase):
+    setUp = UtilityReviewTests.setUp
+    build = UtilityReviewTests.build
+    # Synthetic literal forward costs independently reproduce the inspected 1.30
+    # bat/crate recipes. These are quantity proofs, not effective native yields.
+    def proposal(self, identity, before, after, tool='Tool', wear=5):
+        return dict(id=identity, inputs=[dict(item='CfgVehicles:'+n, quantity=1) for n in before],
+                    outputs=[dict(item='CfgVehicles:'+n, quantity=q) for n,q in after],
+                    tools=[dict(item='CfgVehicles:'+n, quantity=1, wear_hp=wear) for n in ([tool] if isinstance(tool,str) else tool)],
+                    yield_policy='fixed-per-source', rationale='Explicit fixed recovery policy')
+
+    def cohort(self):
+        from tests.unit.test_crafting_families import FAMILIES
+        from tests.unit.test_salvage_tools import tool_policy
+        tools = tool_policy()
+        proposals = [self.proposal(name, sources, outputs,
+                     tool=[tools.ToolAt(seed, i) for i in range(tools.ToolCount(seed))], wear=wear)
+                     for name, (sources, seed, outputs, wear, _, _) in FAMILIES.items()]
+        bat = recipe('CraftBaseBallBatNailed','Nail','NailedBaseballBat',1,destroy=False).replace(
+            b'm_IngredientAddQuantity[0] = 0',b'm_IngredientAddQuantity[0] = -12; m_MinQuantityIngredient[0] = 12').replace(
+            b'InsertIngredient(1,"Tool")',b'InsertIngredient(1,"BaseballBat")').replace(
+            b'm_IngredientDestroy[1] = false',b'm_IngredientDestroy[1] = true')
+        crate = recipe('CraftWoodenCrate','WoodenPlank','WoodenCrate',1,destroy=False).replace(
+            b'm_IngredientAddQuantity[0] = 0',b'm_IngredientAddQuantity[0] = -8; m_MinQuantityIngredient[0] = 8').replace(
+            b'InsertIngredient(1,"Tool")',b'InsertIngredient(1,"Nail")').replace(
+            b'm_IngredientAddQuantity[1] = 0',b'm_IngredientAddQuantity[1] = -16; m_MinQuantityIngredient[1] = 16')
+        names = {'Tool','BaseballBat','Nail','WoodenPlank','WoodenCrate','NailedBaseballBat'}
+        for p in proposals:
+            names.update(x['item'].split(':')[1] for side in ('inputs','outputs','tools') for x in p[side])
+        return proposals, {'Bat.c':bat,'Crate.c':crate}, [item(n) for n in sorted(names)]
+
+    def test_all_six_exact_proposals_pass_quantity_gate(self):
+        proposals, files, rows = self.cohort()
+        result = self.build(files,rows,proposals=proposals)
+        self.assertEqual({p['id']:p['cycle_status'] for p in result['proposals']}, {
+            'HCRecoverLargeLeather':'acyclic-declared-graph',
+            'HCRecoverMediumLeather':'acyclic-declared-graph',
+            'HCRecoverBatWood':'acyclic-declared-graph',
+            'HCRecoverNailedBat':'lossy-cycle-admissible',
+            'HCRecoverBarbedBat':'acyclic-declared-graph',
+            'HCRecoverRuinedCrate':'lossy-cycle-admissible'})
+        self.assertTrue(all(p['quantity_gate_passed'] for p in result['proposals']))
+        self.assertFalse(any(p['gameplay_acceptance'] for p in result['proposals']))
+
+    def test_equal_or_growing_return_of_any_material_vetoes_entire_proposal(self):
+        for identity, material, quantity in [('HCRecoverNailedBat','Nail',12),
+                                              ('HCRecoverRuinedCrate','WoodenPlank',8),
+                                              ('HCRecoverRuinedCrate','Nail',16),
+                                              ('HCRecoverRuinedCrate','Nail',17)]:
+            proposals, files, rows = self.cohort()
+            for p in proposals:
+                if p['id'] == identity:
+                    for operand in p['outputs']:
+                        if operand['item'] == 'CfgVehicles:'+material: operand['quantity']=quantity
+            result = self.build(files,rows,proposals=proposals)
+            verdict = next(p for p in result['proposals'] if p['id']==identity)
+            self.assertEqual('cycle-veto',verdict['cycle_status'])
+            self.assertFalse(verdict['quantity_gate_passed'])
+
+    def test_custom_forward_mutation_and_missing_minimum_fail_closed(self):
+        for mutate in (lambda raw:raw.replace(b'return true;',b'ingredients[0].AddQuantity(100); return true;'),
+                       lambda raw:raw.replace(b'override bool CanDo',b'void Custom() {} override bool CanDo'),
+                       lambda raw:raw.replace(b'm_MinQuantityIngredient[0] = 12',b'm_MinQuantityIngredient[0] = -1')):
+            proposals,files,rows=self.cohort();files['Bat.c']=mutate(files['Bat.c'])
+            result=self.build(files,rows,proposals=proposals)
+            self.assertEqual('cycle-veto',next(p for p in result['proposals'] if p['id']=='HCRecoverNailedBat')['cycle_status'])
+
+    def test_addresult_outside_init_is_not_a_declared_output(self):
+        family=self.build({'Synthetic.c':recipe(custom='void Extra() { AddResult("Unresolved"); }')})['recipe_families'][0]
+        self.assertEqual(1,len(family['outputs']))
+        self.assertIn('custom-ingredient-or-result-semantics',family['holds'])
+
+    def test_duplicate_and_contradictory_scope_evidence_is_rejected(self):
+        rows=copy.deepcopy(self.rows);rows[0]['Fields'].append(field('SCOPE',scalar=0))
+        with self.assertRaisesRegex(ValueError,'duplicate_field'): self.build(rows=rows)
+        for key,value in [('ValueFloat',2.5),('ValueString','2'),('IntValues',[0])]:
+            rows=copy.deepcopy(self.rows);rows[0]['Fields'][0][key]=value
+            with self.subTest(key=key),self.assertRaisesRegex(ValueError,'scope-contradiction'):
+                self.build(rows=rows)
+
+class NativeForwardCycleTests(unittest.TestCase):
+    setUp = UtilityReviewTests.setUp
+    build = UtilityReviewTests.build
+    cohort = WeightedCycleTests.cohort
+    proposal = WeightedCycleTests.proposal
+    def test_forward_derived_quantities_and_optional_cache_use_config_object_units(self):
+        import json
+        from tests.unit.test_crafting_contract import FIXTURE
+        from tests.unit.test_crafting_families_native import native_cache, native_fixture_sources
+        records = [r for r in json.loads(FIXTURE.read_text())['derived_native_recipes']
+                   if r['name'] in ('CraftBaseBallBatNailed','CraftWoodenCrate')]
+        self.assertEqual(2,len(records))
+        proposals, _, rows = self.cohort()
+        for row_record in rows:
+            if row_record['ItemClass'] in ('NailedBaseballBat','WoodenCrate'):
+                row_record['Fields'] += [field('canBeSplit',scalar=0)]
+        versions = [native_fixture_sources(records)]
+        if native_cache().exists():
+            files = {r['name']+'.c':(native_cache()/'4_World/Classes/Recipes/Recipes'/
+                                    (r['name']+'.c')).read_bytes() for r in records}
+            files['Registry.c'] = ('class Registry { void Register() { '+
+                ' '.join('RegisterRecipe(new '+r['name']+');' for r in records)+' } }').encode()
+            versions.append(files)
+        for files in versions:
+            with self.subTest(evidence='derived' if len(files)==2 else 'cache'):
+                result = self.build(files,rows,proposals=proposals)
+                self.assertTrue(all(p['quantity_gate_passed'] for p in result['proposals']),
+                                [(p['id'],p['cycle_status']) for p in result['proposals']])
+                # Remove config unit proof: a symbolic default must never silently be 1.
+                unresolved = copy.deepcopy(rows)
+                for row_record in unresolved: row_record['Fields']=row_record['Fields'][:1]
+                result=self.build(files,unresolved,proposals=proposals)
+                self.assertTrue(all(p['cycle_status']=='cycle-veto' for p in result['proposals']
+                                   if p['id'] in ('HCRecoverNailedBat','HCRecoverRuinedCrate')))
+
+
+class ReviewRoundTwoTests(unittest.TestCase):
+    def test_gate_cohort_matches_authored_literals_and_family_expectations(self):
+        from tests.unit.test_crafting_contract import CRAFTING, declarations
+        from tests.unit.test_crafting_families import FAMILIES
+        parsed = {p['class']: p for p in declarations((CRAFTING/'HCSalvageRecipe.c').read_text())}
+        proposals, _, _ = WeightedCycleTests().cohort()
+        self.assertEqual(set(FAMILIES), {p['id'] for p in proposals})
+        for proposal in proposals:
+            name = proposal['id']
+            with self.subTest(family=name):
+                self.assertIn(name, parsed)
+                expected = FAMILIES[name]
+                outputs = [(p['item'].split(':')[1], p['quantity']) for p in proposal['outputs']]
+                self.assertEqual(expected[2], outputs)
+                self.assertEqual(outputs, [(p['item'], p['quantity']) for p in parsed[name]['outputs']])
+                self.assertEqual(expected[1], parsed[name]['tool'])
+                self.assertEqual(expected[3], parsed[name]['wear'])
+
+    def test_unknown_hc_salvage_and_drysack_edges_veto_feedback(self):
+        worker = WeightedCycleTests(); worker.setUp()
+        for before, after in [('CamoNet','Netting'), ('CableReel','MetalWire'),
+                              ('DrysackBag_Green','WaterproofBag_Green'),
+                              ('DrysackBag_Orange','Rope'), ('DrysackBag_Yellow','Rope')]:
+            with self.subTest(edge=(before, after)):
+                proposal = worker.proposal('Feedback', [after], [(before, 1)])
+                result = worker.build({'NoRecipes.c':b'class NoRecipes {}'}, [item(before),item(after),item('Tool')], proposals=[proposal])
+                self.assertEqual('cycle-veto', result['proposals'][0]['cycle_status'])
+                self.assertTrue(any('split/stack' in line for line in result['limitations']))
+
+    def test_unknown_native_split_stack_path_vetoes_lossy_feedback(self):
+        worker = WeightedCycleTests(); worker.setUp()
+        forward = recipe(quantity=1).replace(b'm_IngredientAddQuantity[0] = 0',
+            b'm_IngredientAddQuantity[0] = -2; m_MinQuantityIngredient[0] = 2').replace(
+            b'm_IngredientDestroy[0] = true', b'm_IngredientDestroy[0] = false')
+        rows = [item('Material'),item('Product'),item('Tool')]
+        rows[0]['Fields'].append(field('canBeSplit', scalar=1))
+        proposal = worker.proposal('Feedback', ['Product'], [('Material',1)])
+        result = worker.build({'Forward.c':forward}, rows, proposals=[proposal])
+        self.assertEqual('cycle-veto', result['proposals'][0]['cycle_status'])
 
 
 if __name__ == "__main__":

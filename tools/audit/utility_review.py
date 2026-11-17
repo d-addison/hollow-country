@@ -11,6 +11,7 @@ Config-default/max quantities remain symbolic. Proposed conversions are
 design records, never executable commands or automatic recipe registrations.
 """
 from collections import Counter, defaultdict
+from fractions import Fraction
 import hashlib
 import re
 
@@ -105,7 +106,7 @@ def _parameters(tokens):
         if not known or any(t.conditions for t in parts):
             holds.append("dynamic-or-conditional-parameter")
         parameters.setdefault(field, []).append(dict(
-            slot=slot, value=value, literal=known,
+            slot=slot, value=value, literal=known and not any(t.conditions for t in parts),
             expression="".join(t.text for t in rhs),
             line=parts[0].line))
     return dict(sorted(parameters.items())), holds
@@ -221,7 +222,7 @@ def _family(recipe, parsed, text_tokens):
     for reference in actual_refs:
         if reference["call"] == "InsertIngredient" and reference["method"] == "Init":
             inputs.append(reference)
-        elif reference["call"] == "AddResult":
+        elif reference["call"] == "AddResult" and reference["method"] == "Init":
             index = len(outputs)
             full = _flag(_value(parameters, "m_ResultSetFullQuantity", index))
             quantity = _value(parameters, "m_ResultSetQuantity", index)
@@ -278,6 +279,14 @@ def _family(recipe, parsed, text_tokens):
 def _scope(record):
     for field in record["evidence"]["Fields"]:
         if field["ConfigPath"].casefold() == "scope":
+            # Native JSON emits unused scalar defaults and empty arrays. Nondefault
+            # alternate values contradict the integer observation, even if the
+            # first matching field would otherwise appear usable.
+            _require(field.get("ValueFloat", 0) == 0
+                     and field.get("ValueString", "") == ""
+                     and field.get("ValueText", "") == ""
+                     and not any(field.get(k) for k in ("IntValues", "FloatValues", "TextValues")),
+                     "scope-contradiction")
             if (utility._captured(field) and field.get("Status") == "captured"
                     and field.get("ConfigTypeName") == "CT_INT"
                     and type(field.get("ConfigType")) is int and field["ConfigType"] == 0
@@ -292,59 +301,213 @@ def _decision(status, reason, cohorts=()):
     return dict(status=status, reason=reason, cohorts=sorted(set(cohorts)))
 
 
-def _proposals(records, identities, graph, add_edge, budget):
+def _native_weights(families, by_name, identities, budget):
+    """Exact rational upper bounds, only for audited literal native mutations.
+
+    Custom Do/actions/default yields remain unknown. Unknown edges participate
+    in reachability and veto any proposed cycle that needs them.
+    """
+    weights = defaultdict(list)
+    # These custom paths are outside literal RecipeBase Init analysis. Preserve
+    # reachability without claiming effective yields, including HC action paths.
+    unknown_routes = [('CamoNet', 'Netting'), ('CableReel', 'MetalWire')]
+    for color in ('Green', 'Orange', 'Yellow'):
+        unknown_routes += [('DrysackBag_'+color, 'WaterproofBag_'+color),
+                           ('DrysackBag_'+color, 'Rope')]
+    for before, after in unknown_routes:
+        for source_id in by_name.get(before.casefold(), ()):
+            for output_id in by_name.get(after.casefold(), ()):
+                budget.take()
+                weights[source_id, output_id].append(None)
+    # Native same-class split/stack operations are not recipe declarations. A
+    # captured splittable flag identifies their class-level self edge, but does
+    # not prove their quantity bound or mixed object/stack unit conservation.
+    for identity, record in identities.items():
+        fields = {f['ConfigPath'].casefold():f for f in record['evidence']['Fields']}
+        flag = fields.get('canbesplit', {})
+        if (utility._captured(flag) and flag.get('Status') == 'captured'
+                and type(flag.get('ValueInt')) is int and flag['ValueInt'] > 0):
+            budget.take()
+            weights[identity, identity].append(None)
+    blockers = {"missing-or-ambiguous-init", "missing-or-ambiguous-cando", "custom-mutation-or-method",
+                "native-custom-condition", "unsupported-recipe-parameter", "dynamic-output-class",
+                "unresolved-or-ambiguous-input-class", "unresolved-or-ambiguous-output-class",
+                "result-slot-out-of-range", "non-item-input-config-root", "non-item-output-config-root",
+                "conditional-method", "conditional-or-modded-definition",
+                "unsupported-init-statement", "inherited-or-ambiguous-semantics",
+                "conditional-item-reference", "dynamic-or-unparsed-item-reference",
+                "custom-ingredient-or-result-semantics",
+                "invalid-recipe-parameter-value", "conditional-or-unresolved-registration"}
+    for family in families:
+        params = family["parameters"]
+        safe = family["source_status"] == "registered" and not blockers.intersection(family["holds"])
+        # Display-name expressions cannot change quantities. Repeated identical
+        # literal writes (present in the native nailed-bat recipe) are harmless
+        # for this bound; contradictory or conditional writes remain unknown.
+        for field_name, entries in params.items():
+            if field_name == "m_Name":
+                continue
+            for slot_id in {e["slot"] for e in entries}:
+                selected = [e for e in entries if e["slot"] == slot_id]
+                if not all(e["literal"] for e in selected) or len({str(e["value"]) for e in selected}) != 1:
+                    safe = False
+        for ref in family["inputs"]:
+            slot = ref["slot"]
+            destroy = _flag(_value(params, "m_IngredientDestroy", slot))
+            delta = _value(params, "m_IngredientAddQuantity", slot)
+            minimum = _value(params, "m_MinQuantityIngredient", slot)
+            debit = None
+            if destroy is True:
+                debit = 1  # whole object units, not its config-default stack size
+            elif destroy is False and type(delta) in (int, float) and delta < 0:
+                if type(minimum) in (int, float) and minimum >= -delta:
+                    debit = -delta
+            node = "ingredient:" + ref["item"].casefold()
+            for out in family["outputs"]:
+                amount = out["quantity"]
+                ratio = None
+                if (safe and debit and amount["kind"] == "literal"
+                        and _flag(_value(params, "m_IngredientUseSoftSkills", slot)) is not True
+                        and _flag(_value(params, "m_ResultUseSoftSkills", out["index"])) is not True):
+                    ratio = Fraction(str(amount["value"])) / Fraction(str(debit))
+                for candidate in by_name.get(out["reference"]["item"].casefold(), ()):
+                    budget.take()
+                    candidate_ratio = ratio
+                    if safe and debit and amount["kind"] == "config-default":
+                        # One AddResult allocates one object. A non-stackable,
+                        # non-quantity config object is exactly one material unit.
+                        fields = {f["ConfigPath"].casefold(): f for f in identities[candidate]["evidence"]["Fields"]}
+                        def observed_zero(key):
+                            value = fields.get(key, {})
+                            return (utility._captured(value) and value.get("Status") == "captured"
+                                    and value.get("ReadAs") == "number"
+                                    and type(value.get("ConfigType")) is int and value["ConfigType"] == 0
+                                    and type(value.get("ValueInt")) is int and value["ValueInt"] == 0)
+                        # The complete native exporter omits nonexistent paths;
+                        # native ConfigGetInt returns zero for absent quantity
+                        # limits. Require a captured non-stackable flag, never
+                        # infer singleton status from just a missing field.
+                        limits_zero = all(k not in fields or observed_zero(k)
+                                          for k in ("varquantitymin", "varquantitymax"))
+                        if observed_zero("canbesplit") and limits_zero:
+                            candidate_ratio = Fraction(1) / Fraction(str(debit))
+                    weights[node, candidate].append(candidate_ratio)
+    return weights
+
+
+def _proposals(records, identities, graph, add_edge, budget, weights):
     _require(type(records) in (list, tuple) and len(records) <= MAX_PROPOSALS, "proposals")
     result, names = [], set()
+    basic = {"id", "inputs", "outputs", "rationale"}
     for record in records:
-        _require(type(record) is dict and len(record) == 4
-                 and set(record) == {"id", "inputs", "outputs", "rationale"},
-                 "proposal-schema")
+        _require(type(record) is dict and set(record) in
+                 (basic, basic | {"tools", "yield_policy"}), "proposal-schema")
+        extended = "yield_policy" in record
         identity, reason = record["id"], record["rationale"]
         _require(utility._identifier(identity) and identity.casefold() not in names, "proposal-id")
         names.add(identity.casefold())
         _require(type(reason) is str and 1 <= len(reason) <= 2048, "proposal-rationale")
         copied = dict(id=identity, rationale=reason)
-        for side in ("inputs", "outputs"):
+        if extended:
+            # Each listed input is an alternative whole source. Multiple outputs
+            # are mandatory co-products, never choices or expected random yields.
+            _require(record["yield_policy"] == "fixed-per-source", "proposal-yield-policy")
+            copied["yield_policy"] = record["yield_policy"]
+        for side in ("inputs", "outputs", "tools") if extended else ("inputs", "outputs"):
             values = record[side]
-            _require(type(values) is list and 1 <= len(values) <= 16, "proposal-arity")
-            copied[side] = []
+            _require(type(values) is list and 1 <= len(values) <= 64, "proposal-arity")
+            copied[side], seen = [], set()
             for value in values:
                 budget.take()
-                _require(type(value) is dict and len(value) == 2 and set(value) == {"item", "quantity"}, "proposal-operand")
+                keys = {"item", "quantity", "wear_hp"} if side == "tools" else {"item", "quantity"}
+                _require(type(value) is dict and set(value) == keys, "proposal-operand")
                 name, quantity = value["item"], value["quantity"]
                 _require(type(name) is str and name in identities, "proposal-class")
+                _require(name not in seen, "proposal-duplicate-operand")
+                seen.add(name)
                 _require(type(quantity) is int and 0 < quantity <= 1000000, "proposal-quantity")
                 _require(_scope(identities[name]) == 2
                          and identities[name]["root"] in ("CfgVehicles", "CfgWeapons", "CfgMagazines"),
                          "proposal-public-item-definition-required")
-                copied[side].append(dict(item=name, quantity=quantity))
+                operand = dict(item=name, quantity=quantity)
+                if side == "tools":
+                    wear = value["wear_hp"]
+                    _require(quantity == 1 and type(wear) in (int, float) and 0 < wear <= 1000000,
+                             "proposal-tool-wear")
+                    operand["wear_hp"] = wear
+                copied[side].append(operand)
+        if extended:
+            _require(all(x["quantity"] == 1 for x in copied["inputs"]), "proposal-whole-source")
+            _require(not {x["item"] for x in copied["tools"]}.intersection(
+                x["item"] for x in copied["inputs"] + copied["outputs"]), "proposal-tool-material-overlap")
         result.append(copied)
-    # Every proposed edge is considered simultaneously: input order cannot hide
-    # a joint cycle. Existing native paths are never disabled by this analysis.
     for record in result:
         for before in record["inputs"]:
             for after in record["outputs"]:
                 add_edge(before["item"], after["item"])
-    def reaches(start, target):
-        pending, seen = [start], set()
+                weights[before["item"], after["item"]].append(
+                    Fraction(after["quantity"], before["quantity"]) if "yield_policy" in record else None)
+    reverse = defaultdict(set)
+    for start, ends in graph.items():
+        for end in ends:
+            budget.take()
+            reverse[end].add(start)
+
+    def cycle_check(start, target, initial):
+        # Prune branches that cannot close this cycle; enumerate simple paths.
+        # Every material node's product must be strictly <1, not merely the sum
+        # of all materials. Exact fractions avoid rounding equality into loss.
+        pending, reachable = [target], set()
         while pending:
             current = pending.pop()
             budget.take()
+            if current not in reachable:
+                reachable.add(current)
+                pending.extend(reverse.get(current, ()))
+        if start not in reachable:
+            return False, True
+        stack = [(start, initial, frozenset())]
+        found = False
+        while stack:
+            current, product, visited = stack.pop()
+            budget.take()
+            # A split/stack self edge can be traversed before continuing a
+            # closing path. Simple-path enumeration would otherwise omit it.
+            if None in weights.get((current, current), ()):
+                product = None
             if current == target:
-                return True
-            if current not in seen:
-                seen.add(current)
-                pending.extend(sorted(graph.get(current, ()), reverse=True))
-        return False
+                found = True
+                if product is None or product >= 1:
+                    return True, False
+                continue
+            visited = visited | {current}
+            for successor in sorted(graph.get(current, ())):
+                budget.take()
+                if successor not in reachable or successor in visited:
+                    continue
+                candidates = weights.get((current, successor), [None])
+                # Membership edges preserve units. Missing mutation bounds fail
+                # closed; no custom action or Do is assigned a guessed yield.
+                if successor.startswith("ingredient:"):
+                    candidates = [Fraction(1)]
+                bound = None if None in candidates else max(candidates)
+                next_product = None if product is None or bound is None else product * bound
+                stack.append((successor, next_product, visited))
+        return found, True
+
     for record in result:
-        cyclic = any(reaches(after["item"], before["item"])
-                     for before in record["inputs"] for after in record["outputs"])
-        record.update(cycle_status="cycle-veto" if cyclic else "acyclic-declared-graph",
+        cyclic, admissible = False, True
+        for before in record["inputs"]:
+            for after in record["outputs"]:
+                found, lossy = cycle_check(after["item"], before["item"],
+                    Fraction(after["quantity"], before["quantity"]) if "yield_policy" in record else None)
+                cyclic |= found
+                admissible &= lossy
+        status = "cycle-veto" if not admissible else "lossy-cycle-admissible" if cyclic else "acyclic-declared-graph"
+        record.update(cycle_status=status, quantity_gate_passed=admissible,
                       implementation_approved=False, gameplay_acceptance=False,
-                      holds=["cycle-veto"] if cyclic else [
-                          "material-unit-and-yield-policy-required",
-                          "custom-native-paths-not-semantically-evaluated",
-                          "runtime-conservation-required"])
+                      holds=["cycle-veto"] if not admissible else [
+                          "custom-native-paths-not-semantically-evaluated", "runtime-conservation-required"])
     return sorted(result, key=lambda r: r["id"])
 
 
@@ -489,7 +652,10 @@ def build_review(rows, crafting_census, action_census, provenance, source_files,
         classes.append(dict(id=identity, decision=decision, dispositions=dispositions,
                             source_name_cohort=record["name_cohort"], repair=repair,
                             native_output_references=uses[name], runtime_qualified=False))
-    proposal_rows = _proposals(proposals, identities, graph, add_edge, budget)
+    native_weights = _native_weights(families, by_name, identities, budget)
+    for before, after in native_weights:
+        add_edge(before, after)
+    proposal_rows = _proposals(proposals, identities, graph, add_edge, budget, native_weights)
     result = dict(schema_version=1, kind="whole-content-utility-decisions",
         dimensions=list(DIMENSIONS), decision_enumeration_complete=True,
         gameplay_acceptance=False, runtime_qualified=False, provenance_authenticated=False,
@@ -501,10 +667,12 @@ def build_review(rows, crafting_census, action_census, provenance, source_files,
                  runtime_qualified=False, evidence=r) for r in sorted(actions["actions"], key=lambda r:r["class"])],
         proposals=proposal_rows, denominators=dict(audit["denominators"]),
         decision_counts=dict(sorted(totals.items())), graph_edges=edge_count,
-        graph_policy="new-proposals-veto-all-observed-native-and-joint-proposal-cycles",
+        graph_policy="quantity-weighted-strict-loss-on-every-cycle-material; unknown-bounds-veto",
         resource_conservation="NOT_EVALUATED",
         limitations=["Complete means all supplied class/recipe/action decisions, not gameplay acceptance.",
                      "Existing native routes are reused, never duplicated or automatically enabled.",
+                     "HC CamoNet/CableReel salvage, drysack decraft and captured splittable native split/stack paths are seeded as unknown bounds and veto feedback cycles.",
+                     "The gate covers declared and explicitly seeded edges only; unmodeled native actions, missing split flags and cross-class stack compatibility remain unproved.",
                      "Custom conditions, Do methods, dynamic outputs and defaults retain explicit holds.",
                      "Config ancestry creates candidates, not effective runtime ingredient eligibility.",
                      "No general material recovery yields or new recipe authorizations are invented."])

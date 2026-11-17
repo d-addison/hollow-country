@@ -28,6 +28,10 @@ class HCSalvageTools
             return 36;
         if (seed == "Pliers")
             return 1;
+        if (seed == "Hacksaw")
+            return 2;
+        if (seed == "Crowbar")
+            return 4;
         return 0;
     }
 
@@ -35,6 +39,12 @@ class HCSalvageTools
     {
         if (seed == "Pliers" && index == 0)
             return "Pliers";
+        if (seed == "Hacksaw" && index == 0) return "Hacksaw";
+        if (seed == "Hacksaw" && index == 1) return "HandSaw";
+        if (seed == "Crowbar" && index == 0) return "Crowbar";
+        if (seed == "Crowbar" && index == 1) return "WoodAxe";
+        if (seed == "Crowbar" && index == 2) return "Hatchet";
+        if (seed == "Crowbar" && index == 3) return "FirefighterAxe";
         if (seed != "KitchenKnife")
             return "";
         if (index == 0) return "KitchenKnife";
@@ -104,12 +114,85 @@ class HCSalvageTools
     }
 }
 
+// Exact installed source classes only; engine ancestry matching is rechecked.
+class HCSalvageSources
+{
+    static int SourceCount(string seed)
+    {
+        if (seed == "HCRecoverLargeLeather") return 8;
+        if (seed == "HCRecoverMediumLeather") return 5;
+        if (seed == "HCRecoverBatWood") return 2;
+        if (seed == "HCRecoverNailedBat") return 1;
+        if (seed == "HCRecoverBarbedBat") return 1;
+        if (seed == "HCRecoverRuinedCrate") return 1;
+        if (seed == "CamoNet" || seed == "CableReel") return 1;
+        return 0;
+    }
+
+    static string SourceAt(string seed, int index)
+    {
+        if (seed == "HCRecoverLargeLeather")
+        {
+            if (index == 0) return "LeatherJacket_Beige";
+            if (index == 1) return "LeatherJacket_Black";
+            if (index == 2) return "LeatherJacket_Brown";
+            if (index == 3) return "LeatherJacket_Natural";
+            if (index == 4) return "LeatherStorageVest_Beige";
+            if (index == 5) return "LeatherStorageVest_Black";
+            if (index == 6) return "LeatherStorageVest_Brown";
+            if (index == 7) return "LeatherStorageVest_Natural";
+        }
+        if (seed == "HCRecoverMediumLeather")
+        {
+            if (index == 0) return "LeatherPants_Beige";
+            if (index == 1) return "LeatherPants_Black";
+            if (index == 2) return "LeatherPants_Brown";
+            if (index == 3) return "LeatherPants_Natural";
+            if (index == 4) return "LeatherShirt_Natural";
+        }
+        if (seed == "HCRecoverBatWood")
+        {
+            if (index == 0) return "BaseballBat";
+            if (index == 1) return "XmasBaseballBat";
+        }
+        if (seed == "HCRecoverNailedBat")
+        {
+            if (index == 0) return "NailedBaseballBat";
+        }
+        if (seed == "HCRecoverBarbedBat")
+        {
+            if (index == 0) return "BarbedBaseballBat";
+        }
+        if (seed == "HCRecoverRuinedCrate")
+        {
+            if (index == 0) return "WoodenCrate";
+        }
+        if ((seed == "CamoNet" || seed == "CableReel") && index == 0) return seed;
+        return "";
+    }
+
+    static bool AllowsSource(string seed, string actualType)
+    {
+        int count = SourceCount(seed);
+        for (int i = 0; i < count; i++)
+        {
+            if (SourceAt(seed, i) == actualType)
+                return true;
+        }
+        return false;
+    }
+}
+
 class HCSalvageRecipe extends RecipeBase
 {
     protected string m_HCInputType;
     protected string m_HCToolType;
     protected float m_HCWear;
     protected bool m_HCOutputReady;
+    protected bool m_HCRuinedOnly;
+    protected float m_HCSourceHealth;
+    protected float m_HCSourceWet;
+    protected int m_HCSourceAgents;
     protected ref HCCraftingCommitGuard m_HCCommitGuard = new HCCraftingCommitGuard;
 
     void Configure(string label, string inputType, string toolType, string outputType, int quantity, float wear, float animationUnits)
@@ -134,7 +217,11 @@ class HCSalvageRecipe extends RecipeBase
             m_IngredientDestroy[i] = false;
             m_IngredientUseSoftSkills[i] = false;
         }
-        InsertIngredient(0, inputType);
+        int sourceCount = HCSalvageSources.SourceCount(inputType);
+        for (int sourceIndex = 0; sourceIndex < sourceCount; sourceIndex++)
+        {
+            InsertIngredient(0, HCSalvageSources.SourceAt(inputType, sourceIndex));
+        }
         int toolCount = HCSalvageTools.ToolCount(toolType);
         for (int toolIndex = 0; toolIndex < toolCount; toolIndex++)
         {
@@ -153,9 +240,30 @@ class HCSalvageRecipe extends RecipeBase
         m_ResultReplacesIngredient[0] = -1;
     }
 
+    void AddRecoveryResult(string outputType, int quantity)
+    {
+        int resultIndex = m_NumberOfResults;
+        AddResult(outputType);
+        m_ResultSetFullQuantity[resultIndex] = false;
+        m_ResultSetQuantity[resultIndex] = quantity;
+        m_ResultSetHealth[resultIndex] = -1;
+        m_ResultInheritsHealth[resultIndex] = 0;
+        m_ResultInheritsColor[resultIndex] = -1;
+        m_ResultToInventory[resultIndex] = -1;
+        m_ResultUseSoftSkills[resultIndex] = false;
+        m_ResultReplacesIngredient[resultIndex] = -1;
+    }
+
+    protected bool IsSourceConditionValid(ItemBase item)
+    {
+        if (m_HCRuinedOnly)
+            return item.GetHealthLevel() == 4;
+        return !item.IsRuined();
+    }
+
     protected bool IsOwnedEmptyLooseItem(ItemBase item, PlayerBase player)
     {
-        if (!item || item.IsRuined() || item.IsSetForDeletion() || !item.GetInventory())
+        if (!item || item.IsSetForDeletion() || !item.GetInventory())
             return false;
         // Reject ground/shared/corpse materials, worn belts and tent/base attachments.
         if (item.GetHierarchyRootPlayer() != player || item.GetInventory().IsAttachment())
@@ -175,7 +283,9 @@ class HCSalvageRecipe extends RecipeBase
         if (!ingredients[0] || !ingredients[1] || ingredients[0] == ingredients[1])
             return false;
         // RecipeBase.CheckRecipe checks conditions, not class membership. Recheck types here.
-        if (!ingredients[0].IsKindOf(m_HCInputType) || !HCSalvageTools.Allows(m_HCToolType, ingredients[1].GetType()))
+        if (!HCSalvageSources.AllowsSource(m_HCInputType, ingredients[0].GetType()) || !HCSalvageTools.Allows(m_HCToolType, ingredients[1].GetType()))
+            return false;
+        if (!IsSourceConditionValid(ingredients[0]) || ingredients[1].IsRuined())
             return false;
         if (!IsOwnedEmptyLooseItem(ingredients[0], player) || !IsOwnedEmptyLooseItem(ingredients[1], player))
             return false;
@@ -206,14 +316,59 @@ class HCSalvageRecipe extends RecipeBase
         m_HCCommitGuard.Release();
     }
 
+    protected void DiscardOutputs(array<ItemBase> spawned_objects)
+    {
+        // Native SpawnItems supplies only this invocation's fresh allocations.
+        for (int outputIndex = 0; outputIndex < spawned_objects.Count(); outputIndex++)
+        {
+            ItemBase provisional = spawned_objects[outputIndex];
+            if (provisional)
+                provisional.Delete();
+        }
+        spawned_objects.Clear();
+        m_HCOutputReady = false;
+    }
+
+    protected bool OutputsMatch(array<ItemBase> spawned_objects, bool checkQuantity)
+    {
+        if (spawned_objects.Count() != m_NumberOfResults)
+            return false;
+        for (int resultIndex = 0; resultIndex < m_NumberOfResults; resultIndex++)
+        {
+            ItemBase recovery = spawned_objects[resultIndex];
+            if (!recovery || recovery.IsSetForDeletion() || recovery.GetType() != m_ItemsToCreate[resultIndex])
+                return false;
+            if (checkQuantity && recovery.HasQuantity() && recovery.GetQuantity() != m_ResultSetQuantity[resultIndex])
+                return false;
+            if (checkQuantity && !recovery.HasQuantity() && m_ResultSetQuantity[resultIndex] != 1)
+                return false;
+        }
+        return true;
+    }
+
     override void SpawnItems(ItemBase ingredients[], PlayerBase player, array<ItemBase> spawned_objects)
     {
         m_HCOutputReady = false;
+        // Snapshot before native ingredient mutation or deferred source deletion.
+        m_HCSourceHealth = ingredients[0].GetHealth01("", "");
+        m_HCSourceWet = ingredients[0].GetWet();
+        m_HCSourceAgents = ingredients[0].GetAgents();
         super.SpawnItems(ingredients, player, spawned_objects);
-        // Exactly one result stack. If inventory AND native ground spawning fail,
-        // leave ingredients/tool untouched. Do not retry or invent another spawn.
-        if (spawned_objects.Count() == 1 && spawned_objects[0])
-            m_HCOutputReady = true;
+        if (!OutputsMatch(spawned_objects, false))
+        {
+            DiscardOutputs(spawned_objects);
+            return;
+        }
+        m_HCOutputReady = true;
+    }
+
+    override void ApplyModificationsResults(ItemBase sorted[], array<ItemBase> results, ItemBase result, PlayerBase player)
+    {
+        if (!m_HCOutputReady)
+            return;
+        super.ApplyModificationsResults(sorted, results, result, player);
+        if (!OutputsMatch(results, true))
+            DiscardOutputs(results);
     }
 
     override void ApplyModificationsIngredients(ItemBase sorted[], PlayerBase player)
@@ -227,11 +382,18 @@ class HCSalvageRecipe extends RecipeBase
     {
         if (!m_HCOutputReady)
             return;
-        // Native inheritance already copied source condition. Salvage loses another
-        // quarter of normalized condition; no pristine output from damaged stock.
-        ItemBase result = results[0];
-        float condition = ingredients[0].GetHealth01("", "") * 0.75;
-        result.SetHealth("", "", condition * result.GetMaxHealth("", ""));
+        float condition = m_HCSourceHealth * 0.75;
+        if (m_HCRuinedOnly)
+            condition = 0.10;
+        for (int resultIndex = 0; resultIndex < results.Count(); resultIndex++)
+        {
+            ItemBase recovery = results[resultIndex];
+            recovery.SetHealth("", "", condition * recovery.GetMaxHealth("", ""));
+            // Deliberately select only contamination and wetness. Generic variable
+            // transfer also copies quantity, energy, ammo and food stage.
+            recovery.TransferAgents(m_HCSourceAgents);
+            recovery.SetWet(m_HCSourceWet);
+        }
         HCCraftingGate.RecordCraft();
     }
 }
@@ -240,7 +402,7 @@ class HCSalvageCamoNet extends HCSalvageRecipe
 {
     override void Init()
     {
-        Configure("Salvage netting from camo net", "CamoNet", "KitchenKnife", "Netting", 2, 5, 2);
+        Configure("Salvage netting from camo net", "CamoNet", "KitchenKnife", "Netting", 1, 5, 2);
     }
 }
 
@@ -252,10 +414,55 @@ class HCSalvageCableReel extends HCSalvageRecipe
     }
 }
 
-class HCSalvageLeatherBelt extends HCSalvageRecipe
+class HCRecoverLargeLeather extends HCSalvageRecipe
 {
     override void Init()
     {
-        Configure("Salvage leather from empty belt", "LeatherBelt_ColorBase", "KitchenKnife", "TannedLeather", 1, 3, 2);
+        Configure("Recover leather panels", "HCRecoverLargeLeather", "KitchenKnife", "TannedLeather", 2, 5, 2);
+    }
+}
+
+class HCRecoverMediumLeather extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover leather panel", "HCRecoverMediumLeather", "KitchenKnife", "TannedLeather", 1, 5, 2);
+    }
+}
+
+class HCRecoverBatWood extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Saw bat into sticks", "HCRecoverBatWood", "Hacksaw", "WoodenStick", 2, 5, 2);
+    }
+}
+
+class HCRecoverNailedBat extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover sticks and nails", "HCRecoverNailedBat", "Hacksaw", "WoodenStick", 1, 8, 3);
+        AddRecoveryResult("Nail", 4);
+    }
+}
+
+class HCRecoverBarbedBat extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover wire from bat", "HCRecoverBarbedBat", "Pliers", "MetalWire", 1, 8, 3);
+    }
+}
+
+class HCRecoverRuinedCrate extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover planks and nails from ruined crate", "HCRecoverRuinedCrate", "Crowbar", "WoodenPlank", 1, 20, 3);
+        AddRecoveryResult("Nail", 2);
+        m_HCRuinedOnly = true;
+        m_MinDamageIngredient[0] = 4;
+        m_MaxDamageIngredient[0] = 4;
     }
 }

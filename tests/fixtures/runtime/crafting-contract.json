@@ -4,7 +4,7 @@
   "runtime_acceptance": "pending",
   "materials": {
     "CamoNet": {
-      "mesh": 4
+      "mesh": 1
     },
     "Netting": {
       "mesh": 1
@@ -32,6 +32,72 @@
       "hide": 1
     },
     "LizardPelt": {
+      "hide": 2
+    },
+    "WoodenStick": {
+      "wood": 1
+    },
+    "WoodenPlank": {
+      "wood": 2
+    },
+    "Nail": {
+      "metal": 1
+    },
+    "BaseballBat": {
+      "wood": 3
+    },
+    "XmasBaseballBat": {
+      "wood": 3
+    },
+    "NailedBaseballBat": {
+      "wood": 3,
+      "metal": 12
+    },
+    "BarbedBaseballBat": {
+      "wood": 3,
+      "wire": 2
+    },
+    "WoodenCrate": {
+      "wood": 16,
+      "metal": 16
+    },
+    "LeatherJacket_Beige": {
+      "hide": 3
+    },
+    "LeatherJacket_Black": {
+      "hide": 3
+    },
+    "LeatherJacket_Brown": {
+      "hide": 3
+    },
+    "LeatherJacket_Natural": {
+      "hide": 3
+    },
+    "LeatherStorageVest_Beige": {
+      "hide": 3
+    },
+    "LeatherStorageVest_Black": {
+      "hide": 3
+    },
+    "LeatherStorageVest_Brown": {
+      "hide": 3
+    },
+    "LeatherStorageVest_Natural": {
+      "hide": 3
+    },
+    "LeatherPants_Beige": {
+      "hide": 2
+    },
+    "LeatherPants_Black": {
+      "hide": 2
+    },
+    "LeatherPants_Brown": {
+      "hide": 2
+    },
+    "LeatherPants_Natural": {
+      "hide": 2
+    },
+    "LeatherShirt_Natural": {
       "hide": 2
     }
   },
@@ -69,31 +135,116 @@
   ],
   "pilots": [
     {
-      "class": "HCSalvageCamoNet",
       "input": "CamoNet",
       "tool": "KitchenKnife",
-      "output": "Netting",
-      "quantity": 2,
-      "wear": 5,
-      "animation_units": 2
+      "outputs": [
+        {
+          "item": "Netting",
+          "quantity": 1
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCSalvageCamoNet"
     },
     {
-      "class": "HCSalvageCableReel",
       "input": "CableReel",
       "tool": "Pliers",
-      "output": "MetalWire",
-      "quantity": 1,
-      "wear": 5,
-      "animation_units": 2
+      "outputs": [
+        {
+          "item": "MetalWire",
+          "quantity": 1
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCSalvageCableReel"
     },
     {
-      "class": "HCSalvageLeatherBelt",
-      "input": "LeatherBelt_ColorBase",
+      "input": "HCRecoverLargeLeather",
       "tool": "KitchenKnife",
-      "output": "TannedLeather",
-      "quantity": 1,
-      "wear": 3,
-      "animation_units": 2
+      "outputs": [
+        {
+          "item": "TannedLeather",
+          "quantity": 2
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCRecoverLargeLeather"
+    },
+    {
+      "input": "HCRecoverMediumLeather",
+      "tool": "KitchenKnife",
+      "outputs": [
+        {
+          "item": "TannedLeather",
+          "quantity": 1
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCRecoverMediumLeather"
+    },
+    {
+      "input": "HCRecoverBatWood",
+      "tool": "Hacksaw",
+      "outputs": [
+        {
+          "item": "WoodenStick",
+          "quantity": 2
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCRecoverBatWood"
+    },
+    {
+      "input": "HCRecoverNailedBat",
+      "tool": "Hacksaw",
+      "outputs": [
+        {
+          "item": "WoodenStick",
+          "quantity": 1
+        },
+        {
+          "item": "Nail",
+          "quantity": 4
+        }
+      ],
+      "wear": 8.0,
+      "animation_units": 3.0,
+      "class": "HCRecoverNailedBat"
+    },
+    {
+      "input": "HCRecoverBarbedBat",
+      "tool": "Pliers",
+      "outputs": [
+        {
+          "item": "MetalWire",
+          "quantity": 1
+        }
+      ],
+      "wear": 8.0,
+      "animation_units": 3.0,
+      "class": "HCRecoverBarbedBat"
+    },
+    {
+      "input": "HCRecoverRuinedCrate",
+      "tool": "Crowbar",
+      "outputs": [
+        {
+          "item": "WoodenPlank",
+          "quantity": 1
+        },
+        {
+          "item": "Nail",
+          "quantity": 2
+        }
+      ],
+      "wear": 20.0,
+      "animation_units": 3.0,
+      "class": "HCRecoverRuinedCrate"
     }
   ],
   "pending_scenarios": [
@@ -108,5 +259,599 @@
   ],
   "aliases": {
     "LeatherBelt_Lizard": "LeatherBelt_ColorBase"
-  }
+  },
+  "derived_native_recipes": [
+    {
+      "name": "CraftLeatherSack",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "TannedLeather"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -2.0,
+          "destroy": false
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "LeatherSewingKit"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -10.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "LeatherSack_Brown",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftWaterskin",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "TannedLeather"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -2.0,
+          "destroy": false
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "LeatherSewingKit"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -10.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "Waterskin_Natural",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftLeatherBelt",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "LizardPelt"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -1.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "LeatherSewingKit"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -25.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "LeatherBelt_Lizard",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftLeatherHippack",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "LizardPelt"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -1.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "LeatherSewingKit"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -25.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "LeatherHippack_Lizard",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftLeatherSheath",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "LizardPelt"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -1.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "LeatherSewingKit"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -25.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "LizardKnifeSheath",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftFoxHeaddress",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "FoxPelt"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "LeatherSewingKit"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -10.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "Headdress_Fox",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "DeCraftLeatherSack",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "LeatherSack_ColorBase"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Sickle",
+            "KukriKnife",
+            "FangeKnife",
+            "Hacksaw",
+            "HandSaw",
+            "KitchenKnife",
+            "SteakKnife",
+            "HayHook",
+            "StoneKnife",
+            "Cleaver",
+            "CombatKnife",
+            "Jambiya",
+            "HuntingKnife",
+            "Machete",
+            "CrudeMachete",
+            "OrientalMachete",
+            "Screwdriver",
+            "Crowbar",
+            "Pickaxe",
+            "WoodAxe",
+            "Hatchet",
+            "FirefighterAxe",
+            "Sword",
+            "AK_Bayonet",
+            "M9A1_Bayonet",
+            "Mosin_Bayonet",
+            "SKS_Bayonet",
+            "BoneKnife",
+            "Scimitar",
+            "DonerKnife",
+            "BrickTrowel",
+            "Akinaka"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "TannedLeather",
+          "quantity": 1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "DeCraftWaterskin",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "Waterskin_ColorBase"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Sickle",
+            "KukriKnife",
+            "FangeKnife",
+            "Hacksaw",
+            "HandSaw",
+            "KitchenKnife",
+            "SteakKnife",
+            "HayHook",
+            "StoneKnife",
+            "Cleaver",
+            "CombatKnife",
+            "Jambiya",
+            "HuntingKnife",
+            "Machete",
+            "CrudeMachete",
+            "OrientalMachete",
+            "Screwdriver",
+            "Crowbar",
+            "Pickaxe",
+            "WoodAxe",
+            "Hatchet",
+            "FirefighterAxe",
+            "Sword",
+            "AK_Bayonet",
+            "M9A1_Bayonet",
+            "Mosin_Bayonet",
+            "SKS_Bayonet",
+            "BoneKnife",
+            "Scimitar",
+            "DonerKnife",
+            "BrickTrowel",
+            "Akinaka"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "TannedLeather",
+          "quantity": 1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "DeCraftWoodenCrate",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "WoodenCrate"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Crowbar",
+            "WoodAxe",
+            "Hatchet",
+            "FirefighterAxe"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "WoodenPlank",
+          "quantity": 2.0,
+          "full_quantity": false
+        },
+        {
+          "item": "Nail",
+          "quantity": 6.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "DeCraftTruck01DoubleWheel",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "Truck_01_WheelDouble"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Crowbar",
+            "LugWrench"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "Truck_01_Wheel",
+          "quantity": -1.0,
+          "full_quantity": false
+        },
+        {
+          "item": "Truck_01_Wheel",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "SplitLongWoodenStick",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "LongWoodenStick",
+            "SharpWoodenStick"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Sickle",
+            "KukriKnife",
+            "FangeKnife",
+            "Hacksaw",
+            "HandSaw",
+            "KitchenKnife",
+            "SteakKnife",
+            "HayHook",
+            "StoneKnife",
+            "Cleaver",
+            "CombatKnife",
+            "Jambiya;",
+            "HuntingKnife",
+            "Machete",
+            "CrudeMachete",
+            "OrientalMachete",
+            "Crowbar",
+            "Pickaxe",
+            "WoodAxe",
+            "Hatchet",
+            "FirefighterAxe",
+            "Sword",
+            "AK_Bayonet",
+            "M9A1_Bayonet",
+            "Mosin_Bayonet",
+            "SKS_Bayonet",
+            "BoneKnife",
+            "Scimitar",
+            "DonerKnife",
+            "BrickTrowel",
+            "Akinaka"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "WoodenStick",
+          "quantity": 3.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftWoodenHook",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "WoodenStick"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": -1.0,
+          "destroy": false
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Sickle",
+            "KukriKnife",
+            "FangeKnife",
+            "Hacksaw",
+            "HandSaw",
+            "KitchenKnife",
+            "SteakKnife",
+            "HayHook",
+            "StoneKnife",
+            "Cleaver",
+            "CombatKnife",
+            "Jambiya",
+            "HuntingKnife",
+            "Machete",
+            "CrudeMachete",
+            "OrientalMachete",
+            "Screwdriver",
+            "Crowbar",
+            "Pickaxe",
+            "WoodAxe",
+            "Hatchet",
+            "FirefighterAxe",
+            "Sword",
+            "AK_Bayonet",
+            "M9A1_Bayonet",
+            "Mosin_Bayonet",
+            "SKS_Bayonet",
+            "BoneKnife",
+            "Iceaxe",
+            "Scimitar",
+            "DonerKnife",
+            "BrickTrowel",
+            "Akinaka"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "WoodenHook",
+          "quantity": -1.0,
+          "full_quantity": false
+        },
+        {
+          "item": "WoodenHook",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftBaseBallBatNailed",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "Nail"
+          ],
+          "minimum": 12.0,
+          "maximum": -1.0,
+          "quantity_delta": -12.0,
+          "destroy": false
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "BaseballBat"
+          ],
+          "minimum": -1.0,
+          "maximum": -1.0,
+          "quantity_delta": 0.0,
+          "destroy": true
+        }
+      ],
+      "results": [
+        {
+          "item": "NailedBaseballBat",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    },
+    {
+      "name": "CraftWoodenCrate",
+      "ingredients": [
+        {
+          "slot": 0,
+          "classes": [
+            "WoodenPlank"
+          ],
+          "minimum": 8.0,
+          "maximum": -1.0,
+          "quantity_delta": -8.0,
+          "destroy": false
+        },
+        {
+          "slot": 1,
+          "classes": [
+            "Nail"
+          ],
+          "minimum": 16.0,
+          "maximum": -1.0,
+          "quantity_delta": -16.0,
+          "destroy": false
+        }
+      ],
+      "results": [
+        {
+          "item": "WoodenCrate",
+          "quantity": -1.0,
+          "full_quantity": false
+        }
+      ]
+    }
+  ]
 }

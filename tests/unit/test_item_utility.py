@@ -184,11 +184,11 @@ class ItemUtilityTests(unittest.TestCase):
             self.build([row("A", fields=[field("repairCosts"), field("REPAIRCOSTS")])])
 
     def test_partial_or_inconsistent_census_rejected(self):
-        for change in (lambda c: c.update(valid=False), lambda c: c.update(inputs_complete=False),
-                       lambda c: c["coverage"].update(declared_recipe_classes=1)):
+        for change, code in ((lambda c: c.update(valid=False), "incomplete_source_census"), (lambda c: c.update(inputs_complete=False), "incomplete_source_census"),
+                       (lambda c: c["coverage"].update(declared_recipe_classes=1), "coverage_mismatch:declared_recipe_classes")):
             with self.subTest(change=change):
                 c, a = censuses(); change(c)
-                with self.assertRaises(ValueError): self.build([], c, a)
+                with self.assertRaisesRegex(ValueError, "^"+code+"$"): self.build([], c, a)
 
     def test_manifest_digest_and_cross_census_sources_verified(self):
         c, a = censuses(); a["manifest_sha256"] = "b" * 64
@@ -210,9 +210,9 @@ class ItemUtilityTests(unittest.TestCase):
             self.build([], c, a)
 
     def test_invalid_json_nonfinite_cycle_and_oversized_scalar_rejected(self):
-        for value in (float("nan"), float("inf"), 1 << 80, object()):
+        for value, code in ((float("nan"), "nonfinite_number"), (float("inf"), "nonfinite_number"), (1 << 80, "integer_limit"), (object(), "json_value_type")):
             with self.subTest(value=type(value).__name__):
-                with self.assertRaises(ValueError): self.build([dict(row("A"), invalid=value)])
+                with self.assertRaisesRegex(ValueError, "^"+code+"$"): self.build([dict(row("A"), invalid=value)])
         cycle = []; cycle.append(cycle)
         with self.assertRaisesRegex(ValueError, "depth"):
             self.build([dict(row("A"), invalid=cycle)])
@@ -266,12 +266,12 @@ class ItemUtilityTests(unittest.TestCase):
             c, a = censuses(); c["sources"][0]["path"] = path
             with self.subTest(path=path), self.assertRaisesRegex(ValueError, "source_path"):
                 self.build([], c, a)
-        for limit, value in (("MAX_SOURCES", 0), ("MAX_ACTIONS", 0), ("MAX_METHODS", 0)):
+        for limit, value, code in (("MAX_SOURCES", 0, "source_count"), ("MAX_ACTIONS", 0, "actions_count"), ("MAX_METHODS", 0, "methods_count")):
             c, a = censuses(); add_action(a)
             a["methods"] = [dict(id="m", owner_class=None, source="Synthetic.c", line=1)]
             a["coverage"]["method_declarations"] = 1
             with self.subTest(limit=limit), patch.object(self.m, limit, value):
-                with self.assertRaises(ValueError): self.build([], c, a)
+                with self.assertRaisesRegex(ValueError, "^"+code+"$"): self.build([], c, a)
 
     def test_scalar_field_evidence_remains_separate_from_unknown_kit_id(self):
         bad = field("repairKitType", scalar=2); bad["Status"] = "unresolved"
