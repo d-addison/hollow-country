@@ -28,8 +28,12 @@ SET_FIELDS = ('nominal', 'min', 'lifetime', 'restock')
 KINDS = {'weapon': {'wood', 'modern'}, 'magazine': {'support'}, 'ammo': {'support'}}
 TIERS = {'common', 'uncommon', 'rare'}
 TOP = {'schema', 'name', 'players', 'entries', 'deferred_datamined'}
+TOP_OPTIONAL = {'optics'}
+# Optics are a later owner decision: the extension point accepts no optic entry yet.
+OPTICS_PLACEHOLDER = {'status': 'deferred-pending-owner-decision', 'entries': []}
 REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'justification'}
-OPTIONAL = {'add_usage', 'set_value', 'ammo', 'magazines'}
+OPTIONAL = {'add_usage', 'set_value', 'ammo', 'magazines', 'datamined', 'acceptance'}
+PENDING_LOCAL = 'pending-local'
 CLASS = re.compile(r'[A-Za-z0-9_]{1,80}')
 MAX_ENTRIES = 400
 
@@ -39,9 +43,11 @@ def _int(value, low):
 
 
 def validate_roster(roster):
-    if not isinstance(roster, dict) or set(roster) != TOP or roster['schema'] != 1 \
+    if not isinstance(roster, dict) or not TOP <= set(roster) <= TOP | TOP_OPTIONAL or roster['schema'] != 1 \
             or type(roster['schema']) is not int:
         raise ValueError('unsupported roster schema/fields')
+    if 'optics' in roster and roster['optics'] != OPTICS_PLACEHOLDER:
+        raise ValueError('optics are deferred to a later owner decision; the extension point must stay empty')
     if not isinstance(roster['name'], str) or not re.fullmatch(r'[a-z0-9-]{1,64}', roster['name']):
         raise ValueError('invalid roster name')
     if roster['players'] != '3-6':
@@ -56,6 +62,11 @@ def validate_roster(roster):
         name, kind = e['class'], e['kind']
         if not isinstance(name, str) or not CLASS.fullmatch(name):
             raise ValueError('invalid class name')
+        # Datamined rows (stock nominal 0 or absent) spawn in the test candidate only under an explicit
+        # pending-local marker, so the owner can accept or switch them all off in the local session.
+        if ('datamined' in e) != ('acceptance' in e) or ('datamined' in e and (
+                e['datamined'] is not True or e['acceptance'] != PENDING_LOCAL)):
+            raise ValueError(f'datamined rows need datamined: true with acceptance: {PENDING_LOCAL}: {name}')
         if kind not in KINDS or e['role'] not in KINDS[kind] or e['tier'] not in TIERS:
             raise ValueError(f'invalid kind/role/tier: {name}')
         if any(name in names for names in by_kind.values()):
@@ -79,11 +90,14 @@ def validate_roster(roster):
                     raise ValueError(f'weapon needs {field} list: {name}')
         elif 'ammo' in e or 'magazines' in e:
             raise ValueError(f'only weapons carry ammo/magazines: {name}')
+    datamined = {e['class'] for e in entries if e.get('datamined')}
     for e in entries:
         if e['kind'] == 'weapon':
             if not set(e['ammo']) <= by_kind.get('ammo', set()) \
                     or not set(e['magazines']) <= by_kind.get('magazine', set()):
                 raise ValueError(f'unreferenced ammo/magazine: {e["class"]}')
+            if not e.get('datamined') and (set(e['ammo']) | set(e['magazines'])) & datamined:
+                raise ValueError(f'a non-datamined weapon cannot depend on a datamined row: {e["class"]}')
     deferred = roster['deferred_datamined']
     if not isinstance(deferred, list) or len(deferred) > MAX_ENTRIES:
         raise ValueError('invalid deferred list')
@@ -112,7 +126,11 @@ def _apply(item, entry, usage_vocab, value_vocab):
         node.text = str(value)
     positions = [i for i, n in enumerate(item) if n.tag == 'usage']
     if not positions:
-        raise ValueError(f'stock entry has no usage to extend: {entry["class"]}')
+        if 'add_usage' not in entry:
+            raise ValueError(f'stock entry has no usage to extend: {entry["class"]}')
+        # Unused stock rows may carry no usage at all: the declared usage goes before any value tag.
+        first_value = next((i for i, n in enumerate(item) if n.tag == 'value'), len(item))
+        positions = [first_value]
     old = [n.get('name') for n in item.findall('usage')]
     if 'add_usage' in entry:
         if any(u not in usage_vocab for u in entry['add_usage'] + old):
@@ -132,7 +150,7 @@ def _apply(item, entry, usage_vocab, value_vocab):
             item.insert(after + 1 + offset, ET.Element('value', {'name': v}))
 
 
-def generate(source, roster):
+def generate(source, roster, include_datamined=True):
     validate_roster(roster)
     data = economy.snapshot(source)
     core = economy.xml(data['cfgeconomycore.xml'], 'economycore')
@@ -144,8 +162,11 @@ def generate(source, roster):
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
     out = ET.Element('types')
     rows, totals = [], {'weapon_nominal_stock': 0, 'weapon_nominal_candidate': 0}
+    datamined = sorted(e['class'] for e in roster['entries'] if e.get('datamined'))
     for entry in roster['entries']:
         name = entry['class']
+        if entry.get('datamined') and not include_datamined:
+            continue
         if name not in stock:
             raise ValueError(f'class absent from stock types.xml: {name}')
         economy._validate_budget(stock[name])
@@ -159,6 +180,8 @@ def generate(source, roster):
                      'stock': _row(stock[name]), 'candidate': _row(item), 'changed': changed,
                      'ammo': entry.get('ammo', []), 'magazines': entry.get('magazines', []),
                      'justification': entry['justification']})
+        if 'acceptance' in entry:
+            rows[-1]['acceptance'] = entry['acceptance']
         if entry['kind'] == 'weapon':
             totals['weapon_nominal_stock'] += rows[-1]['stock']['nominal']
             totals['weapon_nominal_candidate'] += rows[-1]['candidate']['nominal']
@@ -169,6 +192,7 @@ def generate(source, roster):
     report = {'schema': 1, 'kind': 'firearms-roster', 'profile': roster['name'], 'players': roster['players'],
               'status': 'offline-only-runtime-pending', 'loot_fix_claim': False,
               'engine_merge_semantics': 'unobserved', 'entries': rows, 'totals': totals,
+              'datamined': {'enabled': bool(include_datamined), 'classes': datamined},
               'deferred_datamined': roster['deferred_datamined'], 'runtime_acceptance': 'pending',
               'population_budget': 'roster counts are proposals for 3-6 players; effective world totals unobserved',
               'pending': ['normal PBO/server load', 'CE spawn/error trials', '3-6-player budget measurement',
@@ -197,6 +221,8 @@ def main(argv=None):
     p = sub.add_parser('generate')
     p.add_argument('--source', type=Path, required=True)
     p.add_argument('--roster', type=Path, default=ROSTER_PATH)
+    p.add_argument('--no-datamined', action='store_true',
+                   help='single switch: leave every datamined (acceptance: pending-local) row out of the delta')
     p.add_argument('--out', type=Path, required=True)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
@@ -206,7 +232,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == 'generate':
-            write_delta(args.out, generate(args.source, json.loads(args.roster.read_bytes())))
+            write_delta(args.out, generate(args.source, json.loads(args.roster.read_bytes()),
+                                           include_datamined=not args.no_datamined))
         elif args.command == 'install':
             install(args.delta, args.target)
         else:

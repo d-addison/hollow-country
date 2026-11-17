@@ -179,6 +179,19 @@ class OutputPlacement(unittest.TestCase):
                 census.check_output_dir(repo / 'a' / 'b' / 'out')
             census.check_output_dir(Path(t) / 'elsewhere')  # no repo above: allowed
 
+    def test_a_symlinked_ancestor_that_resolves_into_a_checkout_is_refused(self):
+        with tempfile.TemporaryDirectory() as t:
+            repo = Path(t) / 'repo'
+            (repo / '.git').mkdir(parents=True)
+            (repo / 'inside').mkdir()
+            link = Path(t) / 'innocent-looking-link'
+            link.symlink_to(repo / 'inside')
+            with self.assertRaises(ValueError):
+                census.check_output_dir(link / 'out')
+            from tools.package import snafu_optional
+            with self.assertRaises(ValueError):
+                snafu_optional._refuse_git(link / 'report.json')
+
     def test_existing_output_is_not_overwritten_and_files_are_written(self):
         with tempfile.TemporaryDirectory() as t:
             out = Path(t) / 'census'

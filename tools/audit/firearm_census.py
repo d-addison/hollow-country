@@ -52,7 +52,7 @@ def family(ancestors):
 
 def check_output_dir(path):
     """Refuse an output directory inside any Git checkout (the census must stay out of Git)."""
-    path = Path(path).absolute()
+    path = Path(path).absolute().resolve()  # resolves symlinked ancestors that lead into a checkout
     for parent in (path, *path.parents):
         if (parent / '.git').exists():
             raise ValueError('census output must be outside any Git checkout')

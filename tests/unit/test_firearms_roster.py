@@ -1,6 +1,7 @@
 """Curated firearms roster: synthetic CE mission only. Offline tests never establish DayZ behaviour."""
 import copy
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -10,6 +11,18 @@ import xml.etree.ElementTree as ET
 from tools.package import economy, firearms
 
 ROSTER_PATH = Path(__file__).resolve().parents[2] / 'tools/package/firearms_roster.json'
+DATAMINED_WEAPONS = {'LeeEnfield', 'MP18', 'Luger', 'SKS_Black', 'SKS_Desert', 'SKS_Green', 'SKS_Winter',
+                     'Mosin9130_Black', 'Mosin9130_Winter', 'SVD_Wooden'}
+DATAMINED_MAGAZINES = {'Mag_LeeEnfield_10Rnd', 'Mag_MP18_Drum32Rnd', 'Mag_Luger_8Rnd'}
+# The first v1 proposal (nominal, min) per original weapon, before the owner's 2x decision.
+V1_FIRST_PROPOSAL = {
+    'Mosin9130': (12, 9), 'Mosin9130_Woodland': (5, 3), 'SKS': (6, 4), 'SKS_Woodland': (3, 2),
+    'Izh18': (14, 11), 'Izh18Shotgun': (10, 8), 'Izh43Shotgun': (8, 6), 'Repeater': (8, 6),
+    'Winchester70': (5, 4), 'CZ527': (8, 6), 'CZ527_Woodland': (5, 4), 'B95': (5, 4),
+    'LeeEnfield': (6, 4), 'MP18': (2, 1), 'Luger': (3, 2), 'Mp133Shotgun': (4, 3), 'Magnum': (5, 4),
+    'AKM': (2, 1), 'Colt1911': (8, 6), 'MakarovIJ70': (8, 6), 'P1': (6, 5), 'Glock19': (6, 5),
+    'FNX45': (3, 2), 'CZ75': (4, 3), 'Ruger1022': (6, 4), 'M16A2': (2, 1), 'AK74': (3, 2),
+    'MP5K': (3, 2), 'Saiga': (2, 1), 'SVD': (2, 1)}
 
 
 def entry(name, nominal, minimum, lifetime, restock, usage, value, extra=''):
@@ -25,6 +38,8 @@ def synthetic(root):
             entry('SynthModernRifle', 8, 6, 7200, 3600, ['Military'], ['Tier4']),
             entry('SynthZeroRifle', 0, 0, 14400, 0, ['Hunting'], []),
             entry('SynthMag', 30, 25, 14400, 0, ['Military'], ['Tier2']),
+            entry('SynthZeroMag', 0, 0, 14400, 0, ['Hunting'], []),
+            entry('SynthBareRifle', 0, 0, 14400, 0, [], []),
             entry('SynthAmmo', 100, 70, 14400, 0, ['Town'], [], '<tag name="shelves"/>'),
             entry('Unrelated', 9, 7, 100, 0, ['Town'], [])]
     (root / 'db/types.xml').write_text('<types>' + ''.join(rows) + '</types>')
@@ -49,8 +64,12 @@ def roster():
                  'set_value': ['Tier3', 'Tier4'], 'ammo': ['SynthAmmo'], 'magazines': ['SynthMag'],
                  'justification': 'conventional'},
                 {'class': 'SynthZeroRifle', 'kind': 'weapon', 'role': 'wood', 'tier': 'uncommon',
-                 'set': {'nominal': 5, 'min': 3}, 'ammo': ['SynthAmmo'], 'magazines': [],
+                 'set': {'nominal': 5, 'min': 3}, 'ammo': ['SynthAmmo'], 'magazines': ['SynthZeroMag'],
+                 'datamined': True, 'acceptance': 'pending-local',
                  'justification': 'stock nominal zero; enabled by roster'},
+                {'class': 'SynthZeroMag', 'kind': 'magazine', 'role': 'support', 'tier': 'rare',
+                 'set': {'nominal': 2, 'min': 1}, 'datamined': True, 'acceptance': 'pending-local',
+                 'justification': 'magazine only the datamined rifle needs'},
                 {'class': 'SynthMag', 'kind': 'magazine', 'role': 'support', 'tier': 'uncommon',
                  'set': {'nominal': 4, 'min': 2}, 'justification': 'matching magazine'},
                 {'class': 'SynthAmmo', 'kind': 'ammo', 'role': 'support', 'tier': 'common',
@@ -77,7 +96,7 @@ class RosterGeneration(unittest.TestCase):
     def test_only_selected_budget_fields_change_and_everything_else_is_stock(self):
         delta = firearms.generate(self.root, roster())
         out = {t.get('name'): t for t in ET.fromstring(delta['ce/types.xml'])}
-        self.assertEqual(sorted(out), ['SynthAmmo', 'SynthMag', 'SynthModernRifle', 'SynthWoodRifle', 'SynthZeroRifle'])
+        self.assertEqual(sorted(out), ['SynthAmmo', 'SynthMag', 'SynthModernRifle', 'SynthWoodRifle', 'SynthZeroMag', 'SynthZeroRifle'])
         wood = out['SynthWoodRifle']
         self.assertEqual(wood.findtext('nominal'), '12')
         self.assertEqual(wood.findtext('min'), '9')
@@ -124,6 +143,74 @@ class RosterGeneration(unittest.TestCase):
     def test_deferred_datamined_classes_never_reach_the_delta(self):
         delta = firearms.generate(self.root, roster())
         self.assertNotIn(b'SynthOddRifle', delta['ce/types.xml'])
+
+    def test_datamined_rows_spawn_by_default_and_carry_the_pending_local_marker(self):
+        delta = firearms.generate(self.root, roster())
+        out = {t.get('name'): t for t in ET.fromstring(delta['ce/types.xml'])}
+        self.assertEqual((out['SynthZeroRifle'].findtext('nominal'), out['SynthZeroMag'].findtext('nominal')),
+                         ('5', '2'))
+        report = json.loads(delta['economy-report.json'])
+        rows = {r['class']: r for r in report['entries']}
+        self.assertEqual(rows['SynthZeroRifle']['acceptance'], 'pending-local')
+        self.assertEqual(rows['SynthZeroMag']['acceptance'], 'pending-local')
+        self.assertNotIn('acceptance', rows['SynthWoodRifle'])
+        self.assertEqual(report['datamined'], {'enabled': True, 'classes': ['SynthZeroMag', 'SynthZeroRifle']})
+
+    def test_one_switch_disables_every_datamined_row_and_nothing_else(self):
+        delta = firearms.generate(self.root, roster(), include_datamined=False)
+        out = {t.get('name') for t in ET.fromstring(delta['ce/types.xml'])}
+        self.assertEqual(out, {'SynthAmmo', 'SynthMag', 'SynthModernRifle', 'SynthWoodRifle'})
+        report = json.loads(delta['economy-report.json'])
+        self.assertEqual(report['datamined'], {'enabled': False, 'classes': ['SynthZeroMag', 'SynthZeroRifle']})
+        self.assertEqual({r['class'] for r in report['entries']}, out)
+        self.assertEqual(report['totals']['weapon_nominal_candidate'], 14)
+
+    def test_cli_no_datamined_switch_reaches_the_delta(self):
+        stage = Path(self.tmp.name) / 'cli-delta'
+        path = Path(self.tmp.name) / 'roster.json'
+        path.write_text(json.dumps(roster()))
+        firearms.main(['generate', '--source', str(self.root), '--roster', str(path), '--out', str(stage),
+                       '--no-datamined'])
+        self.assertNotIn(b'SynthZeroRifle', (stage / 'ce/types.xml').read_bytes())
+
+    def test_datamined_marker_rules(self):
+        def with_(fn):
+            r = roster()
+            fn(r)
+            return r
+        zero = lambda r: next(e for e in r['entries'] if e['class'] == 'SynthZeroRifle')
+        wood = lambda r: next(e for e in r['entries'] if e['class'] == 'SynthWoodRifle')
+        cases = {
+            'datamined without acceptance': lambda r: zero(r).pop('acceptance'),
+            'acceptance not pending-local': lambda r: zero(r).update({'acceptance': 'accepted'}),
+            'acceptance without datamined': lambda r: wood(r).update({'acceptance': 'pending-local'}),
+            'datamined false': lambda r: zero(r).update({'datamined': False}),
+            'non-datamined weapon needs a datamined magazine':
+                lambda r: wood(r).update({'magazines': ['SynthZeroMag']}),
+        }
+        for label, fn in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                firearms.generate(self.root, with_(fn))
+
+    def test_a_datamined_class_with_no_stock_usage_gets_the_declared_usage(self):
+        r = roster()
+        r['entries'].append({'class': 'SynthBareRifle', 'kind': 'weapon', 'role': 'wood', 'tier': 'rare',
+                             'set': {'nominal': 2, 'min': 1}, 'add_usage': ['Hunting'],
+                             'set_value': ['Tier2'], 'ammo': ['SynthAmmo'], 'magazines': [],
+                             'datamined': True, 'acceptance': 'pending-local', 'justification': 'no stock usage'})
+        out = {t.get('name'): t for t in ET.fromstring(firearms.generate(self.root, r)['ce/types.xml'])}
+        bare = out['SynthBareRifle']
+        self.assertEqual([u.get('name') for u in bare.findall('usage')], ['Hunting'])
+        self.assertEqual([v.get('name') for v in bare.findall('value')], ['Tier2'])
+        tags = [n.tag for n in bare]
+        self.assertLess(tags.index('category'), tags.index('usage'))
+        self.assertLess(tags.index('usage'), tags.index('value'))
+        stage = Path(self.tmp.name) / 'bare'
+        firearms.write_delta(stage, firearms.generate(self.root, r))
+        target = Path(self.tmp.name) / 'bare-target'
+        shutil.copytree(self.root, target)
+        firearms.install(stage, target)  # install guard accepts the added usage/value only
+        firearms.rollback(target)
 
     def test_refuses_invalid_roster_entries(self):
         base = roster()
@@ -181,6 +268,50 @@ class RosterGeneration(unittest.TestCase):
         after = {p.relative_to(target).as_posix(): p.read_bytes() for p in target.rglob('*') if p.is_file()}
         self.assertEqual(before, after)
 
+    def installed(self):
+        stage = Path(self.tmp.name) / 'delta'
+        firearms.write_delta(stage, firearms.generate(self.root, roster()))
+        target = Path(self.tmp.name) / 'private-copy'
+        shutil.copytree(self.root, target)
+        firearms.install(stage, target)
+        outside = Path(self.tmp.name) / 'operator-file-outside-mission.txt'
+        outside.write_bytes(b'operator data: preserve exactly\n')
+        return target, target / economy.MANAGED, outside
+
+    def assert_refused_and_untouched(self, target, managed, outside):
+        core = (target / 'cfgeconomycore.xml').read_bytes()
+        with self.assertRaises(ValueError):
+            firearms.rollback(target)
+        self.assertEqual(outside.read_bytes(), b'operator data: preserve exactly\n')
+        self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), core)
+        self.assertTrue(managed.is_dir())
+
+    def test_rollback_refuses_a_hardlinked_staging_file_and_leaves_the_outside_file_alone(self):
+        target, managed, outside = self.installed()
+        os.link(outside, managed / 'core.next')
+        self.assert_refused_and_untouched(target, managed, outside)
+
+    def test_rollback_refuses_a_symlinked_or_non_regular_staging_file(self):
+        target, managed, outside = self.installed()
+        os.symlink(outside, managed / 'core.next')
+        self.assert_refused_and_untouched(target, managed, outside)
+        (managed / 'core.next').unlink()
+        os.mkfifo(managed / 'core.next')
+        self.assert_refused_and_untouched(target, managed, outside)
+
+    def test_rollback_refuses_hardlinked_managed_evidence(self):
+        target, managed, outside = self.installed()
+        os.link(managed / 'core.backup', outside.parent / 'second-name-for-backup')
+        self.assert_refused_and_untouched(target, managed, outside)
+
+    def test_rollback_replaces_a_stale_regular_staging_file_without_writing_through_it(self):
+        target, managed, outside = self.installed()
+        (managed / 'core.next').write_bytes(b'stale partial write')
+        before = economy.sha((managed / 'core.backup').read_bytes())
+        firearms.rollback(target)
+        self.assertEqual(economy.sha((target / 'cfgeconomycore.xml').read_bytes()), before)
+        self.assertFalse(managed.exists())
+
     def test_install_refuses_the_steam_path_and_tampered_stage(self):
         stage = Path(self.tmp.name) / 'delta'
         firearms.write_delta(stage, firearms.generate(self.root, roster()))
@@ -229,15 +360,51 @@ class CommittedRoster(unittest.TestCase):
     def test_schema_and_vocabulary(self):
         firearms.validate_roster(self.data)
 
-    def test_counts_suit_three_to_six_players(self):
+    def test_counts_are_the_owner_chosen_double_generous_scale(self):
         weapons = [e for e in self.data['entries'] if e['kind'] == 'weapon']
-        self.assertGreaterEqual(len(weapons), 20)
+        self.assertGreaterEqual(len(weapons), 30)
         for e in weapons:
-            self.assertLessEqual(e['set']['nominal'], 16, e['class'])
-        self.assertLessEqual(sum(e['set']['nominal'] for e in weapons), 200)
+            self.assertLessEqual(e['set']['nominal'], 28, e['class'])
+        total = sum(e['set']['nominal'] for e in weapons)
+        self.assertTrue(328 <= total <= 360, total)
+        # Owner decision 2026-11-17: 2x the first proposal (164 -> 328) with min/nominal ratios kept.
+        by_class = {e['class']: e['set'] for e in weapons}
+        for name, (nominal, minimum) in V1_FIRST_PROPOSAL.items():
+            self.assertEqual((by_class[name]['nominal'], by_class[name]['min']), (2 * nominal, 2 * minimum), name)
+        self.assertEqual(sum(n for n, _ in V1_FIRST_PROPOSAL.values()), 164)
         for e in self.data['entries']:
             self.assertGreaterEqual(e['set']['nominal'], e['set']['min'])
             self.assertTrue(e['justification'].strip())
+
+    def test_datamined_rows_are_marked_pending_local_and_stay_rare(self):
+        marked = {e['class']: e for e in self.data['entries'] if e.get('datamined')}
+        self.assertEqual({c for c, e in marked.items() if e['kind'] == 'weapon'}, DATAMINED_WEAPONS)
+        self.assertEqual({c for c, e in marked.items() if e['kind'] == 'magazine'}, DATAMINED_MAGAZINES)
+        for name, e in marked.items():
+            self.assertEqual(e['acceptance'], 'pending-local', name)
+            self.assertTrue(e['justification'].strip(), name)
+        for name in DATAMINED_WEAPONS - {'LeeEnfield', 'MP18', 'Luger'}:
+            self.assertLessEqual(marked[name]['set']['nominal'], 2, name)
+        self.assertEqual({e['class'] for e in self.data['entries'] if 'acceptance' in e}, set(marked))
+
+    def test_the_single_switch_removes_exactly_the_datamined_rows_from_a_generated_delta(self):
+        names = {e['class'] for e in self.data['entries']}
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t) / 'mission'
+            synthetic(root)
+            rows = ''.join(entry(n, 0, 0, 14400, 0, ['Town'], []) for n in sorted(names))
+            (root / 'db/types.xml').write_text('<types>' + rows + '</types>')
+            usages = {u for e in self.data['entries'] for u in e.get('add_usage', [])} | {'Town'}
+            values = {v for e in self.data['entries'] for v in e.get('set_value', [])} | {'Tier1'}
+            (root / 'cfglimitsdefinition.xml').write_text(
+                '<lists><usageflags>' + ''.join(f'<usage name="{u}"/>' for u in sorted(usages))
+                + '</usageflags><valueflags>' + ''.join(f'<value name="{v}"/>' for v in sorted(values))
+                + '</valueflags></lists>')
+            on = {x.get('name') for x in ET.fromstring(firearms.generate(root, self.data)['ce/types.xml'])}
+            off = {x.get('name') for x in ET.fromstring(
+                firearms.generate(root, self.data, include_datamined=False)['ce/types.xml'])}
+        self.assertEqual(on - off, DATAMINED_WEAPONS | DATAMINED_MAGAZINES)
+        self.assertEqual(off, names - DATAMINED_WEAPONS - DATAMINED_MAGAZINES)
 
     def test_roles_wood_and_modern_are_both_present_and_nothing_futuristic(self):
         roles = {e['role'] for e in self.data['entries'] if e['kind'] == 'weapon'}
@@ -262,8 +429,17 @@ class CommittedRoster(unittest.TestCase):
         self.assertEqual({d['status'] for d in deferred}, {'requires-local-acceptance'})
         self.assertFalse({d['class'] for d in deferred} & {e['class'] for e in self.data['entries']})
 
+    def test_optics_are_a_documented_empty_extension_point(self):
+        self.assertEqual(self.data['optics'], {'status': 'deferred-pending-owner-decision', 'entries': []})
+        for bad in ({'status': 'accepted', 'entries': []},
+                    {'status': 'deferred-pending-owner-decision', 'entries': [{'class': 'PSO1Optic'}]}):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                mutated = copy.deepcopy(self.data)
+                mutated['optics'] = bad
+                firearms.validate_roster(mutated)
+
     def test_roster_is_small_and_carries_no_vanilla_dump(self):
-        self.assertLess(ROSTER_PATH.stat().st_size, 40_000)
+        self.assertLess(ROSTER_PATH.stat().st_size, 60_000)
         self.assertNotIn('<type ', ROSTER_PATH.read_text())
 
 

@@ -36,6 +36,9 @@ WORKSHOP_ID = '2443122116'
 MANAGED = 'hollow-country-snafu'
 ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo')
 TOP = {'schema', 'name', 'workshop_id', 'status', 'rights', 'entries', 'excluded'}
+TOP_OPTIONAL = {'optics'}
+# Optics are a later owner decision: the extension point accepts no optic entry yet.
+OPTICS_PLACEHOLDER = {'status': 'deferred-pending-owner-decision', 'entries': []}
 RIGHTS_REQUIRED = {'license', 'terms_file', 'terms_sha256', 'urls', 'redistribution'}
 RIGHTS_OPTIONAL = {'notes'}
 ENTRY_REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'usage', 'value', 'justification'}
@@ -72,9 +75,11 @@ def _names(value, name):
 
 
 def validate_allowlist(allowlist):
-    if not isinstance(allowlist, dict) or set(allowlist) != TOP or type(allowlist['schema']) is not int \
-            or allowlist['schema'] != 1:
+    if not isinstance(allowlist, dict) or not TOP <= set(allowlist) <= TOP | TOP_OPTIONAL \
+            or type(allowlist['schema']) is not int or allowlist['schema'] != 1:
         raise ValueError('unsupported allowlist schema/fields')
+    if 'optics' in allowlist and allowlist['optics'] != OPTICS_PLACEHOLDER:
+        raise ValueError('optics are deferred to a later owner decision; the extension point must stay empty')
     if not isinstance(allowlist['name'], str) or not re.fullmatch(r'[a-z0-9-]{1,64}', allowlist['name']):
         raise ValueError('invalid allowlist name')
     if allowlist['workshop_id'] != WORKSHOP_ID:
@@ -488,46 +493,42 @@ def install(stage, target):
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
                'verification_sha256': economy.sha(economy.encode(verification))}
-    (managed / 'core.backup').write_bytes(original)
-    (managed / 'receipt.json').write_bytes(economy.encode(receipt))
-    (managed / 'verification.json').write_bytes(economy.encode(verification))
+    economy.fresh_write(managed, 'core.backup', original)
+    economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
+    economy.fresh_write(managed, 'verification.json', economy.encode(verification))
     (managed / 'ce').mkdir()
-    (managed / 'ce/types.xml').write_bytes(files['ce/types.xml'])
-    (managed / 'core.next').write_bytes(patched)
-    os.replace(managed / 'core.next', economy.child(target, 'cfgeconomycore.xml'))
+    economy.fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
+    os.replace(economy.fresh_write(managed, 'core.next', patched), economy.child(target, 'cfgeconomycore.xml'))
     return receipt
 
 
 def rollback(target):
     target = economy._target(target)
     managed = economy.child(target, MANAGED)
-    receipt = json.loads(economy.child(managed, 'receipt.json').read_bytes())
-    expected = {'core.backup', 'receipt.json', 'verification.json', 'ce/types.xml', 'core.next'}
-    for p in managed.rglob('*'):
-        name = p.relative_to(managed).as_posix()
-        economy.child(managed, name)
-        if p.is_file() and name not in expected:
-            raise ValueError('unexpected managed file; rollback refuses deletion')
-    core = economy.child(target, 'cfgeconomycore.xml')
-    backup = economy.child(managed, 'core.backup').read_bytes()
+    receipt = json.loads(economy.read_plain(managed, 'receipt.json'))
+    economy.preflight_managed(managed, {'core.backup', 'receipt.json', 'verification.json',
+                                        'ce/types.xml', 'core.next'})
+    core = economy.plain_file(target, economy.child(target, 'cfgeconomycore.xml'))
+    backup = economy.read_plain(managed, 'core.backup')
     if economy.sha(backup) != receipt['before'] \
             or economy.sha(core.read_bytes()) not in {receipt['before'], receipt['after']}:
         raise ValueError('core drift (roll back later installs first); manual reconciliation required')
-    if economy.sha(economy.child(managed, 'ce/types.xml').read_bytes()) != receipt['types_sha256']:
+    if economy.sha(economy.read_plain(managed, 'ce/types.xml')) != receipt['types_sha256']:
         raise ValueError('installed delta drift; inspect before rollback')
+    if economy.sha(economy.read_plain(managed, 'verification.json')) != receipt['verification_sha256']:
+        raise ValueError('verification evidence drift; inspect before rollback')
     if {n: economy.sha(economy.child(target, n).read_bytes()) for n in economy.INPUTS
             if n != 'cfgeconomycore.xml'} != {n: h for n, h in receipt['sources'].items()
                                               if n != 'cfgeconomycore.xml'}:
         raise ValueError('stock drift; inspect before rollback')
-    (managed / 'core.next').write_bytes(backup)
-    os.replace(managed / 'core.next', core)
+    economy.restore_core(managed, core, backup)
     shutil.rmtree(managed)
 
 
 # ------------------------------------------------------------------------- CLI
 
 def _refuse_git(path):
-    path = Path(path).absolute()
+    path = Path(path).absolute().resolve()  # resolves symlinked ancestors that lead into a checkout
     for p in (path, *path.parents):
         if (p / '.git').exists():
             raise ValueError('refusing to write a verification report inside a Git checkout')

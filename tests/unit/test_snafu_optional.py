@@ -356,6 +356,54 @@ class InstallRollback(unittest.TestCase):
         firearms.rollback(target)
         self.assertEqual(before, self.files(target))
 
+    def installed(self):
+        stage = Path(self.tmp.name) / 'delta'
+        snafu_optional.write_delta(stage, snafu_optional.generate(self.source, self.allow, self.report))
+        target = Path(self.tmp.name) / 'copy'
+        shutil.copytree(self.source, target)
+        snafu_optional.install(stage, target)
+        outside = Path(self.tmp.name) / 'operator-file-outside-mission.txt'
+        outside.write_bytes(b'operator data: preserve exactly\n')
+        return target, target / snafu_optional.MANAGED, outside
+
+    def assert_refused_and_untouched(self, target, managed, outside):
+        core = (target / 'cfgeconomycore.xml').read_bytes()
+        with self.assertRaises(ValueError):
+            snafu_optional.rollback(target)
+        self.assertEqual(outside.read_bytes(), b'operator data: preserve exactly\n')
+        self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), core)
+        self.assertTrue(managed.is_dir())
+
+    def test_rollback_refuses_a_hardlinked_staging_file_and_leaves_the_outside_file_alone(self):
+        target, managed, outside = self.installed()
+        os.link(outside, managed / 'core.next')
+        self.assert_refused_and_untouched(target, managed, outside)
+
+    def test_rollback_refuses_symlinked_non_regular_or_hardlinked_managed_files(self):
+        target, managed, outside = self.installed()
+        os.symlink(outside, managed / 'core.next')
+        self.assert_refused_and_untouched(target, managed, outside)
+        (managed / 'core.next').unlink()
+        os.mkfifo(managed / 'core.next')
+        self.assert_refused_and_untouched(target, managed, outside)
+        (managed / 'core.next').unlink()
+        os.link(managed / 'verification.json', outside.parent / 'second-name-for-evidence')
+        self.assert_refused_and_untouched(target, managed, outside)
+
+    def test_rollback_refuses_changed_verification_evidence_before_touching_the_core(self):
+        target, managed, outside = self.installed()
+        (managed / 'verification.json').write_bytes(b'{"status":"unverified","operator_note":"preserve"}\n')
+        self.assert_refused_and_untouched(target, managed, outside)
+        self.assertIn(b'operator_note', (managed / 'verification.json').read_bytes())
+
+    def test_rollback_replaces_a_stale_regular_staging_file(self):
+        target, managed, outside = self.installed()
+        (managed / 'core.next').write_bytes(b'stale partial write')
+        backup = (managed / 'core.backup').read_bytes()
+        snafu_optional.rollback(target)
+        self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), backup)
+        self.assertFalse(managed.exists())
+
     def test_refuses_steam_path_tamper_stock_drift_and_symlinks(self):
         stage = Path(self.tmp.name) / 'delta'
         snafu_optional.write_delta(stage, snafu_optional.generate(self.source, self.allow, self.report))
@@ -407,17 +455,72 @@ class CommittedAllowlist(unittest.TestCase):
         self.assertTrue(all(u.startswith('https://') for u in rights['urls']))
         self.assertRegex(rights['terms_sha256'], r'^[0-9a-f]{64}$')
 
-    def test_subset_is_small_wood_or_conventional_and_not_ww2_or_exotic(self):
-        weapons = [e for e in self.data['entries'] if e['kind'] == 'weapon']
-        self.assertTrue(4 <= len(weapons) <= 12)
-        for e in weapons:
-            self.assertLessEqual(e['set']['nominal'], 4, e['class'])
-            self.assertNotIn('WW2', e['class'])
+    CONSERVATIVE_SEVEN = {'SNAFUMarlin1895', 'SNAFUSWM629', 'SN_M870', 'SN_USP', 'SNAFU_M48',
+                          'SNAFU_Trenchgun', 'GCGN_M1Garand'}
+    WW2_SMGS = {'SNAFUThompsonMk2', 'SNAFUPPSh', 'SNAFUSten'}
+    MODERN_MILITARY = {'SNAFU_AK103A', 'HK416_Gun', 'SCAR_Gun', 'SNAFU_MPX_GUN', 'SNHK417_Gun'}
+
+    def weapons(self):
+        return {e['class']: e for e in self.data['entries'] if e['kind'] == 'weapon'}
+
+    def test_subset_is_the_conservative_seven_plus_ww2_smgs_plus_a_handful_of_modern_military_arms(self):
+        weapons = self.weapons()
+        self.assertEqual(set(weapons), self.CONSERVATIVE_SEVEN | self.WW2_SMGS | self.MODERN_MILITARY)
+        for name, e in weapons.items():
+            self.assertLessEqual(e['set']['nominal'], 4, name)
         self.assertTrue(self.data['excluded'])
         banned = ('AA12', 'AX50', 'M82', 'M200', 'AS50', 'M249', 'Bren', 'M1918', 'MDAR', 'VECTOR', 'Vikhr', 'P90',
-                  'Magnum500', 'Alligator', 'KH9', 'PPSh')
+                  'Magnum500', 'Alligator', 'KH9', 'AUG', 'TAR21', 'RDB', 'Modular', 'Honey', 'ACR', 'U100', 'BR18')
         for e in self.data['entries']:
             self.assertFalse(any(b.lower() in e['class'].lower() for b in banned), e['class'])
+
+    def test_the_new_picks_are_military_usage_tier3_to_tier4_only_and_rare(self):
+        weapons = self.weapons()
+        for name in self.WW2_SMGS | self.MODERN_MILITARY:
+            e = weapons[name]
+            self.assertEqual(e['usage'], ['Military'], name)
+            self.assertTrue(e['value'] and set(e['value']) <= {'Tier3', 'Tier4'}, name)
+            self.assertEqual(e['tier'], 'rare', name)
+            self.assertLessEqual(e['set']['nominal'], 2, name)
+        for name in self.MODERN_MILITARY:
+            self.assertEqual(weapons[name]['role'], 'modern', name)
+        for name in self.WW2_SMGS:
+            self.assertEqual(weapons[name]['role'], 'wood', name)
+
+    def test_the_new_picks_bring_their_magazines_and_ammunition_into_the_allowlist(self):
+        by_class = {e['class']: e for e in self.data['entries']}
+        expected = {'SNAFUThompsonMk2': (['SNAFUThompsonMk2_30rdMag'], [], ['Ammo_45ACP']),
+                    'SNAFUPPSh': (['SNAFUPPSh_71rdMag'], ['SNAFU_Ammo_762x25'], []),
+                    'SNAFUSten': (['SNAFUSten_32rdMag'], [], ['Ammo_9x19']),
+                    'SNAFU_MPX_GUN': (['SNAFU_MPX_30rnd_Mag'], [], ['Ammo_9x19']),
+                    'SNHK417_Gun': (['SNHK417_Mag'], [], ['Ammo_308Win'])}
+        for name, (mags, ammo, vanilla) in expected.items():
+            e = by_class[name]
+            self.assertEqual((e['magazines'], e['snafu_ammo'], e['vanilla_ammo']), (mags, ammo, vanilla), name)
+            for m in mags:
+                self.assertEqual(by_class[m]['kind'], 'magazine')
+            for a in ammo:
+                self.assertEqual(by_class[a]['kind'], 'ammo')
+        for name in ('SNAFU_AK103A', 'HK416_Gun', 'SCAR_Gun'):  # accept vanilla magazines and ammo only
+            self.assertEqual(by_class[name]['magazines'], [])
+            self.assertTrue(by_class[name]['vanilla_ammo'] and not by_class[name]['snafu_ammo'], name)
+
+    def test_exclusion_groups_no_longer_name_a_selected_class(self):
+        selected = {e['class'] for e in self.data['entries']}
+        for group in self.data['excluded']:
+            self.assertFalse(set(group.get('classes', [])) & selected, group['group'])
+
+    def test_optics_are_a_documented_empty_extension_point(self):
+        self.assertEqual(self.data['optics']['entries'], [])
+        self.assertEqual(self.data['optics']['status'], 'deferred-pending-owner-decision')
+        self.assertFalse([e for e in self.data['entries'] if 'scope' in e['class'].lower() or e['kind'] == 'optic'])
+        for bad in ({'status': 'accepted', 'entries': []},
+                    {'status': 'deferred-pending-owner-decision', 'entries': [{'class': 'SNAFU_Scope'}]},
+                    {'status': 'deferred-pending-owner-decision', 'entries': [], 'extra': 1}):
+            with self.subTest(bad), self.assertRaises(ValueError):
+                mutated = copy.deepcopy(self.data)
+                mutated['optics'] = bad
+                snafu_optional.validate_allowlist(mutated)
 
     def test_no_overlap_with_the_vanilla_roster(self):
         roster = json.loads((REPO / 'tools/package/firearms_roster.json').read_text())

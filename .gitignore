@@ -60,6 +60,7 @@ Thumbs.db
 /config/data-classification-policy.yaml
 /docs/*
 !/docs/README.md
+!/docs/FIREARMS.md
 !/docs/INSTALL_ROLLBACK.md
 !/docs/LOCAL_SERVER_TEST.md
 !/docs/MOD_DEVELOPMENT.md

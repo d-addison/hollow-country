@@ -9,8 +9,8 @@
    "role": "wood",
    "tier": "common",
    "set": {
-    "nominal": 12,
-    "min": 9
+    "nominal": 24,
+    "min": 18
    },
    "ammo": [
     "Ammo_762x54"
@@ -24,8 +24,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 5,
-    "min": 3
+    "nominal": 10,
+    "min": 6
    },
    "ammo": [
     "Ammo_762x54"
@@ -39,8 +39,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 4
+    "nominal": 12,
+    "min": 8
    },
    "ammo": [
     "Ammo_762x39"
@@ -54,8 +54,8 @@
    "role": "wood",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "ammo": [
     "Ammo_762x39"
@@ -69,8 +69,8 @@
    "role": "wood",
    "tier": "common",
    "set": {
-    "nominal": 14,
-    "min": 11
+    "nominal": 28,
+    "min": 22
    },
    "ammo": [
     "Ammo_762x39"
@@ -84,8 +84,8 @@
    "role": "wood",
    "tier": "common",
    "set": {
-    "nominal": 10,
-    "min": 8
+    "nominal": 20,
+    "min": 16
    },
    "ammo": [
     "Ammo_12gaPellets",
@@ -100,8 +100,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "ammo": [
     "Ammo_12gaPellets",
@@ -116,8 +116,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "ammo": [
     "Ammo_357"
@@ -131,8 +131,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 5,
-    "min": 4
+    "nominal": 10,
+    "min": 8
    },
    "ammo": [
     "Ammo_308Win"
@@ -146,8 +146,8 @@
    "role": "wood",
    "tier": "common",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "ammo": [
     "Ammo_762x39"
@@ -163,8 +163,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 5,
-    "min": 4
+    "nominal": 10,
+    "min": 8
    },
    "ammo": [
     "Ammo_762x39"
@@ -180,8 +180,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 5,
-    "min": 4
+    "nominal": 10,
+    "min": 8
    },
    "ammo": [
     "Ammo_308Win"
@@ -195,8 +195,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 4
+    "nominal": 12,
+    "min": 8
    },
    "ammo": [
     "Ammo_762x54"
@@ -204,10 +204,50 @@
    "magazines": [
     "Mag_LeeEnfield_10Rnd"
    ],
-   "justification": "Wood-stock bolt rifle; stock nominal 0 (census nominal-zero) so this enables a finished vanilla class that normal CE never spawns."
+   "justification": "Wood-stock bolt rifle; stock nominal 0 (census nominal-zero) so this enables a finished vanilla class that normal CE never spawns.",
+   "datamined": true,
+   "acceptance": "pending-local"
   },
   {
    "class": "MP18",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 4,
+    "min": 2
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_MP18_Drum32Rnd"
+   ],
+   "justification": "Wood-stock WW1 submachine gun; stock nominal 0 (census nominal-zero), rare and local-acceptance sensitive.",
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Luger",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 6,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_Luger_8Rnd"
+   ],
+   "justification": "Wood-grip WW1 pistol; stock nominal 0 (census nominal-zero).",
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SKS_Black",
    "kind": "weapon",
    "role": "wood",
    "tier": "rare",
@@ -216,29 +256,146 @@
     "min": 1
    },
    "ammo": [
-    "Ammo_9x19"
+    "Ammo_762x39"
    ],
-   "magazines": [
-    "Mag_MP18_Drum32Rnd"
-   ],
-   "justification": "Wood-stock WW1 submachine gun; stock nominal 0 (census nominal-zero), rare and local-acceptance sensitive."
+   "magazines": [],
+   "justification": "SKS skin variant (stock Military usage, Tier3/Tier4). Census nominal-zero; rare count.",
+   "datamined": true,
+   "acceptance": "pending-local"
   },
   {
-   "class": "Luger",
+   "class": "SKS_Desert",
    "kind": "weapon",
    "role": "wood",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 2,
+    "min": 1
    },
    "ammo": [
-    "Ammo_9x19"
+    "Ammo_762x39"
+   ],
+   "magazines": [],
+   "justification": "SKS skin variant; stock has no value tier. Census nominal-zero; rare count.",
+   "set_value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SKS_Green",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [],
+   "justification": "SKS skin variant (stock Military usage, Tier2/Tier3). Census nominal-zero; rare count.",
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SKS_Winter",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [],
+   "justification": "SKS skin variant; stock has no value tier. Census nominal-zero; rare count.",
+   "set_value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Mosin9130_Black",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x54"
+   ],
+   "magazines": [],
+   "justification": "Mosin skin variant; stock has no usage or value, so it follows the base Mosin usage at the higher tiers. Census nominal-zero; rare count.",
+   "add_usage": [
+    "Town",
+    "Village"
+   ],
+   "set_value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Mosin9130_Winter",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x54"
+   ],
+   "magazines": [],
+   "justification": "Mosin skin variant; stock has no usage or value, so it follows the base Mosin usage at the higher tiers. Census nominal-zero; rare count.",
+   "add_usage": [
+    "Town",
+    "Village"
+   ],
+   "set_value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "datamined": true,
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SVD_Wooden",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x54"
    ],
    "magazines": [
-    "Mag_Luger_8Rnd"
+    "Mag_SVD_10Rnd"
    ],
-   "justification": "Wood-grip WW1 pistol; stock nominal 0 (census nominal-zero)."
+   "justification": "Wood-stock Dragunov; stock has no usage or value, so it follows the SVD Military usage at Tier4. Census nominal-zero; rare count.",
+   "add_usage": [
+    "Military"
+   ],
+   "set_value": [
+    "Tier4"
+   ],
+   "datamined": true,
+   "acceptance": "pending-local"
   },
   {
    "class": "Mp133Shotgun",
@@ -246,8 +403,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 4,
-    "min": 3
+    "nominal": 8,
+    "min": 6
    },
    "ammo": [
     "Ammo_12gaPellets",
@@ -262,8 +419,8 @@
    "role": "wood",
    "tier": "uncommon",
    "set": {
-    "nominal": 5,
-    "min": 4
+    "nominal": 10,
+    "min": 8
    },
    "ammo": [
     "Ammo_357"
@@ -277,8 +434,8 @@
    "role": "wood",
    "tier": "rare",
    "set": {
-    "nominal": 2,
-    "min": 1
+    "nominal": 4,
+    "min": 2
    },
    "ammo": [
     "Ammo_762x39"
@@ -294,8 +451,8 @@
    "role": "modern",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "ammo": [
     "Ammo_45ACP"
@@ -311,8 +468,8 @@
    "role": "modern",
    "tier": "common",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "ammo": [
     "Ammo_380"
@@ -328,8 +485,8 @@
    "role": "modern",
    "tier": "common",
    "set": {
-    "nominal": 6,
-    "min": 5
+    "nominal": 12,
+    "min": 10
    },
    "ammo": [
     "Ammo_9x19"
@@ -345,8 +502,8 @@
    "role": "modern",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 5
+    "nominal": 12,
+    "min": 10
    },
    "ammo": [
     "Ammo_9x19"
@@ -362,8 +519,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "ammo": [
     "Ammo_45ACP"
@@ -379,8 +536,8 @@
    "role": "modern",
    "tier": "uncommon",
    "set": {
-    "nominal": 4,
-    "min": 3
+    "nominal": 8,
+    "min": 6
    },
    "ammo": [
     "Ammo_9x19"
@@ -396,8 +553,8 @@
    "role": "modern",
    "tier": "common",
    "set": {
-    "nominal": 6,
-    "min": 4
+    "nominal": 12,
+    "min": 8
    },
    "ammo": [
     "Ammo_22"
@@ -413,8 +570,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
-    "min": 1
+    "nominal": 4,
+    "min": 2
    },
    "ammo": [
     "Ammo_556x45"
@@ -430,8 +587,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "ammo": [
     "Ammo_545x39"
@@ -447,8 +604,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "ammo": [
     "Ammo_9x19"
@@ -465,8 +622,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
-    "min": 1
+    "nominal": 4,
+    "min": 2
    },
    "ammo": [
     "Ammo_12gaPellets",
@@ -483,8 +640,8 @@
    "role": "modern",
    "tier": "rare",
    "set": {
-    "nominal": 2,
-    "min": 1
+    "nominal": 4,
+    "min": 2
    },
    "ammo": [
     "Ammo_762x54"
@@ -500,8 +657,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "justification": "CZ 527 magazine."
   },
@@ -511,10 +668,12 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 4,
-    "min": 2
+    "nominal": 8,
+    "min": 4
    },
-   "justification": "Lee-Enfield magazine; stock nominal 0."
+   "justification": "Lee-Enfield magazine; stock nominal 0.",
+   "datamined": true,
+   "acceptance": "pending-local"
   },
   {
    "class": "Mag_MP18_Drum32Rnd",
@@ -522,10 +681,12 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 2,
-    "min": 1
+    "nominal": 4,
+    "min": 2
    },
-   "justification": "MP18 drum; stock nominal 0."
+   "justification": "MP18 drum; stock nominal 0.",
+   "datamined": true,
+   "acceptance": "pending-local"
   },
   {
    "class": "Mag_Luger_8Rnd",
@@ -533,10 +694,12 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 4,
-    "min": 2
+    "nominal": 8,
+    "min": 4
    },
-   "justification": "Luger magazine; stock nominal 0."
+   "justification": "Luger magazine; stock nominal 0.",
+   "datamined": true,
+   "acceptance": "pending-local"
   },
   {
    "class": "Mag_AKM_30Rnd",
@@ -544,8 +707,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "justification": "AKM magazine (stock count kept)."
   },
@@ -555,8 +718,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 10,
-    "min": 8
+    "nominal": 20,
+    "min": 16
    },
    "justification": "1911 magazine."
   },
@@ -566,8 +729,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 14,
-    "min": 10
+    "nominal": 28,
+    "min": 20
    },
    "justification": "IJ-70 magazine; vanilla 60."
   },
@@ -577,8 +740,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 10,
-    "min": 8
+    "nominal": 20,
+    "min": 16
    },
    "justification": "P1 magazine."
   },
@@ -588,8 +751,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "justification": "Glock 19 magazine."
   },
@@ -599,8 +762,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 4,
-    "min": 3
+    "nominal": 8,
+    "min": 6
    },
    "justification": "FNX-45 magazine."
   },
@@ -610,8 +773,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 6,
-    "min": 4
+    "nominal": 12,
+    "min": 8
    },
    "justification": "CZ 75 magazine."
   },
@@ -621,8 +784,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 8,
-    "min": 6
+    "nominal": 16,
+    "min": 12
    },
    "justification": "Ruger 10/22 magazine."
   },
@@ -632,8 +795,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 4,
-    "min": 2
+    "nominal": 8,
+    "min": 4
    },
    "justification": "STANAG magazine (stock count kept near stock)."
   },
@@ -643,8 +806,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 6,
-    "min": 4
+    "nominal": 12,
+    "min": 8
    },
    "justification": "AK-74 magazine; vanilla 25."
   },
@@ -654,8 +817,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 4,
-    "min": 3
+    "nominal": 8,
+    "min": 6
    },
    "justification": "MP5 15-round magazine."
   },
@@ -665,8 +828,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "justification": "MP5 30-round magazine."
   },
@@ -676,8 +839,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "justification": "Saiga magazine."
   },
@@ -687,8 +850,8 @@
    "role": "support",
    "tier": "rare",
    "set": {
-    "nominal": 3,
-    "min": 2
+    "nominal": 6,
+    "min": 4
    },
    "justification": "SVD magazine."
   },
@@ -698,8 +861,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 24,
-    "min": 18
+    "nominal": 48,
+    "min": 36
    },
    "justification": "Mosin, Lee-Enfield, SVD. Vanilla pool scaled to 3-6 players."
   },
@@ -709,8 +872,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 30,
-    "min": 22
+    "nominal": 60,
+    "min": 44
    },
    "justification": "SKS, Izh18, CZ 527, AKM. Vanilla pool scaled to 3-6 players."
   },
@@ -720,8 +883,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 14
+    "nominal": 40,
+    "min": 28
    },
    "justification": "Winchester, B95. Vanilla pool scaled to 3-6 players."
   },
@@ -731,8 +894,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 30,
-    "min": 22
+    "nominal": 60,
+    "min": 44
    },
    "justification": "Ruger 10/22. Vanilla pool scaled to 3-6 players."
   },
@@ -742,8 +905,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 28,
-    "min": 20
+    "nominal": 56,
+    "min": 40
    },
    "justification": "Shotguns, slugs. Vanilla pool scaled to 3-6 players."
   },
@@ -753,8 +916,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 30,
-    "min": 22
+    "nominal": 60,
+    "min": 44
    },
    "justification": "Shotguns, buckshot. Vanilla pool scaled to 3-6 players."
   },
@@ -764,8 +927,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 25,
-    "min": 18
+    "nominal": 50,
+    "min": 36
    },
    "justification": "1911 and FNX-45. Vanilla pool scaled to 3-6 players."
   },
@@ -775,8 +938,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 30,
-    "min": 22
+    "nominal": 60,
+    "min": 44
    },
    "justification": "Luger, MP18, P1, Glock, CZ 75, MP5. Vanilla pool scaled to 3-6 players."
   },
@@ -786,8 +949,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 24,
-    "min": 18
+    "nominal": 48,
+    "min": 36
    },
    "justification": "Repeater and Magnum. Vanilla pool scaled to 3-6 players."
   },
@@ -797,8 +960,8 @@
    "role": "support",
    "tier": "common",
    "set": {
-    "nominal": 30,
-    "min": 22
+    "nominal": 60,
+    "min": 44
    },
    "justification": "IJ-70. Vanilla pool scaled to 3-6 players."
   },
@@ -808,8 +971,8 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 20,
-    "min": 14
+    "nominal": 40,
+    "min": 28
    },
    "justification": "M16A2. Vanilla pool scaled to 3-6 players."
   },
@@ -819,92 +982,61 @@
    "role": "support",
    "tier": "uncommon",
    "set": {
-    "nominal": 14,
-    "min": 9
+    "nominal": 28,
+    "min": 18
    },
    "justification": "AK-74. Vanilla pool scaled to 3-6 players."
   }
  ],
+ "optics": {
+  "status": "deferred-pending-owner-decision",
+  "entries": []
+ },
  "deferred_datamined": [
-  {
-   "class": "SVD_Wooden",
-   "status": "requires-local-acceptance",
-   "note": "wood-stock Dragunov; census nominal-zero with no usage, needs usage and values added"
-  },
   {
    "class": "MakarovPB",
    "status": "requires-local-acceptance",
-   "note": "census missing-from-types, magazine Mag_MakarovPB_8Rnd also needs a types entry"
-  },
-  {
-   "class": "SKS_Black",
-   "status": "requires-local-acceptance",
-   "note": "SKS skin variant; census nominal-zero (military usage)"
-  },
-  {
-   "class": "SKS_Desert",
-   "status": "requires-local-acceptance",
-   "note": "SKS skin variant; census nominal-zero (military usage)"
-  },
-  {
-   "class": "SKS_Green",
-   "status": "requires-local-acceptance",
-   "note": "SKS skin variant; census nominal-zero (military usage)"
-  },
-  {
-   "class": "SKS_Winter",
-   "status": "requires-local-acceptance",
-   "note": "SKS skin variant; census nominal-zero (military usage)"
-  },
-  {
-   "class": "Mosin9130_Black",
-   "status": "requires-local-acceptance",
-   "note": "Mosin skin variant; census nominal-zero with no usage"
-  },
-  {
-   "class": "Mosin9130_Winter",
-   "status": "requires-local-acceptance",
-   "note": "Mosin skin variant; census nominal-zero with no usage"
+   "note": "census missing-from-types; a spawn needs a new type entry (not a stock override) plus Mag_MakarovPB_8Rnd"
   },
   {
    "class": "Winchester70_Black",
    "status": "requires-local-acceptance",
-   "note": "Winchester skin variant; census missing-from-types"
+   "note": "Winchester skin variant; census missing-from-types, needs a new type entry"
   },
   {
    "class": "Winchester70_Green",
    "status": "requires-local-acceptance",
-   "note": "Winchester skin variant; census missing-from-types"
+   "note": "Winchester skin variant; census missing-from-types, needs a new type entry"
   },
   {
    "class": "B95_Black",
    "status": "requires-local-acceptance",
-   "note": "B95 skin variant; census missing-from-types"
+   "note": "B95 skin variant; census missing-from-types, needs a new type entry"
   },
   {
    "class": "B95_Green",
    "status": "requires-local-acceptance",
-   "note": "B95 skin variant; census missing-from-types"
+   "note": "B95 skin variant; census missing-from-types, needs a new type entry"
   },
   {
    "class": "CZ527_Camo",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
   },
   {
    "class": "CZ527_Green",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
   },
   {
    "class": "CZ527_desert",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
   },
   {
    "class": "CZ527_winter",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
   }
  ]
 }
