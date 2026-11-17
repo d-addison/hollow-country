@@ -54,7 +54,7 @@ result; native load/restart, visibility and performance remain unqualified.
 Lighting, volumetric fog, shaders and seasonal scheduling are separate work.
 
 The private handoff includes `mission/hollow-country/INSTALL_AND_ROLLBACK.md`,
-`operator/settings.json`, all-off feature defaults, CE policies, and these helpers.
+`operator/settings.json` (feature preferences on, capability admission fail-closed), CE policies, and these helpers.
 Full selected stock entries generated for a CE experiment remain local output;
 they are not the committed empty CE defaults or a vanilla dump in the handoff.
 

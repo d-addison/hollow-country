@@ -41,10 +41,13 @@ profile. Existing settings are operator state: back them up rather than replacin
 them on upgrade. If absent, the core writes defaults at this same path. Invalid
 settings disable features and preserve the original file; inspect the script log.
 
-SchemaVersion must be 1. All six feature flags are false: EnableInteriors,
-EnableSearch, EnableCrafting, EnableInfected, EnableHordes, EnableAlertChains.
-Keep them false pending the corresponding native tests. Search requires interiors;
-hordes/chains require infected. TickIntervalMs defaults to 1000; MaxTickWorkItems
+SchemaVersion must be 1. All seven feature preferences default to true:
+EnableInteriors, EnableSearch, EnableCrafting, EnableInfected, EnableHordes,
+EnableAlertChains and EnableGroups. A preference is not qualification: each
+module still admits only behaviour whose native evidence is recorded and logs
+the reason when it refuses. Set a flag to false to disable a feature; explicit
+disables are preserved. Search requires interiors; hordes/chains require
+infected. Acceptance of each feature remains pending its local-server tests. TickIntervalMs defaults to 1000; MaxTickWorkItems
 32; MaxActiveHordes 2; MaxActiveHordeMembers 24; MaxActiveInteriors 12;
 MaxPropsPerInterior 5. These are bounded pilot limits, not performance promises.
 Module-specific catalogs, state and acceptance belong to each module. No runtime

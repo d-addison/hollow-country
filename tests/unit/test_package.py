@@ -13,6 +13,7 @@ import unittest
 import zipfile
 
 from tools.package import pbo
+from tools.validate.runtime import validate_settings
 from unittest.mock import Mock
 
 
@@ -365,7 +366,10 @@ Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on syn
     def test_operator_settings_and_install_rollback_guide_are_packaged(self):
         mission = Path('mission/hollow-country')
         settings = __import__('json').loads((mission / 'operator/settings.json').read_text())
-        self.assertFalse(any(v for k, v in settings.items() if k.startswith('Enable')))
+        # User decision: feature preferences default on; capability admission stays fail-closed.
+        self.assertEqual(json.loads(Path('config/hollow-country-settings.json').read_text()), settings)
+        self.assertEqual([], validate_settings(settings))
+        self.assertTrue(all(v is True for k, v in settings.items() if k.startswith('Enable')))
         self.assertEqual(settings['SchemaVersion'], 1)
         with tempfile.TemporaryDirectory() as t:
             addon = Path(t)
