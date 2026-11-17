@@ -1,0 +1,159 @@
+test_commit_drift_since_load_is_not_ignored (tests.unit.test_event_runtime.EventJournalTests.test_commit_drift_since_load_is_not_ignored) ... ok
+test_corrupt_latest_image_commit_and_missing_intent_refuse (tests.unit.test_event_runtime.EventJournalTests.test_corrupt_latest_image_commit_and_missing_intent_refuse) ... ok
+test_drift_since_load_refuses_write_and_preserves_evidence (tests.unit.test_event_runtime.EventJournalTests.test_drift_since_load_refuses_write_and_preserves_evidence) ... ok
+test_each_interrupted_write_refuses_latest_not_fallback (tests.unit.test_event_runtime.EventJournalTests.test_each_interrupted_write_refuses_latest_not_fallback) ... ok
+test_empty_roundtrip_and_deep_clone (tests.unit.test_event_runtime.EventJournalTests.test_empty_roundtrip_and_deep_clone) ... ok
+test_legacy_image_loads_with_zero_retention_floors_without_reset (tests.unit.test_event_runtime.EventJournalTests.test_legacy_image_loads_with_zero_retention_floors_without_reset) ... ok
+test_retention_is_bounded_and_deletion_failure_faults (tests.unit.test_event_runtime.EventJournalTests.test_retention_is_bounded_and_deletion_failure_faults) ... ok
+test_revision_replay_and_foreign_future_intent_refused (tests.unit.test_event_runtime.EventJournalTests.test_revision_replay_and_foreign_future_intent_refused) ... ok
+test_store_quota_checked_before_any_intent (tests.unit.test_event_runtime.EventJournalTests.test_store_quota_checked_before_any_intent) ... ok
+test_unsupported_schema_has_explicit_admission_error_and_preserves_bytes (tests.unit.test_event_runtime.EventJournalTests.test_unsupported_schema_has_explicit_admission_error_and_preserves_bytes) ... ok
+test_wrong_world_and_noncanonical_or_unrelated_names_refuse (tests.unit.test_event_runtime.EventJournalTests.test_wrong_world_and_noncanonical_or_unrelated_names_refuse) ... ok
+test_100_restarts_with_full_roster_keep_monotonic_bounded_journal (tests.unit.test_event_runtime.EventRuntimeTests.test_100_restarts_with_full_roster_keep_monotonic_bounded_journal) ... ok
+test_ai_cleanup_reservations_count_until_gone (tests.unit.test_event_runtime.EventRuntimeTests.test_ai_cleanup_reservations_count_until_gone) ... ok
+test_ai_start_intent_is_durable_and_failure_never_claims_cleanup (tests.unit.test_event_runtime.EventRuntimeTests.test_ai_start_intent_is_durable_and_failure_never_claims_cleanup) ... ok
+test_clock_rollback_world_session_and_disabled_preference_refuse (tests.unit.test_event_runtime.EventRuntimeTests.test_clock_rollback_world_session_and_disabled_preference_refuse) ... ok
+test_corrupt_store_blocks_start_and_cannot_fall_back_to_fresh_state (tests.unit.test_event_runtime.EventRuntimeTests.test_corrupt_store_blocks_start_and_cannot_fall_back_to_fresh_state) ... ok
+test_enabled_preference_and_invalid_settings_fail_closed (tests.unit.test_event_runtime.EventRuntimeTests.test_enabled_preference_and_invalid_settings_fail_closed) ... ok
+test_expiry_cancel_and_cleanup_are_idempotent (tests.unit.test_event_runtime.EventRuntimeTests.test_expiry_cancel_and_cleanup_are_idempotent) ... ok
+test_failed_restart_uses_loaded_session_for_confirmed_cleanup (tests.unit.test_event_runtime.EventRuntimeTests.test_failed_restart_uses_loaded_session_for_confirmed_cleanup) ... ok
+test_malformed_or_duplicate_site_configuration_refused (tests.unit.test_event_runtime.EventRuntimeTests.test_malformed_or_duplicate_site_configuration_refused) ... ok
+test_missing_observer_or_ai_disables_without_event_or_spawn (tests.unit.test_event_runtime.EventRuntimeTests.test_missing_observer_or_ai_disables_without_event_or_spawn) ... ok
+test_mission_world_numbers_and_rewards_are_validated (tests.unit.test_event_runtime.EventRuntimeTests.test_mission_world_numbers_and_rewards_are_validated) ... ok
+test_observation_completes_once_with_no_rewards_or_spawning (tests.unit.test_event_runtime.EventRuntimeTests.test_observation_completes_once_with_no_rewards_or_spawning) ... ok
+test_opt_out_disconnect_and_new_connection_need_explicit_join (tests.unit.test_event_runtime.EventRuntimeTests.test_opt_out_disconnect_and_new_connection_need_explicit_join) ... ok
+test_optout_resets_provider_dwell_before_rejoin (tests.unit.test_event_runtime.EventRuntimeTests.test_optout_resets_provider_dwell_before_rejoin) ... ok
+test_participation_requires_native_identity_not_client_id (tests.unit.test_event_runtime.EventRuntimeTests.test_participation_requires_native_identity_not_client_id) ... ok
+test_periodic_dead_handle_disconnects_without_rebinding_respawn (tests.unit.test_event_runtime.EventRuntimeTests.test_periodic_dead_handle_disconnects_without_rebinding_respawn) ... ok
+test_persistence_failure_prevents_publication_and_provider_start (tests.unit.test_event_runtime.EventRuntimeTests.test_persistence_failure_prevents_publication_and_provider_start) ... ok
+test_post_start_save_failure_requests_owned_ai_stop_without_closed_claim (tests.unit.test_event_runtime.EventRuntimeTests.test_post_start_save_failure_requests_owned_ai_stop_without_closed_claim) ... ok
+test_provider_cannot_mutate_owned_runtime_record (tests.unit.test_event_runtime.EventRuntimeTests.test_provider_cannot_mutate_owned_runtime_record) ... ok
+test_provider_reentrant_mutation_is_rejected (tests.unit.test_event_runtime.EventRuntimeTests.test_provider_reentrant_mutation_is_rejected) ... ok
+test_restart_cancels_without_respawn_and_requires_cleanup_confirmation (tests.unit.test_event_runtime.EventRuntimeTests.test_restart_cancels_without_respawn_and_requires_cleanup_confirmation) ... ok
+test_retention_never_discards_unclosed_native_intent (tests.unit.test_event_runtime.EventRuntimeTests.test_retention_never_discards_unclosed_native_intent) ... ok
+test_roster_contains_all_four_noncombat_families_and_optional_ai (tests.unit.test_event_runtime.EventRuntimeTests.test_roster_contains_all_four_noncombat_families_and_optional_ai) ... ok
+test_run_definition_mismatch_refused_before_start (tests.unit.test_event_runtime.EventRuntimeTests.test_run_definition_mismatch_refused_before_start) ... ok
+test_shutdown_cancels_durably_even_when_preference_toggled_off (tests.unit.test_event_runtime.EventRuntimeTests.test_shutdown_cancels_durably_even_when_preference_toggled_off) ... ok
+test_state_and_roster_snapshots_are_immutable_to_callers (tests.unit.test_event_runtime.EventRuntimeTests.test_state_and_roster_snapshots_are_immutable_to_callers) ... ok
+test_terminal_cleanup_reclaims_subscription_capacity (tests.unit.test_event_runtime.EventRuntimeTests.test_terminal_cleanup_reclaims_subscription_capacity) ... ok
+test_wrong_session_lease_participant_and_replay_do_not_progress (tests.unit.test_event_runtime.EventRuntimeTests.test_wrong_session_lease_participant_and_replay_do_not_progress) ... ok
+test_dead_or_deleted_player_never_observed_and_optout_resets_dwell (tests.unit.test_event_runtime.NativeObservationTests.test_dead_or_deleted_player_never_observed_and_optout_resets_dwell) ... ok
+test_delivery_and_static_salvage_use_distinct_locations (tests.unit.test_event_runtime.NativeObservationTests.test_delivery_and_static_salvage_use_distinct_locations) ... ok
+test_dwell_is_continuous_bounded_samples_and_handle_specific (tests.unit.test_event_runtime.NativeObservationTests.test_dwell_is_continuous_bounded_samples_and_handle_specific) ... ok
+test_exact_existing_handle_and_custody_required (tests.unit.test_event_runtime.NativeObservationTests.test_exact_existing_handle_and_custody_required) ... ok
+test_foreign_lease_cannot_observe_and_cleanup_never_deletes_item (tests.unit.test_event_runtime.NativeObservationTests.test_foreign_lease_cannot_observe_and_cleanup_never_deletes_item) ... ok
+test_invalid_target_kind_ruin_owner_and_source_not_admitted (tests.unit.test_event_runtime.NativeObservationTests.test_invalid_target_kind_ruin_owner_and_source_not_admitted) ... ok
+test_same_target_cannot_be_registered_or_leased_twice (tests.unit.test_event_runtime.NativeObservationTests.test_same_target_cannot_be_registered_or_leased_twice) ... ok
+test_completed_objective_roundtrips_real_authored_journal_and_restart (tests.unit.test_v1_events_behavior.V1DurableMission.test_completed_objective_roundtrips_real_authored_journal_and_restart) ... ok
+test_delivery_cannot_claim_someone_elses_item_or_skip_custody (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_delivery_cannot_claim_someone_elses_item_or_skip_custody) ... ERROR
+test_delivery_requires_observed_custody_then_exact_container (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_delivery_requires_observed_custody_then_exact_container) ... ERROR
+test_enrolled_killer_gets_one_lease_bound_observation (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_enrolled_killer_gets_one_lease_bound_observation) ... ERROR
+test_infected_requires_bound_live_actor_and_participant_kill_receipt (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_infected_requires_bound_live_actor_and_participant_kill_receipt) ... ERROR
+test_presence_needs_live_bound_entity_and_area_reach (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_presence_needs_live_bound_entity_and_area_reach) ... ERROR
+test_bounded_source_reviewed_sites_are_not_claimed_surveyed (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_bounded_source_reviewed_sites_are_not_claimed_surveyed) ... ERROR
+test_native_selection_refuses_ambiguity_overflow_player_custody_and_unknown_economy (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_native_selection_refuses_ambiguity_overflow_player_custody_and_unknown_economy) ... ERROR
+test_unqualified_unsurveyed_sites_are_not_admitted (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_unqualified_unsurveyed_sites_are_not_admitted) ... ERROR
+
+======================================================================
+ERROR: test_delivery_cannot_claim_someone_elses_item_or_skip_custody (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_delivery_cannot_claim_someone_elses_item_or_skip_custody)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 59, in test_delivery_cannot_claim_someone_elses_item_or_skip_custody
+    self.o.RegisterContainer(self.mission.Id, self.container)
+    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AuthoredNativeObserver' object has no attribute 'RegisterContainer'
+
+======================================================================
+ERROR: test_delivery_requires_observed_custody_then_exact_container (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_delivery_requires_observed_custody_then_exact_container)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 45, in test_delivery_requires_observed_custody_then_exact_container
+    self.assertTrue(self.o.RegisterContainer(self.mission.Id, self.container))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AuthoredNativeObserver' object has no attribute 'RegisterContainer'
+
+======================================================================
+ERROR: test_enrolled_killer_gets_one_lease_bound_observation (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_enrolled_killer_gets_one_lease_bound_observation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 95, in test_enrolled_killer_gets_one_lease_bound_observation
+    self.o.RegisterInfected(self.mission.Id, infected)
+    ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AuthoredNativeObserver' object has no attribute 'RegisterInfected'
+
+======================================================================
+ERROR: test_infected_requires_bound_live_actor_and_participant_kill_receipt (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_infected_requires_bound_live_actor_and_participant_kill_receipt)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 82, in test_infected_requires_bound_live_actor_and_participant_kill_receipt
+    self.assertTrue(self.o.RegisterInfected(self.mission.Id, infected))
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AuthoredNativeObserver' object has no attribute 'RegisterInfected'
+
+======================================================================
+ERROR: test_presence_needs_live_bound_entity_and_area_reach (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_presence_needs_live_bound_entity_and_area_reach)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 71, in test_presence_needs_live_bound_entity_and_area_reach
+    self.assertTrue(self.o.RegisterPresence(self.mission.Id, landmark))
+                    ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AuthoredNativeObserver' object has no attribute 'RegisterPresence'
+
+======================================================================
+ERROR: test_bounded_source_reviewed_sites_are_not_claimed_surveyed (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_bounded_source_reviewed_sites_are_not_claimed_surveyed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 110, in setUp
+    self.catalog = load_class('HCEventSites.c', 'HCEventSites', self.e)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 15, in load_class
+    source = (ROOT / ('4_World/Events/' + filename)).read_text()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/code/hc-worktrees/v1-events/mods/HollowCountry/scripts/4_World/Events/HCEventSites.c'
+
+======================================================================
+ERROR: test_native_selection_refuses_ambiguity_overflow_player_custody_and_unknown_economy (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_native_selection_refuses_ambiguity_overflow_player_custody_and_unknown_economy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 110, in setUp
+    self.catalog = load_class('HCEventSites.c', 'HCEventSites', self.e)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 15, in load_class
+    source = (ROOT / ('4_World/Events/' + filename)).read_text()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/code/hc-worktrees/v1-events/mods/HollowCountry/scripts/4_World/Events/HCEventSites.c'
+
+======================================================================
+ERROR: test_unqualified_unsurveyed_sites_are_not_admitted (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_unqualified_unsurveyed_sites_are_not_admitted)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 110, in setUp
+    self.catalog = load_class('HCEventSites.c', 'HCEventSites', self.e)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 15, in load_class
+    source = (ROOT / ('4_World/Events/' + filename)).read_text()
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1029, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1015, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/code/hc-worktrees/v1-events/mods/HollowCountry/scripts/4_World/Events/HCEventSites.c'
+
+----------------------------------------------------------------------
+Ran 55 tests in 13.798s
+
+FAILED (errors=8)

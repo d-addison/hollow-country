@@ -1,0 +1,48 @@
+test_completed_objective_roundtrips_real_authored_journal_and_restart (tests.unit.test_v1_events_behavior.V1DurableMission.test_completed_objective_roundtrips_real_authored_journal_and_restart) ... ok
+test_kill_callback_only_attributes_current_joined_mission (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_kill_callback_only_attributes_current_joined_mission) ... ok
+test_late_roster_discovery_never_reannounces_current_terminal_missions (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_late_roster_discovery_never_reannounces_current_terminal_missions) ... ERROR
+test_menu_displays_server_briefing_and_rejects_unbounded_details (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_menu_displays_server_briefing_and_rejects_unbounded_details) ... ok
+test_module_qualification_rejection_never_starts_runtime_or_rpc (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_module_qualification_rejection_never_starts_runtime_or_rpc) ... ok
+test_projection_carries_site_and_objective_instructions_without_identity (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_projection_carries_site_and_objective_instructions_without_identity) ... ok
+test_qualification_default_closed_and_marker_cached_once_per_process (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_qualification_default_closed_and_marker_cached_once_per_process) ... ok
+test_delivery_cannot_claim_someone_elses_item_or_skip_custody (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_delivery_cannot_claim_someone_elses_item_or_skip_custody) ... ok
+test_delivery_requires_observed_custody_then_exact_container (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_delivery_requires_observed_custody_then_exact_container) ... ok
+test_enrolled_killer_gets_one_lease_bound_observation (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_enrolled_killer_gets_one_lease_bound_observation) ... ok
+test_infected_requires_bound_live_actor_and_participant_kill_receipt (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_infected_requires_bound_live_actor_and_participant_kill_receipt) ... ok
+test_legacy_delivery_without_container_remains_loadable_but_not_ready (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_legacy_delivery_without_container_remains_loadable_but_not_ready) ... FAIL
+test_presence_needs_live_bound_entity_and_area_reach (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_presence_needs_live_bound_entity_and_area_reach) ... ok
+test_rebinding_unleased_target_does_not_replace_active_lease (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_rebinding_unleased_target_does_not_replace_active_lease) ... ERROR
+test_bounded_source_reviewed_sites_are_not_claimed_surveyed (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_bounded_source_reviewed_sites_are_not_claimed_surveyed) ... ok
+test_native_selection_refuses_ambiguity_overflow_player_custody_and_unknown_economy (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_native_selection_refuses_ambiguity_overflow_player_custody_and_unknown_economy) ... ok
+test_unqualified_unsurveyed_sites_are_not_admitted (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_unqualified_unsurveyed_sites_are_not_admitted) ... ok
+
+======================================================================
+ERROR: test_late_roster_discovery_never_reannounces_current_terminal_missions (tests.unit.test_v1_events_behavior.V1LifecycleAndPresentation.test_late_roster_discovery_never_reannounces_current_terminal_missions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 231, in test_late_roster_discovery_never_reannounces_current_terminal_missions
+    module.RefreshRoster(context)
+  File "authored-event:RefreshRoster", line 7, in executed
+TypeError: list indices must be integers or slices, not float
+
+======================================================================
+ERROR: test_rebinding_unleased_target_does_not_replace_active_lease (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_rebinding_unleased_target_does_not_replace_active_lease)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 111, in test_rebinding_unleased_target_does_not_replace_active_lease
+    self.assertTrue(self.o.ResetUnleasedTarget(self.mission.Id))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'AuthoredNativeObserver' object has no attribute 'ResetUnleasedTarget'
+
+======================================================================
+FAIL: test_legacy_delivery_without_container_remains_loadable_but_not_ready (tests.unit.test_v1_events_behavior.V1NativeObjectives.test_legacy_delivery_without_container_remains_loadable_but_not_ready)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 119, in test_legacy_delivery_without_container_remains_loadable_but_not_ready
+    self.assertTrue(self.e['HCEventRuntimePolicy'].MissionValid(self.mission, 'synthetic_world'))
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 17 tests in 1.306s
+
+FAILED (failures=1, errors=2)

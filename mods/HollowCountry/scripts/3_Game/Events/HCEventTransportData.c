@@ -35,6 +35,7 @@ class HCEventPublicRow
     int Revision = 0;
     int Family = 0;
     string Title;
+    string Briefing;
     int Status = 0;
     int Progress = 0;
     int Goal = 0;

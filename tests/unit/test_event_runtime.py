@@ -53,8 +53,8 @@ def translate(text, name, env, owner=None, member=False):
         if token == "}": indent -= 1; continue
         token = re.sub(r"new array<[^;]+>\(\)", "EArray()", token)
         token = re.sub(r"new (\w+)(?:\(\))?", r"\1()", token)
-        token = re.sub(r"\b(?:ref )?(?:array<[^;]+>|HCEvent\w+|PlayerBase|PlayerIdentity|ItemBase|EntityAI|int|float|bool|string|vector)\s+(?=\w+\s*=)", "", token)
-        bare = re.fullmatch(r"(?:ref )?(int|float|bool|string|vector|HCEvent\w+|PlayerBase|PlayerIdentity|ItemBase) (\w+)", token)
+        token = re.sub(r"\b(?:ref )?(?:array<[^;]+>|HCEvent\w+|PlayerBase|PlayerIdentity|ItemBase|EntityAI|Object|ZombieBase|typename|Class|int|float|bool|string|vector)\s+(?=\w+\s*=)", "", token)
+        bare = re.fullmatch(r"(?:ref )?(int|float|bool|string|vector|HCEvent\w+|PlayerBase|PlayerIdentity|ItemBase|Object|ZombieBase|typename|Class) (\w+)", token)
         if bare:
             token = bare[2] + " = " + {"int": "0", "float": "0.0", "bool": "False", "string": "''", "vector": "[0.,0.,0.]"}.get(bare[1], "None")
         token = token.replace("&&", " and ").replace("||", " or ")
@@ -93,7 +93,10 @@ def translate(text, name, env, owner=None, member=False):
 def environment():
     data = "\n".join(p.read_text() for p in sorted((ROOT / "3_Game/Events").glob("*.c")))
     env = dict(EArray=EArray, len=len, str=str, Print=lambda text: None)
-    env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max)
+    env["HCEventQualification"] = SimpleNamespace(Admitted=lambda: True) # explicit synthetic admission
+    env["Vector"] = lambda x, y, z: [x, y, z]
+    env["PlayerBase"] = SimpleNamespace(Cast=lambda value: value)
+    env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Floor=math.floor)
     env["vector"] = SimpleNamespace(DistanceSq=lambda a, b: sum((a[i]-b[i])**2 for i in range(3)))
     for match in re.finditer(r"enum (\w+)\s*\{([^}]+)\}", data):
         env[match[1]] = SimpleNamespace(**{k: int(v) for k, v in re.findall(r"(\w+)\s*=\s*(\d+)", match[2])})
@@ -109,7 +112,7 @@ def environment():
                 setattr(result, name, default)
             return result
         env[match[1]] = factory
-    for name in ("HCEventDirector", "HCEventRuntimePolicy", "HCEventRoster"):
+    for name in ("HCEventDirector", "HCEventRuntimePolicy", "HCEventRoster", "HCEventSites", "HCEventBriefing"):
         text = (ROOT / ("4_World/Events/" + name + ".c")).read_text()
         env[name] = SimpleNamespace()
         for method in re.findall(r"static (?:void|bool|int|float|string|HCEvent\w+|array<[^>]+>) (\w+)\(", text):
@@ -120,6 +123,7 @@ def environment():
 class Handle:
     def __init__(self, identity="alice", position=None, kind="SyntheticSupply"):
         self.identity = identity; self.position = position or [10., 0., 20.]
+        self.parent = None
         self.kind = kind; self.owner = None; self.alive = True; self.deleted = False; self.ruined = False
     def GetIdentity(self): return self if self.identity else None
     def GetId(self): return self.identity
@@ -129,6 +133,7 @@ class Handle:
     def IsPendingDeletion(self): return self.deleted
     def GetHierarchyRootPlayer(self): return self.owner
     def IsRuined(self): return self.ruined
+    def GetHierarchyParent(self): return self.parent
 
 
 class EventRuntimeTests(unittest.TestCase):
@@ -142,6 +147,7 @@ class EventRuntimeTests(unittest.TestCase):
         self.mission.Id = "supplies"; self.mission.SiteId = "synthetic-site"
         self.mission.WorldName = self.ctx.WorldName; self.mission.Reviewed = True
         self.mission.Family = self.family.RECOVERY; self.mission.ItemClass = "SyntheticSupply"
+        self.mission.ContainerClass = "SyntheticContainer"; self.mission.AnchorClass = "SyntheticSite"
         self.mission.Source = [10., 0., 20.]; self.mission.Destination = [30., 0., 40.]
 
     def state(self):
@@ -219,9 +225,9 @@ class EventRuntimeTests(unittest.TestCase):
     def test_roster_contains_all_four_noncombat_families_and_optional_ai(self):
         site = self.e["HCEventSite"](); site.Id = "reviewed"; site.WorldName = self.ctx.WorldName
         site.Reviewed = True; site.Position = self.mission.Source; site.Destination = self.mission.Destination
-        site.ItemClass = "SyntheticSupply"
+        site.ItemClass = "SyntheticSupply"; site.ContainerClass = "SyntheticContainer"; site.AnchorClass = "SyntheticSite"
         result = self.e["HCEventRoster"].Build(site, True)
-        self.assertEqual({m.Family for m in result}, {1, 2, 3, 4, 5})
+        self.assertEqual({m.Family for m in result}, {1, 2, 3, 4, 5, 6, 7})
         self.assertTrue(all(self.p.MissionValid(m, self.ctx.WorldName) for m in result))
         self.assertTrue(all(m.RewardUnits == 0 for m in result))
         site.Reviewed = False
@@ -318,7 +324,7 @@ class EventRuntimeTests(unittest.TestCase):
         site = self.e["HCEventSite"]()
         site.Id = "retention"; site.WorldName = self.ctx.WorldName; site.Reviewed = True
         site.Position = self.mission.Source; site.Destination = self.mission.Destination
-        site.ItemClass = "SyntheticSupply"
+        site.ItemClass = "SyntheticSupply"; site.ContainerClass = "SyntheticContainer"; site.AnchorClass = "SyntheticSite"
         self.ai.ready = True; self.ai.gone = True
         roster = self.e["HCEventRoster"].Build(site, True)
         last_id = 0
@@ -333,7 +339,7 @@ class EventRuntimeTests(unittest.TestCase):
             self.assertLessEqual(len(r.m_State.Runs), 32)
             self.assertLessEqual(len(r.m_State.Director.Sessions), 33)
             self.assertTrue(self.p.StateValid(self.store.image))
-        self.assertEqual(500, last_id)
+        self.assertEqual(700, last_id)
         self.assertGreater(r.m_State.Director.PrunedThrough, 0)
         # All operations must use durable IDs, rather than array offsets.
         self.assertEqual(0, r.Join(last_id, self.player, self.ctx))
@@ -464,8 +470,8 @@ class NativeObservationTests(unittest.TestCase):
         helper = EventRuntimeTests(); helper.setUp()
         self.e = helper.e; self.mission = helper.mission
         self.e["GetGame"] = lambda: SimpleNamespace(IsServer=lambda: True)
-        for name, fields in (("HCEventTarget", dict(MissionId="", Item=None)),
-                             ("HCEventNativeLease", dict(Lease="", Objective=None, Item=None)),
+        for name, fields in (("HCEventTarget", dict(MissionId="", Item=None, DeliveryContainer=None, Presence=None, Infected=None)),
+                             ("HCEventNativeLease", dict(Lease="", Objective=None, Item=None, DeliveryContainer=None, Presence=None, Infected=None, DeliveredBy=None, KillerId="")),
                              ("HCEventDwell", dict(Lease="", Player=None, Since=0, Last=0))):
             self.e[name] = lambda fields=fields: SimpleNamespace(**fields)
         source = (ROOT / "4_World/Events/HCEventNativeObserver.c").read_text()
@@ -492,9 +498,16 @@ class NativeObservationTests(unittest.TestCase):
         self.assertEqual("session-a", result.Session)
 
     def test_delivery_and_static_salvage_use_distinct_locations(self):
-        self.mission.Family = 2; self.bind(); self.item.owner = self.player
+        self.mission.Family = 2
+        self.assertTrue(self.o.RegisterTarget(self.mission.Id, self.item))
+        container = Handle(identity="", position=[30.,0.,40.], kind="SyntheticContainer")
+        self.assertTrue(self.o.RegisterContainer(self.mission.Id, container))
+        self.assertTrue(self.o.Prepare(self.run.Lease, self.mission)); self.item.owner = self.player
         self.assertIsNone(self.o.Observe(self.run, self.player, 100))
         self.player.position = [30.,0.,40.]
+        self.assertIsNone(self.o.Observe(self.run, self.player, 100))
+        self.item.owner = None; self.item.parent = container
+        self.o.RecordDelivery(self.run.Lease, self.item, self.player, container)
         self.assertTrue(self.o.Observe(self.run, self.player, 100).Observed)
         self.mission.Family = 4
         self.assertIsNone(self.o.Observe(self.run, self.player, 100))
@@ -551,7 +564,9 @@ class EventJournalTests(unittest.TestCase):
                         if isinstance(value, dict):
                             # Native JsonFileLoader creates the DTO with field defaults,
                             # then assigns fields present in the image (legacy seam).
-                            result = env["HCEventState"]() if "NextId" in value else SimpleNamespace()
+                            result = SimpleNamespace()
+                            if "NextId" in value: result = env["HCEventState"]()
+                            if "SiteId" in value and "Family" in value: result = env["HCEventMission"]()
                             for k, v in value.items(): setattr(result, k, restore(v))
                             return result
                         return value
@@ -760,7 +775,9 @@ class EventConfigurationTests(unittest.TestCase):
                     data = json.loads(text)
                     if not isinstance(data, dict): return None
                     result = env["HCEventSettings"]()
-                    for key, value in data.items(): setattr(result, key, EArray(value) if key == "Sites" else value)
+                    for key, value in data.items():
+                        if key == "Sites": value = EArray(SimpleNamespace(**site) for site in value)
+                        setattr(result, key, value)
                     return result
                 except ValueError: return None
         obj = cls(); obj.m_IO = IO(); obj.m_Codec = Codec()
@@ -768,7 +785,7 @@ class EventConfigurationTests(unittest.TestCase):
 
     def test_missing_config_generates_enabled_template_once(self):
         loader, env = self.loader(); cfg = loader.Load()
-        self.assertTrue(cfg.Enabled); self.assertEqual([], cfg.Sites)
+        self.assertTrue(cfg.Enabled); self.assertEqual(2, len(cfg.Sites))
         self.assertEqual(1, loader.m_IO.writes); self.assertTrue(loader.Load().Enabled)
         self.assertEqual(1, loader.m_IO.writes)
 

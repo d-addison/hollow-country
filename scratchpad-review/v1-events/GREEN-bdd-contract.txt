@@ -1,0 +1,6 @@
+test_completion_scenarios_cannot_be_omitted (tests.unit.test_bdd_bindings.BDDBindingsTests.test_completion_scenarios_cannot_be_omitted) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK

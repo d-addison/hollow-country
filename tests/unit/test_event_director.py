@@ -311,3 +311,18 @@ class EventDirectorTests(unittest.TestCase):
         for forbidden in ("GetGame(", "ScriptRPC", "OpenFile(", "CreateObject",
                           "CallLater", "GetInventory(", "JsonFileLoader"):
             self.assertNotIn(forbidden, source)
+
+
+def load_tests(loader, standard_tests, pattern):
+    """Keep the fixed BDD binding while exercising the whole optional-event stack.
+
+    Default full discovery loads these files itself. Only the precise bound
+    event entry point expands here, preventing duplicate full-suite execution.
+    """
+    if pattern == "test_event_director.py":
+        import importlib
+        for name in ("test_event_runtime", "test_event_transport", "test_event_ui",
+                     "test_event_integration", "test_v1_events_behavior"):
+            module = importlib.import_module("tests.unit." + name)
+            standard_tests.addTests(loader.loadTestsFromModule(module))
+    return standard_tests

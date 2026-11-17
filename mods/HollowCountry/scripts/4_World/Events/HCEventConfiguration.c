@@ -42,6 +42,7 @@ class HCEventConfiguration
         else
         {
             settings = new HCEventSettings;
+            settings.Sites = HCEventSites.ChernarusPlus();
             string template = m_Codec.Encode(settings);
             if (!m_IO.WriteNew("settings.json", template, 16384))
             {

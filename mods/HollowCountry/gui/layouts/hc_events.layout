@@ -42,7 +42,7 @@ FrameWidgetClass HCEventRoot {
     }
     TextListboxWidgetClass HCEventRows {
      position 0.03 0.20
-     size 0.94 0.43
+     size 0.94 0.30
      hexactpos 0
      vexactpos 0
      hexactsize 0
@@ -50,8 +50,8 @@ FrameWidgetClass HCEventRoot {
      font "gui/fonts/sdf_MetronBook24"
     }
     MultilineTextWidgetClass HCEventDetail {
-     position 0.03 0.64
-     size 0.94 0.10
+     position 0.03 0.51
+     size 0.94 0.23
      hexactpos 0
      vexactpos 0
      hexactsize 0

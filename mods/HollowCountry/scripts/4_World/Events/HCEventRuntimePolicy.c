@@ -51,6 +51,14 @@ class HCEventRuntimePolicy
             {
                 return false;
             }
+            if (site.ContainerClass.Length() > 96 || site.AnchorClass.Length() > 96 || site.DeliveryClass.Length() > 96 || site.SalvageClass.Length() > 96)
+            {
+                return false;
+            }
+            if (site.Provenance.Length() > 160 || site.SourceSha256.Length() > 64)
+            {
+                return false;
+            }
             if (ids.Find(site.Id) >= 0)
             {
                 return false;
@@ -73,7 +81,7 @@ class HCEventRuntimePolicy
         {
             return false;
         }
-        if (mission.Family < 1 || mission.Family > 5 || mission.RewardUnits != 0)
+        if (mission.Family < 1 || mission.Family > 7 || mission.RewardUnits != 0)
         {
             return false;
         }
@@ -105,7 +113,21 @@ class HCEventRuntimePolicy
         {
             return false;
         }
-        if (mission.Family != HCEventFamily.INVESTIGATION && !HCEventDirector.TextValid(mission.ItemClass, 96))
+        // Empty additive fields in old schema-1 journals remain loadable.
+        // Native Ready still requires the actual bound, matching container.
+        if (mission.ContainerClass.Length() > 96 || mission.AnchorClass.Length() > 96)
+        {
+            return false;
+        }
+        if (mission.Family == HCEventFamily.PRESENCE)
+        {
+            return HCEventDirector.TextValid(mission.AnchorClass, 96);
+        }
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR || mission.Family == HCEventFamily.INVESTIGATION)
+        {
+            return true;
+        }
+        if (!HCEventDirector.TextValid(mission.ItemClass, 96))
         {
             return false;
         }

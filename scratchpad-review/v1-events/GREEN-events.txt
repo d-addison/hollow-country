@@ -1,0 +1,13 @@
+...........................................................F........................................................................................
+======================================================================
+FAIL: test_100_restarts_with_full_roster_keep_monotonic_bounded_journal (test_event_runtime.EventRuntimeTests.test_100_restarts_with_full_roster_keep_monotonic_bounded_journal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_runtime.py", line 342, in test_100_restarts_with_full_roster_keep_monotonic_bounded_journal
+    self.assertEqual(500, last_id)
+AssertionError: 500 != 600
+
+----------------------------------------------------------------------
+Ran 148 tests in 61.552s
+
+FAILED (failures=1)

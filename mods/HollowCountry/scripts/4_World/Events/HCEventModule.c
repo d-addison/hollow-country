@@ -8,6 +8,9 @@ class HCEventModule : HCModule
     protected static ref HCEventModule s_CleanupOwner;
     protected ref HCEventSettings m_Config;
     protected ref HCEventRuntime m_Runtime;
+    protected ref HCEventNativeObserver m_NativeObserver;
+    protected float m_RosterElapsed = 0;
+    protected int m_RosterCursor = 0;
     protected ref HCEventRPC m_EventRPC;
     protected bool m_Stopping = false;
     protected bool m_Quarantined = false;
@@ -32,7 +35,7 @@ class HCEventModule : HCModule
     }
     HCEventAIProvider CreateAIProvider()
     {
-        return new HCEventAIProvider;
+        return HCEventAISelection.Create();
     }
     HCEventNativeObserver CreateObserver()
     {
@@ -40,9 +43,9 @@ class HCEventModule : HCModule
     }
     void BindReviewedTargets(HCEventNativeObserver observer, HCEventSettings settings)
     {
-        // Trusted integration may register exact existing ItemBase handles.
-        // Never search by client class/position or spawn replacement supplies.
+        HCEventWorldBinding.BindSites(observer, settings, Context().WorldName);
     }
+
     HCEventContext Context()
     {
         HCEventContext context = new HCEventContext;
@@ -83,11 +86,15 @@ class HCEventModule : HCModule
         {
             return;
         }
+        if (!HCEventQualification.Admitted()) { return; }
+        m_RosterCursor = 0;
+        m_RosterElapsed = 0;
         m_StartedAt = GetGame().GetTickTime();
         m_Session = "events-" + Math.RandomIntInclusive(1, 1000000000).ToString() + "-" + Math.RandomIntInclusive(1, 1000000000).ToString();
         HCEventContext context = Context();
         HCEventJournal journal = new HCEventJournal(m_Config);
         HCEventNativeObserver observer = CreateObserver();
+        m_NativeObserver = observer;
         HCEventAIProvider ai = CreateAIProvider();
         m_Runtime = new HCEventRuntime;
         if (!m_Runtime.Start(m_Config, context, journal, observer, ai))
@@ -182,7 +189,46 @@ class HCEventModule : HCModule
                 m_EventRPC.Tick();
             }
             m_Runtime.Tick(context);
+            m_RosterElapsed = m_RosterElapsed + deltaTime;
+            if (m_RosterElapsed >= 5)
+            {
+                m_RosterElapsed = 0;
+                RefreshRoster(context);
+            }
         }
+    }
+    void RefreshRoster(HCEventContext context)
+    {
+        if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0) { return; }
+        // One site's one family per five seconds; late CE population can admit
+        // missions without restart. Current-session terminal missions never repeat.
+        int siteIndex = Math.Floor(m_RosterCursor / 7);
+        int family = (m_RosterCursor % 7) + 1;
+        m_RosterCursor = (m_RosterCursor + 1) % (m_Config.Sites.Count() * 7);
+        HCEventSite site = m_Config.Sites[siteIndex];
+        if (!site || site.WorldName != context.WorldName) { return; }
+        array<ref HCEventMission> roster = HCEventRoster.Build(site, true);
+        foreach (HCEventMission mission : roster)
+        {
+            if (mission.Family == family && !m_Runtime.HasMission(mission.Id))
+            {
+                HCEventWorldBinding.Bind(m_NativeObserver, mission);
+                m_Runtime.Announce(mission, context);
+            }
+        }
+    }
+    void ItemLocationChanged(ItemBase item, PlayerBase previousCarrier, EntityAI destination)
+    {
+        if (!m_Runtime || !m_NativeObserver || m_Stopping) { return; }
+        // Every transition revokes an older receipt, even when this actor is
+        // not enrolled. A direct native move from an enrolled actor may renew it.
+        m_NativeObserver.RevokeDelivery(item);
+        m_Runtime.ItemDelivered(item, previousCarrier, destination, Context());
+    }
+    void InfectedKilled(ZombieBase infected, PlayerBase participant)
+    {
+        if (!m_Runtime || !m_NativeObserver || m_Stopping) { return; }
+        m_Runtime.InfectedKilled(infected, participant, Context());
     }
     void PlayerDisconnected(PlayerBase player)
     {
@@ -221,6 +267,7 @@ class HCEventModule : HCModule
                 return;
             }
             m_Runtime = null;
+            m_NativeObserver = null;
         }
         m_Stopping = false;
         m_Quarantined = false;

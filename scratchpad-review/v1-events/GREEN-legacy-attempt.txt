@@ -1,0 +1,124 @@
+...................EEEEEEEEEEE...............................................................................F......................................
+======================================================================
+ERROR: test_100_module_starts_announce_roster_with_bounded_retention (test_event_integration.EventCleanupLifecycleTests.test_100_module_starts_announce_roster_with_bounded_retention)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_busy_stop_disables_admission_and_retains_until_unwound_and_gone (test_event_integration.EventCleanupLifecycleTests.test_busy_stop_disables_admission_and_retains_until_unwound_and_gone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_cleanup_quarantines_after_bounded_retries_and_fresh_start_rechecks_owner (test_event_integration.EventCleanupLifecycleTests.test_cleanup_quarantines_after_bounded_retries_and_fresh_start_rechecks_owner)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_failed_journal_never_reports_closed_even_if_provider_reports_gone (test_event_integration.EventCleanupLifecycleTests.test_failed_journal_never_reports_closed_even_if_provider_reports_gone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_invalid_clock_keeps_original_session_for_later_cleanup (test_event_integration.EventCleanupLifecycleTests.test_invalid_clock_keeps_original_session_for_later_cleanup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_missing_game_retains_without_calling_native_provider_then_recovers (test_event_integration.EventCleanupLifecycleTests.test_missing_game_retains_without_calling_native_provider_then_recovers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_new_registry_instance_cannot_abandon_previous_cleanup_owner (test_event_integration.EventCleanupLifecycleTests.test_new_registry_instance_cannot_abandon_previous_cleanup_owner)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_observer_release_refusal_is_retained_like_ai_absence (test_event_integration.EventCleanupLifecycleTests.test_observer_release_refusal_is_retained_like_ai_absence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_quarantined_cleanup_completes_when_slow_confirmation_arrives (test_event_integration.EventCleanupLifecycleTests.test_quarantined_cleanup_completes_when_slow_confirmation_arrives)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_stop_request_return_value_and_status_require_confirmed_cleanup (test_event_integration.EventCleanupLifecycleTests.test_stop_request_return_value_and_status_require_confirmed_cleanup)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+ERROR: test_unconfirmed_ai_stop_retains_owner_and_retries_without_new_groups (test_event_integration.EventCleanupLifecycleTests.test_unconfirmed_ai_stop_retains_owner_and_retries_without_new_groups)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_integration.py", line 391, in setUp
+    self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.module.Context()))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:Announce", line 15, in executed
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Ready'
+
+======================================================================
+FAIL: test_public_projection_has_no_accounts_positions_items_or_internal_refs (test_event_transport.EventTransportTests.test_public_projection_has_no_accounts_positions_items_or_internal_refs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_event_transport.py", line 208, in test_public_projection_has_no_accounts_positions_items_or_internal_refs
+    self.assertEqual({"EventId","Revision","Family","Title","Status","Progress","Goal",
+AssertionError: Items in the second set but not the first:
+'Briefing'
+
+----------------------------------------------------------------------
+Ran 148 tests in 22.393s
+
+FAILED (failures=1, errors=11)

@@ -1,0 +1,14 @@
+test_settings_rejects_oversized_binding_and_provenance_fields (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_settings_rejects_oversized_binding_and_provenance_fields) ... FAIL
+
+======================================================================
+FAIL: test_settings_rejects_oversized_binding_and_provenance_fields (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_settings_rejects_oversized_binding_and_provenance_fields)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 195, in test_settings_rejects_oversized_binding_and_provenance_fields
+    self.assertFalse(policy.SettingsValid(broken), field)
+AssertionError: True is not false : ContainerClass
+
+----------------------------------------------------------------------
+Ran 1 test in 0.050s
+
+FAILED (failures=1)

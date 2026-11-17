@@ -279,6 +279,50 @@ class HCEventRuntime
         }
         return HCEventCode.OK;
     }
+    bool HasMission(string missionId)
+    {
+        foreach (HCEventRecord record : m_State.Director.Records)
+        {
+            if (record.Session == m_State.Director.Session && record.Definition.Id == missionId) { return true; }
+        }
+        return false;
+    }
+    void ItemDelivered(ItemBase item, PlayerBase participant, EntityAI destination, HCEventContext context)
+    {
+        if (!Allowed(context) || !item) { return; }
+        string identity = HCEventNativeObserver.Identity(participant);
+        if (identity == "") { return; }
+        foreach (HCEventSubscription sub : m_Subscriptions)
+        {
+            if (sub.Player == participant && sub.ParticipantId == identity)
+            {
+                HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
+                HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
+                if (record.Status == HCEventStatus.ACTIVE && context.Now < record.Expires && run.Objective.Family == HCEventFamily.DELIVERY)
+                {
+                    m_Observer.RecordDelivery(run.Lease, item, participant, destination);
+                }
+            }
+        }
+    }
+    void InfectedKilled(ZombieBase infected, PlayerBase participant, HCEventContext context)
+    {
+        if (!Allowed(context) || !infected || infected.IsAlive()) { return; }
+        string identity = HCEventNativeObserver.Identity(participant);
+        if (identity == "") { return; }
+        foreach (HCEventSubscription sub : m_Subscriptions)
+        {
+            if (sub.Player == participant && sub.ParticipantId == identity)
+            {
+                HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
+                HCEventRun run = m_State.Runs[sub.EventId - m_State.Director.PrunedThrough - 1];
+                if (record.Status == HCEventStatus.ACTIVE && context.Now < record.Expires && run.Objective.Family == HCEventFamily.INFECTED_CLEAR)
+                {
+                    m_Observer.RecordKill(run.Lease, infected, identity);
+                }
+            }
+        }
+    }
     int Binding(int id, PlayerBase player)
     {
         int index = 0;

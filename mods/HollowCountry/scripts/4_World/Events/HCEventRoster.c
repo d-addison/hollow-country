@@ -5,12 +5,12 @@ class HCEventRoster
     static array<ref HCEventMission> Build(HCEventSite site, bool includeAI)
     {
         array<ref HCEventMission> result = new array<ref HCEventMission>();
-        if (!site || !site.Reviewed)
+        if (!site || !site.Reviewed || (!site.Surveyed && !HCEventQualification.Admitted()))
         {
             return result;
         }
         int family = 1;
-        while (family <= 5)
+        while (family <= 7)
         {
             HCEventMission mission = new HCEventMission;
             mission.Id = site.Id + "-" + family.ToString();
@@ -21,6 +21,16 @@ class HCEventRoster
             mission.Source = site.Position;
             mission.Destination = site.Destination;
             mission.ItemClass = site.ItemClass;
+            mission.ContainerClass = site.ContainerClass;
+            mission.AnchorClass = site.AnchorClass;
+            if (family == HCEventFamily.DELIVERY && site.DeliveryClass != "")
+            {
+                mission.ItemClass = site.DeliveryClass;
+            }
+            if (family == HCEventFamily.STATIC_SALVAGE && site.SalvageClass != "")
+            {
+                mission.ItemClass = site.SalvageClass;
+            }
             if (family == HCEventFamily.AI_ENCOUNTER)
             {
                 mission.ActorBudget = 2;

@@ -1,0 +1,12 @@
+test_authored_conditions_do_not_continue_with_a_leading_logical_operator (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_authored_conditions_do_not_continue_with_a_leading_logical_operator) ... ok
+test_authored_enum_members_are_referenced_through_their_enum (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_authored_enum_members_are_referenced_through_their_enum) ... ok
+test_authored_float_limits_use_native_constants_not_exponent_literals (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_authored_float_limits_use_native_constants_not_exponent_literals) ... ok
+test_detector_flags_the_observed_rejected_continuation (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_detector_flags_the_observed_rejected_continuation) ... ok
+test_detector_flags_the_observed_unqualified_enum_member (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_detector_flags_the_observed_unqualified_enum_member) ... ok
+test_override_detector_flags_the_observed_renamed_parameters (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_override_detector_flags_the_observed_renamed_parameters) ... ok
+test_override_parameter_names_match_an_installed_engine_prototype (tests.unit.test_script_syntax.ScriptSyntaxBehavior.test_override_parameter_names_match_an_installed_engine_prototype) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 1.635s
+
+OK

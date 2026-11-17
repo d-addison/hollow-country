@@ -1,0 +1,14 @@
+test_native_query_rejects_nonfinite_or_oversized_inputs_before_engine_call (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_native_query_rejects_nonfinite_or_oversized_inputs_before_engine_call) ... FAIL
+
+======================================================================
+FAIL: test_native_query_rejects_nonfinite_or_oversized_inputs_before_engine_call (tests.unit.test_v1_events_behavior.V1SiteAndBinding.test_native_query_rejects_nonfinite_or_oversized_inputs_before_engine_call)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-events/tests/unit/test_v1_events_behavior.py", line 194, in test_native_query_rejects_nonfinite_or_oversized_inputs_before_engine_call
+    self.assertIsNone(binder.Query(anchor, radius))
+AssertionError: [] is not None
+
+----------------------------------------------------------------------
+Ran 1 test in 0.061s
+
+FAILED (failures=1)
