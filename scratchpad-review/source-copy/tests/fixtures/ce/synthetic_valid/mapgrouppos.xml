@@ -1,0 +1,6 @@
+<!-- Invented positions; not a map location or installed-building proof. -->
+<map>
+  <group name="SyntheticHouse" pos="10 0 20" rpy="0 0 0" a="0"/>
+  <group name="SyntheticHouse" pos="30 0 40" rpy="0 0 0" a="90"/>
+  <group name="SyntheticEmpty" pos="50 0 60"/>
+</map>

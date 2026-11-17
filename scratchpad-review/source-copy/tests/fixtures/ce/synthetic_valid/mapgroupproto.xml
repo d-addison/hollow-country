@@ -1,0 +1,7 @@
+<!-- All names and coordinates are synthetic. Raw points are not eligibility. -->
+<prototype>
+  <defaults><default name="group" lootmax="6"/></defaults>
+  <group name="SyntheticHouse" lootmax="0"><container name="floor" lootmax="0"><point pos="-1 0 2" range="0.5" height="1"/><point pos="1 0 2"/></container><container name="shelf"><point pos="0 1 0"/></container></group>
+  <group name="SyntheticEmpty"><container name="empty"/></group>
+  <group name="SyntheticUnplaced"><container name="floor"><point pos="0 0 0"/></container></group>
+</prototype>

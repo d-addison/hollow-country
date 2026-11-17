@@ -1,0 +1,4 @@
+# Synthetic authoritative catalog for tests only; not installed engine evidence.
+SyntheticApple
+SyntheticTool
+SyntheticModItem
