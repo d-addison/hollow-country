@@ -15,6 +15,8 @@ RED: Ran 10 tests, FAILED (failures=5, errors=2).
 GREEN: test_probe_runtime + test_ce_probe + test_taped_light_probe, Ran 172 tests, OK. The PS1 parses
 with no errors under Windows PowerShell 5.1, and the extracted Test-CompileRefused gave
 taped-light-probe-002 True, taped-light-probe-003 False and ce-probe-001 False on the real profiles.
+Weather purpose row (issue 35): LauncherKindTableTests RED Ran 5 tests, FAILED (errors=1) (KeyError
+'weather-probe'); GREEN Ran 5 tests, OK.
 """
 import json
 import os
@@ -655,6 +657,12 @@ class LauncherKindTableTests(unittest.TestCase):
                          rt.LAUNCHER_PROBES["weather-probe"])
         self.assertEqual(("interior-sampler-plan.json", "HCInteriorSampler", "census.json"),
                          rt.LAUNCHER_PROBES["interior-sampler"])
+
+    def test_weather_probe_has_its_own_generated_hook_purpose(self):
+        self.assertEqual(("disposable-weather-probe", None,
+                          ["server mode", "fresh storage and profiles", "no clients",
+                           "inspect observation completeness separately from startup"]),
+                         dm._PURPOSES["weather-probe"])
 
     def test_every_kind_has_distinct_plan_and_profile_directory(self):
         plans = [row[0] for row in rt.LAUNCHER_PROBES.values()]
