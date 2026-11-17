@@ -158,7 +158,8 @@ def _publish_report(path, report, budget):
 
 def _disabled_settings():
     result=dict(SchemaVersion=1,TickIntervalMs=1000,MaxTickWorkItems=32,
-        MaxActiveHordes=2,MaxActiveHordeMembers=24,MaxActiveInteriors=12,MaxPropsPerInterior=5)
+        MaxActiveHordes=2,MaxActiveHordeMembers=24,MaxActiveInteriors=12,MaxPropsPerInterior=5,
+        MaxFurnishedProps=1500,MaxBoundSearchSites=256,InfectedBindRadius=30,MaxBindQueriesPerTick=2)
     result.update({flag:False for flag in FLAGS})
     if validate_settings(result): raise ValueError('disabled settings contract changed')
     return fuel._encode(result)

@@ -13,5 +13,9 @@
   "MaxActiveHordes": 2,
   "MaxActiveHordeMembers": 24,
   "MaxActiveInteriors": 12,
-  "MaxPropsPerInterior": 5
+  "MaxPropsPerInterior": 5,
+  "MaxFurnishedProps": 1500,
+  "MaxBoundSearchSites": 256,
+  "InfectedBindRadius": 30,
+  "MaxBindQueriesPerTick": 2
 }

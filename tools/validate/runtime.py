@@ -8,7 +8,9 @@ FLAGS = {'EnableInteriors', 'EnableSearch', 'EnableCrafting', 'EnableInfected',
          'EnableHordes', 'EnableAlertChains', 'EnableGroups', 'EnableAtmosphere'}
 LIMITS = {'TickIntervalMs': (500, 10000), 'MaxTickWorkItems': (1, 256),
           'MaxActiveHordes': (1, 8), 'MaxActiveHordeMembers': (1, 64),
-          'MaxActiveInteriors': (1, 32), 'MaxPropsPerInterior': (1, 20)}
+          'MaxActiveInteriors': (1, 32), 'MaxPropsPerInterior': (1, 20),
+          'MaxFurnishedProps': (0, 2000), 'MaxBoundSearchSites': (1, 1024),
+          'InfectedBindRadius': (5, 60), 'MaxBindQueriesPerTick': (1, 8)}
 
 def validate_settings(value):
     if not isinstance(value, dict):

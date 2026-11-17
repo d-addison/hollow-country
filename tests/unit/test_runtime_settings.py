@@ -63,8 +63,10 @@ class RuntimeSettingsTests(unittest.TestCase):
 
     def test_zero_negative_unbounded_and_nonintegral_budgets_fail(self):
         for key in self.value:
-            if key.startswith(('Max', 'Tick')):
+            if key.startswith(('Max', 'Tick', 'Infected')):
                 for bad in (-1, 0, True, 1.5, '10', 100000000):
+                    if bad == 0 and key == 'MaxFurnishedProps' and bad is not True:
+                        continue
                     self.assertTrue(validate_settings(dict(self.value, **{key: bad})), (key, bad))
 
     def test_search_requires_interiors_and_hordes_chains_require_infected(self):
@@ -76,6 +78,29 @@ class RuntimeSettingsTests(unittest.TestCase):
         for key in changed:
             if key.startswith('Enable'): changed[key] = True
         self.assertEqual([], validate_settings(changed))
+
+    def test_interior_template_budgets_ship_with_contract_defaults_and_bounds(self):
+        # docs/INTERIOR_TEMPLATES_CONTRACT.md section 8: lead-owned budgets for the building fan-out.
+        expected = {'MaxFurnishedProps': (1500, 0, 2000), 'MaxBoundSearchSites': (256, 1, 1024),
+                    'InfectedBindRadius': (30, 5, 60), 'MaxBindQueriesPerTick': (2, 1, 8)}
+        from tools.validate.runtime import LIMITS
+        for key, (default, low, high) in expected.items():
+            self.assertEqual(default, self.value.get(key), key)
+            self.assertEqual((low, high), LIMITS.get(key), key)
+            self.assertEqual([], validate_settings(dict(self.value, **{key: low})), key)
+            self.assertEqual([], validate_settings(dict(self.value, **{key: high})), key)
+            self.assertTrue(validate_settings(dict(self.value, **{key: low - 1})), key)
+            self.assertTrue(validate_settings(dict(self.value, **{key: high + 1})), key)
+
+    def test_native_int_defaults_and_bounds_match_the_operator_validator(self):
+        from tools.validate.runtime import LIMITS
+        source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
+        defaults = {k: int(v) for k, v in re.findall(r'^\s*int (\w+) = (-?\d+);', source, re.M)}
+        bounds = {k: (int(a), int(b)) for k, a, k2, b in
+                  re.findall(r'if \((\w+) < (-?\d+) \|\| (\w+) > (-?\d+)\)', source)}
+        for key, (low, high) in LIMITS.items():
+            self.assertEqual(self.value[key], defaults.get(key), key)
+            self.assertEqual((low, high), bounds.get(key), key)
 
     def test_native_startup_selftest_agrees_with_enabled_defaults_and_dependency_rejection(self):
         source=(ROOT/'mods/HollowCountry/scripts/4_World/Core/HCNativeSelfTests.c').read_text()

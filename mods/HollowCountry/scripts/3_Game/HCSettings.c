@@ -41,6 +41,10 @@ class HCSettings
     int MaxActiveHordeMembers = 24;
     int MaxActiveInteriors = 12;
     int MaxPropsPerInterior = 5;
+    int MaxFurnishedProps = 1500;
+    int MaxBoundSearchSites = 256;
+    int InfectedBindRadius = 30;
+    int MaxBindQueriesPerTick = 2;
 
     bool Validate(out string error)
     {
@@ -52,6 +56,10 @@ class HCSettings
         else if (MaxActiveHordeMembers < 1 || MaxActiveHordeMembers > 64) error = "Member budget outside 1..64";
         else if (MaxActiveInteriors < 1 || MaxActiveInteriors > 32) error = "Interior budget outside 1..32";
         else if (MaxPropsPerInterior < 1 || MaxPropsPerInterior > 20) error = "Prop budget outside 1..20";
+        else if (MaxFurnishedProps < 0 || MaxFurnishedProps > 2000) error = "Furnished prop budget outside 0..2000";
+        else if (MaxBoundSearchSites < 1 || MaxBoundSearchSites > 1024) error = "Bound search site budget outside 1..1024";
+        else if (InfectedBindRadius < 5 || InfectedBindRadius > 60) error = "Infected bind radius outside 5..60";
+        else if (MaxBindQueriesPerTick < 1 || MaxBindQueriesPerTick > 8) error = "Bind query budget outside 1..8";
         else if (EnableSearch && !EnableInteriors) error = "Search requires interiors";
         else if ((EnableHordes || EnableAlertChains) && !EnableInfected) error = "Hordes/chains require infected";
         return error == "";
