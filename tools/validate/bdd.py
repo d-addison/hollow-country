@@ -13,6 +13,22 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Display bounded native stamina and carried-weight samples": (
+        ("Given synthetic cached native load and stamina samples with widget collaborators",
+         "When the authored stamina HUD sampling and display methods execute",
+         "Then weight and stamina remain separate and hidden or invalid samples cannot display stale data"), "test_stamina_hud.py"),
+    "Track optional event progress only from admitted observations": (
+        ("Given synthetic event definitions opted participants and ordered server observations",
+         "When the authored bounded event director policies execute",
+         "Then invalid transitions and replay cannot complete objectives or grant unimplemented rewards"), "test_event_director.py"),
+    "Admit complete item export manifests without upgrading metadata to compatibility": (
+        ("Given synthetic pinned item manifests and contiguous bounded configuration chunks",
+         "When the strict item export consumer executes",
+         "Then broken coverage and unsafe inputs fail while eligibility remains unqualified"), "test_item_compatibility_manifest.py"),
+    "Prepare bounded infected death observations without claiming rendered physics": (
+        ("Given synthetic native interfaces stock missions and correlated result receipts",
+         "When the infected death diagnostic preparation and result checks execute",
+         "Then missing cleanup incomplete cases and outer timeouts cannot qualify the observation"), "test_infected_death_probe.py"),
     "Build weather candidates without silently changing native defaults": (
         ("Given synthetic native weather XML and explicit pinned operator profiles",
          "When the bounded atmosphere candidate generator and validator execute",

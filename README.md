@@ -66,8 +66,8 @@ tools and any finite wreck supplies remain part of the audit.
 
 **Planned · Phase 2: improvised light mounts.** Use duct tape to attach a
 flashlight to a suitable gun, backpack or helmet, keeping your hands available.
-Peel the light off by hand when you need it elsewhere. Removal consumes the tape;
-mounting it again needs fresh tape.
+Peel the light off by hand when you need it elsewhere. Mounting consumes the tape;
+removing the light does not recover it, and mounting again needs fresh tape.
 Supported combinations need a useful beam direction, working battery and switch,
 and sensible attachment/removal and wear. Existing item geometry will determine
 which combinations can work properly.
@@ -167,9 +167,11 @@ captured and verified.
 ## Where we are
 
 Experimental search and interior systems, salvage prototypes and infected clue
-and alert logic exist. Some code has compiled and initialized in a real DayZ
-server. Full inventory recovery, navigation, audio, multiplayer behavior, balance
-and performance still need qualification.
+and alert logic exist. Group navigation, separate weight and stamina displays,
+optional-event rules and fuel-transfer prototypes are also being built. These
+systems are still disabled or isolated for testing. Some code has compiled and
+initialized in a real DayZ server. Full inventory recovery, navigation, audio,
+multiplayer behavior, balance and performance still need qualification.
 
 Every area requires a full audit of relevant existing content and behavior.
 Pilots are checkpoints: a feature finishes only when its agreed scope is

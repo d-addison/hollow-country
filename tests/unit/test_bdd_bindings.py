@@ -19,6 +19,10 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Display bounded native stamina and carried-weight samples': 'test_stamina_hud.py',
+            'Track optional event progress only from admitted observations': 'test_event_director.py',
+            'Admit complete item export manifests without upgrading metadata to compatibility': 'test_item_compatibility_manifest.py',
+            'Prepare bounded infected death observations without claiming rendered physics': 'test_infected_death_probe.py',
             'Build weather candidates without silently changing native defaults': 'test_atmosphere.py',
             'Retain every audited class in the flashlight candidate denominator': 'test_flashlight_matrix.py',
             'Read consistent bounded UTC snapshots for group expiry': 'test_group_clock.py',

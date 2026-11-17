@@ -29,6 +29,11 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [Group UTC clock](unit/test_group_clock.py) | Actual authored calendar/sampling methods across midnight, invalid dates and rollback; signed epoch limits remain tracked. |
 | [Group fixture runner](unit/test_group_native_checks.py) | Opt-in synthetic policy fixtures and failure/completion-marker behavior; native VM results are recorded separately. |
 | [Stamina integration](unit/test_stamina_integration.py) | Disabled fallback, bounded settings, authority and inputs passed to the native stamina handler; no connected-client prediction or HUD proof. |
+| [Stamina HUD](unit/test_stamina_hud.py) | Separate weight/stamina samples, native HUD-hide flags, reference bounds and lifecycle with synthetic widgets; no rendered viewport proof. |
+| [Event director](unit/test_event_director.py) | Bounded opt-in participation, server observations, replay/transition limits and blocked unimplemented rewards; no live mission or AI delivery. |
+| [Item manifest reader](unit/test_item_compatibility_manifest.py) | Strict pinned contiguous export/coverage admission and hostile file controls; POSIX input opening fails closed on unsupported platforms. |
+| [Fuel action](unit/test_siphon_fuel_action.py) | Server authority, leases, one-shot diagnostic debit/credit and mismatch refusal with synthetic native collaborators; no durable native fluid transaction proof. |
+| [Infected death probe](unit/test_infected_death_probe.py) | Five-case mission preparation, result correlation, observed cleanup and timeout refusal; no rendered ragdoll or loot/replication acceptance. |
 | [Automation planning](unit/test_automation.py) | Portable criteria, explicit capabilities and planning-only status; no gameplay execution or automatic acceptance. |
 | [Benchmark comparison](unit/test_benchmark.py) | Synthetic repeated pairs, compatible contexts, explicit budgets and incomplete evidence. |
 | [Evidence admission](unit/test_evidence.py) | Manifest requirements, artifact hashes/paths and unsupported capability promotions. |

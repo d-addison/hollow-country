@@ -395,7 +395,14 @@ def write_candidate(destination, files):
 
 def validate_candidate(candidate, source=None):
     candidate = _safe_path(candidate)
-    if not candidate.is_dir() or {path.name for path in candidate.iterdir()} != FILES:
+    if not candidate.is_dir():
+        raise ValueError('incomplete/unexpected candidate contents')
+    names = set()
+    for path in candidate.iterdir():
+        if path.name not in FILES or path.name in names or len(names) >= len(FILES):
+            raise ValueError('incomplete/unexpected candidate contents')
+        names.add(path.name)
+    if names != FILES:
         raise ValueError('incomplete/unexpected candidate contents')
     files = {name: _read(candidate/name, MAX_XML_BYTES if name == 'cfgweather.xml' else MAX_JSON_BYTES) for name in FILES}
     report = _validate_files(files)

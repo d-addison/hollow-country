@@ -219,6 +219,17 @@ class AtmosphereTests(unittest.TestCase):
         a.write_candidate(dest,self.generate())
         self.assertTrue((dest/'cfgweather.xml').is_file())
 
+    def test_unexpected_entry_rejected_before_further_directory_enumeration(self):
+        def entries():
+            yield Path('unexpected')
+            raise AssertionError('continued enumeration after unexpected entry')
+        directory = mock.Mock()
+        directory.is_dir.return_value = True
+        directory.iterdir.side_effect = entries
+        with mock.patch.object(a, '_safe_path', return_value=directory):
+            with self.assertRaises(ValueError):
+                a.validate_candidate('synthetic')
+
     def test_cli_generate_validate_and_refuse_overwrite(self):
         p=self.root/'profile.json';p.write_bytes(a.encode(self.profile));dest=self.root/'cli'
         tool=Path(a.__file__)

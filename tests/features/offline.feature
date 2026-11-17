@@ -211,3 +211,27 @@ Feature: Research tooling preserves honest evidence
     Given synthetic group DTO fixtures and a fixed step budget
     When the authored opt-in group check runner executes through offline adapters
     Then every operation and rejection must pass before a completion marker is emitted
+
+  @phase2 @offline
+  Scenario: Display bounded native stamina and carried-weight samples
+    Given synthetic cached native load and stamina samples with widget collaborators
+    When the authored stamina HUD sampling and display methods execute
+    Then weight and stamina remain separate and hidden or invalid samples cannot display stale data
+
+  @phase2 @offline
+  Scenario: Track optional event progress only from admitted observations
+    Given synthetic event definitions opted participants and ordered server observations
+    When the authored bounded event director policies execute
+    Then invalid transitions and replay cannot complete objectives or grant unimplemented rewards
+
+  @phase2 @offline
+  Scenario: Admit complete item export manifests without upgrading metadata to compatibility
+    Given synthetic pinned item manifests and contiguous bounded configuration chunks
+    When the strict item export consumer executes
+    Then broken coverage and unsafe inputs fail while eligibility remains unqualified
+
+  @phase2 @offline
+  Scenario: Prepare bounded infected death observations without claiming rendered physics
+    Given synthetic native interfaces stock missions and correlated result receipts
+    When the infected death diagnostic preparation and result checks execute
+    Then missing cleanup incomplete cases and outer timeouts cannot qualify the observation

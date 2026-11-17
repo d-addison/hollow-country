@@ -80,6 +80,21 @@ powered candidates and 47,888 pairs. These include ambiguous/base definitions;
 they are not 584 supported mounts. Hand removal, consumed tape and fresh tape
 on every remount remain explicit pending requirements.
 
+Validate an exported run before using its rows:
+
+```sh
+python3 -B -m tools.audit.item_compatibility --manifest PATH_TO_MANIFEST --expect-manifest-sha256 SHA256
+```
+
+The reader verifies strict JSON, root/chunk identities, contiguous enumeration,
+class/non-class denominators, partial-state consistency and bounded regular files.
+Its report hashes the exact manifest and chunks it consumed; the optional hash
+pins the manifest to a previously recorded value. Secure file opening currently
+requires POSIX support and refuses unsupported platforms. Exit 0 means complete
+metadata enumeration, not compatible items or finished gameplay. Raw files stay
+outside Git. Run 035's pinned manifest and all 15 chunks passed this reader;
+rehashed rows retained all 7,389 classes and all 47,888 candidate light pairs.
+
 ## Central Economy audit
 
 Run from the project root with Python 3.11+; only the standard library is used:
