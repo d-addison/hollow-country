@@ -6,7 +6,7 @@ class HCEventTarget
 class HCEventNativeLease
 {
     string Lease;
-    ref HCEventMission Mission;
+    ref HCEventMission Objective;
     ItemBase Item;
 }
 class HCEventDwell
@@ -122,7 +122,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         HCEventNativeLease binding = new HCEventNativeLease;
         binding.Lease = lease;
-        binding.Mission = mission;
+        binding.Objective = mission;
         if (mission.Family != HCEventFamily.INVESTIGATION)
         {
             binding.Item = Target(mission.Id).Item;
@@ -163,11 +163,11 @@ class HCEventNativeObserver : HCEventObjectiveProvider
                 selected = binding;
             }
         }
-        if (!selected || selected.Mission.Id != run.Mission.Id)
+        if (!selected || selected.Objective.Id != run.Objective.Id)
         {
             return null;
         }
-        HCEventMission mission = selected.Mission;
+        HCEventMission mission = selected.Objective;
         bool observed = false;
         if (mission.Family == HCEventFamily.INVESTIGATION)
         {

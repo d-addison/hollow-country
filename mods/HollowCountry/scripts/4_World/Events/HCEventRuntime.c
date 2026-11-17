@@ -117,7 +117,7 @@ class HCEventRuntime
         {
             if (run.ProviderIntent && run.Phase != HCEventRunPhase.CLOSED)
             {
-                if (run.Mission.Family == HCEventFamily.AI_ENCOUNTER)
+                if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
                 {
                     m_AI.Stop(run.Lease);
                 }
@@ -166,7 +166,7 @@ class HCEventRuntime
         {
             if (existing.Phase != HCEventRunPhase.CLOSED)
             {
-                reservedActors = reservedActors + existing.Mission.ActorBudget;
+                reservedActors = reservedActors + existing.Objective.ActorBudget;
             }
         }
         if (reservedActors > 64)
@@ -202,7 +202,7 @@ class HCEventRuntime
         HCEventRun run = new HCEventRun;
         run.EventId = candidate.Director.NextId - 1;
         run.Lease = context.Session + ":" + run.EventId.ToString();
-        run.Mission = mission;
+        run.Objective = mission;
         run.ProviderIntent = true;
         candidate.Runs.Insert(run);
         if (Operation(candidate, run.EventId, HCEventOp.ANNOUNCE, "", context) != HCEventCode.OK)
@@ -219,13 +219,13 @@ class HCEventRuntime
         run = m_State.Runs[run.EventId - 1];
         m_Busy = true;
         bool started = false;
-        if (run.Mission.Family == HCEventFamily.AI_ENCOUNTER)
+        if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            started = m_AI.Start(run.Lease, context.Session, run.Mission.Id, run.Mission.Source, run.Mission.ActorBudget);
+            started = m_AI.Start(run.Lease, context.Session, run.Objective.Id, run.Objective.Source, run.Objective.ActorBudget);
         }
         else
         {
-            started = m_Observer.Prepare(run.Lease, m_Store.Clone(m_State).Runs[run.EventId - 1].Mission);
+            started = m_Observer.Prepare(run.Lease, m_Store.Clone(m_State).Runs[run.EventId - 1].Objective);
         }
         m_Busy = false;
         if (!started)
@@ -365,7 +365,7 @@ class HCEventRuntime
         }
         m_Busy = true;
         bool gone = false;
-        if (run.Mission.Family == HCEventFamily.AI_ENCOUNTER)
+        if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
             m_AI.Stop(run.Lease);
             gone = m_AI.Gone(run.Lease);
@@ -397,7 +397,7 @@ class HCEventRuntime
         }
         m_Busy = true;
         HCEventObjectiveEvidence evidence;
-        if (run.Mission.Family == HCEventFamily.AI_ENCOUNTER)
+        if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
             evidence = m_AI.Observe(run.Lease, sub.Player);
         }

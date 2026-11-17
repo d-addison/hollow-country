@@ -327,9 +327,9 @@ class EventRuntimeTests(unittest.TestCase):
 
     def test_state_and_roster_snapshots_are_immutable_to_callers(self):
         r = self.active(); self.mission.Goal = 99
-        self.assertEqual(1, r.m_State.Runs[0].Mission.Goal)
-        snapshot = r.Snapshot(); snapshot.Runs[0].Mission.Goal = 99
-        self.assertEqual(1, r.m_State.Runs[0].Mission.Goal)
+        self.assertEqual(1, r.m_State.Runs[0].Objective.Goal)
+        snapshot = r.Snapshot(); snapshot.Runs[0].Objective.Goal = 99
+        self.assertEqual(1, r.m_State.Runs[0].Objective.Goal)
 
     def test_provider_reentrant_mutation_is_rejected(self):
         r = self.runtime(); results = []
@@ -350,16 +350,16 @@ class EventRuntimeTests(unittest.TestCase):
     def test_provider_cannot_mutate_owned_runtime_record(self):
         r = self.active()
         def malicious(run, player, now):
-            run.Mission.Goal = 99; run.Tokens.Insert("forged"); return None
+            run.Objective.Goal = 99; run.Tokens.Insert("forged"); return None
         self.observer.Observe = malicious
         r.Tick(self.ctx)
-        self.assertEqual(1, r.m_State.Runs[0].Mission.Goal)
+        self.assertEqual(1, r.m_State.Runs[0].Objective.Goal)
         self.assertEqual([], r.m_State.Runs[0].Tokens)
 
     def test_run_definition_mismatch_refused_before_start(self):
         r = self.active(); image = copy.deepcopy(r.m_State)
         for key, value in (("ActorBudget", 64), ("MaxParticipants", 90), ("LifetimeSeconds", 700)):
-            candidate = copy.deepcopy(image); setattr(candidate.Runs[0].Mission, key, value)
+            candidate = copy.deepcopy(image); setattr(candidate.Runs[0].Objective, key, value)
             self.assertFalse(self.p.StateValid(candidate), key)
 
     def test_optout_resets_provider_dwell_before_rejoin(self):
@@ -403,7 +403,7 @@ class NativeObservationTests(unittest.TestCase):
         self.e = helper.e; self.mission = helper.mission
         self.e["GetGame"] = lambda: SimpleNamespace(IsServer=lambda: True)
         for name, fields in (("HCEventTarget", dict(MissionId="", Item=None)),
-                             ("HCEventNativeLease", dict(Lease="", Mission=None, Item=None)),
+                             ("HCEventNativeLease", dict(Lease="", Objective=None, Item=None)),
                              ("HCEventDwell", dict(Lease="", Player=None, Since=0, Last=0))):
             self.e[name] = lambda fields=fields: SimpleNamespace(**fields)
         source = (ROOT / "4_World/Events/HCEventNativeObserver.c").read_text()
@@ -415,7 +415,7 @@ class NativeObservationTests(unittest.TestCase):
         self.o = cls(); self.o.m_Targets = EArray(); self.o.m_Leases = EArray(); self.o.m_Dwells = EArray()
         self.player = Handle(); self.item = Handle(identity="")
         self.run = self.e["HCEventRun"](); self.run.EventId = 1
-        self.run.Lease = "session-a:1"; self.run.Mission = self.mission
+        self.run.Lease = "session-a:1"; self.run.Objective = self.mission
 
     def bind(self):
         self.assertTrue(self.o.RegisterTarget(self.mission.Id, self.item))

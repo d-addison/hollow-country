@@ -57,7 +57,7 @@ class HCEventRun
 {
     int EventId = 0;
     string Lease;
-    ref HCEventMission Mission;
+    ref HCEventMission Objective;
     int Phase = 0;
     bool ProviderIntent = false;
     ref array<string> Tokens = new array<string>();

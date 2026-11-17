@@ -180,7 +180,7 @@ class HCEventRPC
                 HCEventPublicRow row = new HCEventPublicRow;
                 row.EventId = record.Id;
                 row.Revision = record.Revision;
-                row.Family = run.Mission.Family;
+                row.Family = run.Objective.Family;
                 row.Title = Title(row.Family);
                 row.Status = record.Status;
                 row.Progress = record.Progress;

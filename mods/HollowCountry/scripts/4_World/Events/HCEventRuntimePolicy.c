@@ -137,7 +137,7 @@ class HCEventRuntimePolicy
         foreach (HCEventRun run : state.Runs)
         {
             HCEventRecord record = state.Director.Records[index];
-            if (!run || run.EventId != record.Id || !MissionValid(run.Mission, state.Director.WorldName))
+            if (!run || run.EventId != record.Id || !MissionValid(run.Objective, state.Director.WorldName))
             {
                 return false;
             }
@@ -149,19 +149,19 @@ class HCEventRuntimePolicy
             {
                 return false;
             }
-            if (run.Mission.Id != record.Definition.Id || run.Mission.SiteId != record.Definition.ObjectiveTag)
+            if (run.Objective.Id != record.Definition.Id || run.Objective.SiteId != record.Definition.ObjectiveTag)
             {
                 return false;
             }
-            if (run.Mission.Goal != record.Definition.Goal || record.Definition.RewardUnits != 0)
+            if (run.Objective.Goal != record.Definition.Goal || record.Definition.RewardUnits != 0)
             {
                 return false;
             }
-            if (run.Mission.MaxParticipants != record.Definition.MaxParticipants || run.Mission.ActorBudget != record.Definition.ActorBudget)
+            if (run.Objective.MaxParticipants != record.Definition.MaxParticipants || run.Objective.ActorBudget != record.Definition.ActorBudget)
             {
                 return false;
             }
-            if (run.Mission.LifetimeSeconds != record.Definition.LifetimeSeconds || record.Definition.ItemBudget != 0)
+            if (run.Objective.LifetimeSeconds != record.Definition.LifetimeSeconds || record.Definition.ItemBudget != 0)
             {
                 return false;
             }

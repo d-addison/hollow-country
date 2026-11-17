@@ -162,7 +162,7 @@ class HCXAIAdapter extends HCModule
         lease.MissionId = missionId;
         lease.Anchor = anchor;
         lease.RequestedCap = actorCap;
-        lease.Mission = mission;
+        lease.Objective = mission;
         lease.StartedAtMs = GetGame().GetTime();
         lease.ActorReservation = actors;
         lease.ItemReservation = items;
@@ -219,7 +219,7 @@ class HCXAIAdapter extends HCModule
     }
     bool Quiet(HCXAILease lease, HCXAIActorSlot slot, int index, bool spawning, int now)
     {
-        vector position = lease.Mission.Spawns[index];
+        vector position = lease.Objective.Spawns[index];
         if (slot.Handle) { position = slot.Handle.GetPosition(); }
         HCObserverTransitionInput observation = m_Hooks.Observers(m_Profile.WorldSession, lease.Id, index, slot.Handle, position);
         HCObserverTransitionState gate = slot.RetireGate;
@@ -292,7 +292,7 @@ class HCXAIAdapter extends HCModule
             }
         }
         if (slot.Attempted) { return; }
-        if (!m_Hooks.RouteQualified(lease.Mission.SurveySha256, lease.Mission.LoadoutSha256))
+        if (!m_Hooks.RouteQualified(lease.Objective.SurveySha256, lease.Objective.LoadoutSha256))
         {
             lease.Failed = true;
             lease.Retiring = true;
@@ -301,7 +301,7 @@ class HCXAIAdapter extends HCModule
         if (!this.Quiet(lease, slot, index, true, now)) { return; }
         // Never retry creation once the native factory has been entered.
         slot.Attempted = true;
-        slot.Handle = GetGame().CreateObjectEx(lease.Mission.ActorClass, lease.Mission.Spawns[index], ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOSURFACEALIGN);
+        slot.Handle = GetGame().CreateObjectEx(lease.Objective.ActorClass, lease.Objective.Spawns[index], ECE_CREATEPHYSICS | ECE_KEEPHEIGHT | ECE_NOSURFACEALIGN);
         if (!slot.Handle)
         {
             slot.DeleteObserved = true;
@@ -322,7 +322,7 @@ class HCXAIAdapter extends HCModule
         actor.eAI_SetDamageMultiplier(1);
         actor.eAI_SetDamageReceivedMultiplier(1);
         actor.eAI_SetLootingBehavior(0);
-        if (!actor.HCXAI_Fair() || !this.Equip(actor, lease.Mission) || !m_Hooks.MemberCreated(lease.Id, index, actor))
+        if (!actor.HCXAI_Fair() || !this.Equip(actor, lease.Objective) || !m_Hooks.MemberCreated(lease.Id, index, actor))
         {
             lease.Failed = true;
             lease.Retiring = true;

@@ -101,7 +101,7 @@ class HCXAILease
     bool Failed = false;
     bool Released = false;
     eAIGroup Group;
-    ref HCXAIMission Mission;
+    ref HCXAIMission Objective;
     ref array<ref HCXAIActorSlot> Slots = new array<ref HCXAIActorSlot>();
     ref array<ref HCXAIKill> Kills = new array<ref HCXAIKill>();
 }
