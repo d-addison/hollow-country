@@ -100,7 +100,7 @@ maxPlayers = 6;                   // intended load is 3 to 6 players
 - Every value is provisional until the owner's local session checks it with one
   client.
 - Which mods each player needs, their load order and the friend server's ports:
-  see `docs/TRANSFER_AND_ROLLBACK.md` (Mods each player needs).
+  see `docs/FRIEND_SERVER.md`.
 
 ## CE generation and installation
 
