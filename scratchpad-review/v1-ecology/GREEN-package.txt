@@ -1,0 +1,6 @@
+COMMAND: /usr/bin/python3 -B tools/package/pbo.py pbo --addon mods/HollowCountry --out /tmp/hc-v1-ecology-3e7efjwr/hollowcountry-v1-ecology.pbo
+{"bytes": 890360, "sha256": "8562952d1cbcd4c68c3b37fa2bf0b7e61958ec2efff2abf70d025d8a94a4b0cc", "status": "unsigned-development"}
+COMMAND: /usr/bin/python3 -B tools/package/pbo.py verify /tmp/hc-v1-ecology-3e7efjwr/hollowcountry-v1-ecology.pbo
+{"prefix": "HollowCountry", "entries": 100, "signature": null, "sha256": "8562952d1cbcd4c68c3b37fa2bf0b7e61958ec2efff2abf70d025d8a94a4b0cc"}
+source-package SHA256: 8562952d1cbcd4c68c3b37fa2bf0b7e61958ec2efff2abf70d025d8a94a4b0cc
+Unsigned source container only; native compilation/runtime acceptance PENDING.

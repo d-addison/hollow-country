@@ -30,6 +30,10 @@ class HCEcologyRuntimeModule : HCModule
     override void OnStart(HCSettings settings)
     {
         m_Started = HCEcologyRuntime.Start(m_Settings, GetGame().GetWorldName(), Session());
+        if (m_Started)
+        {
+            HCEcologyMigration.Start(GetGame().GetWorldName());
+        }
         if (!m_Started)
         {
             Print("[HC Ecology] admission rejected; observation service not running");
@@ -44,6 +48,7 @@ class HCEcologyRuntimeModule : HCModule
 
     override void OnStop()
     {
+        HCEcologyMigration.Stop();
         HCEcologyRuntime.Stop();
         m_Started = false;
     }

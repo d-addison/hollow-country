@@ -1,0 +1,18 @@
+test_actor_death_hook_retires_registration_without_waiting_for_corpse_delete (tests.unit.test_ecology_native.EcologyNativeResourceBehaviorTests.test_actor_death_hook_retires_registration_without_waiting_for_corpse_delete) ... ok
+test_clean_and_base_water_are_observations_not_consumed (tests.unit.test_ecology_native.EcologyNativeResourceBehaviorTests.test_clean_and_base_water_are_observations_not_consumed) ... ok
+test_no_client_ruined_deleted_or_nonfinite_resource_observation (tests.unit.test_ecology_native.EcologyNativeResourceBehaviorTests.test_no_client_ruined_deleted_or_nonfinite_resource_observation) ... ok
+test_reads_current_quantity_and_parent_on_every_observation (tests.unit.test_ecology_native.EcologyNativeResourceBehaviorTests.test_reads_current_quantity_and_parent_on_every_observation) ... ok
+test_reads_correct_live_ce_globals_and_missing_api_is_unknown (tests.unit.test_v1_ecology_resources.NativeCapacityRead.test_reads_correct_live_ce_globals_and_missing_api_is_unknown) ... ok
+test_client_and_unqualified_process_cannot_survey (tests.unit.test_v1_ecology_resources.NativeResourceSurveys.test_client_and_unqualified_process_cannot_survey) ... ok
+test_pond_uses_only_supplied_point_and_rejects_sea_or_invalid_sample (tests.unit.test_v1_ecology_resources.NativeResourceSurveys.test_pond_uses_only_supplied_point_and_rejects_sea_or_invalid_sample) ... ok
+test_resource_resampled_each_call_and_never_promoted_to_eligibility (tests.unit.test_v1_ecology_resources.NativeResourceSurveys.test_resource_resampled_each_call_and_never_promoted_to_eligibility) ... ok
+test_all_zones_retained_zero_animal_density_is_unknown_not_extinction (tests.unit.test_v1_ecology_territories.TerritoryAuditBehavior.test_all_zones_retained_zero_animal_density_is_unknown_not_extinction) ... ok
+test_duplicate_input_traversal_symlink_and_doctype_rejected (tests.unit.test_v1_ecology_territories.TerritoryAuditBehavior.test_duplicate_input_traversal_symlink_and_doctype_rejected) ... ok
+test_malformed_negative_nonfinite_inverted_or_oversized_data_rejected (tests.unit.test_v1_ecology_territories.TerritoryAuditBehavior.test_malformed_negative_nonfinite_inverted_or_oversized_data_rejected) ... ok
+test_missing_global_does_not_invent_capacity (tests.unit.test_v1_ecology_territories.TerritoryAuditBehavior.test_missing_global_does_not_invent_capacity) ... ok
+test_zone_budget_rejects_instead_of_silently_truncating (tests.unit.test_v1_ecology_territories.TerritoryAuditBehavior.test_zone_budget_rejects_instead_of_silently_truncating) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.246s
+
+OK

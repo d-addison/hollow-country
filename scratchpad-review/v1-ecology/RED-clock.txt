@@ -1,0 +1,20 @@
+test_native_clock_reuses_consistent_shared_utc_reader (tests.unit.test_v1_ecology_migration.MigrationNativeBehavior.test_native_clock_reuses_consistent_shared_utc_reader) ... FAIL
+
+======================================================================
+FAIL: test_native_clock_reuses_consistent_shared_utc_reader (tests.unit.test_v1_ecology_migration.MigrationNativeBehavior.test_native_clock_reuses_consistent_shared_utc_reader)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 282, in test_native_clock_reuses_consistent_shared_utc_reader
+    utc = translated(text, 'Utc', env, 'HCEcologyMigrationNative')
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_ecology_runtime.py", line 24, in translated
+    f = event_translate(renamed, name, renamed_env, owner.replace("HCEcology", "HCEvent"), member)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_event_runtime.py", line 23, in translate
+    raise AssertionError("Missing authored method " + name)
+AssertionError: Missing authored method Utc
+
+----------------------------------------------------------------------
+Ran 1 test in 0.106s
+
+FAILED (failures=1)

@@ -1,0 +1,14 @@
+test_other_persisted_cohort_reservations_share_the_ce_ceiling (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_other_persisted_cohort_reservations_share_the_ce_ceiling) ... FAIL
+
+======================================================================
+FAIL: test_other_persisted_cohort_reservations_share_the_ce_ceiling (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_other_persisted_cohort_reservations_share_the_ce_ceiling)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 128, in test_other_persisted_cohort_reservations_share_the_ce_ceiling
+    self.assertEqual(0, self.submit_now())
+AssertionError: 0 != 2
+
+----------------------------------------------------------------------
+Ran 1 test in 0.075s
+
+FAILED (failures=1)

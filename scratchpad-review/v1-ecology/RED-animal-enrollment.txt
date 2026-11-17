@@ -1,0 +1,14 @@
+test_enrollment_preserves_cadence_and_rejects_unavailable_animal_destination (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_enrollment_preserves_cadence_and_rejects_unavailable_animal_destination) ... FAIL
+
+======================================================================
+FAIL: test_enrollment_preserves_cadence_and_rejects_unavailable_animal_destination (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_enrollment_preserves_cadence_and_rejects_unavailable_animal_destination)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 122, in test_enrollment_preserves_cadence_and_rejects_unavailable_animal_destination
+    self.assertFalse(enroll(self.service,'animal-route',1,300,1800000400))
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 1 test in 0.032s
+
+FAILED (failures=1)

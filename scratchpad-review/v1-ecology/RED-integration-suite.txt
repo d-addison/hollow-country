@@ -1,0 +1,39 @@
+.............................................................F...................................................................................................................................ce_probe: destination must be fresh; no overwrite
+.................................ce_probe_report: refusing to write into the repository metrics/ directory
+.ce_probe_report: census is not valid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)
+.ce_probe_report: refusing to overwrite /tmp/tmpkb_n9dfl/report.json
+..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................flashlight_matrix: classification output must be outside the source checkout
+.flashlight_matrix: [Errno 17] File exists: '/tmp/tmppyhahdy4/classification.json'
+..usage: python3 -m unittest classify [-h] (--rows ROWS | --manifest MANIFEST)
+                                    [--manifest-sha256 MANIFEST_SHA256] --out
+                                    OUT
+python3 -m unittest classify: error: one of the arguments --rows --manifest is required
+usage: python3 -m unittest classify [-h] (--rows ROWS | --manifest MANIFEST)
+                                    [--manifest-sha256 MANIFEST_SHA256] --out
+                                    OUT
+python3 -m unittest classify: error: argument --manifest: not allowed with argument --rows
+..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................s.....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................taped_light_report: Expecting value: line 1 column 1 (char 0)
+.taped_light_report: report output must be outside the source checkout
+.taped_light_report: [Errno 17] File exists: '/tmp/tmpli_xrtoz/report.json'
+...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_completion_scenarios_cannot_be_omitted (test_bdd_bindings.BDDBindingsTests.test_completion_scenarios_cannot_be_omitted) (name='Schedule resource attraction only from bounded fresh native observations')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_bdd_bindings.py", line 78, in test_completion_scenarios_cannot_be_omitted
+    self.assertEqual(pattern, bdd.BINDINGS[name][1])
+AssertionError: 'test_ecology_rules.py' != 'test*ecology*.py'
+- test_ecology_rules.py
+?     ^       ^^^^^^
++ test*ecology*.py
+?     ^       ^
+
+
+----------------------------------------------------------------------
+Ran 2582 tests in 90.809s
+
+FAILED (failures=1, skipped=1)
+wrote /tmp/tmpkb_n9dfl/report.json and /tmp/tmpkb_n9dfl/report.csv
+classification: hosts=1 slot=0 no_slot=1 excluded=0 lights=1 -> /tmp/tmppyhahdy4/classification.json
+classification: hosts=1 slot=0 no_slot=1 excluded=0 lights=1 -> /tmp/tmp22959h5j/from-manifest.json
+report: qualified=1 geometry_missing=0 excluded=1 pending=0 hosts=2 -> /tmp/tmpli_xrtoz/report.json

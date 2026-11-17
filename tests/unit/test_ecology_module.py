@@ -26,6 +26,10 @@ class EcologyModuleBehavior(unittest.TestCase):
             Start=lambda s, w, session: self.calls.append(("start", s, w, session)) or self.started,
             Tick=lambda now: self.calls.append(("tick", now)),
             Stop=lambda: self.calls.append("stop"))
+        self.migration_calls = []
+        self.e['HCEcologyMigration'] = SimpleNamespace(
+            Start=lambda world: self.migration_calls.append(('start', world)),
+            Stop=lambda: self.migration_calls.append('stop'))
         self.source = SOURCE.read_text()
         self.module = SimpleNamespace(m_Settings=None, m_Started=False, Session=lambda: "s20261117-010203-77")
 
@@ -53,6 +57,18 @@ class EcologyModuleBehavior(unittest.TestCase):
         self.method("OnStart")(self.module, None)
         self.assertEqual([("start", self.settings, "chernarusplus", "s20261117-010203-77")], self.calls)
         self.assertTrue(self.module.m_Started)
+
+    def test_migration_uses_existing_module_lifecycle_after_observation_admission(self):
+        self.module.m_Settings = self.settings
+        self.method("OnStart")(self.module, None)
+        self.assertEqual([('start', 'chernarusplus')], self.migration_calls)
+        self.method("OnStop")(self.module)
+        self.assertEqual([('start', 'chernarusplus'), 'stop'], self.migration_calls)
+
+    def test_failed_observation_start_never_opens_migration_state(self):
+        self.started = False
+        self.method("OnStart")(self.module, None)
+        self.assertEqual([], self.migration_calls)
 
     def test_rejected_start_closes_collection(self):
         self.started = False

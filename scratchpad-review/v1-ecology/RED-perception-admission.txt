@@ -1,0 +1,15 @@
+test_native_clue_selection_requires_owner_admission_and_freezes_evidence (tests.unit.test_v1_ecology_migration.MigrationNativeBehavior.test_native_clue_selection_requires_owner_admission_and_freezes_evidence) ... ERROR
+
+======================================================================
+ERROR: test_native_clue_selection_requires_owner_admission_and_freezes_evidence (tests.unit.test_v1_ecology_migration.MigrationNativeBehavior.test_native_clue_selection_requires_owner_admission_and_freezes_evidence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 290, in test_native_clue_selection_requires_owner_admission_and_freezes_evidence
+    self.assertIsNone(choose(members,30.,False,False))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: executed() takes 2 positional arguments but 4 were given
+
+----------------------------------------------------------------------
+Ran 1 test in 0.049s
+
+FAILED (errors=1)

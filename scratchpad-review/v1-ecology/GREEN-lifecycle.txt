@@ -1,0 +1,14 @@
+test_client_never_admits (tests.unit.test_ecology_module.EcologyModuleBehavior.test_client_never_admits) ... ok
+test_disabled_or_unreadable_settings_release_the_prestart_cohort (tests.unit.test_ecology_module.EcologyModuleBehavior.test_disabled_or_unreadable_settings_release_the_prestart_cohort) ... ok
+test_enabled_settings_admit_the_module_without_closing_collection (tests.unit.test_ecology_module.EcologyModuleBehavior.test_enabled_settings_admit_the_module_without_closing_collection) ... ok
+test_failed_observation_start_never_opens_migration_state (tests.unit.test_ecology_module.EcologyModuleBehavior.test_failed_observation_start_never_opens_migration_state) ... ok
+test_migration_uses_existing_module_lifecycle_after_observation_admission (tests.unit.test_ecology_module.EcologyModuleBehavior.test_migration_uses_existing_module_lifecycle_after_observation_admission) ... ok
+test_rejected_start_closes_collection (tests.unit.test_ecology_module.EcologyModuleBehavior.test_rejected_start_closes_collection) ... ok
+test_session_token_is_valid_and_registered_through_the_core_registry (tests.unit.test_ecology_module.EcologyModuleBehavior.test_session_token_is_valid_and_registered_through_the_core_registry) ... ok
+test_start_passes_loaded_settings_world_and_fresh_session (tests.unit.test_ecology_module.EcologyModuleBehavior.test_start_passes_loaded_settings_world_and_fresh_session) ... ok
+test_tick_uses_engine_milliseconds_and_stop_stops (tests.unit.test_ecology_module.EcologyModuleBehavior.test_tick_uses_engine_milliseconds_and_stop_stops) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.180s
+
+OK

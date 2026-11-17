@@ -1,0 +1,82 @@
+test_animal_provider_reports_unsupported_without_native_side_effects (tests.unit.test_v1_ecology_migration.MigrationNativeBehavior.test_animal_provider_reports_unsupported_without_native_side_effects) ... ok
+test_gate_probes_marker_once_and_does_not_promote_qualification (tests.unit.test_v1_ecology_migration.MigrationNativeBehavior.test_gate_probes_marker_once_and_does_not_promote_qualification) ... ok
+test_qualification_ownership_ce_or_missing_clue_vetoes_before_writes (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_qualification_ownership_ce_or_missing_clue_vetoes_before_writes) ... ERROR
+test_rejected_geometry_still_consumes_persisted_schedule (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_rejected_geometry_still_consumes_persisted_schedule) ... ERROR
+test_terminal_failure_blocks_after_exactly_one_move (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_terminal_failure_blocks_after_exactly_one_move) ... ERROR
+test_write_ahead_of_native_move_and_terminal_receipt (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_write_ahead_of_native_move_and_terminal_receipt) ... ERROR
+test_write_failures_latch_fault_and_never_replay_ambiguous_movement (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_write_failures_latch_fault_and_never_replay_ambiguous_movement) ... ERROR
+test_ce_capacity_is_a_ceiling_never_a_census_or_spawn_budget (tests.unit.test_v1_ecology_migration.MigrationRulesBehavior.test_ce_capacity_is_a_ceiling_never_a_census_or_spawn_budget) ... ok
+test_completion_requires_the_exact_prepared_sequence_and_does_not_claim_arrival (tests.unit.test_v1_ecology_migration.MigrationRulesBehavior.test_completion_requires_the_exact_prepared_sequence_and_does_not_claim_arrival) ... ok
+test_due_uses_absolute_utc_no_catchup_and_no_rollback (tests.unit.test_v1_ecology_migration.MigrationRulesBehavior.test_due_uses_absolute_utc_no_catchup_and_no_rollback) ... ok
+test_foreign_slot_and_exhaustion_cannot_mutate_state (tests.unit.test_v1_ecology_migration.MigrationRulesBehavior.test_foreign_slot_and_exhaustion_cannot_mutate_state) ... ok
+test_malformed_duplicate_overflow_and_foreign_state_are_rejected (tests.unit.test_v1_ecology_migration.MigrationRulesBehavior.test_malformed_duplicate_overflow_and_foreign_state_are_rejected) ... ok
+
+======================================================================
+ERROR: test_qualification_ownership_ce_or_missing_clue_vetoes_before_writes (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_qualification_ownership_ce_or_missing_clue_vetoes_before_writes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 132, in test_qualification_ownership_ce_or_missing_clue_vetoes_before_writes
+    self.assertEqual(0, self.submit_now(), field)
+                        ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 112, in submit_now
+    return self.submit(self.service, 'route-a', self.pack, self.members, 1800000300, 30.)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:SubmitOwned", line 7, in executed
+NameError: name 'HCEventPopulation' is not defined
+
+======================================================================
+ERROR: test_rejected_geometry_still_consumes_persisted_schedule (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_rejected_geometry_still_consumes_persisted_schedule)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 124, in test_rejected_geometry_still_consumes_persisted_schedule
+    self.assertEqual(1, self.submit_now())
+                        ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 112, in submit_now
+    return self.submit(self.service, 'route-a', self.pack, self.members, 1800000300, 30.)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:SubmitOwned", line 7, in executed
+NameError: name 'HCEventPopulation' is not defined
+
+======================================================================
+ERROR: test_terminal_failure_blocks_after_exactly_one_move (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_terminal_failure_blocks_after_exactly_one_move)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 154, in test_terminal_failure_blocks_after_exactly_one_move
+    self.assertEqual(0, self.submit_now())
+                        ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 112, in submit_now
+    return self.submit(self.service, 'route-a', self.pack, self.members, 1800000300, 30.)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:SubmitOwned", line 7, in executed
+NameError: name 'HCEventPopulation' is not defined
+
+======================================================================
+ERROR: test_write_ahead_of_native_move_and_terminal_receipt (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_write_ahead_of_native_move_and_terminal_receipt)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 115, in test_write_ahead_of_native_move_and_terminal_receipt
+    self.assertEqual(2, self.submit_now())
+                        ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 112, in submit_now
+    return self.submit(self.service, 'route-a', self.pack, self.members, 1800000300, 30.)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:SubmitOwned", line 7, in executed
+NameError: name 'HCEventPopulation' is not defined
+
+======================================================================
+ERROR: test_write_failures_latch_fault_and_never_replay_ambiguous_movement (tests.unit.test_v1_ecology_migration.MigrationProviderBehavior.test_write_failures_latch_fault_and_never_replay_ambiguous_movement)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 141, in test_write_failures_latch_fault_and_never_replay_ambiguous_movement
+    self.assertEqual(0, self.submit_now())
+                        ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 112, in submit_now
+    return self.submit(self.service, 'route-a', self.pack, self.members, 1800000300, 30.)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-event:SubmitOwned", line 7, in executed
+NameError: name 'HCEventPopulation' is not defined
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.725s
+
+FAILED (errors=5)

@@ -1,0 +1,14 @@
+test_missing_schedule_counters_cannot_reset_attempts_or_reserved_capacity (tests.unit.test_v1_ecology_migration.MigrationStoreBehavior.test_missing_schedule_counters_cannot_reset_attempts_or_reserved_capacity) ... FAIL
+
+======================================================================
+FAIL: test_missing_schedule_counters_cannot_reset_attempts_or_reserved_capacity (tests.unit.test_v1_ecology_migration.MigrationStoreBehavior.test_missing_schedule_counters_cannot_reset_attempts_or_reserved_capacity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-ecology/tests/unit/test_v1_ecology_migration.py", line 289, in test_missing_schedule_counters_cannot_reset_attempts_or_reserved_capacity
+    self.assertIsNone(self.open(self.store,'synthetic-world',1800000400),field)
+AssertionError: namespace(Version=1, WorldName='synthetic-world', Revision=1, LastUtc=1800000000, Schedules=[namespace(Id='route-a', PopulationKind=2, IntervalSeconds=300, NextDueUtc=1800000300, Sequence=0, ReservedMembers=0, Pending=False, LastOutcome=0)]) is not None : Sequence
+
+----------------------------------------------------------------------
+Ran 1 test in 0.119s
+
+FAILED (failures=1)
