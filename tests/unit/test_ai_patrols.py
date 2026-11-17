@@ -58,3 +58,91 @@ class PatrolTests(unittest.TestCase):
         result=ai_patrols.validate(data,sites)
         self.assertEqual(sorted(s['Id'] for s in sites['Sites']),result['site_ids'])
         self.assertFalse(result['qualified'])
+
+
+POS = '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<map>
+%s
+</map>'''
+PROTO = '''<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<prototype>
+  <group name="Land_House_Synth">
+    <usage name="Village" />
+    <container name="lootFloor">
+      <point pos="-1.0 -2.6 -0.5" range="0.5" height="1.3" />
+      <point pos="-4.0 -2.6 2.5" range="0.5" height="1.3" />
+      <point pos="3.5 -2.6 0.3" range="1.0" height="2.0" />
+      <point pos="-1.5 -2.6 1.7" range="0.9" height="2.0" />
+      <point pos="2.0 -2.6 -2.0" range="0.9" height="2.0" />
+    </container>
+  </group>
+  <group name="Land_Shed_Synth">
+    <usage name="Village" />
+    <container name="lootFloor"><point pos="0 -1 0" range="0.5" height="1" /></container>
+  </group>
+</prototype>'''
+
+
+def group(name, x, z, y=100.0):
+    return '<group name="%s" pos="%f %f %f" rpy="0 0 0" a="0" />' % (name, x, y, z)
+
+
+class SiteGeneratorTests(unittest.TestCase):
+    """Synthetic stock-format fixtures; the shipped file is generated from the installed stock data."""
+    def setUp(self):
+        rows = [group('Land_City_PoliceStation', 1000, 1000), group('Land_Mil_Barracks1', 3000, 3000)]
+        rows += [group('Land_Mil_Barracks2', 3000 + dx, 3000 + dz) for dx, dz in ((80, 0), (0, 90), (-70, 20), (10, -85))]
+        rows += [group('Land_Misc_Shed', 1000 + dx, 1000 + dz) for dx, dz in ((40, 0), (0, 45), (-40, 5), (5, -42))]
+        # A town of houses in four clusters about 250 m apart, and one holdout house near the village anchor.
+        for cx, cz in ((5000, 5000), (5250, 5000), (5250, 5250), (5000, 5250)):
+            rows += [group('Land_House_Synth', cx + 8 * i, cz + 6 * i) for i in range(4)]
+        rows.append(group('Land_House_Synth', 7010, 7005))
+        rows.append(group('Land_Shed_Synth', 7000, 7000))
+        self.pos, self.proto = POS % '\n'.join(rows), PROTO
+        self.spec = dict(
+            patrols=[dict(Id='police-synth', Faction='Guards', Anchor=['Land_City_PoliceStation'], Near=[1000, 1000],
+                          Around=['Land_'], Radius=120),
+                     dict(Id='mil-synth', Faction='East', Anchor=['Land_Mil_Barracks1'], Near=[3000, 3000],
+                          Around=['Land_Mil_'], Radius=250)],
+            scavengers=[dict(Id='scav-synth', Near=[5125, 5125], Radius=500)],
+            holdouts=[dict(Id='holdout-synth', Near=[7000, 7000], Radius=300, CacheClass='WoodenCrate',
+                           Loot=[['Rag', 2], ['TunaCan', 1]])])
+
+    def test_generated_policy_takes_positions_from_the_stock_files(self):
+        policy = ai_patrols.generate_sites(self.pos, self.proto, self.spec)
+        sites = {s['Id']: s for s in policy['Sites']}
+        self.assertEqual(set(sites), {'police-synth', 'mil-synth', 'scav-synth', 'holdout-synth'})
+        police = sites['police-synth']
+        self.assertEqual(police['Kind'], 'patrol')
+        self.assertGreaterEqual(len(police['Waypoints']), 3)
+        for x, _, z in police['Waypoints']:
+            self.assertLess(((x - 1000) ** 2 + (z - 1000) ** 2) ** 0.5, 120)
+        scav = sites['scav-synth']
+        self.assertEqual((scav['Kind'], scav['Faction']), ('scavenger', 'Raiders'))
+        self.assertGreaterEqual(len(scav['Waypoints']), 3)
+        legs = [((a[0] - b[0]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5
+                for a, b in zip(scav['Waypoints'], scav['Waypoints'][1:] + scav['Waypoints'][:1])]
+        self.assertLessEqual(max(legs), policy['MaxLegLength'])
+        hold = sites['holdout-synth']
+        self.assertEqual((hold['Kind'], hold['HouseClass'], hold['Faction']), ('holdout', 'Land_House_Synth', 'Guards'))
+        self.assertEqual(hold['HousePosition'], [7010.0, 100.0, 7005.0])
+        floor = {(-1.0, -2.6, -0.5), (-4.0, -2.6, 2.5), (3.5, -2.6, 0.3), (-1.5, -2.6, 1.7), (2.0, -2.6, -2.0)}
+        self.assertTrue({tuple(p) for p in hold['LocalPoints']} <= floor)
+        self.assertIn(tuple(hold['CacheLocal']), floor)
+        self.assertNotIn(tuple(hold['CacheLocal']), {tuple(p) for p in hold['LocalPoints']})
+        self.assertEqual(hold['CacheLoot'], [{'ClassName': 'Rag', 'Quantity': 2}, {'ClassName': 'TunaCan', 'Quantity': 1}])
+        self.assertEqual(hold['Waypoints'], [])
+
+    def test_generator_refuses_dtd_and_missing_anchors(self):
+        with self.assertRaises(ValueError):
+            ai_patrols.generate_sites('<!DOCTYPE x [<!ENTITY a "b">]>' + self.pos, self.proto, self.spec)
+        self.spec['patrols'][0]['Near'] = [9000, 9000]
+        with self.assertRaises(ValueError):
+            ai_patrols.generate_sites(self.pos, self.proto, self.spec)
+
+    def test_shipped_sites_are_the_generator_output_shape(self):
+        shipped = json.loads((ROOT / 'mission/hollow-country/ai/sites.json').read_text())
+        self.assertEqual(set(shipped), set(ai_patrols.generate_sites(self.pos, self.proto, self.spec)))
+        self.assertLessEqual(len((ROOT / 'mission/hollow-country/ai/sites.json').read_bytes()), 65536)
+        self.assertTrue(all(s['Id'] in {x['Id'] for k in ai_patrols.SITE_SPEC.values() for x in k}
+                            for s in shipped['Sites']))

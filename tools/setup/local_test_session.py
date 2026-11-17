@@ -12,9 +12,12 @@ reimplements it:
   optional mods   --snafu and --tactical-flava dirs are read-only (never copied); load order SNAFU, TF, HC
   opt-in steps    --interiors (tools/package/interiors_profile.py into <profiles>/HollowCountry),
                   --expansion-ai (stage @HollowCountryExpansionAI after Expansion's own Workshop folders, which
-                  are only checked and never copied; the AISettings merge is printed, never applied) and
+                  are only checked and never copied; then expansion_ai_config installs ai/sites.json and the
+                  HollowCountry_* loadouts, the patrol override and the field merge into Expansion's existing
+                  AISettings.json, with byte-exact backups) and
                   --markers all-local / NAME,... (names parsed from docs/LOCAL_ACCEPTANCE_V1.md at run time).
-                  Apply order: mod, keys, cfg, gameplay, economy, interiors, expansion_ai, markers; rollback reverses.
+                  Apply order: mod, keys, cfg, gameplay, economy, interiors, expansion_ai, expansion_ai_config,
+                  markers; rollback reverses.
 
     python3 tools/setup/local_test_session.py plan  --server-root /mnt/d/HollowCountryLocal/runtime-001 \\
         --mission /mnt/d/HollowCountryLocal/candidate/mpmissions/dayzOffline.chernarusplus \\
@@ -73,6 +76,12 @@ AI_SETTINGS_TARGET = 'ExpansionMod/Settings/AISettings.json'
 AI_PATROL_OVERRIDE = MISSION_ROOT + '/ai/AIPatrolSettings.override.json'
 AI_PATROL_TARGET = 'expansion/settings/AIPatrolSettings.json'
 AI_POLICY_TARGET = 'HollowCountry/expansion-ai.json'
+AI_SITES = MISSION_ROOT + '/ai/sites.json'
+AI_SITES_TARGET = 'HollowCountry/expansion-ai-sites.json'
+AI_LOADOUTS = MISSION_ROOT + '/ai/loadouts'
+AI_LOADOUTS_TARGET = 'ExpansionMod/Loadouts'
+AI_LOADOUT_NAME = re.compile(r'^HollowCountry_[A-Za-z0-9]+\.json$')
+AI_MARKER = 'pve_patrols'
 MARKER_DOC = 'docs/LOCAL_ACCEPTANCE_V1.md'
 MARKER_ROW = re.compile(r'^\|\s*`\$profile:HollowCountry/acceptance/(?P<name>[A-Za-z0-9_-]+)\.enable`\s*\|')
 # (label, Workshop id or None, accepted folder names after lowercasing and dropping '@' and punctuation)
@@ -990,6 +999,80 @@ def plan_expansion_ai(args, mod_plan, repo):
             'patrol_override': AI_PATROL_OVERRIDE}
 
 
+def ai_json(data, what):
+    try:
+        value = json.loads(data)
+    except ValueError as error:
+        raise Refused('--expansion-ai: %s is not readable JSON: %s' % (what, error)) from None
+    if not isinstance(value, dict):
+        raise Refused('--expansion-ai: %s must be a JSON object' % what)
+    return value
+
+
+def ai_target(path, base, what, repo):
+    """A target under base (profiles or mission): no links on any existing ancestor, outside every checkout."""
+    path = no_links(path, what)
+    if base not in path.parents:
+        raise Refused('%s is outside %s' % (what, base))
+    outside_checkouts(path, what, repo)
+    return path
+
+
+def plan_ai_config(profiles, mission, repo):
+    """The shipped HC AI files and the two Expansion settings changes, decided before any write.
+
+    create: the sites policy, the loadouts and (when Expansion has not written one yet) the patrol override, each
+    a fresh file. replace: an existing AIPatrolSettings.json that differs from the override, and the field merge
+    into Expansion's own AISettings.json, which must already exist; both keep a byte-exact backup. A target that
+    already holds the same bytes is left alone and never removed by rollback."""
+    sources = [(profiles / AI_SITES_TARGET, AI_SITES)]
+    try:
+        names = sorted(p.name for p in (repo / AI_LOADOUTS).iterdir())
+    except OSError:
+        raise Refused('--expansion-ai: %s is missing' % AI_LOADOUTS) from None
+    loadouts = [n for n in names if AI_LOADOUT_NAME.match(n)]
+    if not loadouts or len(loadouts) != len(names):
+        raise Refused('--expansion-ai: %s must hold only HollowCountry_<Name>.json loadouts' % AI_LOADOUTS)
+    sources += [(profiles / AI_LOADOUTS_TARGET / n, AI_LOADOUTS + '/' + n) for n in loadouts]
+    create, present, replace = [], [], []
+    for target, relative in sources:
+        data = repo_file(repo, relative)
+        ai_json(data, relative)
+        target = ai_target(target, profiles, 'Expansion AI target ' + target.name, repo)
+        if os.path.lexists(target):
+            if read_bytes(target, target.name) != data:
+                raise Refused('--expansion-ai: %s exists with different content; refusing to replace it (move it '
+                              'away or make it identical to %s)' % (target, relative))
+            present.append(target)
+        else:
+            create.append({'path': target, 'data': data})
+    patrols = ai_target(mission / AI_PATROL_TARGET, mission, 'AIPatrolSettings.json', repo)
+    override = repo_file(repo, AI_PATROL_OVERRIDE)
+    ai_json(override, AI_PATROL_OVERRIDE)
+    if not os.path.lexists(patrols):
+        create.append({'path': patrols, 'data': override})
+    else:
+        before = read_bytes(patrols, patrols.name)
+        if before == override:
+            present.append(patrols)
+        else:
+            replace.append({'path': patrols, 'before': before, 'after': override})
+    settings = ai_target(profiles / AI_SETTINGS_TARGET, profiles, 'AISettings.json', repo)
+    if not os.path.lexists(settings):
+        raise Refused('--expansion-ai: %s is missing; start the server once with Expansion AI loaded so Expansion '
+                      'writes its own AISettings.json, then plan again (the merge never creates the file)' % settings)
+    before = read_bytes(settings, settings.name)
+    current = ai_json(before, str(settings))
+    merged = dict(current)
+    merged.update(ai_json(repo_file(repo, AI_MERGE), AI_MERGE))
+    if merged == current:
+        present.append(settings)
+    else:
+        replace.append({'path': settings, 'before': before,
+                        'after': (json.dumps(merged, indent=4) + '\n').encode('utf-8')})
+    return {'create': create, 'present': present, 'replace': replace}
+
+
 def verify_optional(tool_name, label, install, vanilla_dir):
     """Read-only verification of an installed optional mod with the tool's own verify_install and allowlist.
 
@@ -1178,6 +1261,8 @@ def build_plan(args, repo=ROOT):
             vanilla = existing_dir(vanilla, 'vanilla addons directory', repo)
             plan['tactical_flava_delta'] = verify_optional('tactical_flava_optional', 'Tactical Flava', tf['dir'], vanilla)
         rehearse_deltas(plan, repo)
+    if ai:
+        ai['config'] = plan_ai_config(profiles, mission, repo)
     plan['markers'] = None
     if mode != 'none':
         markers = load_tool('acceptance_markers')
@@ -1257,7 +1342,7 @@ def advisories(plan):
 
 # ---------------------------------------------------------------- reporting
 
-def expansion_lines(ai, profiles, mission):
+def expansion_lines(ai, profiles, mission, markers=None, markers_mode='all', applied=False):
     mod = ai['mod']
     out = ['6. Expansion AI (optional addon): stage %s (%s) from %d file(s), loaded server-only with -serverMod= '
            'after HollowCountry (players do not need it):' %
@@ -1266,18 +1351,30 @@ def expansion_lines(ai, profiles, mission):
     out.append('     Required Workshop subscriptions (found in %s; read-only, never copied, never repacked):' % ai['workshop'])
     for row in ai['dependencies']:
         out.append('       %s%s -> %s' % (row['label'], ' ' + row['id'] if row['id'] else '', row['path']))
-    out.append('     MANUAL step, never applied by this tool: merge the fields of %s into %s/%s' %
-               (ai['merge'], profiles, AI_SETTINGS_TARGET))
-    out.append('       (a field merge into the existing file, not a replacement: keep every other field and its version;')
-    out.append('        keep Expansion admin unlimited-reload controls OFF). Patrols stay closed without the pve_patrols marker.')
-    out.append('     MANUAL step, never applied by this tool: copy %s to %s/%s' %
-               (ai['patrol_override'], mission, AI_PATROL_TARGET))
-    out.append('       (HC events own AI spawning: it turns off Expansion\'s own default patrols, which spawn near players')
-    out.append('        otherwise; back up any existing file first; Expansion loads this version without rewriting it).')
-    out.append('     Operator policy: %s/%s is written as a template on first start and is never generated here; HC AI' %
+    config = ai['config']
+    verb = 'created' if applied else 'create'
+    out.append('     Expansion AI settings, installed by this tool and undone by rollback (backups in the session state):')
+    for item in config['create']:
+        out.append('       %s %s' % (verb, item['path']))
+    for item in config['replace']:
+        what = 'field merge of %s' % ai['merge'] if item['path'].name == 'AISettings.json' else ai['patrol_override']
+        out.append('       %s %s (%s; byte-exact backup)' % ('replaced' if applied else 'replace', item['path'], what))
+    for path in config['present']:
+        out.append('       already identical, left alone: %s' % path)
+    out.append('       (%s turns off Expansion\'s own default patrols; %s keeps every other AISettings.json field)' %
+               (ai['patrol_override'], ai['merge']))
+    out.append('     MANUAL check: keep the Expansion admin unlimited-reload controls OFF; HC sites refuse to start otherwise.')
+    found = [item for item in (markers or {}).get('files', []) if item.get('name') == AI_MARKER]
+    if not found:
+        out.append('     WARNING: the %s opt-in marker is not part of this session (--markers %s): HC sites stay off.' %
+                   (AI_MARKER, markers_mode))
+    elif found[0].get('action') == 'exists':
+        out.append('     %s opt-in marker: already present' % AI_MARKER)
+    else:
+        out.append('     %s opt-in marker: %s' % (AI_MARKER, 'created' if applied else 'will be created'))
+    out.append('     Lease policy: %s/%s (HC event leases) is written as a template on first start and is not' %
                (profiles, AI_POLICY_TARGET))
-    out.append('       stays not Ready until the owner fills it with observed digests, routes and budgets (see the startup')
-    out.append('       "[HC Expansion AI] readiness" log line for the first unmet requirement).')
+    out.append('       generated here; the shipped sites above do not depend on it.')
     return out
 
 
@@ -1315,7 +1412,8 @@ def render_plan(plan, args, commands, applied=False):
         if info['pending']:
             out.append('     pending components (not installed, need a native measurement): %s' % ', '.join(info['pending']))
     if plan.get('expansion_ai'):
-        out += expansion_lines(plan['expansion_ai'], plan['profiles'], plan['mission'])
+        out += expansion_lines(plan['expansion_ai'], plan['profiles'], plan['mission'], plan['markers'],
+                               plan['markers_mode'], applied)
     if plan['snafu']:
         out.append('   SNAFU (read-only, optional dependency): %s' % plan['snafu'])
     if plan.get('snafu_delta'):
@@ -1419,6 +1517,7 @@ def apply_plan(plan, args):
                                      'workshop': str(plan['expansion_ai']['workshop']),
                                      'dependencies': {r['label']: str(r['path']) for r in plan['expansion_ai']['dependencies']}}
                     if plan['expansion_ai'] else None,
+                    'expansion_ai_config': {'created': [], 'replaced': [], 'dirs': []} if plan['expansion_ai'] else None,
                     'rollback': {'steps': {}}})
     # 1. mod folder (the intent: the dest folder and the listed files, all in the receipt already)
     receipt.step('mod', 'started')
@@ -1509,6 +1608,7 @@ def apply_plan(plan, args):
             raise Refused('Expansion AI addon destination appeared after the plan was made: %s' % ai_mod['dest']) from None
         assemble_mod(ai_mod, stage=state)
         receipt.step('expansion_ai', 'done')
+        apply_ai_config(plan['expansion_ai']['config'], receipt, state)
     # 7. markers
     if plan['markers']:
         markers = load_tool('acceptance_markers')
@@ -1527,6 +1627,96 @@ def apply_plan(plan, args):
     receipt.data['status'] = 'applied'
     receipt.save()
     return receipt
+
+
+def apply_ai_config(config, receipt, state):
+    """6b. The shipped HC AI files and the two Expansion settings changes. Every directory, backup and file is in
+    the receipt before it is created; a replaced file is re-read and must still be what the plan saw."""
+    record = receipt.data['expansion_ai_config']
+    receipt.step('expansion_ai_config', 'started')
+    for item in config['create']:
+        missing, directory = [], item['path'].parent
+        while not os.path.lexists(directory):
+            missing.append(directory)
+            directory = directory.parent
+        for directory in reversed(missing):
+            record['dirs'].append(str(directory))
+            receipt.save()
+            directory.mkdir()
+    for index, item in enumerate(config['replace']):
+        backup = state / ('expansion-ai-backup-%d' % index)
+        write_new(backup, item['before'], mode_of(item['path']))
+        entry = {'path': str(item['path']), 'before_sha256': sha(item['before']),
+                 'after_sha256': sha(item['after']), 'backup': backup.name, 'state': 'intent'}
+        record['replaced'].append(entry)
+        receipt.save()  # intent first: a run killed after this line may or may not have switched the file
+        if read_bytes(item['path'], item['path'].name) != item['before']:
+            # Never switched: whatever is there now (even the very bytes we would write) is the operator's.
+            entry['state'] = 'skipped'
+            receipt.save()
+            raise Refused('%s changed since the plan was made; run rollback, then plan again' % item['path'])
+        replace_with(item['path'], item['after'], mode_of(item['path']), temp=state / ('expansion-ai-next-%d' % index))
+        entry['state'] = 'replaced'
+        receipt.save()
+    for item in config['create']:
+        entry = {'path': str(item['path']), 'sha256': sha(item['data']), 'state': 'intent'}
+        record['created'].append(entry)
+        receipt.save()  # intent first: the file may or may not exist when this run is killed
+        try:
+            write_new(item['path'], item['data'], 0o644, stage=state)
+        except Refused:
+            entry['state'] = 'skipped'  # an exclusive create refused: the file is not ours
+            receipt.save()
+            raise
+        entry['state'] = 'created'
+        receipt.save()
+    receipt.step('expansion_ai_config', 'done')
+
+
+def ai_config_rollback(record, state, profiles, mission):
+    """(step, description, action) undoing 6b; every refusal is decided here, before any step runs."""
+    settings, patrols = profiles / AI_SETTINGS_TARGET, mission / AI_PATROL_TARGET
+    places = (profiles / 'HollowCountry', profiles / AI_LOADOUTS_TARGET, patrols.parent)
+    restores, files, notes, staged = [], [], [], []
+    for item in record['replaced']:
+        path = absolute(item['path'])
+        if path not in (settings, patrols):
+            raise Refused('receipt lists an Expansion AI settings file outside its known place')
+        if item.get('state') == 'skipped':
+            continue  # apply refused before the switch: the file was never ours to restore
+        current = sha(read_bytes(path, path.name))
+        if current == item['before_sha256']:
+            continue  # never replaced, or an earlier rollback already restored it
+        if current != item['after_sha256']:
+            raise Refused('Expansion AI settings drift: %s no longer matches what apply wrote; nothing was changed '
+                          'and the backup %s is kept in the session state. Reconcile it by hand, then run rollback '
+                          'again.' % (path, item['backup']))
+        backup = read_bytes(state / item['backup'], 'backup of ' + path.name)
+        if sha(backup) != item['before_sha256']:
+            raise Refused('the backup of %s does not match its receipt' % path.name)
+        restores.append((path, backup, item['backup']))
+    for item in record['created']:
+        path = absolute(item['path'])
+        if path.parent not in places:
+            raise Refused('receipt lists an Expansion AI file outside its known places')
+        if item.get('state', 'created') in ('intent', 'created'):
+            owned, note, links = owned_file(path, item['sha256'], 'Expansion AI file ' + path.name, state)
+            staged.extend(links)
+            if owned:
+                files.append(owned)
+            if note:
+                notes.append(note)
+    directories = [absolute(text) for text in record['dirs']]
+    if any(profiles not in d.parents and mission not in d.parents for d in directories):
+        raise Refused('receipt lists an Expansion AI directory outside the profiles and mission directories')
+    directories.sort(key=lambda d: len(d.parts), reverse=True)
+
+    def run():
+        for path, backup, name in restores:
+            replace_with(path, backup, mode_of(path), temp=state / (name + '.restore'))
+        _remove_files(files, directories, staged)()
+    return ('expansion_ai_config', '; '.join(['Expansion AI settings: remove %d file(s), restore %d from backup' %
+                                             (len(files), len(restores))] + notes), run)
 
 
 def load_receipt(server_root, repo=ROOT):
@@ -1741,10 +1931,17 @@ def plan_rollback(server_root, repo=ROOT):
         directories.sort(key=lambda d: len(d.parts), reverse=True)
         todo.append(('markers', 'markers: remove %d empty file(s)' % len(files), _remove_files(files, directories)))
 
+    if steps.get('expansion_ai_config') and progress.get('expansion_ai_config') != 'done' and data.get('expansion_ai_config'):
+        todo.append(ai_config_rollback(data['expansion_ai_config'], state, profiles, mission))
+
     if steps.get('expansion_ai') in ('started', 'done') and progress.get('expansion_ai') != 'done' and data.get('expansion_ai'):
         todo.append(mod_removal('expansion_ai', 'Expansion AI addon folder', data['expansion_ai'], state,
                                 strict=steps['expansion_ai'] == 'done'))
 
+    # Files later steps created under <profiles>/HollowCountry are gone by the time the interiors rollback runs.
+    ai_config = data.get('expansion_ai_config') or {'created': [], 'dirs': []}
+    session_files = {'created': list(data['markers']['created']) + [row['path'] for row in ai_config['created']],
+                     'dirs': list(data['markers'].get('dirs', [])) + list(ai_config['dirs'])}
     if steps.get('interiors') and progress.get('interiors') != 'done' and data.get('interiors'):
         target = absolute(data['interiors']['target'])
         if target != profiles / 'HollowCountry':
@@ -1756,7 +1953,7 @@ def plan_rollback(server_root, repo=ROOT):
             if progress.get('interiors') != 'started' and steps['interiors'] == 'done':
                 raise Refused('interiors: the installer directory %s is missing; reconcile by hand' % managed)
             todo.append(('interiors', 'interiors: installer already rolled back, nothing to undo', noop))
-        elif trial_interiors_rollback(tool, target, steps['interiors'] == 'started', data['markers']) == 'noop':
+        elif trial_interiors_rollback(tool, target, steps['interiors'] == 'started', session_files) == 'noop':
             todo.append(('interiors', 'interiors: installer wrote no receipt, nothing to undo', _remove_empty(managed)))
         else:
             todo.append(('interiors', 'interiors: existing installer rollback on %s' % target,

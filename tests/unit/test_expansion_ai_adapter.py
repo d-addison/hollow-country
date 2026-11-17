@@ -203,11 +203,15 @@ class ExpansionAdapterTests(unittest.TestCase):
         # Synthetic service port; service tests replace it with the authored statics.
         self.env["HCXAIService"]=N(Hooks=lambda:None,Adapter=lambda:self.mod,Bind=lambda a:True,
                                    InstallLocalHooks=lambda:False)
+        # Synthetic HC sites director: records lifecycle calls only.
+        self.env["HCXAISiteDirector"]=lambda:N(Start=lambda:self.calls.append(("sites","start")),
+                                                Step=lambda:self.calls.append(("sites","step")),
+                                                Stop=lambda:self.calls.append(("sites","stop")))
         self.engine=Authored(self.runtime_source,self.env)
         self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
-                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False)
+                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None)
         for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
             setattr(self.mod,name,lambda *a,n=name:self.engine.call(n,self.mod,*a))
 
@@ -694,6 +698,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.env["HCEventAISelection"] = N(Create=lambda: None)
         self.ai_settings_loaded = False
         self.mod.OnStart(None)
+        self.assertIn(("sites", "start"), self.calls)  # sites admit themselves, independent of the lease profile
         self.assertEqual("local", svc.Hooks().kind)  # Bind first would have refused the port.
         self.assertIs(self.mod, svc.Adapter())
         lines = self.diagnostics()
@@ -705,6 +710,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.calls.clear()
         self.mod.OnTick(1.)
         self.assertEqual([], self.diagnostics())
+        self.assertIn(("sites", "step"), self.calls)  # stepped even without a lease profile
         self.ai_settings_loaded = True
         self.mod.OnTick(1.); self.mod.OnTick(1.)
         ready = [l for l in self.diagnostics() if "readiness" in l]

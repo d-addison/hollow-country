@@ -124,3 +124,100 @@ class HCXAIJournalData
     int SchemaVersion = 1;
     ref array<ref HCXAIJournalRow> Rows = new array<ref HCXAIJournalRow>();
 }
+// HC sites (patrols, scavenger parties, holdouts) run as native eAIDynamicPatrol
+// subclasses. Shipped policy JSON; positions come from stock vanilla map data.
+class HCXAISiteLoot
+{
+    string ClassName;
+    int Quantity = 1;
+}
+class HCXAISite
+{
+    string Id;
+    string Kind;
+    string Faction;
+    string Loadout;
+    int NumberOfAI = 2;
+    int NumberOfAIMax = 3;
+    string Behaviour = "LOOP";
+    string Speed = "WALK";
+    float ActivationRadius = 600;
+    int DespawnSeconds = 600;
+    int RespawnSeconds = 3600;
+    ref array<vector> Waypoints = new array<vector>();
+    string HouseClass;
+    vector HousePosition;
+    ref array<vector> LocalPoints = new array<vector>();
+    string CacheClass;
+    vector CacheLocal;
+    int CacheCooldownSeconds = 0;
+    ref array<ref HCXAISiteLoot> CacheLoot = new array<ref HCXAISiteLoot>();
+}
+class HCXAISitePolicy
+{
+    int SchemaVersion = 1;
+    string WorldName = "chernarusplus";
+    string BuildVersion = "1.30.164289";
+    string ObserverPolicy = "native-eai";
+    int MaxActiveAI = 24;
+    int MaxActiveSites = 8;
+    float MinPlayerDistance = 200;
+    float LineOfSightRange = 1000;
+    float MaxLegLength = 400;
+    float CacheClearRadius = 300;
+    ref array<ref HCXAISite> Sites = new array<ref HCXAISite>();
+}
+// Gathered natively at startup; never read from profile or RPC data.
+class HCXAISiteAdmission
+{
+    string BuildVersion;
+    string WorldName;
+    string MissingAddons;
+    bool SettingsLoaded = false;
+    string Globals;
+    string UnfairFaction;
+    string MissingLoadout;
+    string ObserverPolicy;
+    bool Marker = false;
+    bool OwnershipReconciled = false;
+}
+class HCXAIRouteRow
+{
+    string Key;
+    string SiteId;
+    bool Qualified = false;
+    string Reason;
+}
+class HCXAIRouteCache
+{
+    int SchemaVersion = 1;
+    ref array<ref HCXAIRouteRow> Rows = new array<ref HCXAIRouteRow>();
+}
+// One row per holdout site: State seeding (intent), seeded or looted.
+class HCXAICacheRow
+{
+    string SiteId;
+    int Lifecycle = 0;
+    string ClassName;
+    string State;
+    int SeededAt = 0;
+    int LootedAt = 0;
+    int NextRefillAt = 0;
+}
+class HCXAICacheJournal
+{
+    int SchemaVersion = 1;
+    ref array<ref HCXAICacheRow> Rows = new array<ref HCXAICacheRow>();
+}
+// Sites with live actors at the last save; a restart sweeps their "HC:" groups.
+class HCXAIOwnedRow
+{
+    string SiteId;
+    int Members = 0;
+}
+class HCXAIOwnership
+{
+    int SchemaVersion = 1;
+    int Session = 0;
+    ref array<ref HCXAIOwnedRow> Rows = new array<ref HCXAIOwnedRow>();
+}

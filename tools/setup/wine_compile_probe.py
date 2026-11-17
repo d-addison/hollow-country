@@ -223,6 +223,40 @@ def verify_final_inputs(mission, expected_mission, launch_inputs, dependency_out
             raise ValueError('launch input drift: ' + path.name)
 
 
+PROFILE_PART = re.compile(r'^[A-Za-z0-9_][A-Za-z0-9_.-]*$')
+PROFILE_FILE_LIMIT = 65536
+
+
+def read_profile_files(pairs):
+    """{relative path: bytes} for our own files staged into the fresh profiles directory before launch.
+
+    Each path is relative, made of plain name parts, unique; each file is at most 64 KiB and, when it ends in .json,
+    a JSON object. Everything is read and checked before the experiment directory exists."""
+    blobs = {}
+    for relative, source in pairs:
+        parts = str(relative).split('/')
+        if str(relative).startswith('/') or any(not PROFILE_PART.match(part) for part in parts):
+            raise ValueError('profile file path must be relative plain names: %r' % str(relative))
+        if str(relative) in blobs:
+            raise ValueError('profile file staged twice: %s' % relative)
+        try:
+            with Path(source).open('rb') as stream:
+                data = stream.read(PROFILE_FILE_LIMIT + 1)
+        except OSError as error:
+            raise ValueError('profile file source unreadable: %s (%s)' % (relative, error)) from None
+        if len(data) > PROFILE_FILE_LIMIT:
+            raise ValueError('profile file exceeds 64 KiB: %s' % relative)
+        if str(relative).endswith('.json'):
+            try:
+                parsed = json.loads(data)
+            except ValueError:
+                parsed = None
+            if not isinstance(parsed, dict):
+                raise ValueError('profile file must be a JSON object: %s' % relative)
+        blobs[str(relative)] = data
+    return blobs
+
+
 SERVER_MOD_PREFIX = 'HollowCountryExpansionAI'
 SERVER_MOD_PBO = 'hollowcountryexpansionai.pbo'
 
@@ -261,7 +295,7 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None, profile_files=()):
     death_mode = infected_death_scripts is not None
     if death_mode:
         if diagnostic:
@@ -316,6 +350,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             parsed = None
         if not isinstance(parsed, dict):
             raise ValueError('patrol settings must be a JSON object of at most 64 KiB')
+    profile_blobs = read_profile_files(profile_files)
     settings_blob = None
     if settings is not None and settings_case is not None:
         raise ValueError('explicit and negative settings are mutually exclusive')
@@ -326,6 +361,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             raise ValueError('invalid or oversized explicit settings')
     if settings_case is not None:
         settings_blob = negative_settings(settings_case)
+    if settings_blob is not None and 'HollowCountry/settings.json' in profile_blobs:
+        raise ValueError('HollowCountry/settings.json is staged by --settings, not as a profile file')
     if experiment.exists() or experiment.is_symlink():
         raise ValueError('experiment must be fresh')
     if subprocess.run(['pgrep', '-f', r'(^|/)DayZ(Server|Diag)_x64\.exe( |$)'], capture_output=True).returncode == 0:
@@ -340,6 +377,9 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     if settings_blob is not None:
         (profiles / 'HollowCountry').mkdir()
         (profiles / 'HollowCountry/settings.json').write_bytes(settings_blob)
+    for relative, data in profile_blobs.items():
+        (profiles / relative).parent.mkdir(parents=True, exist_ok=True)
+        (profiles / relative).write_bytes(data)
     if seeds:
         seed_root = profiles / 'HollowCountry/Infected'
         seed_root.mkdir(parents=True, exist_ok=True)
@@ -456,6 +496,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['negative_settings_experiment'] = settings_case
     report['state_seed_sha256'] = {name: hashlib.sha256(data).hexdigest() for name, data in seeds.items()}
     report['hold_seconds_requested'] = hold_seconds
+    report['profile_files_sha256'] = {name: hashlib.sha256(data).hexdigest() for name, data in profile_blobs.items()}
     report['hold_seconds_observed'] = 0
     mission_snapshot = snapshot_mission(mission)
     launch_inputs = [
@@ -470,6 +511,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     if settings_blob is not None:
         launch_inputs.append((profiles / 'HollowCountry/settings.json',
                               len(settings_blob), report['settings_sha256']))
+    launch_inputs.extend((profiles / name, len(data), report['profile_files_sha256'][name])
+                         for name, data in profile_blobs.items())
     launch_inputs.extend((profiles / 'HollowCountry/Infected' / name, len(data),
                           report['state_seed_sha256'][name]) for name, data in seeds.items())
     process = None
@@ -697,6 +740,8 @@ def main():
     parser.add_argument('--server-mod', type=Path, help='HollowCountryExpansionAI addon PBO staged fresh and passed via -serverMod')
     parser.add_argument('--expansion-patrol-settings', type=Path,
                         help='our AIPatrolSettings override JSON, staged into the mod-stack mission copy before the snapshot; any rewrite is input drift')
+    parser.add_argument('--profile-file', action='append', default=[], metavar='RELATIVE=SOURCE',
+                        help='our own file staged into the fresh profiles directory (e.g. HollowCountry/expansion-ai-sites.json=mission/hollow-country/ai/sites.json); checked unchanged at the end')
     parser.add_argument('--diagnostic', action='store_true', help='use explicitly staged DayZDiag_x64.exe in server mode')
     parser.add_argument('--diagnostic-selftests', action='store_true', help='instrument a fresh disposable mission for native scalar/storage probes')
     parser.add_argument('--item-compatibility-audit', action='store_true', help='request fixed metadata export in a fresh mission; inspect export completeness separately from startup')
@@ -714,7 +759,8 @@ def main():
     try:
         report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct, args.item_compatibility_audit, args.group_checks,
                      infected_death_scripts=args.infected_death_scripts, extra_mods=args.extra_mod,
-                     server_mod=args.server_mod, expansion_patrol_settings=args.expansion_patrol_settings)
+                     server_mod=args.server_mod, expansion_patrol_settings=args.expansion_patrol_settings,
+                     profile_files=[tuple(item.split('=', 1)) for item in args.profile_file])
         print(json.dumps(report, indent=2))
         expected = 'settings-rejected' if args.settings_case else 'initialized'
         if args.infected_death_scripts is not None:

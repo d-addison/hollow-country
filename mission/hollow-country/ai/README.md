@@ -1,4 +1,52 @@
-# Optional PvE patrol data
+# Optional PvE AI data
+
+## HC AI sites (shipped, the default when the addon runs)
+
+`sites.json` is our own site policy: 7 patrols (4 police stations, 3 military
+sites), 5 scavenger parties of 2–3 that roam qualified routes between loot
+buildings, and 5 holdouts of 2–3 survivors who keep to one house with one
+`WoodenCrate` or `SeaChest` cache. Its coordinates were chosen once from the
+stock `mapgrouppos.xml`/`mapgroupproto.xml` (read only; no dump is committed) by
+`python3 -m tools.package.ai_patrols sites --mapgrouppos ... --mapgroupproto ... --out ...`.
+`loadouts/HollowCountry_{Patrol,Scavenger,Holdout}.json` are Expansion loadout
+files with finite, partly filled magazines.
+
+Install paths (the local test launcher `--expansion-ai` installs all of them,
+with backups, and its rollback restores them):
+
+| Source | Server path |
+| :--- | :--- |
+| `sites.json` | `$profile:HollowCountry/expansion-ai-sites.json` |
+| `loadouts/*.json` | `$profile:ExpansionMod/Loadouts/` |
+| `AIPatrolSettings.override.json` | `$mission:expansion/settings/AIPatrolSettings.json` |
+| `AISettings.merge.json` | field merge into the existing `$profile:ExpansionMod/Settings/AISettings.json` |
+| (empty file) | `$profile:HollowCountry/acceptance/pve_patrols.enable` (the opt-in) |
+
+At start `HCXAISiteDirector` admits the sites only when the engine build and
+world match the policy, the addon and its dependencies are in `CfgPatches`,
+Expansion AI and AIPatrol settings are loaded with recruiting off and no
+unlimited reload, every loadout file exists, the observer is native eAI
+perception and the opt-in marker is present. It then binds holdouts to their
+house (nearest object of `HouseClass`), qualifies each route by navmesh
+sampling and `FindPath` (at most 4 work items per tick), and caches the result
+by SHA-256 of route plus build in `$profile:HollowCountry/expansion-ai-routes.json`.
+Each qualified site becomes an `eAIDynamicPatrol` that Expansion's own trigger
+spawns when a player is inside `ActivationRadius`; HC refuses the spawn within
+`MinPlayerDistance` (200 m) of a player, in a player's line of sight, or past the
+24-AI / 8-site budgets, checks each later group member at the formation point
+Expansion is about to use (same distance and sight rules; a refused member ends the
+group at the members already placed), refuses despawn while the group is in combat, and forces
+fair actors (finite reload, multipliers 1). Owned groups are journaled in
+`expansion-ai-owned.json`; on restart any `HC:` group left over is despawned.
+Holdout caches are journaled in `expansion-ai-caches.json` before any item is
+created: seeded once per lifecycle, refilled only after the crate was emptied
+and `CacheCooldownSeconds` passed, never while a player is near.
+
+The diagnostic marker `$profile:HollowCountry/acceptance/xai_diagnostic_spawn.enable`
+(off by default, never installed by the launcher) spawns the first site of each
+kind once with no player, for Wine observation only.
+
+## Event patrol examples (lease path)
 
 `patrols.example.json` contains one two-person finite-ammo example for each of the
 existing reviewed police source sites. These are authored route proposals, not
@@ -43,7 +91,7 @@ After review, merge `Missions` into the server's separately prepared
 identities, budgets and observer policy. No automatic overwrite is performed.
 Trusted server hooks must still bind route survey/loadout digests to evidence.
 
-`AISettings.merge.json` is a manual field merge into the owner's existing
+`AISettings.merge.json` is a field merge into the owner's existing
 `$profile:ExpansionMod/Settings/AISettings.json`, not a replacement settings file.
 Preserve all other fields and its version. Pinned Expansion reads this profile
 file in `ExpansionAISettings.OnLoad()`; the source evidence was recorded in the local W1.1 report (not shipped).
@@ -53,8 +101,8 @@ closes HC admission even if this merge and the per-actor finite setting are used
 
 The server-only opt-in is the empty file
 `$profile:HollowCountry/acceptance/pve_patrols.enable`, cached until restart.
-`HCXAIQualification.Qualified()` remains false. Opt-in does not provide missing
-artifact, route, observer or durable inventory hooks. No profile JSON, route
+For the event lease path `HCXAIQualification.Qualified()` remains false. Opt-in
+does not provide missing artifact, route, observer or durable inventory hooks. No profile JSON, route
 example or marker supplies those trusted capabilities.
 
 ## Expansion's own patrols
@@ -63,13 +111,12 @@ HC events own AI spawning. Pinned Expansion AI 1.9.84 otherwise generates
 `$mission:expansion/settings/AIPatrolSettings.json` with `Enabled: 1` and default
 patrols (police and wreck object patrols plus roaming patrols) that spawn when a
 player comes near, with their own loadouts and reload rules. `AIPatrolSettings.override.json`
-is our configuration, not an Expansion file: copy it by hand to
-`<mission>/expansion/settings/AIPatrolSettings.json` (back up any existing file).
+is our configuration, not an Expansion file, installed at
+`<mission>/expansion/settings/AIPatrolSettings.json` (the launcher backs up any existing file).
 It sets `m_Version` to the pinned `VERSION` (32), so Expansion loads it without
 converting or saving, and `Enabled: 0` with no `Patrols`, so `eAIDynamicPatrol`
 spawns nothing. `AILocationSettings.json` only holds roaming waypoints and no-go
-areas and needs no change. The local test launcher prints this step and never
-applies it. `tools/setup/wine_compile_probe.py --expansion-patrol-settings` stages
+areas and needs no change. `tools/setup/wine_compile_probe.py --expansion-patrol-settings` stages
 it into a disposable mission copy; any rewrite by Expansion is reported as drift.
 
 ## Operator policy and readiness

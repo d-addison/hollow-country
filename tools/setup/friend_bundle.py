@@ -45,6 +45,7 @@ PROFILE_INCLUDE = (
     'HollowCountry/measured-interiors/**',
     'HollowCountry/templates/**',
     'HollowCountry/expansion-ai.json',
+    'HollowCountry/expansion-ai-sites.json',
     'HollowCountry/Ecology/settings.json',
     'HollowCountry/Events/settings.json',
     'HollowCountry/Groups/settings.json',
@@ -53,6 +54,7 @@ PROFILE_INCLUDE = (
     'HollowCountry/Infected/production-rooms.json',
     'HollowCountry/Infected/measured-rooms.json',
     'ExpansionMod/Settings/AISettings.json',
+    'ExpansionMod/Loadouts/HollowCountry_*.json',
 )
 PORTS = '2302-2305 UDP (game) and 27016 UDP (Steam query)'
 MISSION_TEMPLATE = re.compile(r'\btemplate\s*=\s*"([^"\r\n]+)"\s*;')

@@ -1,0 +1,779 @@
+{
+  "SchemaVersion": 1,
+  "WorldName": "chernarusplus",
+  "BuildVersion": "1.30.164289",
+  "ObserverPolicy": "native-eai",
+  "MaxActiveAI": 24,
+  "MaxActiveSites": 8,
+  "MinPlayerDistance": 200.0,
+  "LineOfSightRange": 1000.0,
+  "MaxLegLength": 400.0,
+  "CacheClearRadius": 300.0,
+  "Sites": [
+    {
+      "Id": "police-chernogorsk",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          6564.47,
+          14.31,
+          2551.96
+        ],
+        [
+          6571.44,
+          15.39,
+          2534.06
+        ],
+        [
+          6631.27,
+          12.91,
+          2504.17
+        ],
+        [
+          6652.29,
+          8.91,
+          2508.92
+        ],
+        [
+          6708.72,
+          11.26,
+          2555.77
+        ]
+      ]
+    },
+    {
+      "Id": "police-elektrozavodsk",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          10403.43,
+          11.53,
+          2209.93
+        ],
+        [
+          10538.56,
+          10.43,
+          2271.77
+        ],
+        [
+          10517.75,
+          11.44,
+          2327.14
+        ],
+        [
+          10494.88,
+          11.18,
+          2346.99
+        ],
+        [
+          10457.1,
+          11.7,
+          2355.9
+        ]
+      ]
+    },
+    {
+      "Id": "police-berezino",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          11983.84,
+          57.08,
+          9040.77
+        ],
+        [
+          11994.53,
+          59.12,
+          9023.1
+        ],
+        [
+          12067.34,
+          55.96,
+          9145.8
+        ],
+        [
+          12039.64,
+          56.89,
+          9132.38
+        ],
+        [
+          11995.83,
+          57.34,
+          9109.17
+        ]
+      ]
+    },
+    {
+      "Id": "police-zelenogorsk",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          2700.11,
+          207.77,
+          5298.06
+        ],
+        [
+          2722.85,
+          210.1,
+          5291.15
+        ],
+        [
+          2782.79,
+          211.93,
+          5311.66
+        ],
+        [
+          2804.18,
+          213.88,
+          5404.2
+        ],
+        [
+          2777.69,
+          212.41,
+          5442.69
+        ]
+      ]
+    },
+    {
+      "Id": "mil-nwaf",
+      "Kind": "patrol",
+      "Faction": "East",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          4621.01,
+          339.74,
+          10595.41
+        ],
+        [
+          4673.35,
+          350.41,
+          10498.95
+        ],
+        [
+          4617.71,
+          339.61,
+          10711.87
+        ],
+        [
+          4666.68,
+          339.6,
+          10667.02
+        ],
+        [
+          4634.96,
+          339.6,
+          10645.61
+        ]
+      ]
+    },
+    {
+      "Id": "mil-tisy",
+      "Kind": "patrol",
+      "Faction": "East",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          1684.98,
+          456.29,
+          14219.32
+        ],
+        [
+          1710.85,
+          456.72,
+          14279.26
+        ],
+        [
+          1708.93,
+          453.25,
+          14300.84
+        ],
+        [
+          1667.09,
+          453.21,
+          14368.55
+        ],
+        [
+          1546.3,
+          459.27,
+          14397.77
+        ]
+      ]
+    },
+    {
+      "Id": "mil-vybor",
+      "Kind": "patrol",
+      "Faction": "East",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 3,
+      "NumberOfAIMax": 4,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          4485.2,
+          316.69,
+          8290.67
+        ],
+        [
+          4519.36,
+          320.95,
+          8282.69
+        ],
+        [
+          4559.72,
+          320.63,
+          8260.79
+        ],
+        [
+          4540.23,
+          319.82,
+          8306.92
+        ],
+        [
+          4547.5,
+          319.45,
+          8323.4
+        ]
+      ]
+    },
+    {
+      "Id": "scav-chernogorsk",
+      "Kind": "scavenger",
+      "Faction": "Raiders",
+      "Loadout": "HollowCountry_Scavenger",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 600.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 1800,
+      "Waypoints": [
+        [
+          6790.94,
+          9.52,
+          2580.32
+        ],
+        [
+          6659.41,
+          12.08,
+          2575.38
+        ],
+        [
+          6534.4,
+          14.77,
+          2454.83
+        ],
+        [
+          6641.38,
+          13.83,
+          2357.12
+        ]
+      ]
+    },
+    {
+      "Id": "scav-elektrozavodsk",
+      "Kind": "scavenger",
+      "Faction": "Raiders",
+      "Loadout": "HollowCountry_Scavenger",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 600.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 1800,
+      "Waypoints": [
+        [
+          10501.5,
+          12.35,
+          2323.91
+        ],
+        [
+          10394.59,
+          11.21,
+          2216.27
+        ],
+        [
+          10384.78,
+          8.82,
+          2084.54
+        ],
+        [
+          10576.35,
+          9.01,
+          2119.19
+        ]
+      ]
+    },
+    {
+      "Id": "scav-berezino",
+      "Kind": "scavenger",
+      "Faction": "Raiders",
+      "Loadout": "HollowCountry_Scavenger",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 600.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 1800,
+      "Waypoints": [
+        [
+          12057.41,
+          59.35,
+          9070.59
+        ],
+        [
+          11931.68,
+          60.15,
+          8962.7
+        ],
+        [
+          11810.14,
+          65.02,
+          9065.0
+        ],
+        [
+          11836.74,
+          57.55,
+          9208.42
+        ]
+      ]
+    },
+    {
+      "Id": "scav-vybor",
+      "Kind": "scavenger",
+      "Faction": "Raiders",
+      "Loadout": "HollowCountry_Scavenger",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 600.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 1800,
+      "Waypoints": [
+        [
+          3799.58,
+          316.01,
+          8835.86
+        ],
+        [
+          3878.33,
+          315.06,
+          8939.24
+        ],
+        [
+          3784.07,
+          316.17,
+          9046.71
+        ],
+        [
+          3692.01,
+          315.45,
+          8923.95
+        ]
+      ]
+    },
+    {
+      "Id": "scav-novodmitrovsk",
+      "Kind": "scavenger",
+      "Faction": "Raiders",
+      "Loadout": "HollowCountry_Scavenger",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 600.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 1800,
+      "Waypoints": [
+        [
+          11579.02,
+          65.83,
+          14599.06
+        ],
+        [
+          11589.84,
+          51.52,
+          14453.14
+        ],
+        [
+          11702.53,
+          42.77,
+          14356.06
+        ],
+        [
+          11559.14,
+          39.26,
+          14272.37
+        ]
+      ]
+    },
+    {
+      "Id": "holdout-gorka",
+      "Kind": "holdout",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Holdout",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "ALTERNATE",
+      "Speed": "WALK",
+      "ActivationRadius": 500.0,
+      "DespawnSeconds": 900,
+      "RespawnSeconds": 5400,
+      "CacheCooldownSeconds": 14400,
+      "Waypoints": [],
+      "HouseClass": "Land_House_1W04",
+      "HousePosition": [
+        9559.1,
+        306.96,
+        8855.51
+      ],
+      "LocalPoints": [
+        [
+          -1.15,
+          -2.66,
+          -0.61
+        ],
+        [
+          3.67,
+          -2.65,
+          0.34
+        ],
+        [
+          -4.4,
+          -2.67,
+          2.76
+        ]
+      ],
+      "CacheClass": "WoodenCrate",
+      "CacheLocal": [
+        -1.5,
+        -2.66,
+        1.78
+      ],
+      "CacheLoot": [
+        {
+          "ClassName": "TunaCan",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "Rag",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "WaterBottle",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Mag_IJ70_8Rnd",
+          "Quantity": 1
+        }
+      ]
+    },
+    {
+      "Id": "holdout-mogilevka",
+      "Kind": "holdout",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Holdout",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "ALTERNATE",
+      "Speed": "WALK",
+      "ActivationRadius": 500.0,
+      "DespawnSeconds": 900,
+      "RespawnSeconds": 5400,
+      "CacheCooldownSeconds": 14400,
+      "Waypoints": [],
+      "HouseClass": "Land_House_2B02",
+      "HousePosition": [
+        7562.9,
+        220.51,
+        5149.57
+      ],
+      "LocalPoints": [
+        [
+          -1.16,
+          -5.58,
+          -6.91
+        ],
+        [
+          5.96,
+          -5.58,
+          -5.02
+        ],
+        [
+          2.22,
+          -5.57,
+          7.94
+        ]
+      ],
+      "CacheClass": "SeaChest",
+      "CacheLocal": [
+        1.48,
+        -5.58,
+        -3.23
+      ],
+      "CacheLoot": [
+        {
+          "ClassName": "BakedBeansCan",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "BandageDressing",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Matchbox",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Ammo_12gaPellets",
+          "Quantity": 1
+        }
+      ]
+    },
+    {
+      "Id": "holdout-nadezhdino",
+      "Kind": "holdout",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Holdout",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "ALTERNATE",
+      "Speed": "WALK",
+      "ActivationRadius": 500.0,
+      "DespawnSeconds": 900,
+      "RespawnSeconds": 5400,
+      "CacheCooldownSeconds": 14400,
+      "Waypoints": [],
+      "HouseClass": "Land_House_1W06",
+      "HousePosition": [
+        5853.87,
+        139.22,
+        4722.04
+      ],
+      "LocalPoints": [
+        [
+          -1.4,
+          -0.92,
+          -4.62
+        ],
+        [
+          0.61,
+          -0.92,
+          -1.02
+        ],
+        [
+          -3.12,
+          -0.92,
+          -1.64
+        ]
+      ],
+      "CacheClass": "WoodenCrate",
+      "CacheLocal": [
+        -1.77,
+        -0.92,
+        -3.2
+      ],
+      "CacheLoot": [
+        {
+          "ClassName": "PeachesCan",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "Rag",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "Canteen",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Ammo_380",
+          "Quantity": 1
+        }
+      ]
+    },
+    {
+      "Id": "holdout-pogorevka",
+      "Kind": "holdout",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Holdout",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "ALTERNATE",
+      "Speed": "WALK",
+      "ActivationRadius": 500.0,
+      "DespawnSeconds": 900,
+      "RespawnSeconds": 5400,
+      "CacheCooldownSeconds": 14400,
+      "Waypoints": [],
+      "HouseClass": "Land_House_1W06",
+      "HousePosition": [
+        4446.81,
+        300.99,
+        6376.18
+      ],
+      "LocalPoints": [
+        [
+          -1.4,
+          -0.92,
+          -4.62
+        ],
+        [
+          0.61,
+          -0.92,
+          -1.02
+        ],
+        [
+          -3.12,
+          -0.92,
+          -1.64
+        ]
+      ],
+      "CacheClass": "SeaChest",
+      "CacheLocal": [
+        -1.77,
+        -0.92,
+        -3.2
+      ],
+      "CacheLoot": [
+        {
+          "ClassName": "SardinesCan",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "BandageDressing",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Battery9V",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Ammo_22",
+          "Quantity": 1
+        }
+      ]
+    },
+    {
+      "Id": "holdout-polana",
+      "Kind": "holdout",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Holdout",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "ALTERNATE",
+      "Speed": "WALK",
+      "ActivationRadius": 500.0,
+      "DespawnSeconds": 900,
+      "RespawnSeconds": 5400,
+      "CacheCooldownSeconds": 14400,
+      "Waypoints": [],
+      "HouseClass": "Land_House_1B01_Pub",
+      "HousePosition": [
+        10719.43,
+        215.0,
+        8035.76
+      ],
+      "LocalPoints": [
+        [
+          -5.36,
+          -2.8,
+          -7.44
+        ],
+        [
+          9.93,
+          -2.8,
+          0.64
+        ],
+        [
+          -5.34,
+          -2.8,
+          -1.67
+        ]
+      ],
+      "CacheClass": "WoodenCrate",
+      "CacheLocal": [
+        3.36,
+        -2.8,
+        -2.85
+      ],
+      "CacheLoot": [
+        {
+          "ClassName": "SpaghettiCan",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "Rag",
+          "Quantity": 2
+        },
+        {
+          "ClassName": "WaterBottle",
+          "Quantity": 1
+        },
+        {
+          "ClassName": "Ammo_9x19",
+          "Quantity": 1
+        }
+      ]
+    }
+  ]
+}

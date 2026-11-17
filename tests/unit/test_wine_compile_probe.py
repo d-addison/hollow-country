@@ -375,6 +375,42 @@ class MockedWineRunTests(unittest.TestCase):
                 self.run_mocked(extra_mods=extra, expansion_patrol_settings=override)
             self.assertFalse(self.experiment.exists())
 
+    def test_profile_files_are_staged_hashed_and_must_survive_unchanged(self):
+        sites = self.root / 'sites.json'
+        sites.write_text('{"Sites": ["synthetic"]}')
+        marker = self.root / 'marker'
+        marker.write_bytes(b'')
+        files = [('HollowCountry/expansion-ai-sites.json', sites), ('HollowCountry/acceptance/pve_patrols.enable', marker)]
+        report = self.run_mocked(profile_files=files)
+        self.assertEqual(report['status'], 'initialized')
+        staged = self.experiment / 'profiles/HollowCountry/expansion-ai-sites.json'
+        self.assertEqual(staged.read_bytes(), sites.read_bytes())
+        self.assertEqual((self.experiment / 'profiles/HollowCountry/acceptance/pve_patrols.enable').read_bytes(), b'')
+        self.assertEqual(report['profile_files_sha256'], {
+            'HollowCountry/expansion-ai-sites.json': hashlib.sha256(sites.read_bytes()).hexdigest(),
+            'HollowCountry/acceptance/pve_patrols.enable': hashlib.sha256(b'').hexdigest()})
+        shutil.rmtree(self.experiment)
+        report = self.run_mocked(profile_files=files, final_mutation=lambda: staged.write_text('{"Sites": []}'))
+        self.assertEqual(report['status'], 'input-drift')
+
+    def test_profile_files_refuse_unsafe_paths_duplicates_and_bad_json_before_staging(self):
+        good = self.root / 'good.json'
+        good.write_text('{}')
+        bad = self.root / 'bad.json'
+        bad.write_text('[')
+        big = self.root / 'big.json'
+        big.write_text('{"x": "' + 'a' * 70000 + '"}')
+        cases = {'parent': [('../x.json', good)], 'absolute': [('/x.json', good)], 'empty part': [('a//x.json', good)],
+                 'odd name': [('a/x y.json', good)], 'duplicate': [('a/x.json', good), ('a/x.json', good)],
+                 'not json': [('a/x.json', bad)], 'oversized': [('a/x.json', big)], 'missing': [('a/x.json', self.root / 'no')],
+                 'settings clash': [('HollowCountry/settings.json', good)]}
+        for label, files in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError) as caught:
+                self.run_mocked(profile_files=files, settings_case='malformed-json' if label == 'settings clash' else None)
+            if label == 'settings clash':
+                self.assertIn('--settings', str(caught.exception))
+            self.assertFalse(self.experiment.exists())
+
     def test_server_mod_is_staged_hashed_and_passed_as_server_mod(self):
         addon = self.root / 'xai.pbo'
         addon.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic server addon'}, 'HollowCountryExpansionAI'))

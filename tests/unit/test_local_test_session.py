@@ -1334,6 +1334,15 @@ class OptionalSteps(SessionCase):
         self.ai_blob = ai_pbo_blob()
         (self.ai_built / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(self.ai_blob)
         self.ai_dest = self.world / 'session' / '@HollowCountryExpansionAI'
+        # SYNTHETIC shipped AI content and an Expansion-written AISettings.json (Expansion writes it on first start).
+        ai = self.repo / 'mission' / 'hollow-country' / 'ai'
+        (ai / 'sites.json').write_text('{"Sites": ["synthetic"]}')
+        (ai / 'loadouts').mkdir()
+        (ai / 'loadouts' / 'HollowCountry_Patrol.json').write_text('{"Synthetic": "patrol"}')
+        (ai / 'loadouts' / 'HollowCountry_Holdout.json').write_text('{"Synthetic": "holdout"}')
+        self.ai_settings = self.profiles / 'ExpansionMod' / 'Settings' / 'AISettings.json'
+        self.ai_settings.parent.mkdir(parents=True)
+        self.ai_settings.write_text('{\n    "m_Version": 20,\n    "MaxDifficulty": 3,\n    "Other": "kept"\n}\n')
 
     def ai_args(self, command='plan', *extra):
         return self.args(command, '--expansion-ai', '--workshop-dir', str(self.workshop),
@@ -1346,7 +1355,7 @@ class OptionalSteps(SessionCase):
         code, out, err = self.run_cli(['rollback', '--server-root', str(self.server), '--dry-run'])
         self.assertEqual((code, err), (0, ''), out)
         names = {'serverDZ.cfg': 'cfg', 'server keys': 'server_keys', 'mod folder': 'mod',
-                 'Expansion AI addon folder': 'expansion_ai'}
+                 'Expansion AI addon folder': 'expansion_ai', 'Expansion AI settings': 'expansion_ai_config'}
         found = [line[len('would '):].split(':')[0] for line in out.splitlines() if line.startswith('would ')]
         return [names.get(name, name) for name in found]
 
@@ -1470,16 +1479,125 @@ class OptionalSteps(SessionCase):
         self.assertNotIn('serverMod', client_lines.split('NOTE:')[0])
         self.assertEqual(before, self.tree(self.world))
 
-    def test_plan_names_the_manual_patrol_override_and_operator_policy_and_apply_writes_neither(self):
+    def test_apply_installs_the_shipped_sites_loadouts_patrol_override_and_merged_settings(self):
+        ai = self.repo / 'mission' / 'hollow-country' / 'ai'
+        sites = self.profiles / 'HollowCountry' / 'expansion-ai-sites.json'
+        loadouts = self.profiles / 'ExpansionMod' / 'Loadouts'
+        patrols = self.mission / 'expansion' / 'settings' / 'AIPatrolSettings.json'
+        before = self.tree(self.world)
         code, out, err = self.run_cli(self.ai_args('plan'))
         self.assertEqual(code, 0, err)
-        self.assertIn('AIPatrolSettings.override.json', out)
-        self.assertIn(str(self.mission / 'expansion' / 'settings' / 'AIPatrolSettings.json'), out)
-        self.assertIn(str(self.profiles / 'HollowCountry' / 'expansion-ai.json'), out)
+        for path in (sites, loadouts / 'HollowCountry_Patrol.json', loadouts / 'HollowCountry_Holdout.json', patrols,
+                     self.ai_settings):
+            self.assertIn(str(path), out)
+        self.assertEqual(before, self.tree(self.world))  # a plan writes nothing
         code, out, err = self.run_cli(self.ai_args('apply'))
         self.assertEqual(code, 0, err)
-        self.assertFalse((self.mission / 'expansion').exists())
-        self.assertFalse((self.profiles / 'HollowCountry' / 'expansion-ai.json').exists())
+        self.assertEqual(sites.read_bytes(), (ai / 'sites.json').read_bytes())
+        for name in ('HollowCountry_Patrol.json', 'HollowCountry_Holdout.json'):
+            self.assertEqual((loadouts / name).read_bytes(), (ai / 'loadouts' / name).read_bytes())
+        self.assertEqual(patrols.read_bytes(), (ai / 'AIPatrolSettings.override.json').read_bytes())
+        merged = json.loads(self.ai_settings.read_text())
+        self.assertEqual(merged, {'m_Version': 20, 'MaxDifficulty': 1, 'Other': 'kept'})  # a field merge, not a copy
+        self.assertFalse((self.profiles / 'HollowCountry' / 'expansion-ai.json').exists())  # lease policy untouched
+        receipt = self.receipt()
+        self.assertEqual(receipt['steps']['expansion_ai_config'], 'done')
+        created = sorted(row['path'] for row in receipt['expansion_ai_config']['created'])
+        self.assertEqual(created, sorted(str(p) for p in (sites, loadouts / 'HollowCountry_Patrol.json',
+                                                          loadouts / 'HollowCountry_Holdout.json', patrols)))
+        replaced = receipt['expansion_ai_config']['replaced']
+        self.assertEqual([row['path'] for row in replaced], [str(self.ai_settings)])
+
+    def test_an_absent_expansion_ai_settings_file_refuses_plan_and_apply(self):
+        self.ai_settings.unlink()
+        before = self.tree(self.world)
+        for command in ('plan', 'apply'):
+            code, out, err = self.run_cli(self.ai_args(command))
+            self.assertEqual(code, 2, out)
+            self.assertIn('AISettings.json', err)
+            self.assertIn('start the server once', err)
+            self.assertEqual(before, self.tree(self.world))
+
+    def test_an_existing_patrol_settings_file_is_backed_up_replaced_and_restored_by_rollback(self):
+        patrols = self.mission / 'expansion' / 'settings' / 'AIPatrolSettings.json'
+        patrols.parent.mkdir(parents=True)
+        patrols.write_text('{"Enabled": 1, "Patrols": ["expansion default"]}')
+        before = self.tree(self.world)
+        self.assertEqual(self.run_cli(self.ai_args('apply'))[0], 0)
+        self.assertEqual(patrols.read_text(), '{"Enabled": 0}')
+        self.assertEqual(self.steps()[:3], ['markers', 'expansion_ai_config', 'expansion_ai'])
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual((code, err), (0, ''), out)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_an_operator_file_at_a_shipped_target_refuses_and_an_identical_one_is_kept(self):
+        sites = self.profiles / 'HollowCountry' / 'expansion-ai-sites.json'
+        sites.parent.mkdir()
+        sites.write_text('{"Sites": ["operator"]}')
+        before = self.tree(self.world)
+        for command in ('plan', 'apply'):
+            code, out, err = self.run_cli(self.ai_args(command))
+            self.assertEqual(code, 2, out)
+            self.assertIn('expansion-ai-sites.json', err)
+            self.assertEqual(before, self.tree(self.world))
+        sites.write_bytes((self.repo / 'mission' / 'hollow-country' / 'ai' / 'sites.json').read_bytes())
+        before = self.tree(self.world)
+        self.assertEqual(self.run_cli(self.ai_args('apply'))[0], 0)
+        self.assertNotIn(str(sites), [row['path'] for row in self.receipt()['expansion_ai_config']['created']])
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual(before, self.tree(self.world))  # the identical file was never ours and stays
+
+    def test_drift_in_the_merged_ai_settings_refuses_rollback_before_any_change(self):
+        self.assertEqual(self.run_cli(self.ai_args('apply'))[0], 0)
+        merged = self.ai_settings.read_bytes()
+        self.ai_settings.write_bytes(merged + b' ')
+        before = self.tree(self.world)
+        for argv in (['rollback', '--server-root', str(self.server), '--dry-run'], ['rollback', '--server-root', str(self.server)]):
+            code, out, err = self.run_cli(argv)
+            self.assertEqual(code, 2, argv)
+            self.assertIn('AISettings.json', err)
+            self.assertIn('drift', err)
+            self.assertEqual(before, self.tree(self.world))
+        self.ai_settings.write_bytes(merged)
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual(json.loads(self.ai_settings.read_text())['MaxDifficulty'], 3)
+
+    def test_a_replacement_refused_by_an_intervening_edit_is_never_restored_by_rollback(self):
+        # The operator writes the very bytes apply would merge, after the plan and before the switch: apply
+        # refuses that replacement, so rollback must not "restore" the old backup over the operator's file.
+        self.assertEqual(self.run_cli(self.ai_args('plan'))[0], 0)
+        original = self.ai_settings.read_bytes()
+        merged = dict(json.loads(original), **json.loads(
+            (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AISettings.merge.json').read_text()))
+        operator = (json.dumps(merged, indent=4) + '\n').encode()
+        native = lts.write_new
+
+        def edit_after_backup(path, data, *args, **kwargs):
+            result = native(path, data, *args, **kwargs)
+            if Path(path).name == 'expansion-ai-backup-0':
+                self.ai_settings.write_bytes(operator)
+            return result
+
+        with mock.patch.object(lts, 'write_new', side_effect=edit_after_backup):
+            code, out, err = self.run_cli(self.ai_args('apply'))
+        self.assertEqual(code, 2, out)
+        self.assertIn('changed since the plan', err)
+        self.assertEqual(self.ai_settings.read_bytes(), operator)
+        states = [row.get('state') for row in self.receipt()['expansion_ai_config']['replaced']]
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual((code, err), (0, ''), out)
+        self.assertEqual(self.ai_settings.read_bytes(), operator)  # the operator's file, not the old backup
+        self.assertEqual(states, ['skipped'])
+
+    def test_the_default_session_creates_the_pve_patrols_opt_in_and_none_is_reported(self):
+        with mock.patch.object(FakeMarkers, 'NAMES', FakeMarkers.NAMES + ('pve_patrols',)):
+            code, out, err = self.run_cli(self.ai_args('plan', '--markers', 'none'))
+            self.assertEqual(code, 0, err)
+            self.assertIn('pve_patrols opt-in marker is not part of this session', out)
+            code, out, err = self.run_cli(self.ai_args('apply'))
+            self.assertEqual(code, 0, err)
+            self.assertIn('pve_patrols opt-in marker: created', out)
+        self.assertTrue((self.profiles / 'HollowCountry' / 'acceptance' / 'pve_patrols.enable').is_file())
 
     def test_unreadable_patrol_override_refuses_the_ai_plan(self):
         (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AIPatrolSettings.override.json').write_text('{')
@@ -1493,7 +1611,7 @@ class OptionalSteps(SessionCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(sorted(p.name for p in (self.ai_dest / 'addons').iterdir()), ['hollowcountryexpansionai.pbo'])
         self.assertEqual(self.tree(self.workshop), workshop_before)
-        self.assertFalse((self.profiles / 'ExpansionMod').exists())  # the merge is printed, never applied
+        self.assertEqual(json.loads(self.ai_settings.read_text())['MaxDifficulty'], 1)  # merged, with a backup
         receipt = self.receipt()
         self.assertEqual(receipt['steps']['expansion_ai'], 'done')
         self.assertEqual(receipt['expansion_ai']['dest'], str(self.ai_dest))
@@ -1503,8 +1621,8 @@ class OptionalSteps(SessionCase):
     def test_rollback_removes_the_ai_addon_before_anything_older_and_keeps_expansion(self):
         before = self.tree(self.world)
         self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors'))[0], 0)
-        self.assertEqual(self.steps(), ['markers', 'expansion_ai', 'interiors', 'economy', 'gameplay', 'cfg',
-                                        'server_keys', 'mod'])
+        self.assertEqual(self.steps(), ['markers', 'expansion_ai_config', 'expansion_ai', 'interiors', 'economy',
+                                        'gameplay', 'cfg', 'server_keys', 'mod'])
         self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
         self.assertEqual(before, self.tree(self.world))
 
@@ -1809,10 +1927,10 @@ class OptionalSteps(SessionCase):
         self.assertEqual(code, 0, err)
         receipt = self.receipt()
         self.assertEqual([k for k in ('mod', 'server_keys', 'cfg', 'gameplay', 'economy', 'tactical_flava', 'interiors',
-                                      'expansion_ai', 'markers') if receipt['steps'].get(k) == 'done'],
+                                      'expansion_ai', 'expansion_ai_config', 'markers') if receipt['steps'].get(k) == 'done'],
                          ['mod', 'server_keys', 'cfg', 'gameplay', 'economy', 'tactical_flava', 'interiors',
-                          'expansion_ai', 'markers'])
-        self.assertEqual(self.steps(), ['markers', 'expansion_ai', 'interiors', 'tactical_flava', 'economy',
+                          'expansion_ai', 'expansion_ai_config', 'markers'])
+        self.assertEqual(self.steps(), ['markers', 'expansion_ai_config', 'expansion_ai', 'interiors', 'tactical_flava', 'economy',
                                         'gameplay', 'cfg', 'server_keys', 'mod'])
         self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
         self.assertEqual(before, self.tree(self.world))

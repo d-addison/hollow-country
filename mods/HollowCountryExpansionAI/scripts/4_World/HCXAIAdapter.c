@@ -59,6 +59,7 @@ class HCXAIAdapter extends HCModule
     protected int m_LastReceiptSequence;
     protected int m_LastReceiptAt = -1;
     protected bool m_ReadinessLogged;
+    protected ref HCXAISiteDirector m_Sites;
 
     override string GetName() { return "optional-expansion-human-ai"; }
     // Invoke startup to create/read the user's preference even without admission.
@@ -66,6 +67,10 @@ class HCXAIAdapter extends HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        // HC sites (patrols, scavengers, holdouts) admit themselves from engine
+        // observations; they do not depend on the lease profile below.
+        m_Sites = new HCXAISiteDirector();
+        m_Sites.Start();
         // Before Bind: InstallHooks refuses once an adapter is bound.
         bool installed = HCXAIService.InstallLocalHooks();
         string port = "not installed (Expansion AI not loaded or not a server)";
@@ -543,6 +548,7 @@ class HCXAIAdapter extends HCModule
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         if (!m_ReadinessLogged && this.ExpansionAISettingsLoaded()) { this.LogReadiness("Expansion AI settings loaded"); }
+        if (m_Sites) { m_Sites.Step(); }
         if (!m_Profile) { return; }
         int now = GetGame().GetTime();
         if (now < 0 || now < m_LastNow)
@@ -564,6 +570,7 @@ class HCXAIAdapter extends HCModule
     }
     override void OnStop()
     {
+        if (m_Sites) { m_Sites.Stop(); }
         m_Accepting = false;
         foreach (HCXAILease lease : m_Leases)
         {

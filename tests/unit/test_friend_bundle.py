@@ -73,6 +73,12 @@ class FriendBundleTests(unittest.TestCase):
         put(p, 'HollowCountry/Infected/hordes-a.json', '{}')
         put(p, 'HollowCountry/hc-interiors-pack/receipt.json', '{}')
         put(p, 'HollowCountry/expansion-ai-leases.json', '{}')
+        put(p, 'HollowCountry/expansion-ai-sites.json', '{}')
+        put(p, 'HollowCountry/expansion-ai-routes.json', '{}')
+        put(p, 'HollowCountry/expansion-ai-caches.json', '{}')
+        put(p, 'HollowCountry/expansion-ai-owned.json', '{}')
+        put(p, 'ExpansionMod/Loadouts/HollowCountry_Patrol.json', '{}')
+        put(p, 'ExpansionMod/Loadouts/OtherMod_Loadout.json', '{}')
         put(p, 'HollowCountry/SearchEconomy/epoch_1.json', '{}')
         put(p, 'ExpansionMod/Settings/AISettings.json', '{"Enabled": 1}')
         put(p, 'ExpansionMod/Settings/MarketSettings.json', '{}')
@@ -120,11 +126,11 @@ class FriendBundleTests(unittest.TestCase):
         self.assertEqual(code, 0, text)
         got = [f for f in self.files() if f.startswith('profiles/')]
         self.assertEqual(got, sorted('profiles/' + r for r in [
-            'ExpansionMod/Settings/AISettings.json',
+            'ExpansionMod/Loadouts/HollowCountry_Patrol.json', 'ExpansionMod/Settings/AISettings.json',
             'HollowCountry/Ecology/settings.json', 'HollowCountry/Events/settings.json',
             'HollowCountry/Groups/settings.json', 'HollowCountry/Infected/config.json',
             'HollowCountry/acceptance/events.enable', 'HollowCountry/acceptance/interior_search.enable',
-            'HollowCountry/expansion-ai.json', 'HollowCountry/interiors.json',
+            'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai.json', 'HollowCountry/interiors.json',
             'HollowCountry/settings.json', 'HollowCountry/stamina.json',
             'HollowCountry/templates/index.json', 'HollowCountry/templates/t-0000.json']))
 
