@@ -1,29 +1,83 @@
 class HCGroupClock
 {
-    static int Utc()
+    protected static int s_LastUtc = 0;
+
+    static bool LeapYear(int year)
     {
-        int year, month, day, hour, minute, second;
-        GetYearMonthDayUTC(year, month, day);
-        GetHourMinuteSecondUTC(hour, minute, second);
-        if (year < 2026 || year > 2032 || month < 1 || month > 12 || day < 1 || day > 31) return -1;
-        int days;
-        for (int y = 1970; y < year; y++)
+        if (year < 1) return false;
+        if (year % 400 == 0) return true;
+        if (year % 100 == 0) return false;
+        return year % 4 == 0;
+    }
+
+    static int DaysInMonth(int year, int month)
+    {
+        if (year < 1 || month < 1 || month > 12) return -1;
+        if (month == 2)
+        {
+            if (HCGroupClock.LeapYear(year)) return 29;
+            return 28;
+        }
+        if (month == 4 || month == 6 || month == 9 || month == 11) return 30;
+        return 31;
+    }
+
+    static int CalendarUtc(int year, int month, int day, int hour, int minute, int second)
+    {
+        // Compatibility guard only: issue37 still tracks removal of this
+        // arbitrary year window and the signed epoch/expiry ceilings. Do not
+        // widen it without replacing the durable/wire timestamp representation.
+        if (year < 2026 || year > 2032) return -1;
+        int monthDays = HCGroupClock.DaysInMonth(year, month);
+        if (day < 1 || day > monthDays) return -1;
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return -1;
+        if (second < 0 || second > 59) return -1;
+        int days = 0;
+        int y = 1970;
+        while (y < year)
         {
             days += 365;
-            if (y % 4 == 0) days++;
+            if (HCGroupClock.LeapYear(y)) days++;
+            y++;
         }
-        for (int m = 1; m < month; m++)
+        int m = 1;
+        while (m < month)
         {
-            int length = 31;
-            if (m == 4 || m == 6 || m == 9 || m == 11) length = 30;
-            if (m == 2)
-            {
-                length = 28;
-                if (year % 4 == 0) length = 29;
-            }
-            days += length;
+            days += HCGroupClock.DaysInMonth(year, m);
+            m++;
         }
         return (days + day - 1) * 86400 + hour * 3600 + minute * 60 + second;
+    }
+
+    static int Utc()
+    {
+        // Native UTC date and time are separate calls, not an atomic snapshot.
+        // At most two attempts/six native calls; never sleep or mix dates.
+        int attempt = 0;
+        while (attempt < 2)
+        {
+            int year, month, day, hour, minute, second;
+            int afterYear, afterMonth, afterDay;
+            GetYearMonthDayUTC(year, month, day);
+            GetHourMinuteSecondUTC(hour, minute, second);
+            GetYearMonthDayUTC(afterYear, afterMonth, afterDay);
+            int candidate = HCGroupClock.CalendarUtc(year, month, day, hour, minute, second);
+            int beforeDate = HCGroupClock.CalendarUtc(year, month, day, 0, 0, 0);
+            int afterDate = HCGroupClock.CalendarUtc(afterYear, afterMonth, afterDay, 0, 0, 0);
+            if (candidate < 1 || beforeDate < 1 || afterDate < 1) return -1;
+            if (afterDate < beforeDate) return -1;
+            if (afterDate != beforeDate)
+            {
+                attempt++;
+                continue;
+            }
+            // Equal seconds are valid. Rejected snapshots never rewind the
+            // watermark; service policy still owns its stop/clear behavior.
+            if (candidate < s_LastUtc) return -1;
+            s_LastUtc = candidate;
+            return candidate;
+        }
+        return -1;
     }
 }
 
@@ -156,8 +210,10 @@ class HCGroupService
     void Reply(HCGroupPeer peer, int requestId, int code, bool cache = false)
     {
         if (!Live(peer)) return;
+        if (!HCGroupRules.MutationIdValid(peer.LastRequest)) return;
         HCGroupReply reply = new HCGroupReply;
         reply.RequestId = requestId;
+        reply.LastMutationId = peer.LastRequest;
         reply.Code = code;
         reply.Session = peer.Session;
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
@@ -196,7 +252,7 @@ class HCGroupService
         if (!Admit(peer)) { Reply(peer, 0, HCGroupCode.RATE); return; }
         HCGroupRequest request;
         if (!ctx.Read(request) || !request) { Reply(peer, 0, HCGroupCode.INVALID); return; }
-        if (request.Version != 1 || request.Session.Length() > 80 || request.Name.Length() > 64 || request.Note.Length() > 512 || request.TargetId.Length() > 128 || request.RequestId < 0 || request.RequestId > 1000000)
+        if (request.Version != HCGroupProtocol.VERSION || request.Session.Length() > 80 || request.Name.Length() > 64 || request.Note.Length() > 512 || request.TargetId.Length() > 128 || !HCGroupRules.MutationIdValid(request.RequestId))
         { Reply(peer, request.RequestId, HCGroupCode.INVALID); return; }
         if (request.Op == HCGroupOp.SYNC)
         {
@@ -304,11 +360,13 @@ class HCGroupService
     void SendSnapshot(HCGroupPeer peer, int kind, int requestId)
     {
         if (!Live(peer) || peer.Sequence >= 1000000000) return;
+        if (!HCGroupRules.MutationIdValid(peer.LastRequest)) return;
         HCGroupSnapshot snapshot = new HCGroupSnapshot;
         snapshot.Settings = m_Config;
         snapshot.Enabled = m_Healthy;
         snapshot.Kind = kind;
         snapshot.RequestId = requestId;
+        snapshot.LastMutationId = peer.LastRequest;
         snapshot.Session = peer.Session;
         peer.Sequence++;
         snapshot.Sequence = peer.Sequence;

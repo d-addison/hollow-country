@@ -276,8 +276,8 @@ def _bundle(archive):
         raise ValueError('development runtime/schema contract required')
     _, scripts = pbo.parse(data['@HollowCountry/addons/hollowcountry.pbo'])
     for name, value in scripts.items():
-        if name != 'config.cpp' and not re.fullmatch(r'scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c', name):
-            raise ValueError('PBO must contain original config/script source only')
+        if not pbo.original_addon_name(name):
+            raise ValueError('PBO must contain original config/script/layout source only')
         pbo._text(value)
     if 'config.cpp' not in scripts:
         raise ValueError('PBO config.cpp required')

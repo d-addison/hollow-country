@@ -33,7 +33,7 @@ class DiagnosticMissionTests(unittest.TestCase):
     def test_item_audit_has_a_fixed_normal_server_hook_and_separate_provenance(self):
         result = dm.prepare_diagnostic_mission(self.source, self.dest, purpose='item-audit')
         copied = (self.dest / 'init.c').read_bytes()
-        self.assertIn(b'HCItemCompatibilityAudit.Export(', copied)
+        self.assertIn(b'HCItemCompatibilityAudit.ExportAll(', copied)
         self.assertIn(b'GetVersion(version)', copied)
         self.assertIn(b'GetWorldName(world)', copied)
         self.assertNotIn(b'#ifdef DIAG_DEVELOPER', copied)
@@ -41,6 +41,20 @@ class DiagnosticMissionTests(unittest.TestCase):
         self.assertEqual(result['kind'], 'disposable-item-compatibility-audit')
         self.assertIsNone(result['storage_probe_epoch'])
         self.assertEqual(result['hook_sha256'], hashlib.sha256(dm.ITEM_AUDIT_HOOK).hexdigest())
+        self.assertEqual(result['runtime_acceptance'], 'pending')
+
+    def test_group_checks_hook_is_fixed_and_has_no_gameplay_side_effects(self):
+        result = dm.prepare_diagnostic_mission(self.source, self.dest, purpose='group-checks')
+        copied = (self.dest / 'init.c').read_bytes()
+        self.assertIn(b'HCGroupNativeChecks.Run(error)', copied)
+        self.assertIn(b'[HC Group Checks] BEGIN; synthetic policy fixtures only', copied)
+        self.assertIn(b'[HC Group Checks] result=', copied)
+        for forbidden in (b'CreateObject', b'RunStorageProbe', b'EnableGroups',
+                          b'HCItemCompatibilityAudit', b'#ifdef DIAG_DEVELOPER'):
+            self.assertNotIn(forbidden, copied)
+        self.assertEqual(result['kind'], 'disposable-group-policy-checks')
+        self.assertIsNone(result['storage_probe_epoch'])
+        self.assertEqual(result['hook_sha256'], hashlib.sha256(dm.GROUP_CHECKS_HOOK).hexdigest())
         self.assertEqual(result['runtime_acceptance'], 'pending')
 
     def test_unknown_diagnostic_purpose_fails_before_any_output(self):

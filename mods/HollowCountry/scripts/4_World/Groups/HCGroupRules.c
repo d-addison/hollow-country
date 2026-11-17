@@ -2,6 +2,11 @@
 // server UTC/world size and a disposable clone. Never commit a rejected clone.
 class HCGroupRules
 {
+    static bool MutationIdValid(int value)
+    {
+        return value >= 0 && value <= 1000000;
+    }
+
     static bool SettingsValid(HCGroupSettings c)
     {
         // Native probe031 rejected the previous single long formula. Keep
@@ -238,7 +243,7 @@ class HCGroupRules
         {
             return HCGroupCode.DISABLED;
         }
-        if (!q || q.Version != 1 || q.Op < 1 || q.Op > 12)
+        if (!q || q.Version != HCGroupProtocol.VERSION || q.Op < 1 || q.Op > 12)
         {
             return HCGroupCode.INVALID;
         }
@@ -445,17 +450,23 @@ class HCGroupRules
         {
             return HCGroupCode.INVALID;
         }
-        int ttl = q.TtlSeconds;
-        if (ttl == 0)
-        {
-            ttl = c.MarkerRetentionSeconds;
-        }
-        if (c.MarkerRetentionSeconds > 0 && (ttl == 0 || ttl > c.MarkerRetentionSeconds))
+        // Updates edit content only. Client clocks never select or refresh an
+        // existing deadline, including a marker that was created forever.
+        if (q.Op == HCGroupOp.MARKER_UPDATE && q.TtlSeconds != 0)
         {
             return HCGroupCode.INVALID;
         }
+        int ttl = q.TtlSeconds;
         if (q.Op == HCGroupOp.MARKER_CREATE)
         {
+            if (ttl == 0)
+            {
+                ttl = c.MarkerRetentionSeconds;
+            }
+            if (c.MarkerRetentionSeconds > 0 && (ttl == 0 || ttl > c.MarkerRetentionSeconds))
+            {
+                return HCGroupCode.INVALID;
+            }
             if (group.Markers.Count() >= c.MaxMarkers)
             {
                 return HCGroupCode.LIMIT;
@@ -464,6 +475,11 @@ class HCGroupRules
             marker.Id = state.NextId;
             state.NextId = state.NextId + 1;
             marker.CreatorId = actor;
+            marker.ExpiresUtc = 0;
+            if (ttl > 0)
+            {
+                marker.ExpiresUtc = now + ttl;
+            }
             group.Markers.Insert(marker);
         }
         marker.Name = q.Name;
@@ -471,11 +487,6 @@ class HCGroupRules
         marker.Position = q.Position;
         marker.Color = q.Color;
         marker.Icon = q.Icon;
-        marker.ExpiresUtc = 0;
-        if (ttl > 0)
-        {
-            marker.ExpiresUtc = now + ttl;
-        }
         HCGroupRules.Touch(group, false);
         return HCGroupCode.OK;
     }

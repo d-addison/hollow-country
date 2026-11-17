@@ -23,7 +23,7 @@ class HCGroupSettings
 }
 class HCGroupRequest
 {
-    int Version = 1;
+    int Version = 2;
     int RequestId = 0;
     int Op = 0;
     int ExpectedRevision = 0;
@@ -69,9 +69,11 @@ class HCGroupMarker
 }
 class HCGroupSnapshot
 {
-    int Version = 1;
+    int Version = 2;
     int Kind = 0;
     int RequestId = 0;
+    // Session counter floor, not acknowledgment of the snapshot RequestId.
+    int LastMutationId = 0;
     int Sequence = 0;
     int Revision = 0;
     int Epoch = 0;
@@ -88,8 +90,9 @@ class HCGroupSnapshot
 }
 class HCGroupReply
 {
-    int Version = 1;
+    int Version = 2;
     int RequestId = 0;
+    int LastMutationId = 0;
     int Code = 0;
     int Revision = 0;
     string Session;

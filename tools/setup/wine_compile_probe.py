@@ -161,7 +161,9 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False):
+    if group_checks and (item_compatibility_audit or diagnostic_selftests or native_autotest_scripts is not None):
+        raise ValueError('group checks require one mission hook')
     if item_compatibility_audit and (diagnostic_selftests or native_autotest_scripts is not None):
         raise ValueError('item audit requires one mission hook')
     if native_actor_direct and native_autotest_scripts is None:
@@ -240,6 +242,12 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         diagnostic_mission = prepare_diagnostic_mission(root / 'mpmissions/dayzOffline.chernarusplus', mission,
                                                        purpose='item-audit')
         command.append('-mission=' + win(mission))
+    if group_checks:
+        from tools.setup.diagnostic_mission import prepare_diagnostic_mission
+        mission = experiment / 'group-checks.chernarusplus'
+        diagnostic_mission = prepare_diagnostic_mission(root / 'mpmissions/dayzOffline.chernarusplus', mission,
+                                                       purpose='group-checks')
+        command.append('-mission=' + win(mission))
     if native_autotest_scripts is not None:
         from tools.testing.native_autotest import prepare_autotest
         mission = experiment / 'native.chernarusplus'
@@ -261,6 +269,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     report['executable_kind'] = 'diagnostic-server' if diagnostic else 'dedicated-server'
     report['diagnostic_mission'] = diagnostic_mission
     report['item_compatibility_audit_requested'] = bool(item_compatibility_audit)
+    report['group_checks_requested'] = bool(group_checks)
     report['native_autotest_observation'] = 'not-run'
     report['native_autotest_timed_out'] = False
     report['engine_error_observed'] = False
@@ -369,6 +378,7 @@ def main():
     parser.add_argument('--diagnostic', action='store_true', help='use explicitly staged DayZDiag_x64.exe in server mode')
     parser.add_argument('--diagnostic-selftests', action='store_true', help='instrument a fresh disposable mission for native scalar/storage probes')
     parser.add_argument('--item-compatibility-audit', action='store_true', help='request fixed metadata export in a fresh mission; inspect export completeness separately from startup')
+    parser.add_argument('--group-checks', action='store_true', help='request fixed native policy fixtures; inspect fixture result separately from startup')
     parser.add_argument('--native-autotest-scripts', type=Path, help='installed extracted script interfaces for a fresh native TestHarness mission')
     parser.add_argument('--autotest-x', type=float, default=6500)
     parser.add_argument('--autotest-z', type=float, default=6500)
@@ -378,7 +388,7 @@ def main():
     setting_options.add_argument('--settings-case', choices=['malformed-json', 'oversized', 'unsupported-schema'])
     args = parser.parse_args()
     try:
-        report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct, args.item_compatibility_audit)
+        report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct, args.item_compatibility_audit, args.group_checks)
         print(json.dumps(report, indent=2))
         expected = 'settings-rejected' if args.settings_case else 'initialized'
         return 0 if report['status'] == expected and report.get('settings_original_preserved', True) else 1

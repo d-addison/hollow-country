@@ -20,6 +20,15 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | --- | --- |
 | [CE audit](unit/test_ce_audit.py) | Synthetic XML, declared sources, catalogs, raw coverage, numeric/path validation and CLI behavior. |
 | [Crafting census](unit/test_crafting_audit.py) | Bounded whole-source inventory, raw provenance, disabled registrations and ambiguous inheritance; no live recipe or item-utility proof. |
+| [Effective item exporter](unit/test_item_compatibility_audit.py) | Typed metadata, four declared roots, bounded contiguous chunks and terminal-manifest contracts; geometry and live item eligibility remain unproven. |
+| [Flashlight candidate matrix](unit/test_flashlight_matrix.py) | Every input class stays counted, ambiguous roles stay explicit and pair enumeration is bounded; no mounting or geometry proof. |
+| [Weather candidates](unit/test_atmosphere.py) | Native XML preservation, strict profiles, source reconstruction and fresh candidate output; no effective weather/lighting acceptance. |
+| [Group server](unit/test_group_server.py) | Authored permissions, state, quota, replay and snapshot policies with synthetic engine/storage adapters. |
+| [Group client](unit/test_group_client.py) | Session quarantine, request-counter recovery, frozen retries and delayed-reply cases with synthetic transport. |
+| [Group map](unit/test_group_ui.py) | Draft preservation, marker constraints, native menu dispatch and layout bindings; no rendered widget acceptance. |
+| [Group UTC clock](unit/test_group_clock.py) | Actual authored calendar/sampling methods across midnight, invalid dates and rollback; signed epoch limits remain tracked. |
+| [Group fixture runner](unit/test_group_native_checks.py) | Opt-in synthetic policy fixtures and failure/completion-marker behavior; native VM results are recorded separately. |
+| [Stamina integration](unit/test_stamina_integration.py) | Disabled fallback, bounded settings, authority and inputs passed to the native stamina handler; no connected-client prediction or HUD proof. |
 | [Automation planning](unit/test_automation.py) | Portable criteria, explicit capabilities and planning-only status; no gameplay execution or automatic acceptance. |
 | [Benchmark comparison](unit/test_benchmark.py) | Synthetic repeated pairs, compatible contexts, explicit budgets and incomplete evidence. |
 | [Evidence admission](unit/test_evidence.py) | Manifest requirements, artifact hashes/paths and unsupported capability promotions. |

@@ -25,14 +25,33 @@ are stored, sorted, with fixed timestamps/modes. SHA-256 manifests cover each
 payload and original PBO source. Rebuild with identical inputs to compare hashes.
 A checksum is not a signature or sender authentication. `--release` fails closed.
 
-Only original UTF-8 config.cpp and scripts/{3_Game,4_World,5_Mission}/**/*.c enter
-the PBO. mod.cpp is accepted original text, excluded from the PBO and copied to
+Only original UTF-8 config.cpp, scripts/{3_Game,4_World,5_Mission}/**/*.c and
+gui/layouts/*.layout text enter the PBO. mod.cpp is accepted original text, excluded from the PBO and copied to
 @HollowCountry/mod.cpp. An optional exact $PBOPREFIX$ marker is excluded from data.
 Absolute/traversal/Windows device/ADS paths, case collisions, symlinks, unknown
 files, binary source, game assets, config.bin and keys are rejected. Do not add
 addon README or game data to the mod root. ZIP mission files use an exact list:
 the CE no-ops, authored policies, operator settings, and install/rollback guides.
 No whole-checkout glob or runtime profile is packed.
+
+## Weather candidates
+
+`atmosphere.py` builds a fresh `cfgweather.xml` candidate from the installed
+template and an explicit operator profile; it does not install or enable it.
+Inspect its `--help` and module documentation for the bounded profile schema.
+
+```sh
+python3 tools/package/atmosphere.py generate --source /local/mission/cfgweather.xml --profile /local/weather-profile.json --output /local/fresh-weather-candidate
+python3 tools/package/atmosphere.py validate --candidate /local/fresh-weather-candidate --source /local/mission/cfgweather.xml
+```
+
+The profile pins the source SHA-256, world and native build. Unspecified values
+are preserved; no-op generation preserves the exact XML bytes. Validation with
+the trusted source reconstructs the outputs. A manifest without that source
+proves integrity only. Source templates inspected: ChernarusPlus, Enoch, Sakhal
+and Nasdara. Map scripts, saved weather and operator settings can affect the
+result; native load/restart, visibility and performance remain unqualified.
+Lighting, volumetric fog, shaders and seasonal scheduling are separate work.
 
 The private handoff includes `mission/hollow-country/INSTALL_AND_ROLLBACK.md`,
 `operator/settings.json`, all-off feature defaults, CE policies, and these helpers.

@@ -155,6 +155,11 @@ def _text(data):
         raise ValueError('binary source forbidden')
 
 
+def original_addon_name(name):
+    return name == 'config.cpp' or bool(re.fullmatch(
+        r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout)', name))
+
+
 def collect_addon(root):
     files = {}
     for name, path in _regular_files(root):
@@ -166,7 +171,7 @@ def collect_addon(root):
         if name == 'mod.cpp':
             _text(path.read_bytes())
             continue  # launcher metadata belongs at @HollowCountry/mod.cpp
-        if name != 'config.cpp' and not re.fullmatch(r'scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c', name):
+        if not original_addon_name(name):
             raise ValueError(f'addon file outside allowlist: {name}')
         data = path.read_bytes()
         if len(data) > MAX_BYTES:
@@ -174,7 +179,7 @@ def collect_addon(root):
         try:
             text = data.decode('utf-8-sig')
         except UnicodeDecodeError as e:
-            raise ValueError('only original UTF-8 config/script text allowed') from e
+            raise ValueError('only original UTF-8 config/script/layout text allowed') from e
         if '\0' in text:
             raise ValueError('binary source forbidden')
         files[name] = data
@@ -206,7 +211,7 @@ def handoff(addon, mission, release=False):
             raise ValueError(f'mission handoff file outside allowlist: {name}')
         files['mission/hollow-country/' + name] = path.read_bytes()
     # Only these authored helpers, never arbitrary repository or build outputs.
-    for name in ('economy.py', 'coverage.py', 'interior_catalog.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'):
+    for name in ('economy.py', 'coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'):
         path = Path(__file__).with_name(name)
         if path.is_file():
             files['tools/package/' + name] = path.read_bytes()
@@ -249,7 +254,7 @@ def verify_handoff(blob):
                 raise ValueError('unsupported handoff manifest')
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
-            helper_names = {'economy.py', 'coverage.py', 'interior_catalog.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
+            helper_names = {'economy.py', 'coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
                             'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'}
             for name, expected in manifest['files'].items():
                 if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp', 'docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'}

@@ -19,6 +19,13 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Build weather candidates without silently changing native defaults': 'test_atmosphere.py',
+            'Retain every audited class in the flashlight candidate denominator': 'test_flashlight_matrix.py',
+            'Read consistent bounded UTC snapshots for group expiry': 'test_group_clock.py',
+            'Exercise opt-in group policy fixtures without world side effects': 'test_group_native_checks.py',
+            'Recover group command ordering without replaying uncertain mutations': 'test_group_client.py',
+            'Preserve group map edits and native menu dispatch': 'test_group_ui.py',
+            'Scale continuous stamina changes through the native handler': 'test_stamina_integration.py',
             'Bound effective item metadata acquisition without claiming compatibility': 'test_item_compatibility_audit.py',
             'Authorize group changes and bound durable server state': 'test_group_server.py',
             'Retain ambiguous recipes in a whole-source census': 'test_crafting_audit.py',
@@ -41,7 +48,7 @@ class BDDBindingsTests(unittest.TestCase):
         }
         for name, pattern in expected.items():
             with self.subTest(name=name):
-                self.assertIn(name, bdd.BINDINGS)
+                self.assertTrue(name in bdd.BINDINGS, name)
                 self.assertEqual(pattern, bdd.BINDINGS[name][1])
 
     def admit(self, text):

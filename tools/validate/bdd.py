@@ -13,6 +13,34 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Build weather candidates without silently changing native defaults": (
+        ("Given synthetic native weather XML and explicit pinned operator profiles",
+         "When the bounded atmosphere candidate generator and validator execute",
+         "Then unspecified native settings remain unchanged and no runtime acceptance is inferred"), "test_atmosphere.py"),
+    "Retain every audited class in the flashlight candidate denominator": (
+        ("Given synthetic item metadata with unresolved category and attachment hints",
+         "When the bounded flashlight candidate matrix executes",
+         "Then every class remains counted and geometry power and eligibility remain unqualified"), "test_flashlight_matrix.py"),
+    "Read consistent bounded UTC snapshots for group expiry": (
+        ("Given synthetic native date and time reads across midnight and clock rollback",
+         "When the authored group UTC sampling methods execute",
+         "Then invalid or inconsistent samples fail within the fixed retry bound"), "test_group_clock.py"),
+    "Exercise opt-in group policy fixtures without world side effects": (
+        ("Given synthetic group DTO fixtures and a fixed step budget",
+         "When the authored opt-in group check runner executes through offline adapters",
+         "Then every operation and rejection must pass before a completion marker is emitted"), "test_group_native_checks.py"),
+    "Recover group command ordering without replaying uncertain mutations": (
+        ("Given synthetic sessions delayed snapshots and caller-owned requests",
+         "When the authored group client recovery and retry methods execute",
+         "Then request floors cannot rewind and uncertain payloads cannot change or replay across sessions"), "test_group_client.py"),
+    "Preserve group map edits and native menu dispatch": (
+        ("Given synthetic map widgets group snapshots and native menu collaborators",
+         "When the authored map editing and menu dispatch methods execute",
+         "Then edits retain server constraints and unrelated native menus remain available"), "test_group_ui.py"),
+    "Scale continuous stamina changes through the native handler": (
+        ("Given synthetic native handler state and trusted bounded stamina settings",
+         "When the authored stamina integration methods execute",
+         "Then native event subtraction capacity clamps and permission handling remain authoritative"), "test_stamina_integration.py"),
     "Bound effective item metadata acquisition without claiming compatibility": (
         ("Given synthetic configuration types and explicit export budgets",
          "When the authored acquisition policies and fixed mission hook checks execute",

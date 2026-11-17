@@ -67,11 +67,40 @@ class HCDisposableDiagnosticMission : CustomMission
         string outputPath;
         string error;
         Print("[HC Item Audit] BEGIN; metadata only");
-        bool complete = HCItemCompatibilityAudit.Export("native-item-audit", world, version, "isolated compiler-report PBO/config hashes and mission provenance", true, outputPath, error);
+        bool complete = HCItemCompatibilityAudit.ExportAll("native-item-audit", world, version, "isolated compiler-report PBO/config hashes and mission provenance", true, outputPath, error);
         Print("[HC Item Audit] complete=" + complete + "; output=" + outputPath + "; error=" + error);
     }
 }
 """
+
+GROUP_CHECKS_HOOK = b"""
+
+// Hollow Country DISPOSABLE policy fixtures; no network/gameplay acceptance.
+class HCDisposableDiagnosticMission : CustomMission
+{
+    protected bool m_HCDiagnosticExecuted = false;
+    override void OnInit()
+    {
+        super.OnInit();
+        if (!GetGame() || !GetGame().IsServer() || m_HCDiagnosticExecuted)
+            return;
+        m_HCDiagnosticExecuted = true;
+        string error;
+        Print("[HC Group Checks] BEGIN; synthetic policy fixtures only");
+        bool result = HCGroupNativeChecks.Run(error);
+        Print("[HC Group Checks] result=" + result + "; error=" + error + "; no network/gameplay acceptance");
+    }
+}
+"""
+
+_PURPOSES = {
+    'selftests': ('disposable-diagnostic-selftests', DIAGNOSTIC_HOOK,
+                  ["actual DIAG_DEVELOPER", "server mode", "unchanged HC PBO", "fresh profile epoch 900001"]),
+    'item-audit': ('disposable-item-compatibility-audit', ITEM_AUDIT_HOOK,
+                   ["server mode", "matching HCItemCompatibilityAudit PBO", "fresh profile outside Git", "inspect export completeness separately from startup"]),
+    'group-checks': ('disposable-group-policy-checks', GROUP_CHECKS_HOOK,
+                     ["server mode", "matching HCGroupNativeChecks PBO", "inspect fixture result separately from startup"]),
+}
 
 _FACTORY = re.compile(
     rb"(Mission\s+CreateCustomMission\s*\(\s*string\s+path\s*\)\s*"
@@ -137,7 +166,7 @@ def _inventory(source):
 
 
 def _instrument(blob, *, purpose='selftests'):
-    if purpose not in ('selftests', 'item-audit'):
+    if purpose not in _PURPOSES:
         raise ValueError('unsupported diagnostic purpose')
     if len(blob) > MAX_INIT_BYTES:
         raise ValueError("init.c byte budget exceeded")
@@ -150,7 +179,7 @@ def _instrument(blob, *, purpose='selftests'):
     result, count = _FACTORY.subn(rb"\g<1>HCDisposableDiagnosticMission\g<2>", blob)
     if count != 1:
         raise ValueError("unsupported stock mission factory shape")
-    return result + (DIAGNOSTIC_HOOK if purpose == 'selftests' else ITEM_AUDIT_HOOK)
+    return result + _PURPOSES[purpose][1]
 
 
 def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
@@ -162,7 +191,7 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
     epoch 900001 must be absent there (the existing native probe enforces this).
     This helper does not edit settings, feature flags, profiles or the addon PBO.
     """
-    if purpose not in ('selftests', 'item-audit'):
+    if purpose not in _PURPOSES:
         raise ValueError('unsupported diagnostic purpose')
     source, destination = _safe_path(source), _safe_path(destination)
     if not source.is_dir():
@@ -186,14 +215,14 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
     destination.mkdir(parents=True, exist_ok=False)
     for relative in directories:
         (destination / relative).mkdir(exist_ok=False)
-    manifest = {"schema": 1, "kind": "disposable-diagnostic-selftests" if purpose == 'selftests' else 'disposable-item-compatibility-audit',
+    kind, hook, requires = _PURPOSES[purpose]
+    manifest = {"schema": 1, "kind": kind,
                 "runtime_acceptance": "pending", "source_root": str(source),
                 "mission_path": str(destination), "storage_probe_epoch": 900001 if purpose == 'selftests' else None,
                 "source_bytes": total, "files": {},
                 "init_change": "stock factory subclass substitution plus authored appended OnInit hook",
-                "hook_sha256": hashlib.sha256(DIAGNOSTIC_HOOK if purpose == 'selftests' else ITEM_AUDIT_HOOK).hexdigest(),
-                "requires": (["actual DIAG_DEVELOPER", "server mode", "unchanged HC PBO", "fresh profile epoch 900001"]
-                             if purpose == 'selftests' else ["server mode", "matching HCItemCompatibilityAudit PBO", "fresh profile outside Git", "inspect export completeness separately from startup"])}
+                "hook_sha256": hashlib.sha256(hook).hexdigest(),
+                "requires": list(requires)}
     for relative, info in files:
         src, dst = source / relative, destination / relative
         _unchanged(src, info)

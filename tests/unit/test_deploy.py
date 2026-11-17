@@ -39,6 +39,9 @@ class DeploymentBehavior(unittest.TestCase):
         mission.mkdir()
         (addon / 'config.cpp').write_text('class Synthetic_' + version + ' {};\n')
         (addon / 'mod.cpp').write_text('name="Synthetic-' + version + '";\n')
+        layouts = addon / 'gui/layouts'
+        layouts.mkdir(parents=True)
+        (layouts / 'hc_synthetic.layout').write_text('FrameWidgetClass Synthetic { size 1 1 }\n')
         (mission / 'README.md').write_text('Synthetic original fixture ' + version)
         archive = self.root / (version + '.zip')
         archive.write_bytes(pbo.handoff(addon, mission))

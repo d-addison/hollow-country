@@ -44,9 +44,10 @@ def execute_member(source, name, env, *args):
     # Inline Enforce guards use the same block syntax as the rule translator.
     cursor=0
     while True:
-        guard=statements.find('if (',cursor)
-        if guard<0:break
-        start=guard+4;end=start;depth=1
+        found=re.search(r'\b(if|foreach) \(',statements[cursor:])
+        if not found:break
+        guard=cursor+found.start()
+        start=cursor+found.end();end=start;depth=1
         while depth:
             depth+=(statements[end]=='(')-(statements[end]==')');end+=1
         next_statement=end
@@ -69,7 +70,7 @@ def execute_member(source, name, env, *args):
             token=bare[2]+' = '+{'int':'0','float':'0.0','bool':'False','string':"''"}.get(bare[1],'None')
         token=re.sub(r'\b(?:int|float|bool|string|vector|ScriptRPC|HCGroup\w+)\s+(?=\w+\s*=)','',token)
         token=re.sub(r'\bm_\w+\b',lambda m:'self.'+m[0],token)
-        for method in ('Fault','PathFor','Live','Peer','HasGPS'):
+        for method in ('Fault','PathFor','Live','Peer','HasGPS','Member','SendSnapshot'):
             token=re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(',token)
         token=token.replace('HCGroupRules.','')
         token=token.replace('&&',' and ').replace('||',' or ')
@@ -77,7 +78,11 @@ def execute_member(source, name, env, *args):
         for original,target in [('true','True'),('false','False'),('null','None')]:
             token=re.sub(r'\b'+original+r'\b',target,token)
         if token.startswith('if ('): token='if '+token[4:-1]+':'
+        elif token.startswith('foreach ('):
+            loop=re.fullmatch(r'foreach \(\w+ (\w+) : (.+)\)',token)
+            token=f'for {loop[1]} in {loop[2]}:'
         elif token=='else': token+=':'
+        token=re.sub(r'([\w.]+)\+\+$',r'\1 += 1',token)
         token=re.sub(r'([\w.]+)\.Length\(\)',r'len(\1)',token)
         lines.append('    '*indent+token)
     exec(compile('\n'.join(lines),'authored-native-member:'+name,'exec'),env)
@@ -89,6 +94,8 @@ def translated_rules():
     protocol = (ROOT/'3_Game/Groups/HCGroupProtocol.c').read_text()
     source = (ROOT/'4_World/Groups/HCGroupRules.c').read_text()
     env = {'EArray': EArray, 'len': len}
+    env['HCGroupProtocol']=SimpleNamespace(**{k:int(v) for k,v in
+        re.findall(r'static const int (\w+) = (\d+);',protocol)})
     for match in re.finditer(r'enum (\w+)\s*\{([^}]+)\}', protocol):
         env[match[1]] = SimpleNamespace(**{k: int(v) for k,v in
             re.findall(r'(\w+)\s*=\s*(\d+)', match[2])})
@@ -302,7 +309,7 @@ class GroupServerTests(unittest.TestCase):
         self.assertEqual(self.code.DISABLED,self.apply('alice',self.op.CREATE,Name='A'))
         self.assertEqual([],self.state.Groups)
         self.cfg.Enabled=True
-        self.assertEqual(self.code.INVALID,self.apply('alice',self.op.CREATE,Name='A',Version=2))
+        self.assertEqual(self.code.INVALID,self.apply('alice',self.op.CREATE,Name='A',Version=1))
         self.assertEqual([],self.state.Groups)
 
     def test_persisted_acl_rejects_duplicate_members_or_missing_owner(self):
@@ -476,6 +483,114 @@ class GroupServerTests(unittest.TestCase):
         self.assertEqual(0,self.apply('alice',self.op.INVITE,TargetId='bob'))
         self.state.Invitations[0].GroupName='Stale name'
         self.assertFalse(self.e['StateValid'](self.state,self.cfg,'chernarusplus'))
+
+    def projection_fixture(self):
+        """Synthetic RPC transport only; projection runs the authored method."""
+        sent=[]
+        class RPC:
+            def Write(self,value):self.value=value
+            def Send(self,*args):sent.append(self.value)
+        peer=SimpleNamespace(Id='alice',Session='fresh',LastRequest=5,
+            LastReply=None,Identity=object(),Sequence=0,LastGroup=0)
+        service=SimpleNamespace(m_State=self.state,m_Config=self.cfg,
+            m_Healthy=True,m_LastUtc=1000,m_Peers=EArray(),Live=lambda p:True)
+        source=(ROOT/'4_World/Groups/HCGroupService.c').read_text()
+        env={**self.e,'ScriptRPC':RPC}
+        service.SendSnapshot=lambda p,k,r:execute_member(source,'SendSnapshot',env,service,p,k,r)
+        return source,env,service,peer,sent
+
+    def test_wire2_floor_schema_defaults_and_durable_schema_stays1(self):
+        self.assertEqual(2,self.e['HCGroupProtocol'].VERSION)
+        for name in ('HCGroupRequest','HCGroupSnapshot','HCGroupReply'):
+            self.assertEqual(2,self.e[name]().Version)
+        for name in ('HCGroupSnapshot','HCGroupReply'):
+            self.assertEqual(0,self.e[name]().LastMutationId)
+        self.assertEqual(1,self.e['HCGroupState']().Version)
+        self.assertEqual(1,self.e['HCGroupReceipt']().Version)
+
+    def test_every_snapshot_kind_projects_floor_without_consuming_or_resetting_it(self):
+        source,env,service,peer,sent=self.projection_fixture()
+        for kind in (0,1,2):
+            service.SendSnapshot(peer,kind,900001)
+            self.assertEqual(kind,sent[-1].Kind)
+            self.assertEqual(5,sent[-1].LastMutationId)
+            self.assertEqual(900001,sent[-1].RequestId)
+            self.assertEqual(5,peer.LastRequest)
+        self.assertEqual([1,2,3],[frame.Sequence for frame in sent])
+
+    def test_reply_projects_actual_floor_for_counterahead_conflict_and_all_errors(self):
+        source,env,service,peer,sent=self.projection_fixture()
+        for code in range(10):
+            execute_member(source,'Reply',env,service,peer,8,code,False)
+            self.assertEqual(8,sent[-1].RequestId)
+            self.assertEqual(code,sent[-1].Code)
+            self.assertEqual(5,sent[-1].LastMutationId)
+            self.assertEqual(5,peer.LastRequest)
+
+    def test_sync_floor_is_observation_not_ack_and_later_reply_does_not_rewrite_it(self):
+        source,env,service,peer,sent=self.projection_fixture()
+        branch=re.search(r'if \(request.Op == HCGroupOp.SYNC\)\s*\{',source)
+        sync='void Sync(HCGroupRequest request, HCGroupPeer peer) {'+body(source,branch.end())+'}'
+        request=self.request(self.op.SYNC,RequestId=900001,Session='fresh')
+        execute_member(sync,'Sync',env,service,request,peer)
+        frame=sent[-1]
+        self.assertEqual(5,frame.LastMutationId)
+        self.assertEqual(5,peer.LastRequest)
+        # Explicit synthetic subsequent consumption; this test covers projection,
+        # while the client worker covers delayed-frame recovery/generation.
+        peer.LastRequest=6
+        execute_member(source,'Reply',env,service,peer,6,self.code.OK,True)
+        self.assertEqual(6,sent[-1].LastMutationId)
+        self.assertEqual(5,frame.LastMutationId)
+        self.assertEqual(6,peer.LastRequest)
+
+    def test_mutation_floor_bounds_and_invalid_internal_counter_never_emits(self):
+        valid=self.e['MutationIdValid']
+        self.assertTrue(valid(0));self.assertTrue(valid(1000000))
+        self.assertFalse(valid(-1));self.assertFalse(valid(1000001))
+        source,env,service,peer,sent=self.projection_fixture()
+        for counter in (0,1000000):
+            peer.LastRequest=counter
+            service.SendSnapshot(peer,0,900001)
+            execute_member(source,'Reply',env,service,peer,8,self.code.CONFLICT,False)
+            self.assertEqual([counter,counter],[frame.LastMutationId for frame in sent])
+            self.assertEqual(counter,peer.LastRequest)
+            sent.clear()
+        for counter in (-1,1000001):
+            peer.LastRequest=counter
+            service.SendSnapshot(peer,0,900001)
+            execute_member(source,'Reply',env,service,peer,1,self.code.CONFLICT,False)
+            self.assertEqual([],sent)
+
+    def test_marker_updates_preserve_original_deadline_as_server_time_advances(self):
+        g=self.create()
+        self.assertEqual(0,self.apply('alice',self.op.MARKER_CREATE,Name='Timed',TtlSeconds=100))
+        marker=g.Markers[0]
+        self.assertEqual(1100,marker.ExpiresUtc)
+        for now in (1020,1050,1099):
+            q=self.request(self.op.MARKER_UPDATE,EntityId=marker.Id,Name='Edited',
+                Note='Revised',Position=[123.,0.,456.],ExpectedRevision=g.Revision)
+            self.assertEqual(0,self.e['Apply'](self.state,self.cfg,q,'alice',now))
+            self.assertEqual(1100,marker.ExpiresUtc)
+        q=self.request(self.op.MARKER_UPDATE,EntityId=marker.Id,Name='Expired',ExpectedRevision=g.Revision)
+        self.assertEqual(self.code.NOT_FOUND,self.e['Apply'](self.state,self.cfg,q,'alice',1100))
+        self.assertEqual(1100,marker.ExpiresUtc)
+
+    def test_marker_update_rejects_explicit_ttl_and_never_assigns_policy_to_forever_marker(self):
+        self.cfg.MarkerRetentionSeconds=0
+        g=self.create()
+        self.assertEqual(0,self.apply('alice',self.op.MARKER_CREATE,Name='Forever'))
+        marker=g.Markers[0]
+        self.assertEqual(0,marker.ExpiresUtc)
+        self.cfg.MarkerRetentionSeconds=60
+        self.assertEqual(0,self.apply('alice',self.op.MARKER_UPDATE,EntityId=marker.Id,Name='Edited'))
+        self.assertEqual(0,marker.ExpiresUtc)
+        before=g.Revision
+        for ttl in (10,-1,2592001):
+            self.assertEqual(self.code.INVALID,self.apply('alice',self.op.MARKER_UPDATE,
+                EntityId=marker.Id,Name='Rejected',TtlSeconds=ttl))
+            self.assertEqual(0,marker.ExpiresUtc)
+            self.assertEqual(before,g.Revision)
 
     def test_corrupt_invitation_null_or_cross_group_authority_is_refused(self):
         self.create()

@@ -2,6 +2,18 @@
 Feature: Research tooling preserves honest evidence
   Offline checks validate authored data and never claim DayZ behavior.
 
+  @ISSUE-35
+  Scenario: Build weather candidates without silently changing native defaults
+    Given synthetic native weather XML and explicit pinned operator profiles
+    When the bounded atmosphere candidate generator and validator execute
+    Then unspecified native settings remain unchanged and no runtime acceptance is inferred
+
+  @ISSUE-56
+  Scenario: Retain every audited class in the flashlight candidate denominator
+    Given synthetic item metadata with unresolved category and attachment hints
+    When the bounded flashlight candidate matrix executes
+    Then every class remains counted and geometry power and eligibility remain unqualified
+
   @ISSUE-52 @ISSUE-56
   Scenario: Bound effective item metadata acquisition without claiming compatibility
     Given synthetic configuration types and explicit export budgets
@@ -169,3 +181,33 @@ Feature: Research tooling preserves honest evidence
     Given synthetic addon sources and private handoff inputs
     When the deterministic package and signing command tests execute
     Then unsafe paths tampering and unsupported release promotion fail admission
+
+  @phase2 @offline
+  Scenario: Recover group command ordering without replaying uncertain mutations
+    Given synthetic sessions delayed snapshots and caller-owned requests
+    When the authored group client recovery and retry methods execute
+    Then request floors cannot rewind and uncertain payloads cannot change or replay across sessions
+
+  @phase2 @offline
+  Scenario: Preserve group map edits and native menu dispatch
+    Given synthetic map widgets group snapshots and native menu collaborators
+    When the authored map editing and menu dispatch methods execute
+    Then edits retain server constraints and unrelated native menus remain available
+
+  @phase2 @offline
+  Scenario: Scale continuous stamina changes through the native handler
+    Given synthetic native handler state and trusted bounded stamina settings
+    When the authored stamina integration methods execute
+    Then native event subtraction capacity clamps and permission handling remain authoritative
+
+  @phase2 @offline
+  Scenario: Read consistent bounded UTC snapshots for group expiry
+    Given synthetic native date and time reads across midnight and clock rollback
+    When the authored group UTC sampling methods execute
+    Then invalid or inconsistent samples fail within the fixed retry bound
+
+  @phase2 @offline
+  Scenario: Exercise opt-in group policy fixtures without world side effects
+    Given synthetic group DTO fixtures and a fixed step budget
+    When the authored opt-in group check runner executes through offline adapters
+    Then every operation and rejection must pass before a completion marker is emitted

@@ -117,6 +117,27 @@ class MockedWineRunTests(unittest.TestCase):
                 self.run_mocked(item_compatibility_audit=True, **kwargs)
             self.assertFalse(self.experiment.exists())
 
+    def test_group_checks_stage_fixed_normal_server_mission_without_acceptance_claim(self):
+        with patch('tools.setup.diagnostic_mission.prepare_diagnostic_mission',
+                   return_value={'kind': 'synthetic-group-check-staging'}) as prepare:
+            report = self.run_mocked(group_checks=True)
+        prepare.assert_called_once_with(self.server / 'mpmissions/dayzOffline.chernarusplus',
+                                        self.experiment / 'group-checks.chernarusplus', purpose='group-checks')
+        self.assertTrue(report['group_checks_requested'])
+        self.assertIn('-mission=' + probe.win(self.experiment / 'group-checks.chernarusplus'),
+                      self.launch.call_args.args[0])
+        self.assertNotIn('group_checks_passed', report)
+        self.assertEqual(report['runtime_acceptance'], 'pending')
+        self.assert_cleaned_report(report)
+
+    def test_group_checks_reject_other_mission_hooks_before_staging(self):
+        for kwargs in ({'item_compatibility_audit': True},
+                       {'diagnostic_selftests': True, 'diagnostic': True},
+                       {'native_autotest_scripts': self.root / 'interfaces', 'diagnostic': True}):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ValueError, 'one mission hook'):
+                self.run_mocked(group_checks=True, **kwargs)
+            self.assertFalse(self.experiment.exists())
+
     def test_native_autotest_waits_for_real_completion_and_keeps_engine_error(self):
         (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
         def prepare(source, destination, scripts, **kwargs):

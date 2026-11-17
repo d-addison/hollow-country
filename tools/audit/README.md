@@ -43,19 +43,42 @@ mission with a fixed exporter hook. Its JSON stays in that disposable profile,
 outside source control. The hook does not register gameplay, spawn items or alter
 inventory. Do not combine it with the other probe mission hooks.
 
-The exporter visits `CfgWeapons` and `CfgVehicles`, retaining class ancestry and
-selected attachment, repair, cargo, liquid and energy metadata. It preserves
+The exporter declares `CfgWeapons`, `CfgVehicles`, `CfgMagazines` and `CfgAmmo`,
+retaining class ancestry and selected attachment, repair, cargo, liquid and
+energy metadata. `CfgAmmo` contains projectile definitions; inclusion does not
+make those definitions inventory items. It preserves
 actual scalar types, including empty strings and zero. Unsupported types and
 unverified array element types remain explicit. Missing properties are omitted;
 they are not evidence that an attachment or action is supported.
 
-Always inspect `Header.Partial`, `StopReason`, per-root advertised/visited counts
-and output identity separately from the server startup result. Run 032 compiled
-and initialized but stopped at the conservative byte budget after 945 rows;
-`CfgVehicles` enumeration is incomplete. A clean startup is not a successful full
-audit. Even completed enumeration leaves `FullCoverage=false`: model proxies,
+The fixed mission hook uses `ExportAll`: one fresh run directory, a bounded
+index plan, contiguous chunks with exact readback, then a terminal manifest.
+There is no resume or overwrite operation. Limits are 16,384 native children,
+64 chunks, 16 MiB conservative bytes per chunk and 256 MiB aggregate. Native
+file APIs do not establish exclusive creation or durable disk flush; keep the
+profile isolated and use a single writer. Pin manifest and chunk bytes with
+external SHA-256 before interpreting them.
+
+Inspect manifest `EnumerationComplete`, `Header.Partial`, `StopReason`, per-root
+advertised/visited counts and output identity separately from server startup.
+Run 032 stopped at its byte budget after 945 rows. Run 034 completed the then
+selected weapon/vehicle roots: 7,006 children, 7,004 class rows in 14 chunks.
+Its 28,691 unresolved fields and 35 native type variants remain explicit.
+Run 035 then completed all four declared roots: 7,392 children and 7,389 class
+rows in 15 chunks, with 29,606 unresolved fields and 36 native type variants.
+A clean startup alone is not a successful audit. Even completed enumeration
+leaves `FullCoverage=false`: model proxies,
 beam alignment, switching, inventory eligibility and multiplayer behavior need
 their own observations. Native exports and game assets must remain local.
+
+`flashlight_matrix.build_matrix(rows, provenance)` accepts already validated
+rows and creates a bounded candidate matrix. It retains every supplied class,
+including unresolved and out-of-scope rows, with exact denominators. Config
+ancestry and slot overlap are hints only: no pair receives gameplay approval.
+The private run-035 shape exercise produced 584 host candidates, 82 light or
+powered candidates and 47,888 pairs. These include ambiguous/base definitions;
+they are not 584 supported mounts. Hand removal, consumed tape and fresh tape
+on every remount remain explicit pending requirements.
 
 ## Central Economy audit
 

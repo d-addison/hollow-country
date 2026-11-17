@@ -83,6 +83,25 @@ class PackageBehavior(unittest.TestCase):
             with self.assertRaises(ValueError):
                 pbo.collect_addon(root)
 
+    def test_original_layout_text_is_packaged_without_allowing_game_assets(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            layouts = root / 'gui/layouts'
+            layouts.mkdir(parents=True)
+            layout = b'FrameWidgetClass Synthetic { size 1 1 }\n'
+            (layouts / 'hc_synthetic.layout').write_bytes(layout)
+            _, entries = pbo.parse(pbo.pack(pbo.collect_addon(root)))
+            self.assertEqual(entries['gui/layouts/hc_synthetic.layout'], layout)
+            for name, data in [('gui/image.edds', b'asset'),
+                               ('gui/layouts/binary.layout', b'\x00binary'),
+                               ('gui/other.layout', layout)]:
+                path = root / name
+                path.write_bytes(data)
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    pbo.collect_addon(root)
+                path.unlink()
+
     def test_handoff_allowlist_determinism_and_release_gate(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
@@ -102,7 +121,7 @@ class PackageBehavior(unittest.TestCase):
                 self.assertIn('tools/package/coverage.py', z.namelist())
                 self.assertIn('tools/package/deploy.py', z.namelist())
                 self.assertIn('docs/INSTALL_ROLLBACK.md', z.namelist())
-                for portable in ('tools/package/interior_catalog.py', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'):
+                for portable in ('tools/package/interior_catalog.py', 'tools/package/atmosphere.py', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'):
                     with self.subTest(portable=portable):
                         self.assertIn(portable, z.namelist())
             (mission / 'mapgroupproto.xml').write_text('<prototype/>')

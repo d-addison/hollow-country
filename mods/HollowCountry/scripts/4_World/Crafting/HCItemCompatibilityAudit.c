@@ -52,6 +52,7 @@ class HCItemCompatibilityRow
 class HCItemCompatibilityRoot
 {
     string ConfigRoot;
+    string ConfigRole;
     int AdvertisedChildren;
     int VisitedChildren;
     int RowsWritten;
@@ -71,7 +72,7 @@ class HCItemCompatibilityHeader
     string ArrayPolicy = "schema_typed_native_array_reads_element_kind_unverified_per_field";
     string BytePolicy = "conservative_four_UTF8_bytes_per_string_unit";
     string FilePolicy = "isolated_profile_single_writer_no_atomic_exclusive_create_API";
-    string EnumerationOrder = "native_child_index_CfgWeapons_then_CfgVehicles";
+    string EnumerationOrder;
     bool FullCoverage = false;
     bool Partial = false;
     string StopReason;
@@ -93,6 +94,73 @@ class HCItemCompatibilityHeader
     ref array<ref HCItemCompatibilityRoot> Roots = new array<ref HCItemCompatibilityRoot>;
 }
 
+// ExportAll's immutable manifest includes the complete bounded native index.
+// Chunks contain row-plan indices and explicit non-class indices; no resume.
+class HCItemCompatibilityIndexEntry
+{
+    int RootIndex;
+    int ChildIndex;
+    string ChildName;
+    int ConfigType;
+    string ConfigTypeName;
+}
+
+class HCItemCompatibilityChunk
+{
+    string ArtifactKind = "item_compatibility_chunk";
+    ref HCItemCompatibilityHeader Header;
+    int Sequence;
+    int StartPlanIndex;
+    int NextPlanIndex;
+    string BoundaryReason;
+    ref array<int> RowPlanIndices = new array<int>;
+    ref array<int> NonClassPlanIndices = new array<int>;
+}
+
+class HCItemCompatibilityChunkWork
+{
+    ref HCItemCompatibilityChunk Chunk;
+    ref array<string> Rows = new array<string>;
+    int RowByteBound;
+}
+
+class HCItemCompatibilityChunkReference
+{
+    string FileName;
+    int Sequence;
+    int StartPlanIndex;
+    int NextPlanIndex;
+    int RowsWritten;
+    int NonClassChildren;
+    int ByteBound;
+    bool ReadbackVerified;
+}
+
+class HCItemCompatibilityManifest
+{
+    int SchemaVersion = 1;
+    string ArtifactKind = "item_compatibility_manifest";
+    string IntegrityPolicy = "readback_equality_only_external_SHA256_required";
+    ref HCItemCompatibilityHeader Header;
+    bool FullCoverage = false;
+    bool IndexPlanComplete;
+    bool EnumerationComplete;
+    int AdvertisedChildren;
+    int ExpectedClassRows;
+    int NonClassChildren;
+    int CommittedChunkByteBound;
+    string UncommittedFile;
+    int UncommittedByteBound;
+    int MaxChildren = 16384;
+    int MaxChunks = 64;
+    int MaxChunkBytes = 16777216;
+    int MaxTotalBytes = 268435456;
+    int TargetChildrenPerChunk = 512;
+    int MaxManifestBytes = 8388608;
+    ref array<ref HCItemCompatibilityIndexEntry> IndexPlan = new array<ref HCItemCompatibilityIndexEntry>;
+    ref array<ref HCItemCompatibilityChunkReference> Chunks = new array<ref HCItemCompatibilityChunkReference>;
+}
+
 class HCItemCompatibilityAudit
 {
     static const int MAX_ROWS = 65536;
@@ -106,7 +174,77 @@ class HCItemCompatibilityAudit
     static const int MAX_ANCESTORS = 64;
     static const int MAX_RUN_ID = 96;
     static const int MAX_VISITED_FACTOR = 2;
+    static const int ALL_MAX_CHILDREN = 16384;
+    static const int ALL_MAX_CHUNKS = 64;
+    static const int ALL_CHUNK_BYTES = 16777216;
+    static const int ALL_TOTAL_BYTES = 268435456;
+    static const int ALL_CHILD_TARGET = 512;
+    static const int ALL_CHUNK_RESERVE = 65536;
+    static const int ALL_PLAN_BYTES = 4194304;
+    static const int ALL_MANIFEST_BYTES = 8388608;
+    static const int ALL_FINAL_RESERVE = 16777216;
     protected static bool s_ExportActive;
+
+    // Native Game.IsKindOf resolves these roots separately. Magazine extends
+    // InventoryItemSuper; Ammunition_Base extends Magazine_Base. CfgAmmo is
+    // projectile metadata, not proof of a craftable inventory item.
+    protected static void BuildRoots(array<string> roots)
+    {
+        roots.Insert("CfgWeapons");
+        roots.Insert("CfgVehicles");
+        roots.Insert("CfgMagazines");
+        roots.Insert("CfgAmmo");
+    }
+
+    static string RootRole(string root)
+    {
+        if (root == "CfgWeapons")
+            return "weapon_config_not_inventory_eligibility";
+        if (root == "CfgVehicles")
+            return "vehicle_and_equipment_config_not_inventory_eligibility";
+        if (root == "CfgMagazines")
+            return "magazine_and_ammunition_inventory_config";
+        if (root == "CfgAmmo")
+            return "projectile_config_not_inventory_eligibility";
+        return "unresolved_root_role";
+    }
+
+    static bool AllChildrenFit(int already, int additional)
+    {
+        if (already < 0 || already > ALL_MAX_CHILDREN || additional < 0)
+            return false;
+        return additional <= ALL_MAX_CHILDREN - already;
+    }
+
+    static bool ChunkFits(int coveredChildren, int rowByteBound, int candidateBound)
+    {
+        if (coveredChildren < 0 || coveredChildren >= ALL_CHILD_TARGET || rowByteBound < 0 || candidateBound < 0 || candidateBound > MAX_ROW_BYTES)
+            return false;
+        return rowByteBound <= ALL_CHUNK_BYTES - ALL_CHUNK_RESERVE - candidateBound;
+    }
+
+    static bool AllBytesFit(int chunkCount, int committedBound, int candidateBound)
+    {
+        if (chunkCount < 0 || chunkCount >= ALL_MAX_CHUNKS || committedBound < 0 || candidateBound <= 0 || candidateBound > ALL_CHUNK_BYTES)
+            return false;
+        return committedBound <= ALL_TOTAL_BYTES - ALL_FINAL_RESERVE - candidateBound;
+    }
+
+    static bool WindowFollows(int expectedStart, int startIndex, int nextIndex, int planned, int rows, int nonclass)
+    {
+        if (expectedStart < 0 || startIndex != expectedStart || nextIndex <= startIndex || nextIndex > planned || planned > ALL_MAX_CHILDREN)
+            return false;
+        if (rows < 0 || nonclass < 0 || rows > ALL_CHILD_TARGET || nonclass > ALL_CHILD_TARGET || nextIndex - startIndex > ALL_CHILD_TARGET)
+            return false;
+        return rows + nonclass == nextIndex - startIndex;
+    }
+
+    static bool AllCountsComplete(int advertised, int planned, int covered, int expectedRows, int rows, int nonclass)
+    {
+        if (advertised < 0 || advertised > ALL_MAX_CHILDREN || expectedRows < 0 || rows < 0 || nonclass < 0)
+            return false;
+        return advertised == planned && planned == covered && expectedRows == rows && rows <= covered && nonclass == covered - rows;
+    }
 
     static bool ValidLimits(int maxRows, int maxBytes)
     {
@@ -396,8 +534,7 @@ class HCItemCompatibilityAudit
     protected static void Collect(HCItemCompatibilityHeader header, array<string> rowChunks, int maxRows, int maxBytes)
     {
         array<string> roots = new array<string>;
-        roots.Insert("CfgWeapons");
-        roots.Insert("CfgVehicles");
+        BuildRoots(roots);
         array<ref HCItemCompatibilitySpec> schema = new array<ref HCItemCompatibilitySpec>;
         BuildSchema(schema);
         if (schema.Count() > MAX_FIELDS)
@@ -411,6 +548,7 @@ class HCItemCompatibilityAudit
         {
             HCItemCompatibilityRoot rootRecord = new HCItemCompatibilityRoot;
             rootRecord.ConfigRoot = rootName;
+            rootRecord.ConfigRole = RootRole(rootName);
             header.Roots.Insert(rootRecord);
         }
         for (int rootIndex = 0; rootIndex < roots.Count(); rootIndex++)
@@ -482,6 +620,9 @@ class HCItemCompatibilityAudit
     protected static HCItemCompatibilityHeader NewHeader(string runId, string actualWorld, string actualBuild, string configProvenance, int maxRows, int maxBytes)
     {
         HCItemCompatibilityHeader header = new HCItemCompatibilityHeader;
+        array<string> roots = new array<string>;
+        BuildRoots(roots);
+        header.EnumerationOrder = "native_child_index_" + string.Join("_then_", roots);
         header.RunId = runId;
         header.ActualWorld = actualWorld;
         header.ActualBuild = actualBuild;
@@ -505,7 +646,418 @@ class HCItemCompatibilityAudit
         return header;
     }
 
-    // Return true ONLY for a readback-verified, non-partial selected-root scan.
+    protected static bool WriteFreshVerified(string destination, string payload, int maxBytes, out string error)
+    {
+        int byteBound = Utf8ByteBound(payload.Length());
+        if (byteBound < 0 || byteBound > maxBytes)
+        {
+            error = "output_byte_budget";
+            return false;
+        }
+        if (FileExist(destination))
+        {
+            error = "destination_exists";
+            return false;
+        }
+        FileHandle writeHandle = OpenFile(destination, FileMode.WRITE);
+        if (!writeHandle)
+        {
+            error = "output_open_failed";
+            return false;
+        }
+        FPrint(writeHandle, payload);
+        CloseFile(writeHandle);
+        FileHandle verifyHandle = OpenFile(destination, FileMode.READ);
+        if (!verifyHandle)
+        {
+            error = "output_readback_open_failed";
+            return false;
+        }
+        string readback;
+        ReadFile(verifyHandle, readback, maxBytes + 1);
+        CloseFile(verifyHandle);
+        if (readback != payload)
+        {
+            error = "output_readback_mismatch";
+            return false;
+        }
+        return true;
+    }
+
+    protected static bool BuildIndexPlan(HCItemCompatibilityManifest manifest, out string error)
+    {
+        array<string> roots = new array<string>;
+        BuildRoots(roots);
+        // Read every denominator before iterating any children. No allocation
+        // proportional to an unvalidated native count; all root counts survive.
+        bool countsFit = true;
+        for (int countRootIndex = 0; countRootIndex < roots.Count(); countRootIndex++)
+        {
+            HCItemCompatibilityRoot rootInfo = new HCItemCompatibilityRoot;
+            rootInfo.ConfigRoot = roots[countRootIndex];
+            rootInfo.ConfigRole = RootRole(rootInfo.ConfigRoot);
+            manifest.Header.Roots.Insert(rootInfo);
+            if (!g_Game.ConfigIsExisting(rootInfo.ConfigRoot) || g_Game.ConfigGetType(rootInfo.ConfigRoot) != CT_CLASS)
+            {
+                error = "missing_root:" + rootInfo.ConfigRoot;
+                countsFit = false;
+                continue;
+            }
+            rootInfo.AdvertisedChildren = g_Game.ConfigGetChildrenCount(rootInfo.ConfigRoot);
+            if (!AllChildrenFit(manifest.AdvertisedChildren, rootInfo.AdvertisedChildren))
+            {
+                error = "native_child_budget";
+                countsFit = false;
+                continue;
+            }
+            manifest.AdvertisedChildren += rootInfo.AdvertisedChildren;
+        }
+        if (!countsFit || manifest.AdvertisedChildren > ALL_MAX_CHILDREN)
+        {
+            manifest.AdvertisedChildren = -1;
+            return false;
+        }
+        int planBound;
+        map<string, bool> classIdentities = new map<string, bool>;
+        for (int planRootIndex = 0; planRootIndex < roots.Count(); planRootIndex++)
+        {
+            HCItemCompatibilityRoot scanRoot = manifest.Header.Roots[planRootIndex];
+            for (int nativeIndex = 0; nativeIndex < scanRoot.AdvertisedChildren; nativeIndex++)
+            {
+                HCItemCompatibilityIndexEntry entry = new HCItemCompatibilityIndexEntry;
+                entry.RootIndex = planRootIndex;
+                entry.ChildIndex = nativeIndex;
+                if (!g_Game.ConfigGetChildName(scanRoot.ConfigRoot, nativeIndex, entry.ChildName) || entry.ChildName == "" || entry.ChildName.Length() > MAX_VALUE_UNITS)
+                {
+                    error = "index_child_name_read_or_budget";
+                    return false;
+                }
+                entry.ConfigType = g_Game.ConfigGetType(scanRoot.ConfigRoot + " " + entry.ChildName);
+                entry.ConfigTypeName = NativeTypeName(entry.ConfigType);
+                if (entry.ConfigType == CT_CLASS)
+                {
+                    string classIdentity = scanRoot.ConfigRoot + " " + entry.ChildName;
+                    classIdentity.ToLower();
+                    if (classIdentities.Contains(classIdentity))
+                    {
+                        manifest.Header.StopClassPath = classIdentity;
+                        error = "duplicate_class_identity";
+                        return false;
+                    }
+                    classIdentities.Insert(classIdentity, true);
+                }
+                string entryJson;
+                if (!JsonFileLoader<HCItemCompatibilityIndexEntry>.MakeData(entry, entryJson, error, false))
+                    return false;
+                int entryBound = Utf8ByteBound(entryJson.Length() + 1);
+                if (entryBound < 0 || entryBound > ALL_PLAN_BYTES - planBound)
+                {
+                    error = "index_plan_byte_budget";
+                    return false;
+                }
+                manifest.IndexPlan.Insert(entry);
+                planBound += entryBound;
+                if (entry.ConfigType == CT_CLASS)
+                    manifest.ExpectedClassRows++;
+            }
+        }
+        manifest.IndexPlanComplete = manifest.IndexPlan.Count() == manifest.AdvertisedChildren;
+        return manifest.IndexPlanComplete;
+    }
+
+    protected static HCItemCompatibilityChunkWork NewChunk(HCItemCompatibilityManifest manifest, int startIndex)
+    {
+        HCItemCompatibilityChunkWork work = new HCItemCompatibilityChunkWork;
+        work.Chunk = new HCItemCompatibilityChunk;
+        work.Chunk.Sequence = manifest.Chunks.Count();
+        work.Chunk.StartPlanIndex = startIndex;
+        work.Chunk.NextPlanIndex = startIndex;
+        HCItemCompatibilityHeader original = manifest.Header;
+        work.Chunk.Header = NewHeader(original.RunId, original.ActualWorld, original.ActualBuild, original.ConfigProvenance, ALL_CHILD_TARGET, ALL_CHUNK_BYTES);
+        work.Chunk.Header.MaxVisitedChildren = ALL_CHILD_TARGET;
+        work.Chunk.Header.SchemaFields = original.SchemaFields;
+        return work;
+    }
+
+    protected static bool CommitChunk(HCItemCompatibilityManifest manifest, HCItemCompatibilityChunkWork work, string runDirectory, out string error)
+    {
+        HCItemCompatibilityChunk chunk = work.Chunk;
+        int rowCount = chunk.RowPlanIndices.Count();
+        int nonClassCount = chunk.NonClassPlanIndices.Count();
+        if (!WindowFollows(manifest.Header.VisitedChildren, chunk.StartPlanIndex, chunk.NextPlanIndex, manifest.IndexPlan.Count(), rowCount, nonClassCount) || work.Rows.Count() != rowCount || chunk.Header.RowsWritten != rowCount)
+        {
+            error = "noncontiguous_chunk_or_counts";
+            return false;
+        }
+        chunk.Header.VisitedChildren = chunk.NextPlanIndex - chunk.StartPlanIndex;
+        chunk.Header.RowByteBound = work.RowByteBound;
+        string chunkJson;
+        if (!JsonFileLoader<HCItemCompatibilityChunk>.MakeData(chunk, chunkJson, error, false))
+            return false;
+        int envelopeBound = Utf8ByteBound(chunkJson.Length() + 32);
+        if (envelopeBound < 0 || envelopeBound > ALL_CHUNK_RESERVE)
+        {
+            error = "chunk_envelope_byte_budget";
+            return false;
+        }
+        string payload = "{\"Chunk\":" + chunkJson + ",\"Rows\":[" + string.Join(",", work.Rows) + "]}";
+        int chunkBound = Utf8ByteBound(payload.Length());
+        if (!AllBytesFit(manifest.Chunks.Count(), manifest.CommittedChunkByteBound, chunkBound))
+        {
+            error = "chunk_count_or_aggregate_byte_budget";
+            return false;
+        }
+        int rowCursor;
+        int nonClassCursor;
+        for (int checkedIndex = chunk.StartPlanIndex; checkedIndex < chunk.NextPlanIndex; checkedIndex++)
+        {
+            if (manifest.IndexPlan[checkedIndex].ConfigType == CT_CLASS)
+            {
+                if (rowCursor >= rowCount || chunk.RowPlanIndices[rowCursor] != checkedIndex)
+                {
+                    error = "chunk_class_index_mismatch";
+                    return false;
+                }
+                rowCursor++;
+            }
+            else
+            {
+                if (nonClassCursor >= nonClassCount || chunk.NonClassPlanIndices[nonClassCursor] != checkedIndex)
+                {
+                    error = "chunk_nonclass_index_mismatch";
+                    return false;
+                }
+                nonClassCursor++;
+            }
+        }
+        string fileName = "chunk-" + chunk.Sequence.ToString() + ".json";
+        manifest.UncommittedFile = fileName;
+        manifest.UncommittedByteBound = chunkBound;
+        if (!WriteFreshVerified(runDirectory + "/" + fileName, payload, ALL_CHUNK_BYTES, error))
+            return false;
+        HCItemCompatibilityChunkReference chunkReference = new HCItemCompatibilityChunkReference;
+        chunkReference.FileName = fileName;
+        chunkReference.Sequence = chunk.Sequence;
+        chunkReference.StartPlanIndex = chunk.StartPlanIndex;
+        chunkReference.NextPlanIndex = chunk.NextPlanIndex;
+        chunkReference.RowsWritten = rowCount;
+        chunkReference.NonClassChildren = nonClassCount;
+        chunkReference.ByteBound = chunkBound;
+        chunkReference.ReadbackVerified = true;
+        manifest.Chunks.Insert(chunkReference);
+        manifest.CommittedChunkByteBound += chunkBound;
+        manifest.Header.RowByteBound += work.RowByteBound;
+        manifest.Header.VisitedChildren = chunk.NextPlanIndex;
+        manifest.Header.RowsWritten += rowCount;
+        manifest.Header.UnresolvedFields += chunk.Header.UnresolvedFields;
+        manifest.Header.KindVariantFields += chunk.Header.KindVariantFields;
+        manifest.NonClassChildren += nonClassCount;
+        manifest.UncommittedFile = "";
+        manifest.UncommittedByteBound = 0;
+        for (int committedIndex = chunk.StartPlanIndex; committedIndex < chunk.NextPlanIndex; committedIndex++)
+        {
+            HCItemCompatibilityIndexEntry committed = manifest.IndexPlan[committedIndex];
+            HCItemCompatibilityRoot rootSummary = manifest.Header.Roots[committed.RootIndex];
+            rootSummary.VisitedChildren++;
+            if (committed.ConfigType == CT_CLASS)
+                rootSummary.RowsWritten++;
+            rootSummary.EnumerationComplete = rootSummary.VisitedChildren == rootSummary.AdvertisedChildren;
+        }
+        return true;
+    }
+    protected static bool CollectAllChunks(HCItemCompatibilityManifest manifest, string runDirectory, out string error)
+    {
+        array<ref HCItemCompatibilitySpec> schema = new array<ref HCItemCompatibilitySpec>;
+        BuildSchema(schema);
+        HCItemCompatibilityChunkWork work = NewChunk(manifest, 0);
+        for (int planIndex = 0; planIndex < manifest.IndexPlan.Count(); planIndex++)
+        {
+            if (work.Chunk.NextPlanIndex - work.Chunk.StartPlanIndex >= ALL_CHILD_TARGET)
+            {
+                work.Chunk.BoundaryReason = "child_target";
+                if (!CommitChunk(manifest, work, runDirectory, error))
+                    return false;
+                work = NewChunk(manifest, planIndex);
+            }
+            HCItemCompatibilityIndexEntry entry = manifest.IndexPlan[planIndex];
+            HCItemCompatibilityRoot root = manifest.Header.Roots[entry.RootIndex];
+            string candidateRow;
+            int candidateBound = 0;
+            int unresolvedFields;
+            int kindVariantFields;
+            if (entry.ConfigType == CT_CLASS)
+            {
+                string rowError;
+                if (!ReadRow(root.ConfigRoot, entry.ChildName, schema, candidateRow, rowError, unresolvedFields, kindVariantFields))
+                {
+                    manifest.Header.StopClassPath = root.ConfigRoot + " " + entry.ChildName;
+                    work.Chunk.BoundaryReason = "source_failure";
+                    if (work.Chunk.NextPlanIndex > work.Chunk.StartPlanIndex)
+                    {
+                        if (!CommitChunk(manifest, work, runDirectory, error))
+                            return false;
+                    }
+                    error = rowError;
+                    return false;
+                }
+                candidateBound = Utf8ByteBound(candidateRow.Length() + 1);
+            }
+            if (candidateBound < 0 || candidateBound > MAX_ROW_BYTES)
+            {
+                manifest.Header.StopClassPath = root.ConfigRoot + " " + entry.ChildName;
+                work.Chunk.BoundaryReason = "single_row_budget";
+                if (work.Chunk.NextPlanIndex > work.Chunk.StartPlanIndex)
+                {
+                    if (!CommitChunk(manifest, work, runDirectory, error))
+                        return false;
+                }
+                error = "single_row_budget";
+                return false;
+            }
+            if (!ChunkFits(work.Chunk.NextPlanIndex - work.Chunk.StartPlanIndex, work.RowByteBound, candidateBound))
+            {
+                work.Chunk.BoundaryReason = "byte_target";
+                if (!CommitChunk(manifest, work, runDirectory, error))
+                    return false;
+                // Carry the already-read candidate; never rescan native prefixes.
+                work = NewChunk(manifest, planIndex);
+            }
+            if (entry.ConfigType == CT_CLASS)
+            {
+                work.Rows.Insert(candidateRow);
+                work.Chunk.RowPlanIndices.Insert(planIndex);
+                work.RowByteBound += candidateBound;
+                work.Chunk.Header.RowsWritten++;
+                work.Chunk.Header.UnresolvedFields += unresolvedFields;
+                work.Chunk.Header.KindVariantFields += kindVariantFields;
+            }
+            else
+                work.Chunk.NonClassPlanIndices.Insert(planIndex);
+            work.Chunk.NextPlanIndex = planIndex + 1;
+        }
+        if (work.Chunk.NextPlanIndex > work.Chunk.StartPlanIndex)
+        {
+            work.Chunk.BoundaryReason = "end_plan";
+            if (!CommitChunk(manifest, work, runDirectory, error))
+                return false;
+        }
+        return true;
+    }
+
+    protected static bool WriteFinalManifest(HCItemCompatibilityManifest manifest, string runDirectory, out string manifestPath, out string error)
+    {
+        manifest.Header.Partial = !manifest.EnumerationComplete;
+        if (manifest.Header.Partial && manifest.Header.StopReason == "")
+            manifest.Header.StopReason = "incomplete_run";
+        string manifestJson;
+        if (!JsonFileLoader<HCItemCompatibilityManifest>.MakeData(manifest, manifestJson, error, false))
+            return false;
+        manifestPath = runDirectory + "/manifest.json";
+        string writeError;
+        if (WriteFreshVerified(manifestPath, manifestJson, ALL_MANIFEST_BYTES, writeError))
+            return true;
+        // At most one fresh failure record; retain any torn primary file. The
+        // aggregate ceiling reserves room for both bounded manifest attempts.
+        manifest.EnumerationComplete = false;
+        manifest.Header.Partial = true;
+        manifest.Header.StopReason = "manifest_write:" + writeError;
+        error = manifest.Header.StopReason;
+        string partialJson;
+        string partialError;
+        if (!JsonFileLoader<HCItemCompatibilityManifest>.MakeData(manifest, partialJson, partialError, false))
+            return false;
+        manifestPath = runDirectory + "/manifest-partial.json";
+        if (!WriteFreshVerified(manifestPath, partialJson, ALL_MANIFEST_BYTES, partialError))
+            error = error + "; partial_manifest:" + partialError;
+        return false;
+    }
+
+    // Fresh single run only. The immutable terminal manifest is written LAST.
+    static bool ExportAll(string runId, string actualWorld, string actualBuild, string configProvenance, bool profileOutsideGitConfirmed, out string manifestPath, out string error)
+    {
+        manifestPath = "";
+        error = "";
+        if (s_ExportActive)
+        {
+            error = "export_already_active";
+            return false;
+        }
+        if (!g_Game || !profileOutsideGitConfirmed || !SafeRunId(runId))
+        {
+            error = "invalid_request_or_profile_not_confirmed_outside_git";
+            return false;
+        }
+        if (actualWorld.Length() < 1 || actualWorld.Length() > 128 || actualBuild.Length() < 1 || actualBuild.Length() > 128 || configProvenance.Length() < 1 || configProvenance.Length() > 1024)
+        {
+            error = "missing_or_oversized_caller_provenance";
+            return false;
+        }
+        string parentDirectory = "$profile:HollowCountry/ItemCompatibilityAudit/";
+        string runDirectory = parentDirectory + runId + "-all";
+        if (FileExist(runDirectory))
+        {
+            error = "fresh_run_directory_exists";
+            return false;
+        }
+        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry"))
+        {
+            error = "profile_directory_create_failed";
+            return false;
+        }
+        if (!FileExist(parentDirectory) && !MakeDirectory(parentDirectory))
+        {
+            error = "audit_directory_create_failed";
+            return false;
+        }
+        s_ExportActive = true;
+        if (!MakeDirectory(runDirectory))
+        {
+            error = "fresh_run_directory_create_failed";
+            s_ExportActive = false;
+            return false;
+        }
+        HCItemCompatibilityManifest manifest = new HCItemCompatibilityManifest;
+        manifest.Header = NewHeader(runId, actualWorld, actualBuild, configProvenance, ALL_MAX_CHILDREN, ALL_TOTAL_BYTES);
+        manifest.Header.MaxVisitedChildren = ALL_MAX_CHILDREN;
+        array<ref HCItemCompatibilitySpec> schema = new array<ref HCItemCompatibilitySpec>;
+        BuildSchema(schema);
+        bool collected = false;
+        if (schema.Count() > MAX_FIELDS)
+            error = "schema_field_budget";
+        else
+        {
+            foreach (HCItemCompatibilitySpec spec : schema)
+                manifest.Header.SchemaFields.Insert(spec.ConfigPath);
+            if (BuildIndexPlan(manifest, error))
+                collected = CollectAllChunks(manifest, runDirectory, error);
+        }
+        manifest.EnumerationComplete = collected && manifest.IndexPlanComplete && AllCountsComplete(manifest.AdvertisedChildren, manifest.IndexPlan.Count(), manifest.Header.VisitedChildren, manifest.ExpectedClassRows, manifest.Header.RowsWritten, manifest.NonClassChildren);
+        foreach (HCItemCompatibilityRoot rootSummary : manifest.Header.Roots)
+        {
+            rootSummary.EnumerationComplete = manifest.IndexPlanComplete && rootSummary.VisitedChildren == rootSummary.AdvertisedChildren;
+            if (!rootSummary.EnumerationComplete)
+                manifest.EnumerationComplete = false;
+        }
+        if (!manifest.EnumerationComplete)
+        {
+            manifest.Header.Partial = true;
+            if (error == "")
+                error = "incomplete_run";
+            manifest.Header.StopReason = error;
+        }
+        bool manifestWritten = WriteFinalManifest(manifest, runDirectory, manifestPath, error);
+        s_ExportActive = false;
+        if (!manifestWritten)
+            return false;
+        if (!manifest.EnumerationComplete)
+        {
+            error = manifest.Header.StopReason;
+            return false;
+        }
+        return true;
+    }
+
+    // Backward-compatible single-file export; incomplete scans remain partial.
     // A partial JSON is retained at outputPath, returns false, and carries reason.
     // Caller supplies an independently observed world/build + config hash/load-order
     // reference; these strings are provenance assertions, not measurements here.
