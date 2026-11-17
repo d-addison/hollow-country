@@ -451,16 +451,54 @@ class HCDisposableDiagnosticMission : CustomMission
     //   out values); 3_Game/Global/Game.c:612 ConfigIsExisting(path); 3_Game/constants.c:237 CFG_NONAI_VEHICLES is
     //   "CfgNonAIVehicles"; 5_Mission/GUI/SceneEditorMenu.c:1362 reads inventorySlot as an array and
     //   5_Mission/GUI/SceneEditorMenu.c:1385 falls back to the text form, as does 3_Game/Entities/EntityAI.c:3996;
-    //   1_Core/proto/EnString.c:113 Substring, EnString.c:171 ToLower, EnString.c:240 IndexOf and EnString.c:253 LastIndexOf.
+    //   1_Core/proto/EnString.c:113 Substring, EnString.c:171 ToLower, EnString.c:240 IndexOf, EnString.c:253 LastIndexOf
+    //   (measured only by the header self-test, never relied on below) and EnString.c:271 IndexOfFrom(int start, string sample).
+    // Fix round 6 (probe-004: cfg_class came out as "Proxy/dz/..." and no config entry was found on 614 rows). The earlier
+    // code looked for "/" in the RAW selection name and only afterwards (in HCTLStr) were backslashes turned into "/", so a
+    // raw name with backslashes kept its whole path in the class. The separators are therefore normalised FIRST
+    // (Replace of the backslash string, the same call HCTLViewKey uses) and the last separator and dot are found by a
+    // bounded forward scan with IndexOf/IndexOfFrom, so LastIndexOf is not needed. Whether the raw names hold backslashes
+    // is measured per row (sep_slash, sep_backslash) and LastIndexOf itself by the header self-test; neither is assumed.
+    int HCTLLastPos(string text, string mark)
+    {
+        int lastPos = -1;
+        int foundPos = text.IndexOf(mark);
+        int guard = 0;
+        while (foundPos != -1 && guard < 256)
+        {
+            lastPos = foundPos;
+            guard = guard + 1;
+            if (foundPos + 1 >= text.Length())
+                break;
+            foundPos = text.IndexOfFrom(foundPos + 1, mark);
+        }
+        return lastPos;
+    }
+
+    int HCTLCountChar(string text, string mark)
+    {
+        int markCount = 0;
+        int foundPos = text.IndexOf(mark);
+        while (foundPos != -1 && markCount < 256)
+        {
+            markCount = markCount + 1;
+            if (foundPos + 1 >= text.Length())
+                break;
+            foundPos = text.IndexOfFrom(foundPos + 1, mark);
+        }
+        return markCount;
+    }
+
     string HCTLProxyBase(string selectionName)
     {
         string text = selectionName.Substring(6, selectionName.Length() - 6);
-        int lastSlash = text.LastIndexOf("/");
-        if (lastSlash != -1)
-            text = text.Substring(lastSlash + 1, text.Length() - lastSlash - 1);
-        int lastDot = text.LastIndexOf(".");
-        if (lastDot != -1)
-            text = text.Substring(0, lastDot);
+        text.Replace(m_HCTLSlash, "/");
+        int cutPos = HCTLLastPos(text, "/");
+        if (cutPos != -1)
+            text = text.Substring(cutPos + 1, text.Length() - cutPos - 1);
+        cutPos = HCTLLastPos(text, ".");
+        if (cutPos != -1)
+            text = text.Substring(0, cutPos);
         return text;
     }
 
@@ -507,7 +545,7 @@ class HCDisposableDiagnosticMission : CustomMission
         if (viewKey.IndexOf("proxy:") != 0)
             return "";
         string stem = viewKey.Substring(6, viewKey.Length() - 6);
-        int lastDot = stem.LastIndexOf(".");
+        int lastDot = HCTLLastPos(stem, ".");
         if (lastDot < 1 || lastDot == stem.Length() - 1)
             return "";
         string digitSet = "0123456789";
@@ -556,9 +594,13 @@ class HCDisposableDiagnosticMission : CustomMission
 
     string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
     {
-        string cfgClass = "Proxy" + HCTLProxyBase(selectionName);
+        string cfgBase = HCTLProxyBase(selectionName);
+        string cfgClass = "Proxy" + cfgBase;
         string cfgPath = "CfgNonAIVehicles " + cfgClass;
         bool cfgExists = GetGame().ConfigIsExisting(cfgPath);
+        bool baseExists = GetGame().ConfigIsExisting("CfgNonAIVehicles " + cfgBase);
+        int slashCount = HCTLCountChar(selectionName, "/");
+        int backslashCount = HCTLCountChar(selectionName, m_HCTLSlash);
         string modelPath = "";
         string slotText = "";
         TStringArray slotNames = new TStringArray;
@@ -588,9 +630,78 @@ class HCDisposableDiagnosticMission : CustomMission
         }
         string rowText = "{" + HCTLKey("selection") + HCTLStr(selectionName) + "," + HCTLKey("cfg_class") + HCTLStr(cfgClass) + ",";
         rowText = rowText + HCTLKey("cfg_exists") + HCTLBool(cfgExists) + "," + HCTLKey("model") + HCTLStr(modelPath) + ",";
+        rowText = rowText + HCTLKey("cfg_tried") + "[" + HCTLStr(cfgClass) + "," + HCTLStr(cfgBase) + "],";
+        rowText = rowText + HCTLKey("cfg_tried_exists") + "[" + HCTLBool(cfgExists) + "," + HCTLBool(baseExists) + "],";
+        rowText = rowText + HCTLKey("sep_slash") + slashCount.ToString() + "," + HCTLKey("sep_backslash") + backslashCount.ToString() + ",";
         rowText = rowText + HCTLKey("inventory_slots") + "[" + slotList + "]," + HCTLKey("slot_count") + slotTotal.ToString() + ",";
         rowText = rowText + HCTLKey("slot_scan_complete") + HCTLBool(slotComplete) + ",";
         return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewPaths) + "}";
+    }
+
+    // View LOD resolution (fix round 6). probe-004 returned null from GetLODByName(LOD.NAME_VIEW) on every dedicated-server
+    // host. Object.c:106-122 is script: it walks GetLODS (Object.c:98, bool, out array<LOD>) and compares GetLODName
+    // (Object.c:101) lower-cased, so the same walk is done here and every name is reported (at most eight, with the count).
+    // The view LOD is the one whose lower-cased name is "view" (LOD.NAME_VIEW, gameplay.c:207). No other LOD is ever
+    // substituted for it, whatever its name; a list the engine refused (or one above 128 LODs, which is not scanned) is
+    // reported as not listed, never as an empty list. GetLODByName is still called once per host and its result is
+    // emitted as view_by_name so a disagreement with the walk is visible.
+    LOD HCTLViewLod(Object subject)
+    {
+        LOD foundLod = null;
+        array<LOD> lodList = new array<LOD>;
+        lodList.Clear();
+        bool lodListed = subject.GetLODS(lodList);
+        if (lodListed == false)
+            lodList.Clear();
+        int lodTotal = lodList.Count();
+        if (lodTotal > 128)
+            lodTotal = 0;
+        string lodName = "";
+        int lodIndex = 0;
+        while (lodIndex < lodTotal)
+        {
+            lodName = subject.GetLODName(lodList.Get(lodIndex));
+            lodName.ToLower();
+            if (lodName == "view")
+            {
+                foundLod = lodList.Get(lodIndex);
+                break;
+            }
+            lodIndex = lodIndex + 1;
+        }
+        return foundLod;
+    }
+
+    string HCTLLodFacts(Object subject, bool viewByName)
+    {
+        array<LOD> lodList = new array<LOD>;
+        lodList.Clear();
+        bool lodListed = subject.GetLODS(lodList);
+        if (lodListed == false)
+            lodList.Clear();
+        int lodTotal = lodList.Count();
+        if (lodTotal > 128)
+        {
+            lodListed = false;
+            lodTotal = 0;
+        }
+        string nameList = "";
+        int nameCount = 0;
+        string lodName = "";
+        while (nameCount < lodTotal && nameCount < 8)
+        {
+            lodName = subject.GetLODName(lodList.Get(nameCount));
+            if (nameCount > 0)
+                nameList = nameList + ",";
+            nameList = nameList + HCTLStr(lodName);
+            nameCount = nameCount + 1;
+        }
+        bool namesComplete = false;
+        if (nameCount == lodTotal)
+            namesComplete = true;
+        string lodText = HCTLKey("lod_list_ok") + HCTLBool(lodListed) + "," + HCTLKey("lod_count") + lodTotal.ToString() + ",";
+        lodText = lodText + HCTLKey("lod_names") + "[" + nameList + "]," + HCTLKey("lod_names_complete") + HCTLBool(namesComplete) + ",";
+        return lodText + HCTLKey("view_by_name") + HCTLBool(viewByName) + ",";
     }
 
     string HCTLProxyFacts(Object subject)
@@ -604,7 +715,11 @@ class HCDisposableDiagnosticMission : CustomMission
         bool scanComplete = true;
         if (scanLimit < total)
             scanComplete = false;
-        LOD viewLod = subject.GetLODByName(LOD.NAME_VIEW);
+        LOD viewLod = HCTLViewLod(subject);
+        LOD byNameLod = subject.GetLODByName(LOD.NAME_VIEW);
+        bool viewByName = false;
+        if (byNameLod)
+            viewByName = true;
         array<Selection> viewSelections = new array<Selection>;
         array<string> viewPaths = new array<string>;
         bool viewPresent = false;
@@ -656,6 +771,7 @@ class HCDisposableDiagnosticMission : CustomMission
         string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
         facts = facts + HCTLKey("view_lod") + HCTLBool(viewPresent) + "," + HCTLKey("view_selection_count") + viewTotal.ToString() + ",";
         facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + "," + HCTLKey("view_list_ok") + HCTLBool(viewListed) + ",";
+        facts = facts + HCTLLodFacts(subject, viewByName);
         return facts + HCTLKey("proxies") + "[" + rows + "]";
     }
 
@@ -1101,6 +1217,90 @@ class HCDisposableDiagnosticMission : CustomMission
         FPrintln(handle, "]" + tail);
     }
 
+    // Header diagnostics (fix round 6): measurements, never evidence. The string self-test runs the engine's own IndexOf,
+    // LastIndexOf and IndexOfFrom (EnString.c:240, :253, :271) on a fixed sample and on its backslash form, next to the
+    // forward-scan helpers the hook actually uses, so a native LastIndexOf that disagrees with them is visible instead of
+    // assumed. The scan lists CfgNonAIVehicles children (Game.c:611 ConfigGetChildrenCount, Game.c:594 ConfigGetChildName,
+    // constants.c:237 CFG_NONAI_VEHICLES), at most 4096, with the weaponlight ones and their model, so the real proxy
+    // class naming is read from the server's own config rather than assumed from convention.
+    string HCTLIntField(string name, int value)
+    {
+        return HCTLKey(name) + value.ToString() + ",";
+    }
+
+    string HCTLSelfTest()
+    {
+        string sampleText = "proxy:/dz/a/b.001";
+        string backText = sampleText;
+        backText.Replace("/", m_HCTLSlash);
+        int firstSlash = sampleText.IndexOf("/");
+        int lastSlash = sampleText.LastIndexOf("/");
+        int firstDot = sampleText.IndexOf(".");
+        int lastDot = sampleText.LastIndexOf(".");
+        int fromSeven = sampleText.IndexOfFrom(7, "/");
+        int fromTen = sampleText.IndexOfFrom(10, "/");
+        int fromTwelve = sampleText.IndexOfFrom(12, "/");
+        int fromDot = sampleText.IndexOfFrom(0, ".");
+        string testText = "{" + HCTLKey("sample") + HCTLStr(sampleText) + ",";
+        testText = testText + HCTLIntField("first_slash", firstSlash) + HCTLIntField("last_slash", lastSlash);
+        testText = testText + HCTLIntField("first_dot", firstDot) + HCTLIntField("last_dot", lastDot);
+        testText = testText + HCTLIntField("from_slash_7", fromSeven) + HCTLIntField("from_slash_10", fromTen);
+        testText = testText + HCTLIntField("from_slash_12", fromTwelve) + HCTLIntField("from_dot_0", fromDot);
+        int loopSlash = HCTLLastPos(sampleText, "/");
+        int loopDot = HCTLLastPos(sampleText, ".");
+        int backLength = backText.Length();
+        int backFirst = backText.IndexOf(m_HCTLSlash);
+        int backLast = backText.LastIndexOf(m_HCTLSlash);
+        int backLoop = HCTLLastPos(backText, m_HCTLSlash);
+        int backCount = HCTLCountChar(backText, m_HCTLSlash);
+        testText = testText + HCTLIntField("loop_last_slash", loopSlash) + HCTLIntField("loop_last_dot", loopDot);
+        testText = testText + HCTLIntField("bs_length", backLength) + HCTLIntField("bs_first", backFirst);
+        testText = testText + HCTLIntField("bs_last", backLast) + HCTLIntField("bs_loop_last", backLoop);
+        testText = testText + HCTLIntField("bs_count", backCount);
+        int codeLength = m_HCTLSlash.Length();
+        return testText + HCTLKey("slash_code_length") + codeLength.ToString() + "}";
+    }
+
+    string HCTLCfgScan()
+    {
+        string rootPath = "CfgNonAIVehicles";
+        int childTotal = GetGame().ConfigGetChildrenCount(rootPath);
+        int scanLimit = childTotal;
+        if (scanLimit > 4096)
+            scanLimit = 4096;
+        string childName = "";
+        string loweredName = "";
+        string childModel = "";
+        string childList = "";
+        int childListed = 0;
+        int proxyNamed = 0;
+        int scanIndex = 0;
+        while (scanIndex < scanLimit)
+        {
+            GetGame().ConfigGetChildName(rootPath, scanIndex, childName);
+            scanIndex = scanIndex + 1;
+            loweredName = childName;
+            loweredName.ToLower();
+            if (loweredName.IndexOf("proxy") == 0)
+                proxyNamed = proxyNamed + 1;
+            if (childListed < 8 && loweredName.IndexOf("weaponlight") != -1)
+            {
+                childModel = "";
+                GetGame().ConfigGetText(rootPath + " " + childName + " model", childModel);
+                if (childListed > 0)
+                    childList = childList + ",";
+                childList = childList + "{" + HCTLKey("name") + HCTLStr(childName) + "," + HCTLKey("model") + HCTLStr(childModel) + "}";
+                childListed = childListed + 1;
+            }
+        }
+        bool scanComplete = false;
+        if (scanLimit == childTotal)
+            scanComplete = true;
+        string scanText = "{" + HCTLIntField("child_count", childTotal) + HCTLIntField("scanned", scanLimit);
+        scanText = scanText + HCTLKey("complete") + HCTLBool(scanComplete) + "," + HCTLIntField("proxy_named", proxyNamed);
+        return scanText + HCTLKey("weaponlight_children") + "[" + childList + "]}";
+    }
+
     void HCTLWriteResult()
     {
         HCTLMeasureLive();
@@ -1145,6 +1345,8 @@ class HCDisposableDiagnosticMission : CustomMission
         bool censusComplete = !m_HCTLCensusTruncated && m_HCTLCensusScanned == m_HCTLCensusTotal;
         outLine = HCTLKey("census_total") + m_HCTLCensusTotal.ToString() + "," + HCTLKey("census_scanned") + m_HCTLCensusScanned.ToString() + ",";
         outLine = outLine + HCTLKey("census_truncated") + HCTLBool(m_HCTLCensusTruncated) + "," + HCTLKey("census_complete") + HCTLBool(censusComplete) + "},";
+        FPrintln(handle, outLine);
+        outLine = HCTLKey("diagnostics") + "{" + HCTLKey("string_self_test") + HCTLSelfTest() + "," + HCTLKey("cfg_nonai_scan") + HCTLCfgScan() + "},";
         FPrintln(handle, outLine);
         HCTLWriteRows(handle, "slots", m_HCTLSlotRows, false);
         HCTLWriteRows(handle, "lights", m_HCTLLightRows, false);
