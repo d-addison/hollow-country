@@ -1,0 +1,887 @@
+diff --git a/docs/FRIEND_SERVER.md b/docs/FRIEND_SERVER.md
+index 0a91b8a..d84c9f9 100644
+--- a/docs/FRIEND_SERVER.md
++++ b/docs/FRIEND_SERVER.md
+@@ -7,17 +7,24 @@ comes first. Server settings are in `mission/hollow-country/INSTALL_AND_ROLLBACK
+ 
+ ## Mods each player needs
+ 
+-Only our own signed `@HollowCountry` is published, as an **Unlisted** Steam Workshop
++Only our own signed mods are published, each as its own **Unlisted** Steam Workshop
+ item (Steam visibility value 3: hidden from Workshop search, visible to anyone with
+-the link). When a friend joins the server, the DayZ launcher subscribes to the
+-mods in the server's mod list automatically, so nobody copies folders by hand.
++the link):
++
++- `@HollowCountry`, Workshop item **3841628320**, which every player needs.
++- `@HollowCountryExpansionAI`, published as "Hollow Country Expansion AI (server)".
++  It is a server-side `-serverMod` addon for servers that run Expansion AI; players
++  never load or subscribe to it. Its Workshop id does not exist yet: the manifest
++  keeps `"id": null` until the owner has uploaded it and records the id (see below).
++
++When a friend joins the server, the DayZ launcher subscribes to the mods in the
++server's `-mod` list automatically, so nobody copies folders by hand.
+ Third-party content is never published or bundled: SNAFU Weapons (2443122116),
+ Tactical Flava (2646817942), CF (1559212036), Dabs Framework (2545327648),
+ Expansion-Core (2291785308), Expansion-Animations (2793893086) and Expansion-AI
+ (2792982069) stay separate Workshop dependencies, referenced by id in
+-`tools/setup/workshop_mods.json`. `@HollowCountryExpansionAI` is a `-serverMod`
+-built locally on the server and is never published. This path is untested until
+-the owner has uploaded the item and a friend has joined through it. The fallback
++`tools/setup/workshop_mods.json`. This path is untested until
++the owner has uploaded the items and a friend has joined through them. The fallback
+ is still to build and sign `@HollowCountry` locally (see
+ `docs/LOCAL_ACCEPTANCE_V1.md`, Build, sign and verify), install its public
+ `.bikey` under the server's `keys`, and give each player the same signed folder
+@@ -28,22 +35,28 @@ for "Add local mod". Every player must run the same build as the server.
+ | Base | `@HollowCountry` in `-mod`, its key | the Unlisted `@HollowCountry` Workshop item (same build) | No third-party mod is required. CF is not needed for the base mod. |
+ | SNAFU subset (optional) | SNAFU Weapons in `-mod`, its key | subscribe to SNAFU Weapons | SNAFU does not depend on CF. |
+ | Tactical Flava subset (optional) | Tactical Flava in `-mod`, its key | subscribe to Tactical Flava | Tactical Flava does not depend on CF. |
+-| PvE patrols (optional) | CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI in `-mod`, each mod's key; `@HollowCountryExpansionAI` in `-serverMod` | subscribe to CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI | Only this set needs CF. Expansion is never repacked or bundled. Players do not load `@HollowCountryExpansionAI`. |
++| PvE patrols (optional) | CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI in `-mod`, each mod's key; `@HollowCountryExpansionAI` in `-serverMod` (its Workshop item once published, else the local signed build) | subscribe to CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI | Only this set needs CF. Expansion is never repacked or bundled. Players do not load `@HollowCountryExpansionAI`. |
+ 
+ Load order in `-mod`: CF, then Dabs Framework, then the Expansion mods (Core, then
+ Animations, then AI), then SNAFU, then Tactical Flava, then `@HollowCountry`. Then
+ `-serverMod=@HollowCountryExpansionAI`. Every player's `-mod` list must match the
+ server's client-side list. A mismatch is refused at join.
+ 
+-## Publishing `@HollowCountry` (the owner)
++## Publishing `@HollowCountry` and `@HollowCountryExpansionAI` (the owner)
+ 
+ The owner runs the upload and the login. The tools never ask for, store, log or pass a
+ Steam password; steamcmd's interactive login and Steam Guard handle that.
+ 
+-1. Build and sign `@HollowCountry` with DayZ Tools and your private key.
+-2. `python3 -B tools/package/workshop_publish.py prepare --mod <signed @HollowCountry> --out <empty dir> [--preview <png>] [--published-id N] [--change-note TEXT]`.
+-   It accepts only `addons/hollowcountry.pbo` with its `.bisign`, `keys/*.bikey`,
+-   `mod.cpp` and `meta.cpp`. It refuses private keys (`.biprivatekey`), extra PBOs,
++`prepare` and `record` take `--item base` (the default, `@HollowCountry`) or
++`--item addon` (`@HollowCountryExpansionAI`). Each item is a separate Workshop item
++with its own allowlist, title and description. A base folder given as `--item addon`,
++or the reverse, is refused.
++
++1. Build and sign the mod with DayZ Tools and your private key.
++2. `python3 -B tools/package/workshop_publish.py prepare [--item base] --mod <signed @HollowCountry> --out <empty dir> [--preview <png>] [--published-id N] [--change-note TEXT]`.
++   For `base` it accepts only `addons/hollowcountry.pbo` with its `.bisign`,
++   `keys/*.bikey`, `mod.cpp` and, optionally, `meta.cpp`. It refuses private keys
++   (`.biprivatekey`), extra PBOs, empty files,
+    profiles, logs, source, symlinks and hard links. It stages a clean copy, writes a
+    `workshop_build_item` VDF (appid 221100, `visibility "3"` Unlisted) and prints the
+    command to run. Only `unlisted` is accepted for `--visibility`. Use `--path-style
+@@ -52,11 +65,33 @@ Steam password; steamcmd's interactive login and Steam Guard handle that.
+    `steamcmd +login <your_username> +workshop_build_item <vdf> +quit`. Type the
+    password and the Steam Guard code into steamcmd when it asks.
+ 4. After the first upload, note the Workshop id and run
+-   `python3 -B tools/package/workshop_publish.py record --mod <@HollowCountry> --published-id N`.
++   `python3 -B tools/package/workshop_publish.py record --item base --mod <@HollowCountry> --published-id N`.
+    It writes `publishedid = N;` into the mod's `meta.cpp` (the launcher uses it to
+    map the mod to its Workshop item) and later `prepare` runs update the same item.
+    Rebuild the VDF with `prepare` after recording so the staged copy has the new `meta.cpp`.
+-   Also record the id for the server tool: `--hollowcountry-id N`.
++   The base item is already recorded in `tools/setup/workshop_mods.json` as 3841628320,
++   so `workshop_sync.py` fetches it without extra options.
++
++### The server-only addon item
++
++Run the same steps with `--item addon` on the signed `@HollowCountryExpansionAI` folder:
++
++```
++python3 -B tools/package/workshop_publish.py prepare --item addon --mod <signed @HollowCountryExpansionAI> --out <empty dir> [--preview <png>]
++steamcmd +login <your_username> +workshop_build_item <vdf> +quit
++python3 -B tools/package/workshop_publish.py record --item addon --mod <@HollowCountryExpansionAI> --published-id N
++```
++
++- Allowlist: `addons/hollowcountryexpansionai.pbo` with its `.bisign`, `keys/*.bikey`,
++  and optional `mod.cpp` and `meta.cpp`. Every refusal rule of the base item applies.
++- The VDF carries the title "Hollow Country Expansion AI (server)" and a description
++  saying this is a server-side `-serverMod` addon for Hollow Country servers that run
++  Expansion AI, that players do not need it, and that Expansion, CF and Dabs Framework
++  are separate Workshop items that are never bundled.
++- `record` creates `meta.cpp` with that title as its `name` line when the folder has none.
++- After the first upload, set `"id": "N"` for `@HollowCountryExpansionAI` in
++  `tools/setup/workshop_mods.json` (there is no command line option for it). Until then
++  it keeps `"id": null` and `workshop_sync.py` treats it as unpublished.
+ 
+ Alternative without steamcmd: the DayZ Tools **Publisher** (Steam, DayZ Tools,
+ Publisher). Choose the staged `content` folder that `prepare` wrote (it has already been
+@@ -85,9 +120,13 @@ It reads `tools/setup/workshop_mods.json` (ids, folder names, load order, groups
+   `hollow-country-workshop-receipt.json` in the server root. Files you changed since are left in place.
+ 
+ `install` and `plan` print the `-mod=` and `-serverMod=` lines in load order. Our own
+-`@HollowCountry` has no id in the manifest until it is published; pass
+-`--hollowcountry-id N` to fetch and install it too. `@HollowCountryExpansionAI` is built
+-locally, never fetched or published, and only appears in the `-serverMod=` line.
++mods with an id in the manifest are fetched and installed like the third-party ones:
++`@HollowCountry` (3841628320) already has one. `--hollowcountry-id N` only supplies an id
++for `@HollowCountry` if the manifest has none. `@HollowCountryExpansionAI` is published
++too, but while its id is `null` it is reported as unpublished, never fetched, and you
++copy the signed folder into the server root yourself. Once the id is in the manifest it is
++fetched and installed like the others. It is a server-side mod: it only ever appears in
++the `-serverMod=` line, never in `-mod=`.
+ 
+ Port forwarding (the friend's router, UDP): the game port (`-port`, default 2302)
+ plus the next three ports (2303–2305), and `steamQueryPort` (27016 by default) so
+diff --git a/tests/unit/test_workshop_publish.py b/tests/unit/test_workshop_publish.py
+index 6883a25..dde603e 100644
+--- a/tests/unit/test_workshop_publish.py
++++ b/tests/unit/test_workshop_publish.py
+@@ -408,12 +408,200 @@ class Record(Base):
+         self.assertIn('meta.cpp', wp.validate_content(self.mod)['files'])
+ 
+ 
++ADDON_KEY = 'hollowcountry_synthetic'
++ADDON_TITLE = 'Hollow Country Expansion AI (server)'
++ADDON_META = 'protocol = 1;\npublishedid = 0;\nname = "%s";\n' % ADDON_TITLE
++
++
++def make_addon(root, name='@HollowCountryExpansionAI', meta=ADDON_META, mod_cpp=True, key=ADDON_KEY):
++    mod = Path(root) / name
++    (mod / 'addons').mkdir(parents=True)
++    (mod / 'keys').mkdir()
++    (mod / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'synthetic-addon-pbo')
++    (mod / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % key)).write_bytes(b'synthetic-addon-sig')
++    (mod / 'keys' / (key + '.bikey')).write_bytes(b'synthetic-public-key')
++    if mod_cpp:
++        (mod / 'mod.cpp').write_text('name = "Hollow Country Expansion AI";\n')
++    if meta is not None:
++        (mod / 'meta.cpp').write_text(meta)
++    return mod
++
++
++class AddonItem(Base):
++    def setUp(self):
++        super().setUp()
++        self.addon = make_addon(self.tmp)
++
++    def prepare_addon(self, *extra, mod=None):
++        return self.run_main('prepare', '--item', 'addon', '--mod', str(mod or self.addon),
++                             '--out', str(self.out_dir), *extra)
++
++    def test_good_addon_lists_exactly_the_allowlisted_files(self):
++        info = wp.validate_content(self.addon, item='addon')
++        self.assertEqual(sorted(info['files']), [
++            'addons/hollowcountryexpansionai.pbo',
++            'addons/hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY,
++            'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp'])
++
++    def test_mod_cpp_and_meta_cpp_are_optional_for_the_addon(self):
++        (self.addon / 'meta.cpp').unlink()
++        (self.addon / 'mod.cpp').unlink()
++        info = wp.validate_content(self.addon, item='addon')
++        self.assertNotIn('mod.cpp', info['files'])
++        self.assertNotIn('meta.cpp', info['files'])
++
++    def test_base_folder_given_as_addon_is_refused(self):
++        with self.assertRaisesRegex(wp.PublishError, '--item base'):
++            wp.validate_content(self.mod, item='addon')
++        code, _, err = self.prepare('--item', 'addon')
++        self.assertEqual(code, 1)
++        self.assertIn('--item base', err)
++        self.assertFalse(self.out_dir.exists())
++
++    def test_addon_folder_given_as_base_is_refused(self):
++        with self.assertRaisesRegex(wp.PublishError, '--item addon'):
++            wp.validate_content(self.addon)
++        code, _, err = self.prepare_addon_as_base()
++        self.assertEqual(code, 1)
++        self.assertIn('--item addon', err)
++        self.assertFalse(self.out_dir.exists())
++
++    def prepare_addon_as_base(self):
++        return self.run_main('prepare', '--mod', str(self.addon), '--out', str(self.out_dir))
++
++    def test_every_refusal_rule_still_applies_to_the_addon(self):
++        for rel in ('keys/hollowcountry.biprivatekey', 'addons/x.BIPRIVATEKEY'):
++            with self.subTest(rel=rel):
++                path = self.addon / rel
++                path.write_bytes(b'private')
++                with self.assertRaisesRegex(wp.PublishError, 'private key'):
++                    wp.validate_content(self.addon, item='addon')
++                path.unlink()
++        (self.addon / 'addons' / 'other.pbo').write_bytes(b'x')
++        with self.assertRaisesRegex(wp.PublishError, 'not allowed'):
++            wp.validate_content(self.addon, item='addon')
++        (self.addon / 'addons' / 'other.pbo').unlink()
++        os.link(self.addon / 'meta.cpp', Path(self.tmp) / 'second-name')
++        with self.assertRaisesRegex(wp.PublishError, 'hard link'):
++            wp.validate_content(self.addon, item='addon')
++
++    def test_addon_symlink_and_empty_file_refused(self):
++        (self.addon / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'')
++        with self.assertRaisesRegex(wp.PublishError, 'empty'):
++            wp.validate_content(self.addon, item='addon')
++        (self.addon / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'pbo')
++        target = Path(self.tmp) / 'elsewhere.bin'
++        target.write_bytes(b'x')
++        (self.addon / 'meta.cpp').unlink()
++        os.symlink(target, self.addon / 'meta.cpp')
++        with self.assertRaisesRegex(wp.PublishError, 'symlink'):
++            wp.validate_content(self.addon, item='addon')
++
++    def test_addon_without_signature_or_key_refused(self):
++        (self.addon / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY)).unlink()
++        with self.assertRaisesRegex(wp.PublishError, 'bisign'):
++            wp.validate_content(self.addon, item='addon')
++
++    def test_unknown_item_is_refused(self):
++        with self.assertRaises(SystemExit):
++            with contextlib.redirect_stderr(io.StringIO()):
++                self.run_main('prepare', '--item', 'both', '--mod', str(self.mod), '--out', str(self.out_dir))
++        with self.assertRaises(wp.PublishError):
++            wp.validate_content(self.mod, item='both')
++
++    def test_prepare_writes_the_addon_title_description_and_unlisted_vdf(self):
++        code, text, _ = self.prepare_addon()
++        self.assertEqual(code, 0, text)
++        data = self.vdf()
++        self.assertEqual(data['title'], ADDON_TITLE)
++        self.assertEqual(data['visibility'], '3')
++        self.assertEqual(data['publishedfileid'], '0')
++        description = data['description']
++        for needle in ('server-side', '-serverMod', 'Hollow Country', 'Expansion AI', 'Expansion', 'CF', 'Dabs',
++                       'never bundled'):
++            self.assertIn(needle, description)
++        self.assertRegex(description, r'(?i)players do not need')
++        self.assertIn('Unlisted', text)
++        self.assertRegex(data['changenote'], r'Expansion AI.*[0-9a-f]{12}')
++
++    def test_addon_description_names_no_ids_or_weapon_packs(self):
++        self.prepare_addon()
++        text = (self.out_dir / 'workshop_item.vdf').read_text().lower()
++        for banned in ('2443122116', '2646817942', '1559212036', '2545327648', '2291785308', '2793893086',
++                       '2792982069', 'snafu', 'flava'):
++            self.assertNotIn(banned, text)
++
++    def test_base_title_and_description_are_unchanged_by_the_addon_item(self):
++        self.prepare()
++        data = self.vdf()
++        self.assertEqual(data['title'], 'Hollow Country')
++        self.assertNotIn('-serverMod', data['description'])
++
++    def test_addon_content_folder_stages_only_allowlisted_files(self):
++        self.prepare_addon()
++        staged = Path(self.vdf()['contentfolder'])
++        files = sorted(p.relative_to(staged).as_posix() for p in staged.rglob('*') if p.is_file())
++        self.assertEqual(files, ['addons/hollowcountryexpansionai.pbo',
++                                 'addons/hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY,
++                                 'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp'])
++
++    def test_addon_published_id_flag_and_recorded_id_are_used(self):
++        self.assertEqual(self.prepare_addon('--published-id', '3900000001')[0], 0)
++        self.assertEqual(self.vdf()['publishedfileid'], '3900000001')
++        wp.record(self.addon, 3900000002, item='addon')
++        code, _, err = self.prepare_addon('--published-id', '3900000001')
++        self.assertEqual(code, 1)
++        self.assertIn('3900000002', err)
++
++    def test_addon_only_unlisted_is_accepted(self):
++        for bad in ('public', 'friends-only', 'private', '3'):
++            with self.subTest(bad=bad):
++                code, _, err = self.prepare_addon('--visibility', bad)
++                self.assertEqual(code, 1)
++                self.assertIn('unlisted', err)
++                self.assertFalse((self.out_dir / 'workshop_item.vdf').exists())
++
++    def test_record_creates_addon_meta_with_the_addon_name(self):
++        (self.addon / 'meta.cpp').unlink()
++        path = wp.record(self.addon, 3900000003, item='addon')
++        self.assertEqual(path.read_text(),
++                         'protocol = 1;\npublishedid = 3900000003;\nname = "%s";\n' % ADDON_TITLE)
++
++    def test_record_refuses_a_folder_of_the_other_item(self):
++        with self.assertRaisesRegex(wp.PublishError, '--item base'):
++            wp.record(self.mod, 3900000004, item='addon')
++        with self.assertRaisesRegex(wp.PublishError, '--item addon'):
++            wp.record(self.addon, 3900000004)
++        self.assertNotIn('3900000004', (self.mod / 'meta.cpp').read_text())
++
++    def test_cli_record_item_addon(self):
++        code, text, _ = self.run_main('record', '--item', 'addon', '--mod', str(self.addon),
++                                      '--published-id', '3900000005')
++        self.assertEqual(code, 0)
++        self.assertIn('publishedid = 3900000005;', (self.addon / 'meta.cpp').read_text())
++        code, _, err = self.run_main('record', '--item', 'addon', '--mod', str(self.mod),
++                                     '--published-id', '3900000005')
++        self.assertEqual(code, 1)
++        self.assertIn('--item base', err)
++
++    def test_cli_record_defaults_to_the_base_item(self):
++        (self.mod / 'meta.cpp').unlink()
++        code, _, _ = self.run_main('record', '--mod', str(self.mod), '--published-id', '3900000006')
++        self.assertEqual(code, 0)
++        self.assertIn('name = "Hollow Country";', (self.mod / 'meta.cpp').read_text())
++
++    def test_no_subprocess_is_used_for_the_addon(self):
++        self.assertEqual(self.prepare_addon()[0], 0)
++
++
+ class Documentation(unittest.TestCase):
+     def test_docs_describe_the_publisher_alternative_and_unlisted(self):
+         text = (Path(__file__).resolve().parents[2] / 'docs/FRIEND_SERVER.md').read_text()
+         self.assertIn('Publisher', text)
+         self.assertIn('Unlisted', text)
+         self.assertIn('workshop_publish.py', text)
++        self.assertIn('--item addon', text)
++        self.assertIn('3841628320', text)
+         self.assertNotRegex(text, r'(?i)password\s*[:=]\s*\S')
+ 
+ 
+diff --git a/tests/unit/test_workshop_sync.py b/tests/unit/test_workshop_sync.py
+index 0c99a23..38003be 100644
+--- a/tests/unit/test_workshop_sync.py
++++ b/tests/unit/test_workshop_sync.py
+@@ -22,7 +22,8 @@ REPO = Path(__file__).resolve().parents[2]
+ MANIFEST = REPO / 'tools/setup/workshop_mods.json'
+ IDS = {'cf': '1559212036', 'dabs': '2545327648', 'core': '2291785308', 'anim': '2793893086',
+        'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942'}
+-HC_ID = '3600000001'
++HC_ID = '3841628320'
++AI_ID = '3900000002'
+ FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
+             '@SnafuWeapons;@TacticalFlava;@HollowCountry')
+ RECEIPT = 'hollow-country-workshop-receipt.json'
+@@ -85,6 +86,18 @@ class Base(unittest.TestCase):
+     def rollback(self, *extra):
+         return self.main('rollback', '--server-root', str(self.root), *extra)
+ 
++    def manifest_copy(self, **ids):
++        """A copy of the real manifest with the given own-mod ids ('base', 'addon'); unnamed ones become null."""
++        data = json.loads(MANIFEST.read_text())
++        wanted = {'@HollowCountry': ids.get('base'), '@HollowCountryExpansionAI': ids.get('addon')}
++        for mod in data['mods']:
++            if mod['folder'] in wanted:
++                mod['id'] = wanted[mod['folder']]
++                mod['publish'] = True
++        path = self.tmp / 'manifest-copy.json'
++        path.write_text(json.dumps(data))
++        return str(path)
++
+ 
+ class Manifest(unittest.TestCase):
+     def setUp(self):
+@@ -92,7 +105,7 @@ class Manifest(unittest.TestCase):
+         self.mods = {m['folder']: m for m in self.data['mods']}
+ 
+     def test_third_party_items_are_referenced_by_id_only(self):
+-        by_id = {m['id']: m for m in self.data['mods'] if m['id']}
++        by_id = {m['id']: m for m in self.data['mods'] if m['id'] and not m['publish']}
+         self.assertEqual(sorted(by_id), sorted(IDS.values()))
+         for item_id in IDS.values():
+             self.assertTrue(by_id[item_id]['name'] and by_id[item_id]['folder'].startswith('@'))
+@@ -113,11 +126,17 @@ class Manifest(unittest.TestCase):
+                                  '@HollowCountryExpansionAI'])
+         self.assertEqual(len({m['rank'] for m in self.data['mods']}), len(self.data['mods']))
+ 
+-    def test_own_mods_have_no_workshop_id_until_published_and_the_ai_mod_is_never_published(self):
+-        self.assertIsNone(self.mods['@HollowCountry']['id'])
++    def test_own_mods_are_published_the_base_has_its_id_and_the_ai_addon_has_none_yet(self):
++        self.assertEqual(self.mods['@HollowCountry']['id'], HC_ID)
+         self.assertTrue(self.mods['@HollowCountry']['publish'])
+         self.assertIsNone(self.mods['@HollowCountryExpansionAI']['id'])
+-        self.assertFalse(self.mods['@HollowCountryExpansionAI']['publish'])
++        self.assertTrue(self.mods['@HollowCountryExpansionAI']['publish'])
++        self.assertEqual(self.mods['@HollowCountryExpansionAI']['side'], 'server')
++
++    def test_manifest_note_no_longer_says_the_ai_mod_is_never_published(self):
++        note = self.data['note'].lower()
++        self.assertNotIn('never published', note)
++        self.assertIn('published', note)
+ 
+     def test_manifest_stays_outside_the_base_mission_folders(self):
+         self.assertEqual(MANIFEST.parent, REPO / 'tools/setup')
+@@ -152,11 +171,17 @@ class Manifest(unittest.TestCase):
+ 
+ 
+ class Plan(Base):
+-    def test_base_only_prints_the_mod_line_and_marks_the_unpublished_mod(self):
++    def test_base_only_prints_the_mod_line_and_wants_the_published_item(self):
+         code, text, _ = self.run_cmd('plan', 'base')
+         self.assertEqual(code, 0, text)
+         self.assertIn('-mod=@HollowCountry', text)
+         self.assertNotIn('-serverMod', text)
++        self.assertIn('%s missing; run fetch' % HC_ID, text)
++        self.assertNotIn('unpublished', text)
++
++    def test_base_whose_id_is_still_null_is_marked_unpublished(self):
++        code, text, _ = self.run_cmd('plan', 'base', '--manifest', self.manifest_copy())
++        self.assertEqual(code, 0, text)
+         self.assertIn('unpublished', text)
+ 
+     def test_full_set_prints_the_documented_load_order(self):
+@@ -205,20 +230,44 @@ class Plan(Base):
+         self.assertIn('base', text.lower())
+         self.assertIn('warning', text.lower())
+ 
+-    def test_hollowcountry_id_option_makes_the_own_mod_downloadable(self):
++    def test_hollowcountry_id_option_makes_an_idless_own_mod_downloadable(self):
++        make_item(self.content, '3600000001')
++        _, text, _ = self.run_cmd('plan', 'base', '--manifest', self.manifest_copy(),
++                                  '--hollowcountry-id', '3600000001')
++        self.assertIn('3600000001 present', text)
++        self.assertNotIn('unpublished', text)
++
++    def test_hollowcountry_id_never_fills_the_ai_addon(self):
++        manifest = ws.load_manifest(self.manifest_copy())
++        items = {i['folder']: i for i in ws.select(manifest, ['base', 'pve_patrols'], '3600000001')}
++        self.assertEqual(items['@HollowCountry']['id'], '3600000001')
++        self.assertIsNone(items['@HollowCountryExpansionAI']['id'])
++
++    def test_present_base_item_is_planned_like_a_third_party_one(self):
+         make_item(self.content, HC_ID)
+-        _, text, _ = self.run_cmd('plan', 'base', '--hollowcountry-id', HC_ID)
++        _, text, _ = self.run_cmd('plan', 'base')
+         self.assertIn('%s present' % HC_ID, text)
+-        self.assertNotIn('unpublished', text)
++        self.assertIn('copy %s -> %s' % (self.content / HC_ID, self.root / '@HollowCountry'), text)
+ 
+     def test_bad_hollowcountry_id_refused(self):
+         with self.assertRaises(SystemExit):
+             self.run_cmd('plan', 'base', '--hollowcountry-id', 'abc')
+ 
+-    def test_server_only_mod_is_reported_as_a_local_build(self):
++    def test_ai_addon_without_an_id_is_reported_as_unpublished_not_never_published(self):
+         _, text, _ = self.run_cmd('plan', 'pve_patrols')
+-        self.assertIn('@HollowCountryExpansionAI', text)
+-        self.assertIn('never published', text)
++        line = next(l for l in text.splitlines() if '@HollowCountryExpansionAI' in l and 'Workshop' in l)
++        self.assertIn('unpublished', line)
++        self.assertNotIn('never published', text)
++        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
++
++    def test_ai_addon_with_an_id_is_fetched_and_planned_but_stays_server_side(self):
++        make_item(self.content, AI_ID)
++        code, text, _ = self.run_cmd('plan', 'pve_patrols', '--manifest', self.manifest_copy(addon=AI_ID))
++        self.assertEqual(code, 0, text)
++        self.assertIn('%s present' % AI_ID, text)
++        self.assertIn('copy %s -> %s' % (self.content / AI_ID, self.root / '@HollowCountryExpansionAI'), text)
++        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
++        self.assertNotIn('@HollowCountryExpansionAI', ''.join(l for l in text.splitlines() if l.startswith('-mod=')))
+ 
+ 
+ class Fetch(Base):
+@@ -321,11 +370,27 @@ class Fetch(Base):
+                                 out=io.StringIO())
+ 
+     def test_nothing_to_fetch_does_not_start_steamcmd(self):
+-        code, text, _ = self.main('fetch', *self.common('base'), '--steam-user', 'owner')
++        code, text, _ = self.main('fetch', *self.common('base', '--manifest', self.manifest_copy()),
++                                  '--steam-user', 'owner')
+         self.assertEqual(code, 0)
+         self.assertIn('nothing to fetch', text)
++        self.assertIn('not published yet', text)
++        self.assertNotIn('never published', text)
+         self.run_mock.assert_not_called()
+ 
++    def test_published_own_items_are_downloaded_like_third_party_ones(self):
++        calls = []
++        base_fake = self.fake_steamcmd(self.content, [HC_ID, AI_ID])
++        self.run_mock.side_effect = lambda cmd, **kw: (calls.append(cmd), base_fake(cmd, **kw))[1]
++        code, text, _ = self.main('fetch', *self.common('base,pve_patrols', '--manifest',
++                                                        self.manifest_copy(base=HC_ID, addon=AI_ID)),
++                                  '--steam-user', 'owner')
++        self.assertEqual(code, 1, text)  # the fake only supplies the two own items; third-party ones are missing
++        command = calls[0]
++        for item_id in (HC_ID, AI_ID):
++            at = command.index(item_id)
++            self.assertEqual(command[at - 2:at + 2], ['+workshop_download_item', '221100', item_id, 'validate'])
++
+     def test_no_known_download_location_is_refused_before_running(self):
+         code, _, err = self.main('fetch', '--server-root', str(self.root), '--groups', 'snafu',
+                                  '--steam-user', 'owner')
+@@ -379,15 +444,34 @@ class Install(Base):
+         for key in IDS:
+             self.populate(key)
+         make_item(self.content, HC_ID)
+-        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols',
+-                                     '--hollowcountry-id', HC_ID)
++        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols')
+         self.assertEqual(code, 0, text)
+         self.assertIn(FULL_MOD, text.splitlines())
+         self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+         self.assertTrue((self.root / '@HollowCountry' / 'addons').is_dir())
+-        # The locally built server-only mod is never created or copied by this tool.
++        # Its Workshop id is still null: the server-only mod is neither created nor copied by this tool.
+         self.assertFalse((self.root / '@HollowCountryExpansionAI').exists())
+         self.assertIn('@HollowCountryExpansionAI', text)
++        self.assertIn('no Workshop id', text)
++
++    def test_installs_the_published_ai_addon_and_keeps_it_in_server_mod_only(self):
++        for key in IDS:
++            self.populate(key)
++        make_item(self.content, HC_ID)
++        make_item(self.content, AI_ID, name='hollowcountryexpansionai')
++        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols',
++                                     '--manifest', self.manifest_copy(base=HC_ID, addon=AI_ID))
++        self.assertEqual(code, 0, text)
++        folder = self.root / '@HollowCountryExpansionAI'
++        self.assertTrue((folder / 'addons' / 'hollowcountryexpansionai.pbo').is_file())
++        self.assertTrue((self.root / 'keys' / ('key_%s.bikey' % AI_ID)).is_file())
++        self.assertIn(FULL_MOD, text.splitlines())
++        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
++        self.assertFalse(any('@HollowCountryExpansionAI' in l for l in text.splitlines() if l.startswith('-mod=')))
++        receipt = json.loads((self.root / RECEIPT).read_text())
++        self.assertIn('@HollowCountryExpansionAI', receipt['dirs'])
++        self.assertEqual(self.rollback('--manifest', self.manifest_copy(base=HC_ID, addon=AI_ID))[0], 0)
++        self.assertFalse(folder.exists())
+ 
+     def test_refuses_all_or_nothing_when_an_item_is_missing(self):
+         self.populate('cf')
+@@ -690,8 +774,11 @@ class ServerDetection(unittest.TestCase):
+ class Documentation(unittest.TestCase):
+     def test_docs_cover_the_workshop_flow(self):
+         text = (REPO / 'docs/FRIEND_SERVER.md').read_text()
+-        for needle in ('workshop_sync.py', 'workshop_publish.py', '-serverMod', 'Unlisted', 'Publisher'):
++        for needle in ('workshop_sync.py', 'workshop_publish.py', '-serverMod', 'Unlisted', 'Publisher',
++                       HC_ID, '--item addon', 'Hollow Country Expansion AI (server)'):
+             self.assertIn(needle, text)
++        self.assertNotIn('never fetched or published', text)
++        self.assertNotIn('and is never published', text)
+         self.assertNotIn('@HollowCountryExpansionAI` in `-mod`', text)
+ 
+ 
+diff --git a/tools/package/workshop_publish.py b/tools/package/workshop_publish.py
+index 6bf4edc..99c8ce3 100644
+--- a/tools/package/workshop_publish.py
++++ b/tools/package/workshop_publish.py
+@@ -1,4 +1,4 @@
+-"""Prepare the signed @HollowCountry for an Unlisted Steam Workshop upload (the owner runs the upload).
++"""Prepare our signed mods for an Unlisted Steam Workshop upload (the owner runs the upload).
+ 
+ Subcommands (standard library only; no network, no Steam, no subprocess):
+ 
+@@ -7,10 +7,18 @@ steamcmd ``workshop_build_item`` VDF and prints the exact steamcmd command for t
+ ``record`` writes ``publishedid = N;`` into the mod's meta.cpp after the first upload so later builds
+ update the same item and the DayZ launcher can map the mod to its Workshop item.
+ 
+-Only our own mod is ever published: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and
+-meta.cpp. Third-party mods (CF, Dabs Framework, Expansion, SNAFU Weapons, Tactical Flava) stay Workshop
+-dependencies referenced by id. @HollowCountryExpansionAI is a -serverMod and is never published.
+-Private keys (.biprivatekey), profiles, logs and source are refused.
++Both subcommands take ``--item base`` (the default) or ``--item addon``. Each item is a separate Workshop
++item with its own allowlist, title and description:
++
++* base, @HollowCountry: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and, optionally,
++  meta.cpp.
++* addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo with its .bisign, keys/*.bikey and,
++  optionally, mod.cpp and meta.cpp. It is a server-side -serverMod; players never load it.
++
++Only our own two mods are ever published. Third-party mods (CF, Dabs Framework, Expansion, SNAFU Weapons,
++Tactical Flava) stay Workshop dependencies referenced by id. Private keys (.biprivatekey), profiles, logs
++and source are refused for both items, as are symlinks, hard links, extra PBOs, empty files and any
++visibility other than Unlisted. A base folder given as ``--item addon`` (or the reverse) is refused.
+ 
+ This tool never asks for, stores, logs or passes a Steam password. The owner runs steamcmd themselves;
+ steamcmd's interactive login and Steam Guard prompt handle credentials.
+@@ -41,11 +49,25 @@ import tempfile
+ APP_ID = '221100'  # DayZ (the Workshop app id used by DayZ mods)
+ VISIBILITY_UNLISTED = '3'  # ERemoteStoragePublishedFileVisibility_Unlisted
+ TITLE = 'Hollow Country'
++ADDON_TITLE = 'Hollow Country Expansion AI (server)'
+ DESCRIPTION = ('Hollow Country is a DayZ survival overhaul for a small private server of three to six players. '
+                'This item contains only the signed Hollow Country mod. When you join the server the DayZ launcher '
+                'subscribes to it automatically. Optional weapon packs and the PvE patrol mods are separate '
+                'Workshop items and are never bundled here.')
++ADDON_DESCRIPTION = ('Hollow Country Expansion AI is a server-side addon for Hollow Country servers that run Expansion AI. '
++                     'It is loaded with -serverMod on the server only, so players do not need it and their launcher '
++                     'never subscribes to it. Expansion, CF and Dabs Framework are separate Workshop items and are '
++                     'never bundled here.')
+ PBO_NAME = 'hollowcountry.pbo'
++ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'
++# Per item: the one PBO it may carry, its Workshop title and description, whether mod.cpp is required and
++# the meta.cpp name line.
++ITEMS = {
++    'base': {'pbo': PBO_NAME, 'title': TITLE, 'description': DESCRIPTION, 'mod_cpp_required': True},
++    'addon': {'pbo': ADDON_PBO_NAME, 'title': ADDON_TITLE, 'description': ADDON_DESCRIPTION,
++              'mod_cpp_required': False},
++}
++DEFAULT_ITEM = 'base'
+ MAX_PREVIEW_BYTES = 1024 * 1024
+ MAX_ENTRIES = 5000
+ MAX_META_BYTES = 64 * 1024
+@@ -55,7 +77,6 @@ VDF_NAME = 'workshop_item.vdf'
+ OUR_OUTPUTS = ('content', VDF_NAME, 'preview.png')
+ COMMAND_USER = '<their_username>'
+ 
+-BISIGN = re.compile(r'^' + re.escape(PBO_NAME) + r'\.([A-Za-z0-9_.-]+)\.bisign$')
+ BIKEY = re.compile(r'^([A-Za-z0-9_.-]+)\.bikey$')
+ PUBLISHED = re.compile(r'(?im)^[ \t]*publishedid[ \t]*=[ \t]*(\d+)[ \t]*;')
+ PROTOCOL = re.compile(r'(?im)^[ \t]*protocol[ \t]*=[^;\r\n]*;[ \t]*(?:\r\n|\n|\r|$)')
+@@ -66,6 +87,22 @@ class PublishError(ValueError):
+     """A safety rule or precondition failed; nothing further was written."""
+ 
+ 
++def item_spec(item):
++    """The allowlist settings of one publishable item ('base' or 'addon')."""
++    try:
++        return ITEMS[item]
++    except (KeyError, TypeError):
++        raise PublishError('unknown item %r; choose from %s' % (item, ', '.join(sorted(ITEMS))))
++
++
++def _other_item_pbo(entries, item):
++    """The other item that owns a PBO found in ``entries`` (or None), so the wrong folder gets a clear error."""
++    for other, spec in ITEMS.items():
++        if other != item and any(rel == 'addons/' + spec['pbo'] for rel, _ in entries):
++            return other
++    return None
++
++
+ def to_windows(path):
+     """Convert a WSL /mnt/<drive>/... path to a Windows path; any other path is returned unchanged."""
+     match = DRIVE_PATH.match(str(path))
+@@ -95,12 +132,16 @@ def _scan(root):
+     return found
+ 
+ 
+-def validate_content(mod):
+-    """Check a signed mod folder against the allowlist and return its file list and pbo digest.
++def validate_content(mod, item=DEFAULT_ITEM):
++    """Check a signed mod folder against the item's allowlist and return its file list and pbo digest.
+ 
+-    Allowed: addons/hollowcountry.pbo, addons/hollowcountry.pbo.<key>.bisign (at least one), keys/<key>.bikey
+-    (one per signing key), mod.cpp and, optionally, meta.cpp. Anything else is refused.
++    Allowed: addons/<item pbo>, addons/<item pbo>.<key>.bisign (at least one), keys/<key>.bikey (one per
++    signing key), meta.cpp when present and mod.cpp (required for base, optional for addon). Anything else
++    is refused, including the other item's PBO.
+     """
++    spec = item_spec(item)
++    pbo_name = spec['pbo']
++    bisign = re.compile(r'^' + re.escape(pbo_name) + r'\.([A-Za-z0-9_.-]+)\.bisign$')
+     mod = Path(mod)
+     if mod.is_symlink():
+         raise PublishError('%s is a symlink; give the real mod folder' % mod)
+@@ -110,6 +151,10 @@ def validate_content(mod):
+     for rel, _ in entries:
+         if rel.lower().endswith('.biprivatekey'):
+             raise PublishError('%s is a private key; it must never be published' % rel)
++    other = _other_item_pbo(entries, item)
++    if other:
++        raise PublishError('%s holds the %s item (addons/%s); give it with --item %s, or give the %s folder here'
++                           % (mod, other, ITEMS[other]['pbo'], other, item))
+     files = []
+     bisigns, bikeys = set(), set()
+     for rel, info in entries:
+@@ -127,26 +172,26 @@ def validate_content(mod):
+         if len(parts) == 1 and rel in ('mod.cpp', 'meta.cpp'):
+             if rel == 'meta.cpp' and info.st_size > MAX_META_BYTES:
+                 raise PublishError('meta.cpp is unexpectedly large')
+-        elif len(parts) == 2 and parts[0] == 'addons' and rel == 'addons/' + PBO_NAME:
++        elif len(parts) == 2 and parts[0] == 'addons' and rel == 'addons/' + pbo_name:
+             pass
+-        elif len(parts) == 2 and parts[0] == 'addons' and BISIGN.match(parts[1]):
+-            bisigns.add(BISIGN.match(parts[1]).group(1))
++        elif len(parts) == 2 and parts[0] == 'addons' and bisign.match(parts[1]):
++            bisigns.add(bisign.match(parts[1]).group(1))
+         elif len(parts) == 2 and parts[0] == 'keys' and BIKEY.match(parts[1]):
+             bikeys.add(BIKEY.match(parts[1]).group(1))
+         else:
+             raise PublishError('%s is not allowed in the content folder' % rel)
+         files.append(rel)
+-    if 'mod.cpp' not in files:
++    if spec['mod_cpp_required'] and 'mod.cpp' not in files:
+         raise PublishError('mod.cpp is missing')
+-    if 'addons/' + PBO_NAME not in files:
+-        raise PublishError('addons/%s is missing' % PBO_NAME)
++    if 'addons/' + pbo_name not in files:
++        raise PublishError('addons/%s is missing' % pbo_name)
+     if not bisigns:
+-        raise PublishError('addons/%s has no matching .bisign signature' % PBO_NAME)
++        raise PublishError('addons/%s has no matching .bisign signature' % pbo_name)
+     if not bikeys:
+         raise PublishError('keys/ has no public .bikey')
+     for key in sorted(bisigns - bikeys):
+         raise PublishError('signature key "%s" has no keys/%s.bikey' % (key, key))
+-    digest = hashlib.sha256((mod / 'addons' / PBO_NAME).read_bytes()).hexdigest()
++    digest = hashlib.sha256((mod / 'addons' / pbo_name).read_bytes()).hexdigest()
+     return {'files': sorted(files), 'pbo_sha256': digest, 'keys': sorted(bikeys)}
+ 
+ 
+@@ -183,17 +228,23 @@ def _atomic_write(path, data):
+         raise
+ 
+ 
+-def record(mod, published_id):
++def record(mod, published_id, item=DEFAULT_ITEM):
+     """Write or update ``publishedid = N;`` in the mod's meta.cpp; create meta.cpp if absent."""
++    spec = item_spec(item)
+     published_id = _check_id(published_id)
+     mod = Path(mod)
+     if mod.is_symlink() or not mod.is_dir():
+         raise PublishError('%s is not a real directory' % mod)
++    for other, other_spec in ITEMS.items():
++        other_pbo = mod / 'addons' / other_spec['pbo']
++        if other != item and (other_pbo.is_file() or other_pbo.is_symlink()):
++            raise PublishError('%s holds the %s item (addons/%s); use --item %s, or give the %s folder here'
++                               % (mod, other, other_spec['pbo'], other, item))
+     meta = mod / 'meta.cpp'
+     if meta.is_symlink():
+         raise PublishError('%s is a symlink; refusing to write through it' % meta)
+     if not meta.exists():
+-        data = 'protocol = 1;\npublishedid = %d;\nname = "%s";\n' % (published_id, TITLE)
++        data = 'protocol = 1;\npublishedid = %d;\nname = "%s";\n' % (published_id, spec['title'])
+     else:
+         if not meta.is_file():
+             raise PublishError('%s is not a regular file' % meta)
+@@ -285,13 +336,14 @@ def _quote(value, style):
+ 
+ 
+ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibility='unlisted',
+-            path_style='native'):
++            path_style='native', item=DEFAULT_ITEM):
+     """Validate, stage and write the VDF. Returns a dict with the vdf path, content folder and command."""
++    spec = item_spec(item)
+     if visibility != 'unlisted':
+         raise PublishError('only the "unlisted" visibility is supported (got %r); public, friends-only and '
+                            'private are not accepted' % visibility)
+     mod = Path(os.path.abspath(mod))
+-    info = validate_content(mod)
++    info = validate_content(mod, item)
+     recorded = _published_id(mod)
+     if published_id is not None:
+         _check_id(published_id)
+@@ -300,7 +352,7 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
+                            % (published_id, recorded))
+     item_id = published_id if published_id is not None else (recorded or 0)
+     note = _clean_text(change_note, 'change note') if change_note else \
+-        'Hollow Country build %s' % info['pbo_sha256'][:12]
++        '%s build %s' % (spec['title'], info['pbo_sha256'][:12])
+     if preview is not None:
+         preview = _check_preview(preview)
+     out = Path(os.path.abspath(out))
+@@ -308,13 +360,13 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
+     out.mkdir(parents=True, exist_ok=True)
+     content = out / 'content'
+     _stage(mod, info['files'], content)
+-    validate_content(content)
++    validate_content(content, item)
+     fields = [('appid', APP_ID), ('contentfolder', _vdf_path(content, path_style))]
+     if preview is not None:
+         staged_preview = out / 'preview.png'
+         shutil.copyfile(preview, staged_preview)
+         fields.append(('previewfile', _vdf_path(staged_preview, path_style)))
+-    fields += [('visibility', VISIBILITY_UNLISTED), ('title', TITLE), ('description', DESCRIPTION),
++    fields += [('visibility', VISIBILITY_UNLISTED), ('title', spec['title']), ('description', spec['description']),
+                ('changenote', note), ('publishedfileid', str(item_id))]
+     text = '"workshopitem"\n{\n' + ''.join('\t"%s"\t\t"%s"\n' % pair for pair in fields) + '}\n'
+     vdf = out / VDF_NAME
+@@ -358,7 +410,9 @@ def build_parser():
+     parser = QuietParser(description=__doc__.split('\n')[0], allow_abbrev=False)
+     sub = parser.add_subparsers(dest='command', required=True)
+     p = sub.add_parser('prepare', help='validate, stage and write the steamcmd VDF', allow_abbrev=False)
+-    p.add_argument('--mod', required=True, help='signed @HollowCountry folder')
++    p.add_argument('--item', choices=sorted(ITEMS), default=DEFAULT_ITEM,
++                   help='which Workshop item: base (@HollowCountry, default) or addon (@HollowCountryExpansionAI)')
++    p.add_argument('--mod', required=True, help='signed mod folder of the chosen item')
+     p.add_argument('--out', required=True, help='output folder for the staged content and the VDF')
+     p.add_argument('--published-id', type=_positive, help='Workshop id of an existing item (omit for the first upload)')
+     p.add_argument('--preview', help='preview PNG (at most 1 MiB)')
+@@ -367,6 +421,8 @@ def build_parser():
+     p.add_argument('--path-style', choices=('native', 'windows'), default='native',
+                    help='write Windows paths (converts /mnt/<drive>/...) when steamcmd runs on Windows')
+     r = sub.add_parser('record', help='write publishedid into the mod meta.cpp', allow_abbrev=False)
++    r.add_argument('--item', choices=sorted(ITEMS), default=DEFAULT_ITEM,
++                   help='which Workshop item: base (@HollowCountry, default) or addon (@HollowCountryExpansionAI)')
+     r.add_argument('--mod', required=True)
+     r.add_argument('--published-id', type=_positive, required=True)
+     return parser
+@@ -381,12 +437,13 @@ def main(argv=None, out=None):
+ 
+     try:
+         if args.command == 'record':
+-            meta = record(args.mod, args.published_id)
++            meta = record(args.mod, args.published_id, item=args.item)
+             say('wrote publishedid = %d; to %s' % (args.published_id, meta))
+             say('Rebuild and re-sign only if the pbo changed; meta.cpp is not part of the signature.')
+             return 0
+         result = prepare(args.mod, args.out, published_id=args.published_id, preview=args.preview,
+-                         change_note=args.change_note, visibility=args.visibility, path_style=args.path_style)
++                         change_note=args.change_note, visibility=args.visibility, path_style=args.path_style,
++                         item=args.item)
+     except PublishError as exc:
+         print('error: %s' % exc, file=sys.stderr)
+         return 1
+@@ -409,8 +466,8 @@ def main(argv=None, out=None):
+     say('Steam Guard code itself. This tool never sees or stores them:')
+     say('  %s' % result['command'])
+     say()
+-    say('After the first upload, record the new Workshop id: workshop_publish.py record --mod <dir> '
+-        '--published-id <id>')
++    say('After the first upload, record the new Workshop id: workshop_publish.py record --item %s --mod <dir> '
++        '--published-id <id>' % args.item)
+     return 0
+ 
+ 
+diff --git a/tools/setup/workshop_mods.json b/tools/setup/workshop_mods.json
+index a8497b4..a7cf3a4 100644
+--- a/tools/setup/workshop_mods.json
++++ b/tools/setup/workshop_mods.json
+@@ -1,7 +1,7 @@
+ {
+   "schema": 1,
+   "appid": "221100",
+-  "note": "Workshop dependency manifest for tools/setup/workshop_sync.py. Third-party items are referenced by numeric Workshop id only and are never bundled or re-hosted. rank is the -mod load order (low loads first). side client = in -mod and required by every player; side server = -serverMod only. id null = no Workshop item (own mod before it is published, or a mod that is never published).",
++  "note": "Workshop dependency manifest for tools/setup/workshop_sync.py. Third-party items are referenced by numeric Workshop id only and are never bundled or re-hosted. rank is the -mod load order (low loads first). side client = in -mod and required by every player; side server = -serverMod only. id null = no Workshop item yet (an own mod with publish true that has not been uploaded; fill the id in once it is). Our own mods (publish true) are published as Unlisted Workshop items; the server-side one is loaded with -serverMod only. We publish nothing third-party.",
+   "mods": [
+     {"id": "1559212036", "name": "Community Framework", "folder": "@CF", "rank": 10, "side": "client", "group": "pve_patrols", "publish": false},
+     {"id": "2545327648", "name": "Dabs Framework", "folder": "@DabsFramework", "rank": 20, "side": "client", "group": "pve_patrols", "publish": false},
+@@ -10,7 +10,7 @@
+     {"id": "2792982069", "name": "Expansion-AI", "folder": "@Expansion-AI", "rank": 50, "side": "client", "group": "pve_patrols", "publish": false},
+     {"id": "2443122116", "name": "SNAFU Weapons", "folder": "@SnafuWeapons", "rank": 60, "side": "client", "group": "snafu", "publish": false},
+     {"id": "2646817942", "name": "Tactical Flava", "folder": "@TacticalFlava", "rank": 70, "side": "client", "group": "tactical_flava", "publish": false},
+-    {"id": null, "name": "Hollow Country", "folder": "@HollowCountry", "rank": 80, "side": "client", "group": "base", "publish": true},
+-    {"id": null, "name": "Hollow Country Expansion AI", "folder": "@HollowCountryExpansionAI", "rank": 90, "side": "server", "group": "pve_patrols", "publish": false}
++    {"id": "3841628320", "name": "Hollow Country", "folder": "@HollowCountry", "rank": 80, "side": "client", "group": "base", "publish": true},
++    {"id": null, "name": "Hollow Country Expansion AI", "folder": "@HollowCountryExpansionAI", "rank": 90, "side": "server", "group": "pve_patrols", "publish": true}
+   ]
+ }
+diff --git a/tools/setup/workshop_sync.py b/tools/setup/workshop_sync.py
+index c5d23f7..b20efee 100644
+--- a/tools/setup/workshop_sync.py
++++ b/tools/setup/workshop_sync.py
+@@ -19,8 +19,11 @@ Safety rules:
+   recorded there (and only if they still match the recorded SHA-256) and the now-empty folders it created.
+ * ``install`` and ``rollback`` refuse while a DayZ server process is running; ``--assume-stopped`` skips the
+   check (also needed where the process list cannot be read).
+-* @HollowCountryExpansionAI is a -serverMod built locally: it is listed in the launch lines but never fetched,
+-  published or copied here.
++* Our own mods are published as Unlisted Workshop items: @HollowCountry and the server-side
++  @HollowCountryExpansionAI. One with an id in the manifest is fetched and installed like a third-party item.
++  One whose id is still null ("unpublished") is listed in the launch lines but never fetched or copied here;
++  copy its signed folder into the server root yourself. @HollowCountryExpansionAI always goes into
++  -serverMod, never -mod.
+ 
+ The printed ``-mod=`` / ``-serverMod=`` lines follow the documented load order (CF, Dabs Framework,
+ Expansion Core, Animations, AI, the optional weapons packs, @HollowCountry, then the server-only mod).
+@@ -46,6 +49,7 @@ RECEIPT_NAME = 'hollow-country-workshop-receipt.json'
+ SERVER_EXE = 'DayZServer_x64.exe'
+ GROUPS = ('base', 'snafu', 'tactical_flava', 'pve_patrols')
+ SIDES = ('client', 'server')
++BASE_FOLDER = '@HollowCountry'
+ ID = re.compile(r'^[1-9][0-9]{5,12}$')
+ FOLDER = re.compile(r'^@[A-Za-z0-9][A-Za-z0-9_.-]*$')
+ STEAM_USER = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}$')
+@@ -112,13 +116,13 @@ def parse_groups(text):
+ 
+ 
+ def select(manifest, groups, hollowcountry_id=None):
+-    """Items in the chosen groups in load order. ``hollowcountry_id`` fills our own mod's Workshop id."""
++    """Items in the chosen groups in load order. ``hollowcountry_id`` fills the base mod's id if it has none."""
+     chosen = []
+     for mod in manifest['mods']:
+         if mod['group'] not in groups:
+             continue
+         item = dict(mod)
+-        if item['id'] is None and item['publish'] and hollowcountry_id:
++        if item['id'] is None and item['folder'] == BASE_FOLDER and hollowcountry_id:
+             item['id'] = str(hollowcountry_id)
+         chosen.append(item)
+     return chosen
+@@ -640,7 +644,7 @@ def build_parser():
+             p.add_argument('--steamcmd', help='path to steamcmd (its folder is searched for downloads)')
+             p.add_argument('--manifest', help='alternative workshop_mods.json')
+             p.add_argument('--hollowcountry-id', type=_positive_id,
+-                           help='Workshop id of our own published mod (the manifest has none)')
++                           help='Workshop id of @HollowCountry, used only if the manifest has none')
+ 
+     plan = sub.add_parser('plan', help='show what is needed, present and will be copied', allow_abbrev=False)
+     common(plan)

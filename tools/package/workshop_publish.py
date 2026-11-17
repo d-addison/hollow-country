@@ -1,4 +1,4 @@
-"""Prepare the signed @HollowCountry for an Unlisted Steam Workshop upload (the owner runs the upload).
+"""Prepare our signed mods for an Unlisted Steam Workshop upload (the owner runs the upload).
 
 Subcommands (standard library only; no network, no Steam, no subprocess):
 
@@ -7,10 +7,18 @@ steamcmd ``workshop_build_item`` VDF and prints the exact steamcmd command for t
 ``record`` writes ``publishedid = N;`` into the mod's meta.cpp after the first upload so later builds
 update the same item and the DayZ launcher can map the mod to its Workshop item.
 
-Only our own mod is ever published: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and
-meta.cpp. Third-party mods (CF, Dabs Framework, Expansion, SNAFU Weapons, Tactical Flava) stay Workshop
-dependencies referenced by id. @HollowCountryExpansionAI is a -serverMod and is never published.
-Private keys (.biprivatekey), profiles, logs and source are refused.
+Both subcommands take ``--item base`` (the default) or ``--item addon``. Each item is a separate Workshop
+item with its own allowlist, title and description:
+
+* base, @HollowCountry: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and, optionally,
+  meta.cpp.
+* addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo with its .bisign, keys/*.bikey and,
+  optionally, mod.cpp and meta.cpp. It is a server-side -serverMod; players never load it.
+
+Only our own two mods are ever published. Third-party mods (CF, Dabs Framework, Expansion, SNAFU Weapons,
+Tactical Flava) stay Workshop dependencies referenced by id. Private keys (.biprivatekey), profiles, logs
+and source are refused for both items, as are symlinks, hard links, extra PBOs, empty files and any
+visibility other than Unlisted. A base folder given as ``--item addon`` (or the reverse) is refused.
 
 This tool never asks for, stores, logs or passes a Steam password. The owner runs steamcmd themselves;
 steamcmd's interactive login and Steam Guard prompt handle credentials.
@@ -41,11 +49,25 @@ import tempfile
 APP_ID = '221100'  # DayZ (the Workshop app id used by DayZ mods)
 VISIBILITY_UNLISTED = '3'  # ERemoteStoragePublishedFileVisibility_Unlisted
 TITLE = 'Hollow Country'
+ADDON_TITLE = 'Hollow Country Expansion AI (server)'
 DESCRIPTION = ('Hollow Country is a DayZ survival overhaul for a small private server of three to six players. '
                'This item contains only the signed Hollow Country mod. When you join the server the DayZ launcher '
                'subscribes to it automatically. Optional weapon packs and the PvE patrol mods are separate '
                'Workshop items and are never bundled here.')
+ADDON_DESCRIPTION = ('Hollow Country Expansion AI is a server-side addon for Hollow Country servers that run Expansion AI. '
+                     'It is loaded with -serverMod on the server only, so players do not need it and their launcher '
+                     'never subscribes to it. Expansion, CF and Dabs Framework are separate Workshop items and are '
+                     'never bundled here.')
 PBO_NAME = 'hollowcountry.pbo'
+ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'
+# Per item: the one PBO it may carry, its Workshop title and description, whether mod.cpp is required and
+# the meta.cpp name line.
+ITEMS = {
+    'base': {'pbo': PBO_NAME, 'title': TITLE, 'description': DESCRIPTION, 'mod_cpp_required': True},
+    'addon': {'pbo': ADDON_PBO_NAME, 'title': ADDON_TITLE, 'description': ADDON_DESCRIPTION,
+              'mod_cpp_required': False},
+}
+DEFAULT_ITEM = 'base'
 MAX_PREVIEW_BYTES = 1024 * 1024
 MAX_ENTRIES = 5000
 MAX_META_BYTES = 64 * 1024
@@ -55,7 +77,6 @@ VDF_NAME = 'workshop_item.vdf'
 OUR_OUTPUTS = ('content', VDF_NAME, 'preview.png')
 COMMAND_USER = '<their_username>'
 
-BISIGN = re.compile(r'^' + re.escape(PBO_NAME) + r'\.([A-Za-z0-9_.-]+)\.bisign$')
 BIKEY = re.compile(r'^([A-Za-z0-9_.-]+)\.bikey$')
 PUBLISHED = re.compile(r'(?im)^[ \t]*publishedid[ \t]*=[ \t]*(\d+)[ \t]*;')
 PROTOCOL = re.compile(r'(?im)^[ \t]*protocol[ \t]*=[^;\r\n]*;[ \t]*(?:\r\n|\n|\r|$)')
@@ -64,6 +85,22 @@ DRIVE_PATH = re.compile(r'^/mnt/([A-Za-z])(?:/(.*))?$')
 
 class PublishError(ValueError):
     """A safety rule or precondition failed; nothing further was written."""
+
+
+def item_spec(item):
+    """The allowlist settings of one publishable item ('base' or 'addon')."""
+    try:
+        return ITEMS[item]
+    except (KeyError, TypeError):
+        raise PublishError('unknown item %r; choose from %s' % (item, ', '.join(sorted(ITEMS))))
+
+
+def _other_item_pbo(entries, item):
+    """The other item that owns a PBO found in ``entries`` (or None), so the wrong folder gets a clear error."""
+    for other, spec in ITEMS.items():
+        if other != item and any(rel == 'addons/' + spec['pbo'] for rel, _ in entries):
+            return other
+    return None
 
 
 def to_windows(path):
@@ -95,12 +132,16 @@ def _scan(root):
     return found
 
 
-def validate_content(mod):
-    """Check a signed mod folder against the allowlist and return its file list and pbo digest.
+def validate_content(mod, item=DEFAULT_ITEM):
+    """Check a signed mod folder against the item's allowlist and return its file list and pbo digest.
 
-    Allowed: addons/hollowcountry.pbo, addons/hollowcountry.pbo.<key>.bisign (at least one), keys/<key>.bikey
-    (one per signing key), mod.cpp and, optionally, meta.cpp. Anything else is refused.
+    Allowed: addons/<item pbo>, addons/<item pbo>.<key>.bisign (at least one), keys/<key>.bikey (one per
+    signing key), meta.cpp when present and mod.cpp (required for base, optional for addon). Anything else
+    is refused, including the other item's PBO.
     """
+    spec = item_spec(item)
+    pbo_name = spec['pbo']
+    bisign = re.compile(r'^' + re.escape(pbo_name) + r'\.([A-Za-z0-9_.-]+)\.bisign$')
     mod = Path(mod)
     if mod.is_symlink():
         raise PublishError('%s is a symlink; give the real mod folder' % mod)
@@ -110,6 +151,10 @@ def validate_content(mod):
     for rel, _ in entries:
         if rel.lower().endswith('.biprivatekey'):
             raise PublishError('%s is a private key; it must never be published' % rel)
+    other = _other_item_pbo(entries, item)
+    if other:
+        raise PublishError('%s holds the %s item (addons/%s); give it with --item %s, or give the %s folder here'
+                           % (mod, other, ITEMS[other]['pbo'], other, item))
     files = []
     bisigns, bikeys = set(), set()
     for rel, info in entries:
@@ -127,26 +172,26 @@ def validate_content(mod):
         if len(parts) == 1 and rel in ('mod.cpp', 'meta.cpp'):
             if rel == 'meta.cpp' and info.st_size > MAX_META_BYTES:
                 raise PublishError('meta.cpp is unexpectedly large')
-        elif len(parts) == 2 and parts[0] == 'addons' and rel == 'addons/' + PBO_NAME:
+        elif len(parts) == 2 and parts[0] == 'addons' and rel == 'addons/' + pbo_name:
             pass
-        elif len(parts) == 2 and parts[0] == 'addons' and BISIGN.match(parts[1]):
-            bisigns.add(BISIGN.match(parts[1]).group(1))
+        elif len(parts) == 2 and parts[0] == 'addons' and bisign.match(parts[1]):
+            bisigns.add(bisign.match(parts[1]).group(1))
         elif len(parts) == 2 and parts[0] == 'keys' and BIKEY.match(parts[1]):
             bikeys.add(BIKEY.match(parts[1]).group(1))
         else:
             raise PublishError('%s is not allowed in the content folder' % rel)
         files.append(rel)
-    if 'mod.cpp' not in files:
+    if spec['mod_cpp_required'] and 'mod.cpp' not in files:
         raise PublishError('mod.cpp is missing')
-    if 'addons/' + PBO_NAME not in files:
-        raise PublishError('addons/%s is missing' % PBO_NAME)
+    if 'addons/' + pbo_name not in files:
+        raise PublishError('addons/%s is missing' % pbo_name)
     if not bisigns:
-        raise PublishError('addons/%s has no matching .bisign signature' % PBO_NAME)
+        raise PublishError('addons/%s has no matching .bisign signature' % pbo_name)
     if not bikeys:
         raise PublishError('keys/ has no public .bikey')
     for key in sorted(bisigns - bikeys):
         raise PublishError('signature key "%s" has no keys/%s.bikey' % (key, key))
-    digest = hashlib.sha256((mod / 'addons' / PBO_NAME).read_bytes()).hexdigest()
+    digest = hashlib.sha256((mod / 'addons' / pbo_name).read_bytes()).hexdigest()
     return {'files': sorted(files), 'pbo_sha256': digest, 'keys': sorted(bikeys)}
 
 
@@ -183,17 +228,23 @@ def _atomic_write(path, data):
         raise
 
 
-def record(mod, published_id):
+def record(mod, published_id, item=DEFAULT_ITEM):
     """Write or update ``publishedid = N;`` in the mod's meta.cpp; create meta.cpp if absent."""
+    spec = item_spec(item)
     published_id = _check_id(published_id)
     mod = Path(mod)
     if mod.is_symlink() or not mod.is_dir():
         raise PublishError('%s is not a real directory' % mod)
+    for other, other_spec in ITEMS.items():
+        other_pbo = mod / 'addons' / other_spec['pbo']
+        if other != item and (other_pbo.is_file() or other_pbo.is_symlink()):
+            raise PublishError('%s holds the %s item (addons/%s); use --item %s, or give the %s folder here'
+                               % (mod, other, other_spec['pbo'], other, item))
     meta = mod / 'meta.cpp'
     if meta.is_symlink():
         raise PublishError('%s is a symlink; refusing to write through it' % meta)
     if not meta.exists():
-        data = 'protocol = 1;\npublishedid = %d;\nname = "%s";\n' % (published_id, TITLE)
+        data = 'protocol = 1;\npublishedid = %d;\nname = "%s";\n' % (published_id, spec['title'])
     else:
         if not meta.is_file():
             raise PublishError('%s is not a regular file' % meta)
@@ -285,13 +336,14 @@ def _quote(value, style):
 
 
 def prepare(mod, out, published_id=None, preview=None, change_note=None, visibility='unlisted',
-            path_style='native'):
+            path_style='native', item=DEFAULT_ITEM):
     """Validate, stage and write the VDF. Returns a dict with the vdf path, content folder and command."""
+    spec = item_spec(item)
     if visibility != 'unlisted':
         raise PublishError('only the "unlisted" visibility is supported (got %r); public, friends-only and '
                            'private are not accepted' % visibility)
     mod = Path(os.path.abspath(mod))
-    info = validate_content(mod)
+    info = validate_content(mod, item)
     recorded = _published_id(mod)
     if published_id is not None:
         _check_id(published_id)
@@ -300,7 +352,7 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
                            % (published_id, recorded))
     item_id = published_id if published_id is not None else (recorded or 0)
     note = _clean_text(change_note, 'change note') if change_note else \
-        'Hollow Country build %s' % info['pbo_sha256'][:12]
+        '%s build %s' % (spec['title'], info['pbo_sha256'][:12])
     if preview is not None:
         preview = _check_preview(preview)
     out = Path(os.path.abspath(out))
@@ -308,13 +360,13 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
     out.mkdir(parents=True, exist_ok=True)
     content = out / 'content'
     _stage(mod, info['files'], content)
-    validate_content(content)
+    validate_content(content, item)
     fields = [('appid', APP_ID), ('contentfolder', _vdf_path(content, path_style))]
     if preview is not None:
         staged_preview = out / 'preview.png'
         shutil.copyfile(preview, staged_preview)
         fields.append(('previewfile', _vdf_path(staged_preview, path_style)))
-    fields += [('visibility', VISIBILITY_UNLISTED), ('title', TITLE), ('description', DESCRIPTION),
+    fields += [('visibility', VISIBILITY_UNLISTED), ('title', spec['title']), ('description', spec['description']),
                ('changenote', note), ('publishedfileid', str(item_id))]
     text = '"workshopitem"\n{\n' + ''.join('\t"%s"\t\t"%s"\n' % pair for pair in fields) + '}\n'
     vdf = out / VDF_NAME
@@ -358,7 +410,9 @@ def build_parser():
     parser = QuietParser(description=__doc__.split('\n')[0], allow_abbrev=False)
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('prepare', help='validate, stage and write the steamcmd VDF', allow_abbrev=False)
-    p.add_argument('--mod', required=True, help='signed @HollowCountry folder')
+    p.add_argument('--item', choices=sorted(ITEMS), default=DEFAULT_ITEM,
+                   help='which Workshop item: base (@HollowCountry, default) or addon (@HollowCountryExpansionAI)')
+    p.add_argument('--mod', required=True, help='signed mod folder of the chosen item')
     p.add_argument('--out', required=True, help='output folder for the staged content and the VDF')
     p.add_argument('--published-id', type=_positive, help='Workshop id of an existing item (omit for the first upload)')
     p.add_argument('--preview', help='preview PNG (at most 1 MiB)')
@@ -367,6 +421,8 @@ def build_parser():
     p.add_argument('--path-style', choices=('native', 'windows'), default='native',
                    help='write Windows paths (converts /mnt/<drive>/...) when steamcmd runs on Windows')
     r = sub.add_parser('record', help='write publishedid into the mod meta.cpp', allow_abbrev=False)
+    r.add_argument('--item', choices=sorted(ITEMS), default=DEFAULT_ITEM,
+                   help='which Workshop item: base (@HollowCountry, default) or addon (@HollowCountryExpansionAI)')
     r.add_argument('--mod', required=True)
     r.add_argument('--published-id', type=_positive, required=True)
     return parser
@@ -381,12 +437,13 @@ def main(argv=None, out=None):
 
     try:
         if args.command == 'record':
-            meta = record(args.mod, args.published_id)
+            meta = record(args.mod, args.published_id, item=args.item)
             say('wrote publishedid = %d; to %s' % (args.published_id, meta))
             say('Rebuild and re-sign only if the pbo changed; meta.cpp is not part of the signature.')
             return 0
         result = prepare(args.mod, args.out, published_id=args.published_id, preview=args.preview,
-                         change_note=args.change_note, visibility=args.visibility, path_style=args.path_style)
+                         change_note=args.change_note, visibility=args.visibility, path_style=args.path_style,
+                         item=args.item)
     except PublishError as exc:
         print('error: %s' % exc, file=sys.stderr)
         return 1
@@ -409,8 +466,8 @@ def main(argv=None, out=None):
     say('Steam Guard code itself. This tool never sees or stores them:')
     say('  %s' % result['command'])
     say()
-    say('After the first upload, record the new Workshop id: workshop_publish.py record --mod <dir> '
-        '--published-id <id>')
+    say('After the first upload, record the new Workshop id: workshop_publish.py record --item %s --mod <dir> '
+        '--published-id <id>' % args.item)
     return 0
 
 

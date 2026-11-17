@@ -408,12 +408,200 @@ class Record(Base):
         self.assertIn('meta.cpp', wp.validate_content(self.mod)['files'])
 
 
+ADDON_KEY = 'hollowcountry_synthetic'
+ADDON_TITLE = 'Hollow Country Expansion AI (server)'
+ADDON_META = 'protocol = 1;\npublishedid = 0;\nname = "%s";\n' % ADDON_TITLE
+
+
+def make_addon(root, name='@HollowCountryExpansionAI', meta=ADDON_META, mod_cpp=True, key=ADDON_KEY):
+    mod = Path(root) / name
+    (mod / 'addons').mkdir(parents=True)
+    (mod / 'keys').mkdir()
+    (mod / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'synthetic-addon-pbo')
+    (mod / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % key)).write_bytes(b'synthetic-addon-sig')
+    (mod / 'keys' / (key + '.bikey')).write_bytes(b'synthetic-public-key')
+    if mod_cpp:
+        (mod / 'mod.cpp').write_text('name = "Hollow Country Expansion AI";\n')
+    if meta is not None:
+        (mod / 'meta.cpp').write_text(meta)
+    return mod
+
+
+class AddonItem(Base):
+    def setUp(self):
+        super().setUp()
+        self.addon = make_addon(self.tmp)
+
+    def prepare_addon(self, *extra, mod=None):
+        return self.run_main('prepare', '--item', 'addon', '--mod', str(mod or self.addon),
+                             '--out', str(self.out_dir), *extra)
+
+    def test_good_addon_lists_exactly_the_allowlisted_files(self):
+        info = wp.validate_content(self.addon, item='addon')
+        self.assertEqual(sorted(info['files']), [
+            'addons/hollowcountryexpansionai.pbo',
+            'addons/hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY,
+            'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp'])
+
+    def test_mod_cpp_and_meta_cpp_are_optional_for_the_addon(self):
+        (self.addon / 'meta.cpp').unlink()
+        (self.addon / 'mod.cpp').unlink()
+        info = wp.validate_content(self.addon, item='addon')
+        self.assertNotIn('mod.cpp', info['files'])
+        self.assertNotIn('meta.cpp', info['files'])
+
+    def test_base_folder_given_as_addon_is_refused(self):
+        with self.assertRaisesRegex(wp.PublishError, '--item base'):
+            wp.validate_content(self.mod, item='addon')
+        code, _, err = self.prepare('--item', 'addon')
+        self.assertEqual(code, 1)
+        self.assertIn('--item base', err)
+        self.assertFalse(self.out_dir.exists())
+
+    def test_addon_folder_given_as_base_is_refused(self):
+        with self.assertRaisesRegex(wp.PublishError, '--item addon'):
+            wp.validate_content(self.addon)
+        code, _, err = self.prepare_addon_as_base()
+        self.assertEqual(code, 1)
+        self.assertIn('--item addon', err)
+        self.assertFalse(self.out_dir.exists())
+
+    def prepare_addon_as_base(self):
+        return self.run_main('prepare', '--mod', str(self.addon), '--out', str(self.out_dir))
+
+    def test_every_refusal_rule_still_applies_to_the_addon(self):
+        for rel in ('keys/hollowcountry.biprivatekey', 'addons/x.BIPRIVATEKEY'):
+            with self.subTest(rel=rel):
+                path = self.addon / rel
+                path.write_bytes(b'private')
+                with self.assertRaisesRegex(wp.PublishError, 'private key'):
+                    wp.validate_content(self.addon, item='addon')
+                path.unlink()
+        (self.addon / 'addons' / 'other.pbo').write_bytes(b'x')
+        with self.assertRaisesRegex(wp.PublishError, 'not allowed'):
+            wp.validate_content(self.addon, item='addon')
+        (self.addon / 'addons' / 'other.pbo').unlink()
+        os.link(self.addon / 'meta.cpp', Path(self.tmp) / 'second-name')
+        with self.assertRaisesRegex(wp.PublishError, 'hard link'):
+            wp.validate_content(self.addon, item='addon')
+
+    def test_addon_symlink_and_empty_file_refused(self):
+        (self.addon / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'')
+        with self.assertRaisesRegex(wp.PublishError, 'empty'):
+            wp.validate_content(self.addon, item='addon')
+        (self.addon / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'pbo')
+        target = Path(self.tmp) / 'elsewhere.bin'
+        target.write_bytes(b'x')
+        (self.addon / 'meta.cpp').unlink()
+        os.symlink(target, self.addon / 'meta.cpp')
+        with self.assertRaisesRegex(wp.PublishError, 'symlink'):
+            wp.validate_content(self.addon, item='addon')
+
+    def test_addon_without_signature_or_key_refused(self):
+        (self.addon / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY)).unlink()
+        with self.assertRaisesRegex(wp.PublishError, 'bisign'):
+            wp.validate_content(self.addon, item='addon')
+
+    def test_unknown_item_is_refused(self):
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.run_main('prepare', '--item', 'both', '--mod', str(self.mod), '--out', str(self.out_dir))
+        with self.assertRaises(wp.PublishError):
+            wp.validate_content(self.mod, item='both')
+
+    def test_prepare_writes_the_addon_title_description_and_unlisted_vdf(self):
+        code, text, _ = self.prepare_addon()
+        self.assertEqual(code, 0, text)
+        data = self.vdf()
+        self.assertEqual(data['title'], ADDON_TITLE)
+        self.assertEqual(data['visibility'], '3')
+        self.assertEqual(data['publishedfileid'], '0')
+        description = data['description']
+        for needle in ('server-side', '-serverMod', 'Hollow Country', 'Expansion AI', 'Expansion', 'CF', 'Dabs',
+                       'never bundled'):
+            self.assertIn(needle, description)
+        self.assertRegex(description, r'(?i)players do not need')
+        self.assertIn('Unlisted', text)
+        self.assertRegex(data['changenote'], r'Expansion AI.*[0-9a-f]{12}')
+
+    def test_addon_description_names_no_ids_or_weapon_packs(self):
+        self.prepare_addon()
+        text = (self.out_dir / 'workshop_item.vdf').read_text().lower()
+        for banned in ('2443122116', '2646817942', '1559212036', '2545327648', '2291785308', '2793893086',
+                       '2792982069', 'snafu', 'flava'):
+            self.assertNotIn(banned, text)
+
+    def test_base_title_and_description_are_unchanged_by_the_addon_item(self):
+        self.prepare()
+        data = self.vdf()
+        self.assertEqual(data['title'], 'Hollow Country')
+        self.assertNotIn('-serverMod', data['description'])
+
+    def test_addon_content_folder_stages_only_allowlisted_files(self):
+        self.prepare_addon()
+        staged = Path(self.vdf()['contentfolder'])
+        files = sorted(p.relative_to(staged).as_posix() for p in staged.rglob('*') if p.is_file())
+        self.assertEqual(files, ['addons/hollowcountryexpansionai.pbo',
+                                 'addons/hollowcountryexpansionai.pbo.%s.bisign' % ADDON_KEY,
+                                 'keys/%s.bikey' % ADDON_KEY, 'meta.cpp', 'mod.cpp'])
+
+    def test_addon_published_id_flag_and_recorded_id_are_used(self):
+        self.assertEqual(self.prepare_addon('--published-id', '3900000001')[0], 0)
+        self.assertEqual(self.vdf()['publishedfileid'], '3900000001')
+        wp.record(self.addon, 3900000002, item='addon')
+        code, _, err = self.prepare_addon('--published-id', '3900000001')
+        self.assertEqual(code, 1)
+        self.assertIn('3900000002', err)
+
+    def test_addon_only_unlisted_is_accepted(self):
+        for bad in ('public', 'friends-only', 'private', '3'):
+            with self.subTest(bad=bad):
+                code, _, err = self.prepare_addon('--visibility', bad)
+                self.assertEqual(code, 1)
+                self.assertIn('unlisted', err)
+                self.assertFalse((self.out_dir / 'workshop_item.vdf').exists())
+
+    def test_record_creates_addon_meta_with_the_addon_name(self):
+        (self.addon / 'meta.cpp').unlink()
+        path = wp.record(self.addon, 3900000003, item='addon')
+        self.assertEqual(path.read_text(),
+                         'protocol = 1;\npublishedid = 3900000003;\nname = "%s";\n' % ADDON_TITLE)
+
+    def test_record_refuses_a_folder_of_the_other_item(self):
+        with self.assertRaisesRegex(wp.PublishError, '--item base'):
+            wp.record(self.mod, 3900000004, item='addon')
+        with self.assertRaisesRegex(wp.PublishError, '--item addon'):
+            wp.record(self.addon, 3900000004)
+        self.assertNotIn('3900000004', (self.mod / 'meta.cpp').read_text())
+
+    def test_cli_record_item_addon(self):
+        code, text, _ = self.run_main('record', '--item', 'addon', '--mod', str(self.addon),
+                                      '--published-id', '3900000005')
+        self.assertEqual(code, 0)
+        self.assertIn('publishedid = 3900000005;', (self.addon / 'meta.cpp').read_text())
+        code, _, err = self.run_main('record', '--item', 'addon', '--mod', str(self.mod),
+                                     '--published-id', '3900000005')
+        self.assertEqual(code, 1)
+        self.assertIn('--item base', err)
+
+    def test_cli_record_defaults_to_the_base_item(self):
+        (self.mod / 'meta.cpp').unlink()
+        code, _, _ = self.run_main('record', '--mod', str(self.mod), '--published-id', '3900000006')
+        self.assertEqual(code, 0)
+        self.assertIn('name = "Hollow Country";', (self.mod / 'meta.cpp').read_text())
+
+    def test_no_subprocess_is_used_for_the_addon(self):
+        self.assertEqual(self.prepare_addon()[0], 0)
+
+
 class Documentation(unittest.TestCase):
     def test_docs_describe_the_publisher_alternative_and_unlisted(self):
         text = (Path(__file__).resolve().parents[2] / 'docs/FRIEND_SERVER.md').read_text()
         self.assertIn('Publisher', text)
         self.assertIn('Unlisted', text)
         self.assertIn('workshop_publish.py', text)
+        self.assertIn('--item addon', text)
+        self.assertIn('3841628320', text)
         self.assertNotRegex(text, r'(?i)password\s*[:=]\s*\S')
 
 
