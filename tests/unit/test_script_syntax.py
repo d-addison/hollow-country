@@ -112,6 +112,17 @@ class ScriptSyntaxBehavior(unittest.TestCase):
         self.assertEqual(1, len(found))
         self.assertIn('sample.c:1: ModCommandHandlerBefore', found[0])
 
+    def test_authored_float_limits_use_native_constants_not_exponent_literals(self):
+        # Compile 072 accepted 3.402823e38 but its parsed value is unobserved;
+        # an ecology Finite() bound read as 3.402823 would reject world positions.
+        exponent = re.compile(r'\b\d+(?:\.\d+)?[eE][+-]?\d+\b')
+        found = []
+        for path in sorted((ROOT / 'mods').rglob('*.c')):
+            for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')), 1):
+                if exponent.search(re.sub(r'"[^"]*"', '""', line)):
+                    found.append(f'{path.relative_to(ROOT)}:{number}')
+        self.assertEqual([], found)
+
 
 if __name__ == '__main__':
     unittest.main()
