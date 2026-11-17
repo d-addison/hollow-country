@@ -187,12 +187,16 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
         bx, bz = float(row["box_min"][0]) + row_step / 2.0, float(row["box_min"][2]) + row_step / 2.0
         entries = []
         codes = _row_codes(row, reach_source, name)
+        # An observation is only evidence when the SELECTED filter's control passed on this very row. A
+        # failed, unavailable or missing control (or one where only the other filter passed) makes every
+        # hit of the row unknown; the row stays in the usable denominator, so agreement is never inflated.
+        control_passed = _control_state(row, reach_source) == "tested"
         for (x, y, z, clearance, ny, _strict), code in zip(row["hits"], codes):
             ix, iz = round((x - bx) / row_step), round((z - bz) / row_step)
             if abs(x - (bx + ix * row_step)) > OFF_GRID_TOLERANCE or abs(z - (bz + iz * row_step)) > OFF_GRID_TOLERANCE:
                 result["off_grid_hits"] += 1
                 continue
-            entries.append((ix, iz, y, clearance, ny, int(code)))
+            entries.append((ix, iz, y, clearance, ny, int(code) if control_passed else -1))
             support[round(y, 3)] = support.get(round(y, 3), 0) + 1
         per_placement.append(entries)
     storeys = _bands(support, band_tolerance)
@@ -298,7 +302,7 @@ def funnel(result, min_agreement):
     for cell in cells:
         for key, value in _cell_counts(cell).items():
             observations[key] += value
-    return {"rows": result["rows"], "usable_placements": result["usable_placements"],
+    return {"status": "computed", "rows": result["rows"], "usable_placements": result["usable_placements"],
             "reach_source": result.get("reach_source", "strict"), "reach_mode": result["reach_mode"],
             "stages": stages, "reach_cells": reach_cells, "reach_observations": observations,
             "control_states": dict(result.get("control_states", {}))}
@@ -572,9 +576,6 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
     _bounded("max_lootmax", max_lootmax, 1, 64, integer=True)
     _bounded("min_agreement", min_agreement, 0.01, 1.0)
     census = parse_census(census_bytes)
-    analysed = {name: class_candidates(census, name, reach_source=reach_source)
-                for name in TENEMENT_CLASSES + CALIBRATION_CLASSES}
-    funnels = {name: funnel(analysed[name], min_agreement) for name in analysed}
     parameters = {"radius": radius, "max_per_storey": max_per_storey, "max_total": max_total,
                   "spacing": spacing, "loot_ratio": loot_ratio, "max_lootmax": max_lootmax,
                   "min_agreement": min_agreement, "min_clearance": MIN_CLEARANCE, "max_slope": MAX_SLOPE,
@@ -583,10 +584,23 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
     base = {
         "kind": "interior-points-report", "schema_version": 1,
         "note": "offline aggregation of a native census; candidate only, spawning is not accepted by this tool",
-        "parameters": parameters, "funnel": funnels,
+        "parameters": parameters, "funnel": {},
         "stock_mapgroupproto_sha256": hashlib.sha256(stock_bytes).hexdigest(),
         "census_sha256": hashlib.sha256(census_bytes).hexdigest(),
     }
+    analysed, funnels, unavailable = {}, base["funnel"], []
+    for name in TENEMENT_CLASSES + CALIBRATION_CLASSES:
+        try:
+            analysed[name] = class_candidates(census, name, reach_source=reach_source)
+        except ValueError as problem:
+            # The requested source cannot be computed from this census (a legacy census has no player_codes).
+            # Say so per class; never substitute the other source's codes.
+            funnels[name] = {"status": "not-computable", "reach_source": reach_source, "refusal": str(problem)}
+            unavailable.append(str(problem))
+            continue
+        funnels[name] = funnel(analysed[name], min_agreement)
+    if unavailable:
+        raise _refusal(ValueError("; ".join(unavailable)), "reach-source-unavailable", base)
     calibration, missing = {}, []
     for name in CALIBRATION_CLASSES:
         candidates = analysed[name]

@@ -1001,6 +1001,10 @@ def battery(hook_text, first_failure=False):
         row = run_far_door_downhill(hook_text)
         return row["reach"]["state"] == "tested" and row["reach"]["player"]["state"] == "tested"
 
+    def blocked_fail_closed():
+        clear, hit, run_capped, building_capped = blocked_answers(hook_text)
+        return clear is False and hit is True and run_capped is True and building_capped is True
+
     def final_gap_wall():
         row = run_final_gap_wall(hook_text)
         building = flat_building()
@@ -1118,7 +1122,7 @@ def battery(hook_text, first_failure=False):
                            ("seed-standoff", seed_standoff), ("overhang", overhang), ("sky-cap", sky_cap),
                            ("zero-paths", zero_paths), ("disconnected-control", disconnected_control),
                            ("end-tolerance", end_tolerance), ("hidden-wall", hidden_wall),
-                           ("small-snap", small_snap), ("trivial-snap", trivial_snap), ("far-door-downhill", far_door_downhill), ("final-gap-wall", final_gap_wall),
+                           ("small-snap", small_snap), ("trivial-snap", trivial_snap), ("blocked-fail-closed", blocked_fail_closed), ("far-door-downhill", far_door_downhill), ("final-gap-wall", final_gap_wall),
                            ("other-roof", other_roof), ("native-shape", native_shape),
                            ("sloped-ground", sloped_ground), ("clutter-floor-cap", clutter_floor_cap), ("floor-cap", floor_cap),
                            ("step-cap", step_cap), ("thick-clutter", thick_clutter),
@@ -1208,6 +1212,8 @@ MUTATIONS = (
      "if (m_HCProbeDiagHSnap > 0.05)"),
     ("far control door uses the seed height", "float farGround = GetGame().SurfaceY(farWorld[0], farWorld[2]);",
      "float farGround = farWorld[1];"),
+    ("unknown ray counts as clear", "        if (result == 0)\n            return false;\n        return true;\n    }\n\n    void HCProbeHitNote",
+     "        if (result <= 0)\n            return false;\n        return true;\n    }\n\n    void HCProbeHitNote"),
     ("trivial snap threshold removed",
      "if (m_HCProbeDiagHSnap > m_HCProbeTrivialShift)",
      "if (m_HCProbeDiagHSnap > 0.0)"),
@@ -2433,6 +2439,41 @@ class Round3AddendumTests(unittest.TestCase):
         self.assertGreater(len(capped), 0)
         self.assertEqual({3}, {h[5] for h in capped})
         self.assertEqual(len(capped), diag(row, "column_capped")["count"])
+
+
+def blocked_answers(hook_text):
+    """HCProbeBlocked called directly: a clear line, a line that hits something, and a ray the budget refuses."""
+    building = flat_building()
+
+    def ask(overrides, start, end):
+        run = HookRun(hook_text, building, storey_planes(building), overrides=overrides)
+        run.model.m_HCProbeBuilding = building
+        return run.model.HCProbeBlocked(building.to_world(start), building.to_world(end))
+
+    return (ask(None, (0.0, 50.0, 0.0), (1.0, 50.0, 0.0)),
+            ask(None, (0.0, 50.0, 0.0), (0.0, -50.0, 0.0)),
+            ask({"m_HCProbeRunRayLimit": 0}, (0.0, 50.0, 0.0), (1.0, 50.0, 0.0)),
+            ask({"m_HCProbeBuildingRayLimit": 0}, (0.0, 50.0, 0.0), (1.0, 50.0, 0.0)))
+
+
+class Round4BlockedTests(unittest.TestCase):
+    """Round 4: an unknown ray (-1, budget refused) is blocked, never clear (survivor unknown-ray-clear)."""
+
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_an_unknown_ray_counts_as_blocked_and_only_a_real_miss_is_clear(self):
+        clear, hit, run_capped, building_capped = blocked_answers(self.hook)
+        self.assertFalse(clear)                         # result 0: a real miss
+        self.assertTrue(hit)                            # result 1 or 2: something is in the way
+        self.assertTrue(run_capped)                     # result -1: the run ray budget refused the ray
+        self.assertTrue(building_capped)                # result -1: the per-building ray budget refused it
+
+    def test_a_refused_ray_is_reported_as_capped_not_as_a_miss(self):
+        building = flat_building()
+        run = HookRun(self.hook, building, storey_planes(building), overrides={"m_HCProbeRunRayLimit": 0})
+        self.assertEqual(-1, run.model.HCProbeRay(building.to_world((0.0, 50.0, 0.0)), building.to_world((1.0, 50.0, 0.0))))
+        self.assertTrue(run.model.m_HCProbeRayCapped)
 
 
 class SamplerWorkspace(cep.Workspace):

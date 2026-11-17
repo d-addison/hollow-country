@@ -402,7 +402,7 @@ class ReachGateSurvivorTests(unittest.TestCase):
 
     def test_a_census_row_with_the_new_diagnostic_keys_still_parses_and_aggregates(self):
         row = placement("Land_Tenement_Small", storey_hits(), index=0)
-        row["reach"].update({"attempts": [[[0.0, 0.0, 1.0, 1.0], 11.0, 12, [-15.0, 0.0, 0.0], [-14.0, 0.0, 0.0], 2.0, 0.0]],
+        row["reach"].update({"attempts": [[0, 11.0, 12, [-15.0, 0.0, 0.0], [-14.0, 0.0, 0.0], 2.0, 0.0]],
                              "doors": [[0.0, -6.35, 0.0]]})
         row["stats"].update({"step_capped_columns": 1, "floor_capped_columns": 0, "rehits": 3, "clearance_capped": 0,
                              "other_hits": 4, "hit_relations": {"none": 1, "building": 2, "proxy": 3, "other": 4},
@@ -839,11 +839,15 @@ class CliTests(unittest.TestCase):
 
 
 def with_player(rows, player_hits):
-    """Attach a parallel player_codes array: the hit rows stay six fields, the player codes come from the list."""
+    """Attach a parallel player_codes array: the hit rows stay six fields, the player codes come from the list.
+
+    The player variant has its own control (reach.player.state); a synthetic row passes it unless told otherwise.
+    """
     result = []
     for row in rows:
         row = json.loads(json.dumps(row))
         row["player_codes"] = [h[5] for h in player_hits]
+        row["reach"]["player"] = {"state": "tested"}
         result.append(row)
     return result
 
@@ -1127,6 +1131,151 @@ class Round3CliTests(unittest.TestCase):
         self.report.write_text("keep")
         self.assertEqual(1, self.run_main("--min-calibration", "0.9"))
         self.assertEqual("keep", self.report.read_text())
+
+
+def tenement_census(strict_state="tested", player_state="tested", failed=4, player_codes=True):
+    """Full synthetic census whose tenement rows carry one control state per filter on the first ``failed`` rows.
+
+    Every hit says reached under both filters, so only the control state decides whether a cell may count.
+    ``None`` removes the state key; ``player_codes`` False builds a legacy (round 2 sampler) census.
+    """
+    document = full_census()
+    seen = {}
+    for row in document["placements"]:
+        if player_codes:
+            row["player_codes"] = [h[5] for h in row["hits"]]
+            row["reach"]["player"] = {"state": "tested"}
+        if row["class"] not in pts.TENEMENT_CLASSES:
+            continue
+        index = seen[row["class"]] = seen.get(row["class"], -1) + 1
+        if index >= failed:
+            continue
+        for target, state in ((row["reach"], strict_state), (row["reach"].setdefault("player", {}), player_state)):
+            if state is None:
+                target.pop("state", None)
+            else:
+                target["state"] = state
+    return document
+
+
+class Round4ControlGateTests(unittest.TestCase):
+    """Round 4: an observation counts as reached only when the SELECTED filter's control passed on that row."""
+
+    BAD_STATES = ("control-failed", "unavailable", None)
+
+    def test_a_failed_unavailable_or_missing_selected_control_never_authorizes_a_treatment(self):
+        for source in pts.REACH_SOURCES:
+            for state in self.BAD_STATES:
+                strict, player = (state, "tested") if source == "strict" else ("tested", state)
+                with self.subTest(source=source, state=state), self.assertRaises(ValueError) as caught:
+                    pts.build_treatment(encode(tenement_census(strict, player)), STOCK, 0.4, reach_source=source)
+                self.assertEqual("no-eligible-candidates", caught.exception.report["refusal"]["kind"])
+
+    def test_the_other_filters_passing_control_does_not_stand_in_for_the_selected_one(self):
+        for source in pts.REACH_SOURCES:
+            strict, player = ("control-failed", "tested") if source == "strict" else ("tested", "control-failed")
+            got = pts.class_candidates(pts.parse_census(encode(tenement_census(strict, player))),
+                                       "Land_Tenement_Small", reach_source=source)
+            with self.subTest(source=source):
+                self.assertEqual("unknown", got["reach_mode"])
+                self.assertEqual([], pts.eligible(got["candidates"], got["reach_mode"], 0.25))
+                self.assertEqual({"control-failed": 4}, got["control_states"])
+
+    def test_a_passing_selected_control_still_builds_whatever_the_other_filter_did(self):
+        for source in pts.REACH_SOURCES:
+            strict, player = ("tested", "control-failed") if source == "strict" else ("control-failed", "tested")
+            with self.subTest(source=source):
+                data, report = pts.build_treatment(encode(tenement_census(strict, player)), STOCK, 0.4,
+                                                   reach_source=source)
+                self.assertTrue(data)
+                self.assertEqual("ok", report["status"])
+
+    def test_rows_with_a_failed_control_stay_in_the_denominator_as_unknown_observations(self):
+        for source in pts.REACH_SOURCES:
+            for state in self.BAD_STATES:
+                strict, player = (state, "tested") if source == "strict" else ("tested", state)
+                document = pts.parse_census(encode(tenement_census(strict, player, failed=2)))
+                got = pts.class_candidates(document, "Land_Tenement_Small", reach_source=source)
+                cell = got["candidates"][0]
+                with self.subTest(source=source, state=state):
+                    self.assertEqual(4, got["usable_placements"])
+                    self.assertEqual(2, cell["reach"]["yes"])
+                    self.assertEqual(2, cell["reach"]["unknown"])
+                    self.assertAlmostEqual(0.5, cell["reach_agreement"])
+                    self.assertEqual([], pts.eligible(got["candidates"], got["reach_mode"], 0.75))
+                    self.assertTrue(pts.eligible(got["candidates"], got["reach_mode"], 0.5))
+
+    def test_the_funnel_counts_failed_control_rows_as_unknown_not_reached(self):
+        document = pts.parse_census(encode(tenement_census("control-failed", "tested", failed=4)))
+        got = pts.class_candidates(document, "Land_Tenement_Small")
+        funnel = pts.funnel(got, 0.75)
+        self.assertEqual({"control-failed": 4}, funnel["control_states"])
+        self.assertEqual(0, funnel["stages"]["reach"])
+        self.assertEqual(0, funnel["stages"]["eligible"])
+        self.assertEqual(0, funnel["reach_observations"]["yes"])
+        self.assertEqual(32 * 4, funnel["reach_observations"]["unknown"])
+
+    def test_a_row_that_never_ran_the_player_control_cannot_pass_the_player_source(self):
+        document = tenement_census()
+        for row in document["placements"]:
+            row["reach"].pop("player", None)
+        got = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small", reach_source="player")
+        self.assertEqual({"absent": 4}, got["control_states"])
+        self.assertEqual([], pts.eligible(got["candidates"], got["reach_mode"], 0.25))
+
+
+class Round4LegacyCensusTests(unittest.TestCase):
+    """Round 4: a player-source request on a legacy census refuses with a report, never with strict codes."""
+
+    def test_the_builder_attaches_a_report_envelope_to_the_refusal(self):
+        data = encode(tenement_census(player_codes=False))
+        with self.assertRaises(ValueError) as caught:
+            pts.build_treatment(data, STOCK, 0.4, reach_source="player")
+        report = caught.exception.report
+        self.assertEqual("refused", report["status"])
+        self.assertEqual("reach-source-unavailable", report["refusal"]["kind"])
+        self.assertIn("player_codes", report["refusal"]["message"])
+        self.assertEqual("player", report["parameters"]["reach_source"])
+        self.assertEqual(hash_of(data), report["census_sha256"])
+        self.assertEqual(hash_of(STOCK), report["stock_mapgroupproto_sha256"])
+        for name in ("Land_Tenement_Small", "Land_Tenement_Big"):
+            entry = report["funnel"][name]
+            self.assertEqual("not-computable", entry["status"])
+            self.assertEqual("player", entry["reach_source"])
+            self.assertIn("player_codes", entry["refusal"])
+            self.assertNotIn("stages", entry)                  # no strict numbers stand in for the player ones
+        self.assertNotIn("treatment", report)
+
+    def test_the_same_legacy_census_still_builds_for_the_strict_source(self):
+        data, report = pts.build_treatment(encode(tenement_census(player_codes=False)), STOCK, 0.4)
+        self.assertTrue(data)
+        self.assertEqual("computed", report["funnel"]["Land_Tenement_Small"]["status"])
+
+    def test_a_class_without_hits_is_computable_for_the_player_source(self):
+        rows = four_placements("Land_Tenement_Small", hits=[])
+        got = pts.funnel(pts.class_candidates(pts.parse_census(encode(census(rows))), "Land_Tenement_Small",
+                                              reach_source="player"), 0.75)
+        self.assertEqual("computed", got["status"])
+
+
+class Round4CliTests(unittest.TestCase):
+    def test_a_legacy_census_requested_as_player_writes_the_report_and_no_treatment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "census.json").write_bytes(encode(tenement_census(player_codes=False)))
+            (root / "stock.xml").write_bytes(STOCK)
+            out, report_path = root / "out" / "treatment.xml", root / "out" / "report.json"
+            argv = ["--census", str(root / "census.json"), "--stock-proto", str(root / "stock.xml"),
+                    "--output", str(out), "--report", str(report_path), "--min-calibration", "0.4",
+                    "--reach-source", "player"]
+            with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+                self.assertEqual(1, pts.main(argv))
+            self.assertFalse(out.exists())
+            report = json.loads(report_path.read_text())
+            self.assertEqual("refused", report["status"])
+            self.assertEqual("reach-source-unavailable", report["refusal"]["kind"])
+            self.assertEqual("player", report["parameters"]["reach_source"])
+            self.assertEqual("not-computable", report["funnel"]["Land_Tenement_Small"]["status"])
 
 
 if __name__ == "__main__":
