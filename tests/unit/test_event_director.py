@@ -1,30 +1,17 @@
 """Synthetic execution of authored rules, not native/network/reward evidence."""
 import copy
-import inspect
-import json
 from pathlib import Path
-import re
-from types import SimpleNamespace
 import unittest
-from tests.unit.test_group_server import EArray, body, translated_rules
+from tests.unit.test_group_server import EArray
 
 
 ROOT = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts"
 
 
 def event_rules():
-    # Reuse the existing language adapter; substitute only paths/type prefixes.
-    adapter = inspect.getsource(translated_rules)
-    adapter = adapter.replace("3_Game/Groups/HCGroupData.c",
-                              "3_Game/Events/HCEventData.c")
-    adapter = adapter.replace("3_Game/Groups/HCGroupProtocol.c",
-                              "3_Game/Events/HCEventData.c")
-    adapter = adapter.replace("4_World/Groups/HCGroupRules.c",
-                              "4_World/Events/HCEventDirector.c")
-    adapter = adapter.replace("HCGroup", "HCEvent")
-    namespace = dict(globals())
-    exec(compile(adapter, "synthetic-event-language-adapter", "exec"), namespace)
-    return namespace["translated_rules"]()
+    from tests.unit.test_event_runtime import environment
+    env = environment()
+    return dict(env, **vars(env["HCEventDirector"]))
 
 
 class EventDirectorTests(unittest.TestCase):
@@ -127,7 +114,7 @@ class EventDirectorTests(unittest.TestCase):
         old = self.observation()
         self.assertEqual(self.code.OK, self.e["Restart"](self.s, self.c, "run-b"))
         self.assertEqual(self.e["HCEventStatus"].CANCELLED, self.s.Records[0].Status)
-        self.c.Session = "run-b"
+        self.c.Session = self.s.Session
         before = copy.deepcopy(self.s)
         self.assertNotEqual(self.code.OK, self.e["Observe"](self.s, self.c, old))
         self.assertNotEqual(self.code.OK, self.e["Restart"](self.s, self.c, "run-a"))
@@ -198,7 +185,7 @@ class EventDirectorTests(unittest.TestCase):
         self.assertEqual(1000000, self.s.Records[0].Revision)
         self.assertTrue(self.e["StateValid"](self.s))
 
-    def test_record_and_session_tombstones_are_never_recycled(self):
+    def test_live_capacity_is_bounded_while_empty_session_history_is_compacted(self):
         for number in range(32):
             self.d.Id = "definition-" + str(number)
             self.assertEqual(self.code.OK, self.e["Propose"](self.s, self.c, self.d))
@@ -206,13 +193,30 @@ class EventDirectorTests(unittest.TestCase):
         before = copy.deepcopy(self.s)
         self.assertEqual(self.code.LIMIT, self.e["Propose"](self.s, self.c, self.d))
         self.assertEqual(before, self.s)
-        for number in range(31):
+        for number in range(100):
             session = "run-" + str(number)
             self.assertEqual(self.code.OK, self.e["Restart"](self.s, self.c, session))
-            self.c.Session = session
+            self.c.Session = self.s.Session
+            self.assertLessEqual(len(self.s.Sessions), 33)
+        self.assertTrue(self.e["StateValid"](self.s))
+
+    def test_pruned_floor_preserves_ids_and_old_context_cannot_replay(self):
+        self.active()
+        stale = copy.deepcopy(self.c)
+        self.assertEqual(0, self.e["Restart"](self.s, self.c, "next"))
+        self.c.Session = self.s.Session
+        self.assertTrue(self.e["PruneFirst"](self.s))
+        self.assertEqual(1, self.s.PrunedThrough)
+        self.assertEqual(0, self.e["Propose"](self.s, self.c, self.d))
+        self.assertEqual(2, self.s.Records[0].Id)
         before = copy.deepcopy(self.s)
-        self.assertEqual(self.code.LIMIT, self.e["Restart"](self.s, self.c, "overflow"))
+        self.assertFalse(self.e["PruneFirst"](self.s))
         self.assertEqual(before, self.s)
+        self.assertNotEqual(0, self.e["Propose"](self.s, stale, self.d))
+        self.assertNotEqual(0, self.e["Propose"](self.s, self.c, self.d))
+        for field, value in (("PrunedThrough", 0), ("NextId", 2), ("SessionGeneration", -1)):
+            broken = copy.deepcopy(self.s); setattr(broken, field, value)
+            self.assertFalse(self.e["StateValid"](broken), field)
 
     def test_malformed_state_is_rejected_without_traversing_oversized_arrays(self):
         self.active()

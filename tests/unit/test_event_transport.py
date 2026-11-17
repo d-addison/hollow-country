@@ -43,7 +43,7 @@ class EventTransportTests(unittest.TestCase):
         self.e["PlayerBase"] = SimpleNamespace(Cast=lambda obj:obj if isinstance(obj,Handle) else None)
         self.e["DayZGame"] = SimpleNamespace(Event_OnRPC=SimpleNamespace(Remove=lambda fn:None,Insert=lambda fn:None))
         self.e["HCEventPeer"] = lambda:SimpleNamespace(Identity=None,Player=None,Session="",LastRequest=0,
-            LastOp=0,LastEventId=0,LastCode=0,Sequence=0,RateWindow=0.,RateCount=0)
+            LastOp=0,LastEventId=0,LastCode=0,Sequence=0,RateWindow=0.,RateCount=0,NextMutation=0.)
         test = self
         class NativeRPC:
             def Write(self, value): self.value = copy.deepcopy(value)
@@ -54,6 +54,7 @@ class EventTransportTests(unittest.TestCase):
         self.rpc.m_Peers = EArray(); self.rpc.m_Serial = 0; self.rpc.m_GlobalWindow = 0.
         self.rpc.m_GlobalCount = 0; self.rpc.m_Started = True
         self.rpc.m_Boot = "synthetic-transport"; self.rpc.m_LastTime = 100.
+        self.rpc.m_ProjectionState = None
 
     def request(self, op=0, request_id=0, event=0, session="", ticket=1):
         r = self.e["HCEventWireRequest"](); r.Op=op; r.RequestId=request_id
@@ -86,6 +87,7 @@ class EventTransportTests(unittest.TestCase):
         before=copy.deepcopy(self.runtime.m_State); self.now+=1
         repeat=self.mutate(); self.assertEqual(before,self.runtime.m_State)
         self.assertEqual(1,repeat.ReceiptId); self.assertEqual(1,repeat.ReceiptOp)
+        self.now += 3
         left=self.mutate(2,2); self.assertFalse(left.Rows[0].Joined)
 
     def test_wrong_session_and_skipped_id_do_not_consume(self):
@@ -115,11 +117,86 @@ class EventTransportTests(unittest.TestCase):
             self.assertEqual(0,self.rpc.m_Peers[0].LastRequest,key)
         self.assertEqual([],self.runtime.m_State.Director.Records[0].Participants)
 
-    def test_rate_limits_reject_without_consuming_and_clock_rollback_stops(self):
+    def test_rate_limits_reject_without_consuming_and_clock_rollback_recovers(self):
         self.handshake()
         for ticket in range(2,6): self.receive(self.request(ticket=ticket))
         self.assertEqual(4,len(self.sent)); self.assertEqual(0,self.rpc.m_Peers[0].LastRequest)
-        self.now=99.; self.receive(self.request()); self.assertFalse(self.rpc.m_Started)
+        self.now=99.; self.receive(self.request()); self.assertTrue(self.rpc.m_Started)
+        self.now=100.; view=self.receive(self.request(ticket=9))
+        self.assertTrue(view.Enabled); self.assertEqual(9,view.Ticket)
+
+    def test_new_peer_during_nonfinite_clock_recovers_after_multiple_rate_windows(self):
+        self.now = float("nan"); self.handshake()
+        self.assertEqual([], self.sent); self.assertTrue(self.rpc.m_Started)
+        for tick in range(100, 110):
+            self.now = float(tick)
+            before = len(self.sent)
+            self.receive(self.request(ticket=tick))
+            self.assertEqual(before + 1, len(self.sent), tick)
+
+    def test_clock_rollback_cannot_bypass_mutation_cooldown(self):
+        self.handshake(); self.mutate()
+        writes = self.helper.store.calls
+        self.now = 99.
+        refused = self.mutate(2, 2)
+        self.assertEqual(4, refused.Code); self.assertEqual(writes, self.helper.store.calls)
+        self.now = 102.
+        self.assertEqual(0, self.mutate(2, 3).Code)
+
+    def test_reconnect_discards_old_peer_cooldown(self):
+        self.handshake(); self.mutate()
+        replacement = Handle(); sender = Sender("alice", replacement)
+        replacement.GetIdentity = lambda: sender
+        replacement.IsPlayerDisconnected = lambda: False
+        replacement.IsUnconscious = lambda: False
+        view = self.receive(self.request(), sender)
+        self.assertEqual(1, len(self.rpc.m_Peers))
+        joined = self.receive(self.request(1, 1, 1, view.Session, 0), sender)
+        self.assertEqual(0, joined.Code)
+
+    def test_join_leave_cooldown_bounds_writes_and_replays_receipts(self):
+        self.handshake(); self.mutate()
+        writes = self.helper.store.calls
+        self.now += 1
+        view = self.mutate(2,2)
+        self.assertNotEqual(0, view.Code)
+        self.assertTrue(view.Rows[0].Joined)
+        self.assertEqual(writes, self.helper.store.calls)
+        self.now += 3
+        replay = self.mutate(2,2)
+        self.assertEqual(view.ReceiptCode, replay.ReceiptCode)
+        self.assertEqual(writes, self.helper.store.calls)
+        left = self.mutate(2,3)
+        self.assertEqual(0, left.Code); self.assertFalse(left.Rows[0].Joined)
+        self.assertEqual(writes + 1, self.helper.store.calls)
+
+    def test_unchanged_revision_browse_reuses_snapshot_and_refreshes_time(self):
+        snapshots = []
+        original = self.runtime.Snapshot
+        def snapshot():
+            snapshots.append(1); return original()
+        self.runtime.Snapshot = snapshot
+        first = self.handshake(); self.now += 2; self.context.Now += 2
+        second = self.receive(self.request(ticket=2))
+        self.assertEqual(1, len(snapshots))
+        self.assertEqual(first.Rows[0].RemainingSeconds - 2, second.Rows[0].RemainingSeconds)
+        self.mutate()
+        self.assertEqual(2, len(snapshots))
+
+    def test_wire_slots_remain_client_compatible_after_durable_ids_exceed_32(self):
+        for boot in range(40):
+            self.context.Session = "wire-boot-" + str(boot); self.context.Now = 0
+            self.assertTrue(self.runtime.Start(self.helper.cfg, self.context, self.helper.store,
+                                              self.helper.observer, self.helper.ai))
+            self.runtime.Tick(self.context)
+            self.assertEqual(0, self.runtime.Announce(self.helper.mission, self.context))
+        durable_id = self.runtime.m_State.Director.Records[-1].Id
+        self.assertGreater(durable_id, 32)
+        view = self.handshake()
+        self.assertEqual([1], [row.EventId for row in view.Rows])
+        self.assertEqual(0, self.mutate(event=1).Code)
+        self.assertEqual(["alice"], self.runtime.m_State.Director.Records[-1].Participants)
+        self.assertEqual(1, self.sent[-1][3].ReceiptEventId)
 
     def test_invalid_deserialization_and_other_rpc_do_not_mutate(self):
         self.receive(self.request(),readable=False); self.assertEqual([],self.sent)

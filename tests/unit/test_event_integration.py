@@ -485,6 +485,67 @@ class EventCleanupLifecycleTests(unittest.TestCase):
         self.assertTrue(self.runtime.Stop(self.module.Context()))
         self.assertTrue(self.runtime.CleanupComplete())
 
+    def test_cleanup_quarantines_after_bounded_retries_and_fresh_start_rechecks_owner(self):
+        logs = []
+        self.env["Print"] = logs.append
+        self.module.OnStop()
+        for _ in range(20):
+            self.module.OnTick(1.)
+        attempts = len(self.ai.stops)
+        self.assertLessEqual(attempts, 16)
+        self.assertEqual(1, sum("quarantin" in line for line in logs))
+        for _ in range(100):
+            self.module.OnTick(1.)
+        # Quarantine keeps retrying at a low bounded rate, not every tick.
+        self.assertLessEqual(len(self.ai.stops) - attempts, 4)  # <= 2 retries in 100 ticks
+        self.assertEqual(1, sum("quarantin" in line for line in logs))
+        replacement = self.make_module()
+        replacement.OnStart(N())
+        self.assertIsNone(replacement.Runtime())
+        self.assertEqual(1, len(self.created))
+        self.ai.gone = True
+        replacement.OnStart(N())
+        self.assertIsNone(self.module.Runtime())
+        self.assertIsNotNone(replacement.Runtime())
+        self.assertEqual(3, self.store.image.Runs[0].Phase)
+
+    def test_quarantined_cleanup_completes_when_slow_confirmation_arrives(self):
+        logs = []
+        self.env["Print"] = logs.append
+        self.module.OnStop()
+        for _ in range(20):
+            self.module.OnTick(1.)
+        self.assertTrue(any("quarantin" in line for line in logs))
+        self.assert_retained()
+        self.ai.gone = True
+        for _ in range(60):
+            self.module.OnTick(1.)
+        self.assertIsNone(self.module.Runtime())
+        self.assertEqual(3, self.store.image.Runs[0].Phase)
+        self.assertIsNone(self.cls.s_CleanupOwner)
+
+    def test_100_module_starts_announce_roster_with_bounded_retention(self):
+        self.ai.gone = True
+        site = self.env["HCEventSite"]()
+        site.Id = "module-retention"; site.WorldName = "synthetic_world"
+        site.Reviewed = True; site.ItemClass = "SyntheticSupply"
+        self.helper.cfg.Sites = EArray([site])
+        last_id = 1
+        for boot in range(100):
+            self.module.OnStart(N())
+            runtime = self.module.Runtime()
+            self.assertIs(self.module, self.cls.Get(), boot)
+            self.assertTrue(runtime.Allowed(self.module.Context()), boot)
+            self.assertEqual(1, len(self.callbacks))
+            records = runtime.m_State.Director.Records
+            current = [r for r in records if r.Session == self.module.m_Session]
+            self.assertEqual(5, len(current), boot)
+            self.assertGreater(current[0].Id, last_id)
+            last_id = current[-1].Id
+            self.assertLessEqual(len(records), 32)
+            self.assertLessEqual(len(runtime.m_State.Director.Sessions), 33)
+        self.assertEqual(501, last_id)
+
     def test_observer_release_refusal_is_retained_like_ai_absence(self):
         self.ai.gone = True
         self.module.OnStop()

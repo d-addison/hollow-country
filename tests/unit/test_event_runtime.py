@@ -28,6 +28,8 @@ def translate(text, name, env, owner=None, member=False):
         env[key] = json.loads(match[0])
         return key
     code = re.sub(r'"(?:\\.|[^"\\])*"', literal, code)
+    # Native RemoveOrdered retains order; EArray.Remove is ordered list.pop.
+    code = code.replace(".RemoveOrdered(", ".Remove(")
     cursor = 0
     while True:
         guard = re.search(r"\bif \(", code[cursor:])
@@ -110,7 +112,7 @@ def environment():
     for name in ("HCEventDirector", "HCEventRuntimePolicy", "HCEventRoster"):
         text = (ROOT / ("4_World/Events/" + name + ".c")).read_text()
         env[name] = SimpleNamespace()
-        for method in re.findall(r"static (?:bool|int|float|string|HCEvent\w+|array<[^>]+>) (\w+)\(", text):
+        for method in re.findall(r"static (?:void|bool|int|float|string|HCEvent\w+|array<[^>]+>) (\w+)\(", text):
             setattr(env[name], method, translate(text, method, env, name))
     return env
 
@@ -311,6 +313,66 @@ class EventRuntimeTests(unittest.TestCase):
         self.ai.gone = True; r.Tick(self.ctx)
         self.assertEqual(self.e["HCEventRunPhase"].CLOSED, r.m_State.Runs[0].Phase)
 
+    def test_100_restarts_with_full_roster_keep_monotonic_bounded_journal(self):
+        r = self.runtime()
+        site = self.e["HCEventSite"]()
+        site.Id = "retention"; site.WorldName = self.ctx.WorldName; site.Reviewed = True
+        site.Position = self.mission.Source; site.Destination = self.mission.Destination
+        site.ItemClass = "SyntheticSupply"
+        self.ai.ready = True; self.ai.gone = True
+        roster = self.e["HCEventRoster"].Build(site, True)
+        last_id = 0
+        for boot in range(100):
+            self.ctx.Session = "boot-" + str(boot); self.ctx.Now = 0
+            self.assertTrue(r.Start(self.cfg, self.ctx, self.store, self.observer, self.ai), boot)
+            r.Tick(self.ctx)  # Confirm prior provider cleanup before retention.
+            for mission in roster:
+                self.assertEqual(0, r.Announce(mission, self.ctx), (boot, mission.Id))
+                current = r.m_State.Director.Records[-1].Id
+                self.assertGreater(current, last_id); last_id = current
+            self.assertLessEqual(len(r.m_State.Runs), 32)
+            self.assertLessEqual(len(r.m_State.Director.Sessions), 33)
+            self.assertTrue(self.p.StateValid(self.store.image))
+        self.assertEqual(500, last_id)
+        self.assertGreater(r.m_State.Director.PrunedThrough, 0)
+        # All operations must use durable IDs, rather than array offsets.
+        self.assertEqual(0, r.Join(last_id, self.player, self.ctx))
+        self.assertEqual(0, r.Leave(last_id, self.player, self.ctx))
+        self.assertEqual(0, r.Cancel(last_id, self.ctx))
+        self.assertNotEqual(0, r.Join(1, self.player, self.ctx))
+
+    def test_retention_never_discards_unclosed_native_intent(self):
+        self.cfg.MaxRuns = 1
+        r = self.runtime(); self.ai.ready = True
+        self.mission.Family = 5; self.mission.ActorBudget = 2
+        self.assertEqual(0, r.Announce(self.mission, self.ctx))
+        self.ctx.Session = "next"; self.ctx.Now = 0
+        self.assertTrue(r.Start(self.cfg, self.ctx, self.store, self.observer, self.ai))
+        before = copy.deepcopy(r.m_State); logs = []; self.e["Print"] = logs.append
+        self.assertEqual(self.code.LIMIT, r.Announce(self.mission, self.ctx))
+        self.assertEqual(before, r.m_State)
+        # The refusal names the blocking run instead of a bare limit code.
+        blocking = [line for line in logs if "retention blocked" in line]
+        self.assertEqual(1, len(blocking))
+        self.assertIn(before.Runs[0].Lease, blocking[0])
+        self.ai.gone = True; r.Tick(self.ctx)
+        self.assertEqual(0, r.Announce(self.mission, self.ctx))
+        self.assertEqual([2], [run.EventId for run in r.m_State.Runs])
+        self.assertEqual(0, r.Cancel(2, self.ctx))
+        # Current-session tombstones protect against proposal replay.
+        self.assertNotEqual(0, r.Announce(self.mission, self.ctx))
+
+    def test_failed_restart_uses_loaded_session_for_confirmed_cleanup(self):
+        r = self.runtime(); self.ai.ready = True
+        self.mission.Family = 5; self.mission.ActorBudget = 2
+        self.assertEqual(0, r.Announce(self.mission, self.ctx))
+        self.ctx.Session = "x" * 97
+        self.assertFalse(r.Start(self.cfg, self.ctx, self.store, self.observer, self.ai))
+        self.assertFalse(r.Stop(self.ctx))
+        self.ai.gone = True
+        self.assertTrue(r.Stop(self.ctx))
+        self.assertTrue(r.CleanupComplete())
+
     def test_clock_rollback_world_session_and_disabled_preference_refuse(self):
         r = self.active(); before = copy.deepcopy(r.m_State)
         for key, value in (("Now", 99), ("Session", "old"), ("WorldName", "wrong"), ("Server", False)):
@@ -486,7 +548,12 @@ class EventJournalTests(unittest.TestCase):
                 try:
                     def restore(value):
                         if isinstance(value, list): return EArray(restore(v) for v in value)
-                        if isinstance(value, dict): return SimpleNamespace(**{k:restore(v) for k,v in value.items()})
+                        if isinstance(value, dict):
+                            # Native JsonFileLoader creates the DTO with field defaults,
+                            # then assigns fields present in the image (legacy seam).
+                            result = env["HCEventState"]() if "NextId" in value else SimpleNamespace()
+                            for k, v in value.items(): setattr(result, k, restore(v))
+                            return result
                         return value
                     parsed = json.loads(text)
                     return restore(parsed) if isinstance(parsed, dict) else None
@@ -585,6 +652,57 @@ class EventJournalTests(unittest.TestCase):
         self.io.fail_remove = True; self.assertFalse(self.save(self.j, state))
         self.assertTrue(self.j.m_Fault)
 
+    def test_legacy_image_loads_with_zero_retention_floors_without_reset(self):
+        state = self.j.Load("synthetic_world")
+        # A full old journal, rather than just an empty DTO, must migrate.
+        helper = EventRuntimeTests(); helper.setUp()
+        state.Director.Sessions.Clear()
+        for index in range(32):
+            session = "legacy-" + str(index)
+            state.Director.Sessions.Insert(session)
+            record = self.e["HCEventRecord"](); record.Id = index + 1
+            record.Session = session; record.Status = 6; record.Expires = 1800
+            record.Definition = self.e["HCEventRuntimePolicy"].Definition(helper.mission)
+            state.Director.Records.Insert(record)
+            run = self.e["HCEventRun"](); run.EventId = record.Id
+            run.Lease = session + ":" + str(record.Id); run.Objective = copy.deepcopy(helper.mission)
+            run.ProviderIntent = True; run.Phase = 3
+            state.Runs.Insert(run)
+        state.Director.Session = "legacy-31"; state.Director.NextId = 33
+        for field in ("PrunedThrough", "SessionGeneration"):
+            if hasattr(state.Director, field): delattr(state.Director, field)
+        state.Revision = 1
+        image = self.codec.Encode(state)
+        receipt = SimpleNamespace(Version=1, Revision=1, WorldName="synthetic_world",
+                                  Length=len(image), Hash=self.codec.Digest(image))
+        intent = self.codec.EncodeReceipt(receipt)
+        self.io.files = {"intent-1.json": intent, "image-1.json": image, "commit-1.json": intent}
+        restored = self.open().Load("synthetic_world")
+        self.assertIsNotNone(restored)
+        self.assertEqual(0, restored.Director.PrunedThrough)
+        self.assertEqual(0, restored.Director.SessionGeneration)
+        self.assertEqual(1, restored.Revision)
+        self.assertEqual(image, self.io.files["image-1.json"])
+        runtime = helper.runtime()
+        helper.ctx.Session = "migrated"
+        journal = self.open()
+        self.assertTrue(runtime.Start(helper.cfg, helper.ctx, journal, helper.observer, helper.ai))
+        self.assertEqual(0, runtime.Announce(helper.mission, helper.ctx))
+        self.assertEqual(33, runtime.m_State.Runs[-1].EventId)
+        self.assertEqual(1, runtime.m_State.Director.PrunedThrough)
+
+    def test_unsupported_schema_has_explicit_admission_error_and_preserves_bytes(self):
+        state = self.j.Load("synthetic_world"); state.Version = 2; state.Revision = 1
+        image = self.codec.Encode(state)
+        receipt = SimpleNamespace(Version=1, Revision=1, WorldName="synthetic_world",
+                                  Length=len(image), Hash=self.codec.Digest(image))
+        intent = self.codec.EncodeReceipt(receipt)
+        self.io.files = {"intent-1.json": intent, "image-1.json": image, "commit-1.json": intent}
+        before = dict(self.io.files); logs = []; self.e["Print"] = logs.append
+        self.assertIsNone(self.open().Load("synthetic_world"))
+        self.assertEqual(before, self.io.files)
+        self.assertTrue(any("schema" in line and "admission" in line for line in logs))
+
 
 class NativeJournalEnumerationTests(unittest.TestCase):
     def enumerate(self, rows, valid_handle=True):
@@ -678,6 +796,7 @@ class EventModuleLifecycleTests(unittest.TestCase):
             setattr(cls, name, translate(source, name, env, "HCEventModule", True))
         obj = cls(); obj.m_StartedAt = 100.; obj.m_Session = "synthetic-session"
         obj.m_EventRPC = None; obj.m_Stopping = False; cls.s_Instance = obj
+        obj.m_CleanupAttempts = 0; obj.m_Quarantined = False
         obj.m_Runtime = SimpleNamespace(Tick=lambda ctx:self.calls.append(("tick",ctx)),
             Stop=lambda ctx:(self.calls.append(("stop",ctx)) or True),
             Disconnect=lambda player,ctx:self.calls.append(("disconnect",player,ctx)))
