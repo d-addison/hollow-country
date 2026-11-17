@@ -2,6 +2,12 @@
 Feature: Research tooling preserves honest evidence
   Offline checks validate authored data and never claim DayZ behavior.
 
+  @ISSUE-36 @ISSUE-46
+  Scenario: Respect human AI recovery policy without declaring runtime qualification
+    Given synthetic provider source artifact dependency and human AI recovery declarations
+    When the bounded optional provider audit checks closure fairness and retirement receipts
+    Then reviewed recovery exceptions cannot bypass source pins fairness or runtime qualification
+
   @ISSUE-52 @ISSUE-54
   Scenario: Retain complete utility cohorts without inferring repair compatibility
     Given synthetic complete item recipe and action evidence with repeated source identities

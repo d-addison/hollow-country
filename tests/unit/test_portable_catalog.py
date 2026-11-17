@@ -86,3 +86,13 @@ class PortableCatalogTests(unittest.TestCase):
                 self.assertEqual(plan(catalog, capabilities=caps), expected)
             finally:
                 os.chdir(previous)
+
+    def test_human_ai_recovery_exception_does_not_replace_infected_contract(self):
+        rows = [r for r in self.catalog["tests"] if r["origin"] == "phase2"]
+        terms = ("human pve ai", "built-in stuck recovery", "visible reposition",
+                 "infected/horde", "finite ammunition", "damage", "cleanup")
+        self.assertTrue(any(all(term in r["criterion"].lower() for term in terms)
+                            for r in rows))
+        scope = self.catalog["coverage"]["contract"].get("human_ai_recovery", "")
+        self.assertIn("reviewed provider", scope)
+        self.assertIn("original infected/horde criteria", scope)

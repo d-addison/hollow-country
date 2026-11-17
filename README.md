@@ -134,6 +134,8 @@ AI players and groups are a goal. Native support comes first; a maintained AI
 dependency may be used if needed and suitable. Armed patrols, rescues, escorts and
 convoys are possibilities to evaluate, not confirmed mission types. Navigation,
 combat fairness, performance and permissions determine the supported roster.
+Human AI may use the selected provider's built-in stuck recovery, including
+visible repositioning. This exception does not apply to infected or hordes.
 
 Northmen's public events and map experience are references. Hollow Country will
 use independent work or appropriately permitted dependencies.

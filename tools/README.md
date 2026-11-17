@@ -14,6 +14,7 @@ evidence and do not establish completed gameplay.
 | [Evidence validator](validate/evidence.py) | Capability manifest and artifact admission; see `--help`. |
 | [Repository hygiene](validate/hygiene.py) | Bounded content, rights-notice and documentation-link checks. |
 | [BDD runner](validate/bdd.py) | Executes explicitly bound offline behavioral suites. |
+| [Optional AI provider audit](package/optional_provider.py) | Checks bounded dependency and actor declarations with an explicit policy for reviewed human-AI stuck recovery. No download, installation, artifact verification or runtime qualification. |
 | [Diagnostic mission preparation](setup/diagnostic_mission.py) | Creates a fresh isolated mission for narrow native storage probes. |
 | [Wine compiler probe](setup/wine_compile_probe.py) | Bounded local engine experiment with retained errors and owned-process cleanup; explicit external paths required. |
 | [Actor-free startup control](setup/native_startup_runner.py) | Compares fixed stock-CE and CE-disabled startup modes with correlated lifecycle and real callback receipts; requires explicit execution and isolated paths. |

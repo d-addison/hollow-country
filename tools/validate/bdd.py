@@ -13,6 +13,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Respect human AI recovery policy without declaring runtime qualification": (
+        ("Given synthetic provider source artifact dependency and human AI recovery declarations",
+         "When the bounded optional provider audit checks closure fairness and retirement receipts",
+         "Then reviewed recovery exceptions cannot bypass source pins fairness or runtime qualification"), "test_optional_provider.py"),
     "Retain complete utility cohorts without inferring repair compatibility": (
         ("Given synthetic complete item recipe and action evidence with repeated source identities",
          "When bounded utility indexing retains every admitted class reference and candidate cohort",

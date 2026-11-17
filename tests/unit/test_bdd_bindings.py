@@ -19,6 +19,7 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Respect human AI recovery policy without declaring runtime qualification': 'test_optional_provider.py',
             'Retain complete utility cohorts without inferring repair compatibility': 'test_item_utility.py',
             'Prepare house measurements without inferring room fit or loot eligibility': 'test_interior_measurement_probe.py',
             'Observe bounded owned-process counters without inferring engine liveness': 'test_process_observation.py',

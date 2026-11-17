@@ -23,35 +23,41 @@
     {
       "id": "src-004",
       "path": "docs/specs/001-survival-overhaul/spec.md",
-      "sha256": "870b097cb6a012c158cefe923dcff63948ab5984df5dbb5a6e4120dac8502350",
+      "sha256": "7d4d26924766da98854ac184c45b06c15024d1c2e6861578dc5dc72686eef8f9",
       "required_at_runtime": false
     },
     {
       "id": "src-005",
       "path": "docs/PHASE2_BACKLOG.md",
-      "sha256": "c09e00cac235c525b351c0c8321087a31f32da8c69ca727530bac50538fd0950",
+      "sha256": "d4966a4f8f590215e495e1ce644164856eaf80d7d72bc7272b50b26e53d736e2",
       "required_at_runtime": false
     },
     {
       "id": "src-006",
       "path": "research/phase2-queue-state.json",
-      "sha256": "ec424b1ee32c74f85afa83f2676e587909add87eb4725aeed948f6fc2efd8769",
+      "sha256": "6d72b8a79ecf7e8a9dd460bd2d9578a69036f6c84405eade67d126e6884f927d",
       "required_at_runtime": false
     },
     {
       "id": "src-007",
+      "path": "research/build-action-audit.py",
+      "sha256": "1f41d49a55a689952c469f0cf8ca96ca2f1e7dd56e29bbd210baab13af303b23",
+      "required_at_runtime": false
+    },
+    {
+      "id": "src-008",
       "path": "research/extend-audit-queue.py",
       "sha256": "fc6cce2e2fe98fbbd8206e4e84d0e5019f191920e7efb5905f50dfd9c9ec7060",
       "required_at_runtime": false
     },
     {
-      "id": "src-008",
+      "id": "src-009",
       "path": "research/promote-phase2-issues.py",
       "sha256": "53eb5fb0a3a67ee620b07680433e72cc5bd4b80443eb17b2745cca7533596b04",
       "required_at_runtime": false
     },
     {
-      "id": "src-009",
+      "id": "src-010",
       "path": "research/queue-phase2.py",
       "sha256": "79b4eb88d803dca8f977465efce214e373de39d164b49646866decc8119c9586",
       "required_at_runtime": false
@@ -2553,7 +2559,7 @@
       "id": "P2-DESIGN-001-PART-002",
       "origin": "phase2",
       "scenario": "Phase 2 feature intake",
-      "criterion": "| Item | Confirmed intent | Research and acceptance needed |\n|---|---|---|\n| Deployment scale | Six friends; eventual friend's public server around 90 players | Separate six-player and representative 90-player baselines, capacity, endurance, network and persistence measurements; no extrapolation from zero-client probes |\n| Map/server portability | Aim to work on any map and server | Map-independent core plus explicitly surveyed map adapters, per-build/mod/server matrix, world-specific catalogs and safe unsupported-map behavior. Universal compatibility cannot be claimed from ChernarusPlus alone |\n| Workshop preparation | Prepare installable mod for Steam Workshop | Dependency declarations, reproducible signed packages, versioning/update/rollback, configuration migration, asset/license inventory, compatibility matrix and publication review |\n| New guns | Existing Workshop/available mods only; believable wood-stock and conventional modern firearms appropriate to map, setting and period; no custom gun creation, futuristic/unrealistic weapons or base-building expansion | Shortlist original packages; evaluate dependencies, permissions, ammo/attachment/repair/CE compatibility, sounds/animations and balance. Prefer permitted declared dependencies; do not copy server or Workshop assets without rights |\n| Custom stamina | Extended stamina inspired by the user's preferred Northmen behavior, with a weight bar | Author an independent implementation; specify weight calculation, displayed units/limits, encumbrance, sprint recovery, exhaustion and server authority; test UI scaling, synchronization, persistence and interactions |\n| Groups and interactive map | Northmen as the experience baseline; teammate icons, shared map markers, and M opens an interactive map | Research the current public Northmen experience and permitted dependencies; specify group membership, invitations, permissions, teammate visibility, synchronized markers and input rebinding. Assess enriched map layers and map-specific data without claiming unsupported capabilities |\n| Infected death reactions | Ragdoll or fold on death | Verify actual exposed native physics/death/animation capabilities. Compare supported death animations and collision behavior; measure replication, corpses, loot access and server cost. No promise of unrestricted ragdoll before an engine experiment |\n| PvE AI players/groups | Stronger PvE focus with autonomous player-like groups | Survey native actor/controller/group capabilities and permitted third-party dependencies; define perception, objectives, combat, faction rules, persistence, encounter fairness and 90-player server budgets. Diagnostic test actors alone are not a shipped AI system |\n| Optional PvE missions/events | Activities involving AI groups that players may join or ignore; Northmen events as a research baseline | Research publicly documented event behavior and broader DayZ possibilities, then design original objectives, discovery/participation, encounter lifecycle, difficulty/scaling, rewards, expiry, persistence, cancellation and abuse controls. Preserve opt-out play; do not copy restricted event scripts/assets or assume public descriptions grant reuse rights |\n| Ecology and migration | Infected/animals attracted to water and food areas, with migration | Determine which entities can use native navigation, feeding/drinking or scripted attraction; model observed resources, region capacity, bounded schedules, persistent populations and season/weather influences without omniscient player tracking or unsafe teleport transitions |\n| Native-system expansion | Further useful existing DayZ feature wiring | Inventory installed native interfaces, settings and underused systems; prioritize coherent extensions with vanilla fallbacks, evidence and compatibility/performance gates rather than enabling every exposed hook |\n",
+      "criterion": "| Item | Confirmed intent | Research and acceptance needed |\n|---|---|---|\n| Deployment scale | Small-group qualification at six players; representative server capacity around 90 players | Separate six-player and representative 90-player baselines, capacity, endurance, network and persistence measurements; no extrapolation from zero-client probes |\n| Map/server portability | Aim to work on any map and server | Map-independent core plus explicitly surveyed map adapters, per-build/mod/server matrix, world-specific catalogs and safe unsupported-map behavior. Universal compatibility cannot be claimed from ChernarusPlus alone |\n| Workshop preparation | Prepare installable mod for Steam Workshop | Dependency declarations, reproducible signed packages, versioning/update/rollback, configuration migration, asset/license inventory, compatibility matrix and publication review |\n| New guns | Existing Workshop/available mods only; believable wood-stock and conventional modern firearms appropriate to map, setting and period; no custom gun creation, futuristic/unrealistic weapons or base-building expansion | Shortlist original packages; evaluate dependencies, permissions, ammo/attachment/repair/CE compatibility, sounds/animations and balance. Prefer permitted declared dependencies; do not copy server or Workshop assets without rights |\n| Custom stamina | Extended stamina inspired by the user's preferred Northmen behavior, with a weight bar | Author an independent implementation; specify weight calculation, displayed units/limits, encumbrance, sprint recovery, exhaustion and server authority; test UI scaling, synchronization, persistence and interactions |\n| Groups and interactive map | Northmen as the experience baseline; teammate icons, shared map markers, and M opens an interactive map | Research the current public Northmen experience and permitted dependencies; specify group membership, invitations, permissions, teammate visibility, synchronized markers and input rebinding. Assess enriched map layers and map-specific data without claiming unsupported capabilities |\n| Infected death reactions | Ragdoll or fold on death | Verify actual exposed native physics/death/animation capabilities. Compare supported death animations and collision behavior; measure replication, corpses, loot access and server cost. No promise of unrestricted ragdoll before an engine experiment |\n| PvE AI players/groups | Stronger PvE focus with autonomous player-like groups | Survey native actor/controller/group capabilities and permitted third-party dependencies; define perception, objectives, combat, faction rules, persistence, encounter fairness and 90-player server budgets. Diagnostic test actors alone are not a shipped AI system |\n| Optional PvE missions/events | Activities involving AI groups that players may join or ignore; Northmen events as a research baseline | Research publicly documented event behavior and broader DayZ possibilities, then design original objectives, discovery/participation, encounter lifecycle, difficulty/scaling, rewards, expiry, persistence, cancellation and abuse controls. Preserve opt-out play; do not copy restricted event scripts/assets or assume public descriptions grant reuse rights |\n| Ecology and migration | Infected/animals attracted to water and food areas, with migration | Determine which entities can use native navigation, feeding/drinking or scripted attraction; model observed resources, region capacity, bounded schedules, persistent populations and season/weather influences without omniscient player tracking or unsafe teleport transitions |\n| Native-system expansion | Further useful existing DayZ feature wiring | Inventory installed native interfaces, settings and underused systems; prioritize coherent extensions with vanilla fallbacks, evidence and compatibility/performance gates rather than enabling every exposed hook |\n",
       "modes": [
         "engine",
         "server",
@@ -2643,7 +2649,7 @@
       "id": "P2-DESIGN-002",
       "origin": "phase2",
       "scenario": "Groups and interactive map: design intake",
-      "criterion": "Requested 2026-11-16. M must open a pannable, zoomable, interactive map by default,\nwith a rebindable action that respects chat, menus and conflicting mod inputs.\nProvide teammate identification icons and group-shared map markers. Northmen is\nthe requested usability baseline; its exact current UI, dependency and settings\nneed verification rather than inference from unrelated map products.\nTrack this work in [issue #37](https://github.com/d-addison/hollow-country/issues/37).\n\nCandidate enrichment includes named/color-coded waypoints, rally points, marker\nnotes and expiry, distance/bearing, an optional grid/coordinates layer, discovered\npoints of interest, and announced or accepted mission locations. Consider weather\nor hazard advisories only when backed by an actual server information source.\nDistinguish static geographic data, player discoveries, player-created markers and\nserver announcements. Do not expose hidden enemies, unknown loot or undiscovered\nmission state through a map layer.\n\nConfirmed: teammate icons appear both on the map and in-world, with server\nconfiguration for visibility. The next spec must resolve distance/occlusion rules;\nwhether position requires GPS/radio equipment;\nwhether the map requires a carried item; group size and roles; marker ownership;\nand membership/marker persistence across death and restarts. These choices are\nopen, not implied by the request. Source remains private/all rights reserved.\n\nRequired scenarios before implementation:\n\n- M opens/closes the map; pan, zoom, marker editing, rebinding and UI scaling work\n  without trapping movement input or stealing typed chat.\n- Authorized group members receive marker changes; outsiders and removed members\n  cannot obtain subsequent private marker or teammate-position updates.\n- Concurrent marker edits, reconnects, leader changes and restarts follow explicit\n  ownership and conflict rules without duplication or stale membership access.\n- Each supported map transforms world/map coordinates correctly; unsupported\n  layers disable cleanly. ChernarusPlus coverage does not prove other maps.\n- Position updates and marker traffic stay within measured budgets at the\n  six-player and representative 90-player targets; stale data is labeled clearly.\n- Mission layers honor discovery, participation and cancellation policies and\n  never reveal private group objectives to unrelated players.\n\nThe user's following “yes” lacked its referenced question. The user then asked\nto continue without resolving it; no dependency authorization or gameplay policy\ndecision is inferred from that answer.\n\nConfirmed AI dependency policy: native first; a maintained AI dependency is allowed\nif required, subject to applicable permissions, compatibility, performance and\noperational review. This does not grant rights to copy third-party assets.\n\nAll 31 open original/Phase 2 issues are triaged into the\n[execution program #39](https://github.com/d-addison/hollow-country/issues/39),\nten ordered batch issues #40–49, and final consolidated user session #50.\nInternal automation/native qualification runs throughout; user connection is\nplanned once at the end, after readiness criteria are met. Missing independent\nclient/load evidence or unsupported capability decisions block relevant claims.",
+      "criterion": "Requested 2026-11-16. M must open a pannable, zoomable, interactive map by default,\nwith a rebindable action that respects chat, menus and conflicting mod inputs.\nProvide teammate identification icons and group-shared map markers. Northmen is\nthe requested usability baseline; its exact current UI, dependency and settings\nneed verification rather than inference from unrelated map products.\nTrack this work in [issue #37](https://github.com/d-addison/hollow-country/issues/37).\n\nCandidate enrichment includes named/color-coded waypoints, rally points, marker\nnotes and expiry, distance/bearing, an optional grid/coordinates layer, discovered\npoints of interest, and announced or accepted mission locations. Consider weather\nor hazard advisories only when backed by an actual server information source.\nDistinguish static geographic data, player discoveries, player-created markers and\nserver announcements. Do not expose hidden enemies, unknown loot or undiscovered\nmission state through a map layer.\n\nConfirmed: teammate icons appear both on the map and in-world, with server\nconfiguration for visibility. The next spec must resolve distance/occlusion rules;\nwhether position requires GPS/radio equipment;\nwhether the map requires a carried item; group size and roles; marker ownership;\nand membership/marker persistence across death and restarts. These choices are\nopen, not implied by the request. Source remains private/all rights reserved.\n\nRequired scenarios before implementation:\n\n- M opens/closes the map; pan, zoom, marker editing, rebinding and UI scaling work\n  without trapping movement input or stealing typed chat.\n- Authorized group members receive marker changes; outsiders and removed members\n  cannot obtain subsequent private marker or teammate-position updates.\n- Concurrent marker edits, reconnects, leader changes and restarts follow explicit\n  ownership and conflict rules without duplication or stale membership access.\n- Each supported map transforms world/map coordinates correctly; unsupported\n  layers disable cleanly. ChernarusPlus coverage does not prove other maps.\n- Position updates and marker traffic stay within measured budgets at the\n  six-player and representative 90-player targets; stale data is labeled clearly.\n- Mission layers honor discovery, participation and cancellation policies and\n  never reveal private group objectives to unrelated players.\n\nThe user's following “yes” lacked its referenced question. The user then asked\nto continue without resolving it; no dependency authorization or gameplay policy\ndecision is inferred from that answer.\n\nConfirmed AI dependency policy: native first; a maintained AI dependency is allowed\nif required, subject to applicable permissions, compatibility, performance and\noperational review. This does not grant rights to copy third-party assets.",
       "modes": [
         "engine",
         "server",
@@ -2683,6 +2689,48 @@
     },
     {
       "id": "P2-DESIGN-003",
+      "origin": "phase2",
+      "scenario": "Human PvE AI recovery policy",
+      "criterion": "Confirmed user decision: human PvE AI may use the reviewed provider's built-in\nstuck recovery, including a visible reposition of an AI. This is a narrow\nexception for built-in stuck recovery in the reviewed human provider, not\narbitrary Hollow Country relocation. Original infected/horde movement and\nvisibility criteria remain unchanged. Retain finite ammunition, ordinary damage,\nobserver-aware cleanup, permissions, exact artifact/build compatibility and\nmeasured capacity. Source/artifact declarations do not establish native acceptance.\n\nAll 31 open original/Phase 2 issues are triaged into the\n[execution program #39](https://github.com/d-addison/hollow-country/issues/39),\nten ordered batch issues #40–49, and final consolidated user session #50.\nInternal automation/native qualification runs throughout; user connection is\nplanned once at the end, after readiness criteria are met. Missing independent\nclient/load evidence or unsupported capability decisions block relevant claims.",
+      "modes": [
+        "engine",
+        "server",
+        "client-pair",
+        "measurement",
+        "human-judgment"
+      ],
+      "requires": [
+        "pinned_inputs",
+        "signed_package",
+        "qualified_scenario_driver",
+        "native_state_capture",
+        "dayzdiag",
+        "normal_server",
+        "licensed_authenticated_rendered_client_pair",
+        "synchronized_client_capture",
+        "qualified_measurement",
+        "criterion_reviewer",
+        "recorded_scope_decisions",
+        "rights_review",
+        "qualified_map_adapter",
+        "separate_six_and_ninety_player_load",
+        "validated_policy_bounds"
+      ],
+      "assertions": [
+        "UNRESOLVED: qualify a criterion-specific observable oracle and bind fresh attempt evidence before evaluating acceptance."
+      ],
+      "evidence_requirements": [
+        "fresh_attempt_identity",
+        "hashed_observations",
+        "pinned_build_and_input_identity",
+        "package_identity",
+        "native_outcomes",
+        "two_independent_simultaneous_rendered_client_observations"
+      ],
+      "related_ids": []
+    },
+    {
+      "id": "P2-DESIGN-004",
       "origin": "phase2",
       "scenario": "Optional AI missions and events: research brief",
       "criterion": "Requested explicitly on 2026-11-16. This is Phase 2 design intake, not a claim\nthat the mission director or combat AI exists. Track implementation through\n[issue #33](https://github.com/d-addison/hollow-country/issues/33), with AI-group\ncapabilities tracked separately in issue #36.",
@@ -2724,7 +2772,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-004",
+      "id": "P2-DESIGN-005",
       "origin": "phase2",
       "scenario": "Public baseline",
       "criterion": "Northmen's [Chernarus guide](https://thenorthmendayz.com/chernarus-guide/)\ndescribes radio-discovered survivor missions, airdrops and dynamic wreck/event\nlocations. Its [March 2026 notes](https://thenorthmendayz.com/patch-notes-march-26/)\ndescribe delivery and bear-hunt missions and adjustments to event lifetimes and\nloot frequency. These are observations of published player-facing behavior,\naccessed 2026-11-16; settings differ by map and date. They do not establish that\nNorthmen uses autonomous human AI, nor expose its implementation or grant reuse\nrights. Author independent content and verify every dependency's permissions.\n\nIndependent research against installed 1.30.164289 scripts found native group,\nagent membership, infected-pack waypoint and navigation interfaces in\n`3_Game/AI/AIWorld.c` and `AIGroupBehaviour.c`. These are prototype candidates,\nnot proof of reliable armed human squads. `SpawnDE`/`SpawnDEEx` in\n`3_Game/CE/CentralEconomy.c` are diagnostic/developer tools; force-spawning there\nmust not become the production mission contract or bypass CE limits/avoidance.\nUse genuine map surveys and supported production lifecycle interfaces instead.",
@@ -2766,7 +2814,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-005",
+      "id": "P2-DESIGN-006",
       "origin": "phase2",
       "scenario": "Candidate mission families",
       "criterion": "| Family | Example player choice | Feasibility gate before commitment |\n|---|---|---|\n| Recovery and delivery | Follow a radio clue, recover medical supplies, deliver or abandon them | Native item ownership, condition/count checks, delivery transactions and restart-safe rewards |\n| Search and rescue | Locate stranded survivors and provide supplies or extraction | Human AI navigation, following, safe destinations and disconnect recovery |\n| Patrol encounters | Avoid, observe, negotiate with or engage a faction patrol | Perception, faction policy, combat, pathing and bounded pursuit; no omniscient tracking |\n| Defend and evacuate | Volunteer to protect a temporary aid station until evacuation | Wave budgets, spawn safety, cancellation and participant departure |\n| Reconnaissance and investigation | Discover a missing patrol's trail and choose whether to recover evidence | World clues and objective validation without requiring universal GPS markers |\n| Wildlife and ecology | Investigate an unusual migration or protect a water/food site | Actual supported animal behavior, regional ecology budget and conservation rules |\n| Supply drops and salvage | Investigate a drop or wreck with optional AI presence | Native CE integration, loot budget, safe placement and lifecycle ownership |\n| Convoy operations | Recover a stranded convoy first; consider moving escorts later | Static wrecks are distinct from navigable AI vehicles; driving and replication need a separate native prototype |\n| Short branching chains | A recovered radio opens alternative aid or faction objectives | Versioned mission state, clear outcomes, bounded chain length and repeatable tests |\n\nPrioritize recovery/delivery, investigation and static salvage for a first slice.\nTreat combat patrols, rescue/escort and moving convoys as progressively higher\nuncertainty work. A diagnostic unconnected actor is not proof of production AI.",
@@ -2808,10 +2856,10 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-006",
+      "id": "P2-DESIGN-007",
       "origin": "phase2",
       "scenario": "Requirements for the next gameplay spec",
-      "criterion": "- Participation is voluntary: discover through configurable radio, clues or\n  notices; accept, ignore or abandon without progression penalties. Define\n  ambient physical danger separately from mission enrollment; a nearby fight\n  can still affect a passerby. Interview whether this is acceptable before\n  promising that ignoring missions makes players immune to their effects.\n- Support solo and six-friend play as well as a separately measured 90-player\n  destination. Population thresholds and concurrent encounters are configurable;\n  do not inherit Northmen's public-server thresholds for a small private group.\n- A server-authoritative director owns a bounded lifecycle: proposed, announced,\n  active, resolving, completed/failed/expired/cancelled, cleanup. Define whether\n  acceptance reserves an objective, shares it, or allows competition.\n- Store versioned mission IDs, participants, objectives, spawned-entity ownership,\n  deadlines and reward claims. Reconnects and restarts must not duplicate rewards,\n  resurrect finished encounters or delete player-owned property.\n- Use map adapters with surveyed locations, navigable routes and exclusion zones.\n  Unsupported locations or maps disable the affected content safely. Test claimed\n  map support explicitly; ChernarusPlus is the first candidate.\n- Separate factions, objectives and AI providers so combat AI can be disabled or\n  replaced without rewriting delivery and investigation missions. No base-building\n  dependency is required by this brief.\n- Budget active actors, spawned items, scheduled work, navigation retries, network\n  traffic and cleanup. Pause new encounters under load; do not silently despawn\n  visible actors or loot in a player's hands. Measure thresholds before setting\n  production defaults.\n- Protect rewards against repeated activation, simultaneous completion, disconnect\n  races, nested-container counting and restart replay. Integrate rewards with the\n  server economy rather than introducing unlimited military loot.",
+      "criterion": "- Participation is voluntary: discover through configurable radio, clues or\n  notices; accept, ignore or abandon without progression penalties. Define\n  ambient physical danger separately from mission enrollment; a nearby fight\n  can still affect a passerby. Interview whether this is acceptable before\n  promising that ignoring missions makes players immune to their effects.\n- Support solo and six-player sessions as well as a separately measured 90-player\n  destination. Population thresholds and concurrent encounters are configurable;\n  do not inherit Northmen's public-server thresholds for a small private group.\n- A server-authoritative director owns a bounded lifecycle: proposed, announced,\n  active, resolving, completed/failed/expired/cancelled, cleanup. Define whether\n  acceptance reserves an objective, shares it, or allows competition.\n- Store versioned mission IDs, participants, objectives, spawned-entity ownership,\n  deadlines and reward claims. Reconnects and restarts must not duplicate rewards,\n  resurrect finished encounters or delete player-owned property.\n- Use map adapters with surveyed locations, navigable routes and exclusion zones.\n  Unsupported locations or maps disable the affected content safely. Test claimed\n  map support explicitly; ChernarusPlus is the first candidate.\n- Separate factions, objectives and AI providers so combat AI can be disabled or\n  replaced without rewriting delivery and investigation missions. No base-building\n  dependency is required by this brief.\n- Budget active actors, spawned items, scheduled work, navigation retries, network\n  traffic and cleanup. Pause new encounters under load; do not silently despawn\n  visible actors or loot in a player's hands. Measure thresholds before setting\n  production defaults.\n- Protect rewards against repeated activation, simultaneous completion, disconnect\n  races, nested-container counting and restart replay. Integrate rewards with the\n  server economy rather than introducing unlimited military loot.",
       "modes": [
         "engine",
         "server",
@@ -2850,7 +2898,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-007",
+      "id": "P2-DESIGN-008",
       "origin": "phase2",
       "scenario": "Required TDD / SDD / BDD evidence",
       "criterion": "Write executable scenarios before each implementation slice. At minimum:\n\n1. Given a survivor ignores an announcement, ordinary survival remains playable\n   and no mission failure penalty is applied to that survivor.\n2. Given two eligible groups complete simultaneously, configured ownership and\n   sharing rules determine rewards exactly once per authorized claim.\n3. Given a restart at each lifecycle boundary, recovery preserves valid progress\n   or safely cancels it without duplicate rewards or orphaned entities.\n4. Given all participants abandon or disconnect, expiry and cleanup follow the\n   configured policy without deleting their inventory or vehicles.\n5. Given an invalid map location, blocked route or exhausted AI budget, the\n   encounter is rejected or safely cancelled with a recorded reason.\n6. Given six-player and representative 90-player workloads, measure director,\n   actor, persistence and replication cost independently; synthetic actors do\n   not stand in for licensed connected-client evidence.\n7. Given replayed objective messages, invalid item counts or unauthorized claims,\n   the server rejects them and leaves authoritative state consistent.\n\nOpen design choices for the Phase 2 interview: ambient versus strictly enrolled\nencounters; cooperative versus contested objectives; radio-only versus optional\nmap markers; consequences of death; reward style; faction hostility; persistence\nduration; and permission to depend on an external AI framework. Keep these open\nuntil their answers are needed, without interrupting current validation work.",
@@ -2892,7 +2940,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-008",
+      "id": "P2-DESIGN-009",
       "origin": "phase2",
       "scenario": "Improvised flashlight mounts — confirmed scope",
       "criterion": "Use duct tape to mount a flashlight on suitable guns, backpacks and helmets\n(#56, batch #43). Audit all relevant native and selected dependency classes;\nrecord a complete supported combination matrix and evidence for exclusions.\nExisting proxies, model geometry, native power systems and switching come first.\n\nConfirmed removal rule: players remove the light by hand, without a knife or\nother tool. Tape is consumed and never recovered; mounting again requires fresh\ntape. Preserve the original light, battery, host identity and their condition.\nDo not introduce a duplicate light, battery or reusable tape through removal.\nDetermine tape quantity/wear through the item audit and balance tests.\n\nAcceptance includes server-authoritative assembly/removal, valid attachment\nposition and beam, battery consumption, switch controls, damage/ruin/water,\nheld/worn/dropped and stored states, interruption, concurrent requests, full\ninventory/ground fallback, reconnect/restart, replicated presentation and bounded\ncost. A working pilot is a checkpoint; the full justified scope must be covered.\nGiven repeated mount/remove cycles, the light and battery remain conserved and\nevery remount spends fresh tape. Given no knife, removal still works by hand.\nGiven cancellation or competing requests, the final state cannot duplicate\nitems or refund consumed tape. Native metadata alone does not establish geometry\nor gameplay compatibility; runtime checks and two clients remain required.\n\nSee [ADR-018](adr/ADR-018-autonomous-testing-public-destination.md) for the\ndestination/testing decision and [original task ledger](specs/001-survival-overhaul/tasks.md)\nfor current completion status.",
@@ -5102,7 +5150,7 @@
       "criteria": "verbatim table cells"
     },
     "extensions": {
-      "mapped_count": 61,
+      "mapped_count": 62,
       "status": "source intake only; executable coverage unresolved",
       "limitations": [
         "Candidates/open choices are not commitments.",
@@ -5127,7 +5175,7 @@
         },
         "56": {
           "test_ids": [
-            "P2-DESIGN-008",
+            "P2-DESIGN-009",
             "P2-PROGRAM-017",
             "P2-PROGRAM-018",
             "P2-PROGRAM-019",
@@ -5762,342 +5810,348 @@
       "P2-DESIGN-003": [
         {
           "source": "src-005",
-          "line": 83
+          "line": 76
         }
       ],
       "P2-DESIGN-004": [
         {
           "source": "src-005",
-          "line": 90
+          "line": 93
         }
       ],
       "P2-DESIGN-005": [
         {
           "source": "src-005",
-          "line": 109
+          "line": 100
         }
       ],
       "P2-DESIGN-006": [
         {
           "source": "src-005",
-          "line": 127
+          "line": 119
         }
       ],
       "P2-DESIGN-007": [
         {
           "source": "src-005",
-          "line": 157
+          "line": 137
         }
       ],
       "P2-DESIGN-008": [
         {
           "source": "src-005",
-          "line": 183
+          "line": 167
+        }
+      ],
+      "P2-DESIGN-009": [
+        {
+          "source": "src-005",
+          "line": 193
         }
       ],
       "P2-PROGRAM-001": [
         {
-          "source": "src-007",
+          "source": "src-008",
           "selector": "crafting_audit"
         }
       ],
       "P2-PROGRAM-002": [
         {
-          "source": "src-007",
+          "source": "src-008",
           "selector": "fuel_siphoning"
         }
       ],
       "P2-PROGRAM-003": [
         {
-          "source": "src-007",
+          "source": "src-008",
           "selector": "full_feature_audits"
         }
       ],
       "P2-PROGRAM-004": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B00"
         }
       ],
       "P2-PROGRAM-005": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B00"
         }
       ],
       "P2-PROGRAM-006": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B00"
         }
       ],
       "P2-PROGRAM-007": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B00"
         }
       ],
       "P2-PROGRAM-008": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B00"
         }
       ],
       "P2-PROGRAM-009": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B01"
         }
       ],
       "P2-PROGRAM-010": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B01"
         }
       ],
       "P2-PROGRAM-011": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B01"
         }
       ],
       "P2-PROGRAM-012": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B01"
         }
       ],
       "P2-PROGRAM-013": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B02"
         }
       ],
       "P2-PROGRAM-014": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B02"
         }
       ],
       "P2-PROGRAM-015": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B02"
         }
       ],
       "P2-PROGRAM-016": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B02"
         }
       ],
       "P2-PROGRAM-017": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B03"
         }
       ],
       "P2-PROGRAM-018": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B03"
         }
       ],
       "P2-PROGRAM-019": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B03"
         }
       ],
       "P2-PROGRAM-020": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B03"
         }
       ],
       "P2-PROGRAM-021": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B03"
         }
       ],
       "P2-PROGRAM-022": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B03"
         }
       ],
       "P2-PROGRAM-023": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B04"
         }
       ],
       "P2-PROGRAM-024": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B04"
         }
       ],
       "P2-PROGRAM-025": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B04"
         }
       ],
       "P2-PROGRAM-026": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B04"
         }
       ],
       "P2-PROGRAM-027": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B04"
         }
       ],
       "P2-PROGRAM-028": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B05"
         }
       ],
       "P2-PROGRAM-029": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B05"
         }
       ],
       "P2-PROGRAM-030": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B05"
         }
       ],
       "P2-PROGRAM-031": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B05"
         }
       ],
       "P2-PROGRAM-032": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B05"
         }
       ],
       "P2-PROGRAM-033": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B06"
         }
       ],
       "P2-PROGRAM-034": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B06"
         }
       ],
       "P2-PROGRAM-035": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B06"
         }
       ],
       "P2-PROGRAM-036": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B06"
         }
       ],
       "P2-PROGRAM-037": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B06"
         }
       ],
       "P2-PROGRAM-038": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B07"
         }
       ],
       "P2-PROGRAM-039": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B07"
         }
       ],
       "P2-PROGRAM-040": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B07"
         }
       ],
       "P2-PROGRAM-041": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B07"
         }
       ],
       "P2-PROGRAM-042": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B08"
         }
       ],
       "P2-PROGRAM-043": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B08"
         }
       ],
       "P2-PROGRAM-044": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B08"
         }
       ],
       "P2-PROGRAM-045": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B08"
         }
       ],
       "P2-PROGRAM-046": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B08"
         }
       ],
       "P2-PROGRAM-047": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B09"
         }
       ],
       "P2-PROGRAM-048": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B09"
         }
       ],
       "P2-PROGRAM-049": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B09"
         }
       ],
       "P2-PROGRAM-050": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B09"
         }
       ],
       "P2-PROGRAM-051": [
         {
-          "source": "src-009",
+          "source": "src-010",
           "selector": "B09"
         }
       ],
@@ -6132,6 +6186,7 @@
       "acceptance": "All assertions unresolved; availability never implies PASS.",
       "client_pair": "Two independent licensed authenticated simultaneous rendered clients; installed Steam/accounts/bots do not qualify.",
       "native": "Missing qualified providers block claims; no spawn/delete/teleport workaround or CanAbstract/CanMaterialize enablement.",
+      "human_ai_recovery": "Explicit user exception: built-in stuck recovery, including visible repositioning, is allowed only for the reviewed provider's human PvE AI; original infected/horde criteria and other fairness gates remain unchanged.",
       "bounds": "Validate caller policy; no guessed production distances/times. Missing/stale inputs, NaN and clock rollback fail closed.",
       "portability": "Embedded criteria; source paths are provenance only."
     }

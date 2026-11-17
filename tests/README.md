@@ -54,6 +54,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | [Interiors contracts](unit/test_interiors_contract.py) | Restricted scalar authored policies and source invariants; no native placement/transaction proof. |
 | [Infected contracts](unit/test_infected_contract.py) | Restricted scalar authored policies, finite budgets and source invariants; no AI/audio/runtime proof. |
 | [Package behavior](unit/test_package.py) | Deterministic containers, path/allowlist validation and signature command contracts; no native signature acceptance. |
+| [Optional AI provider](unit/test_optional_provider.py) | Pinned dependency declarations, effective finite-ammunition/damage policy, bounded observer retirement receipts and an explicit exception for reviewed human-AI stuck recovery; no installed provider or authenticated evidence. |
 | [Economy contracts](unit/test_economy_contract.py) | Synthetic profile/delta generation, isolated install and rollback; no effective CE merge/eligibility proof. |
 | [CE candidates](unit/test_coverage_patch.py) | Hash-pinned synthetic geometry exports, minimal changes, encoding and point validation. |
 | [Deployment](unit/test_deploy.py) | Real disposable filesystem transactions, process interruption, upgrade, recovery, drift refusal and byte-exact rollback; four executable deployment BDD scenarios. |
