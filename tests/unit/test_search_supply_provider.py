@@ -173,7 +173,7 @@ class RegistryFactory(Static):
     def __call__(self):
         return Registry(self._rt, m_Entries=EArray(), m_SourceId='', m_SourcePin='', m_WorldName='',
                         m_Build='', m_Opened=False, m_Sealed=False, m_Transferring=False,
-                        m_RetirePending=False, m_Owner=None)
+                        m_RetirePending=False, m_Owner=None, m_Lazy=False)
 
 
 def read(name):

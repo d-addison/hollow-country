@@ -30,6 +30,10 @@ class HCSearchSupplyRegistry
     protected bool m_Transferring;
     // Retire() arrived while a transfer was in flight; applied when it completes.
     protected bool m_RetirePending;
+    // Lazy house registry (HCSearchHouses): never sealed into an economy, never listed in
+    // s_Registries, so it cannot block or be blocked by the pilot lifecycle. Handles are
+    // still unique process-wide through s_Registered.
+    protected bool m_Lazy;
     // The economy this registry was sealed into (weak: the economy owns the registry).
     protected HCSearchEconomy m_Owner;
 
@@ -76,6 +80,43 @@ class HCSearchSupplyRegistry
         return true;
     }
 
+    // Same source pin, world and build checks as BindSource, without the single-lifecycle
+    // claim. Used only by the lazy per-house search service.
+    bool BindLazySource(string sourceId, string sourcePin, string worldName, string build)
+    {
+        if (m_Opened || m_Sealed || !GetGame().IsServer() || !GetCEApi()) return false;
+        if (!HCSearchRules.TextValid(sourceId, 128) || !HCSearchRules.PinValid(sourcePin)) return false;
+        string actualBuild;
+        GetGame().GetVersion(actualBuild);
+        if (!HCBuildIdentity.SameWorld(GetGame().GetWorldName(), worldName)) return false;
+        if (!HCBuildIdentity.Matches(actualBuild) || !HCBuildIdentity.Matches(build)) return false;
+        m_SourceId = sourceId;
+        m_SourcePin = sourcePin;
+        m_WorldName = HCBuildIdentity.CanonicalWorld(worldName);
+        m_Build = HCBuildIdentity.Canonical();
+        m_Opened = true;
+        m_Lazy = true;
+        Print("[HC Search Economy] lazy house registry provenance is caller-attested; not stock CE qualification");
+        return true;
+    }
+
+    // Release ONE handle (house LRU release). Refused while a transfer is in flight.
+    // Touches no entity and no journal; depletion stays journaled.
+    bool Forget(string supplyId)
+    {
+        if (!m_Lazy || m_Transferring) return false;
+        HCSearchOwnedSupply supply = Find(supplyId);
+        if (!supply) return true;
+        if (supply.ItemHandle)
+        {
+            int listed = s_Registered.Find(supply.ItemHandle);
+            if (listed >= 0) s_Registered.Remove(listed);
+        }
+        int position = m_Entries.Find(supply);
+        if (position >= 0) m_Entries.Remove(position);
+        return true;
+    }
+
     bool ReadyFor(HCSearchManifest manifest)
     {
         if (!m_Opened || !manifest || !GetGame().IsServer() || !GetCEApi()) return false;
@@ -96,6 +137,7 @@ class HCSearchSupplyRegistry
     // untouched, so consumed or quarantined sites stay terminal on rebind.
     bool Owning()
     {
+        if (m_Lazy) return m_Opened;
         if (!m_Opened || !m_Sealed || !m_Owner) return false;
         return m_Owner.Serving();
     }

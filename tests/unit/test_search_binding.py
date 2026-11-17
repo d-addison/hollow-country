@@ -114,6 +114,7 @@ class VM:
             HCSearchBinding=N(PlacementComplete=lambda *args: self.call('HCSearchBinding', 'PlacementComplete', N(), *args)),
             HCInteriorsModule=N(Get=lambda: self.interior),
             HCSearchSupplyProvider=lambda: N(Prepare=self.prepare, Abandon=self.abandon),
+            HCSearchHouses=lambda: N(Start=lambda settings: True, Stop=lambda: None),
             HCSearchSiteVolume=lambda: N(Classes=EArray()),
             HCInteriorSearchContext=lambda: N(Items=EArray(), GroupId=''),
             HCSearchBindingReview=lambda: N(Volume=None, Context=None),

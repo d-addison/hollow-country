@@ -115,6 +115,9 @@ class HCSearchBinding : HCModule
     protected ref HCInteriorManifest m_Manifest;
     protected ref array<ref HCInteriorSite> m_Sites;
     protected ref HCSearchSupplyProvider m_Provider;
+    // Lazy House search (contract section 8). Started and stopped with this module so it never
+    // needs an extra HCModuleRegistry slot; it does nothing until a valid House search start.
+    protected ref HCSearchHouses m_Houses;
     protected ref array<ref HCSearchSiteVolume> m_Volumes = new array<ref HCSearchSiteVolume>;
     protected ref array<ref HCInteriorSearchContext> m_Contexts = new array<ref HCInteriorSearchContext>;
 
@@ -135,7 +138,16 @@ class HCSearchBinding : HCModule
         m_Started = true;
         m_Settings = settings;
         m_Provider = new HCSearchSupplyProvider;
+        m_Houses = new HCSearchHouses;
+        m_Houses.Start(settings);
         s_Instance = this;
+    }
+
+    // The running House search service, or null when this module is stopped or never started.
+    static HCSearchHouses Houses()
+    {
+        if (!s_Instance || s_Instance.m_Stopped) return null;
+        return s_Instance.m_Houses;
     }
 
     // Called once by interiors after its synchronous placement pass and readiness.
@@ -254,6 +266,11 @@ class HCSearchBinding : HCModule
     {
         m_Stopped = true;
         Finish("");
+        if (m_Houses)
+        {
+            m_Houses.Stop();
+            m_Houses = null;
+        }
         m_Settings = null;
         if (s_Instance == this) s_Instance = null;
     }

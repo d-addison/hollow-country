@@ -20,7 +20,7 @@ class SearchNativeTests(unittest.TestCase):
         self.actor=N(IsAlive=lambda:True,IsUnconscious=lambda:False,GetPosition=lambda:[0,0,0])
         self.actor.GetIdentity=lambda:N(GetId=lambda:'actor',GetPlayer=lambda:self.actor)
         self.actor.GetInventory=lambda:N(FindFreeLocationFor=self.destination,TakeToDst=self.take)
-        self.port=N(m_Opened=True,m_Sealed=False,m_Transferring=False,m_RetirePending=False,m_Owner=None,m_Entries=EArray())
+        self.port=N(m_Opened=True,m_Sealed=False,m_Transferring=False,m_RetirePending=False,m_Owner=None,m_Lazy=False,m_Entries=EArray())
         self.env={'str':str,'GetGame':lambda:N(IsServer=lambda:True),'GetCEApi':lambda:object(),
                   'InventoryLocation':Location,'InventoryLocationType':N(GROUND=0,CARGO=2),
                   'FindInventoryLocationType':N(CARGO=2),'InventoryMode':N(SERVER=1),
