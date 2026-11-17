@@ -5,11 +5,14 @@ function does not perform that validation. Config/script ancestry, observed slot
 tokens and gameplay eligibility are distinct; no pair is accepted or rejected
 as gameplay compatible. Non-candidates remain in the class denominator.
 """
+import argparse
 from collections import Counter
 import hashlib
 import json
 import math
+from pathlib import Path
 import re
+import sys
 
 MAX_ROWS = 16384
 MAX_FIELDS = 96
@@ -244,3 +247,217 @@ def build_matrix(rows, provenance):
                          "input_bytes": MAX_INPUT_BYTES, "output_bytes": MAX_OUTPUT_BYTES}}
     _digest(result, MAX_OUTPUT_BYTES)
     return result
+
+
+# ---------------------------------------------------------------------------
+# Host / light classification (config evidence only; geometry stays unobserved)
+# ---------------------------------------------------------------------------
+
+CLASSIFICATION_KIND = "flashlight_host_light_classification"
+# CfgSlots names found as attachments[]/inventorySlot[] tokens in the private
+# native-035 capture: weapons carry weaponFlashlight/pistolFlashlight, one helmet
+# carries helmetFlashlight, UniversalLight/TLRLight carry the matching inventory slots.
+NATIVE_LIGHT_SLOTS = ("helmetFlashlight", "pistolFlashlight", "weaponFlashlight")
+PROBE_CONTROL_LIGHT = "Flashlight"
+_FLAME_FAMILY = frozenset(("torch", "chemlight_colorbase", "roadflare", "portablegaslamp", "blowtorch"))
+_TEST_NAME = re.compile(r"(?:^|_)test(?:bed)?(?:$|_)", re.I)
+_BASE_NAME = re.compile(r"(?:^|_)base$|[a-z0-9]Base$")
+
+
+def _text_value(field):
+    if not _captured(field) or field.get("ReadAs") != "text" or field.get("ConfigTypeName") != "CT_STRING":
+        return None
+    value = field.get("ValueText")
+    return value if type(value) is str and len(value) <= 512 else None
+
+
+def _number_value(field):
+    if not _captured(field) or field.get("ReadAs") != "number":
+        return None
+    key = {"CT_INT": "ValueInt", "CT_FLOAT": "ValueFloat"}.get(field.get("ConfigTypeName"))
+    value = field.get(key) if key else None
+    return value if type(value) in (int, float) else None
+
+
+def _common_exclusions(entry):
+    """Reasons shared by hosts and lights; every applicable one is kept."""
+    reasons = []
+    fields = {f["ConfigPath"].casefold(): f for f in entry["metadata"]}
+    scope = entry["scope"]
+    if scope is None:
+        reasons.append("scope_unreadable")
+    elif scope < 2:
+        reasons.append("scope_below_2")
+    if _BASE_NAME.search(entry["name"]):
+        reasons.append("base_class_name")
+    if "ruined" in entry["name"].casefold():
+        reasons.append("ruined_variant")
+    if _TEST_NAME.search(entry["name"]):
+        reasons.append("test_variant")
+    model = _text_value(fields.get("model"))
+    if model is None:
+        reasons.append("model_unreadable")
+    elif not model.strip():
+        reasons.append("model_empty")
+    return reasons
+
+
+def _host_record(entry):
+    role = next(r for r in HOST_ROLES if r in entry["roles"])
+    slots = sorted(set(entry["attachment_tokens"]) & set(NATIVE_LIGHT_SLOTS))
+    reasons = _common_exclusions(entry)
+    if "light_candidate" in entry["roles"]:
+        reasons.append("energy_device_not_a_host")
+    if role == "ambiguous_equipment_candidate":
+        reasons.append("no_host_category")
+    group = "excluded" if reasons else ("slot_host" if slots else "no_slot_host")
+    return {"id": entry["id"], "root": entry["root"], "name": entry["name"], "role": role,
+            "group": group, "native_light_slots": slots, "scope": entry["scope"],
+            "exclusion_reasons": sorted(reasons)}
+
+
+def _energy_model(entry):
+    attachments = entry["attachment_tokens"]
+    fields = {f["ConfigPath"].casefold(): f for f in entry["metadata"]}
+    if any(token.startswith("Battery") for token in attachments):
+        return "battery_slot"
+    if "GasCanister" in attachments:
+        return "fuel_canister"
+    if "Rags" in attachments:
+        return "rags_fuel"
+    if _number_value(fields.get("energymanager convertenergytoquantity")):
+        return "consumed_charge"
+    if _number_value(fields.get("energymanager plugtype")) == 2 or "energymanager cordlength" in fields:
+        return "mains_cord"
+    return "unclassified"
+
+
+def _light_record(entry):
+    family = {v.casefold() for v in entry["config_ancestors"] + [entry["name"]]}
+    slots = sorted(set(entry["inventory_slot_tokens"]) & set(NATIVE_LIGHT_SLOTS))
+    reasons = _common_exclusions(entry)
+    if entry["name"].casefold() == "raycaster":
+        reasons.append("raycaster_tool_not_a_light")
+    if reasons:
+        group = "excluded"
+    elif slots:
+        group = "mount_light"
+    elif "headtorch_colorbase" in family:
+        group = "worn_light"
+    elif family & _FLAME_FAMILY:
+        group = "flame_or_chemical_light"
+    elif "spotlight" in family:
+        group = "mains_light"
+    elif "flashlight" in family:
+        group = "handheld_battery_light"
+    else:
+        group = "energy_device_not_light"
+    role = ""
+    if group == "mount_light":
+        role = "representative"
+    elif group == "handheld_battery_light" and entry["name"] == PROBE_CONTROL_LIGHT:
+        role = "control"
+    return {"id": entry["id"], "root": entry["root"], "name": entry["name"], "group": group,
+            "native_slots": slots, "inventory_slot_tokens": entry["inventory_slot_tokens"],
+            "energy_model": _energy_model(entry), "scope": entry["scope"],
+            "exclusion_reasons": sorted(reasons), "probe_role": role}
+
+
+def classify_matrix(matrix):
+    """Group candidate hosts (slot/no slot/excluded) and lights from a build_matrix result.
+
+    Every candidate host and light stays in the output with its group and reasons so the
+    denominators are exact. Groups are CONFIG evidence: a slot host still needs a native
+    attach observation and a no-slot host has no native proxy to reuse.
+    """
+    _require(type(matrix) is dict and matrix.get("kind") == "flashlight_candidate_matrix"
+             and type(matrix.get("classes")) is list, "not_a_flashlight_matrix")
+    hosts, lights = [], []
+    for entry in matrix["classes"]:
+        if any(role in entry["roles"] for role in HOST_ROLES):
+            hosts.append(_host_record(entry))
+        if "light_candidate" in entry["roles"]:
+            lights.append(_light_record(entry))
+    hosts.sort(key=lambda h: h["id"].casefold())
+    lights.sort(key=lambda l: l["id"].casefold())
+    counts = {"hosts": len(hosts), "lights": len(lights),
+              "slot_host": sum(1 for h in hosts if h["group"] == "slot_host"),
+              "no_slot_host": sum(1 for h in hosts if h["group"] == "no_slot_host"),
+              "excluded": sum(1 for h in hosts if h["group"] == "excluded"),
+              "by_role": {"%s/%s" % key: value for key, value in
+                          sorted(Counter((h["role"], h["group"]) for h in hosts).items())},
+              "exclusion_reasons": dict(sorted(Counter(r for h in hosts for r in h["exclusion_reasons"]).items())),
+              "light_groups": dict(sorted(Counter(l["group"] for l in lights).items())),
+              "light_exclusion_reasons": dict(sorted(Counter(r for l in lights
+                                                             for r in l["exclusion_reasons"]).items()))}
+    return {"schema_version": 1, "kind": CLASSIFICATION_KIND,
+            "provenance": matrix.get("provenance"), "source_rows_sha256": matrix.get("source_rows_sha256"),
+            "native_light_slots": list(NATIVE_LIGHT_SLOTS),
+            "probe_lights": sorted(l["name"] for l in lights if l["probe_role"]),
+            "hosts": hosts, "lights": lights, "denominators": counts,
+            "acceptance": "PENDING",
+            "note": "config classification only; geometry, attach result and presentation are unobserved"}
+
+
+def load_manifest_rows(manifest, sha256):
+    """Admit a pinned native capture manifest and return its rows (private data stays outside Git)."""
+    try:
+        from . import item_compatibility as native
+    except ImportError:  # executed as a script from tools/audit
+        import item_compatibility as native
+    admitted = native.scan_manifest(manifest, sha256)
+    directory, _ = native.parent_handle(manifest)
+    state = {"bytes": 0, "nodes": 0, "pins": []}
+    rows = []
+    for entry in admitted["files"]:
+        raw = native.read_file(directory, entry["file"], native.MAX_CHUNK_BYTES, state)
+        document = native.strict_json(raw, state)
+        if entry["file"] != "manifest.json":
+            rows.extend(document["Rows"])
+    return rows
+
+
+def _checkout_root():
+    return Path(__file__).resolve().parents[2]
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Classify flashlight mount hosts and lights from a native capture.")
+    commands = parser.add_subparsers(dest="command", required=True)
+    classify = commands.add_parser("classify", help="write the host/light classification JSON")
+    source = classify.add_mutually_exclusive_group(required=True)
+    source.add_argument("--rows", help="JSON list of already admitted native rows")
+    source.add_argument("--manifest", help="pinned native item-audit manifest.json (private data)")
+    classify.add_argument("--manifest-sha256", help="pinned manifest SHA-256 (required with --manifest)")
+    classify.add_argument("--out", required=True, help="new output file outside the source checkout")
+    args = parser.parse_args(argv)
+    if args.manifest and not args.manifest_sha256:
+        parser.error("--manifest requires --manifest-sha256")
+    try:
+        out = Path(args.out).absolute()
+        checkout = _checkout_root()
+        if out == checkout or checkout in out.parents:
+            raise ValueError("classification output must be outside the source checkout")
+        if args.rows:
+            with open(args.rows, "rb") as stream:
+                data = stream.read(MAX_INPUT_BYTES + 1)
+            _require(len(data) <= MAX_INPUT_BYTES, "rows_file_budget")
+            rows, provenance = json.loads(data), {"source": "rows-file"}
+        else:
+            rows = load_manifest_rows(args.manifest, args.manifest_sha256)
+            provenance = {"source": "native-manifest", "manifest_sha256": args.manifest_sha256}
+        document = classify_matrix(build_matrix(rows, provenance))
+        encoded = json.dumps(document, indent=1, sort_keys=True, ensure_ascii=True, allow_nan=False)
+        with open(out, "x", encoding="ascii") as stream:
+            stream.write(encoded + "\n")
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        print(f"flashlight_matrix: {error}", file=sys.stderr)
+        return 1
+    counts = document["denominators"]
+    print(f"classification: hosts={counts['hosts']} slot={counts['slot_host']} "
+          f"no_slot={counts['no_slot_host']} excluded={counts['excluded']} lights={counts['lights']} -> {out}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

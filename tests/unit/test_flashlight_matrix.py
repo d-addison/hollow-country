@@ -197,3 +197,203 @@ class FlashlightMatrixTests(unittest.TestCase):
             with self.subTest(constant=constant), patch.object(self.mod, constant, bound):
                 with self.assertRaises(ValueError):
                     self.build()
+
+
+def text_field(path, value):
+    return {"ConfigPath": path, "ReadAs": "text", "ExpectedReadAs": "text", "ConfigTypeName": "CT_STRING",
+            "Status": "captured", "ValueCaptured": 1, "UnresolvedReasons": [], "ValueText": value}
+
+
+def equipment(name, root="CfgVehicles", ancestors=(), slots=None, attachments=None, scope=2,
+              model="\\dz\\gear\\sample.p3d", extra=()):
+    fields = [text_field("model", model)]
+    if scope is not None:
+        fields.append(field("scope", scope, "number", []))
+    if slots is not None:
+        fields.append(field("inventorySlot", list(slots)))
+    if attachments is not None:
+        fields.append(field("attachments", list(attachments)))
+    return row(name, root, ancestors, fields + list(extra))
+
+
+ENERGY = field("EnergyManager plugType", 1, "number", [])
+
+
+class HostLightClassificationTests(unittest.TestCase):
+    """Synthetic classification of hosts (slot / no slot / excluded) and lights.
+
+    Class and slot names mirror the private native-035 capture shape; the fixtures are
+    invented. Classification is config evidence only: no geometry or attach verdict.
+    """
+
+    def setUp(self):
+        self.mod = importlib.import_module("tools.audit.flashlight_matrix")
+        self.rows = [
+            equipment("SlotRifle", "CfgWeapons", attachments=["Rail", "weaponFlashlight"]),
+            equipment("SlotPistol", "CfgWeapons", attachments=["pistolFlashlight"]),
+            equipment("SlotHelmet", ancestors=["Clothing"], slots=["Headgear"], attachments=["helmetFlashlight"]),
+            equipment("PlainRifle", "CfgWeapons", attachments=["Rail"]),
+            equipment("PlainBag", ancestors=["Clothing"], slots=["Back"]),
+            equipment("PlainHat", ancestors=["Clothing"], slots=["Headgear"]),
+            equipment("RifleBase", "CfgWeapons", attachments=["weaponFlashlight"], scope=0),
+            equipment("HatBase", ancestors=["Clothing"], slots=["Headgear"], scope=2),
+            equipment("NoModelBag", ancestors=["Clothing"], slots=["Back"], model=""),
+            equipment("Hat_Ruined", ancestors=["Clothing"], slots=["Headgear"]),
+            equipment("AKM_TESTBED", "CfgWeapons", attachments=["weaponFlashlight"]),
+            equipment("HiddenHat", ancestors=["Clothing"], slots=["Headgear"], scope=1),
+            equipment("UnreadableScope", "CfgWeapons", attachments=["Rail"], scope=None),
+            equipment("Clothing", ancestors=[], slots=None),
+            equipment("FakeRadio", ancestors=[], slots=["Back"], extra=[ENERGY]),
+            equipment("UniversalLight", attachments=["BatteryD"], slots=["helmetFlashlight", "weaponFlashlight"], extra=[ENERGY]),
+            equipment("TLRLight", attachments=["BatteryD"], slots=["pistolFlashlight"], extra=[ENERGY]),
+            equipment("Flashlight", attachments=["BatteryD"], slots=[], extra=[ENERGY]),
+            equipment("Raycaster", ancestors=["Flashlight"], attachments=["BatteryD"], slots=[], extra=[ENERGY]),
+            equipment("Headtorch_Black", ancestors=["Headtorch_ColorBase"], attachments=["BatteryD"], slots=["Eyewear"], extra=[ENERGY]),
+            equipment("Headtorch_ColorBase", attachments=["BatteryD"], slots=["Eyewear"], scope=0, extra=[ENERGY]),
+            equipment("Torch", attachments=["Rags"], slots=["Melee"], extra=[ENERGY]),
+            equipment("Chemlight_Blue", ancestors=["Chemlight_ColorBase"], slots=["Chemlight"],
+                      extra=[field("EnergyManager convertEnergyToQuantity", 1, "number", [])]),
+            equipment("PortableGasLamp", attachments=["GasCanister"], slots=[], extra=[ENERGY]),
+            equipment("Generator", extra=[ENERGY]),
+            equipment("Bullet", "CfgAmmo"),
+        ]
+        self.matrix = self.mod.build_matrix(self.rows, {"ActualBuild": "synthetic"})
+        self.result = self.mod.classify_matrix(self.matrix)
+        self.hosts = {h["name"]: h for h in self.result["hosts"]}
+        self.lights = {l["name"]: l for l in self.result["lights"]}
+
+    def test_native_light_slot_names_are_the_observed_config_slots(self):
+        self.assertEqual(["helmetFlashlight", "pistolFlashlight", "weaponFlashlight"],
+                         self.result["native_light_slots"])
+
+    def test_hosts_with_a_native_light_slot_report_which_slots(self):
+        self.assertEqual("slot_host", self.hosts["SlotRifle"]["group"])
+        self.assertEqual(["weaponFlashlight"], self.hosts["SlotRifle"]["native_light_slots"])
+        self.assertEqual(["pistolFlashlight"], self.hosts["SlotPistol"]["native_light_slots"])
+        self.assertEqual("slot_host", self.hosts["SlotHelmet"]["group"])
+        self.assertEqual(["helmetFlashlight"], self.hosts["SlotHelmet"]["native_light_slots"])
+        self.assertEqual([], self.hosts["SlotRifle"]["exclusion_reasons"])
+
+    def test_live_hosts_without_a_slot_are_a_distinct_group_not_excluded(self):
+        for name in ("PlainRifle", "PlainBag", "PlainHat"):
+            self.assertEqual("no_slot_host", self.hosts[name]["group"], name)
+            self.assertEqual([], self.hosts[name]["native_light_slots"])
+            self.assertEqual([], self.hosts[name]["exclusion_reasons"])
+        self.assertEqual("backpack_candidate", self.hosts["PlainBag"]["role"])
+        self.assertEqual("headgear_candidate", self.hosts["PlainHat"]["role"])
+        self.assertEqual("gun_candidate", self.hosts["PlainRifle"]["role"])
+
+    def test_excluded_hosts_keep_every_applicable_reason_even_when_they_carry_a_slot(self):
+        expected = {"RifleBase": {"scope_below_2", "base_class_name"}, "HatBase": {"base_class_name"},
+                    "NoModelBag": {"model_empty"}, "Hat_Ruined": {"ruined_variant"},
+                    "AKM_TESTBED": {"test_variant"}, "HiddenHat": {"scope_below_2"},
+                    "UnreadableScope": {"scope_unreadable"}, "Clothing": {"no_host_category"},
+                    "FakeRadio": {"energy_device_not_a_host"}}
+        for name, reasons in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual("excluded", self.hosts[name]["group"])
+                self.assertTrue(reasons <= set(self.hosts[name]["exclusion_reasons"]),
+                                (reasons, self.hosts[name]["exclusion_reasons"]))
+        self.assertEqual(["weaponFlashlight"], self.hosts["RifleBase"]["native_light_slots"])
+
+    def test_every_candidate_host_is_in_exactly_one_group_with_exact_denominators(self):
+        counts = self.result["denominators"]
+        self.assertEqual(self.matrix["denominators"]["candidate_hosts"], counts["hosts"])
+        self.assertEqual(counts["hosts"], counts["slot_host"] + counts["no_slot_host"] + counts["excluded"])
+        self.assertEqual(3, counts["slot_host"])
+        self.assertEqual(3, counts["no_slot_host"])
+        self.assertEqual(counts["excluded"], sum(1 for h in self.result["hosts"] if h["group"] == "excluded"))
+        self.assertEqual(counts["hosts"], len(self.result["hosts"]))
+        self.assertEqual(2, counts["exclusion_reasons"]["base_class_name"])
+        for host in self.result["hosts"]:
+            self.assertEqual(host["group"] == "excluded", bool(host["exclusion_reasons"]), host["name"])
+
+    def test_lights_are_grouped_by_native_slot_and_energy_model(self):
+        self.assertEqual("mount_light", self.lights["UniversalLight"]["group"])
+        self.assertEqual(["helmetFlashlight", "weaponFlashlight"], self.lights["UniversalLight"]["native_slots"])
+        self.assertEqual("battery_slot", self.lights["UniversalLight"]["energy_model"])
+        self.assertEqual("mount_light", self.lights["TLRLight"]["group"])
+        self.assertEqual(["pistolFlashlight"], self.lights["TLRLight"]["native_slots"])
+        self.assertEqual("handheld_battery_light", self.lights["Flashlight"]["group"])
+        self.assertEqual([], self.lights["Flashlight"]["native_slots"])
+        self.assertEqual("worn_light", self.lights["Headtorch_Black"]["group"])
+        self.assertEqual("flame_or_chemical_light", self.lights["Torch"]["group"])
+        self.assertEqual("rags_fuel", self.lights["Torch"]["energy_model"])
+        self.assertEqual("flame_or_chemical_light", self.lights["Chemlight_Blue"]["group"])
+        self.assertEqual("consumed_charge", self.lights["Chemlight_Blue"]["energy_model"])
+        self.assertEqual("fuel_canister", self.lights["PortableGasLamp"]["energy_model"])
+        self.assertEqual("energy_device_not_light", self.lights["Generator"]["group"])
+
+    def test_excluded_lights_state_why(self):
+        self.assertEqual("excluded", self.lights["Headtorch_ColorBase"]["group"])
+        self.assertIn("scope_below_2", self.lights["Headtorch_ColorBase"]["exclusion_reasons"])
+        self.assertIn("base_class_name", self.lights["Headtorch_ColorBase"]["exclusion_reasons"])
+        self.assertEqual("excluded", self.lights["Raycaster"]["group"])
+        self.assertIn("raycaster_tool_not_a_light", self.lights["Raycaster"]["exclusion_reasons"])
+        counts = self.result["denominators"]
+        self.assertEqual(self.matrix["denominators"]["candidate_lights"], counts["lights"])
+        self.assertEqual(counts["lights"], sum(counts["light_groups"].values()))
+
+    def test_probe_lights_are_the_mount_lights_plus_one_handheld_control_and_never_a_fire_light(self):
+        self.assertEqual(["Flashlight", "TLRLight", "UniversalLight"], sorted(self.result["probe_lights"]))
+        self.assertEqual("control", self.lights["Flashlight"]["probe_role"])
+        self.assertEqual("representative", self.lights["UniversalLight"]["probe_role"])
+        self.assertEqual("", self.lights["Torch"]["probe_role"])
+
+    def test_classification_is_deterministic_and_does_not_mutate_the_matrix(self):
+        import copy
+        before = copy.deepcopy(self.matrix)
+        again = self.mod.classify_matrix(self.matrix)
+        self.assertEqual(before, self.matrix)
+        self.assertEqual(self.result, again)
+        self.assertEqual("flashlight_host_light_classification", self.result["kind"])
+        self.assertEqual(self.matrix["source_rows_sha256"], self.result["source_rows_sha256"])
+        self.assertEqual("PENDING", self.result["acceptance"])
+
+    def test_classification_refuses_a_non_matrix_input(self):
+        for bad in (None, {}, {"kind": "other"}, []):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                self.mod.classify_matrix(bad)
+
+
+class ClassificationCliTests(unittest.TestCase):
+    def setUp(self):
+        self.mod = importlib.import_module("tools.audit.flashlight_matrix")
+        import tempfile
+        from pathlib import Path
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.dir = Path(temp.name)
+        self.rows = self.dir / "rows.json"
+        self.rows.write_text(json.dumps([equipment("PlainBag", ancestors=["Clothing"], slots=["Back"]),
+                                         equipment("Flashlight", attachments=["BatteryD"], slots=[], extra=[ENERGY])]))
+
+    def test_classify_cli_writes_a_new_file_and_never_overwrites(self):
+        out = self.dir / "classification.json"
+        self.assertEqual(0, self.mod.main(["classify", "--rows", str(self.rows), "--out", str(out)]))
+        document = json.loads(out.read_text())
+        self.assertEqual(1, document["denominators"]["no_slot_host"])
+        self.assertEqual(1, document["denominators"]["lights"])
+        self.assertEqual(1, self.mod.main(["classify", "--rows", str(self.rows), "--out", str(out)]))
+
+    def test_classify_cli_refuses_output_inside_the_source_checkout(self):
+        from pathlib import Path
+        inside = Path(self.mod.__file__).resolve().parents[2] / "classification-must-not-exist.json"
+        self.assertEqual(1, self.mod.main(["classify", "--rows", str(self.rows), "--out", str(inside)]))
+        self.assertFalse(inside.exists())
+
+    def test_manifest_loading_is_delegated_to_the_pinned_native_loader(self):
+        out = self.dir / "from-manifest.json"
+        with patch.object(self.mod, "load_manifest_rows", return_value=json.loads(self.rows.read_text())) as loader:
+            self.assertEqual(0, self.mod.main(["classify", "--manifest", "m.json", "--manifest-sha256", "a" * 64,
+                                               "--out", str(out)]))
+        loader.assert_called_once_with("m.json", "a" * 64)
+        self.assertTrue(out.is_file())
+
+    def test_rows_and_manifest_are_mutually_exclusive_and_one_is_required(self):
+        out = str(self.dir / "x.json")
+        with self.assertRaises(SystemExit):
+            self.mod.main(["classify", "--out", out])
+        with self.assertRaises(SystemExit):
+            self.mod.main(["classify", "--rows", str(self.rows), "--manifest", "m", "--manifest-sha256", "a" * 64,
+                           "--out", out])
