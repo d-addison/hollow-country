@@ -807,6 +807,7 @@ def build_model(hook_text, world=()):
     exec(compile(enforce_to_python(hook_text, GEOMETRY_METHODS), "<generated-hook>", "exec"), namespace)
     model = namespace["HookModel"]()
     model.m_HCProbeQuote = S('"')
+    model.m_HCProbeBackslash = S('\\')
     model.m_HCProbeFoundCount = 0
     model.m_HCProbeClasses, model.m_HCProbeRoles, model.m_HCProbePositions = EArray(), EArray(), EArray()
     return model
@@ -982,6 +983,14 @@ class GeneratedLogicBehaviorTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     enforce_to_python(self.hook.replace(original, mutated, 1), GEOMETRY_METHODS)
                 self.assertNotEqual([], scenario_mismatches(self.hook.replace(original, mutated, 1)))
+
+    def test_probe_strings_map_backslashes_so_class_and_selection_names_stay_valid_json(self):
+        # A raw backslash in an engine name made the first interior census invalid JSON (Invalid \\escape).
+        self.assertIn("m_HCProbeBackslash = backslashCode.AsciiToString();", self.hook)
+        model = build_model(self.hook)
+        model.m_HCProbeBackslash = S("\\")
+        fragment = model.HCProbeStr(S("dz\\structures\\door"))
+        self.assertEqual("dz/structures/door", json.loads(str(fragment)))
 
     def test_the_model_refuses_raw_boolean_concatenation(self):
         with self.assertRaises(TypeError):

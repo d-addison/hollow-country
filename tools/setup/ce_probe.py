@@ -134,6 +134,7 @@ class HCDisposableDiagnosticMission : CustomMission
     protected int m_HCProbeCensusBeginMs = 0;
     protected int m_HCProbeFoundCount = 0;
     protected string m_HCProbeQuote = "";
+    protected string m_HCProbeBackslash = "";
     protected ref array<string> m_HCProbeClasses = new array<string>;
     protected ref array<string> m_HCProbeRoles = new array<string>;
     protected ref array<vector> m_HCProbePositions = new array<vector>;
@@ -148,6 +149,8 @@ class HCDisposableDiagnosticMission : CustomMission
         m_HCProbeStarted = true;
         int quoteCode = 34;
         m_HCProbeQuote = quoteCode.AsciiToString();
+        int backslashCode = 92;
+        m_HCProbeBackslash = backslashCode.AsciiToString();
 @@LOADER_CALLS@@
         Print("[HC CE Probe] BEGIN; observation only; targets=" + m_HCProbeClasses.Count());
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCProbeRunExports, @@EXPORT_MS@@, false);
@@ -174,6 +177,7 @@ HOOK_TAIL = r"""
         string text = value;
         if (text.Length() > 96)
             text = text.Substring(0, 96);
+        text.Replace(m_HCProbeBackslash, "/");
         text.Replace(m_HCProbeQuote, "'");
         return m_HCProbeQuote + text + m_HCProbeQuote;
     }
