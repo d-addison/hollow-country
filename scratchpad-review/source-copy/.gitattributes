@@ -1,0 +1,4 @@
+# Markdown hard breaks retain intentional spaces.
+*.md whitespace=-blank-at-eol
+# Python csv.writer produces CRLF; retain exact fixture bytes.
+*.csv whitespace=cr-at-eol

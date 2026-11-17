@@ -1,0 +1,34 @@
+FrameWidgetClass HCGroupIconRoot {
+ visible 0 ignorepointer 1
+ position 0 0
+ size 180 24
+ hexactpos 1
+ vexactpos 1
+ hexactsize 1
+ vexactsize 1
+
+ priority 1000
+ {
+  ImageWidgetClass HCMark {
+   ignorepointer 1 position 0 4
+   size 16 16
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+   image0 "\dz\gear\navigation\data\map_tree_ca.paa"
+  }
+  TextWidgetClass HCLabel {
+   ignorepointer 1 position 24 0
+   size 156 24
+   hexactpos 1
+   vexactpos 1
+   hexactsize 1
+   vexactsize 1
+
+   font "gui/fonts/sdf_MetronBook24"
+   "text color" 0.3 1 0.85 1
+   text ""
+  }
+ }
+}
