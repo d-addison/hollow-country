@@ -54,7 +54,7 @@ def authored(name,params,context,filename=SOURCE,owner=None):
         value=re.sub(r'(?<![\w.])m_\w+\b',lambda m:'self.'+m[0],value)
         value=value.replace('super.','self.native.')
         value=re.sub(r'(?<![\w.])IsOwnedEmptyLooseItem\(', 'self.IsOwnedEmptyLooseItem(',value)
-        for name in ('InsertIngredient','AddResult','Configure','AddRecoveryResult','IsSourceConditionValid','OutputsMatch','DiscardOutputs','HCValidDrysack','ClassName','CheckRecipe','SpawnItems','ApplyModificationsResults','ApplyModificationsIngredients','Do','DeleleIngredientsPass'):
+        for name in ('InsertIngredient','AddResult','Configure','AddRecoveryResult','IsSourceConditionValid','OutputsMatch','DiscardOutputs','HCValidDrysack','ClassName','HCIsScoped','CheckRecipe','SpawnItems','ApplyModificationsResults','ApplyModificationsIngredients','Do','DeleleIngredientsPass'):
             value=re.sub(r'(?<![\w.])'+name+r'\(','self.'+name+'(',value)
         value=value.replace('&&',' and ').replace('||',' or ')
         value=re.sub(r'!(?!=)','not ',value)

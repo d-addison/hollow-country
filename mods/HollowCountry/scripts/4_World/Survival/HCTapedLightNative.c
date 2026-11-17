@@ -50,10 +50,12 @@ class HCTapedLightV1Qualification extends HCTapedLightQualification
     static HCTapedLightHostRow Row(EntityAI host, ItemBase light)
     {
         if (!host || !light) { return null; }
+        string hostType = host.GetType();
+        string lightType = light.GetType();
         ref array<ref HCTapedLightHostRow> rows = HCTapedLightCatalog.Rows();
         foreach (HCTapedLightHostRow row : rows)
         {
-            if (HCTapedLightCatalog.Matches(row, host.GetType(), light.GetType(), row.SlotName)) { return row; }
+            if (HCTapedLightCatalog.Matches(row, hostType, lightType, row.SlotName)) { return row; }
         }
         return null;
     }
@@ -182,6 +184,30 @@ class HCTapedLightRuntime
 {
     protected static bool s_Busy;
     protected static bool s_Stopped;
+    // Host types in the evidence catalog, built once. Used only to stop the
+    // per-frame client scan early; the server still validates in full.
+    protected static ref map<string, bool> s_HostTypes;
+    // Client-only preview hint (~0.3 s). Never read by CanExecute or Execute.
+    protected static ItemBase s_HintHost;
+    protected static int s_HintTime;
+    protected static bool s_HintMount;
+    protected static bool s_HintRemove;
+    static const int HINT_WINDOW_MS = 300;
+
+    static bool KnownHost(ItemBase host)
+    {
+        if (!host) { return false; }
+        if (!s_HostTypes)
+        {
+            s_HostTypes = new map<string, bool>;
+            ref array<ref HCTapedLightHostRow> rows = HCTapedLightCatalog.Rows();
+            foreach (HCTapedLightHostRow row : rows)
+            {
+                s_HostTypes.Set(row.HostClass, true);
+            }
+        }
+        return s_HostTypes.Contains(host.GetType());
+    }
 
     static bool Held(PlayerBase actor, ItemBase host)
     {
@@ -199,11 +225,15 @@ class HCTapedLightRuntime
         foreach (EntityAI entry : items)
         {
             ItemBase candidate = ItemBase.Cast(entry);
-            if (!candidate || candidate.IsDamageDestroyed() || !HCTapedLightV1Qualification.Row(host, candidate)) { continue; }
+            if (!candidate || candidate.IsDamageDestroyed()) { continue; }
+            // Cheap energy filter first: a light always has a switchable
+            // component, and most inventory items do not.
+            ComponentEnergyManager energy = candidate.GetCompEM();
+            if (!energy || energy.IsSwitchedOn()) { continue; }
+            if (!HCTapedLightV1Qualification.Row(host, candidate)) { continue; }
             InventoryLocation location = new InventoryLocation;
             if (!candidate.GetInventory().GetCurrentInventoryLocation(location)) { continue; }
             if (location.GetType() != InventoryLocationType.CARGO || candidate.GetHierarchyRootPlayer() != actor) { continue; }
-            if (!candidate.GetCompEM() || candidate.GetCompEM().IsSwitchedOn()) { continue; }
             return candidate;
         }
         return null;
@@ -226,12 +256,13 @@ class HCTapedLightRuntime
 
     static ItemBase MountedLight(ItemBase host)
     {
+        string hostType = host.GetType();
         ref array<ref HCTapedLightHostRow> rows = HCTapedLightCatalog.Rows();
         foreach (HCTapedLightHostRow row : rows)
         {
-            if (row.HostClass != host.GetType()) { continue; }
+            if (row.HostClass != hostType) { continue; }
             ItemBase candidate = ItemBase.Cast(host.FindAttachmentBySlotName(row.SlotName));
-            if (candidate && HCTapedLightCatalog.Matches(row, host.GetType(), candidate.GetType(), row.SlotName)) { return candidate; }
+            if (candidate && HCTapedLightCatalog.Matches(row, hostType, candidate.GetType(), row.SlotName)) { return candidate; }
         }
         return null;
     }
@@ -239,11 +270,33 @@ class HCTapedLightRuntime
     static bool Preview(PlayerBase actor, ItemBase host, bool mounting)
     {
         if (!Held(actor, host)) { return false; }
+        // Not in the evidence catalog (any other weapon mod): no row can
+        // match, so no scan can succeed. Same answer as before, without the cost.
+        if (!KnownHost(host)) { return false; }
         ItemBase mounted = MountedLight(host);
-        if (mounting) { return !mounted && LooseLight(actor, host) && Tape(actor); }
+        if (mounting) { return !mounted && Tape(actor) != null && LooseLight(actor, host) != null; }
         if (!mounted || !mounted.GetCompEM() || mounted.GetCompEM().IsSwitchedOn()) { return false; }
         InventoryLocation destination = new InventoryLocation;
         return actor.GetInventory().FindFreeLocationFor(mounted, FindInventoryLocationType.CARGO, destination);
+    }
+
+    // Client hint for the per-frame ActionCondition. Both actions share one
+    // preview pass per window, keyed by the held host. Display only: the server
+    // path calls CanExecute and Execute, which never read this cache.
+    static bool PreviewHint(PlayerBase actor, ItemBase host, bool mounting)
+    {
+        if (!Held(actor, host)) { return false; }
+        int now = GetGame().GetTime();
+        bool fresh = s_HintHost == host && now >= s_HintTime && now - s_HintTime < HINT_WINDOW_MS;
+        if (!fresh)
+        {
+            s_HintMount = Preview(actor, host, true);
+            s_HintRemove = Preview(actor, host, false);
+            s_HintHost = host;
+            s_HintTime = now;
+        }
+        if (mounting) { return s_HintMount; }
+        return s_HintRemove;
     }
 
     static bool CanExecute(PlayerBase actor, ItemBase host, bool mounting)

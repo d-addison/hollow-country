@@ -159,7 +159,7 @@ def native_member(cls, method, state, env, *args):
     match = re.search(r'class ' + cls + r'\b[^\{]*\{', text)
     source = body(text, match.end())
     source = source.replace('array<EntityAI> items = new array<EntityAI>', 'HCGroupNative items = NewItems()')
-    source = re.sub(r'\b(?:ItemBase|EntityAI|InventoryLocation|HCTapedLight\w+)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
+    source = re.sub(r'\b(?:ItemBase|EntityAI|InventoryLocation|ComponentEnergyManager|HCTapedLight\w+)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
     source = source.replace('new InventoryLocation', 'new HCGroupLocation')
     source = source.replace('static ItemBase ' + method, 'static int ' + method)
     return ui_member(source, method, state, dict(env), *args)

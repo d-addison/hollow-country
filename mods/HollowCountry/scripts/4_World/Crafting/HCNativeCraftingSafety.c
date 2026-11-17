@@ -241,6 +241,20 @@ class HCNativeCraftingSafety
 modded class RecipeBase
 {
     protected ref HCCraftingCommitGuard m_HCNativeCommitGuard = new HCCraftingCommitGuard;
+    // 0 unknown, 1 scoped, 2 not scoped. A recipe instance never changes its
+    // class name, so the name chain runs once instead of every CheckRecipe.
+    protected int m_HCScopedState;
+
+    protected bool HCIsScoped()
+    {
+        if (m_HCScopedState == 0)
+        {
+            m_HCScopedState = 2;
+            if (HCNativeCraftingSafety.IsScoped(ClassName()))
+                m_HCScopedState = 1;
+        }
+        return m_HCScopedState == 1;
+    }
 
     protected bool HCValidateNativeInputs(ItemBase item1, ItemBase item2, PlayerBase player)
     {
@@ -271,14 +285,14 @@ modded class RecipeBase
 
     override bool CheckRecipe(ItemBase item1, ItemBase item2, PlayerBase player)
     {
-        if (HCNativeCraftingSafety.IsScoped(ClassName()) && !HCValidateNativeInputs(item1, item2, player))
+        if (HCIsScoped() && !HCValidateNativeInputs(item1, item2, player))
             return false;
         return super.CheckRecipe(item1, item2, player);
     }
 
     override void PerformRecipe(ItemBase item1, ItemBase item2, PlayerBase player)
     {
-        if (!HCNativeCraftingSafety.IsScoped(ClassName()))
+        if (!HCIsScoped())
         {
             super.PerformRecipe(item1, item2, player);
             return;

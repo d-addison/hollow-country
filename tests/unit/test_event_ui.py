@@ -298,7 +298,7 @@ class EventInputLifecycleTests(unittest.TestCase):
         self.e["native_super_OnUpdate"]=lambda dt:self.calls.append(("native-update",))
         self.e["native_super_OnMissionFinish"]=lambda:self.calls.append(("finish",))
         cls=methods(menu_source(ROOT/"5_Mission/Events/HCEventGameplay.c"),self.e)
-        self.hook=cls();self.hook.m_HCEventClient=None;self.hook.OnInit()
+        self.hook=cls();self.hook.m_HCEventClient=None;self.hook.m_HCEventInput=None;self.hook.m_HCEventInputResolved=False;self.hook.OnInit()
 
     def test_declared_input_opens_own_menu_and_preserves_native_chain(self):
         self.hook.OnUpdate(.1)
@@ -307,7 +307,9 @@ class EventInputLifecycleTests(unittest.TestCase):
 
     def test_existing_menu_blocked_controls_missing_input_and_dead_player_never_open(self):
         for key,value in (("current_menu",SimpleNamespace()),("blocked",True),("declared",False)):
-            original=getattr(self,key);setattr(self,key,value);self.calls.clear();self.hook.OnUpdate(.1)
+            original=getattr(self,key);setattr(self,key,value);self.calls.clear()
+            if key=="declared":self.hook.OnInit();self.calls.clear()  # input is resolved once per mission
+            self.hook.OnUpdate(.1)
             self.assertFalse(any(call[0]=="enter" for call in self.calls));setattr(self,key,original)
         self.player.alive=False;self.calls.clear();self.hook.OnUpdate(.1)
         self.assertNotIn(("enter",48538),self.calls)

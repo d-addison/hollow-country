@@ -3,6 +3,9 @@
 modded class MissionGameplay
 {
     protected ref HCEventClient m_HCEventClient;
+    // Resolved once per mission; undeclared stays null and is not looked up again.
+    protected UAInput m_HCEventInput;
+    protected bool m_HCEventInputResolved;
 
     override void OnInit()
     {
@@ -10,7 +13,14 @@ modded class MissionGameplay
         if (GetGame().IsServer()) { return; }
         m_HCEventClient = HCEventClient.Get();
         m_HCEventClient.Start();
-        if (!GetUApi() || !GetUApi().GetInputByName("UAHollowCountryEvents"))
+        m_HCEventInput = null;
+        m_HCEventInputResolved = false;
+        if (GetUApi())
+        {
+            m_HCEventInput = GetUApi().GetInputByName("UAHollowCountryEvents");
+            m_HCEventInputResolved = true;
+        }
+        if (!m_HCEventInput)
         {
             Print("[HC Events] optional menu input UAHollowCountryEvents is not declared/bound");
         }
@@ -25,8 +35,12 @@ modded class MissionGameplay
             {
                 if (!IsControlDisabled() && !GetGame().GetUIManager().GetMenu() && GetUApi())
                 {
-                    UAInput input = GetUApi().GetInputByName("UAHollowCountryEvents");
-                    if (input && input.LocalPress())
+                    if (!m_HCEventInputResolved)
+                    {
+                        m_HCEventInput = GetUApi().GetInputByName("UAHollowCountryEvents");
+                        m_HCEventInputResolved = true;
+                    }
+                    if (m_HCEventInput && m_HCEventInput.LocalPress())
                     {
                         GetGame().GetUIManager().EnterScriptedMenu(HCEventWire.MENU_EVENTS, null);
                     }
@@ -41,6 +55,8 @@ modded class MissionGameplay
         if (menu) { menu.Close(); }
         if (m_HCEventClient) { m_HCEventClient.Stop(); }
         m_HCEventClient = null;
+        m_HCEventInput = null;
+        m_HCEventInputResolved = false;
         super.OnMissionFinish();
     }
 }

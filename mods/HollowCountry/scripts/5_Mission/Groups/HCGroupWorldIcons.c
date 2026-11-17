@@ -2,6 +2,16 @@
 class HCGroupWorldIcons
 {
     protected ref array<Widget> mHCPool = new array<Widget>();
+    // Per pool slot caches, index-parallel with mHCPool. They remove the
+    // per-frame FindAnyWidget lookups and redundant Scale/SetText writes.
+    protected ref array<TextWidget> mHCLabels = new array<TextWidget>();
+    protected ref array<ImageWidget> mHCImages = new array<ImageWidget>();
+    protected ref array<string> mHCNames = new array<string>();
+    protected ref array<bool> mHCTexted = new array<bool>();
+    protected ref array<int> mHCStyled = new array<int>();
+    protected int mHCStyleEpoch = 1;
+    protected float mHCStyleIcon;
+    protected float mHCStyleLabel;
     protected int mHCGroup;
     protected int mHCEpoch;
 
@@ -10,6 +20,11 @@ class HCGroupWorldIcons
         foreach (Widget widget : mHCPool)
             if (widget) widget.Unlink();
         mHCPool.Clear();
+        mHCLabels.Clear();
+        mHCImages.Clear();
+        mHCNames.Clear();
+        mHCTexted.Clear();
+        mHCStyled.Clear();
         mHCGroup = 0;
         mHCEpoch = 0;
     }
@@ -27,7 +42,20 @@ class HCGroupWorldIcons
         {
             Widget widget = GetGame().GetWorkspace().CreateWidgets("HollowCountry/gui/layouts/hc_group_icon.layout");
             if (!widget) return null;
+            TextWidget label = TextWidget.Cast(widget.FindAnyWidget("HCLabel"));
+            ImageWidget image = ImageWidget.Cast(widget.FindAnyWidget("HCMark"));
+            if (!label || !image)
+            {
+                widget.Unlink();
+                Clear();
+                return null;
+            }
             mHCPool.Insert(widget);
+            mHCLabels.Insert(label);
+            mHCImages.Insert(image);
+            mHCNames.Insert("");
+            mHCTexted.Insert(false);
+            mHCStyled.Insert(0);
         }
         return mHCPool.Get(index);
     }
@@ -73,6 +101,14 @@ class HCGroupWorldIcons
         }
         if (GetGame().GetUIManager().GetMenu() || !viewer.GetIdentity())
         { HideUnused(0); return; }
+        if (frame.Settings.IconScale != mHCStyleIcon || frame.Settings.LabelScale != mHCStyleLabel)
+        {
+            // Scale() depends on these two values only. A new epoch makes every
+            // slot restyle once on its next use.
+            mHCStyleIcon = frame.Settings.IconScale;
+            mHCStyleLabel = frame.Settings.LabelScale;
+            mHCStyleEpoch++;
+        }
         string localId = viewer.GetIdentity().GetId();
         vector camera = GetGame().GetCurrentCameraPosition();
         vector forward = GetGame().GetCurrentCameraDirection();
@@ -95,13 +131,18 @@ class HCGroupWorldIcons
             if (relative[1] < 0 || relative[1] > 1) continue;
             Widget root = FindIconSlot(used);
             if (!root) break;
-            TextWidget label = TextWidget.Cast(root.FindAnyWidget("HCLabel"));
-            if (!label) { Clear(); return; }
-            ImageWidget image = ImageWidget.Cast(root.FindAnyWidget("HCMark"));
-            if (!image) { Clear(); return; }
-            Scale(root, label, image, frame.Settings);
-            image.SetColor(ARGB(255,86,180,233));
-            label.SetText("[Team] " + member.Name);
+            if (mHCStyled.Get(used) != mHCStyleEpoch)
+            {
+                Scale(root, mHCLabels.Get(used), mHCImages.Get(used), frame.Settings);
+                mHCImages.Get(used).SetColor(ARGB(255,86,180,233));
+                mHCStyled.Set(used, mHCStyleEpoch);
+            }
+            if (!mHCTexted.Get(used) || mHCNames.Get(used) != member.Name)
+            {
+                mHCLabels.Get(used).SetText("[Team] " + member.Name);
+                mHCNames.Set(used, member.Name);
+                mHCTexted.Set(used, true);
+            }
             vector screen = GetGame().GetScreenPos(member.Position);
             root.SetPos(screen[0] - 90, screen[1] - 24);
             root.Show(true);
