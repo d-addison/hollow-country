@@ -466,8 +466,12 @@ class HCDisposableDiagnosticMission : CustomMission
 
     // View LOD join (fix round 4). GetSelectionList does not establish view-LOD membership, so each proxy model is also
     // looked up in the host's view LOD the way 4_World/Systems/Inventory/AttachmentsOutOfReach.c:112-131 does it:
-    // Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections, Selection.GetName lower-cased, a substring match on the
-    // lower-cased model path without .p3d, then Selection.GetVertexPosition(lod, 0). Native cache 1.30.164289:
+    // Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections, Selection.GetName lower-cased, a match on the lower-cased
+    // model path without .p3d, then Selection.GetVertexPosition(lod, 0). The native script matches with Contains(); this
+    // hook does NOT: it accepts a view selection only when it is proxy:<path>.<digits> and its whole normalised path
+    // (lower case, forward slashes, no leading slash, no .p3d, prefix and instance suffix removed) equals the model path,
+    // so weaponlight_universal_extra or a generic label/... selection never stands in for weaponlight_universal.
+    // Native cache 1.30.164289:
     //   3_Game/Entities/Object.c:98 GetLODS(notnull out array<LOD> lods) and 3_Game/Entities/Object.c:106
     //   LOD GetLODByName(string name) (script; null when the model has no such LOD);
     //   3_Game/gameplay.c:179 class Selection with gameplay.c:184 GetName(), gameplay.c:185 GetVertexCount(),
@@ -475,6 +479,8 @@ class HCDisposableDiagnosticMission : CustomMission
     //   Error() when the LOD vertex index is -1, so a vertex is read only after GetVertexCount() > 0 and
     //   GetLODVertexIndex(0) != -1); gameplay.c:203 class LOD with gameplay.c:207 NAME_VIEW "view", gameplay.c:216
     //   GetSelections(notnull out array<Selection> selections) returning bool and gameplay.c:218 GetVertexPosition(int).
+    // LOD.GetSelections returns bool and does not promise anything about its out array on failure, so the array is cleared
+    // before the call and again after a failure (1_Core/proto/EnScript.c:385 is proto native void Clear() of class array<Class T>), and view_list_ok is emitted: false is "unknown", never an empty-but-valid list.
     // The scan reads at most 256 view selections and says so (view_scan_complete); a vertex is emitted as number text.
     // This is source-level evidence only: it does not show that a client renders the attachment.
     string HCTLViewKey(string value)
@@ -485,27 +491,49 @@ class HCDisposableDiagnosticMission : CustomMission
         return text;
     }
 
-    string HCTLViewNeedle(string modelPath)
+    string HCTLViewTrim(string value)
     {
-        string needle = HCTLViewKey(modelPath);
-        int needleLength = needle.Length();
-        if (needleLength > 4 && needle.Substring(needleLength - 4, 4) == ".p3d")
-            needle = needle.Substring(0, needleLength - 4);
-        return needle;
+        string text = HCTLViewKey(value);
+        int textLength = text.Length();
+        if (textLength > 4 && text.Substring(textLength - 4, 4) == ".p3d")
+            text = text.Substring(0, textLength - 4);
+        while (text.Length() > 0 && text.Substring(0, 1) == "/")
+            text = text.Substring(1, text.Length() - 1);
+        return text;
     }
 
-    string HCTLViewRow(string modelPath, LOD viewLod, array<Selection> viewSelections, array<string> viewNames)
+    string HCTLViewPath(string viewKey)
+    {
+        if (viewKey.IndexOf("proxy:") != 0)
+            return "";
+        string stem = viewKey.Substring(6, viewKey.Length() - 6);
+        int lastDot = stem.LastIndexOf(".");
+        if (lastDot < 1 || lastDot == stem.Length() - 1)
+            return "";
+        string digitSet = "0123456789";
+        string instanceText = stem.Substring(lastDot + 1, stem.Length() - lastDot - 1);
+        int digitIndex = 0;
+        while (digitIndex < instanceText.Length())
+        {
+            if (digitSet.IndexOf(instanceText.Substring(digitIndex, 1)) == -1)
+                return "";
+            digitIndex = digitIndex + 1;
+        }
+        return HCTLViewTrim(stem.Substring(0, lastDot));
+    }
+
+    string HCTLViewRow(string modelPath, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
     {
         string needle = "";
         if (modelPath.Length() > 5)
-            needle = HCTLViewNeedle(modelPath);
+            needle = HCTLViewTrim(modelPath);
         string matchName = "";
         int matchIndex = 0;
-        while (needle != "" && matchIndex < viewNames.Count())
+        while (needle != "" && matchIndex < viewPaths.Count())
         {
-            if (viewNames.Get(matchIndex).IndexOf(needle) != -1)
+            if (viewPaths.Get(matchIndex) == needle)
             {
-                matchName = viewNames.Get(matchIndex);
+                matchName = HCTLViewKey(viewSelections.Get(matchIndex).GetName());
                 break;
             }
             matchIndex = matchIndex + 1;
@@ -526,7 +554,7 @@ class HCDisposableDiagnosticMission : CustomMission
         return viewText + HCTLKey("view_vertex") + "[" + vertexText + "]";
     }
 
-    string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewNames)
+    string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
     {
         string cfgClass = "Proxy" + HCTLProxyBase(selectionName);
         string cfgPath = "CfgNonAIVehicles " + cfgClass;
@@ -562,7 +590,7 @@ class HCDisposableDiagnosticMission : CustomMission
         rowText = rowText + HCTLKey("cfg_exists") + HCTLBool(cfgExists) + "," + HCTLKey("model") + HCTLStr(modelPath) + ",";
         rowText = rowText + HCTLKey("inventory_slots") + "[" + slotList + "]," + HCTLKey("slot_count") + slotTotal.ToString() + ",";
         rowText = rowText + HCTLKey("slot_scan_complete") + HCTLBool(slotComplete) + ",";
-        return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewNames) + "}";
+        return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewPaths) + "}";
     }
 
     string HCTLProxyFacts(Object subject)
@@ -578,14 +606,17 @@ class HCDisposableDiagnosticMission : CustomMission
             scanComplete = false;
         LOD viewLod = subject.GetLODByName(LOD.NAME_VIEW);
         array<Selection> viewSelections = new array<Selection>;
-        array<string> viewNames = new array<string>;
+        array<string> viewPaths = new array<string>;
         bool viewPresent = false;
         bool viewListed = false;
+        viewSelections.Clear();
         if (viewLod)
         {
             viewPresent = true;
             viewListed = viewLod.GetSelections(viewSelections);
         }
+        if (viewListed == false)
+            viewSelections.Clear();
         int viewTotal = viewSelections.Count();
         int viewLimit = viewTotal;
         if (viewLimit > 256)
@@ -596,7 +627,7 @@ class HCDisposableDiagnosticMission : CustomMission
         int viewIndex = 0;
         while (viewIndex < viewLimit)
         {
-            viewNames.Insert(HCTLViewKey(viewSelections.Get(viewIndex).GetName()));
+            viewPaths.Insert(HCTLViewPath(HCTLViewKey(viewSelections.Get(viewIndex).GetName())));
             viewIndex = viewIndex + 1;
         }
         TStringArray seen = new TStringArray;
@@ -616,7 +647,7 @@ class HCDisposableDiagnosticMission : CustomMission
                 {
                     if (seen.Count() > 0)
                         rows = rows + ",";
-                    rows = rows + HCTLProxyRow(selectionName, viewLod, viewSelections, viewNames);
+                    rows = rows + HCTLProxyRow(selectionName, viewLod, viewSelections, viewPaths);
                 }
                 seen.Insert(selectionName);
             }
@@ -624,7 +655,7 @@ class HCDisposableDiagnosticMission : CustomMission
         int proxyTotal = seen.Count();
         string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
         facts = facts + HCTLKey("view_lod") + HCTLBool(viewPresent) + "," + HCTLKey("view_selection_count") + viewTotal.ToString() + ",";
-        facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + ",";
+        facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + "," + HCTLKey("view_list_ok") + HCTLBool(viewListed) + ",";
         return facts + HCTLKey("proxies") + "[" + rows + "]";
     }
 
