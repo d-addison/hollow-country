@@ -3,7 +3,70 @@ import math
 import re
 from types import SimpleNamespace
 import unittest
-from test_infected_contract import SOURCE, policy_functions
+if __package__:
+    from .test_infected_contract import SOURCE, policy_functions
+else:
+    from test_infected_contract import SOURCE, policy_functions
+
+
+class NativeArray(list):
+    """Explicit synthetic Enforce array, including non-null empty arrays."""
+    def __bool__(self): return True
+    def Count(self): return len(self)
+    def Insert(self, value): self.append(value)
+    def Remove(self, index): self.pop(index)
+    def RemoveItem(self, value):
+        if value in self: self.remove(value)
+    def Find(self, value): return self.index(value) if value in self else -1
+    def Clear(self): self.clear()
+
+
+def authored_navigation(signature, context, **namespace):
+    """Execute a restricted translation of the shipped body, never native AI.
+
+    Unsupported syntax raises, rather than selecting a handwritten policy model.
+    Native collaborators and any vectors are supplied explicitly by each test.
+    """
+    source = (SOURCE / "HCInfectedNavigation.c").read_text()
+    start = source.index("{", source.index(signature)) + 1
+    depth, end = 1, start
+    while depth:
+        depth += (source[end] == "{") - (source[end] == "}")
+        end += 1
+    body = re.sub(r"//[^\n]*", "", source[start:end-1])
+    body = re.sub(r'Print\("[^"\n]*"\);', 'Print();', body)
+    body = re.sub(r"if (\([^\n]+\))\s*([^{};\n]+;)", r"if \1 {\2}", body)
+    body = re.sub(r"for \(int (\w+) = ([^;]+); \1 >= 0; \1--\)", r"for \1 in range(\2, -1, -1)", body)
+    body = re.sub(r"(?:ref )?array<ref BehaviourGroupInfectedPackWaypointParams> ", "", body)
+    body = body.replace("new array<ref BehaviourGroupInfectedPackWaypointParams>", "NativeArray()")
+    body = body.replace("ref set<Object> ", "").replace("new set<Object>", "NativeArray()")
+    body = re.sub(r"\bnew (\w+)\(", r"\1(", body)
+    body = re.sub(r"\bnew (\w+)\b", r"\1()", body)
+    body = re.sub(r"\bvector (\w+), (\w+);", r"\1 = None; \2 = None;", body)
+    body = re.sub(r"\bint (\w+);", r"\1 = 0;", body)
+    lines, indent = ["def run(self):"], 1
+    for token in re.split(r"([{};])", body):
+        token = token.strip()
+        if not token or token == ";": continue
+        if token == "{": indent += 1; continue
+        if token == "}": indent -= 1; continue
+        token = re.sub(r"\b(?:bool|int|float|vector|ZombieBase|AIWorld|AIGroup|AIAgent|BehaviourGroupInfectedPack|DayZInfectedInputController|EntityAI)\s+", "", token)
+        token = re.sub(r"\b(m_\w+|Group|RouteResult)\b", r"self.\1", token)
+        token = re.sub(r"(?<![.\w])GetAIWorld\(", "self.GetAIWorld(", token)
+        token = re.sub(r"\b(self\.m_\w+)\+\+", r"\1 += 1", token)
+        token = token.replace("&&", " and ").replace("||", " or ")
+        token = re.sub(r"!(?!=)", "not ", token)
+        for before, after in (("true", "True"), ("false", "False"), ("null", "None"), ("this", "self")):
+            token = re.sub(r"\b"+before+r"\b", after, token)
+        if token.startswith("if ("): token = "if " + token[4:-1] + ":"
+        elif token.startswith("for "): token += ":"
+        elif token == "else": token += ":"
+        lines.append("    " * indent + token)
+    scope = dict(NativeArray=NativeArray, Print=lambda: None,
+                 HCInfectedPolicy=SimpleNamespace(**policy_functions()))
+    scope.update(namespace)
+    exec(compile("\n".join(lines), "authored-navigation:" + signature, "exec"), scope)
+    return scope["run"](context)
 
 
 def authored_scheduler():
