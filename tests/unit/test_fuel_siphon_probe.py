@@ -34,7 +34,7 @@ class FuelSiphonProbeTests(unittest.TestCase):
         return self.probe.prepare_probe(self.source, self.dest, self.scripts, **args)
 
     def receipt(self):
-        return dict(schema=1, kind=self.probe.KIND, run_id='a'*32, world='chernarusplus',
+        return dict(preflight=synthetic_preflight(), schema=1, kind=self.probe.KIND, run_id='a'*32, world='chernarusplus',
                     mode='stock-ce', ce_disabled_control=False,
                     gameplay_acceptance=False, ce_acceptance=False,
                     engine_version='synthetic-1.30', server_context=True, complete=True,
@@ -350,5 +350,124 @@ class FuelSiphonProbeTests(unittest.TestCase):
                     with self.subTest(mode=mode, key=key, bad=bad), self.assertRaises(ValueError):
                         self.probe._attribution(dict(marker, **{key: bad}))
 
+
+def synthetic_preflight():
+    """Invented offline sample, NEVER a native receipt or eligibility result."""
+    ray = dict(geometry='view', attempted=True, complete=True, hit=True,
+               component_index=11, hit_count=1, hits_truncated=False,
+               contact_known=True, contact=[1., 0., 1.], normal=[0., 1., 0.],
+               endpoint_distance_sq=0., hits=[dict(class_name='OffroadHatchback', is_donor=True)])
+    fire = copy.deepcopy(ray); fire['geometry'] = 'fire'
+    return dict(schema=1, attempted=True, complete=True, captured_ms=1000,
+        actor_present=True, donor_present=True, vessel_present=True,
+        actor_alive=True, actor_unconscious=False, actor_restrained=False,
+        actor_in_vehicle=False, actor_has_identity=False, target_is_donor=True,
+        target_has_parent=False, vessel_held=True, vessel_destroyed=False,
+        vessel_open=True, vessel_has_quantity=True, vessel_is_liquid_container=True,
+        gasoline_compatible=True, donor_destroyed=False, donor_engine_on=False,
+        actor_class='SurvivorM_Mirek', donor_class='OffroadHatchback',
+        vessel_class='CanisterGasoline', held_class='CanisterGasoline',
+        actor_position=[1., 0., 1.], head_position=[1., 1.6, 1.],
+        donor_position=[0., 0., 0.], refill_position=[1., .5, 1.],
+        actor_refill_distance_sq=.25, head_refill_distance_sq=1.21,
+        raw_reach=1.5, clamped_reach=1.5, donor_speed_abs=0.,
+        donor_capacity_liters=42., donor_fraction=.05, vessel_quantity=0.,
+        vessel_maximum=20000., liquid_type=0, component_index=11,
+        component_result=1, fuel_selection='refill',
+        component_names=['refill', 'dmgzone_fueltank'], component_names_truncated=False,
+        rays=[ray, fire])
+
+
+class FuelPreflightTests(unittest.TestCase):
+    def setUp(self):
+        self.probe = importlib.import_module('tools.setup.fuel_siphon_probe')
+
+    def test_observations_do_not_infer_eligibility_or_pass(self):
+        row = synthetic_preflight()
+        row.update(actor_unconscious=True, vessel_open=False, gasoline_compatible=False)
+        result = self.probe.validate_preflight(row)
+        self.assertTrue(result['observation_complete'])
+        self.assertEqual('observation_only', result['diagnostic_status'])
+        for key in ('eligibility_acceptance', 'production_acceptance', 'runtime_acceptance'):
+            self.assertIs(result[key], False)
+
+    def test_exact_schema_native_booleans_and_vector_encoding(self):
+        row = synthetic_preflight()
+        native = dict(row, actor_position='1 0 1', actor_alive=1, actor_has_identity=0)
+        self.assertTrue(self.probe.validate_preflight(native)['observation_complete'])
+        for mutate in (lambda r:r.pop('actor_alive'),
+                       lambda r:r.update(actor_alive=1.0),
+                       lambda r:r.update(actor_has_identity='false'),
+                       lambda r:r.update(actor_position='1 nan 1'),
+                       lambda r:r.update(head_position=[1., 2.]),
+                       lambda r:r.update(donor_fraction=float('inf')),
+                       lambda r:r.update(captured_ms=True),
+                       lambda r:r.update(unreviewed=True)):
+            bad=copy.deepcopy(row);mutate(bad)
+            with self.subTest(mutate=mutate), self.assertRaises(ValueError):
+                self.probe.validate_preflight(bad)
+
+    def test_ray_results_preserve_miss_obstruction_and_truncated_evidence(self):
+        row = synthetic_preflight()
+        miss = row['rays'][0]
+        miss.update(hit=False, hit_count=0, hits=[], component_index=-1,
+                    contact_known=False, endpoint_distance_sq=-1.)
+        self.assertTrue(self.probe.validate_preflight(row)['observation_complete'])
+        obstruction=row['rays'][1]['hits'][0]
+        obstruction.update(class_name='Land_SyntheticWall', is_donor=False)
+        self.assertTrue(self.probe.validate_preflight(row)['observation_complete'])
+        row['rays'][1].update(hit_count=17, hits_truncated=True)
+        self.assertFalse(self.probe.validate_preflight(row)['observation_complete'])
+
+    def test_partial_snapshot_survives_without_claiming_observed_fields(self):
+        row=synthetic_preflight();row.update(complete=False,rays=[])
+        result=self.probe.validate_preflight(row)
+        self.assertFalse(result['observation_complete'])
+        self.assertFalse(result['runtime_acceptance'])
+
+    def test_counts_nested_types_and_consistency_are_bounded(self):
+        base=synthetic_preflight()
+        changes=[
+            lambda r:r.update(rays=r['rays']*2),
+            lambda r:r['rays'][1].update(geometry='view'),
+            lambda r:r['rays'][0].update(hits=r['rays'][0]['hits']*17),
+            lambda r:r['rays'][0].update(hit_count=2),
+            lambda r:r['rays'][0].update(component_index=True),
+            lambda r:r['rays'][0].update(complete=2),
+            lambda r:r['rays'][0]['hits'][0].update(is_donor='yes'),
+            lambda r:r['rays'][0]['hits'][0].update(class_name='x'*129),
+            lambda r:r.update(component_names=['refill']*65),
+            lambda r:r.update(component_names=['x'*129]),
+            lambda r:r.update(rays=[dict(r['rays'][0], invented=True)]),
+            lambda r:r.update(actor_position=[True, 0, 0])]
+        for mutate in changes:
+            row=copy.deepcopy(base);mutate(row)
+            with self.subTest(mutate=mutate),self.assertRaises(ValueError):
+                self.probe.validate_preflight(row)
+
+    def test_capture_precedes_validation_and_is_saved_without_eligibility_mutation(self):
+        hook=self.probe.HOOK
+        start=hook[hook.index('void HCSiphonStart(float now)'):hook.index('bool HCSiphonPairReady()')]
+        self.assertLess(start.index('HCSiphonPreflight();'), start.index('HCActionSiphonFuel.ValidateLive('))
+        before=start[:start.index('HCActionSiphonFuel.ValidateLive(')]
+        self.assertIn('HCSiphonSave()',before)
+        self.assertIn('m_Receipt.failed || !HCSiphonSave()',before)
+        observer=hook[hook.index('void HCSiphonPreflight()'):hook.index('void HCSiphonStart(float now)')]
+        for forbidden in ('SetPosition(', 'SetHealth(', 'SetQuantity(', 'Fill(', '.Open(', 'ConfigureDiagnostic(', '.OnStartServer(', 'return true'):
+            self.assertNotIn(forbidden,observer)
+        for token in ('GetPlayerHeadPosition(', 'GetRefillPointPosWS()', 'GetActionDistanceFuel(',
+                      'GetItemInHands()', 'IsOpen()', 'GetFluidFraction(', 'CanFillContainer(',
+                      'ObjIntersectView', 'ObjIntersectFire'):
+            self.assertIn(token,observer)
+        self.assertIn('index < 16',hook)
+        self.assertEqual(1,hook.count('DayZPhysics.RaycastRV('))
+
+    def test_raycast_pin_covers_every_positional_argument_the_hook_passes(self):
+        pins = ' '.join(self.probe.INTERFACES['3_Game/Global/DayZPhysics.c'])
+        for token in ('set<Object> results = NULL', 'Object with = NULL', 'Object ignore = NULL',
+                      'bool sorted = false', 'bool ground_only = false', 'int iType = ObjIntersectView',
+                      'float radius = 0.0', 'CollisionFlags.NEARESTCONTACT'):
+            with self.subTest(token=token):
+                self.assertIn(token, pins)
 
 if __name__ == '__main__': unittest.main()
