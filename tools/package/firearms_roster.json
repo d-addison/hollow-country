@@ -1,0 +1,910 @@
+{
+ "schema": 1,
+ "name": "hollow-country-firearms",
+ "players": "3-6",
+ "entries": [
+  {
+   "class": "Mosin9130",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "common",
+   "set": {
+    "nominal": 12,
+    "min": 9
+   },
+   "ammo": [
+    "Ammo_762x54"
+   ],
+   "magazines": [],
+   "justification": "Wood-stock bolt rifle; vanilla 45 is a 60-player count."
+  },
+  {
+   "class": "Mosin9130_Woodland",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 5,
+    "min": 3
+   },
+   "ammo": [
+    "Ammo_762x54"
+   ],
+   "magazines": [],
+   "justification": "Camouflaged Mosin; keeps a variant without doubling the 762x54 pool."
+  },
+  {
+   "class": "SKS",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [],
+   "justification": "Wood-stock semi-auto carbine; military usage stays, count scaled to the player band."
+  },
+  {
+   "class": "SKS_Woodland",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [],
+   "justification": "Camouflaged SKS; rarer variant."
+  },
+  {
+   "class": "Izh18",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "common",
+   "set": {
+    "nominal": 14,
+    "min": 11
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [],
+   "justification": "Break-action farm rifle; the common starter long gun."
+  },
+  {
+   "class": "Izh18Shotgun",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "common",
+   "set": {
+    "nominal": 10,
+    "min": 8
+   },
+   "ammo": [
+    "Ammo_12gaPellets",
+    "Ammo_12gaSlug"
+   ],
+   "magazines": [],
+   "justification": "Sawn-off-capable farm shotgun; town and village stock."
+  },
+  {
+   "class": "Izh43Shotgun",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "ammo": [
+    "Ammo_12gaPellets",
+    "Ammo_12gaSlug"
+   ],
+   "magazines": [],
+   "justification": "Double-barrel farm shotgun."
+  },
+  {
+   "class": "Repeater",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "ammo": [
+    "Ammo_357"
+   ],
+   "magazines": [],
+   "justification": "Lever-action carbine; farm usage retained."
+  },
+  {
+   "class": "Winchester70",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 5,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": [],
+   "justification": "Wood-stock hunting rifle."
+  },
+  {
+   "class": "CZ527",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "common",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_CZ527_5rnd"
+   ],
+   "justification": "Wood-stock bolt rifle with detachable magazine."
+  },
+  {
+   "class": "CZ527_Woodland",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 5,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_CZ527_5rnd"
+   ],
+   "justification": "Hunting-usage CZ 527 variant."
+  },
+  {
+   "class": "B95",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 5,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": [],
+   "justification": "Wood-stock hunting rifle."
+  },
+  {
+   "class": "LeeEnfield",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_762x54"
+   ],
+   "magazines": [
+    "Mag_LeeEnfield_10Rnd"
+   ],
+   "justification": "Wood-stock bolt rifle; stock nominal 0 (census nominal-zero) so this enables a finished vanilla class that normal CE never spawns."
+  },
+  {
+   "class": "MP18",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_MP18_Drum32Rnd"
+   ],
+   "justification": "Wood-stock WW1 submachine gun; stock nominal 0 (census nominal-zero), rare and local-acceptance sensitive."
+  },
+  {
+   "class": "Luger",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_Luger_8Rnd"
+   ],
+   "justification": "Wood-grip WW1 pistol; stock nominal 0 (census nominal-zero)."
+  },
+  {
+   "class": "Mp133Shotgun",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 3
+   },
+   "ammo": [
+    "Ammo_12gaPellets",
+    "Ammo_12gaSlug"
+   ],
+   "magazines": [],
+   "justification": "Wood-stock pump shotgun, police usage."
+  },
+  {
+   "class": "Magnum",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 5,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_357"
+   ],
+   "magazines": [],
+   "justification": "Wood-grip revolver, town usage."
+  },
+  {
+   "class": "AKM",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_AKM_30Rnd"
+   ],
+   "justification": "Wood-furniture assault rifle; stays the rare military prize."
+  },
+  {
+   "class": "Colt1911",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "ammo": [
+    "Ammo_45ACP"
+   ],
+   "magazines": [
+    "Mag_1911_7Rnd"
+   ],
+   "justification": "Conventional sidearm; military usage."
+  },
+  {
+   "class": "MakarovIJ70",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "common",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "ammo": [
+    "Ammo_380"
+   ],
+   "magazines": [
+    "Mag_IJ70_8Rnd"
+   ],
+   "justification": "Common town pistol; vanilla 70 reduced."
+  },
+  {
+   "class": "P1",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "common",
+   "set": {
+    "nominal": 6,
+    "min": 5
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_P1_8Rnd"
+   ],
+   "justification": "Common town pistol."
+  },
+  {
+   "class": "Glock19",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 5
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_Glock_15Rnd"
+   ],
+   "justification": "Police sidearm."
+  },
+  {
+   "class": "FNX45",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "ammo": [
+    "Ammo_45ACP"
+   ],
+   "magazines": [
+    "Mag_FNX45_15Rnd"
+   ],
+   "justification": "Modern military sidearm."
+  },
+  {
+   "class": "CZ75",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 3
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_CZ75_15Rnd"
+   ],
+   "justification": "Military sidearm."
+  },
+  {
+   "class": "Ruger1022",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "common",
+   "set": {
+    "nominal": 6,
+    "min": 4
+   },
+   "ammo": [
+    "Ammo_22"
+   ],
+   "magazines": [
+    "Mag_Ruger1022_15Rnd"
+   ],
+   "justification": "Small-calibre rifle; town and village stock."
+  },
+  {
+   "class": "M16A2",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_556x45"
+   ],
+   "magazines": [
+    "Mag_STANAG_30Rnd"
+   ],
+   "justification": "Conventional military rifle."
+  },
+  {
+   "class": "AK74",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "ammo": [
+    "Ammo_545x39"
+   ],
+   "magazines": [
+    "Mag_AK74_30Rnd"
+   ],
+   "justification": "Conventional military rifle."
+  },
+  {
+   "class": "MP5K",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "Mag_MP5_15Rnd",
+    "Mag_MP5_30Rnd"
+   ],
+   "justification": "Conventional submachine gun."
+  },
+  {
+   "class": "Saiga",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_12gaPellets",
+    "Ammo_12gaSlug"
+   ],
+   "magazines": [
+    "Mag_Saiga_8Rnd"
+   ],
+   "justification": "Semi-auto shotgun; rare."
+  },
+  {
+   "class": "SVD",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "ammo": [
+    "Ammo_762x54"
+   ],
+   "magazines": [
+    "Mag_SVD_10Rnd"
+   ],
+   "justification": "Conventional marksman rifle; rare."
+  },
+  {
+   "class": "Mag_CZ527_5rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "justification": "CZ 527 magazine."
+  },
+  {
+   "class": "Mag_LeeEnfield_10Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 2
+   },
+   "justification": "Lee-Enfield magazine; stock nominal 0."
+  },
+  {
+   "class": "Mag_MP18_Drum32Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1
+   },
+   "justification": "MP18 drum; stock nominal 0."
+  },
+  {
+   "class": "Mag_Luger_8Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 4,
+    "min": 2
+   },
+   "justification": "Luger magazine; stock nominal 0."
+  },
+  {
+   "class": "Mag_AKM_30Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "justification": "AKM magazine (stock count kept)."
+  },
+  {
+   "class": "Mag_1911_7Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 10,
+    "min": 8
+   },
+   "justification": "1911 magazine."
+  },
+  {
+   "class": "Mag_IJ70_8Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 14,
+    "min": 10
+   },
+   "justification": "IJ-70 magazine; vanilla 60."
+  },
+  {
+   "class": "Mag_P1_8Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 10,
+    "min": 8
+   },
+   "justification": "P1 magazine."
+  },
+  {
+   "class": "Mag_Glock_15Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "justification": "Glock 19 magazine."
+  },
+  {
+   "class": "Mag_FNX45_15Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 4,
+    "min": 3
+   },
+   "justification": "FNX-45 magazine."
+  },
+  {
+   "class": "Mag_CZ75_15Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 4
+   },
+   "justification": "CZ 75 magazine."
+  },
+  {
+   "class": "Mag_Ruger1022_15Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 8,
+    "min": 6
+   },
+   "justification": "Ruger 10/22 magazine."
+  },
+  {
+   "class": "Mag_STANAG_30Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 4,
+    "min": 2
+   },
+   "justification": "STANAG magazine (stock count kept near stock)."
+  },
+  {
+   "class": "Mag_AK74_30Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 6,
+    "min": 4
+   },
+   "justification": "AK-74 magazine; vanilla 25."
+  },
+  {
+   "class": "Mag_MP5_15Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 4,
+    "min": 3
+   },
+   "justification": "MP5 15-round magazine."
+  },
+  {
+   "class": "Mag_MP5_30Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "justification": "MP5 30-round magazine."
+  },
+  {
+   "class": "Mag_Saiga_8Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "justification": "Saiga magazine."
+  },
+  {
+   "class": "Mag_SVD_10Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "justification": "SVD magazine."
+  },
+  {
+   "class": "Ammo_762x54",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 24,
+    "min": 18
+   },
+   "justification": "Mosin, Lee-Enfield, SVD. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_762x39",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 30,
+    "min": 22
+   },
+   "justification": "SKS, Izh18, CZ 527, AKM. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_308Win",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 20,
+    "min": 14
+   },
+   "justification": "Winchester, B95. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_22",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 30,
+    "min": 22
+   },
+   "justification": "Ruger 10/22. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_12gaSlug",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 28,
+    "min": 20
+   },
+   "justification": "Shotguns, slugs. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_12gaPellets",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 30,
+    "min": 22
+   },
+   "justification": "Shotguns, buckshot. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_45ACP",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 25,
+    "min": 18
+   },
+   "justification": "1911 and FNX-45. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_9x19",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 30,
+    "min": 22
+   },
+   "justification": "Luger, MP18, P1, Glock, CZ 75, MP5. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_357",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 24,
+    "min": 18
+   },
+   "justification": "Repeater and Magnum. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_380",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "common",
+   "set": {
+    "nominal": 30,
+    "min": 22
+   },
+   "justification": "IJ-70. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_556x45",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 20,
+    "min": 14
+   },
+   "justification": "M16A2. Vanilla pool scaled to 3-6 players."
+  },
+  {
+   "class": "Ammo_545x39",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 14,
+    "min": 9
+   },
+   "justification": "AK-74. Vanilla pool scaled to 3-6 players."
+  }
+ ],
+ "deferred_datamined": [
+  {
+   "class": "SVD_Wooden",
+   "status": "requires-local-acceptance",
+   "note": "wood-stock Dragunov; census nominal-zero with no usage, needs usage and values added"
+  },
+  {
+   "class": "MakarovPB",
+   "status": "requires-local-acceptance",
+   "note": "census missing-from-types, magazine Mag_MakarovPB_8Rnd also needs a types entry"
+  },
+  {
+   "class": "SKS_Black",
+   "status": "requires-local-acceptance",
+   "note": "SKS skin variant; census nominal-zero (military usage)"
+  },
+  {
+   "class": "SKS_Desert",
+   "status": "requires-local-acceptance",
+   "note": "SKS skin variant; census nominal-zero (military usage)"
+  },
+  {
+   "class": "SKS_Green",
+   "status": "requires-local-acceptance",
+   "note": "SKS skin variant; census nominal-zero (military usage)"
+  },
+  {
+   "class": "SKS_Winter",
+   "status": "requires-local-acceptance",
+   "note": "SKS skin variant; census nominal-zero (military usage)"
+  },
+  {
+   "class": "Mosin9130_Black",
+   "status": "requires-local-acceptance",
+   "note": "Mosin skin variant; census nominal-zero with no usage"
+  },
+  {
+   "class": "Mosin9130_Winter",
+   "status": "requires-local-acceptance",
+   "note": "Mosin skin variant; census nominal-zero with no usage"
+  },
+  {
+   "class": "Winchester70_Black",
+   "status": "requires-local-acceptance",
+   "note": "Winchester skin variant; census missing-from-types"
+  },
+  {
+   "class": "Winchester70_Green",
+   "status": "requires-local-acceptance",
+   "note": "Winchester skin variant; census missing-from-types"
+  },
+  {
+   "class": "B95_Black",
+   "status": "requires-local-acceptance",
+   "note": "B95 skin variant; census missing-from-types"
+  },
+  {
+   "class": "B95_Green",
+   "status": "requires-local-acceptance",
+   "note": "B95 skin variant; census missing-from-types"
+  },
+  {
+   "class": "CZ527_Camo",
+   "status": "requires-local-acceptance",
+   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+  },
+  {
+   "class": "CZ527_Green",
+   "status": "requires-local-acceptance",
+   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+  },
+  {
+   "class": "CZ527_desert",
+   "status": "requires-local-acceptance",
+   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+  },
+  {
+   "class": "CZ527_winter",
+   "status": "requires-local-acceptance",
+   "note": "CZ 527 skin variant; census missing-from-types, magazine already spawns"
+  }
+ ]
+}

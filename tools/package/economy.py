@@ -20,6 +20,10 @@ LOG_NAMES = {'log_ce_lootspawn', 'log_ce_lootcleanup', 'log_ce_lootrespawn',
 DELTA_FILES = {'ce/types.xml', 'cfgeconomycore.append.xml', 'core-defaults.patch.json',
                'economy-report.json', 'delta-manifest.json'}
 MANAGED = 'hollow-country'
+# Child tags an installed candidate may change relative to stock. Default is usage only; a
+# caller (the firearms roster) may widen it to budget/tier tags, never flags, cost or quantities.
+MUTABLE_DEFAULT = frozenset({'usage'})
+MUTABLE_ALLOWED = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 'restock'})
 
 
 def encode(value):
@@ -260,7 +264,10 @@ def _patched_core(original, fragment, patches):
     return result
 
 
-def install(stage, target):
+def install(stage, target, mutable=MUTABLE_DEFAULT):
+    mutable = frozenset(mutable)
+    if 'usage' not in mutable or not mutable <= MUTABLE_ALLOWED:
+        raise ValueError('unsupported mutable field set')
     target = _target(target)
     files, manifest = _load_delta(stage)
     data = snapshot(target)
@@ -277,11 +284,11 @@ def install(stage, target):
     _unique(types.findall('type'))
     def retained_fields(element):
         return (element.tag, tuple(sorted(element.attrib.items())), (element.text or '').strip(),
-                tuple(retained_fields(n) for n in element if n.tag != 'usage'))
+                tuple(retained_fields(n) for n in element if n.tag not in mutable))
     for item in types:
         name = item.get('name')
         if item.tag != 'type' or name not in stock or retained_fields(item) != retained_fields(stock[name]):
-            raise ValueError('candidate must retain every stock field except usage')
+            raise ValueError('candidate must retain every stock field except the mutable set')
         _validate_budget(item)
         usages = item.findall('usage')
         _unique(usages)
