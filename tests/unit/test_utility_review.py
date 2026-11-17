@@ -343,10 +343,6 @@ class UtilityReviewTests(unittest.TestCase):
         self.assertEqual(0, family["parameters"]["m_ResultSetFullQuantity"][0]["value"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class WeightedCycleTests(unittest.TestCase):
     setUp = UtilityReviewTests.setUp
     build = UtilityReviewTests.build
@@ -359,16 +355,12 @@ class WeightedCycleTests(unittest.TestCase):
                     yield_policy='fixed-per-source', rationale='Explicit fixed recovery policy')
 
     def cohort(self):
-        large = ['LeatherJacket_'+c for c in ('Beige','Black','Brown','Natural')]
-        large += ['LeatherStorageVest_'+c for c in ('Beige','Black','Brown','Natural')]
-        medium = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural']
-        from tests.unit.test_salvage_tools import CUTTING
-        proposals = [self.proposal('HCRecoverLargeLeather',large,[('TannedLeather',2)],tool=CUTTING),
-                     self.proposal('HCRecoverMediumLeather',medium,[('TannedLeather',1)],tool=CUTTING),
-                     self.proposal('HCRecoverBatWood',['BaseballBat','XmasBaseballBat'],[('WoodenStick',2)],tool=['Hacksaw','HandSaw']),
-                     self.proposal('HCRecoverNailedBat',['NailedBaseballBat'],[('WoodenStick',1),('Nail',4)],tool=['Hacksaw','HandSaw'],wear=8),
-                     self.proposal('HCRecoverBarbedBat',['BarbedBaseballBat'],[('MetalWire',1)],tool='Pliers',wear=8),
-                     self.proposal('HCRecoverRuinedCrate',['WoodenCrate'],[('WoodenPlank',1),('Nail',2)],tool=['Crowbar','WoodAxe','Hatchet','FirefighterAxe'],wear=20)]
+        from tests.unit.test_crafting_families import FAMILIES
+        from tests.unit.test_salvage_tools import tool_policy
+        tools = tool_policy()
+        proposals = [self.proposal(name, sources, outputs,
+                     tool=[tools.ToolAt(seed, i) for i in range(tools.ToolCount(seed))], wear=wear)
+                     for name, (sources, seed, outputs, wear, _, _) in FAMILIES.items()]
         bat = recipe('CraftBaseBallBatNailed','Nail','NailedBaseballBat',1,destroy=False).replace(
             b'm_IngredientAddQuantity[0] = 0',b'm_IngredientAddQuantity[0] = -12; m_MinQuantityIngredient[0] = 12').replace(
             b'InsertIngredient(1,"Tool")',b'InsertIngredient(1,"BaseballBat")').replace(
@@ -436,22 +428,77 @@ class NativeForwardCycleTests(unittest.TestCase):
     build = UtilityReviewTests.build
     cohort = WeightedCycleTests.cohort
     proposal = WeightedCycleTests.proposal
-    def test_installed_forward_bytes_use_config_object_units_without_guessing_defaults(self):
-        from pathlib import Path
-        cache=Path('/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289')
-        if not cache.exists(): self.skipTest('pinned native cache unavailable')
+    def test_forward_derived_quantities_and_optional_cache_use_config_object_units(self):
+        import json
+        from tests.unit.test_crafting_contract import FIXTURE
+        from tests.unit.test_crafting_families_native import native_cache, native_fixture_sources
+        records = [r for r in json.loads(FIXTURE.read_text())['derived_native_recipes']
+                   if r['name'] in ('CraftBaseBallBatNailed','CraftWoodenCrate')]
+        self.assertEqual(2,len(records))
         proposals, _, rows = self.cohort()
-        files={name+'.c':(cache/'4_World/Classes/Recipes/Recipes'/ (name+'.c')).read_bytes()
-               for name in ('CraftBaseBallBatNailed','CraftWoodenCrate')}
-        files['Registry.c']=b'class Registry { void Register() { RegisterRecipe(new CraftBaseBallBatNailed); RegisterRecipe(new CraftWoodenCrate); } }'
         for row_record in rows:
             if row_record['ItemClass'] in ('NailedBaseballBat','WoodenCrate'):
                 row_record['Fields'] += [field('canBeSplit',scalar=0)]
-        result=self.build(files,rows,proposals=proposals)
-        self.assertTrue(all(p['quantity_gate_passed'] for p in result['proposals']),
-                        [(p['id'],p['cycle_status']) for p in result['proposals']])
-        # Remove config unit proof: a symbolic default must never silently be 1.
-        for row_record in rows: row_record['Fields']=row_record['Fields'][:1]
-        result=self.build(files,rows,proposals=proposals)
-        self.assertTrue(all(p['cycle_status']=='cycle-veto' for p in result['proposals']
-                            if p['id'] in ('HCRecoverNailedBat','HCRecoverRuinedCrate')))
+        versions = [native_fixture_sources(records)]
+        if native_cache().exists():
+            files = {r['name']+'.c':(native_cache()/'4_World/Classes/Recipes/Recipes'/
+                                    (r['name']+'.c')).read_bytes() for r in records}
+            files['Registry.c'] = ('class Registry { void Register() { '+
+                ' '.join('RegisterRecipe(new '+r['name']+');' for r in records)+' } }').encode()
+            versions.append(files)
+        for files in versions:
+            with self.subTest(evidence='derived' if len(files)==2 else 'cache'):
+                result = self.build(files,rows,proposals=proposals)
+                self.assertTrue(all(p['quantity_gate_passed'] for p in result['proposals']),
+                                [(p['id'],p['cycle_status']) for p in result['proposals']])
+                # Remove config unit proof: a symbolic default must never silently be 1.
+                unresolved = copy.deepcopy(rows)
+                for row_record in unresolved: row_record['Fields']=row_record['Fields'][:1]
+                result=self.build(files,unresolved,proposals=proposals)
+                self.assertTrue(all(p['cycle_status']=='cycle-veto' for p in result['proposals']
+                                   if p['id'] in ('HCRecoverNailedBat','HCRecoverRuinedCrate')))
+
+
+class ReviewRoundTwoTests(unittest.TestCase):
+    def test_gate_cohort_matches_authored_literals_and_family_expectations(self):
+        from tests.unit.test_crafting_contract import CRAFTING, declarations
+        from tests.unit.test_crafting_families import FAMILIES
+        parsed = {p['class']: p for p in declarations((CRAFTING/'HCSalvageRecipe.c').read_text())}
+        proposals, _, _ = WeightedCycleTests().cohort()
+        self.assertEqual(set(FAMILIES), {p['id'] for p in proposals})
+        for proposal in proposals:
+            name = proposal['id']
+            with self.subTest(family=name):
+                self.assertIn(name, parsed)
+                expected = FAMILIES[name]
+                outputs = [(p['item'].split(':')[1], p['quantity']) for p in proposal['outputs']]
+                self.assertEqual(expected[2], outputs)
+                self.assertEqual(outputs, [(p['item'], p['quantity']) for p in parsed[name]['outputs']])
+                self.assertEqual(expected[1], parsed[name]['tool'])
+                self.assertEqual(expected[3], parsed[name]['wear'])
+
+    def test_unknown_hc_salvage_and_drysack_edges_veto_feedback(self):
+        worker = WeightedCycleTests(); worker.setUp()
+        for before, after in [('CamoNet','Netting'), ('CableReel','MetalWire'),
+                              ('DrysackBag_Green','WaterproofBag_Green'),
+                              ('DrysackBag_Orange','Rope'), ('DrysackBag_Yellow','Rope')]:
+            with self.subTest(edge=(before, after)):
+                proposal = worker.proposal('Feedback', [after], [(before, 1)])
+                result = worker.build({'NoRecipes.c':b'class NoRecipes {}'}, [item(before),item(after),item('Tool')], proposals=[proposal])
+                self.assertEqual('cycle-veto', result['proposals'][0]['cycle_status'])
+                self.assertTrue(any('split/stack' in line for line in result['limitations']))
+
+    def test_unknown_native_split_stack_path_vetoes_lossy_feedback(self):
+        worker = WeightedCycleTests(); worker.setUp()
+        forward = recipe(quantity=1).replace(b'm_IngredientAddQuantity[0] = 0',
+            b'm_IngredientAddQuantity[0] = -2; m_MinQuantityIngredient[0] = 2').replace(
+            b'm_IngredientDestroy[0] = true', b'm_IngredientDestroy[0] = false')
+        rows = [item('Material'),item('Product'),item('Tool')]
+        rows[0]['Fields'].append(field('canBeSplit', scalar=1))
+        proposal = worker.proposal('Feedback', ['Product'], [('Material',1)])
+        result = worker.build({'Forward.c':forward}, rows, proposals=[proposal])
+        self.assertEqual('cycle-veto', result['proposals'][0]['cycle_status'])
+
+
+if __name__ == "__main__":
+    unittest.main()

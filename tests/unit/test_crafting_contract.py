@@ -12,13 +12,24 @@ FIXTURE = ROOT / "tests/fixtures/runtime/crafting-contract.json"
 
 
 def declarations(source):
-    pattern = (r'class (HCSalvage\w+) extends HCSalvageRecipe\s*\{\s*'
-               r'override void Init\(\)\s*\{\s*'
-               r'Configure\("[^"]+", "([^"]+)", "([^"]+)", "([^"]+)", '
-               r'(\d+), ([\d.]+), ([\d.]+)\);')
-    keys = ("class", "input", "tool", "output", "quantity", "wear", "animation_units")
-    return [dict(zip(keys, (cls, inp, tool, out, int(q), float(w), float(t))))
-            for cls, inp, tool, out, q, w, t in re.findall(pattern, source)]
+    """Read literal Init contracts, including every mandatory co-product."""
+    records = []
+    for cls, init in re.findall(
+            r'class ((?:HCSalvage|HCRecover)\w+) extends HCSalvageRecipe\s*\{\s*'
+            r'override void Init\(\)\s*\{(.*?)\n    \}', source, re.S):
+        match = re.search(
+            r'Configure\("[^"\n]+", "([^"\n]+)", "([^"\n]+)", "([^"\n]+)", '
+            r'(\d+), ([\d.]+), ([\d.]+)\);', init)
+        if match is None:
+            raise ValueError('nonliteral recovery Configure: ' + cls)
+        inp, tool, out, quantity, wear, animation = match.groups()
+        outputs = [dict(item=out, quantity=int(quantity))]
+        outputs += [dict(item=name, quantity=int(q)) for name, q in
+                    re.findall(r'AddRecoveryResult\("([^"]+)", (\d+)\);', init)]
+        records.append(dict(class_=cls, input=inp, tool=tool, outputs=outputs,
+                            wear=float(wear), animation_units=float(animation)))
+        records[-1]['class'] = records[-1].pop('class_')
+    return records
 
 
 def ledger(items, weights):
@@ -41,34 +52,46 @@ def validate_graph(recipes, weights):
 class CraftingContractTests(unittest.TestCase):
     def setUp(self):
         self.fixture = json.loads(FIXTURE.read_text())
-        # This historical fixture remains untouched; current authored policy
-        # retires belts and corrects CamoNet. Keep the synthetic boundary small.
-        self.fixture['pilots'] = self.fixture['pilots'][:2]
-        self.fixture['pilots'][0]['quantity'] = 1
         self.source = "\n".join(p.read_text() for p in sorted(CRAFTING.glob("*.c")))
         self.pilots = declarations(self.source)
 
     def graph(self):
-        self.assertEqual(2, len(self.pilots), "two retained native salvage policies required")
+        self.assertEqual(8, len(self.pilots), "complete authored recovery set required")
         graph = deepcopy(self.fixture["native_boundary"])
         for recipe in graph:
             for field in ("inputs", "outputs"):
                 recipe[field] = {self.fixture["aliases"].get(k, k):v for k,v in recipe[field].items()}
-        graph.extend({"name":p["class"], "inputs":{p["input"]:1},
-                      "outputs":{p["output"]:p["quantity"]}} for p in self.pilots)
+        from tests.unit.test_crafting_families import FAMILIES
+        graph.extend({"name":p["class"], "inputs":{source:1},
+                      "outputs":{o["item"]:o["quantity"] for o in p["outputs"]}}
+                     for p in self.pilots
+                     for source in (FAMILIES[p["class"]][0] if p["class"] in FAMILIES else [p["input"]]))
         return graph
 
-    def test_two_retained_policies_and_retired_belt(self):
+    def test_complete_policies_and_retired_belt(self):
         self.assertEqual(self.fixture["pilots"], self.pilots)
-        self.assertEqual(2, len({p["input"] for p in self.pilots}))
-        self.assertEqual(2, len({p["output"] for p in self.pilots}))
+        self.assertEqual(8, len({p["input"] for p in self.pilots}))
+        self.assertNotIn("HCSalvageLeatherBelt", {p["class"] for p in self.pilots})
+
+    def test_complete_recovery_set_is_in_fixture_parser_and_registration(self):
+        from tests.unit.test_crafting_families import FAMILIES
+        expected = {'HCSalvageCamoNet','HCSalvageCableReel', *FAMILIES}
+        self.assertEqual(expected, {p['class'] for p in self.pilots})
+        fixture = json.loads(FIXTURE.read_text())
+        self.assertEqual(expected, {p['class'] for p in fixture['pilots']})
+        self.assertEqual(8, len(self.pilots))
+        self.assertEqual(8, len(fixture['pilots']))
 
     def test_typed_conservation_and_loss(self):
         validate_graph(self.graph(), self.fixture["materials"])
+        for conversion in self.graph()[len(self.fixture['native_boundary']):]:
+            before = ledger(conversion['inputs'], self.fixture['materials'])
+            after = ledger(conversion['outputs'], self.fixture['materials'])
+            if conversion['name'] == 'HCSalvageCamoNet':
+                self.assertEqual(before, after)  # 400g -> 400g; condition still loses.
+            else:
+                self.assertTrue(any(after[k] < before[k] for k in before))
         for p in self.pilots:
-            before = ledger({p["input"]:1}, self.fixture["materials"])
-            after = ledger({p["output"]:p["quantity"]}, self.fixture["materials"])
-            self.assertTrue(any(after[k] < before[k] for k in before))
             self.assertGreater(p["wear"], 0)
             self.assertGreater(p["animation_units"], 0)
 
@@ -76,7 +99,7 @@ class CraftingContractTests(unittest.TestCase):
         graph = self.graph()
         for mutation in ({"Netting":5}, {"MetalWire":1}, {"Netting":2,"BurlapStrip":1}):
             broken = deepcopy(graph)
-            broken[-2]["outputs"] = mutation
+            next(r for r in broken if r["name"] == "HCSalvageCamoNet")["outputs"] = mutation
             with self.assertRaisesRegex(ValueError, "resource-positive conversion"):
                 validate_graph(broken, self.fixture["materials"])
         broken = deepcopy(graph)
@@ -86,7 +109,9 @@ class CraftingContractTests(unittest.TestCase):
 
     def test_all_reachable_chains_in_boundary_graph_conserve_material(self):
         graph = self.graph()
-        start = Counter(CamoNet=1, CableReel=1, LeatherBelt_ColorBase=1, LizardPelt=1, BurlapStrip=6)
+        start = Counter(CamoNet=1, CableReel=1, LizardPelt=1, BurlapStrip=6,
+                        LeatherJacket_Beige=1, LeatherPants_Beige=1, BaseballBat=1,
+                        NailedBaseballBat=1, BarbedBaseballBat=1, WoodenCrate=1)
         ceiling = ledger(start, self.fixture["materials"])
         freeze = lambda state: tuple(sorted((k,v) for k,v in state.items() if v))
         queue, seen = deque([start]), {freeze(start)}
@@ -103,7 +128,7 @@ class CraftingContractTests(unittest.TestCase):
                     if key not in seen:
                         seen.add(key)
                         queue.append(nxt)
-        self.assertGreater(len(seen), 10)
+        self.assertGreater(len(seen), 50)
 
     def test_registration_is_identical_and_unconditional_on_both_peers(self):
         path = CRAFTING / "HCRecipeRegistration.c"
@@ -112,6 +137,8 @@ class CraftingContractTests(unittest.TestCase):
         self.assertIn("modded class PluginRecipesManager", source)
         self.assertIn("override void RegisterRecipies()", source)
         self.assertNotRegex(source, r'\bif\s*\(')
+        registrations = re.findall(r'RegisterRecipe\(new ((?:HCRecover|HCSalvage)\w+)\);', source)
+        self.assertEqual(Counter(p['class'] for p in self.fixture['pilots']), Counter(registrations))
         positions = [source.index("super.RegisterRecipies();")]
         positions += [source.index("RegisterRecipe(new " + p["class"] + ");") for p in self.fixture["pilots"]]
         self.assertEqual(sorted(positions), positions)
@@ -169,7 +196,7 @@ class CraftingContractTests(unittest.TestCase):
                 self.assertLess(after, current)
                 current = after
         for pilot in self.pilots:
-            for available in (pilot["wear"] + 0.01, 20, 100):
+            for available in (pilot["wear"] + 0.01, pilot["wear"] + 20, pilot["wear"] + 100):
                 self.assertGreater(available - pilot["wear"], 0)
                 self.assertLess(available - pilot["wear"], available)
 

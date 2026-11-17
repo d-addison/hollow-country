@@ -9,6 +9,8 @@ modded class ActionDeCraftDrysackBag
             return false;
         if (item.IsRuined() || item.IsSetForDeletion() || !item.IsEmpty())
             return false;
+        if (!item.GetInventory())
+            return false;
         if (item.GetHierarchyRootPlayer() != player || item.GetInventory().IsAttachment())
             return false;
         string sourceType = item.GetType();
@@ -22,6 +24,8 @@ modded class ActionDeCraftDrysackBag
 
     override void OnFinishProgressServer(ActionData action_data)
     {
+        if (!GetGame() || !GetGame().IsServer() || !action_data)
+            return;
         if (m_HCFinishing || !HCValidDrysack(action_data.m_MainItem, action_data.m_Player))
             return;
         m_HCFinishing = true;

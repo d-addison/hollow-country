@@ -168,7 +168,11 @@ class HCNativeCraftingSafety
         if (!ingredient || ingredient.IsSetForDeletion())
             return false;
         if (ingredient.IsMagazine())
+        {
+            if (!Magazine.Cast(ingredient))
+                return false;
             return Magazine.Cast(ingredient).GetAmmoCount() >= debit;
+        }
         return ingredient.HasQuantity() && ingredient.GetQuantity() >= debit;
     }
 
@@ -210,6 +214,8 @@ class HCNativeCraftingSafety
 
     static void DiscardNativeOutputs(array<ItemBase> results)
     {
+        if (!results)
+            return;
         for (int outputIndex = 0; outputIndex < results.Count(); outputIndex++)
         {
             ItemBase provisional = results[outputIndex];
@@ -221,10 +227,12 @@ class HCNativeCraftingSafety
 
     static void CapNativeRecovery(array<ItemBase> results, float sourceHealth)
     {
+        if (!results)
+            return;
         for (int resultIndex = 0; resultIndex < results.Count(); resultIndex++)
         {
             ItemBase recovery = results[resultIndex];
-            if (recovery && recovery.GetHealth01("", "") > sourceHealth)
+            if (recovery && !recovery.IsSetForDeletion() && recovery.GetHealth01("", "") > sourceHealth)
                 recovery.SetHealth("", "", sourceHealth * recovery.GetMaxHealth("", ""));
         }
     }
@@ -239,6 +247,8 @@ modded class RecipeBase
         if (!player || !player.IsAlive() || player.IsUnconscious())
             return false;
         if (!item1 || !item2 || item1 == item2 || item1.IsSetForDeletion() || item2.IsSetForDeletion())
+            return false;
+        if (!item1.GetInventory() || !item2.GetInventory())
             return false;
         // Native manager already supplies sorted handles. Never move or replace
         // either handle. Grounded double wheels retain their native CanDo rule.
@@ -273,7 +283,9 @@ modded class RecipeBase
             super.PerformRecipe(item1, item2, player);
             return;
         }
-        if (!GetGame().IsServer() || !m_HCNativeCommitGuard.TryEnter())
+        if (!GetGame() || !GetGame().IsServer() || !m_HCNativeCommitGuard)
+            return;
+        if (!m_HCNativeCommitGuard.TryEnter())
             return;
         if (CheckRecipe(item1, item2, player))
         {
@@ -349,7 +361,19 @@ modded class SplitLongWoodenStick
     override void Init()
     {
         super.Init();
-        RemoveIngredient(1, "Jambiya;");
-        InsertIngredient(1, "Jambiya", DayZPlayerConstants.CMD_ACTIONFB_SPLITTING_FIREWOOD, true);
+        // Repair the literal in place: RemoveIngredient leaves animation data.
+        // Keep the native sound category, animation command and showItem flag.
+        if (!m_Ingredients[1] || !m_AnimationInfos)
+            return;
+        for (int toolIndex = 0; toolIndex < m_Ingredients[1].Count(); toolIndex++)
+        {
+            if (m_Ingredients[1][toolIndex] == "Jambiya;")
+                m_Ingredients[1][toolIndex] = "Jambiya";
+        }
+        for (int animationIndex = 0; animationIndex < m_AnimationInfos.Count(); animationIndex++)
+        {
+            if (m_AnimationInfos[animationIndex] && m_AnimationInfos[animationIndex].m_IngredientName == "Jambiya;")
+                m_AnimationInfos[animationIndex].m_IngredientName = "Jambiya";
+        }
     }
 }

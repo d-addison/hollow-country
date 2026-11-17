@@ -308,6 +308,27 @@ def _native_weights(families, by_name, identities, budget):
     in reachability and veto any proposed cycle that needs them.
     """
     weights = defaultdict(list)
+    # These custom paths are outside literal RecipeBase Init analysis. Preserve
+    # reachability without claiming effective yields, including HC action paths.
+    unknown_routes = [('CamoNet', 'Netting'), ('CableReel', 'MetalWire')]
+    for color in ('Green', 'Orange', 'Yellow'):
+        unknown_routes += [('DrysackBag_'+color, 'WaterproofBag_'+color),
+                           ('DrysackBag_'+color, 'Rope')]
+    for before, after in unknown_routes:
+        for source_id in by_name.get(before.casefold(), ()):
+            for output_id in by_name.get(after.casefold(), ()):
+                budget.take()
+                weights[source_id, output_id].append(None)
+    # Native same-class split/stack operations are not recipe declarations. A
+    # captured splittable flag identifies their class-level self edge, but does
+    # not prove their quantity bound or mixed object/stack unit conservation.
+    for identity, record in identities.items():
+        fields = {f['ConfigPath'].casefold():f for f in record['evidence']['Fields']}
+        flag = fields.get('canbesplit', {})
+        if (utility._captured(flag) and flag.get('Status') == 'captured'
+                and type(flag.get('ValueInt')) is int and flag['ValueInt'] > 0):
+            budget.take()
+            weights[identity, identity].append(None)
     blockers = {"missing-or-ambiguous-init", "missing-or-ambiguous-cando", "custom-mutation-or-method",
                 "native-custom-condition", "unsupported-recipe-parameter", "dynamic-output-class",
                 "unresolved-or-ambiguous-input-class", "unresolved-or-ambiguous-output-class",
@@ -450,6 +471,10 @@ def _proposals(records, identities, graph, add_edge, budget, weights):
         while stack:
             current, product, visited = stack.pop()
             budget.take()
+            # A split/stack self edge can be traversed before continuing a
+            # closing path. Simple-path enumeration would otherwise omit it.
+            if None in weights.get((current, current), ()):
+                product = None
             if current == target:
                 found = True
                 if product is None or product >= 1:
@@ -627,8 +652,10 @@ def build_review(rows, crafting_census, action_census, provenance, source_files,
         classes.append(dict(id=identity, decision=decision, dispositions=dispositions,
                             source_name_cohort=record["name_cohort"], repair=repair,
                             native_output_references=uses[name], runtime_qualified=False))
-    proposal_rows = _proposals(proposals, identities, graph, add_edge, budget,
-                               _native_weights(families, by_name, identities, budget))
+    native_weights = _native_weights(families, by_name, identities, budget)
+    for before, after in native_weights:
+        add_edge(before, after)
+    proposal_rows = _proposals(proposals, identities, graph, add_edge, budget, native_weights)
     result = dict(schema_version=1, kind="whole-content-utility-decisions",
         dimensions=list(DIMENSIONS), decision_enumeration_complete=True,
         gameplay_acceptance=False, runtime_qualified=False, provenance_authenticated=False,
@@ -644,6 +671,8 @@ def build_review(rows, crafting_census, action_census, provenance, source_files,
         resource_conservation="NOT_EVALUATED",
         limitations=["Complete means all supplied class/recipe/action decisions, not gameplay acceptance.",
                      "Existing native routes are reused, never duplicated or automatically enabled.",
+                     "HC CamoNet/CableReel salvage, drysack decraft and captured splittable native split/stack paths are seeded as unknown bounds and veto feedback cycles.",
+                     "The gate covers declared and explicitly seeded edges only; unmodeled native actions, missing split flags and cross-class stack compatibility remain unproved.",
                      "Custom conditions, Do methods, dynamic outputs and defaults retain explicit holds.",
                      "Config ancestry creates candidates, not effective runtime ingredient eligibility.",
                      "No general material recovery yields or new recipe authorizations are invented."])

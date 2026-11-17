@@ -19,7 +19,7 @@ PILOTS = (
 def body(filename, method, owner=None):
     source = (SRC / filename).read_text()
     if owner:
-        source = re.split(r'^class '+re.escape(owner)+r'\b',source,flags=re.M)[1]
+        source = re.split(r'^(?:modded )?class '+re.escape(owner)+r'\b',source,flags=re.M)[1]
         source = re.split(r'^class ',source,flags=re.M)[0]
     match = re.search(r"^\s*(?:(?:static|override|protected)\s+)*\w+\s+" + method + r"\([^;\n]*\)\s*\{", source, re.M)
     if not match:
