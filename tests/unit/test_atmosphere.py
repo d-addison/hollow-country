@@ -70,6 +70,14 @@ class AtmosphereTests(unittest.TestCase):
         self.assertEqual(self.stock, first['cfgweather.xml'])
         self.assertEqual(first, self.generate(enable=False))
 
+    def test_only_both_exact_native_build_identities_are_admitted(self):
+        for build in ('1.30.164289', '1.30.164289.70'):
+            report = json.loads(self.generate(build=build)['atmosphere-report.json'])
+            self.assertEqual(build, report['profile']['build'])
+        for build in ('', '1.30.164289.71', '1.30.164289.70extra', '1.30.1642890', '1.31.164289'):
+            with self.subTest(build=build), self.assertRaises(ValueError):
+                self.generate(build=build)
+
     def test_profile_unknown_types_nonfinite_and_pin_fail_closed(self):
         cases = [dict(schema=True), dict(schema=2), dict(name='../bad'), dict(world='unknown'),
                  dict(build='unqualified'), dict(source_sha256='0'*64), dict(enable=1),
@@ -240,6 +248,49 @@ class AtmosphereTests(unittest.TestCase):
         run=cli('validate','--candidate',dest,'--source',self.source)
         self.assertEqual(0,run.returncode,run.stderr)
         self.assertNotEqual(0,cli('generate','--source',self.source,'--profile',p,'--output',dest).returncode)
+
+    def test_v1_script_profile_delegates_every_phenomenon_without_resetting_storage(self):
+        profile = a.v1_script_profile(self.source)
+        self.assertFalse(profile['enable'])
+        self.assertFalse(profile['reset'])
+        self.assertEqual({}, profile['overrides'])
+        self.assertEqual('chernarusplus', profile['world'])
+        files = a.generate(self.source, profile)
+        self.assertTrue(files['cfgweather.xml'].startswith(a.SCRIPT_XML_PREFIX))
+        before, after = ET.fromstring(self.stock), ET.fromstring(files['cfgweather.xml'])
+        for name in (*a.PHENOMENA, 'storm'):
+            self.assertEqual(ET.tostring(before.find(name)), ET.tostring(after.find(name)))
+        report = json.loads(files['atmosphere-report.json'])
+        self.assertEqual('script-after-admission; otherwise vanilla', report['driver_ownership']['overcast'])
+        self.assertEqual('script-after-admission; otherwise vanilla', report['driver_ownership']['volumetricFog'])
+        self.assertEqual('pending', report['runtime_acceptance'])
+        self.assertFalse(report['feature_complete'])
+        self.assertEqual(files, a.generate(self.source, profile))
+
+    def test_v1_profile_cannot_enable_a_second_driver_or_override_script_values(self):
+        for change in ({'enable': True}, {'reset': True}, {'world': 'enoch'},
+                       {'overrides': {'fog': {'current': {'actual': .2}}}}):
+            profile = dict(a.v1_script_profile(self.source), **change)
+            with self.subTest(change=change):
+                with self.assertRaises(ValueError):
+                    a.generate(self.source, profile)
+
+    def test_v1_cli_builds_source_verified_delegation_candidate(self):
+        dest = self.root / 'v1'
+        run = subprocess.run([sys.executable, '-B', str(Path(a.__file__)), 'v1-script',
+                              '--source', str(self.source), '--output', str(dest)],
+                             capture_output=True, text=True)
+        self.assertEqual(0, run.returncode, run.stderr)
+        self.assertTrue(a.validate_candidate(dest, self.source)['source_verified'])
+
+
+def load_tests(loader, tests, pattern):
+    # Keep the existing #35 BDD binding and include its v1 authored-policy cases.
+    from tests.unit import test_v1_weather
+    from tests.unit import test_v1_weather_alerts
+    tests.addTests(loader.loadTestsFromModule(test_v1_weather))
+    tests.addTests(loader.loadTestsFromModule(test_v1_weather_alerts))
+    return tests
 
 
 if __name__=='__main__': unittest.main()

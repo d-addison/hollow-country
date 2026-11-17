@@ -118,6 +118,8 @@ BINDINGS = {
          "When the infected death diagnostic preparation and result checks execute",
          "Then missing cleanup incomplete cases and outer timeouts cannot qualify the observation"), "test_infected_death_probe.py"),
     "Build weather candidates without silently changing native defaults": (
+        # test_atmosphere.load_tests also executes #35 v1 authored weather and
+        # admission policies. Existing operator-profile step contract is retained.
         ("Given synthetic native weather XML and explicit pinned operator profiles",
          "When the bounded atmosphere candidate generator and validator execute",
          "Then unspecified native settings remain unchanged and no runtime acceptance is inferred"), "test_atmosphere.py"),

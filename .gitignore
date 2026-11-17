@@ -52,6 +52,9 @@ Thumbs.db
 .idea/
 # Local planning, orchestration and machine-specific research
 /.banso/
+/.banso-writer/
+/.banso-brief.md
+/scratchpad-review/
 /AGENTS.md
 /NEXT_SESSION_PROMPT.md
 /spec.md

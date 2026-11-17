@@ -41,9 +41,9 @@ profile. Existing settings are operator state: back them up rather than replacin
 them on upgrade. If absent, the core writes defaults at this same path. Invalid
 settings disable features and preserve the original file; inspect the script log.
 
-SchemaVersion must be 1. All seven feature preferences default to true:
+SchemaVersion must be 1. All eight feature preferences default to true:
 EnableInteriors, EnableSearch, EnableCrafting, EnableInfected, EnableHordes,
-EnableAlertChains and EnableGroups. A preference is not qualification: each
+EnableAlertChains, EnableGroups and EnableAtmosphere. A preference is not qualification: each
 module still admits only behaviour whose native evidence is recorded and logs
 the reason when it refuses. Set a flag to false to disable a feature; explicit
 disables are preserved. Search requires interiors; hordes/chains require
@@ -52,6 +52,20 @@ infected. Acceptance of each feature remains pending its local-server tests. Tic
 MaxPropsPerInterior 5. These are bounded pilot limits, not performance promises.
 Module-specific catalogs, state and acceptance belong to each module. No runtime
 state is bundled. Enabling a flag does not establish eligibility or acceptance.
+
+Atmosphere remains experimental: admission also requires ChernarusPlus, an exact
+engine version of `1.30.164289` or `1.30.164289.70`, the local acceptance marker
+`HollowCountry/acceptance/atmosphere.enable` under the server profile, and the
+generator's canonical disabled, non-resetting `v1-script` cfgweather.xml candidate.
+Production qualification remains false. Restart after changing admission inputs.
+Missing or non-delegated XML leaves vanilla in control. Admitted atmosphere changes
+lightingConfig from 0 to 1 and disablePersonalLight from false to true only;
+other operator values are retained and logged once alongside applied previous
+values. Seasonal temperature arrays remain native/operator owned. A missing
+native noise system preserves the vanilla supplementary relay radius and logs once.
+For atmosphere rollback, stop the server, set EnableAtmosphere=false, remove the
+local marker and restore the backed-up mission/settings before restarting. DayZDiag,
+normal PBO/server and two-client visibility/audio acceptance remain pending.
 
 ## CE generation and installation
 

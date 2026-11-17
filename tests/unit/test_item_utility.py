@@ -74,6 +74,38 @@ class ItemUtilityTests(unittest.TestCase):
         return self.m.build_audit(list(rows), craft if craft is not None else c,
                                   actions if actions is not None else a, {"fixture": "synthetic"})
 
+    def test_decision_table_is_lossless_and_never_grants_gameplay(self):
+        c, a = censuses()
+        for name, status in [('RepairElectric', 'registered'), ('Legacy', 'disabled'),
+                             ('Orphan', 'unregistered'), ('Conditional', 'UNKNOWN')]:
+            add_recipe(c, name)
+            c['recipes'][-1]['source_status'] = status
+        for name in ('ActionRepairTent', 'ActionRepairWithToolFromHands', 'ActionOther'):
+            add_action(a, name)
+        add_action(a, 'Unresolved', False)
+        add_action(a, 'OrdinaryItem', False)
+        a['classes'][-1]['action_candidate_status'] = 'no-source-path'
+        rows = [row('Positive', fields=[field('repairableWithKits', [7]),
+                                       field('repairCosts', [25, 99])]),
+                row('Empty', fields=[field('repairableWithKits')]), row('Absent')]
+        result = self.build(rows, c, a)
+        table = result['decision_table']
+        self.assertEqual(['Unresolved'], table['unresolved_script_classes'])
+        self.assertEqual({r['id'] for r in result['classes']},
+                         {r['id'] for r in table['config_classes']})
+        self.assertEqual(['qualify-native-maintenance', 'hold-disabled',
+                          'hold-unregistered', 'UNKNOWN'],
+                         [r['decision'] for r in table['recipes']])
+        self.assertEqual(['qualify-native-maintenance', 'hold-test-only', 'preserve-native'],
+                         [r['decision'] for r in table['actions']])
+        self.assertEqual(['Unresolved'], table['unresolved_script_classes'])
+        target = next(r for r in table['config_classes'] if r['id'].endswith(':Positive'))
+        self.assertEqual('qualify-native-maintenance', target['repair'])
+        self.assertEqual('UNKNOWN', target['material_conversion'])
+        self.assertFalse(table['runtime_qualified'])
+        self.assertFalse(table['production_enablement'])
+        self.assertEqual([99], result['classes'][2]['repair']['surplus_costs'])
+
     def test_complete_cohorts_include_unresolved_and_every_root(self):
         c, a = censuses()
         for i in range(234):

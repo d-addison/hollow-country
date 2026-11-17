@@ -41,6 +41,106 @@ MAX_SOURCE_BYTES = 128 * 1024 * 1024
 IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z_0-9]{0,511}\Z")
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
+# Exact inspected source families, not name-pattern eligibility. Decisions only
+# select qualification work; no config/script identity or live route is implied.
+MAINTENANCE_RECIPES = frozenset(('CleanWeapon RepairElectric RepairEpoxy '
+    'RepairWithSewingKit RepairWithLeatherSewingKit RepairWithTape RepairWithTireKit '
+    'SharpenMelee RepairPlanks RepairWithPliers').split())
+MAINTENANCE_ACTIONS = frozenset(('ActionRepairBoatChassis ActionRepairBoatEngine '
+    'ActionRepairCarChassis ActionRepairCarChassisWithBlowtorch ActionRepairCarEngine '
+    'ActionRepairCarEngineWithBlowtorch ActionRepairCarPart ActionRepairCarPartWithBlowtorch '
+    'ActionRepairItemWithBlowtorch ActionRepairMotorbikeChassis '
+    'ActionRepairMotorbikeChassisWithBlowtorch ActionRepairMotorbikeEngine '
+    'ActionRepairMotorbikeEngineWithBlowtorch ActionRepairMotorbikePart '
+    'ActionRepairMotorbikePartWithBlowTorch ActionRepairPart ActionRepairShelter '
+    'ActionRepairTent ActionRepairTentPart ActionRepairVehiclePartBase').split())
+
+
+# Authored V1 balance decisions over exact identities, never ancestry/prefix rules.
+# Evidence IDs resolve in tests/fixtures/runtime/crafting-contract.json. Config
+# establishes material identity only; output quantities are whole-unit policy.
+HC_RECOVERY_ROWS = (
+    ('HCSalvageCamoNet', ('CamoNet',), 'non-ruined', 'crafting-v1:C1'),
+    ('HCSalvageCableReel', ('CableReel',), 'non-ruined', 'crafting-v1:C1'),
+    ('HCRecoverLargeLeather', ('LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherStorageVest_Beige', 'LeatherStorageVest_Black', 'LeatherStorageVest_Brown', 'LeatherStorageVest_Natural'), 'non-ruined', 'crafting-v1:LARGE'),
+    ('HCRecoverMediumLeather', ('LeatherPants_Beige', 'LeatherPants_Black', 'LeatherPants_Brown', 'LeatherPants_Natural', 'LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige', 'LeatherGloves_Black', 'LeatherGloves_Brown', 'LeatherGloves_Natural', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural'), 'non-ruined', 'crafting-v1:MEDIUM'),
+    ('HCRecoverBatWood', ('BaseballBat', 'XmasBaseballBat'), 'non-ruined', 'crafting-v1:B1'),
+    ('HCRecoverNailedBat', ('NailedBaseballBat',), 'non-ruined', 'crafting-v1:B1'),
+    ('HCRecoverBarbedBat', ('BarbedBaseballBat',), 'non-ruined', 'crafting-v1:B1'),
+    ('HCRecoverRuinedLargeLeather', ('LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherStorageVest_Beige', 'LeatherStorageVest_Black', 'LeatherStorageVest_Brown', 'LeatherStorageVest_Natural'), 'ruined-only', 'crafting-v1:LARGE'),
+    ('HCRecoverRuinedBatWood', ('BaseballBat', 'XmasBaseballBat'), 'ruined-only', 'crafting-v1:B1'),
+    ('HCRecoverRuinedNailedBat', ('NailedBaseballBat',), 'ruined-only', 'crafting-v1:B1'),
+    ('HCRecoverRuinedCrate', ('WoodenCrate',), 'ruined-only', 'crafting-v1:C1'),
+)
+HC_RUINED_EXCLUSIONS = (
+    (('LeatherPants_Beige', 'LeatherPants_Black', 'LeatherPants_Brown', 'LeatherPants_Natural', 'LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige', 'LeatherGloves_Black', 'LeatherGloves_Brown', 'LeatherGloves_Natural', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural'),
+     'HCRecoverMediumLeather', 'crafting-v1:MIN-PANEL',
+     'single-unit pristine panel; no positive lower whole-unit yield; no proved substitute material'),
+    (('BarbedBaseballBat',), 'HCRecoverBarbedBat', 'crafting-v1:MIN-WIRE',
+     'single-unit pristine wire; no positive lower whole-unit yield; no proved substitute conversion'),
+)
+
+
+def _hc_decisions(root, name):
+    if root != 'CfgVehicles':
+        return []
+    decisions = [dict(recipe=recipe, status='implemented', condition=condition,
+                      evidence_id=evidence, runtime_acceptance='pending')
+                 for recipe, sources, condition, evidence in HC_RECOVERY_ROWS if name in sources]
+    decisions.extend(dict(recipe=recipe, status='excluded', condition='ruined-only',
+                          evidence_id=evidence, reason=reason, runtime_acceptance='pending')
+                     for sources, recipe, evidence, reason in HC_RUINED_EXCLUSIONS if name in sources)
+    return decisions
+
+
+def _decisions(classes, crafting, actions, indexes, budget):
+    """N1 decisions reference retained evidence; absence never means useless.
+
+    All arrays are bounded upstream. Keep unsupported/conditional declarations,
+    ambiguous repair cohorts and unresolved script ancestry/calls in the report.
+    Native tests must resolve these decisions; this table cannot grant a recipe.
+    """
+    config, recipes, action_rows = [], [], []
+    for row in classes:
+        budget.take()
+        repair = row['repair']
+        decision = ('qualify-native-maintenance' if repair['cohort'] == 'positive_id_observed'
+                    else 'exclude-regular-kit-extension' if repair['cohort'] in
+                    ('empty_observation', 'nonpositive_only') else 'UNKNOWN')
+        hc_decisions = _hc_decisions(row['root'], row['name'])
+        conversion = 'hc-recovery' if any(d['status'] == 'implemented' for d in hc_decisions) else 'UNKNOWN'
+        config.append(dict(id=row['id'], native_use='preserve-native', repair=decision,
+                           repair_evidence_cohort=repair['cohort'],
+                           material_conversion=conversion, hc_decisions=hc_decisions,
+                           inventory_eligibility='NOT_EVALUATED'))
+    for index, row in enumerate(crafting['recipes']):
+        budget.take()
+        status = row.get('source_status')
+        decision = ('qualify-native-maintenance' if row['class'] in MAINTENANCE_RECIPES
+                    else 'preserve-native') if status == 'registered' else {
+                        'disabled': 'hold-disabled', 'unregistered': 'hold-unregistered'
+                    }.get(status, 'UNKNOWN')
+        recipes.append(dict(recipe_index=index, **{'class': row['class']},
+                            decision=decision, runtime_status='UNKNOWN'))
+    for index, row in enumerate(actions['actions']):
+        budget.take()
+        name = row['class']
+        decision = ('hold-test-only' if name == 'ActionRepairWithToolFromHands' else
+                    'qualify-native-maintenance' if name in MAINTENANCE_ACTIONS else 'preserve-native')
+        action_rows.append(dict(action_index=index, **{'class': name},
+                                decision=decision, runtime_status='UNKNOWN'))
+    unresolved = []
+    for name, row in indexes['classes'].items():
+        budget.take()
+        if row.get('action_candidate_status') == 'UNKNOWN-unresolved-ancestry':
+            unresolved.append(name)
+    return dict(schema_version=1, config_classes=config, recipes=recipes, actions=action_rows,
+                unresolved_script_classes=sorted(unresolved),
+                # Bindings and method cohorts remain losslessly available in
+                # source_censuses, including conditional and unresolved calls.
+                binding_evidence='source_censuses.actions.bindings',
+                runtime_qualified=False, production_enablement=False)
+
 
 def _require(condition, code):
     if not condition:
@@ -432,6 +532,7 @@ def build_audit(rows, crafting_census, action_census, provenance):
             "Source conditions, inherited actions, callbacks and registrations are not executed."],
         limits=dict(input_bytes=MAX_INPUT_BYTES, output_bytes=MAX_OUTPUT_BYTES,
                     nodes=MAX_NODES, work=MAX_WORK, classes=MAX_CLASSES, references=MAX_REFERENCES))
+    report['decision_table'] = _decisions(classes, crafting, actions, source_indexes, budget)
     report["input_sha256"], _ = _digest([rows, crafting, actions, provenance], MAX_INPUT_BYTES, "input_bytes_limit")
     report["analysis_work"] = budget.work
     # Stream the full result before returning: no successful partial/truncated report.

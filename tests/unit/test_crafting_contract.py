@@ -56,7 +56,7 @@ class CraftingContractTests(unittest.TestCase):
         self.pilots = declarations(self.source)
 
     def graph(self):
-        self.assertEqual(8, len(self.pilots), "complete authored recovery set required")
+        self.assertEqual(11, len(self.pilots), "complete authored recovery set required")
         graph = deepcopy(self.fixture["native_boundary"])
         for recipe in graph:
             for field in ("inputs", "outputs"):
@@ -70,7 +70,7 @@ class CraftingContractTests(unittest.TestCase):
 
     def test_complete_policies_and_retired_belt(self):
         self.assertEqual(self.fixture["pilots"], self.pilots)
-        self.assertEqual(8, len({p["input"] for p in self.pilots}))
+        self.assertEqual(11, len({p["input"] for p in self.pilots}))
         self.assertNotIn("HCSalvageLeatherBelt", {p["class"] for p in self.pilots})
 
     def test_complete_recovery_set_is_in_fixture_parser_and_registration(self):
@@ -79,8 +79,8 @@ class CraftingContractTests(unittest.TestCase):
         self.assertEqual(expected, {p['class'] for p in self.pilots})
         fixture = json.loads(FIXTURE.read_text())
         self.assertEqual(expected, {p['class'] for p in fixture['pilots']})
-        self.assertEqual(8, len(self.pilots))
-        self.assertEqual(8, len(fixture['pilots']))
+        self.assertEqual(11, len(self.pilots))
+        self.assertEqual(11, len(fixture['pilots']))
 
     def test_typed_conservation_and_loss(self):
         validate_graph(self.graph(), self.fixture["materials"])
@@ -155,7 +155,24 @@ class CraftingContractTests(unittest.TestCase):
                          "m_ResultReplacesIngredient[0] = -1;", "m_IngredientUseSoftSkills[i] = false;",
                          "m_ResultUseSoftSkills[0] = false;"):
             self.assertIn(fragment, self.source)
-        self.assertNotRegex(self.source, r'\b(AddQuantity|CreateInInventory|CreateObjectEx|ObjectDelete|RPCSingleParam)\s*\(')
+        # Only the explicitly invoked diagnostic may allocate/delete fixtures.
+        # Include future gameplay files as well as salvage and native safety.
+        for path in CRAFTING.glob('*.c'):
+            if path.name == 'HCItemUtilityDiagnostic.c':
+                continue
+            self.assertNotRegex(path.read_text(), r'\b(AddQuantity|CreateInInventory|CreateObjectEx|ObjectDelete|RPCSingleParam)\s*\(', path.name)
+
+    def test_no_mutation_contract_also_rejects_future_gameplay_files(self):
+        import tempfile
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            for source in CRAFTING.glob('*.c'):
+                (directory/source.name).write_text(source.read_text())
+            (directory/'HCFutureUnsafe.c').write_text('void Unsafe() { GetGame().ObjectDelete(item); }')
+            with patch(__name__ + '.CRAFTING', directory):
+                with self.assertRaises(AssertionError):
+                    self.test_native_server_only_commit_and_explicit_recipe_fields()
 
     def test_fail_closed_conditions_and_null_spawn_does_not_consume(self):
         self.graph()
@@ -216,7 +233,7 @@ class CraftingContractTests(unittest.TestCase):
     def test_acceptance_stays_pending(self):
         self.assertEqual("pending", self.fixture["runtime_acceptance"])
         self.assertIn("SYNTHETIC", self.fixture["evidence"])
-        self.assertEqual(8, len(self.fixture["pending_scenarios"]))
+        self.assertEqual(11, len(self.fixture["pending_scenarios"]))
 
 
 if __name__ == "__main__":
