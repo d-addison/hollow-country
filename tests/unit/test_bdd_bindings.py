@@ -19,6 +19,11 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Retain ambiguous recipes in a whole-source census': 'test_crafting_audit.py',
+            'Reject fuel credits that can create quantity through rounding': 'test_fuel_transfer.py',
+            'Calculate bounded stamina and carried-load changes': 'test_stamina_policy.py',
+            'Plan portable criteria without manufacturing acceptance': 'test_automation.py',
+            'Preserve the original and extended ledger without local specs': 'test_portable_catalog.py',
             'Admit measured room catalogs without enabling production search': 'test_room_catalog_completion.py',
             'Veto observer transitions until complete trustworthy evidence exists': 'test_observer_transition.py',
             'Reject unsafe private repository content without echoing secrets': 'test_hygiene.py',

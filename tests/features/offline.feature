@@ -2,6 +2,36 @@
 Feature: Research tooling preserves honest evidence
   Offline checks validate authored data and never claim DayZ behavior.
 
+  @ISSUE-52 @ISSUE-54
+  Scenario: Retain ambiguous recipes in a whole-source census
+    Given synthetic source trees with conditional recipes and unregistered descendants
+    When the bounded crafting census executes
+    Then ambiguous candidates remain unresolved rather than disappearing from coverage
+
+  @ISSUE-53
+  Scenario: Reject fuel credits that can create quantity through rounding
+    Given synthetic binary32 vehicle and vessel measurements
+    When the authored fuel quantum and receipt policies execute
+    Then unrepresentable gains fail without claiming a native fluid transaction
+
+  @ISSUE-31
+  Scenario: Calculate bounded stamina and carried-load changes
+    Given synthetic load exertion recovery and cooldown inputs
+    When the authored stamina policy executes
+    Then invalid inputs fail and native permission vetoes remain authoritative
+
+  @ISSUE-27
+  Scenario: Plan portable criteria without manufacturing acceptance
+    Given a bounded acceptance catalog and explicit capability declarations
+    When the planning-only adapter executes
+    Then criteria stay intact and no execution or PASS is claimed
+
+  @ISSUE-27 @ISSUE-56
+  Scenario: Preserve the original and extended ledger without local specs
+    Given the portable catalog and unknown capability inventory
+    When only those two files are exported for planning
+    Then original criteria and fuel and flashlight constraints survive without source documents
+
   @AC-007
   Scenario: Admit measured room catalogs without enabling production search
     Given synthetic measured room documents and native house collaborators

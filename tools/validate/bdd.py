@@ -13,6 +13,26 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Retain ambiguous recipes in a whole-source census": (
+        ("Given synthetic source trees with conditional recipes and unregistered descendants",
+         "When the bounded crafting census executes",
+         "Then ambiguous candidates remain unresolved rather than disappearing from coverage"), "test_crafting_audit.py"),
+    "Reject fuel credits that can create quantity through rounding": (
+        ("Given synthetic binary32 vehicle and vessel measurements",
+         "When the authored fuel quantum and receipt policies execute",
+         "Then unrepresentable gains fail without claiming a native fluid transaction"), "test_fuel_transfer.py"),
+    "Calculate bounded stamina and carried-load changes": (
+        ("Given synthetic load exertion recovery and cooldown inputs",
+         "When the authored stamina policy executes",
+         "Then invalid inputs fail and native permission vetoes remain authoritative"), "test_stamina_policy.py"),
+    "Plan portable criteria without manufacturing acceptance": (
+        ("Given a bounded acceptance catalog and explicit capability declarations",
+         "When the planning-only adapter executes",
+         "Then criteria stay intact and no execution or PASS is claimed"), "test_automation.py"),
+    "Preserve the original and extended ledger without local specs": (
+        ("Given the portable catalog and unknown capability inventory",
+         "When only those two files are exported for planning",
+         "Then original criteria and fuel and flashlight constraints survive without source documents"), "test_portable_catalog.py"),
     "Admit measured room catalogs without enabling production search": (
         ("Given synthetic measured room documents and native house collaborators",
          "When bounded diagnostic catalog admission and binding execute",
