@@ -1,0 +1,23 @@
+test_action_is_registered_on_held_liquid_containers_like_native_refuel (tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_action_is_registered_on_held_liquid_containers_like_native_refuel) ... ok
+test_eligibility_mirrors_native_refuel_in_reverse (tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_eligibility_mirrors_native_refuel_in_reverse) ... ok
+test_server_gate_follows_the_crafting_preference (tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_server_gate_follows_the_crafting_preference) ... ok
+test_session_and_interruption_follow_native_component (tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_session_and_interruption_follow_native_component) ... ok
+test_transfer_checks_destination_before_debit_and_credits_readback (tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_transfer_checks_destination_before_debit_and_credits_readback) ... ok
+test_credit_is_what_the_tank_actually_lost_capped_by_the_step (tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_credit_is_what_the_tank_actually_lost_capped_by_the_step) ... ok
+test_session_is_bounded_by_real_tank_fuel_and_vessel_space (tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_session_is_bounded_by_real_tank_fuel_and_vessel_space) ... ok
+test_step_never_exceeds_tank_space_or_remaining_session (tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session) ... ok
+test_binary32_overflow_underflow_and_invisible_changes (tests.unit.test_fuel_transfer.FuelTransferTests.test_binary32_overflow_underflow_and_invisible_changes) ... ok
+test_credit_and_plan_reject_rounded_up_vessel_gain (tests.unit.test_fuel_transfer.FuelTransferTests.test_credit_and_plan_reject_rounded_up_vessel_gain) ... ok
+test_credit_requires_measured_debit_and_fresh_space (tests.unit.test_fuel_transfer.FuelTransferTests.test_credit_requires_measured_debit_and_fresh_space) ... ok
+test_finite_predicate_uses_binary32_range (tests.unit.test_fuel_transfer.FuelTransferTests.test_finite_predicate_uses_binary32_range) ... ok
+test_given_half_second_then_one_bounded_quantum (tests.unit.test_fuel_transfer.FuelTransferTests.test_given_half_second_then_one_bounded_quantum) ... ok
+test_invalid_plan_inputs_fail_closed (tests.unit.test_fuel_transfer.FuelTransferTests.test_invalid_plan_inputs_fail_closed) ... ok
+test_readback_checks_reject_invalid_scalars_at_each_position (tests.unit.test_fuel_transfer.FuelTransferTests.test_readback_checks_reject_invalid_scalars_at_each_position) ... ok
+test_receipt_conservation_is_not_success_or_atomicity (tests.unit.test_fuel_transfer.FuelTransferTests.test_receipt_conservation_is_not_success_or_atomicity) ... ok
+test_rounding_cannot_hide_created_fuel (tests.unit.test_fuel_transfer.FuelTransferTests.test_rounding_cannot_hide_created_fuel) ... ok
+test_synthetic_grid_respects_all_caps (tests.unit.test_fuel_transfer.FuelTransferTests.test_synthetic_grid_respects_all_caps) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 0.022s
+
+OK

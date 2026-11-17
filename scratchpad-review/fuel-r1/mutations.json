@@ -1,0 +1,179 @@
+{
+  "source_sha256": {
+    "/code/hc-worktrees/v1-fuel/mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c": "e1ea90c320f5f1772894c22ce2f8446eec347fed7ce11f86a8162bb0c6cc6903",
+    "/code/hc-worktrees/v1-fuel/mods/HollowCountry/scripts/4_World/Crafting/HCFuelTransferPolicy.c": "258cf175cc478d2182f437ef5bda77116e6b6b02c6c877df82acad80cd8e64be"
+  },
+  "results": [
+    {
+      "id": "M01",
+      "target": "action",
+      "description": "Invert mutation authority guard",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M02",
+      "target": "action",
+      "description": "Double vessel credit",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M03",
+      "target": "action",
+      "description": "Debit milliliters as liters",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M04",
+      "target": "action",
+      "description": "Replace readback with fabricated after value",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M05",
+      "target": "action",
+      "description": "Make Cancel flush unreachable",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M06",
+      "target": "action",
+      "description": "Ignore disabled crafting when settings exist",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M07",
+      "target": "action",
+      "description": "Invert distance eligibility",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M08",
+      "target": "action",
+      "description": "Allow destroyed car",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M09",
+      "target": "action",
+      "description": "Replay pending transfer on next flush",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M10",
+      "target": "action",
+      "description": "Never advance server progress",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M11",
+      "target": "action",
+      "description": "Accept wrong car selection",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M12",
+      "target": "action",
+      "description": "Remove held-item siphon registration",
+      "status": "KILLED",
+      "tests": 18,
+      "failed": [
+        "tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_action_is_registered_on_held_liquid_containers_like_native_refuel"
+      ]
+    },
+    {
+      "id": "M13",
+      "target": "policy",
+      "description": "Session liters conversion off by ten",
+      "status": "KILLED",
+      "tests": 18,
+      "failed": [
+        "tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_session_is_bounded_by_real_tank_fuel_and_vessel_space",
+        "tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session"
+      ]
+    },
+    {
+      "id": "M14",
+      "target": "policy",
+      "description": "Remove pending cap",
+      "status": "KILLED",
+      "tests": 18,
+      "failed": [
+        "tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session"
+      ]
+    },
+    {
+      "id": "M15",
+      "target": "policy",
+      "description": "Remove remaining cap",
+      "status": "KILLED",
+      "tests": 18,
+      "failed": [
+        "tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session"
+      ]
+    },
+    {
+      "id": "M16",
+      "target": "policy",
+      "description": "Remove credit step cap",
+      "status": "KILLED",
+      "tests": 18,
+      "failed": [
+        "tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_credit_is_what_the_tank_actually_lost_capped_by_the_step"
+      ]
+    },
+    {
+      "id": "M17",
+      "target": "policy",
+      "description": "Remove session maximum finite check (last occurrence only)",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M18",
+      "target": "policy",
+      "description": "Remove remaining finite check",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M19",
+      "target": "policy",
+      "description": "Remove after-fuel finite check",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    },
+    {
+      "id": "M20",
+      "target": "policy",
+      "description": "Remove session conversion overflow check (last occurrence only)",
+      "status": "SURVIVED",
+      "tests": 18,
+      "failed": []
+    }
+  ]
+}

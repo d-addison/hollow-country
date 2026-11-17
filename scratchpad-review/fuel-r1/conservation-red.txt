@@ -1,0 +1,25 @@
+test_credit_does_not_round_above_observed_loss (__main__.ReviewConservationTests.test_credit_does_not_round_above_observed_loss) ... FAIL
+test_destination_gain_does_not_round_above_credit (__main__.ReviewConservationTests.test_destination_gain_does_not_round_above_credit) ... FAIL
+
+======================================================================
+FAIL: test_credit_does_not_round_above_observed_loss (__main__.ReviewConservationTests.test_credit_does_not_round_above_observed_loss)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-fuel/scratchpad-review/fuel-r1/test_review_conservation.py", line 17, in test_credit_does_not_round_above_observed_loss
+    self.assertLessEqual(Fraction(credit), exact_loss)
+AssertionError: Fraction(700, 1) not less than or equal to Fraction(1468006375, 2097152)
+
+======================================================================
+FAIL: test_destination_gain_does_not_round_above_credit (__main__.ReviewConservationTests.test_destination_gain_does_not_round_above_credit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-fuel/scratchpad-review/fuel-r1/test_review_conservation.py", line 32, in test_destination_gain_does_not_round_above_credit
+    self.assertLessEqual(gain, exact_loss)
+AssertionError: Fraction(4096001, 16384) not less than or equal to Fraction(250, 1)
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.017s
+
+FAILED (failures=2)
+credit= 700.0 exact observed loss ml= 699.999988079071
+vessel before= 1023.9999389648438 after= 1274.0 gain ml= 250.00006103515625 tank loss ml= 250.0

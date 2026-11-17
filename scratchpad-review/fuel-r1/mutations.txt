@@ -1,0 +1,21 @@
+M01 SURVIVED Invert mutation authority guard 
+M02 SURVIVED Double vessel credit 
+M03 SURVIVED Debit milliliters as liters 
+M04 SURVIVED Replace readback with fabricated after value 
+M05 SURVIVED Make Cancel flush unreachable 
+M06 SURVIVED Ignore disabled crafting when settings exist 
+M07 SURVIVED Invert distance eligibility 
+M08 SURVIVED Allow destroyed car 
+M09 SURVIVED Replay pending transfer on next flush 
+M10 SURVIVED Never advance server progress 
+M11 SURVIVED Accept wrong car selection 
+M12 KILLED Remove held-item siphon registration tests.unit.test_fuel_siphon_production.SiphonActionContractTests.test_action_is_registered_on_held_liquid_containers_like_native_refuel
+M13 KILLED Session liters conversion off by ten tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_session_is_bounded_by_real_tank_fuel_and_vessel_space; tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session
+M14 KILLED Remove pending cap tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session
+M15 KILLED Remove remaining cap tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_step_never_exceeds_tank_space_or_remaining_session
+M16 KILLED Remove credit step cap tests.unit.test_fuel_siphon_production.SiphonPolicyTests.test_credit_is_what_the_tank_actually_lost_capped_by_the_step
+M17 SURVIVED Remove session maximum finite check (last occurrence only) 
+M18 SURVIVED Remove remaining finite check 
+M19 SURVIVED Remove after-fuel finite check 
+M20 SURVIVED Remove session conversion overflow check (last occurrence only) 
+Source SHA-256 unchanged; total 20 killed 5

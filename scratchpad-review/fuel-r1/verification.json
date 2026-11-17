@@ -1,0 +1,7 @@
+{
+  "reviewed_source_hashes_unchanged": true,
+  "review_regressions_exit_code": 1,
+  "review_regressions_expected_failures": 2,
+  "mutation_count": 20,
+  "killed": 5
+}
