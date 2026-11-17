@@ -1,4 +1,5 @@
-// #35: one Chernarus world-data owner; no module slot, polling or client hook.
+// #35: one Chernarus world-data owner; no module slot or client hook; only a coarse
+// idempotent server dusk/dawn limit check (no per-frame polling).
 // Native snapshot: ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // 3_Game/WorldData.c:19/:36 weather/defaults, :427 SetupWeatherSettings,
 // :251 WeatherOnBeforeChange, :414 CalculateVolFog, :561-601 settings fields;
@@ -13,12 +14,15 @@
 // 3_Game/CfgGameplayHandler.c:6 m_Data, :88-98 native synchronization;
 // 3_Game/CfgGameplayDataJson.c:16-17 PlayerData/WorldsData,
 // :89 disablePersonalLight, :192 lightingConfig.
+// 3_Game/Weather.c:49 Set, :65-74 SetLimits (actual held in range), :95 SetForecastChangeLimits;
+// 2_GameLib/tools.c:61 CallLater; 3_Game/Global/Game.c:1120 IsServer.
 // 3_Game/WorldLighting.c:12-22 presets 0 default/1 darknight (never applied); native client consumers:
 // 4_World/Entities/ManBase/PlayerBase.c:6042-6058,
 // 4_World/Entities/ManBase/PlayerBaseClient.c:39-55. No renderer authority invented.
 modded class ChernarusPlusData
 {
     protected bool m_HCAtmosphereStarted;
+    protected bool m_HCNightLimited;
 
     protected void HCConfigureAtmosphereDefaults()
     {
@@ -48,7 +52,7 @@ modded class ChernarusPlusData
             return true;
         HCConfigureAtmosphereDefaults();
         m_HCAtmosphereStarted = true;
-        m_Weather.GetOvercast().SetLimits(0, 1);
+        HCApplyNightLimits(true);
         m_Weather.GetFog().SetLimits(0, 0.25);
         m_Weather.GetRain().SetLimits(0, 0.9);
         m_Weather.GetSnowfall().SetLimits(0, 0);
@@ -75,8 +79,36 @@ modded class ChernarusPlusData
         HCForecast(EWeatherPhenomenon.WIND_DIRECTION);
         HCForecast(EWeatherPhenomenon.SNOWFALL);
         CalculateVolFog(m_Weather.GetOvercast().GetActual(), m_Weather.GetWindSpeed(), 300);
+        // One coarse idempotent dusk/dawn check; not per-frame. Day length can be
+        // accelerated, so a real-time one-shot to the boundary would be unsound.
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyNightLimits, 10000, true, false);
         Print("[HollowCountry][Atmosphere] EXPERIMENTAL ChernarusPlus script owner; bright-night lighting 0 forced, personal light untouched, night cloud/rain capped; other operator settings and seasonal curve retained; runtime acceptance PENDING");
         return true;
+    }
+
+    // Native: Weather.c:74 SetLimits holds actual within <min,max> ("always held",
+    // Weather.c:65); :49 Set(forecast, time, minDuration). Night: overcast max 0.55;
+    // an already-higher actual gets a <=60 s transition to the cap. Dawn restores 0..1.
+    // Idempotent: acts only on a day/night change or when forced at startup.
+    protected void HCApplyNightLimits(bool force)
+    {
+        if (!m_HCAtmosphereStarted)
+            return;
+        if (!GetGame().IsServer())
+            return;
+        bool night = HCAtmospherePolicy.IsNight(GetGame().GetDayTime());
+        if (!force && night == m_HCNightLimited)
+            return;
+        m_HCNightLimited = night;
+        if (!night)
+        {
+            m_Weather.GetOvercast().SetLimits(0, 1);
+            return;
+        }
+        float cap = HCAtmospherePolicy.NightCloudCap();
+        m_Weather.GetOvercast().SetLimits(0, cap);
+        if (m_Weather.GetOvercast().GetActual() > cap)
+            m_Weather.GetOvercast().Set(cap, 60, 60);
     }
 
     protected bool HCForecast(EWeatherPhenomenon type)

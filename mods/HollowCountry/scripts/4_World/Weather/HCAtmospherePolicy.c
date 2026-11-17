@@ -17,13 +17,24 @@ class HCAtmospherePolicy
         return elapsed - Math.Floor(elapsed / 7200) * 7200;
     }
 
+    static bool IsNight(float daytime)
+    {
+        // Dusk to dawn: 20:00 inclusive to 05:00 exclusive. Out-of-range or
+        // non-finite hours count as day.
+        return HCAtmospherePolicy.Finite(daytime) && daytime >= 0 && daytime < 24 && (daytime < 5 || daytime >= 20);
+    }
+
+    static float NightCloudCap()
+    {
+        return 0.55;
+    }
+
     static float NightCapped(float cloud, float daytime)
     {
-        // Owner rule 2026-11-17: never dark nights. Dusk to dawn (20..5) caps
-        // cloud at 0.55, below the 0.65 rain threshold, so Rain/WindTarget map
-        // it to dry and calm. Out-of-range or non-finite hours count as day.
-        if (HCAtmospherePolicy.Finite(daytime) && daytime >= 0 && daytime < 24 && (daytime < 5 || daytime >= 20) && cloud > 0.55)
-            return 0.55;
+        // Owner rule 2026-11-17: never dark nights. The cap is below the 0.65
+        // rain threshold, so Rain/WindTarget map it to dry and calm.
+        if (HCAtmospherePolicy.IsNight(daytime) && cloud > HCAtmospherePolicy.NightCloudCap())
+            return HCAtmospherePolicy.NightCloudCap();
         return cloud;
     }
 

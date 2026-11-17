@@ -62,8 +62,10 @@ instead of a module slot. Its exact local build gate accepts `1.30.164289` and
 owner alone adjusts lightingConfig at runtime, forcing the bright-night native
 config 0 whatever the operator value (owner rule 2026-11-17: no dark nights; the
 previous value is logged). It does not write disablePersonalLight. Between 20:00
-and 05:00 cloud, and the rain and wind derived from it, are capped at 0.55 so a
-storm band cannot darken the night; daytime storms are unchanged. The separate
+and 05:00 the native overcast limit is 0.55 (server only; applied at startup and by
+an idempotent 10 s dusk/dawn check, at most a 60 s transition, dawn restores 0..1),
+and the forecast, rain and wind derived from cloud are capped too, so a storm band
+cannot darken the night; daytime storms are unchanged. The separate
 cfgGameplay delta owner must not write those two settings.
 
 Search/crafting use native actions/recipes and server inventory authority; do
