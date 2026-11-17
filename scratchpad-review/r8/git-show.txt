@@ -1,0 +1,2558 @@
+commit 182db381f88becdca6c33ba589bca09309041a96
+Author: David Addison <73078380+d-addison@users.noreply.github.com>
+Date:   Tue Nov 17 07:42:57 2026 -0500
+
+    Taped-light fix round 7 (#56): resolution-LOD proxy evidence replaces server-absent view LOD, coherent alias collapse, empty-basename regression, GetSelections out-arg lint
+
+diff --git a/tests/unit/test_taped_light_probe.py b/tests/unit/test_taped_light_probe.py
+index 88da6e1..3e5ee9f 100644
+--- a/tests/unit/test_taped_light_probe.py
++++ b/tests/unit/test_taped_light_probe.py
+@@ -318,6 +318,15 @@ class LintDetectorTests(unittest.TestCase):
+         good = ("        string name = \"\";\n        bool ok = InventorySlots.GetSelectionForSlotId(a, name);")
+         self.assertEqual([], self.issues(good))
+ 
++    def test_the_lod_selection_list_out_argument_must_be_declared_before_the_call(self):
++        """Round 7: LOD.GetSelections (gameplay.c:216) fills its out array, so the lint holds it to the same rule."""
++        bad = "        bool ok = lodItem.GetSelections(picked);"
++        self.assertTrue(any("out argument 'picked'" in i for i in self.issues(bad)))
++        late = "        bool ok = lodItem.GetSelections(picked);\n        array<Selection> picked = new array<Selection>;"
++        self.assertTrue(any("out argument 'picked'" in i for i in self.issues(late)))
++        good = "        array<Selection> picked = new array<Selection>;\n        bool ok = lodItem.GetSelections(picked);"
++        self.assertEqual([], self.issues(good))
++
+     def test_string_literal_containing_comment_markers_is_refused(self):
+         self.assertTrue(any("comment marker" in i for i in self.issues('        Print("a//b");')))
+ 
+@@ -743,16 +752,18 @@ SLOT_SELECTION = {"weaponFlashlight": "light_w", "pistolFlashlight": "light_p",
+                   "weaponHandguardAK": "hg_ak", "weaponHandguardM4": "hg_m4", "weaponHandguardMP5": "hg_mp5"}
+ 
+ 
+-def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=(), view=None,
+-         view_no_vertex=(), view_unlisted=False, lods=None, lods_unlisted=False):
+-    """``view`` is the view-LOD selection names (None: the model has no view LOD, GetLODByName returns null);
+-    ``view_no_vertex`` names view selections without a vertex; ``view_unlisted`` makes LOD.GetSelections return false.
+-    ``lods`` is the LOD name list Object.GetLODS reports (None: a resolution LOD plus "view" when ``view`` is given) and
+-    ``lods_unlisted`` makes Object.GetLODS return false with junk in its out array."""
++def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=(), res=(),
++         res_no_vertex=(), res_unlisted=False, view=None, lods=None, lods_unlisted=False):
++    """``res`` is the selection names held by the resolution LOD "1.000" (the default LOD list); ``res_no_vertex`` names
++    selections without a first vertex; ``res_unlisted`` makes LOD.GetSelections return false (with the names still in
++    its out array, which the hook must ignore) on every LOD. ``view`` is the selection names of a LOD named "view" (None:
++    no such LOD): a decoy, because the hook must never read it as evidence. ``lods`` is the LOD list Object.GetLODS
++    reports, each item a name or a (name, selection names) pair (None: "1.000" holding ``res``, plus "view" when ``view``
++    is given); ``lods_unlisted`` makes Object.GetLODS return false with junk in its out array."""
+     return {"slots": tuple(slots), "fits": tuple(fits), "selections": tuple(selections), "memory": tuple(memory),
+-            "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies),
+-            "view": None if view is None else tuple(view), "view_no_vertex": tuple(view_no_vertex),
+-            "view_unlisted": view_unlisted, "lods": None if lods is None else tuple(lods),
++            "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies), "res": tuple(res),
++            "res_no_vertex": tuple(res_no_vertex), "res_unlisted": res_unlisted,
++            "view": None if view is None else tuple(view), "lods": None if lods is None else tuple(lods),
+             "lods_unlisted": lods_unlisted}
+ 
+ 
+@@ -814,19 +825,23 @@ class Entity:
+     def GetSelectionList(self, out):
+         out.extend(S(name) for name in self.spec["selections"] + self.spec["proxies"])
+ 
+-    def lod_names(self):
++    def lod_entries(self):
++        """(name, selection names) of each LOD, in the order GetLODS lists them."""
+         if self.spec["lods"] is not None:
+-            return self.spec["lods"]
+-        return ("1.000",) + (("view",) if self.spec["view"] is not None else ())
++            items = self.spec["lods"]
++        else:
++            items = (("1.000", self.spec["res"]),) + ((("view", self.spec["view"]),) if self.spec["view"] is not None else ())
++        return [(item, ()) if isinstance(item, str) else (item[0], tuple(item[1])) for item in items]
+ 
+     def GetLODS(self, out):
+         """Object.c:98 proto native bool GetLODS(notnull out array<LOD> lods). A failed call returns false and may
+         leave anything in the out array."""
++        self.world.lods_calls += 1
+         if self.spec["lods_unlisted"]:
+-            out.append(PlainLod("junk"))
++            out.append(ModelLod(self, "9", ("junk",)))
+             return False
+-        for name in self.lod_names():
+-            out.append(ViewLod(self.spec, name) if name.lower() == "view" else PlainLod(name))
++        for name, names in self.lod_entries():
++            out.append(ModelLod(self, name, names))
+         return True
+ 
+     def GetLODName(self, lod):
+@@ -849,7 +864,7 @@ class Entity:
+         return key == "hasRailFunctionality" and self.spec["rail"]
+ 
+ 
+-class ViewSelection:
++class ModelSelection:
+     """gameplay.c:179 Selection: GetName, GetVertexCount, GetLODVertexIndex and the script GetVertexPosition(lod, index),
+     which calls Error() (here: raises) when the LOD vertex index is -1, as the native class does."""
+ 
+@@ -872,34 +887,27 @@ class ViewSelection:
+         return lod.GetVertexPosition(lod_index)
+ 
+ 
+-class ViewLod:
+-    """gameplay.c:203 LOD: GetSelectionCount, GetSelections(out array<Selection>) -> bool, GetVertexPosition(index)."""
++class ModelLod:
++    """gameplay.c:203 LOD: GetSelectionCount, GetSelections(out array<Selection>) -> bool, GetVertexPosition(index). Every
++    GetSelections call is logged by LOD name in world.selection_log. A failed call (spec res_unlisted) still fills the out
++    array, as a native call that returned false might."""
+ 
+-    def __init__(self, entity_spec, name="view"):
+-        self.name = name
+-        self.selections = [ViewSelection(item, item not in entity_spec["view_no_vertex"])
+-                           for item in (entity_spec["view"] or ())]
+-        self.listed = not entity_spec["view_unlisted"]
++    def __init__(self, entity, name, names):
++        self.name, self.entity = name, entity
++        self.selections = [ModelSelection(item, item not in entity.spec["res_no_vertex"]) for item in names]
+ 
+     def GetSelectionCount(self):
+         return len(self.selections)
+ 
+     def GetSelections(self, out):
+-        if self.listed:
+-            out.extend(self.selections)
+-        return self.listed
++        self.entity.world.selection_log.append(self.name)
++        out.extend(self.selections)
++        return not self.entity.spec["res_unlisted"]
+ 
+     def GetVertexPosition(self, index):
+         return (0.5, 0.25, -1.5)
+ 
+ 
+-class PlainLod:
+-    """Any LOD that is not the view LOD (a resolution LOD, geometry, memory): only its name is modelled."""
+-
+-    def __init__(self, name):
+-        self.name = name
+-
+-
+ class LODNames:
+     """The LOD class constants the hook reads (gameplay.c:207 NAME_VIEW)."""
+     NAME_VIEW = S("view")
+@@ -989,6 +997,7 @@ class World:
+         self.stuck, self.spawn_ms, self.now = set(stuck), spawn_ms, 0
+         self.queue, self.files, self.printed = [], {}, []
+         self.attach_calls, self.delete_calls, self.create_calls = [], 0, []
++        self.selection_log, self.lods_calls = [], 0
+ 
+     def register(self, entity):
+         self.entities.append(entity)
+@@ -1372,10 +1381,12 @@ class HookBehaviorTests(unittest.TestCase):
+         # proxies, so the empty facts are stripped as well. Fix round 4 added the per-host view-LOD facts, which these
+         # hosts (no view LOD in the synthetic table) report as absent; fix round 5 added view_list_ok.
+         # Fix round 6 added the header diagnostics line and the per-host LOD name facts (a resolution LOD only, no view LOD).
++        # Round 7 replaced the view-LOD facts with the per-resolution-LOD scan: one numeric LOD "1.000" without selections.
+         added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
+                            r'"handguard_rail_functional":(?:true|false),'
+-                           r'|"proxy_count":0,"proxy_scan_complete":true,"view_lod":false,'
+-                           r'"view_selection_count":0,"view_scan_complete":false,"view_list_ok":false,'
++                           r'|"proxy_count":0,"proxy_scan_complete":true,'
++                           r'"res_enum_ok":true,"res_lod_count":1,"res_lods_scanned":1,"res_scan_complete":true,'
++                           r'"res_lods":\[\{"name":"1\.000","list_ok":true,"selection_count":0,"scan_complete":true\}\],'
+                            r'"lod_list_ok":true,"lod_count":1,"lod_names":\["1\.000"\],"lod_names_complete":true,'
+                            r'"view_by_name":false,"proxies":\[\],'
+                            r'|^"diagnostics":[^\n]*\n', re.M)
+@@ -1442,16 +1453,16 @@ def proxy_types(old_evidence=False):
+     types = catalogue()
+     keep = {"selections": ("light_w", "hg_ak"), "memory": ("light_w",)} if old_evidence else {}
+     types["AK74"] = spec(("weaponFlashlight", "weaponHandguardAK"), proxies=(
+-        LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY, LIGHT_UNIVERSAL_PROXY), view=view_of(LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY),
++        LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY, LIGHT_UNIVERSAL_PROXY), res=res_of(LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY),
+         **keep)
+-    types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,), view=view_of(LIGHT_TLR_PROXY),
++    types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,), res=res_of(LIGHT_TLR_PROXY),
+                             **({"selections": ("light_p",)} if old_evidence else {}))
+     return types
+ 
+ 
+-def view_of(*proxies):
+-    """View-LOD selection names as the engine would hold them: the proxy selections, in the engine's backslash style
+-    and upper case (the hook normalises both), after unrelated view selections."""
++def res_of(*proxies):
++    """Resolution-LOD selection names as the engine would hold them (probe-005: backslashes only): the proxy selections,
++    in the engine's backslash style and upper case (the hook normalises both), after unrelated selections."""
+     return ("components", "zbytek") + tuple(name.replace("/", "\\").upper() for name in proxies)
+ 
+ 
+@@ -1521,9 +1532,9 @@ class ProxyEvidenceHookTests(unittest.TestCase):
+         by_name = {h["class"]: h for h in joined["hosts"]}
+         self.assertEqual("qualified", by_name["AK74"]["verdict"])
+         self.assertEqual("qualified", by_name["Glock19"]["verdict"])
+-        self.assertEqual("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite",
++        self.assertEqual("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite",
+                          by_name["AK74"]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["reason"])
+-        self.assertEqual("native_attach_with_view_lod_proxy_slot",
++        self.assertEqual("native_attach_with_resolution_lod_proxy_slot",
+                          by_name["Glock19"]["lights"]["TLRLight"]["slots"]["pistolFlashlight"]["reason"])
+         self.assertEqual("PENDING", joined["acceptance"])
+         self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, joined["unobserved_axes"])
+@@ -1549,7 +1560,7 @@ class ProxyEvidenceHookTests(unittest.TestCase):
+                 joined = report.build_report(classification(), observations)
+                 ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
+                 self.assertNotEqual("qualified", ak["verdict"])
+-                self.assertNotIn("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
++                self.assertNotIn("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
+ 
+     def test_the_slot_selection_evidence_is_still_reported_unchanged(self):
+         world, observations = self.run_world(proxy_types(old_evidence=True), slots=_Slots)
+@@ -1559,9 +1570,9 @@ class ProxyEvidenceHookTests(unittest.TestCase):
+ 
+ 
+ class RoundFourProxyHookTests(unittest.TestCase):
+-    """Fix round 4 (hc-taped-light-review-004): per-row slot bookkeeping and the view-LOD join, run through the
+-    synthetic engine and then through the report. The synthetic engine models the signatures cited in the hook; it
+-    establishes nothing about DayZ behaviour."""
++    """Fix round 4 (hc-taped-light-review-004): per-row slot bookkeeping, run through the synthetic engine and then
++    through the report. The synthetic engine models the signatures cited in the hook; it establishes nothing about DayZ
++    behaviour."""
+ 
+     SLOT_CONFIG = "CfgNonAIVehicles Proxyweaponlight_universal"
+ 
+@@ -1614,71 +1625,14 @@ class RoundFourProxyHookTests(unittest.TestCase):
+         config[self.SLOT_CONFIG]["inventorySlot"] = ["weaponFlashlight"] + ["unrelated%d" % number for number in range(11)]
+         _world, observations = self.run_world(types, config)
+         slot, _joined = self.ak_slot(observations)
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+                          (slot["verdict"], slot["reason"]))
+ 
+-    def test_each_host_reports_the_view_lod_facts_and_each_proxy_row_its_view_selection_and_first_vertex(self):
+-        _world, observations = self.run_world()
+-        ak = host_row(observations, "AK74")
+-        self.assertEqual((True, 4, True), (ak["view_lod"], ak["view_selection_count"], ak["view_scan_complete"]))
+-        self.assertEqual(True, ak["view_list_ok"])
+-        light, muzzle = ak["proxies"]
+-        self.assertEqual(("proxy:/dz/weapons/attachments/light/weaponlight_universal.001", True, ["0.5", "0.25", "-1.5"]),
+-                         (light["view_selection"], light["view_vertex_ok"], light["view_vertex"]))
+-        self.assertEqual(("", False, []), (muzzle["view_selection"], muzzle["view_vertex_ok"], muzzle["view_vertex"]))
+-        plain = host_row(observations, "PlainBag")
+-        self.assertEqual((False, 0, False, []), (plain["view_lod"], plain["view_selection_count"],
+-                                                 plain["view_scan_complete"], plain["proxies"]))
+-        self.assertEqual(False, plain["view_list_ok"])
+-
+-    def test_a_view_lod_match_qualifies_through_the_report_with_the_view_evidence(self):
+-        _world, observations = self.run_world()
+-        slot, joined = self.ak_slot(observations)
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
+-                         (slot["verdict"], slot["reason"]))
+-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
+-        self.assertEqual([0.5, 0.25, -1.5], slot["evidence"]["view_vertex"])
+-        self.assertEqual("PENDING", joined["acceptance"])
+-        self.assertEqual([], joined["integrity"]["issues"])
+-
+-    def test_a_proxy_selection_that_is_not_in_the_view_lod_never_qualifies(self):
+-        cases = {
+-            "no view lod at all": dict(view=None),
+-            "view lod without the proxy model": dict(view=("components", "zbytek", "proxy:\\dz\\other\\thing.001")),
+-            "view lod with an empty selection list": dict(view=()),
+-            "view lod whose selection list call fails": dict(view=view_of(LIGHT_UNIVERSAL_PROXY), view_unlisted=True),
+-            "view selection without a first vertex": dict(view=view_of(LIGHT_UNIVERSAL_PROXY),
+-                                                          view_no_vertex=view_of(LIGHT_UNIVERSAL_PROXY)),
+-        }
+-        for label, changes in cases.items():
+-            with self.subTest(label):
+-                types = proxy_types()
+-                types["AK74"] = dict(types["AK74"], **changes)
+-                _world, observations = self.run_world(types)
+-                slot, joined = self.ak_slot(observations)
+-                self.assertEqual("pending", slot["verdict"], (label, slot["reason"]))
+-                self.assertNotEqual("geometry_missing", slot["verdict"], label)
+-                self.assertEqual("view_", slot["reason"][:5], label)
+-                self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
+-
+-    def test_the_view_scan_is_bounded_and_a_truncated_scan_without_the_selection_is_pending(self):
+-        names = tuple("filler%03d" % number for number in range(300))
+-        types = proxy_types()
+-        types["AK74"] = dict(types["AK74"], view=names + view_of(LIGHT_UNIVERSAL_PROXY))
+-        _world, observations = self.run_world(types)
+-        ak = host_row(observations, "AK74")
+-        self.assertEqual((True, 303, False), (ak["view_lod"], ak["view_selection_count"], ak["view_scan_complete"]))
+-        self.assertEqual("", ak["proxies"][0]["view_selection"])
+-        slot, _joined = self.ak_slot(observations)
+-        self.assertEqual(("pending", "view_evidence_truncated"), (slot["verdict"], slot["reason"]))
+-        types["AK74"] = dict(types["AK74"], view=view_of(LIGHT_UNIVERSAL_PROXY) + names)
+-        _world, observations = self.run_world(types)
+-        self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+-
+-    def test_the_view_match_is_the_whole_normalised_proxy_path_never_a_substring(self):
++    def test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring(self):
+         """Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+-        weaponlight_universal. Qualification needs the complete lower-case, forward-slash, .p3d-free path, the proxy:
+-        prefix and an all-digit .NNN instance suffix, exactly."""
++        weaponlight_universal. The hook accepts a resolution-LOD selection only when it is proxy:<path>.<digits> and its
++        whole normalised path (lower case, forward slashes, no leading slash, no .p3d, prefix and instance suffix
++        removed) equals the model path, exactly."""
+         base = "/dz/weapons/attachments/light/weaponlight_universal"
+         types = proxy_types()
+         cases = {"longer model name": ("proxy:" + base + "_extra.001", False),
+@@ -1695,81 +1649,314 @@ class RoundFourProxyHookTests(unittest.TestCase):
+                  "another instance number": ("proxy:" + base + ".12", True)}
+         for label, (name, expected) in cases.items():
+             with self.subTest(label):
+-                types["AK74"] = dict(types["AK74"], view=("components", name))
++                types["AK74"] = dict(types["AK74"], res=("components", name))
+                 _world, observations = self.run_world(types)
+-                item = host_row(observations, "AK74")["proxies"][0]
+-                self.assertEqual(expected, item["view_selection"] != "", label)
++                entry = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
++                self.assertEqual(expected, entry["selection"] != "", label)
+                 self.assertEqual(expected, self.ak_slot(observations)[0]["verdict"] == "qualified", label)
+ 
+     def test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it(self):
+         base = "/dz/weapons/attachments/light/weaponlight_universal"
+         types = proxy_types()
+-        types["AK74"] = dict(types["AK74"], view=("components", "proxy:" + base + "_extra.001", "label" + base,
+-                                                  "proxy:" + base + ".003"))
++        types["AK74"] = dict(types["AK74"], res=("components", "proxy:" + base + "_extra.001", "label" + base,
++                                                 "proxy:" + base + ".003"))
+         _world, observations = self.run_world(types)
+-        item = host_row(observations, "AK74")["proxies"][0]
+-        self.assertEqual("proxy:" + base + ".003", item["view_selection"])
++        entry = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
++        self.assertEqual("proxy:" + base + ".003", entry["selection"])
+         self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+ 
+-    def test_a_failed_view_enumeration_is_emitted_as_unknown_and_its_output_array_is_ignored(self):
+-        """Review 005: LOD.GetSelections (gameplay.c:216) returns bool and says nothing about its out array on failure.
+-        The hook clears the array before the call, ignores it after a failure and emits view_list_ok=false."""
+-        original = ViewLod.GetSelections
++    def test_a_missing_config_model_never_matches_a_resolution_lod(self):
++        config = proxy_config()
++        config[self.SLOT_CONFIG]["model"] = ""
++        _world, observations = self.run_world(config=config)
++        light = host_row(observations, "AK74")["proxies"][0]
++        self.assertEqual(("", "", False), (light["model"], light["res_lods"][0]["selection"], light["res_lods"][0]["vertex_ok"]))
++        self.assertNotEqual("qualified", self.ak_slot(observations)[0]["verdict"])
++
+ 
+-        def failed(lod, out):
+-            original(lod, out)       # a failed call that nevertheless left the matching selections in the out array
+-            return False
+-        world = World(types=proxy_types())
+-        with mock.patch.object(ViewLod, "GetSelections", failed):
+-            run_hook(world, slots=_NoSelectionSlots)
+-        observations = observations_of(world)
++class ResolutionLodHookTests(unittest.TestCase):
++    """Round 7 (taped-light-probe-005): the dedicated server has no LOD named "view"; the names are resolution LODs ("0",
++    "1", "1.000"), geometry, memory, landContact, geometryView, geometryFire and VIEW_PILOT. The hook therefore scans only
++    the LODs whose WHOLE name is a non-negative number and reads their selections. The synthetic engine proves the hook's
++    own logic and the join to the report; it establishes nothing about DayZ behaviour."""
++
++    ALL_KINDS = ("geometry", "memory", "view", "VIEW_PILOT", "landContact", "geometryView", "geometryFire")
++
++    def run_world(self, types=None, config=None):
++        world = World(types=types or proxy_types(), config=config)
++        run_hook(world, slots=_NoSelectionSlots)
++        return world, observations_of(world)
++
++    def ak_slot(self, observations):
++        joined = report.build_report(classification(), observations)
++        ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
++        return ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], joined
++
++    def ak_with(self, **changes):
++        types = proxy_types()
++        types["AK74"] = dict(types["AK74"], **changes)
++        return self.run_world(types)
++
++    def reason(self, observations):
++        slot, _joined = self.ak_slot(observations)
++        return slot["verdict"], slot["reason"]
++
++    def test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex(self):
++        _world, observations = self.run_world()
+         ak = host_row(observations, "AK74")
+-        self.assertEqual((True, False, False, 0), (ak["view_lod"], ak["view_list_ok"], ak["view_scan_complete"],
+-                                                   ak["view_selection_count"]))
+-        item = ak["proxies"][0]
+-        self.assertEqual(("", False, []), (item["view_selection"], item["view_vertex_ok"], item["view_vertex"]))
++        self.assertEqual((True, 1, 1, True), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
++                                              ak["res_scan_complete"]))
++        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 4, "scan_complete": True}], ak["res_lods"])
++        light, muzzle = ak["proxies"]
++        self.assertEqual([{"name": "1.000", "list_ok": True, "selection": LIGHT_UNIVERSAL_PROXY, "vertex_ok": True,
++                           "vertex": ["0.5", "0.25", "-1.5"]}], light["res_lods"])
++        self.assertEqual([{"name": "1.000", "list_ok": True, "selection": "", "vertex_ok": False, "vertex": []}],
++                         muzzle["res_lods"])
++        plain = host_row(observations, "PlainBag")
++        self.assertEqual((True, 1, True, []), (plain["res_enum_ok"], plain["res_lod_count"], plain["res_scan_complete"],
++                                               plain["proxies"]))
++        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 0, "scan_complete": True}], plain["res_lods"])
++        self.assertNotIn("view_lod", ak)
++        self.assertNotIn("view_selection", light)
++
++    def test_a_server_without_a_view_lod_qualifies_from_the_resolution_lod_with_the_evidence_reported(self):
++        """The native shape of probe-005: no LOD named "view", the proxy selection in a numeric LOD."""
++        _world, observations = self.run_world()
+         slot, joined = self.ak_slot(observations)
+-        self.assertEqual(("pending", "view_enumeration_failed"), (slot["verdict"], slot["reason"]))
+-        self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
++                         (slot["verdict"], slot["reason"]))
++        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
++        self.assertEqual(("1.000", LIGHT_UNIVERSAL_PROXY, [0.5, 0.25, -1.5]),
++                         (slot["evidence"]["resolution_lod"], slot["evidence"]["resolution_selection"],
++                          slot["evidence"]["resolution_vertex"]))
++        self.assertEqual("PENDING", joined["acceptance"])
++        self.assertEqual([], joined["integrity"]["issues"])
++        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, joined["unobserved_axes"])
++
++    def test_only_lods_with_a_whole_numeric_name_are_scanned_and_every_other_lod_is_never_asked_for_selections(self):
++        proxy_names = res_of(LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY)
++        lods = (("geometry", proxy_names), ("0", ()), ("memory", proxy_names), ("1", ()), ("view", proxy_names),
++                ("VIEW_PILOT", proxy_names), ("1.000", proxy_names), ("landContact", proxy_names),
++                ("geometryView", proxy_names), ("geometryFire", proxy_names))
++        world, observations = self.ak_with(lods=lods)
++        ak = host_row(observations, "AK74")
++        self.assertEqual(["0", "1", "1.000"], [item["name"] for item in ak["res_lods"]])
++        self.assertEqual((True, 3, 3, True), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
++                                              ak["res_scan_complete"]))
++        self.assertFalse({"geometry", "memory", "view", "VIEW_PILOT", "landContact", "geometryView", "geometryFire"}
++                         & set(world.selection_log))
++        self.assertEqual(1, world.selection_log.count("0"))
++        self.assertEqual(1, world.selection_log.count("1"))
++        light = ak["proxies"][0]
++        self.assertEqual([("0", ""), ("1", ""), ("1.000", LIGHT_UNIVERSAL_PROXY)],
++                         [(item["name"], item["selection"]) for item in light["res_lods"]])
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
++                         self.reason(observations))
++
++    def test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence(self):
++        names = res_of(LIGHT_UNIVERSAL_PROXY)
++        for kind in self.ALL_KINDS:
++            with self.subTest(kind):
++                world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
++                self.assertEqual(("pending", "resolution_proxy_missing"), self.reason(observations))
++                self.assertNotIn(kind, world.selection_log)
++        _world, observations = self.ak_with(res=(), view=names)          # the old decoy: a LOD named "view"
++        self.assertEqual(("pending", "resolution_proxy_missing"), self.reason(observations))
++        self.assertTrue(host_row(observations, "AK74")["view_by_name"])
++
++    def test_the_numeric_name_rule_accepts_digits_with_at_most_one_inner_dot_and_nothing_else(self):
++        model = build_model(probe.render_hook(probe.select_targets(classification())).decode(), World())
++        model.OnInit()
++        for name in ("0", "1", "1.000", "10", "0.5", "01", "123456"):
++            with self.subTest(accepted=name):
++                self.assertTrue(model.HCTLIsNumericName(S(name)))
++        for name in ("", "geometry", "memory", "view", "View", "VIEW_PILOT", "landContact", "geometryView", "geometryFire",
++                     "-1", "+1", "1e3", "1.", ".5", ".", "1.0.0", "0x10", " 1", "1 ", "1_000", "res1", "1res", "1.000 "):
++            with self.subTest(refused=name):
++                self.assertFalse(model.HCTLIsNumericName(S(name)))
++
++    def test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent(self):
++        for label, changes, expected in (
++                ("proxy not in the lod", dict(res=("components", "proxy:\\dz\\other\\thing.001")),
++                 ("pending", "resolution_proxy_missing")),
++                ("empty lod", dict(res=()), ("pending", "resolution_proxy_missing")),
++                ("only non-numeric lods", dict(lods=(("geometry", res_of(LIGHT_UNIVERSAL_PROXY)), ("memory", ()))),
++                 ("pending", "resolution_lod_absent")),
++                ("no lods at all", dict(lods=()), ("pending", "resolution_lod_absent"))):
++            with self.subTest(label):
++                _world, observations = self.ak_with(**changes)
++                self.assertEqual(expected, self.reason(observations), label)
++                self.assertNotIn("qualified", {h["verdict"] for h in report.build_report(classification(), observations)["hosts"]
++                                               if h["class"] == "AK74"})
++
++    def test_a_selection_without_a_first_vertex_is_pending_vertex_missing(self):
++        _world, observations = self.ak_with(res_no_vertex=res_of(LIGHT_UNIVERSAL_PROXY))
++        entry = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
++        self.assertEqual((LIGHT_UNIVERSAL_PROXY, False, []), (entry["selection"], entry["vertex_ok"], entry["vertex"]))
++        self.assertEqual(("pending", "resolution_vertex_missing"), self.reason(observations))
++
++    def test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time(self):
++        names = res_of(LIGHT_UNIVERSAL_PROXY)
++        for label, lods in (("second lod", (("0", ()), ("1", names))), ("first lod", (("0", names), ("1", ()))),
++                            ("repeated name", (("1", ()), ("1", names))),
++                            ("repeated name, first holds it", (("1", names), ("1", ())))):
++            with self.subTest(label):
++                world, observations = self.ak_with(lods=lods)
++                ak = host_row(observations, "AK74")
++                self.assertEqual([name for name, _ in lods], [item["name"] for item in ak["res_lods"]])
++                self.assertEqual(2, len(ak["proxies"][0]["res_lods"]))
++                self.assertEqual("qualified", self.reason(observations)[0], label)
++        world, _observations = self.ak_with(lods=(("1", ()), ("1", names)))
++        self.assertEqual(2, world.selection_log.count("1"))
++
++    def test_the_scan_of_each_lod_runs_once_per_host_and_never_once_per_proxy_row(self):
++        world, observations = self.ak_with(lods=(("0", res_of(LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY)), ("1", ())))
++        self.assertEqual(2, len(host_row(observations, "AK74")["proxies"]))
++        self.assertEqual(1, world.selection_log.count("0"))
++        self.assertEqual(1, world.selection_log.count("1"))
++
++    def test_the_lod_scan_is_bounded_at_sixteen_lods_and_a_cut_scan_without_the_selection_is_pending_truncated(self):
++        names = res_of(LIGHT_UNIVERSAL_PROXY)
++        many = tuple((str(number), ()) for number in range(20))
++        world, observations = self.ak_with(lods=many)
++        ak = host_row(observations, "AK74")
++        self.assertEqual((True, 20, 16, False), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
++                                                 ak["res_scan_complete"]))
++        self.assertEqual(16, len(ak["res_lods"]))
++        self.assertFalse({str(number) for number in range(16, 20)} & set(world.selection_log))
++        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))
++        late = many[:17] + (("17", names),) + many[18:]
++        _world, observations = self.ak_with(lods=late)
++        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))
++        early = (("3", names),) + many[:3] + many[4:]
++        _world, observations = self.ak_with(lods=early)
++        self.assertEqual("qualified", self.reason(observations)[0])     # a complete LOD that holds it is enough
++
++    def test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut(self):
++        filler = tuple("filler%03d" % number for number in range(600))
++        _world, observations = self.ak_with(res=filler + res_of(LIGHT_UNIVERSAL_PROXY))
++        ak = host_row(observations, "AK74")
++        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 603, "scan_complete": False}], ak["res_lods"])
++        self.assertFalse(ak["res_scan_complete"])
++        self.assertEqual("", ak["proxies"][0]["res_lods"][0]["selection"])
++        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))
++        _world, observations = self.ak_with(res=res_of(LIGHT_UNIVERSAL_PROXY) + filler)
++        self.assertEqual(LIGHT_UNIVERSAL_PROXY, host_row(observations, "AK74")["proxies"][0]["res_lods"][0]["selection"])
++        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))   # found, but the LOD was cut
++        _world, observations = self.ak_with(res=tuple("filler%03d" % number for number in range(512)) + res_of(LIGHT_UNIVERSAL_PROXY)[2:])
++        ak = host_row(observations, "AK74")
++        self.assertEqual((513, False), (ak["res_lods"][0]["selection_count"], ak["res_lods"][0]["scan_complete"]))
++        _world, observations = self.ak_with(res=tuple("filler%03d" % number for number in range(511)) + (res_of(LIGHT_UNIVERSAL_PROXY)[2],))
++        ak = host_row(observations, "AK74")
++        self.assertEqual((512, True), (ak["res_lods"][0]["selection_count"], ak["res_lods"][0]["scan_complete"]))
++        self.assertEqual("qualified", self.reason(observations)[0])
+ 
+-    def test_the_out_array_is_cleared_before_the_call_and_again_after_a_failure(self):
++    def test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored(self):
++        world, observations = self.ak_with(lods_unlisted=True)
++        ak = host_row(observations, "AK74")
++        self.assertEqual((False, 0, 0, False, []), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
++                                                    ak["res_scan_complete"], ak["res_lods"]))
++        self.assertEqual((False, 0, []), (ak["lod_list_ok"], ak["lod_count"], ak["lod_names"]))
++        self.assertNotIn("9", world.selection_log)      # the junk LOD left in the out array was never read
++        self.assertEqual([], ak["proxies"][0]["res_lods"])
++        self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations))
++
++    def test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed(self):
++        names = res_of(LIGHT_UNIVERSAL_PROXY)
++        world, observations = self.ak_with(lods=tuple((str(number), names) for number in range(129)))
++        ak = host_row(observations, "AK74")
++        self.assertEqual((False, 0, 0, False), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
++                                                ak["res_scan_complete"]))
++        self.assertEqual((False, 0), (ak["lod_list_ok"], ak["lod_count"]))
++        self.assertNotIn("5", world.selection_log)
++        self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations))
++        _world, observations = self.ak_with(lods=tuple((str(number), names) for number in range(128)))
++        self.assertEqual((True, 128, 16), (host_row(observations, "AK74")["res_enum_ok"],
++                                           host_row(observations, "AK74")["res_lod_count"],
++                                           host_row(observations, "AK74")["res_lods_scanned"]))
++
++    def test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored(self):
++        """LOD.GetSelections (gameplay.c:216) returns bool and says nothing about its out array on failure. The synthetic
++        engine leaves the matching selections in the out array of a failed call, as a native failure might."""
++        _world, observations = self.ak_with(res_unlisted=True)
++        ak = host_row(observations, "AK74")
++        self.assertEqual([{"name": "1.000", "list_ok": False, "selection_count": 0, "scan_complete": False}], ak["res_lods"])
++        self.assertEqual((True, 1, 1, False), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
++                                               ak["res_scan_complete"]))
++        self.assertEqual([{"name": "1.000", "list_ok": False, "selection": "", "vertex_ok": False, "vertex": []}],
++                         ak["proxies"][0]["res_lods"])
++        self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations))
++
++    def test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown(self):
++        names = res_of(LIGHT_UNIVERSAL_PROXY)
++        original = ModelLod.GetSelections
++
++        def fail_first(lod, out):
++            result = original(lod, out)
++            return result and lod.name != "0"
++        with mock.patch.object(ModelLod, "GetSelections", fail_first):
++            world = World(types=dict(proxy_types(), AK74=dict(proxy_types()["AK74"], lods=(("0", names), ("1", names)))))
++            run_hook(world, slots=_NoSelectionSlots)
++            self.assertEqual("qualified", self.reason(observations_of(world))[0])
++            world = World(types=dict(proxy_types(), AK74=dict(proxy_types()["AK74"], lods=(("0", names), ("1", ())))))
++            run_hook(world, slots=_NoSelectionSlots)
++            self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations_of(world)))
++
++    def test_the_selection_out_array_is_cleared_before_every_call_and_again_after_a_failure(self):
+         """array.Clear is EnScript.c:385 (class array<Class T>, proto native void Clear())."""
+         hook = probe.render_hook(probe.select_targets(classification())).decode()
+-        call = hook.index("viewLod.GetSelections(viewSelections)")
+-        self.assertEqual(1, hook.count("viewLod.GetSelections("))
+-        self.assertIn("viewSelections.Clear();", hook[:call])
+-        self.assertIn("viewSelections.Clear();", hook[call:call + 200])
++        self.assertEqual(1, hook.count(".GetSelections("))
++        call = hook.index(".GetSelections(")
++        self.assertIn("lodSelections.Clear();", hook[:call])
++        self.assertRegex(hook[call:], r"(?s)\A[^;]*;\s*listedFlag = 1;\s*if \(selectionsListed == false\)\s*\{\s*"
++                                      r"listedFlag = 0;\s*lodSelections\.Clear\(\);")
+         self.assertIn("EnScript.c:385", hook)
+ 
+-    def test_a_missing_config_model_never_matches_the_view_lod(self):
+-        config = proxy_config()
+-        config[self.SLOT_CONFIG]["model"] = ""
+-        _world, observations = self.run_world(config=config)
+-        light = host_row(observations, "AK74")["proxies"][0]
+-        self.assertEqual(("", "", False), (light["model"], light["view_selection"], light["view_vertex_ok"]))
+-        self.assertNotEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+-
+-    def test_the_view_facts_are_emitted_for_every_host_and_stay_within_the_json_contract(self):
++    def test_the_resolution_facts_are_emitted_for_every_host_and_stay_within_the_json_contract(self):
+         _world, observations = self.run_world()
+         for row in observations["hosts"]:
+             if row.get("spawned"):
+-                self.assertEqual(bool, type(row["view_lod"]), row["class"])
+-                self.assertEqual(int, type(row["view_selection_count"]), row["class"])
+-                self.assertEqual(bool, type(row["view_scan_complete"]), row["class"])
+-                self.assertEqual(bool, type(row["view_list_ok"]), row["class"])
++                self.assertEqual(bool, type(row["res_enum_ok"]), row["class"])
++                self.assertEqual(int, type(row["res_lod_count"]), row["class"])
++                self.assertEqual(int, type(row["res_lods_scanned"]), row["class"])
++                self.assertEqual(bool, type(row["res_scan_complete"]), row["class"])
++                for entry in row["res_lods"]:
++                    self.assertEqual((str, bool, int, bool), tuple(type(entry[key]) for key in
++                                                                  ("name", "list_ok", "selection_count", "scan_complete")))
+                 for item in row["proxies"]:
+-                    self.assertTrue(all(isinstance(number, str) for number in item["view_vertex"]))
++                    for entry in item["res_lods"]:
++                        self.assertTrue(all(isinstance(number, str) for number in entry["vertex"]))
++
++    def test_the_old_view_facts_are_gone_and_every_consumed_resolution_key_is_emitted_by_the_hook(self):
++        hook = probe.render_hook(probe.select_targets(classification())).decode()
++        for key in ("view_lod", "view_selection_count", "view_scan_complete", "view_list_ok", "view_selection",
++                    "view_vertex_ok", "view_vertex"):
++            self.assertNotIn('HCTLKey("%s")' % key, hook, key)
++        for key in ("res_enum_ok", "res_lod_count", "res_lods_scanned", "res_scan_complete", "res_lods", "name", "list_ok",
++                    "selection_count", "scan_complete", "selection", "vertex_ok", "vertex", "view_by_name"):
++            self.assertIn('HCTLKey("%s")' % key, hook, key)
++            self.assertIn(key, report.CONSUMED_KEYS, key)
++
++    def test_the_new_natives_are_cited_and_a_view_lod_is_not_a_gate_any_more(self):
++        hook = probe.render_hook(probe.select_targets(classification())).decode()
++        for cite in ("Object.c:98", "Object.c:101", "gameplay.c:203", "gameplay.c:216", "gameplay.c:179", "gameplay.c:184",
++                     "gameplay.c:185", "gameplay.c:186", "gameplay.c:188", "EnString.c:240", "EnString.c:271",
++                     "EnScript.c:380", "EnScript.c:385", "EnScript.c:394", "EnScript.c:399", "EnScript.c:407"):
++            with self.subTest(cite=cite):
++                self.assertIn(cite, hook)
++        self.assertNotIn("HCTLViewLod", hook)
++        self.assertNotIn("HCTLViewRow", hook)
+ 
+ 
+ SELF_TEST_SAMPLE = "proxy:/dz/a/b.001"
+ 
+ 
+ class RoundSixNativeEvidenceTests(unittest.TestCase):
+-    """Fix round 6 (taped-light-probe-004): view_lod was false and cfg_exists false on every native row, and cfg_class
+-    kept the whole path ("Proxy/dz/weapons/.../weaponlight_universal"), which a working LastIndexOf("/") could not have
+-    produced from forward slashes. The synthetic engine here proves only the hook's own logic: the hook must not depend
+-    on LastIndexOf, must emit what it tried and what the engine answered, and must report the native LOD names. Why the
+-    native calls behaved as they did is measured by the new header diagnostics on the next native run, not assumed."""
++    """Fix round 6 (taped-light-probe-004): cfg_class kept the whole path ("Proxy/dz/weapons/.../weaponlight_universal"),
++    which a working LastIndexOf("/") could not have produced from forward slashes. Round 7 (probe-005) measured IndexOf,
++    LastIndexOf and IndexOfFrom as correct and the raw selection names as backslash-only. The synthetic engine here
++    proves only the hook's own logic: the hook must not depend on LastIndexOf, must emit what it tried and what the
++    engine answered, and must report the native LOD names."""
+ 
+     def run_world(self, types=None, config=None):
+         world = World(types=types or proxy_types(), config=config)
+@@ -1844,64 +2031,57 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
+         ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
+         self.assertNotEqual("qualified", ak["verdict"])
+ 
+-    def test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_cross_check(self):
++    def test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check(self):
+         types = proxy_types()
+         types["AK74"] = dict(types["AK74"], lods=("1.000", "2.000", "Geometry", "VIEW"))
+-        types["Glock19"] = dict(types["Glock19"], view=None, lods=("1.000", "memory", "geometry"))
++        types["Glock19"] = dict(types["Glock19"], lods=("1.000", "memory", "geometry"))
+         _world, observations = self.run_world(types)
+         ak, glock = host_row(observations, "AK74"), host_row(observations, "Glock19")
+-        self.assertEqual((True, True, 4, True, ["1.000", "2.000", "Geometry", "VIEW"], True),
+-                         (ak["lod_list_ok"], ak["view_lod"], ak["lod_count"], ak["lod_names_complete"], ak["lod_names"],
+-                          ak["view_by_name"]))
+-        self.assertEqual((True, False, 3, True, ["1.000", "memory", "geometry"], False),
+-                         (glock["lod_list_ok"], glock["view_lod"], glock["lod_count"], glock["lod_names_complete"],
+-                          glock["lod_names"], glock["view_by_name"]))
+-
+-    def test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found(self):
++        self.assertEqual((True, 4, True, ["1.000", "2.000", "Geometry", "VIEW"], True),
++                         (ak["lod_list_ok"], ak["lod_count"], ak["lod_names_complete"], ak["lod_names"], ak["view_by_name"]))
++        self.assertEqual((True, 3, True, ["1.000", "memory", "geometry"], False),
++                         (glock["lod_list_ok"], glock["lod_count"], glock["lod_names_complete"], glock["lod_names"],
++                          glock["view_by_name"]))
++        self.assertEqual(["1.000", "2.000"], [item["name"] for item in ak["res_lods"]])
++
++    def test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found_by_name(self):
+         names = tuple("res%02d" % number for number in range(10)) + ("view",)
+         types = proxy_types()
+         types["AK74"] = dict(types["AK74"], lods=names)
+         _world, observations = self.run_world(types)
+         ak = host_row(observations, "AK74")
+-        self.assertEqual((11, 8, False, True), (ak["lod_count"], len(ak["lod_names"]), ak["lod_names_complete"], ak["view_lod"]))
++        self.assertEqual((11, 8, False, True), (ak["lod_count"], len(ak["lod_names"]), ak["lod_names_complete"], ak["view_by_name"]))
+         self.assertEqual(list(names[:8]), ak["lod_names"])
+         many = tuple("res%03d" % number for number in range(100))
+         types["AK74"] = dict(types["AK74"], lods=many)
+         _world, observations = self.run_world(types)
+         ak = host_row(observations, "AK74")
+-        self.assertEqual((100, 8, False, False), (ak["lod_count"], len(ak["lod_names"]), ak["lod_names_complete"], ak["view_lod"]))
++        self.assertEqual((100, 8, False, False), (ak["lod_count"], len(ak["lod_names"]), ak["lod_names_complete"], ak["view_by_name"]))
+ 
+-    def test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored(self):
++    def test_a_failed_lod_list_is_unknown_in_the_lod_facts_and_the_report_says_enumeration_failed(self):
+         types = proxy_types()
+         types["AK74"] = dict(types["AK74"], lods_unlisted=True)
+         _world, observations = self.run_world(types)
+         ak = host_row(observations, "AK74")
+-        self.assertEqual((False, 0, True, [], False, False), (ak["lod_list_ok"], ak["lod_count"], ak["lod_names_complete"],
+-                                                              ak["lod_names"], ak["view_lod"], ak["view_by_name"]))
++        self.assertEqual((False, 0, True, [], False), (ak["lod_list_ok"], ak["lod_count"], ak["lod_names_complete"],
++                                                       ak["lod_names"], ak["view_by_name"]))
+         joined = report.build_report(classification(), observations)
+         slot = next(h for h in joined["hosts"] if h["class"] == "AK74")["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+-        self.assertEqual(("pending", "view_lod_missing"), (slot["verdict"], slot["reason"]))
++        self.assertEqual(("pending", "resolution_enumeration_failed"), (slot["verdict"], slot["reason"]))
+ 
+-    def test_a_server_without_a_view_lod_is_pending_view_lod_absent_on_server_never_qualified(self):
++    def test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified(self):
+         types = proxy_types()
+-        types["AK74"] = dict(types["AK74"], view=None, lods=("1.000", "2.000", "geometry"))
++        types["AK74"] = dict(types["AK74"], lods=("geometry", "memory", "view"))
+         _world, observations = self.run_world(types)
+         joined = report.build_report(classification(), observations)
+         ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
+         slot = ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+-        self.assertEqual(("pending", "view_lod_absent_on_server"), (slot["verdict"], slot["reason"]))
+-        self.assertEqual(["1.000", "2.000", "geometry"], ak["diagnostics"]["lod"]["names"])
++        self.assertEqual(("pending", "resolution_lod_absent"), (slot["verdict"], slot["reason"]))
++        self.assertEqual(["geometry", "memory", "view"], ak["diagnostics"]["lod"]["names"])
++        self.assertEqual((True, 0, True), (ak["diagnostics"]["resolution"]["enum_ok"], ak["diagnostics"]["resolution"]["count"],
++                                           ak["diagnostics"]["resolution"]["complete"]))
+         self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
+ 
+-    def test_a_resolution_lod_is_never_substituted_for_the_view_lod(self):
+-        """A LOD named like a resolution ("1.000") holding the very selections is still not the view LOD."""
+-        types = proxy_types()
+-        types["AK74"] = dict(types["AK74"], view=view_of(LIGHT_UNIVERSAL_PROXY), lods=("1.000", "geometry"))
+-        _world, observations = self.run_world(types)
+-        ak = host_row(observations, "AK74")
+-        self.assertEqual((False, 0), (ak["view_lod"], ak["view_selection_count"]))
+-        self.assertEqual("", ak["proxies"][0]["view_selection"])
+-
+     def test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models(self):
+         _world, observations = self.run_world()
+         scan = observations["diagnostics"]["cfg_nonai_scan"]
+@@ -1920,10 +2100,11 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
+         self.assertEqual((4112, 4096, False), (scan["child_count"], scan["scanned"], scan["complete"]))
+         self.assertLessEqual(len(scan["weaponlight_children"]), 8)
+ 
+-    def test_the_proxy_and_view_scans_never_call_last_index_of_and_the_new_natives_are_cited(self):
++    def test_the_proxy_and_resolution_scans_never_call_last_index_of_and_the_new_natives_are_cited(self):
+         hook = probe.render_hook(probe.select_targets(classification())).decode()
+-        for function in ("HCTLProxyBase", "HCTLViewPath", "HCTLProxyRow", "HCTLProxyFacts"):
+-            start = hook.index("string %s(" % function)
++        for function in ("HCTLProxyBase", "HCTLViewPath", "HCTLProxyRow", "HCTLProxyFacts", "HCTLResolutionScan",
++                         "HCTLResRow", "HCTLResFacts", "HCTLIsNumericName"):
++            start = re.search(r"\n    \w+ %s\(" % function, hook).start()
+             body = hook[start:hook.index("\n    }\n", start)]
+             self.assertNotIn("LastIndexOf(", re.sub(r"//[^\n]*", "", body), function)
+         for cite in ("EnString.c:240", "EnString.c:253", "EnString.c:271", "Object.c:101", "Game.c:594", "Game.c:611",
+@@ -1931,7 +2112,7 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
+             with self.subTest(cite=cite):
+                 self.assertIn(cite, hook)
+ 
+-    def test_the_round_six_hook_keeps_every_native_compile_rule_and_its_size_bound(self):
++    def test_the_hook_keeps_every_native_compile_rule_and_its_size_bound(self):
+         hook = probe.render_hook(probe.select_targets(classification())).decode()
+         self.assertEqual([], probe.lint_hook(hook, explicit_numbers=True))
+         self.assertLessEqual(probe.rt.max_statement_plus(hook), 8)
+diff --git a/tests/unit/test_taped_light_report.py b/tests/unit/test_taped_light_report.py
+index 945e899..6a42474 100644
+--- a/tests/unit/test_taped_light_report.py
++++ b/tests/unit/test_taped_light_report.py
+@@ -3,6 +3,7 @@
+ Nothing here establishes DayZ behavior: the report only joins what a native probe run wrote
+ with the config classification, and these tests prove only that join logic.
+ """
++import copy
+ import json
+ from pathlib import Path
+ import re
+@@ -68,33 +69,59 @@ def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True, found=
+ LIGHT_PROXY_PATH = "/dz/weapons/attachments/light/weaponlight_universal"
+ 
+ 
++def res_entry(name="1.000", selection="", list_ok=True, vertex_ok=None, vertex=("0.5", "0.25", "-1.5")):
++    """One per-resolution-LOD entry of a proxy row: the LOD, whether its selection list call succeeded, the first
++    selection whose whole normalised path equals the row's model path, and that selection's first vertex as text."""
++    vertex_ok = bool(selection) if vertex_ok is None else vertex_ok
++    return {"name": name, "list_ok": list_ok, "selection": selection, "vertex_ok": vertex_ok,
++            "vertex": list(vertex) if vertex_ok else []}
++
++
+ def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exists=True, model=None, cfg_class=None,
+-          slot_count=None, slot_complete=None, view_selection=None, vertex_ok=True, vertex=("0.5", "0.25", "-1.5")):
+-    """One probe-003 style proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
++          slot_count=None, slot_complete=None, res_selection=None, vertex_ok=None, vertex=("0.5", "0.25", "-1.5"),
++          res=None):
++    """One proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
+ 
+     The probe lists ``proxy:/dz/.../weaponlight_universal.001`` style selections; the config entry is
+     ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list.
+-    ``slot_count``/``slot_complete`` are the hook's inventorySlot bookkeeping (the listed rows are capped at 8) and
+-    ``view_selection``/``vertex_ok``/``vertex`` are the view-LOD join (the first view-LOD proxy selection whose whole
+-    normalised path equals the model path, and the first vertex of that selection as number text). It is the result of one
+-    lookup per model, so it does not depend on the instance number of the row; the default is the ``.001`` instance."""
++    ``slot_count``/``slot_complete`` are the hook's inventorySlot bookkeeping (the listed rows are capped at 8).
++    ``res`` is the row's per-resolution-LOD list (one entry per numeric-named LOD of the host, see HOST_RES); by default
++    the single LOD "1.000" holds the proxy selection of the ``.001`` instance, whose first vertex is ``vertex``. The lookup
++    is one result per model, so it does not depend on the instance number of the row. ``res_selection`` replaces that
++    selection ("" for none)."""
+     base = path.rsplit("/", 1)[-1]
+     default_model = "\\" + path.strip("/").replace("/", "\\") + ".p3d"
+     listed = list(slots) if exists else []
+     selection = "proxy:" + path + "." + number
++    if res is None:
++        found = ("proxy:" + path + ".001").lower() if res_selection is None else res_selection
++        res = [res_entry("1.000", found, vertex_ok=vertex_ok, vertex=vertex)]
+     return {"selection": selection, "cfg_class": "Proxy" + base if cfg_class is None else cfg_class,
+             "cfg_exists": exists, "model": ("" if not exists else default_model) if model is None else model,
+             "inventory_slots": listed, "slot_count": len(listed) if slot_count is None else slot_count,
+             "slot_scan_complete": (slot_count is None or slot_count == len(listed)) if slot_complete is None else slot_complete,
+-            "view_selection": ("proxy:" + path + ".001").lower() if view_selection is None else view_selection,
+-            "view_vertex_ok": vertex_ok, "view_vertex": list(vertex) if vertex_ok else []}
++            "res_lods": res}
++
++
++def res_host(*lods, enum_ok=True, count=None, complete=None, empty=False):
++    """The host-level resolution-LOD facts. ``lods`` are (name, selection_count) pairs or full dicts; the defaults are the
++    one LOD "1.000" holding three selections, and ``empty`` is a host whose LOD list holds no numeric-named LOD."""
++    entries = [dict(name=item[0], list_ok=True, selection_count=item[1], scan_complete=True) if isinstance(item, tuple) else item
++               for item in ([] if empty else (lods or (("1.000", 3),)))]
++    count = len(entries) if count is None else count
++    if complete is None:
++        complete = enum_ok and len(entries) == count and all(item["scan_complete"] for item in entries)
++    return {"res_enum_ok": enum_ok, "res_lod_count": count, "res_lods_scanned": len(entries), "res_scan_complete": complete,
++            "res_lods": entries}
+ 
+ 
+-VIEW_HOST = {"view_lod": True, "view_selection_count": 3, "view_scan_complete": True, "view_list_ok": True}
++LOD_FACTS = {"lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
++             "view_by_name": False}
++HOST_FACTS = dict(res_host(), **LOD_FACTS)       # what the hook writes per host next to the proxy rows
+ 
+ 
+ def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
+-        prereq_variant=None, proxies=None, proxy_count=None, view=None):
++        prereq_variant=None, proxies=None, proxy_count=None, facts=None):
+     if not spawned:
+         return {"i": index, "class": name, "root": root, "group": group, "spawned": False, "timed_out": False}
+     result = {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
+@@ -106,7 +133,7 @@ def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeap
+         result["proxy_count"] = len(proxies) if proxy_count is None else proxy_count
+         result["proxy_scan_complete"] = True
+         result["proxies"] = proxies
+-        result.update(VIEW_HOST if view is None else view)
++        result.update(copy.deepcopy(HOST_FACTS) if facts is None else facts)
+     return result
+ 
+ 
+@@ -951,8 +978,8 @@ class ProxySlotEvidenceTests(unittest.TestCase):
+ 
+     def test_a_proxy_with_an_existing_config_matching_model_and_slot_qualifies(self):
+         slot, record, result = self.attach([proxy()])
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
+         self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
+         self.assertEqual("qualified", record["verdict"])
+         self.assertEqual("PENDING", result["acceptance"])
+@@ -972,7 +999,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
+                 item = proxy()
+                 item["selection"] = prefix + item["selection"][len("proxy:"):]
+                 slot, _record, _result = self.attach([item])
+-                self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
++                self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+ 
+     def test_a_selection_without_the_proxy_prefix_is_malformed_evidence_not_a_match(self):
+         item = proxy()
+@@ -983,7 +1010,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
+     def test_a_qualifying_proxy_among_other_rows_and_a_truncated_list_still_qualifies(self):
+         rows = [proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",)), proxy()]
+         slot, _record, _result = self.attach(rows, proxy_count=40)
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+ 
+     def test_a_proxy_that_names_a_different_slot_does_not_qualify(self):
+         slot, record, _result = self.attach([proxy(slots=("pistolFlashlight",))])
+@@ -1098,15 +1125,15 @@ class ProxySlotEvidenceTests(unittest.TestCase):
+                     prereq_variant=variant, proxies=[proxy()])]
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+                          (slot["verdict"], slot["reason"]))
+         self.assertTrue(slot["evidence"]["requires_prerequisite"])
+-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
++        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
+         rows[0]["proxies"] = [proxy(slots=("pistolFlashlight",))]
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+         self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+-        for key in ("proxies", "proxy_count", "proxy_scan_complete", *VIEW_HOST):
++        for key in ("proxies", "proxy_count", "proxy_scan_complete", *HOST_FACTS):
+             del rows[0][key]
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+@@ -1118,8 +1145,9 @@ class ProxySlotEvidenceTests(unittest.TestCase):
+ 
+     def test_the_consumed_keys_name_the_proxy_fields(self):
+         for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots",
+-                    "slot_count", "slot_scan_complete", "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok",
+-                    "view_selection", "view_vertex_ok", "view_vertex"):
++                    "slot_count", "slot_scan_complete", "res_enum_ok", "res_lod_count", "res_lods_scanned",
++                    "res_scan_complete", "res_lods", "name", "list_ok", "selection_count", "scan_complete", "vertex_ok",
++                    "vertex"):
+             self.assertIn(key, report.CONSUMED_KEYS)
+ 
+ 
+@@ -1144,16 +1172,55 @@ class ProxyIdentityTests(unittest.TestCase):
+ 
+     def test_each_conflicting_field_of_a_duplicate_identity_is_caught(self):
+         for field, value in (("model", "\\dz\\other.p3d"), ("inventory_slots", ["pistolFlashlight"]),
+-                             ("cfg_class", "Proxyweaponlight_universal2"), ("view_selection", ""),
+-                             ("view_vertex_ok", False)):
++                             ("cfg_class", "Proxyweaponlight_universal2"), ("slot_count", 3),
++                             ("res_lods", [res_entry("1.000", "", vertex_ok=False)])):
+             with self.subTest(field=field):
+                 self.assert_pending_malformed([proxy(), dict(proxy(), **{field: value})], field)
+ 
+-    def test_duplicate_identities_are_malformed_even_when_they_agree_and_across_case_and_slash_spelling(self):
+-        self.assert_pending_malformed([proxy(), proxy()], "identical duplicate")
+-        other = proxy()
+-        other["selection"] = "PROXY:\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.001"
+-        self.assert_pending_malformed([proxy(), other], "case and slash variant")
++    def test_agreeing_aliases_of_one_identity_collapse_into_one_evidence_identity_and_still_qualify(self):
++        """Review 007 P3a: ``proxy:/dz/..x.001`` and ``proxy:dz/..x.001`` (FNX45 natively) normalise to one identity. Copies
++        that read the same config entry and the same resolution lookup are one piece of evidence, never malformed;
++        case, slash and leading-slash spellings all count as the same identity."""
++        slashed = proxy()
++        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
++        shouted = dict(proxy(), selection="PROXY:\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.001")
++        for label, proxies in (("identical copies", [proxy(), proxy()]), ("leading slash pair", [slashed, bare]),
++                               ("reverse order", [bare, slashed]), ("case and slash variant", [proxy(), shouted]),
++                               ("three spellings", [slashed, bare, shouted])):
++            with self.subTest(label):
++                slot, result = self.judge(proxies)
++                self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"),
++                                 (slot["verdict"], slot["reason"]), label)
++                self.assertEqual([], result["integrity"]["issues"], label)
++
++    def test_aliases_keep_their_raw_rows_and_the_collapsed_count_as_diagnostics(self):
++        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
++        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[proxy(), bare])]
++        rows[0]["proxy_count"] = 2
++        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
++        diagnostics = result["hosts"][0]["diagnostics"]
++        self.assertEqual(2, rows[0]["proxy_count"])
++        self.assertEqual(1, diagnostics["proxy_alias_collapsed"])
++        self.assertEqual([proxy()["selection"], bare["selection"]], [item["selection"] for item in rows[0]["proxies"]])
++        rows[0]["proxies"] = [proxy(number="001"), proxy(number="002")]       # two instances are two identities
++        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
++        self.assertEqual(0, result["hosts"][0]["diagnostics"]["proxy_alias_collapsed"])
++
++    def test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order(self):
++        """The same identity read two ways is contradictory evidence, whichever spelling comes first."""
++        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
++        conflicts = {"model": dict(bare, model="\\dz\\other.p3d"),
++                     "slots": dict(bare, inventory_slots=["pistolFlashlight"]),
++                     "slot count": dict(bare, slot_count=9, slot_scan_complete=False),
++                     "config exists": dict(bare, cfg_exists=False, model="", inventory_slots=[], slot_count=0),
++                     "resolution selection": dict(bare, res_lods=[res_entry("1.000", "", vertex_ok=False)]),
++                     "resolution vertex": dict(bare, res_lods=[res_entry("1.000", bare["res_lods"][0]["selection"],
++                                                                         vertex=("9", "8", "7"))]),
++                     "resolution lod name": dict(bare, res_lods=[dict(bare["res_lods"][0], name="0")])}
++        for label, second in conflicts.items():
++            for order in ((proxy(), second), (second, proxy())):
++                with self.subTest(label, first=order[0]["selection"]):
++                    self.assert_pending_malformed(list(order), label)
+ 
+     def test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed(self):
+         self.assert_pending_malformed([proxy(number="001"), proxy(number="002", slots=("pistolFlashlight",))], "slots")
+@@ -1181,6 +1248,20 @@ class ProxyIdentityTests(unittest.TestCase):
+         item["selection"] = "proxy:/dz/weapons/attachments/light/.001"
+         self.assert_pending_malformed([item], "empty basename, coherent row")
+ 
++    def test_an_empty_basename_hidden_behind_the_p3d_extension_is_malformed_even_with_a_coherent_row(self):
++        """Review 007 P3b: ``.../light/.p3d.001`` has no raw trailing slash, and only after the extension is stripped is the
++        basename empty. The config row, the model path and the resolution selection all agree with that empty basename, so
++        only the two normalised-path guards of the name parser refuse it (the combined deletion mutant)."""
++        selection = "proxy:/dz/weapons/attachments/light/.p3d.001"
++        item = proxy(path="/dz/weapons/attachments/light/", cfg_class="Proxy",
++                     model="\\dz\\weapons\\attachments\\light\\.p3d", res_selection=selection)
++        item["selection"] = selection
++        self.assertEqual("Proxy", item["cfg_class"])
++        self.assert_pending_malformed([item], "empty basename behind the extension, coherent row")
++        self.assertIsNone(report._proxy_name(selection))
++        for other in ("proxy:/dz/weapons/attachments/light/.P3D.007", "proxy:\\dz\\weapons\\attachments\\light\\.p3d.1"):
++            self.assertIsNone(report._proxy_name(other), other)
++
+     def test_a_malformed_name_in_any_row_makes_the_host_pending_even_with_a_valid_matching_row_present(self):
+         self.assert_pending_malformed([proxy(), dict(proxy(path="/dz/x/muzzle"), selection="proxy:/dz/x/muzzle.garbage")])
+ 
+@@ -1216,7 +1297,7 @@ class SlotListTruncationTests(unittest.TestCase):
+ 
+     def test_a_listed_slot_still_qualifies_when_the_list_is_truncated(self):
+         slot, _result = self.judge([proxy(slots=self.FILLER[:7] + ("weaponFlashlight",), slot_count=12)])
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+ 
+     def test_a_complete_slot_list_without_the_slot_stays_a_negative_finding(self):
+         slot, _result = self.judge([proxy(slots=self.FILLER)])
+@@ -1238,73 +1319,240 @@ class SlotListTruncationTests(unittest.TestCase):
+         self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
+ 
+ 
+-class ViewLodEvidenceTests(unittest.TestCase):
+-    """Fix round 4: GetSelectionList does not establish view-LOD membership. A proxy qualifies only when the host's
+-    view LOD (Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections) holds a selection that contains the proxy model
+-    path and the selection has a first vertex. Anything unknown is pending. This is source-level evidence of the
+-    pattern AttachmentsOutOfReach.c:97-135 reads; it does not prove client rendering."""
++def facts_of(res, extra=("geometry",)):
++    """Host facts as the hook writes them for a resolution scan ``res`` (a res_host result): the diagnostic LOD name list is
++    the numeric names followed by ``extra`` (non-resolution LODs), cut at eight names like the hook's list."""
++    listed = res["res_enum_ok"]
++    names = [item["name"] for item in res["res_lods"]] + list(extra)
++    count = max(res["res_lod_count"], len(res["res_lods"])) + len(extra) if listed else 0
++    shown = names[:8] if listed else []
++    return dict(copy.deepcopy(res), lod_list_ok=listed, lod_count=count, lod_names=shown,
++                lod_names_complete=len(shown) == count, view_by_name=False)
++
++
++def legacy_proxy(**changes):
++    """A proxy row as the round-4 to round-6 hook wrote it: view-LOD fields, no per-resolution-LOD list."""
++    item = {key: value for key, value in proxy(**changes).items() if key != "res_lods"}
++    return dict(item, view_selection="", view_vertex_ok=False, view_vertex=[])
++
++
++LEGACY_HOST = {"view_lod": False, "view_selection_count": 0, "view_scan_complete": False, "view_list_ok": False,
++               "lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
++               "view_by_name": False}
++SELECTION = "proxy:" + LIGHT_PROXY_PATH + ".001"
++GOOD = ("qualified", "native_attach_with_resolution_lod_proxy_slot")
++
+ 
+-    def judge(self, proxies=None, view=None, **row_extra):
++class ResolutionLodEvidenceTests(unittest.TestCase):
++    """Round 7 (taped-light-probe-005): the dedicated server has no LOD named "view" (a client inventory helper's LOD), so the
++    model-proxy evidence is the resolution LODs, whose names are numeric ("0", "1", "1.000"). A proxy qualifies only when the
++    native attach was ok, the Proxy<basename> class exists with the proxy's own model, the slot is listed, and a numeric LOD
++    whose selection scan was complete holds that proxy selection. Anything unknown is pending. This is source-level evidence
++    of a model proxy slot on the server-side model only; it says nothing about beam render, the switch, two-client
++    presentation, removal by hand, tape consumption or persistence."""
++
++    def judge(self, proxies=None, facts=None, **extra):
+         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(),
+-                    proxies=[proxy()] if proxies is None else proxies, view=view, **row_extra)]
++                    proxies=[proxy()] if proxies is None else proxies, facts=facts)]
++        rows[0].update(extra)
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         record = result["hosts"][0]
+         return record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], record, result
+ 
+-    def test_a_view_lod_match_with_a_vertex_qualifies_and_the_evidence_is_reported(self):
++    def verdict(self, *args, **kwargs):
++        slot, _record, _result = self.judge(*args, **kwargs)
++        return slot["verdict"], slot["reason"]
++
++    def test_a_resolution_lod_holding_the_proxy_selection_qualifies_and_the_evidence_is_reported(self):
+         slot, record, result = self.judge()
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
++        self.assertEqual(GOOD, (slot["verdict"], slot["reason"]))
+         evidence = slot["evidence"]
+-        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", evidence["proxy_selection"])
+-        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", evidence["view_selection"])
+-        self.assertEqual([0.5, 0.25, -1.5], evidence["view_vertex"])
++        self.assertEqual("resolution_lod_proxy_slot", evidence["model_evidence"])
++        self.assertEqual(SELECTION, evidence["proxy_selection"])
++        self.assertEqual(("1.000", SELECTION, [0.5, 0.25, -1.5]),
++                         (evidence["resolution_lod"], evidence["resolution_selection"], evidence["resolution_vertex"]))
+         self.assertEqual("qualified", record["verdict"])
+         self.assertEqual("PENDING", result["acceptance"])
++        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, result["unobserved_axes"])
++
++    def test_no_label_keeps_the_view_lod_name(self):
++        slot, _record, result = self.judge()
++        self.assertNotIn("view_lod", json.dumps(result))
++        self.assertNotIn("view_selection", json.dumps(slot))
+ 
+-    def test_without_view_lod_membership_a_proxy_slot_match_is_pending_with_an_explicit_reason(self):
+-        no_view = dict(proxy(), view_selection="", view_vertex_ok=False, view_vertex=[])
++    def test_without_the_proxy_selection_in_a_complete_resolution_lod_the_slot_is_pending_with_an_explicit_reason(self):
++        failed_list = dict(name="1.000", list_ok=False, selection_count=0, scan_complete=False)
++        cut_scan = dict(name="1.000", list_ok=True, selection_count=900, scan_complete=False)
++        many = [str(number) for number in range(16)]
+         cases = {
+-            "no view lod": (dict(VIEW_HOST, view_lod=False, view_list_ok=False, view_selection_count=0, view_scan_complete=False),
+-                            [no_view], "view_lod_missing"),
+-            "no view selection, complete scan": (None, [no_view], "view_selection_missing"),
+-            "no view selection, truncated scan": (dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False),
+-                                                  [no_view], "view_evidence_truncated"),
+-            "view selection names another model": (None, [proxy(view_selection="proxy:/dz/other/thing.001")],
+-                                                   "view_selection_mismatch"),
+-            "no first vertex": (None, [proxy(vertex_ok=False)], "view_vertex_missing"),
+-            "vertex not three numbers": (None, [proxy(vertex=("1", "2"))], "view_vertex_invalid"),
+-            "vertex not numeric": (None, [proxy(vertex=("1", "x", "3"))], "view_vertex_invalid"),
+-            "vertex not finite": (None, [proxy(vertex=("1", "nan", "3"))], "view_vertex_invalid"),
+-            "vertex infinite": (None, [proxy(vertex=("1", "inf", "3"))], "view_vertex_invalid"),
++            "no numeric lod": (facts_of(res_host(empty=True), extra=("geometry", "memory")), [proxy(res=[])],
++                               "resolution_lod_absent"),
++            "proxy not in the lod, complete scan": (None, [proxy(res_selection="")], "resolution_proxy_missing"),
++            "lod list failed": (facts_of(res_host(enum_ok=False, empty=True)), [proxy(res=[])],
++                                "resolution_enumeration_failed"),
++            "selection list failed on the only lod": (facts_of(res_host(failed_list)),
++                                                      [proxy(res=[res_entry("1.000", "", list_ok=False)])],
++                                                      "resolution_enumeration_failed"),
++            "selection list failed on one of two lods": (facts_of(res_host(("0", 4), dict(failed_list, name="1"))),
++                                                         [proxy(res=[res_entry("0", ""), res_entry("1", "", list_ok=False)])],
++                                                         "resolution_enumeration_failed"),
++            "scan cut, selection missing": (facts_of(res_host(cut_scan)), [proxy(res_selection="")],
++                                            "resolution_evidence_truncated"),
++            "selection found in a cut scan": (facts_of(res_host(cut_scan)), [proxy()], "resolution_evidence_truncated"),
++            "more numeric lods than scanned": (facts_of(res_host(*[(name, 3) for name in many], count=20)),
++                                               [proxy(res=[res_entry(name, "") for name in many])],
++                                               "resolution_evidence_truncated"),
++            "selection names another model": (None, [proxy(res_selection="proxy:/dz/other/thing.001")],
++                                              "resolution_selection_mismatch"),
++            "no first vertex": (None, [proxy(vertex_ok=False)], "resolution_vertex_missing"),
++            "vertex not three numbers": (None, [proxy(vertex=("1", "2"))], "resolution_vertex_invalid"),
++            "vertex not numeric": (None, [proxy(vertex=("1", "x", "3"))], "resolution_vertex_invalid"),
++            "vertex not finite": (None, [proxy(vertex=("1", "nan", "3"))], "resolution_vertex_invalid"),
++            "vertex infinite": (None, [proxy(vertex=("1", "inf", "3"))], "resolution_vertex_invalid"),
+         }
+-        for label, (view, proxies, reason) in cases.items():
++        for label, (facts, proxies, reason) in cases.items():
+             with self.subTest(label):
+-                slot, record, result = self.judge(proxies, view=view)
++                slot, record, result = self.judge(proxies, facts=facts)
+                 self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+                 self.assertEqual("pending", record["verdict"], label)
+                 self.assertEqual(0, result["denominators"]["qualified"], label)
+ 
+-    def test_a_view_selection_that_was_found_stands_over_an_incomplete_scan(self):
+-        slot, _record, _result = self.judge(view=dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False))
+-        self.assertEqual("qualified", slot["verdict"])
++    def test_one_complete_resolution_lod_holding_the_proxy_is_enough(self):
++        facts = facts_of(res_host(("0", 5), ("1", 7)))
++        for label, res in (("second lod", [res_entry("0", ""), res_entry("1", SELECTION)]),
++                           ("first lod", [res_entry("0", SELECTION), res_entry("1", "")]),
++                           ("first lod without a vertex", [res_entry("0", SELECTION, vertex_ok=False),
++                                                           res_entry("1", SELECTION)]),
++                           ("first lod names another model", [res_entry("0", "proxy:/dz/x/y.001"),
++                                                              res_entry("1", SELECTION)])):
++            with self.subTest(label):
++                self.assertEqual(GOOD, self.verdict([proxy(res=res)], facts))
++        repeated = facts_of(res_host(("1", 5), ("1", 5)))       # the engine repeats a resolution name on some hosts
++        self.assertEqual(GOOD, self.verdict([proxy(res=[res_entry("1", ""), res_entry("1", SELECTION)])], repeated))
++        both = [res_entry("0", "proxy:/dz/x/y.001"), res_entry("1", SELECTION, vertex_ok=False)]
++        self.assertEqual(("pending", "resolution_selection_mismatch"), self.verdict([proxy(res=both)], facts))
++
++    def test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence(self):
++        selection = SELECTION
++        for name in ("0", "1", "1.000", "10", "0.5", "01"):
++            with self.subTest(accepted=name):
++                self.assertEqual(GOOD, self.verdict([proxy(res=[res_entry(name, selection)])], facts_of(res_host((name, 3)))))
++        for name in ("geometry", "memory", "view", "View", "VIEW_PILOT", "landContact", "geometryView", "geometryFire", "",
++                     "-1", "1e3", "1.", ".5", "0x10", " 1", "1 ", "1.0.0", "٣", "1\n"):
++            with self.subTest(refused=name):
++                self.assertEqual(("pending", "proxy_evidence_malformed"),
++                                 self.verdict([proxy(res=[res_entry(name, selection)])], facts_of(res_host((name, 3)))))
++
++    def test_a_view_lod_never_stands_in_for_a_resolution_lod(self):
++        facts = dict(facts_of(res_host(empty=True), extra=("view", "geometry")), view_by_name=True)
++        self.assertEqual(("pending", "resolution_lod_absent"), self.verdict([proxy(res=[])], facts))
++        facts = dict(facts_of(res_host()), view_by_name=True, lod_names=["1.000", "view"])
++        self.assertEqual(("pending", "resolution_proxy_missing"), self.verdict([proxy(res_selection="")], facts))
++        self.assertEqual(GOOD, self.verdict([proxy()], facts))       # view_by_name and the names are diagnostics only
++
++    def test_the_lod_name_list_and_the_resolution_facts_must_not_contradict_each_other(self):
++        two = facts_of(res_host(("0", 3), ("1", 3)))
++        proxies = [proxy(res=[res_entry("0", ""), res_entry("1", SELECTION)])]
++        cases = {
++            "list flag disagrees": dict(two, lod_list_ok=False, lod_count=0, lod_names=[]),
++            "complete name list misses a numeric lod": dict(two, lod_names=["0", "geometry", "memory"], lod_count=3),
++            "complete name list holds another numeric lod": dict(two, lod_names=["0", "1", "2"], lod_count=3),
++            "numeric names in another order": dict(two, lod_names=["1", "0", "geometry"], lod_count=3),
++            "count below the numeric lods": dict(two, lod_count=1, lod_names=["0"], lod_names_complete=True),
++        }
++        for label, facts in cases.items():
++            with self.subTest(label):
++                self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict(proxies, facts), label)
++        self.assertEqual(GOOD, self.verdict(proxies, two))
++        lod_less = {key: value for key, value in two.items() if key not in report.LOD_HOST_KEYS}
++        self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict(proxies, lod_less))
++
++    def test_malformed_host_resolution_facts_are_pending_malformed_evidence(self):
++        def host_with(**changes):
++            return dict(copy.deepcopy(HOST_FACTS), **changes)
++
++        def lod(**changes):
++            return host_with(res_lods=[dict(HOST_FACTS["res_lods"][0], **changes)])
++        cases = {"res_enum_ok not a bool": host_with(res_enum_ok=1),
++                 "res_lod_count not an int": host_with(res_lod_count="1"),
++                 "res_lod_count a bool": host_with(res_lod_count=True),
++                 "res_lod_count negative": host_with(res_lod_count=-1),
++                 "res_lods_scanned differs from the list": host_with(res_lods_scanned=2),
++                 "res_scan_complete not a bool": host_with(res_scan_complete="yes"),
++                 "res_scan_complete claimed with a cut lod": lod(scan_complete=False, selection_count=900) | {"res_scan_complete": True},
++                 "res_scan_complete denied with everything scanned": host_with(res_scan_complete=False),
++                 "res_lods not a list": host_with(res_lods={"name": "1.000"}),
++                 "res_lods entry not an object": host_with(res_lods=["1.000"]),
++                 "lod name not text": lod(name=1),
++                 "lod list_ok not a bool": lod(list_ok=1),
++                 "lod selection_count not an int": lod(selection_count="3"),
++                 "lod selection_count a bool": lod(selection_count=True),
++                 "lod selection_count negative": lod(selection_count=-1),
++                 "lod scan_complete not a bool": lod(scan_complete="yes"),
++                 "lod scan_complete after a failed list": lod(list_ok=False, selection_count=0),
++                 "lod selections counted after a failed list": lod(list_ok=False, selection_count=3, scan_complete=False),
++                 "lod scan_complete above the selection cap": lod(selection_count=report.MAX_RES_SELECTIONS + 1),
++                 "lod scan incomplete within the cap": lod(scan_complete=False),
++                 "failed enumeration with lods": host_with(res_enum_ok=False, res_scan_complete=False),
++                 "failed enumeration with a count": host_with(res_enum_ok=False, res_lods=[], res_lods_scanned=0,
++                                                              res_lod_count=2, res_scan_complete=False),
++                 "count above the listed lods within the cap": host_with(res_lod_count=3),
++                 "more lods than the cap": res_host(*[(str(number), 1) for number in range(report.MAX_RES_LODS + 1)]),
++                 "lods above the count": host_with(res_lod_count=0)}
++        for key in report.RES_HOST_KEYS:
++            cases["only some res keys: " + key + " missing"] = {k: v for k, v in HOST_FACTS.items() if k != key}
++        for label, facts in cases.items():
++            with self.subTest(label):
++                facts = dict(facts)
++                facts.update({k: v for k, v in LOD_FACTS.items() if k not in facts})
++                slot, _record, result = self.judge([proxy()], facts=facts)
++                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
++                self.assertEqual(0, result["denominators"]["qualified"], label)
+ 
+-    def test_view_evidence_is_judged_only_for_a_row_that_would_match_the_slot(self):
+-        unrelated = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",), view_selection="",
+-                          vertex_ok=False)
+-        slot, _record, _result = self.judge([proxy(), unrelated])
+-        self.assertEqual("qualified", slot["verdict"])
+-        slot, _record, _result = self.judge([proxy(slots=("pistolFlashlight",), view_selection="", vertex_ok=False)])
+-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
++    def test_malformed_row_resolution_entries_are_pending_malformed_evidence(self):
++        good = res_entry("1.000", SELECTION)
++        cases = {
++            "res_lods missing": {k: v for k, v in proxy().items() if k != "res_lods"},
++            "res_lods not a list": dict(proxy(), res_lods={"name": "1.000"}),
++            "entry not an object": dict(proxy(), res_lods=["1.000"]),
++            "no entry for the host lod": dict(proxy(), res_lods=[]),
++            "an extra entry": dict(proxy(), res_lods=[good, res_entry("1.000", "")]),
++            "name differs from the host lod": dict(proxy(), res_lods=[dict(good, name="2.000")]),
++            "name missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "name"}]),
++            "list_ok differs from the host lod": dict(proxy(), res_lods=[dict(good, list_ok=False)]),
++            "list_ok missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "list_ok"}]),
++            "selection not text": dict(proxy(), res_lods=[dict(good, selection=7)]),
++            "selection missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "selection"}]),
++            "vertex_ok not a bool": dict(proxy(), res_lods=[dict(good, vertex_ok="true")]),
++            "vertex_ok missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "vertex_ok"}]),
++            "vertex not a list": dict(proxy(), res_lods=[dict(good, vertex="0.5,0.25,-1.5")]),
++            "vertex missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "vertex"}]),
++            "vertex entries claimed without vertex_ok": dict(proxy(), res_lods=[dict(good, vertex_ok=False)]),
++            "vertex_ok without a selection": dict(proxy(), res_lods=[dict(good, selection="")]),
++            "selection claimed in a lod without selections": None,
++        }
++        empty_lod = dict(res_host(("1.000", 0)))
++        for label, item in cases.items():
++            with self.subTest(label):
++                if item is None:
++                    slot, _record, _result = self.judge([proxy()], facts=facts_of(empty_lod))
++                else:
++                    slot, _record, _result = self.judge([item])
++                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+ 
+-    def test_one_model_cannot_have_two_different_view_results_in_either_order(self):
+-        """Review 005: both rows read the same per-host view lookup for the same model, so different results are
+-        contradictory reads, even when one row would qualify on its own."""
++    def test_a_selection_claimed_while_the_lod_selection_list_failed_is_malformed(self):
++        failed = dict(name="1.000", list_ok=False, selection_count=0, scan_complete=False)
++        self.assertEqual(("pending", "proxy_evidence_malformed"),
++                         self.verdict([proxy(res=[res_entry("1.000", SELECTION, list_ok=False)])], facts_of(res_host(failed))))
++
++    def test_one_model_cannot_have_two_different_resolution_results_in_either_order(self):
++        """The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
++        even when one row would qualify on its own."""
+         cases = {
+-            "missing selection": dict(proxy(number="002"), view_selection="", view_vertex_ok=False, view_vertex=[]),
++            "missing selection": dict(proxy(number="002"), res_lods=[res_entry("1.000", "")]),
+             "different vertex": proxy(number="002", vertex=("10", "20", "30")),
+-            "different selection": proxy(number="002", view_selection="proxy:" + LIGHT_PROXY_PATH + ".002"),
+-            "vertex flag only": dict(proxy(number="002"), view_vertex_ok=False),
++            "different selection": proxy(number="002", res_selection="proxy:" + LIGHT_PROXY_PATH + ".002"),
++            "vertex flag only": dict(proxy(number="002"), res_lods=[res_entry("1.000", SELECTION, vertex_ok=False)]),
+         }
+         for label, second in cases.items():
+             for order in ((proxy(number="001"), second), (second, proxy(number="001"))):
+@@ -1313,20 +1561,17 @@ class ViewLodEvidenceTests(unittest.TestCase):
+                     self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+                     self.assertEqual(0, result["denominators"]["qualified"])
+ 
+-    def test_two_instances_that_share_one_view_result_still_qualify(self):
+-        slot, _record, _result = self.judge([proxy(number="001"), proxy(number="002")])
+-        self.assertEqual("qualified", slot["verdict"])
++    def test_two_instances_that_share_one_resolution_result_still_qualify(self):
++        self.assertEqual(GOOD, self.verdict([proxy(number="001"), proxy(number="002")]))
+ 
+-    def test_view_slash_case_and_instance_spellings_are_normalised_before_the_whole_path_is_compared(self):
++    def test_slash_case_and_instance_spellings_are_normalised_before_the_whole_path_is_compared(self):
+         for selection in ("PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001",
+                           "proxy:/dz/weapons/attachments/light/weaponlight_universal.007",
+                           "proxy:dz/weapons/attachments/light/weaponlight_universal.12"):
+             with self.subTest(selection):
+-                slot, _record, _result = self.judge([proxy(view_selection=selection)])
+-                self.assertEqual("qualified", slot["verdict"])
++                self.assertEqual(GOOD, self.verdict([proxy(res_selection=selection)]))
+ 
+-    def test_only_the_same_proxy_model_establishes_view_membership_never_a_coincidental_name(self):
+-        """Review 005: AttachmentsOutOfReach.c matches by Contains(); qualification compares the complete proxy path."""
++    def test_only_the_same_proxy_model_is_evidence_never_a_coincidental_name(self):
+         base = "/dz/weapons/attachments/light/weaponlight_universal"
+         for label, selection in (("longer model name", "proxy:" + base + "_extra.001"),
+                                  ("version suffix", "proxy:" + base + "_v2.001"),
+@@ -1340,87 +1585,64 @@ class ViewLodEvidenceTests(unittest.TestCase):
+                                  ("only the basename", "proxy:weaponlight_universal.001"),
+                                  ("a trailing component", "proxy:" + base + "/child.001")):
+             with self.subTest(label):
+-                slot, _record, result = self.judge([proxy(view_selection=selection)])
+-                self.assertEqual(("pending", "view_selection_mismatch"), (slot["verdict"], slot["reason"]), label)
+-                self.assertEqual(0, result["denominators"]["qualified"], label)
+-
+-    def test_a_failed_view_enumeration_is_pending_whatever_else_the_row_claims(self):
+-        view = dict(VIEW_HOST, view_list_ok=False, view_scan_complete=False, view_selection_count=0)
+-        slot, _record, result = self.judge([proxy(view_selection="", vertex_ok=False)], view=view)
+-        self.assertEqual(("pending", "view_enumeration_failed"), (slot["verdict"], slot["reason"]))
+-        self.assertEqual(0, result["denominators"]["qualified"])
+-        for label, host_view, item in (("a view selection claimed without a list", view, proxy()),
+-                                       ("selections counted without a list", dict(view, view_selection_count=3),
+-                                        proxy(view_selection="", vertex_ok=False))):
+-            slot, _record, _result = self.judge([item], view=host_view)
+-            self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+-        slot, _record, _result = self.judge([proxy(view_selection="", vertex_ok=False)], view=dict(view, view_lod=False))
+-        self.assertEqual(("pending", "view_lod_missing"), (slot["verdict"], slot["reason"]))
+-
+-    def test_malformed_view_fields_are_pending_malformed_evidence(self):
+-        def host_view(**changes):
+-            return dict(VIEW_HOST, **changes)
+-
+-        cases = {
+-            "view_lod not a bool": (host_view(view_lod=1), None),
+-            "view_lod missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_lod"}, None),
+-            "view_selection_count not an int": (host_view(view_selection_count="3"), None),
+-            "view_selection_count a bool": (host_view(view_selection_count=True), None),
+-            "view_selection_count negative": (host_view(view_selection_count=-1), None),
+-            "view_scan_complete not a bool": (host_view(view_scan_complete="yes"), None),
+-            "view_list_ok not a bool": (host_view(view_list_ok=1), None),
+-            "view_list_ok without a view lod": (host_view(view_lod=False, view_selection_count=0, view_scan_complete=False), proxy(view_selection="", vertex_ok=False)),
+-            "view_list_ok missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_list_ok"}, None),
+-            "view_scan_complete claimed after a failed enumeration": (host_view(view_list_ok=False), None),
+-            "view_scan_complete missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_scan_complete"}, None),
+-            "view_selection not a string": (None, dict(proxy(), view_selection=7)),
+-            "view_vertex_ok not a bool": (None, dict(proxy(), view_vertex_ok="true")),
+-            "view_vertex not a list": (None, dict(proxy(), view_vertex="0.5,0.25,-1.5")),
+-            "view_selection claimed with no view lod": (host_view(view_lod=False), proxy()),
+-            "view_selection claimed with an empty view": (host_view(view_selection_count=0), proxy()),
+-        }
+-        for label, (view, item) in cases.items():
+-            with self.subTest(label):
+-                slot, _record, result = self.judge([item or proxy()], view=view)
+-                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
++                slot, _record, result = self.judge([proxy(res_selection=selection)])
++                self.assertEqual(("pending", "resolution_selection_mismatch"), (slot["verdict"], slot["reason"]), label)
+                 self.assertEqual(0, result["denominators"]["qualified"], label)
+ 
+-    def test_a_row_missing_any_view_field_is_malformed(self):
+-        for key in ("view_selection", "view_vertex_ok", "view_vertex"):
+-            with self.subTest(key):
+-                item = proxy()
+-                del item[key]
+-                slot, _record, _result = self.judge([item])
+-                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+-
+-    def test_view_evidence_is_never_taken_from_the_older_selection_evidence(self):
+-        slot, _record, _result = self.judge([proxy(view_selection="", vertex_ok=False)])
+-        self.assertEqual("pending", slot["verdict"])
++    def test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence(self):
++        unrelated = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",), res_selection="")
++        self.assertEqual(GOOD, self.verdict([proxy(), unrelated]))
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"),
++                         self.verdict([proxy(slots=("pistolFlashlight",), res_selection="")]))
+ 
+-    def test_the_prerequisite_variant_uses_the_view_lod_reason(self):
++    def test_the_prerequisite_variant_uses_the_resolution_lod_reason(self):
+         lights = good_gun_lights()
+         lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+         variant = variant_obs("weaponHandguardAK", [good_gun_lights()[2]])
+         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), lights, prereq=prereq_obs(has="weaponHandguardAK"),
+-                    prereq_variant=variant, proxies=[proxy(view_selection="", vertex_ok=False)])]
++                    prereq_variant=variant, proxies=[proxy(res_selection="")])]
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+-        self.assertEqual(("pending", "view_selection_missing"), (slot["verdict"], slot["reason"]))
++        self.assertEqual(("pending", "resolution_proxy_missing"), (slot["verdict"], slot["reason"]))
+         rows[0]["proxies"] = [proxy()]
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
++        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+                          (slot["verdict"], slot["reason"]))
+ 
+-    def test_the_module_documents_that_client_rendering_stays_pending(self):
+-        self.assertIn("view LOD", report.__doc__)
+-        self.assertIn("client rendering", report.__doc__)
++    def test_rows_from_the_view_lod_producers_have_no_resolution_evidence_and_are_pending_never_qualified(self):
++        """probe-004 and probe-005 (rounds 4 to 6) wrote view-LOD fields and no per-resolution-LOD list. Those rows are
++        consistent but prove nothing about the resolution LODs: pending with its own reason, whatever the old fields say."""
++        legacy_views = (LEGACY_HOST,
++                        dict(LEGACY_HOST, view_lod=True, view_selection_count=3, view_scan_complete=True, view_list_ok=True,
++                             lod_names=["1.000", "view"], view_by_name=True))
++        for index, facts in enumerate(legacy_views):
++            with self.subTest(index):
++                slot, record, result = self.judge([legacy_proxy()], facts=facts)
++                self.assertEqual(("pending", "resolution_lod_evidence_missing"), (slot["verdict"], slot["reason"]))
++                self.assertEqual("pending", record["verdict"])
++                self.assertEqual(0, result["denominators"]["qualified"])
++        slot, _record, _result = self.judge([legacy_proxy(slots=("pistolFlashlight",))], facts=LEGACY_HOST)
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
++        slot, _record, _result = self.judge([], facts=LEGACY_HOST)
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+ 
++    def test_resolution_rows_next_to_a_host_without_resolution_facts_are_malformed(self):
++        slot, _record, _result = self.judge([proxy()], facts=LEGACY_HOST)
++        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+ 
+-LOD_HOST = {"lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
+-            "view_by_name": False}
+-NO_VIEW_HOST = dict(VIEW_HOST, view_lod=False, view_list_ok=False, view_selection_count=0, view_scan_complete=False)
+-NO_VIEW_PROXY = dict(proxy(), view_selection="", view_vertex_ok=False, view_vertex=[])
++    def test_the_module_documents_the_evidence_source_and_what_it_does_not_prove(self):
++        doc = report.__doc__
++        for text in ("resolution LOD", "numeric", "model proxy slot", "server-side model", "view_lod_absent_on_server",
++                     "resolution_lod_absent", "resolution_proxy_missing", "resolution_enumeration_failed",
++                     "beam render", "two-client presentation", "removal by hand", "tape consumption", "persistence"):
++            with self.subTest(text):
++                self.assertIn(text, doc)
++        self.assertNotIn("native_attach_with_view_lod", doc)
++        for reason in ("resolution_lod_absent", "resolution_proxy_missing", "resolution_enumeration_failed",
++                       "resolution_lod_evidence_missing", "resolution_evidence_truncated", "resolution_selection_mismatch",
++                       "resolution_vertex_missing", "resolution_vertex_invalid"):
++            self.assertIn(reason, doc)
+ 
+ 
+ def tried(item, names=None, exists=None, sep_slash=5, sep_backslash=0):
+@@ -1431,13 +1653,13 @@ def tried(item, names=None, exists=None, sep_slash=5, sep_backslash=0):
+ 
+ 
+ class RoundSixNativeFactsTests(unittest.TestCase):
+-    """Fix round 6 (probe-004): the dedicated server answered no view LOD on any host, and the proxy rows carried a
+-    whole-path cfg_class. The report must name each cause with its own pending reason and carry the native self-test
+-    and LOD names through. Synthetic rows only; nothing here establishes DayZ behavior."""
++    """Fix round 6 (probe-004): the proxy rows carried a whole-path cfg_class and the LOD names were unknown. The report names
++    each cause with its own pending reason and carries the native self-test and LOD names through. Synthetic rows only;
++    nothing here establishes DayZ behavior."""
+ 
+-    def judge(self, proxies=None, view=None, **extra):
++    def judge(self, proxies=None, facts=None, **extra):
+         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(),
+-                    proxies=[proxy()] if proxies is None else proxies, view=view)]
++                    proxies=[proxy()] if proxies is None else proxies, facts=facts)]
+         rows[0].update(extra)
+         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+         record = result["hosts"][0]
+@@ -1447,47 +1669,33 @@ class RoundSixNativeFactsTests(unittest.TestCase):
+         slot, _record, _result = self.judge(*args, **kwargs)
+         return slot["verdict"], slot["reason"]
+ 
+-    def test_a_server_that_lists_its_lods_without_a_view_lod_is_pending_view_lod_absent_on_server(self):
+-        self.assertEqual(("pending", "view_lod_absent_on_server"),
+-                         self.verdict([NO_VIEW_PROXY], dict(NO_VIEW_HOST, **LOD_HOST)))
+-
+-    def test_a_failed_lod_list_or_legacy_rows_without_lod_facts_stay_view_lod_missing(self):
+-        failed = dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_list_ok=False, lod_count=0, lod_names=[]))
+-        self.assertEqual(("pending", "view_lod_missing"), self.verdict([NO_VIEW_PROXY], failed))
+-        self.assertEqual(("pending", "view_lod_missing"), self.verdict([NO_VIEW_PROXY], NO_VIEW_HOST))
+-
+-    def test_lod_facts_alongside_a_found_view_lod_still_qualify(self):
+-        view = dict(VIEW_HOST, **dict(LOD_HOST, lod_names=["1.000", "view"], view_by_name=True))
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), self.verdict([proxy()], view))
+-
+-    def test_contradictory_lod_facts_are_malformed_never_a_clean_absence_or_presence(self):
+-        names = ["1.000", "view"]
++    def test_contradictory_lod_name_facts_are_malformed_never_a_clean_absence_or_presence(self):
+         cases = {
+-            "view lod true yet the complete name list has no view": dict(VIEW_HOST, **LOD_HOST),
+-            "view lod false yet a complete name list holds View": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names=["View"],
+-                                                                                          lod_count=1)),
+-            "view_by_name disagrees with view_lod": dict(VIEW_HOST, **dict(LOD_HOST, lod_names=names, view_by_name=False)),
+-            "more than eight names": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names=["a"] * 9, lod_count=9,
+-                                                              lod_names_complete=True)),
+-            "count below the listed names": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_count=1)),
+-            "complete flag against count": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_count=5)),
+-            "incomplete flag with every name listed": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names_complete=False)),
+-            "failed list with names": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_list_ok=False, lod_count=0)),
+-            "failed list with a count": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_list_ok=False, lod_names=[])),
+-            "a name that is not text": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names=["1.000", 2])),
+-            "count not an integer": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_count="2")),
+-            "only some lod keys": dict(NO_VIEW_HOST, lod_list_ok=True),
++            "more than eight names": dict(LOD_FACTS, lod_names=["a"] * 9, lod_count=9, lod_names_complete=True),
++            "count below the listed names": dict(LOD_FACTS, lod_count=1),
++            "complete flag against count": dict(LOD_FACTS, lod_count=5),
++            "incomplete flag with every name listed": dict(LOD_FACTS, lod_names_complete=False),
++            "failed list with names": dict(LOD_FACTS, lod_list_ok=False, lod_count=0),
++            "failed list with a count": dict(LOD_FACTS, lod_list_ok=False, lod_names=[]),
++            "a name that is not text": dict(LOD_FACTS, lod_names=["1.000", 2]),
++            "count not an integer": dict(LOD_FACTS, lod_count="2"),
++            "view_by_name not a bool": dict(LOD_FACTS, view_by_name=0),
+         }
+-        for label, view in cases.items():
++        for label, lod in cases.items():
+             with self.subTest(label):
+-                self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([NO_VIEW_PROXY], view), label)
+-
+-    def test_a_truncated_lod_name_list_is_honest_and_does_not_hide_a_present_view_lod(self):
++                self.assertEqual(("pending", "proxy_evidence_malformed"),
++                                 self.verdict([proxy()], dict(copy.deepcopy(HOST_FACTS), **lod)), label)
++        for key in report.LOD_HOST_KEYS:
++            with self.subTest("only some lod keys: " + key + " missing"):
++                self.assertEqual(("pending", "proxy_evidence_malformed"),
++                                 self.verdict([proxy()], {k: v for k, v in HOST_FACTS.items() if k != key}), key)
++
++    def test_a_truncated_lod_name_list_is_honest_and_a_listed_name_that_contradicts_it_is_malformed(self):
+         names = ["res%d" % number for number in range(8)]
+-        cut = dict(LOD_HOST, lod_count=11, lod_names=names, lod_names_complete=False)
+-        self.assertEqual(("pending", "view_lod_absent_on_server"), self.verdict([NO_VIEW_PROXY], dict(NO_VIEW_HOST, **cut)))
+-        found = dict(VIEW_HOST, **dict(cut, view_by_name=True))
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), self.verdict([proxy()], found))
++        cut = dict(copy.deepcopy(HOST_FACTS), lod_count=11, lod_names=names, lod_names_complete=False)
++        self.assertEqual(GOOD, self.verdict([proxy()], cut))
++        wrong = dict(cut, lod_names=["0", "1"] + names[:6])
++        self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([proxy()], wrong))
+ 
+     def test_the_old_producers_whole_path_class_is_a_name_mismatch_not_malformed(self):
+         """probe-004 rows: HCTLProxyBase kept the whole path, so cfg_class was "Proxy" + the path (and "Proxydz/..." when
+@@ -1495,29 +1703,29 @@ class RoundSixNativeFactsTests(unittest.TestCase):
+         own reason, and the native config was never read for the real class."""
+         forms = {"leading slash": "Proxy" + LIGHT_PROXY_PATH, "no leading slash": "Proxy" + LIGHT_PROXY_PATH[1:]}
+         for label, cfg_class in forms.items():
+-            item = proxy(exists=False, cfg_class=cfg_class, view_selection="", vertex_ok=False)
++            item = proxy(exists=False, cfg_class=cfg_class, res_selection="")
+             with self.subTest(label):
+-                self.assertEqual(("pending", "proxy_config_name_mismatch"),
+-                                 self.verdict([item], dict(NO_VIEW_HOST, **LOD_HOST)), label)
+                 self.assertEqual(("pending", "proxy_config_name_mismatch"), self.verdict([item]), label)
++                legacy = {k: v for k, v in item.items() if k != "res_lods"}
++                self.assertEqual(("pending", "proxy_config_name_mismatch"), self.verdict([legacy], LEGACY_HOST), label)
+ 
+     def test_other_class_mismatches_and_a_mixed_host_stay_malformed(self):
+         wrong = proxy(cfg_class="Proxymagazine_stanag")
+-        old = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, view_selection="", vertex_ok=False)
+-        other = proxy(path="/dz/a/b", exists=False, cfg_class="Proxy/dz/a/c", view_selection="", vertex_ok=False)
++        old = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, res_selection="")
++        other = proxy(path="/dz/a/b", exists=False, cfg_class="Proxy/dz/a/c", res_selection="")
+         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([wrong]))
+         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([old, wrong]))
+         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([other]))
+-        slash_only = proxy(exists=False, cfg_class="Proxy/", view_selection="", vertex_ok=False)
++        slash_only = proxy(exists=False, cfg_class="Proxy/", res_selection="")
+         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([slash_only]))
+ 
+     def test_a_row_from_the_new_producer_with_the_whole_path_class_is_malformed(self):
+         """The new hook derives the class from the basename; a whole-path class next to cfg_tried is contradictory."""
+-        item = tried(proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, view_selection="", vertex_ok=False))
++        item = tried(proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, res_selection=""))
+         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([item]))
+ 
+     def test_a_name_mismatch_is_reported_at_host_level_and_never_qualifies(self):
+-        item = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, view_selection="", vertex_ok=False)
++        item = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, res_selection="")
+         _slot, record, result = self.judge([item])
+         self.assertEqual("pending", record["verdict"])
+         self.assertIn("proxy_config_name_mismatch", record["reasons"])
+@@ -1525,7 +1733,7 @@ class RoundSixNativeFactsTests(unittest.TestCase):
+         self.assertEqual(1, result["denominators"]["reasons"].get("proxy_config_name_mismatch"))
+ 
+     def test_the_new_row_facts_are_validated_and_a_good_row_still_qualifies(self):
+-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), self.verdict([tried(proxy())]))
++        self.assertEqual(GOOD, self.verdict([tried(proxy())]))
+         base = tried(proxy())
+         bad = {
+             "tried not a list": dict(base, cfg_tried="Proxyweaponlight_universal"),
+@@ -1544,10 +1752,9 @@ class RoundSixNativeFactsTests(unittest.TestCase):
+             with self.subTest(label):
+                 self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([item]), label)
+ 
+-    def test_each_spawned_host_carries_its_lod_and_proxy_name_diagnostics_and_the_header_is_carried_through(self):
+-        view = dict(NO_VIEW_HOST, **LOD_HOST)
+-        item = tried(NO_VIEW_PROXY, sep_slash=0, sep_backslash=5)
+-        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[item], view=view)]
++    def test_each_spawned_host_carries_its_lod_resolution_and_proxy_name_diagnostics_and_the_header_is_carried_through(self):
++        item = tried(proxy(res_selection=""), sep_slash=0, sep_backslash=5)
++        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[item])]
+         data = observations(rows)
+         data["diagnostics"] = {
+             "string_self_test": {"sample": "proxy:/dz/a/b.001", "first_slash": 6, "last_slash": 11, "last_dot": 13},
+@@ -1557,6 +1764,9 @@ class RoundSixNativeFactsTests(unittest.TestCase):
+         diagnostics = result["hosts"][0]["diagnostics"]
+         self.assertEqual({"list_ok": True, "count": 2, "names": ["1.000", "geometry"], "names_complete": True,
+                           "view_by_name": False}, diagnostics["lod"])
++        self.assertEqual({"enum_ok": True, "count": 1, "complete": True,
++                          "lods": [{"name": "1.000", "list_ok": True, "selection_count": 3, "scan_complete": True}]},
++                         diagnostics["resolution"])
+         self.assertEqual([{"selection": item["selection"], "cfg_tried": item["cfg_tried"],
+                            "cfg_tried_exists": item["cfg_tried_exists"], "sep_slash": 0, "sep_backslash": 5}],
+                          diagnostics["proxy_names"])
+@@ -1566,9 +1776,10 @@ class RoundSixNativeFactsTests(unittest.TestCase):
+         self.assertEqual(data["diagnostics"]["cfg_nonai_scan"], native["cfg_nonai_scan"])
+ 
+     def test_legacy_observations_report_absent_diagnostics_and_malformed_ones_are_dropped_not_trusted(self):
+-        _slot, record, result = self.judge()
++        _slot, record, result = self.judge([legacy_proxy()], facts={})
+         self.assertEqual({"status": "absent"}, result["native_diagnostics"])
+         self.assertEqual({"status": "absent"}, record["diagnostics"]["lod"])
++        self.assertEqual({"status": "absent"}, record["diagnostics"]["resolution"])
+         self.assertEqual([], record["diagnostics"]["proxy_names"])
+         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[proxy()])]
+         scan = {"child_count": 1, "scanned": 1, "complete": True, "proxy_named": 0, "weaponlight_children": [3]}
+diff --git a/tools/audit/taped_light_report.py b/tools/audit/taped_light_report.py
+index a22ffdb..2f39aa2 100644
+--- a/tools/audit/taped_light_report.py
++++ b/tools/audit/taped_light_report.py
+@@ -39,53 +39,76 @@ Evidence rules (the report never fills a gap with a favourable default):
+ 
+ Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing natively, so the proxy join
+ is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
+-``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the view LOD
+-(Object.GetLODByName(LOD.NAME_VIEW) and LOD.GetSelections, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
+-:97-135 reads) with the first view-LOD proxy selection whose whole normalised path equals the model path and its first
+-vertex. AttachmentsOutOfReach.c matches with Contains(); that heuristic is not used here, because a different model whose
+-name merely contains the path (``weaponlight_universal_extra``) or a generic selection must not stand in for the proxy. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
+-proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path
+-(case-insensitive, slashes and the .p3d extension normalised), an inventorySlot list holding the slot, AND view-LOD
+-membership: a view LOD exists, its selection list call succeeded, a view proxy selection ``proxy:<path>.<digits>``
+-equals the model path as a whole (re-verified here) and has a finite first vertex. The view lookup is one result per
+-model: rows of the same model that disagree on it are malformed. The proxy name alone is never evidence.
++``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the resolution LODs: every
++LOD that Object.GetLODS/GetLODName lists whose WHOLE name is a non-negative number ("0", "1", "1.000"), each with its
++LOD.GetSelections list. Per proxy row and per resolution LOD the hook records the first selection whose whole normalised
++path equals the model path and that selection's first vertex. Only numeric LODs are ever read: geometry, memory,
++landContact, geometryView, geometryFire, view*, VIEW_PILOT and every other non-numeric LOD are never a substitute.
++A slot has proxy evidence only when ALL of these hold: the native attach was ok, a listed proxy has an existing entry,
++an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path (case-insensitive, slashes and the
++.p3d extension normalised), an inventorySlot list holding the slot, AND at least one resolution LOD whose selection scan
++was complete holds a proxy selection ``proxy:<path>.<digits>`` equal to the model path as a whole (re-verified here)
++with a finite first vertex. The per-LOD lookup is one result per model: rows of the same model that disagree on it are
++malformed. The proxy name alone is never evidence. A contains-style match (AttachmentsOutOfReach.c reads view-LOD
++selections with Contains()) is not used: a different model whose name merely contains the path, or a generic selection,
++must not stand in for the proxy.
++
++This proves a model proxy slot on the server-side model only (the resolution LODs of the host and the light model as the
++dedicated server loads them). It says nothing about the beam render, the switch, two-client presentation, removal by
++hand, tape consumption or persistence; those stay pending in every output.
+ 
+   * Contradictory proxy evidence is malformed before any slot is matched: a name that is not exactly
+-    ``proxy:<path>.<digits>`` with a non-empty basename, a duplicate selection identity (even when the copies agree),
+-    two rows reading the same config entry differently, a mistyped field, or slot/view bookkeeping that contradicts
+-    itself. Malformed, missing or truncated proxy evidence is pending, never qualified.
++    ``proxy:<path>.<digits>`` with a non-empty basename, two rows of one selection identity that read the config or the
++    resolution lookup differently, two rows of one config entry that disagree, a mistyped field, or LOD/selection
++    bookkeeping that contradicts itself (a non-numeric LOD name in the resolution list, a scan flag that disagrees with
++    its counts, a selection claimed in a LOD whose list failed or is empty, a per-row LOD list that is not the host's).
++    Malformed, missing or truncated proxy evidence is pending, never qualified.
++  * Coherent aliases collapse: spellings that normalise to one identity (``proxy:/dz/.../x.001`` next to
++    ``proxy:dz/.../x.001``, case and slash variants, identical copies) that read the same config entry and the same
++    resolution lookup are ONE evidence identity, never malformed. The raw rows and ``proxy_count`` stay as read and the
++    number of collapsed copies is reported per host as ``diagnostics.proxy_alias_collapsed``. Conflicting readbacks of
++    one identity stay malformed in either order.
+   * The hook lists at most eight inventory slots per proxy row and reports ``slot_count`` and ``slot_scan_complete``:
+     a row that matches the model but dropped slots, with the slot not among those listed, is pending
+     (``proxy_slot_list_truncated``). A listed slot still qualifies over a truncated tail.
+-  * A view LOD that is absent, a missing, unmatched or truncated view selection scan, or a missing or non-finite first
+-    vertex is pending with its own reason (view_lod_missing, view_selection_missing, view_evidence_truncated,
+-    view_selection_mismatch, view_vertex_missing, view_vertex_invalid, and view_enumeration_failed when the
+-    selection list call itself reported failure, whatever its out array held), never qualified and never negative. The
+-    qualified reasons are native_attach_with_view_lod_proxy_slot and, with the rail handguard variant,
+-    native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite. This is source-level evidence of the native
+-    pattern; it does not prove client rendering, which stays pending with the other unobserved axes.
++  * The hook scans at most 16 resolution LODs and keeps at most 512 selections of each (``res_lod_count``,
++    ``res_lods_scanned``, ``res_scan_complete`` per host, ``selection_count`` and ``scan_complete`` per LOD). One LOD whose
++    scan was complete and that holds the proxy is enough, whatever another LOD reported. Otherwise the pending reasons,
++    in the order they are decided: resolution_lod_evidence_missing (the row is from a round 4 to 6 producer that
++    wrote view-LOD fields and no per-LOD list; consistent, but it proves nothing about resolution LODs),
++    resolution_enumeration_failed (Object.GetLODS failed or listed too many LODs, or a LOD.GetSelections call reported
++    failure, whatever its out array held), resolution_lod_absent (the list is ok and holds no numeric LOD),
++    resolution_selection_mismatch (a scanned LOD names another model), resolution_vertex_missing and
++    resolution_vertex_invalid (no first vertex, or not three finite numbers), resolution_evidence_truncated (a scan was
++    cut at a cap, so the proxy may be in the part not read), resolution_proxy_missing (every numeric LOD was scanned
++    completely and none holds the proxy selection). None of these is a negative finding. The qualified reasons are
++    native_attach_with_resolution_lod_proxy_slot and, with the rail handguard variant,
++    native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite. The evidence is source-level and
++    server-side; it is not client rendering.
+   * A truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
+ 
++Fix round 7 (probe-005: the dedicated server has no LOD named "view" on any of the hosts):
++  * The LODs the server lists are the resolution LODs "0"/"1" (sometimes repeated), geometry, memory, landContact,
++    geometryView and geometryFire, plus VIEW_PILOT on a few hosts. The earlier "view" LOD requirement came from a client
++    inventory reachability helper (AttachmentsOutOfReach.IsAttachmentReachable, called only from 5_Mission/GUI/
++    InventoryNew), not from the visible model, and is replaced by the resolution-LOD proxy requirement above. Rows of
++    probe-004 and probe-005 have no per-LOD facts and come out pending (resolution_lod_evidence_missing), never
++    qualified. ``view_lod_absent_on_server`` was the round-6 reason for the missing view LOD; no verdict uses it now.
++  * ``view_by_name`` and the LOD names (``diagnostics.lod``) stay diagnostics only; they never select evidence. They must
++    still agree with the resolution scan: the list flag, a count not below the scanned LODs, and the numeric names in the
++    (at most eight) list being the leading numeric LODs the scan read, else the host is malformed.
++
+ Fix round 6 (probe-004: the dedicated server answered no view LOD on any host and no proxy config entry was found):
+-  * view_lod_absent_on_server: the server listed its LODs (Object.GetLODS/GetLODName, ``lod_list_ok``) and none of them
+-    is named "view" (the script lookup Object.c:106-122 compares the lower-cased name). The names are reported per host
+-    under ``diagnostics.lod``; no other LOD is ever substituted for the view LOD. A failed or missing LOD list stays
+-    view_lod_missing. LOD facts that contradict each other (``view_lod`` against ``view_by_name`` or against a name list
+-    that is complete, a count below the listed names, more than eight names, a failed list that reports names) are
+-    malformed.
+   * proxy_config_name_mismatch: the earlier producer derived the config class from the whole path ("Proxy" + the path,
+     or "Proxy/dz/...") because it looked for the base name before normalising backslashes. A row from that producer (no
+     ``cfg_tried`` facts) whose cfg_class is exactly that whole-path spelling is internally consistent and was never a
+     config lookup of the real class: it is pending with this reason and the host is not trusted, not malformed. Any other
+     class mismatch, and a whole-path class next to ``cfg_tried`` facts, stays malformed.
+-  * Finding, not a conclusion: every caller of AttachmentsOutOfReach.IsAttachmentReachable (the view-LOD pattern this join
+-    copies) is in 5_Mission/GUI/InventoryNew, the client inventory UI. A dedicated server therefore may simply not hold a
+-    view LOD; probe-004 measured a null GetLODByName(LOD.NAME_VIEW) but not why, and that stays open until the LOD names
+-    of a native run are read. Without a server-side view LOD this evidence axis can only be completed by a client run.
+   * ``cfg_tried``/``cfg_tried_exists`` (at most four names, the first being cfg_class and its ConfigIsExisting answer)
+     and ``sep_slash``/``sep_backslash`` (separator counts of the raw selection name) are validated when present.
+-  * The header ``diagnostics`` (string self-test, CfgNonAIVehicles scan) and the per-host LOD names and proxy-name facts
+-    are carried into the report as ``native_diagnostics`` and ``hosts[].diagnostics``. They never change a verdict.
++  * The header ``diagnostics`` (string self-test, CfgNonAIVehicles scan) and the per-host LOD names, resolution scan
++    and proxy-name facts are carried into the report as ``native_diagnostics`` and ``hosts[].diagnostics``. They never
++    change a verdict.
+ 
+ Attachment read-back must be self-consistent everywhere: found_type is filled only after a successful create,
+ so a non-empty found_type with attach_ok false, or attach_ok true with an empty found_type, is contradictory
+@@ -130,9 +153,10 @@ CONSUMED_KEYS = (
+     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
+     "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
+     "selection", "cfg_class", "cfg_exists", "model", "inventory_slots", "slot_count", "slot_scan_complete",
+-    "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok", "view_selection", "view_vertex_ok",
+-    "view_vertex", "cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash", "lod_list_ok", "lod_count",
+-    "lod_names", "lod_names_complete", "view_by_name", "diagnostics", "string_self_test", "cfg_nonai_scan")
++    "res_enum_ok", "res_lod_count", "res_lods_scanned", "res_scan_complete", "res_lods", "name", "list_ok",
++    "selection_count", "scan_complete", "vertex_ok", "vertex", "cfg_tried", "cfg_tried_exists", "sep_slash",
++    "sep_backslash", "lod_list_ok", "lod_count", "lod_names", "lod_names_complete", "view_by_name", "diagnostics",
++    "string_self_test", "cfg_nonai_scan")
+ 
+ MISSING = object()   # absent or wrongly typed evidence
+ 
+@@ -317,20 +341,22 @@ def _proxy_name(selection):
+ 
+ 
+ _ASCII_DIGITS = frozenset("0123456789")
+-_NUMBER_TEXT = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$")
++_NUMBER_TEXT = re.compile(r"-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?")       # fullmatch only: "$" accepts a newline
++_RES_LOD_NAME = re.compile(r"[0-9]+(?:\.[0-9]+)?")       # a whole name that is a non-negative number (fullmatch only)
+ PROXY_ROW_KINDS = (("selection", "str"), ("cfg_class", "str"), ("cfg_exists", "bool"), ("model", "str"),
+-                   ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"),
+-                   ("view_selection", "str"), ("view_vertex_ok", "bool"), ("view_vertex", "list"))
+-VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete", "view_list_ok")
++                   ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"))
++RES_HOST_KEYS = ("res_enum_ok", "res_lod_count", "res_lods_scanned", "res_scan_complete", "res_lods")
+ LOD_HOST_KEYS = ("lod_list_ok", "lod_count", "lod_names", "lod_names_complete", "view_by_name")
+-PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS + LOD_HOST_KEYS
++PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + RES_HOST_KEYS + LOD_HOST_KEYS
+ ROW_FACT_KEYS = ("cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash")
+ MAX_LOD_NAMES = 8       # taped_light_probe.HCTL_LOD_NAMES (a test keeps both in step)
+ MAX_TRIED_NAMES = 4
++MAX_RES_LODS = 16       # taped_light_probe.HCTL_RES_LODS: numeric LODs scanned per host
++MAX_RES_SELECTIONS = 512       # taped_light_probe.HCTL_RES_SELECTIONS: selections kept per LOD
+ 
+ 
+-def _proxy_row(entry):
+-    """Typed values of one proxy row, or None when a key is missing, mistyped or contradicts its own bookkeeping."""
++def _proxy_base(entry):
++    """Typed config-side values of one proxy row, or None when a key is missing, mistyped or contradicts its bookkeeping."""
+     values = {key: _get(entry, key, kind) for key, kind in PROXY_ROW_KINDS}
+     if MISSING in values.values() or not all(isinstance(item, str) for item in values["inventory_slots"]):
+         return None
+@@ -347,6 +373,40 @@ def _proxy_row(entry):
+     return values
+ 
+ 
++def _res_row(item, lod):
++    """One row-side resolution entry against the host's LOD, or None when it is missing, mistyped or contradictory."""
++    name, listed = _get(item, "name", "str"), _get(item, "list_ok", "bool")
++    selection, vertex_ok = _get(item, "selection", "str"), _get(item, "vertex_ok", "bool")
++    vertex = _get(item, "vertex", "list")
++    if MISSING in (name, listed, selection, vertex_ok, vertex) or name != lod["name"] or listed != lod["list_ok"]:
++        return None       # one entry per host LOD, in the host's order
++    if selection and not (listed and lod["selection_count"] > 0):
++        return None       # a selection cannot come out of a list that failed or holds nothing
++    if (vertex_ok and not selection) or (not vertex_ok and vertex):
++        return None       # a vertex needs the selection it belongs to, and is only listed when it was read
++    return {"name": name, "selection": selection, "vertex_ok": vertex_ok, "vertex": tuple(vertex)}
++
++
++def _proxy_row(entry, res):
++    """Typed values of one proxy row against the host's resolution facts ``res``, or None when anything contradicts.
++
++    ``res`` is None for a host from a round 4 to 6 producer: its rows must then carry no per-LOD list. A host with
++    resolution facts needs exactly one entry per scanned LOD in every row."""
++    values = _proxy_base(entry)
++    if values is None:
++        return None
++    if res is None:
++        return None if "res_lods" in entry else dict(values, res=None, res_key=None)
++    rows = _get(entry, "res_lods", "list")
++    if rows is MISSING or len(rows) != len(res["lods"]):
++        return None
++    found = [_res_row(item, lod) for item, lod in zip(rows, res["lods"])]
++    if None in found:
++        return None
++    key = tuple((item["name"], item["selection"], item["vertex_ok"], item["vertex"]) for item in found)
++    return dict(values, res=found, res_key=key)
++
++
+ def _row_facts(entry, values):
+     """The round-6 per-row facts, or None when a key is missing, mistyped or contradicts the row."""
+     names, answers = _get(entry, "cfg_tried", "list"), _get(entry, "cfg_tried_exists", "list")
+@@ -362,58 +422,97 @@ def _row_facts(entry, values):
+     return {"cfg_tried": tuple(names), "cfg_tried_exists": tuple(answers), "sep_slash": slash, "sep_backslash": backslash}
+ 
+ 
+-def _lod_facts(row, view_lod):
++def _lod_facts(row):
+     """None for a legacy row without LOD facts, MISSING when they are partial, mistyped or contradictory, else the facts.
+ 
+-    The hook resolves the view LOD itself over every LOD the engine lists (the names are capped at eight for the report),
+-    so ``view_lod`` false with a successful list is a measured absence; a "view" name in the list (case-insensitive,
+-    as Object.c:106-122 compares) contradicts it, and a complete list without that name contradicts view_lod true."""
++    These are the diagnostic LOD names (at most eight, with the count of every LOD the engine listed): they never select
++    evidence. A failed list reports nothing, and the name count follows the cap."""
+     present = [key in row for key in LOD_HOST_KEYS]
+     if not any(present):
+         return None
+     listed, count, names = _get(row, "lod_list_ok", "bool"), _get(row, "lod_count", "int"), _get(row, "lod_names", "list")
+     complete, by_name = _get(row, "lod_names_complete", "bool"), _get(row, "view_by_name", "bool")
+-    if not all(present) or MISSING in (listed, count, names, complete, by_name, view_lod):
++    if not all(present) or MISSING in (listed, count, names, complete, by_name):
+         return MISSING
+     if not all(isinstance(name, str) for name in names) or count < 0 or len(names) > min(count, MAX_LOD_NAMES):
+         return MISSING
+-    named = any(name.casefold() == "view" for name in names)
+-    if by_name != view_lod or complete != (count == len(names)) or (not listed and (count or view_lod)):
+-        return MISSING
+-    if (named and not view_lod) or (view_lod and complete and not named):
++    if complete != (count == len(names)) or (not listed and count):
+         return MISSING
+     return {"list_ok": listed, "count": count, "names": list(names), "names_complete": complete, "view_by_name": by_name}
+ 
+ 
++def _res_lod(entry):
++    """One host-side resolution LOD (name, list_ok, selection_count, scan_complete), or None when it contradicts itself."""
++    name, listed = _get(entry, "name", "str"), _get(entry, "list_ok", "bool")
++    total, complete = _get(entry, "selection_count", "int"), _get(entry, "scan_complete", "bool")
++    if MISSING in (name, listed, total, complete) or not _RES_LOD_NAME.fullmatch(name) or total < 0:
++        return None       # only a whole numeric LOD name is ever a resolution LOD
++    if (not listed and total) or complete != (listed and total <= MAX_RES_SELECTIONS):
++        return None       # a failed list counts nothing; a list above the cap was cut and is not complete
++    return {"name": name, "list_ok": listed, "selection_count": total, "scan_complete": complete}
++
++
++def _res_host(row):
++    """None for a host without resolution facts (a round 4 to 6 producer), MISSING when they are partial, mistyped or
++    contradictory, else {"enum_ok", "count", "complete", "lods"} with the scanned numeric LODs in the engine's order.
++
++    The hook scans at most MAX_RES_LODS numeric LODs: ``res_lods_scanned`` and the list are both min(count, cap); a
++    failed enumeration scanned nothing; ``res_scan_complete`` means every numeric LOD was scanned and read completely."""
++    present = [key in row for key in RES_HOST_KEYS]
++    if not any(present):
++        return None
++    if not all(present):
++        return MISSING
++    enum_ok, count = _get(row, "res_enum_ok", "bool"), _get(row, "res_lod_count", "int")
++    scanned, complete = _get(row, "res_lods_scanned", "int"), _get(row, "res_scan_complete", "bool")
++    entries = _get(row, "res_lods", "list")
++    if MISSING in (enum_ok, count, scanned, complete, entries) or count < 0 or scanned != len(entries) \
++            or len(entries) != min(count, MAX_RES_LODS):
++        return MISSING
++    lods = [_res_lod(entry) for entry in entries]
++    if None in lods or (not enum_ok and (count or lods or complete)):
++        return MISSING
++    if complete != (enum_ok and len(lods) == count and all(lod["scan_complete"] for lod in lods)):
++        return MISSING
++    return {"enum_ok": enum_ok, "count": count, "complete": complete, "lods": lods}
++
++
++def _lods_agree(res, lod):
++    """True when the diagnostic LOD list and the resolution scan describe one engine answer.
++
++    The list flag matches, the LOD count is not below the scanned numeric LODs, and the numeric names in the (at most
++    eight) name list are the leading numeric LODs the scan read (all of them when the name list is complete)."""
++    if lod is None or lod["list_ok"] != res["enum_ok"] or lod["count"] < res["count"]:
++        return False
++    numeric = [name for name in lod["names"] if _RES_LOD_NAME.fullmatch(name)]
++    scanned = [item["name"] for item in res["lods"]]
++    return numeric == scanned if lod["names_complete"] else scanned[:len(numeric)] == numeric
++
++
+ def _whole_path_class(cfg_class, path):
+     """True for exactly the earlier producer's mistake: "Proxy" + the whole path, with or without the leading slash."""
+     return "/" in path and cfg_class.casefold() in ("proxy" + path, "proxy/" + path)
+ 
+ 
+ def _proxies(row):
+-    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or ("ok", rows, truncated, view).
++    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or ("ok", rows, truncated, res).
+ 
+     Everything that makes the host's own read-back contradict itself is malformed here, before any slot is matched:
+-    a malformed proxy name, a duplicate selection identity (even when the copies agree), rows that read the same
+-    ``Proxy<basename>`` config entry differently or with different view results (the view lookup is one result per
+-    model, so the selection, the vertex flag and the vertex must agree too), a view selection claimed by a host without
+-    a view LOD or without a successful selection list."""
++    a malformed proxy name, an identity read two ways, rows that read the same ``Proxy<basename>`` config entry
++    differently or with different resolution results (the lookup is one result per model, so the selections and the
++    vertices must agree too), resolution or LOD facts that contradict each other, a per-row LOD list that is not the
++    host's. Copies of one identity that agree (a leading-slash alias, case and slash variants) collapse into one row."""
+     if not any(key in row for key in PROXY_HOST_KEYS):
+         return ("missing",)
+     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
+-    view = {"lod": _get(row, "view_lod", "bool"), "count": _get(row, "view_selection_count", "int"),
+-            "complete": _get(row, "view_scan_complete", "bool"), "listed": _get(row, "view_list_ok", "bool")}
+-    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count \
+-            or MISSING in view.values() or view["count"] < 0 \
+-            or (view["listed"] and not view["lod"]) or (not view["listed"] and (view["count"] or view["complete"])):
+-        return ("malformed",)       # no list without a LOD; a failed or skipped list has no selections and is not complete
+-    facts = _lod_facts(row, view["lod"])
+-    if facts is MISSING:
++    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
++        return ("malformed",)
++    res, lod = _res_host(row), _lod_facts(row)
++    if res is MISSING or lod is MISSING or (res is not None and not _lods_agree(res, lod)):
+         return ("malformed",)
+-    view["absent"] = bool(facts and facts["list_ok"] and not view["lod"])       # measured: the server listed its LODs
+-    rows, identities, lookups, mismatch = [], set(), {}, False
++    rows, identities, lookups, mismatch = [], {}, {}, False
+     for entry in entries:
+-        values = _proxy_row(entry)
++        values = _proxy_row(entry, res)
+         name = _proxy_name(values["selection"]) if values else None
+         if name is None:
+             return ("malformed",)
+@@ -422,19 +521,20 @@ def _proxies(row):
+                 return ("malformed",)
+             mismatch = True       # the earlier producer's whole-path class: consistent, but not a lookup of the real class
+         lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
+-                  values["view_selection"], values["view_vertex_ok"], tuple(values["view_vertex"]))
+-        if name in identities or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup \
+-                or (values["view_selection"] and not (view["lod"] and view["count"] > 0)):
++                  values["res_key"])
++        reading = (values["cfg_class"].casefold(), lookup)
++        known = identities.setdefault(name, reading)
++        if known != reading or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup:
+             return ("malformed",)
+-        identities.add(name)
+-        rows.append(dict(values, path=name[0]))
++        if known is reading:       # a coherent alias of an identity already read adds no second piece of evidence
++            rows.append(dict(values, path=name[0]))
+     if mismatch:
+         return ("mismatch",)
+-    return ("ok", rows, count > len(entries) or not complete, view)
++    return ("ok", rows, count > len(entries) or not complete, res)
+ 
+ 
+-def _view_path(selection):
+-    """The whole proxy path a view selection names (lower case, forward slashes, no leading slash, no .p3d, the
++def _resolution_path(selection):
++    """The whole proxy path a resolution selection names (lower case, forward slashes, no leading slash, no .p3d, the
+     ``proxy:`` prefix and the all-digit ``.NNN`` instance suffix stripped), or None for any other spelling."""
+     name = _proxy_name(selection)
+     return name[0] if name else None
+@@ -442,39 +542,68 @@ def _view_path(selection):
+ 
+ def _vertex(values):
+     """Three finite numbers from the hook's number text, or None."""
+-    if len(values) != 3 or not all(isinstance(item, str) and _NUMBER_TEXT.match(item) for item in values):
++    if len(values) != 3 or not all(isinstance(item, str) and _NUMBER_TEXT.fullmatch(item) for item in values):
+         return None
+     numbers = [float(item) for item in values]
+     return numbers if all(math.isfinite(number) for number in numbers) else None
+ 
+ 
+-def _view_problem(item, view):
+-    """Pending reason when the row's view-LOD join does not hold up, else None. Nothing unknown is a pass."""
+-    if not view["lod"]:
+-        return "view_lod_absent_on_server" if view["absent"] else "view_lod_missing"
+-    if not view["listed"]:
+-        return "view_enumeration_failed"       # LOD.GetSelections reported failure: its output is unknown
+-    if not item["view_selection"]:
+-        return "view_selection_missing" if view["complete"] else "view_evidence_truncated"
+-    if len(item["model"]) <= 5 or _view_path(item["view_selection"]) != _path(item["model"]):
+-        return "view_selection_mismatch"       # the hook's claim is re-verified here, not trusted
+-    if not item["view_vertex_ok"]:
+-        return "view_vertex_missing"
+-    return None if _vertex(item["view_vertex"]) else "view_vertex_invalid"
++def _resolution_check(item, res):
++    """(problem, evidence) for one matching row: a pending reason, or None with the qualifying LOD's evidence.
++
++    A row qualifies when at least one numeric LOD whose selection scan was complete holds the proxy selection whose whole
++    normalised path equals the model path, with a finite first vertex. Nothing unknown is a pass."""
++    if res is None:
++        return "resolution_lod_evidence_missing", None       # a round 4 to 6 row: view-LOD fields, no per-LOD list
++    if not res["enum_ok"]:
++        return "resolution_enumeration_failed", None       # Object.GetLODS failed or listed too many LODs
++    if not res["lods"]:
++        return "resolution_lod_absent", None       # the list is ok and holds no numeric LOD; no other LOD stands in
++    problem = None
++    for lod, found in zip(res["lods"], item["res"]):
++        if not lod["scan_complete"] or not found["selection"]:
++            continue
++        reason = None
++        if len(item["model"]) <= 5 or _resolution_path(found["selection"]) != _path(item["model"]):
++            reason = "resolution_selection_mismatch"       # the hook's claim is re-verified here, not trusted
++        elif not found["vertex_ok"]:
++            reason = "resolution_vertex_missing"
++        elif _vertex(found["vertex"]) is None:
++            reason = "resolution_vertex_invalid"
++        else:
++            return None, {"lod": lod["name"], "selection": found["selection"], "vertex": _vertex(found["vertex"])}
++        problem = problem or reason
++    if not all(lod["list_ok"] for lod in res["lods"]):
++        return "resolution_enumeration_failed", None       # LOD.GetSelections reported failure: that LOD may hold it
++    if problem:
++        return problem, None
++    return ("resolution_evidence_truncated" if not res["complete"] else "resolution_proxy_missing"), None
+ 
+ 
+ def _host_diagnostics(row):
+-    """Per-host native facts for the reader: the LOD names and what each proxy row tried. Never read for a verdict."""
+-    facts = _lod_facts(row, _get(row, "view_lod", "bool"))
++    """Per-host native facts for the reader: the LOD names, the resolution scan, what each proxy row tried and how many
++    coherent aliases collapsed. Never read for a verdict."""
++    facts, res = _lod_facts(row), _res_host(row)
+     lod = {"status": "absent"} if facts is None else {"status": "malformed"} if facts is MISSING else facts
+-    names = []
++    if res is None or res is MISSING:
++        resolution = {"status": "absent" if res is None else "malformed"}
++    else:
++        resolution = {"enum_ok": res["enum_ok"], "count": res["count"], "complete": res["complete"],
++                      "lods": [dict(item) for item in res["lods"]]}
++    names, seen, collapsed = [], set(), 0
+     for entry in row.get("proxies") if isinstance(row.get("proxies"), list) else []:
+-        values = _proxy_row(entry)
+-        if values and values["cfg_tried"] is not None:
++        values = _proxy_base(entry)
++        if values is None:
++            continue
++        identity = _proxy_name(values["selection"])
++        if identity is not None:
++            collapsed += identity in seen
++            seen.add(identity)
++        if values["cfg_tried"] is not None:
+             names.append({"selection": values["selection"], "cfg_tried": list(values["cfg_tried"]),
+                           "cfg_tried_exists": list(values["cfg_tried_exists"]), "sep_slash": values["sep_slash"],
+                           "sep_backslash": values["sep_backslash"]})
+-    return {"lod": lod, "proxy_names": names}
++    return {"lod": lod, "resolution": resolution, "proxy_names": names, "proxy_alias_collapsed": collapsed}
+ 
+ 
+ def _native_diagnostics(observations):
+@@ -510,13 +639,13 @@ def _native_diagnostics(observations):
+ 
+ 
+ def _model_evidence(host_slot, slot, proxies):
+-    """(source, detail, view) for one slot: source is selection, view_lod_proxy_slot, none or pending.
++    """(source, detail, found) for one slot: source is selection, resolution_lod_proxy_slot, none or pending.
+ 
+-    ``detail`` is the pending reason, or the proxy selection of a view_lod_proxy_slot; ``view`` holds that row's view
+-    selection and first vertex. Selection, memory point and bone are the older evidence; proxy evidence is the join of
+-    a proxy selection to its config entry, and then to the host's view LOD (Object.GetLODByName(LOD.NAME_VIEW)). A
+-    row that would match the slot but has no view-LOD membership is pending, never qualified and never negative.
+-    Malformed proxy evidence outranks both kinds, because the row's evidence is then not trustworthy."""
++    ``detail`` is the pending reason, or the proxy selection of a resolution_lod_proxy_slot; ``found`` holds the LOD, the
++    selection and the first vertex that proved it. Selection, memory point and bone are the older evidence; proxy
++    evidence is the join of a proxy selection to its config entry, and then to the numeric resolution LODs of the host
++    model. A row that would match the slot but has no complete resolution-LOD membership is pending, never qualified and
++    never negative. Malformed proxy evidence outranks both kinds, because the row's evidence is then not trustworthy."""
+     if proxies[0] == "malformed":
+         return "pending", "proxy_evidence_malformed", None
+     if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
+@@ -525,16 +654,15 @@ def _model_evidence(host_slot, slot, proxies):
+         return "pending", "proxy_evidence_missing", None
+     if proxies[0] == "mismatch":
+         return "pending", "proxy_config_name_mismatch", None
+-    _kind, rows, truncated, view = proxies
++    _kind, rows, truncated, res = proxies
+     wanted, pending, slot_list_cut = slot.casefold(), None, False
+     for item in rows:
+         if not item["cfg_exists"] or _path(item["model"]) != item["path"]:
+             continue
+         if wanted in {name.casefold() for name in item["inventory_slots"]}:
+-            problem = _view_problem(item, view)
++            problem, found = _resolution_check(item, res)
+             if problem is None:
+-                return "view_lod_proxy_slot", item["selection"], {"view_selection": item["view_selection"],
+-                                                                  "view_vertex": _vertex(item["view_vertex"])}
++                return "resolution_lod_proxy_slot", item["selection"], found
+             pending = pending or problem
+         elif item["slot_count"] > len(item["inventory_slots"]):
+             slot_list_cut = True       # the hook capped this row's slot list: the slot may be among the dropped ones
+@@ -557,8 +685,8 @@ def _accepted(light, model, attempt):
+         return "pending", "attached_item_not_found_in_slot"
+     if model[0] == "pending":
+         return "pending", model[1]
+-    if model[0] == "view_lod_proxy_slot":
+-        return "qualified", "native_attach_with_view_lod_proxy_slot"
++    if model[0] == "resolution_lod_proxy_slot":
++        return "qualified", "native_attach_with_resolution_lod_proxy_slot"
+     if model[0] == "selection":
+         return "qualified", "native_attach_with_model_selection"
+     return "geometry_missing", "attached_without_model_selection"
+@@ -604,8 +732,8 @@ def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot
+         return "geometry_missing", "native_attach_refused_with_prerequisite", True
+     verdict, reason = _accepted(light, model, attempt)
+     if verdict == "qualified":
+-        reason = ("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"
+-                  if model[0] == "view_lod_proxy_slot"
++        reason = ("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"
++                  if model[0] == "resolution_lod_proxy_slot"
+                   else "native_attach_with_rail_handguard_prerequisite")
+     return verdict, reason, True
+ 
+@@ -652,9 +780,10 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
+                                                        preflight, model)
+             evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
+                             attach_ok=attempt["attach_ok"], requires_prerequisite=requires, model_evidence=model[0],
+-                            proxy_selection=model[1] if model[0] == "view_lod_proxy_slot" else None,
+-                            view_selection=(model[2] or {}).get("view_selection"),
+-                            view_vertex=(model[2] or {}).get("view_vertex"))
++                            proxy_selection=model[1] if model[0] == "resolution_lod_proxy_slot" else None,
++                            resolution_lod=(model[2] or {}).get("lod"),
++                            resolution_selection=(model[2] or {}).get("selection"),
++                            resolution_vertex=(model[2] or {}).get("vertex"))
+             evidence["bone_index"] = max(host_slot["bone_index"], -1)
+         slots[slot] = {"verdict": verdict, "reason": reason, "evidence": evidence}
+         verdicts.append(verdict)
+@@ -888,8 +1017,8 @@ def build_report(classification, observations, provenance=None):
+         "denominators": dict({name: counts.get(name, 0) for name in VERDICT_ORDER}, hosts=len(host_records),
+                              host_light_pairs=dict(sorted(pair_counts.items())), reasons=dict(sorted(reasons.items()))),
+         "unobserved_axes": {axis: "pending" for axis in UNOBSERVED_AXES},
+-        "note": "Dedicated-server observations only. Qualified means the native attach call and a model selection "
+-                "were observed; beam, switch, two-client presentation, removal by hand, tape consumption and "
++        "note": "Dedicated-server observations only. Qualified means the native attach call and a model proxy slot "
++                "(a resolution-LOD proxy selection on the server-side model) or a model selection were observed; beam, switch, two-client presentation, removal by hand, tape consumption and "
+                 "persistence remain pending until runtime tests run. Nothing here is accepted.",
+     }
+     return document
+diff --git a/tools/setup/probe_runtime.py b/tools/setup/probe_runtime.py
+index 2ed9d3d..5a69339 100644
+--- a/tools/setup/probe_runtime.py
++++ b/tools/setup/probe_runtime.py
+@@ -167,7 +167,7 @@ _EXPONENT = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
+ # of what the CE hook and the taped-light hook call, so one lint covers both generated hooks.
+ _OUT_CALLS = (("GetObjectsAtPosition3D", (2, 3)), ("ClippingInfo", (0,)), ("GetCollisionBox", (0,)),
+               ("GetSelectionForSlotId", (1,)), ("GetBoneNameForSlotId", (1,)), ("GetSelectionList", (0,)),
+-              ("GetLODS", (0,)), ("ConfigGetChildName", (2,)))
++              ("GetLODS", (0,)), ("GetSelections", (0,)), ("ConfigGetChildName", (2,)))
+ 
+ # Native compile evidence for the expression limits below. A real DayZServer 1.30.164289 run refused
+ # the generated taped-light init.c with `Formula too complex` and `Incompatible parameter 'slot'` on
+diff --git a/tools/setup/taped_light_probe.py b/tools/setup/taped_light_probe.py
+index 52fb4ed..02a7a84 100644
+--- a/tools/setup/taped_light_probe.py
++++ b/tools/setup/taped_light_probe.py
+@@ -502,25 +502,33 @@ class HCDisposableDiagnosticMission : CustomMission
+         return text;
+     }
+ 
+-    // View LOD join (fix round 4). GetSelectionList does not establish view-LOD membership, so each proxy model is also
+-    // looked up in the host's view LOD the way 4_World/Systems/Inventory/AttachmentsOutOfReach.c:112-131 does it:
+-    // Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections, Selection.GetName lower-cased, a match on the lower-cased
+-    // model path without .p3d, then Selection.GetVertexPosition(lod, 0). The native script matches with Contains(); this
+-    // hook does NOT: it accepts a view selection only when it is proxy:<path>.<digits> and its whole normalised path
+-    // (lower case, forward slashes, no leading slash, no .p3d, prefix and instance suffix removed) equals the model path,
+-    // so weaponlight_universal_extra or a generic label/... selection never stands in for weaponlight_universal.
++    // Resolution-LOD join (round 7, replacing the view-LOD join of rounds 4 to 6). taped-light-probe-005 measured that no
++    // dedicated-server host has a LOD named "view" (the view LOD 4_World/Systems/Inventory/AttachmentsOutOfReach.c:112-131
++    // reads belongs to a client inventory helper, not to the visible model). The LOD names are resolution LODs ("0", "1",
++    // "1.000", some repeated), geometry, memory, landContact, geometryView, geometryFire and VIEW_PILOT. The model proxy
++    // slot is therefore looked up in the RESOLUTION LODs only: every LOD whose WHOLE name is a non-negative number is
++    // scanned and no other LOD (geometry, memory, view*, VIEW_PILOT, any non-numeric name) is ever asked for selections.
++    // Each proxy model path is joined to the selection proxy:<path>.<digits> whose whole normalised path (lower case,
++    // forward slashes, no leading slash, no .p3d, prefix and instance suffix removed) equals the model path, per numeric
++    // LOD; weaponlight_universal_extra or a generic label/... selection never stands in for weaponlight_universal.
+     // Native cache 1.30.164289:
+-    //   3_Game/Entities/Object.c:98 GetLODS(notnull out array<LOD> lods) and 3_Game/Entities/Object.c:106
+-    //   LOD GetLODByName(string name) (script; null when the model has no such LOD);
++    //   3_Game/Entities/Object.c:98 GetLODS(notnull out array<LOD> lods) returning bool, 3_Game/Entities/Object.c:101
++    //   GetLODName(LOD lod) and 3_Game/Entities/Object.c:106-122 GetLODByName (script; diagnostics only here);
+     //   3_Game/gameplay.c:179 class Selection with gameplay.c:184 GetName(), gameplay.c:185 GetVertexCount(),
+     //   gameplay.c:186 GetLODVertexIndex(int) and gameplay.c:188 GetVertexPosition(LOD lod, int index) (script; it calls
+     //   Error() when the LOD vertex index is -1, so a vertex is read only after GetVertexCount() > 0 and
+     //   GetLODVertexIndex(0) != -1); gameplay.c:203 class LOD with gameplay.c:207 NAME_VIEW "view", gameplay.c:216
+-    //   GetSelections(notnull out array<Selection> selections) returning bool and gameplay.c:218 GetVertexPosition(int).
+-    // LOD.GetSelections returns bool and does not promise anything about its out array on failure, so the array is cleared
+-    // before the call and again after a failure (1_Core/proto/EnScript.c:385 is proto native void Clear() of class array<Class T>), and view_list_ok is emitted: false is "unknown", never an empty-but-valid list.
+-    // The scan reads at most 256 view selections and says so (view_scan_complete); a vertex is emitted as number text.
+-    // This is source-level evidence only: it does not show that a client renders the attachment.
++    //   GetSelections(notnull out array<Selection> selections) returning bool and gameplay.c:218 GetVertexPosition(int);
++    //   1_Core/proto/EnScript.c:380 array Count, EnScript.c:385 Clear, EnScript.c:394 Find, EnScript.c:399 Get and
++    //   EnScript.c:407 Insert; 1_Core/proto/EnString.c:240 IndexOf and EnString.c:271 IndexOfFrom (digit and mark tests).
++    // Bounds: Object.GetLODS above 128 LODs is reported as not listed (nothing is scanned); at most 16 numeric LODs are
++    // scanned (res_lod_count says how many exist) and at most 512 selections of each are kept (selection_count says how
++    // many it listed; scan_complete is false above 512). LOD.GetSelections returns bool and does not promise anything about
++    // its out array on failure, so the array is cleared before every call and again after a failure, list_ok is emitted per
++    // LOD, and false is "unknown", never an empty-but-valid list. The scan runs once per host; each proxy row only looks up
++    // its own model path in the kept selection paths. A vertex is emitted as number text.
++    // This is source-level evidence of a model proxy slot on the server-side model only: it does not show that a client
++    // renders the attachment, the beam, the switch, removal by hand, tape consumption or persistence.
+     string HCTLViewKey(string value)
+     {
+         string text = value;
+@@ -560,39 +568,208 @@ class HCDisposableDiagnosticMission : CustomMission
+         return HCTLViewTrim(stem.Substring(0, lastDot));
+     }
+ 
+-    string HCTLViewRow(string modelPath, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
++    // A resolution LOD name is a whole non-negative number: digits with at most one inner dot ("0", "1", "1.000"). Anything
++    // else (geometry, memory, view, VIEW_PILOT, landContact, geometryView, geometryFire, "", "-1", "1e3", "1.") is not.
++    bool HCTLIsNumericName(string lodName)
++    {
++        int nameLength = lodName.Length();
++        if (nameLength == 0)
++            return false;
++        string digitSet = "0123456789";
++        if (digitSet.IndexOf(lodName.Substring(0, 1)) == -1)
++            return false;
++        if (digitSet.IndexOf(lodName.Substring(nameLength - 1, 1)) == -1)
++            return false;
++        int dotCount = 0;
++        int charIndex = 0;
++        string oneChar = "";
++        while (charIndex < nameLength)
++        {
++            oneChar = lodName.Substring(charIndex, 1);
++            charIndex = charIndex + 1;
++            if (oneChar == ".")
++                dotCount = dotCount + 1;
++            if (oneChar != "." && digitSet.IndexOf(oneChar) == -1)
++                return false;
++        }
++        if (dotCount > 1)
++            return false;
++        return true;
++    }
++
++    // The per-host resolution scan. It fills, per scanned numeric LOD, resLods (the LOD), resNames (its name) and four
++    // consecutive ints in resFacts (selection list ok 0/1, selections listed, start offset into resSelections/resPaths,
++    // selections kept), and returns the number of numeric LODs found (more than are scanned when above 16), or -1 when
++    // GetLODS failed or listed more than 128 LODs.
++    int HCTLResolutionScan(Object subject, array<LOD> resLods, array<string> resNames, array<int> resFacts, array<Selection> resSelections, array<string> resPaths)
++    {
++        array<LOD> lodList = new array<LOD>;
++        array<Selection> lodSelections = new array<Selection>;
++        lodList.Clear();
++        bool lodListed = subject.GetLODS(lodList);
++        if (lodListed == false)
++            return -1;
++        int lodTotal = lodList.Count();
++        if (lodTotal > 128)
++            return -1;
++        int numericCount = 0;
++        int lodIndex = 0;
++        string lodName = "";
++        LOD scanLod = null;
++        bool selectionsListed = false;
++        int listedFlag = 0;
++        int selectionTotal = 0;
++        int selectionKept = 0;
++        int selectionIndex = 0;
++        Selection scanSelection = null;
++        while (lodIndex < lodTotal)
++        {
++            scanLod = lodList.Get(lodIndex);
++            lodIndex = lodIndex + 1;
++            lodName = subject.GetLODName(scanLod);
++            if (HCTLIsNumericName(lodName))
++            {
++                numericCount = numericCount + 1;
++                if (resNames.Count() < 16)
++                {
++                    lodSelections.Clear();
++                    selectionsListed = scanLod.GetSelections(lodSelections);
++                    listedFlag = 1;
++                    if (selectionsListed == false)
++                    {
++                        listedFlag = 0;
++                        lodSelections.Clear();
++                    }
++                    selectionTotal = lodSelections.Count();
++                    selectionKept = selectionTotal;
++                    if (selectionKept > 512)
++                        selectionKept = 512;
++                    resLods.Insert(scanLod);
++                    resNames.Insert(lodName);
++                    resFacts.Insert(listedFlag);
++                    resFacts.Insert(selectionTotal);
++                    resFacts.Insert(resSelections.Count());
++                    resFacts.Insert(selectionKept);
++                    selectionIndex = 0;
++                    while (selectionIndex < selectionKept)
++                    {
++                        scanSelection = lodSelections.Get(selectionIndex);
++                        selectionIndex = selectionIndex + 1;
++                        resSelections.Insert(scanSelection);
++                        resPaths.Insert(HCTLViewPath(HCTLViewKey(scanSelection.GetName())));
++                    }
++                    lodSelections.Clear();
++                }
++            }
++        }
++        return numericCount;
++    }
++
++    // The host facts of the resolution scan: res_enum_ok (GetLODS listed 128 LODs or fewer), res_lod_count (numeric LODs
++    // found, 0 when not listed), res_lods_scanned (at most 16), res_scan_complete (every numeric LOD scanned and every
++    // selection list ok and within 512) and one res_lods entry per scanned LOD.
++    string HCTLResFacts(int resCount, array<string> resNames, array<int> resFacts)
++    {
++        bool enumOk = true;
++        int countShown = resCount;
++        if (resCount < 0)
++        {
++            enumOk = false;
++            countShown = 0;
++        }
++        bool allComplete = true;
++        string lodText = "";
++        int lodIndex = 0;
++        int factBase = 0;
++        int selectionTotal = 0;
++        bool lodListed = false;
++        bool lodComplete = false;
++        while (lodIndex < resNames.Count())
++        {
++            factBase = lodIndex * 4;
++            selectionTotal = resFacts.Get(factBase + 1);
++            lodListed = false;
++            if (resFacts.Get(factBase) == 1)
++                lodListed = true;
++            lodComplete = false;
++            if (lodListed && selectionTotal <= 512)
++                lodComplete = true;
++            if (lodComplete == false)
++                allComplete = false;
++            if (lodIndex > 0)
++                lodText = lodText + ",";
++            lodText = lodText + "{" + HCTLKey("name") + HCTLStr(resNames.Get(lodIndex)) + "," + HCTLKey("list_ok") + HCTLBool(lodListed) + ",";
++            lodText = lodText + HCTLKey("selection_count") + selectionTotal.ToString() + "," + HCTLKey("scan_complete") + HCTLBool(lodComplete) + "}";
++            lodIndex = lodIndex + 1;
++        }
++        bool scanComplete = false;
++        if (enumOk && allComplete && resNames.Count() == countShown)
++            scanComplete = true;
++        string factText = HCTLKey("res_enum_ok") + HCTLBool(enumOk) + "," + HCTLKey("res_lod_count") + countShown.ToString() + ",";
++        int scannedCount = resNames.Count();
++        factText = factText + HCTLKey("res_lods_scanned") + scannedCount.ToString() + "," + HCTLKey("res_scan_complete") + HCTLBool(scanComplete) + ",";
++        return factText + HCTLKey("res_lods") + "[" + lodText + "],";
++    }
++
++    // One proxy row's per-LOD evidence: for each scanned numeric LOD the first kept selection whose normalised whole path
++    // equals the row's model path (name, list_ok, the matching selection or "", and its first vertex when it has one).
++    string HCTLResRow(string modelPath, array<LOD> resLods, array<string> resNames, array<int> resFacts, array<Selection> resSelections, array<string> resPaths)
+     {
+         string needle = "";
+         if (modelPath.Length() > 5)
+             needle = HCTLViewTrim(modelPath);
++        string rowText = "";
+         string matchName = "";
+-        int matchIndex = 0;
+-        while (needle != "" && matchIndex < viewPaths.Count())
++        string vertexText = "";
++        bool vertexOk = false;
++        bool lodListed = false;
++        int lodIndex = 0;
++        int pathIndex = 0;
++        int pathEnd = 0;
++        Selection matchSelection = null;
++        LOD matchLod = null;
++        vector vertexPos = "0 0 0";
++        while (lodIndex < resNames.Count())
+         {
+-            if (viewPaths.Get(matchIndex) == needle)
++            matchName = "";
++            vertexText = "";
++            vertexOk = false;
++            lodListed = false;
++            if (resFacts.Get(lodIndex * 4) == 1)
++                lodListed = true;
++            pathIndex = resFacts.Get(lodIndex * 4 + 2);
++            pathEnd = pathIndex + resFacts.Get(lodIndex * 4 + 3);
++            while (needle != "" && pathIndex < pathEnd)
+             {
+-                matchName = HCTLViewKey(viewSelections.Get(matchIndex).GetName());
+-                break;
++                if (resPaths.Get(pathIndex) == needle)
++                {
++                    matchSelection = resSelections.Get(pathIndex);
++                    matchName = HCTLViewKey(matchSelection.GetName());
++                    break;
++                }
++                pathIndex = pathIndex + 1;
+             }
+-            matchIndex = matchIndex + 1;
+-        }
+-        bool vertexOk = false;
+-        string vertexText = "";
+-        if (matchName != "")
+-        {
+-            Selection matchSelection = viewSelections.Get(matchIndex);
+-            if (matchSelection.GetVertexCount() > 0 && matchSelection.GetLODVertexIndex(0) != -1)
++            if (matchName != "")
+             {
+-                vector vertexPos = matchSelection.GetVertexPosition(viewLod, 0);
+-                vertexText = HCTLStr(vertexPos[0].ToString()) + "," + HCTLStr(vertexPos[1].ToString()) + "," + HCTLStr(vertexPos[2].ToString());
+-                vertexOk = true;
++                matchLod = resLods.Get(lodIndex);
++                if (matchSelection.GetVertexCount() > 0 && matchSelection.GetLODVertexIndex(0) != -1)
++                {
++                    vertexPos = matchSelection.GetVertexPosition(matchLod, 0);
++                    vertexText = HCTLStr(vertexPos[0].ToString()) + "," + HCTLStr(vertexPos[1].ToString()) + "," + HCTLStr(vertexPos[2].ToString());
++                    vertexOk = true;
++                }
+             }
++            if (lodIndex > 0)
++                rowText = rowText + ",";
++            rowText = rowText + "{" + HCTLKey("name") + HCTLStr(resNames.Get(lodIndex)) + "," + HCTLKey("list_ok") + HCTLBool(lodListed) + ",";
++            rowText = rowText + HCTLKey("selection") + HCTLStr(matchName) + "," + HCTLKey("vertex_ok") + HCTLBool(vertexOk) + ",";
++            rowText = rowText + HCTLKey("vertex") + "[" + vertexText + "]}";
++            lodIndex = lodIndex + 1;
+         }
+-        string viewText = HCTLKey("view_selection") + HCTLStr(matchName) + "," + HCTLKey("view_vertex_ok") + HCTLBool(vertexOk) + ",";
+-        return viewText + HCTLKey("view_vertex") + "[" + vertexText + "]";
++        return HCTLKey("res_lods") + "[" + rowText + "]";
+     }
+ 
+-    string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
++    string HCTLProxyRow(string selectionName, array<LOD> resLods, array<string> resNames, array<int> resFacts, array<Selection> resSelections, array<string> resPaths)
+     {
+         string cfgBase = HCTLProxyBase(selectionName);
+         string cfgClass = "Proxy" + cfgBase;
+@@ -635,43 +812,14 @@ class HCDisposableDiagnosticMission : CustomMission
+         rowText = rowText + HCTLKey("sep_slash") + slashCount.ToString() + "," + HCTLKey("sep_backslash") + backslashCount.ToString() + ",";
+         rowText = rowText + HCTLKey("inventory_slots") + "[" + slotList + "]," + HCTLKey("slot_count") + slotTotal.ToString() + ",";
+         rowText = rowText + HCTLKey("slot_scan_complete") + HCTLBool(slotComplete) + ",";
+-        return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewPaths) + "}";
+-    }
+-
+-    // View LOD resolution (fix round 6). probe-004 returned null from GetLODByName(LOD.NAME_VIEW) on every dedicated-server
+-    // host. Object.c:106-122 is script: it walks GetLODS (Object.c:98, bool, out array<LOD>) and compares GetLODName
+-    // (Object.c:101) lower-cased, so the same walk is done here and every name is reported (at most eight, with the count).
+-    // The view LOD is the one whose lower-cased name is "view" (LOD.NAME_VIEW, gameplay.c:207). No other LOD is ever
+-    // substituted for it, whatever its name; a list the engine refused (or one above 128 LODs, which is not scanned) is
+-    // reported as not listed, never as an empty list. GetLODByName is still called once per host and its result is
+-    // emitted as view_by_name so a disagreement with the walk is visible.
+-    LOD HCTLViewLod(Object subject)
+-    {
+-        LOD foundLod = null;
+-        array<LOD> lodList = new array<LOD>;
+-        lodList.Clear();
+-        bool lodListed = subject.GetLODS(lodList);
+-        if (lodListed == false)
+-            lodList.Clear();
+-        int lodTotal = lodList.Count();
+-        if (lodTotal > 128)
+-            lodTotal = 0;
+-        string lodName = "";
+-        int lodIndex = 0;
+-        while (lodIndex < lodTotal)
+-        {
+-            lodName = subject.GetLODName(lodList.Get(lodIndex));
+-            lodName.ToLower();
+-            if (lodName == "view")
+-            {
+-                foundLod = lodList.Get(lodIndex);
+-                break;
+-            }
+-            lodIndex = lodIndex + 1;
+-        }
+-        return foundLod;
++        return rowText + HCTLResRow(modelPath, resLods, resNames, resFacts, resSelections, resPaths) + "}";
+     }
+ 
++    // LOD diagnostics (fix round 6, kept as diagnostics only since round 7). Object.c:106-122 GetLODByName is script: it
++    // walks GetLODS (Object.c:98, bool, out array<LOD>) and compares GetLODName (Object.c:101) lower-cased. Every name is
++    // reported (at most eight, with the count); a list the engine refused (or one above 128 LODs, which is not scanned) is
++    // reported as not listed, never as an empty list. view_by_name is the result of GetLODByName(LOD.NAME_VIEW) and is
++    // never evidence: the report does not use a view LOD.
+     string HCTLLodFacts(Object subject, bool viewByName)
+     {
+         array<LOD> lodList = new array<LOD>;
+@@ -715,36 +863,16 @@ class HCDisposableDiagnosticMission : CustomMission
+         bool scanComplete = true;
+         if (scanLimit < total)
+             scanComplete = false;
+-        LOD viewLod = HCTLViewLod(subject);
++        array<LOD> resLods = new array<LOD>;
++        array<string> resNames = new array<string>;
++        array<int> resFacts = new array<int>;
++        array<Selection> resSelections = new array<Selection>;
++        array<string> resPaths = new array<string>;
++        int resCount = HCTLResolutionScan(subject, resLods, resNames, resFacts, resSelections, resPaths);
+         LOD byNameLod = subject.GetLODByName(LOD.NAME_VIEW);
+         bool viewByName = false;
+         if (byNameLod)
+             viewByName = true;
+-        array<Selection> viewSelections = new array<Selection>;
+-        array<string> viewPaths = new array<string>;
+-        bool viewPresent = false;
+-        bool viewListed = false;
+-        viewSelections.Clear();
+-        if (viewLod)
+-        {
+-            viewPresent = true;
+-            viewListed = viewLod.GetSelections(viewSelections);
+-        }
+-        if (viewListed == false)
+-            viewSelections.Clear();
+-        int viewTotal = viewSelections.Count();
+-        int viewLimit = viewTotal;
+-        if (viewLimit > 256)
+-            viewLimit = 256;
+-        bool viewComplete = false;
+-        if (viewListed && viewTotal == viewLimit)
+-            viewComplete = true;
+-        int viewIndex = 0;
+-        while (viewIndex < viewLimit)
+-        {
+-            viewPaths.Insert(HCTLViewPath(HCTLViewKey(viewSelections.Get(viewIndex).GetName())));
+-            viewIndex = viewIndex + 1;
+-        }
+         TStringArray seen = new TStringArray;
+         string rows = "";
+         string selectionName = "";
+@@ -762,15 +890,14 @@ class HCDisposableDiagnosticMission : CustomMission
+                 {
+                     if (seen.Count() > 0)
+                         rows = rows + ",";
+-                    rows = rows + HCTLProxyRow(selectionName, viewLod, viewSelections, viewPaths);
++                    rows = rows + HCTLProxyRow(selectionName, resLods, resNames, resFacts, resSelections, resPaths);
+                 }
+                 seen.Insert(selectionName);
+             }
+         }
+         int proxyTotal = seen.Count();
+         string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
+-        facts = facts + HCTLKey("view_lod") + HCTLBool(viewPresent) + "," + HCTLKey("view_selection_count") + viewTotal.ToString() + ",";
+-        facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + "," + HCTLKey("view_list_ok") + HCTLBool(viewListed) + ",";
++        facts = facts + HCTLResFacts(resCount, resNames, resFacts);
+         facts = facts + HCTLLodFacts(subject, viewByName);
+         return facts + HCTLKey("proxies") + "[" + rows + "]";
+     }

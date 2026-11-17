@@ -1,0 +1,603 @@
+[
+  {
+    "name": "res_lod_order_check_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "or name != lod[\"name\"] or listed != lod[\"list_ok\"]",
+    "after": "or listed != lod[\"list_ok\"]",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.063s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "res_list_status_check_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "or name != lod[\"name\"] or listed != lod[\"list_ok\"]",
+    "after": "or name != lod[\"name\"]",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 143 tests in 0.062s",
+      "OK"
+    ]
+  },
+  {
+    "name": "res_selection_from_failed_list_allowed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if selection and not (listed and lod[\"selection_count\"] > 0):",
+    "after": "if False:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.060s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "name": "res_row_count_check_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if rows is MISSING or len(rows) != len(res[\"lods\"]):",
+    "after": "if rows is MISSING:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.056s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "name": "res_complete_ignored",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if not lod[\"scan_complete\"] or not found[\"selection\"]:",
+    "after": "if not found[\"selection\"]:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.048s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "resolution_path_check_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if len(item[\"model\"]) <= 5 or _resolution_path(found[\"selection\"]) != _path(item[\"model\"]):",
+    "after": "if False:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.052s",
+      "FAILED (failures=13)"
+    ]
+  },
+  {
+    "name": "resolution_vertex_flag_ignored",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "elif not found[\"vertex_ok\"]:",
+    "after": "elif False:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.058s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "resolution_vertex_parse_ignored",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "elif _vertex(found[\"vertex\"]) is None:",
+    "after": "elif False:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.051s",
+      "FAILED (failures=4)"
+    ]
+  },
+  {
+    "name": "finite_number_check_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "return numbers if all(math.isfinite(number) for number in numbers) else None",
+    "after": "return numbers",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 143 tests in 0.047s",
+      "OK"
+    ]
+  },
+  {
+    "name": "vertex_fullmatch_to_match",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "_NUMBER_TEXT.fullmatch(item)",
+    "after": "_NUMBER_TEXT.match(item)",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 143 tests in 0.051s",
+      "OK"
+    ]
+  },
+  {
+    "name": "lod_crosscheck_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "(res is not None and not _lods_agree(res, lod))",
+    "after": "False",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.052s",
+      "FAILED (failures=7)"
+    ]
+  },
+  {
+    "name": "alias_config_conflict_ignored",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if known != reading or lookups.setdefault(values[\"cfg_class\"].casefold(), lookup) != lookup:",
+    "after": "if lookups.setdefault(values[\"cfg_class\"].casefold(), lookup) != lookup:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 143 tests in 0.045s",
+      "OK"
+    ]
+  },
+  {
+    "name": "alias_lookup_conflict_ignored",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if known != reading or lookups.setdefault(values[\"cfg_class\"].casefold(), lookup) != lookup:",
+    "after": "if known != reading:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.049s",
+      "FAILED (failures=9)"
+    ]
+  },
+  {
+    "name": "alias_not_collapsed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "if known is reading:",
+    "after": "if True:",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 143 tests in 0.045s",
+      "OK"
+    ]
+  },
+  {
+    "name": "alias_collapse_diagnostic_zeroed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "collapsed += identity in seen",
+    "after": "collapsed += 0",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.062s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "first_matching_lod_only",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "for lod, found in zip(res[\"lods\"], item[\"res\"]):",
+    "after": "for lod, found in zip(res[\"lods\"][:1], item[\"res\"][:1]):",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.048s",
+      "FAILED (failures=5)"
+    ]
+  },
+  {
+    "name": "empty_basename_both_guards_removed",
+    "file": "tools/audit/taped_light_report.py",
+    "before": " or not path.rsplit(\"/\", 1)[-1] or path.endswith(\"/\")",
+    "after": "",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.074s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "lod_name_fullmatch_to_match",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "not _RES_LOD_NAME.fullmatch(name) or total < 0",
+    "after": "not _RES_LOD_NAME.match(name) or total < 0",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 143 tests in 0.045s",
+      "OK"
+    ]
+  },
+  {
+    "name": "enum_false_treated_empty",
+    "file": "tools/audit/taped_light_report.py",
+    "before": "return \"resolution_enumeration_failed\", None       # LOD.GetSelections",
+    "after": "return \"resolution_proxy_missing\", None       # LOD.GetSelections",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 143 tests in 0.051s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "name": "hook_failed_array_not_cleared",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "                        listedFlag = 0;\n                        lodSelections.Clear();",
+    "after": "                        listedFlag = 0;",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 11.699s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "name": "hook_lod_cap_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "if (resNames.Count() < 16)",
+    "after": "if (true)",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 11.301s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "name": "hook_selection_cap_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "if (selectionKept > 512)",
+    "after": "if (false)",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 11.344s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "hook_lod_total_cap_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "if (lodTotal > 128)\n            return -1;",
+    "after": "if (false)\n            return -1;",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 12.098s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "hook_vertex_index_guard_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "matchSelection.GetVertexCount() > 0 && matchSelection.GetLODVertexIndex(0) != -1",
+    "after": "matchSelection.GetVertexCount() > 0",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 436 tests in 11.898s",
+      "OK"
+    ]
+  },
+  {
+    "name": "hook_vertex_count_guard_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "matchSelection.GetVertexCount() > 0 && matchSelection.GetLODVertexIndex(0) != -1",
+    "after": "matchSelection.GetLODVertexIndex(0) != -1",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 0,
+    "summary": [
+      "Ran 436 tests in 11.570s",
+      "OK"
+    ]
+  },
+  {
+    "name": "hook_numeric_names_all_accepted",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "if (HCTLIsNumericName(lodName))",
+    "after": "if (true)",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 11.837s",
+      "FAILED (failures=12)"
+    ]
+  },
+  {
+    "name": "hook_first_digit_check_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "if (digitSet.IndexOf(lodName.Substring(0, 1)) == -1)\n            return false;",
+    "after": "if (false)\n            return false;",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 11.749s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "hook_last_digit_check_removed",
+    "file": "tools/setup/taped_light_probe.py",
+    "before": "if (digitSet.IndexOf(lodName.Substring(nameLength - 1, 1)) == -1)\n            return false;",
+    "after": "if (false)\n            return false;",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 12.010s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "name": "getselections_out_lint_removed",
+    "file": "tools/setup/probe_runtime.py",
+    "before": "(\"GetSelections\", (0,)), ",
+    "after": "",
+    "argv": [
+      "python3",
+      "-B",
+      "-m",
+      "unittest",
+      "tests.unit.test_probe_runtime",
+      "tests.unit.test_ce_probe",
+      "tests.unit.test_diagnostic_mission",
+      "tests.unit.test_flashlight_matrix",
+      "tests.unit.test_taped_light_probe",
+      "tests.unit.test_taped_light_report",
+      "-q"
+    ],
+    "exit": 1,
+    "summary": [
+      "Ran 436 tests in 11.899s",
+      "FAILED (failures=1)"
+    ]
+  }
+]
