@@ -38,6 +38,7 @@ from pathlib import Path
 import re
 import sys
 import xml.etree.ElementTree as ET
+from xml.parsers import expat
 
 CENSUS_KIND = "interior-sampler-census"
 TENEMENT_CLASSES = ("Land_Tenement_Small", "Land_Tenement_Big")
@@ -594,6 +595,19 @@ def funnel(result, min_agreement):
 def _parse_xml(data):
     if len(data) > MAX_STOCK_BYTES or b"<!DOCTYPE" in data or b"<!ENTITY" in data:
         raise ValueError("proto XML too large or declares a DTD")
+    # Pre-pass at the expat level, so an encoding the byte scan cannot read (UTF-16) still refuses a
+    # DTD before ElementTree could expand any entity. The handler fires at the declaration itself.
+    probe = expat.ParserCreate()
+
+    def _refuse(*_args):
+        raise ValueError("proto XML too large or declares a DTD")
+
+    probe.StartDoctypeDeclHandler = _refuse
+    probe.EntityDeclHandler = _refuse
+    try:
+        probe.Parse(data, True)
+    except expat.ExpatError as error:
+        raise ValueError(f"malformed proto XML: {error}") from error
     try:
         return ET.fromstring(data)
     except ET.ParseError as error:

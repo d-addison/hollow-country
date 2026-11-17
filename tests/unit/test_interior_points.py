@@ -2169,3 +2169,22 @@ class Round7AnchoredOutputTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class XmlDeclarationRefusalTests(unittest.TestCase):
+    """Any DTD or entity declaration is refused whatever the encoding (no entity expansion)."""
+
+    def refused(self, data):
+        with self.assertRaises(ValueError):
+            pts._parse_xml(data)
+
+    def test_utf16_internal_entity_is_refused_without_expansion(self):
+        xml = ('<?xml version="1.0" encoding="UTF-16"?>'
+               '<!DOCTYPE map [<!ENTITY e "' + '<x/>' * 64 + '">]><map>' + '&e;' * 2000 + '</map>')
+        self.refused(xml.encode('utf-16'))
+
+    def test_utf16_doctype_without_entities_is_refused(self):
+        self.refused('<?xml version="1.0" encoding="UTF-16"?><!DOCTYPE map><map/>'.encode('utf-16'))
+
+    def test_plain_utf8_without_declarations_still_parses(self):
+        self.assertEqual(pts._parse_xml(b'<map><group name="a"/></map>').tag, 'map')
