@@ -29,9 +29,19 @@ replacement for the installed core. Engine duplicate/merge behavior, including
 partial-field defaults and effective eligibility, remains unobserved; complete
 entries are a conservative experiment input, not evidence the engine uses them.
 
-Apartments and barracks remain investigations: tenement candidates have zero raw
-points; known barracks have native points. No placements, coordinates, lootmax or
-mapgroupproto merge declarations are invented. Eligible geometry and actual CE
-behavior must be observed in DayZDiag and normal PBO/server trials before any
-loot-fix claim. Coverage, interiors/search context, high-tier exceptions, measured
-balance and multi-route gameplay acceptance remain pending.
+Apartments: the two tenement prototypes (Land_Tenement_Small and Land_Tenement_Big) were observed in a native
+census with three containers, lootmax 0 and zero raw points, so the CE spawns no loot there. Barracks have native
+points and reach their lootmax, so barracks are not changed in v1; barracks tuning is deferred until a baseline is
+measured. `tools/package/ce_coverage.py` is the tooling for the apartment gap. `request` writes the native sampler
+request (the existing `tools/setup/interior_sampler.py` already samples both classes), `generate` turns a native
+sampler result (native run id, SHA-256 pins, floor points in the prototype frame) into a minimal delta that adds
+authored `<point>` entries inside the existing containers of only those two groups plus a conservative lootmax,
+and `install`/`rollback` patch `mapgroupproto.xml` in place under the separate managed folder
+`hollow-country-ce-coverage` (receipt and byte-exact backup first; refusal on drift, links and hard links;
+recovery from an interrupted install). Install it after the economy delta and roll it back first.
+
+**Apartment coverage stays pending until a native sampler run.** No result is shipped here, `validate` reports
+pending, and no placements, coordinates, lootmax or mapgroupproto merge declarations are invented or committed.
+The tool's output is a candidate: eligible geometry and actual CE behavior must be observed in DayZDiag and
+normal PBO/server trials before any loot-fix claim. Interiors/search context, high-tier exceptions, measured
+balance and multi-route gameplay acceptance also remain pending.
