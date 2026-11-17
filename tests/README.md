@@ -19,6 +19,8 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_ce_
 | Suite | Coverage |
 | --- | --- |
 | [CE audit](unit/test_ce_audit.py) | Synthetic XML, declared sources, catalogs, raw coverage, numeric/path validation and CLI behavior. |
+| [Crafting census](unit/test_crafting_audit.py) | Bounded whole-source inventory, raw provenance, disabled registrations and ambiguous inheritance; no live recipe or item-utility proof. |
+| [Automation planning](unit/test_automation.py) | Portable criteria, explicit capabilities and planning-only status; no gameplay execution or automatic acceptance. |
 | [Benchmark comparison](unit/test_benchmark.py) | Synthetic repeated pairs, compatible contexts, explicit budgets and incomplete evidence. |
 | [Evidence admission](unit/test_evidence.py) | Manifest requirements, artifact hashes/paths and unsupported capability promotions. |
 | [BDD bindings](unit/test_bdd_bindings.py) | Exact scenario/step admission and rejection of unsupported or missing assertions. |
@@ -63,3 +65,31 @@ Windows CI additionally executes deployment/coverage/package suites and actual
 PowerShell package guards on synthetic bytes. Actual DayZ compilation and
 lifecycle evidence is maintained separately in local experiment records.
 Wine runs of the official server do not establish native Windows/client behavior.
+
+## Portable acceptance ledger
+
+[catalog.json](catalog.json) retains all 68 original acceptance cases and extends
+the ledger with program and Phase 2 criteria, including fuel siphoning and taped
+flashlights. Each row includes its criterion, required capabilities, unresolved
+assertions, evidence requirements and related issues. Input provenance hashes
+identify the design snapshot; the local design documents are not needed to load
+the catalog. These rows describe work to qualify, not completed executable tests.
+
+Generate a planning report without a game installation:
+
+```sh
+python3 -B -m tools.testing.automation tests/catalog.json
+python3 -B -m tools.testing.automation tests/catalog.json --select CRF-004
+```
+
+The optional repeatable `--capability NAME=available|blocked|unknown` flag declares
+capabilities for planning. [capabilities.json](capabilities.json) lists the initial
+unknown capability inventory; it is not a machine probe or a credentials file.
+Unspecified capabilities stay unknown. A declaration cannot qualify gameplay.
+
+The planner executes nothing: it never emits a PASS or FAIL. Original gameplay
+cases remain BLOCKED even if capabilities are declared available; supported
+offline modes can only become NOTRUN. Exit 0 means the report was generated,
+not that its criteria passed. Invalid catalogs or arguments exit 2. Real adapters,
+criterion-specific oracles and fresh native/client/load evidence remain required
+before this ledger can serve as an execution report.

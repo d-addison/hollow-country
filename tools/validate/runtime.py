@@ -5,7 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 FLAGS = {'EnableInteriors', 'EnableSearch', 'EnableCrafting', 'EnableInfected',
-         'EnableHordes', 'EnableAlertChains'}
+         'EnableHordes', 'EnableAlertChains', 'EnableGroups'}
 LIMITS = {'TickIntervalMs': (500, 10000), 'MaxTickWorkItems': (1, 256),
           'MaxActiveHordes': (1, 8), 'MaxActiveHordeMembers': (1, 64),
           'MaxActiveInteriors': (1, 32), 'MaxPropsPerInterior': (1, 20)}

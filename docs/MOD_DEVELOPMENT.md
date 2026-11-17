@@ -9,7 +9,7 @@ registration uses the shared [integration contract](RUNTIME_IMPLEMENTATION_CONTR
 
 The server creates `$profile:HollowCountry/settings.json` on first addon start.
 The reviewed operator template is [config/hollow-country-settings.json](../config/hollow-country-settings.json).
-All six feature flags default false. Edit only with the server stopped, retain a
+All feature flags default false. Edit only with the server stopped, retain a
 backup, and validate the operator file before installing it:
 
 ```sh

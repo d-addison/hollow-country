@@ -33,6 +33,7 @@ class HCSettings
     bool EnableInfected = false;
     bool EnableHordes = false;
     bool EnableAlertChains = false;
+    bool EnableGroups = false;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
     int MaxActiveHordes = 2;

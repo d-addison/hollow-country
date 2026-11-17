@@ -1,4 +1,41 @@
-# Offline CE audit (T0)
+# Offline content audits (T0)
+
+These tools inventory supplied inputs. They do not establish live gameplay
+behavior or complete the mod's item and crafting audit.
+
+## Recipe and item-utility starting inventory
+
+```sh
+python3 -B -m tools.audit.crafting_audit --root PATH_TO_SCRIPT_TREE
+python3 -B -m tools.audit.crafting_audit --root PATH_TO_SCRIPT_TREE --expect-manifest-sha256 HASH
+python3 -B -m unittest tests.unit.test_crafting_audit
+```
+
+The crafting census scans every nested `.c`/`.C` file, rather than only a recipe
+folder or Hollow Country's initial recipes. Its deterministic JSON includes raw
+file hashes, source declarations, literal registration calls, commented-out
+registrations, ingredient/output references and unresolved custom behavior.
+Ambiguous inheritance and unregistered descendants remain in the candidate
+inventory; they are never silently treated as resolved recipes. The complete
+manifest hash can pin repeat scans. Inputs are read only, with bounded file,
+tree, token and nesting budgets. No game assets are bundled.
+
+UTF-8 decoding is strict by default. `--fallback-encoding cp1252` explicitly
+permits legacy comments when auditing a known source snapshot; the report pins
+both raw bytes and that decoding policy. JSON goes to stdout. Exit **0** means
+the bounded source scan completed, **1** means an input/audit failure, and **2**
+is command-line usage failure. Check the report's coverage and unresolved fields
+even after exit 0.
+
+A source registration call is not proof that a recipe is registered in the
+running server. Preprocessor branches, invocation order, inheritance effects,
+effective item configurations, cooking/actions, attachment geometry, conservation
+and usefulness still require separate examination and native tests. Runtime
+recipe counts and merged item counts remain unknown. This census is the starting
+inventory for the full-content audit, not permission to declare three recipes or
+a few attachment combinations feature-complete.
+
+## Central Economy audit
 
 Run from the project root with Python 3.11+; only the standard library is used:
 

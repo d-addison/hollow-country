@@ -6,6 +6,7 @@
   "EnableInfected": false,
   "EnableHordes": false,
   "EnableAlertChains": false,
+  "EnableGroups": false,
   "TickIntervalMs": 1000,
   "MaxTickWorkItems": 32,
   "MaxActiveHordes": 2,

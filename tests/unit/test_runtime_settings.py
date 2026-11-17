@@ -28,6 +28,12 @@ class RuntimeSettingsTests(unittest.TestCase):
         self.assertEqual([], validate_settings(self.value))
         self.assertTrue(all(v is False for k, v in self.value.items() if k.startswith('Enable')))
 
+    def test_groups_can_be_configured_independently_but_default_disabled(self):
+        self.assertIs(self.value.get('EnableGroups'), False)
+        self.assertEqual([], validate_settings(dict(self.value, EnableGroups=True)))
+        for invalid in ('true', 1, None):
+            self.assertTrue(validate_settings(dict(self.value, EnableGroups=invalid)))
+
     def test_wrong_schema_unknown_fields_and_missing_limits_fail(self):
         for name, value in [('SchemaVersion', 2), ('ExtraCommand', 'anything')]:
             changed = dict(self.value, **{name: value})
