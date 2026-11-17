@@ -781,6 +781,53 @@ class HCGroupRules
         }
     }
 
+    static bool MarkersExpired(HCGroupState state, int now)
+    {
+        foreach (HCGroupRecord group : state.Groups)
+        {
+            foreach (HCGroupMarker marker : group.Markers)
+            {
+                if (marker.ExpiresUtc > 0 && marker.ExpiresUtc <= now)
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Expired markers are already hidden from every snapshot and client. A
+    // batch flush touches their groups; a user mutation clone prunes without
+    // a touch so the client's ExpectedRevision still matches.
+    static bool ExpireMarkers(HCGroupState state, int now, bool touch)
+    {
+        bool removed = false;
+        foreach (HCGroupRecord group : state.Groups)
+        {
+            bool touched = false;
+            int index = group.Markers.Count() - 1;
+            while (index >= 0)
+            {
+                HCGroupMarker marker = group.Markers.Get(index);
+                if (marker.ExpiresUtc > 0 && marker.ExpiresUtc <= now)
+                {
+                    group.Markers.Remove(index);
+                    touched = true;
+                }
+                index = index - 1;
+            }
+            if (touched && touch)
+            {
+                HCGroupRules.Touch(group, false);
+            }
+            if (touched)
+            {
+                removed = true;
+            }
+        }
+        return removed;
+    }
+
     static void DropInvites(HCGroupState state, int groupId, string uid)
     {
         int index = state.Invitations.Count() - 1;

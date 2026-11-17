@@ -123,6 +123,7 @@ class StoreHarness:
         text = re.sub(r'HCGroupJson<HCGroupReceipt>.Load\((.+?), (\d+), (\w+)\)',
                       r'((\3 := load(\1, \2)) != null)',text)
         text = text.replace('HCGroupIO.WriteNew(', 'write(')
+        text = text.replace('array<ref HCGroupInvitation> invitations = new array<ref HCGroupInvitation>()', 'invitations = EArray()')
         text = text.replace('HCGroupJson<HCGroupReceipt>.WriteNew(', 'write_json(')
         text = re.sub(r'FindFileHandle handle = FindFile\((.+?), filename, attr, (.+?)\)',
                       r'handle, filename, attr = first(\1, \2)',text)

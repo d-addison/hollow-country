@@ -9,6 +9,15 @@ class HCGroupLOSResult
     bool Visible;
 }
 
+// Server-only, in-memory discovery delta. Never sent or persisted itself;
+// FlushBatch applies it through the ordinary Clone/RecordVisit/Commit path.
+class HCGroupPendingVisit
+{
+    string ExplorerId;
+    ref HCGroupPlace Place;
+    vector Actual;
+}
+
 class HCGroupClock
 {
     protected static int s_LastUtc = 0;
@@ -141,6 +150,8 @@ class HCGroupService
     protected ref HCGroupPlaceCatalog m_Places;
     protected float m_GlobalWindow;
     protected int m_GlobalCount;
+    protected ref array<ref HCGroupPendingVisit> m_PendingVisits = new array<ref HCGroupPendingVisit>();
+    protected float m_BatchTime;
 
     static HCGroupService Get() { return s_Instance; }
 
@@ -235,6 +246,8 @@ class HCGroupService
         if (!identity) return;
         HCGroupPeer peer = Peer(identity.GetId());
         if (!peer || peer.Identity != identity) return;
+        // Persist batched discovery while the leaving explorer is still live.
+        if (m_Healthy && FlushBatch() == HCGroupCode.STORAGE) { Stop(); return; }
         m_Peers.Remove(m_Peers.Find(peer));
         HCGroupRules.DropInvites(m_State, 0, peer.Id);
         peer.Identity = null;
@@ -244,6 +257,9 @@ class HCGroupService
 
     void Stop()
     {
+        // Best-effort final discovery flush. FlushBatch never calls Stop, and
+        // a failed or faulted Commit leaves the last durable revision intact.
+        if (m_Healthy && m_PendingVisits.Count() > 0) FlushBatch();
         m_Healthy = false;
         foreach (HCGroupPeer peer : m_Peers) SendSnapshot(peer, HCGroupSnapshotKind.CLEAR, 0);
         m_Peers.Clear();
@@ -332,6 +348,8 @@ class HCGroupService
         { Reply(peer, request.RequestId, HCGroupCode.INVALID, true); return; }
         HCGroupState candidate;
         if (!Clone(candidate)) { Reply(peer, request.RequestId, HCGroupCode.STORAGE, true); Stop(); return; }
+        // Durable expiry rides the batch; an expired marker never holds a slot.
+        HCGroupRules.ExpireMarkers(candidate, now, false);
         int result = HCGroupRules.Apply(candidate, m_Config, request, uid, now);
         if (result == HCGroupCode.OK) result = Commit(candidate);
         if (result == HCGroupCode.STORAGE)
@@ -466,13 +484,13 @@ class HCGroupService
         }
     }
 
+    // Enqueue only: no Clone/Commit on the discovery cadence. FlushBatch
+    // persists the bounded queue at most once per 60 s, on disconnect and Stop.
     void Discover()
     {
         if (!m_Config.DiscoveryLayer || !m_Places || m_Peers.Count() == 0) return;
         float now = GetGame().GetTickTime();
         if (now < m_DiscoveryBlockedUntil) return;
-        HCGroupState candidate;
-        bool changed = false;
         int examined = 0;
         while (examined < 6 && examined < m_Peers.Count())
         {
@@ -488,24 +506,52 @@ class HCGroupService
                 float dz = actual[2] - place.Position[2];
                 if (dx * dx + dz * dz > place.Radius * place.Radius) continue;
                 if (HCGroupRules.HasVisit(m_State, explorer.Id, place.Id)) continue;
-                if (!candidate)
+                // Full queue: skip; the visit is observed again after a flush.
+                if (m_PendingVisits.Count() >= 256) continue;
+                bool queued = false;
+                foreach (HCGroupPendingVisit pending : m_PendingVisits)
                 {
-                    if (!Clone(candidate)) { Stop(); return; }
-                    EvictExplorers(candidate, false);
+                    if (pending.ExplorerId == explorer.Id && pending.Place.Id == place.Id) queued = true;
                 }
-                if (candidate.Explorers.Count() >= m_Config.MaxExplorers && !HCGroupRules.HasExplorer(candidate, explorer.Id)) EvictExplorers(candidate, true);
-                if (HCGroupRules.RecordVisit(candidate, m_Config, explorer.Id, place, actual)) changed = true;
+                if (queued) continue;
+                HCGroupPendingVisit visit = new HCGroupPendingVisit;
+                visit.ExplorerId = explorer.Id;
+                visit.Place = place;
+                visit.Actual = actual;
+                m_PendingVisits.Insert(visit);
             }
         }
-        if (!changed) return;
+    }
+
+    // One Clone and one Commit for every queued visit plus marker expiry.
+    // A crash loses only this unflushed window; the durable revision chain
+    // is untouched. NOT_FOUND means nothing to write. Never calls Stop.
+    int FlushBatch()
+    {
+        m_BatchTime = 0;
+        if (m_PendingVisits.Count() == 0 && !HCGroupRules.MarkersExpired(m_State, m_LastUtc)) return HCGroupCode.NOT_FOUND;
+        HCGroupState candidate;
+        if (!Clone(candidate))
+        {
+            m_PendingVisits.Clear();
+            return HCGroupCode.STORAGE;
+        }
+        bool changed = HCGroupRules.ExpireMarkers(candidate, m_LastUtc, true);
+        EvictExplorers(candidate, false);
+        foreach (HCGroupPendingVisit visit : m_PendingVisits)
+        {
+            if (candidate.Explorers.Count() >= m_Config.MaxExplorers && !HCGroupRules.HasExplorer(candidate, visit.ExplorerId)) EvictExplorers(candidate, true);
+            if (HCGroupRules.RecordVisit(candidate, m_Config, visit.ExplorerId, visit.Place, visit.Actual)) changed = true;
+        }
+        m_PendingVisits.Clear();
+        if (!changed) return HCGroupCode.NOT_FOUND;
         foreach (HCGroupExplorer observer : candidate.Explorers)
         {
             if (Live(Peer(observer.Id))) observer.LastSeenUtc = m_LastUtc;
         }
         int result = Commit(candidate);
-        if (result == HCGroupCode.LIMIT) m_DiscoveryBlockedUntil = now + 60.0;
-        if (result == HCGroupCode.STORAGE) { Stop(); return; }
-        if (result == HCGroupCode.OK) Broadcast();
+        if (result == HCGroupCode.LIMIT) m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60.0;
+        return result;
     }
 
     // Group members and connected accounts retain their journals. Expire
@@ -647,38 +693,21 @@ class HCGroupService
         {
             if (m_State.Invitations.Get(i).ExpiresUtc <= now) m_State.Invitations.Remove(i);
         }
-        HCGroupState expired;
-        bool changed;
-        foreach (HCGroupRecord group : m_State.Groups)
-        {
-            foreach (HCGroupMarker marker : group.Markers)
-            {
-                if (marker.ExpiresUtc > 0 && marker.ExpiresUtc <= now) changed = true;
-            }
-        }
-        if (changed)
-        {
-            if (!Clone(expired)) { Stop(); return; }
-            foreach (HCGroupRecord record : expired.Groups)
-            {
-                bool touched;
-                for (int n = record.Markers.Count() - 1; n >= 0; n--)
-                {
-                    HCGroupMarker old = record.Markers.Get(n);
-                    if (old.ExpiresUtc > 0 && old.ExpiresUtc <= now) { record.Markers.Remove(n); touched = true; }
-                }
-                if (touched) HCGroupRules.Touch(record, false);
-            }
-            int expiryResult = Commit(expired);
-            if (expiryResult == HCGroupCode.STORAGE) { Stop(); return; }
-            if (expiryResult == HCGroupCode.OK) Broadcast();
-        }
+        // Expired markers are hidden from snapshots and clients by UTC at
+        // once; their durable removal rides the batch below.
         m_DiscoveryTime += deltaTime;
         if (m_DiscoveryTime >= m_Config.DiscoveryIntervalSeconds)
         {
             m_DiscoveryTime = 0;
             Discover();
             if (!m_Healthy) return;
+        }
+        m_BatchTime += deltaTime;
+        if (m_BatchTime >= 60.0)
+        {
+            int flushed = FlushBatch();
+            if (flushed == HCGroupCode.STORAGE) { Stop(); return; }
+            if (flushed == HCGroupCode.OK) Broadcast();
         }
         m_PositionTime += deltaTime;
         if (m_PositionTime >= m_Config.PositionIntervalSeconds)

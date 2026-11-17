@@ -188,7 +188,9 @@ class HCInfectedModule : HCModule
         }
         m_Healthy = true;
         Instance = this;
-        m_NextSave = m_Config.SaveIntervalSeconds;
+        // Periodic saves run half an interval after adoption so the two
+        // persistence-heavy steps never share a server tick.
+        m_NextSave = m_Config.SaveIntervalSeconds + m_Config.SaveIntervalSeconds / 2;
         m_NextAdopt = m_Config.SaveIntervalSeconds;
 #ifdef DIAG_DEVELOPER
         if (m_Config.RunPolicySelfTests && !HCInfectedSelfTests.Run())
@@ -566,7 +568,7 @@ class HCInfectedModule : HCModule
             return false;
         }
         m_Dirty = false;
-        m_NextSave = m_Now + m_Config.SaveIntervalSeconds;
+        m_NextSave = m_Now + m_Config.SaveIntervalSeconds + m_Config.SaveIntervalSeconds / 2;
         return true;
     }
 
@@ -820,7 +822,10 @@ class HCInfectedModule : HCModule
             }
         }
         // Search expiry is checked every core tick, independent of the actor
-        // sampling cursor, with at most two native packs to inspect.
+        // sampling cursor, with at most two native packs to inspect. A queued
+        // room segment shares the tick's single route token (one FindPath per
+        // tick) and waits while adoption, which may start a route, is due.
+        bool adoptionDue = m_Hordes && m_Now >= m_NextAdopt;
         for (int s = m_Investigators.Count() - 1; s >= 0; s--)
         {
             HCInfectedActor investigator = m_Investigators[s];
@@ -829,10 +834,16 @@ class HCInfectedModule : HCModule
                 investigator.SearchPack = null;
                 m_Investigators.Remove(s);
             }
+            else if (!adoptionDue && m_RoutesRemaining > 0 && investigator.SearchPack.ExtendRoute())
+            {
+                m_RoutesRemaining--;
+            }
         }
-        if (m_Hordes && m_Now >= m_NextAdopt)
+        bool adopted = false;
+        if (adoptionDue)
         {
             // Adoption gets its own bounded tick rather than doubling scan work.
+            adopted = true;
             TryAdopt(nowUtc);
             m_NextAdopt = m_Now + m_Config.SaveIntervalSeconds;
         }
@@ -882,7 +893,8 @@ class HCInfectedModule : HCModule
             if (m_Cursor >= m_Actors.Count())
                 FinishSweep(nowUtc);
         }
-        if (m_Hordes && m_Dirty && m_Now >= m_NextSave)
+        // A save due on an adoption tick waits one tick (state stays dirty).
+        if (m_Hordes && m_Dirty && !adopted && m_Now >= m_NextSave)
         {
             if (!HCInfectedStore.Save(m_State, m_MemberCap, m_GroupCap))
             {
