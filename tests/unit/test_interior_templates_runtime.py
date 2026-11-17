@@ -49,7 +49,7 @@ def authored(include_read=False):
     sources = re.sub(r'//[^\n]*', '', sources)
     for match in re.finditer(r'static ([\w<> ]+?) (\w+)\(([^)]*)\)\s*\{', sources):
         name = match[2]
-        if name in {'EngineClasses', 'Spawn', 'Available', 'Schedule'} or (name == 'Read' and not include_read):
+        if name in {'EngineHouse', 'Spawn', 'Available', 'Schedule'} or (name == 'Read' and not include_read):
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
         lines = [f'def {name}({", ".join(args)}):',
@@ -159,7 +159,7 @@ def fixture(values=None):
         except ValueError: return False
     game=NS(GetWorldName=lambda:'chernarusplus',ConfigIsExisting=lambda path:True,
             GetObjectsAtPosition3D=lambda point,radius,found,cargos:found.extend(objects))
-    env.update(Read=read, NativeLoad=native_load, EngineClasses=lambda:EArray(['Land_House_1W01']),
+    env.update(Read=read, NativeLoad=native_load, EngineHouse=lambda cls:cls=='Land_House_1W01',
         GetGame=lambda:game, HCBuildIdentity=build_identity(),FileExist=lambda path:False,
         HCInteriorMeasuredCatalog=NS(MeasuredClaimedClass=lambda:''),
         HCSearchRules=NS(TextValid=lambda v,n:isinstance(v,str) and 0<len(v)<=n and bool(re.fullmatch('[a-zA-Z0-9_.:+/=-]+',v)),
@@ -229,8 +229,19 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
     def test_provisional_build_and_denominator_refuse(self):
         for key,value in [('Provisional',False),('SchemaVersion',1),('Build','other')]:
             values=pack(); values['index.json'][key]=value; self.assert_refused(self.load(values))
-        result=fixture(); result[0]['EngineClasses']=lambda:EArray(['Land_House_1W01','Land_Other'])
+        result=fixture(); result[0]['EngineHouse']=lambda cls:False
         result[0]['EnsureLoaded'](None); self.assert_refused(result)
+
+    def test_pack_covers_a_subset_of_engine_house_classes(self):
+        # The engine has thousands of House classes (walls, wrecks, ruins); the pack lists only the
+        # classes it covers. Each must be an engine House class; the pack need not list every one.
+        result=fixture(); result[0]['EngineHouse']=lambda cls:cls in {'Land_House_1W01','Land_Other','Land_Wall'}
+        result[0]['EnsureLoaded'](None); self.assertTrue(result[0]['Loaded']())
+
+    def test_engine_house_reads_config_per_class_not_all_cfgvehicles(self):
+        source=(SRC/'HCInteriorTemplates.c').read_text()
+        self.assertNotIn('ConfigGetChildrenCount("CfgVehicles")', source)
+        self.assertIn('GetGame().IsKindOf(cls, "House")', source)
 
     def test_legacy_only_load_does_not_touch_legacy_files(self):
         e,raw,reads,logs,objects,created=self.load({})

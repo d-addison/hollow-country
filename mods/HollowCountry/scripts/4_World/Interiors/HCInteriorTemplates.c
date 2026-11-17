@@ -335,54 +335,27 @@ class HCInteriorTemplates
         return 1 + index.ClassFiles.Count() + index.TemplateFiles.Count() + index.FurnishFiles.Count() + index.GroupFiles.Count() <= 610;
     }
 
-    static array<string> EngineClasses()
+    // Each pack class must be a House class the engine knows. The engine has thousands of House
+    // classes (walls, wrecks, ruins); the pack covers only the ones it lists, so it is not an
+    // exact census of CfgVehicles and the config is read per listed class, never enumerated.
+    static bool EngineHouse(string cls)
 
     {
-        int count = GetGame().ConfigGetChildrenCount("CfgVehicles");
-        if (count < 1 || count > 32768)
-
-        {
-            return null;
-        }
-        array<string> houses = new array<string>();
-        int child = 0;
-        while (child < count)
-
-        {
-            string cls;
-            if (!GetGame().ConfigGetChildName("CfgVehicles", child, cls))
-
-            {
-                return null;
-            }
-            if (GetGame().IsKindOf(cls, "House"))
-
-            {
-                if (houses.Count() >= 2048)
-
-                {
-                    return null;
-                }
-                houses.Insert(cls);
-            }
-            child = child + 1;
-        }
-        return houses;
+        return GetGame().ConfigIsExisting("CfgVehicles " + cls) && GetGame().IsKindOf(cls, "House");
     }
 
     static bool ClassesValid()
 
     {
-        array<string> nativeClasses = EngineClasses();
-        if (!nativeClasses || nativeClasses.Count() < 1 || nativeClasses.Count() != s_Classes.Count())
+        if (s_Classes.Count() < 1)
 
         {
             return false;
         }
-        foreach (string cls : nativeClasses)
+        foreach (HCInteriorTemplateClassRow row : s_Classes)
 
         {
-            if (!FindClass(cls))
+            if (!row || !EngineHouse(row.BuildingClass))
 
             {
                 return false;
