@@ -1,0 +1,38 @@
+.....FFF........................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1390, in test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid
+    self.assertEqual("server_qualified", pair["verdict"])
+AssertionError: 'server_qualified' != 'pending'
+- server_qualified
++ pending
+
+
+======================================================================
+FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1390, in test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid
+    self.assertEqual("server_qualified", pair["verdict"])
+AssertionError: 'server_qualified' != 'pending'
+- server_qualified
++ pending
+
+
+======================================================================
+FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1390, in test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid
+    self.assertEqual("server_qualified", pair["verdict"])
+AssertionError: 'server_qualified' != 'pending'
+- server_qualified
++ pending
+
+
+----------------------------------------------------------------------
+Ran 286 tests in 8.513s
+
+FAILED (failures=3)

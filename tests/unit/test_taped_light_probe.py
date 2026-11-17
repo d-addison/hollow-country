@@ -754,7 +754,7 @@ SLOT_SELECTION = {"weaponFlashlight": "light_w", "pistolFlashlight": "light_p", 
 
 def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=(), res=(),
          res_no_vertex=(), res_unlisted=False, view=None, lods=None, lods_unlisted=False, bones=(), bone_object=False,
-         null_lods=(), count_only=(), index_only=()):
+         null_lods=(), count_only=(), index_only=(), bone_serial=False):
     """``res`` is the selection names held by the resolution LOD "1.000" (the default LOD list); ``res_no_vertex`` names
     selections without a first vertex; ``res_unlisted`` makes LOD.GetSelections return false (with the names still in
     its out array, which the hook must ignore) on every LOD. ``view`` is the selection names of a LOD named "view" (None:
@@ -763,13 +763,17 @@ def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=Fal
     is given); ``lods_unlisted`` makes Object.GetLODS return false with junk in its out array. Round 8: ``bones`` is the
     exact names Entity.GetBoneIndex resolves (to 7), ``bone_object`` makes GetBoneObject return the newest attachment,
     ``null_lods`` is LOD names whose script instance is null (name still readable), ``count_only`` names selections with
-    a positive GetVertexCount but LOD vertex index -1 and ``index_only`` ones with count 0 but a valid index."""
+    a positive GetVertexCount but LOD vertex index -1 and ``index_only`` ones with count 0 but a valid index. Round 9:
+    ``bone_object="other"`` makes GetBoneObject return a distinct live object that is not the attached light, and
+    ``bone_serial`` makes the n-th entity of a type resolve its bones to 7 + n (and answer GetBoneObject only for that
+    index), so a host whose bones were read from an earlier host of the same type is told apart."""
     return {"slots": tuple(slots), "fits": tuple(fits), "selections": tuple(selections), "memory": tuple(memory),
             "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies), "res": tuple(res),
             "res_no_vertex": tuple(res_no_vertex), "res_unlisted": res_unlisted,
             "view": None if view is None else tuple(view), "lods": None if lods is None else tuple(lods),
             "lods_unlisted": lods_unlisted, "bones": tuple(bones), "bone_object": bone_object,
-            "null_lods": tuple(null_lods), "count_only": tuple(count_only), "index_only": tuple(index_only)}
+            "null_lods": tuple(null_lods), "count_only": tuple(count_only), "index_only": tuple(index_only),
+            "bone_serial": bone_serial}
 
 
 LIGHT_UNIVERSAL_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_universal.001"
@@ -801,6 +805,8 @@ class Entity:
     def __init__(self, world, type_name, entity_spec):
         self.world, self.type_name, self.spec = world, type_name, entity_spec
         self.alive, self.attached = True, {}
+        self.serial = sum(1 for earlier in world.entities if earlier.type_name == type_name)       # n-th of its type
+        self.other = None
         self.inventory = Inventory(self)
 
     def __bool__(self):
@@ -822,12 +828,17 @@ class Entity:
         """Entity.c:35 proto native int GetBoneIndex(string proxySelectionName). Every query is logged."""
         self.world.bone_calls.append(str(name))
         if name in self.spec["bones"]:
-            return 7
+            return 7 + self.serial if self.spec["bone_serial"] else 7
         return 3 if name in self.spec["selections"] else -1
 
     def GetBoneObject(self, index):
         """Entity.c:38 proto native Object GetBoneObject(int boneIndex): the newest attachment when the spec says so."""
-        self.world.bone_object_calls.append(index)
+        self.world.bone_object_calls.append((self.type_name, self.serial, index))
+        if self.spec["bone_serial"] and index != 7 + self.serial:
+            return None       # a bone index that is not this entity's own resolves to nothing
+        if self.spec["bone_object"] == "other" and index >= 0:
+            self.other = self.other or Entity(self.world, "UnrelatedProp", spec())       # live, never the attached light
+            return self.other
         if self.spec["bone_object"] and index >= 0 and self.attached:
             return list(self.attached.values())[-1]
         return None
@@ -1037,6 +1048,7 @@ class World:
         self.attach_calls, self.delete_calls, self.create_calls = [], 0, []
         self.selection_log, self.lods_calls = [], 0
         self.count_log, self.event_log, self.bone_calls, self.bone_object_calls = [], [], [], []
+        self.lifecycle = []       # ("create", type, flags, ordinal) and ("delete", type, flags of its creation, ordinal)
 
     def register(self, entity):
         self.entities.append(entity)
@@ -1048,10 +1060,14 @@ class World:
             return None
         entity = Entity(self, str(type_name), self.catalogue[type_name])
         self.register(entity)
+        entity.flags = flags
+        self.lifecycle.append(("create", str(type_name), flags, len(self.entities) - 1))
         return entity
 
     def ObjectDelete(self, entity):
         self.delete_calls += 1
+        self.lifecycle.append(("delete", entity.type_name, getattr(entity, "flags", None), self.entities.index(entity)
+                               if entity in self.entities else -1))
         if entity.type_name not in self.stuck:
             entity.alive = False
 
@@ -2189,6 +2205,17 @@ class RoundEightProbeTests(unittest.TestCase):
         self.assertEqual([], world.live())
         self.assertEqual(observations["counters"]["spawned"], observations["counters"]["deleted"])
 
+    def test_the_control_is_deleted_before_the_next_object_is_spawned(self):
+        """Review P10: a final release would also delete the control, so only its position in the event order proves it
+        was released straight away rather than carried into the first host's observation."""
+        world, _observations = self.run_world()
+        creates = [(position, event) for position, event in enumerate(world.lifecycle) if event[0] == "create"]
+        control = next(position for position, event in creates if event[2] == 6)
+        control_entity = world.lifecycle[control][3]
+        following = next(position for position, event in creates if position > control)
+        between = [event for event in world.lifecycle[control + 1:following] if event[0] == "delete"]
+        self.assertEqual([("delete", "AK74", 6, control_entity)], between)
+
     def test_a_control_that_cannot_be_spawned_is_reported_not_skipped(self):
         types = proxy_types()
         del types["AK74"]
@@ -2285,7 +2312,8 @@ class RoundEightProbeTests(unittest.TestCase):
 
     def test_the_bone_object_after_attach_is_compared_with_the_attached_light(self):
         cases = (("the attached light", dict(bones=(LIGHT_TLR_PROXY,), bone_object=True), (True, True, "TLRLight")),
-                 ("another object", dict(bones=(LIGHT_TLR_PROXY,), bone_object=False), (True, False, "")),
+                 ("no object at the bone", dict(bones=(LIGHT_TLR_PROXY,), bone_object=False), (True, False, "")),
+                 ("a distinct live object", dict(bones=(LIGHT_TLR_PROXY,), bone_object="other"), (True, False, "UnrelatedProp")),
                  ("no bone at all", dict(), (False, False, "")))
         for label, extra, expected in cases:
             types = proxy_types()
@@ -2298,8 +2326,13 @@ class RoundEightProbeTests(unittest.TestCase):
                 self.assertEqual([], world.live())
 
     def test_the_variant_host_reads_its_own_bones_after_its_handguard(self):
-        types = self.lod_types(bones=(LIGHT_UNIVERSAL_PROXY,), bone_object=True)
+        """The control is the first AK74 (bones 7), the base host the second (8, its UniversalLight attach is refused so it
+        asks nothing) and the variant host the third (9): only a variant host whose bones were read again, not the base
+        host's remembered index 8, asks for its own bone and gets the attached light back."""
+        types = self.lod_types(bones=(LIGHT_UNIVERSAL_PROXY,), bone_object=True, bone_serial=True)
         world, observations = self.run_world(types)
+        asked = [(serial, index) for kind, serial, index in world.bone_object_calls if kind == "AK74"]
+        self.assertEqual([(2, 9)], asked)
         variant = host_row(observations, "AK74")["prereq_variant"]
         universal = next(entry for entry in variant["lights"] if entry["light"] == "UniversalLight")
         slot = next(item for item in universal["per_slot"] if item["slot"] == "weaponFlashlight")

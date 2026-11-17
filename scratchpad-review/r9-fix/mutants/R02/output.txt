@@ -1,0 +1,32 @@
+.......FFF......................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [identical]
+Review R02: aliases that agree are one piece of evidence; two parsed rows would double count it.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1433, in test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row
+    self.assertEqual(rows, len(parsed[1]), label)
+AssertionError: 1 != 2 : identical
+
+======================================================================
+FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [leading slash]
+Review R02: aliases that agree are one piece of evidence; two parsed rows would double count it.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1433, in test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row
+    self.assertEqual(rows, len(parsed[1]), label)
+AssertionError: 1 != 2 : leading slash
+
+======================================================================
+FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [three spellings]
+Review R02: aliases that agree are one piece of evidence; two parsed rows would double count it.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1433, in test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row
+    self.assertEqual(rows, len(parsed[1]), label)
+AssertionError: 1 != 3 : three spellings
+
+----------------------------------------------------------------------
+Ran 286 tests in 9.140s
+
+FAILED (failures=3)

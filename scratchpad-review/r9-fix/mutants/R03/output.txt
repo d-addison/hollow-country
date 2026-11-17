@@ -1,0 +1,160 @@
+......F..FFF......................................................................F..............F...............F..........F................F.........................F........................................................................................................................
+======================================================================
+FAIL: test_another_light_slot_is_recognised_only_by_its_exact_name (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_another_light_slot_is_recognised_only_by_its_exact_name)
+A proxy listing ``PistolFlashlight`` (case changed) names no native light slot, so it is not a real negative for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1453, in test_another_light_slot_is_recognised_only_by_its_exact_name
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+======================================================================
+FAIL: test_proxy_slot_membership_is_exact_and_case_sensitive (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_proxy_slot_membership_is_exact_and_case_sensitive) [weaponflashlight]
+Review P2-3: owner rule C. ``weaponflashlight`` is not the exact slot ``weaponFlashlight``; only proxy paths and
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1442, in test_proxy_slot_membership_is_exact_and_case_sensitive
+    self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'pending_client') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'pending_client')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_proxy_slot_membership_is_exact_and_case_sensitive (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_proxy_slot_membership_is_exact_and_case_sensitive) [WEAPONFLASHLIGHT]
+Review P2-3: owner rule C. ``weaponflashlight`` is not the exact slot ``weaponFlashlight``; only proxy paths and
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1442, in test_proxy_slot_membership_is_exact_and_case_sensitive
+    self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'pending_client') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'pending_client')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_proxy_slot_membership_is_exact_and_case_sensitive (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_proxy_slot_membership_is_exact_and_case_sensitive) [WeaponFlashlight]
+Review P2-3: owner rule C. ``weaponflashlight`` is not the exact slot ``weaponFlashlight``; only proxy paths and
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1442, in test_proxy_slot_membership_is_exact_and_case_sensitive
+    self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'pending_client') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'pending_client')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_a_proxy_that_names_a_different_slot_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_a_proxy_that_names_a_different_slot_does_not_qualify)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1023, in test_a_proxy_that_names_a_different_slot_does_not_qualify
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+======================================================================
+FAIL: test_the_prerequisite_variant_uses_its_own_reason (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_the_prerequisite_variant_uses_its_own_reason)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1141, in test_the_prerequisite_variant_uses_its_own_reason
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+======================================================================
+FAIL: test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1776, in test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"),
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+======================================================================
+FAIL: test_rows_from_the_view_lod_producers_carry_no_resolution_evidence_and_say_so_as_a_diagnostic (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_rows_from_the_view_lod_producers_carry_no_resolution_evidence_and_say_so_as_a_diagnostic)
+probe-004 and probe-005 (rounds 4 to 6) wrote view-LOD fields and no per-resolution-LOD list. Those rows are
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1810, in test_rows_from_the_view_lod_producers_carry_no_resolution_evidence_and_say_so_as_a_diagnostic
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+======================================================================
+FAIL: test_a_complete_slot_list_without_the_slot_is_pending_for_the_client_unless_it_names_another_light_slot (tests.unit.test_taped_light_report.SlotListTruncationTests.test_a_complete_slot_list_without_the_slot_is_pending_for_the_client_unless_it_names_another_light_slot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1479, in test_a_complete_slot_list_without_the_slot_is_pending_for_the_client_unless_it_names_another_light_slot
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+======================================================================
+FAIL: test_the_proxy_path_must_still_be_the_whole_light_model (tests.unit.test_taped_light_report.TierSTests.test_the_proxy_path_must_still_be_the_whole_light_model)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2075, in test_the_proxy_path_must_still_be_the_whole_light_model
+    self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('geometry_missing', 'proxy_belongs_to_other_slot') != ('pending', 'pending_client')
+
+First differing element 0:
+'geometry_missing'
+'pending'
+
+- ('geometry_missing', 'proxy_belongs_to_other_slot')
++ ('pending', 'pending_client')
+
+----------------------------------------------------------------------
+Ran 286 tests in 9.072s
+
+FAILED (failures=10)

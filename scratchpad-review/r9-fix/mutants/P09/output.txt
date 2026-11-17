@@ -1,0 +1,25 @@
+....................................................................................................................................................................................................................................................................F.........................
+======================================================================
+FAIL: test_the_variant_host_reads_its_own_bones_after_its_handguard (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_variant_host_reads_its_own_bones_after_its_handguard)
+The control is the first AK74 (bones 7), the base host the second (8, its UniversalLight attach is refused so it
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2335, in test_the_variant_host_reads_its_own_bones_after_its_handguard
+    self.assertEqual([(2, 9)], asked)
+AssertionError: Lists differ: [(2, 9)] != [(2, 8)]
+
+First differing element 0:
+(2, 9)
+(2, 8)
+
+- [(2, 9)]
+?      ^
+
++ [(2, 8)]
+?      ^
+
+
+----------------------------------------------------------------------
+Ran 286 tests in 7.834s
+
+FAILED (failures=1)

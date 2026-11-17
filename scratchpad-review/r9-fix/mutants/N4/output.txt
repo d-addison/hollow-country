@@ -1,0 +1,18 @@
+F.............................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1412, in test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot
+    self.assert_pending_for_conflict(result, "truncated conflicting copy")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : truncated conflicting copy
+
+----------------------------------------------------------------------
+Ran 286 tests in 10.358s
+
+FAILED (failures=1)

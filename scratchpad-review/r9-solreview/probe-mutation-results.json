@@ -1,0 +1,38 @@
+[
+  {
+    "id": "Q08",
+    "description": "bone object identity comparison reduced to presence",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [a distinct live object]",
+      "Ran 286 tests in 11.320s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "Q09",
+    "description": "variant-host proxy bone refresh removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_the_variant_host_reads_its_own_bones_after_its_handguard (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_variant_host_reads_its_own_bones_after_its_handguard)",
+      "Ran 286 tests in 11.257s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "Q10",
+    "description": "firearm control immediate release removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_the_control_is_deleted_before_the_next_object_is_spawned (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_control_is_deleted_before_the_next_object_is_spawned)",
+      "Ran 286 tests in 9.283s",
+      "FAILED (failures=1)"
+    ]
+  }
+]

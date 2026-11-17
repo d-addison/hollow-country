@@ -1,0 +1,123 @@
+[
+  {
+    "id": "M01",
+    "description": "drop all proxy rows after the second (late contradiction ignored)",
+    "result": "KILLED",
+    "returncode": 1,
+    "summary": [
+      "FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=False, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=False, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists)",
+      "FAIL: test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both)",
+      "Ran 286 tests in 13.883s",
+      "FAILED (failures=8)"
+    ]
+  },
+  {
+    "id": "M02",
+    "description": "forget conflicts between distinct instances of one config class",
+    "result": "KILLED",
+    "returncode": 1,
+    "summary": [
+      "FAIL: test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both)",
+      "FAIL: test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed (tests.unit.test_taped_light_report.ProxyIdentityTests.test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed)",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "Ran 286 tests in 14.576s",
+      "FAILED (failures=10)"
+    ]
+  },
+  {
+    "id": "M03",
+    "description": "casefold conflict slot names (widens conflict scope)",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "summary": [
+      "Ran 286 tests in 13.877s",
+      "OK"
+    ]
+  },
+  {
+    "id": "M04",
+    "description": "hide truncated conflicting copies when the first copy was complete",
+    "result": "KILLED",
+    "returncode": 1,
+    "summary": [
+      "FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)",
+      "Ran 286 tests in 12.580s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "M05",
+    "description": "allow proxy model mismatch to qualify",
+    "result": "KILLED",
+    "returncode": 1,
+    "summary": [
+      "FAIL: test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify)",
+      "FAIL: test_an_empty_model_with_an_existing_entry_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_an_empty_model_with_an_existing_entry_does_not_qualify)",
+      "FAIL: test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending (tests.unit.test_taped_light_report.SlotListTruncationTests.test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending)",
+      "FAIL: test_the_proxy_path_must_still_be_the_whole_light_model (tests.unit.test_taped_light_report.TierSTests.test_the_proxy_path_must_still_be_the_whole_light_model)",
+      "FAIL: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong model]",
+      "FAIL: test_a_missing_config_model_never_matches_a_resolution_lod (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_missing_config_model_never_matches_a_resolution_lod)",
+      "Ran 286 tests in 15.547s",
+      "FAILED (failures=6)"
+    ]
+  },
+  {
+    "id": "M06",
+    "description": "qualify missing per-light native observation",
+    "result": "KILLED",
+    "returncode": 1,
+    "summary": [
+      "FAIL: test_missing_rows_slots_fields_and_types_are_pending_never_geometry_missing (tests.unit.test_taped_light_report.EvidenceCompletenessTests.test_missing_rows_slots_fields_and_types_are_pending_never_geometry_missing) [missing TLRLight row]",
+      "FAIL: test_pending_takes_precedence_over_qualified (tests.unit.test_taped_light_report.EvidenceCompletenessTests.test_pending_takes_precedence_over_qualified)",
+      "FAIL: test_a_missing_sibling_light_alone_does_not_invalidate_an_independently_valid_pair (tests.unit.test_taped_light_report.InvalidationPropagationTests.test_a_missing_sibling_light_alone_does_not_invalidate_an_independently_valid_pair)",
+      "Ran 286 tests in 15.694s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "id": "M07",
+    "description": "borrow the first observed host row for every missing concrete variant",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "summary": [
+      "Ran 286 tests in 10.567s",
+      "OK"
+    ]
+  },
+  {
+    "id": "M08",
+    "description": "compare config-class identity with case-sensitive spelling",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "summary": [
+      "Ran 286 tests in 9.872s",
+      "OK"
+    ]
+  },
+  {
+    "id": "M09",
+    "description": "return every coherent alias as a separate evidence row",
+    "result": "KILLED",
+    "returncode": 1,
+    "summary": [
+      "FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [identical]",
+      "FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [leading slash]",
+      "FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [three spellings]",
+      "Ran 286 tests in 10.424s",
+      "FAILED (failures=3)"
+    ]
+  }
+]

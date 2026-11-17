@@ -1,0 +1,21 @@
+..................................................................................................................................................................................................................................................................F...........................
+======================================================================
+FAIL: test_the_control_is_deleted_before_the_next_object_is_spawned (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_control_is_deleted_before_the_next_object_is_spawned)
+Review P10: a final release would also delete the control, so only its position in the event order proves it
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2217, in test_the_control_is_deleted_before_the_next_object_is_spawned
+    self.assertEqual([("delete", "AK74", 6, control_entity)], between)
+AssertionError: Lists differ: [('delete', 'AK74', 6, 3)] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+('delete', 'AK74', 6, 3)
+
+- [('delete', 'AK74', 6, 3)]
++ []
+
+----------------------------------------------------------------------
+Ran 286 tests in 8.402s
+
+FAILED (failures=1)

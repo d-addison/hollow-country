@@ -1,0 +1,17 @@
+..F...........................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending)
+TLRLight fits only the pistol slot; the host owns only the weapon slot, so its pair is a native
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1365, in test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending
+    self.assertEqual("pending", result["hosts"][0]["lights"]["TLRLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+----------------------------------------------------------------------
+Ran 286 tests in 10.057s
+
+FAILED (failures=1)

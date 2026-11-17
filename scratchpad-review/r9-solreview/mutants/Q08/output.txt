@@ -1,0 +1,24 @@
+.................................................................................................................................................................................................................................................................F............................
+======================================================================
+FAIL: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [a distinct live object]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2325, in test_the_bone_object_after_attach_is_compared_with_the_attached_light
+    self.assertEqual(expected, (slot["bone_object_checked"], slot["bone_object_matches"], slot["proxy_after_attach"]))
+AssertionError: Tuples differ: (True, False, 'UnrelatedProp') != (True, True, 'UnrelatedProp')
+
+First differing element 1:
+False
+True
+
+- (True, False, 'UnrelatedProp')
+?        ^^^^
+
++ (True, True, 'UnrelatedProp')
+?        ^^^
+
+
+----------------------------------------------------------------------
+Ran 286 tests in 11.320s
+
+FAILED (failures=1)

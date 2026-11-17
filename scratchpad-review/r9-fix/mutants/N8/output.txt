@@ -1,0 +1,100 @@
+..................................................................................................................................................EEEEE...........................................................................................................................................
+======================================================================
+ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [null]
+Review P2-4: the control is a diagnostic; whatever JSON type it has, the report is written and the pair verdict
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2348, in test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report
+    slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=value))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2025, in build
+    result = report.build_report(self.CLS, obs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 1243, in build_report
+    "spawn_control": _spawn_control(observations),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 771, in _spawn_control
+    if key in raw}
+       ^^^^^^^^^^
+TypeError: argument of type 'NoneType' is not iterable
+
+======================================================================
+ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [number]
+Review P2-4: the control is a diagnostic; whatever JSON type it has, the report is written and the pair verdict
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2348, in test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report
+    slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=value))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2025, in build
+    result = report.build_report(self.CLS, obs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 1243, in build_report
+    "spawn_control": _spawn_control(observations),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 771, in _spawn_control
+    if key in raw}
+       ^^^^^^^^^^
+TypeError: argument of type 'int' is not iterable
+
+======================================================================
+ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [float]
+Review P2-4: the control is a diagnostic; whatever JSON type it has, the report is written and the pair verdict
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2348, in test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report
+    slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=value))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2025, in build
+    result = report.build_report(self.CLS, obs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 1243, in build_report
+    "spawn_control": _spawn_control(observations),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 771, in _spawn_control
+    if key in raw}
+       ^^^^^^^^^^
+TypeError: argument of type 'float' is not iterable
+
+======================================================================
+ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [true]
+Review P2-4: the control is a diagnostic; whatever JSON type it has, the report is written and the pair verdict
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2348, in test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report
+    slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=value))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2025, in build
+    result = report.build_report(self.CLS, obs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 1243, in build_report
+    "spawn_control": _spawn_control(observations),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 771, in _spawn_control
+    if key in raw}
+       ^^^^^^^^^^
+TypeError: argument of type 'bool' is not iterable
+
+======================================================================
+ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [false]
+Review P2-4: the control is a diagnostic; whatever JSON type it has, the report is written and the pair verdict
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2348, in test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report
+    slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=value))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2025, in build
+    result = report.build_report(self.CLS, obs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 1243, in build_report
+    "spawn_control": _spawn_control(observations),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r9-fix/mutants/N8/taped_light_report.py", line 771, in _spawn_control
+    if key in raw}
+       ^^^^^^^^^^
+TypeError: argument of type 'bool' is not iterable
+
+----------------------------------------------------------------------
+Ran 286 tests in 11.613s
+
+FAILED (errors=5)

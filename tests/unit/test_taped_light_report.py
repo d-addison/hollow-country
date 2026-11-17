@@ -1286,6 +1286,173 @@ class ProxyIdentityTests(unittest.TestCase):
                 self.assert_pending_malformed([item], label)
 
 
+class AliasConflictScopeTests(unittest.TestCase):
+    """Fix round 9 (Sol review of round 8, P2-1/P2-2/P2-3 and the R02/R03 survivors).
+
+    A host whose proxy copies of one identity contradict each other stays pending whatever the native attach said, and the
+    contradiction withholds evidence only from the light slots its copies implicate: an unrelated alias conflict (a
+    magazine proxy) leaves an independently valid light pair alone. Coherent aliases collapse into one evidence row."""
+
+    MAG = "/dz/weapons/attachments/magazine/mag_stanag"
+
+    def conflicting_light(self):
+        first = proxy()
+        return first, dict(first, selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001", cfg_exists=False, model="",
+                           inventory_slots=[], slot_count=0)
+
+    def magazine(self, conflict):
+        first = proxy(self.MAG, slots=("magazine",))
+        bare = dict(first, selection="proxy:" + self.MAG[1:] + ".001")
+        return first, dict(bare, model="\\dz\\other.p3d") if conflict else bare
+
+    def build(self, proxies, lights=None, group="slot_host", slots=None, **extra):
+        rows = [row("AK74", group, gun_slots(weapon_model=False) if slots is None else slots,
+                    good_gun_lights() if lights is None else lights, proxies=proxies, **extra)]
+        return report.build_report(classification([host("AK74", group)]), observations(rows))
+
+    def assert_pending_for_conflict(self, result, label, pair="UniversalLight", reason="proxy_evidence_malformed"):
+        record = result["hosts"][0]
+        self.assertEqual("pending", record["verdict"], label)
+        self.assertIn("proxy_alias_conflict", record["reasons"], label)
+        self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+        self.assertEqual([], result["integrity"]["issues"], label)
+        for slot in record["lights"][pair]["slots"].values():
+            self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+
+    def refusal_cases(self):
+        def refused():
+            lights = good_gun_lights()
+            lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+            return lights
+        variant_lights = good_gun_lights()
+        variant_lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+        accepted = good_gun_lights()
+        failed = good_gun_lights()
+        failed[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=True, attach_ok=False)
+        return {
+            "direct refusal": dict(lights=refused()),
+            "attach accepted": dict(lights=accepted),
+            "accepted attach that failed to create": dict(lights=failed),
+            "refusal with a satisfied prerequisite": dict(lights=refused(), prereq=prereq_obs(
+                has="weaponHandguardAK", rail=True, attached="AK_RailHndgrd")),
+            "refusal with an unmet prerequisite and no variant": dict(lights=refused(), prereq=prereq_obs(has="weaponHandguardAK")),
+            "refusal with missing prerequisite evidence": dict(lights=refused(), prereq=[]),
+            "prerequisite variant refused": dict(lights=refused(), prereq=prereq_obs(has="weaponHandguardAK"),
+                                                 prereq_variant=variant_obs("weaponHandguardAK", variant_lights)),
+        }
+
+    def test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order(self):
+        first, second = self.conflicting_light()
+        for label, extra in self.refusal_cases().items():
+            for order in ((first, second), (second, first)):
+                with self.subTest(label, cfg_exists_first=order[0]["cfg_exists"]):
+                    result = self.build(list(order), **extra)
+                    self.assert_pending_for_conflict(result, label)
+                    self.assertNotIn("geometry_missing", {slot["verdict"] for slot in
+                                                          result["hosts"][0]["lights"]["UniversalLight"]["slots"].values()})
+
+    def test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending(self):
+        """TLRLight fits only the pistol slot; the host owns only the weapon slot, so its pair is a native
+        no_compatible_native_slot refusal. The conflict implicates the weapon slot the host owns, so the pair is pending."""
+        first, second = self.conflicting_light()
+        plain = self.build([first])
+        self.assertEqual(("geometry_missing", ["no_compatible_native_slot"]),
+                         (plain["hosts"][0]["lights"]["TLRLight"]["verdict"],
+                          plain["hosts"][0]["lights"]["TLRLight"]["reasons"]))
+        for order in ((first, second), (second, first)):
+            result = self.build(list(order))
+            self.assertEqual("pending", result["hosts"][0]["verdict"])
+            self.assertEqual("pending", result["hosts"][0]["lights"]["TLRLight"]["verdict"])
+            self.assertIn("proxy_evidence_malformed", result["hosts"][0]["lights"]["TLRLight"]["reasons"])
+
+    def test_a_host_without_a_native_light_slot_stays_pending_for_the_conflict(self):
+        first, second = self.conflicting_light()
+        for order in ((first, second), (second, first)):
+            result = self.build(list(order), group="no_slot_host", slots=no_slots(), lights=refusal_lights())
+            self.assertEqual("pending", result["hosts"][0]["verdict"])
+            self.assertIn("proxy_alias_conflict", result["hosts"][0]["reasons"])
+
+    def test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it(self):
+        first, second = self.conflicting_light()
+        slots = gun_slots(weapon_model=True)
+        result = self.build([first, second], slots=slots)       # the weapon slot is implicated: malformed outranks selection
+        self.assert_pending_for_conflict(result, "implicated slot with a selection")
+
+    def test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid(self):
+        light = proxy()
+        for conflict in (False, True):
+            first, second = self.magazine(conflict)
+            for order in ((light, first, second), (first, second, light), (second, first, light)):
+                with self.subTest(conflict=conflict, order=[item["selection"] for item in order]):
+                    result = self.build(list(order))
+                    record = result["hosts"][0]
+                    pair = record["lights"]["UniversalLight"]
+                    self.assertEqual("server_qualified", pair["verdict"])
+                    self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"),
+                                     (pair["slots"]["weaponFlashlight"]["verdict"], pair["slots"]["weaponFlashlight"]["reason"]))
+                    self.assertEqual([], result["integrity"]["issues"])
+                    self.assertEqual("pending" if conflict else "server_qualified", record["verdict"])
+                    self.assertEqual(conflict, "proxy_alias_conflict" in record["reasons"])
+
+    def test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists(self):
+        """One copy of the identity lists only a magazine slot, the other the weapon light slot: the favourable copy is
+        never chosen, so the weapon light slot is withheld even though an independent proxy also lists it."""
+        listed = proxy(self.MAG, slots=("weaponFlashlight",))
+        quiet = dict(proxy(self.MAG, slots=("magazine",)), selection="proxy:" + self.MAG[1:] + ".001")
+        for order in ((proxy(), listed, quiet), (proxy(), quiet, listed), (quiet, listed, proxy())):
+            result = self.build(list(order))
+            self.assert_pending_for_conflict(result, "slot disagreement")
+
+    def test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot(self):
+        filler = tuple("unrelated%d" % number for number in range(8))
+        cut = proxy(self.MAG, slots=filler, slot_count=12)
+        other = dict(proxy(self.MAG, slots=("magazine",)), selection="proxy:" + self.MAG[1:] + ".001")
+        for order in ((proxy(), cut, other), (other, cut, proxy())):
+            result = self.build(list(order))
+            self.assert_pending_for_conflict(result, "truncated conflicting copy")
+
+    def test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both(self):
+        first = proxy(self.MAG, slots=("magazine",))
+        second = proxy(self.MAG, number="002", slots=("weaponFlashlight",))
+        for order in ((first, second), (second, first)):
+            result = self.build([proxy(), *order])
+            self.assert_pending_for_conflict(result, "one class read two ways")
+
+    def test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row(self):
+        """Review R02: aliases that agree are one piece of evidence; two parsed rows would double count it."""
+        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
+        shouted = dict(proxy(), selection="PROXY:\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.001")
+        for label, proxies, rows in (("identical", [proxy(), proxy()], 1), ("leading slash", [proxy(), bare], 1),
+                                     ("three spellings", [proxy(), bare, shouted], 1),
+                                     ("two instances", [proxy(number="001"), proxy(number="002")], 2),
+                                     ("two paths", [proxy(), proxy(self.MAG, slots=("magazine",))], 2)):
+            with self.subTest(label):
+                built = row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=proxies)
+                parsed = report._proxies(built)
+                self.assertEqual("ok", parsed[0])
+                self.assertEqual(rows, len(parsed[1]), label)
+
+    def test_proxy_slot_membership_is_exact_and_case_sensitive(self):
+        """Review P2-3: owner rule C. ``weaponflashlight`` is not the exact slot ``weaponFlashlight``; only proxy paths and
+        config class spellings are normalised."""
+        for spelling in ("weaponflashlight", "WEAPONFLASHLIGHT", "WeaponFlashlight", " weaponFlashlight", "weaponFlashlight "):
+            with self.subTest(spelling):
+                result = self.build([proxy(slots=(spelling,))])
+                slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+                self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+                self.assertEqual(0, pair_counts(result).get("server_qualified", 0))
+        slot = self.build([proxy(slots=("weaponFlashlight",))])["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual("server_qualified", slot["verdict"])
+
+    def test_another_light_slot_is_recognised_only_by_its_exact_name(self):
+        """A proxy listing ``PistolFlashlight`` (case changed) names no native light slot, so it is not a real negative for
+        the weapon slot; the exact ``pistolFlashlight`` is."""
+        slot = self.build([proxy(slots=("PistolFlashlight",))])["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+        slot = self.build([proxy(slots=("pistolFlashlight",))])["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+
+
 class SlotListTruncationTests(unittest.TestCase):
     """Fix round 4: the hook lists at most eight inventory slots per proxy row; a slot beyond the cap is unknown."""
 
@@ -2165,6 +2332,25 @@ class TierSTests(unittest.TestCase):
         self.assertEqual({"status": "absent"}, result["spawn_control"])
         _slot, _record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control={"class": 4}))
         self.assertEqual({"status": "malformed"}, result["spawn_control"])
+
+    def test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report(self):
+        """Review P2-4: the control is a diagnostic; whatever JSON type it has, the report is written and the pair verdict
+        is the one the unchanged proxy evidence gives."""
+        base, _record, _result = self.build([unavailable_proxy()])
+        good = {"class": "AK74", "spawned": True, "spawn_flags": "no_inventory_flag"}
+        for label, value in (("null", None), ("number", 42), ("float", 1.5), ("true", True), ("false", False),
+                             ("string", "AK74"), ("empty string", ""), ("list", [good]), ("empty list", []),
+                             ("class not a string", dict(good, **{"class": 4})), ("spawned not a bool", dict(good, spawned="yes")),
+                             ("flags missing", {"class": "AK74", "spawned": True}),
+                             ("proxy count negative", dict(good, proxy_count=-1)),
+                             ("selection flag not a bool", dict(good, selection_list_ok=1))):
+            with self.subTest(label):
+                slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=value))
+                self.assertEqual({"status": "malformed"}, result["spawn_control"])
+                self.assertEqual((base["verdict"], base["reason"]), (slot["verdict"], slot["reason"]))
+                self.assertEqual("server_qualified", record["verdict"])
+        _slot, _record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control=good))
+        self.assertEqual("ok", result["spawn_control"]["status"])
         facts = unavailable_facts()
         facts.update(lod_counts=[{"name": "0", "count": -1, "instance_ok": False}, {"name": "geometry", "count": 12,
                                                                                     "instance_ok": True}],

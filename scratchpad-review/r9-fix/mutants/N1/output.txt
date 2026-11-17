@@ -1,0 +1,185 @@
+...FFFFFFFFFFFF..........................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+ : direct refusal
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+ : direct refusal
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in assert_pending_for_conflict
+    self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'attach_create_failed')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'attach_create_failed'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'attach_create_failed') : accepted attach that failed to create
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in assert_pending_for_conflict
+    self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'attach_create_failed')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'attach_create_failed'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'attach_create_failed') : accepted attach that failed to create
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+ : refusal with a satisfied prerequisite
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+ : refusal with a satisfied prerequisite
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in assert_pending_for_conflict
+    self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'refusal_may_depend_on_prerequisite')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'refusal_may_depend_on_prerequisite'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'refusal_may_depend_on_prerequisite') : refusal with an unmet prerequisite and no variant
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in assert_pending_for_conflict
+    self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'refusal_may_depend_on_prerequisite')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'refusal_may_depend_on_prerequisite'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'refusal_may_depend_on_prerequisite') : refusal with an unmet prerequisite and no variant
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in assert_pending_for_conflict
+    self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'prerequisite_evidence_missing')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'prerequisite_evidence_missing'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'prerequisite_evidence_missing') : refusal with missing prerequisite evidence
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in assert_pending_for_conflict
+    self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'prerequisite_evidence_missing')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'prerequisite_evidence_missing'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'prerequisite_evidence_missing') : refusal with missing prerequisite evidence
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+ : prerequisite variant refused
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1317, in assert_pending_for_conflict
+    self.assertEqual("pending", record["lights"][pair]["verdict"], label)
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+ : prerequisite variant refused
+
+----------------------------------------------------------------------
+Ran 286 tests in 8.403s
+
+FAILED (failures=12)

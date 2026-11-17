@@ -1,0 +1,36 @@
+[
+  {
+    "case": "conflict alone",
+    "parsed": "ok",
+    "host": "pending",
+    "reasons": [
+      "proxy_alias_conflict"
+    ],
+    "pair": "pending",
+    "integrity": [],
+    "acceptance": "PENDING"
+  },
+  {
+    "case": "same conflict plus legacy sibling",
+    "parsed": "mismatch",
+    "host": "server_qualified",
+    "reasons": [
+      "native_attach_with_model_selection"
+    ],
+    "pair": "server_qualified",
+    "integrity": [],
+    "acceptance": "PENDING"
+  },
+  {
+    "case": "same conflict plus unreadable sibling and native refusal",
+    "parsed": "malformed",
+    "host": "geometry_missing",
+    "reasons": [
+      "native_attach_refused",
+      "no_compatible_native_slot"
+    ],
+    "pair": "geometry_missing",
+    "integrity": [],
+    "acceptance": "PENDING"
+  }
+]

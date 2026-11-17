@@ -1,0 +1,277 @@
+[
+  {
+    "id": "R02",
+    "description": "coherent aliases retained as duplicate evidence rows",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [identical]",
+      "FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [leading slash]",
+      "FAIL: test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_coherent_aliases_collapse_into_exactly_one_parsed_evidence_row) [three spellings]",
+      "Ran 286 tests in 9.140s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "id": "R03",
+    "description": "proxy inventory slot comparison made case-insensitive again",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_another_light_slot_is_recognised_only_by_its_exact_name (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_another_light_slot_is_recognised_only_by_its_exact_name)",
+      "FAIL: test_proxy_slot_membership_is_exact_and_case_sensitive (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_proxy_slot_membership_is_exact_and_case_sensitive) [weaponflashlight]",
+      "FAIL: test_proxy_slot_membership_is_exact_and_case_sensitive (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_proxy_slot_membership_is_exact_and_case_sensitive) [WEAPONFLASHLIGHT]",
+      "FAIL: test_proxy_slot_membership_is_exact_and_case_sensitive (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_proxy_slot_membership_is_exact_and_case_sensitive) [WeaponFlashlight]",
+      "FAIL: test_a_proxy_that_names_a_different_slot_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_a_proxy_that_names_a_different_slot_does_not_qualify)",
+      "FAIL: test_the_prerequisite_variant_uses_its_own_reason (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_the_prerequisite_variant_uses_its_own_reason)",
+      "FAIL: test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence)",
+      "FAIL: test_rows_from_the_view_lod_producers_carry_no_resolution_evidence_and_say_so_as_a_diagnostic (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_rows_from_the_view_lod_producers_carry_no_resolution_evidence_and_say_so_as_a_diagnostic)",
+      "FAIL: test_a_complete_slot_list_without_the_slot_is_pending_for_the_client_unless_it_names_another_light_slot (tests.unit.test_taped_light_report.SlotListTruncationTests.test_a_complete_slot_list_without_the_slot_is_pending_for_the_client_unless_it_names_another_light_slot)",
+      "FAIL: test_the_proxy_path_must_still_be_the_whole_light_model (tests.unit.test_taped_light_report.TierSTests.test_the_proxy_path_must_still_be_the_whole_light_model)",
+      "Ran 286 tests in 9.072s",
+      "FAILED (failures=10)"
+    ]
+  },
+  {
+    "id": "P08",
+    "description": "bone object identity comparison reduced to presence",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [a distinct live object]",
+      "Ran 286 tests in 7.800s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P09",
+    "description": "variant-host proxy bone refresh removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_the_variant_host_reads_its_own_bones_after_its_handguard (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_variant_host_reads_its_own_bones_after_its_handguard)",
+      "Ran 286 tests in 7.834s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P10",
+    "description": "firearm control immediate release removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_the_control_is_deleted_before_the_next_object_is_spawned (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_control_is_deleted_before_the_next_object_is_spawned)",
+      "Ran 286 tests in 8.402s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "N1",
+    "description": "conflict no longer outranks the attach outcome",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=False)",
+      "Ran 286 tests in 8.403s",
+      "FAILED (failures=12)"
+    ]
+  },
+  {
+    "id": "N2",
+    "description": "conflict implicates every slot (unrelated pair voided)",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 286 tests in 8.513s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "id": "N3",
+    "description": "conflict implicates no slot",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)",
+      "FAIL: test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=False)",
+      "FAIL: test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it)",
+      "FAIL: test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists)",
+      "FAIL: test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both)",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [model] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [model] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slot count] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slot count] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution selection] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution vertex] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='model')",
+      "FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='inventory_slots')",
+      "FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='res_lods')",
+      "FAIL: test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order)",
+      "FAIL: test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed (tests.unit.test_taped_light_report.ProxyIdentityTests.test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed)",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "Ran 286 tests in 8.693s",
+      "FAILED (failures=44)"
+    ]
+  },
+  {
+    "id": "N4",
+    "description": "truncated copy no longer implicates every slot",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)",
+      "Ran 286 tests in 10.358s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "N5",
+    "description": "host loses its alias-conflict reason",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)",
+      "FAIL: test_a_host_without_a_native_light_slot_stays_pending_for_the_conflict (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_host_without_a_native_light_slot_stays_pending_for_the_conflict)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=True)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=False)",
+      "FAIL: test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it)",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists)",
+      "FAIL: test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both)",
+      "Ran 286 tests in 10.008s",
+      "FAILED (failures=22)"
+    ]
+  },
+  {
+    "id": "N6",
+    "description": "alias conflict reason invalidates every pair",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 286 tests in 10.248s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "id": "N7",
+    "description": "no-compatible-slot exit ignores the conflict",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending)",
+      "Ran 286 tests in 10.057s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "N8",
+    "description": "non-dict spawn_control not refused first",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [null]",
+      "ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [number]",
+      "ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [float]",
+      "ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [true]",
+      "ERROR: test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report (tests.unit.test_taped_light_report.TierSTests.test_a_mistyped_spawn_control_is_malformed_and_never_aborts_the_report) [false]",
+      "Ran 286 tests in 11.613s",
+      "FAILED (errors=5)"
+    ]
+  },
+  {
+    "id": "N9",
+    "description": "slot disagreement favours the first copy only",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)",
+      "FAIL: test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_a_light_that_fits_no_host_slot_pending)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=False)",
+      "FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=False)",
+      "FAIL: test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists)",
+      "FAIL: test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both)",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order)",
+      "Ran 286 tests in 10.617s",
+      "FAILED (failures=14)"
+    ]
+  }
+]

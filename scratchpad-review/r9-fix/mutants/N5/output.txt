@@ -1,0 +1,230 @@
+FF.FFFFFFFFFFFFFFFFFF..F.F...................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1412, in test_a_copy_with_a_truncated_slot_list_implicates_every_light_slot
+    self.assert_pending_for_conflict(result, "truncated conflicting copy")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : truncated conflicting copy
+
+======================================================================
+FAIL: test_a_host_without_a_native_light_slot_stays_pending_for_the_conflict (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_host_without_a_native_light_slot_stays_pending_for_the_conflict)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1372, in test_a_host_without_a_native_light_slot_stays_pending_for_the_conflict
+    self.assertEqual("pending", result["hosts"][0]["verdict"])
+AssertionError: 'pending' != 'not_server_evidencable'
+- pending
++ not_server_evidencable
+
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : direct refusal
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [direct refusal] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : direct refusal
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : attach accepted
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [attach accepted] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : attach accepted
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : accepted attach that failed to create
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [accepted attach that failed to create] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : accepted attach that failed to create
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : refusal with a satisfied prerequisite
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with a satisfied prerequisite] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : refusal with a satisfied prerequisite
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : refusal with an unmet prerequisite and no variant
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with an unmet prerequisite and no variant] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : refusal with an unmet prerequisite and no variant
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : refusal with missing prerequisite evidence
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [refusal with missing prerequisite evidence] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : refusal with missing prerequisite evidence
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=True)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : prerequisite variant refused
+
+======================================================================
+FAIL: test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order) [prerequisite variant refused] (cfg_exists_first=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1350, in test_a_light_alias_conflict_keeps_the_pair_pending_whatever_the_attach_outcome_in_either_order
+    self.assert_pending_for_conflict(result, label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : prerequisite variant refused
+
+======================================================================
+FAIL: test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1379, in test_an_implicated_slot_is_withheld_even_when_the_model_names_a_selection_for_it
+    self.assert_pending_for_conflict(result, "implicated slot with a selection")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : implicated slot with a selection
+
+======================================================================
+FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1394, in test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid
+    self.assertEqual("pending" if conflict else "server_qualified", record["verdict"])
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+
+
+======================================================================
+FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1394, in test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid
+    self.assertEqual("pending" if conflict else "server_qualified", record["verdict"])
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+
+
+======================================================================
+FAIL: test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid) (conflict=True, order=['proxy:dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/magazine/mag_stanag.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1394, in test_an_unrelated_alias_conflict_keeps_the_host_pending_and_an_independent_light_pair_valid
+    self.assertEqual("pending" if conflict else "server_qualified", record["verdict"])
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+
+
+======================================================================
+FAIL: test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists)
+One copy of the identity lists only a magazine slot, the other the weapon light slot: the favourable copy is
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1404, in test_copies_that_disagree_about_the_slot_implicate_every_slot_either_copy_lists
+    self.assert_pending_for_conflict(result, "slot disagreement")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : slot disagreement
+
+======================================================================
+FAIL: test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both (tests.unit.test_taped_light_report.AliasConflictScopeTests.test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1419, in test_two_identities_reading_one_config_class_two_ways_implicate_the_slots_of_both
+    self.assert_pending_for_conflict(result, "one class read two ways")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1316, in assert_pending_for_conflict
+    self.assertIn("proxy_alias_conflict", record["reasons"], label)
+AssertionError: 'proxy_alias_conflict' not found in ['proxy_evidence_malformed'] : one class read two ways
+
+----------------------------------------------------------------------
+Ran 286 tests in 10.008s
+
+FAILED (failures=22)
