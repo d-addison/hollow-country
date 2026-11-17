@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -276,7 +276,7 @@
+         int minute = 0;
+         GetGame().GetWorld().GetDate(year, month, day, hour, minute);
+         string row = "{" + HCWPKey("type") + HCWPQuoted("sample") + "," + HCWPKey("seq") + seq.ToString() + ",";
+-        row = row + HCWPKey("game_ms") + nowMs.ToString() + "," + HCWPKey("weather_time") + HCWPFloat(weather.GetTime()) + ",";
++        row = row + HCWPKey("game_ms") + nowMs.ToString() + "," + HCWPKey("weather_time") + HCWPFloat(nowMs) + ",";
+         row = row + HCWPKey("mission_weather") + HCWPBool(weather.GetMissionWeather()) + "," + HCWPKey("update_frozen") + HCWPBool(weather.GetWeatherUpdateFrozen()) + ",";
+         row = row + HCWPKey("year") + year.ToString() + "," + HCWPKey("month") + month.ToString() + ",";
+         row = row + HCWPKey("day") + day.ToString() + "," + HCWPKey("hour") + hour.ToString() + ",";

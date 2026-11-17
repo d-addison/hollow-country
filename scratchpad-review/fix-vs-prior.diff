@@ -1,0 +1,1436 @@
+diff --git a/tests/unit/test_weather_probe.py b/tests/unit/test_weather_probe.py
+index bf2ad26..288ede2 100644
+--- a/tests/unit/test_weather_probe.py
++++ b/tests/unit/test_weather_probe.py
+@@ -9,17 +9,22 @@ Actual TDD 2026-11-17:
+ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_weather_probe tests.unit.test_weather_report -v
+ RED: ImportError cannot import name 'weather_probe' from 'tools.setup' and 'weather_report' from 'tools.audit'.
+ """
++import ast
+ import copy
+ import hashlib
++import heapq
++import inspect
+ import json
+ from pathlib import Path
+ import re
+ import tempfile
+ import unittest
+ from unittest import mock
++import xml.etree.ElementTree as ET
+ 
+ from tests.unit import test_atmosphere as atmosphere_fixtures
+ from tools.package import atmosphere
++from tools.setup import diagnostic_mission as dm
+ from tools.setup import probe_runtime as rt
+ from tools.setup import weather_probe as probe
+ 
+@@ -36,6 +41,10 @@ WINDOWS_ROOT = r"D:\HollowCountryLocal\weather-test"
+ MISSION = "mpmissions/dayzOffline.chernarusplus"
+ STOCK_XML = atmosphere_fixtures.fixture()
+ LAUNCHER_ROW = {"weather-probe": ("weather-probe-plan.json", "HCWeatherProbe", "observations.json")}
++# The rows the coordinator adds to the shared modules at integration; this module must not register them.
++PURPOSE_ROW = {"weather-probe": ("disposable-weather-probe", None,
++                                 ["server mode", "fresh storage and profiles", "no clients",
++                                  "inspect observation completeness separately from startup"])}
+ 
+ 
+ def sha(data):
+@@ -153,9 +162,10 @@ class Workspace(unittest.TestCase):
+         self.root = Path(temp.name)
+         self.source = write_source_runtime(self.root / "vanilla")
+         self.dest = self.root / "weather-test"
+-        patcher = mock.patch.dict(rt.LAUNCHER_PROBES, LAUNCHER_ROW)
+-        patcher.start()
+-        self.addCleanup(patcher.stop)
++        for registry, row in ((rt.LAUNCHER_PROBES, LAUNCHER_ROW), (dm._PURPOSES, PURPOSE_ROW)):
++            patcher = mock.patch.dict(registry, row)
++            patcher.start()
++            self.addCleanup(patcher.stop)
+ 
+     def stage(self, **extra):
+         base = {"battleye_sha256": SYNTH_BE_SHA, "_wsl_parent": self.root}
+@@ -312,6 +322,382 @@ class NativeCitationTests(unittest.TestCase):
+             self.assertIn(leaf, lines[int(line) - 1], f"{api} not at {name}:{line}")
+ 
+ 
++# --- a tiny Enforce-subset interpreter: runs the generated hook against a SYNTHETIC engine --------
++# It translates the hook's line-oriented Enforce into Python and drives it with fake adapters. It
++# proves the hook's control flow (guards, ordering, timing) only. It says nothing about how DayZ
++# behaves: every engine value below is invented and distinct per getter so swapped getters show up.
++
++_DECLARATION = re.compile(r"^(?:int|string|bool|float|FileHandle|Weather) (\w+)(?: = (.*))?$")
++_OUT_CALL = re.compile(r"^(.*)\.(GetWorldName|GetVersion|GetDate|GetLimits|GetForecastChangeLimits|"
++                       r"GetForecastTimeLimits)\((.*)\)$")
++_VALUE_METHODS = {"ToString": "_tostring", "AsciiToString": "_ascii", "Length": "_length",
++                  "Substring": "_substring", "IndexOf": "_indexof"}
++_STRING_LITERAL = re.compile(r'("[^"]*")')
++
++
++def _outside_strings(text, function):
++    return "".join(part if index % 2 else function(part) for index, part in enumerate(_STRING_LITERAL.split(text)))
++
++
++def _fix_expression(text):
++    def fix(part):
++        part = part.replace("&&", " and ").replace("||", " or ")
++        part = re.sub(r"!(?!=)", "not ", part)
++        part = re.sub(r"\btrue\b", "True", part)
++        part = re.sub(r"\bfalse\b", "False", part)
++        part = re.sub(r"(?<![\w.])(m_HCWP\w+|HCWP\w+)", r"self.\1", part)
++        return part
++    return _outside_strings(text, fix)
++
++
++def transpile(source):
++    """Python source for the hook's one class; only the Enforce forms the generated hook uses."""
++    fields, body = [], []
++    for raw in source.splitlines():
++        stripped = raw.strip()
++        if not stripped or stripped.startswith("//") or stripped in ("{", "}"):
++            continue
++        pad = " " * (len(raw) - len(raw.lstrip()))
++        if raw.startswith("class "):
++            body.append("class HCMission(CustomMission):")
++            continue
++        field = re.match(r"^\s+protected \w+ (m_\w+) = (.+);$", raw)
++        if field:
++            fields.append(_fix_expression("        " + field.group(1) + " = " + field.group(2)))
++            continue
++        method = re.match(r"^\s+(?:override )?(?:void|string|bool|float|int) (\w+)\((.*)\)$", raw)
++        if method:
++            arguments = [re.sub(r"^\w+\s+", "", part.strip()) for part in method.group(2).split(",") if part.strip()]
++            body.append(f"{pad}def {method.group(1)}({', '.join(['self'] + arguments)}):")
++            continue
++        text = stripped[:-1] if stripped.endswith(";") else stripped
++        condition = re.match(r"^if \((.*)\)$", text)
++        declaration = _DECLARATION.match(text)
++        out_call = _OUT_CALL.match(text) if " = " not in text else None
++        replace = re.match(r"^(\w+)\.Replace\((.*)\)$", text)
++        if condition:
++            line = "if " + condition.group(1) + ":"
++        elif declaration:
++            line = declaration.group(1) + " = " + (declaration.group(2) if declaration.group(2) is not None else '""')
++        elif out_call:
++            targets = [part.strip() for part in out_call.group(3).split(",")]
++            line = ", ".join(targets) + " = " + out_call.group(1) + "." + out_call.group(2) + "()"
++        elif replace:
++            line = f"{replace.group(1)} = {replace.group(1)}.replace({replace.group(2)})"
++        elif text == "return":
++            line = "return"
++        elif text == "super.OnInit()":
++            line = "super().OnInit()"
++        else:
++            line = text
++        body.append(pad + _fix_expression(line))
++    init = ["    def __init__(self):"] + (fields or ["        pass"])
++    return "\n".join([body[0]] + init + body[1:]) + "\n"
++
++
++class _ValueCalls(ast.NodeTransformer):
++    def visit_Call(self, node):
++        self.generic_visit(node)
++        function = node.func
++        if isinstance(function, ast.Attribute) and function.attr in _VALUE_METHODS:
++            return ast.Call(func=ast.Name(id=_VALUE_METHODS[function.attr], ctx=ast.Load()),
++                            args=[function.value] + node.args, keywords=[])
++        return node
++
++
++def _format_float(value):
++    return format(value, ".6g")
++
++
++class FakeWeatherPhenomenon:
++    def __init__(self, index):
++        self.values = {"actual": 0.31 + index / 100, "forecast": 0.62 + index / 100, "next_change": 700 + index,
++                       "limits": (0.11 + index / 100, 0.91 + index / 100),
++                       "change": (0.02 + index / 100, 0.72 + index / 100),
++                       "time": (61 + index, 901 + index)}
++
++    def GetActual(self):
++        return self.values["actual"]
++
++    def GetForecast(self):
++        return self.values["forecast"]
++
++    def GetNextChange(self):
++        return self.values["next_change"]
++
++    def GetLimits(self):
++        return self.values["limits"]
++
++    def GetForecastChangeLimits(self):
++        return self.values["change"]
++
++    def GetForecastTimeLimits(self):
++        return self.values["time"]
++
++
++OBSERVATIONS_PATH = "$profile:HCWeatherProbe/observations.json"
++SENTINEL_PATH = "$profile:HCWeatherProbe/complete.txt"
++
++
++class FakeEngine:
++    """A synthetic engine: virtual clock, call queue, in-memory profile files and fake weather."""
++
++    def __init__(self, hook, files=None, now_ms=100000, server=True):
++        self.now, self.files, self.directories = now_ms, dict(files or {}), set()
++        self.queue, self.counter, self.server = [], 0, server
++        self.prints, self.delays, self.observations_at_sentinel_open = [], [], None
++        self.handles, self.next_handle = {}, 1
++        self.phenomena = [FakeWeatherPhenomenon(index) for index in range(6)]
++        namespace = self.namespace()
++        tree = _ValueCalls().visit(ast.parse(transpile(hook.decode("ascii"))))
++        exec(compile(ast.fix_missing_locations(tree), "<hook>", "exec"), namespace)
++        self.mission = namespace["HCMission"]()
++
++    def namespace(self):
++        engine = self
++
++        class CustomMission:
++            def OnInit(self):
++                pass
++
++        class Weather:
++            def GetTime(_self):
++                return engine.now / 1000.0
++
++            def GetMissionWeather(_self):
++                return True
++
++            def GetWeatherUpdateFrozen(_self):
++                return False
++
++            def GetWindSpeed(_self):
++                return 3.5
++
++            def GetWindMaximumSpeed(_self):
++                return 21.5
++
++            def IsDynVolFogEnabled(_self):
++                return True
++
++            def GetDynVolFogDistanceDensity(_self):
++                return 0.125
++
++            def GetDynVolFogHeightDensity(_self):
++                return 0.25
++
++            def GetDynVolFogHeightBias(_self):
++                return 42.5
++
++        for index, name in enumerate(("Overcast", "Fog", "Rain", "WindMagnitude", "WindDirection", "Snowfall")):
++            setattr(Weather, "Get" + name, (lambda position: lambda _self: engine.phenomena[position])(index))
++
++        class World:
++            def GetDate(_self):
++                return 2026, 11, 17, 9, 30
++
++        class Queue:
++            def CallLater(_self, function, delay, repeat):
++                assert repeat is False
++                engine.counter += 1
++                engine.delays.append((function.__name__, delay))
++                heapq.heappush(engine.queue, (engine.now + delay, engine.counter, function))
++
++        class Game:
++            def IsServer(_self):
++                return engine.server
++
++            def GetTime(_self):
++                return engine.now
++
++            def GetWeather(_self):
++                return Weather()
++
++            def GetWorld(_self):
++                return World()
++
++            def GetWorldName(_self):
++                return "ChernarusPlus"
++
++            def GetVersion(_self):
++                return "1.30.164289"
++
++            def GetCallQueue(_self, _category):
++                return Queue()
++
++        class FileMode:
++            WRITE, APPEND = "write", "append"
++
++        def open_file(path, mode):
++            if mode == "write":
++                if path == SENTINEL_PATH:
++                    engine.observations_at_sentinel_open = engine.files.get(OBSERVATIONS_PATH)
++                engine.files[path] = ""
++            else:
++                engine.files.setdefault(path, "")
++            handle, engine.next_handle = engine.next_handle, engine.next_handle + 1
++            engine.handles[handle] = path
++            return handle
++
++        def make_directory(path):
++            engine.directories.add(path)
++            return True
++
++        def fprintln(handle, line):
++            engine.files[engine.handles[handle]] += line + "\n"
++
++        return {
++            "CustomMission": CustomMission, "GetGame": lambda: Game(), "CALL_CATEGORY_SYSTEM": 0,
++            "FileMode": FileMode, "OpenFile": open_file, "CloseFile": lambda handle: None, "FPrintln": fprintln,
++            "FileExist": lambda path: path in engine.files or path in engine.directories,
++            "MakeDirectory": make_directory, "Print": engine.prints.append,
++            "_tostring": lambda value: str(value) if isinstance(value, int) else _format_float(value),
++            "_ascii": chr, "_length": len, "_substring": lambda text, start, length: text[start:start + length],
++            "_indexof": lambda text, needle: text.find(needle),
++        }
++
++    def start(self):
++        self.mission.OnInit()
++        return self
++
++    def run_until(self, until_ms):
++        while self.queue and self.queue[0][0] <= until_ms:
++            due, _order, function = heapq.heappop(self.queue)
++            self.now = max(self.now, due)
++            function()
++        self.now = max(self.now, until_ms)
++
++    def stall(self, milliseconds):
++        self.now += milliseconds
++
++    def drop(self, name):
++        self.queue = [entry for entry in self.queue if entry[2].__name__ != name]
++        heapq.heapify(self.queue)
++
++    def rows(self):
++        return [json.loads(line) for line in self.files.get(OBSERVATIONS_PATH, "").splitlines()]
++
++    @property
++    def sentinel(self):
++        return self.files.get(SENTINEL_PATH)
++
++
++class HookBehaviourTests(unittest.TestCase):
++    """The generated hook run against the synthetic engine above (control flow only)."""
++
++    START_S, INTERVAL_S, SAMPLES = 5, 5, 6
++
++    def engine(self, **extra):
++        hook = probe.render_hook(self.START_S, self.INTERVAL_S, self.SAMPLES)
++        return FakeEngine(hook, **extra).start()
++
++    def full_run(self):
++        engine = self.engine()
++        engine.run_until(engine.now + 600000)
++        return engine
++
++    def test_a_clean_run_writes_header_ordered_samples_a_complete_end_record_then_the_sentinel(self):
++        engine = self.full_run()
++        rows = engine.rows()
++        self.assertEqual(["header"] + ["sample"] * 6 + ["end"], [row["type"] for row in rows])
++        self.assertEqual("weather-probe-observations", rows[0]["kind"])
++        self.assertEqual((6, 5000), (rows[0]["planned_samples"], rows[0]["interval_ms"]))
++        self.assertEqual(list(range(6)), [row["seq"] for row in rows[1:7]])
++        self.assertEqual({"type": "end", "status": "complete", "samples": 6, "write_errors": 0},
++                         {k: rows[-1][k] for k in ("type", "status", "samples", "write_errors")})
++        self.assertEqual("status=complete samples=6 write_errors=0\n", engine.sentinel)
++
++    def test_samples_are_spaced_by_exactly_the_configured_interval(self):
++        engine = self.full_run()
++        times = [row["game_ms"] for row in engine.rows()[1:7]]
++        self.assertEqual([self.INTERVAL_S * 1000] * 5, [b - a for a, b in zip(times, times[1:])])
++        self.assertEqual(5, sum(1 for name, delay in engine.delays if name == "HCWPStep" and delay == 5000))
++
++    def test_every_sampled_value_comes_from_its_own_native_getter(self):
++        engine = self.full_run()
++        sample = engine.rows()[1]
++        fake = {name: engine.phenomena[index] for index, name in enumerate(probe.PHENOMENA)}
++        for name, source in fake.items():
++            row = sample["phenomena"][name]
++            values = source.values
++            expected = {"actual": values["actual"], "forecast": values["forecast"], "next_change": values["next_change"],
++                        "limit_min": values["limits"][0], "limit_max": values["limits"][1],
++                        "change_min": values["change"][0], "change_max": values["change"][1],
++                        "time_min": values["time"][0], "time_max": values["time"][1]}
++            self.assertEqual({key: _format_float(value) for key, value in expected.items()}, row, name)
++        self.assertEqual("3.5", sample["wind_speed"])
++        self.assertEqual("21.5", sample["wind_max_speed"])
++        self.assertEqual((True, False), (sample["mission_weather"], sample["update_frozen"]))
++        self.assertEqual((2026, 11, 17, 9, 30), tuple(sample[k] for k in ("year", "month", "day", "hour", "minute")))
++
++    def test_the_hook_output_round_trips_through_the_report(self):
++        from tools.audit import weather_report
++        engine = self.full_run()
++        text = engine.files[OBSERVATIONS_PATH]
++        result = weather_report.evaluate(text, STOCK_XML, sentinel=engine.sentinel)
++        self.assertEqual([], result["issues"])
++        self.assertEqual("complete", result["status"])
++        self.assertEqual(6, result["samples"])
++
++    def test_the_sentinel_is_written_only_after_the_end_record_is_in_the_observations(self):
++        engine = self.full_run()
++        before = engine.observations_at_sentinel_open
++        self.assertIsNotNone(before)
++        self.assertEqual("end", json.loads(before.splitlines()[-1])["type"])
++
++    def test_existing_probe_output_is_never_overwritten_and_nothing_is_scheduled(self):
++        for existing in ({OBSERVATIONS_PATH: "earlier run\n"}, {SENTINEL_PATH: "earlier sentinel\n"},
++                         {OBSERVATIONS_PATH: "earlier run\n", SENTINEL_PATH: "earlier sentinel\n"}):
++            with self.subTest(existing=sorted(existing)):
++                engine = self.engine(files=existing)
++                engine.run_until(engine.now + 600000)
++                self.assertEqual(existing, engine.files)
++                self.assertTrue(any("not overwriting" in line for line in engine.prints), engine.prints)
++                self.assertFalse([name for name, _delay in engine.delays if name == "HCWPStep"])
++
++    def test_a_stalled_clock_past_the_duration_cap_ends_the_run_partial_instead_of_sampling_on(self):
++        engine = self.engine()
++        cap = probe.cap_ms(self.INTERVAL_S, self.SAMPLES)
++        engine.run_until(engine.now + 5000 + 12000)  # begin plus a few samples
++        taken = len(engine.rows()) - 1
++        self.assertTrue(1 <= taken < self.SAMPLES)
++        engine.stall(cap + 1000)  # still before the watchdog, which fires 60 s after the cap
++        engine.run_until(engine.now + 1000)
++        rows = engine.rows()
++        self.assertEqual("end", rows[-1]["type"])
++        self.assertEqual(("partial", taken), (rows[-1]["status"], rows[-1]["samples"]))
++        self.assertEqual("status=partial samples=%d write_errors=0\n" % taken, engine.sentinel)
++        self.assertEqual(taken, len([row for row in rows if row["type"] == "sample"]))
++
++    def test_the_watchdog_finishes_a_run_whose_sampling_chain_stopped(self):
++        engine = self.engine()
++        engine.run_until(engine.now + 5000 + 7000)
++        taken = len(engine.rows()) - 1
++        self.assertTrue(1 <= taken < self.SAMPLES)
++        engine.drop("HCWPStep")  # the chain dies without finishing
++        engine.run_until(engine.now + 600000)
++        rows = engine.rows()
++        self.assertEqual(("end", "partial", taken), (rows[-1]["type"], rows[-1]["status"], rows[-1]["samples"]))
++        self.assertEqual("status=partial samples=%d write_errors=0\n" % taken, engine.sentinel)
++
++    def test_the_watchdog_does_not_touch_a_run_that_already_finished(self):
++        engine = self.full_run()
++        before = dict(engine.files)
++        engine.run_until(engine.now + 600000)
++        self.assertEqual(before, engine.files)
++
++    def test_a_watchdog_before_the_file_opened_leaves_no_output(self):
++        engine = self.engine(files={})
++        engine.drop("HCWPBegin")
++        engine.run_until(engine.now + 600000)
++        self.assertEqual({}, engine.files)
++        self.assertTrue(any("watchdog fired before" in line for line in engine.prints))
++
++    def test_only_a_server_runs_the_sampler(self):
++        engine = FakeEngine(probe.render_hook(5, 5, 6), server=False).start()
++        self.assertEqual([], engine.queue)
++        self.assertEqual({}, engine.files)
++
++
+ class StagerTests(Workspace):
+     def test_stock_run_stages_the_untouched_stock_cfgweather_and_records_its_hash(self):
+         plan = self.stage()
+@@ -328,7 +714,7 @@ class StagerTests(Workspace):
+ 
+     def test_candidate_run_replaces_only_cfgweather_with_the_validated_candidate_bytes(self):
+         candidate = write_candidate(self.root / "candidate")
+-        plan = self.stage(candidate=candidate, candidate_source=self.root / "stock-source.xml")
++        plan = self.stage(candidate=candidate)
+         staged = (self.dest / MISSION / "cfgweather.xml").read_bytes()
+         self.assertEqual((candidate / "cfgweather.xml").read_bytes(), staged)
+         self.assertNotEqual(STOCK_XML, staged)
+@@ -376,17 +762,44 @@ class StagerTests(Workspace):
+             self.stage(candidate=sakhal)
+         self.assertFalse(self.dest.exists())
+ 
+-    def test_candidate_reconstruction_against_a_wrong_pinned_source_is_refused(self):
++    def tamper(self, candidate, mutate):
++        """Change the candidate's cfgweather.xml and recompute every hash so metadata still agrees."""
++        path = candidate / "cfgweather.xml"
++        tree = ET.fromstring(path.read_bytes())
++        mutate(tree)
++        data = ET.tostring(tree, encoding="utf-8", xml_declaration=True)
++        path.write_bytes(data)
++        report_path = candidate / "atmosphere-report.json"
++        report = json.loads(report_path.read_text())
++        report["candidate_sha256"] = sha(data)
++        report_path.write_bytes(atmosphere.encode(report))
++        manifest_path = candidate / "atmosphere-manifest.json"
++        manifest = json.loads(manifest_path.read_text())
++        manifest["files"]["cfgweather.xml"] = sha(data)
++        manifest["files"]["atmosphere-report.json"] = sha(report_path.read_bytes())
++        manifest_path.write_bytes(atmosphere.encode(manifest))
++
++    def test_an_unreported_candidate_change_is_refused_even_when_the_metadata_hashes_were_recomputed(self):
+         candidate = write_candidate(self.root / "candidate")
+-        wrong = self.root / "wrong.xml"
+-        wrong.write_bytes(STOCK_XML + b"<!-- x -->")
+-        with self.assertRaises(ValueError):
+-            self.stage(candidate=candidate, candidate_source=wrong)
++        self.tamper(candidate, lambda tree: tree.find("fog/limits").set("max", "0.5"))
++        # Precondition: without the stock the tampered candidate is internally consistent.
++        atmosphere.validate_candidate(candidate)
++        with self.assertRaisesRegex(ValueError, "reconstruction"):
++            self.stage(candidate=candidate)
+         self.assertFalse(self.dest.exists())
+ 
+-    def test_without_a_pinned_source_the_candidate_is_integrity_checked_but_not_source_verified(self):
+-        plan = self.stage(candidate=write_candidate(self.root / "candidate"))
+-        self.assertFalse(plan["probe"]["cfgweather"]["candidate"]["source_verified"])
++    def test_the_reconstruction_source_is_the_held_stock_not_a_caller_supplied_file(self):
++        seen = []
++        real = atmosphere.validate_candidate
++
++        def spy(candidate, source=None):
++            seen.append(None if source is None else Path(source).read_bytes())
++            return real(candidate, source=source)
++        with mock.patch.object(atmosphere, "validate_candidate", spy):
++            plan = self.stage(candidate=write_candidate(self.root / "candidate"))
++        self.assertEqual(STOCK_XML, seen[-1])
++        self.assertIs(True, plan["probe"]["cfgweather"]["candidate"]["source_verified"])
++        self.assertNotIn("candidate_source", inspect.signature(probe.stage).parameters)
+ 
+     def test_the_stock_mission_must_contain_cfgweather_xml(self):
+         mission = self.source / "stock-backup" / MISSION
+@@ -459,6 +872,28 @@ class StagerTests(Workspace):
+                 self.stage()
+         self.assertFalse(self.dest.exists())
+ 
++    def test_a_missing_purpose_row_is_refused_and_the_shared_registry_is_never_mutated(self):
++        dm._PURPOSES.pop(probe.PURPOSE)
++        before = dict(dm._PURPOSES)
++        with self.assertRaisesRegex(ValueError, "_PURPOSES"):
++            self.stage()
++        self.assertEqual(before, dm._PURPOSES)
++        self.assertNotIn(probe.PURPOSE, dm._PURPOSES)
++        self.assertFalse(self.dest.exists())
++
++    def test_a_conflicting_purpose_row_cannot_substitute_another_hook_or_metadata(self):
++        for wrong in (dm._PURPOSES["selftests"], ("disposable-something-else", None, ["wrong prerequisites"]),
++                      ("disposable-weather-probe", None, ["wrong prerequisites"])):
++            dm._PURPOSES[probe.PURPOSE] = wrong
++            with self.subTest(wrong=wrong[0]), self.assertRaisesRegex(ValueError, "_PURPOSES"):
++                self.stage()
++            self.assertEqual(wrong, dm._PURPOSES[probe.PURPOSE])
++            self.assertFalse(self.dest.exists())
++
++    def test_the_module_no_longer_carries_a_setdefault_registry_fallback(self):
++        self.assertFalse(hasattr(probe, "_ensure_purpose"))
++        self.assertNotIn("setdefault", PROBE_SOURCE.read_text(encoding="utf-8"))
++
+     def test_existing_destination_and_the_verified_runtime_name_are_never_reused(self):
+         self.dest.mkdir()
+         with self.assertRaises(ValueError):
+diff --git a/tests/unit/test_weather_report.py b/tests/unit/test_weather_report.py
+index 2564911..d70c107 100644
+--- a/tests/unit/test_weather_report.py
++++ b/tests/unit/test_weather_report.py
+@@ -13,6 +13,8 @@ import io
+ import json
+ from pathlib import Path
+ import re
++import subprocess
++import sys
+ import tempfile
+ import unittest
+ from unittest import mock
+@@ -29,9 +31,11 @@ def sha(data):
+     return hashlib.sha256(data).hexdigest()
+ 
+ 
+-def cfgweather(**limits):
++def cfgweather(enable=None, **limits):
+     """Synthetic cfgweather.xml; limits maps phenomenon -> (min, max) overriding the fixture's limits."""
+     root = ET.fromstring(atmosphere_fixtures.fixture())
++    if enable is not None:
++        root.set("enable", enable)
+     for name, (low, high) in limits.items():
+         node = root.find(name + "/limits")
+         node.set("min", str(low))
+@@ -39,9 +43,11 @@ def cfgweather(**limits):
+     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+ 
+ 
+-STOCK = cfgweather()
++STOCK = cfgweather(enable="0")
+ # Distinct from the script's own picks (0.2-0.7 start overcast) on purpose.
+-DISTINCT = cfgweather(overcast=(0.8, 0.95))
++DISTINCT = cfgweather(enable="1", overcast=(0.8, 0.95))
++DISABLED = cfgweather(enable="0", overcast=(0.8, 0.95))
++NARROW = cfgweather(enable="0", overcast=(0.2, 0.6))
+ 
+ 
+ def number(value, text=False):
+@@ -76,12 +82,18 @@ def sample(seq, actuals=None, mission_weather=False, frozen=False, text=False, l
+     actuals = actuals or {}
+     values = {"overcast": 0.9, "fog": 0.1, "rain": 0.0, "windMagnitude": 4.0, "windDirection": 0.5, "snowfall": 0.0}
+     values.update(actuals)
+-    return {"type": "sample", "seq": seq, "game_ms": 30000 * seq, "weather_time": number(30 * seq, text),
++    row = {"type": "sample", "seq": seq, "game_ms": 30000 * seq, "weather_time": number(30 * seq, text),
+             "mission_weather": mission_weather, "update_frozen": frozen, "year": 2026, "month": 11, "day": 17,
+             "hour": 9, "minute": seq, "wind_speed": number(4, text), "wind_max_speed": number(20, text),
+             "volfog_enabled": True, "volfog_distance_density": number(0.1, text),
+             "volfog_height_density": number(0.2, text), "volfog_height_bias": number(50, text),
+             "phenomena": {name: phenomenon(name, values[name], text, (limits or {}).get(name)) for name in PHENOMENA}}
++    # Synthetic progression: a forecast boundary every 100 s and a forecast that moves after the first one.
++    for name, entry in row["phenomena"].items():
++        entry["next_change"] = number(100 * (30 * seq // 100 + 1), text)
++        if seq >= 4:
++            entry["forecast"] = number(round(values[name] + 0.01, 6), text)
++    return row
+ 
+ 
+ def end(samples=6, status="complete"):
+@@ -92,6 +104,31 @@ def lines(rows):
+     return "\n".join(row if isinstance(row, str) else json.dumps(row) for row in rows) + "\n"
+ 
+ 
++SOURCE = {"launch_plan_sha256": "1" * 64, "config_sha256": "2" * 64, "battleye_sha256": "3" * 64}
++
++
++def plan_for(xml, variant, stock=STOCK, source=None, **probe_changes):
++    """A full-provenance synthetic plan; probe_changes override the probe section's keys."""
++    plan = {"kind": "weather-probe", "source": dict(SOURCE, **(source or {})),
++            "probe": {"samples": 6, "interval_s": 30, "start_delay_s": 30, "observations_kind": "weather-probe-observations",
++                      "hook_sha256": "4" * 64,
++                      "cfgweather": {"variant": variant, "staged_sha256": sha(xml), "stock_sha256": sha(stock)}}}
++    plan["probe"].update(probe_changes)
++    return plan
++
++
++def evaluated(xml, variant, overcast=0.9, stock=STOCK, count=6, limits=None, mutate=None, header_changes=None,
++              source=None, plan=True, **probe_changes):
++    """report.evaluate of a synthetic run; mutate(rows) may alter the rows before they are serialised."""
++    rows = [header(count, **(header_changes or {}))] + [sample(i, {"overcast": overcast}, limits=limits)
++                                                         for i in range(count)] + [end(count)]
++    if mutate:
++        mutate(rows)
++    probe_changes.setdefault("samples", count)
++    chosen = plan_for(xml, variant, stock, source, **probe_changes) if plan else None
++    return report.evaluate(lines(rows), xml, plan=chosen)
++
++
+ def run(count=6, xml=DISTINCT, overrides=None, **kwargs):
+     """Observations of `count` clean samples inside the DISTINCT candidate's overcast limits."""
+     rows = [header(count)] + [sample(i, overrides) for i in range(count)] + [end(count)]
+@@ -332,7 +369,7 @@ class CfgweatherTests(unittest.TestCase):
+         self.assertEqual((-3.14, 3.14), parsed["phenomena"]["windDirection"]["limits"])
+         self.assertEqual((0.0, 0.0), parsed["phenomena"]["snowfall"]["limits"])
+         self.assertEqual((60.0, 900.0), parsed["phenomena"]["fog"]["time_limits"])
+-        self.assertEqual((False, False), (parsed["enable"], parsed["reset"]))
++        self.assertEqual((True, False), (parsed["enable"], parsed["reset"]))
+         self.assertEqual(sorted(PHENOMENA), sorted(parsed["phenomena"]))
+ 
+     def test_malformed_hostile_or_incomplete_xml_is_refused(self):
+@@ -346,54 +383,45 @@ class CfgweatherTests(unittest.TestCase):
+ 
+ 
+ class CompareTests(unittest.TestCase):
+-    def evaluate(self, xml, overcast):
+-        rows = [header(6)] + [sample(i, {"overcast": overcast}) for i in range(6)] + [end(6)]
+-        return report.evaluate(lines(rows), xml)
+-
+-    def test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_it_governs(self):
+-        stock = self.evaluate(STOCK, 0.3)
+-        candidate = self.evaluate(DISTINCT, 0.9)
+-        # Make the stock limits narrower than the candidate's observed values.
+-        narrow = report.evaluate(lines([header(6)] + [sample(i, {"overcast": 0.3}, limits={"overcast": (0.2, 0.6)})
+-                                                      for i in range(6)] + [end(6)]), cfgweather(overcast=(0.2, 0.6)))
+-        result = report.compare(narrow, candidate)
+-        self.assertEqual("candidate_governs", result["phenomena"]["overcast"]["evidence"])
++    def test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_observed_limit_compliance(self):
++        stock = evaluated(STOCK, "stock", 0.3)
++        candidate = evaluated(DISTINCT, "candidate", 0.9)
++        narrow = evaluated(NARROW, "stock", 0.3, stock=NARROW, limits={"overcast": (0.2, 0.6)})
++        narrow_candidate = evaluated(DISTINCT, "candidate", 0.9, stock=NARROW)
++        result = report.compare(narrow, narrow_candidate)
++        self.assertEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
+         self.assertEqual("not_discriminating", result["phenomena"]["fog"]["evidence"])
+-        self.assertEqual("complete", result["status"])
+-        self.assertNotEqual("accepted", result["runtime_acceptance"])
++        self.assertEqual("complete", result["status"], result["issues"])
+         self.assertEqual("pending", result["runtime_acceptance"])
+-        self.assertEqual("candidate_governs", report.compare(stock, candidate)["phenomena"]["overcast"]["evidence"])
++        self.assertFalse(result["feature_complete"])
++        plain = report.compare(stock, candidate)
++        self.assertEqual("observed_limit_compliance", plain["phenomena"]["overcast"]["evidence"])
++        self.assertNotIn("candidate_governs", json.dumps(plain))
++        self.assertTrue(any("not proof" in note for note in plain["notes"]), plain["notes"])
+ 
+-    def test_candidate_values_outside_the_candidate_limits_show_a_script_or_engine_override(self):
+-        stock = self.evaluate(STOCK, 0.3)
+-        candidate = self.evaluate(DISTINCT, 0.3)
+-        result = report.compare(stock, candidate)
+-        self.assertEqual("script_or_engine_overrides", result["phenomena"]["overcast"]["evidence"])
++    def test_candidate_values_outside_the_candidate_limits_show_limits_exceeded_in_the_candidate_run(self):
++        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.3))
++        self.assertEqual("candidate_limits_exceeded", result["phenomena"]["overcast"]["evidence"])
++        self.assertEqual("complete", result["status"], result["issues"])
+ 
+     def test_a_candidate_inside_the_stock_range_cannot_discriminate(self):
+-        stock = self.evaluate(STOCK, 0.9)
+-        candidate = self.evaluate(DISTINCT, 0.9)
+-        result = report.compare(stock, candidate)
++        result = report.compare(evaluated(STOCK, "stock", 0.9), evaluated(DISTINCT, "candidate", 0.9))
+         self.assertEqual("not_discriminating", result["phenomena"]["overcast"]["evidence"])
+ 
+     def test_a_stock_run_that_only_partly_leaves_the_candidate_range_is_weak_evidence(self):
+-        rows = [header(6)] + [sample(i, {"overcast": 0.3 if i < 2 else 0.9}) for i in range(6)] + [end(6)]
+-        stock = report.evaluate(lines(rows), STOCK)
+-        result = report.compare(stock, self.evaluate(DISTINCT, 0.9))
++        def partly(rows):
++            for i, row in enumerate(rows[1:7]):
++                row["phenomena"]["overcast"]["actual"] = 0.3 if i < 2 else 0.9
++        result = report.compare(evaluated(STOCK, "stock", mutate=partly), evaluated(DISTINCT, "candidate", 0.9))
+         self.assertEqual("weakly_discriminating", result["phenomena"]["overcast"]["evidence"])
+ 
+     def test_a_comparison_of_two_runs_with_the_same_cfgweather_is_pending(self):
+-        plan = {"kind": "weather-probe", "probe": {"samples": 6, "interval_s": 30,
+-                                                    "observations_kind": "weather-probe-observations",
+-                                                    "cfgweather": {"staged_sha256": sha(DISTINCT), "variant": "candidate"}}}
+-        one = report.evaluate(run(), DISTINCT, plan=plan)
+-        two = report.evaluate(run(), DISTINCT, plan=plan)
+-        result = report.compare(one, two)
++        result = report.compare(evaluated(DISTINCT, "candidate"), evaluated(DISTINCT, "candidate"))
+         self.assertEqual("pending", result["status"])
+         self.assertTrue(any("same cfgweather.xml" in issue for issue in result["issues"]))
+ 
+     def test_a_pending_run_makes_the_comparison_pending(self):
+-        stock = self.evaluate(STOCK, 0.3)
++        stock = evaluated(STOCK, "stock", 0.3)
+         bad = report.evaluate("", DISTINCT)
+         for pair in ((stock, bad), (bad, stock)):
+             result = report.compare(*pair)
+@@ -401,22 +429,240 @@ class CompareTests(unittest.TestCase):
+             self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
+ 
+     def test_the_mission_weather_flags_of_both_runs_are_carried_through(self):
+-        rows = [header(6)] + [sample(i, {"overcast": 0.9}, mission_weather=True) for i in range(6)] + [end(6)]
+-        candidate = report.evaluate(lines(rows), DISTINCT)
+-        result = report.compare(self.evaluate(STOCK, 0.3), candidate)
++        def flag(rows):
++            for row in rows[1:7]:
++                row["mission_weather"] = True
++        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", mutate=flag))
+         self.assertEqual([False], result["mission_weather"]["stock"]["values"])
+         self.assertEqual([True], result["mission_weather"]["candidate"]["values"])
+ 
++    def test_a_comparison_below_the_minimum_sample_count_is_pending(self):
++        result = report.compare(evaluated(STOCK, "stock", 0.3, count=4), evaluated(DISTINCT, "candidate", count=4))
++        self.assertEqual("pending", result["status"])
++        self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
++        self.assertTrue(result["issues"])
++
++    def test_one_pending_phenomenon_makes_the_whole_comparison_pending(self):
++        def stuck(rows):
++            for row in rows[1:7]:
++                row["phenomena"]["snowfall"]["next_change"] = 1000
++        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", mutate=stuck))
++        self.assertEqual("pending", result["phenomena"]["snowfall"]["evidence"])
++        self.assertEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
++        self.assertEqual("pending", result["status"])
++        self.assertTrue(any("snowfall" in issue for issue in result["issues"]), result["issues"])
++
++
++class ProgressionTests(unittest.TestCase):
++    """Compliance with the candidate's limits only counts when something was observed changing."""
++
++    def compare(self, stock_overcast=0.3, candidate_overcast=0.9, stock_mutate=None, candidate_mutate=None, xml=DISTINCT):
++        stock = evaluated(STOCK, "stock", stock_overcast, mutate=stock_mutate)
++        candidate = evaluated(xml, "candidate", candidate_overcast, mutate=candidate_mutate)
++        return report.compare(stock, candidate)
++
++    def assert_not_established(self, result):
++        self.assertNotEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
++        self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
++        self.assertEqual("pending", result["status"])
++
++    def test_frozen_runs_do_not_establish_anything(self):
++        def freeze(rows):
++            for row in rows[1:7]:
++                row["update_frozen"] = True
++        self.assert_not_established(self.compare(stock_mutate=freeze, candidate_mutate=freeze))
++        self.assert_not_established(self.compare(candidate_mutate=freeze))
++        self.assert_not_established(self.compare(stock_mutate=freeze))
++
++    def test_runs_whose_weather_clock_did_not_advance_do_not_establish_anything(self):
++        def stopped(rows):
++            for row in rows[1:7]:
++                row["weather_time"] = 10
++        self.assert_not_established(self.compare(candidate_mutate=stopped))
++        self.assert_not_established(self.compare(stock_mutate=stopped))
++
++    def test_a_candidate_with_the_xml_disabled_does_not_establish_anything(self):
++        self.assert_not_established(self.compare(xml=DISABLED))
++
++    def test_no_forecast_boundary_observed_means_nothing_is_established(self):
++        def no_boundary(rows):
++            for row in rows[1:7]:
++                for entry in row["phenomena"].values():
++                    entry["next_change"] = 1000
++        self.assert_not_established(self.compare(candidate_mutate=no_boundary))
++        self.assert_not_established(self.compare(stock_mutate=no_boundary))
++
++    def test_conflicting_live_limits_without_a_forecast_boundary_do_not_establish_anything(self):
++        def conflicting(rows):
++            for row in rows[1:7]:
++                entry = row["phenomena"]["overcast"]
++                entry.update(limit_min=0.0, limit_max=1.0, forecast=0.3, next_change=1000)
++        result = self.compare(candidate_overcast=0.9, candidate_mutate=conflicting)
++        self.assert_not_established(result)
++
++    def test_a_candidate_that_never_changed_anything_does_not_establish_compliance(self):
++        def static(rows):
++            for row in rows[1:7]:
++                for entry in row["phenomena"].values():
++                    entry["forecast"] = entry["actual"]
++        result = self.compare(candidate_mutate=static)
++        self.assert_not_established(result)
++        self.assertTrue(any("overcast" in issue for issue in result["issues"]), result["issues"])
++
++    def test_per_run_progression_is_reported(self):
++        single = evaluated(DISTINCT, "candidate")
++        self.assertEqual({"time_advanced": True, "unfrozen": True, "xml_enabled": True},
++                         {k: single["progression"][k] for k in ("time_advanced", "unfrozen", "xml_enabled")})
++        self.assertEqual({"boundary_crossed": True, "change_observed": True},
++                         {k: single["phenomena"]["overcast"][k] for k in ("boundary_crossed", "change_observed")})
++
++    def test_the_evidence_vocabulary_never_claims_precedence(self):
++        result = self.compare()
++        self.assertNotIn("governs", json.dumps(result))
++        self.assertNotIn("candidate_governs", report.__doc__)
++
++
++class ProvenanceTests(unittest.TestCase):
++    """Runs may be compared only when they were built from the same engine, source, hook and sampling."""
++
++    def pair(self, **candidate_args):
++        return report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", **candidate_args))
++
++    def assert_refused(self, result, fragment):
++        self.assertEqual("pending", result["status"])
++        self.assertTrue(any(fragment in issue for issue in result["issues"]), result["issues"])
++        for name in PHENOMENA:
++            self.assertEqual("pending", result["phenomena"][name]["evidence"], name)
++
++    def test_matching_provenance_compares(self):
++        self.assertEqual("complete", self.pair()["status"])
++
++    def test_different_engine_versions_are_refused(self):
++        self.assert_refused(self.pair(header_changes={"version": "1.29.000000"}), "version")
++
++    def test_a_differently_spelled_world_is_refused(self):
++        self.assert_refused(self.pair(header_changes={"world": "chernarusplus"}), "world")
++
++    def test_different_sampling_parameters_are_refused(self):
++        def slower(rows):
++            rows[0]["interval_ms"] = 60000
++        self.assert_refused(self.pair(mutate=slower, interval_s=60), "interval")
++        self.assert_refused(self.pair(count=8), "samples")
++        self.assert_refused(self.pair(start_delay_s=60), "start_delay_s")
++
++    def test_different_hooks_and_source_plans_are_refused(self):
++        self.assert_refused(self.pair(hook_sha256="9" * 64), "hook")
++        for key in SOURCE:
++            with self.subTest(key=key):
++                self.assert_refused(self.pair(source={key: "8" * 64}), key)
++
++    def test_a_candidate_built_from_another_stock_cfgweather_is_refused(self):
++        stock = evaluated(STOCK, "stock", 0.3)
++        candidate = evaluated(DISTINCT, "candidate", stock=NARROW)
++        self.assert_refused(report.compare(stock, candidate), "stock cfgweather")
++
++    def test_runs_without_a_plan_or_with_swapped_variants_are_refused(self):
++        stock = evaluated(STOCK, "stock", 0.3)
++        self.assert_refused(report.compare(stock, evaluated(DISTINCT, "candidate", plan=False)), "plan")
++        self.assert_refused(report.compare(evaluated(DISTINCT, "candidate"), stock), "variant")
++
++    def test_a_different_observations_kind_is_refused(self):
++        self.assert_refused(self.pair(observations_kind="taped-light-probe-observations"), "observations_kind")
++
++
++class RobustnessTests(unittest.TestCase):
++    def rows(self):
++        return [header(6)] + [sample(i) for i in range(6)] + [end(6)]
++
++    def assert_pending(self, rows_or_text, fragment=None, xml=DISTINCT):
++        text = rows_or_text if isinstance(rows_or_text, str) else lines(rows_or_text)
++        result = report.evaluate(text, xml)
++        self.assertEqual("pending", result["status"])
++        if fragment:
++            self.assertTrue(any(fragment in issue for issue in result["issues"]), result["issues"])
++        return result
++
++    def test_duplicate_json_object_keys_are_malformed(self):
++        text = run().replace('"actual": 0.9', '"actual": 0.1, "actual": 0.9', 1)
++        self.assertNotEqual(run(), text)
++        self.assert_pending(text, "malformed")
++        top = run().replace('"type": "end"', '"type": "end", "type": "end"', 1)
++        self.assert_pending(top, "malformed")
++
++    def test_a_duplicate_key_in_the_plan_file_is_refused(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = RuntimeAndCliTests().make_runtime(Path(temp))
++            path = root / "weather-probe-plan.json"
++            path.write_text(path.read_text().replace('"kind"', '"kind": "ce-probe", "kind"', 1))
++            with self.assertRaises(ValueError):
++                report.load_run(root)
++
++    def test_numeric_overflow_is_malformed_not_a_crash(self):
++        for huge in (10 ** 400, 1e999, "1" + "0" * 400):
++            rows = self.rows()
++            rows[1]["phenomena"]["overcast"]["actual"] = huge
++            with self.subTest(huge=str(huge)[:12]):
++                self.assert_pending(lines(rows) if not isinstance(huge, float) else
++                                    lines(rows).replace("Infinity", "1e999"), "malformed")
++
++    def test_the_cli_never_prints_a_traceback_for_overflow_and_keeps_its_exit_codes(self):
++        rows = self.rows()
++        rows[1]["phenomena"]["overcast"]["actual"] = 10 ** 400
++        with tempfile.TemporaryDirectory() as temp:
++            root = RuntimeAndCliTests().make_runtime(Path(temp), observations=lines(rows))
++            done = subprocess.run([sys.executable, "-B", str(ROOT / "tools/audit/weather_report.py"), "single",
++                                   "--runtime", str(root)], capture_output=True, text=True)
++            self.assertEqual(3, done.returncode, done.stderr[-300:])
++            self.assertNotIn("Traceback", done.stderr)
++            self.assertEqual("pending", json.loads(done.stdout)["status"])
++
++    def test_an_unexpected_failure_becomes_exit_code_two_without_a_traceback(self):
++        for error in (OverflowError("x"), RecursionError("y"), ZeroDivisionError("z")):
++            err = io.StringIO()
++            with self.subTest(error=type(error).__name__), mock.patch.object(report, "load_run", side_effect=error), \
++                    mock.patch("sys.stderr", err), mock.patch("sys.stdout", io.StringIO()):
++                self.assertEqual(2, report.main(["single", "--runtime", "anywhere"]))
++            self.assertIn("weather_report:", err.getvalue())
++
++    def test_deeply_nested_json_is_malformed_not_a_recursion_crash(self):
++        self.assert_pending("[" * 100000 + "\n", "malformed")
++        rows = self.rows()
++        text = lines(rows[:2]) + "{\"type\": \"sample\", \"x\": " + "[" * 100000 + "\n" + lines(rows[3:])
++        self.assert_pending(text, "malformed")
++
++    def test_repeated_or_reversed_timestamps_are_not_an_ordered_sampling_run(self):
++        rows = self.rows()
++        for row in rows[1:7]:
++            row["game_ms"] = 1
++        self.assert_pending(rows, "game_ms")
++        rows = self.rows()
++        rows[4]["game_ms"] = rows[3]["game_ms"]
++        self.assert_pending(rows, "game_ms")
++        rows = self.rows()
++        rows[3]["weather_time"], rows[4]["weather_time"] = rows[4]["weather_time"], rows[3]["weather_time"]
++        self.assert_pending(rows, "weather_time")
++
++    def test_samples_far_closer_than_the_interval_are_refused(self):
++        rows = self.rows()
++        for i, row in enumerate(rows[1:7]):
++            row["game_ms"] = 1000 * i
++        self.assert_pending(rows, "interval")
++
++    def test_a_null_or_non_object_phenomena_value_is_pending(self):
++        for bad in (None, [], "x", 3):
++            rows = self.rows()
++            rows[1]["phenomena"] = bad
++            with self.subTest(bad=bad):
++                self.assert_pending(rows, "malformed")
++
+ 
+ class RuntimeAndCliTests(unittest.TestCase):
+-    def make_runtime(self, root, xml=DISTINCT, observations=None, sentinel="status=complete samples=6\n", variant="candidate"):
++    def make_runtime(self, root, xml=DISTINCT, observations=None, sentinel="status=complete samples=6\n", variant="candidate",
++                     stock=STOCK):
+         mission = root / "mpmissions/dayzOffline.chernarusplus"
+         mission.mkdir(parents=True)
+         (mission / "cfgweather.xml").write_bytes(xml)
+-        plan = {"kind": "weather-probe", "probe": {"samples": 6, "interval_s": 30,
+-                                                    "observations_kind": "weather-probe-observations",
+-                                                    "cfgweather": {"staged_sha256": sha(xml), "variant": variant}}}
+-        (root / "weather-probe-plan.json").write_text(json.dumps(plan))
++        (root / "weather-probe-plan.json").write_text(json.dumps(plan_for(xml, variant, stock)))
+         directory = root / "profiles/HCWeatherProbe"
+         directory.mkdir(parents=True)
+         (directory / "observations.json").write_text(run() if observations is None else observations)
+diff --git a/tools/audit/weather_report.py b/tools/audit/weather_report.py
+index 5ab290b..eef4def 100644
+--- a/tools/audit/weather_report.py
++++ b/tools/audit/weather_report.py
+@@ -12,25 +12,34 @@ Per phenomenon the status is one of:
+   violates_candidate     at least one actual value is outside them; the violating sample numbers are listed
+   insufficient_samples   fewer valid samples than min_samples, or the run itself is pending
+ A run is pending (every phenomenon insufficient_samples) when anything is missing, duplicated, out of order,
+-malformed, non-finite, incomplete (no complete end record or no complete sentinel), reports write errors, or
+-disagrees with its plan or cfgweather.xml. The forecast is reported but never decides a status because it is
+-not a value the weather has taken yet. mission_weather and update_frozen are reported per run; whether the
+-engine sets mission_weather for enable="1" is unobserved and only these samples can say.
++malformed (including duplicate JSON object keys and numbers that overflow), non-finite, incomplete (no complete
++end record or no complete sentinel), reports write errors, has timestamps that do not increase by about the
++sampling interval, or disagrees with its plan or cfgweather.xml. The forecast is reported but never decides a
++status because it is not a value the weather has taken yet. mission_weather and update_frozen are reported per
++run; whether the engine sets mission_weather for enable="1" is unobserved and only these samples can say.
++
++Every run also reports its progression: whether the weather clock advanced, whether update was ever frozen,
++whether cfgweather.xml is enabled and, per phenomenon, whether a forecast boundary (next_change) was crossed and
++whether the actual or forecast value changed. Observed compliance with limits means nothing when nothing moved.
+ 
+ Pair comparison (compare) needs a stock run and a candidate run staged from the same runtime with different
+-cfgweather.xml bytes. Per phenomenon the evidence is:
+-  script_or_engine_overrides  the candidate run left the candidate's limits
+-  candidate_governs           the candidate run stayed inside them and the stock run's actual values were
+-                              entirely outside them (the limits changed the outcome)
++cfgweather.xml bytes. The runs must agree on engine version, world, plan source hashes, hook hash and sampling
++(start delay, interval, sample count); the candidate must have been generated from the stock run's
++cfgweather.xml. Otherwise the comparison is pending. Per phenomenon the evidence is:
++  candidate_limits_exceeded   the candidate run left the candidate's limits
++  observed_limit_compliance   the candidate run stayed inside them while changing, and the stock run's actual
++                              values were entirely outside them (the pair observed the limits being honoured)
+   weakly_discriminating       the stock run was only partly outside the candidate's limits
+   not_discriminating          the stock run was inside them as well, so the pair cannot tell
+-  pending                     either run is pending or has too few samples
+-A single pair of runs is a sample of random weather, not proof; candidate_governs is evidence, not acceptance.
++  pending                     a run is pending, frozen or not ticking, the candidate xml is disabled, no
++                              forecast boundary was crossed, or nothing was observed changing
++The whole comparison is pending when any phenomenon is pending. A single pair of runs is a sample of random
++weather: observed_limit_compliance is evidence for #35, never proof of precedence and never acceptance.
+ 
+ Usage:
+   python3 tools/audit/weather_report.py single --runtime RUNTIME_DIR
+   python3 tools/audit/weather_report.py compare --stock RUNTIME_DIR --candidate RUNTIME_DIR
+-Exit codes: 0 complete, 3 pending, 2 unreadable input. Input is read through
++Exit codes: 0 complete, 3 pending, 2 unreadable input or an unexpected failure (never a traceback). Input is read through
+ RUNTIME/weather-probe-plan.json, the staged cfgweather.xml, profiles/HCWeatherProbe/observations.json and
+ complete.txt; symlinks are refused. Numbers are accepted as JSON numbers or as strictly formatted decimal
+ strings (the hook writes floats as strings because float.ToString formatting is unobserved).
+@@ -85,12 +94,15 @@ def _number(value):
+     """A finite float from a JSON number or a strictly formatted decimal string; ValueError otherwise."""
+     if isinstance(value, bool):
+         raise ValueError("a boolean is not a number")
+-    if isinstance(value, (int, float)):
+-        result = float(value)
+-    elif isinstance(value, str) and _DECIMAL.match(value):
+-        result = float(value)
+-    else:
+-        raise ValueError(f"not a number: {str(value)[:30]!r}")
++    try:
++        if isinstance(value, (int, float)):
++            result = float(value)
++        elif isinstance(value, str) and _DECIMAL.match(value):
++            result = float(value)
++        else:
++            raise ValueError(f"not a number: {str(value)[:30]!r}")
++    except OverflowError:
++        raise ValueError("number is out of range") from None
+     if not math.isfinite(result):
+         raise ValueError("number is not finite")
+     return result
+@@ -122,6 +134,23 @@ def _reject_constant(name):
+     raise ValueError(f"non-finite JSON constant {name}")
+ 
+ 
++def _no_duplicates(pairs):
++    result = {}
++    for key, value in pairs:
++        if key in result:
++            raise ValueError(f"duplicate JSON key {str(key)[:30]!r}")
++        result[key] = value
++    return result
++
++
++def _loads(text):
++    """json.loads that refuses non-finite constants, duplicate object keys and absurd nesting."""
++    try:
++        return json.loads(text, parse_constant=_reject_constant, object_pairs_hook=_no_duplicates)
++    except RecursionError:
++        raise ValueError("JSON nesting is too deep") from None
++
++
+ # ---------------------------------------------------------------------------
+ # cfgweather.xml
+ # ---------------------------------------------------------------------------
+@@ -234,7 +263,7 @@ def _parse_stream(text):
+             issues.append(f"blank line {number} inside the observation stream (malformed)")
+             continue
+         try:
+-            row = json.loads(line, parse_constant=_reject_constant)
++            row = _loads(line)
+         except ValueError as error:
+             issues.append(f"malformed JSON on line {number}: {str(error)[:60]}")
+             continue
+@@ -301,11 +330,30 @@ def _structure_issues(header, samples, end, plan, cfgweather_sha):
+             issues.append(f"end record samples {end['samples']} differs from {len(samples)} samples observed")
+         if end["write_errors"] > 0:
+             issues.append(f"end record reports {end['write_errors']} write errors")
++    issues.extend(_timing_issues(header, samples))
+     if plan is not None:
+         issues.extend(_plan_issues(plan, header, samples, cfgweather_sha))
+     return issues
+ 
+ 
++def _timing_issues(header, samples):
++    issues = []
++    interval = header["interval_ms"] if header is not None else 0
++    if header is not None and interval <= 0:
++        issues.append(f"header interval_ms {interval} is not positive")
++    pairs = list(zip(samples, samples[1:]))
++    steps = [(before, after, after["game_ms"] - before["game_ms"]) for before, after in pairs]
++    flat = [(b, a) for b, a, step in steps if step <= 0]
++    if flat:
++        issues.append(f"game_ms does not increase between seq {flat[0][0]['seq']} and seq {flat[0][1]['seq']} "
++                      "(repeated or reversed timestamps)")
++    elif interval > 0 and any(step < interval // 2 for _b, _a, step in steps):
++        issues.append(f"samples are spaced by less than half the header interval_ms {interval}")
++    if any(after["weather_time"] < before["weather_time"] for before, after in pairs):
++        issues.append("weather_time went backwards between samples")
++    return issues
++
++
+ def _plan_issues(plan, header, samples, cfgweather_sha):
+     probe = plan.get("probe") if isinstance(plan, dict) else None
+     if not isinstance(probe, dict):
+@@ -365,7 +413,8 @@ def _phenomenon_result(name, samples, parsed, min_samples):
+     limits = parsed["limits"]
+     result = {"status": "insufficient_samples", "candidate_limits": {"min": limits[0], "max": limits[1]},
+               "actual_range": None, "actual_violations": 0, "violating_samples": [], "forecast_range": None,
+-              "forecast_outside_limits": 0, "engine_limits": None}
++              "forecast_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
++              "change_observed": False}
+     if not samples:
+         return result
+     rows = [(sample["seq"], sample["phenomena"][name]) for sample in samples]
+@@ -386,11 +435,55 @@ def _phenomenon_result(name, samples, parsed, min_samples):
+             "time_limits": _matching([(row["time_min"], row["time_max"]) for _seq, row in rows],
+                                      parsed["time_limits"])},
+     })
++    result["boundary_crossed"] = _boundary_crossed([(sample["weather_time"], sample["phenomena"][name]["next_change"])
++                                                    for sample in samples])
++    result["change_observed"] = (len({round(value, 6) for value in actual}) > 1
++                                 or len({round(value, 6) for value in forecast}) > 1)
+     if len(samples) >= min_samples:
+         result["status"] = "violates_candidate" if violating else "within_candidate"
+     return result
+ 
+ 
++def _boundary_crossed(points):
++    """True when a later sample's weather time reached a next_change that lay ahead when it was observed."""
++    earliest = None
++    for time, next_change in points:
++        if earliest is not None and time >= earliest:
++            return True
++        if next_change > time and (earliest is None or next_change < earliest):
++            earliest = next_change
++    return False
++
++
++def _progression(samples, enabled):
++    times = [sample["weather_time"] for sample in samples]
++    return {"time_advanced": bool(times) and max(times) > min(times),
++            "unfrozen": bool(samples) and not any(sample["update_frozen"] for sample in samples),
++            "xml_enabled": enabled}
++
++
++def _scalar(value):
++    if isinstance(value, bool) or not isinstance(value, (str, int)):
++        return None
++    return value[:80] if isinstance(value, str) else value
++
++
++def _plan_provenance(plan):
++    probe = plan.get("probe") if isinstance(plan, dict) else None
++    if not isinstance(probe, dict):
++        return None
++    cfg = probe.get("cfgweather") if isinstance(probe.get("cfgweather"), dict) else {}
++    source = plan.get("source") if isinstance(plan.get("source"), dict) else {}
++    return {"variant": _scalar(cfg.get("variant")), "staged_sha256": _scalar(cfg.get("staged_sha256")),
++            "stock_sha256": _scalar(cfg.get("stock_sha256")), "samples": _scalar(probe.get("samples")),
++            "interval_s": _scalar(probe.get("interval_s")), "start_delay_s": _scalar(probe.get("start_delay_s")),
++            "hook_sha256": _scalar(probe.get("hook_sha256")),
++            "observations_kind": _scalar(probe.get("observations_kind")),
++            "launch_plan_sha256": _scalar(source.get("launch_plan_sha256")),
++            "config_sha256": _scalar(source.get("config_sha256")),
++            "battleye_sha256": _scalar(source.get("battleye_sha256"))}
++
++
+ def _flag(samples, key):
+     if not samples:
+         return None
+@@ -434,6 +527,12 @@ def evaluate(observations, cfgweather_bytes, *, plan=None, min_samples=DEFAULT_M
+         "mission_weather": _flag(usable, "mission_weather"), "update_frozen": _flag(usable, "update_frozen"),
+         "volfog_enabled": _flag(usable, "volfog_enabled"),
+         "weather_time_advanced": bool(usable) and len({sample["weather_time"] for sample in usable}) > 1,
++        "progression": _progression(usable, parsed["enable"]),
++        "provenance": {"world": None if header is None else header["world"],
++                       "version": None if header is None else header["version"],
++                       "interval_ms": None if header is None else header["interval_ms"],
++                       "planned_samples": None if header is None else header["planned_samples"],
++                       "plan": _plan_provenance(plan)},
+         "phenomena": {name: _phenomenon_result(name, usable, parsed["phenomena"][name], min_samples) for name in PHENOMENA},
+         "runtime_acceptance": "pending", "feature_complete": False,
+     }
+@@ -446,17 +545,66 @@ def evaluate(observations, cfgweather_bytes, *, plan=None, min_samples=DEFAULT_M
+ 
+ 
+ def _evidence(stock, candidate):
++    """(evidence label, reason when pending) for one phenomenon of a pair of usable runs."""
+     if "insufficient_samples" in (stock["status"], candidate["status"]):
+-        return "pending"
++        return "pending", "a run has too few valid samples for this phenomenon"
++    for label, run in (("stock", stock), ("candidate", candidate)):
++        if not run["boundary_crossed"]:
++            return "pending", f"no forecast boundary (next_change) was crossed in the {label} run"
+     if candidate["status"] == "violates_candidate":
+-        return "script_or_engine_overrides"
++        return "candidate_limits_exceeded", None
+     bounds = (candidate["candidate_limits"]["min"], candidate["candidate_limits"]["max"])
+     low, high = stock["actual_range"]["min"], stock["actual_range"]["max"]
+     if high < bounds[0] - _tolerance(bounds[0]) or low > bounds[1] + _tolerance(bounds[1]):
+-        return "candidate_governs"
++        if not candidate["change_observed"]:
++            return "pending", "nothing was observed changing in the candidate run"
++        return "observed_limit_compliance", None
+     if _outside(low, bounds) or _outside(high, bounds):
+-        return "weakly_discriminating"
+-    return "not_discriminating"
++        return "weakly_discriminating", None
++    return "not_discriminating", None
++
++
++def _short(value):
++    return str(value)[:24]
++
++
++def _provenance_issues(stock, candidate):
++    """Reasons the two runs may not be compared: provenance and sampling parameters must match."""
++    issues = []
++    left, right = stock["provenance"], candidate["provenance"]
++    for key in ("world", "version", "interval_ms", "planned_samples"):
++        if left[key] is None or right[key] is None or left[key] != right[key]:
++            issues.append(f"header {key} differs or is unknown: stock {_short(left[key])!r}, candidate {_short(right[key])!r}")
++    one, two = left["plan"], right["plan"]
++    if one is None or two is None:
++        return issues + ["a run has no usable plan; its provenance cannot be verified (plan required)"]
++    for key in ("samples", "interval_s", "start_delay_s", "hook_sha256", "observations_kind", "launch_plan_sha256",
++                "config_sha256", "battleye_sha256"):
++        if one[key] is None or two[key] is None or one[key] != two[key]:
++            issues.append(f"plan {key} differs or is unknown: stock {_short(one[key])!r}, candidate {_short(two[key])!r}")
++    if (one["variant"], two["variant"]) != ("stock", "candidate"):
++        issues.append("the plans do not describe a stock run and a candidate run (variant mismatch)")
++    if one["staged_sha256"] is None or one["staged_sha256"] != one["stock_sha256"]:
++        issues.append("the stock run was not staged with the stock cfgweather.xml")
++    if two["stock_sha256"] is None or two["stock_sha256"] != one["staged_sha256"]:
++        issues.append("the candidate was not generated from the stock run's stock cfgweather.xml "
++                      "(stock cfgweather.xml sha256 differs)")
++    return issues
++
++
++def _progression_issues(stock, candidate):
++    issues = []
++    for label, run in (("stock", stock), ("candidate", candidate)):
++        if run["status"] != "complete":
++            continue
++        progress = run["progression"]
++        if not progress["unfrozen"]:
++            issues.append(f"{label} run: weather update was frozen in at least one sample")
++        if not progress["time_advanced"]:
++            issues.append(f"{label} run: the weather clock did not advance")
++    if candidate["status"] == "complete" and not candidate["progression"]["xml_enabled"]:
++        issues.append("candidate run: cfgweather.xml has enable=0, so its limits are not applied by the engine")
++    return issues
+ 
+ 
+ def compare(stock_result, candidate_result):
+@@ -465,22 +613,30 @@ def compare(stock_result, candidate_result):
+     issues += [f"candidate run: {issue}" for issue in candidate_result["issues"]]
+     if stock_result["cfgweather"]["sha256"] == candidate_result["cfgweather"]["sha256"]:
+         issues.append("both runs used the same cfgweather.xml; stage the candidate run with a different one")
+-    if stock_result["cfgweather"]["variant"] not in (None, "stock") or candidate_result["cfgweather"]["variant"] not in (None, "candidate"):
+-        issues.append("the plans do not describe a stock run and a candidate run (variant mismatch)")
+-    pending = bool(issues)
++    issues += _provenance_issues(stock_result, candidate_result)
++    issues += _progression_issues(stock_result, candidate_result)
++    blocked = bool(issues)
+     phenomena = {}
+     for name in PHENOMENA:
+         stock, candidate = stock_result["phenomena"][name], candidate_result["phenomena"][name]
++        evidence, reason = ("pending", None) if blocked else _evidence(stock, candidate)
++        if reason:
++            issues.append(f"{name}: {reason}")
+         phenomena[name] = {
+-            "evidence": "pending" if pending else _evidence(stock, candidate),
++            "evidence": evidence, "reason": reason,
+             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
+-            "stock_actual_range": stock["actual_range"], "candidate_actual_range": candidate["actual_range"]}
++            "stock_actual_range": stock["actual_range"], "candidate_actual_range": candidate["actual_range"],
++            "boundary_crossed": {"stock": stock["boundary_crossed"], "candidate": candidate["boundary_crossed"]},
++            "change_observed": {"stock": stock["change_observed"], "candidate": candidate["change_observed"]}}
++    pending = bool(issues)
+     return {
+         "kind": "weather-probe-comparison", "status": "pending" if pending else "complete", "issues": issues,
+         "phenomena": phenomena,
++        "progression": {"stock": stock_result["progression"], "candidate": candidate_result["progression"]},
+         "mission_weather": {"stock": stock_result["mission_weather"], "candidate": candidate_result["mission_weather"]},
+         "update_frozen": {"stock": stock_result["update_frozen"], "candidate": candidate_result["update_frozen"]},
+-        "notes": ["Two single runs sample random weather; candidate_governs is evidence, never acceptance.",
++        "notes": ["Two single runs sample random weather; observed_limit_compliance is evidence that the observed "
++                  "values stayed inside the candidate's limits, not proof of precedence and never acceptance.",
+                   "Whether the engine sets mission_weather for enable=1 is read from the flags above only."],
+         "runtime_acceptance": "pending", "feature_complete": False,
+     }
+@@ -521,8 +677,8 @@ def load_run(runtime_dir):
+     if not root.is_dir() or root.is_symlink():
+         raise ValueError(f"{runtime_dir} is not a runtime directory")
+     try:
+-        plan = json.loads(_read(root, PLAN_NAME, MAX_XML_BYTES * 4).decode("utf-8"), parse_constant=_reject_constant)
+-    except (UnicodeDecodeError, json.JSONDecodeError) as error:
++        plan = _loads(_read(root, PLAN_NAME, MAX_XML_BYTES * 4).decode("utf-8"))
++    except ValueError as error:
+         raise ValueError(f"{PLAN_NAME} is not valid JSON: {error}") from error
+     cfgweather = _read(root, MISSION_RELATIVE, MAX_XML_BYTES)
+     observations = _read(root, OUTPUT_RELATIVE, MAX_OBSERVATION_BYTES, required=False)
+@@ -560,6 +716,9 @@ def main(argv=None):
+     except (OSError, ValueError) as error:
+         print(f"weather_report: {error}", file=sys.stderr)
+         return EXIT_ERROR
++    except Exception as error:  # the CLI contract is exit 0, 3 or 2; never a traceback
++        print(f"weather_report: unexpected {type(error).__name__}: {str(error)[:80]}", file=sys.stderr)
++        return EXIT_ERROR
+ 
+ 
+ if __name__ == "__main__":
+diff --git a/tools/setup/weather_probe.py b/tools/setup/weather_probe.py
+index 3ba392a..d14584a 100644
+--- a/tools/setup/weather_probe.py
++++ b/tools/setup/weather_probe.py
+@@ -17,11 +17,13 @@ how DayZ behaves, and runtime acceptance stays PENDING.
+ 
+ Stage a fresh runtime (destination must not exist). The candidate directory is the output of
+ tools/package/atmosphere.py write_candidate and is re-validated here; an unvalidated or tampered
+-candidate is refused:
++candidate is refused. The candidate is also regenerated from the stock cfgweather.xml the runtime
++carries (never from a caller-supplied file) and must match byte for byte; an unreported XML change is
++refused even when its metadata hashes were recomputed:
+ 
+     python3 tools/setup/weather_probe.py --destination /mnt/d/HollowCountryLocal/weather-stock-001
+     python3 tools/setup/weather_probe.py --destination /mnt/d/HollowCountryLocal/weather-cand-001 \
+-        --candidate CANDIDATE_DIR [--candidate-source STOCK_CFGWEATHER_XML]
++        --candidate CANDIDATE_DIR
+ 
+ Native APIs the hook calls, verified against the installed 1.30.164289 script cache
+ (~/.cache/hollow-country/native-scripts/scripts-1.30.164289), as `API -> file:line`:
+@@ -94,6 +96,7 @@ import math
+ from pathlib import Path
+ import re
+ import sys
++import tempfile
+ 
+ try:
+     from . import diagnostic_mission as dm
+@@ -511,9 +514,9 @@ def max_plus_per_statement(text):
+ # ---------------------------------------------------------------------------
+ 
+ 
+-def load_candidate(candidate, candidate_source=None):
+-    """Re-validate an atmosphere candidate and return (cfgweather bytes, validated report)."""
+-    report = atmosphere.validate_candidate(candidate, source=candidate_source)
++def load_candidate(candidate):
++    """Re-validate an atmosphere candidate's own integrity; (cfgweather bytes, report). Not yet source-verified."""
++    report = atmosphere.validate_candidate(candidate)
+     profile = report["profile"]
+     if profile["world"] != WORLD:
+         raise ValueError(f"the candidate was generated for {profile['world']}; the probe runs {WORLD} only")
+@@ -523,16 +526,35 @@ def load_candidate(candidate, candidate_source=None):
+     return data, report
+ 
+ 
+-def _check_launcher_row():
++def reconstruct_candidate(candidate, stock_bytes, expected_sha256):
++    """Rebuild the candidate from the verified stock bytes; any difference from its files is refused.
++
++    Metadata hashes can be recomputed by anyone, so only regenerating the candidate from the stock
++    cfgweather.xml the runtime actually carries proves that nothing unreported changed. The stock
++    bytes go through a private temporary file because the atmosphere API reads a path.
++    """
++    with tempfile.TemporaryDirectory(prefix="weather-stock-") as scratch:
++        source = Path(scratch) / "cfgweather.xml"
++        source.write_bytes(stock_bytes)
++        report = atmosphere.validate_candidate(candidate, source=source)
++    if report.get("source_verified") is not True:
++        raise ValueError("the candidate could not be reconstructed from the runtime's stock cfgweather.xml")
++    if report["candidate_sha256"] != expected_sha256:
++        raise ValueError("candidate cfgweather.xml changed during reconstruction")
++    return report
++
++
++def _check_registries():
++    """Refuse to stage unless the shared modules carry this probe's rows; never register them here."""
+     if rt.LAUNCHER_PROBES.get(PLAN_KIND) != LAUNCHER_ROW:
+         raise ValueError(
+             "probe_runtime.LAUNCHER_PROBES lacks the weather-probe row "
+             f"{PLAN_KIND!r}: {LAUNCHER_ROW!r}; the launcher would refuse this plan")
+-
+-
+-def _ensure_purpose():
+-    """Register the diagnostic purpose until diagnostic_mission carries the row itself."""
+-    dm._PURPOSES.setdefault(PURPOSE, PURPOSE_ROW)
++    row = dm._PURPOSES.get(PURPOSE)
++    if row is None or tuple(row[:2]) != PURPOSE_ROW[:2] or list(row[2]) != PURPOSE_ROW[2]:
++        raise ValueError(
++            f"diagnostic_mission._PURPOSES must carry exactly {PURPOSE!r}: {PURPOSE_ROW!r} (found {row!r}); "
++            "this module does not register purposes itself")
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -540,7 +562,7 @@ def _ensure_purpose():
+ # ---------------------------------------------------------------------------
+ 
+ 
+-def stage(source_runtime, destination, *, candidate=None, candidate_source=None,
++def stage(source_runtime, destination, *, candidate=None,
+           start_delay_s=DEFAULT_START_DELAY_S, interval_s=DEFAULT_INTERVAL_S, samples=DEFAULT_SAMPLES,
+           wait_minutes=None, battleye_sha256=BATTLEYE_SHA256, native_scripts=None, now=None, _wsl_parent=None):
+     """Stage a fresh probe runtime and write weather-probe-plan.json. Never launches anything.
+@@ -549,7 +571,7 @@ def stage(source_runtime, destination, *, candidate=None, candidate_source=None,
+     the validated candidate bytes replace it (the treatment run). ``_wsl_parent`` is an internal test
+     hook; the production parent is always WSL_PARENT.
+     """
+-    _check_launcher_row()
++    _check_registries()
+     hook = render_hook(start_delay_s, interval_s, samples)
+     native = rt.native_type_names(native_scripts) if native_scripts else frozenset()
+     problems = rt.lint_hook(hook.decode("ascii"), native_types=native) + statement_problems(hook.decode("ascii"))
+@@ -561,8 +583,7 @@ def stage(source_runtime, destination, *, candidate=None, candidate_source=None,
+     if (isinstance(wait_minutes, bool) or not isinstance(wait_minutes, int)
+             or not 5 <= wait_minutes <= MAX_WORST_CASE_MINUTES or wait_minutes < worst_minutes):
+         raise ValueError(f"wait minutes must be 5..{MAX_WORST_CASE_MINUTES} and cover the {worst_minutes} minute worst case")
+-    treatment = load_candidate(candidate, candidate_source) if candidate is not None else None
+-    _ensure_purpose()
++    treatment = load_candidate(candidate) if candidate is not None else None
+     context = rt.begin(source_runtime, destination, parent=WSL_PARENT if _wsl_parent is None else _wsl_parent,
+                        battleye_sha256=battleye_sha256, hold=("cfgweather.xml",))
+     stock = context["source"]["held"]["cfgweather.xml"]
+@@ -573,6 +594,7 @@ def stage(source_runtime, destination, *, candidate=None, candidate_source=None,
+         profile = report["profile"]
+         if profile["source_sha256"] != rt.sha256(stock):
+             raise ValueError("the candidate was not generated from this runtime's stock cfgweather.xml")
++        report = reconstruct_candidate(candidate, stock, report["candidate_sha256"])
+         replacements["cfgweather.xml"] = data
+         cfgweather["variant"] = "candidate"
+         cfgweather["candidate"] = {
+@@ -600,7 +622,6 @@ def main(argv=None):
+     parser.add_argument("--destination", required=True, help="fresh runtime directory (must not exist)")
+     parser.add_argument("--source-runtime", default=DEFAULT_SOURCE_RUNTIME)
+     parser.add_argument("--candidate", help="validated atmosphere candidate directory (omit for the stock control run)")
+-    parser.add_argument("--candidate-source", help="stock cfgweather.xml used to reconstruct and verify the candidate")
+     parser.add_argument("--start-delay-s", type=int, default=DEFAULT_START_DELAY_S)
+     parser.add_argument("--interval-s", type=int, default=DEFAULT_INTERVAL_S)
+     parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
+@@ -614,7 +635,7 @@ def main(argv=None):
+         cache = default if (default / "3_Game").is_dir() else None
+     try:
+         plan = stage(args.source_runtime, args.destination, candidate=args.candidate,
+-                     candidate_source=args.candidate_source, start_delay_s=args.start_delay_s,
++                     start_delay_s=args.start_delay_s,
+                      interval_s=args.interval_s, samples=args.samples, wait_minutes=args.wait_minutes,
+                      battleye_sha256=args.battleye_sha256, native_scripts=cache)
+     except (OSError, ValueError) as error:

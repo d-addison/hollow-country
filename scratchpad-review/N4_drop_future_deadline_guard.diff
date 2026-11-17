@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -450,7 +450,7 @@
+     for time, next_change in points:
+         if earliest is not None and time >= earliest:
+             return True
+-        if next_change > time and (earliest is None or next_change < earliest):
++        if earliest is None or next_change < earliest:
+             earliest = next_change
+     return False
+ 

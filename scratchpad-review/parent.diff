@@ -1,0 +1,47 @@
+commit 0936083af7c5d39d81943c13fd3474494a178ba7
+Author: David Addison <73078380+d-addison@users.noreply.github.com>
+Date:   Tue Nov 17 05:13:16 2026 -0500
+
+    Register the weather-probe generated-hook purpose
+
+diff --git a/tests/unit/test_probe_runtime.py b/tests/unit/test_probe_runtime.py
+index 3a4a89e..3dc442f 100644
+--- a/tests/unit/test_probe_runtime.py
++++ b/tests/unit/test_probe_runtime.py
+@@ -15,6 +15,8 @@ RED: Ran 10 tests, FAILED (failures=5, errors=2).
+ GREEN: test_probe_runtime + test_ce_probe + test_taped_light_probe, Ran 172 tests, OK. The PS1 parses
+ with no errors under Windows PowerShell 5.1, and the extracted Test-CompileRefused gave
+ taped-light-probe-002 True, taped-light-probe-003 False and ce-probe-001 False on the real profiles.
++Weather purpose row (issue 35): LauncherKindTableTests RED Ran 5 tests, FAILED (errors=1) (KeyError
++'weather-probe'); GREEN Ran 5 tests, OK.
+ """
+ import json
+ import os
+@@ -656,6 +658,12 @@ class LauncherKindTableTests(unittest.TestCase):
+         self.assertEqual(("interior-sampler-plan.json", "HCInteriorSampler", "census.json"),
+                          rt.LAUNCHER_PROBES["interior-sampler"])
+ 
++    def test_weather_probe_has_its_own_generated_hook_purpose(self):
++        self.assertEqual(("disposable-weather-probe", None,
++                          ["server mode", "fresh storage and profiles", "no clients",
++                           "inspect observation completeness separately from startup"]),
++                         dm._PURPOSES["weather-probe"])
++
+     def test_every_kind_has_distinct_plan_and_profile_directory(self):
+         plans = [row[0] for row in rt.LAUNCHER_PROBES.values()]
+         directories = [row[1].lower() for row in rt.LAUNCHER_PROBES.values()]
+diff --git a/tools/setup/diagnostic_mission.py b/tools/setup/diagnostic_mission.py
+index 90efe7b..5c7e8b2 100644
+--- a/tools/setup/diagnostic_mission.py
++++ b/tools/setup/diagnostic_mission.py
+@@ -110,6 +110,10 @@ _PURPOSES = {
+     'taped-light-probe': ('disposable-taped-light-probe', None,
+                           ["server mode", "fresh storage and profiles", "no clients",
+                            "inspect observation completeness separately from startup"]),
++    # Generated per run by tools/setup/weather_probe.py (same `hook=` contract as ce-probe).
++    'weather-probe': ('disposable-weather-probe', None,
++                      ["server mode", "fresh storage and profiles", "no clients",
++                       "inspect observation completeness separately from startup"]),
+ }
+ 
+ _FACTORY = re.compile(
