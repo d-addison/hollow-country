@@ -627,16 +627,24 @@ class HCGroupRules
         array<string> accounts = new array<string>();
         foreach (HCGroupExplorer explorer : state.Explorers)
         {
-            if (!explorer || !explorer.Visits || !HCGroupRules.TextValid(explorer.Id, 128, false))
+            if (!explorer || !explorer.Visits || !explorer.PlaceIds || explorer.LastSeenUtc < 0 || !HCGroupRules.TextValid(explorer.Id, 128, false))
             {
                 return false;
             }
-            if (accounts.Find(explorer.Id) >= 0 || explorer.Visits.Count() > c.MaxDiscoveries)
+            if (accounts.Find(explorer.Id) >= 0 || explorer.Visits.Count() + explorer.PlaceIds.Count() > c.MaxDiscoveries)
             {
                 return false;
             }
             accounts.Insert(explorer.Id);
             array<string> places = new array<string>();
+            foreach (string placeId : explorer.PlaceIds)
+            {
+                if (!HCGroupRules.TextValid(placeId, 128, false) || places.Find(placeId) >= 0)
+                {
+                    return false;
+                }
+                places.Insert(placeId);
+            }
             foreach (HCGroupPlace visited : explorer.Visits)
             {
                 if (!HCGroupRules.PlaceValid(visited) || places.Find(visited.Id) >= 0)
@@ -654,13 +662,14 @@ class HCGroupRules
     // CURRENT membership and never copied to another account's journal.
     static bool RecordVisit(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlace place, vector actual)
     {
-        if (!c.DiscoveryLayer || !HCGroupRules.PlaceValid(place) || !HCGroupRules.PositionValid(actual) || !HCGroupRules.TextValid(uid, 128, false))
-        {
-            return false;
-        }
+        if (!place) { return false; }
         float dx = actual[0] - place.Position[0];
         float dz = actual[2] - place.Position[2];
         if (dx * dx + dz * dz > place.Radius * place.Radius)
+        {
+            return false;
+        }
+        if (!c.DiscoveryLayer || !HCGroupRules.PlaceValid(place) || !HCGroupRules.PositionValid(actual) || !HCGroupRules.TextValid(uid, 128, false))
         {
             return false;
         }
@@ -682,22 +691,19 @@ class HCGroupRules
             found.Id = uid;
             state.Explorers.Insert(found);
         }
-        foreach (HCGroupPlace prior : found.Visits)
-        {
-            if (prior.Id == place.Id)
-            {
-                return false;
-            }
-        }
-        if (found.Visits.Count() >= c.MaxDiscoveries)
+        if (found.PlaceIds.Find(place.Id) >= 0)
         {
             return false;
         }
-        found.Visits.Insert(place);
+        if (found.PlaceIds.Count() >= c.MaxDiscoveries)
+        {
+            return false;
+        }
+        found.PlaceIds.Insert(place.Id);
         return true;
     }
 
-    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid)
+    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog)
     {
         array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
         array<string> ids = new array<string>();
@@ -715,9 +721,10 @@ class HCGroupRules
             }
             if (permitted)
             {
-                foreach (HCGroupPlace place : explorer.Visits)
+                if (!catalog) { continue; }
+                foreach (HCGroupPlace place : catalog.Places)
                 {
-                    if (ids.Find(place.Id) < 0 && known.Count() < c.MaxDiscoveries)
+                    if (explorer.PlaceIds.Find(place.Id) >= 0 && ids.Find(place.Id) < 0 && known.Count() < c.MaxDiscoveries)
                     {
                         ids.Insert(place.Id);
                         known.Insert(place);
@@ -726,6 +733,43 @@ class HCGroupRules
             }
         }
         return known;
+    }
+
+    static bool HasExplorer(HCGroupState state, string uid)
+    {
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            if (explorer.Id == uid)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool HasVisit(HCGroupState state, string uid, string placeId)
+    {
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            if (explorer.Id == uid && explorer.PlaceIds.Find(placeId) >= 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void MigrateExplorers(HCGroupState state)
+    {
+        // Validated before migration; no catalog metadata survives the next save.
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            foreach (HCGroupPlace legacy : explorer.Visits)
+            {
+                explorer.PlaceIds.Insert(legacy.Id);
+            }
+            explorer.Visits.Clear();
+        }
     }
 
     static void Touch(HCGroupRecord group, bool membershipChanged)

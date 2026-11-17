@@ -136,6 +136,7 @@ class HCGroupStore
         if (!JsonFileLoader<HCGroupState>.LoadData(imageText, state, error) || !HCGroupRules.StateValid(state, settings, GetGame().GetWorldName())) return Fault();
         if (receipt.Version != 1 || intentReceipt.Version != 1 || receipt.WorldName != state.WorldName || intentReceipt.WorldName != state.WorldName || intentReceipt.Revision != receipt.Revision || intentReceipt.Length != receipt.Length || intentReceipt.Hash != receipt.Hash) return Fault();
         if (!HCGroupRules.LatestComplete(highestIntent, highestImage, highestCommit, receipt.Revision, state.Revision, receipt.Length, imageText.Length(), receipt.Hash, imageText.Hash())) return Fault();
+        HCGroupRules.MigrateExplorers(state);
         state.Invitations.Clear();
         m_Latest = state.Revision;
         return true;

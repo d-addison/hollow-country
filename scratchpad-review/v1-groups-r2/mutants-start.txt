@@ -1,0 +1,2 @@
+M00 baseline unmutated SURVIVED 
+M62 DiscoveryLayer start refusal off KILLED FAIL: test_M62_start_refuses_bad_catalog (tests.unit.test_group_round2.ServiceRound2.test_

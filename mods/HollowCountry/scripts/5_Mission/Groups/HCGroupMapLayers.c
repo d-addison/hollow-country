@@ -8,6 +8,10 @@ class HCGroupMapLayers
     protected TextListboxWidget mHCEvents;
     protected ref array<Widget> mHCPool = new array<Widget>();
     protected int mHCUsed;
+    protected ref array<string> mHCTextures = new array<string>();
+    protected ref HCGroupEquipment mHCEquipment;
+    protected PlayerBase mHCViewer;
+    protected float mHCEquipmentTime;
 
     void Init(Widget root)
     {
@@ -22,6 +26,9 @@ class HCGroupMapLayers
         foreach (Widget iconRoot : mHCPool)
             if (iconRoot) iconRoot.Unlink();
         mHCPool.Clear();
+        mHCTextures.Clear();
+        mHCEquipment = null;
+        mHCViewer = null;
         if (mHCGrid) mHCGrid.Clear();
         if (mHCNavigation) mHCNavigation.SetText("");
         if (mHCEvents) mHCEvents.ClearItems();
@@ -43,6 +50,7 @@ class HCGroupMapLayers
             Widget created = GetGame().GetWorkspace().CreateWidgets("HollowCountry/gui/layouts/hc_group_icon.layout", mHCOverlay);
             if (!created) return;
             mHCPool.Insert(created);
+            mHCTextures.Insert("");
         }
         Widget pinRoot = mHCPool.Get(mHCUsed);
         TextWidget label = TextWidget.Cast(pinRoot.FindAnyWidget("HCLabel"));
@@ -50,7 +58,11 @@ class HCGroupMapLayers
         if (!label || !image) return;
         HCGroupWorldIcons.Scale(pinRoot, label, image, settings);
         label.SetText(title);
-        image.LoadImageFile(0, texture);
+        if (mHCTextures.Get(mHCUsed) != texture)
+        {
+            image.LoadImageFile(0, texture);
+            mHCTextures.Set(mHCUsed, texture);
+        }
         image.SetImage(0);
         image.SetColor(color);
         pinRoot.SetPos(x, y);
@@ -63,7 +75,14 @@ class HCGroupMapLayers
         if (mHCGrid) mHCGrid.Clear();
         if (mHCNavigation) mHCNavigation.SetText("");
         if (!settings.NavigationLayer) return;
-        HCGroupEquipment equipment = HCGroupEquipment.Read(viewer);
+        float now = GetGame().GetTickTime();
+        if (!mHCEquipment || mHCViewer != viewer || now < mHCEquipmentTime || now - mHCEquipmentTime >= 1.0)
+        {
+            mHCEquipment = HCGroupEquipment.Read(viewer);
+            mHCViewer = viewer;
+            mHCEquipmentTime = now;
+        }
+        HCGroupEquipment equipment = mHCEquipment;
         if (!equipment.HasMap) return;
         // 1 km navigation grid, bounded to 51 lines per axis on supported worlds.
         float worldSize = GetGame().GetWorld().GetWorldSize();
@@ -86,7 +105,7 @@ class HCGroupMapLayers
         mHCNavigation.SetTextExactSize(Math.Round(18 * settings.LabelScale));
         if (!equipment.HasGPS)
         {
-            mHCNavigation.SetText("Navigation: 1 km grid. Carry a GPS for own coordinates.");
+            mHCNavigation.SetText("Navigation: 1 km grid. Carry a powered GPS for own coordinates.");
             return;
         }
         // Own coordinates always need a working GPS. RequireGPS separately

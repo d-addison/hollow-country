@@ -24,7 +24,7 @@ class HCGroupNativeChecks
 
     string Completion()
     {
-        return "[HC Group Checks] COMPLETE synthetic-policy-fixtures steps=" + m_Steps.ToString() + " wire=2 durable=1 no-network-or-store-proof";
+        return "[HC Group Checks] COMPLETE synthetic-policy-fixtures steps=" + m_Steps.ToString() + " wire=3 durable=1 no-network-or-store-proof";
     }
 
     HCGroupRequest Request(int operation, string actor)
@@ -227,8 +227,8 @@ class HCGroupNativeChecks
         HCGroupSnapshot snapshot = new HCGroupSnapshot;
         HCGroupReply reply = new HCGroupReply;
         HCGroupReceipt receipt = new HCGroupReceipt;
-        if (!Require(HCGroupProtocol.VERSION == 2 && request.Version == 2, "wire_version")) return false;
-        if (!Require(snapshot.Version == 2 && reply.Version == 2, "wire_dto_version")) return false;
+        if (!Require(HCGroupProtocol.VERSION == 3 && request.Version == 3, "wire_version")) return false;
+        if (!Require(snapshot.Version == 3 && reply.Version == 3, "wire_dto_version")) return false;
         if (!Require(m_State.Version == 1 && receipt.Version == 1, "durable_version")) return false;
         if (!BeginCases()) return false;
         if (!MarkerCases()) return false;

@@ -9,6 +9,7 @@ class HCGroupEquipment
     static HCGroupEquipment Read(PlayerBase player)
     {
         HCGroupEquipment equipment = new HCGroupEquipment;
+        equipment.HasMap = CfgGameplayHandler.GetMapIgnoreMapOwnership();
         if (!player || !player.IsAlive() || !player.GetInventory()) return equipment;
         if (player.GetInventory().CountInventory() > 512) return equipment;
         array<EntityAI> items = new array<EntityAI>();
@@ -60,7 +61,9 @@ class HCGroupVisibility
         vector normal;
         int component;
         set<Object> hits = new set<Object>();
-        bool blocked = DayZPhysics.RaycastRV(start, finish, contact, normal, component, hits, null, source, false, false, ObjIntersectView, 0.0, CollisionFlags.NEARESTCONTACT);
+        Object parent = Object.Cast(source.GetParent());
+        if (parent != recipient.GetParent()) parent = null;
+        bool blocked = DayZPhysics.RaycastRV(start, finish, contact, normal, component, hits, parent, source, false, false, ObjIntersectView, 0.0, CollisionFlags.NEARESTCONTACT);
         if (!blocked) return true;
         return hits.Count() == 1 && hits.Get(0) == recipient;
     }

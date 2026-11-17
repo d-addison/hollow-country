@@ -1,0 +1,63 @@
+M00 baseline unmutated SURVIVED 
+M01 SET_ROLE owner-only guard off KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M02 officer may kick officers/owner KILLED FAIL: test_officer_matrix_and_owner_only_role_assignment (tests.unit.test_v1_groups.V1Grou
+M03 officer may transfer KILLED FAIL: test_M03_officer_cannot_transfer (tests.unit.test_group_round2.RulesRound2.test_M03_
+M04 officer may disband KILLED FAIL: test_M04_officer_cannot_disband (tests.unit.test_group_round2.RulesRound2.test_M04_o
+M05 kick leaves stale officer KILLED FAIL: test_M05_kicked_officer_rejoins_as_member (tests.unit.test_group_round2.RulesRound2.
+M06 leave leaves stale officer KILLED FAIL: test_M06_departed_officer_rejoins_as_member (tests.unit.test_group_round2.RulesRound
+M07 transfer keeps new owner in officers KILLED FAIL: test_additive_legacy_roles_and_transfer_cleanup (tests.unit.test_v1_groups.V1GroupsB
+M08 member may invite (officer check off) KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M09 marker edit any member KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M10 rename any member KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M11 SET_ROLE keeps stale invites KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M12 SET_ROLE allows role 2 (owner) SURVIVED 
+M13 StateValid ignores officer not member KILLED FAIL: test_M13_nonmember_officer_journal_rejected (tests.unit.test_group_round2.RulesRound
+M14 StateValid allows owner as officer KILLED FAIL: test_M14_owner_officer_journal_rejected (tests.unit.test_group_round2.RulesRound2.te
+M15 invite validity any member KILLED FAIL: test_M15_member_inviter_journal_rejected (tests.unit.test_group_round2.RulesRound2.t
+M16 RecordVisit radius ignored KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M17 RecordVisit ignores MaxDiscoveries PATTERN-MISSING
+M18 RecordVisit ignores MaxExplorers KILLED FAIL: test_M18_explorer_admission_limit (tests.unit.test_group_round2.RulesRound2.test_M18
+M19 RecordVisit ignores DiscoveryLayer off KILLED FAIL: test_M19_disabled_discovery_records_nothing (tests.unit.test_group_round2.RulesRound
+M20 KnownPlaces leaks every explorer KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M21 ShareDiscovery ignores membership KILLED FAIL: test_M21_discovery_never_shares_other_group (tests.unit.test_group_round2.RulesRound
+M22 ShareDiscovery ignores setting KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M23 KnownPlaces unbounded KILLED FAIL: test_M23_union_of_member_discoveries_is_bounded (tests.unit.test_group_round2.RulesR
+M24 DiscoveryLayer off still lists KILLED FAIL: test_M24_disabled_discovery_lists_nothing (tests.unit.test_group_round2.RulesRound2.
+M25 visibility filter not applied KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M26 LOS ray budget off KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M27 LOS ray not counted SURVIVED 
+M28 LOS skipped PATTERN-MISSING
+M29 radio skipped KILLED FAIL: test_visibility_budget_and_radio_are_fail_closed_before_projection (tests.unit.test_
+M30 unconscious sources visible KILLED FAIL: test_visibility_budget_and_radio_are_fail_closed_before_projection (tests.unit.test_
+M31 tick ray budget never reset KILLED FAIL: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.ServiceR
+M32 radio always matches KILLED FAIL: test_radio_matching_requires_a_shared_actual_frequency (tests.unit.test_v1_groups.V1
+M33 LOS: any hit allowed KILLED FAIL: test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton (tests.unit.te
+M34 LOS: unknown bone allowed KILLED FAIL: test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton (tests.unit.te
+M35 radio: not-working accepted KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M36 radio: not-owned accepted KILLED FAIL: test_equipment_requires_owned_working_handheld_and_bounded_inventory (tests.unit.tes
+M37 radio: ruined accepted KILLED FAIL: test_equipment_requires_owned_working_handheld_and_bounded_inventory (tests.unit.tes
+M38 gps: off accepted KILLED FAIL: test_equipment_requires_owned_working_handheld_and_bounded_inventory (tests.unit.tes
+M39 equipment over-budget accepted KILLED FAIL: test_M39_enumerated_inventory_over_budget_fails_closed (tests.unit.test_group_round2
+M40 radio base transmitter accepted KILLED FAIL: test_M40_nontransmitter_handheld_fails_closed (tests.unit.test_group_round2.NativeRo
+M41 places only when alive off KILLED FAIL: test_M41_dead_peer_receives_no_places (tests.unit.test_group_round2.ServiceRound2.te
+M42 places sent on POSITIONS too KILLED FAIL: test_M42_positions_never_include_places (tests.unit.test_group_round2.ServiceRound2.
+M43 discover skips alive/uncons check KILLED FAIL: test_M43_discovery_skips_dead_and_unconscious (tests.unit.test_group_round2.ServiceR
+M44 discover examines unbounded KILLED FAIL: test_M44_discovery_examined_bound (tests.unit.test_group_round2.ServiceRound2.test_M
+M45 mission layer shows expired KILLED FAIL: test_M45_expired_announced_mission_is_not_listed (tests.unit.test_group_round2.Nativ
+M46 mission layer ignores setting KILLED FAIL: test_mission_list_consumes_only_fresh_public_rows (tests.unit.test_v1_groups.V1Group
+M47 mission layer stale OK KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M48 grid without map KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M49 coords without GPS KILLED FAIL: test_M49_own_coordinates_require_powered_gps (tests.unit.test_group_round2.NativeRou
+M50 navigation layer setting ignored KILLED FAIL: test_M50_disabled_navigation_does_not_render (tests.unit.test_group_round2.NativeRou
+M51 client accepts unbounded places KILLED FAIL: test_M51_client_rejects_overfull_places (tests.unit.test_group_round2.NativeRound2.t
+M52 client accepts bad member role KILLED FAIL: test_M52_client_rejects_invalid_role (tests.unit.test_group_round2.NativeRound2.test
+M53 settings IconScale unbounded KILLED FAIL: test_visibility_settings_are_supported_and_bounded (tests.unit.test_v1_groups.V1Grou
+M54 settings Rays unbounded KILLED FAIL: test_visibility_settings_are_supported_and_bounded (tests.unit.test_v1_groups.V1Grou
+M55 settings DiscoveryInterval too small KILLED FAIL: test_visibility_settings_are_supported_and_bounded (tests.unit.test_v1_groups.V1Grou
+M56 PlaceValid radius unbounded KILLED FAIL: test_M56_radius_validation (tests.unit.test_group_round2.RulesRound2.test_M56_radius
+M57 ExplorersValid MaxExplorers KILLED FAIL: test_M57_overfull_explorer_journal_rejected (tests.unit.test_group_round2.RulesRound
+M58 ExplorersValid dup visit SURVIVED 
+M59 Apply op range 13 off KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M60 Discover commit not broadcast PATTERN-MISSING
+M61 Member roles not set KILLED FAIL: test_M41_dead_peer_receives_no_places (tests.unit.test_group_round2.ServiceRound2.te
+M62 DiscoveryLayer start refusal off KILLED ERROR: test_M62_start_refuses_bad_catalog (tests.unit.test_group_round2.ServiceRound2.test

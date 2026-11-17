@@ -30,7 +30,12 @@ class HCGroupPlaces
         HCGroupPlaceCatalog catalog = new HCGroupPlaceCatalog;
         string root = "CfgWorlds " + GetGame().GetWorldName() + " Names";
         int count = GetGame().ConfigGetChildrenCount(root);
-        if (count < 0 || count > 512) return null;
+        if (count < 0) return null;
+        if (count > 512)
+        {
+            Print("[HC Groups] native Names truncated: examining first 512 entries");
+            count = 512;
+        }
         for (int i = 0; i < count; i++)
         {
             string child;
@@ -46,7 +51,11 @@ class HCGroupPlaces
             place.Name = title;
             place.Position = Vector(coords.Get(0), 0, coords.Get(1));
             if (!HCGroupRules.PlaceValid(place)) continue;
-            if (catalog.Places.Count() >= 256) return null;
+            if (catalog.Places.Count() >= 256)
+            {
+                Print("[HC Groups] native Names truncated: catalog limit 256");
+                break;
+            }
             catalog.Places.Insert(place);
         }
         return catalog;

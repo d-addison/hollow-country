@@ -1,3 +1,14 @@
+// Directed pair cache: bounded, short-lived, tied to both connection sessions.
+class HCGroupLOSResult
+{
+    string SourceId;
+    string RecipientId;
+    string SourceSession;
+    string RecipientSession;
+    float At;
+    bool Visible;
+}
+
 class HCGroupClock
 {
     protected static int s_LastUtc = 0;
@@ -98,6 +109,8 @@ class HCGroupPeer
     ref HCGroupReply LastReply;
     int Sequence;
     int LastGroup;
+    ref HCGroupEquipment Gear;
+    float GearAt;
     float RateWindow;
     int RateCount;
 }
@@ -118,6 +131,11 @@ class HCGroupService
     protected int m_LastUtc;
     protected float m_PositionTime;
     protected int m_LOSRays;
+    protected int m_PeerCursor;
+    protected int m_RoundCursor;
+    protected bool m_FullSent;
+    protected float m_DiscoveryBlockedUntil;
+    protected ref array<ref HCGroupLOSResult> m_LOSCache = new array<ref HCGroupLOSResult>();
     protected float m_DiscoveryTime;
     protected int m_DiscoveryCursor;
     protected ref HCGroupPlaceCatalog m_Places;
@@ -333,6 +351,7 @@ class HCGroupService
     int Commit(HCGroupState candidate)
     {
         if (!candidate || !HCGroupRules.ClockAllows(m_State, m_LastUtc)) return HCGroupCode.STORAGE;
+        EvictExplorers(candidate, false);
         candidate.LastMutationUtc = m_LastUtc;
         candidate.Revision = m_State.Revision + 1;
         if (!HCGroupRules.StateValid(candidate, m_Config, GetGame().GetWorldName())) return HCGroupCode.STORAGE;
@@ -343,6 +362,14 @@ class HCGroupService
         string error;
         bool serialized = JsonFileLoader<HCGroupState>.MakeData(candidate, text, error);
         if (!serialized) return HCGroupCode.STORAGE;
+        int evicted = 0;
+        while (text.Length() > m_Config.MaxStoreBytes && evicted < m_Config.MaxExplorers)
+        {
+            if (!EvictExplorers(candidate, true)) return HCGroupCode.LIMIT;
+            evicted++;
+            bool resized = JsonFileLoader<HCGroupState>.MakeData(candidate, text, error);
+            if (!resized) return HCGroupCode.STORAGE;
+        }
         if (text.Length() > m_Config.MaxStoreBytes) return HCGroupCode.LIMIT;
         if (!m_Store.Save(candidate)) return HCGroupCode.STORAGE;
         m_State = candidate;
@@ -363,28 +390,88 @@ class HCGroupService
         if (source.Player.IsUnconscious() || recipient.Player.IsUnconscious()) return false;
         if (m_Config.RequireRadio)
         {
-            HCGroupEquipment sourceGear = HCGroupEquipment.Read(source.Player);
-            HCGroupEquipment recipientGear = HCGroupEquipment.Read(recipient.Player);
+            HCGroupEquipment sourceGear = Equipment(source);
+            HCGroupEquipment recipientGear = Equipment(recipient);
             if (!HCGroupVisibility.RadioMatches(sourceGear, recipientGear)) return false;
         }
         if (m_Config.RequireLOS)
         {
-            // Global tick quota also covers mutation/SYNC-triggered snapshots.
-            // Exhaustion removes positions; it never reuses a cached permission.
-            if (m_LOSRays >= m_Config.MaxLOSRaysPerTick) return false;
-            m_LOSRays++;
-            if (!HCGroupVisibility.HasLOS(source.Player, recipient.Player)) return false;
+            return LOSAllows(source, recipient);
         }
         return true;
+    }
+
+    HCGroupEquipment Equipment(HCGroupPeer peer)
+    {
+        float now = GetGame().GetTickTime();
+        if (!peer.Gear || now < peer.GearAt || now - peer.GearAt >= 1.0)
+        {
+            peer.Gear = HCGroupEquipment.Read(peer.Player);
+            peer.GearAt = now;
+        }
+        return peer.Gear;
+    }
+
+    bool LOSAllows(HCGroupPeer source, HCGroupPeer recipient)
+    {
+        float now = GetGame().GetTickTime();
+        foreach (HCGroupLOSResult cached : m_LOSCache)
+        {
+            if (cached.SourceId == source.Id && cached.RecipientId == recipient.Id && cached.SourceSession == source.Session && cached.RecipientSession == recipient.Session && now >= cached.At && now - cached.At < 1.0)
+                return cached.Visible;
+        }
+        if (m_LOSRays >= m_Config.MaxLOSRaysPerTick) return false;
+        m_LOSRays++;
+        HCGroupLOSResult verdict = new HCGroupLOSResult;
+        verdict.SourceId = source.Id;
+        verdict.RecipientId = recipient.Id;
+        verdict.SourceSession = source.Session;
+        verdict.RecipientSession = recipient.Session;
+        verdict.At = now;
+        verdict.Visible = HCGroupVisibility.HasLOS(source.Player, recipient.Player);
+        if (m_LOSCache.Count() >= 256) m_LOSCache.Remove(0);
+        m_LOSCache.Insert(verdict);
+        return verdict.Visible;
+    }
+
+    void BeginVisibilityTick()
+    {
+        m_LOSRays = 0;
+        m_FullSent = false;
+        if (m_Peers.Count() > 0) m_PeerCursor = (m_PeerCursor + 1) % m_Peers.Count();
+        foreach (HCGroupPeer peer : m_Peers) peer.Gear = null;
+        float now = GetGame().GetTickTime();
+        for (int index = m_LOSCache.Count() - 1; index >= 0; index--)
+        {
+            HCGroupLOSResult cached = m_LOSCache.Get(index);
+            if (now < cached.At || now - cached.At >= 1.0) m_LOSCache.Remove(index);
+        }
+    }
+
+    void SendRound(int kind)
+    {
+        // Advance emitted rounds independently of Tick cadence: e.g. an
+        // eight-peer list sampled every second Tick must not visit only evens.
+        if (m_Peers.Count() > 0)
+        {
+            m_PeerCursor = m_RoundCursor % m_Peers.Count();
+            m_RoundCursor = (m_RoundCursor + 1) % m_Peers.Count();
+        }
+        int sent = 0;
+        while (sent < m_Peers.Count())
+        {
+            HCGroupPeer peer = m_Peers.Get((m_PeerCursor + sent) % m_Peers.Count());
+            sent++;
+            if (kind == HCGroupSnapshotKind.FULL || HCGroupRules.FindGroup(m_State, peer.Id)) SendSnapshot(peer, kind, 0);
+        }
     }
 
     void Discover()
     {
         if (!m_Config.DiscoveryLayer || !m_Places || m_Peers.Count() == 0) return;
-        // Up to six peers per pass covers the intended load without a long
-        // per-player delay. Larger populations rotate in bounded batches.
+        float now = GetGame().GetTickTime();
+        if (now < m_DiscoveryBlockedUntil) return;
         HCGroupState candidate;
-        if (!Clone(candidate)) { Stop(); return; }
         bool changed = false;
         int examined = 0;
         while (examined < 6 && examined < m_Peers.Count())
@@ -397,13 +484,58 @@ class HCGroupService
             vector actual = explorer.Player.GetPosition();
             foreach (HCGroupPlace place : m_Places.Places)
             {
+                float dx = actual[0] - place.Position[0];
+                float dz = actual[2] - place.Position[2];
+                if (dx * dx + dz * dz > place.Radius * place.Radius) continue;
+                if (HCGroupRules.HasVisit(m_State, explorer.Id, place.Id)) continue;
+                if (!candidate)
+                {
+                    if (!Clone(candidate)) { Stop(); return; }
+                    EvictExplorers(candidate, false);
+                }
+                if (candidate.Explorers.Count() >= m_Config.MaxExplorers && !HCGroupRules.HasExplorer(candidate, explorer.Id)) EvictExplorers(candidate, true);
                 if (HCGroupRules.RecordVisit(candidate, m_Config, explorer.Id, place, actual)) changed = true;
             }
         }
         if (!changed) return;
+        foreach (HCGroupExplorer observer : candidate.Explorers)
+        {
+            if (Live(Peer(observer.Id))) observer.LastSeenUtc = m_LastUtc;
+        }
         int result = Commit(candidate);
+        if (result == HCGroupCode.LIMIT) m_DiscoveryBlockedUntil = now + 60.0;
         if (result == HCGroupCode.STORAGE) { Stop(); return; }
         if (result == HCGroupCode.OK) Broadcast();
+    }
+
+    // Group members and connected accounts retain their journals. Expire
+    // ungrouped/offline accounts after 30 days; pressure evicts oldest first.
+    bool EvictExplorers(HCGroupState candidate, bool pressure)
+    {
+        int oldest = -1;
+        int oldestUtc = 2147483647;
+        bool changed = false;
+        for (int index = candidate.Explorers.Count() - 1; index >= 0; index--)
+        {
+            HCGroupExplorer explorer = candidate.Explorers.Get(index);
+            if (HCGroupRules.FindGroup(candidate, explorer.Id) || Live(Peer(explorer.Id))) continue;
+            if (!pressure && m_LastUtc - explorer.LastSeenUtc >= 2592000)
+            {
+                candidate.Explorers.Remove(index);
+                changed = true;
+            }
+            if (pressure && explorer.LastSeenUtc <= oldestUtc)
+            {
+                oldestUtc = explorer.LastSeenUtc;
+                oldest = index;
+            }
+        }
+        if (pressure && oldest >= 0)
+        {
+            candidate.Explorers.Remove(oldest);
+            changed = true;
+        }
+        return changed;
     }
 
     HCGroupMember Member(string uid, HCGroupPeer recipient, bool position)
@@ -484,7 +616,7 @@ class HCGroupService
             }
         }
         if (m_Healthy && kind == HCGroupSnapshotKind.FULL && peer.Player.IsAlive())
-            snapshot.Places = HCGroupRules.KnownPlaces(m_State, m_Config, peer.Id);
+            snapshot.Places = HCGroupRules.KnownPlaces(m_State, m_Config, peer.Id, m_Places);
         peer.LastGroup = snapshot.GroupId;
         ScriptRPC rpc = new ScriptRPC;
         rpc.Write(snapshot);
@@ -494,17 +626,22 @@ class HCGroupService
     void Broadcast()
     {
         if (!m_Healthy) return;
-        foreach (HCGroupPeer peer : m_Peers) SendSnapshot(peer, HCGroupSnapshotKind.FULL, 0);
+        m_FullSent = true;
+        SendRound(HCGroupSnapshotKind.FULL);
     }
 
     void Tick(float deltaTime)
     {
         if (!m_Healthy) return;
-        m_LOSRays = 0;
+        BeginVisibilityTick();
         int now = HCGroupClock.Utc();
         if (!HCGroupRules.TimestampValid(now) || now < m_LastUtc) { Stop(); return; }
         if (!(deltaTime > 0.0) || deltaTime > 300.0) { Stop(); return; }
         m_LastUtc = now;
+        foreach (HCGroupExplorer active : m_State.Explorers)
+        {
+            if (Live(Peer(active.Id))) active.LastSeenUtc = now;
+        }
         // Invitations are ephemeral; removing them needs no disk transaction.
         for (int i = m_State.Invitations.Count() - 1; i >= 0; i--)
         {
@@ -547,10 +684,7 @@ class HCGroupService
         if (m_PositionTime >= m_Config.PositionIntervalSeconds)
         {
             m_PositionTime = 0;
-            foreach (HCGroupPeer peer : m_Peers)
-            {
-                if (HCGroupRules.FindGroup(m_State, peer.Id)) SendSnapshot(peer, HCGroupSnapshotKind.POSITIONS, 0);
-            }
+            if (!m_FullSent) SendRound(HCGroupSnapshotKind.POSITIONS);
         }
     }
 }

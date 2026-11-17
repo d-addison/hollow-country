@@ -14,7 +14,7 @@ class ClientTests(unittest.TestCase):
         self.now=100.
         self.sent=[]
         self.e.update(GetGame=lambda:N(GetTickTime=lambda:self.now),
-            HCGroupProtocol=N(VERSION=2,RPC_REQUEST=4853701),
+            HCGroupProtocol=N(VERSION=3,RPC_REQUEST=4853701),
             Math=N(RandomIntInclusive=lambda a,b:900001),
             ContentsValid=lambda f:True,Make=self.make,Load=self.load,
             Transmit=self.tx,str=str)
@@ -58,7 +58,7 @@ class ClientTests(unittest.TestCase):
 
     def frame(self,floor=5,**kw):
         f=self.e['HCGroupSnapshot']()
-        f.Version=2;f.Session='S';f.Sequence=20
+        f.Version=3;f.Session='S';f.Sequence=20
         f.RequestId=self.c.m_SyncTicket or 900001
         f.LastMutationId=floor;f.Enabled=True
         f.Settings=self.e['HCGroupSettings']()
@@ -88,7 +88,7 @@ class ClientTests(unittest.TestCase):
     def test_old_sync_after_completed_mutation(self):
         self.c.m_RequestId=5;self.sync();self.send()
         r=self.e['HCGroupReply']()
-        r.Version=2;r.Session='S';r.RequestId=6;r.LastMutationId=6;r.Code=0
+        r.Version=3;r.Session='S';r.RequestId=6;r.LastMutationId=6;r.Code=0
         self.run_method('ReceiveReply',r)
         self.run_method('ReceiveSnapshot',self.frame())
         self.assertEqual(6,self.c.m_RequestId)
@@ -154,7 +154,7 @@ class ClientTests(unittest.TestCase):
         held=self.frame(5)
         self.send()
         r=self.e['HCGroupReply']()
-        r.Version=2;r.Session='S';r.RequestId=6;r.LastMutationId=6;r.Code=0
+        r.Version=3;r.Session='S';r.RequestId=6;r.LastMutationId=6;r.Code=0
         self.run_method('ReceiveReply',r)
         self.run_method('Recover')
         self.sync()
@@ -181,7 +181,7 @@ class ClientTests(unittest.TestCase):
         self.send()
         pending=self.c.m_Pending
         r=self.e['HCGroupReply']()
-        r.Version=2;r.Session='S';r.RequestId=0
+        r.Version=3;r.Session='S';r.RequestId=0
         r.LastMutationId=0;r.Code=8
         self.run_method('ReceiveReply',r)
         self.assertIs(pending,self.c.m_Pending)

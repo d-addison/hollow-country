@@ -1,0 +1,23 @@
+M03 officer may transfer KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M04 officer may disband KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M05 kick leaves stale officer KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M06 leave leaves stale officer KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M13 StateValid ignores officer not member KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M14 StateValid allows owner as officer KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M15 invite validity any member KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M18 RecordVisit ignores MaxExplorers KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M19 RecordVisit ignores DiscoveryLayer off KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M21 ShareDiscovery ignores membership KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M23 KnownPlaces unbounded KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M24 DiscoveryLayer off still lists KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M30 unconscious sources visible KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M31 tick ray budget never reset KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M41 places only when alive off KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M42 places sent on POSITIONS too KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M43 discover skips alive/uncons check KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M44 discover examines unbounded KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M56 PlaceValid radius unbounded KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M57 ExplorersValid MaxExplorers KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M58 ExplorersValid dup visit KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M61 Member roles not set KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service
+M62 DiscoveryLayer start refusal off KILLED ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.Service

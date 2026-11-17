@@ -75,7 +75,7 @@ class GroupNativeChecksTests(unittest.TestCase):
         self.assertEqual(self.instances[0].m_Steps, len(self.calls))
         self.assertEqual(len(self.logs), 1)
         self.assertIn('COMPLETE synthetic-policy-fixtures', self.logs[0])
-        self.assertIn('wire=2 durable=1', self.logs[0])
+        self.assertIn('wire=3 durable=1', self.logs[0])
         self.assertEqual([], self.instances[0].m_State.Groups)
 
 

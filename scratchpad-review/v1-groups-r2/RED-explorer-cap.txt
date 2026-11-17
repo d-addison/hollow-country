@@ -1,0 +1,14 @@
+F
+======================================================================
+FAIL: test_discovery_evicts_inactive_when_explorer_slots_full (tests.unit.test_group_round2.AdditionalRound2.test_discovery_evicts_inactive_when_explorer_slots_full)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 278, in test_discovery_evicts_inactive_when_explorer_slots_full
+    self.discover();self.assertEqual(1,len(self.writes));self.assertEqual(['0'],[e.Id for e in self.writes[0].Explorers])
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 0
+
+----------------------------------------------------------------------
+Ran 1 test in 0.036s
+
+FAILED (failures=1)

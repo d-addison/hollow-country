@@ -1,0 +1,230 @@
+...EE..FE...............FFF.E.....EFEEFEFF......
+======================================================================
+ERROR: test_M49_own_coordinates_require_powered_gps (tests.unit.test_group_round2.NativeRound2.test_M49_own_coordinates_require_powered_gps)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 228, in test_M49_own_coordinates_require_powered_gps
+    def test_M49_own_coordinates_require_powered_gps(self):self.assertFalse(any('Own coordinates' in s for s in self.navigation()))
+                                                                                                                ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 226, in navigation
+    execute_member(text,'Navigation',env,state,None,viewer,N(NavigationLayer=enabled,LabelScale=1))
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Navigation", line 2, in member
+NameError: name 'mHCGrid' is not defined. Did you mean: 'self.mHCGrid'?
+
+======================================================================
+ERROR: test_M50_disabled_navigation_does_not_render (tests.unit.test_group_round2.NativeRound2.test_M50_disabled_navigation_does_not_render)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 229, in test_M50_disabled_navigation_does_not_render
+    def test_M50_disabled_navigation_does_not_render(self):self.assertEqual([''],self.navigation(False,True))
+                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 226, in navigation
+    execute_member(text,'Navigation',env,state,None,viewer,N(NavigationLayer=enabled,LabelScale=1))
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Navigation", line 2, in member
+NameError: name 'mHCGrid' is not defined. Did you mean: 'self.mHCGrid'?
+
+======================================================================
+ERROR: test_unpowered_gps_instructions (tests.unit.test_group_round2.NativeRound2.test_unpowered_gps_instructions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 230, in test_unpowered_gps_instructions
+    def test_unpowered_gps_instructions(self):self.assertIn('powered GPS',self.navigation()[-1])
+                                                                          ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 226, in navigation
+    execute_member(text,'Navigation',env,state,None,viewer,N(NavigationLayer=enabled,LabelScale=1))
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Navigation", line 2, in member
+NameError: name 'mHCGrid' is not defined. Did you mean: 'self.mHCGrid'?
+
+======================================================================
+ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.ServiceRound2.test_M31_tick_resets_budget_and_rotates_start)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 151, in test_M31_tick_resets_budget_and_rotates_start
+    run('HCGroupService','Tick',self.s,self.e,2.)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Tick", line 19, in member
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Markers'
+
+======================================================================
+ERROR: test_M62_start_refuses_bad_catalog (tests.unit.test_group_round2.ServiceRound2.test_M62_start_refuses_bad_catalog)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 191, in test_M62_start_refuses_bad_catalog
+    self.assertFalse(run('HCGroupService','Start',self.s,self.e,self.cfg))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 100, in execute_member
+    exec(compile('\n'.join(lines),'authored-native-member:'+name,'exec'),env)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Start", line 29
+    array<Man> players = array()<Man>()
+    ^^^^^^^^^^^^^^^^^^
+SyntaxError: cannot assign to comparison
+
+======================================================================
+ERROR: test_equipment_once_per_peer_each_tick (tests.unit.test_group_round2.ServiceRound2.test_equipment_once_per_peer_each_tick)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 162, in test_equipment_once_per_peer_each_tick
+    for p in self.peers:self.s.Equipment(p);self.s.Equipment(p)
+                        ^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 161, in <lambda>
+    self.native();self.s.Equipment=lambda p:run('HCGroupService','Equipment',self.s,self.e,p)
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 42, in execute_member
+    statements=body(source,match.end())
+                           ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'end'
+
+======================================================================
+ERROR: test_eviction_preserves_grouped_and_online_explorers (tests.unit.test_group_round2.ServiceRound2.test_eviction_preserves_grouped_and_online_explorers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 171, in test_eviction_preserves_grouped_and_online_explorers
+    run('HCGroupService','EvictExplorers',self.s,self.e,self.s.m_State,False)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 42, in execute_member
+    statements=body(source,match.end())
+                           ^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'end'
+
+======================================================================
+ERROR: test_full_round_prevents_duplicate_positions (tests.unit.test_group_round2.ServiceRound2.test_full_round_prevents_duplicate_positions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 158, in test_full_round_prevents_duplicate_positions
+    run('HCGroupService','Tick',self.s,self.e,2.)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Tick", line 44, in member
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Discover'
+
+======================================================================
+FAIL: test_shared_parent_vehicle_is_ignored_in_ray (tests.unit.test_group_round2.NativeRound2.test_shared_parent_vehicle_is_ignored_in_ray)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 246, in test_shared_parent_vehicle_is_ignored_in_ray
+    self.assertTrue(execute_member(text,'HasLOS',env,N(),left,right));self.assertIs(car,calls[0][7])
+                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: <object object at 0x7ab785b789c0> is not namespace(GetParent=<function NativeRound2.test_shared_parent_vehicle_is_ignored_in_ray.<locals>.<lambda> at 0x7ab78564c9a0>, GetBoneIndexByName=<function NativeRound2.test_shared_parent_vehicle_is_ignored_in_ray.<locals>.<lambda> at 0x7ab78564cae0>, GetBonePositionWS=<function NativeRound2.test_shared_parent_vehicle_is_ignored_in_ray.<locals>.<lambda> at 0x7ab78564ca40>)
+
+======================================================================
+FAIL: test_default_ray_budget_covers_eight (tests.unit.test_group_round2.RulesRound2.test_default_ray_budget_covers_eight)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 91, in test_default_ray_budget_covers_eight
+    def test_default_ray_budget_covers_eight(self):self.assertGreaterEqual(self.cfg.MaxLOSRaysPerTick,8*7)
+                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 32 not greater than or equal to 56
+
+======================================================================
+FAIL: test_journal_stores_ids_and_resolves_current_catalog (tests.unit.test_group_round2.RulesRound2.test_journal_stores_ids_and_resolves_current_catalog)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 88, in test_journal_stores_ids_and_resolves_current_catalog
+    self.assertEqual(['p'],getattr(e,'PlaceIds',[]));self.assertEqual([],e.Visits)
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['p'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'p'
+
+- ['p']
++ []
+
+======================================================================
+FAIL: test_wire_three (tests.unit.test_group_round2.RulesRound2.test_wire_three)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 93, in test_wire_three
+    self.assertEqual(3,self.e['HCGroupProtocol'].VERSION)
+AssertionError: 3 != 2
+
+======================================================================
+FAIL: test_already_known_discovery_does_not_clone (tests.unit.test_group_round2.ServiceRound2.test_already_known_discovery_does_not_clone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 121, in test_already_known_discovery_does_not_clone
+    self.discover();self.assertEqual([],self.clones)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [] != [1]
+
+Second list contains 1 additional elements.
+First extra element 0:
+1
+
+- []
++ [1]
+?  +
+
+
+======================================================================
+FAIL: test_far_discovery_does_no_clone_or_record (tests.unit.test_group_round2.ServiceRound2.test_far_discovery_does_no_clone_or_record)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 118, in test_far_discovery_does_no_clone_or_record
+    self.discover();self.assertEqual([],self.clones)
+    ^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 114, in discover
+    def discover(self):run('HCGroupService','Discover',self.s,self.e)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Discover", line 20, in member
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 117, in <lambda>
+    self.e['RecordVisit']=lambda *a:self.fail('distance rejection must precede RecordVisit')
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: distance rejection must precede RecordVisit
+
+======================================================================
+FAIL: test_limit_discovery_backs_off_sixty_seconds (tests.unit.test_group_round2.ServiceRound2.test_limit_discovery_backs_off_sixty_seconds)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 124, in test_limit_discovery_backs_off_sixty_seconds
+    self.discover();self.discover();self.assertEqual(1,len(self.writes))
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 2
+
+======================================================================
+FAIL: test_pair_los_cache_expires_and_is_bounded (tests.unit.test_group_round2.ServiceRound2.test_pair_los_cache_expires_and_is_bounded)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 144, in test_pair_los_cache_expires_and_is_bounded
+    self.assertTrue(self.visibility());self.assertTrue(self.visibility());self.assertEqual(1,len(self.rays))
+                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 48 tests in 0.846s
+
+FAILED (failures=8, errors=8)

@@ -12,7 +12,7 @@ class HCGroupSettings
     bool DiscoveryLayer = true;
     bool MissionLayer = true;
     bool ShareDiscovery = false;
-    int MaxLOSRaysPerTick = 32;
+    int MaxLOSRaysPerTick = 56;
     int MaxDiscoveries = 64;
     int MaxExplorers = 256;
     float DiscoveryIntervalSeconds = 5.0;
@@ -33,7 +33,7 @@ class HCGroupSettings
 }
 class HCGroupRequest
 {
-    int Version = 2;
+    int Version = 3;
     int RequestId = 0;
     int Op = 0;
     int ExpectedRevision = 0;
@@ -81,7 +81,7 @@ class HCGroupMarker
 }
 class HCGroupSnapshot
 {
-    int Version = 2;
+    int Version = 3;
     int Kind = 0;
     int RequestId = 0;
     // Session counter floor, not acknowledgment of the snapshot RequestId.
@@ -103,7 +103,7 @@ class HCGroupSnapshot
 }
 class HCGroupReply
 {
-    int Version = 2;
+    int Version = 3;
     int RequestId = 0;
     int LastMutationId = 0;
     int Code = 0;
@@ -158,6 +158,9 @@ class HCGroupPlace
 class HCGroupExplorer
 {
     string Id;
+    int LastSeenUtc = 0;
+    ref array<string> PlaceIds = new array<string>();
+    // Read-only migration input for pre-v3 journals. Cleared before saving.
     ref array<ref HCGroupPlace> Visits = new array<ref HCGroupPlace>();
 }
 class HCGroupPlaceCatalog

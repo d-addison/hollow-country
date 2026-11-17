@@ -50,7 +50,7 @@ class V1GroupsBehavior(unittest.TestCase):
         self.assertTrue(visit(self.state,self.cfg,'alice',p,[125,0,200]))
         self.assertFalse(visit(self.state,self.cfg,'alice',p,[100,0,200]))
         self.assertEqual(1,len(self.state.Explorers))
-        known = self.e['KnownPlaces']
+        known = lambda state,cfg,uid:self.e['KnownPlaces'](state,cfg,uid,NS(Places=EArray([p])))
         self.assertEqual([],known(self.state,self.cfg,'bob'))
         self.cfg.ShareDiscovery=True
         self.assertEqual(['synthetic-well'],[p.Id for p in known(self.state,self.cfg,'bob')])
@@ -114,14 +114,17 @@ class V1GroupsTransportBehavior(unittest.TestCase):
         matching=[False];visible=[True]
         env={'HCGroupEquipment':NS(Read=lambda p:NS()),
              'HCGroupVisibility':NS(RadioMatches=lambda *a:matching[0],HasLOS=lambda *a:native_calls.append('ray') or visible[0])}
-        state=NS(m_Config=cfg,m_LOSRays=0)
+        state=NS(m_Config=cfg,m_LOSRays=0,m_LOSCache=EArray())
+        now=[100.]
+        env.update(GetGame=lambda:NS(GetTickTime=lambda:now[0]),HCGroupLOSResult=lambda:NS())
+        left.Session='a';right.Session='b';left.Gear=None;right.Gear=None
         run=lambda:execute_member(source,'VisibilityAllows',dict(env),state,left,right)
         self.assertFalse(run());self.assertEqual([],native_calls)
         matching[0]=True;visible[0]=False
         self.assertFalse(run());self.assertEqual(['ray'],native_calls)
         visible[0]=True
         self.assertFalse(run());self.assertEqual(['ray'],native_calls)
-        state.m_LOSRays=0
+        state.m_LOSRays=0;now[0]+=1.01
         self.assertTrue(run());self.assertEqual(['ray','ray'],native_calls)
         right.Player.IsUnconscious=lambda:True
         self.assertFalse(run())
@@ -140,7 +143,7 @@ class V1GroupsTransportBehavior(unittest.TestCase):
                 IsTransmitter=lambda:True,GetCompEM=lambda:NS(IsWorking=lambda:working),GetTunedFrequency=lambda:frequency,IsTurnedOn=lambda:working)
         items.extend([item('map'),item('gps'),item(working=False),item(owner=object()),item(ruined=True),item('static'),item(frequency=89.1)])
         env={'HCGroupEquipment':lambda:NS(HasMap=False,HasGPS=False,Frequencies=EArray()),
-             'Items':EArray,'InventoryTraversalType':NS(PREORDER=1),
+             'CfgGameplayHandler':NS(GetMapIgnoreMapOwnership=lambda:False),'Items':EArray,'InventoryTraversalType':NS(PREORDER=1),
              'ItemBase':NS(Cast=lambda p:p),'PersonalRadio':NS(Cast=lambda p:p if p.kind=='radio' else None),
              'ItemMap':NS(Cast=lambda p:p.kind=='map'),'ItemGPS':NS(Cast=lambda p:p if p.kind=='gps' else None)}
         gear=execute_member(source,'Read',dict(env),NS(),player)
@@ -186,7 +189,7 @@ class V1GroupsJournalBehavior(unittest.TestCase):
         self.assertTrue(store.Save(rules.state))
         ok,loaded=h.store(rules.cfg).Open(rules.cfg,None)
         self.assertTrue(ok);self.assertEqual(['bob'],loaded.Groups[0].Officers)
-        self.assertEqual('synthetic',loaded.Explorers[0].Visits[0].Id)
+        self.assertEqual('synthetic',loaded.Explorers[0].PlaceIds[0])
         image=store.PathFor('state_',2)
         legacy=json.loads(h.files[image]);legacy.pop('Explorers')
         for group in legacy['Groups']:group.pop('Officers')
@@ -202,18 +205,19 @@ class V1GroupsJournalBehavior(unittest.TestCase):
 class V1GroupsLOSBehavior(unittest.TestCase):
     def test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton(self):
         source=(ROOT/'mods/HollowCountry/scripts/4_World/Groups/HCGroupVisibility.c').read_text()
+        source=source.replace('Object ignored =','HCGroupNative ignored =').replace('Object parent =','HCGroupNative parent =')
         source=source.replace('vector contact;', 'HCGroupVector contact;').replace('vector normal;', 'HCGroupVector normal;')
         source=source.replace('set<Object> hits = new set<Object>()', 'HCGroupHits hits = Hits()')
         class Vec(list):
             def __add__(self,other):return Vec(a+b for a,b in zip(self,other))
         bones=[1];calls=[];obstruction=[False];hit=EArray()
-        left=NS(GetPosition=lambda:Vec([100,0,200]),GetBoneIndexByName=lambda name:bones[0],GetBonePositionWS=lambda idx:Vec([100,0.3,200]))
-        right=NS(GetPosition=lambda:Vec([110,0,200]),GetBoneIndexByName=lambda name:bones[0],GetBonePositionWS=lambda idx:Vec([110,1.6,200]))
+        left=NS(GetParent=lambda:None,GetPosition=lambda:Vec([100,0,200]),GetBoneIndexByName=lambda name:bones[0],GetBonePositionWS=lambda idx:Vec([100,0.3,200]))
+        right=NS(GetParent=lambda:None,GetPosition=lambda:Vec([110,0,200]),GetBoneIndexByName=lambda name:bones[0],GetBonePositionWS=lambda idx:Vec([110,1.6,200]))
         def ray(start,end,contact,normal,component,hits,*args):
             calls.append((start,end,args));hits.extend(hit);return obstruction[0]
         env={'Vector':lambda *a:Vec(a),'Hits':EArray,'DayZPhysics':NS(RaycastRV=ray),
              'ObjIntersectView':7,'CollisionFlags':NS(NEARESTCONTACT=1),
-             'PositionValid':lambda v:len(v)==3 and all(0<=x<=50000 for x in v)}
+             'Object':NS(Cast=lambda p:p),'PositionValid':lambda v:len(v)==3 and all(0<=x<=50000 for x in v)}
         run=lambda:execute_member(source,'HasLOS',dict(env),NS(),left,right)
         self.assertTrue(run())
         self.assertEqual(([100,0.3,200],[110,1.6,200]),calls[-1][:2])
@@ -228,12 +232,13 @@ class V1GroupsDiscoveryScheduleBehavior(unittest.TestCase):
         for method in ('Stop','Commit','Broadcast'):
             import re
             source=re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(',source)
-        env=translated_rules();cfg=env['HCGroupSettings']()
+        env=translated_rules();env['GetGame']=lambda:NS(GetTickTime=lambda:100.);cfg=env['HCGroupSettings']()
         place=env['HCGroupPlace']();place.Id='synthetic';place.Name='Synthetic place';place.Position=[100,0,200]
         peers=EArray(NS(Id=str(i),Player=NS(IsAlive=lambda:True,IsUnconscious=lambda:False,GetPosition=lambda:[100,0,200])) for i in range(6))
         writes=[];broadcasts=[]
-        state=NS(m_Config=cfg,m_State=env['HCGroupState'](),m_Places=NS(Places=EArray([place])),m_Peers=peers,m_DiscoveryCursor=0,
-                 Live=lambda p:True,Commit=lambda s:writes.append(s) or 0,Broadcast=lambda:broadcasts.append(1),Stop=lambda:self.fail('unexpected stop'))
+        state=NS(m_Config=cfg,m_State=env['HCGroupState'](),m_Places=NS(Places=EArray([place])),m_Peers=peers,m_DiscoveryCursor=0,m_DiscoveryBlockedUntil=0.,m_LastUtc=1000,
+                 Peer=lambda uid:next((p for p in peers if p.Id==uid),None),Live=lambda p:True,Commit=lambda s:writes.append(s) or 0,Broadcast=lambda:broadcasts.append(1),Stop=lambda:self.fail('unexpected stop'))
         state.Clone=lambda:copy.deepcopy(state.m_State)
+        state.EvictExplorers=lambda *args:False  # No offline journals in this six-live-peer fixture.
         execute_member(source,'Discover',env,state)
         self.assertEqual(1,len(writes));self.assertEqual(6,len(writes[0].Explorers));self.assertEqual([1],broadcasts)

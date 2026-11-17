@@ -1,0 +1,136 @@
+...EE...E...................E.....E....E.E.....E
+======================================================================
+ERROR: test_M49_own_coordinates_require_powered_gps (tests.unit.test_group_round2.NativeRound2.test_M49_own_coordinates_require_powered_gps)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 228, in test_M49_own_coordinates_require_powered_gps
+    def test_M49_own_coordinates_require_powered_gps(self):self.assertFalse(any('Own coordinates' in s for s in self.navigation()))
+                                                                                                                ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 226, in navigation
+    execute_member(text,'Navigation',env,state,None,viewer,N(NavigationLayer=enabled,LabelScale=1))
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Navigation", line 2, in member
+NameError: name 'mHCGrid' is not defined. Did you mean: 'self.mHCGrid'?
+
+======================================================================
+ERROR: test_M50_disabled_navigation_does_not_render (tests.unit.test_group_round2.NativeRound2.test_M50_disabled_navigation_does_not_render)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 229, in test_M50_disabled_navigation_does_not_render
+    def test_M50_disabled_navigation_does_not_render(self):self.assertEqual([''],self.navigation(False,True))
+                                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 226, in navigation
+    execute_member(text,'Navigation',env,state,None,viewer,N(NavigationLayer=enabled,LabelScale=1))
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Navigation", line 2, in member
+NameError: name 'mHCGrid' is not defined. Did you mean: 'self.mHCGrid'?
+
+======================================================================
+ERROR: test_unpowered_gps_instructions (tests.unit.test_group_round2.NativeRound2.test_unpowered_gps_instructions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 230, in test_unpowered_gps_instructions
+    def test_unpowered_gps_instructions(self):self.assertIn('powered GPS',self.navigation()[-1])
+                                                                          ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 226, in navigation
+    execute_member(text,'Navigation',env,state,None,viewer,N(NavigationLayer=enabled,LabelScale=1))
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Navigation", line 2, in member
+NameError: name 'mHCGrid' is not defined. Did you mean: 'self.mHCGrid'?
+
+======================================================================
+ERROR: test_M31_tick_resets_budget_and_rotates_start (tests.unit.test_group_round2.ServiceRound2.test_M31_tick_resets_budget_and_rotates_start)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 151, in test_M31_tick_resets_budget_and_rotates_start
+    run('HCGroupService','Tick',self.s,self.e,2.)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Tick", line 19, in member
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Markers'
+
+======================================================================
+ERROR: test_M62_start_refuses_bad_catalog (tests.unit.test_group_round2.ServiceRound2.test_M62_start_refuses_bad_catalog)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 191, in test_M62_start_refuses_bad_catalog
+    self.assertFalse(run('HCGroupService','Start',self.s,self.e,self.cfg))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 100, in execute_member
+    exec(compile('\n'.join(lines),'authored-native-member:'+name,'exec'),env)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Start", line 29
+    array<Man> players = array()<Man>()
+    ^^^^^^^^^^^^^^^^^^
+SyntaxError: cannot assign to comparison
+
+======================================================================
+ERROR: test_full_round_prevents_duplicate_positions (tests.unit.test_group_round2.ServiceRound2.test_full_round_prevents_duplicate_positions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 158, in test_full_round_prevents_duplicate_positions
+    run('HCGroupService','Tick',self.s,self.e,2.)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Tick", line 44, in member
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Discover'
+
+======================================================================
+ERROR: test_pair_los_cache_expires_and_is_bounded (tests.unit.test_group_round2.ServiceRound2.test_pair_los_cache_expires_and_is_bounded)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 144, in test_pair_los_cache_expires_and_is_bounded
+    self.assertTrue(self.visibility());self.assertTrue(self.visibility());self.assertEqual(1,len(self.rays))
+                    ^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 134, in visibility
+    return run('HCGroupService','VisibilityAllows',self.s,self.e,left or self.peers[0],right or self.peers[1])
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:VisibilityAllows", line 12, in member
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 111, in <lambda>
+    setattr(self.s,m,lambda *args,m=m:run('HCGroupService',m,self.s,self.e,*args))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 27, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 101, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:LOSAllows", line 9, in member
+NameError: name 'HCGroupLOSResult' is not defined
+
+======================================================================
+ERROR: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.test_v1_groups.V1GroupsBehavior.test_visit_requires_actual_proximity_and_is_bounded_persistent_private)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 54, in test_visit_requires_actual_proximity_and_is_bounded_persistent_private
+    self.assertEqual([],known(self.state,self.cfg,'bob'))
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: KnownPlaces() missing 1 required positional argument: 'catalog'
+
+----------------------------------------------------------------------
+Ran 48 tests in 0.943s
+
+FAILED (errors=8)

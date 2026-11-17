@@ -1,0 +1,63 @@
+M00 baseline unmutated SURVIVED 
+M01 SET_ROLE owner-only guard off KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M02 officer may kick officers/owner KILLED FAIL: test_officer_matrix_and_owner_only_role_assignment (tests.unit.test_v1_groups.V1Grou
+M03 officer may transfer SURVIVED 
+M04 officer may disband SURVIVED 
+M05 kick leaves stale officer SURVIVED 
+M06 leave leaves stale officer SURVIVED 
+M07 transfer keeps new owner in officers KILLED FAIL: test_additive_legacy_roles_and_transfer_cleanup (tests.unit.test_v1_groups.V1GroupsB
+M08 member may invite (officer check off) KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M09 marker edit any member KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M10 rename any member KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M11 SET_ROLE keeps stale invites KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M12 SET_ROLE allows role 2 (owner) SURVIVED 
+M13 StateValid ignores officer not member SURVIVED 
+M14 StateValid allows owner as officer SURVIVED 
+M15 invite validity any member SURVIVED 
+M16 RecordVisit radius ignored KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M17 RecordVisit ignores MaxDiscoveries KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M18 RecordVisit ignores MaxExplorers SURVIVED 
+M19 RecordVisit ignores DiscoveryLayer off SURVIVED 
+M20 KnownPlaces leaks every explorer KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M21 ShareDiscovery ignores membership SURVIVED 
+M22 ShareDiscovery ignores setting KILLED FAIL: test_visit_requires_actual_proximity_and_is_bounded_persistent_private (tests.unit.t
+M23 KnownPlaces unbounded SURVIVED 
+M24 DiscoveryLayer off still lists SURVIVED 
+M25 visibility filter not applied KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M26 LOS ray budget off KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M27 LOS ray not counted KILLED FAIL: test_visibility_budget_and_radio_are_fail_closed_before_projection (tests.unit.test_
+M28 LOS skipped KILLED FAIL: test_visibility_budget_and_radio_are_fail_closed_before_projection (tests.unit.test_
+M29 radio skipped KILLED FAIL: test_visibility_budget_and_radio_are_fail_closed_before_projection (tests.unit.test_
+M30 unconscious sources visible SURVIVED 
+M31 tick ray budget never reset SURVIVED 
+M32 radio always matches KILLED FAIL: test_radio_matching_requires_a_shared_actual_frequency (tests.unit.test_v1_groups.V1
+M33 LOS: any hit allowed KILLED FAIL: test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton (tests.unit.te
+M34 LOS: unknown bone allowed KILLED FAIL: test_los_uses_current_head_bones_and_fails_closed_on_unknown_skeleton (tests.unit.te
+M35 radio: not-working accepted KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M36 radio: not-owned accepted KILLED FAIL: test_equipment_requires_owned_working_handheld_and_bounded_inventory (tests.unit.tes
+M37 radio: ruined accepted KILLED FAIL: test_equipment_requires_owned_working_handheld_and_bounded_inventory (tests.unit.tes
+M38 gps: off accepted KILLED FAIL: test_equipment_requires_owned_working_handheld_and_bounded_inventory (tests.unit.tes
+M39 equipment over-budget accepted SURVIVED 
+M40 radio base transmitter accepted SURVIVED 
+M41 places only when alive off SURVIVED 
+M42 places sent on POSITIONS too SURVIVED 
+M43 discover skips alive/uncons check SURVIVED 
+M44 discover examines unbounded SURVIVED 
+M45 mission layer shows expired SURVIVED 
+M46 mission layer ignores setting KILLED FAIL: test_mission_list_consumes_only_fresh_public_rows (tests.unit.test_v1_groups.V1Group
+M47 mission layer stale OK KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M48 grid without map KILLED FAIL: test_required_native_and_privacy_wiring (tests.unit.test_v1_groups.V1GroupsBehavior.
+M49 coords without GPS SURVIVED 
+M50 navigation layer setting ignored SURVIVED 
+M51 client accepts unbounded places SURVIVED 
+M52 client accepts bad member role SURVIVED 
+M53 settings IconScale unbounded KILLED FAIL: test_visibility_settings_are_supported_and_bounded (tests.unit.test_v1_groups.V1Grou
+M54 settings Rays unbounded KILLED FAIL: test_visibility_settings_are_supported_and_bounded (tests.unit.test_v1_groups.V1Grou
+M55 settings DiscoveryInterval too small KILLED FAIL: test_visibility_settings_are_supported_and_bounded (tests.unit.test_v1_groups.V1Grou
+M56 PlaceValid radius unbounded SURVIVED 
+M57 ExplorersValid MaxExplorers SURVIVED 
+M58 ExplorersValid dup visit SURVIVED 
+M59 Apply op range 13 off KILLED FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_nati
+M60 Discover commit not broadcast KILLED FAIL: test_one_bounded_discovery_pass_observes_six_players_with_one_commit (tests.unit.tes
+M61 Member roles not set SURVIVED 
+M62 DiscoveryLayer start refusal off SURVIVED 

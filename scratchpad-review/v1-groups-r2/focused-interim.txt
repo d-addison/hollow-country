@@ -1,0 +1,76 @@
+..................................E.....................................................E..........................E..............F.FF.
+======================================================================
+ERROR: test_M62_start_refuses_bad_catalog (tests.unit.test_group_round2.ServiceRound2.test_M62_start_refuses_bad_catalog)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 196, in test_M62_start_refuses_bad_catalog
+    self.assertFalse(run('HCGroupService','Start',self.s,self.e,self.cfg))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 32, in run
+    return execute_member(text,method,env,state,*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 108, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Start", line 2, in member
+UnboundLocalError: cannot access local variable 's_Instance' where it is not associated with a value
+
+======================================================================
+ERROR: test_one_bounded_discovery_pass_observes_six_players_with_one_commit (tests.unit.test_v1_groups.V1GroupsDiscoveryScheduleBehavior.test_one_bounded_discovery_pass_observes_six_players_with_one_commit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 242, in test_one_bounded_discovery_pass_observes_six_players_with_one_commit
+    execute_member(source,'Discover',env,state)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 108, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Discover", line 35, in member
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Peer'
+
+======================================================================
+ERROR: test_one_bounded_discovery_pass_observes_six_players_with_one_commit (tests.unit.test_v1_groups.V1GroupsDiscoveryScheduleBehavior.test_one_bounded_discovery_pass_observes_six_players_with_one_commit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_v1_groups.py", line 242, in test_one_bounded_discovery_pass_observes_six_players_with_one_commit
+    execute_member(source,'Discover',env,state)
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_server.py", line 108, in execute_member
+    return env['member'](*args)
+           ^^^^^^^^^^^^^^^^^^^^
+  File "authored-native-member:Discover", line 35, in member
+AttributeError: 'types.SimpleNamespace' object has no attribute 'Peer'
+
+======================================================================
+FAIL: test_rejected_mutation_cannot_print_completion (tests.unit.test_group_native_checks.GroupNativeChecksTests.test_rejected_mutation_cannot_print_completion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_native_checks.py", line 94, in test_rejected_mutation_cannot_print_completion
+    self.assertIn('rejected_state_changed', error)
+AssertionError: 'rejected_state_changed' not found in 'wire_version step=0'
+
+======================================================================
+FAIL: test_success_executes_all_thirteen_ops_before_completion (tests.unit.test_group_native_checks.GroupNativeChecksTests.test_success_executes_all_thirteen_ops_before_completion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_native_checks.py", line 70, in test_success_executes_all_thirteen_ops_before_completion
+    self.assertEqual((True, ''), self.run_fixture())
+AssertionError: Tuples differ: (True, '') != (False, 'wire_version step=0')
+
+First differing element 0:
+True
+False
+
+- (True, '')
++ (False, 'wire_version step=0')
+
+======================================================================
+FAIL: test_unexpected_result_cannot_print_completion (tests.unit.test_group_native_checks.GroupNativeChecksTests.test_unexpected_result_cannot_print_completion)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_native_checks.py", line 101, in test_unexpected_result_cannot_print_completion
+    self.assertIn('create', error)
+AssertionError: 'create' not found in 'wire_version step=0'
+
+----------------------------------------------------------------------
+Ran 135 tests in 3.032s
+
+FAILED (failures=3, errors=3)

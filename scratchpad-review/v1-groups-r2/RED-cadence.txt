@@ -1,0 +1,17 @@
+F
+======================================================================
+FAIL: test_rotation_does_not_alias_two_second_position_cadence (tests.unit.test_group_round2.AdditionalRound2.test_rotation_does_not_alias_two_second_position_cadence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/tests/unit/test_group_round2.py", line 306, in test_rotation_does_not_alias_two_second_position_cadence
+    self.assertEqual(set(p.Id for p in self.peers),recipients)
+AssertionError: Items in the first set but not the second:
+'7'
+'3'
+'5'
+'1'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.968s
+
+FAILED (failures=1)

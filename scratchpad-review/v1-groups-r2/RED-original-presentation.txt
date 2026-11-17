@@ -1,0 +1,50 @@
+FFEF
+======================================================================
+ERROR: test_native_names_truncates_with_log_and_bounded_reads (tests.unit.test_group_round2.PresentationRound2.test_native_names_truncates_with_log_and_bounded_reads)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/scratchpad-review/v1-groups-r2/red-original/tests/unit/test_group_round2.py", line 352, in test_native_names_truncates_with_log_and_bounded_reads
+    self.assertEqual(256,len(catalog.Places));self.assertLessEqual(len(calls),512);self.assertTrue(any('truncated' in s for s in logs))
+                             ^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'Places'
+
+======================================================================
+FAIL: test_pin_reuses_texture_until_texture_changes (tests.unit.test_group_round2.PresentationRound2.test_pin_reuses_texture_until_texture_changes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/scratchpad-review/v1-groups-r2/red-original/tests/unit/test_group_round2.py", line 341, in test_pin_reuses_texture_until_texture_changes
+    self.assertEqual([(0,'first'),(0,'second')],loads)
+AssertionError: Lists differ: [(0, 'first'), (0, 'second')] != [(0, 'first'), (0, 'first'), (0, 'second'), (0, 'second')]
+
+First differing element 1:
+(0, 'second')
+(0, 'first')
+
+Second list contains 2 additional elements.
+First extra element 2:
+(0, 'second')
+
+- [(0, 'first'), (0, 'second')]
++ [(0, 'first'), (0, 'first'), (0, 'second'), (0, 'second')]
+
+======================================================================
+FAIL: test_native_map_ownership_override_requires_no_item (tests.unit.test_group_round2.PresentationRound2.test_native_map_ownership_override_requires_no_item)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/scratchpad-review/v1-groups-r2/red-original/tests/unit/test_group_round2.py", line 358, in test_native_map_ownership_override_requires_no_item
+    self.assertTrue(execute_member(text,'Read',env,N(),player).HasMap)
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_unpowered_gps_instructions (tests.unit.test_group_round2.NativeRound2.test_unpowered_gps_instructions)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-groups/scratchpad-review/v1-groups-r2/red-original/tests/unit/test_group_round2.py", line 251, in test_unpowered_gps_instructions
+    def test_unpowered_gps_instructions(self):self.assertIn('powered GPS',self.navigation()[-1])
+                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'powered GPS' not found in 'Navigation: 1 km grid. Carry a GPS for own coordinates.'
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.043s
+
+FAILED (failures=3, errors=1)
