@@ -1,0 +1,15 @@
+E13 unchanged-config binding guard
+$ /usr/bin/python3 -B -m unittest tests.unit.test_infected_competence
+.........................F..
+======================================================================
+FAIL: test_staged_config_and_each_init_binding_guard (tests.unit.test_infected_competence.StagingAndReceiptTests.test_staged_config_and_each_init_binding_guard)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 322, in test_staged_config_and_each_init_binding_guard
+    with self.assertRaisesRegex(ValueError, 'staged config mismatch'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 28 tests in 5.366s
+
+FAILED (failures=1)

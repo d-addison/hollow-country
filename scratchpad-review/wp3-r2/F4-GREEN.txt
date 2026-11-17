@@ -1,0 +1,6 @@
+test_stage_is_fresh_pinned_no_clients_and_never_launches (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_is_fresh_pinned_no_clients_and_never_launches) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.322s
+
+OK

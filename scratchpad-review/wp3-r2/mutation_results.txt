@@ -1,0 +1,76 @@
+V1 cleanup row spawned!=deleted KILLED
+V2 totals spawned/deleted match KILLED
+V3 receipt hook sha KILLED
+V4 unknown kind KILLED
+V5 exact row field set KILLED
+V6 row count denominator KILLED
+V7 clients==0 KILLED
+V8 status complete KILLED
+V9 sentinel KILLED
+V10 world KILLED
+V11 build KILLED
+V12 identity mismatch KILLED
+C1 client: observed KILLED
+C2 client: status KILLED
+C3 client: spawned KILLED
+C4 client: samples KILLED
+C5 client: doors KILLED
+C6 client: geometry KILLED
+C7 client: elapsed KILLED
+C8 client: reason KILLED
+C9 client whole branch PATTERN_COUNT=0
+D1 counts client_required KILLED
+D2 counts attempted KILLED
+D3 counts status KILLED
+D4 observed iff completed KILLED
+E1 completed spawned==1 KILLED
+E2 completed 2 samples KILLED
+E3 completed geometry clear KILLED
+E4 completed elapsed>=per KILLED
+E5 door state needed KILLED
+E6 door outside door trial KILLED
+E7 target/alive in completed KILLED
+E8 elapsed upper bound KILLED
+E9 array bounds KILLED
+E10 reason bounded KILLED
+E11 limb range KILLED
+E12 door index order KILLED
+E13 config no-client PATTERN_COUNT=0
+E14 init hash KILLED
+E15 init endswith hook KILLED
+E16 sidecar KILLED
+S1 stage: registration check KILLED
+S2 stage: native verify KILLED
+S3 stage: lint KILLED
+S4 check_trials spawn<=20m KILLED
+S5 check_trials fixture status KILLED
+S6 check_trials support mismatch KILLED
+S7 check_trials reason canonical KILLED
+S8 dup trial id KILLED
+S9 max plus KILLED
+S10 trial count cap KILLED
+S11 bounds position KILLED
+S12 max_spawned_entities KILLED
+S13 wait_minutes KILLED
+S14 config maxPlayers 0 PATTERN_COUNT=0
+H1 hook: client_required skip PATTERN_COUNT=2
+H2 hook: delete count receipt KILLED
+H3 hook: delete count trial KILLED
+H4 hook: ObjectDelete call KILLED
+H5 hook: cleanup in next KILLED
+H6 hook: cleanup in finish KILLED
+H7 hook: cleanup in mission finish KILLED
+H8 hook: spawned count KILLED
+H9 hook: no-client abort KILLED
+H10 hook: cap check KILLED
+H11 hook: output cap KILLED
+H12 hook: sentinel written first KILLED
+H13 hook: door loop bound KILLED
+H14 hook: owned deleted even if cast fails (m_Owned kept) KILLED
+H15 hook: leg health bound KILLED
+H16 hook: ray count KILLED
+H17 hook: ECE flags KILLED
+H18 hook: watchdog KILLED
+H19 hook: query bound KILLED
+H20 hook: structure ambiguity KILLED
+survivors: ['C9 client whole branch', 'E13 config no-client', 'S14 config maxPlayers 0', 'H1 hook: client_required skip']

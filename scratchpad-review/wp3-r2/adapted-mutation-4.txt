@@ -1,0 +1,15 @@
+H1 client-required execution skip (first occurrence only)
+$ /usr/bin/python3 -B -m unittest tests.unit.test_infected_competence
+.....F......................
+======================================================================
+FAIL: test_hook_cleanup_ownership_guards_and_bounds_structure (tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 170, in test_hook_cleanup_ownership_guards_and_bounds_structure
+    self.assertIsNotNone(client_branch)
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 28 tests in 5.340s
+
+FAILED (failures=1)

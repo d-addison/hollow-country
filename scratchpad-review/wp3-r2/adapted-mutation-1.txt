@@ -1,0 +1,446 @@
+C9 current whole client branch
+$ /usr/bin/python3 -B -m unittest tests.unit.test_infected_competence
+.......FFFFFFFFFFFFFEEEinfected_competence_probe: numeric sample required
+F.....EFFF......E.
+======================================================================
+ERROR: test_f1_authored_height_roundtrip_and_invalid_height_receipts (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f1_authored_height_roundtrip_and_invalid_height_receipts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 510, in test_f1_authored_height_roundtrip_and_invalid_height_receipts
+    probe.validate(self.dest)  # Enforce floats/ToString need a small numeric tolerance.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 885, in validate
+    if not math.isclose(_finite(row[prefix + '_authored_y']), trial[position_key][1],
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 791, in _finite
+    raise ValueError('numeric sample required') from error
+ValueError: numeric sample required
+
+======================================================================
+ERROR: test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 492, in test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound
+    self.assertEqual(probe.validate(self.dest)['denominator']['inconclusive'], 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 885, in validate
+    if not math.isclose(_finite(row[prefix + '_authored_y']), trial[position_key][1],
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 791, in _finite
+    raise ValueError('numeric sample required') from error
+ValueError: numeric sample required
+
+======================================================================
+ERROR: test_f3_health_only_labels_drop_and_shared_coverage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f3_health_only_labels_drop_and_shared_coverage)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 527, in test_f3_health_only_labels_drop_and_shared_coverage
+    result = probe.validate(self.dest)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 885, in validate
+    if not math.isclose(_finite(row[prefix + '_authored_y']), trial[position_key][1],
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 791, in _finite
+    raise ValueError('numeric sample required') from error
+ValueError: numeric sample required
+
+======================================================================
+ERROR: test_receipt_denominator_and_inconclusive_are_honest (tests.unit.test_infected_competence.StagingAndReceiptTests.test_receipt_denominator_and_inconclusive_are_honest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 364, in test_receipt_denominator_and_inconclusive_are_honest
+    result = probe.validate(self.dest)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 885, in validate
+    if not math.isclose(_finite(row[prefix + '_authored_y']), trial[position_key][1],
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 791, in _finite
+    raise ValueError('numeric sample required') from error
+ValueError: numeric sample required
+
+======================================================================
+ERROR: test_survey_read_only_even_placements_yaw_provenance_and_stage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 256, in test_survey_read_only_even_placements_yaw_provenance_and_stage
+    self.assertEqual(probe.validate(self.dest)['fixture_status_counts'], {'stock-derived': 18})
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 885, in validate
+    if not math.isclose(_finite(row[prefix + '_authored_y']), trial[position_key][1],
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 791, in _finite
+    raise ValueError('numeric sample required') from error
+ValueError: numeric sample required
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='observed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='status')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='spawned')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='samples')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='doors')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='geometry')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='elapsed_ms')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='reason')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client-required reason mismatch" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='anchor_authored_y')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot contain terrain" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='anchor_surface_y')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot contain terrain" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='spawn_authored_y')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot contain terrain" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) (field='spawn_surface_y')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 441, in test_client_required_each_field_refused_independently
+    with self.subTest(field=field), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot contain terrain" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_completed_records_require_kind_specific_evidence_and_pinned_build (tests.unit.test_infected_competence.StagingAndReceiptTests.test_completed_records_require_kind_specific_evidence_and_pinned_build) (index=6)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 478, in test_completed_records_require_kind_specific_evidence_and_pinned_build
+    with self.subTest(index=index), self.assertRaisesRegex(ValueError, message):
+AssertionError: "trial record fields" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_f5_fixture_status_printed_and_default_stage_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f5_fixture_status_printed_and_default_stage_warning)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 545, in test_f5_fixture_status_printed_and_default_stage_warning
+    self.assertEqual(probe.main([command, str(self.dest)]), 0)
+AssertionError: 1 != 0
+
+======================================================================
+FAIL: test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies (tests.unit.test_infected_competence.StagingAndReceiptTests.test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies) (mutation='client observed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 418, in test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+    with self.subTest(mutation=label), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies (tests.unit.test_infected_competence.StagingAndReceiptTests.test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies) (mutation='client status')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 418, in test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+    with self.subTest(mutation=label), self.assertRaisesRegex(ValueError, message):
+AssertionError: "client_required trial cannot be observed" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies (tests.unit.test_infected_competence.StagingAndReceiptTests.test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies) (mutation='totals')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tools/setup/infected_competence_probe.py", line 789, in _finite
+    number = float(value)
+             ^^^^^^^^^^^^
+ValueError: could not convert string to float: ''
+
+The above exception was the direct cause of the following exception:
+
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 418, in test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+    with self.subTest(mutation=label), self.assertRaisesRegex(ValueError, message):
+AssertionError: "run cleanup totals mismatch" does not match "numeric sample required"
+
+----------------------------------------------------------------------
+Ran 28 tests in 4.774s
+
+FAILED (failures=17, errors=5)

@@ -1,0 +1,14 @@
+test_f3_health_only_labels_drop_and_shared_coverage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f3_health_only_labels_drop_and_shared_coverage) ... FAIL
+
+======================================================================
+FAIL: test_f3_health_only_labels_drop_and_shared_coverage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f3_health_only_labels_drop_and_shared_coverage)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 279, in test_f3_health_only_labels_drop_and_shared_coverage
+    self.assertNotIn('crawl_transition', probe.KINDS)
+AssertionError: 'crawl_transition' unexpectedly found in {'spawn_lifecycle': ('server_observable', 'Native spawn/state/delete at authored fixed position.'), 'mind_no_target': ('server_observable', 'Two native mind-state samples; target presence invalidates no-target control.'), 'door_state': ('server_observable', 'Read existing door open/locked state only; no contact or opening inference.'), 'footprint_geometry': ('server_observable', 'Four short view-geometry rays at spawn height; not LOS acquisition or full collision proof.'), 'limb_damage': ('server_observable', 'One LeftLeg DecreaseHealth stimulus; before/after limb health and alive state.'), 'crawl_transition': ('server_observable', 'One LeftLeg health decrease; before/after IsCrawling, without forcing transition or hit callback.'), 'player_los_chase': ('client_required', 'Requires a real connected player and paired LOS/chase observations; server-only has no target.'), 'player_wall_attack': ('client_required', 'Requires real player damage/attack observations through walls with two clients.'), 'audible_pursuit': ('client_required', 'Requires two clients hearing pursuit on surfaces, at distance and through occlusion.')}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)

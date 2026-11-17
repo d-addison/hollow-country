@@ -1,0 +1,15 @@
+H1/F7 client-required zero elapsed branch
+$ /usr/bin/python3 -B -m unittest tests.unit.test_infected_competence
+....F.......................
+======================================================================
+FAIL: test_f7_client_elapsed_is_explicitly_zero (tests.unit.test_infected_competence.HookTests.test_f7_client_elapsed_is_explicitly_zero)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 68, in test_f7_client_elapsed_is_explicitly_zero
+    self.assertRegex(method, r'if \(m_Trial.support_state == "client_required"\)\s+m_Trial.elapsed_ms = 0;\s+else\s+m_Trial.elapsed_ms = GetGame\(\).GetTime\(\) - m_TrialBegin;')
+AssertionError: Regex didn't match: 'if \\(m_Trial.support_state == "client_required"\\)\\s+m_Trial.elapsed_ms = 0;\\s+else\\s+m_Trial.elapsed_ms = GetGame\\(\\).GetTime\\(\\) - m_TrialBegin;' not found in '\n    {\n        HCICCleanup();\n        if (false)\n            m_Trial.elapsed_ms = 0;\n        else\n            m_Trial.elapsed_ms = GetGame().GetTime() - m_TrialBegin;\n        m_Index = m_Index + 1;\n        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCICStep, 100, false);\n    }\n\n'
+
+----------------------------------------------------------------------
+Ran 28 tests in 5.702s
+
+FAILED (failures=1)

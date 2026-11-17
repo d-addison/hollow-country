@@ -1,0 +1,6 @@
+test_f5_fixture_status_printed_and_default_stage_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f5_fixture_status_printed_and_default_stage_warning) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.142s
+
+OK

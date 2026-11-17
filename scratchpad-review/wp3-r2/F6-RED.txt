@@ -1,0 +1,16 @@
+Isolated reviewer H5 mutation: remove HCICCleanup from HCICNext
+$ /usr/bin/python3 -m unittest tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure -v
+test_hook_cleanup_ownership_guards_and_bounds_structure (tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure) ... FAIL
+
+======================================================================
+FAIL: test_hook_cleanup_ownership_guards_and_bounds_structure (tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-f6-red-3e51txrm/tests/unit/test_infected_competence.py", line 156, in test_hook_cleanup_ownership_guards_and_bounds_structure
+    self.assertIn('HCICCleanup();', body(name), name)
+AssertionError: 'HCICCleanup();' not found in '\n        if (m_Trial.support_state == "client_required")\n            m_Trial.elapsed_ms = 0;\n        else\n            m_Trial.elapsed_ms = GetGame().GetTime() - m_TrialBegin;\n        m_Index = m_Index + 1;\n        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCICStep, 100, false);\n    ' : HCICNext
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)

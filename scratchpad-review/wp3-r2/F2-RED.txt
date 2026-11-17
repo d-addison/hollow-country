@@ -1,0 +1,19 @@
+test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound) ... ERROR
+
+======================================================================
+ERROR: test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 265, in test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound
+    self.assertEqual(probe.validate(self.dest)['denominator']['inconclusive'], 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 760, in validate
+    _integer(row.get('elapsed_ms'), 0, plan['probe']['per_trial_ms'] + 1000, 'trial elapsed')
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 137, in _integer
+    raise ValueError(f'{name} must be an integer {low}..{high}')
+ValueError: trial elapsed must be an integer 0..6000
+
+----------------------------------------------------------------------
+Ran 1 test in 0.118s
+
+FAILED (errors=1)

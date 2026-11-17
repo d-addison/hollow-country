@@ -1,0 +1,15 @@
+S14 reintroduce maxPlayers rewrite in staged bytes
+$ /usr/bin/python3 -B -m unittest tests.unit.test_infected_competence
+.......................F....
+======================================================================
+FAIL: test_stage_is_fresh_pinned_no_clients_and_never_launches (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_is_fresh_pinned_no_clients_and_never_launches)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r2-adapted-mutations-p0tdwrzi/tests/unit/test_infected_competence.py", line 342, in test_stage_is_fresh_pinned_no_clients_and_never_launches
+    self.assertEqual((self.dest / 'serverDZ.cfg').read_bytes(),
+AssertionError: b'hostname = "SYNTHETIC";\nmaxPlayers = 0;\n' != b'hostname = "SYNTHETIC";\nmaxPlayers = 6;\n'
+
+----------------------------------------------------------------------
+Ran 28 tests in 4.894s
+
+FAILED (failures=1)

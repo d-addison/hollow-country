@@ -1,0 +1,17 @@
+test_f1_authored_height_roundtrip_and_invalid_height_receipts (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f1_authored_height_roundtrip_and_invalid_height_receipts) ... ERROR
+
+======================================================================
+ERROR: test_f1_authored_height_roundtrip_and_invalid_height_receipts (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f1_authored_height_roundtrip_and_invalid_height_receipts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 510, in test_f1_authored_height_roundtrip_and_invalid_height_receipts
+    probe.validate(self.dest)  # Enforce floats/ToString need a small numeric tolerance.
+    ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 885, in validate
+    raise ValueError('authored terrain height mismatch')
+ValueError: authored terrain height mismatch
+
+----------------------------------------------------------------------
+Ran 1 test in 0.177s
+
+FAILED (errors=1)

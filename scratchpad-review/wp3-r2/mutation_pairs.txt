@@ -1,0 +1,5 @@
+V1+V2 cleanup lies (both removed) KILLED
+V4+V12 unknown kind (both removed) KILLED
+E14+E15 staged init (both removed) KILLED
+C1+C2 client observed/status both removed KILLED
+D4+C? observed flag mismatch (E: status completed but observed False) KILLED

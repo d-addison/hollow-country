@@ -1,0 +1,6 @@
+test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded (tests.unit.test_infected_competence.HookTests.test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+OK

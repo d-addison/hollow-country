@@ -1,0 +1,14 @@
+test_stage_is_fresh_pinned_no_clients_and_never_launches (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_is_fresh_pinned_no_clients_and_never_launches) ... FAIL
+
+======================================================================
+FAIL: test_stage_is_fresh_pinned_no_clients_and_never_launches (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_is_fresh_pinned_no_clients_and_never_launches)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 155, in test_stage_is_fresh_pinned_no_clients_and_never_launches
+    self.assertEqual((self.dest / 'serverDZ.cfg').read_bytes(),
+AssertionError: b'hostname = "SYNTHETIC";\nmaxPlayers = 0;\n' != b'hostname = "SYNTHETIC";\nmaxPlayers = 6;\n'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.118s
+
+FAILED (failures=1)

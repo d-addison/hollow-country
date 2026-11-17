@@ -1,0 +1,76 @@
+V1 cleanup row spawned!=deleted SURVIVED
+V2 totals spawned/deleted match SURVIVED
+V3 receipt hook sha KILLED
+V4 unknown kind SURVIVED
+V5 exact row field set KILLED
+V6 row count denominator KILLED
+V7 clients==0 KILLED
+V8 status complete KILLED
+V9 sentinel KILLED
+V10 world KILLED
+V11 build KILLED
+V12 identity mismatch SURVIVED
+C1 client: observed KILLED
+C2 client: status KILLED
+C3 client: spawned SURVIVED
+C4 client: samples SURVIVED
+C5 client: doors SURVIVED
+C6 client: geometry SURVIVED
+C7 client: elapsed SURVIVED
+C8 client: reason SURVIVED
+C9 client whole branch KILLED
+D1 counts client_required KILLED
+D2 counts attempted KILLED
+D3 counts status KILLED
+D4 observed iff completed SURVIVED
+E1 completed spawned==1 SURVIVED
+E2 completed 2 samples SURVIVED
+E3 completed geometry clear KILLED
+E4 completed elapsed>=per KILLED
+E5 door state needed KILLED
+E6 door outside door trial SURVIVED
+E7 target/alive in completed SURVIVED
+E8 elapsed upper bound KILLED
+E9 array bounds SURVIVED
+E10 reason bounded SURVIVED
+E11 limb range KILLED
+E12 door index order SURVIVED
+E13 config no-client SURVIVED
+E14 init hash SURVIVED
+E15 init endswith hook SURVIVED
+E16 sidecar KILLED
+S1 stage: registration check KILLED
+S2 stage: native verify SURVIVED
+S3 stage: lint SURVIVED
+S4 check_trials spawn<=20m SURVIVED
+S5 check_trials fixture status SURVIVED
+S6 check_trials support mismatch SURVIVED
+S7 check_trials reason canonical SURVIVED
+S8 dup trial id SURVIVED
+S9 max plus SURVIVED
+S10 trial count cap SURVIVED
+S11 bounds position SURVIVED
+S12 max_spawned_entities SURVIVED
+S13 wait_minutes SURVIVED
+S14 config maxPlayers 0 KILLED
+H1 hook: client_required skip SURVIVED
+H2 hook: delete count receipt SURVIVED
+H3 hook: delete count trial SURVIVED
+H4 hook: ObjectDelete call KILLED
+H5 hook: cleanup in next SURVIVED
+H6 hook: cleanup in finish SURVIVED
+H7 hook: cleanup in mission finish SURVIVED
+H8 hook: spawned count SURVIVED
+H9 hook: no-client abort SURVIVED
+H10 hook: cap check SURVIVED
+H11 hook: output cap SURVIVED
+H12 hook: sentinel written first SURVIVED
+H13 hook: door loop bound SURVIVED
+H14 hook: owned deleted even if cast fails (m_Owned kept) SURVIVED
+H15 hook: leg health bound SURVIVED
+H16 hook: ray count SURVIVED
+H17 hook: ECE flags SURVIVED
+H18 hook: watchdog SURVIVED
+H19 hook: query bound SURVIVED
+H20 hook: structure ambiguity SURVIVED
+survivors: ['V1 cleanup row spawned!=deleted', 'V2 totals spawned/deleted match', 'V4 unknown kind', 'V12 identity mismatch', 'C3 client: spawned', 'C4 client: samples', 'C5 client: doors', 'C6 client: geometry', 'C7 client: elapsed', 'C8 client: reason', 'D4 observed iff completed', 'E1 completed spawned==1', 'E2 completed 2 samples', 'E6 door outside door trial', 'E7 target/alive in completed', 'E9 array bounds', 'E10 reason bounded', 'E12 door index order', 'E13 config no-client', 'E14 init hash', 'E15 init endswith hook', 'S2 stage: native verify', 'S3 stage: lint', 'S4 check_trials spawn<=20m', 'S5 check_trials fixture status', 'S6 check_trials support mismatch', 'S7 check_trials reason canonical', 'S8 dup trial id', 'S9 max plus', 'S10 trial count cap', 'S11 bounds position', 'S12 max_spawned_entities', 'S13 wait_minutes', 'H1 hook: client_required skip', 'H2 hook: delete count receipt', 'H3 hook: delete count trial', 'H5 hook: cleanup in next', 'H6 hook: cleanup in finish', 'H7 hook: cleanup in mission finish', 'H8 hook: spawned count', 'H9 hook: no-client abort', 'H10 hook: cap check', 'H11 hook: output cap', 'H12 hook: sentinel written first', 'H13 hook: door loop bound', 'H14 hook: owned deleted even if cast fails (m_Owned kept)', 'H15 hook: leg health bound', 'H16 hook: ray count', 'H17 hook: ECE flags', 'H18 hook: watchdog', 'H19 hook: query bound', 'H20 hook: structure ambiguity']

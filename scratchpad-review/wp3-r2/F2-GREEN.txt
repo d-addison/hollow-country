@@ -1,0 +1,6 @@
+test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.129s
+
+OK

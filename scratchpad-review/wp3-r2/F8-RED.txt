@@ -1,0 +1,59 @@
+test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) ... 
+  test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='document', remove=False) ... FAIL
+  test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='document', remove=True) ... FAIL
+  test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='sample', remove=False) ... FAIL
+  test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='sample', remove=True) ... FAIL
+  test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='door', remove=False) ... FAIL
+
+======================================================================
+FAIL: test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='document', remove=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 323, in test_f8_exact_nested_and_document_fields
+    with self.subTest(location=location, remove=remove), self.assertRaisesRegex(ValueError, message):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='document', remove=True)
+----------------------------------------------------------------------
+ValueError: total deleted must be an integer 0..100
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 323, in test_f8_exact_nested_and_document_fields
+    with self.subTest(location=location, remove=remove), self.assertRaisesRegex(ValueError, message):
+AssertionError: "document fields" does not match "total deleted must be an integer 0..100"
+
+======================================================================
+FAIL: test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='sample', remove=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 323, in test_f8_exact_nested_and_document_fields
+    with self.subTest(location=location, remove=remove), self.assertRaisesRegex(ValueError, message):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='sample', remove=True)
+----------------------------------------------------------------------
+ValueError: numeric sample required
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 323, in test_f8_exact_nested_and_document_fields
+    with self.subTest(location=location, remove=remove), self.assertRaisesRegex(ValueError, message):
+AssertionError: "sample fields" does not match "numeric sample required"
+
+======================================================================
+FAIL: test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) (location='door', remove=False)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 323, in test_f8_exact_nested_and_document_fields
+    with self.subTest(location=location, remove=remove), self.assertRaisesRegex(ValueError, message):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.135s
+
+FAILED (failures=5)

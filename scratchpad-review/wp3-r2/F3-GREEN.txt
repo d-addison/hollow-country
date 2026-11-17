@@ -1,0 +1,6 @@
+test_f3_health_only_labels_drop_and_shared_coverage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f3_health_only_labels_drop_and_shared_coverage) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.126s
+
+OK

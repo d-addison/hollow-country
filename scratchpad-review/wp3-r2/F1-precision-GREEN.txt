@@ -1,0 +1,6 @@
+test_f1_authored_height_roundtrip_and_invalid_height_receipts (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f1_authored_height_roundtrip_and_invalid_height_receipts) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.188s
+
+OK

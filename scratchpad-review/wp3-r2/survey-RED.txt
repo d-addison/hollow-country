@@ -1,0 +1,386 @@
+test_survey_read_only_even_placements_yaw_provenance_and_stage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage) ... usage: python3 -m unittest [-h] {stage,validate,report} ...
+python3 -m unittest: error: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+ERROR
+test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) ... 
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='DOCTYPE') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='no selected placements') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='finite rpy') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='rpy') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='missing selected classes') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='per class') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='spawn offset') ... ERROR
+  test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='1..100') ... ERROR
+
+======================================================================
+ERROR: test_survey_read_only_even_placements_yaw_provenance_and_stage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 150, in test_survey_read_only_even_placements_yaw_provenance_and_stage
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='DOCTYPE')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='no selected placements')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='finite rpy')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='rpy')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='missing selected classes')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='per class')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='spawn offset')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+======================================================================
+ERROR: test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) (message='1..100')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/argparse.py", line 1941, in parse_known_args
+    namespace, args = self._parse_known_args(args, namespace)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2144, in _parse_known_args
+    positionals_end_index = consume_positionals(start_index)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2121, in consume_positionals
+    take_action(action, args)
+  File "/usr/lib/python3.12/argparse.py", line 2001, in take_action
+    argument_values = self._get_values(action, argument_strings)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 2554, in _get_values
+    self._check_value(action, value[0])
+  File "/usr/lib/python3.12/argparse.py", line 2600, in _check_value
+    raise ArgumentError(action, msg % args)
+argparse.ArgumentError: argument command: invalid choice: 'survey' (choose from 'stage', 'validate', 'report')
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 197, in test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output
+    self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)] + arguments), 1)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 876, in main
+    args = parser.parse_args(argv)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1908, in parse_args
+    args, argv = self.parse_known_args(args, namespace)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/argparse.py", line 1943, in parse_known_args
+    self.error(str(err))
+  File "/usr/lib/python3.12/argparse.py", line 2677, in error
+    self.exit(2, _('%(prog)s: error: %(message)s\n') % args)
+  File "/usr/lib/python3.12/argparse.py", line 2664, in exit
+    _sys.exit(status)
+SystemExit: 2
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.011s
+
+FAILED (errors=9)

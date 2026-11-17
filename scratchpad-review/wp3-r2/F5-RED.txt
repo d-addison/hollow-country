@@ -1,0 +1,15 @@
+test_f5_fixture_status_printed_and_default_stage_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f5_fixture_status_printed_and_default_stage_warning) ... ERROR
+
+======================================================================
+ERROR: test_f5_fixture_status_printed_and_default_stage_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f5_fixture_status_printed_and_default_stage_warning)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 304, in test_f5_fixture_status_printed_and_default_stage_warning
+    self.assertEqual(result['fixture_status_counts'], {'unqualified-candidate': 9})
+                     ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'fixture_status_counts'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.129s
+
+FAILED (errors=1)

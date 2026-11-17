@@ -1,0 +1,8 @@
+{
+  "default_hook_sha256": "6d009bbfa2a9daaf90358923b1f354868d455f5435c3f9d8599d6da45792ff19",
+  "default_hook_bytes": 16903,
+  "lint": [],
+  "explicit_numbers": true,
+  "native_rows": 47,
+  "max_statement_plus": 1
+}

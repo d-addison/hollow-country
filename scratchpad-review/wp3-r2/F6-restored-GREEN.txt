@@ -1,0 +1,8 @@
+Restore original cleanup call in isolated copy
+$ /usr/bin/python3 -m unittest tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure -v
+test_hook_cleanup_ownership_guards_and_bounds_structure (tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.008s
+
+OK

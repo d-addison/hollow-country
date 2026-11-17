@@ -1,0 +1,6 @@
+test_f7_client_elapsed_is_explicitly_zero (tests.unit.test_infected_competence.HookTests.test_f7_client_elapsed_is_explicitly_zero) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.002s
+
+OK
