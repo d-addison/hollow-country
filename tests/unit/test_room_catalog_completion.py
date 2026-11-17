@@ -10,8 +10,12 @@ import re
 from types import SimpleNamespace
 import unittest
 
-from test_core_lifecycle import NativeArray, tokens
-from test_infected_contract import SOURCE, policy_functions
+if __package__:
+    from .test_core_lifecycle import NativeArray, tokens
+    from .test_infected_contract import SOURCE, policy_functions
+else:
+    from test_core_lifecycle import NativeArray, tokens
+    from test_infected_contract import SOURCE, policy_functions
 
 
 PATH = SOURCE / "HCInfectedRooms.c"
@@ -21,6 +25,7 @@ class Text:
     def __init__(self, value=""): self.value = value
     def __str__(self): return self.value
     def __len__(self): return len(self.value)
+    def __eq__(self, other): return str(self) == str(other)
 
 
 class Vec(tuple):
@@ -68,7 +73,7 @@ class Record:
 
 
 class House:
-    def __init__(self, position=(100, 10, 100), orientation=(0, 0, 0), kind="SyntheticHouse"):
+    def __init__(self, position=(100, 10, 100), orientation=(0, 0, 0), kind="Synthetic_House_1"):
         self.position, self.orientation, self.kind = Vec(position), Vec(orientation), kind
     def GetPosition(self): return self.position
     def GetOrientation(self): return self.orientation
@@ -82,7 +87,7 @@ class House:
 def source_method(name, diagnostic):
     source = PATH.read_text()
     source = re.sub(r"#ifdef DIAG_DEVELOPER\n(.*?)#endif", lambda m: m[1] if diagnostic else "", source, flags=re.S)
-    match = re.search(r"static (?:bool|void|int|HCInfectedRoomBinding|House|HCInfectedRoomDocument) " + name + r"\([^\n]*\)\s*\{", source)
+    match = re.search(r"static (?:bool|void|int|string|HCInfectedRoomBinding|House|HCInfectedRoomDocument) " + name + r"\([^\n]*\)\s*\{", source)
     if not match: raise AssertionError("missing actual room catalog method: " + name)
     start = end = match.end()
     depth = 1
@@ -95,16 +100,21 @@ def source_method(name, diagnostic):
 def expression(text):
     text = re.sub(r"new array<[^;]+?>", "Array()", text)
     text = re.sub(r"new (\w+)(?![\w(])", r"\1()", text)
-    text = text.replace("JsonFileLoader<HCInfectedRoomDocument>", "Loader")
-    text = re.sub(r"\b(?:ref )?(?:array<[^;]+?>|int|float|bool|string|vector|House|Object|HCInfectedRoom\w+) (\w+) =", r"\1 =", text)
-    empty = re.fullmatch(r"(int|float|bool|string|vector|House|HCInfectedRoom\w+) (\w+)", text)
+    text = re.sub(r"JsonFileLoader<HCInfected\w+>", "Loader", text)
+    text = re.sub(r"\b(?:ref )?(?:array<[^;]+?>|int|float|bool|string|vector|House|Object|FileHandle|HCInfected\w+) (\w+) =", r"\1 =", text)
+    empty = re.fullmatch(r"(int|float|bool|string|vector|House|HCInfected\w+) (\w+)", text)
     if empty:
         default = {"int": "0", "float": "0", "bool": "False", "string": "Text()", "vector": "Vec((0, 0, 0))"}.get(empty[1], "None")
         return empty[2] + " = " + default
     text = re.sub(r"(\w+(?:\.\w+)*(?:\[[^]]+\])?)\.Length\(\)", r"len(\1)", text)
-    text = re.sub(r"(\w+)\.Get\(([^)]+)\)", r"str(\1)[\2]", text)
+    text = re.sub(r"(\w+)\.Get\(([^)]+)\)\.ToAscii\(\)", r"ascii_of(char_at(\1, \2))", text)
+    text = re.sub(r"(\w+)\.Get\(([^)]+)\)", r"char_at(\1, \2)", text)
     text = re.sub(r"(\w+)\.ToAscii\(\)", r"ord(\1)", text)
+    text = text.replace("ProductionJsonChar(content).ToAscii()", "ascii_of(ProductionJsonChar(content))")
     text = re.sub(r"(\w+)\.Substring\(([^,]+), ([^)]+)\)", r"str(\1)[\2:(\2) + (\3)]", text)
+    text = re.sub(r"(\w+)\.ToLower\(\)", r"\1 = str(\1).lower()", text)
+    text = re.sub(r"\brunId\.Contains\(([^)]+)\)", r"str(runId).__contains__(\1)", text)
+    text = re.sub(r"(\w+(?:\.\w+)*(?:\([^()]*\))?)\.ToString\(\)", r"str(\1)", text)
     text = text.replace("&&", " and ").replace("||", " or ")
     text = re.sub(r"!(?!=)", "not ", text)
     text = re.sub(r"\b(true|false|null)\b", lambda m: {"true": "True", "false": "False", "null": "None"}[m[1]], text)
@@ -115,7 +125,7 @@ def expression(text):
 
 def authored(name, arguments, ns, diagnostic=True):
     lines, indent = ["def " + name + "(" + arguments + "):"], 1
-    lines.append("    global s_Bindings, s_DiagnosticAttempted")
+    lines.append("    global s_Bindings, s_DiagnosticAttempted, s_ProductionBindings, s_ProductionAttempted, s_ProductionReason, s_ProductionClasses, s_ProductionContext, s_JsonOffset")
     for token in tokens(source_method(name, diagnostic)):
         if token == "{": indent += 1; continue
         if token == "}": indent -= 1; continue
@@ -136,9 +146,12 @@ def authored(name, arguments, ns, diagnostic=True):
             if re.search(r"\b(?:for|foreach|while|try|catch|switch)\b", token):
                 raise AssertionError("unsupported syntax: " + token)
             line = expression(token)
-        if name == "BuildOrder": line = re.sub(r"\breturn$", "return points", line)
+        if line.startswith("OrderBindings("): line = "points = " + line
+        if name in ("BuildOrder", "BuildProductionOrder", "OrderBindings"): line = re.sub(r"\breturn$", "return points", line)
+        if name == "ProductionCoverage": line = re.sub(r"\breturn$", "return covered, excluded", line)
         lines.append("    " * indent + line.replace("\n", " "))
-    if name == "BuildOrder": lines.append("    return points")
+    if name in ("BuildOrder", "BuildProductionOrder", "OrderBindings"): lines.append("    return points")
+    if name == "ProductionCoverage": lines.append("    return covered, excluded")
     exec(compile("\n".join(lines), "authored-rooms:" + name, "exec"), ns)
 
 
@@ -188,7 +201,8 @@ def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None,
         calls["queries"].append((position, radius))
         found.extend(houses if objects is None else objects)
     game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: "chernarusplus", GetObjectsAtPosition3D=query)
-    ns = dict(GetGame=lambda: game, s_Bindings=Array(), s_DiagnosticAttempted=False,
+    ns = dict(GetGame=lambda: game, s_Bindings=Array(), s_DiagnosticAttempted=False, ClearProduction=lambda: None,
+              char_at=lambda value, index: str(value)[index], ascii_of=lambda value: ord(value) if value else 0,
               DIAGNOSTIC_PATH="$profile:HollowCountry/Infected/measured-rooms.json",
               Array=Array, Text=Text, Vec=Vec, vector=Vec, House=House,
               HCInfectedRoomDocument=Document, HCInfectedRoomSurvey=Survey, HCInfectedRoomAnchor=Anchor,
@@ -200,6 +214,7 @@ def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None,
                ("JsonSpace", "ch"), ("ValidJsonKeys", "content"), ("CreateBinding", "building, survey, existing"),
                ("ResolveBuilding", "record"), ("BindDiagnostic", "document"), ("ReadDiagnostic", ""),
                ("EnsureDiagnosticLoaded", ""), ("Register", "building, survey"), ("Clear", ""),
+               ("OrderBindings", "observedClue, budget, bindings, points=None"),
                ("BuildOrder", "observedClue, budget, points=None")]
     for name, args in methods: authored(name, args, ns, diagnostic)
     return ns, calls, doc, houses

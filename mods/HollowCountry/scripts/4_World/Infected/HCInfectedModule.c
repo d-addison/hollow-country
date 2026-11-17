@@ -94,6 +94,8 @@ class HCInfectedModule : HCModule
             Quarantine("invalid limits");
             return;
         }
+        // One bounded attempt per Clear(); a refusal is latched and logged once.
+        HCInfectedRoomCatalog.EnsureProductionLoaded();
         // Preferences stay as the operator wrote them; native-affecting paths use
         // only the admitted capability (preference AND qualification).
         m_Admission = HCInfectedAdmission.Evaluate(m_Config);

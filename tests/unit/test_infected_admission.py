@@ -740,7 +740,7 @@ class StartedModule:
             HCInfectedProfiles=self.profiles, HCInfectedPolicy=self.policies,
             HCInfectedClock=NS(UtcSeconds=lambda: self.clock[0]), HCHordeSweep=SweepFixture,
             HCHordeRecovery=NS(Reconcile=lambda *a: False), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
-            HCInfectedRoomCatalog=NS(Clear=lambda: None), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
+            HCInfectedRoomCatalog=NS(Clear=lambda: None, EnsureProductionLoaded=lambda: False), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
             DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4),
             vector=NS(Zero=(0.0, 0.0, 0.0), DistanceSq=lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b))),
             Print=self.events.append)

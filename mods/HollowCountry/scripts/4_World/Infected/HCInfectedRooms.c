@@ -1,5 +1,15 @@
-// Survey interface, intentionally empty at shipment. Coordinates must be
-// measured in DayZDiag; there is no invented house/room geometry in this source.
+// Catalogs ship empty. Operator evidence is server-profile data, never an RPC
+// or client-owned catalog. Admission is data validation, NOT native qualification.
+// Native references below are relative to the pinned external cache:
+// /home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/
+// 3_Game/Global/Game.c:1120 IsServer, :930 GetObjectsAtPosition3D,
+// :934 GetWorldName, :942 GetVersion (out declared before call),
+// :594 ConfigGetChildName, :611 ConfigGetChildrenCount, :1437 IsKindOf.
+// 3_Game/Entities/Object.c:287 GetPosition, :305 GetOrientation, :467 GetType,
+// :873 ModelToWorld, :874 WorldToModel. House: 4_World/Entities/Game/Super/Building.c:485.
+// 3_Game/tools/JsonFileLoader.c:69 LoadData. 1_Core/proto/EnSystem.c:
+// :397 FileExist, :417 OpenFile, :443 CloseFile, :425 ReadFile.
+// Primitive/collection references are listed in scratchpad-review/wp5-r2/REPORT.md.
 class HCInfectedRoomAnchor
 {
     int Id;
@@ -55,16 +65,88 @@ class HCInfectedRoomDocument
     ref array<ref HCInfectedRoomRecord> Buildings = new array<ref HCInfectedRoomRecord>;
 }
 
+// Production schema v1 is deliberately distinct from the diagnostic schema.
+// No poses ship here. See WP5 report for census conversion and trust boundary.
+class HCInfectedProductionRoomClass
+{
+    string BuildingClass;
+    string Disposition;
+}
+
+// Flat native JSON DTO: inherited-member deserialization is unobserved.
+class HCInfectedProductionRoomAnchor
+{
+    int Id;
+    vector LocalPosition;
+    vector LocalMin;
+    vector LocalMax;
+    string SourceRunId;
+    string SourceSha256;
+    string EvidenceKind;
+
+    bool Contains(vector point)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            if (point[i] < LocalMin[i] || point[i] > LocalMax[i])
+                return false;
+        }
+        return true;
+    }
+}
+
+// Runtime-only owned subtype; never passed to JsonSerializer. Keeps provenance
+// while the existing diagnostic/order interface consumes base room anchors.
+class HCInfectedOwnedProductionRoomAnchor : HCInfectedRoomAnchor
+{
+    string SourceRunId;
+    string SourceSha256;
+    string EvidenceKind;
+}
+
+class HCInfectedProductionRoomRecord
+{
+    string BuildingClass;
+    vector Position = "200001 200001 200001";
+    vector Orientation = "1000 1000 1000";
+    vector BoxMin = "513 513 513";
+    vector BoxMax = "-513 -513 -513";
+    ref array<ref HCInfectedProductionRoomAnchor> Anchors = new array<ref HCInfectedProductionRoomAnchor>;
+}
+
+class HCInfectedProductionRoomDocument
+{
+    int SchemaVersion;
+    string Build;
+    string WorldName;
+    ref array<ref HCInfectedProductionRoomClass> Classes = new array<ref HCInfectedProductionRoomClass>;
+    ref array<ref HCInfectedProductionRoomRecord> Buildings = new array<ref HCInfectedProductionRoomRecord>;
+}
+
 class HCInfectedRoomCatalog
 {
     static const string DIAGNOSTIC_PATH = "$profile:HollowCountry/Infected/measured-rooms.json";
     protected static ref array<ref HCInfectedRoomBinding> s_Bindings = new array<ref HCInfectedRoomBinding>;
     protected static bool s_DiagnosticAttempted = false;
+    static const string PRODUCTION_PATH = "$profile:HollowCountry/Infected/production-rooms.json";
+    static const int MAX_PRODUCTION_BYTES = 1048576;
+    static const int MAX_CONFIG_CLASSES = 32768;
+    static const int MAX_PRODUCTION_CLASSES = 2048;
+    static const int MAX_PRODUCTION_HOUSES = 64;
+    static const int MAX_HOUSE_ANCHORS = 16;
+    static const int MAX_TOTAL_ANCHORS = 256;
+    protected static ref array<ref HCInfectedRoomBinding> s_ProductionBindings = new array<ref HCInfectedRoomBinding>;
+    protected static ref array<ref HCInfectedProductionRoomClass> s_ProductionClasses = new array<ref HCInfectedProductionRoomClass>;
+    protected static bool s_ProductionAttempted = false;
+    protected static string s_ProductionReason = "rooms_not_loaded";
+    protected static string s_ProductionContext;
+    protected static int s_JsonOffset;
 
     static void Clear()
     {
         s_Bindings.Clear();
         s_DiagnosticAttempted = false;
+        ClearProduction();
     }
 
     static bool DiagnosticServer()
@@ -340,17 +422,676 @@ class HCInfectedRoomCatalog
         return binding;
     }
 
+    static bool ProductionServer()
+    {
+        return GetGame() && GetGame().IsServer();
+    }
+
+    static void ClearProduction()
+    {
+        s_ProductionBindings.Clear();
+        s_ProductionClasses.Clear();
+        s_ProductionAttempted = false;
+        s_ProductionReason = "rooms_not_loaded";
+        s_ProductionContext = "";
+    }
+
+    static string ProductionReason()
+    {
+        return s_ProductionReason;
+    }
+
+    // Copied report: each installed House config class appears exactly once.
+    // "covered" means at least one measured instance, never all map placements.
+    static void ProductionCoverage(out TStringArray covered, out TStringArray excluded)
+    {
+        covered = new TStringArray;
+        excluded = new TStringArray;
+        if (!ProductionServer())
+            return;
+        foreach (HCInfectedProductionRoomClass entry : s_ProductionClasses)
+        {
+            if (entry.Disposition == "covered")
+            {
+                covered.Insert(entry.BuildingClass);
+            }
+            else
+            {
+                excluded.Insert(entry.BuildingClass + "=" + entry.Disposition);
+            }
+        }
+    }
+
+    static bool ProductionToken(string value, int limit)
+    {
+        if (value.Length() < 1 || value.Length() > limit)
+            return false;
+        for (int i = 0; i < value.Length(); i++)
+        {
+            string ch = value.Get(i);
+            int ascii = ch.ToAscii();
+            bool letter = (ascii >= 65 && ascii <= 90) || (ascii >= 97 && ascii <= 122);
+            if (!letter && !(ascii >= 48 && ascii <= 57) && ascii != 45 && ascii != 95)
+                return false;
+        }
+        return true;
+    }
+
+    static bool ProductionHash(string value)
+    {
+        if (value.Length() != 64)
+            return false;
+        bool nonzero = false;
+        for (int i = 0; i < 64; i++)
+        {
+            string ch = value.Get(i);
+            int ascii = ch.ToAscii();
+            if (!(ascii >= 48 && ascii <= 57) && !(ascii >= 97 && ascii <= 102))
+                return false;
+            if (ascii != 48)
+                nonzero = true;
+        }
+        return nonzero;
+    }
+
+    static bool ProductionEvidence(HCInfectedProductionRoomAnchor anchor)
+    {
+        if (!anchor || !ProductionToken(anchor.SourceRunId, 96) || anchor.SourceRunId.Length() < 8)
+            return false;
+        string runId = anchor.SourceRunId;
+        runId.ToLower();
+        if (runId.Substring(0, 7) != "native-" || runId.Contains("synthetic") || runId.Contains("fixture") || runId.Contains("selftest"))
+            return false;
+        // Census floor hits alone lack semantic room bounds. A reviewed native
+        // room survey must supply these; never relabel generated/test poses.
+        return anchor.EvidenceKind == "native-room-survey-v1" && ProductionHash(anchor.SourceSha256);
+    }
+
+    static bool ProductionDisposition(string value)
+    {
+        return value == "covered" || value == "unmeasured" || value == "not_enterable" || value == "path_pending" || value == "door_pending" || value == "unsupported_geometry";
+    }
+
+    static int ProductionClassIndex(HCInfectedProductionRoomDocument document, string className)
+    {
+        for (int i = 0; i < document.Classes.Count(); i++)
+        {
+            if (document.Classes[i].BuildingClass == className)
+                return i;
+        }
+        return -1;
+    }
+
+    static bool ValidateProductionCoverage(HCInfectedProductionRoomDocument document)
+    {
+        // Full denominator = all loaded CfgVehicles subclasses of House,
+        // including base/closed/non-enterable classes, explicitly excluded.
+        int configCount = GetGame().ConfigGetChildrenCount("CfgVehicles");
+        if (configCount < 1 || configCount > MAX_CONFIG_CLASSES)
+        {
+            s_ProductionReason = "rooms_denominator_cap";
+            return false;
+        }
+        ref array<string> known = new array<string>;
+        foreach (HCInfectedProductionRoomClass entry : document.Classes)
+        {
+            if (!entry || !ProductionToken(entry.BuildingClass, 128) || !ProductionDisposition(entry.Disposition))
+                return false;
+            if (known.Find(entry.BuildingClass) >= 0)
+                return false;
+            known.Insert(entry.BuildingClass);
+        }
+        int houseClasses = 0;
+        bool complete = true;
+        for (int i = 0; i < configCount; i++)
+        {
+            string className;
+            if (!GetGame().ConfigGetChildName("CfgVehicles", i, className))
+                return false;
+            if (!GetGame().IsKindOf(className, "House"))
+                continue;
+            houseClasses++;
+            if (known.Find(className) < 0)
+                complete = false;
+        }
+        if (houseClasses > MAX_PRODUCTION_CLASSES)
+        {
+            s_ProductionReason = "rooms_house_class_cap";
+            s_ProductionContext = "; config children=" + configCount.ToString() + "; House classes=" + houseClasses.ToString();
+            return false;
+        }
+        if (!complete)
+            return false;
+        if (houseClasses != known.Count())
+            return false;
+        // Coverage is bidirectional: no omitted class, no excluded house used,
+        // and no "covered" class without at least one admitted instance.
+        ref array<string> usedClasses = new array<string>;
+        foreach (HCInfectedProductionRoomRecord record : document.Buildings)
+        {
+            if (!record)
+                return false;
+            int classIndex = ProductionClassIndex(document, record.BuildingClass);
+            if (classIndex < 0 || document.Classes[classIndex].Disposition != "covered")
+                return false;
+            if (usedClasses.Find(record.BuildingClass) < 0)
+                usedClasses.Insert(record.BuildingClass);
+        }
+        foreach (HCInfectedProductionRoomClass declared : document.Classes)
+        {
+            if (declared.Disposition == "covered" && usedClasses.Find(declared.BuildingClass) < 0)
+                return false;
+        }
+        return true;
+    }
+
+    static bool ValidateProductionHouse(HCInfectedProductionRoomRecord record)
+    {
+        s_ProductionReason = "rooms_geometry";
+        for (int axis = 0; axis < 3; axis++)
+        {
+            if (!(record.BoxMin[axis] >= -512 && record.BoxMax[axis] <= 512 && record.BoxMin[axis] < record.BoxMax[axis]))
+                return false;
+        }
+        ref array<int> usedIds = new array<int>;
+        ref array<vector> usedPositions = new array<vector>;
+        foreach (HCInfectedProductionRoomAnchor anchor : record.Anchors)
+        {
+            if (!anchor || anchor.Id < 1 || anchor.Id > 64 || usedIds.Find(anchor.Id) >= 0)
+                return false;
+            for (int anchorAxis = 0; anchorAxis < 3; anchorAxis++)
+            {
+                // Positive comparisons reject NaN and infinity as well as bad
+                // ordering; both semantic room box and point stay in house box.
+                if (!(anchor.LocalMin[anchorAxis] >= record.BoxMin[anchorAxis] && anchor.LocalMax[anchorAxis] <= record.BoxMax[anchorAxis] && anchor.LocalMin[anchorAxis] < anchor.LocalMax[anchorAxis]))
+                    return false;
+                if (!(anchor.LocalPosition[anchorAxis] >= anchor.LocalMin[anchorAxis] && anchor.LocalPosition[anchorAxis] <= anchor.LocalMax[anchorAxis]))
+                    return false;
+            }
+            foreach (vector previousPoint : usedPositions)
+            {
+                if (vector.DistanceSq(previousPoint, anchor.LocalPosition) < 1)
+                    return false;
+            }
+            if (!ProductionEvidence(anchor))
+            {
+                s_ProductionReason = "rooms_evidence";
+                return false;
+            }
+            usedIds.Insert(anchor.Id);
+            usedPositions.Insert(anchor.LocalPosition);
+        }
+        return true;
+    }
+
+    static string ProductionBuildLabel(string value)
+    {
+        string label = "";
+        int limit = value.Length();
+        if (limit > 32)
+            limit = 32;
+        for (int i = 0; i < limit; i++)
+        {
+            string ch = value.Get(i);
+            int ascii = ch.ToAscii();
+            if (ascii >= 32 && ascii <= 126)
+            {
+                label = label + ch;
+            }
+            else
+            {
+                label = label + "?";
+            }
+        }
+        return label;
+    }
+
+    static bool BindProduction(HCInfectedProductionRoomDocument document)
+    {
+        if (!ProductionServer())
+            return false;
+        if (s_ProductionReason == "rooms_admitted_measurements_path_audio_doors_pending")
+            return false;
+        s_ProductionContext = "";
+        s_ProductionReason = "rooms_schema";
+        if (!document || document.SchemaVersion != 1)
+            return false;
+        s_ProductionReason = "rooms_build";
+        string currentBuild;
+        GetGame().GetVersion(currentBuild);
+        if (document.Build != "1.30.164289" || currentBuild != document.Build)
+        {
+            s_ProductionContext = "; observed build=" + ProductionBuildLabel(currentBuild);
+            return false;
+        }
+        s_ProductionReason = "rooms_world";
+        if (!ProductionToken(document.WorldName, 64) || document.WorldName != GetGame().GetWorldName())
+            return false;
+        s_ProductionReason = "rooms_limits";
+        if (!document.Classes || document.Classes.Count() < 1 || document.Classes.Count() > MAX_PRODUCTION_CLASSES)
+            return false;
+        if (!document.Buildings || document.Buildings.Count() > MAX_PRODUCTION_HOUSES)
+            return false;
+        int total = 0;
+        foreach (HCInfectedProductionRoomRecord counted : document.Buildings)
+        {
+            if (!counted || !counted.Anchors || counted.Anchors.Count() < 1 || counted.Anchors.Count() > MAX_HOUSE_ANCHORS)
+                return false;
+            total = total + counted.Anchors.Count();
+            if (total > MAX_TOTAL_ANCHORS)
+                return false;
+        }
+        s_ProductionReason = "rooms_coverage";
+        if (!ValidateProductionCoverage(document))
+            return false;
+        ref array<ref HCInfectedRoomBinding> staged = new array<ref HCInfectedRoomBinding>;
+        ref array<ref HCInfectedProductionRoomClass> coverage = new array<ref HCInfectedProductionRoomClass>;
+        foreach (HCInfectedProductionRoomRecord record : document.Buildings)
+        {
+            if (!ValidateProductionHouse(record))
+                return false;
+            HCInfectedRoomSurvey survey = new HCInfectedRoomSurvey;
+            survey.Build = document.Build;
+            survey.WorldName = document.WorldName;
+            survey.BuildingClass = record.BuildingClass;
+            survey.Measured = true;
+            survey.Revision = 1;
+            // Provenance remains on the runtime-only owned anchor subtype.
+            foreach (HCInfectedProductionRoomAnchor anchor : record.Anchors)
+            {
+                HCInfectedOwnedProductionRoomAnchor ownedAnchor = new HCInfectedOwnedProductionRoomAnchor;
+                ownedAnchor.Id = anchor.Id;
+                ownedAnchor.LocalPosition = anchor.LocalPosition;
+                ownedAnchor.LocalMin = anchor.LocalMin;
+                ownedAnchor.LocalMax = anchor.LocalMax;
+                ownedAnchor.SourceRunId = anchor.SourceRunId;
+                ownedAnchor.SourceSha256 = anchor.SourceSha256;
+                ownedAnchor.EvidenceKind = anchor.EvidenceKind;
+                survey.Anchors.Insert(ownedAnchor);
+            }
+            HCInfectedRoomRecord lookup = new HCInfectedRoomRecord;
+            lookup.Position = record.Position;
+            lookup.Orientation = record.Orientation;
+            lookup.Survey = survey;
+            s_ProductionReason = "rooms_binding";
+            House building = ResolveBuilding(lookup);
+            if (!building)
+                return false;
+            foreach (HCInfectedRoomBinding previous : staged)
+            {
+                if (previous.HouseObject == building)
+                    return false;
+            }
+            HCInfectedRoomBinding binding = new HCInfectedRoomBinding;
+            binding.HouseObject = building;
+            binding.Position = building.GetPosition();
+            binding.Orientation = building.GetOrientation();
+            binding.Survey = survey;
+            staged.Insert(binding);
+        }
+        foreach (HCInfectedProductionRoomClass entry : document.Classes)
+        {
+            HCInfectedProductionRoomClass ownedClass = new HCInfectedProductionRoomClass;
+            ownedClass.BuildingClass = entry.BuildingClass;
+            ownedClass.Disposition = entry.Disposition;
+            coverage.Insert(ownedClass);
+        }
+        s_ProductionBindings = staged;
+        s_ProductionClasses = coverage;
+        s_ProductionReason = "rooms_admitted_measurements_path_audio_doors_pending";
+        return true;
+    }
+
+    // Strict typed JSON preflight. Unlike the diagnostic depth-only key pass,
+    // this enforces array/object roles and scalar types before native allocation.
+    // Recursion follows fixed schema kinds only: root -> class/house -> anchor.
+    static string ProductionJsonChar(string content)
+    {
+        if (s_JsonOffset < 0 || s_JsonOffset >= content.Length())
+            return "";
+        return content.Get(s_JsonOffset);
+    }
+
+    static int ProductionJsonCode(string content)
+    {
+        string ch = ProductionJsonChar(content);
+        if (ch.Length() != 1)
+            return -1;
+        return ch.ToAscii();
+    }
+
+    static void ProductionJsonSkip(string content)
+    {
+        while (s_JsonOffset < content.Length() && JsonSpace(ProductionJsonChar(content)))
+            s_JsonOffset++;
+    }
+
+    static string ProductionJsonText(string content)
+    {
+        if (ProductionJsonCode(content) != 34)
+            return "";
+        s_JsonOffset++;
+        int begin = s_JsonOffset;
+        while (s_JsonOffset < content.Length() && s_JsonOffset - begin <= 128)
+        {
+            int ascii = ProductionJsonCode(content);
+            if (ascii == 34)
+            {
+                string value = content.Substring(begin, s_JsonOffset - begin);
+                s_JsonOffset++;
+                return value;
+            }
+            if (ascii < 32 || ascii > 126 || ascii == 92)
+                return "";
+            s_JsonOffset++;
+        }
+        return "";
+    }
+
+    static bool ProductionJsonNumber(string content, bool integerOnly)
+    {
+        int begin = s_JsonOffset;
+        if (ProductionJsonChar(content) == "-")
+            s_JsonOffset++;
+        int ascii = ProductionJsonCode(content);
+        if (ascii < 48 || ascii > 57)
+            return false;
+        bool zero = ascii == 48;
+        s_JsonOffset++;
+        while (s_JsonOffset < content.Length())
+        {
+            int digit = ProductionJsonCode(content);
+            if (digit < 48 || digit > 57)
+                break;
+            if (zero || s_JsonOffset - begin > 32)
+                return false;
+            s_JsonOffset++;
+        }
+        if (!integerOnly && ProductionJsonChar(content) == ".")
+        {
+            s_JsonOffset++;
+            int fractionBegin = s_JsonOffset;
+            while (s_JsonOffset < content.Length())
+            {
+                int fractionDigit = ProductionJsonCode(content);
+                if (fractionDigit < 48 || fractionDigit > 57)
+                    break;
+                if (s_JsonOffset - begin > 32)
+                    return false;
+                s_JsonOffset++;
+            }
+            if (s_JsonOffset == fractionBegin)
+                return false;
+        }
+        string exponent = ProductionJsonChar(content);
+        if (!integerOnly && (exponent == "e" || exponent == "E"))
+        {
+            s_JsonOffset++;
+            string sign = ProductionJsonChar(content);
+            if (sign == "+" || sign == "-")
+                s_JsonOffset++;
+            int exponentBegin = s_JsonOffset;
+            while (s_JsonOffset < content.Length())
+            {
+                int exponentDigit = ProductionJsonCode(content);
+                if (exponentDigit < 48 || exponentDigit > 57)
+                    break;
+                if (s_JsonOffset - begin > 32)
+                    return false;
+                s_JsonOffset++;
+            }
+            if (s_JsonOffset == exponentBegin)
+                return false;
+        }
+        // DTO integers are parsed by the VM as signed int. Limit digits before
+        // native decoding so an overflow cannot wrap a schema/anchor id to 1.
+        if (integerOnly && s_JsonOffset - begin > 9)
+            return false;
+        return s_JsonOffset - begin <= 32;
+    }
+
+    // Kinds: 1 root; 2 class rows; 3 class; 4 house rows; 5 house;
+    // 6 anchors; 7 anchor; 8 numeric vector. Keys are exact ASCII literals.
+    static int ProductionKeyBit(int kind, string key)
+    {
+        if (kind == 1)
+        {
+            if (key == "SchemaVersion") return 1;
+            if (key == "Build") return 2;
+            if (key == "WorldName") return 4;
+            if (key == "Classes") return 8;
+            if (key == "Buildings") return 16;
+        }
+        if (kind == 3)
+        {
+            if (key == "BuildingClass") return 1;
+            if (key == "Disposition") return 2;
+        }
+        if (kind == 5)
+        {
+            if (key == "BuildingClass") return 1;
+            if (key == "Position") return 2;
+            if (key == "Orientation") return 4;
+            if (key == "BoxMin") return 8;
+            if (key == "BoxMax") return 16;
+            if (key == "Anchors") return 32;
+        }
+        if (kind == 7)
+        {
+            if (key == "Id") return 1;
+            if (key == "LocalPosition") return 2;
+            if (key == "LocalMin") return 4;
+            if (key == "LocalMax") return 8;
+            if (key == "SourceRunId") return 16;
+            if (key == "SourceSha256") return 32;
+            if (key == "EvidenceKind") return 64;
+        }
+        return 0;
+    }
+
+    static int ProductionRequiredKeys(int kind)
+    {
+        if (kind == 1) return 31;
+        if (kind == 3) return 3;
+        if (kind == 5) return 63;
+        if (kind == 7) return 127;
+        return 0;
+    }
+
+    static bool ProductionJsonValue(string content, int kind, string key)
+    {
+        if (kind == 1 && key == "Classes")
+            return ProductionJsonArray(content, 2);
+        if (kind == 1 && key == "Buildings")
+            return ProductionJsonArray(content, 4);
+        if (kind == 5 && key == "Anchors")
+            return ProductionJsonArray(content, 6);
+        if ((kind == 1 && key == "SchemaVersion") || (kind == 7 && key == "Id"))
+            return ProductionJsonNumber(content, true);
+        bool houseVector = kind == 5 && (key == "Position" || key == "Orientation" || key == "BoxMin" || key == "BoxMax");
+        bool anchorVector = kind == 7 && (key == "LocalPosition" || key == "LocalMin" || key == "LocalMax");
+        if (houseVector || anchorVector)
+            return ProductionJsonArray(content, 8);
+        int textBegin = s_JsonOffset;
+        string textValue = ProductionJsonText(content);
+        if (textValue.Length() > 0)
+            return true;
+        // Empty JSON strings are typed correctly; semantic admission assigns
+        // their specific build/world/class/evidence refusal instead.
+        if (s_JsonOffset != textBegin + 2)
+            return false;
+        string closingQuote = content.Get(textBegin + 1);
+        return closingQuote.ToAscii() == 34;
+    }
+
+    static bool ProductionJsonArray(string content, int kind)
+    {
+        if (ProductionJsonChar(content) != "[")
+            return false;
+        s_JsonOffset++;
+        ProductionJsonSkip(content);
+        int limit = MAX_PRODUCTION_CLASSES;
+        if (kind == 4) limit = MAX_PRODUCTION_HOUSES;
+        if (kind == 6) limit = MAX_HOUSE_ANCHORS;
+        if (kind == 8) limit = 3;
+        int count = 0;
+        if (ProductionJsonChar(content) != "]")
+        {
+            while (s_JsonOffset < content.Length())
+            {
+                if (count >= limit)
+                {
+                    return false;
+                }
+                if (kind == 8)
+                {
+                    if (!ProductionJsonNumber(content, false))
+                        return false;
+                }
+                else
+                {
+                    if (!ProductionJsonObject(content, kind + 1))
+                        return false;
+                }
+                count++;
+                ProductionJsonSkip(content);
+                if (ProductionJsonChar(content) == "]")
+                    break;
+                if (ProductionJsonChar(content) != ",")
+                    return false;
+                s_JsonOffset++;
+                ProductionJsonSkip(content);
+            }
+        }
+        if (kind == 8 && count != 3)
+            return false;
+        if (ProductionJsonChar(content) != "]")
+            return false;
+        s_JsonOffset++;
+        return true;
+    }
+
+    static bool ProductionJsonObject(string content, int kind)
+    {
+        if (ProductionJsonChar(content) != "{")
+            return false;
+        s_JsonOffset++;
+        int mask = 0;
+        for (int fieldIndex = 0; fieldIndex < 7; fieldIndex++)
+        {
+            ProductionJsonSkip(content);
+            string key = ProductionJsonText(content);
+            int bit = ProductionKeyBit(kind, key);
+            if (bit == 0 || (mask & bit) != 0)
+                return false;
+            mask = mask | bit;
+            ProductionJsonSkip(content);
+            if (ProductionJsonChar(content) != ":")
+                return false;
+            s_JsonOffset++;
+            ProductionJsonSkip(content);
+            if (!ProductionJsonValue(content, kind, key))
+                return false;
+            ProductionJsonSkip(content);
+            if (ProductionJsonChar(content) == "}")
+            {
+                s_JsonOffset++;
+                return mask == ProductionRequiredKeys(kind);
+            }
+            if (ProductionJsonChar(content) != ",")
+                return false;
+            s_JsonOffset++;
+        }
+        return false;
+    }
+
+    static bool ValidProductionJson(string content)
+    {
+        s_JsonOffset = 0;
+        if (content.Length() < 1 || content.Length() > MAX_PRODUCTION_BYTES)
+            return false;
+        ProductionJsonSkip(content);
+        if (!ProductionJsonObject(content, 1))
+            return false;
+        ProductionJsonSkip(content);
+        return s_JsonOffset == content.Length();
+    }
+
+    static void EnsureProductionLoaded()
+    {
+        if (!ProductionServer() || s_ProductionAttempted)
+            return;
+        s_ProductionAttempted = true;
+        // Fixed operator-only path; native LoadFile has an excessive allocation
+        // bound, so use capped I/O then LoadData. Never print parser errors/catalog input.
+        s_ProductionReason = "rooms_missing";
+        if (FileExist(PRODUCTION_PATH))
+        {
+            s_ProductionReason = "rooms_read";
+            FileHandle handle = OpenFile(PRODUCTION_PATH, FileMode.READ);
+            if (handle)
+            {
+                string content;
+                int bytesRead = ReadFile(handle, content, MAX_PRODUCTION_BYTES + 1);
+                CloseFile(handle);
+                // Like HCInfectedStore.ReadBounded, bound the received string
+                // length independently of the requested read size. Additionally
+                // fail closed on negative/mismatched counts for this ASCII-only
+                // schema. ReadFile(string) byte/length semantics remain unobserved;
+                // ReadBounded currently ignores the native count. Compare both
+                // observed values in DayZDiag before enabling production data.
+                if (bytesRead >= 0 && bytesRead == content.Length())
+                {
+                    s_ProductionReason = "rooms_size";
+                    if (content.Length() > 0 && content.Length() <= MAX_PRODUCTION_BYTES)
+                    {
+                        s_ProductionReason = "rooms_json";
+                        if (ValidProductionJson(content))
+                        {
+                            HCInfectedProductionRoomDocument document = new HCInfectedProductionRoomDocument;
+                            string error;
+                            if (JsonFileLoader<HCInfectedProductionRoomDocument>.LoadData(content, document, error))
+                                BindProduction(document);
+                        }
+                    }
+                }
+            }
+        }
+        // Single bounded log per lifecycle, even for a missing/rejected file.
+        // Complete copied class/exclusion rows are available via ProductionCoverage.
+        Print("[HollowCountry] " + s_ProductionReason + s_ProductionContext + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
+    }
+
     static void BuildOrder(vector observedClue, int budget, out TVectorArray points)
     {
         points = new TVectorArray;
         if (!GetGame().IsServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
             return;
         EnsureDiagnosticLoaded();
+        OrderBindings(observedClue, budget, s_Bindings, points);
+    }
+
+    // Only data: caller still owns Investigation AND NativePackRoutes admission,
+    // nav/path checks, expiry, retry budgets and release. No capability is granted.
+    static void BuildProductionOrder(vector observedClue, int budget, out TVectorArray points)
+    {
+        points = new TVectorArray;
+        if (!ProductionServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
+            return;
+        // Startup owns the bounded read/config census; AI ticks never load.
+        if (s_ProductionReason != "rooms_admitted_measurements_path_audio_doors_pending")
+            return;
+        OrderBindings(observedClue, budget, s_ProductionBindings, points);
+    }
+
+    static void OrderBindings(vector observedClue, int budget, array<ref HCInfectedRoomBinding> bindings, out TVectorArray points)
+    {
+        points = new TVectorArray;
         HCInfectedRoomBinding selected;
         vector localClue;
-        // At most four explicitly bound houses, no world/house scan. A clue in
-        // overlapping surveys is ambiguous and gets no semantic extension.
-        foreach (HCInfectedRoomBinding binding : s_Bindings)
+        // At most 64 production instances, four diagnostic instances. A clue in
+        // overlapping surveys is ambiguous; no world scan or hidden player input.
+        foreach (HCInfectedRoomBinding binding : bindings)
         {
             if (!binding.HouseObject || binding.HouseObject.GetType() != binding.Survey.BuildingClass)
                 continue;
