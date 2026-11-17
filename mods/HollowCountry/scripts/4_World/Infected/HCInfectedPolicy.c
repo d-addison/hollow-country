@@ -469,9 +469,16 @@ class HCInfectedPolicy
         return 3;
     }
 
+    // Single source for the native release retry ceiling; Navigation latches
+    // its quarantine on this same value.
+    static int MaxReleaseAttempts()
+    {
+        return 3;
+    }
+
     static bool MayRetryRelease(int attempts, int now, int nextAttempt)
     {
-        return attempts >= 0 && attempts < 3 && now >= 0 && now >= nextAttempt;
+        return attempts >= 0 && attempts < MaxReleaseAttempts() && now >= 0 && now >= nextAttempt;
     }
 
     static bool AdoptionWorkReady(int workCap)

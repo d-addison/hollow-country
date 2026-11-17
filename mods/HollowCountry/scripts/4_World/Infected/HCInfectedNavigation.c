@@ -3,6 +3,9 @@
 class HCNativeInfectedPack
 {
     protected static ref array<ref HCNativeInfectedPack> s_PendingRelease = new array<ref HCNativeInfectedPack>;
+    // Last logged release summary, so the status line is emitted on change only.
+    protected static int s_ReportedPending;
+    protected static int s_ReportedQuarantined;
     AIGroup Group;
     protected ref array<ZombieBase> m_Members = new array<ZombieBase>;
     protected ref PGFilter m_Filter;
@@ -50,12 +53,43 @@ class HCNativeInfectedPack
         return GetGame().GetWorld().GetAIWorld();
     }
 
+    static int QuarantinedReleaseCount()
+    {
+        int quarantined = 0;
+        for (int i = 0; i < s_PendingRelease.Count(); i++)
+        {
+            if (s_PendingRelease[i].IsReleaseQuarantined())
+                quarantined++;
+        }
+        return quarantined;
+    }
+
+    // Bounded status: a pending or quarantined release blocks every new native
+    // route (Start refuses while the ledger is non-empty), so it must be visible.
+    static string ReleaseStatus()
+    {
+        string blocked = "no";
+        if (s_PendingRelease.Count() > 0)
+            blocked = "yes";
+        int pending = s_PendingRelease.Count();
+        int quarantined = QuarantinedReleaseCount();
+        return "pending=" + pending.ToString() + " quarantined=" + quarantined.ToString() + " new_routes_blocked=" + blocked;
+    }
+
     static void RetryPendingReleases()
     {
         // New packs are blocked while any release is pending. At most the two
         // horde packs, two investigators and one partial transfer can be owned.
         for (int i = s_PendingRelease.Count() - 1; i >= 0; i--)
             s_PendingRelease[i].Release();
+        int pending = s_PendingRelease.Count();
+        int quarantined = QuarantinedReleaseCount();
+        if (pending != s_ReportedPending || quarantined != s_ReportedQuarantined)
+        {
+            s_ReportedPending = pending;
+            s_ReportedQuarantined = quarantined;
+            Print("[HC Infected] native release status: " + ReleaseStatus());
+        }
     }
 
     protected void InitFilter()
@@ -391,7 +425,7 @@ class HCNativeInfectedPack
         int nowUtc = HCInfectedClock.UtcSeconds();
         if (!HCInfectedPolicy.MayRetryRelease(m_ReleaseAttempts, nowUtc, m_NextReleaseUtc))
         {
-            if (m_ReleaseAttempts >= 3 && !m_ReleaseQuarantined)
+            if (m_ReleaseAttempts >= HCInfectedPolicy.MaxReleaseAttempts() && !m_ReleaseQuarantined)
             {
                 m_ReleaseQuarantined = true;
                 Print("[HC Infected] native release quarantined; fallback ownership unconfirmed");
@@ -446,6 +480,13 @@ class HCNativeInfectedPack
 
 class HCInfectedObservation
 {
+    // Module budget gate: false while VisualProvenanceEstablished has no
+    // observed evidence source, so no sampling slot is spent on a known no-op.
+    static bool VisualSamplingAvailable()
+    {
+        return false;
+    }
+
     static bool VisualProvenanceEstablished(DayZInfectedInputController controller)
     {
         // 1.30.164289 3_Game/Entities/DayZInfectedInputController.c:9-10

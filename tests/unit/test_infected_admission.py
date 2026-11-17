@@ -30,6 +30,8 @@ class Array(list):
     def Count(self): return len(self)
     def Insert(self, value): self.append(value)
     def Remove(self, index): del self[index]
+    def Clear(self): self.clear()
+    def Find(self, value): return self.index(value) if value in self else -1
 
 
 def _mask(text):
@@ -60,7 +62,7 @@ def _body(text, signature):
 DECL = re.compile(r"^(?:bool|int|float|string|vector|array|[A-Z]\w*)\s+(\w+)\s*(=[^=].*)?$", re.S)
 
 
-def translate(filename, signature, bound, fields=(), **namespace):
+def translate(filename, signature, bound, fields=(), statics=(), **namespace):
     """Return a Python callable for the authored body. `bound` lists instance
     methods of the same class that must resolve through `self`."""
     raw = (SOURCE / filename).read_text()
@@ -69,6 +71,7 @@ def translate(filename, signature, bound, fields=(), **namespace):
     body = re.sub(r"\bref\s+", "", body)
     body = re.sub(r"if (\([^\n]+\))\s*([^{};\n]+;)", r"if \1 {\2}", body)
     body = re.sub(r"\belse\s+(?!if\b)([^{};\s][^{};\n]*;)", r"else {\1}", body)
+    body = re.sub(r"((?:foreach|for) \([^\n{]+\))[ \t]*\n\s*([^{};\s][^{};\n]*;)", r"\1 {\2}", body)
     body = re.sub(r"for \(int (\w+) = (.+?); \1 >= 0; \1--\)", r"for \1 in range(\2, -1, -1)", body)
     body = re.sub(r"for \(int (\w+) = 0; \1 < ([^;]+); \1\+\+\)", r"for \1 in range(\2)", body)
     body = re.sub(r"foreach \((?:\w+(?:<[^>]*>)?) (\w+) : ([^)]+)\)", r"for \1 in \2", body)
@@ -84,6 +87,7 @@ def translate(filename, signature, bound, fields=(), **namespace):
         decl = DECL.match(token)
         if decl and not token.startswith(("return", "else", "if", "for", "while")):
             token = decl[1] + (decl[2] or " = None")
+        token = re.sub(r"([\w.]+(?:\(\))?)\.ToString\(\)", r"str(\1)", token)
         token = token.replace("&&", " and ").replace("||", " or ").replace(" / ", " // ")
         token = re.sub(r"!(?!=)", "not ", token)
         for a, b in (("true", "True"), ("false", "False"), ("null", "None")):
@@ -91,6 +95,8 @@ def translate(filename, signature, bound, fields=(), **namespace):
         token = re.sub(r"(?<![.\w])(m_\w+)\b", r"self.\1", token)
         for name in fields:
             token = re.sub(r"(?<![.\w])" + name + r"\b", "self." + name, token)
+        for name in statics:
+            token = re.sub(r"(?<![.\w])" + name + r"\b", "STATICS." + name, token)
         for name in bound:
             token = re.sub(r"(?<![.\w])" + name + r"\(", "self." + name + "(", token)
         token = re.sub(r"\b(self\.m_\w+|\w+)\+\+", r"\1 += 1", token)
@@ -104,6 +110,7 @@ def translate(filename, signature, bound, fields=(), **namespace):
     code = "\n".join(lines)
     code = re.sub(r"__S(\d+)__", lambda m: repr(strings[int(m[1])][1:-1]), code)
     scope = dict(namespace, Array=Array, Math=NS(Min=min, Max=max))
+    scope.setdefault("STATICS", NS())
     exec(compile(code, filename + ":" + signature, "exec"), scope)
     return scope["run"]
 
@@ -283,17 +290,28 @@ class StartupWiringTests(unittest.TestCase):
         self.assertEqual(1, self.module.count("RetargetCohorts();"))
 
     def test_startup_budget_checks_use_admitted_capabilities_not_preferences(self):
-        self.assertIn("if ((settings.EnableHordes || m_Admission.NativePackRoutes || m_Admission.Investigation) && m_WorkCap < 8)", self.start)
+        # The extra eight-item prerequisite follows admitted work, never the raw
+        # EnableHordes preference or a dormant journal.
+        self.assertIn("bool admittedHordeWork = settings.EnableHordes && (m_Admission.CEAdoption || m_Admission.MemberRecovery || m_Admission.HordeStimulusRoutes);", self.start)
+        self.assertIn("if ((admittedHordeWork || m_Admission.NativePackRoutes || m_Admission.Investigation) && m_WorkCap < 8)", self.start)
         self.assertIn("if (settings.EnableHordes && m_Admission.CEAdoption && !HCInfectedPolicy.AdoptionWorkReady(m_WorkCap))", self.start)
         self.assertIn("if (settings.EnableHordes && m_Admission.HordeStimulusRoutes && m_WorkCap < 24)", self.start)
         self.assertIn("if (m_Admission.NativePackRoutes || m_Admission.Investigation)", self.start)
 
-    def test_variant_map_call_site_stays_simple_for_integration(self):
+    def test_variant_map_diagnostic_matches_selection_and_logs_substitutions_once(self):
+        # D4 integration: a populated mixed map (e.g. [0,3,1,2]) still applies its
+        # supported slots, so it must not be reported as missing; unsupported
+        # stalker/heavy slots are logged once at startup by the WP4 helper.
         lines = self.start.splitlines()
         at = next(i for i, line in enumerate(lines) if "variant preference enabled" in line)
         self.assertIn("if (m_Config.EnableVariantPolicies && !variantMaps)", lines[at - 2])
-        self.assertEqual("        {", lines[at - 1])
-        self.assertEqual("        }", lines[at + 1])
+        self.assertIn("missing or invalid; native profiles retained", lines[at])
+        self.assertIn("ValidateMap(m_Config.CivilianVariants, false)", self.start)
+        self.assertIn("ValidateMap(m_Config.MilitaryVariants, false)", self.start)
+        self.assertNotIn("ValidateMap(m_Config.CivilianVariants, true)", self.start)
+        self.assertIn("m_Config.CivilianVariants.Count() == 4 && m_Config.MilitaryVariants.Count() == 4", self.start)
+        self.assertEqual(1, self.module.count("HCInfectedProfiles.LogUnsupportedSubstitutions(m_Config);"))
+        self.assertEqual("        HCInfectedProfiles.LogUnsupportedSubstitutions(m_Config);", lines[at + 2])
 
 
 # ---- behavioural: requested=true + unknown qualification performs NO mutation --
@@ -430,8 +448,8 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
                 ctx.TryInvestigate = lambda a: None
                 ctx.SampleMembership = lambda a: None
                 module_call("protected void SampleActor(", ctx, actor,
-                    HCInfectedObservation=NS(SampleVisual=lambda a, now: rec.events.append("sample")),
-                    Math=NS(Max=max))
+                    HCInfectedObservation=NS(VisualSamplingAvailable=lambda: True,
+                        SampleVisual=lambda a, now: rec.events.append("sample")), Math=NS(Max=max))
                 self.assertEqual(expected, rec.events)
 
     # -- supplementary chains --
@@ -537,6 +555,417 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
         self.assertIn("if (m_Hordes && m_Admission.HordeStimulusRoutes)", tick)
         self.assertIn("m_Hordes && m_Admission.MemberRecovery", tick)
         self.assertIn("m_Chains && m_Admission.SupplementaryChains && work > 2", tick)
+
+
+# ---- round 2: startup budget, dependency and dormant-journal fail-closed ----
+import copy
+from pathlib import Path
+from unittest.mock import patch
+
+NO_ADMISSION = (False,) * len(PATHS)
+
+
+def hypothetical(*paths):
+    """Explicit synthetic qualification flags in PATHS order."""
+    return tuple(path in paths for path in PATHS)
+
+
+def committed_record(record_id=1, created=1):
+    return NS(Id=record_id, State=0, CreatedUtc=created, LastSignalUtc=90, Living=3, Reserved=3,
+        AdoptionStage=2, HasRoute=True, RecoveryConflicted=False, Anchor=(1.0, 0.0, 1.0),
+        PreviousAnchor=(1.0, 0.0, 1.0), RoutePurpose=1, RouteResult=1, RoutePlanned=2,
+        RouteCompleted=1, RouteEnd=(2.0, 0.0, 2.0), MemberIds=Array())
+
+
+def prepared_record(record_id=2, created=1):
+    return NS(Id=record_id, State=6, CreatedUtc=created, LastSignalUtc=90, Living=3, Reserved=3,
+        AdoptionStage=1, HasRoute=False, RecoveryConflicted=False, Anchor=(5.0, 0.0, 5.0),
+        PreviousAnchor=(5.0, 0.0, 5.0), RoutePurpose=0, RouteResult=0, RoutePlanned=0,
+        RouteCompleted=0, RouteEnd=(0.0, 0.0, 0.0), MemberIds=Array())
+
+
+class SweepFixture:
+    def __init__(self):
+        self.Living = 0; self.ConfirmedDead = 0; self.Accounted = 0; self.Ambiguous = False
+        self.Stimulus = None; self.Sum = (0.0, 0.0, 0.0); self.Clue = False; self.Engaged = False
+    def Clear(self):
+        self.__init__()
+
+
+class StartedModule:
+    """Executes the authored OnStart/OnTick/OnStop on explicit synthetic collaborators."""
+
+    def __init__(self, work=32, flags=None, hordes=True, journal=(), **overrides):
+        self.events = []
+        self.saves = []
+        self.store_calls = []
+        self.released = []
+        self.clock = [10000]
+        self.journal = Array(journal)
+        self.work = work
+        self.hordes = hordes
+        self.policies = NS(**policy_functions())
+        Admission, _ = admission_functions()
+        if flags is not None:
+            Admission.Evaluate = staticmethod(lambda config, flags=flags: Admission.Resolve(config, *flags))
+        self.config = requested_config(SchemaVersion=1, MaxTracked=24, MaxVoiceQueue=16,
+            MaxVoicePerTick=8, VoiceCooldownSeconds=10, SaveIntervalSeconds=60, MaxInvestigators=2,
+            CivilianVariants=Array(), MilitaryVariants=Array(), **overrides)
+        self.profiles = NS(ValidateMap=lambda *x: True, NativeBuildSupported=lambda x: x == "1.30.164289",
+            ContactGuardQualified=lambda: False, LogUnsupportedSubstitutions=lambda config: None)
+        is_valid = translate("HCInfectedState.c", "bool IsValid(", (), fields=tuple(vars(self.config)),
+            HCInfectedProfiles=self.profiles)
+        self.config.IsValid = lambda: is_valid(self.config)
+        self.ctx = NS(Instance=None, m_State=None, m_Healthy=False, m_Dirty=False, m_Admission=admission(),
+            m_Sweeps=Array(), m_Packs=Array(), m_Actors=Array(), m_Voices=Array(), m_Investigators=Array(),
+            m_RegistrationRound=0, m_Cursor=0, m_RecoveryCursor=0, m_AdoptionCursor=0, m_RetargetCursor=0,
+            m_Now=0, m_AlertChain=NS(ProcessPending=lambda *a: 0))
+        self.ctx.Quarantine = lambda reason: self.events.append(("quarantine", reason))
+        self.ctx.IsEnabled = lambda settings: settings.EnableInfected
+        self.Admission = Admission
+        self.settings = NS(EnableInfected=True, EnableHordes=hordes, EnableAlertChains=True,
+            MaxTickWorkItems=work, MaxActiveHordes=2, MaxActiveHordeMembers=24)
+        has_restart = "static void ApplyRestart(" in (SOURCE / "HCInfectedState.c").read_text()
+        restart = None
+        if has_restart:
+            restart = translate("HCInfectedState.c", "static void ApplyRestart(", (), HCInfectedPolicy=self.policies)
+
+        def snapshot():
+            return NS(Groups=Array(copy.deepcopy(list(self.journal))), Reserved=sum(g.Reserved for g in self.journal))
+
+        def verbatim(*args):
+            self.store_calls.append("verbatim")
+            self.ctx.m_State = snapshot()
+            return True
+
+        def load(*args):
+            self.store_calls.append("load")
+            self.ctx.m_State = snapshot()
+            if restart:
+                restart(None, self.ctx.m_State)
+            return True
+
+        def save(snapshot_value, member_cap, group_cap):
+            self.saves.append(copy.deepcopy(vars(snapshot_value)))
+            return True
+        self.store = NS(ROOT="synthetic", DIRECTORY="synthetic/infected", Load=load, LoadVerbatim=verbatim,
+            Save=save)
+
+    def namespace(self, **extra):
+        game = NS(IsServer=lambda: True, GetVersion=lambda: "1.30.164289", GetWorldName=lambda: "chernarusplus",
+            GetWorld=lambda: NS(GetAIWorld=lambda: object()), ConfigIsExisting=lambda x: True)
+        namespace = dict(GetGame=lambda: game, HCInfectedConfig=lambda: self.config, HCInfectedStore=self.store,
+            MakeDirectory=lambda *args: None, FileExist=lambda *args: False,
+            JsonFileLoader=NS(SaveFile=lambda *args: True), HCInfectedAdmission=self.Admission,
+            HCInfectedProfiles=self.profiles, HCInfectedPolicy=self.policies,
+            HCInfectedClock=NS(UtcSeconds=lambda: self.clock[0]), HCHordeSweep=SweepFixture,
+            HCHordeRecovery=NS(Reconcile=lambda *a: False), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
+            HCInfectedRoomCatalog=NS(Clear=lambda: None), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
+            DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4),
+            vector=NS(Zero=(0.0, 0.0, 0.0), DistanceSq=lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b))),
+            Print=self.events.append)
+        namespace.update(extra)
+        return namespace
+
+    def module_function(self, signature):
+        original = Path.read_text
+
+        def read(path, *args, **kwargs):
+            source = original(path, *args, **kwargs)
+            if path.name == "HCInfectedModule.c":
+                source = re.sub(r"#ifdef DIAG_DEVELOPER.*?#endif", "", source, flags=re.S)
+                source = source.replace("string content, error;", 'string content = ""; string error = "";')
+                source = source.replace("GetGame().GetVersion(runtimeBuild);", "runtimeBuild = GetGame().GetVersion();")
+                source = re.sub(r"(?<![.\w])Instance\b", "self.Instance", source)
+                source = source.replace("Instance = this;", "Instance = self;").replace("== this", "== self")
+            return source
+        with patch.object(Path, "read_text", read):
+            return translate("HCInfectedModule.c", signature, MODULE_METHODS + ("IsEnabled",), **self.namespace())
+
+    def bind_real_methods(self):
+        for signature in ("protected void FinishSweep(", "protected void ReleasePacks(", "protected void ResetSweep(",
+                          "protected void TryAdopt(", "protected void SnapshotRoute(", "protected void SampleMembership("):
+            name = signature.split()[-1].rstrip("(")
+            function = self.module_function(signature)
+            setattr(self.ctx, name, lambda *args, function=function: function(self.ctx, *args))
+        self.ctx.SampleActor = lambda actor: None
+        self.ctx.FindActor = lambda entity: None
+
+    def start(self):
+        self.module_function("override void OnStart(")(self.ctx, self.settings)
+        self.bind_real_methods()
+        return self
+
+    def tick(self, utc):
+        self.clock[0] = utc
+        self.module_function("override void OnTick(")(self.ctx, 1.0)
+
+    def stop(self):
+        self.module_function("override void OnStop(")(self.ctx)
+
+    @property
+    def quarantines(self):
+        return [e for e in self.events if isinstance(e, tuple)]
+
+    @property
+    def admission_logs(self):
+        return [e for e in self.events if isinstance(e, str) and "capability admission (" in e]
+
+
+class StartupBudgetAndDependencyTests(unittest.TestCase):
+    def test_closed_capabilities_do_not_quarantine_native_only_startup_at_valid_core_budget(self):
+        for work in (4, 5, 6, 7):
+            with self.subTest(work=work):
+                started = StartedModule(work=work).start()
+                self.assertTrue(started.ctx.m_Healthy, started.events)
+                self.assertEqual([], started.quarantines)
+                self.assertEqual(1, len(started.admission_logs))
+                self.assertTrue(all(not getattr(started.ctx.m_Admission, path) for path in PATHS))
+
+    def test_generic_core_minimum_of_four_is_kept(self):
+        started = StartedModule(work=3).start()
+        self.assertFalse(started.ctx.m_Healthy)
+        self.assertEqual("invalid limits", started.quarantines[0][1])
+
+    def test_startup_positive_control_default_budget_reaches_healthy(self):
+        started = StartedModule().start()
+        self.assertTrue(started.ctx.m_Healthy, started.events)
+        self.assertEqual(1, len(started.admission_logs))
+        self.assertTrue(all(not getattr(started.ctx.m_Admission, path) for path in PATHS))
+
+    def test_each_admitted_horde_lifecycle_keeps_the_eight_item_prerequisite(self):
+        cases = (hypothetical("CEAdoption"), hypothetical("MemberRecovery"),
+                 hypothetical("NativePackRoutes", "HordeStimulusRoutes"))
+        for flags in cases:
+            for work in (4, 7):
+                with self.subTest(flags=flags, work=work):
+                    started = StartedModule(work=work, flags=flags).start()
+                    self.assertFalse(started.ctx.m_Healthy)
+                    self.assertIn("at least eight", started.quarantines[0][1])
+
+    def test_admitted_native_routes_and_investigation_keep_the_eight_item_prerequisite(self):
+        for flags in (hypothetical("NativePackRoutes"), hypothetical("Investigation")):
+            with self.subTest(flags=flags):
+                started = StartedModule(work=7, flags=flags, hordes=False).start()
+                self.assertFalse(started.ctx.m_Healthy)
+                self.assertIn("at least eight", started.quarantines[0][1])
+
+    def test_admitted_horde_work_without_the_hordes_setting_needs_no_extra_budget(self):
+        started = StartedModule(work=4, flags=hypothetical("MemberRecovery"), hordes=False).start()
+        self.assertTrue(started.ctx.m_Healthy, started.events)
+
+    def test_existing_adoption_and_stimulus_budgets_still_apply_at_eight(self):
+        started = StartedModule(work=8, flags=hypothetical("CEAdoption")).start()
+        self.assertIn("at least 9", started.quarantines[0][1])
+        started = StartedModule(work=8, flags=hypothetical("NativePackRoutes", "HordeStimulusRoutes")).start()
+        self.assertIn("at least 24", started.quarantines[0][1])
+
+    def test_explicit_pack_disable_does_not_quarantine_unqualified_stimulus_preference(self):
+        started = StartedModule(EnableNativePackRoutes=False).start()
+        self.assertTrue(started.ctx.m_Healthy, started.events)
+        self.assertEqual([], started.quarantines)
+        self.assertIs(False, started.ctx.m_Admission.NativePackRoutes)
+        self.assertIs(False, started.ctx.m_Admission.HordeStimulusRoutes)
+        self.assertEqual("disabled_by_preference", started.ctx.m_Admission.NativePackRoutesReason)
+        self.assertEqual("horde_stimulus_routes_unqualified", started.ctx.m_Admission.HordeStimulusRoutesReason)
+
+    def test_explicit_pack_disable_with_hypothetical_stimulus_qualification_is_admission_not_invalid_config(self):
+        started = StartedModule(EnableNativePackRoutes=False,
+            flags=hypothetical("NativePackRoutes", "HordeStimulusRoutes")).start()
+        self.assertTrue(started.ctx.m_Healthy, started.events)
+        self.assertEqual([], started.quarantines)
+        self.assertIs(False, started.ctx.m_Admission.HordeStimulusRoutes)
+        self.assertEqual("horde_stimulus_routes_requires_pack_routes",
+                         started.ctx.m_Admission.HordeStimulusRoutesReason)
+        # Explicit false stays a hard disable and is never rewritten.
+        self.assertIs(False, started.config.EnableNativePackRoutes)
+        self.assertIs(True, started.config.EnableHordeStimulusRoutes)
+
+    def test_config_validity_no_longer_encodes_a_capability_dependency(self):
+        text = (SOURCE / "HCInfectedState.c").read_text()
+        valid = text.split("bool IsValid()", 1)[1].split("\n    }", 1)[0]
+        self.assertNotIn("EnableHordeStimulusRoutes", valid)
+        self.assertNotIn("EnableNativePackRoutes", valid)
+        started = StartedModule(EnableNativePackRoutes=False)
+        self.assertTrue(started.config.IsValid())
+
+
+class DormantJournalTests(unittest.TestCase):
+    """A journal with no admitted lifecycle is evidence to keep, not state to advance."""
+
+    VARIANTS = (("requested_unqualified", {}), ("recovery_explicitly_disabled", {"EnableMemberRecovery": False}))
+
+    def journal(self):
+        return (committed_record(1), prepared_record(2))
+
+    def test_startup_tick_and_shutdown_leave_dormant_journals_byte_for_byte_unchanged(self):
+        for name, overrides in self.VARIANTS:
+            with self.subTest(variant=name):
+                journal = self.journal()
+                before = copy.deepcopy([vars(record) for record in journal])
+                started = StartedModule(journal=journal, **overrides).start()
+                self.assertTrue(started.ctx.m_Healthy, started.events)
+                self.assertEqual(["verbatim"], started.store_calls)
+                self.assertEqual(before, [vars(record) for record in started.ctx.m_State.Groups])
+                self.assertIs(False, started.ctx.m_Dirty)
+                for utc in (20000, 20001, 20002, 20003):
+                    started.tick(utc)
+                self.assertTrue(started.ctx.m_Healthy, started.events)
+                self.assertEqual(before, [vars(record) for record in started.ctx.m_State.Groups])
+                self.assertIs(False, started.ctx.m_Dirty)
+                self.assertEqual([], started.saves)
+                started.stop()
+                self.assertEqual(before, [vars(record) for record in started.ctx.m_State.Groups])
+                self.assertEqual([], started.saves)
+
+    def test_unadmitted_recovery_does_not_retire_and_save_a_previously_pending_journal(self):
+        probe = UnqualifiedPathsPerformNoMutation()
+        rec = Recorder()
+        ctx = probe.tick_context(rec)
+        record = prepared_record(1)
+        record.AdoptionStage = 2
+        ctx.m_State = NS(SchemaVersion=2, Build="1.30.164289", WorldName="chernarusplus",
+            Epoch=1, Generation=7, SavedUtc=100, Reserved=3, Groups=Array([record]))
+        ctx.m_Packs = Array([None]); ctx.m_NextSave = 0; ctx.m_MemberCap = 24; ctx.m_GroupCap = 2
+        module_call("override void OnTick(", ctx, 1.0, GetGame=lambda: NS(IsServer=lambda: True),
+            HCInfectedClock=NS(UtcSeconds=lambda: 4000), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
+            HCInfectedStore=NS(Save=lambda *a: rec.events.append("save") or True))
+        self.assertEqual(6, record.State)
+        self.assertEqual([], rec.events)
+        self.assertIs(False, ctx.m_Dirty)
+
+    def test_finish_sweep_does_not_advance_a_dormant_journal(self):
+        for admitted in ({}, {"HordeStimulusRoutes": True}):
+            with self.subTest(admitted=admitted):
+                record = prepared_record(1)
+                before = copy.deepcopy(vars(record))
+                ctx = NS(m_Sweeps=Array([SweepFixture()]), m_State=NS(Groups=Array([record])), m_Packs=Array([None]),
+                    m_Admission=admission(**admitted), m_Config=requested_config(), m_Dirty=False, m_Now=1, m_Cursor=0)
+                ctx.RetargetCohorts = lambda: None
+                ctx.ResetSweep = lambda: None
+                ctx.SnapshotRoute = lambda *a: None
+                module_call("protected void FinishSweep(", ctx, 20000, HCInfectedPolicy=NS(**policy_functions()),
+                    Print=lambda *a: None, vector=NS(DistanceSq=lambda a, b: 0))
+                self.assertEqual(before, vars(record))
+                self.assertIs(False, ctx.m_Dirty)
+
+    def test_shutdown_still_releases_owned_packs_without_touching_dormant_routes(self):
+        started = StartedModule(journal=self.journal()).start()
+        before = copy.deepcopy([vars(record) for record in started.ctx.m_State.Groups])
+        pack = NS(Release=lambda: started.released.append("pack"))
+        actor = NS(SearchPack=pack)
+        started.ctx.m_Investigators = Array([actor]); started.ctx.m_Actors = Array([actor])
+        started.stop()
+        self.assertEqual(["pack"], started.released)
+        self.assertIsNone(actor.SearchPack)
+        self.assertEqual(before, [vars(record) for record in started.ctx.m_State.Groups])
+        self.assertEqual([], started.saves)
+
+    def test_admitted_recovery_keeps_the_existing_restart_retire_and_save_lifecycle(self):
+        journal = (prepared_record(1),)
+        started = StartedModule(journal=journal, flags=hypothetical("MemberRecovery")).start()
+        self.assertEqual(["load"], started.store_calls)
+        self.assertIs(True, started.ctx.m_Dirty)
+        for utc in (20000, 20001, 20002):
+            started.tick(utc)
+        self.assertEqual(5, started.ctx.m_State.Groups[0].State)
+        self.assertGreaterEqual(len(started.saves), 1)
+
+    def test_admitted_adoption_alone_never_retires_a_state_six_journal(self):
+        journal = (prepared_record(1),)
+        started = StartedModule(journal=journal, flags=hypothetical("CEAdoption")).start()
+        self.assertEqual(["load"], started.store_calls)
+        for utc in (20000, 20001, 20002):
+            started.tick(utc)
+        self.assertEqual(6, started.ctx.m_State.Groups[0].State)
+
+    def test_restart_semantics_are_a_separate_authored_step_from_verbatim_loading(self):
+        state = (SOURCE / "HCInfectedState.c").read_text()
+        self.assertIn("static bool LoadVerbatim(", state)
+        self.assertIn("static void ApplyRestart(", state)
+        load = state.split("static bool Load(", 1)[1].split("static bool Save(", 1)[0]
+        self.assertIn("LoadVerbatim(", load)
+        self.assertIn("ApplyRestart(", load)
+        verbatim = state.split("static bool LoadVerbatim(", 1)[1].split("static void ApplyRestart(", 1)[0]
+        self.assertNotIn("AfterRestart", verbatim)
+
+
+class NativeIntegrationInterfaceTests(unittest.TestCase):
+    def navigation(self):
+        return (SOURCE / "HCInfectedNavigation.c").read_text()
+
+    def test_release_attempt_limit_has_one_policy_source(self):
+        policy = policy_functions()
+        self.assertEqual(3, policy["MaxReleaseAttempts"]())
+        limit = policy["MaxReleaseAttempts"]()
+        for attempts in range(0, limit + 3):
+            self.assertEqual(attempts < limit, policy["MayRetryRelease"](attempts, 100, 0), attempts)
+        navigation = self.navigation()
+        self.assertIn("m_ReleaseAttempts >= HCInfectedPolicy.MaxReleaseAttempts()", navigation)
+        self.assertNotIn("m_ReleaseAttempts >= 3", navigation)
+
+    def test_visual_sampling_availability_is_false_until_observed_evidence_exists(self):
+        available = translate("HCInfectedNavigation.c", "static bool VisualSamplingAvailable(", ())
+        self.assertIs(False, available(None))
+
+    def test_visual_sampling_skips_call_and_observation_budget_while_unavailable(self):
+        for available, expected, budget, next_sample in ((False, [], 1, 0), (True, ["sample"], 0, 12)):
+            with self.subTest(available=available):
+                rec = Recorder()
+                actor = UnqualifiedPathsPerformNoMutation().candidate(0)
+                actor.NextVisualSample = 0
+                actor.Clue = None; actor.Visual = None
+                actor.RefreshProfile = lambda: None
+                ctx = NS(m_Now=10, m_Actors=Array([actor]), m_ObservationsRemaining=1,
+                    m_Config=requested_config(), m_Admission=admission(Investigation=True))
+                ctx.TryInvestigate = lambda a: None
+                ctx.SampleMembership = lambda a: None
+                module_call("protected void SampleActor(", ctx, actor,
+                    HCInfectedObservation=NS(VisualSamplingAvailable=lambda available=available: available,
+                        SampleVisual=lambda a, now: rec.events.append("sample")), Math=NS(Max=max))
+                self.assertEqual(expected, rec.events)
+                self.assertEqual(budget, ctx.m_ObservationsRemaining)
+                self.assertEqual(next_sample, actor.NextVisualSample)
+
+    def release_functions(self, pending, printed):
+        fns = NS()
+        statics = NS(s_ReportedPending=0, s_ReportedQuarantined=0)
+        bound = ("QuarantinedReleaseCount", "ReleaseStatus")
+        for signature, name in (("static int QuarantinedReleaseCount(", "QuarantinedReleaseCount"),
+                                ("static string ReleaseStatus(", "ReleaseStatus"),
+                                ("static void RetryPendingReleases(", "RetryPendingReleases")):
+            function = translate("HCInfectedNavigation.c", signature, bound,
+                statics=("s_ReportedPending", "s_ReportedQuarantined"), s_PendingRelease=pending,
+                STATICS=statics, Print=printed.append)
+            setattr(fns, name, lambda function=function: function(fns))
+        return fns
+
+    def test_release_quarantine_and_pending_count_are_logged_once_per_transition(self):
+        packs = Array()
+        printed = []
+        fns = self.release_functions(packs, printed)
+        for _ in range(3):
+            fns.RetryPendingReleases()
+        self.assertEqual([], printed, "nothing pending, nothing to report")
+        stuck = NS(quarantined=False)
+        stuck.Release = lambda: False
+        stuck.IsReleaseQuarantined = lambda: stuck.quarantined
+        packs.Insert(stuck)
+        for _ in range(5):
+            fns.RetryPendingReleases()
+        self.assertEqual(1, len(printed), printed)
+        self.assertIn("pending=1 quarantined=0 new_routes_blocked=yes", printed[0])
+        stuck.quarantined = True
+        for _ in range(5):
+            fns.RetryPendingReleases()
+        self.assertEqual(2, len(printed), printed)
+        self.assertIn("pending=1 quarantined=1 new_routes_blocked=yes", printed[1])
+        packs.Clear()
+        for _ in range(5):
+            fns.RetryPendingReleases()
+        self.assertEqual(3, len(printed), printed)
+        self.assertIn("pending=0 quarantined=0 new_routes_blocked=no", printed[2])
+        self.assertEqual("pending=0 quarantined=0 new_routes_blocked=no", fns.ReleaseStatus())
 
 
 if __name__ == "__main__":
