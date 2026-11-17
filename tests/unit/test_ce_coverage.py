@@ -550,12 +550,108 @@ class InstallRollbackTests(Fixture):
         for name in (economy.MANAGED, gameplay.MANAGED, snafu_optional.MANAGED, tactical_flava_optional.MANAGED):
             (self.mission / name).mkdir()
             (self.mission / name / 'marker.txt').write_bytes(b'theirs')
+            (self.mission / name / 'receipt.json').write_bytes(
+                json.dumps({'sources': {'mapgroupproto.xml': sha(self.stock)}}).encode())
         before = (self.mission / 'cfgeconomycore.xml').read_bytes()
         cc.install(self.stage(), self.mission)
         cc.rollback(self.mission)
         self.assertEqual((self.mission / 'cfgeconomycore.xml').read_bytes(), before)
         for name in (economy.MANAGED, gameplay.MANAGED, snafu_optional.MANAGED, tactical_flava_optional.MANAGED):
             self.assertEqual((self.mission / name / 'marker.txt').read_bytes(), b'theirs')
+
+
+class RecoveryHardeningTests(Fixture):
+    def pin_folder(self, name, pinned):
+        folder = self.mission / name
+        folder.mkdir()
+        # the shape economy.py, snafu_optional.py and tactical_flava_optional.py write: sources pin every INPUT
+        (folder / 'receipt.json').write_bytes(json.dumps({'schema': 1, 'sources': {'mapgroupproto.xml': pinned}}).encode())
+        return folder
+
+    def test_a_backup_without_a_receipt_is_never_cleaned_up(self):
+        cc.install(self.stage(), self.mission)
+        managed = self.mission / cc.MANAGED
+        patched = self.proto()
+        (managed / 'receipt.json').unlink()
+        with self.assertRaisesRegex(ValueError, 'manual recovery needed'):
+            cc.rollback(self.mission)
+        self.assertEqual(self.proto(), patched)
+        self.assertEqual((managed / 'mapgroupproto.backup').read_bytes(), self.stock)
+
+    def test_economy_installed_on_top_of_coverage_blocks_the_coverage_rollback(self):
+        receipt = cc.install(self.stage(), self.mission)
+        self.pin_folder(economy.MANAGED, receipt['after'])  # economy generated against the patched file
+        patched = self.proto()
+        with self.assertRaisesRegex(ValueError, 'installed on top of the coverage'):
+            cc.rollback(self.mission)
+        self.assertEqual(self.proto(), patched)
+        self.assertTrue((self.mission / cc.MANAGED / 'mapgroupproto.backup').is_file())
+        shutil.rmtree(self.mission / economy.MANAGED)  # economy rolled back first: now coverage can roll back
+        cc.rollback(self.mission)
+        self.assertEqual(self.proto(), self.stock)
+
+    def test_every_optional_installer_folder_is_checked_the_same_way(self):
+        receipt = cc.install(self.stage(), self.mission)
+        for name in (snafu_optional.MANAGED, tactical_flava_optional.MANAGED):
+            folder = self.pin_folder(name, receipt['after'])
+            with self.subTest(name), self.assertRaisesRegex(ValueError, 'installed on top of the coverage'):
+                cc.rollback(self.mission)
+            shutil.rmtree(folder)
+        self.assertEqual(sha(self.proto()), receipt['after'])
+
+    def test_an_unreadable_economy_receipt_blocks_the_coverage_rollback(self):
+        cc.install(self.stage(), self.mission)
+        folder = self.mission / economy.MANAGED
+        folder.mkdir()
+        patched = self.proto()
+        with self.assertRaisesRegex(ValueError, 'manual recovery needed'):
+            cc.rollback(self.mission)
+        self.assertEqual(self.proto(), patched)
+        self.assertTrue((self.mission / cc.MANAGED).exists())
+
+    def test_economy_first_then_coverage_installs_and_rolls_back_cleanly(self):
+        folder = self.pin_folder(economy.MANAGED, sha(self.stock))
+        cc.install(self.stage(), self.mission)
+        cc.rollback(self.mission)
+        self.assertEqual(self.proto(), self.stock)
+        self.assertEqual(json.loads((folder / 'receipt.json').read_bytes())['sources']['mapgroupproto.xml'], sha(self.stock))
+
+    def test_install_refuses_when_an_existing_economy_install_pins_other_proto_bytes(self):
+        stage = self.stage()
+        self.pin_folder(economy.MANAGED, sha(b'a different mapgroupproto'))
+        with self.assertRaisesRegex(ValueError, 'installed on top of the coverage|different mapgroupproto'):
+            cc.install(stage, self.mission)
+        self.assertEqual(self.proto(), self.stock)
+        self.assertFalse((self.mission / cc.MANAGED).exists())
+
+    def test_recovery_files_and_directories_are_synced_before_the_atomic_switch(self):
+        events = []
+        real_fsync, real_replace = os.fsync, os.replace
+
+        def fsync(fd):
+            events.append(('fsync', os.fstat(fd).st_ino))
+            return real_fsync(fd)
+
+        def replace(src, dst):
+            events.append(('replace', None))
+            return real_replace(src, dst)
+
+        stage = self.stage()
+        with mock.patch.object(cc.os, 'fsync', fsync), mock.patch.object(cc.os, 'replace', replace):
+            cc.install(stage, self.mission)
+        managed = self.mission / cc.MANAGED
+        before = {ino for kind, ino in events[:events.index(('replace', None))] if kind == 'fsync'}
+        for name in ('receipt.json', 'mapgroupproto.backup', 'coverage-delta.json', 'mapgroupproto.next'):
+            path = managed / name if name != 'mapgroupproto.next' else None
+            if path is not None:
+                self.assertIn(os.stat(path).st_ino, before, name)
+        self.assertIn(os.stat(managed).st_ino, before)
+        self.assertIn(os.stat(self.mission).st_ino, before)
+        self.assertEqual(events[-1][0], 'fsync')  # the switch itself is followed by a directory sync
+
+    def test_directory_sync_is_skipped_without_failing_on_windows(self):
+        with mock.patch.object(cc.os, 'name', 'nt'):
+            cc._sync_dir(self.mission)  # must not raise or open the directory
 
 
 class ValidateTests(Fixture):

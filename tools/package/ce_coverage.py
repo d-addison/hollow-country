@@ -492,10 +492,59 @@ def checked_delta(data, manifest):
     return delta
 
 
+def _sync_file(path):
+    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def _sync_dir(path):
+    """fsync a directory entry table. Windows cannot open a directory this way; skip it there."""
+    if os.name == 'nt':
+        return
+    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 def _stage_next(managed, data, like):
     staged = economy.fresh_write(managed, 'mapgroupproto.next', data)
     os.chmod(staged, os.lstat(like).st_mode & 0o777)
+    _sync_file(staged)
+    _sync_dir(managed)
     return staged
+
+
+def _switch(staged, proto):
+    os.replace(staged, proto)
+    _sync_dir(Path(proto).parent)
+
+
+# Installers that pin mapgroupproto.xml in their receipt's ``sources`` (economy, SNAFU, Tactical Flava).
+PINNING_FOLDERS = (economy.MANAGED, 'hollow-country-snafu', 'hollow-country-tactical-flava')
+
+
+def _check_pinning_installs(target, expected_sha):
+    """Every other install that pins mapgroupproto.xml must have been made on exactly ``expected_sha``.
+
+    An install made on top of this delta would fail its own rollback ("stock drift") once this delta is
+    restored, and ours would already have deleted its recovery data. Refuse before anything is changed.
+    """
+    for name in PINNING_FOLDERS:
+        folder = economy.child(target, name)
+        if not os.path.lexists(folder):
+            continue
+        try:
+            pinned = json.loads(economy.read_plain(folder, 'receipt.json'))['sources'][PROTO]
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            raise ValueError(f'{name} has no readable receipt; manual recovery needed, nothing was changed') from error
+        if pinned != expected_sha:
+            raise ValueError(f'{name} was installed on top of the coverage-patched mapgroupproto.xml (or on other bytes); '
+                             'roll that installer back first, then this one')
 
 
 def install(stage, target):
@@ -513,13 +562,18 @@ def install(stage, target):
     receipt = {'schema': 1, 'before': sha(original), 'after': sha(patched),
                'delta_sha256': sha(files['coverage-delta.json']), 'native_run_id': delta['native_run_id'],
                'runtime_acceptance': 'pending'}
+    _check_pinning_installs(target, sha(original))
     managed.mkdir()
     # Receipt first, then backup and delta; the atomic switch comes last. A run killed anywhere before the
     # switch leaves the mission untouched, and rollback recognises every one of those states.
     economy.fresh_write(managed, 'receipt.json', encode(receipt))
     economy.fresh_write(managed, 'mapgroupproto.backup', original)
     economy.fresh_write(managed, 'coverage-delta.json', files['coverage-delta.json'])
-    os.replace(_stage_next(managed, patched, proto), proto)
+    for name in ('receipt.json', 'mapgroupproto.backup', 'coverage-delta.json'):
+        _sync_file(managed / name)  # barrier: recovery data is durable before the switch
+    _sync_dir(managed)
+    _sync_dir(target)
+    _switch(_stage_next(managed, patched, proto), proto)
     return receipt
 
 
@@ -564,8 +618,9 @@ def rollback(target):
     if receipt is None:
         # No usable receipt. The receipt is written before the backup and the backup before the switch, so
         # with no backup the mission cannot have been touched. A backup beside a bad receipt is not safe.
-        if 'receipt.json' in present and 'mapgroupproto.backup' in present:
-            raise ValueError('invalid receipt next to a backup; manual reconciliation required')
+        if 'mapgroupproto.backup' in present:
+            raise ValueError('a backup exists without a valid receipt; manual recovery needed '
+                             '(nothing was restored or deleted)')
     else:
         current = sha(proto.read_bytes())
         if current == receipt['after'] and receipt['after'] != receipt['before']:
@@ -579,8 +634,9 @@ def rollback(target):
             if ('coverage-delta.json' not in present
                     or sha(economy.read_plain(managed, 'coverage-delta.json')) != receipt['delta_sha256']):
                 raise ValueError('installed delta drift; inspect before rollback')
+            _check_pinning_installs(target, receipt['before'])
     if switched:
-        os.replace(_stage_next(managed, economy.read_plain(managed, 'mapgroupproto.backup'), proto), proto)
+        _switch(_stage_next(managed, economy.read_plain(managed, 'mapgroupproto.backup'), proto), proto)
     shutil.rmtree(managed)  # only our fixed directory, preflighted above
     return {'restored': switched}
 
