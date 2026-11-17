@@ -67,18 +67,121 @@ INTERFACES = {
         'CreateObjectEx(', 'ObjectDelete(', 'GetTickTime()', 'GetPlayerIndentities('),
     '3_Game/Entities/Object.c': ('GetActionComponentNameList(int componentIndex, TStringArray nameList, string geometry = "")',
         'GetActionComponentsForSelectionName(int level, string selectionName, TIntArray componentIndices)',
-        'GetViewGeometryLevel()', 'SetPosition(vector vPos)'),
+        'GetViewGeometryLevel()', 'SetPosition(vector vPos)', 'IsAlive()', 'IsDamageDestroyed()', 'GetPosition()'),
     '3_Game/Systems/Inventory/HumanInventory.c': ('CreateInHands(string typeName)',),
     '3_Game/Vehicles/Car.c': ('GetFluidCapacity(CarFluid fluid)', 'GetFluidFraction(CarFluid fluid)',
-        'void LeakAll(CarFluid fluid)', 'void Fill(CarFluid fluid, float amount)'),
-    '3_Game/Vehicles/Transport.c': ('string GetActionCompNameFuel()', 'vector GetRefillPointPosWS()'),
-    '4_World/Entities/ItemBase.c': ('bool SetQuantity(float value, bool destroy_config = true',),
+        'void LeakAll(CarFluid fluid)', 'void Fill(CarFluid fluid, float amount)', 'float GetSpeedometerAbsolute()', 'EngineIsOn()'),
+    '3_Game/Vehicles/Transport.c': ('string GetActionCompNameFuel()', 'float GetActionDistanceFuel()', 'vector GetRefillPointPosWS()'),
+    '4_World/Entities/ItemBase.c': ('bool SetQuantity(float value, bool destroy_config = true', 'bool IsOpen()', 'bool IsLiquidContainer()', 'override float GetQuantity()', 'override bool HasQuantity()', 'override int GetLiquidType()', 'override int GetQuantityMax()'),
     '4_World/Classes/UserActionsComponent/ActionTargets.c': (
         'void ActionTarget(Object object, Object parent, int componentIndex, vector cursorHitPos, float utility',),
     '4_World/Classes/UserActionsComponent/ActionComponents/CAContinuousFillFuel.c': (
         'm_EmptySpace = (fuelCapacity - currentFuel) * 1000', 'm_SpentQuantity * 0.001'),
+    '3_Game/Global/DayZPhysics.c': ('RaycastRV(vector begPos, vector endPos, out vector contactPos, out vector contactDir, out int contactComponent,',
+        '/*out*/ set<Object> results = NULL, Object with = NULL, Object ignore = NULL,',
+        'bool sorted = false,  bool ground_only = false,  int iType = ObjIntersectView, float radius = 0.0, CollisionFlags flags = CollisionFlags.NEARESTCONTACT);'),
+    '4_World/Static/MiscGameplayFunctions.c': ('static vector GetPlayerHeadPosition(notnull PlayerBase player)', 'float headHeight = GetPlayerHeadHeight(player);'),
+    '4_World/Static/Liquid.c': ('static bool CanFillContainer(ItemBase container, int liquid_type, bool ignore_fullness_check = false)',),
+    '4_World/Entities/ManBase/PlayerBase.c': ('override bool IsRestrained()', 'ItemBase GetItemInHands()'),
+    '4_World/Entities/DayZPlayerImplement.c': ('bool IsInVehicle()', 'm_MovementState.m_CommandTypeId == DayZPlayerConstants.COMMANDID_VEHICLE'),
+    '3_Game/Entities/Man.c': ('bool IsUnconscious();',),
+    '3_Game/Entities/EntityAI.c': ('int GetQuantityMax()',),
     '3_Game/tools/JsonFileLoader.c': ('static bool SaveFile(string filename, T data, out string errorMessage)',),
 }
+
+
+# Diagnostic shape bounds only; no value here grants action eligibility.
+PREFLIGHT_BOOLEANS = (
+    'attempted complete actor_present donor_present vessel_present actor_alive '
+    'actor_unconscious actor_restrained actor_in_vehicle actor_has_identity '
+    'target_is_donor target_has_parent vessel_held vessel_destroyed vessel_open '
+    'vessel_has_quantity vessel_is_liquid_container gasoline_compatible '
+    'donor_destroyed donor_engine_on component_names_truncated').split()
+PREFLIGHT_VECTORS = ('actor_position head_position donor_position refill_position').split()
+PREFLIGHT_NUMBERS = (
+    'actor_refill_distance_sq head_refill_distance_sq raw_reach clamped_reach '
+    'donor_speed_abs donor_capacity_liters donor_fraction vessel_quantity vessel_maximum').split()
+PREFLIGHT_STRINGS = ('actor_class donor_class vessel_class held_class fuel_selection').split()
+RAY_FIELDS = set(('geometry attempted complete hit component_index hit_count hits_truncated '
+    'contact_known contact normal endpoint_distance_sq hits').split())
+
+
+def _preflight_vector(value):
+    if type(value) is str:
+        if len(value) > 128: raise ValueError('bounded native vector required')
+        parts = value.split()
+        if len(parts) != 3: raise ValueError('three native coordinates required')
+        try: value = [float(part) for part in parts]
+        except ValueError as exc: raise ValueError('numeric native vector required') from exc
+    if type(value) is not list or len(value) != 3:
+        raise ValueError('three native coordinates required')
+    for coordinate in value: _number(coordinate, -1e12, 1e12)
+
+
+def _preflight_integer(value, low=-1, high=2147483647):
+    if type(value) is not int or not low <= value <= high:
+        raise ValueError('bounded native diagnostic integer required')
+
+
+def _preflight_text(value):
+    if type(value) is not str or len(value) > 128:
+        raise ValueError('bounded native diagnostic string required')
+
+
+def validate_preflight(row):
+    """Validate shape/limits, including failed observations; NEVER infer eligibility."""
+    fields = set(PREFLIGHT_BOOLEANS + PREFLIGHT_VECTORS + PREFLIGHT_NUMBERS +
+                 PREFLIGHT_STRINGS + ['schema', 'captured_ms', 'liquid_type',
+                 'component_index', 'component_result', 'component_names', 'rays'])
+    if type(row) is not dict or set(row) != fields:
+        raise ValueError('exact preflight schema required')
+    if type(row['schema']) is not int or row['schema'] != 1:
+        raise ValueError('preflight schema 1 required')
+    flags = {key: _native_bool(row[key]) for key in PREFLIGHT_BOOLEANS}
+    _preflight_integer(row['captured_ms'], 0)
+    for key in ('liquid_type', 'component_index', 'component_result'):
+        _preflight_integer(row[key])
+    for key in PREFLIGHT_VECTORS: _preflight_vector(row[key])
+    for key in PREFLIGHT_NUMBERS: _number(row[key], -1e12, 1e12)
+    for key in PREFLIGHT_STRINGS: _preflight_text(row[key])
+    names = row['component_names']
+    if type(names) is not list or len(names) > 64:
+        raise ValueError('bounded component names required')
+    for name in names: _preflight_text(name)
+    rays = row['rays']
+    if type(rays) is not list or len(rays) > 2:
+        raise ValueError('at most View and Fire observations required')
+    observed = []
+    all_complete = True
+    for ray in rays:
+        if type(ray) is not dict or set(ray) != RAY_FIELDS:
+            raise ValueError('exact ray observation schema required')
+        if ray['geometry'] not in ('view', 'fire') or ray['geometry'] in observed:
+            raise ValueError('distinct known ray geometry required')
+        observed.append(ray['geometry'])
+        rf = {key: _native_bool(ray[key]) for key in
+              ('attempted', 'complete', 'hit', 'hits_truncated', 'contact_known')}
+        _preflight_integer(ray['component_index'])
+        _preflight_integer(ray['hit_count'], 0, 1000000)
+        _preflight_vector(ray['contact']); _preflight_vector(ray['normal'])
+        _number(ray['endpoint_distance_sq'], -1, 1e12)
+        hits = ray['hits']
+        if type(hits) is not list or len(hits) > 16 or len(hits) > ray['hit_count']:
+            raise ValueError('bounded ray hit witness required')
+        if not rf['hits_truncated'] and len(hits) != ray['hit_count']:
+            raise ValueError('unexplained missing ray hits')
+        if not rf['hit'] and (rf['contact_known'] or ray['hit_count']):
+            raise ValueError('miss cannot claim hit/contact evidence')
+        for hit in hits:
+            if type(hit) is not dict or set(hit) != {'class_name', 'is_donor'}:
+                raise ValueError('exact hit witness required')
+            _preflight_text(hit['class_name']); _native_bool(hit['is_donor'])
+        all_complete = all_complete and rf['attempted'] and rf['complete'] and not rf['hits_truncated']
+    complete = (flags['attempted'] and flags['complete'] and not flags['component_names_truncated']
+                and all(flags[key] for key in ('actor_present','donor_present','vessel_present'))
+                and observed == ['view', 'fire'] and all_complete)
+    return dict(diagnostic_status='observation_only', observation_complete=bool(complete),
+                eligibility_acceptance=False, production_acceptance=False, runtime_acceptance=False)
 
 
 def _safe(path):
@@ -201,7 +304,7 @@ def prepare_probe(source, destination, scripts_root, *, x, z, rate_ml, cap_ml, f
         cap_ml=cap_ml,fuel_liters=fuel_liters,car_class=car_class,vessel_class=vessel_class,
         actor_class=actor_class,outer_timeout_seconds=outer_timeout_seconds,
         outer_timeout_required=True,max_owned=dict(car=1,vessel=1,actor=1),
-        runtime_acceptance='pending',interfaces=interfaces,source_root=str(source),
+                runtime_acceptance='pending',preflight_schema=1,interfaces=interfaces,source_root=str(source),
         mission_path=str(destination),source_bytes=total,files={})
     destination.mkdir(parents=True,exist_ok=False)
     for relative in directories: (destination/relative).mkdir(exist_ok=False)
@@ -226,6 +329,8 @@ def validate_result(path, mission, *, outer_timed_out, outer_elapsed_seconds):
     if type(marker.get('schema')) is not int or marker['schema']!=1 or marker.get('kind')!=KIND:
         raise ValueError('prepared marker mismatch')
     mode = _attribution(marker)
+    if type(marker.get('preflight_schema')) is not int or marker['preflight_schema'] != 1:
+        raise ValueError('prepared preflight schema required')
     spawn=marker.get('spawn_xz')
     if type(spawn) is not list or len(spawn)!=2: raise ValueError('spawn pair required')
     _options(*spawn,marker.get('rate_ml'),marker.get('cap_ml'),marker.get('fuel_liters'),
@@ -253,6 +358,8 @@ def validate_result(path, mission, *, outer_timed_out, outer_elapsed_seconds):
     if (value.get('mode') != mode or _native_bool(value.get('ce_disabled_control'))
             != (mode == 'ce-disabled-control')):
         raise ValueError('native receipt CE mode mismatch')
+    if not validate_preflight(value.get('preflight'))['observation_complete']:
+        raise ValueError('complete bounded preflight observations required')
     for field in ('complete','server_context','car_spawned','actor_spawned','vessel_spawned',
             'start_valid','finish_valid','end_pair_valid','sampled','transfer_attempted',
             'lock_released','replay_refused','replay_unchanged','conservation_observed',
@@ -302,6 +409,78 @@ def validate_result(path, mission, *, outer_timed_out, outer_elapsed_seconds):
 HOOK = r'''
 
 // Disposable owned fixture ONLY. Direct server callbacks, not player input.
+
+// Read-only snapshot BEFORE ValidateLive. Unknown/partial values grant nothing.
+class HCFuelSiphonRayHit
+{
+    string class_name;
+    bool is_donor;
+}
+class HCFuelSiphonRayObservation
+{
+    string geometry;
+    bool attempted;
+    bool complete;
+    bool hit;
+    int component_index = -1;
+    int hit_count;
+    bool hits_truncated;
+    bool contact_known;
+    vector contact;
+    vector normal;
+    float endpoint_distance_sq = -1;
+    ref array<ref HCFuelSiphonRayHit> hits = new array<ref HCFuelSiphonRayHit>;
+}
+class HCFuelSiphonPreflight
+{
+    int schema = 1;
+    bool attempted;
+    bool complete;
+    int captured_ms = -1;
+    bool actor_present;
+    bool donor_present;
+    bool vessel_present;
+    bool actor_alive;
+    bool actor_unconscious;
+    bool actor_restrained;
+    bool actor_in_vehicle;
+    bool actor_has_identity;
+    bool target_is_donor;
+    bool target_has_parent;
+    bool vessel_held;
+    bool vessel_destroyed;
+    bool vessel_open;
+    bool vessel_has_quantity;
+    bool vessel_is_liquid_container;
+    bool gasoline_compatible;
+    bool donor_destroyed;
+    bool donor_engine_on;
+    string actor_class;
+    string donor_class;
+    string vessel_class;
+    string held_class;
+    vector actor_position;
+    vector head_position;
+    vector donor_position;
+    vector refill_position;
+    float actor_refill_distance_sq = -1;
+    float head_refill_distance_sq = -1;
+    float raw_reach = -1;
+    float clamped_reach = -1;
+    float donor_speed_abs = -1;
+    float donor_capacity_liters = -1;
+    float donor_fraction = -1;
+    float vessel_quantity = -1;
+    float vessel_maximum = -1;
+    int liquid_type = -1;
+    int component_index = -1;
+    int component_result = -1;
+    string fuel_selection;
+    bool component_names_truncated;
+    ref array<string> component_names = new array<string>;
+    ref array<ref HCFuelSiphonRayObservation> rays = new array<ref HCFuelSiphonRayObservation>;
+}
+
 class HCFuelSiphonReceipt
 {
     int schema = 1;
@@ -311,6 +490,7 @@ class HCFuelSiphonReceipt
     bool ce_disabled_control = @CE_DISABLED@;
     bool gameplay_acceptance = false;
     bool ce_acceptance = false;
+    ref HCFuelSiphonPreflight preflight;
     string world;
     string engine_version;
     bool server_context;
@@ -546,6 +726,116 @@ class HCFuelSiphonProbeMission : CustomMission
 
 HOOK += r'''
 
+
+    void HCSiphonObserveRay(HCFuelSiphonPreflight preflight, int geometry, string label)
+    {
+        HCFuelSiphonRayObservation observation = new HCFuelSiphonRayObservation;
+        observation.geometry = label;
+        observation.attempted = true;
+        preflight.rays.Insert(observation);
+        // Persist attempted/not-complete before entering the native call.
+        if (!HCSiphonSave()) return;
+        vector contact;
+        vector normal;
+        int component = -1;
+        set<Object> hits = new set<Object>;
+        observation.hit = DayZPhysics.RaycastRV(preflight.head_position, preflight.refill_position, contact, normal, component, hits, null, m_Actor, true, false, geometry);
+        observation.component_index = component;
+        observation.hit_count = hits.Count();
+        observation.contact = contact;
+        observation.normal = normal;
+        observation.contact_known = observation.hit && HCActionSiphonFuel.FiniteVector(contact);
+        if (observation.contact_known)
+            observation.endpoint_distance_sq = vector.DistanceSq(contact, preflight.refill_position);
+        observation.hits_truncated = hits.Count() > 16;
+        int index = 0;
+        while (index < hits.Count() && index < 16)
+        {
+            HCFuelSiphonRayHit witness = new HCFuelSiphonRayHit;
+            Object hitObject = hits[index];
+            if (hitObject)
+            {
+                witness.class_name = hitObject.GetType();
+                witness.is_donor = hitObject == m_Car;
+            }
+            if (witness.class_name.Length() <= 128)
+                observation.hits.Insert(witness);
+            else
+                observation.hits_truncated = true;
+            index++;
+        }
+        observation.complete = true;
+    }
+
+    void HCSiphonPreflight()
+    {
+        // Only read owned fixture state and physics; do not normalize eligibility.
+        HCFuelSiphonPreflight observation = new HCFuelSiphonPreflight;
+        m_Receipt.preflight = observation;
+        observation.attempted = true;
+        observation.captured_ms = GetGame().GetTime();
+        if (!HCSiphonSave()) return;
+        observation.actor_present = m_Actor != null;
+        observation.donor_present = m_Car != null;
+        observation.vessel_present = m_Vessel != null;
+        if (!m_Actor || !m_Car || !m_Vessel || !m_Target) return;
+        observation.actor_class = m_Actor.GetType();
+        observation.donor_class = m_Car.GetType();
+        observation.vessel_class = m_Vessel.GetType();
+        observation.actor_alive = m_Actor.IsAlive();
+        observation.actor_unconscious = m_Actor.IsUnconscious();
+        observation.actor_restrained = m_Actor.IsRestrained();
+        observation.actor_in_vehicle = m_Actor.IsInVehicle();
+        observation.actor_has_identity = m_Actor.GetIdentity() != null;
+        observation.actor_position = m_Actor.GetPosition();
+        observation.head_position = MiscGameplayFunctions.GetPlayerHeadPosition(m_Actor);
+        observation.donor_position = m_Car.GetPosition();
+        observation.refill_position = m_Car.GetRefillPointPosWS();
+        observation.raw_reach = m_Car.GetActionDistanceFuel();
+        observation.clamped_reach = observation.raw_reach;
+        if (observation.clamped_reach > 2.0) observation.clamped_reach = 2.0;
+        observation.actor_refill_distance_sq = vector.DistanceSq(observation.actor_position, observation.refill_position);
+        observation.head_refill_distance_sq = vector.DistanceSq(observation.head_position, observation.refill_position);
+        observation.donor_destroyed = m_Car.IsDamageDestroyed();
+        observation.donor_engine_on = m_Car.EngineIsOn();
+        observation.donor_speed_abs = m_Car.GetSpeedometerAbsolute();
+        observation.donor_capacity_liters = m_Car.GetFluidCapacity(CarFluid.FUEL);
+        observation.donor_fraction = m_Car.GetFluidFraction(CarFluid.FUEL);
+        ItemBase held = m_Actor.GetItemInHands();
+        observation.vessel_held = held == m_Vessel;
+        if (held) observation.held_class = held.GetType();
+        observation.vessel_destroyed = m_Vessel.IsDamageDestroyed();
+        observation.vessel_open = m_Vessel.IsOpen();
+        observation.vessel_has_quantity = m_Vessel.HasQuantity();
+        observation.vessel_is_liquid_container = m_Vessel.IsLiquidContainer();
+        observation.vessel_quantity = m_Vessel.GetQuantity();
+        observation.vessel_maximum = m_Vessel.GetQuantityMax();
+        observation.liquid_type = m_Vessel.GetLiquidType();
+        observation.gasoline_compatible = Liquid.CanFillContainer(m_Vessel, LIQUID_GASOLINE);
+        observation.target_is_donor = m_Target.GetObject() == m_Car;
+        observation.target_has_parent = m_Target.GetParent() != null;
+        observation.component_index = m_Target.GetComponentIndex();
+        observation.fuel_selection = m_Car.GetActionCompNameFuel();
+        array<string> names = new array<string>;
+        observation.component_result = m_Car.GetActionComponentNameList(observation.component_index, names);
+        observation.component_names_truncated = names.Count() > 64;
+        int index = 0;
+        while (index < names.Count() && index < 64)
+        {
+            if (names[index].Length() <= 128) observation.component_names.Insert(names[index]);
+            else observation.component_names_truncated = true;
+            index++;
+        }
+        if (!HCSiphonSave()) return;
+        // Same origin/endpoints/ignore/options as the action; these are additional
+        // observations, not the action's later ray results or an eligibility override.
+        HCSiphonObserveRay(observation, ObjIntersectView, "view");
+        if (m_Receipt.failed || !HCSiphonSave()) return;
+        HCSiphonObserveRay(observation, ObjIntersectFire, "fire");
+        if (m_Receipt.failed) return;
+        observation.complete = observation.rays.Count() == 2 && observation.rays[0].complete && observation.rays[1].complete;
+    }
+
     void HCSiphonStart(float now)
     {
         m_Phase = 4;
@@ -566,7 +856,13 @@ HOOK += r'''
         m_Data.m_Target = m_Target;
         m_Data.m_MainItem = m_Vessel;
         m_Data.m_Action = m_Action;
-        // ValidateLive performs the actual native reach and View+Fire LOS rays.
+        HCSiphonPreflight();
+        if (m_Receipt.failed || !HCSiphonSave())
+        {
+            HCSiphonCleanup("receipt-write-failed");
+            return;
+        }
+        // ValidateLive remains authoritative and performs its OWN later native rays.
         m_Receipt.start_valid = HCActionSiphonFuel.ValidateLive(m_Actor, m_Target, m_Vessel);
         if (!m_Receipt.start_valid)
         {
