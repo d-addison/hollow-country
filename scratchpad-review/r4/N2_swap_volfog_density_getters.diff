@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -290,7 +290,7 @@
+         row = row + HCWPKey("day") + day.ToString() + "," + HCWPKey("hour") + hour.ToString() + ",";
+         row = row + HCWPKey("minute") + minute.ToString() + ",";
+         row = row + HCWPKey("wind_speed") + HCWPFloat(weather.GetWindSpeed()) + "," + HCWPKey("wind_max_speed") + HCWPFloat(weather.GetWindMaximumSpeed()) + ",";
+-        row = row + HCWPKey("volfog_enabled") + HCWPBool(weather.IsDynVolFogEnabled()) + "," + HCWPKey("volfog_distance_density") + HCWPFloat(weather.GetDynVolFogDistanceDensity()) + ",";
++        row = row + HCWPKey("volfog_enabled") + HCWPBool(weather.IsDynVolFogEnabled()) + "," + HCWPKey("volfog_distance_density") + HCWPFloat(weather.GetDynVolFogHeightDensity()) + ",";
+         row = row + HCWPKey("volfog_height_density") + HCWPFloat(weather.GetDynVolFogHeightDensity()) + "," + HCWPKey("volfog_height_bias") + HCWPFloat(weather.GetDynVolFogHeightBias()) + ",";
+         row = row + HCWPKey("phenomena") + "{";
+         row = row + HCWPPhenomenon("overcast", weather.GetOvercast()) + "," + HCWPPhenomenon("fog", weather.GetFog()) + ",";

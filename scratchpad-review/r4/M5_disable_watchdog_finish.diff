@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -361,7 +361,7 @@
+             Print("[HC Weather Probe] FAILED watchdog fired before the observations file was opened");
+             return;
+         }
+-        HCWPFinish("partial");
++        return;
+     }
+ 
+     void HCWPFinish(string status)

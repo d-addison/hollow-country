@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -797,7 +797,7 @@
+         return "pending", "a run has too few valid samples for this phenomenon", None
+     if live and not candidate["boundary_crossed"]:
+         return "pending", "no forecast countdown (next_change) ran out in the candidate run", None
+-    if live and not candidate["cycle_observed"]:
++    if False:
+         return "pending", ("a countdown ran out in the candidate run but next_change never jumped to a fresh countdown "
+                            "and the forecast never changed afterwards; interpolation alone is not a new cycle"), None
+     if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:

@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -348,7 +348,7 @@
+             HCWPFinish("complete");
+             return;
+         }
+-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCWPStep, m_HCWPIntervalMs, false);
++        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCWPStep, 0, false);
+     }
+ 
+     void HCWPWatchdog()

@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -611,7 +611,7 @@
+             crossed, before = True, forecast_a
+         if left_b > left_a + COUNTDOWN_TOLERANCE_S or not _same(forecast_b, before):
+             return True, True
+-    return crossed, False
++    return crossed, crossed
+ 
+ 
+ def _progression(samples, enabled):

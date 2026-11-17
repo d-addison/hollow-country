@@ -1,0 +1,25 @@
+four-sample comparison: pending pending
+duplicate actual key: pending ["malformed JSON on line 2: duplicate JSON key 'actual'", 'missing sample(s) seq 0..0 before line 3', 'header planned_samples 6 differs from 5 samples observed', 'end record samples 6 differs from 5 samples observed']
+frozen/no tick: {"evidence": "pending", "clock_advanced": false, "frozen": {"values": [true], "any_true": true, "all_true": true, "consistent": true}, "enable": false}
+incompatible runs: pending pending ["header version differs or is unknown: stock '1.29.000000', candidate '1.30.164289'", "plan start_delay_s differs or is unknown: stock 'None', candidate 'None'", "plan hook_sha256 differs or is unknown: stock 'aaaaaaaaaaaaaaaaaaaaaaaa', candidate 'bbbbbbbbbbbbbbbbbbbbbbbb'", "plan launch_plan_sha256 differs or is unknown: stock 'aaaaaaaaaaaaaaaaaaaaaaaa', candidate 'bbbbbbbbbbbbbbbbbbbbbbbb'", "plan config_sha256 differs or is unknown: stock 'None', candidate 'None'", "plan battleye_sha256 differs or is unknown: stock 'None', candidate 'None'", 'the stock run was not staged with the stock cfgweather.xml', "the candidate was not generated from the stock run's stock cfgweather.xml (stock cfgweather.xml sha256 differs)"]
+no forecast boundary: {"evidence": "pending", "overcast": {"status": "within_candidate", "candidate_limits": {"min": 0.8, "max": 0.95}, "actual_range": {"min": 0.9, "max": 0.9}, "actual_violations": 0, "violating_samples": [], "forecast_range": {"min": 0.3, "max": 0.3}, "forecast_outside_limits": 6, "engine_limits": {"limits": {"matching": 0, "total": 6}, "distinct_live_limits": [[0.0, 1.0]], "change_limits": {"matching": 6, "total": 6}, "time_limits": {"matching": 6, "total": 6}}, "boundary_crossed": false, "cycle_observed": false, "change_observed": false, "xml": {"limits": [0.8, 0.95], "change_limits": [0.0, 1.0], "time_limits": [60.0, 900.0], "current": {"actual": 0.0, "time": 120.0, "duration": 240.0}}, "live_pairs": {"limits": [[0.0, 1.0]], "change_limits": [[0.0, 1.0]], "time_limits": [[60.0, 900.0]]}, "initial_transition": {"samples": 0, "ended_by": null, "last_seq": null, "actual_outside_limits": 0, "outside_samples": []}, "current_readback": {"assessable": true, "expected": {"actual": 0.0, "time": 120.0, "duration": 240.0}, "observed": {"first_weather_time": 0.0, "first_forecast": 0.3, "first_countdown": 1000.0, "expected_first_countdown": 360.0, "actual_reached_weather_time": null}, "checks": {"first_forecast_equals_current_actual": false, "first_countdown_is_time_plus_duration_minus_weather_time": false, "actual_reaches_current_actual_by_time_plus_slack": false}, "matches": false, "tolerances": {"countdown_s": 1.0, "convergence_slack_s": 10.0, "provisional": true}}, "first_forecast": 0.3, "distinct_actual_values": 1}}
+overflow CLI: 3 <empty stderr>
+repeated game_ms: pending ['game_ms does not increase between seq 0 and seq 1 (repeated or reversed timestamps)']
+test_comparison_below_min_samples_is_pending (__main__.ReviewCases.test_comparison_below_min_samples_is_pending) ... ok
+test_conflicting_generated_purpose_metadata_should_be_refused (__main__.ReviewCases.test_conflicting_generated_purpose_metadata_should_be_refused) ... ok
+test_conflicting_purpose_row_cannot_substitute_fixed_hook (__main__.ReviewCases.test_conflicting_purpose_row_cannot_substitute_fixed_hook) ... ok
+test_duplicate_json_keys_make_run_pending (__main__.ReviewCases.test_duplicate_json_keys_make_run_pending) ... ok
+test_frozen_non_ticking_runs_do_not_establish_precedence (__main__.ReviewCases.test_frozen_non_ticking_runs_do_not_establish_precedence) ... ok
+test_incompatible_plan_sources_and_builds_make_comparison_pending (__main__.ReviewCases.test_incompatible_plan_sources_and_builds_make_comparison_pending) ... ok
+test_missing_purpose_should_be_refused_without_mutating_shared_registry (__main__.ReviewCases.test_missing_purpose_should_be_refused_without_mutating_shared_registry) ... ok
+test_no_forecast_boundary_and_conflicting_limits_do_not_establish_precedence (__main__.ReviewCases.test_no_forecast_boundary_and_conflicting_limits_do_not_establish_precedence) ... ok
+test_null_phenomena_is_pending_without_none_iteration_crash (__main__.ReviewCases.test_null_phenomena_is_pending_without_none_iteration_crash) ... ok
+test_overflow_cli_does_not_escape_with_a_traceback (__main__.ReviewCases.test_overflow_cli_does_not_escape_with_a_traceback) ... ok
+test_overflowed_numeric_value_is_pending_instead_of_crashing (__main__.ReviewCases.test_overflowed_numeric_value_is_pending_instead_of_crashing) ... ok
+test_repeated_timestamps_are_not_a_valid_ordered_sampling_run (__main__.ReviewCases.test_repeated_timestamps_are_not_a_valid_ordered_sampling_run) ... ok
+test_unreported_candidate_drift_is_refused_against_available_stock (__main__.ReviewCases.test_unreported_candidate_drift_is_refused_against_available_stock) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.055s
+
+OK

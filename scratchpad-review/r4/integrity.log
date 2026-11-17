@@ -1,0 +1,9 @@
+tools/audit/weather_report.py: worktree and restored archive equal 77c274f
+tools/setup/weather_probe.py: worktree and restored archive equal 77c274f
+tests/unit/test_weather_report.py: worktree and restored archive equal 77c274f
+tests/unit/test_weather_probe.py: worktree and restored archive equal 77c274f
+weather_probe.py AST excluding module docstring: identical to 68b85e7
+git diff --exit-code: rc=0, empty output
+git status --porcelain=v1:
+?? .banso-brief-004.md
+?? scratchpad-review/r4/

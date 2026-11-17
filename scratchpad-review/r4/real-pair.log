@@ -1,0 +1,641 @@
+{
+  "coverage": "complete",
+  "feature_complete": false,
+  "issues": [],
+  "kind": "weather-probe-comparison",
+  "mission_weather": {
+    "candidate": {
+      "all_true": true,
+      "any_true": true,
+      "consistent": true,
+      "values": [
+        true
+      ]
+    },
+    "stock": {
+      "all_true": false,
+      "any_true": false,
+      "consistent": true,
+      "values": [
+        false
+      ]
+    }
+  },
+  "non_claims": [
+    "This is a descriptive comparison of two sampled runs. It does not establish that cfgweather.xml takes precedence over world scripts or engine defaults.",
+    "inconclusive_readback does not establish that the engine ignored or failed to apply the candidate's limits; delayed loading, a measurement defect or different getter semantics can produce it. It carries no native conclusion.",
+    "candidate_live_limits_read_back states only that the candidate's live limits were read back in every candidate reading and in no stock reading; it does not show why, or that the values follow from them.",
+    "The stock run is not required to show a forecast cycle; its controller behaviour is not characterised.",
+    "Values inside or outside the limits, and forecasts outside them, do not show a cause; engine limits and world-script forecasts can coexist.",
+    "candidate_current_read_back states only that, in the candidate run, the first forecast equalled the candidate's <current> actual, the first countdown was about time plus duration minus the weather time, and the actual reached that value by about time, while the stock run's first forecast did not equal it. current_inconclusive carries no native conclusion and does not mean the engine ignored <current>. The tolerances are provisional.",
+    "Actual values outside the limits before the actual first reaches the initial forecast (or before the first scheduled change) are reported as an initial transition, not counted as violations; this does not show how the engine starts from a pre-existing state.",
+    "Two single runs sample random weather. Nothing here is runtime acceptance; runtime acceptance and feature enablement stay pending."
+  ],
+  "notes": [
+    "Values inside the candidate's limits are reported separately (values_in_range) from the live limit readback; world-script forecasts and engine limits can coexist.",
+    "Phenomena the candidate does not change are not_treated: reported, never gating.",
+    "Whether the engine sets mission_weather for enable=1 is read from the flags above only."
+  ],
+  "phenomena": {
+    "fog": {
+      "attribute_evidence": {
+        "current": "candidate_current_read_back",
+        "limits": "candidate_live_limits_read_back",
+        "time_limits": "candidate_live_limits_read_back"
+      },
+      "boundary_crossed": {
+        "candidate": true,
+        "stock": true
+      },
+      "candidate_actual_range": {
+        "max": 0.8,
+        "min": 0.0312421
+      },
+      "candidate_forecast_outside_limits": 0,
+      "candidate_limits": {
+        "max": 0.8,
+        "min": 0.7
+      },
+      "candidate_status": "within_candidate",
+      "change_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "current_readback": {
+        "candidate": {
+          "assessable": true,
+          "checks": {
+            "actual_reaches_current_actual_by_time_plus_slack": true,
+            "first_countdown_is_time_plus_duration_minus_weather_time": true,
+            "first_forecast_equals_current_actual": true
+          },
+          "expected": {
+            "actual": 0.75,
+            "duration": 240.0,
+            "time": 120.0
+          },
+          "matches": true,
+          "observed": {
+            "actual_reached_weather_time": 120.253,
+            "expected_first_countdown": 354.69714,
+            "first_countdown": 354.986,
+            "first_forecast": 0.75,
+            "first_weather_time": 5.30286
+          },
+          "tolerances": {
+            "convergence_slack_s": 10.0,
+            "countdown_s": 1.0,
+            "provisional": true
+          }
+        },
+        "stock": {
+          "assessable": true,
+          "checks": {
+            "actual_reaches_current_actual_by_time_plus_slack": false,
+            "first_countdown_is_time_plus_duration_minus_weather_time": false,
+            "first_forecast_equals_current_actual": false
+          },
+          "expected": {
+            "actual": 0.05,
+            "duration": 240.0,
+            "time": 120.0
+          },
+          "matches": false,
+          "observed": {
+            "actual_reached_weather_time": null,
+            "expected_first_countdown": 354.69713,
+            "first_countdown": 294.987,
+            "first_forecast": 0.0,
+            "first_weather_time": 5.30287
+          },
+          "tolerances": {
+            "convergence_slack_s": 10.0,
+            "countdown_s": 1.0,
+            "provisional": true
+          }
+        }
+      },
+      "cycle_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "evidence": "candidate_live_limits_read_back",
+      "initial_transition": {
+        "actual_outside_limits": 22,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": 22,
+        "outside_samples": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "samples": 23
+      },
+      "live_readback": {
+        "limits": {
+          "candidate_live": [
+            [
+              0.7,
+              0.8
+            ]
+          ],
+          "candidate_live_matches_candidate_xml": true,
+          "candidate_readings_matching_candidate_xml": {
+            "matching": 241,
+            "total": 241
+          },
+          "stock_live": [
+            [
+              0.0,
+              1.0
+            ]
+          ],
+          "stock_live_differs_from_candidate_xml": true
+        },
+        "time_limits": {
+          "candidate_live": [
+            [
+              30.0,
+              60.0
+            ]
+          ],
+          "candidate_live_matches_candidate_xml": true,
+          "candidate_readings_matching_candidate_xml": {
+            "matching": 241,
+            "total": 241
+          },
+          "stock_live": [
+            [
+              300.0,
+              3600.0
+            ]
+          ],
+          "stock_live_differs_from_candidate_xml": true
+        }
+      },
+      "reason": null,
+      "stock_actual_range": {
+        "max": 0.00813179,
+        "min": 0.0
+      },
+      "stock_initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "stock_values_vs_candidate_limits": "entirely_outside",
+      "supported_attribute_evidence": null,
+      "treated_attributes": [
+        "limits",
+        "time_limits",
+        "current"
+      ],
+      "unsupported_treatments": [],
+      "values_in_range": true
+    },
+    "overcast": {
+      "attribute_evidence": {
+        "current": "candidate_current_read_back",
+        "limits": "candidate_live_limits_read_back",
+        "time_limits": "candidate_live_limits_read_back"
+      },
+      "boundary_crossed": {
+        "candidate": true,
+        "stock": true
+      },
+      "candidate_actual_range": {
+        "max": 0.99,
+        "min": 0.2877
+      },
+      "candidate_forecast_outside_limits": 0,
+      "candidate_limits": {
+        "max": 0.99,
+        "min": 0.97
+      },
+      "candidate_status": "within_candidate",
+      "change_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "current_readback": {
+        "candidate": {
+          "assessable": true,
+          "checks": {
+            "actual_reaches_current_actual_by_time_plus_slack": true,
+            "first_countdown_is_time_plus_duration_minus_weather_time": true,
+            "first_forecast_equals_current_actual": true
+          },
+          "expected": {
+            "actual": 0.98,
+            "duration": 240.0,
+            "time": 120.0
+          },
+          "matches": true,
+          "observed": {
+            "actual_reached_weather_time": 120.253,
+            "expected_first_countdown": 354.69714,
+            "first_countdown": 354.986,
+            "first_forecast": 0.98,
+            "first_weather_time": 5.30286
+          },
+          "tolerances": {
+            "convergence_slack_s": 10.0,
+            "countdown_s": 1.0,
+            "provisional": true
+          }
+        },
+        "stock": {
+          "assessable": true,
+          "checks": {
+            "actual_reaches_current_actual_by_time_plus_slack": false,
+            "first_countdown_is_time_plus_duration_minus_weather_time": false,
+            "first_forecast_equals_current_actual": false
+          },
+          "expected": {
+            "actual": 0.45,
+            "duration": 240.0,
+            "time": 120.0
+          },
+          "matches": false,
+          "observed": {
+            "actual_reached_weather_time": null,
+            "expected_first_countdown": 354.69713,
+            "first_countdown": 0.000964308,
+            "first_forecast": 0.221753,
+            "first_weather_time": 5.30287
+          },
+          "tolerances": {
+            "convergence_slack_s": 10.0,
+            "countdown_s": 1.0,
+            "provisional": true
+          }
+        }
+      },
+      "cycle_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "evidence": "candidate_live_limits_read_back",
+      "initial_transition": {
+        "actual_outside_limits": 23,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": 22,
+        "outside_samples": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "samples": 23
+      },
+      "live_readback": {
+        "limits": {
+          "candidate_live": [
+            [
+              0.97,
+              0.99
+            ]
+          ],
+          "candidate_live_matches_candidate_xml": true,
+          "candidate_readings_matching_candidate_xml": {
+            "matching": 241,
+            "total": 241
+          },
+          "stock_live": [
+            [
+              0.0,
+              1.0
+            ]
+          ],
+          "stock_live_differs_from_candidate_xml": true
+        },
+        "time_limits": {
+          "candidate_live": [
+            [
+              30.0,
+              60.0
+            ]
+          ],
+          "candidate_live_matches_candidate_xml": true,
+          "candidate_readings_matching_candidate_xml": {
+            "matching": 241,
+            "total": 241
+          },
+          "stock_live": [
+            [
+              300.0,
+              3600.0
+            ]
+          ],
+          "stock_live_differs_from_candidate_xml": true
+        }
+      },
+      "reason": null,
+      "stock_actual_range": {
+        "max": 0.221753,
+        "min": 0.0753319
+      },
+      "stock_initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "stock_values_vs_candidate_limits": "entirely_outside",
+      "supported_attribute_evidence": null,
+      "treated_attributes": [
+        "limits",
+        "time_limits",
+        "current"
+      ],
+      "unsupported_treatments": [],
+      "values_in_range": true
+    },
+    "rain": {
+      "attribute_evidence": null,
+      "boundary_crossed": {
+        "candidate": true,
+        "stock": false
+      },
+      "candidate_actual_range": {
+        "max": 0.977065,
+        "min": 0.0
+      },
+      "candidate_forecast_outside_limits": 0,
+      "candidate_limits": {
+        "max": 1.0,
+        "min": 0.0
+      },
+      "candidate_status": "within_candidate",
+      "change_observed": {
+        "candidate": true,
+        "stock": false
+      },
+      "current_readback": null,
+      "cycle_observed": {
+        "candidate": true,
+        "stock": false
+      },
+      "evidence": "not_treated",
+      "initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "live_readback": null,
+      "reason": null,
+      "stock_actual_range": {
+        "max": 0.0,
+        "min": 0.0
+      },
+      "stock_initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "stock_values_vs_candidate_limits": "inside",
+      "supported_attribute_evidence": null,
+      "treated_attributes": [],
+      "unsupported_treatments": [],
+      "values_in_range": true
+    },
+    "snowfall": {
+      "attribute_evidence": null,
+      "boundary_crossed": {
+        "candidate": false,
+        "stock": false
+      },
+      "candidate_actual_range": {
+        "max": 0.0,
+        "min": 0.0
+      },
+      "candidate_forecast_outside_limits": 0,
+      "candidate_limits": {
+        "max": 0.0,
+        "min": 0.0
+      },
+      "candidate_status": "within_candidate",
+      "change_observed": {
+        "candidate": false,
+        "stock": false
+      },
+      "current_readback": null,
+      "cycle_observed": {
+        "candidate": false,
+        "stock": false
+      },
+      "evidence": "not_treated",
+      "initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "live_readback": null,
+      "reason": null,
+      "stock_actual_range": {
+        "max": 0.0,
+        "min": 0.0
+      },
+      "stock_initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "stock_values_vs_candidate_limits": "inside",
+      "supported_attribute_evidence": null,
+      "treated_attributes": [],
+      "unsupported_treatments": [],
+      "values_in_range": true
+    },
+    "windDirection": {
+      "attribute_evidence": null,
+      "boundary_crossed": {
+        "candidate": true,
+        "stock": false
+      },
+      "candidate_actual_range": {
+        "max": 1.50531,
+        "min": -0.38533
+      },
+      "candidate_forecast_outside_limits": 0,
+      "candidate_limits": {
+        "max": 3.14,
+        "min": -3.14
+      },
+      "candidate_status": "within_candidate",
+      "change_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "current_readback": null,
+      "cycle_observed": {
+        "candidate": true,
+        "stock": false
+      },
+      "evidence": "not_treated",
+      "initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": 22,
+        "outside_samples": [],
+        "samples": 23
+      },
+      "live_readback": null,
+      "reason": null,
+      "stock_actual_range": {
+        "max": 1.5708,
+        "min": -0.560961
+      },
+      "stock_initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "stock_values_vs_candidate_limits": "inside",
+      "supported_attribute_evidence": null,
+      "treated_attributes": [],
+      "unsupported_treatments": [],
+      "values_in_range": true
+    },
+    "windMagnitude": {
+      "attribute_evidence": null,
+      "boundary_crossed": {
+        "candidate": true,
+        "stock": true
+      },
+      "candidate_actual_range": {
+        "max": 19.9328,
+        "min": 6.09595
+      },
+      "candidate_forecast_outside_limits": 0,
+      "candidate_limits": {
+        "max": 20.0,
+        "min": 0.0
+      },
+      "candidate_status": "within_candidate",
+      "change_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "current_readback": null,
+      "cycle_observed": {
+        "candidate": true,
+        "stock": true
+      },
+      "evidence": "not_treated",
+      "initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": 23,
+        "outside_samples": [],
+        "samples": 24
+      },
+      "live_readback": null,
+      "reason": null,
+      "stock_actual_range": {
+        "max": 10.0,
+        "min": 5.45795
+      },
+      "stock_initial_transition": {
+        "actual_outside_limits": 0,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": null,
+        "outside_samples": [],
+        "samples": 0
+      },
+      "stock_values_vs_candidate_limits": "inside",
+      "supported_attribute_evidence": null,
+      "treated_attributes": [],
+      "unsupported_treatments": [],
+      "values_in_range": true
+    }
+  },
+  "progression": {
+    "candidate": {
+      "time_advanced": true,
+      "unfrozen": true,
+      "xml_enabled": true
+    },
+    "stock": {
+      "time_advanced": true,
+      "unfrozen": true,
+      "xml_enabled": false
+    }
+  },
+  "runtime_acceptance": "pending",
+  "status": "complete",
+  "treated": [
+    "overcast",
+    "fog"
+  ],
+  "unsupported_treatments": {},
+  "update_frozen": {
+    "candidate": {
+      "all_true": false,
+      "any_true": false,
+      "consistent": true,
+      "values": [
+        false
+      ]
+    },
+    "stock": {
+      "all_true": false,
+      "any_true": false,
+      "consistent": true,
+      "values": [
+        false
+      ]
+    }
+  }
+}

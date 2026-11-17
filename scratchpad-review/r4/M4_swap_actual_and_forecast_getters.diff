@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -265,7 +265,7 @@
+         phenomenon.GetForecastChangeLimits(changeMin, changeMax);
+         phenomenon.GetForecastTimeLimits(timeMin, timeMax);
+         string row = HCWPKey(name) + "{";
+-        row = row + HCWPKey("actual") + HCWPFloat(phenomenon.GetActual()) + "," + HCWPKey("forecast") + HCWPFloat(phenomenon.GetForecast()) + ",";
++        row = row + HCWPKey("actual") + HCWPFloat(phenomenon.GetForecast()) + "," + HCWPKey("forecast") + HCWPFloat(phenomenon.GetActual()) + ",";
+         row = row + HCWPKey("next_change") + HCWPFloat(phenomenon.GetNextChange()) + ",";
+         row = row + HCWPKey("limit_min") + HCWPFloat(limitMin) + "," + HCWPKey("limit_max") + HCWPFloat(limitMax) + ",";
+         row = row + HCWPKey("change_min") + HCWPFloat(changeMin) + "," + HCWPKey("change_max") + HCWPFloat(changeMax) + ",";

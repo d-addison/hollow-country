@@ -1,0 +1,12 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -373,8 +373,8 @@
+         string outcome = status;
+         if (m_HCWPWriteErrors > 0)
+             outcome = "failed";
++        HCWPWriteSentinel(outcome);
+         HCWPAppend(HCWPEndLine(outcome));
+-        HCWPWriteSentinel(outcome);
+     }
+ 
+     void HCWPWriteSentinel(string status)

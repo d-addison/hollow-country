@@ -1,0 +1,108 @@
+{
+  "status": "complete",
+  "coverage": "complete",
+  "issues": [],
+  "mission_weather": {
+    "candidate": {
+      "all_true": true,
+      "any_true": true,
+      "consistent": true,
+      "values": [
+        true
+      ]
+    },
+    "stock": {
+      "all_true": false,
+      "any_true": false,
+      "consistent": true,
+      "values": [
+        false
+      ]
+    }
+  },
+  "runtime_acceptance": "pending",
+  "feature_complete": false,
+  "phenomena": {
+    "fog": {
+      "candidate_status": "within_candidate",
+      "attribute_evidence": {
+        "current": "candidate_current_read_back",
+        "limits": "candidate_live_limits_read_back",
+        "time_limits": "candidate_live_limits_read_back"
+      },
+      "values_in_range": true,
+      "initial_transition": {
+        "actual_outside_limits": 22,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": 22,
+        "outside_samples": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21
+        ],
+        "samples": 23
+      },
+      "stock_values_vs_candidate_limits": "entirely_outside"
+    },
+    "overcast": {
+      "candidate_status": "within_candidate",
+      "attribute_evidence": {
+        "current": "candidate_current_read_back",
+        "limits": "candidate_live_limits_read_back",
+        "time_limits": "candidate_live_limits_read_back"
+      },
+      "values_in_range": true,
+      "initial_transition": {
+        "actual_outside_limits": 23,
+        "ended_by": "actual_reached_initial_forecast",
+        "last_seq": 22,
+        "outside_samples": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22
+        ],
+        "samples": 23
+      },
+      "stock_values_vs_candidate_limits": "entirely_outside"
+    }
+  }
+}
