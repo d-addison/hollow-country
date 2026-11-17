@@ -109,8 +109,8 @@ The installer checks the source hash, output checksums and that the delta still
 respects the ownership list and bounds, refuses a second install, and keeps a
 byte-exact backup and receipt in its own `hollow-country-gameplay` directory
 (separate from the economy `hollow-country` directory, so both can coexist).
-Rollback restores the original bytes and removes only that directory; drift or
-unexpected files cause refusal. `--dry-run` validates and lists changes without writing.
+Rollback restores the original bytes and removes only that directory; drift,
+unexpected files, symlinks or hard-linked managed files cause refusal. `--dry-run` validates and lists changes without writing.
 Chosen values, all provisional and compared with vanilla Chernarus:
 
 | Area | Key | Vanilla | Hollow Country |
@@ -136,7 +136,7 @@ Chosen values, all provisional and compared with vanilla Chernarus:
 - Weight: the HC stamina HUD reads native `GetPlayerLoad()` (the engine weight,
   wetness included). Hollow Country never recomputes weight, so the wet values need no
   second implementation.
-- Hardscrabble: randomised worn civilian clothing (health 0.6 to 0.85) and exactly
+- Hardscrabble: randomised worn civilian clothing (health 0.6 to 0.69, strictly below the native worn cutoff of 0.7) and exactly
   one small item (a rag, a chemlight or one can of food). No weapons or ammunition.
   The native preset replaces the stock starting kit of the mission `init.c`.
 - Crawlers: lowering the leg-zone health makes leg hits down an infected sooner. The

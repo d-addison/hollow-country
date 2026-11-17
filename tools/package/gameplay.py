@@ -21,6 +21,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 
 INPUTS = ('cfggameplay.json',)
 MANAGED = 'hollow-country-gameplay'
@@ -58,7 +59,19 @@ PROFILE_PATHS = {
 }
 TEMP_PATHS = {('WorldsData', 'environmentMinTemps'), ('WorldsData', 'environmentMaxTemps')}
 DELTA_PATHS = PROFILE_PATHS | TEMP_PATHS
-BANNED_PRESET_TEXT = ('ammo', 'mag_', 'rifle', 'pistol', 'knife', 'bandage', 'weapon', 'shotgun')
+# Reviewed civilian clothing per slot (all scope 2, retained in the item-review workbook) and the
+# only permitted small items. Anything else, including any weapon or ammunition, is refused.
+CLOTHING = {
+    'Body': ('TShirt_Beige', 'TShirt_Blue', 'TShirt_Green', 'TShirt_Grey', 'TShirt_Black',
+             'Hoodie_Black', 'Hoodie_Brown', 'Hoodie_Grey'),
+    'Legs': ('Jeans_Black', 'Jeans_Blue', 'Jeans_BlueDark', 'Jeans_Brown', 'Jeans_Grey', 'CargoPants_Black'),
+    'Feet': ('AthleticShoes_Black', 'AthleticShoes_Brown', 'AthleticShoes_Grey', 'JoggingShoes_Black',
+             'HikingBootsLow_Black'),
+}
+SMALL_ITEMS = ('Rag', 'Chemlight_White', 'Chemlight_Yellow', 'Chemlight_Green',
+               'BakedBeansCan', 'SpaghettiCan', 'TunaCan')
+# Native DAMAGE_WORN_VALUE is 0.7 (health >= 0.7 reads as pristine), so worn means strictly below it.
+WORN_HEALTH = (0.6, 0.69)
 CLASS_NAME = re.compile(r'^[A-Za-z][A-Za-z0-9_]{1,63}$')
 
 
@@ -83,6 +96,26 @@ def child(root, name):
         if p.is_symlink():
             raise ValueError('symlinks forbidden')
     return path
+
+
+def regular(path):
+    """Refuse anything that is not a plain single-link file (hard links can alias files outside the mission)."""
+    st = Path(path).lstat()
+    if not stat.S_ISREG(st.st_mode) or st.st_nlink > 1:
+        raise ValueError('managed/target file must be a regular file without hard links: ' + Path(path).name)
+    return path
+
+
+def write_fresh(path, data):
+    """Create a new file exclusively; an existing staging file is unlinked, never opened for writing."""
+    path = Path(path)
+    if path.is_symlink() or path.exists():
+        if path.is_dir():
+            raise ValueError('refusing to replace a directory')
+        path.unlink()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o644)
+    with os.fdopen(fd, 'wb') as handle:
+        handle.write(data)
 
 
 def _pairs(pairs):
@@ -220,9 +253,6 @@ def validate_preset(preset):
             or not _int_in(preset['spawnWeight'], 1, 1000) or not isinstance(preset['name'], str)
             or preset['characterTypes'] != []):
         raise ValueError('unsupported spawn preset')
-    text = json.dumps(preset).lower()
-    if any(b in text for b in BANNED_PRESET_TEXT):
-        raise ValueError('spawn preset must not contain weapons, ammunition or medical items')
     slots = preset['attachmentSlotItemSets']
     if not isinstance(slots, list) or [s.get('slotName') if isinstance(s, dict) else None for s in slots] != ['Body', 'Legs', 'Feet']:
         raise ValueError('preset must define exactly Body, Legs and Feet')
@@ -244,9 +274,11 @@ def validate_preset(preset):
             a = item['attributes']
             if (not isinstance(a, dict) or set(a) != {'healthMin', 'healthMax', 'quantityMin', 'quantityMax'}
                     or not all(_num(v) for v in a.values())
-                    or not 0.5 <= a['healthMin'] < a['healthMax'] < 1.0
+                    or not WORN_HEALTH[0] <= a['healthMin'] < a['healthMax'] <= WORN_HEALTH[1]
                     or a['quantityMin'] != 0 or a['quantityMax'] != 0):
-                raise ValueError('clothing must be worn (health 0.5..<1.0) with no quantity')
+                raise ValueError('clothing must be worn (health 0.6..0.69, below native 0.7) with no quantity')
+            if item['itemType'] not in CLOTHING[slot['slotName']]:
+                raise ValueError('clothing class is not on the reviewed list for ' + slot['slotName'])
             names.append(item['itemType'])
         if len(names) != len(set(names)):
             raise ValueError('duplicate clothing class in a slot')
@@ -260,7 +292,7 @@ def validate_preset(preset):
                 or not _int_in(item['spawnWeight'], 1, 1000)
                 or not isinstance(item['simpleChildrenTypes'], list) or len(item['simpleChildrenTypes']) != 1
                 or not isinstance(item['simpleChildrenTypes'][0], str)
-                or not CLASS_NAME.match(item['simpleChildrenTypes'][0])
+                or item['simpleChildrenTypes'][0] not in SMALL_ITEMS
                 or item['simpleChildrenUseDefaultAttributes'] is not True):
             raise ValueError('each small item set must hold exactly one item')
 
@@ -336,7 +368,7 @@ def write_delta(stage, files):
     for name, data in files.items():
         p = child(stage, name)
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_bytes(data)
+        write_fresh(p, data)
 
 
 def _target(target):
@@ -381,6 +413,7 @@ def install(stage, target, dry_run=False):
     if managed.exists() or managed.is_symlink():
         raise ValueError('already installed or interrupted installation; inspect/rollback first')
     gear_target = child(target, GEAR_PATH)
+    regular(child(target, 'cfggameplay.json'))
     original = data['cfggameplay.json']
     source = _source_checked(parse(original))
     # Re-validate the stage content itself: checksums only prove it was not edited
@@ -400,11 +433,11 @@ def install(stage, target, dry_run=False):
     managed.mkdir()
     # Backup and receipt exist before the atomic switch. Rollback also handles an
     # interrupted install whose switch did not happen. Stop the server first.
-    (managed / 'cfggameplay.backup').write_bytes(original)
-    (managed / 'receipt.json').write_bytes(encode(receipt))
+    write_fresh(managed / 'cfggameplay.backup', original)
+    write_fresh(managed / 'receipt.json', encode(receipt))
     gear_target.parent.mkdir()
-    gear_target.write_bytes(files[GEAR_REL])
-    (managed / 'cfggameplay.next').write_bytes(merged)
+    write_fresh(gear_target, files[GEAR_REL])
+    write_fresh(managed / 'cfggameplay.next', merged)
     os.replace(managed / 'cfggameplay.next', child(target, 'cfggameplay.json'))
     return receipt
 
@@ -422,7 +455,9 @@ def rollback(target, dry_run=False):
         child(managed, name)
         if p.is_file() and name not in RECEIPT_FILES:
             raise ValueError('unexpected managed file; rollback refuses deletion')
-    config = child(target, 'cfggameplay.json')
+        if not p.is_dir():
+            regular(p)
+    config = regular(child(target, 'cfggameplay.json'))
     backup = child(managed, 'cfggameplay.backup').read_bytes()
     if sha(backup) != receipt['before'] or sha(config.read_bytes()) not in {receipt['before'], receipt['after']}:
         raise ValueError('cfggameplay.json drift; manual reconciliation required')
@@ -432,7 +467,7 @@ def rollback(target, dry_run=False):
     if dry_run:
         return {'dry_run': True, 'would_restore': ['cfggameplay.json'], 'would_remove': [MANAGED + '/'],
                 'runtime_acceptance': 'pending'}
-    (managed / 'cfggameplay.next').write_bytes(backup)
+    write_fresh(managed / 'cfggameplay.next', backup)
     os.replace(managed / 'cfggameplay.next', config)
     shutil.rmtree(managed)  # only our fixed directory, preflighted above
     return {'dry_run': False}

@@ -327,7 +327,9 @@ class SpawnKit(unittest.TestCase):
                 a = item['attributes']
                 self.assertGreaterEqual(a['healthMin'], 0.5)
                 self.assertLess(a['healthMin'], a['healthMax'])
-                self.assertLess(a['healthMax'], 1.0)  # never pristine
+                # Native DAMAGE_WORN_VALUE is 0.7 (constants.c): >= 0.7 reads as pristine.
+                self.assertLessEqual(a['healthMax'], 0.69)
+                self.assertGreaterEqual(a['healthMin'], 0.6)
                 self.assertEqual((a['quantityMin'], a['quantityMax']), (0.0, 0.0))
 
     def test_exactly_one_small_useful_item_and_no_weapons_or_ammo(self):
@@ -348,6 +350,24 @@ class SpawnKit(unittest.TestCase):
         text = json.dumps(self.preset).lower()
         for banned in ('ammo', 'mag_', 'rifle', 'pistol', 'knife', 'bandage', 'weapon', 'shotgun'):
             self.assertNotIn(banned, text)
+
+    def test_validator_allowlists_items_and_worn_health(self):
+        for slot, name in ((None, 'M4A1'), (None, 'Mag_STANAG_30Rnd'), (None, 'Rag_Extra'), (None, 'Apple')):
+            preset = copy.deepcopy(self.preset)
+            preset['discreteUnsortedItemSets'][0]['simpleChildrenTypes'] = [name]
+            with self.subTest(cargo=name), self.assertRaises(ValueError):
+                gameplay.validate_preset(preset)
+        for slot, name in ((0, 'Jeans_Black'), (1, 'TShirt_Black'), (2, 'M4A1'), (0, 'PlateCarrierVest')):
+            preset = copy.deepcopy(self.preset)
+            preset['attachmentSlotItemSets'][slot]['discreteItemSets'][0]['itemType'] = name
+            with self.subTest(clothing=name, slot=slot), self.assertRaises(ValueError):
+                gameplay.validate_preset(preset)
+        for key, bad in (('healthMax', 0.85), ('healthMax', 0.7), ('healthMin', 0.4), ('healthMax', 1.0)):
+            preset = copy.deepcopy(self.preset)
+            preset['attachmentSlotItemSets'][0]['discreteItemSets'][0]['attributes'][key] = bad
+            with self.subTest(key=key, bad=bad), self.assertRaises(ValueError):
+                gameplay.validate_preset(preset)
+        gameplay.validate_preset(self.preset)
 
     def test_profile_points_at_the_preset_inside_the_managed_directory(self):
         files = self.profile['cfggameplay']['PlayerData']['spawnGearPresetFiles']
@@ -491,6 +511,60 @@ class InstallRollback(unittest.TestCase):
         preset.write_bytes((self.stage / 'gear/hardscrabble.json').read_bytes())
         gameplay.rollback(self.target)
         self.assertEqual(config.read_bytes(), self.original)
+
+    def hardlink_to_outside(self, name):
+        outside = self.root / 'outside-mission.txt'
+        outside.write_bytes(b'unrelated file that must never be touched\n')
+        os.link(outside, self.target / gameplay.MANAGED / name)
+        return outside
+
+    def test_rollback_never_writes_through_a_hard_linked_staging_file(self):
+        gameplay.install(self.stage, self.target)
+        outside = self.hardlink_to_outside('cfggameplay.next')
+        before, config = outside.read_bytes(), (self.target / 'cfggameplay.json').read_bytes()
+        for dry in (True, False):
+            with self.subTest(dry_run=dry), self.assertRaises(ValueError):
+                gameplay.rollback(self.target, dry_run=dry)
+            self.assertEqual(outside.read_bytes(), before)
+            self.assertEqual((self.target / 'cfggameplay.json').read_bytes(), config)
+        self.assertTrue((self.target / gameplay.MANAGED / 'cfggameplay.backup').is_file())
+
+    def test_rollback_refuses_other_hard_linked_managed_files_and_config(self):
+        for name in ('cfggameplay.backup', 'receipt.json', 'gear/hardscrabble.json'):
+            with self.subTest(name=name):
+                gameplay.install(self.stage, self.target)
+                managed = self.target / gameplay.MANAGED
+                data = (managed / name).read_bytes()
+                outside = self.root / ('outside-' + name.replace('/', '-'))
+                os.link(managed / name, outside)
+                with self.assertRaises(ValueError):
+                    gameplay.rollback(self.target)
+                self.assertEqual(outside.read_bytes(), data)
+                outside.unlink()
+                gameplay.rollback(self.target)
+        gameplay.install(self.stage, self.target)
+        outside = self.root / 'outside-config.json'
+        os.link(self.target / 'cfggameplay.json', outside)
+        merged = outside.read_bytes()
+        with self.assertRaises(ValueError):
+            gameplay.rollback(self.target)
+        self.assertEqual(outside.read_bytes(), merged)
+        outside.unlink()
+        gameplay.rollback(self.target)
+
+    def test_install_refuses_a_hard_linked_target_config_and_leaves_it_alone(self):
+        outside = self.root / 'outside-config.json'
+        os.link(self.target / 'cfggameplay.json', outside)
+        with self.assertRaises(ValueError):
+            gameplay.install(self.stage, self.target)
+        self.assertEqual(outside.read_bytes(), self.original)
+        self.assertFalse((self.target / gameplay.MANAGED).exists())
+
+    def test_rollback_replaces_a_stale_unlinked_staging_file(self):
+        gameplay.install(self.stage, self.target)
+        (self.target / gameplay.MANAGED / 'cfggameplay.next').write_bytes(b'stale partial write')
+        gameplay.rollback(self.target)
+        self.assertEqual((self.target / 'cfggameplay.json').read_bytes(), self.original)
 
     def test_rollback_of_an_interrupted_install_restores_the_original(self):
         gameplay.install(self.stage, self.target)
