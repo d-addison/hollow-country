@@ -366,6 +366,90 @@ class DeathSelectionExtensionTests(unittest.TestCase):
         for token in ("subprocess", "os.system", "Popen", "os.exec"):
             self.assertNotIn(token, text, token)
 
+    def cli_fixture(self, root):
+        from pathlib import Path
+        (root / "init.c").write_bytes(STOCK)
+        interfaces = root / "native"
+        for name, tokens in self.p.INTERFACES.items():
+            (interfaces / name).parent.mkdir(parents=True, exist_ok=True)
+            (interfaces / name).write_text("\n".join(tokens))
+        return ["--stock-init", str(root / "init.c"), "--interfaces", str(interfaces),
+                "--destination", str(root / "stage"), "--victim", "100", "100", "--source", "102", "100",
+                "--run-id", "c"*32]
+
+    def test_cli_reads_the_production_policy_from_the_checkout_with_the_documented_relative_path(self):
+        import contextlib, io, os, tempfile
+        from pathlib import Path
+        checkout = Path(self.p.__file__).resolve().parents[2]
+        production = checkout / "mods/HollowCountry/scripts/4_World/Infected/HCInfectedDeathPolicy.c"
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            args = self.cli_fixture(root) + ["--selection", "policy", "--policy-source",
+                "mods/HollowCountry/scripts/4_World/Infected/HCInfectedDeathPolicy.c"]
+            cwd = os.getcwd()
+            os.chdir(checkout)
+            try:
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(0, self.p.main(args))
+            finally:
+                os.chdir(cwd)
+            self.assertEqual(production.read_bytes(), (root / "stage" / self.p.POLICY).read_bytes())
+
+    def test_cli_policy_source_still_refuses_symlinks_traversal_and_oversize(self):
+        import contextlib, io, os, tempfile
+        from pathlib import Path
+        checkout = Path(self.p.__file__).resolve().parents[2]
+        production = checkout / "mods/HollowCountry/scripts/4_World/Infected/HCInfectedDeathPolicy.c"
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            base = self.cli_fixture(root)
+            link = root / "link.c"
+            link.symlink_to(production)
+            big = root / "big.c"
+            big.write_bytes(b"x" * (self.p.MAX_POLICY_BYTES + 1))
+            for bad in (str(link), str(big), str(production.parent / ".." / "Infected" / production.name)):
+                with self.assertRaises(ValueError, msg=bad):
+                    self.p.main(base + ["--selection", "policy", "--policy-source", bad])
+            self.assertFalse((root / "stage").exists())
+
+    def test_cli_policy_source_and_selection_require_each_other(self):
+        import contextlib, io, tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as root:
+            root = Path(root)
+            policy = root / "policy.c"
+            policy.write_bytes(POLICY_SOURCE)
+            base = self.cli_fixture(root)
+            for extra in (["--policy-source", str(policy)], ["--selection", "policy"]):
+                with self.assertRaises(SystemExit) as raised:
+                    with contextlib.redirect_stderr(io.StringIO()):
+                        self.p.main(base + extra)
+                self.assertNotEqual(0, raised.exception.code, extra)
+                self.assertFalse((root / "stage").exists(), extra)
+
+    def test_receipt_must_contain_the_claimed_post_command_observation_window(self):
+        files = self.generate(selection="policy", policy_source=POLICY_SOURCE)
+        def mutate(change):
+            row = policy_receipt(self.p, files)
+            change(row["cases"][1])
+            return row
+        def last_on_command_frame(case):
+            case["samples"][-1]["frame"] = case["command_frame"]
+        def last_before_command_time(case):
+            case["command_elapsed"] = case["samples"][-1]["elapsed"] + 0.05
+            case["delete_elapsed"] = case["command_elapsed"] + 0.05
+            case["cleanup_elapsed"] = case["delete_elapsed"] + 0.1
+        def delete_before_window(case):
+            case["delete_elapsed"] = case["damage_elapsed"] + 1.0
+            case["cleanup_elapsed"] = case["delete_elapsed"] + 0.1
+            for sample in case["samples"]:
+                sample["elapsed"] = min(sample["elapsed"], case["delete_elapsed"])
+        for change in (last_on_command_frame, last_before_command_time, delete_before_window):
+            with self.assertRaises(ValueError, msg=change.__name__):
+                self.validate(mutate(change), files)
+        self.assertEqual("death-selection-observations-complete",
+                         self.validate(policy_receipt(self.p, files), files)["status"])
+
     def test_cli_stages_from_installed_interfaces_without_executing_anything(self):
         import contextlib, io, tempfile
         from pathlib import Path

@@ -27,7 +27,9 @@ import json
 import math
 from pathlib import Path
 import re
+import os
 import secrets
+import stat
 import struct
 
 from tools.setup import diagnostic_mission as staging
@@ -153,6 +155,22 @@ def _policy_mode(req):
 
 def _cases(req):
     return CASES_POLICY if _policy_mode(req) else CASES
+
+def _read_policy_file(value):
+    """Bounded no-follow read of the policy source; unlike staging._safe_path this may live in the checkout."""
+    path = Path(value).absolute()
+    _need(".." not in path.parts, "policy path traversal forbidden")
+    _need(not any(p.is_symlink() for p in (path, *path.parents)), "policy symlink paths forbidden")
+    info = os.lstat(path)
+    _need(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= MAX_POLICY_BYTES,
+          "bounded regular policy file required")
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as stream:
+        _need(staging._identity(os.fstat(stream.fileno())) == staging._identity(info), "policy changed")
+        data = stream.read(MAX_POLICY_BYTES + 1)
+    _need(len(data) == info.st_size and staging._identity(os.lstat(path)) == staging._identity(info),
+          "policy changed or size exceeded")
+    return data
 
 def _policy_source(blob):
     _need(type(blob) is bytes and 0 < len(blob) <= MAX_POLICY_BYTES, "bounded policy source required")
@@ -350,8 +368,9 @@ def validate_receipt(receipt_bytes, files, *, outer_timed_out, outer_elapsed_sec
             _number(sample["health"],0,1000000); _native_bool(sample["death_processed"])
             _vector(sample["position"]); _vector(sample["spine"])
         _need(samples[0]["health"] > 0 and samples[0]["elapsed"] < dt, "live pre-damage observation")
-        _need(samples[-1]["health"] == 0 and samples[-1]["elapsed"]-dt >= 2
-              and samples[-1]["frame"] >= cf, "real post-command observation window")
+        last = samples[-1]
+        _need(last["health"] == 0 and last["elapsed"]-dt >= 2 and xt-dt >= 2
+              and last["frame"] > cf and last["elapsed"] >= ct, "real post-command observation window")
     return dict(status="death-selection-observations-complete",receipt_sha256=_sha(receipt_bytes),
         bundle_sha256=digest,run_id=row["run_id"],gameplay_acceptance=False,
         visual_acceptance=False,ragdoll_acceptance=False,receipt=row)
@@ -410,6 +429,10 @@ def main(argv=None):
     parser.add_argument("--policy-source", help="HCInfectedDeathPolicy.c; required with --selection policy")
     parser.add_argument("--run-id", help="32 lowercase hex characters; random when omitted")
     args = parser.parse_args(argv)
+    if args.policy_source and args.selection != "policy":
+        parser.error("--policy-source requires --selection policy")
+    if args.selection == "policy" and not args.policy_source:
+        parser.error("--selection policy requires --policy-source")
     stock = _read(Path(args.stock_init), staging.MAX_INIT_BYTES)
     req = dict(world_name="chernarusplus", engine_version=ENGINE_VERSION, stock_init_sha256=_sha(stock),
                victim_position=[args.victim[0], 0, args.victim[1]], source_position=[args.source[0], 0, args.source[1]])
@@ -417,7 +440,7 @@ def main(argv=None):
     policy = None
     if args.selection:
         req["selection"] = args.selection
-        policy = _read(Path(args.policy_source), MAX_POLICY_BYTES) if args.policy_source else None
+        policy = _read_policy_file(args.policy_source)
     files = generate_probe(stock, req, inspect_interfaces(args.interfaces), run_id=args.run_id, policy_source=policy)
     names = stage(args.destination, files)
     manifest, digest = _bundle(files)

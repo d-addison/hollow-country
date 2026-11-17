@@ -97,7 +97,8 @@ class HCInteriorsModule : HCModule
         manifest.SchemaVersion = 1;
         manifest.CatalogVersion = HCInteriorCatalog.VERSION;
         manifest.MapName = m_Config.MapName;
-        manifest.Build = m_Config.Build;
+        // Only the canonical spelling is ever written; admitted aliases are checked via HCBuildIdentity.
+        manifest.Build = HCBuildIdentity.Canonical();
         manifest.Epoch = m_Config.Epoch;
         manifest.Seed = m_Config.Seed;
         foreach (HCInteriorCandidate candidate : m_Config.Candidates)
@@ -140,7 +141,7 @@ class HCInteriorsModule : HCModule
     bool PreserveLegacyManifest(HCInteriorManifest expected, HCInteriorManifest actual)
     {
         if (!expected || !actual || !expected.Assignments || !actual.Assignments) return false;
-        if (expected.SchemaVersion != actual.SchemaVersion || expected.CatalogVersion != actual.CatalogVersion || expected.MapName != actual.MapName || expected.Build != actual.Build || expected.Epoch != actual.Epoch || expected.Seed != actual.Seed) return false;
+        if (expected.SchemaVersion != actual.SchemaVersion || expected.CatalogVersion != actual.CatalogVersion || expected.MapName != actual.MapName || !HCBuildIdentity.SameBuild(expected.Build, actual.Build) || expected.Epoch != actual.Epoch || expected.Seed != actual.Seed) return false;
         if (expected.Assignments.Count() < 1 || expected.Assignments.Count() > 12 || expected.Assignments.Count() != actual.Assignments.Count()) return false;
         int index;
         foreach (HCInteriorAssignment current : expected.Assignments)

@@ -11,6 +11,7 @@ from types import SimpleNamespace as N
 
 from tests.unit.test_group_server import EArray, body, execute_member
 from tests.unit import test_search_economy as economy_tests
+from tests.unit.build_identity_support import translate as build_identity
 
 
 SOURCE = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c'
@@ -24,8 +25,11 @@ class NativeRef(N):
         return self is not other
 
 
-def invoke(name, env, instance, *args):
-    source = SOURCE.read_text()
+STORE_SOURCE = SOURCE.with_name('HCInteriorStore.c')
+
+
+def invoke(name, env, instance, *args, path=None):
+    source = (path or SOURCE).read_text()
     match = re.search(r'\b(?:static )?\w+ '+name+r'\(([^)]*)\)\s*\{', source)
     if not match:
         raise AssertionError('missing authored integration method: '+name)
@@ -33,6 +37,12 @@ def invoke(name, env, instance, *args):
     # Execute the normal-build branch. Diagnostic proofs are not enabled here;
     # startup tests supply explicit synthetic proof/API ports below.
     text = re.sub(r'#ifdef DIAG_DEVELOPER\s*.*?#endif', '', text, flags=re.S)
+    # HCInteriorStore: native JSON out-parameters become walrus assignments from synthetic ports.
+    text = re.sub(r'HCInteriorJson<\w+>\.Load\((m_Root \+ "[^"]*"|path), (\w+)\)',
+                  r'((\2 := load_json(\1)) is not null)', text)
+    text = re.sub(r'HCInteriorJson<\w+>\.WriteNew\(', 'write_new(', text)
+    text = re.sub(r'JsonFileLoader<\w+>\.MakeData\((\w+), (\w+), error\)',
+                  r'((\2 := serialize(\1)) is not null)', text)
     text = re.sub(r'\bs_Instance\b', 'self.s_Instance', text)
     text = re.sub(r'\bthis\b', 'self', text)
     # Member prefixes on ActionData are native fields, not this module's state.
@@ -48,8 +58,16 @@ def invoke(name, env, instance, *args):
     for method in ('SearchGate', 'FindSite', 'ValidateTarget', 'CanStart', 'CanContinue',
                    'Reject', 'SearchBindingValid', 'SearchSession', 'SessionValid',
                    'PreserveLegacyManifest', 'RestoreLayoutManifest', 'SetSession',
-                   'IsEnabled', 'ValidateConfig', 'AllocateManifest', 'PlaceCandidate'):
+                   'IsEnabled', 'ValidateConfig', 'AllocateManifest', 'PlaceCandidate',
+                   'ResolveBuilding', 'InspectProp', 'Fail', 'OpenJournal', 'ReconcileAll'):
         text = re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(', text)
+    # PlaceCandidate-only syntax: untyped locals, managed arrays, and the native
+    # `out Object reusable` parameter (the synthetic port returns (decision, object)).
+    text = re.sub(r'array<\w+> (\w+) = new array<\w+>;', r'\1 = EArray();', text)
+    text = re.sub(r'\bObject (\w+);', r'\1 = null;', text)
+    text = re.sub(r'\bObject (?=\w+\s*=)', '', text)
+    text = re.sub(r'if \(self\.InspectProp\((.+), reusable\) == 3\)',
+                  r'inspected = self.InspectProp(\1); reusable = inspected[1]; if (inspected[0] == 3)', text)
     text = re.sub(r'([\w.]+)\.ToString\(\)', r'str(\1)', text)
     text = re.sub(r'while \(([^\n]+)\)', r'while \1:', text)
     return execute_member('bool '+name+'('+match[1]+') {'+text+'}', name, env, instance, *args)
@@ -90,7 +108,8 @@ class SearchIntegrationTests(unittest.TestCase):
                    m_Store=N(Healthy=lambda:True), m_Economy=self.economy,
                    m_Sites=EArray([self.site]), m_SearchSessions=EArray([self.lease]),
                    m_SearchBound=False, m_Objects=EArray([]), s_Instance=None)
-        self.env = {'GetGame':lambda:N(IsServer=lambda:self.server, GetTickTime=lambda:self.now),
+        self.env = {'HCBuildIdentity':build_identity(),
+                    'GetGame':lambda:N(IsServer=lambda:self.server, GetTickTime=lambda:self.now),
                     'HCServer':N(Get=lambda:N(GetSettings=lambda:self.settings)),
                     'HCInteriorRules':N(MaySearch=lambda *a:all(a)),
                     'HCInteriorCatalog':N(ItemAllowed=lambda s:s in ('','Rag','Battery9V')),
@@ -444,6 +463,278 @@ class SearchIntegrationTests(unittest.TestCase):
                           'm_Store.Reserve(', 'm_Store.BeginGrant(', 'm_Store.Finish(',
                           'HCInteriorRules.Allocation(', 'MeasuredAllocation('):
             self.assertFalse(forbidden in source, forbidden)
+
+
+class PlacementPathgraphTests(unittest.TestCase):
+    """Executes the authored PlaceCandidate with explicit synthetic native ports.
+
+    Proves only when HCInteriorPathgraph.Schedule is reached and with which props;
+    pathgraph rebuild behaviour inside DayZ is not established here.
+    """
+    class Prop(N):
+        def __hash__(self):
+            return id(self)
+
+    def setUp(self):
+        self.events = []
+        self.scheduled = []
+        self.created = []
+        self.deleted = []
+        self.fail_create_at = None
+        self.building = N(GetOrientation=lambda:[10.0, 0.0, 0.0], ModelToWorld=lambda p:('world',)+tuple(p))
+        self.props = [N(Type='Synthetic_%d' % i, Position=[float(i), 0.0, 0.0], Orientation=[0.0, 0.0, 0.0],
+                        Searchable=i == 0, SearchPoint=[0.0, 1.0, 0.0]) for i in range(3)]
+        self.layout = N(Id='pantry', History='family', Props=EArray(self.props))
+        self.candidates = EArray([N(SlotId=7, Position=[1.0, 2.0, 3.0], Orientation=[0.0, 0.0, 0.0])])
+        self.assignment = N(SlotId=7, InstanceId='instance', LayoutId='pantry', History='family',
+                            MeasuredRecordSha256='b'*64, Item='')
+        self.held = {}
+        self.store = N(Healthy=lambda:True, IsHeld=lambda slot:slot in self.held,
+                       HoldSlot=lambda slot, reason:self.held.setdefault(slot, reason),
+                       RecoverSite=lambda site:0)
+        self.t = N(m_Store=self.store, m_Config=N(Candidates=self.candidates, Seed=42, DiagnosticPlacementTrial=False),
+                   m_Manifest=N(Assignments=EArray([self.assignment])), m_Objects=EArray([]), m_Sites=EArray([]))
+        self.resolved = self.building
+        self.t.ResolveBuilding = lambda candidate:self.resolved
+        self.t.InspectProp = self.inspect
+        self.t.FindSite = lambda target:None
+        self.decision = {}
+        self.game = N(CreateObjectEx=self.create_object, ObjectDelete=self.deleted.append)
+        self.env = {'GetGame':lambda:self.game, 'Print':self.events.append, 'EArray':EArray,
+                    'ECE_SETUP':1, 'ECE_KEEPHEIGHT':2, 'ECE_CREATEPHYSICS':4, 'ECE_UPDATEPATHGRAPH':8,
+                    'ECE_NOLIFETIME':16, 'ECE_DYNAMIC_PERSISTENCY':32, 'RF_IGNORE':0,
+                    'HCInteriorSite':lambda:N(), 'HCInteriorPathgraph':N(Schedule=self.schedule),
+                    'HCInteriorRules':N(Layout=lambda *a:0, Quantize=lambda v:v, Yaw=lambda v:v),
+                    'HCInteriorCatalog':N(GetFor=lambda choice, candidate, trial:self.layout),
+                    'HCInteriorMeasuredCatalog':N(MeasuredDigest=lambda candidate:'b'*64)}
+
+    def schedule(self, objects):
+        self.events.append('schedule')
+        self.scheduled.append(list(objects))
+        return len(objects)
+
+    def create_object(self, type_name, position, flags, ratio):
+        if self.fail_create_at is not None and len(self.created) == self.fail_create_at:
+            return None
+        self.assertEqual(flags & 8, 8)  # authored creation keeps the vanilla pathgraph flag too
+        created = NativeRef(Type=type_name, SetOrientation=lambda o:None, ModelToWorld=lambda p:p)
+        self.created.append(created)
+        return created
+
+    def inspect(self, point, orientation, type_name, *rest):
+        # (decision, object): an HC-owned prop already standing at that slot is reusable.
+        for owned in self.t.m_Objects:
+            if owned.Type == type_name:
+                return (1, owned)
+        return (self.decision.get(type_name, 0), None)
+
+    def place(self):
+        invoke('PlaceCandidate', self.env, self.t, 0)
+
+    def flatten(self):
+        return [prop for batch in self.scheduled for prop in batch]
+
+    def test_fully_created_layout_schedules_exactly_those_props_once_after_bookkeeping(self):
+        self.place()
+        self.assertEqual(3, len(self.created))
+        self.assertEqual([self.created], self.scheduled)
+        self.assertEqual(self.created, list(self.t.m_Objects))
+        self.assertEqual([], self.deleted)
+
+    def test_refused_or_rolled_back_placements_never_schedule(self):
+        # partial creation failure rolls back and must not touch the pathgraph
+        self.fail_create_at = 1
+        self.place()
+        self.assertEqual([], self.scheduled)
+        self.assertEqual(self.created, self.deleted)
+        self.assertEqual('partial-placement', self.held[7])
+        self.assertEqual([], list(self.t.m_Objects))
+
+    def test_other_refusals_never_schedule(self):
+        for name in ('unhealthy', 'held', 'unresolved', 'binding', 'foreign'):
+            with self.subTest(refusal=name):
+                self.setUp()
+                if name == 'unhealthy': self.store.Healthy = lambda:False
+                if name == 'held': self.held[7] = 'earlier'
+                if name == 'unresolved': self.resolved = None
+                if name == 'binding': self.assignment.LayoutId = 'other'
+                if name == 'foreign': self.decision['Synthetic_1'] = 3
+                self.place()
+                self.assertEqual([], self.scheduled)
+                self.assertEqual([], self.created)
+
+    def test_reused_props_are_not_scheduled_and_nothing_is_scheduled_twice(self):
+        self.place()
+        first = list(self.created)
+        self.assertEqual([first], self.scheduled)
+        # Re-running the same slot reuses every owned prop: no creation, no second schedule of any prop.
+        self.place()
+        self.assertEqual(first, self.created)
+        for prop in first:
+            self.assertEqual(1, self.flatten().count(prop))
+        # Mixed: one prop vanished from ownership, so only the new replacement is scheduled.
+        removed = self.t.m_Objects[1]
+        self.t.m_Objects.Remove(1)
+        before = len(self.created)
+        self.place()
+        self.assertEqual(before + 1, len(self.created))
+        self.assertEqual([self.created[-1]], self.scheduled[-1])
+        self.assertNotIn(removed, self.scheduled[-1])
+        self.assertEqual(1, self.flatten().count(self.created[-1]))
+
+    def test_each_call_schedules_a_fresh_array_never_prior_state(self):
+        self.place()
+        self.t.m_Objects.Clear()
+        self.place()
+        self.assertEqual(2, len(self.scheduled))
+        self.assertEqual(3, len(self.scheduled[1]))
+        self.assertFalse(set(map(id, self.scheduled[0])) & set(map(id, self.scheduled[1])))
+        self.assertIsNot(self.scheduled[0], self.scheduled[1])
+
+
+ALIAS_NATIVE = '1.30.164289.70'
+ALIAS_PINNED = '1.30.164289'
+
+
+def plain(value):
+    """Order-stable serialization of synthetic namespaces: the exact-comparison port."""
+    if isinstance(value, N):
+        return {k: plain(v) for k, v in sorted(vars(value).items()) if not callable(v)}
+    if isinstance(value, (list, tuple)):
+        return [plain(v) for v in value]
+    return value
+
+
+class BuildAliasRecoveryTests(unittest.TestCase):
+    """Executes authored interior recovery with the real HCBuildIdentity statics.
+
+    Alias-only build spelling changes must keep the layouts, epoch and seed;
+    this is offline logic, not DayZ evidence.
+    """
+    def manifest(self, build):
+        assignment = N(SlotId=0, InstanceId='instance', LayoutId='pantry', History='family',
+                       MeasuredRecordSha256='b'*64, Item='')
+        return N(SchemaVersion=1, CatalogVersion=1, MapName='chernarusplus', Build=build, Epoch=1, Seed=42,
+                 Assignments=EArray([assignment]))
+
+    def setUp(self):
+        self.events = []
+        self.env = {'HCBuildIdentity': build_identity(), 'Print': self.events.append, 'EArray': EArray,
+                    'HCInteriorManifest': lambda:N(Assignments=EArray()),
+                    'HCInteriorAssignment': lambda:N(),
+                    'GetGame': lambda:N(ConfigIsExisting=lambda path:True),
+                    'HCInteriorCatalog': N(VERSION=1, GetFor=lambda *a:N(Id='pantry', History='family', Props=EArray([N(Type='Prop')]))),
+                    'HCInteriorRules': N(Layout=lambda *a:0, Quantize=lambda v:v, Yaw=lambda v:v),
+                    'HCInteriorMeasuredCatalog': N(MeasuredDigest=lambda candidate:'b'*64, MeasuredRequested=lambda:False)}
+        candidate = N(SlotId=0, Position=[1.0, 2.0, 3.0], Orientation=[0.0, 0.0, 0.0], Id=lambda epoch:'instance')
+        self.module = N(m_Config=N(MapName='chernarusplus', Build=ALIAS_NATIVE, Epoch=1, Seed=42,
+                                   DiagnosticPlacementTrial=False, Candidates=EArray([candidate])),
+                        m_PropLimit=24)
+        self.module.Reject = lambda reason:self.events.append(reason) or False
+
+    def preserve(self, expected, actual):
+        return invoke('PreserveLegacyManifest', self.env, self.module, expected, actual)
+
+    def test_alias_only_build_change_keeps_the_legacy_layouts_in_both_directions(self):
+        for current, stored in ((ALIAS_PINNED, ALIAS_NATIVE), (ALIAS_NATIVE, ALIAS_PINNED),
+                                (ALIAS_PINNED, ALIAS_PINNED), (ALIAS_NATIVE, ALIAS_NATIVE)):
+            with self.subTest(current=current, stored=stored):
+                old = self.manifest(stored)
+                old.Assignments[0].Item = 'Rag'
+                expected = self.manifest(current)
+                self.assertTrue(self.preserve(expected, old))
+                self.assertEqual('Rag', expected.Assignments[0].Item)
+                self.assertEqual(stored, old.Build)  # the stored image is never rewritten
+
+    def test_non_alias_build_changes_and_blank_builds_still_refuse(self):
+        for current, stored in ((ALIAS_PINNED, '1.30.164290'), (ALIAS_NATIVE, '1.30.1642890'),
+                                (ALIAS_PINNED, ALIAS_NATIVE + ' '), (ALIAS_PINNED, ''), ('', '')):
+            with self.subTest(current=current, stored=stored):
+                self.assertFalse(self.preserve(self.manifest(current), self.manifest(stored)))
+
+    def test_allocated_manifest_always_stamps_the_canonical_build_spelling(self):
+        for configured in (ALIAS_NATIVE, ALIAS_PINNED):
+            with self.subTest(configured=configured):
+                self.module.m_Config.Build = configured
+                manifest = invoke('AllocateManifest', self.env, self.module)
+                self.assertEqual(self.env['HCBuildIdentity'].Canonical(), manifest.Build)
+                self.assertEqual(ALIAS_PINNED, manifest.Build)
+                self.assertEqual((1, 'chernarusplus', 1, 42), (manifest.SchemaVersion, manifest.MapName,
+                                                                manifest.Epoch, manifest.Seed))
+
+
+class StoreBuildAliasTests(unittest.TestCase):
+    """HCInteriorStore.Open/OpenJournal exact serialization comparisons under build aliases."""
+    def manifest(self, build, seed=42):
+        assignment = N(SlotId=0, InstanceId='instance', LayoutId='pantry', History='family',
+                       MeasuredRecordSha256='b'*64, Item='')
+        return N(SchemaVersion=1, CatalogVersion=1, MapName='chernarusplus', Build=build, Epoch=1, Seed=seed,
+                 Assignments=EArray([assignment]))
+
+    def setUp(self):
+        self.events = []
+        self.disk = {}
+        self.writes = []
+        self.env = {'HCBuildIdentity': build_identity(), 'Print': self.events.append, 'EArray': EArray,
+                    'HCInteriorSearchPool': lambda:N(Open=lambda manifest:True),
+                    'HCInteriorJournalIdentity': lambda:N(),
+                    'FileExist': lambda path:True,
+                    'load_json': lambda path:copy.deepcopy(self.disk.get(path)),  # a load is a fresh in-memory copy
+                    'write_new': lambda path, data:self.writes.append(path) or False,
+                    'serialize': lambda value:repr(plain(value)),
+                    'HCInteriorRules': N(MigrationAllowed=lambda *a:True, JournalVersionAccepted=lambda *a:True),
+                    'HCInteriorJson': N()}
+        self.store = N(m_Fault=False)
+        self.store.Fail = lambda reason:self.events.append(reason) or False
+        self.store.ReconcileAll = lambda:True
+        self.store.OpenJournal = lambda *a:invoke('OpenJournal', self.env, self.store, *a, path=STORE_SOURCE)
+        self.root = '$profile:HollowCountry/interiors_s1_e1'
+
+    def config(self, build):
+        return N(MapName='chernarusplus', Build=build, Epoch=1, Seed=42,
+                 InitializeNewEpoch=False, MigrateLegacyJournal=False)
+
+    def journal(self, manifest):
+        return N(SchemaVersion=2, SourceSchema=1, Manifest=manifest)
+
+    def open(self, config_build, expected, stored_manifest, stored_journal):
+        self.disk[self.root + '/manifest.json'] = stored_manifest
+        self.disk[self.root + '/journal-v2.json'] = stored_journal
+        return invoke('Open', self.env, self.store, self.config(config_build), expected, path=STORE_SOURCE)
+
+    def test_alias_only_spelling_differences_between_config_and_stored_images_open_cleanly(self):
+        for config_build, stored in ((ALIAS_NATIVE, ALIAS_NATIVE), (ALIAS_NATIVE, ALIAS_PINNED),
+                                     (ALIAS_PINNED, ALIAS_NATIVE), (ALIAS_PINNED, ALIAS_PINNED)):
+            with self.subTest(config=config_build, stored=stored):
+                self.setUp()
+                stored_manifest = self.manifest(stored)
+                stored_journal = self.journal(self.manifest(stored))
+                expected = self.manifest(ALIAS_PINNED)  # AllocateManifest writes only the canonical spelling
+                self.assertTrue(self.open(config_build, expected, stored_manifest, stored_journal), self.events)
+                self.assertEqual([], self.events)
+                self.assertEqual([], self.writes)                 # nothing is rewritten
+                self.assertEqual(stored, stored_manifest.Build)   # stored images keep their spelling
+                self.assertEqual(stored, stored_journal.Manifest.Build)
+                self.assertEqual(ALIAS_PINNED, expected.Build)
+
+    def test_real_manifest_and_journal_differences_still_fail_the_exact_comparison(self):
+        expected = self.manifest(ALIAS_PINNED)
+        self.assertFalse(self.open(ALIAS_NATIVE, expected, self.manifest(ALIAS_NATIVE, seed=43),
+                                   self.journal(self.manifest(ALIAS_NATIVE))))
+        self.assertIn('manifest changed; layout/identity changes require a separate reviewed migration', self.events[-1])
+        self.setUp()
+        self.assertFalse(self.open(ALIAS_NATIVE, self.manifest(ALIAS_PINNED), self.manifest(ALIAS_NATIVE),
+                                   self.journal(self.manifest(ALIAS_NATIVE, seed=43))))
+        self.assertIn('journal allocation binding changed', self.events[-1])
+        self.setUp()
+        self.assertFalse(self.open(ALIAS_NATIVE, self.manifest(ALIAS_PINNED), self.manifest('1.30.164290'),
+                                   self.journal(self.manifest(ALIAS_NATIVE))))
+        self.assertIn('manifest changed', self.events[-1])
+
+    def test_config_build_that_is_not_an_admitted_alias_of_the_manifest_is_refused(self):
+        self.assertFalse(self.open('1.30.164290', self.manifest(ALIAS_PINNED), self.manifest(ALIAS_PINNED),
+                                   self.journal(self.manifest(ALIAS_PINNED))))
+        self.assertIn('manifest/config world/build/epoch/seed mismatch', self.events[-1])
 
 
 if __name__=='__main__':
