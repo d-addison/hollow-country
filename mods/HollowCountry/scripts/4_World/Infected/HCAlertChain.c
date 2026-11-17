@@ -174,6 +174,7 @@ class HCAlertChain
             float distanceSq = vector.DistanceSq(emission.Clue.Origin, actor.InfectedEntity.GetPosition());
             // Conservative pilot radius; never an assertion about sound range.
             float radius = 15 * emission.Clue.Strength;
+            radius = HCAtmosphereRelay.RangeAtSource(radius, emission.Clue.Origin);
             bool duplicate = emission.Root.Recipients.Find(actor.InfectedEntity) >= 0;
             if (duplicate || distanceSq > radius * radius || now < actor.NextHearing)
                 continue;

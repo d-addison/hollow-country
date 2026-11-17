@@ -1,0 +1,46 @@
+.....F..............................................................................................................................................flashlight_matrix: classification output must be outside the source checkout
+.flashlight_matrix: [Errno 17] File exists: '/tmp/tmpr312lkan/classification.json'
+..usage: bdd.py classify [-h] (--rows ROWS | --manifest MANIFEST)
+                       [--manifest-sha256 MANIFEST_SHA256] --out OUT
+bdd.py classify: error: one of the arguments --rows --manifest is required
+usage: bdd.py classify [-h] (--rows ROWS | --manifest MANIFEST)
+                       [--manifest-sha256 MANIFEST_SHA256] --out OUT
+bdd.py classify: error: argument --manifest: not allowed with argument --rows
+.................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................F............................................................................................s........................................................................................................................................................................................................................................................................................................................................................................E..........................................................................................................................................................................................
+======================================================================
+ERROR: test_real_surviving_child_is_stopped_after_launcher_exits (test_wine_compile_probe.WineCompilerProbeTests.test_real_surviving_child_is_stopped_after_launcher_exits)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-weather/tests/unit/test_wine_compile_probe.py", line 714, in test_real_surviving_child_is_stopped_after_launcher_exits
+    if not stat.exists() or stat.read_text().split(') ', 1)[1].startswith('Z '):
+                            ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/pathlib.py", line 1030, in read_text
+    return f.read()
+           ^^^^^^^^
+ProcessLookupError: [Errno 3] No such process
+
+======================================================================
+FAIL: test_shipped_settings_are_valid_and_all_feature_preferences_default_on (test_runtime_settings.RuntimeSettingsTests.test_shipped_settings_are_valid_and_all_feature_preferences_default_on)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-weather/tests/unit/test_runtime_settings.py", line 35, in test_shipped_settings_are_valid_and_all_feature_preferences_default_on
+    self.assertEqual(set(flags), set(native))
+AssertionError: Items in the second set but not the first:
+'EnableAtmosphere'
+
+======================================================================
+FAIL: test_shipped_settings_are_valid_and_all_feature_preferences_default_on (test_runtime_settings.RuntimeSettingsTests.test_shipped_settings_are_valid_and_all_feature_preferences_default_on)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-weather/tests/unit/test_runtime_settings.py", line 35, in test_shipped_settings_are_valid_and_all_feature_preferences_default_on
+    self.assertEqual(set(flags), set(native))
+AssertionError: Items in the second set but not the first:
+'EnableAtmosphere'
+
+----------------------------------------------------------------------
+Ran 1321 tests in 92.153s
+
+FAILED (failures=2, errors=1, skipped=1)
+classification: hosts=1 slot=0 no_slot=1 excluded=0 lights=1 -> /tmp/tmpr312lkan/classification.json
+classification: hosts=1 slot=0 no_slot=1 excluded=0 lights=1 -> /tmp/tmpge5qd021/from-manifest.json
+Bound offline scenarios: 61; runtime acceptance: NOT EXECUTED

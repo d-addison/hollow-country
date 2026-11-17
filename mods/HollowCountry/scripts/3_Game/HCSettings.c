@@ -34,6 +34,7 @@ class HCSettings
     bool EnableHordes = true;
     bool EnableAlertChains = true;
     bool EnableGroups = true;
+    bool EnableAtmosphere = true;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
     int MaxActiveHordes = 2;

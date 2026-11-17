@@ -1,6 +1,7 @@
 """Bounded operator profiles -> fresh native cfgweather.xml candidates (#35).
 
-No presets, controller, installation or runtime acceptance. Inspected baseline:
+Includes an explicit ChernarusPlus v1 script-delegation candidate. No installation
+or runtime acceptance. Inspected baseline:
 DayZ 1.30.164289 scripts/3_Game/{Weather,WorldData}.c,
 4_World/Classes/Worlds/ChernarusPlus.c and the four installed official missions.
 Official reference: https://community.bistudio.com/wiki/DayZ:Weather_Configuration
@@ -12,7 +13,8 @@ overrides = {phenomenon: {section: {attribute: number}}, storm: {attribute: numb
 Sections: current(actual,time,duration), limits(min,max), timelimits(min,max),
 changelimits(min,max), rain/snowfall thresholds(min,max,end).
 Storm: density,threshold,timeout. Unspecified values retain source lexemes;
-no-op retains exact bytes. enable/reset are mandatory booleans; reset=False
+no-op retains exact bytes (except the canonical v1-script delegation root).
+enable/reset are mandatory booleans; reset=False
 preserves native storage precedence, so initial values are not guaranteed.
 
 Safety envelope, NOT measured balance/native maximum claims: normalized 0..1;
@@ -22,6 +24,10 @@ phenomena cannot be enabled by this adapter. No daily/seasonal scheduling,
 date/time, lighting, shaders, volumetric fog or sandstorm XML is invented.
 Chernarus world scripts also modify weather: effective XML behavior requires
 native probing. Two-client visibility and performance acceptance remain pending.
+The reserved hc-v1-script profile requires enable=False/reset=False, no overrides,
+and ChernarusPlus. It emits a canonical disabled root checked by the gated script.
+XML owns no phenomenon in this mode; after admission the script owns all weather,
+otherwise vanilla does. Existing operator XML profiles remain explicit XML work.
 
 API: generate(source_xml, profile)->three byte files; write_candidate(fresh_dir,
 files); validate_candidate(dir, source=None)->report + source_verified flag.
@@ -55,6 +61,25 @@ SECTIONS = {'current': {'actual', 'time', 'duration'}, 'limits': {'min', 'max'},
 PENDING = ['native XML load/storage precedence and world-script interaction',
            'normal server restart/rollback', 'two-client visibility and accessibility',
            'representative client/server performance and map compatibility']
+SCRIPT_PROFILE = 'hc-v1-script'
+SCRIPT_XML_PREFIX = b'<?xml version=\'1.0\' encoding=\'utf-8\'?>\n<weather enable="0" reset="0">'
+
+
+def v1_script_profile(source):
+    """Pin a ChernarusPlus delegation candidate; never install or opt in."""
+    data = _read(source, MAX_XML_BYTES)
+    _xml(data)
+    return dict(schema=1, name=SCRIPT_PROFILE, world='chernarusplus', build=BUILD,
+                source_sha256=sha(data), enable=False, reset=False, overrides={})
+
+
+def driver_ownership(profile):
+    if profile['name'] == SCRIPT_PROFILE:
+        owner = 'script-after-admission; otherwise vanilla'
+        return {name: owner for name in (*PHENOMENA, 'storm', 'volumetricFog')}
+    owner = 'XML candidate; native precedence PENDING' if profile['enable'] else 'vanilla'
+    return dict({name: owner for name in (*PHENOMENA, 'storm')},
+                volumetricFog='native world script; not represented in XML')
 
 
 def encode(value):
@@ -152,6 +177,9 @@ def _profile(profile):
         raise ValueError('source SHA256 pin required')
     if type(profile['enable']) is not bool or type(profile['reset']) is not bool:
         raise ValueError('enable/reset must be explicit booleans')
+    if profile['name'] == SCRIPT_PROFILE and (profile['enable'] or profile['reset'] or
+            profile['world'] != 'chernarusplus' or profile['overrides'] != {}):
+        raise ValueError('v1-script requires disabled non-reset ChernarusPlus XML without overrides')
     overrides = profile['overrides']
     if type(overrides) is not dict or not set(overrides) <= set(PHENOMENA) | {'storm'}:
         raise ValueError('unsupported phenomenon')
@@ -289,13 +317,22 @@ def generate(source, profile):
             for section, attributes in sorted(sections.items()):
                 for attribute, value in sorted(attributes.items()):
                     change(root.find(name + '/' + section), attribute, str(value), name + '/' + section)
-    candidate = ET.tostring(root, encoding='utf-8', xml_declaration=True) if changes else data
+    if profile['name'] == SCRIPT_PROFILE:
+        # The script admits only this exact root prefix, never flags found in a
+        # comment or a second root. Phenomenon nodes remain source-derived.
+        root.attrib.clear()
+        root.set('enable', '0')
+        root.set('reset', '0')
+        candidate = ET.tostring(root, encoding='utf-8', xml_declaration=True)
+    else:
+        candidate = ET.tostring(root, encoding='utf-8', xml_declaration=True) if changes else data
     _, after = _xml(candidate)
     for name in PHENOMENA:
         if before[name]['limits']['max'] == 0 and after[name]['limits']['max'] != 0:
             raise ValueError('source-disabled phenomenon requires separate native qualification')
     report = {'schema': 1, 'profile': profile, 'source_sha256': sha(data),
               'candidate_sha256': sha(candidate), 'changes': changes,
+              'driver_ownership': driver_ownership(profile),
               'world_binding': 'operator-asserted; not encoded in native weather XML',
               'runtime_acceptance': 'pending', 'feature_complete': False, 'pending': PENDING}
     files = {'cfgweather.xml': candidate, 'atmosphere-report.json': encode(report)}
@@ -324,7 +361,7 @@ def _validate_files(files):
     report = _json(files['atmosphere-report.json'])
     manifest = _json(files['atmosphere-manifest.json'])
     _fields(report, {'schema', 'profile', 'source_sha256', 'candidate_sha256', 'changes',
-                     'world_binding', 'runtime_acceptance', 'feature_complete', 'pending'})
+                     'driver_ownership', 'world_binding', 'runtime_acceptance', 'feature_complete', 'pending'})
     _profile(report['profile'])
     _fields(manifest, {'schema', 'source_sha256', 'files', 'runtime_acceptance'})
     _fields(manifest['files'], {'cfgweather.xml', 'atmosphere-report.json'})
@@ -340,6 +377,10 @@ def _validate_files(files):
     for name, digest in manifest['files'].items():
         if digest != sha(files[name]): raise ValueError('candidate digest mismatch')
     profile = report['profile']
+    if report['driver_ownership'] != driver_ownership(profile):
+        raise ValueError('inconsistent phenomenon ownership')
+    if profile['name'] == SCRIPT_PROFILE and not files['cfgweather.xml'].startswith(SCRIPT_XML_PREFIX):
+        raise ValueError('v1-script requires canonical disabled XML root')
     if _boolean(root.get('enable')) != profile['enable'] or _boolean(root.get('reset')) != profile['reset']:
         raise ValueError('native flags disagree with explicit profile')
     for name, sections in profile['overrides'].items():
@@ -418,13 +459,17 @@ def main(argv=None):
     create.add_argument('--source', required=True, type=Path)
     create.add_argument('--profile', required=True, type=Path)
     create.add_argument('--output', required=True, type=Path)
+    script = commands.add_parser('v1-script', help='ChernarusPlus: delegate XML to the gated v1 world script')
+    script.add_argument('--source', required=True, type=Path)
+    script.add_argument('--output', required=True, type=Path)
     check = commands.add_parser('validate')
     check.add_argument('--candidate', required=True, type=Path)
     check.add_argument('--source', type=Path)
     args = parser.parse_args(argv)
     try:
-        if args.command == 'generate':
-            write_candidate(args.output, generate(args.source, load_profile(args.profile)))
+        if args.command in ('generate', 'v1-script'):
+            profile = v1_script_profile(args.source) if args.command == 'v1-script' else load_profile(args.profile)
+            write_candidate(args.output, generate(args.source, profile))
             result = validate_candidate(args.output, args.source)
         else:
             result = validate_candidate(args.candidate, args.source)

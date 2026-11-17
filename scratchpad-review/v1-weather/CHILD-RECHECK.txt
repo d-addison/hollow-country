@@ -1,0 +1,6 @@
+test_real_surviving_child_is_stopped_after_launcher_exits (tests.unit.test_wine_compile_probe.WineCompilerProbeTests.test_real_surviving_child_is_stopped_after_launcher_exits) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.062s
+
+OK

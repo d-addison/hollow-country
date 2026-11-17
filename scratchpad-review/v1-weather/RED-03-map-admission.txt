@@ -1,0 +1,14 @@
+test_disabled_client_or_unstarted_core_never_probes_or_mutates (tests.unit.test_v1_weather.V1WeatherAdmissionTests.test_disabled_client_or_unstarted_core_never_probes_or_mutates) ... FAIL
+
+======================================================================
+FAIL: test_disabled_client_or_unstarted_core_never_probes_or_mutates (tests.unit.test_v1_weather.V1WeatherAdmissionTests.test_disabled_client_or_unstarted_core_never_probes_or_mutates)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/v1-weather/tests/unit/test_v1_weather.py", line 214, in test_disabled_client_or_unstarted_core_never_probes_or_mutates
+    self.assertFalse(gate.Enabled())
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 1 test in 0.005s
+
+FAILED (failures=1)
