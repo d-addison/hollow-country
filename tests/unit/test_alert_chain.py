@@ -2,6 +2,7 @@
 
 No hearing range, audibility, perception or engine behavior is established here.
 """
+import re
 from types import SimpleNamespace as NS
 import unittest
 
@@ -230,6 +231,22 @@ class AlertChainTests(unittest.TestCase):
         source = (SOURCE / "HCAlertChain.c").read_text()
         for forbidden in ("AddNoise(", "OnSoundVoiceEvent(", "GetTargetEntity(", "SetPosition("):
             self.assertNotIn(forbidden, source)
+
+    def test_both_geometry_raycasts_use_distinct_flags_and_require_the_recipient_first_hit(self):
+        body = method_body("HCAlertChain.c", "protected bool ClearGeometry(")
+        calls = re.findall(r"DayZPhysics\.RaycastRV\([^;]*\);", body)
+        self.assertEqual(2, len(calls))
+        self.assertTrue(calls[0].endswith("ObjIntersectView);"), calls[0])
+        self.assertTrue(calls[1].endswith("ObjIntersectFire);"), calls[1])
+        for call in calls:
+            self.assertIn("origin + \"0 1.4 0\", point", call)
+            self.assertIn(", emitter, ", call)  # the emitter is ignored, so it cannot block itself
+        # View raycast: a miss, empty result or foreign first hit fails closed.
+        self.assertIn("if (!hit || hits.Count() == 0 || hits[0] != recipient)", body)
+        # Fire raycast: the same recipient-first-hit rule, not merely a hit.
+        self.assertIn("return hit && hits.Count() > 0 && hits[0] == recipient;", body)
+        self.assertLess(body.index("ObjIntersectView"), body.index("hits.Clear();"))
+        self.assertLess(body.index("hits.Clear();"), body.index("ObjIntersectFire"))
 
 
 if __name__ == "__main__":

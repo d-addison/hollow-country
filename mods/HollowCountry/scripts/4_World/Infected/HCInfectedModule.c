@@ -401,8 +401,7 @@ class HCInfectedModule : HCModule
         }
         sweep.Living++;
         sweep.Sum = sweep.Sum + position;
-        bool hearing = m_Chains && m_Admission.SupplementaryChains;
-        HCInfectedClue sensed = HCHordeStimulus.ChooseClue(actor, m_Now, hearing);
+        HCInfectedClue sensed = HCHordeStimulus.ChooseClue(actor, m_Now, HeardAdmitted());
         if (HCHordeStimulus.PreferClue(sensed, sweep.Stimulus, m_Now))
             sweep.Stimulus = sensed;
         int mind = actor.InfectedEntity.GetMindStateSynced();
@@ -597,7 +596,7 @@ class HCInfectedModule : HCModule
         HCInfectedClue adoptionClue;
         foreach (HCInfectedActor observer : candidates)
         {
-            HCInfectedClue observedClue = HCHordeStimulus.ChooseClue(observer, m_Now, m_Chains && m_Admission.SupplementaryChains);
+            HCInfectedClue observedClue = HCHordeStimulus.ChooseClue(observer, m_Now, HeardAdmitted());
             if (HCHordeStimulus.PreferClue(observedClue, adoptionClue, m_Now))
                 adoptionClue = observedClue;
         }
@@ -669,19 +668,21 @@ class HCInfectedModule : HCModule
         // Native entities are never spawned, deleted or moved by script.
     }
 
+    // The single heard-clue gate: chains must be requested AND qualified.
+    protected bool HeardAdmitted()
+    {
+        return m_Chains && m_Admission.SupplementaryChains;
+    }
+
     protected void TryInvestigate(HCInfectedActor actor)
     {
-        HCInfectedClue clue;
-        if (actor.Visual && actor.Visual.Provenance == 2 && actor.Visual.IsLive(m_Now))
-            clue = actor.Visual;
-        if (m_Chains && m_Admission.SupplementaryChains && actor.HeardExternally && actor.Heard)
-        {
-            if (actor.Heard.Provenance == 1 && actor.Heard.IsLive(m_Now))
-            {
-                if (!clue || actor.Heard.Observed > clue.Observed)
-                    clue = actor.Heard;
-            }
-        }
+        // One selector for every consumer: a qualified live visual clue wins, an
+        // admitted external heard cue is next, retained memory never routes.
+        int stimulusReason;
+        bool admitHeard = HeardAdmitted() && actor.HeardExternally;
+        HCInfectedClue clue = HCHordeStimulus.SelectClue(actor.Visual, actor.Heard, admitHeard, m_Now, stimulusReason);
+        if (!clue)
+            return;
         bool observedClue = clue != null;
         int mind = actor.InfectedEntity.GetMindStateSynced();
         bool engaged = mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT;
