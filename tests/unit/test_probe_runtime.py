@@ -334,6 +334,84 @@ class HookExpressionLintTests(unittest.TestCase):
         found = self.issues('        Print("n" + count);')
         self.assertTrue(any("bare numeric" in i for i in found), found)
 
+    LONG = " + ".join(['"x"'] * 28)  # 27 binary '+', the shape the native compiler refused
+
+    def layouts(self):
+        """The same over-bound statement in method layouts the old four-space regex did not recognise."""
+        row = "string row = %s;" % self.LONG
+        return {
+            "brace on the declaration line": "class HC : CustomMission\n{\n    void F() {\n        %s\n    }\n}\n" % row,
+            "eight space indent": "class HC : CustomMission\n{\n        void F()\n        {\n            %s\n        }\n}\n" % row,
+            "tab indent": "class HC : CustomMission\n{\n\tvoid F()\n\t{\n\t\t%s\n\t}\n}\n" % row,
+            "unindented": "class HC : CustomMission\n{\nvoid F()\n{\n%s\n}\n}\n" % row,
+            "one line": "class HC : CustomMission\n{\n    void F() { %s }\n}\n" % row,
+            "braces in a block": "class HC : CustomMission\n{\n    void F()\n    {\n        if (true) { %s }\n    }\n}\n" % row,
+            "modifier on an inline method": "class HC : CustomMission\n{\n    override void F(int a) {\n        %s\n    }\n}\n" % row,
+        }
+
+    def test_the_complexity_bound_holds_for_every_method_layout_not_just_the_generated_one(self):
+        for label, hook in self.layouts().items():
+            with self.subTest(layout=label):
+                self.assertEqual(27, rt.max_statement_plus(hook))
+                for explicit in (False, True):
+                    found = rt.lint_hook(hook, explicit_numbers=explicit)
+                    self.assertTrue(any("Formula too complex" in i and "27 binary '+'" in i for i in found), found)
+
+    def test_the_complexity_bound_reports_the_line_of_a_statement_outside_any_method(self):
+        found = rt.lint_hook("class HC : CustomMission\n{\n    string m_Row = %s;\n}\n" % self.LONG)
+        self.assertTrue(any(i.startswith("line 3:") and "Formula too complex" in i for i in found), found)
+
+    def test_a_statement_at_the_bound_is_accepted_in_every_layout(self):
+        at_bound = " + ".join(['"x"'] * (rt.MAX_STATEMENT_PLUS + 1))
+        for label, hook in self.layouts().items():
+            with self.subTest(layout=label):
+                self.assertEqual([], rt.lint_hook(hook.replace(self.LONG, at_bound), explicit_numbers=True))
+
+    def test_the_numeric_rule_follows_the_same_method_layouts(self):
+        for header in ("void F(int count) {", "        void F(int count)\n        {", "\tvoid F(int count)\n\t{"):
+            hook = "class HC : CustomMission\n{\n%s\n        string row = \"\";\n        row = \"n=\" + count;\n    }\n}\n" % header
+            with self.subTest(header=header):
+                found = rt.lint_hook(hook, explicit_numbers=True)
+                self.assertTrue(any("bare numeric" in i and "count" in i for i in found), found)
+                self.assertEqual([], rt.lint_hook(hook.replace("+ count", "+ count.ToString()"), explicit_numbers=True))
+
+    def test_control_flow_headers_are_not_mistaken_for_methods(self):
+        hook = self.wrap('        if (count > 0) { row = "a"; }\n        else if (count < 0) { row = "b"; }\n'
+                         '        while (count > 0) { count = count - 1; }\n        for (int i = 0; i < 3; i++) { row = "c"; }')
+        self.assertEqual([], rt.lint_hook(hook, explicit_numbers=True))
+
+    def test_compound_assignment_into_a_string_is_a_concatenation(self):
+        for body, term in (('        row += count;', "count"),
+                           ('        row += "n=" + count;', "count"),
+                           ('        row += ratio;', "ratio"),
+                           ('        row += 5;', "5"),
+                           ('        row += Total();', "Total()"),
+                           ('        name += count;', "count")):
+            with self.subTest(body=body):
+                found = self.issues(body, extra="    int Total()\n    {\n        return 1;\n    }\n")
+                self.assertTrue(any("bare numeric" in i and term in i for i in found), found)
+
+    def test_parenthesised_numeric_terms_are_normalised_before_the_check(self):
+        for body in ('        row = "n=" + (count);', '        row = "n=" + ((count));', '        row = (count) + "n=";',
+                     '        row += (count);', '        row = "n=" + (count + 1);', '        row += "n=" + (ratio * 2);'):
+            with self.subTest(body=body):
+                found = self.issues(body)
+                self.assertTrue(any("bare numeric" in i for i in found), found)
+
+    def test_explicit_strings_and_numeric_destinations_stay_accepted_with_compound_and_parentheses(self):
+        for body in ('        row += count.ToString();',
+                     '        row += "n=" + count.ToString();',
+                     '        row += (count + 1).ToString();',
+                     '        row = "n=" + (count.ToString());',
+                     '        row += name;',
+                     '        row += "a" + (name);',
+                     '        count += 1;',
+                     '        count += count + 1;',
+                     '        ratio += (ratio + 0.5);',
+                     '        row = (name);'):
+            with self.subTest(body=body):
+                self.assertEqual([], self.issues(body))
+
 
 class GeneratedHookExpressionTests(unittest.TestCase):
     def test_the_ce_probe_hook_passes_the_expression_lint_unchanged(self):
@@ -352,6 +430,35 @@ class GeneratedHookExpressionTests(unittest.TestCase):
         self.assertEqual(2, text.count("lint_hook(hook.decode"))
         self.assertIn("explicit_numbers=True", Path(taped.__file__).read_text())
         self.assertNotIn("explicit_numbers", Path(ce.__file__).read_text())
+
+
+class StagedHookComplexityTests(unittest.TestCase):
+    """A hook the stager renders is linted as text: formatting of an extra method must not bypass the bound."""
+
+    def stage_with_extra_method(self, method):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        source = tlt.make_source_runtime(root / "vanilla")
+        dest = root / "taped-light-test"
+        real = taped.render_hook
+
+        def render(*args, **kwargs):
+            text = real(*args, **kwargs).decode()
+            index = text.rfind("}")
+            return (text[:index] + method + text[index:]).encode()
+        with mock.patch.object(taped, "render_hook", side_effect=render):
+            with self.assertRaises(ValueError) as caught:
+                taped.stage(source, dest, tlt.classification(), battleye_sha256=tlt.SYNTH_BE_SHA, _wsl_parent=root)
+        self.assertFalse((dest / taped.PLAN_NAME).exists())
+        return str(caught.exception)
+
+    def test_the_real_stager_refuses_an_over_bound_statement_in_any_method_layout(self):
+        row = 'string row = %s;' % " + ".join(['"x"'] * 28)
+        for label, method in (("inline brace", "    void HCReviewComplexity() {\n        %s\n    }\n" % row),
+                              ("eight spaces", "        void HCReviewComplexity()\n        {\n            %s\n        }\n" % row)):
+            with self.subTest(layout=label):
+                self.assertIn("Formula too complex", self.stage_with_extra_method(method))
 
 
 class IntegrityCase(unittest.TestCase):
@@ -534,6 +641,125 @@ class LinkRaceTests(IntegrityCase):
                         swap_for_link(Path(path).parent / "db/types.xml", outside)
                 with mock.patch.object(dm, "create_exclusive", side_effect=swapping):
                     self.assert_refused_and_clean(dest, stage, source)
+
+    def displace_during_final_scan(self, factory, component, replace):
+        """Stage while ``component`` is renamed away right after the final scan opened it (retained descriptor
+        keeps pointing at the moved inode), then put ``replace(path, moved)`` under the old name."""
+        root, source, dest, stage = self.workspace(factory)
+        state = {"launch": False, "walk": 0, "done": False}
+        real_launch, real_walk, real_child = rt.launcher_problems, dm.walk_plain, dm._open_child_dir
+        moved = root / "moved-away"
+
+        def launch(*args, **kwargs):
+            state["launch"] = True
+            try:
+                return real_launch(*args, **kwargs)
+            finally:
+                state["launch"] = False
+
+        def walk(*args, **kwargs):
+            state["walk"] += 1
+            try:
+                return real_walk(*args, **kwargs)
+            finally:
+                state["walk"] -= 1
+
+        def child(descriptor, name):
+            opened = real_child(descriptor, name)
+            if state["launch"] and state["walk"] and name == component and not state["done"]:
+                state["done"] = True
+                target = next(dest.rglob(component))
+                target.rename(moved)
+                replace(target, moved)
+            return opened
+        with mock.patch.object(rt, "launcher_problems", side_effect=launch), \
+                mock.patch.object(dm, "walk_plain", side_effect=walk), \
+                mock.patch.object(dm, "_open_child_dir", side_effect=child):
+            with self.assertRaises(ValueError):
+                stage(source, dest)
+        self.assertTrue(state["done"], "the displacement hook never ran")
+        plans = [p for p in root.rglob("*-probe-plan.json")]
+        self.assertEqual([], plans)
+
+    def test_a_directory_displaced_after_the_final_scan_opened_it_never_yields_a_plan(self):
+        """Sol review 003 P2: the final scan certified a retained descriptor of a directory that no longer
+        occupied its name (a symlink there). Every opened directory is rechecked against its name."""
+        replacements = {
+            "symlink to the moved tree": lambda path, moved: os.symlink(moved, path, target_is_directory=True),
+            "an empty real directory": lambda path, moved: path.mkdir(),
+            "nothing at all": lambda path, moved: None,
+        }
+        for label, factory in KINDS:
+            for component in ("db", "mpmissions", "battleye"):
+                for how, replace in replacements.items():
+                    with self.subTest(kind=label, component=component, replacement=how):
+                        self.displace_during_final_scan(factory, component, replace)
+
+    def test_the_staged_root_replaced_after_the_final_scan_opened_it_never_yields_a_plan(self):
+        for label, factory in KINDS:
+            for how in ("symlink", "empty"):
+                with self.subTest(kind=label, replacement=how):
+                    root, source, dest, stage = self.workspace(factory)
+                    state = {"launch": False, "walk": 0, "done": False}
+                    real_launch, real_walk, real_child = rt.launcher_problems, dm.walk_plain, dm._open_child_dir
+                    moved = root / "moved-root"
+
+                    def launch(*args, **kwargs):
+                        state["launch"] = True
+                        return real_launch(*args, **kwargs)
+
+                    def walk(*args, **kwargs):
+                        state["walk"] += 1
+                        try:
+                            return real_walk(*args, **kwargs)
+                        finally:
+                            state["walk"] -= 1
+
+                    def child(descriptor, name):
+                        opened = real_child(descriptor, name)
+                        if state["launch"] and state["walk"] and name == dest.name and not state["done"]:
+                            state["done"] = True
+                            dest.rename(moved)
+                            os.symlink(moved, dest, target_is_directory=True) if how == "symlink" else dest.mkdir()
+                        return opened
+                    with mock.patch.object(rt, "launcher_problems", side_effect=launch), \
+                            mock.patch.object(dm, "walk_plain", side_effect=walk), \
+                            mock.patch.object(dm, "_open_child_dir", side_effect=child):
+                        with self.assertRaises(ValueError):
+                            stage(source, dest)
+                    self.assertTrue(state["done"])
+                    self.assertEqual([], list(root.rglob("*-probe-plan.json")))
+
+    def test_a_directory_moved_after_it_was_opened_but_before_the_leaf_write_is_still_refused(self):
+        """Narrowed contract (documented in diagnostic_mission.py): a descriptor-anchored write cannot stop the
+        one leaf that lands in a directory renamed after it was opened. Staging must still end refused, with no
+        plan; where those bytes went is the residual that only a protected ancestor namespace removes."""
+        for label, factory in KINDS:
+            with self.subTest(kind=label):
+                root, source, dest, stage = self.workspace(factory)
+                real_child, moved = dm._open_child_dir, root / "moved-battleye"
+                state = {"writing": False, "done": False}
+                real_new = rt.new_file
+
+                def writing(path, data):
+                    state["writing"] = Path(path).name == "BEServer_x64.dll"
+                    try:
+                        real_new(path, data)
+                    finally:
+                        state["writing"] = False
+
+                def child(descriptor, name):
+                    opened = real_child(descriptor, name)
+                    if state["writing"] and name == "battleye" and not state["done"]:
+                        state["done"] = True
+                        (dest / "battleye").rename(moved)
+                    return opened
+                with mock.patch.object(rt, "new_file", side_effect=writing), \
+                        mock.patch.object(dm, "_open_child_dir", side_effect=child):
+                    with self.assertRaises((ValueError, OSError)):    # a refusal, never a published plan
+                        stage(source, dest)
+                self.assertTrue(state["done"])
+                self.assertEqual([], list(root.rglob("*-probe-plan.json")))
 
     def test_staging_is_refused_where_directory_descriptor_operations_are_unavailable(self):
         for label, factory in KINDS:

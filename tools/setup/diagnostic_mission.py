@@ -140,8 +140,14 @@ def _identity(info):
 #
 # Every operation below walks its path from "/" one component at a time, opening each directory with
 # O_DIRECTORY|O_NOFOLLOW relative to the previous descriptor, and acts on the leaf through that last
-# descriptor (dir_fd=, follow_symlinks=False, O_NOFOLLOW). A symlink swapped in for any component, at any
-# moment, is refused by the kernel in that very call; there is no check-then-use gap on a path string.
+# descriptor (dir_fd=, follow_symlinks=False, O_NOFOLLOW). A symlink swapped in for a component BEFORE that
+# component is opened is refused by the kernel in that very call; there is no check-then-use gap on a path
+# string. Concurrency contract (narrower than "at any moment"): a directory renamed AFTER it was opened keeps
+# being used through its descriptor, so one leaf written in that window lands in the moved directory, outside
+# the requested destination; only a protected directory/ancestor namespace could prevent that, and staging
+# only guarantees that such a run ends refused with no plan. What the final tree scan (walk_plain) does add is
+# that every directory it read, the root and its ancestors included, is reopened without following links and
+# must still be the same (st_dev, st_ino) before the scan can certify the tree.
 # Residual on a DrvFs/9p mount (/mnt/d): O_NOFOLLOW/O_DIRECTORY and *at() calls are served by the WSL
 # kernel, but NTFS junctions and reparse points are interpreted by the Windows side, which these calls
 # cannot see; a Windows-side process that replaces a directory by a junction between two of our calls is
@@ -262,11 +268,15 @@ def walk_plain(root):
     The final lstat-walk backstop over a staged tree: every directory is opened no-follow and every entry is
     classified through that descriptor, so a swapped-in symlink cannot be mistaken for the file it replaced.
     """
+    root = Path(root).absolute()
     files, pending, count = {}, [(open_dir_at(root), "")], 0
+    opened = {}   # directory prefix -> (st_dev, st_ino) of the descriptor that was scanned
     try:
         while pending:
             descriptor, prefix = pending.pop()
             try:
+                info = os.fstat(descriptor)
+                opened[prefix] = (info.st_dev, info.st_ino)
                 with os.scandir(descriptor) as scan:
                     names = sorted(entry.name for entry in scan)
                 for name in names:
@@ -286,7 +296,38 @@ def walk_plain(root):
     finally:
         for descriptor, _prefix in pending:
             os.close(descriptor)
+    _require_directories_in_place(root, opened)
     return files
+
+
+def _require_directories_in_place(root, opened):
+    """Every directory the scan read must still occupy its name; refuse a displaced or replaced one.
+
+    A scan reads through descriptors, so a directory renamed after it was opened (and a symlink or other
+    directory put under its name) would still be listed as if it were in place. After the scan, ``root`` is
+    reopened from "/" without following links and each scanned directory is reopened through its retained
+    parent, and the (st_dev, st_ino) must equal what was scanned. This covers the root and every ancestor of it
+    too, since the reopen starts at "/". It closes the window up to this call only; see the concurrency
+    contract in the comment block above.
+    """
+    held = {}
+    try:
+        for prefix in sorted(opened):               # a parent sorts before its children
+            try:
+                if prefix:
+                    parent, _, name = prefix[:-1].rpartition("/")
+                    descriptor = _open_child_dir(held[parent + "/" if parent else ""], name)
+                else:
+                    descriptor = open_dir_at(root)
+            except (OSError, ValueError) as error:
+                raise ValueError(f"staged directory was displaced during the scan: {prefix or '.'}") from error
+            held[prefix] = descriptor
+            info = os.fstat(descriptor)
+            if (info.st_dev, info.st_ino) != opened[prefix]:
+                raise ValueError(f"staged directory was replaced during the scan: {prefix or '.'}")
+    finally:
+        for descriptor in held.values():
+            os.close(descriptor)
 
 
 def _unchanged(path, expected):

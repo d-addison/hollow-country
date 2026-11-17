@@ -65,15 +65,35 @@ def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True, found=
             "handguard_rail_functional": guard_attached if rail is None else rail, "lights": lights}
 
 
+LIGHT_PROXY_PATH = "/dz/weapons/attachments/light/weaponlight_universal"
+
+
+def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exists=True, model=None, cfg_class=None):
+    """One probe-003 style proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
+
+    The probe lists ``proxy:/dz/.../weaponlight_universal.001`` style selections; the config entry is
+    ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list."""
+    base = path.rsplit("/", 1)[-1]
+    default_model = "\\" + path.strip("/").replace("/", "\\") + ".p3d"
+    return {"selection": "proxy:" + path + "." + number, "cfg_class": "Proxy" + base if cfg_class is None else cfg_class,
+            "cfg_exists": exists, "model": ("" if not exists else default_model) if model is None else model,
+            "inventory_slots": list(slots) if exists else []}
+
+
 def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
-        prereq_variant=None):
+        prereq_variant=None, proxies=None, proxy_count=None):
     if not spawned:
         return {"i": index, "class": name, "root": root, "group": group, "spawned": False, "timed_out": False}
-    return {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
-            "own_slots": [], "attach_slots": [], "selection_count": 3, "selection_matches": [],
-            "slots": slots, "prereq": prereq_obs() if prereq is None else prereq,
-            "lights": lights, "timed_out": timed_out, "ms": 3,
-            "prereq_variant": {"performed": False} if prereq_variant is None else prereq_variant}
+    result = {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
+              "own_slots": [], "attach_slots": [], "selection_count": 3, "selection_matches": [],
+              "slots": slots, "prereq": prereq_obs() if prereq is None else prereq,
+              "lights": lights, "timed_out": timed_out, "ms": 3,
+              "prereq_variant": {"performed": False} if prereq_variant is None else prereq_variant}
+    if proxies is not None:       # absent on probe-003 (taken before the hook emitted proxies)
+        result["proxy_count"] = len(proxies) if proxy_count is None else proxy_count
+        result["proxy_scan_complete"] = True
+        result["proxies"] = proxies
+    return result
 
 
 def no_slots():
@@ -197,7 +217,9 @@ class JoinTests(unittest.TestCase):
         self.assertIn("host_not_spawned", by_class(result, "Bat")["reasons"])
 
     def test_attach_without_model_geometry_is_geometry_missing(self):
-        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights())]
+        # complete proxy evidence (one unrelated, fully configured proxy) that names no flashlight slot
+        unrelated = proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",))
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[unrelated])]
         result = report.build_report(self.cls, observations(rows))
         slot = by_class(result, "AK74")["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
         self.assertEqual("geometry_missing", slot["verdict"])
@@ -593,7 +615,8 @@ class IntegrityGateTests(unittest.TestCase):
                 "partial": lambda c, o: o.update(status="partial"),
                 "dirty": lambda c, o: o["counters"].update(deleted=9, residual_probe_types=1),
                 "live after release": lambda c, o: o["counters"].update(live_after_release=1),
-                "control": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True)}.items():
+                "control": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(
+                    attach_ok=True, can_add=True, found_type="Flashlight")}.items():
             with self.subTest(label):
                 result, record = host_result(alter)
                 self.assertEqual("pending", record["verdict"], label)
@@ -631,7 +654,7 @@ class InvalidationPropagationTests(unittest.TestCase):
         "partial status": lambda c, o: o.update(status="partial"),
         "dirty cleanup": lambda c, o: o["counters"].update(deleted=9, residual_probe_types=1),
         "live after release": lambda c, o: o["counters"].update(live_after_release=1),
-        "control attached": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True),
+        "control attached": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True, found_type="Flashlight"),
         "wrong host type": lambda c, o: o["hosts"][0].update(type="OtherHost"),
         "config slot mismatch": lambda c, o: c["hosts"][0].update(native_light_slots=["pistolFlashlight"]),
         "class timed out": lambda c, o: o["hosts"][0].update(timed_out=True),
@@ -649,7 +672,7 @@ class InvalidationPropagationTests(unittest.TestCase):
     def test_a_control_hit_also_takes_geometry_missing_out_of_the_nested_verdicts_and_pair_counts(self):
         cls = classification([host("AK74", "slot_host")])
         obs = observations([row("AK74", "slot_host", gun_slots(), good_gun_lights())])
-        obs["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True)
+        obs["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True, found_type="Flashlight")
         result = report.build_report(cls, obs)
         self.assertNotIn("geometry_missing", nested_verdicts(result["hosts"][0]))
         self.assertEqual(0, pair_counts(result).get("geometry_missing", 0))
@@ -695,6 +718,11 @@ class ControlEvidenceTests(unittest.TestCase):
         "control can_add missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][0].pop("can_add"),
         "control found_type missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][0].pop("found_type"),
         "control row duplicated": lambda c, o: o["hosts"][0]["lights"].append(dict(o["hosts"][0]["lights"][0])),
+        # Sol review 003 P2: the producer fills found_type only after a successful create and read-back.
+        "control found_type set although the create failed": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(
+            found_type="Flashlight"),
+        "control create succeeded without a read-back type": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(
+            attach_ok=True, can_add=True, found_type=""),
     }
 
     def test_every_control_defect_makes_the_host_and_its_pairs_pending(self):
@@ -839,6 +867,243 @@ class ProbeContractTests(unittest.TestCase):
     def test_report_kinds_match_the_probe(self):
         self.assertEqual(probe.OBSERVATIONS_KIND, report.OBSERVATIONS_KIND)
         self.assertEqual(probe.CLASSIFICATION_KIND, report.CLASSIFICATION_KIND)
+
+
+class ReadbackContradictionTests(unittest.TestCase):
+    """Sol review 003 P2: found_type is filled only after a successful create, so the two must agree everywhere."""
+
+    def one(self, alter):
+        lights = good_gun_lights()
+        alter(lights)
+        result = report.build_report(classification([host("AK74", "slot_host")]),
+                                     observations([row("AK74", "slot_host", gun_slots(), lights)]))
+        record = result["hosts"][0]
+        return record["lights"]["UniversalLight"]["slots"].get("weaponFlashlight"), record, result
+
+    def test_a_representative_found_item_without_a_successful_attach_is_pending_not_a_refusal(self):
+        slot, record, _result = self.one(lambda lights: lights[2]["per_slot"].__setitem__(
+            2, per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False, found="UniversalLight")))
+        self.assertEqual(("pending", "slot_evidence_invalid"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("pending", record["verdict"])
+
+    def test_a_successful_attach_without_a_read_back_type_is_pending(self):
+        slot, record, _result = self.one(lambda lights: lights[2]["per_slot"].__setitem__(
+            2, per_slot("weaponFlashlight", "UniversalLight", found="")))
+        self.assertEqual(("pending", "slot_evidence_invalid"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("pending", record["verdict"])
+
+    def test_a_contradictory_read_back_on_another_slot_still_invalidates_the_pair(self):
+        slot, record, result = self.one(lambda lights: lights[2]["per_slot"][0].update(found_type="UniversalLight"))
+        self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+        self.assertEqual(0, pair_counts(result).get("qualified", 0))
+
+    def test_a_variant_found_item_without_a_successful_attach_is_pending_not_a_refusal(self):
+        variant_lights = good_gun_lights()
+        variant_lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False,
+                                                    found="UniversalLight")
+        slot, record, _result = variant_report(variant_obs("weaponHandguardAK", [variant_lights[2]]))
+        self.assertEqual("pending", slot["verdict"])
+        self.assertNotEqual("native_attach_refused_with_prerequisite", slot["reason"])
+        self.assertEqual("pending", record["verdict"])
+
+    def test_a_variant_successful_attach_without_a_read_back_type_is_pending(self):
+        variant_lights = good_gun_lights()
+        variant_lights[2]["per_slot"][2]["found_type"] = ""
+        slot, record, _result = variant_report(variant_obs("weaponHandguardAK", [variant_lights[2]]))
+        self.assertEqual("pending", slot["verdict"])
+        self.assertEqual("pending", record["verdict"])
+
+    def test_the_probe_003_shape_stays_consistent(self):
+        """Every probe-003 attempt had found_type '' when attach_ok was false and the light type when true."""
+        slot, record, _result = self.one(lambda lights: None)
+        self.assertEqual("qualified", slot["verdict"])
+        self.assertEqual("qualified", record["verdict"])
+
+
+class ProxySlotEvidenceTests(unittest.TestCase):
+    """Fix round 3: probe-003 showed GetSelectionForSlotId returns nothing natively, so the model evidence for a slot
+    is a host proxy selection joined to its CfgNonAIVehicles Proxy<basename> entry (config exists, model path matches
+    the proxy path, inventorySlot lists the slot). Fixtures are probe-003 shapes written out explicitly."""
+
+    def attach(self, proxies, proxy_count=None, mutate=None, slots=None):
+        lights = good_gun_lights()
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False) if slots is None else slots, lights,
+                    proxies=proxies, proxy_count=proxy_count)]
+        if mutate:
+            mutate(rows[0])
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        record = result["hosts"][0]
+        return record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], record, result
+
+    def test_a_proxy_with_an_existing_config_matching_model_and_slot_qualifies(self):
+        slot, record, result = self.attach([proxy()])
+        self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
+        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("PENDING", result["acceptance"])
+
+    def test_probe_003_selection_and_model_spellings_are_normalised(self):
+        for model in ("\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d",
+                      "dz/weapons/attachments/light/weaponlight_universal.P3D",
+                      "\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.p3d",
+                      "/dz/weapons/attachments/light/weaponlight_universal"):
+            with self.subTest(model=model):
+                slot, _record, _result = self.attach([proxy(model=model)])
+                self.assertEqual("qualified", slot["verdict"])
+
+    def test_the_proxy_prefix_is_matched_case_insensitively_like_the_hook_does(self):
+        for prefix in ("Proxy:", "PROXY:", "pRoXy:"):
+            with self.subTest(prefix=prefix):
+                item = proxy()
+                item["selection"] = prefix + item["selection"][len("proxy:"):]
+                slot, _record, _result = self.attach([item])
+                self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
+
+    def test_a_selection_without_the_proxy_prefix_is_malformed_evidence_not_a_match(self):
+        item = proxy()
+        item["selection"] = "xproxy:" + item["selection"][len("proxy:"):]
+        slot, _record, _result = self.attach([item])
+        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+
+    def test_a_qualifying_proxy_among_other_rows_and_a_truncated_list_still_qualifies(self):
+        rows = [proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",)), proxy()]
+        slot, _record, _result = self.attach(rows, proxy_count=40)
+        self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
+
+    def test_a_proxy_that_names_a_different_slot_does_not_qualify(self):
+        slot, record, _result = self.attach([proxy(slots=("pistolFlashlight",))])
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertNotEqual("qualified", record["verdict"])
+
+    def test_the_slot_must_be_in_the_list_not_a_substring_of_it(self):
+        slot, _record, _result = self.attach([proxy(slots=("weaponFlashlightExtra",))])
+        self.assertNotEqual("qualified", slot["verdict"])
+
+    def test_a_missing_config_entry_is_pending_never_inferred_from_the_proxy_name(self):
+        slot, record, _result = self.attach([proxy(exists=False)])
+        self.assertEqual(("pending", "proxy_config_missing"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("pending", record["verdict"])
+
+    def test_a_row_that_says_the_config_is_absent_never_qualifies_even_with_a_model_and_slots_filled_in(self):
+        item = dict(proxy(), cfg_exists=False)       # contradictory read-back: absent entry that still names data
+        slot, record, _result = self.attach([item])
+        self.assertEqual(("pending", "proxy_config_missing"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("pending", record["verdict"])
+
+    def test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify(self):
+        slot, record, _result = self.attach([proxy(model="\\dz\\weapons\\attachments\\light\\weaponlight_tlr.p3d")])
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertNotEqual("qualified", record["verdict"])
+
+    def test_an_empty_model_with_an_existing_entry_does_not_qualify(self):
+        slot, _record, _result = self.attach([proxy(model="x")])
+        self.assertNotEqual("qualified", slot["verdict"])
+        slot, _record, _result = self.attach([dict(proxy(), model="")])
+        self.assertNotEqual("qualified", slot["verdict"])
+
+    def test_malformed_proxy_evidence_is_pending(self):
+        def entry(**changes):
+            return lambda r: r["proxies"][0].update(changes)
+
+        def drop(key):
+            return lambda r: r["proxies"][0].pop(key)
+        cases = {
+            "proxies not a list": lambda r: r.update(proxies={"selection": "x"}),
+            "proxy entry not an object": lambda r: r.update(proxies=["proxy:/a/b.001"]),
+            "selection missing": drop("selection"),
+            "selection not a string": entry(selection=7),
+            "selection without the proxy prefix": entry(selection="/dz/weapons/attachments/light/weaponlight_universal.001"),
+            "cfg_exists not a bool": entry(cfg_exists="true"),
+            "cfg_exists missing": drop("cfg_exists"),
+            "model not a string": entry(model=None),
+            "model missing": drop("model"),
+            "inventory_slots not a list": entry(inventory_slots="weaponFlashlight"),
+            "inventory_slots with a non-string": entry(inventory_slots=["weaponFlashlight", 4]),
+            "cfg_class missing": drop("cfg_class"),
+            "cfg_class disagrees with the selection": entry(cfg_class="Proxymagazine_stanag"),
+            "proxy_count missing": lambda r: r.pop("proxy_count"),
+            "proxy_count not an int": lambda r: r.update(proxy_count="1"),
+            "proxy_count a bool": lambda r: r.update(proxy_count=True),
+            "proxy_count below the listed rows": lambda r: r.update(proxy_count=0),
+            "proxy_scan_complete missing": lambda r: r.pop("proxy_scan_complete"),
+            "proxy_scan_complete not a bool": lambda r: r.update(proxy_scan_complete=1),
+        }
+        for label, mutate in cases.items():
+            with self.subTest(label):
+                slot, record, result = self.attach([proxy()], mutate=mutate)
+                self.assertEqual("pending", slot["verdict"], label)
+                self.assertEqual("proxy_evidence_malformed", slot["reason"], label)
+                self.assertEqual("pending", record["verdict"], label)
+                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+
+    def test_a_proxy_count_without_the_list_is_malformed_not_missing(self):
+        slot, _record, _result = self.attach([proxy()], mutate=lambda r: r.pop("proxies"))
+        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+
+    def test_a_scan_that_did_not_complete_is_pending_without_a_qualifying_row(self):
+        slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))],
+                                             mutate=lambda r: r.update(proxy_scan_complete=False))
+        self.assertEqual(("pending", "proxy_evidence_truncated"), (slot["verdict"], slot["reason"]))
+        slot, _record, _result = self.attach([proxy()], mutate=lambda r: r.update(proxy_scan_complete=False))
+        self.assertEqual("qualified", slot["verdict"])
+
+    def test_absent_proxy_evidence_is_pending_and_never_qualified(self):
+        """The probe-003 shape: neither proxy_count nor proxies, and every slot selection field empty."""
+        slot, record, result = self.attach(None)
+        self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("pending", record["verdict"])
+        self.assertEqual(0, result["denominators"]["qualified"])
+
+    def test_a_truncated_list_without_a_qualifying_row_is_pending(self):
+        slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))], proxy_count=30)
+        self.assertEqual(("pending", "proxy_evidence_truncated"), (slot["verdict"], slot["reason"]))
+
+    def test_an_empty_complete_proxy_list_is_a_negative_finding(self):
+        slot, _record, _result = self.attach([])
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+
+    def test_the_selection_memory_and_bone_evidence_stays_an_alternative(self):
+        slot, _record, _result = self.attach(None, slots=gun_slots(weapon_model=True))
+        self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("selection", slot["evidence"]["model_evidence"])
+        slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))], slots=gun_slots(weapon_model=True))
+        self.assertEqual("qualified", slot["verdict"])
+
+    def test_malformed_proxy_evidence_outranks_selection_evidence(self):
+        slot, record, _result = self.attach([proxy()], mutate=lambda r: r.update(proxy_count="x"),
+                                            slots=gun_slots(weapon_model=True))
+        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("pending", record["verdict"])
+
+    def test_the_prerequisite_variant_uses_its_own_reason(self):
+        lights = good_gun_lights()
+        lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+        variant = variant_obs("weaponHandguardAK", [good_gun_lights()[2]])
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), lights, prereq=prereq_obs(has="weaponHandguardAK"),
+                    prereq_variant=variant, proxies=[proxy()])]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("qualified", "native_attach_with_proxy_slot_and_rail_handguard_prerequisite"),
+                         (slot["verdict"], slot["reason"]))
+        self.assertTrue(slot["evidence"]["requires_prerequisite"])
+        self.assertEqual("proxy_slot", slot["evidence"]["model_evidence"])
+        rows[0]["proxies"] = [proxy(slots=("pistolFlashlight",))]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        del rows[0]["proxies"], rows[0]["proxy_count"], rows[0]["proxy_scan_complete"]
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
+
+    def test_beam_and_the_other_axes_stay_pending(self):
+        _slot, _record, result = self.attach([proxy()])
+        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, result["unobserved_axes"])
+
+    def test_the_consumed_keys_name_the_proxy_fields(self):
+        for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots"):
+            self.assertIn(key, report.CONSUMED_KEYS)
 
 
 class CliTests(unittest.TestCase):

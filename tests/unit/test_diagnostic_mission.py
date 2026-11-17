@@ -220,6 +220,63 @@ class DiagnosticMissionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             dm.walk_plain(self.source)
 
+    def test_walk_plain_refuses_a_directory_that_stopped_occupying_its_name_after_it_was_opened(self):
+        """Sol review 003 P2: a retained descriptor of a moved directory must not certify the tree."""
+        import os
+        real_child = dm._open_child_dir
+        cases = {
+            "a symlink under the old name": lambda path, moved: os.symlink(moved, path, target_is_directory=True),
+            "another directory under the old name": lambda path, moved: path.mkdir(),
+            "nothing under the old name": lambda path, moved: None,
+        }
+        for label, replace in cases.items():
+            with self.subTest(label):
+                moved = self.root / ("moved-" + label.split()[0] + "-" + str(len(label)))
+                fired = []
+
+                def child(descriptor, name):
+                    opened = real_child(descriptor, name)
+                    if name == "db" and not fired:
+                        fired.append(name)
+                        (self.source / "db").rename(moved)
+                        replace(self.source / "db", moved)
+                    return opened
+                try:
+                    with patch.object(dm, "_open_child_dir", child), self.assertRaises(ValueError):
+                        dm.walk_plain(self.source)
+                    self.assertEqual(["db"], fired)
+                finally:
+                    link = self.source / "db"
+                    if link.is_symlink():
+                        link.unlink()
+                    elif link.is_dir():
+                        link.rmdir()
+                    moved.rename(link)
+        self.assertEqual({"init.c": len(STOCK), "db/types.xml": 26}, dm.walk_plain(self.source))      # untouched tree
+
+    def test_walk_plain_checks_the_root_identity_even_when_the_tree_has_no_subdirectory(self):
+        flat = self.root / "flat"
+        flat.mkdir()
+        (flat / "only.xml").write_bytes(b"<a/>")
+        real_child, moved, fired = dm._open_child_dir, self.root / "flat-moved", []
+
+        def child(descriptor, name):
+            opened = real_child(descriptor, name)
+            if name == "flat" and not fired:
+                fired.append(name)
+                flat.rename(moved)
+                flat.mkdir()                              # a different directory now occupies the name
+                (flat / "only.xml").write_bytes(b"<a/>")      # with the same listing
+            return opened
+        with patch.object(dm, "_open_child_dir", child), self.assertRaises(ValueError):
+            dm.walk_plain(flat)
+        self.assertEqual(["flat"], fired)
+
+    def test_walk_plain_accepts_an_undisturbed_nested_tree(self):
+        (self.source / "db/deeper").mkdir()
+        (self.source / "db/deeper/a.xml").write_bytes(b"<a/>")
+        self.assertEqual({"init.c": len(STOCK), "db/types.xml": 26, "db/deeper/a.xml": 4}, dm.walk_plain(self.source))
+
     def test_copy_uses_exclusive_creation_and_preserves_partial_output_on_failure(self):
         native = dm._create_staged     # creation is anchored on directory descriptors (O_EXCL), not Path.open
         def fail_create(path, data):

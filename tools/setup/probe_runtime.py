@@ -155,8 +155,11 @@ _MODIFIERS = r"(?:(?:ref|autoptr|static|protected|private|const|owned|notnull|ou
 _DECLARATION = re.compile(
     r"(?:^[ \t]*|[({;,][ \t]*)" + _MODIFIERS + r"([A-Za-z_]\w*(?:<[^;()=]*?>)?)[ \t]+([A-Za-z_]\w*)[ \t]*(?=[;=,)\[])", re.M)
 _NOT_TYPES = frozenset({"return", "new", "class", "typename", "modded", "override", "delete", "else", "case"})
+# A method header at any indentation, with the opening brace on its own line or on the header line.
+# `else if (...) {` is the one control-flow shape that looks like `type name(...)`, so it is excluded.
 _FUNCTION = re.compile(
-    r"^[ \t]{4}((?:(?:override|static|protected|private)[ \t]+)*)[\w<>]+[ \t]+(\w+)[ \t]*\(([^()]*)\)[ \t]*\n[ \t]{4}\{", re.M)
+    r"^[ \t]*((?:(?:override|static|protected|private)[ \t]+)*)(?!(?:else|return|new|delete|case)\b)[\w<>]+[ \t]+"
+    r"(?!(?:if|while|for|foreach|switch)\b)(\w+)[ \t]*\(([^()]*)\)\s*\{", re.M)
 _STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
 _EXPONENT = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
 # (callee, positions of arguments that are `out` parameters and must be declared first); the union
@@ -181,7 +184,7 @@ _NUMERIC_LITERAL = re.compile(r"^-?\d+(?:\.\d+)?$")
 _CALL_TERM = re.compile(r"^(\w+)\s*\(.*\)$", re.S)
 _NUMERIC_METHOD = re.compile(r"\.(?:Count|Length|IndexOf|GetTime)\s*\([^()]*\)$", re.S)
 _FUNCTION_RETURN = re.compile(
-    r"^[ \t]{4}(?:(?:override|static|protected|private)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
+    r"^[ \t]*(?:(?:override|static|protected|private)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
 
 
 def _clean(text):
@@ -302,28 +305,77 @@ def _segments(expression):
                     yield from _segments(argument)
 
 
+def _unwrap(term):
+    """Drop parentheses that enclose the whole term: `((count))` is `count`."""
+    while term.startswith("(") and term.endswith(")"):
+        depth = 0
+        for index, char in enumerate(term):
+            depth += {"(": 1, ")": -1}.get(char, 0)
+            if depth == 0 and index < len(term) - 1:
+                return term
+        term = term[1:-1].strip()
+    return term
+
+
+def _operands(expression):
+    """Operands of an arithmetic expression, split at its top-level + - * / % operators."""
+    operands, depth, current = [], 0, []
+    for char in expression:
+        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(char, 0)
+        if depth == 0 and char in "+-*/%":
+            operands.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    operands.append("".join(current).strip())
+    return [operand for operand in operands if operand]
+
+
+def _compound_destination(statement):
+    """(destination, right-hand side) of a top-level `name += expression` statement, else None."""
+    depth = 0
+    for index, char in enumerate(statement):
+        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(char, 0)
+        if depth == 0 and statement[index:index + 2] == "+=":
+            destination = statement[:index].strip()
+            return (destination, statement[index + 2:].strip()) if re.match(r"^[A-Za-z_]\w*$", destination) else None
+    return None
+
+
 def _concatenation_issues(line, statement, numeric, strings, string_functions, numeric_functions, vectors=()):
     issues = []
+
+    def stringy(term):
+        term = _unwrap(term)
+        call = _CALL_TERM.match(term)
+        return (term == '""' or term in strings or term.endswith(".ToString()")
+                or bool(call and call.group(1) in string_functions))
+
+    def numeric_term(term):
+        term = _unwrap(term)
+        if term.endswith(".ToString()"):
+            return False
+        call = _CALL_TERM.match(term)
+        indexed = re.match(r"^(\w+)\[[^\]]*\]$", term)
+        if (term in numeric or bool(_NUMERIC_LITERAL.match(term)) or bool(indexed and indexed.group(1) in vectors)
+                or bool(call and call.group(1) in numeric_functions) or bool(_NUMERIC_METHOD.search(term))):
+            return True
+        operands = _operands(term)  # a parenthesised arithmetic expression such as (count + 1) or (ratio * 2)
+        return (len(operands) > 1 and not any(stringy(o) for o in operands) and any(numeric_term(o) for o in operands))
+
     for index, segment in enumerate(_segments(statement)):
-        terms = _top_level_terms(segment)
-        if len(terms) < 2:
-            continue
-        if index == 0:
-            terms[0] = _after_assignment(terms[0])
-
-        def stringy(term):
-            call = _CALL_TERM.match(term)
-            return (term == '""' or term in strings or term.endswith(".ToString()")
-                    or bool(call and call.group(1) in string_functions))
-
-        def numeric_term(term):
-            if term.endswith(".ToString()"):
-                return False
-            call = _CALL_TERM.match(term)
-            indexed = re.match(r"^(\w+)\[[^\]]*\]$", term)
-            return (term in numeric or bool(_NUMERIC_LITERAL.match(term)) or bool(indexed and indexed.group(1) in vectors)
-                    or bool(call and call.group(1) in numeric_functions) or bool(_NUMERIC_METHOD.search(term)))
-        if any(stringy(term) for term in terms):
+        into_string = False
+        if index == 0 and _compound_destination(segment):
+            destination, segment = _compound_destination(segment)
+            into_string = destination in strings
+            terms = _top_level_terms(segment)
+        else:
+            terms = _top_level_terms(segment)
+            if len(terms) < 2:
+                continue
+            if index == 0:
+                terms[0] = _after_assignment(terms[0])
+        if into_string or any(stringy(term) for term in terms):
             for term in terms:
                 if numeric_term(term):
                     issues.append(f"line {line}: bare numeric '{term}' concatenated into a string "
@@ -332,8 +384,18 @@ def _concatenation_issues(line, statement, numeric, strings, string_functions, n
 
 
 def _expression_issues(clean, explicit_numbers=False):
-    """Statement-size and bare-number concatenation findings for comment-free, string-blanked text."""
+    """Statement-size and bare-number concatenation findings for comment-free, string-blanked text.
+
+    The size bound needs no scope, so it covers every statement of the text whatever the layout of the
+    enclosing method (inline braces, any indentation, or no method at all). The numeric rule needs the
+    declared names of each recognised method body.
+    """
     issues = []
+    for line, statement in _statements(clean):
+        count = _plus_count(statement)
+        if count > MAX_STATEMENT_PLUS:
+            issues.append(f"line {line}: statement has {count} binary '+' operators (limit {MAX_STATEMENT_PLUS}); "
+                          "the native compiler reports 'Formula too complex' (" + HOOK_EXPRESSION_EVIDENCE + ")")
     bodies = list(_function_bodies(clean))
     spans = [(start, start + len(body)) for _header, body, start in bodies]
     members = set()
@@ -361,15 +423,10 @@ def _expression_issues(clean, explicit_numbers=False):
                 continue
             (numeric if match.group(1) in _NUMERIC_TYPES else local_vectors if match.group(1) == "vector"
              else strings).add(match.group(2))
-        for line, statement in _statements(body):
-            line += clean.count("\n", 0, start)
-            count = _plus_count(statement)
-            if count > MAX_STATEMENT_PLUS:
-                issues.append(f"line {line}: statement has {count} binary '+' operators (limit {MAX_STATEMENT_PLUS}); "
-                              "the native compiler reports 'Formula too complex' (" + HOOK_EXPRESSION_EVIDENCE + ")")
-            if explicit_numbers:
-                issues.extend(_concatenation_issues(line, statement, numeric, strings, string_functions,
-                                                    numeric_functions, local_vectors))
+        if explicit_numbers:
+            for line, statement in _statements(body):
+                issues.extend(_concatenation_issues(line + clean.count("\n", 0, start), statement, numeric, strings,
+                                                    string_functions, numeric_functions, local_vectors))
     return issues
 
 

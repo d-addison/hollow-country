@@ -6,7 +6,9 @@ observations JSON written by a native run of the probe staged by
 
   qualified         the engine reported a native slot, the representative light attached in
                     it through the native call, the attachment is found in that slot and the
-                    host model carries a selection, memory point or bone for the slot.
+                    host model carries geometry for the slot: a proxy selection whose
+                    CfgNonAIVehicles entry exists, names the same model path and lists the slot
+                    in inventorySlot, or (older probes) a slot selection, memory point or bone.
   geometry_missing  the engine reported no compatible native slot, refused the native attach
                     for a reason the observation can attribute to the host, or the attach has
                     no model selection to render at (no proxy is invented).
@@ -33,6 +35,18 @@ Evidence rules (the report never fills a gap with a favourable default):
   * Qualification needs a clean probe: complete status, matching spawn/delete counters, no
     handles surviving release, a residual census that was complete (not truncated), the native
     slot set resolved and no control light attached anywhere.
+
+Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing natively, so the proxy join
+is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
+``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot). A slot has proxy evidence only when
+a listed proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the
+proxy path (case-insensitive, slashes and the .p3d extension normalised) and an inventorySlot list holding the
+slot. The proxy name alone is never evidence. Missing or malformed proxy evidence is pending, never qualified;
+a truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
+
+Attachment read-back must be self-consistent everywhere: found_type is filled only after a successful create,
+so a non-empty found_type with attach_ok false, or attach_ok true with an empty found_type, is contradictory
+evidence and makes the attempt (base, variant or control) invalid.
 
 Beam, switch, two-client presentation, removal by hand, tape consumption and persistence are
 never observable from a dedicated-server probe and stay pending in every output.
@@ -69,7 +83,8 @@ CONSUMED_KEYS = (
     "selection_on_model", "memory_point", "bone_index", "per_slot", "light", "light_fits", "can_add",
     "attach_ok", "found_type", "fits_native_slots", "fits", "type", "prereq", "attached_type",
     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
-    "handguard_slot_occupied", "handguard_rail_functional")
+    "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
+    "selection", "cfg_class", "cfg_exists", "model", "inventory_slots")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -207,6 +222,8 @@ def _light_slot(entry):
         return None
     if values["attach_ok"] and not values["can_add"]:
         return None        # a create cannot succeed when the native check refused it: contradictory evidence
+    if values["attach_ok"] != bool(found):
+        return None        # the hook fills found_type only after a successful create and read-back
     return dict(values, found_type=found)
 
 
@@ -228,13 +245,78 @@ def _per_slot(light_entry, slot_names):
 # --- slot, light and host verdicts -------------------------------------------------------------------
 
 
-def _accepted(light, model_evidence, attempt):
-    """Verdict for an attach the native call allowed (can_add true)."""
+def _path(text):
+    """Comparable model/proxy path: lower case, forward slashes, no leading slash, no .p3d extension."""
+    parts = [part for part in text.replace("\\", "/").lower().split("/") if part]
+    path = "/".join(parts)
+    return path[:-4] if path.endswith(".p3d") else path
+
+
+def _proxy_path(selection):
+    """Path of a ``proxy:<path>.<nnn>`` selection (the trailing .nnn dropped), or None for any other selection.
+
+    The prefix is matched case-insensitively, as the probe hook matches it."""
+    if selection[:len("proxy:")].lower() != "proxy:":
+        return None
+    text = selection[len("proxy:"):].replace("\\", "/")
+    stem, dot, _number = text.rpartition(".")
+    return _path(stem if dot and "/" not in _number else text)
+
+
+def _proxies(row):
+    """Typed proxy evidence of a host row: ("missing",), ("malformed",) or ("ok", rows, truncated)."""
+    if "proxies" not in row and "proxy_count" not in row and "proxy_scan_complete" not in row:
+        return ("missing",)
+    entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
+    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
+        return ("malformed",)
+    rows = []
+    for entry in entries:
+        values = {"selection": _get(entry, "selection", "str"), "cfg_class": _get(entry, "cfg_class", "str"),
+                  "cfg_exists": _get(entry, "cfg_exists", "bool"), "model": _get(entry, "model", "str"),
+                  "inventory_slots": _get(entry, "inventory_slots", "list")}
+        if MISSING in values.values() or not all(isinstance(item, str) for item in values["inventory_slots"]):
+            return ("malformed",)
+        path = _proxy_path(values["selection"])
+        if path is None or values["cfg_class"].casefold() != ("Proxy" + path.rsplit("/", 1)[-1]).casefold():
+            return ("malformed",)
+        rows.append(dict(values, path=path))
+    return ("ok", rows, count > len(entries) or not complete)
+
+
+def _model_evidence(host_slot, slot, proxies):
+    """(source, detail) for one slot: source is selection, proxy_slot, none or pending (detail names the reason).
+
+    Selection, memory point and bone are the older evidence; proxy evidence is the join of a proxy selection to its
+    config entry. Malformed proxy evidence outranks both, because the row's evidence is then not trustworthy."""
+    if proxies[0] == "malformed":
+        return "pending", "proxy_evidence_malformed"
+    if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
+        return "selection", None
+    if proxies[0] == "missing":
+        return "pending", "proxy_evidence_missing"
+    for item in proxies[1]:
+        if item["cfg_exists"] and _path(item["model"]) == item["path"] \
+                and slot.casefold() in {name.casefold() for name in item["inventory_slots"]}:
+            return "proxy_slot", item["selection"]
+    if proxies[2]:
+        return "pending", "proxy_evidence_truncated"
+    if any(not item["cfg_exists"] for item in proxies[1]):
+        return "pending", "proxy_config_missing"
+    return "none", None
+
+
+def _accepted(light, model, attempt):
+    """Verdict for an attach the native call allowed (can_add true); ``model`` is a _model_evidence result."""
     if not attempt["attach_ok"]:
         return "pending", "attach_create_failed"
     if attempt["found_type"] != light:
         return "pending", "attached_item_not_found_in_slot"
-    if model_evidence:
+    if model[0] == "pending":
+        return "pending", model[1]
+    if model[0] == "proxy_slot":
+        return "qualified", "native_attach_with_proxy_slot"
+    if model[0] == "selection":
         return "qualified", "native_attach_with_model_selection"
     return "geometry_missing", "attached_without_model_selection"
 
@@ -255,9 +337,8 @@ def _variant_attempt(entry, slot, slot_names, preflight):
     return _light_slot(per_slot[slot]), None
 
 
-def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names, preflight):
+def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names, preflight, model):
     """Return (verdict, reason, requires_prerequisite) for one compatible host/light/slot observation."""
-    model = host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0
     if attempt["can_add"]:
         return _accepted(light, model, attempt) + (False,)
     if light not in PREREQUISITE_LIGHTS:
@@ -280,7 +361,8 @@ def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot
         return "geometry_missing", "native_attach_refused_with_prerequisite", True
     verdict, reason = _accepted(light, model, attempt)
     if verdict == "qualified":
-        reason = "native_attach_with_rail_handguard_prerequisite"
+        reason = ("native_attach_with_proxy_slot_and_rail_handguard_prerequisite" if model[0] == "proxy_slot"
+                  else "native_attach_with_rail_handguard_prerequisite")
     return verdict, reason, True
 
 
@@ -296,7 +378,7 @@ def _pending(reason):
     return {"verdict": "pending", "reasons": [reason], "slots": {}}
 
 
-def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prerequisites, variant):
+def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prerequisites, variant, proxies):
     """Verdict for one host x representative light from the host row's observations."""
     if preflight is MISSING:
         return _pending("preflight_missing")
@@ -321,10 +403,12 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
         elif not (host_slot["host_has_slot"] and attempt["light_fits"]):
             continue
         else:
+            model = _model_evidence(host_slot, slot, proxies)
             verdict, reason, requires = _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names,
-                                                       preflight)
+                                                       preflight, model)
             evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
-                            attach_ok=attempt["attach_ok"], requires_prerequisite=requires)
+                            attach_ok=attempt["attach_ok"], requires_prerequisite=requires, model_evidence=model[0],
+                            proxy_selection=model[1] if model[0] == "proxy_slot" else None)
             evidence["bone_index"] = max(host_slot["bone_index"], -1)
         slots[slot] = {"verdict": verdict, "reason": reason, "evidence": evidence}
         verdicts.append(verdict)
@@ -410,9 +494,10 @@ def _evaluate_host(entry, rows, context):
         reasons.add(_problem_reason("light", problems))
     prerequisites = _prerequisites(row)
     variant = _variant(row, prerequisites)
+    proxies = _proxies(row)
     for light in context["representatives"]:
         base["lights"][light] = _evaluate_light(light, light_entries.get(light, MISSING), slot_names, host_slots,
-                                                context["preflights"].get(light, MISSING), prerequisites, variant)
+                                                context["preflights"].get(light, MISSING), prerequisites, variant, proxies)
     for control in context["controls"]:       # control evidence must be complete even though it is not a verdict
         reasons |= _control_issues(light_entries, slot_names, control, context["preflights"].get(control, MISSING))
     invalidating = reasons - SIBLING_SCOPED_REASONS
