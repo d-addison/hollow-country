@@ -65,9 +65,15 @@ def _identity(info):
 
 
 def _open_regular(path):
-    """Open a regular file for reading without following a final symlink; return (stream, stat)."""
+    """Open a regular file for reading; no component of the path, leaf included, is followed as a symlink.
+
+    The path is walked from "/" on directory descriptors (dm.open_file_at), so a directory swapped for a
+    symlink between the earlier lstat checks and this open is refused by the kernel in this call.
+    """
     try:
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0))
+        descriptor = dm.open_file_at(path, os.O_RDONLY)
+    except ValueError as error:
+        raise ValueError(f"symlinked input refused: {path}") from error
     except OSError as error:
         if os.path.islink(path):
             raise ValueError(f"symlinked input refused: {path}") from error
@@ -108,8 +114,8 @@ def _hash_file(path):
 
 
 def new_file(path, data):
-    with open(path, "xb") as stream:
-        stream.write(data)
+    """Create a new file (O_EXCL) under a no-follow directory walk; never writes through a link."""
+    dm.create_exclusive(path, data)
 
 
 _new_file = new_file
@@ -157,6 +163,25 @@ _EXPONENT = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
 # of what the CE hook and the taped-light hook call, so one lint covers both generated hooks.
 _OUT_CALLS = (("GetObjectsAtPosition3D", (2, 3)), ("ClippingInfo", (0,)), ("GetCollisionBox", (0,)),
               ("GetSelectionForSlotId", (1,)), ("GetBoneNameForSlotId", (1,)), ("GetSelectionList", (0,)))
+
+# Native compile evidence for the expression limits below. A real DayZServer 1.30.164289 run refused
+# the generated taped-light init.c with `Formula too complex` and `Incompatible parameter 'slot'` on
+# one row built from about 27 '+' operators that also concatenated a bare int; 22 '+' on one line
+# failed later in the same file. The ce-probe-001 hook compiled and ran natively: its longest
+# statement has 9 '+'. (That hook does concatenate bare ints in places, e.g. Print("n=" + list.Count()),
+# so a bare number is not proven to be a compile error by itself; explicit_numbers is a precaution.)
+# The bound is that observed maximum.
+MAX_STATEMENT_PLUS = 9
+HOOK_EXPRESSION_EVIDENCE = (
+    "DayZServer 1.30.164289 refused a generated hook with 'Formula too complex' and "
+    "'Incompatible parameter' on a statement of about 27 binary '+' operators that concatenated "
+    "a bare int; the ce-probe-001 hook (max 9 per statement) compiled and ran natively.")
+_NUMERIC_TYPES = frozenset({"int", "float", "bool"})
+_NUMERIC_LITERAL = re.compile(r"^-?\d+(?:\.\d+)?$")
+_CALL_TERM = re.compile(r"^(\w+)\s*\(.*\)$", re.S)
+_NUMERIC_METHOD = re.compile(r"\.(?:Count|Length|IndexOf|GetTime)\s*\([^()]*\)$", re.S)
+_FUNCTION_RETURN = re.compile(
+    r"^[ \t]{4}(?:(?:override|static|protected|private)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
 
 
 def _clean(text):
@@ -210,6 +235,144 @@ def _function_bodies(clean):
                     break
 
 
+def _plus_count(statement):
+    """Binary '+' operators of one statement; '++' and '+=' are not concatenation terms."""
+    return re.sub(r"\+\+|\+=", "", statement).count("+")
+
+
+def _statements(clean):
+    """Yield (line, text) for each statement of comment-free, string-blanked text."""
+    position = 0
+    for match in re.finditer(r"[;{}]", clean):
+        text = clean[position:match.start()]
+        if text.strip():
+            offset = position + len(text) - len(text.lstrip())
+            yield clean.count("\n", 0, offset) + 1, text
+        position = match.end()
+
+
+def max_statement_plus(text):
+    """The largest number of binary '+' operators in any one statement of a hook text."""
+    return max((_plus_count(statement) for _line, statement in _statements(_clean(text))), default=0)
+
+
+def _top_level_terms(expression):
+    terms, depth, current = [], 0, []
+    for index, char in enumerate(expression):
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth -= 1
+        plus = (char == "+" and depth == 0 and expression[index + 1:index + 2] not in ("+", "=")
+                and expression[index - 1:index] != "+")
+        if plus:
+            terms.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    terms.append("".join(current).strip())
+    return terms
+
+
+def _after_assignment(term):
+    depth = 0
+    for index, char in enumerate(term):
+        if char in "([":
+            depth += 1
+        elif char in ")]":
+            depth -= 1
+        elif (char == "=" and depth == 0 and term[index - 1:index] not in ("=", "!", "<", ">", "+", "-", "*", "/")
+              and term[index + 1:index + 2] != "="):
+            return term[index + 1:].strip()
+    return re.sub(r"^return\b\s*", "", term)
+
+
+def _segments(expression):
+    yield expression
+    depth, start = 0, 0
+    for index, char in enumerate(expression):
+        if char in "([":
+            if depth == 0:
+                start = index + 1
+            depth += 1
+        elif char in ")]":
+            depth -= 1
+            if depth == 0:
+                for argument in _split_arguments(expression[start:index]):
+                    yield from _segments(argument)
+
+
+def _concatenation_issues(line, statement, numeric, strings, string_functions, numeric_functions, vectors=()):
+    issues = []
+    for index, segment in enumerate(_segments(statement)):
+        terms = _top_level_terms(segment)
+        if len(terms) < 2:
+            continue
+        if index == 0:
+            terms[0] = _after_assignment(terms[0])
+
+        def stringy(term):
+            call = _CALL_TERM.match(term)
+            return (term == '""' or term in strings or term.endswith(".ToString()")
+                    or bool(call and call.group(1) in string_functions))
+
+        def numeric_term(term):
+            if term.endswith(".ToString()"):
+                return False
+            call = _CALL_TERM.match(term)
+            indexed = re.match(r"^(\w+)\[[^\]]*\]$", term)
+            return (term in numeric or bool(_NUMERIC_LITERAL.match(term)) or bool(indexed and indexed.group(1) in vectors)
+                    or bool(call and call.group(1) in numeric_functions) or bool(_NUMERIC_METHOD.search(term)))
+        if any(stringy(term) for term in terms):
+            for term in terms:
+                if numeric_term(term):
+                    issues.append(f"line {line}: bare numeric '{term}' concatenated into a string "
+                                  "(use an explicit .ToString())")
+    return issues
+
+
+def _expression_issues(clean, explicit_numbers=False):
+    """Statement-size and bare-number concatenation findings for comment-free, string-blanked text."""
+    issues = []
+    bodies = list(_function_bodies(clean))
+    spans = [(start, start + len(body)) for _header, body, start in bodies]
+    members = set()
+    strings_global = set()
+    vectors = set()
+    for match in _DECLARATION.finditer(clean):
+        if any(low <= match.start(2) < high for low, high in spans) or match.group(1) in _NOT_TYPES:
+            continue
+        (members if match.group(1) in _NUMERIC_TYPES else strings_global if match.group(1) == "string"
+         else vectors if match.group(1) == "vector" else set()).add(match.group(2))
+    string_functions, numeric_functions = set(), set()
+    for match in _FUNCTION_RETURN.finditer(clean):
+        if match.group(1) == "string":
+            string_functions.add(match.group(2))
+        elif match.group(1) in _NUMERIC_TYPES:
+            numeric_functions.add(match.group(2))
+    for header, body, start in bodies:
+        numeric, strings = set(members), set(strings_global)
+        local_vectors = set(vectors)
+        for match in _DECLARATION.finditer("(" + header.group(3) + ")"):
+            (numeric if match.group(1) in _NUMERIC_TYPES else local_vectors if match.group(1) == "vector"
+             else strings).add(match.group(2))
+        for match in _DECLARATION.finditer(body):
+            if match.group(1) in _NOT_TYPES:
+                continue
+            (numeric if match.group(1) in _NUMERIC_TYPES else local_vectors if match.group(1) == "vector"
+             else strings).add(match.group(2))
+        for line, statement in _statements(body):
+            line += clean.count("\n", 0, start)
+            count = _plus_count(statement)
+            if count > MAX_STATEMENT_PLUS:
+                issues.append(f"line {line}: statement has {count} binary '+' operators (limit {MAX_STATEMENT_PLUS}); "
+                              "the native compiler reports 'Formula too complex' (" + HOOK_EXPRESSION_EVIDENCE + ")")
+            if explicit_numbers:
+                issues.extend(_concatenation_issues(line, statement, numeric, strings, string_functions,
+                                                    numeric_functions, local_vectors))
+    return issues
+
+
 def native_type_names(cache):
     """Class/enum names declared anywhere in an extracted native script cache."""
     names = set()
@@ -220,8 +383,18 @@ def native_type_names(cache):
     return frozenset(names)
 
 
-def lint_hook(text, native_types=frozenset(), prototypes=None):
-    """Return a list of issues; empty means no observed-rejected shape was found."""
+def lint_hook(text, native_types=frozenset(), prototypes=None, explicit_numbers=False):
+    """Return a list of issues; empty means no observed-rejected shape was found.
+
+    Besides the declaration/scope shapes, it refuses the two expression shapes a real DayZServer
+    1.30.164289 compile rejected ("Formula too complex" / "Incompatible parameter" on a ~27 '+' row
+    that concatenated a bare int): a statement with more than MAX_STATEMENT_PLUS (9, the maximum
+    of the ce-probe-001 hook that compiled natively) binary '+' operators, always; and, with
+    explicit_numbers=True, a bare int, float or bool concatenated into a string instead of through
+    an explicit .ToString(). The ce-probe-001 hook compiled natively while concatenating bare
+    ints (for example `"targets=" + list.Count()`), so that second rule is not proven necessary;
+    only the taped-light stager enables it, as a precaution, and the CE stager keeps its bytes.
+    """
     issues = []
     for number, line in enumerate(text.splitlines(), 1):
         for literal in _STRING.findall(line):
@@ -237,6 +410,7 @@ def lint_hook(text, native_types=frozenset(), prototypes=None):
             issues.append(f"line {number}: condition continuation with leading operator")
         if _EXPONENT.search(line):
             issues.append(f"line {number}: exponent float literal (use FLT_MAX)")
+    issues.extend(_expression_issues(clean, explicit_numbers))
     forbidden = set(ENGINE_TYPE_NAMES) | set(native_types)
     for match in _DECLARATION.finditer(clean):
         kind, name = match.groups()
@@ -317,6 +491,15 @@ def _check_mission_entry(relative, *, directory=False):
 # ---------------------------------------------------------------------------
 
 
+def plain_runtime_name(name):
+    """The launcher's plain-name rule: NAME_RULE and no consecutive dots.
+
+    Start-CEProbeServer.ps1 refuses ``..`` anywhere in the runtime path (``$root -match '\\.\\.'``), so a name
+    such as ``a..b`` that NAME_RULE alone accepts would be staged and then refused at launch; refuse it here.
+    """
+    return bool(NAME_RULE.fullmatch(name)) and ".." not in name
+
+
 def windows_normalized_name(name):
     """The name Windows resolves: trailing dots and spaces are stripped, case is ignored."""
     return name.rstrip(" .").casefold()
@@ -330,7 +513,7 @@ def windows_runtime_root(path, wsl_parent=None):
     """
     path = Path(path)
     parent = Path(WSL_PARENT if wsl_parent is None else wsl_parent)
-    if path.parent != parent or not NAME_RULE.fullmatch(path.name):
+    if path.parent != parent or not plain_runtime_name(path.name):
         raise ValueError(f"destination must be a new direct child of {parent} with a plain name")
     if RESERVED_DEVICE.match(path.name):
         raise ValueError("reserved Windows device names are refused")
@@ -437,8 +620,8 @@ def check_unchanged(source):
     """Refuse when a verified single-read input was replaced or modified since verification."""
     for path, identity in source["identities"].items():
         try:
-            info = os.lstat(path)
-        except OSError as error:
+            info = dm.lstat_at(path)
+        except (OSError, ValueError) as error:
             raise ValueError(f"source changed during staging: {path.name}") from error
         if not stat.S_ISREG(info.st_mode) or _identity(info) != identity:
             raise ValueError(f"source changed during staging: {path.name}")
@@ -465,6 +648,15 @@ def begin(source_runtime, destination, *, parent, battleye_sha256, hold=()):
             "source": source, "battleye_sha256": battleye_sha256}
 
 
+def _is_empty_directory(path):
+    descriptor = dm.open_dir_at(path)
+    try:
+        with os.scandir(descriptor) as scan:
+            return next(scan, None) is None
+    finally:
+        os.close(descriptor)
+
+
 def _write_verified(path, data):
     new_file(path, data)
     digest, size = _hash_file(path)
@@ -484,11 +676,11 @@ def build_runtime(context, hook, *, purpose, replacements=None):
     manifest = dm.prepare_diagnostic_mission(source["mission"], mission_dest, purpose=purpose, hook=hook,
                                              admitted=source["admitted"], entry_check=_check_mission_entry)
     for name in ("storage", "profiles", "battleye"):
-        (destination / name).mkdir(exist_ok=False)
+        dm.mkdir_at(destination / name)
     _write_verified(destination / "serverDZ.cfg", source["config_bytes"])
     _write_verified(destination / "battleye/BEServer_x64.dll", source["battleye_bytes"])
     for name, data in sorted(replacements.items()):
-        (mission_dest / name).unlink()
+        dm.unlink_at(mission_dest / name)
         _write_verified(mission_dest / name, data)
     check_unchanged(source)
 
@@ -500,20 +692,17 @@ def build_runtime(context, hook, *, purpose, replacements=None):
     for name, data in replacements.items():
         expected[prefix + name] = sha256(data)
     marker = prefix + dm.MARKER_NAME
-    entries = sorted(destination.rglob("*"))
-    if any(p.is_symlink() or not (p.is_file() or p.is_dir()) for p in entries):
-        raise ValueError("staged runtime contains a link or special file")
+    on_disk = dm.walk_plain(destination)       # lstat-walk backstop: refuses any link or special file
     staged = []
-    for path in (p for p in entries if p.is_file()):
-        digest, size = _hash_file(path)
-        name = path.relative_to(destination).as_posix()
+    for name in sorted(on_disk):
+        digest, size = _hash_file(destination / name)
         if name != marker and expected.get(name) != digest:
             raise ValueError(f"unexpected or altered staged file: {name}")
         staged.append({"path": name, "sha256": digest, "bytes": size})
     if {entry["path"] for entry in staged} != set(expected) | {marker}:
         raise ValueError("staged inventory differs from the admitted inventory")
     for name in ("storage", "profiles"):
-        if any((destination / name).iterdir()):
+        if not _is_empty_directory(destination / name):
             raise ValueError(f"{name} must start empty")
     staged_hash = {entry["path"]: entry["sha256"] for entry in staged}
     mission_files = []
@@ -582,7 +771,7 @@ def launcher_problems(plan, destination, plan_name):
                                      f"{root}\\mpmissions\\{MISSION_NAME}"):
         problems.append("server fields differ from the launcher constants")
     leaf = root.rsplit("\\", 1)[-1]
-    if root != WINDOWS_PARENT + "\\" + leaf or not NAME_RULE.fullmatch(leaf) or RESERVED_DEVICE.match(leaf) \
+    if root != WINDOWS_PARENT + "\\" + leaf or not plain_runtime_name(leaf) or RESERVED_DEVICE.match(leaf) \
             or windows_normalized_name(leaf) == VERIFIED_RUNTIME_NAME.casefold():
         problems.append("runtime root is not an allowed launcher name")
     minutes = plan.get("probe", {}).get("wait_minutes")
@@ -597,7 +786,7 @@ def launcher_problems(plan, destination, plan_name):
         listed.add(name)
         if _hash_file(Path(destination) / name)[0] != entry["sha256"]:
             problems.append(f"staged file hash {name}")
-    present = {p.relative_to(destination).as_posix() for p in Path(destination).rglob("*") if p.is_file()}
+    present = set(dm.walk_plain(destination))          # no-follow walk: a link is an error, never a "file"
     if present != listed:
         problems.append("runtime files differ from staged_files")
     return problems
@@ -608,7 +797,5 @@ def write_plan(destination, plan_name, plan):
     problems = launcher_problems(plan, destination, plan_name)
     if problems:
         raise ValueError("plan would be refused by the launcher: " + "; ".join(problems[:3]))
-    with open(Path(destination) / plan_name, "x", encoding="utf-8") as stream:
-        json.dump(plan, stream, indent=2)
-        stream.write("\n")
+    dm.create_exclusive(Path(destination) / plan_name, (json.dumps(plan, indent=2) + "\n").encode("utf-8"))
     return plan

@@ -208,7 +208,7 @@ class HookRenderingTests(unittest.TestCase):
                    "IsSlotIdValid", "GetBoneNameForSlotId", "HasInventorySlot", "GetAttachmentSlotId",
                    "GetAttachmentSlotsCount", "IsServer", "GetTime", "GetWorldName", "GetVersion", "Cast", "Replace", "Substring", "Length",
                    "Insert", "Get", "Count", "Find", "Print", "Vector", "OnInit", "GetGame", "AsciiToString",
-                   "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool"}
+                   "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString"}
         called = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))))
         own = set(re.findall(r"\b(?:void|bool|int|float|string|vector|EntityAI|Object|array<[^>]+>)\s+(\w+)\s*\(", self.hook))
         keywords = {"if", "while", "for", "return", "override", "array", "super"}
@@ -531,17 +531,18 @@ class StagerTests(Workspace):
 
 
 class S(str):
-    """Enforce-like string: + converts numbers, but concatenating a raw bool is refused."""
+    """Enforce-like string. The generated hook must convert numbers explicitly (x.ToString()): concatenating a
+    raw bool, int or float is refused here, mirroring the stricter native compile rule the lint enforces."""
 
     def __add__(self, other):
-        if isinstance(other, bool) or not isinstance(other, (str, int, float)):
-            raise TypeError("unsupported concatenation operand: %r" % (other,))
-        return S(str(self) + (other if isinstance(other, str) else repr(other)))
+        if not isinstance(other, str):
+            raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+        return S(str(self) + other)
 
     def __radd__(self, other):
-        if isinstance(other, bool) or not isinstance(other, (str, int, float)):
-            raise TypeError("unsupported concatenation operand: %r" % (other,))
-        return S((other if isinstance(other, str) else repr(other)) + str(self))
+        if not isinstance(other, str):
+            raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+        return S(other + str(self))
 
     def Length(self):
         return len(self)
@@ -591,6 +592,7 @@ def _code(text):
         text = re.sub(r"\b%s\b" % word, python, text)
     text = re.sub(r"\bnew\s+(?:array<[^>]*>|TStringArray)", "EArray()", text)
     text = re.sub(r"\b(\w+)\.AsciiToString\(\)", r"S(chr(\1))", text)
+    text = re.sub(r"((?<![\w.])\w+(?:\[\d+\])?(?:\(\))?(?:\.\w+\(\))*)\.ToString\(\)", r"NumberText(\1)", text)
     text = re.sub(r"\bsuper\.", "super().", text)
     return re.sub(r"(?<![\w.])((?:m_)?HCTL\w+)", r"self.\1", text)
 
@@ -950,6 +952,13 @@ class _FileMode:
     WRITE = "write"
 
 
+def number_text(value):
+    """int/float .ToString() of the synthetic engine; a bool or non-number has none."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError("ToString on a non-number: %r" % (value,))
+    return S(str(value) if isinstance(value, int) else repr(value))
+
+
 def build_model(hook_text, world):
     def open_file(path, mode):
         return _Handle(str(path))
@@ -958,7 +967,7 @@ def build_model(hook_text, world):
         world.files[handle.path] = "\n".join(handle.lines) + "\n"
 
     namespace = {
-        "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": _Slots,
+        "NumberText": number_text, "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": _Slots,
         "EntityAI": _EntityAI, "Vector": lambda x, y, z: (x, y, z), "FileMode": _FileMode,
         "Print": lambda text: world.printed.append(str(text)), "FPrintln": lambda handle, text: handle.lines.append(str(text)),
         "OpenFile": open_file, "CloseFile": close_file,
@@ -1131,6 +1140,78 @@ class HookBehaviorTests(unittest.TestCase):
         self.assertEqual({"performed": False}, host_row(observations, "Glock19")["prereq_variant"])
         self.assertEqual({"performed": False}, host_row(observations, "PlainBag")["prereq_variant"])
         self.assertEqual([], world.live())
+
+    def test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label(self):
+        world = World()
+        run_hook(world)
+        variant = host_row(observations_of(world), "AK74")["prereq_variant"]
+        self.assertEqual(("AK_RailHndgrd", True, True),
+                         (variant["handguard_found_type"], variant["handguard_slot_occupied"],
+                          variant["handguard_rail_functional"]))
+        types = catalogue()
+        types["AK_RailHndgrd"] = spec(fits=("weaponHandguardAK",), rail=False)
+        world = World(types=types)
+        run_hook(world)
+        variant = host_row(observations_of(world), "AK74")["prereq_variant"]
+        self.assertEqual((True, "AK_RailHndgrd", True, False),
+                         (variant["handguard_attached"], variant["handguard_found_type"],
+                          variant["handguard_slot_occupied"], variant["handguard_rail_functional"]))
+        joined = report.build_report(classification(), observations_of(world))
+        slot = next(h for h in joined["hosts"] if h["class"] == "AK74")["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual("pending", slot["verdict"])
+
+    def test_a_variant_that_could_not_attach_records_an_empty_unoccupied_slot(self):
+        types = catalogue()
+        del types["AK_RailHndgrd"]
+        world = World(types=types)
+        run_hook(world)
+        variant = host_row(observations_of(world), "AK74")["prereq_variant"]
+        self.assertEqual((False, "", False, False),
+                         (variant["handguard_attached"], variant["handguard_found_type"],
+                          variant["handguard_slot_occupied"], variant["handguard_rail_functional"]))
+
+    def test_the_synthetic_engine_refuses_bare_numbers_in_a_concatenation_so_the_hook_must_convert(self):
+        for bare in (5, 1.5, True):
+            with self.assertRaises(TypeError):
+                S("a") + bare
+            with self.assertRaises(TypeError):
+                bare + S("a")
+        self.assertEqual("n=5", S("n=") + number_text(5))
+        self.assertEqual("r=1.5", S("r=") + number_text(1.5))
+
+    def test_every_generated_row_statement_is_within_the_native_formula_bound_with_explicit_numbers(self):
+        hook = probe.render_hook(probe.select_targets(classification())).decode()
+        self.assertEqual([], probe.lint_hook(hook, explicit_numbers=True))
+        self.assertLessEqual(probe.rt.max_statement_plus(hook), 8)
+        self.assertLessEqual(probe.rt.MAX_STATEMENT_PLUS, 9)
+
+    def test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator(self):
+        # sha256 of the observations.json text and of the printed lines, recorded from the generator that built each
+        # row in one long statement (the form the native compiler refused), with the same synthetic engine rules.
+        golden = {
+            "default": (12184, "83dc8bf173bb699aacff98f457e80d6384337ef54862f356df97067c478474de",
+                        "549837d7d62767e41db54b0693cbde69fff039ee2d7468bc751ccab83d7bb9c9", lambda: World()),
+            "stuck_and_background": (12184, "63adba104be7bcd623ac429994165ad6d31895bad2c2782c4fc1aec691b2ac20",
+                                     "95b2e08d2d3e4fb5969c67580597b4215082fa362cc52b0992c02b91bc30ccc7",
+                                     lambda: World(stuck=("PlainBag",), background=3)),
+            "class_timeout": (11124, "25b3f8b793c03418e174fa4e82761db7e30df125e179bea17ca14ac103ba5e35",
+                              "6aa70f5238cc7483e6b7ae4b7ba6ce7ff312e2c6a666a5eeb714543e95d2f9fd",
+                              lambda: World(spawn_ms=600)),
+            "watchdog_partial": (3613, "520ef5127f687809ebce65faf6655648dfe86e06d211602693ecaa99dd441c0e",
+                                 "5b28a8816f58c111cbf5892c5351008c8bc8f6cb56edbee86549df74019b77e2",
+                                 lambda: World(spawn_ms=15000)),
+        }
+        # The variant later gained three read-back fields (handguard_found_type, handguard_slot_occupied,
+        # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
+        added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
+                           r'"handguard_rail_functional":(?:true|false),')
+        for name, (size, output_sha, printed_sha, make) in golden.items():
+            with self.subTest(scenario=name):
+                world = make()
+                run_hook(world)
+                text = added.sub("", world.files[OUTPUT_PATH])
+                self.assertEqual((size, output_sha), (len(text), hashlib.sha256(text.encode()).hexdigest()))
+                self.assertEqual(printed_sha, hashlib.sha256("\n".join(world.printed).encode()).hexdigest())
 
     def test_a_host_that_already_holds_a_rail_handguard_needs_no_variant_and_a_plastic_one_does(self):
         types = catalogue()

@@ -54,7 +54,13 @@ UNOBSERVED_AXES = ("beam", "switch", "two_client_presentation", "removal_by_hand
 # Native prerequisite: UniversalLight.c:25-45 (rule) and :123-132 (slot list). The probe creates the
 # matching rail handguard per slot (taped_light_probe.PREREQUISITE_HANDGUARDS); a test keeps both in step.
 PREREQUISITE_LIGHTS = ("UniversalLight",)
-PREREQUISITE_SLOTS = ("weaponHandguardAK", "weaponHandguardM4", "weaponHandguardMP5")
+# Handguard the probe's variant creates per slot; a variant only counts when exactly this type was read back
+# from that slot (a wrong label such as AK_PlasticHndgrd must not keep the rail qualification).
+PREREQUISITE_HANDGUARDS = {"weaponHandguardAK": "AK_RailHndgrd", "weaponHandguardM4": "M4_RISHndgrd",
+                           "weaponHandguardMP5": "MP5_RailHndgrd"}
+PREREQUISITE_SLOTS = tuple(sorted(PREREQUISITE_HANDGUARDS))
+# The hook scans at most this many near objects (taped_light_probe.CENSUS_SCAN_LIMIT; a test keeps both in step).
+CENSUS_SCAN_LIMIT = 2048
 # Observation keys this module reads; a test proves the generated hook emits each of them.
 CONSUMED_KEYS = (
     "schema", "kind", "status", "counters", "spawned", "deleted", "live_after_release", "residual_probe_types",
@@ -62,7 +68,8 @@ CONSUMED_KEYS = (
     "hosts", "lights", "class", "root", "group", "timed_out", "slots", "slot", "host_has_slot", "valid",
     "selection_on_model", "memory_point", "bone_index", "per_slot", "light", "light_fits", "can_add",
     "attach_ok", "found_type", "fits_native_slots", "fits", "type", "prereq", "attached_type",
-    "rail_functional", "prereq_variant", "performed", "handguard_attached")
+    "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
+    "handguard_slot_occupied", "handguard_rail_functional")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -159,10 +166,15 @@ def _variant(row, prerequisites):
     if not performed:
         return None
     slot, attached = _get(value, "slot", "str"), _get(value, "handguard_attached", "bool")
-    if slot is MISSING or attached is MISSING or _get(value, "handguard", "str") is MISSING \
-            or _get(value, "lights", "list") is MISSING or prerequisites is MISSING \
-            or not prerequisites.get(slot, (False, False))[0]:
+    label, found = _get(value, "handguard", "str"), _get(value, "handguard_found_type", "str")
+    occupied, rail = _get(value, "handguard_slot_occupied", "bool"), _get(value, "handguard_rail_functional", "bool")
+    if MISSING in (slot, attached, label, found, occupied, rail) or _get(value, "lights", "list") is MISSING \
+            or prerequisites is MISSING or not prerequisites.get(slot, (False, False))[0]:
         return MISSING
+    if occupied != attached:
+        return MISSING
+    if attached and not (found == label == PREREQUISITE_HANDGUARDS.get(slot) and rail):
+        return MISSING        # the slot must hold the rail handguard bound to this very slot, with the rail property
     index, problems = _keyed(value["lights"], "light")
     if problems and attached:
         return MISSING
@@ -193,6 +205,8 @@ def _light_slot(entry):
     found = _get(entry, "found_type", "str")
     if MISSING in values.values() or found is MISSING:
         return None
+    if values["attach_ok"] and not values["can_add"]:
+        return None        # a create cannot succeed when the native check refused it: contradictory evidence
     return dict(values, found_type=found)
 
 
@@ -225,7 +239,23 @@ def _accepted(light, model_evidence, attempt):
     return "geometry_missing", "attached_without_model_selection"
 
 
-def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names):
+def _variant_attempt(entry, slot, slot_names, preflight):
+    """(attempt, problem) for the variant's observation of one light: the same checks as a base attempt."""
+    if entry in (MISSING, None):
+        return None, "prerequisite_variant_incomplete"
+    per_slot, problem = _per_slot(entry, slot_names)
+    if problem:
+        return None, problem
+    for name in slot_names:
+        attempt = _light_slot(per_slot[name])
+        if attempt is None:
+            return None, "slot_evidence_invalid"
+        if attempt["light_fits"] != preflight["fits"][name]:
+            return None, "preflight_variant_disagree"
+    return _light_slot(per_slot[slot]), None
+
+
+def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names, preflight):
     """Return (verdict, reason, requires_prerequisite) for one compatible host/light/slot observation."""
     model = host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0
     if attempt["can_add"]:
@@ -243,9 +273,7 @@ def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot
         return "pending", "prerequisite_variant_invalid", False
     if not variant["attached"]:
         return "pending", "prerequisite_variant_failed", False
-    entry = variant["lights"].get(light, MISSING)
-    per_slot, problem = _per_slot(entry, slot_names) if entry not in (MISSING, None) else (None, "prerequisite_variant_incomplete")
-    attempt = _light_slot(per_slot[slot]) if per_slot else None
+    attempt, problem = _variant_attempt(variant["lights"].get(light, MISSING), slot, slot_names, preflight)
     if attempt is None:
         return "pending", problem or "prerequisite_variant_incomplete", False
     if not attempt["can_add"]:
@@ -293,7 +321,8 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
         elif not (host_slot["host_has_slot"] and attempt["light_fits"]):
             continue
         else:
-            verdict, reason, requires = _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names)
+            verdict, reason, requires = _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names,
+                                                       preflight)
             evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
                             attach_ok=attempt["attach_ok"], requires_prerequisite=requires)
             evidence["bone_index"] = max(host_slot["bone_index"], -1)
@@ -303,6 +332,49 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
     if not verdicts:
         return {"verdict": "geometry_missing", "reasons": ["no_compatible_native_slot"], "slots": slots}
     return {"verdict": _combine(verdicts), "reasons": sorted(reasons), "slots": slots}
+
+
+# Host reasons that name one light's own evidence; the affected light is already pending on its own, and a
+# missing or duplicated sibling alone does not invalidate an independently valid pair.
+SIBLING_SCOPED_REASONS = frozenset({"duplicate_light_observation", "light_observation_missing"})
+
+
+def _control_issues(light_entries, slot_names, control, preflight):
+    """Host-level reasons for one control light; empty when it has a spawned typed preflight and full evidence."""
+    if preflight is MISSING:
+        return {"control_preflight_missing"}
+    if preflight is None:
+        return {"control_preflight_invalid"}          # duplicate, wrong type or fit contradicting the classification
+    if not preflight["spawned"]:
+        return {"control_light_not_spawned"}
+    entry = light_entries.get(control, MISSING)
+    if entry is MISSING:
+        return {"control_light_not_observed"}
+    if entry is None:
+        return {"control_light_duplicate"}
+    index, problem = _per_slot(entry, slot_names)
+    if problem == "light_not_spawned":
+        return {"control_light_not_spawned"}
+    if problem:
+        return {"control_light_evidence_invalid"}
+    for slot in slot_names:
+        attempt = _light_slot(index[slot])
+        if attempt is None:
+            return {"control_light_evidence_invalid"}
+        if attempt["light_fits"] != preflight["fits"][slot]:
+            return {"control_preflight_host_disagree"}
+    return set()
+
+
+def _invalidate(lights, reasons, slot_reason, verdicts):
+    """Demote nested light and slot verdicts in ``verdicts`` to pending; pending is never promoted."""
+    for record in lights.values():
+        for slot in record["slots"].values():
+            if slot["verdict"] in verdicts:
+                slot["verdict"], slot["reason"] = "pending", slot_reason
+        if record["verdict"] in verdicts:
+            record["verdict"] = "pending"
+            record["reasons"] = sorted(set(record["reasons"]) | set(reasons) | {slot_reason})
 
 
 def _evaluate_host(entry, rows, context):
@@ -342,13 +414,10 @@ def _evaluate_host(entry, rows, context):
         base["lights"][light] = _evaluate_light(light, light_entries.get(light, MISSING), slot_names, host_slots,
                                                 context["preflights"].get(light, MISSING), prerequisites, variant)
     for control in context["controls"]:       # control evidence must be complete even though it is not a verdict
-        entry_c = light_entries.get(control, MISSING)
-        if entry_c is MISSING or entry_c is None:
-            reasons.add("control_light_not_observed")
-        else:
-            index, problem = _per_slot(entry_c, slot_names)
-            if problem != "light_not_spawned" and (problem or any(_light_slot(item) is None for item in index.values())):
-                reasons.add("control_light_evidence_invalid")
+        reasons |= _control_issues(light_entries, slot_names, control, context["preflights"].get(control, MISSING))
+    invalidating = reasons - SIBLING_SCOPED_REASONS
+    if invalidating:       # the host's evidence cannot be trusted, so neither can any pair derived from it
+        _invalidate(base["lights"], invalidating, "host_evidence_invalid", ("qualified", "geometry_missing"))
     if reasons:
         return dict(base, verdict="pending", reasons=sorted(reasons))
     records = list(base["lights"].values())
@@ -380,6 +449,9 @@ def _integrity(observations, unexpected, control_hits, slot_names, row_count):
             issues.append("counters_invalid")
             clean = False
         else:
+            if min(values.values()) < 0:
+                issues.append("counters_out_of_range")
+                clean = False
             if values["spawned"] != values["deleted"]:
                 issues.append("spawned_not_equal_deleted")
                 clean = False
@@ -393,6 +465,9 @@ def _integrity(observations, unexpected, control_hits, slot_names, row_count):
         truncated, complete = _get(counters, "census_truncated", "bool"), _get(counters, "census_complete", "bool")
         if MISSING in (total, scanned, truncated, complete):
             issues.append("census_missing")
+            clean = False
+        elif not 0 <= scanned <= total or scanned > CENSUS_SCAN_LIMIT:
+            issues.append("census_out_of_range")
             clean = False
         elif truncated or not complete:
             issues.append("census_incomplete")
@@ -424,8 +499,10 @@ def _control_hits(rows, controls):
 
 
 def _demote(record, control_hits):
-    """A host verdict is only as good as the probe that produced it."""
-    if record["verdict"] == "qualified" or (control_hits and record["verdict"] == "geometry_missing"):
+    """A host verdict, and every light, slot and pair verdict under it, is only as good as the probe."""
+    verdicts = ("qualified", "geometry_missing") if control_hits else ("qualified",)
+    _invalidate(record["lights"], ("probe_integrity_failed",), "probe_integrity_failed", verdicts)
+    if record["verdict"] in verdicts:
         return dict(record, verdict="pending", reasons=sorted(set(record["reasons"]) | {"probe_integrity_failed"}))
     return record
 

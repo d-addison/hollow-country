@@ -57,9 +57,12 @@ def prereq_obs(has=None, rail=False, attached=""):
              "rail_functional": bool(rail and s == has)} for s in PREREQ_SLOTS]
 
 
-def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True):
+def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True, found=None, occupied=None, rail=None):
+    """Prerequisite variant observation. ``found``/``occupied``/``rail`` are what the hook read back from the slot."""
     return {"performed": True, "slot": slot, "handguard": guard, "handguard_attached": guard_attached,
-            "lights": lights}
+            "handguard_found_type": (guard if guard_attached else "") if found is None else found,
+            "handguard_slot_occupied": guard_attached if occupied is None else occupied,
+            "handguard_rail_functional": guard_attached if rail is None else rail, "lights": lights}
 
 
 def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
@@ -590,7 +593,7 @@ class IntegrityGateTests(unittest.TestCase):
                 "partial": lambda c, o: o.update(status="partial"),
                 "dirty": lambda c, o: o["counters"].update(deleted=9, residual_probe_types=1),
                 "live after release": lambda c, o: o["counters"].update(live_after_release=1),
-                "control": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True)}.items():
+                "control": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True)}.items():
             with self.subTest(label):
                 result, record = host_result(alter)
                 self.assertEqual("pending", record["verdict"], label)
@@ -608,6 +611,219 @@ class IntegrityGateTests(unittest.TestCase):
         self.assertTrue(result["integrity"]["cleanup_clean"])
         self.assertEqual([], result["integrity"]["issues"])
         self.assertEqual("qualified", record["verdict"])
+
+
+def pair_counts(result):
+    return result["denominators"]["host_light_pairs"]
+
+
+def nested_verdicts(record):
+    """Every light and slot verdict of one host record."""
+    found = [light["verdict"] for light in record["lights"].values()]
+    found += [slot["verdict"] for light in record["lights"].values() for slot in light["slots"].values()]
+    return found
+
+
+class InvalidationPropagationTests(unittest.TestCase):
+    """Sol re-review P1: probe-level and host-level invalidation reaches every nested verdict and the pair counts."""
+
+    CASES = {
+        "partial status": lambda c, o: o.update(status="partial"),
+        "dirty cleanup": lambda c, o: o["counters"].update(deleted=9, residual_probe_types=1),
+        "live after release": lambda c, o: o["counters"].update(live_after_release=1),
+        "control attached": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True),
+        "wrong host type": lambda c, o: o["hosts"][0].update(type="OtherHost"),
+        "config slot mismatch": lambda c, o: c["hosts"][0].update(native_light_slots=["pistolFlashlight"]),
+        "class timed out": lambda c, o: o["hosts"][0].update(timed_out=True),
+        "census truncated": lambda c, o: o["counters"].update(census_truncated=True, census_complete=False),
+    }
+
+    def test_no_nested_verdict_or_pair_count_stays_qualified(self):
+        for label, alter in self.CASES.items():
+            with self.subTest(label):
+                result, record = host_result(alter)
+                self.assertEqual("pending", record["verdict"], label)
+                self.assertNotIn("qualified", nested_verdicts(record), label)
+                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+
+    def test_a_control_hit_also_takes_geometry_missing_out_of_the_nested_verdicts_and_pair_counts(self):
+        cls = classification([host("AK74", "slot_host")])
+        obs = observations([row("AK74", "slot_host", gun_slots(), good_gun_lights())])
+        obs["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True)
+        result = report.build_report(cls, obs)
+        self.assertNotIn("geometry_missing", nested_verdicts(result["hosts"][0]))
+        self.assertEqual(0, pair_counts(result).get("geometry_missing", 0))
+
+    def test_a_missing_sibling_light_alone_does_not_invalidate_an_independently_valid_pair(self):
+        result, record = host_result(lambda c, o: o["hosts"][0]["lights"].pop(1))
+        self.assertEqual("pending", record["verdict"])
+        self.assertEqual("qualified", record["lights"]["UniversalLight"]["verdict"])
+        self.assertEqual("pending", record["lights"]["TLRLight"]["verdict"])
+        self.assertEqual({"pending": 1, "qualified": 1}, pair_counts(result))
+
+    def test_a_duplicated_sibling_light_row_alone_does_not_invalidate_the_independently_valid_pair(self):
+        result, record = host_result(lambda c, o: o["hosts"][0]["lights"].append(dict(o["hosts"][0]["lights"][1])))
+        self.assertEqual("pending", record["verdict"])
+        self.assertIn("duplicate_light_observation", record["reasons"])
+        self.assertEqual("pending", record["lights"]["TLRLight"]["verdict"])
+        self.assertEqual("qualified", record["lights"]["UniversalLight"]["verdict"])
+
+    def test_an_invalid_host_does_not_taint_a_different_valid_host(self):
+        cls = classification([host("AK74", "slot_host"), host("M4A1", "slot_host")])
+        bad = row("AK74", "slot_host", gun_slots(), good_gun_lights())
+        bad["type"] = "OtherHost"
+        good = row("M4A1", "slot_host", gun_slots(), good_gun_lights(), index=1)
+        result = report.build_report(cls, observations([bad, good]))
+        self.assertEqual({"AK74": "pending", "M4A1": "qualified"}, verdicts(result))
+        self.assertEqual({"pending": 2, "qualified": 1, "geometry_missing": 1}, pair_counts(result))
+
+
+class ControlEvidenceTests(unittest.TestCase):
+    """Sol re-review P2: the control needs exactly one spawned typed preflight and full, consistent per-slot evidence."""
+
+    CASES = {
+        "missing control preflight": lambda c, o: o["lights"].pop(0),
+        "duplicate control preflight": lambda c, o: o["lights"].append(dict(o["lights"][0])),
+        "wrong-type control preflight": lambda c, o: o["lights"][0].update(type="OtherLight"),
+        "control preflight not spawned": lambda c, o: o["lights"][0].update(spawned=False),
+        "control preflight fit contradicts the classification": lambda c, o: o["lights"][0]["fits_native_slots"][1].update(
+            fits=True),
+        "control spawn failed on the host": lambda c, o: o["hosts"][0]["lights"][0].update(spawned=False),
+        "control light_fits contradicts the preflight": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][1].update(
+            light_fits=True),
+        "control per-slot entry missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"].pop(),
+        "control can_add missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][0].pop("can_add"),
+        "control found_type missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][0].pop("found_type"),
+        "control row duplicated": lambda c, o: o["hosts"][0]["lights"].append(dict(o["hosts"][0]["lights"][0])),
+    }
+
+    def test_every_control_defect_makes_the_host_and_its_pairs_pending(self):
+        for label, alter in self.CASES.items():
+            with self.subTest(label):
+                result, record = host_result(alter)
+                self.assertEqual("pending", record["verdict"], label)
+                self.assertTrue(any(reason.startswith("control") for reason in record["reasons"]), (label, record["reasons"]))
+                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+
+    def test_a_complete_spawned_consistent_control_keeps_the_host_qualified(self):
+        _result, record = host_result(lambda c, o: None)
+        self.assertEqual("qualified", record["verdict"])
+
+
+def variant_report(variant, light_alter=None):
+    """AK74 whose plain UniversalLight attach is refused (rail prerequisite unmet) with ``variant`` as evidence."""
+    lights = good_gun_lights()
+    lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+    result = report.build_report(classification([host("AK74", "slot_host")]), observations([row(
+        "AK74", "slot_host", gun_slots(), lights, prereq=prereq_obs(has="weaponHandguardAK"), prereq_variant=variant)]))
+    return result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], result["hosts"][0], result
+
+
+class VariantEvidenceTests(unittest.TestCase):
+    """Sol re-review P2: variant attempts pass the same checks as base attempts and the handguard is proven."""
+
+    def variant(self, **kwargs):
+        lights = good_gun_lights()
+        return variant_obs("weaponHandguardAK", [lights[2]], **kwargs)
+
+    def test_the_handguard_map_matches_the_probe(self):
+        self.assertEqual(dict(probe.PREREQUISITE_HANDGUARDS), dict(report.PREREQUISITE_HANDGUARDS))
+
+    def test_a_correct_variant_still_qualifies(self):
+        slot, record, _result = variant_report(self.variant())
+        self.assertEqual(("qualified", "native_attach_with_rail_handguard_prerequisite"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("qualified", record["verdict"])
+
+    def test_a_variant_light_fit_that_disagrees_with_the_preflight_is_pending(self):
+        variant = self.variant()
+        variant["lights"][0]["per_slot"][2]["light_fits"] = False
+        slot, record, _result = variant_report(variant)
+        self.assertEqual("pending", slot["verdict"])
+        self.assertEqual("pending", record["verdict"])
+
+    def test_a_variant_fit_disagreement_on_another_slot_is_pending_too(self):
+        variant = self.variant()
+        variant["lights"][0]["per_slot"][0]["light_fits"] = False
+        slot, _record, _result = variant_report(variant)
+        self.assertEqual("pending", slot["verdict"])
+
+    def test_a_contradictory_variant_attempt_is_pending(self):
+        variant = self.variant()
+        variant["lights"][0]["per_slot"][2].update(can_add=False, attach_ok=True)
+        slot, _record, _result = variant_report(variant)
+        self.assertEqual("pending", slot["verdict"])
+
+    def test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification(self):
+        cases = {
+            "plastic label and type": self.variant(guard="AK_PlasticHndgrd"),
+            "label says rail but the slot holds plastic": self.variant(found="AK_PlasticHndgrd", rail=False),
+            "label says rail, found type is plastic, rail flag still true": self.variant(found="AK_PlasticHndgrd"),
+            "found type belongs to another slot": self.variant(found="M4_RISHndgrd"),
+            "slot not occupied": self.variant(occupied=False),
+            "found rail handguard but rail property false": self.variant(rail=False),
+            "found type empty": self.variant(found=""),
+        }
+        for label, variant in cases.items():
+            with self.subTest(label):
+                slot, record, _result = variant_report(variant)
+                self.assertEqual("pending", slot["verdict"], label)
+                self.assertEqual("pending", record["verdict"], label)
+
+    def test_variant_evidence_keys_must_be_present_and_typed(self):
+        for key in ("handguard_found_type", "handguard_slot_occupied", "handguard_rail_functional"):
+            for label, alter in (("missing", lambda v, k=key: v.pop(k)), ("mistyped", lambda v, k=key: v.update({k: 1}))):
+                with self.subTest(key=key, how=label):
+                    variant = self.variant()
+                    alter(variant)
+                    slot, _record, _result = variant_report(variant)
+                    self.assertEqual("pending", slot["verdict"])
+
+
+class RangeAndRelationTests(unittest.TestCase):
+    """Sol re-review P2: contradictions and impossible counter values are pending, never a verdict."""
+
+    def pending_without_qualified_pairs(self, label, alter):
+        result, record = host_result(alter)
+        self.assertEqual("pending", record["verdict"], label)
+        self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+        return result
+
+    def test_can_add_false_with_attach_ok_true_is_pending(self):
+        self.pending_without_qualified_pairs(
+            "contradiction", lambda c, o: o["hosts"][0]["lights"][2]["per_slot"][2].update(can_add=False))
+
+    def test_the_contradiction_is_not_read_as_a_native_refusal(self):
+        _result, record = host_result(lambda c, o: o["hosts"][0]["lights"][2]["per_slot"][2].update(can_add=False))
+        slot = record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual("pending", slot["verdict"])
+        self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+
+    def test_negative_or_out_of_range_counters_are_pending(self):
+        cases = {
+            "negative spawned and deleted": {"spawned": -1, "deleted": -1},
+            "negative deleted with matching spawned": {"spawned": -3, "deleted": -3},
+            "negative live_after_release": {"live_after_release": -1},
+            "negative residual_probe_types": {"residual_probe_types": -1},
+            "negative census total and scanned": {"census_total": -2, "census_scanned": -2},
+            "negative scanned": {"census_scanned": -1},
+            "scanned above total": {"census_total": 2, "census_scanned": 3},
+            "scanned above the scan cap": {"census_total": probe.CENSUS_SCAN_LIMIT + 5,
+                                            "census_scanned": probe.CENSUS_SCAN_LIMIT + 5},
+            "zero total with scanned": {"census_total": 0, "census_scanned": 1},
+        }
+        for label, counters in cases.items():
+            with self.subTest(label):
+                result = self.pending_without_qualified_pairs(label, lambda c, o, k=counters: o["counters"].update(k))
+                self.assertFalse(result["integrity"]["cleanup_clean"], label)
+
+    def test_the_scan_cap_matches_the_probe(self):
+        self.assertEqual(probe.CENSUS_SCAN_LIMIT, report.CENSUS_SCAN_LIMIT)
+
+    def test_a_full_scan_at_the_cap_is_still_accepted(self):
+        result, record = host_result(lambda c, o: o["counters"].update(
+            census_total=probe.CENSUS_SCAN_LIMIT, census_scanned=probe.CENSUS_SCAN_LIMIT))
+        self.assertEqual("qualified", record["verdict"])
+        self.assertTrue(result["integrity"]["cleanup_clean"])
 
 
 class ProbeContractTests(unittest.TestCase):
