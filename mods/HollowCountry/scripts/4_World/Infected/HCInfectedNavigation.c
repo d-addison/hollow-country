@@ -25,6 +25,9 @@ class HCNativeInfectedPack
     protected int m_NextReleaseUtc;
     protected ref array<ref BehaviourGroupInfectedPackWaypointParams> m_RoutePlan;
     protected float m_BestRouteDistanceSq = -1;
+    // Surveyed rooms awaiting their one-per-tick segment test (ExtendRoute).
+    protected ref TVectorArray m_PendingRooms;
+    protected vector m_PendingFrom;
     vector RouteEnd;
     int RoutePurpose;
     int RouteResult;
@@ -144,25 +147,14 @@ class HCNativeInfectedPack
             return false;
         ref array<ref BehaviourGroupInfectedPackWaypointParams> route = new array<ref BehaviourGroupInfectedPackWaypointParams>;
         route.Insert(new BehaviourGroupInfectedPackWaypointParams(end, 1.5));
+        TVectorArray rooms;
         if (search && actors[0].SearchAnchorLimit > 1)
         {
             // Only explicitly surveyed rooms may extend the frozen clue route.
-            // No fabricated offsets. Every segment is tested before membership
-            // changes; failed anchors consume the finite catalog budget.
-            TVectorArray rooms;
+            // No fabricated offsets. Start spends one path; each queued room
+            // segment is tested later by ExtendRoute, one FindPath per module
+            // tick. Failed anchors still consume the finite catalog budget.
             HCInfectedRoomCatalog.BuildOrder(destination, Math.Min(2, actors[0].SearchAnchorLimit - 1), rooms);
-            vector previousPoint = end;
-            foreach (vector desiredRoom : rooms)
-            {
-                vector sampledRoom;
-                if (vector.DistanceSq(previousPoint, desiredRoom) < 1)
-                    continue;
-                if (Reachable(previousPoint, desiredRoom, 8, sampledRoom))
-                {
-                    route.Insert(new BehaviourGroupInfectedPackWaypointParams(sampledRoom, 1));
-                    previousPoint = sampledRoom;
-                }
-            }
         }
         // Validate every agent before changing any native membership.
         foreach (HCInfectedActor candidate : actors)
@@ -188,10 +180,11 @@ class HCNativeInfectedPack
             return false;
         }
         m_RoutePlan = route;
+        m_PendingRooms = rooms;
+        m_PendingFrom = end;
         RoutePlanned = route.Count();
         RouteCompleted = 0;
         RoutePurpose = 1;
-        if (search && route.Count() > 1) RoutePurpose = 2;
         RouteResult = 1;
         RouteEnd = route[route.Count() - 1].m_CenterPosition;
         if (!ActivateWaypoint(now))
@@ -221,6 +214,34 @@ class HCNativeInfectedPack
         m_LastPosition = leader.GetPosition();
         RouteEnd = route[route.Count() - 1].m_CenterPosition;
         return true;
+    }
+
+    // Tests at most one queued surveyed room per call (one FindPath), in the
+    // catalog order. A failed segment is dropped and the next room is tried
+    // from the last reachable point, exactly as the former inline loop did.
+    // Returns true only when a path test was spent.
+    bool ExtendRoute()
+    {
+        if (m_Releasing || !Group || !m_RoutePlan || !m_PendingRooms)
+            return false;
+        while (m_PendingRooms.Count() > 0)
+        {
+            vector desiredRoom = m_PendingRooms[0];
+            m_PendingRooms.RemoveOrdered(0);
+            if (vector.DistanceSq(m_PendingFrom, desiredRoom) < 1)
+                continue;
+            vector sampledRoom;
+            if (Reachable(m_PendingFrom, desiredRoom, 8, sampledRoom))
+            {
+                m_RoutePlan.Insert(new BehaviourGroupInfectedPackWaypointParams(sampledRoom, 1));
+                RoutePlanned = m_RoutePlan.Count();
+                RoutePurpose = 2;
+                RouteEnd = sampledRoom;
+                m_PendingFrom = sampledRoom;
+            }
+            return true;
+        }
+        return false;
     }
 
     bool OwnsMember(ZombieBase infected)
@@ -344,6 +365,13 @@ class HCNativeInfectedPack
             m_LastProgress = now;
         }
         RouteResult = HCInfectedPolicy.RouteObservationResult(now, m_Expires, now - m_LastProgress, ownedMembers, arrivedMembers, ambiguous, interrupted);
+        if (RouteResult == 2 && RouteCompleted + 1 >= RoutePlanned && m_PendingRooms && m_PendingRooms.Count() > 0)
+        {
+            // Hold the reached point until a queued room gets its path test
+            // on a later tick; expiry/interruption still end the route.
+            RouteResult = 1;
+            return true;
+        }
         if (RouteResult == 2)
         {
             RouteCompleted++;

@@ -23,6 +23,7 @@ class EArray(list):
     def Remove(self, index): self.pop(index)
     def RemoveOrdered(self, index): self.pop(index)
     def Clear(self): self.clear()
+    def Swap(self, other): self[:], other[:] = list(other), list(self)
 
 
 def body(source, start):

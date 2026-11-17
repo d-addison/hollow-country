@@ -227,21 +227,25 @@ class V1GroupsLOSBehavior(unittest.TestCase):
 
 class V1GroupsDiscoveryScheduleBehavior(unittest.TestCase):
     def test_one_bounded_discovery_pass_observes_six_players_with_one_commit(self):
+        # Discovery only queues; the batch flush is the single Clone/Commit.
         source=(ROOT/'mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c').read_text()
         source=source.replace('Clone(candidate)','((candidate := self.Clone()) != null)')
         for method in ('Stop','Commit','Broadcast'):
             import re
             source=re.sub(r'(?<![\w.])'+method+r'\(', 'self.'+method+'(',source)
         env=translated_rules();env['GetGame']=lambda:NS(GetTickTime=lambda:100.);cfg=env['HCGroupSettings']()
+        env['HCGroupPendingVisit']=lambda:NS(ExplorerId='',Place=None,Actual=[0.,0.,0.])
         place=env['HCGroupPlace']();place.Id='synthetic';place.Name='Synthetic place';place.Position=[100,0,200]
         peers=EArray(NS(Id=str(i),Player=NS(IsAlive=lambda:True,IsUnconscious=lambda:False,GetPosition=lambda:[100,0,200])) for i in range(6))
         writes=[];broadcasts=[]
-        state=NS(m_Config=cfg,m_State=env['HCGroupState'](),m_Places=NS(Places=EArray([place])),m_Peers=peers,m_DiscoveryCursor=0,m_DiscoveryBlockedUntil=0.,m_LastUtc=1000,
+        state=NS(m_Config=cfg,m_State=env['HCGroupState'](),m_Places=NS(Places=EArray([place])),m_Peers=peers,m_DiscoveryCursor=0,m_DiscoveryBlockedUntil=0.,m_LastUtc=1000,m_PendingVisits=EArray(),m_BatchTime=0.,
                  Peer=lambda uid:next((p for p in peers if p.Id==uid),None),Live=lambda p:True,Commit=lambda s:writes.append(s) or 0,Broadcast=lambda:broadcasts.append(1),Stop=lambda:self.fail('unexpected stop'))
         state.Clone=lambda:copy.deepcopy(state.m_State)
         state.EvictExplorers=lambda *args:False  # No offline journals in this six-live-peer fixture.
         execute_member(source,'Discover',env,state)
-        self.assertEqual(1,len(writes));self.assertEqual(6,len(writes[0].Explorers));self.assertEqual([1],broadcasts)
+        self.assertEqual([],writes);self.assertEqual(6,len(state.m_PendingVisits))
+        self.assertEqual(0,execute_member(source,'FlushBatch',env,state))
+        self.assertEqual(1,len(writes));self.assertEqual(6,len(writes[0].Explorers));self.assertEqual([],broadcasts)
 
 
 class V1GroupsReviewRound3Behavior(unittest.TestCase):

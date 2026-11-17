@@ -121,16 +121,19 @@ class ServiceRound2(unittest.TestCase):
         self.s=N(m_Config=self.cfg,m_State=self.e['HCGroupState'](),m_Places=N(Places=EArray([self.place])),m_Peers=self.peers,
             m_Healthy=True,m_LastUtc=1000,m_LOSRays=0,m_DiscoveryTime=0.,m_DiscoveryCursor=0,m_PositionTime=0.,
             m_PeerCursor=0,m_RoundCursor=0,m_FullSent=False,m_DiscoveryBlockedUntil=0.,m_LOSCache=EArray(),m_EquipmentTime=-1.,
+            m_PendingVisits=EArray(),m_BatchTime=0.,
             Live=lambda p:p is not None,Stop=lambda:self.fail('unexpected Stop'),
             Commit=lambda c:self.writes.append(c) or 0,Broadcast=lambda:self.broadcasts.append(1),
             SendSnapshot=lambda p,k,r:self.calls.append((p.Id,k)),Peer=lambda uid:next((p for p in self.peers if p.Id==uid),None))
         self.s.Clone=lambda:self.clones.append(1) or copy.deepcopy(self.s.m_State)
-        self.e.update(GetGame=lambda:N(GetTickTime=lambda:self.now),HCGroupClock=N(Utc=lambda:1000),Print=lambda s:None,HCGroupLOSResult=lambda:N())
-        for m in ('Equipment','LOSAllows','BeginVisibilityTick','SendRound','Discover','EvictExplorers'):
+        self.e.update(GetGame=lambda:N(GetTickTime=lambda:self.now),HCGroupClock=N(Utc=lambda:1000),Print=lambda s:None,HCGroupLOSResult=lambda:N(),
+            HCGroupPendingVisit=lambda:N(ExplorerId='',Place=None,Actual=[0.,0.,0.]))
+        for m in ('Equipment','LOSAllows','BeginVisibilityTick','SendRound','Discover','EvictExplorers','FlushBatch'):
             setattr(self.s,m,lambda *args,m=m:run('HCGroupService',m,self.s,self.e,*args))
     def peer(self,uid):
         return N(Id=uid,Session='s',Gear=None,Equipment=None,Player=N(IsAlive=lambda:True,IsUnconscious=lambda:False,GetPosition=lambda:[100,0,100]))
     def discover(self):run('HCGroupService','Discover',self.s,self.e)
+    def discover_and_flush(self):self.discover();return run('HCGroupService','FlushBatch',self.s,self.e)
     def test_far_discovery_does_no_clone_or_record(self):
         for p in self.peers:p.Player.GetPosition=lambda:[10000,0,10000]
         self.e['RecordVisit']=lambda *a:self.fail('distance rejection must precede RecordVisit')
@@ -140,14 +143,14 @@ class ServiceRound2(unittest.TestCase):
         self.discover();self.assertEqual([],self.clones)
     def test_limit_discovery_backs_off_sixty_seconds(self):
         self.s.Commit=lambda c:self.writes.append(c) or self.e['HCGroupCode'].LIMIT
-        self.discover();self.discover();self.assertEqual(1,len(self.writes))
-        self.now+=60;self.discover();self.assertEqual(2,len(self.writes))
+        self.discover_and_flush();self.discover_and_flush();self.assertEqual(1,len(self.writes))
+        self.now+=60;self.discover_and_flush();self.assertEqual(2,len(self.writes))
     def test_M43_discovery_skips_dead_and_unconscious(self):
         for p in self.peers:p.Player.IsAlive=lambda:False
         self.peers[0].Player.IsAlive=lambda:True;self.peers[0].Player.IsUnconscious=lambda:True
-        self.discover();self.assertEqual([],self.writes)
+        self.discover_and_flush();self.assertEqual([],self.writes)
     def test_M44_discovery_examined_bound(self):
-        self.peers.extend(self.peer(str(i)) for i in range(8,20));self.discover()
+        self.peers.extend(self.peer(str(i)) for i in range(8,20));self.discover_and_flush()
         self.assertEqual(6,len(self.writes[0].Explorers))
     def visibility(self,left=None,right=None):
         return run('HCGroupService','VisibilityAllows',self.s,self.e,left or self.peers[0],right or self.peers[1])
@@ -171,7 +174,7 @@ class ServiceRound2(unittest.TestCase):
             self.assertEqual(0,self.s.m_LOSRays)
         self.assertEqual(set(p.Id for p in self.peers),set(self.calls[i*8][0] for i in range(8)))
     def test_full_round_prevents_duplicate_positions(self):
-        self.cfg.DiscoveryIntervalSeconds=5;self.s.m_DiscoveryTime=5
+        self.cfg.DiscoveryIntervalSeconds=5;self.s.m_DiscoveryTime=5;self.s.m_BatchTime=58.
         def broadcast():self.s.m_FullSent=True
         self.s.Broadcast=broadcast
         run('HCGroupService','Tick',self.s,self.e,2.)
@@ -273,6 +276,7 @@ class AdditionalRound2(unittest.TestCase):
     native=ServiceRound2.native
     peer=ServiceRound2.peer
     discover=ServiceRound2.discover
+    discover_and_flush=ServiceRound2.discover_and_flush
     visibility=ServiceRound2.visibility
     # BDD: 8-member group, intentionally undersized operator quota. Every
     # recipient eventually receives all seven directed ray opportunities.
@@ -293,7 +297,7 @@ class AdditionalRound2(unittest.TestCase):
     def test_discovery_evicts_inactive_when_explorer_slots_full(self):
         self.cfg.MaxExplorers=1;self.e['RecordVisit'](self.s.m_State,self.cfg,'gone',self.place,[100,0,100])
         self.s.m_LastUtc=4000000;self.peers[:]=self.peers[:1]
-        self.discover();self.assertEqual(1,len(self.writes));self.assertEqual(['0'],[e.Id for e in self.writes[0].Explorers])
+        self.discover_and_flush();self.assertEqual(1,len(self.writes));self.assertEqual(['0'],[e.Id for e in self.writes[0].Explorers])
     def test_rotation_does_not_alias_two_second_position_cadence(self):
         self.native();self.cfg.RequireLOS=True;self.cfg.MaxLOSRaysPerTick=7;self.cfg.DiscoveryLayer=False
         self.s.m_State.Groups=EArray([N(Members=EArray(p.Id for p in self.peers),Markers=EArray())])
