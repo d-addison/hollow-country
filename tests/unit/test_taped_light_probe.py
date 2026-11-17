@@ -208,7 +208,8 @@ class HookRenderingTests(unittest.TestCase):
                    "IsSlotIdValid", "GetBoneNameForSlotId", "HasInventorySlot", "GetAttachmentSlotId",
                    "GetAttachmentSlotsCount", "IsServer", "GetTime", "GetWorldName", "GetVersion", "Cast", "Replace", "Substring", "Length",
                    "Insert", "Get", "Count", "Find", "Print", "Vector", "OnInit", "GetGame", "AsciiToString",
-                   "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString"}
+                   "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString", "LastIndexOf",
+                   "ConfigGetText", "ConfigGetTextArray"}
         called = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))))
         own = set(re.findall(r"\b(?:void|bool|int|float|string|vector|EntityAI|Object|array<[^>]+>)\s+(\w+)\s*\(", self.hook))
         keywords = {"if", "while", "for", "return", "override", "array", "super"}
@@ -559,6 +560,9 @@ class S(str):
     def IndexOf(self, sample):
         return self.find(sample)
 
+    def LastIndexOf(self, sample):
+        return self.rfind(sample)
+
 
 class EArray(list):
     def Count(self):
@@ -615,6 +619,9 @@ def _simple(statement):
     version = re.match(r"^GetGame\(\)\.(GetWorldName|GetVersion)\((\w+)\)$", statement)
     if version:
         return "%s = GetGame().%s()" % (version.group(2), version.group(1))
+    config_text = re.match(r"^GetGame\(\)\.ConfigGetText\((.+),\s*(\w+)\)$", statement)
+    if config_text:                   # ConfigGetText(path, out string value): the out argument is assigned
+        return "%s = GetGame().ConfigGetText(%s)" % (config_text.group(2), _expression(config_text.group(1)))
     receiver = re.match(r"^(\w+)\.(?:ToLower|Replace)\(", statement)
     if receiver:                      # Enforce mutates the receiver; Python strings do not
         return "%s = %s" % (receiver.group(1), _expression(statement))
@@ -725,9 +732,23 @@ SLOT_SELECTION = {"weaponFlashlight": "light_w", "pistolFlashlight": "light_p", 
                   "weaponHandguardAK": "hg_ak", "weaponHandguardM4": "hg_m4", "weaponHandguardMP5": "hg_mp5"}
 
 
-def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False):
+def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=()):
     return {"slots": tuple(slots), "fits": tuple(fits), "selections": tuple(selections), "memory": tuple(memory),
-            "rail": rail, "needs_rail": needs_rail}
+            "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies)}
+
+
+LIGHT_UNIVERSAL_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_universal.001"
+LIGHT_TLR_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_tlr.001"
+MUZZLE_PROXY = "proxy:/dz/weapons/proxies/muzzle_flash_rifle_m4.001"
+
+
+def proxy_config():
+    """Synthetic CfgNonAIVehicles entries shaped like the probe-003 observations: the config key is the class path,
+    ``model`` keeps the engine's backslashes and a leading slash, ``inventorySlot`` is an array or a single text."""
+    return {"CfgNonAIVehicles Proxyweaponlight_universal": {
+                "model": "\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d", "inventorySlot": ["weaponFlashlight"]},
+            "CfgNonAIVehicles Proxyweaponlight_tlr": {
+                "model": "\\dz\\weapons\\attachments\\light\\weaponlight_tlr.p3d", "inventorySlot": "pistolFlashlight"}}
 
 
 def catalogue():
@@ -772,7 +793,7 @@ class Entity:
         return (0.0, 1.0, 2.0)
 
     def GetSelectionList(self, out):
-        out.extend(S(name) for name in self.spec["selections"])
+        out.extend(S(name) for name in self.spec["selections"] + self.spec["proxies"])
 
     def ConfigIsExisting(self, key):
         return key == "hasRailFunctionality" and self.spec["rail"]
@@ -858,8 +879,9 @@ class Queue:
 class World:
     """Synthetic server: clock, object table, call queue, files. Deletion can be made to fail per type."""
 
-    def __init__(self, types=None, background=0, stuck=(), spawn_ms=0):
+    def __init__(self, types=None, background=0, stuck=(), spawn_ms=0, config=None):
         self.catalogue = types if types is not None else catalogue()
+        self.config = proxy_config() if config is None else config
         self.entities, self.background = [], [Background() for _ in range(background)]
         self.stuck, self.spawn_ms, self.now = set(stuck), spawn_ms, 0
         self.queue, self.files, self.printed = [], {}, []
@@ -885,6 +907,26 @@ class World:
     def GetObjectsAtPosition3D(self, position, radius, objects, cargos):
         for candidate in self.background + [e for e in self.entities if e.alive]:
             objects.Insert(candidate)
+
+    def _config_entry(self, path):
+        """(class path, entry key) of a "<class path> <key>" config path, or the class path alone."""
+        text = str(path)
+        return (text, None) if text in self.config else tuple(text.rsplit(" ", 1))
+
+    def ConfigIsExisting(self, path):
+        return self._config_entry(path)[0] in self.config and (
+            self._config_entry(path)[1] is None or self._config_entry(path)[1] in self.config[self._config_entry(path)[0]])
+
+    def ConfigGetText(self, path):
+        """The text value, or "" when the entry is absent or is an array (the native call returns false)."""
+        entry, key = self._config_entry(path)
+        value = self.config.get(entry, {}).get(key, "")
+        return S(value) if isinstance(value, str) else S("")
+
+    def ConfigGetTextArray(self, path, out):
+        entry, key = self._config_entry(path)
+        value = self.config.get(entry, {}).get(key, [])
+        out.extend(S(item) for item in (value if isinstance(value, list) else []))
 
     def GetTime(self):
         return self.now
@@ -959,7 +1001,15 @@ def number_text(value):
     return S(str(value) if isinstance(value, int) else repr(value))
 
 
-def build_model(hook_text, world):
+class _NoSelectionSlots(_Slots):
+    """The probe-003 truth: InventorySlots.GetSelectionForSlotId returned false and "" for every slot natively."""
+
+    @staticmethod
+    def GetSelectionForSlotId(slot_id, out):
+        return False, S("")
+
+
+def build_model(hook_text, world, slots=_Slots):
     def open_file(path, mode):
         return _Handle(str(path))
 
@@ -967,7 +1017,7 @@ def build_model(hook_text, world):
         world.files[handle.path] = "\n".join(handle.lines) + "\n"
 
     namespace = {
-        "NumberText": number_text, "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": _Slots,
+        "NumberText": number_text, "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": slots,
         "EntityAI": _EntityAI, "Vector": lambda x, y, z: (x, y, z), "FileMode": _FileMode,
         "Print": lambda text: world.printed.append(str(text)), "FPrintln": lambda handle, text: handle.lines.append(str(text)),
         "OpenFile": open_file, "CloseFile": close_file,
@@ -994,9 +1044,9 @@ def drain(world, limit=100000):
 OUTPUT_PATH = "$profile:HCTapedLightProbe/observations.json"
 
 
-def run_hook(world, targets=None, **render):
+def run_hook(world, targets=None, slots=_Slots, **render):
     text = probe.render_hook(targets or probe.select_targets(classification()), **render).decode("ascii")
-    model = build_model(text, world)
+    model = build_model(text, world, slots)
     model.OnInit()
     drain(world)
     return model
@@ -1203,8 +1253,11 @@ class HookBehaviorTests(unittest.TestCase):
         }
         # The variant later gained three read-back fields (handguard_found_type, handguard_slot_occupied,
         # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
+        # Fix round 3 added the per-host proxy facts (proxy_count, proxy_scan_complete, proxies); these hosts have no
+        # proxies, so the empty facts are stripped as well.
         added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
-                           r'"handguard_rail_functional":(?:true|false),')
+                           r'"handguard_rail_functional":(?:true|false),'
+                           r'|"proxy_count":0,"proxy_scan_complete":true,"proxies":\[\],')
         for name, (size, output_sha, printed_sha, make) in golden.items():
             with self.subTest(scenario=name):
                 world = make()
@@ -1260,6 +1313,119 @@ class HookBehaviorTests(unittest.TestCase):
         hook = probe.render_hook(probe.select_targets(classification())).decode()
         self.assertIn("cannot interrupt a synchronous call", hook)
         self.assertIn("cannot interrupt a synchronous call", PROBE_SOURCE.read_text(encoding="utf-8"))
+
+
+def proxy_types(old_evidence=False):
+    """Probe-003 shaped hosts: the slot exists and the model carries proxies, but no slot selection, memory point or
+    bone is reported (``old_evidence`` False). Duplicate selection names appear in the list, as in probe-003."""
+    types = catalogue()
+    keep = {"selections": ("light_w", "hg_ak"), "memory": ("light_w",)} if old_evidence else {}
+    types["AK74"] = spec(("weaponFlashlight", "weaponHandguardAK"), proxies=(
+        LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY, LIGHT_UNIVERSAL_PROXY), **keep)
+    types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,),
+                            **({"selections": ("light_p",)} if old_evidence else {}))
+    return types
+
+
+class ProxyEvidenceHookTests(unittest.TestCase):
+    """Fix round 3: the hook joins each proxy selection of the host model to its CfgNonAIVehicles entry."""
+
+    def run_world(self, types=None, config=None, slots=_NoSelectionSlots):
+        world = World(types=types or proxy_types(), config=config)
+        run_hook(world, slots=slots)
+        return world, observations_of(world)
+
+    def test_each_host_lists_its_unique_proxies_with_their_config_join(self):
+        _world, observations = self.run_world()
+        row = host_row(observations, "AK74")
+        self.assertEqual((2, True), (row["proxy_count"], row["proxy_scan_complete"]))
+        self.assertEqual([LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY], [p["selection"] for p in row["proxies"]])
+        light, muzzle = row["proxies"]
+        self.assertEqual(("Proxyweaponlight_universal", True, "/dz/weapons/attachments/light/weaponlight_universal.p3d",
+                          ["weaponFlashlight"]),
+                         (light["cfg_class"], light["cfg_exists"], light["model"], light["inventory_slots"]))
+        self.assertEqual(("Proxymuzzle_flash_rifle_m4", False, "", []),
+                         (muzzle["cfg_class"], muzzle["cfg_exists"], muzzle["model"], muzzle["inventory_slots"]))
+
+    def test_a_text_inventory_slot_is_read_when_the_array_is_empty(self):
+        _world, observations = self.run_world()
+        glock = host_row(observations, "Glock19")["proxies"][0]
+        self.assertEqual((True, ["pistolFlashlight"]), (glock["cfg_exists"], glock["inventory_slots"]))
+
+    def test_a_host_without_proxies_reports_none(self):
+        _world, observations = self.run_world()
+        row = host_row(observations, "PlainBag")
+        self.assertEqual((0, True, []), (row["proxy_count"], row["proxy_scan_complete"], row["proxies"]))
+
+    def test_unrelated_selections_are_not_proxies(self):
+        types = proxy_types()
+        types["PlainBag"] = spec(selections=("light_w", "xproxy:/a/b.001", "proxyfoo", "Proxy:/dz/x/y_z.003"))
+        _world, observations = self.run_world(types)
+        row = host_row(observations, "PlainBag")
+        self.assertEqual(["Proxy:/dz/x/y_z.003"], [p["selection"] for p in row["proxies"]])
+        self.assertEqual("Proxyy_z", row["proxies"][0]["cfg_class"])
+
+    def test_the_listed_rows_and_the_scan_are_bounded(self):
+        many = tuple("proxy:/dz/x/part%03d.001" % number for number in range(40))
+        types = proxy_types()
+        types["PlainBag"] = spec(proxies=many)
+        types["PlainHat"] = spec(proxies=tuple("proxy:/dz/x/part%03d.001" % number for number in range(600)))
+        _world, observations = self.run_world(types)
+        bag, hat = host_row(observations, "PlainBag"), host_row(observations, "PlainHat")
+        self.assertEqual((40, 24, True), (bag["proxy_count"], len(bag["proxies"]), bag["proxy_scan_complete"]))
+        self.assertEqual((512, 24, False), (hat["proxy_count"], len(hat["proxies"]), hat["proxy_scan_complete"]))
+
+    def test_the_hook_cites_the_native_api_locations_it_uses(self):
+        hook = probe.render_hook(probe.select_targets(classification())).decode()
+        for cite in ("Game.c:449", "Game.c:558", "Game.c:612", "constants.c:237", "SceneEditorMenu.c:1362",
+                     "SceneEditorMenu.c:1385", "EntityAI.c:3996", "AttachmentsOutOfReach.c", "EnString.c:253"):
+            with self.subTest(cite=cite):
+                self.assertIn(cite, hook)
+
+    def test_without_selection_evidence_the_proxy_join_qualifies_through_the_report(self):
+        world, observations = self.run_world()
+        self.assertTrue(all(not slot["selection_on_model"] and not slot["memory_point"] and slot["bone_index"] == -1
+                            and slot["selection"] == "" for row in observations["hosts"] for slot in row["slots"]))
+        joined = report.build_report(classification(), observations)
+        self.assertEqual([], joined["integrity"]["issues"])
+        by_name = {h["class"]: h for h in joined["hosts"]}
+        self.assertEqual("qualified", by_name["AK74"]["verdict"])
+        self.assertEqual("qualified", by_name["Glock19"]["verdict"])
+        self.assertEqual("native_attach_with_proxy_slot_and_rail_handguard_prerequisite",
+                         by_name["AK74"]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["reason"])
+        self.assertEqual("native_attach_with_proxy_slot",
+                         by_name["Glock19"]["lights"]["TLRLight"]["slots"]["pistolFlashlight"]["reason"])
+        self.assertEqual("PENDING", joined["acceptance"])
+        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, joined["unobserved_axes"])
+        self.assertEqual([], world.live())
+
+    def test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name(self):
+        _world, observations = self.run_world(config={})
+        joined = report.build_report(classification(), observations)
+        by_name = {h["class"]: h for h in joined["hosts"]}
+        for name in ("AK74", "Glock19"):
+            self.assertEqual("pending", by_name[name]["verdict"], name)
+            self.assertIn("proxy_config_missing", by_name[name]["reasons"], name)
+        self.assertEqual(0, joined["denominators"]["qualified"])
+
+    def test_a_config_whose_slot_or_model_disagrees_does_not_qualify(self):
+        wrong_slot = proxy_config()
+        wrong_slot["CfgNonAIVehicles Proxyweaponlight_universal"]["inventorySlot"] = ["helmetFlashlight"]
+        wrong_model = proxy_config()
+        wrong_model["CfgNonAIVehicles Proxyweaponlight_universal"]["model"] = "\\dz\\weapons\\attachments\\light\\other.p3d"
+        for label, config in (("wrong slot", wrong_slot), ("wrong model", wrong_model)):
+            with self.subTest(label):
+                _world, observations = self.run_world(config=config)
+                joined = report.build_report(classification(), observations)
+                ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
+                self.assertNotEqual("qualified", ak["verdict"])
+                self.assertNotIn("native_attach_with_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
+
+    def test_the_slot_selection_evidence_is_still_reported_unchanged(self):
+        world, observations = self.run_world(proxy_types(old_evidence=True), slots=_Slots)
+        slot = next(s for s in host_row(observations, "AK74")["slots"] if s["slot"] == "weaponFlashlight")
+        self.assertEqual((True, True, "light_w"), (slot["selection_on_model"], slot["memory_point"], slot["selection"]))
+        self.assertEqual([], world.live())
 
 
 if __name__ == "__main__":

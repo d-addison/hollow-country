@@ -444,6 +444,97 @@ class HCDisposableDiagnosticMission : CustomMission
         return HCTLKey("selection_count") + total.ToString() + "," + HCTLKey("selection_matches") + "[" + matches + "]";
     }
 
+    // Proxy join (probe-003: InventorySlots.GetSelectionForSlotId returned nothing natively, so the model evidence is a
+    // proxy selection joined to its CfgNonAIVehicles entry, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
+    // :97-135 reads: inventorySlot at :105, model at :110). Native cache 1.30.164289:
+    //   3_Game/Global/Game.c:449 ConfigGetText(path, out value); 3_Game/Global/Game.c:558 ConfigGetTextArray(path,
+    //   out values); 3_Game/Global/Game.c:612 ConfigIsExisting(path); 3_Game/constants.c:237 CFG_NONAI_VEHICLES is
+    //   "CfgNonAIVehicles"; 5_Mission/GUI/SceneEditorMenu.c:1362 reads inventorySlot as an array and
+    //   5_Mission/GUI/SceneEditorMenu.c:1385 falls back to the text form, as does 3_Game/Entities/EntityAI.c:3996;
+    //   1_Core/proto/EnString.c:113 Substring, EnString.c:171 ToLower, EnString.c:240 IndexOf and EnString.c:253 LastIndexOf.
+    string HCTLProxyBase(string selectionName)
+    {
+        string text = selectionName.Substring(6, selectionName.Length() - 6);
+        int lastSlash = text.LastIndexOf("/");
+        if (lastSlash != -1)
+            text = text.Substring(lastSlash + 1, text.Length() - lastSlash - 1);
+        int lastDot = text.LastIndexOf(".");
+        if (lastDot != -1)
+            text = text.Substring(0, lastDot);
+        return text;
+    }
+
+    string HCTLProxyRow(string selectionName)
+    {
+        string cfgClass = "Proxy" + HCTLProxyBase(selectionName);
+        string cfgPath = "CfgNonAIVehicles " + cfgClass;
+        bool cfgExists = GetGame().ConfigIsExisting(cfgPath);
+        string modelPath = "";
+        string slotText = "";
+        TStringArray slotNames = new TStringArray;
+        if (cfgExists)
+        {
+            GetGame().ConfigGetText(cfgPath + " model", modelPath);
+            GetGame().ConfigGetTextArray(cfgPath + " inventorySlot", slotNames);
+            if (slotNames.Count() == 0)
+            {
+                GetGame().ConfigGetText(cfgPath + " inventorySlot", slotText);
+                if (slotText != "")
+                    slotNames.Insert(slotText);
+            }
+        }
+        string slotList = "";
+        int slotIndex = 0;
+        while (slotIndex < slotNames.Count() && slotIndex < 8)
+        {
+            if (slotIndex > 0)
+                slotList = slotList + ",";
+            slotList = slotList + HCTLStr(slotNames.Get(slotIndex));
+            slotIndex = slotIndex + 1;
+        }
+        string rowText = "{" + HCTLKey("selection") + HCTLStr(selectionName) + "," + HCTLKey("cfg_class") + HCTLStr(cfgClass) + ",";
+        rowText = rowText + HCTLKey("cfg_exists") + HCTLBool(cfgExists) + "," + HCTLKey("model") + HCTLStr(modelPath) + ",";
+        return rowText + HCTLKey("inventory_slots") + "[" + slotList + "]}";
+    }
+
+    string HCTLProxyFacts(Object subject)
+    {
+        TStringArray selectionNames = new TStringArray;
+        subject.GetSelectionList(selectionNames);
+        int total = selectionNames.Count();
+        int scanLimit = total;
+        if (scanLimit > 512)
+            scanLimit = 512;
+        bool scanComplete = true;
+        if (scanLimit < total)
+            scanComplete = false;
+        TStringArray seen = new TStringArray;
+        string rows = "";
+        string selectionName = "";
+        string lowered = "";
+        int scan = 0;
+        while (scan < scanLimit)
+        {
+            selectionName = selectionNames.Get(scan);
+            scan = scan + 1;
+            lowered = selectionName;
+            lowered.ToLower();
+            if (lowered.IndexOf("proxy:") == 0 && seen.Find(selectionName) == -1)
+            {
+                if (seen.Count() < 24)
+                {
+                    if (seen.Count() > 0)
+                        rows = rows + ",";
+                    rows = rows + HCTLProxyRow(selectionName);
+                }
+                seen.Insert(selectionName);
+            }
+        }
+        int proxyTotal = seen.Count();
+        string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
+        return facts + HCTLKey("proxies") + "[" + rows + "]";
+    }
+
     string HCTLAttachSlotNames(EntityAI subject, int limit)
     {
         GameInventory subjectInventory = subject.GetInventory();
@@ -824,6 +915,7 @@ class HCDisposableDiagnosticMission : CustomMission
             return row + HCTLKey("spawned") + "false," + HCTLKey("timed_out") + "false}";
         row = row + HCTLKey("spawned") + "true," + HCTLKey("type") + HCTLStr(hostItem.GetType()) + ",";
         row = row + HCTLKey("own_slots") + HCTLOwnSlotNames(hostItem, 16) + "," + HCTLKey("attach_slots") + HCTLAttachSlotNames(hostItem, 24) + "," + HCTLSelectionFacts(hostItem) + ",";
+        row = row + HCTLProxyFacts(hostItem) + ",";
         row = row + HCTLKey("slots") + "[" + HCTLHostSlots(hostItem) + "]," + HCTLKey("prereq") + "[" + HCTLHostPrereq(hostItem) + "],";
         row = row + HCTLKey("lights") + "[" + HCTLHostLightRows(hostItem, m_HCTLLights, beginMs) + "],";
         row = row + HCTLKey("prereq_variant") + HCTLPrereqVariant(hostItem, className, beginMs) + ",";
