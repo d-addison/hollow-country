@@ -298,6 +298,34 @@ class PackageBehavior(unittest.TestCase):
             with self.assertRaises(ValueError):
                 sign.sign_and_verify(source, root / 'tools', private, public, root / 'rejected', runner=bad_run)
 
+    def test_signing_accepts_the_expansion_ai_addon_prefix_and_reports_it(self):
+        from tools.package import sign
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            source = root / 'hollowcountryexpansionai.pbo'
+            source.write_bytes(pbo.pack({'config.cpp': b'class Synthetic {};'}, prefix='HollowCountryExpansionAI'))
+            unknown = root / 'other.pbo'
+            body = pbo.pack({'config.cpp': b'class Synthetic {};'}).replace(b'HollowCountry\0', b'OtherAddonXYZ\0', 1)
+            unknown.write_bytes(body[:-21] + b'\0' + hashlib.sha1(body[:-21]).digest())
+            private = root / 'test.biprivatekey'
+            public = root / 'test.bikey'
+            private.write_text('SYNTHETIC-NOT-A-KEY')
+            public.write_text('SYNTHETIC-NOT-A-KEY')
+            tools = root / 'tools/Bin/DsUtils'
+            tools.mkdir(parents=True)
+            for name in ['DSSignFile.exe', 'DSCheckSignatures.exe']:
+                (tools / name).write_text('SYNTHETIC-NOT-EXECUTABLE')
+            def fake_run(argv, **kwargs):
+                if argv[0].endswith('DSSignFile.exe'):
+                    Path(argv[2] + '.test.bisign').write_text('SYNTHETIC-NOT-A-SIGNATURE')
+                    return Mock(returncode=0, stdout='', stderr='')
+                return Mock(returncode=0, stdout='Signature x.pbo.test.bisign is OK\n', stderr='')
+            result = sign.sign_and_verify(source, root / 'tools', private, public, root / 'signed', runner=fake_run)
+            self.assertEqual(result['prefix'], 'HollowCountryExpansionAI')
+            with self.assertRaises(ValueError):
+                sign.sign_and_verify(unknown, root / 'tools', private, public, root / 'other', runner=fake_run)
+            self.assertFalse((root / 'other').exists())
+
     def test_structural_verifier_rejects_forged_distribution_and_acceptance(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -28,7 +28,7 @@ def sign_and_verify(source, tools, private, public, output, runner=subprocess.ru
             or private.stem != public.stem or not re.fullmatch(r'[A-Za-z0-9_-]+', public.stem)):
         raise ValueError('matching private/public key basenames required')
     source_bytes = source.read_bytes()
-    pbo.parse(source_bytes)
+    prefix, _ = pbo.parse(source_bytes, prefixes=pbo.PREFIXES)
     private.stat()  # do not read/copy/print private material
     public.stat()
     executables = [tools / 'Bin/DsUtils' / name for name in ('DSSignFile.exe', 'DSCheckSignatures.exe')]
@@ -58,7 +58,7 @@ def sign_and_verify(source, tools, private, public, output, runner=subprocess.ru
     if dest.read_bytes() != source_bytes:
         raise ValueError('PBO changed during signing')
     report = {'schema': 1, 'status': 'signed-development', 'runtime_acceptance': 'pending',
-              'release_allowed': False, 'prefix': pbo.PREFIX,
+              'release_allowed': False, 'prefix': prefix,
               'files': {p.relative_to(output).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
                         for p in (dest, sig, output / 'keys' / public.name)},
               'tools': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in executables}}
