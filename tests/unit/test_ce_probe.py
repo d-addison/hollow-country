@@ -1044,13 +1044,31 @@ class WindowsLaunchScriptStaticTests(unittest.TestCase):
         self.assertIn("$TimeoutMinutes", self.script)
 
     def test_observation_json_names_the_logs_and_never_claims_acceptance(self):
-        for required in ("ce-probe-observation-", "observed-not-accepted", "*.RPT", "script_*.log", "error_*.log",
+        for required in ("$Kind + '-observation-'", "observed-not-accepted", "*.RPT", "script_*.log", "error_*.log",
                          "*.ADM", "census.json", "complete.txt", "[System.IO.FileMode]::CreateNew",
                          "outcome", "server_pid"):
             with self.subTest(required=required):
                 self.assertIn(required, self.script)
         for claim in ("'accepted'", "'verified'", "'passed'"):
             self.assertNotIn(claim, self.script)
+
+    def test_probe_kind_is_an_allowlisted_parameter_mapping_to_fixed_plan_dir_and_output(self):
+        self.assertRegex(self.script, r"\[ValidateSet\('ce-probe', 'taped-light-probe'\)\]\s*\[string\]\$Kind = 'ce-probe'")
+        table = {
+            "ce-probe": ("ce-probe-plan.json", "HCCEProbe", "census.json"),
+            "taped-light-probe": ("taped-light-probe-plan.json", "HCTapedLightProbe", "observations.json"),
+        }
+        for kind, (plan, directory, output) in table.items():
+            with self.subTest(kind=kind):
+                self.assertRegex(self.script, r"'%s'\s*=\s*@\{\s*Plan = '%s'; Directory = '%s'; Output = '%s'\s*\}"
+                                 % (re.escape(kind), re.escape(plan), directory, re.escape(output)))
+        # The plan must declare the same kind that was requested; paths derive only from the fixed table.
+        self.assertIn("$plan.kind -ne $Kind", self.code)
+        self.assertNotIn("$plan.kind -ne 'ce-probe'", self.code)
+        self.assertIn("$planPath = Join-Path $root $probe.Plan", self.code)
+        self.assertIn("$sentinel = Join-Path $root ('profiles\\' + $probe.Directory + '\\complete.txt')", self.code)
+        self.assertIn("kind = $Kind + '-observation'", self.code)
+        self.assertNotRegex(self.code, r"\$plan\.(?:probe\.)?(?:output_relative_path|sentinel_relative_path)")
 
     def test_reparse_points_are_rejected_on_root_ancestors_and_descendants_before_traversal_and_launch(self):
         self.assertIn("[System.IO.FileAttributes]::ReparsePoint", self.script)

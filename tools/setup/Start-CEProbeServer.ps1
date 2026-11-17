@@ -7,6 +7,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Runtime,
+    [ValidateSet('ce-probe', 'taped-light-probe')]
+    [string]$Kind = 'ce-probe',
     [ValidateRange(0, 120)]
     [int]$TimeoutMinutes = 0
 )
@@ -74,16 +76,23 @@ if ($root -match '\.\.' -or (Split-Path -Parent $root) -ne $parent -or $name -no
 if (-not [System.IO.Directory]::Exists($root)) { throw "Runtime directory not found: $root" }
 Assert-NoReparsePoints -Path $root
 Assert-NoReparsePoints -Path $install -AncestorsOnly
-$planPath = Join-Path $root 'ce-probe-plan.json'
+# Each probe kind maps to a fixed plan file, profile directory and output file; nothing here
+# is read from the plan, so a tampered plan cannot redirect the sentinel or output paths.
+$probes = @{
+    'ce-probe' = @{ Plan = 'ce-probe-plan.json'; Directory = 'HCCEProbe'; Output = 'census.json' }
+    'taped-light-probe' = @{ Plan = 'taped-light-probe-plan.json'; Directory = 'HCTapedLightProbe'; Output = 'observations.json' }
+}
+$probe = $probes[$Kind]
+$planPath = Join-Path $root $probe.Plan
 $plan = Get-Content -LiteralPath $planPath -Raw | ConvertFrom-Json
 $mission = "$root\mpmissions\dayzOffline.chernarusplus"
 $expectedArguments = @('-ip=127.0.0.1', '-port=2302',
     "-config=$root\serverDZ.cfg", "-mission=$mission",
     "-storage=$root\storage", "-profiles=$root\profiles", "-BEpath=$root\battleye", '-doLogs', '-adminLog')
-if ($plan.status -ne 'staged-only-not-launched' -or $plan.kind -ne 'ce-probe' -or $plan.runtime_root -ne $root -or
+if ($plan.status -ne 'staged-only-not-launched' -or $plan.kind -ne $Kind -or $plan.runtime_root -ne $root -or
     $plan.server_exe -ne $exe -or $plan.working_directory -ne $install -or $plan.mission -ne $mission -or
     $plan.port -ne 2302 -or $plan.server_exe_sha256 -ne $exeSha256 -or
-    (@($plan.arguments) -join ' ') -ne ($expectedArguments -join ' ')) { throw 'Unexpected CE probe plan.' }
+    (@($plan.arguments) -join ' ') -ne ($expectedArguments -join ' ')) { throw "Unexpected CE probe plan for kind $Kind." }
 if ((Read-Sha256 $exe) -ne $exeSha256) { throw 'Server executable changed since the plan was staged.' }
 
 $staged = @{}
@@ -95,7 +104,7 @@ foreach ($file in $plan.staged_files) {
 }
 $staged[$planPath.ToLowerInvariant()] = $true
 foreach ($path in [System.IO.Directory]::GetFiles($root, '*', [System.IO.SearchOption]::AllDirectories)) {
-    if (-not $staged.ContainsKey($path.ToLowerInvariant())) { throw "Unexpected CE probe runtime file (stage a fresh runtime): $path" }
+    if (-not $staged.ContainsKey($path.ToLowerInvariant())) { throw "Unexpected probe runtime file (stage a fresh runtime): $path" }
 }
 foreach ($directory in @("$root\storage", "$root\profiles")) {
     if (-not [System.IO.Directory]::Exists($directory) -or [System.IO.Directory]::GetFileSystemEntries($directory).Count -ne 0) {
@@ -107,9 +116,9 @@ if (Get-Process -Name DayZServer_x64 -ErrorAction SilentlyContinue) { throw 'A D
 $minutes = $TimeoutMinutes
 if ($minutes -eq 0) { $minutes = [int]$plan.probe.wait_minutes }
 if ($minutes -lt 5 -or $minutes -gt 120) { throw 'Timeout minutes must be 5..120.' }
-$sentinel = Join-Path $root 'profiles\HCCEProbe\complete.txt'
-$census = Join-Path $root 'profiles\HCCEProbe\census.json'
-if (-not $PSCmdlet.ShouldProcess($root, "Launch the staged CE probe server and wait up to $minutes minutes for complete.txt")) { return }
+$sentinel = Join-Path $root ('profiles\' + $probe.Directory + '\complete.txt')
+$census = Join-Path $root ('profiles\' + $probe.Directory + '\' + $probe.Output)
+if (-not $PSCmdlet.ShouldProcess($root, "Launch the staged $Kind server and wait up to $minutes minutes for complete.txt")) { return }
 
 Assert-NoReparsePoints -Path $root
 if (Get-Process -Name DayZServer_x64 -ErrorAction SilentlyContinue) { throw 'A DayZ server is already running; do not start a duplicate.' }
@@ -148,7 +157,7 @@ if ($censusRecord.exists) {
 $sentinelRecord = [ordered]@{ path = $sentinel; exists = [System.IO.File]::Exists($sentinel) }
 if ($sentinelRecord.exists) { $sentinelRecord.text = ([System.IO.File]::ReadAllText($sentinel)).Trim() }
 $report = [ordered]@{
-    kind = 'ce-probe-observation'
+    kind = $Kind + '-observation'
     status = 'observed-not-accepted'
     outcome = $outcome
     server_pid = $server.Id
@@ -165,12 +174,12 @@ $report = [ordered]@{
     script_logs = @(Get-FileRecords $profiles 'script_*.log' ([System.IO.SearchOption]::TopDirectoryOnly))
     error_logs = @(Get-FileRecords $profiles 'error_*.log' ([System.IO.SearchOption]::TopDirectoryOnly))
     admin_logs = @(Get-FileRecords $profiles '*.ADM' ([System.IO.SearchOption]::TopDirectoryOnly))
-    probe_outputs = @(Get-FileRecords "$profiles\HCCEProbe" '*' ([System.IO.SearchOption]::TopDirectoryOnly))
+    probe_outputs = @(Get-FileRecords "$profiles\$($probe.Directory)" '*' ([System.IO.SearchOption]::TopDirectoryOnly))
     storage_files = @(Get-FileRecords "$root\storage" '*' ([System.IO.SearchOption]::AllDirectories))
     export_candidates = @(Get-FileRecords $root 'mapgroupproto*.xml' ([System.IO.SearchOption]::AllDirectories))
     note = 'Observation only. Export file location is unobserved before this run; storage_files and export_candidates list what appeared.'
 }
-$reportPath = Join-Path $root ('ce-probe-observation-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '.json')
+$reportPath = Join-Path $root ($Kind + '-observation-' + [DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '.json')
 $bytes = [System.Text.Encoding]::UTF8.GetBytes(($report | ConvertTo-Json -Depth 8))
 $output = [System.IO.File]::Open($reportPath, [System.IO.FileMode]::CreateNew, [System.IO.FileAccess]::Write)
 try { $output.Write($bytes, 0, $bytes.Length) } finally { $output.Dispose() }
