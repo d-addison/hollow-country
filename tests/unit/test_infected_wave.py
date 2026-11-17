@@ -3,7 +3,10 @@ import math
 import re
 import unittest
 
-from test_infected_contract import SOURCE, policy_functions
+if __package__:
+    from .test_infected_contract import SOURCE, policy_functions
+else:
+    from test_infected_contract import SOURCE, policy_functions
 
 
 class InfectedWaveTests(unittest.TestCase):
@@ -19,6 +22,10 @@ class InfectedWaveTests(unittest.TestCase):
     def test_all_seven_descriptors_and_explicit_unsupported_fallback(self):
         p = policy_functions()["ResolveVariant"]
         self.assertEqual([0, 1, 2, 0, 0, 5], [p(i) for i in range(6)])
+        disposition = policy_functions()["VariantDisposition"]
+        self.assertEqual(["supported", "supported", "supported",
+                          "unsupported_substituted_native", "unsupported_substituted_native",
+                          "supported"], [disposition(i) for i in range(6)])
         for invalid in (-1, 6, 7, 100):
             self.assertEqual(-1, p(invalid))
         profiles = (SOURCE / "HCInfectedProfiles.c").read_text()
