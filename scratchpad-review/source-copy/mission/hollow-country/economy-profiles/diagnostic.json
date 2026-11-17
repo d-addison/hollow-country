@@ -1,0 +1,6 @@
+{
+  "schema": 1,
+  "name": "diagnostic",
+  "add_usage": {},
+  "diagnostics": ["log_ce_lootspawn", "log_ce_lootrespawn", "log_ce_statistics", "log_missionfilewarning", "log_hivewarning"]
+}

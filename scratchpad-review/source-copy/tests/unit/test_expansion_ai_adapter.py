@@ -1,0 +1,491 @@
+"""Authored Enforce bodies with explicit synthetic engine/provider scaffolding."""
+import copy
+import json
+from pathlib import Path
+import re
+from types import SimpleNamespace as N
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+ADDON = ROOT / "mods/HollowCountryExpansionAI"
+SCRIPTS = ADDON / "scripts"
+PIN = "d84d3c73694969eba2f969e9178a1914e2f1b31d"
+NATIVE = "09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a"
+
+
+class A(list):
+    def __bool__(self): return True
+    def Count(self): return len(self)
+    def Insert(self, x): self.append(x)
+    def RemoveOrdered(self, i): self.pop(i)
+    def Find(self, x): return self.index(x) if x in self else -1
+    def Clear(self): self.clear()
+
+
+def block(text, start):
+    depth, end = 1, start
+    while depth:
+        depth += (text[end] == "{") - (text[end] == "}")
+        end += 1
+    return text[start:end - 1]
+
+
+class Authored:
+    """Syntax adaptation only; all admission/lifecycle decisions stay in C."""
+    def __init__(self, source, env):
+        self.source, self.env, self.cache = source, env, {}
+
+    def call(self, name, owner, *args):
+        if name not in self.cache:
+            literals = {}
+            def literal(m):
+                key = "LITERAL_" + str(len(literals))
+                literals[key] = json.loads(m[0])
+                return key
+            source = re.sub(r'"(?:[^"\\]|\\.)*"', literal, self.source)
+            source = re.sub(r"//[^\n]*", "", source)
+            found = re.search(r"\b[\w<>]+\s+" + name + r"\(([^)]*)\)\s*\{", source)
+            if not found:
+                raise AssertionError("missing authored method " + name)
+            body = block(source, found.end())
+            params = [p.split("=")[0].split()[-1] for p in found[1].split(",") if p.strip()]
+            lines, indent = ["def run(self, " + ", ".join(params) + "):"], 1
+            for token in re.split(r"([{};])", body):
+                token = token.strip()
+                if not token or token == ";": continue
+                if token == "{": indent += 1; continue
+                if token == "}": indent -= 1; continue
+                token = re.sub(r"new array<[^;()]+>\(\)", "A()", token)
+                token = re.sub(r"new (\w+)\(\)", r"\1()", token)
+                types = r"(?:bool|int|float|string|vector|Object|EntityAI|PlayerBase|Magazine|eAIBase|eAIGroup|eAIFaction|ExpansionAISettings|HCObserverTransition\w+|HCXAI\w+|HCEventObjectiveEvidence)"
+                bare = re.fullmatch(types + r" (\w+)", token)
+                if bare: token = bare[1] + " = None"
+                token = re.sub(r"\b" + types + r"\s+(?=\w+\s*=)", "", token)
+                token = re.sub(r"(?<![.\w])m_\w+\b", lambda m: "self." + m[0], token)
+                token = token.replace("this.", "self.")
+                token = token.replace("&&", " and ").replace("||", " or ")
+                token = re.sub(r"!(?!=)", "not ", token)
+                for a, b in (("true", "True"), ("false", "False"), ("null", "None")):
+                    token = re.sub(r"\b" + a + r"\b", b, token)
+                if token.startswith(("if (", "while (")):
+                    a, b = token.split(" (", 1)
+                    token = a + " " + b[:-1] + ":"
+                elif token.startswith("else if ("): token = "elif " + token[9:-1] + ":"
+                elif token == "else": token = "else:"
+                elif token.startswith("foreach ("):
+                    loop = re.fullmatch(r"foreach \([\w<>]+ (\w+) : (.+)\)", token)
+                    token = "for " + loop[1] + " in " + loop[2] + ":"
+                token = re.sub(r"([\w.]+)\+\+$", r"\1 += 1", token)
+                token = re.sub(r"([\w.]+)--$", r"\1 -= 1", token)
+                token = re.sub(r"([\w.]+)\.Length\(\)", r"len(\1)", token)
+                token = re.sub(r"([\w.]+)\.Substring\(([^,]+), ([^)]+)\)", r"\1[\2:\2+\3]", token)
+                token = re.sub(r"([\w.]+)\.ToString\(\)", r"str(\1)", token)
+                token = re.sub(r"([\w.]+)\.Contains\(([^)]+)\)", r"(\2 in \1)", token)
+                lines.append("    " * indent + token)
+            scope = dict(self.env, **literals)
+            exec(compile("\n".join(lines), "authored-expansion:" + name, "exec"), scope)
+            self.cache[name] = scope["run"]
+        return self.cache[name](owner, *args)
+
+
+def declarations(env):
+    text = (SCRIPTS / "4_World/HCXAIData.c").read_text()
+    for match in re.finditer(r"class (HCXAI\w+)\s*\{", text):
+        fields = re.findall(r"^\s*(?:ref )?([\w<> ]+?) (\w+)(?: = ([^;]+))?;",
+                            block(text, match.end()), re.M)
+        def make(fields=fields):
+            result = N()
+            for typ, key, raw in fields:
+                if typ.startswith("array<"): value = A()
+                elif raw and raw.startswith("new "):
+                    value = env[raw.split()[1].split("(")[0]]()
+                elif typ == "vector": value = (0., 0., 0.)
+                elif raw: value = json.loads(raw)
+                else: value = dict(bool=False, int=0, float=0., string="").get(typ)
+                setattr(result, key, value)
+            return result
+        env[match[1]] = make
+
+
+class ExpansionAdapterTests(unittest.TestCase):
+    def setUp(self):
+        self.calls = []
+        self.now = 1000
+        self.observer_code = 3  # Explicit synthetic observer dependency result.
+        self.journal_ok = True
+        self.created = []
+        self.pending_factory = []
+        self.env = dict(A=A, HCObserverTransitionState=lambda: N(), HCObserverTransitionPolicy=lambda:N(),
+                        HCObserverTransitionGate=N(
+                            ValidPolicy=lambda p: p is not None,
+                            Configure=lambda s,p: True,
+                            Evaluate=lambda s,i,n: self.observer_code),
+                        HCEventObjectiveEvidence=lambda: N(),
+                        HCXAIStore=N(Freeze=lambda p: copy.deepcopy(p), NativeBuild=lambda:"1.30.164289"))
+        declarations(self.env)
+        self.rule_source = (SCRIPTS / "4_World/HCXAIRules.c").read_text()
+        self.runtime_source = (SCRIPTS / "4_World/HCXAIAdapter.c").read_text()
+        self.rules = Authored(self.rule_source, self.env)
+        self.rule_api = N()
+        for name in re.findall(r"static \w+ (\w+)\(", self.rule_source):
+            setattr(self.rule_api, name, lambda *a,n=name: self.rules.call(n,None,*a))
+        self.env["HCXAIRules"] = self.rule_api
+        self.global_ai = N(s_eAI_UnlimitedReload=0,s_eAI_UnlimitedReloadAll=0)
+        self.settings = N(EnableFlankingOutsideCombat=False,DamageMultiplier=1.,
+                          DamageReceivedMultiplier=1.,CanRecruitFriendly=False,CanRecruitGuards=False)
+        self.env.update(eAIBase=self.global_ai,
+                        GetExpansionSettings=lambda:N(GetAI=lambda:self.settings),
+                        ECE_CREATEPHYSICS=1,ECE_KEEPHEIGHT=2,ECE_NOSURFACEALIGN=4,
+                        eAIWaypointBehavior=N(HALT=0,LOOP=1),
+                        eAIFaction=N(Create=lambda name:self.faction),
+                        eAIGroup=N(CreateGroup=lambda f:self.group()),
+                        Print=lambda text:self.calls.append(("diagnostic",text)))
+        self.faction=N(IsInvincible=lambda:False,IsObserver=lambda:False,
+                       IsPassive=lambda:False,HasUnlimitedStamina=lambda:False,
+                       GetMeleeDamageMultiplier=lambda:1.,GetMeleeYeetForce=lambda:0.)
+        self.game=N(IsServer=lambda:True,GetTime=lambda:self.now,
+                    GetWorldName=lambda:"chernarusplus",
+                    CreateObjectEx=self.factory,ConfigIsExisting=lambda p:True)
+        self.env["GetGame"]=lambda:self.game
+        self.global_ai.Cast=lambda x:x if getattr(x,"native_ai",False) else None
+        self.env["EntityAI"]=N(Cast=lambda x:x)
+        self.env["PlayerBase"]=N(Cast=lambda x:x)
+        self.env["Magazine"]=N(Cast=lambda x:x if getattr(x,"magazine",False) else None)
+        self.profile=self.env["HCXAIProfile"]()
+        vars(self.profile).update(
+            WorldName="chernarusplus",WorldSession="synthetic-world-session",
+            BuildVersion="1.30.164289",NativeScriptsSha256=NATIVE,SourceCommit=PIN,
+            WorldSha256="a"*64,ArtifactSha256="b"*64,DependencyInventorySha256="c"*64,
+            MaxGroups=2,MaxActors=4,MaxItems=16,MaxTickWork=2,MaxLeaseHistory=8,
+            MaxObservationAgeMs=100,MaxLeaseMs=10000,CoordinateBound=20000.,
+            ObserverPolicy=N(Revision=1))
+        self.route=self.env["HCXAIMission"]()
+        vars(self.route).update(MissionId="mission",ActorClass="eAI_SurvivorM_Mirek",
+                                FactionName="Raiders",Anchor=(100.,0.,100.),
+                                SurveySha256="d"*64,LoadoutSha256="e"*64)
+        self.route.Spawns=A([(100.,0.,100.),(101.,0.,100.)])
+        self.route.Waypoints=A([(110.,0.,110.),(120.,0.,120.)])
+        self.item=self.env["HCXAIEquipment"]()
+        vars(self.item).update(ClassName="Mosin9130",InHands=True)
+        self.route.Equipment=A([self.item])
+        self.profile.Missions=A([self.route])
+        self.receipt=self.env["HCXAIAdmission"]()
+        for key in ("WorldName","WorldSession","BuildVersion","NativeScriptsSha256",
+                    "SourceCommit","WorldSha256","ArtifactSha256","DependencyInventorySha256"):
+            setattr(self.receipt,key,getattr(self.profile,key))
+        vars(self.receipt).update(
+            Sequence=1,ObservedAtMs=1000,ArtifactBytesVerified=True,DependencyClosureVerified=True,
+            ObserverProviderQualified=True,RoutesQualified=True,InventoryLedgerQualified=True,
+            OwnershipReconciled=True)
+        self.hooks=N(
+            Admission=lambda session:copy.deepcopy(self.receipt),
+            RouteQualified=lambda survey,loadout:True,
+            BeginLease=lambda *a:self.journal_ok,
+            MemberCreated=lambda *a:self.journal_ok,
+            MemberGone=lambda *a:self.journal_ok,
+            EndLease=lambda *a:self.journal_ok,
+            Observers=lambda *a:N())
+        self.engine=Authored(self.runtime_source,self.env)
+        self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
+                   m_Leases=A(),m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
+                   m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
+                   m_LastReceiptSequence=0,m_LastReceiptAt=-1)
+        for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
+            setattr(self.mod,name,lambda *a,n=name:self.engine.call(n,self.mod,*a))
+
+    def group(self):
+        members=A(); waypoints=A()
+        group=N(members=members,waypoints=waypoints,mode=0,m_Leave=False,
+                Count=lambda:len(members),IsInCombat=lambda:False,
+                AddWaypoint=lambda p:waypoints.append(p))
+        group.SetWaypointBehaviour=lambda x:setattr(group,"mode",x)
+        group.Delete=lambda:self.calls.append(("group-delete",))
+        return group
+
+    def factory(self, typ, pos, flags):
+        self.calls.append(("create",typ,pos,flags))
+        actor=self.pending_factory.pop(0) if self.pending_factory else self.actor()
+        if actor is not None:self.created.append(actor)
+        return actor
+
+    def actor(self):
+        actor=N(native_ai=True,alive=True,group=None,items=A(),deleted=False)
+        actor.GetGroup=lambda:actor.group
+        actor.SetGroup=lambda g:(setattr(actor,"group",g),g.members.append(actor))
+        actor.IsAlive=lambda:actor.alive
+        actor.GetPosition=lambda:(100.,0.,100.)
+        actor.GetIdentity=lambda:None
+        actor.GetAllowDamage=lambda:True
+        actor.HCXAI_Fair=lambda:True
+        actor.eAI_SetUnlimitedReload=lambda x:self.calls.append(("reload",x))
+        actor.eAI_SetDamageMultiplier=lambda x:self.calls.append(("damage-out",x))
+        actor.eAI_SetDamageReceivedMultiplier=lambda x:self.calls.append(("damage-in",x))
+        actor.eAI_SetEnableFlankingOutsideCombat=lambda x:self.calls.append(("flank",x))
+        actor.eAI_SetLootingBehavior=lambda x:self.calls.append(("looting",x))
+        def item(typ):
+            obj=N(magazine=False)
+            actor.items.append(obj)
+            return obj
+        actor.GetInventory=lambda:N(CreateInInventory=item)
+        actor.GetHumanInventory=lambda:N(CreateInHands=item)
+        actor.Delete=lambda:self.calls.append(("delete",actor))
+        return actor
+
+    def install(self):
+        return self.mod.Install(self.profile,self.hooks)
+
+    def start(self,lease="lease",session="event-session",cap=4):
+        return self.mod.StartLease(lease,session,"mission",(100.,0.,100.),cap)
+
+    def step(self,index=0):
+        self.mod.StepLease(self.mod.m_Leases[index],self.now)
+
+    def test_enabled_preference_is_not_admission(self):
+        empty=self.env["HCXAIProfile"]()
+        self.assertTrue(empty.Enabled)
+        self.assertFalse(self.rule_api.ProfileValid(empty))
+        self.assertFalse(self.mod.Install(self.profile,None))
+        self.assertFalse(self.mod.Ready("chernarusplus"))
+
+    def test_complete_profile_and_strict_limits(self):
+        self.assertTrue(self.rule_api.ProfileValid(self.profile))
+        for key,value in (("MaxTickWork",9),("MaxActors",0),("MaxLeaseHistory",65),
+                          ("MaxObservationAgeMs",0),("CoordinateBound",float("nan")),
+                          ("AllowBuiltinStuckRecovery",False),("SourceCommit","0"*40)):
+            p=copy.deepcopy(self.profile);setattr(p,key,value)
+            with self.subTest(key=key):self.assertFalse(self.rule_api.ProfileValid(p))
+
+    def test_route_bounds_duplicates_and_observed_hashes(self):
+        for change in (lambda p:p.Missions.append(copy.deepcopy(p.Missions[0])),
+                       lambda p:p.Missions[0].Spawns.clear(),
+                       lambda p:p.Missions[0].Waypoints.append((float("inf"),0,0)),
+                       lambda p:setattr(p.Missions[0],"SurveySha256",""),
+                       lambda p:setattr(p.Missions[0],"ActorClass","eAIDummy_SurvivorM_Mirek")):
+            p=copy.deepcopy(self.profile);change(p)
+            self.assertFalse(self.rule_api.ProfileValid(p))
+
+    def test_live_receipt_binds_hashes_world_build_and_qualification(self):
+        self.assertTrue(self.rule_api.ReceiptValid(self.profile,self.receipt,1000))
+        for field in ("SourceCommit","ArtifactSha256","DependencyInventorySha256","WorldSha256",
+                      "NativeScriptsSha256","BuildVersion","WorldName","WorldSession"):
+            r=copy.deepcopy(self.receipt);setattr(r,field,"mismatch")
+            self.assertFalse(self.rule_api.ReceiptValid(self.profile,r,1000))
+        for field in ("ArtifactBytesVerified","DependencyClosureVerified","ObserverProviderQualified",
+                      "RoutesQualified","InventoryLedgerQualified","OwnershipReconciled"):
+            r=copy.deepcopy(self.receipt);setattr(r,field,False)
+            self.assertFalse(self.rule_api.ReceiptValid(self.profile,r,1000))
+        self.assertFalse(self.rule_api.ReceiptValid(self.profile,self.receipt,1101))
+        self.assertFalse(self.rule_api.ReceiptValid(self.profile,self.receipt,999))
+
+    def test_install_freezes_policy_and_real_globals_override_declarations(self):
+        self.assertTrue(self.install())
+        self.profile.MaxActors=32
+        self.assertEqual(4,self.mod.m_Profile.MaxActors)
+        self.global_ai.s_eAI_UnlimitedReloadAll=1
+        self.assertFalse(self.mod.Ready("chernarusplus"))
+        self.assertFalse(self.start())
+        self.assertEqual([],self.created)
+
+    def test_start_is_idempotent_and_binds_session_anchor_and_cap(self):
+        self.assertTrue(self.install());self.assertTrue(self.start())
+        self.assertTrue(self.start())
+        self.assertEqual((1,2,2),(len(self.mod.m_Leases),self.mod.m_ReservedActors,
+                                  self.mod.m_ReservedItems))
+        self.assertFalse(self.start(session="old-session"))
+        self.assertFalse(self.mod.StartLease("other","event-session","mission",(0.,0.,0.),4))
+        self.assertFalse(self.start(lease="small",cap=1))
+        self.assertEqual([],self.created)
+
+    def test_reservations_include_retiring_work_and_history_is_not_reused(self):
+        self.install();self.start();self.assertTrue(self.mod.StopLease("lease"))
+        self.assertFalse(self.mod.Gone("lease"))
+        self.assertTrue(self.start(lease="second"))
+        self.assertFalse(self.start(lease="third"))
+        self.assertFalse(self.start())
+        self.assertEqual(4,self.mod.m_ReservedActors)
+
+    def test_uncertain_intent_failure_retains_reserved_budget(self):
+        self.install();self.journal_ok=False
+        self.assertFalse(self.start())
+        self.assertEqual(2,self.mod.m_ReservedActors)
+        self.assertFalse(self.mod.Gone("lease"))
+        self.assertEqual([],self.created)
+
+    def test_real_factory_group_waypoints_and_fairness_setters(self):
+        self.install();self.start();self.step();self.step()
+        self.assertEqual(2,len(self.created))
+        lease=self.mod.m_Leases[0]
+        self.assertEqual(self.route.Waypoints,lease.Group.waypoints)
+        self.assertEqual(1,lease.Group.mode)
+        self.assertEqual(2,self.calls.count(("reload",0)))
+        self.assertEqual(2,self.calls.count(("damage-in",1)))
+        self.assertEqual(2,self.calls.count(("damage-out",1)))
+        self.assertNotIn("SetPosition",self.runtime_source)
+
+    def test_partial_spawn_failure_keeps_confirmed_actor_and_reservations(self):
+        self.install();self.start()
+        self.pending_factory=[self.actor(),None]
+        self.step();self.step()
+        lease=self.mod.m_Leases[0]
+        self.assertTrue(lease.Retiring)
+        self.assertEqual(2,self.mod.m_ReservedActors)
+        self.assertFalse(self.start())
+        self.assertFalse(self.mod.Gone("lease"))
+        self.assertEqual([], [x for x in self.calls if x[0]=="delete"])
+
+    def test_observer_veto_unknown_and_waiting_prevent_spawn_and_delete(self):
+        self.install();self.start()
+        for code in (0,1,2):
+            self.observer_code=code;self.step()
+            self.assertEqual([],self.created)
+        self.observer_code=3;self.step()
+        self.mod.StopLease("lease")
+        for code in (0,1,2):
+            self.observer_code=code;self.step()
+            self.assertEqual([], [x for x in self.calls if x[0]=="delete"])
+
+    def test_stop_request_is_not_observed_absence_or_released_budget(self):
+        self.install();self.start();self.step();self.step()
+        lease=self.mod.m_Leases[0]
+        self.mod.StopLease("lease")
+        self.step();self.step()
+        self.assertFalse(self.mod.Gone("lease"))
+        self.assertEqual(2,self.mod.m_ReservedActors)
+        for slot in lease.Slots:
+            self.mod.RecordDelete(slot.Handle)
+            slot.Handle=None
+        self.journal_ok=False
+        self.step();self.step()
+        self.assertFalse(self.mod.Gone("lease"))
+        self.journal_ok=True
+        self.step();self.step()
+        self.assertTrue(self.mod.Gone("lease"))
+        self.assertEqual(0,self.mod.m_ReservedActors)
+
+    def test_null_handle_without_deletion_callback_is_not_gone(self):
+        self.install();self.start();self.step();self.step()
+        self.mod.StopLease("lease")
+        for slot in self.mod.m_Leases[0].Slots:slot.Handle=None
+        self.step();self.step()
+        self.assertFalse(self.mod.Gone("lease"))
+        self.assertEqual(2,self.mod.m_ReservedActors)
+
+    def test_death_receipts_are_owned_once_and_attributed_without_target_positions(self):
+        self.install();self.start();self.step()
+        actor=self.created[0]
+        participant=N(IsAlive=lambda:True,GetIdentity=lambda:N(GetId=lambda:"enrolled"))
+        actor.alive=False
+        self.mod.RecordDeath(actor,"enrolled")
+        self.mod.RecordDeath(actor,"enrolled")
+        self.mod.RecordDeath(self.actor(),"enrolled")
+        first=self.mod.ObserveLease("lease",participant)
+        second=self.mod.ObserveLease("lease",participant)
+        self.assertEqual(("lease","event-session","enrolled"),
+                         (first.Lease,first.Session,first.ParticipantId))
+        self.assertTrue(first.Observed)
+        self.assertEqual(vars(first),vars(second))
+        self.assertEqual(1,first.Sequence)
+        first.Token="caller-mutated"
+        self.assertNotEqual(first.Token,self.mod.ObserveLease("lease",participant).Token)
+        self.assertNotIn("Position",vars(first))
+        outsider=N(IsAlive=lambda:True,GetIdentity=lambda:N(GetId=lambda:"outsider"))
+        self.assertIsNone(self.mod.ObserveLease("lease",outsider))
+
+    def test_clock_rollback_quarantines_without_releasing_or_deleting(self):
+        self.install();self.start();self.step()
+        self.mod.m_LastNow=1000;self.now=999
+        self.mod.OnTick(1.)
+        self.assertFalse(self.mod.m_Accepting)
+        self.assertEqual(2,self.mod.m_ReservedActors)
+        self.assertEqual([], [x for x in self.calls if x[0]=="delete"])
+
+    def test_tick_work_and_client_authority_are_bounded(self):
+        self.install();self.start();self.mod.OnTick(1.)
+        self.assertLessEqual(len(self.created),2)
+        self.game.IsServer=lambda:False
+        self.assertFalse(self.start(lease="client"))
+        self.assertFalse(self.mod.StopLease("lease"))
+        self.assertFalse(self.mod.Gone("lease"))
+
+    def test_optional_package_contract_has_no_provider_types_in_base_dependency(self):
+        config=(ADDON/"config.cpp").read_text()
+        for name in ("HollowCountry","DayZExpansion_AI_Scripts","DayZExpansion_Core_Scripts",
+                     "DayZExpansion_ModStorage_Scripts","JM_CF_Scripts","DF_Scripts","DF_GUI",
+                     "DayZExpansion_AI_Animations","DayZExpansion_Sounds_AI"):
+            self.assertIn('"'+name+'"',config)
+        self.assertNotIn("HollowCountryExpansionAI",(ROOT/"mods/HollowCountry/config.cpp").read_text())
+        self.assertIn("extends HCEventAIProvider",self.runtime_source)
+        for hook in ("super.EEKilled(killer)","super.EEDelete(parent)"):
+            self.assertIn(hook,self.runtime_source)
+
+    def test_replay_after_world_or_capability_loss_does_not_claim_ready(self):
+        self.install();self.start()
+        self.game.GetWorldName=lambda:"other-world"
+        self.assertFalse(self.start())
+        self.game.GetWorldName=lambda:"chernarusplus"
+        self.receipt.ObserverProviderQualified=False
+        self.assertFalse(self.start())
+        self.assertEqual(1,len(self.mod.m_Leases))
+        self.assertEqual([],self.created)
+
+    def test_start_callback_reentry_cannot_duplicate_identity_or_reservations(self):
+        self.install()
+        entered=[]
+        def route(*args):
+            if not entered:
+                entered.append(True)
+                self.assertFalse(self.start())
+            return True
+        self.hooks.RouteQualified=route
+        self.assertTrue(self.start())
+        self.assertEqual(1,len(self.mod.m_Leases))
+        self.assertEqual(2,self.mod.m_ReservedActors)
+
+    def test_observer_reentry_cannot_repeat_native_creation(self):
+        self.install();self.start()
+        entered=[]
+        def observers(*args):
+            if not entered:
+                entered.append(True)
+                self.step()
+            return N()
+        self.hooks.Observers=observers
+        self.step()
+        self.assertEqual(1,len(self.created))
+        self.assertEqual(1,sum(s.Attempted for s in self.mod.m_Leases[0].Slots))
+
+    def test_magazine_write_is_bounded_once_and_read_back(self):
+        actor=self.actor()
+        magazine=N(magazine=True,ammo=0,GetAmmoMax=lambda:30)
+        writes=[]
+        magazine.ServerSetAmmoCount=lambda value:(writes.append(value),setattr(magazine,"ammo",value))
+        magazine.GetAmmoCount=lambda:magazine.ammo
+        actor.GetInventory=lambda:N(CreateInInventory=lambda typ:magazine)
+        spec=self.env["HCXAIEquipment"]()
+        vars(spec).update(ClassName="Mag_AKM_30Rnd",IsMagazine=True,AmmoCount=12)
+        mission=copy.deepcopy(self.route);mission.Equipment=A([spec])
+        self.assertTrue(self.mod.Equip(actor,mission))
+        self.assertEqual([12],writes)
+        spec.AmmoCount=31
+        self.assertFalse(self.mod.Equip(actor,mission))
+        self.assertEqual([12],writes)
+        spec.AmmoCount=10;magazine.GetAmmoCount=lambda:9
+        self.assertFalse(self.mod.Equip(actor,mission))
+
+    def test_actual_actor_fairness_getter_checks_effective_fields(self):
+        actor=N(GetAllowDamage=lambda:True,m_eAI_EnableFlankingOutsideCombat=False,
+                m_eAI_UnlimitedReload=0,m_eAI_IsUnlimitedReloadAll=False,
+                m_eAI_DamageMultiplier=1.,m_eAI_DamageReceivedMultiplier=1.,
+                m_eAI_HeadshotResistance=0.)
+        self.assertTrue(self.engine.call("HCXAI_Fair",actor))
+        for field in ("m_eAI_EnableFlankingOutsideCombat","m_eAI_UnlimitedReload",
+                      "m_eAI_IsUnlimitedReloadAll","m_eAI_DamageMultiplier",
+                      "m_eAI_DamageReceivedMultiplier","m_eAI_HeadshotResistance"):
+            changed=copy.copy(actor);setattr(changed,field,2)
+            self.assertFalse(self.engine.call("HCXAI_Fair",changed))
+        actor.GetAllowDamage=lambda:False
+        self.assertFalse(self.engine.call("HCXAI_Fair",actor))
+
+
+if __name__ == "__main__":
+    unittest.main()

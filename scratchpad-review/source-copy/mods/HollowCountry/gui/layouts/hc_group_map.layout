@@ -1,0 +1,256 @@
+FrameWidgetClass HCGroupMapRoot {
+ position 0 0
+ size 1 1
+ hexactpos 0
+ vexactpos 0
+ hexactsize 0
+ vexactsize 0
+ clipchildren 1
+ priority 140
+ {
+  MapWidgetClass HCMap {
+   position 0 0
+   size 0.72 1
+   hexactpos 0
+   vexactpos 0
+   hexactsize 0
+   vexactsize 0
+   clipchildren 1
+  }
+  PanelWidgetClass HCSidebar {
+   position 0.72 0
+   size 0.28 1
+   hexactpos 0
+   vexactpos 0
+   hexactsize 0
+   vexactsize 0
+   style rover_sim_black
+   color 0.05 0.05 0.05 0.95
+   {
+    TextWidgetClass HCStatus {
+     position 0.02 0.005
+     size 0.96 0.04
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     ignorepointer 1
+     font "gui/fonts/sdf_MetronBook24"
+     "text color" 1 1 1 1
+    }
+    EditBoxWidgetClass HCGroupName {
+     position 0.02 0.05
+     size 0.96 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    TextListboxWidgetClass HCCandidates {
+     position 0.02 0.135
+     size 0.96 0.10
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    TextListboxWidgetClass HCInvites {
+     position 0.02 0.28
+     size 0.96 0.07
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    TextListboxWidgetClass HCMembers {
+     position 0.02 0.40
+     size 0.96 0.10
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    TextListboxWidgetClass HCMarkers {
+     position 0.02 0.59
+     size 0.96 0.10
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    EditBoxWidgetClass HCMarkerName {
+     position 0.02 0.70
+     size 0.96 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    EditBoxWidgetClass HCMarkerNote {
+     position 0.02 0.74
+     size 0.96 0.06
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCCreateGroup {
+     position 0.02 0.09
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Create group"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCRenameGroup {
+     position 0.52 0.09
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Rename"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCInvite {
+     position 0.02 0.24
+     size 0.96 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Invite selected player"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCAccept {
+     position 0.02 0.355
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Accept"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCDecline {
+     position 0.52 0.355
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Decline"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCKick {
+     position 0.02 0.505
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Kick"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCTransfer {
+     position 0.52 0.505
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Transfer lead"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCLeave {
+     position 0.02 0.545
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Leave"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCDisband {
+     position 0.52 0.545
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Disband"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCNew {
+     position 0.02 0.81
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "New marker"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCSave {
+     position 0.52 0.81
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Save marker"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCDelete {
+     position 0.02 0.85
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Delete marker"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCClose {
+     position 0.52 0.85
+     size 0.46 0.035
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     text "Close"
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    TextWidgetClass HCHelp {
+     position 0.02 0.90
+     size 0.96 0.09
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     ignorepointer 1
+     font "gui/fonts/sdf_MetronBook24"
+     "exact text" 1 "exact text size" 16 wrap 1
+     text "Double-click map to place or move the selected marker. New clears selection. M closes outside text fields."
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,16 @@
+{
+  "evidence_layer": "synthetic-authored-scalar-policy-only",
+  "journal": [
+    {"given": "no claim or output attempt", "flags": [false, false, false, false, false, false, 0, 0], "then_phase": 0},
+    {"given": "crash after schema-2 intent before attempt", "flags": [true, true, false, false, false, false, 2, 0], "then_phase": 3},
+    {"given": "crash after attempt before output", "flags": [true, true, true, true, false, false, 2, 0], "then_phase": 3},
+    {"given": "output may exist but result missing", "flags": [true, true, true, true, false, false, 2, 0], "then_phase": 3},
+    {"given": "schema-2 exact completion", "flags": [true, true, true, true, true, true, 2, 2], "then_phase": 2},
+    {"given": "schema-2 completion missing attempt", "flags": [true, true, false, false, true, true, 2, 2], "then_phase": 3},
+    {"given": "legacy exact completion retained", "flags": [true, true, false, false, true, true, 1, 2], "then_phase": 2},
+    {"given": "unsupported downgrade or future schema", "flags": [true, true, true, true, true, true, 3, 2], "then_phase": 3},
+    {"given": "completion without claim", "flags": [false, false, true, true, true, true, 2, 2], "then_phase": 3},
+    {"given": "torn reservation", "flags": [true, false, true, true, true, true, 2, 2], "then_phase": 3},
+    {"given": "mismatched result actor or allocation", "flags": [true, true, true, true, true, false, 2, 2], "then_phase": 3}
+  ]
+}

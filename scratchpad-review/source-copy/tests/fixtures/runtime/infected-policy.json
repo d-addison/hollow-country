@@ -1,0 +1,11 @@
+{
+  "evidence": "synthetic-policy-only",
+  "lifecycle": [
+    {"inputs": [6, false, false, 0, 0], "state": 1},
+    {"inputs": [6, true, false, 0, 10], "state": 2},
+    {"inputs": [6, true, true, 0, 15], "state": 3},
+    {"inputs": [5, false, false, 10, 45], "state": 4},
+    {"inputs": [5, false, false, 61, 96], "state": 1},
+    {"inputs": [5, false, false, 61, 3600], "state": 5}
+  ]
+}

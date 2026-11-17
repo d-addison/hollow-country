@@ -1,0 +1,16 @@
+{
+  "SchemaVersion": 1,
+  "EnableInteriors": false,
+  "EnableSearch": false,
+  "EnableCrafting": false,
+  "EnableInfected": false,
+  "EnableHordes": false,
+  "EnableAlertChains": false,
+  "EnableGroups": false,
+  "TickIntervalMs": 1000,
+  "MaxTickWorkItems": 32,
+  "MaxActiveHordes": 2,
+  "MaxActiveHordeMembers": 24,
+  "MaxActiveInteriors": 12,
+  "MaxPropsPerInterior": 5
+}
