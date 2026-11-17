@@ -66,6 +66,8 @@ tools and any finite wreck supplies remain part of the audit.
 
 **Planned · Phase 2: improvised light mounts.** Use duct tape to attach a
 flashlight to a suitable gun, backpack or helmet, keeping your hands available.
+Peel the light off by hand when you need it elsewhere. Removal consumes the tape;
+mounting it again needs fresh tape.
 Supported combinations need a useful beam direction, working battery and switch,
 and sensible attachment/removal and wear. Existing item geometry will determine
 which combinations can work properly.

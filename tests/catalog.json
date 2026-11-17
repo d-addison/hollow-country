@@ -23,13 +23,13 @@
     {
       "id": "src-004",
       "path": "docs/specs/001-survival-overhaul/spec.md",
-      "sha256": "9ce999e290952aee7ac3a80b295202b7eba3a822777ed16627a2d9106a48a31d",
+      "sha256": "870b097cb6a012c158cefe923dcff63948ab5984df5dbb5a6e4120dac8502350",
       "required_at_runtime": false
     },
     {
       "id": "src-005",
       "path": "docs/PHASE2_BACKLOG.md",
-      "sha256": "33896393a103a65a1bb81e6936b1f5a0860f6df3f7702f2032e09e16ff1d40f8",
+      "sha256": "c09e00cac235c525b351c0c8321087a31f32da8c69ca727530bac50538fd0950",
       "required_at_runtime": false
     },
     {
@@ -53,7 +53,7 @@
     {
       "id": "src-009",
       "path": "research/queue-phase2.py",
-      "sha256": "ad9f30566b60b2b4e8ed78d54c79e47097e983a7fe786ae4a54ba10040e34970",
+      "sha256": "79b4eb88d803dca8f977465efce214e373de39d164b49646866decc8119c9586",
       "required_at_runtime": false
     }
   ],
@@ -2853,7 +2853,49 @@
       "id": "P2-DESIGN-007",
       "origin": "phase2",
       "scenario": "Required TDD / SDD / BDD evidence",
-      "criterion": "Write executable scenarios before each implementation slice. At minimum:\n\n1. Given a survivor ignores an announcement, ordinary survival remains playable\n   and no mission failure penalty is applied to that survivor.\n2. Given two eligible groups complete simultaneously, configured ownership and\n   sharing rules determine rewards exactly once per authorized claim.\n3. Given a restart at each lifecycle boundary, recovery preserves valid progress\n   or safely cancels it without duplicate rewards or orphaned entities.\n4. Given all participants abandon or disconnect, expiry and cleanup follow the\n   configured policy without deleting their inventory or vehicles.\n5. Given an invalid map location, blocked route or exhausted AI budget, the\n   encounter is rejected or safely cancelled with a recorded reason.\n6. Given six-player and representative 90-player workloads, measure director,\n   actor, persistence and replication cost independently; synthetic actors do\n   not stand in for licensed connected-client evidence.\n7. Given replayed objective messages, invalid item counts or unauthorized claims,\n   the server rejects them and leaves authoritative state consistent.\n\nOpen design choices for the Phase 2 interview: ambient versus strictly enrolled\nencounters; cooperative versus contested objectives; radio-only versus optional\nmap markers; consequences of death; reward style; faction hostility; persistence\nduration; and permission to depend on an external AI framework. Keep these open\nuntil their answers are needed, without interrupting current validation work.\n\nSee [ADR-018](adr/ADR-018-autonomous-testing-public-destination.md) for the\ndestination/testing decision and [original task ledger](specs/001-survival-overhaul/tasks.md)\nfor current completion status.",
+      "criterion": "Write executable scenarios before each implementation slice. At minimum:\n\n1. Given a survivor ignores an announcement, ordinary survival remains playable\n   and no mission failure penalty is applied to that survivor.\n2. Given two eligible groups complete simultaneously, configured ownership and\n   sharing rules determine rewards exactly once per authorized claim.\n3. Given a restart at each lifecycle boundary, recovery preserves valid progress\n   or safely cancels it without duplicate rewards or orphaned entities.\n4. Given all participants abandon or disconnect, expiry and cleanup follow the\n   configured policy without deleting their inventory or vehicles.\n5. Given an invalid map location, blocked route or exhausted AI budget, the\n   encounter is rejected or safely cancelled with a recorded reason.\n6. Given six-player and representative 90-player workloads, measure director,\n   actor, persistence and replication cost independently; synthetic actors do\n   not stand in for licensed connected-client evidence.\n7. Given replayed objective messages, invalid item counts or unauthorized claims,\n   the server rejects them and leaves authoritative state consistent.\n\nOpen design choices for the Phase 2 interview: ambient versus strictly enrolled\nencounters; cooperative versus contested objectives; radio-only versus optional\nmap markers; consequences of death; reward style; faction hostility; persistence\nduration; and permission to depend on an external AI framework. Keep these open\nuntil their answers are needed, without interrupting current validation work.",
+      "modes": [
+        "engine",
+        "server",
+        "client-pair",
+        "measurement",
+        "human-judgment"
+      ],
+      "requires": [
+        "pinned_inputs",
+        "signed_package",
+        "qualified_scenario_driver",
+        "native_state_capture",
+        "dayzdiag",
+        "normal_server",
+        "licensed_authenticated_rendered_client_pair",
+        "synchronized_client_capture",
+        "qualified_measurement",
+        "criterion_reviewer",
+        "recorded_scope_decisions",
+        "rights_review",
+        "qualified_map_adapter",
+        "separate_six_and_ninety_player_load",
+        "validated_policy_bounds"
+      ],
+      "assertions": [
+        "UNRESOLVED: qualify a criterion-specific observable oracle and bind fresh attempt evidence before evaluating acceptance."
+      ],
+      "evidence_requirements": [
+        "fresh_attempt_identity",
+        "hashed_observations",
+        "pinned_build_and_input_identity",
+        "package_identity",
+        "native_outcomes",
+        "two_independent_simultaneous_rendered_client_observations"
+      ],
+      "related_ids": []
+    },
+    {
+      "id": "P2-DESIGN-008",
+      "origin": "phase2",
+      "scenario": "Improvised flashlight mounts — confirmed scope",
+      "criterion": "Use duct tape to mount a flashlight on suitable guns, backpacks and helmets\n(#56, batch #43). Audit all relevant native and selected dependency classes;\nrecord a complete supported combination matrix and evidence for exclusions.\nExisting proxies, model geometry, native power systems and switching come first.\n\nConfirmed removal rule: players remove the light by hand, without a knife or\nother tool. Tape is consumed and never recovered; mounting again requires fresh\ntape. Preserve the original light, battery, host identity and their condition.\nDo not introduce a duplicate light, battery or reusable tape through removal.\nDetermine tape quantity/wear through the item audit and balance tests.\n\nAcceptance includes server-authoritative assembly/removal, valid attachment\nposition and beam, battery consumption, switch controls, damage/ruin/water,\nheld/worn/dropped and stored states, interruption, concurrent requests, full\ninventory/ground fallback, reconnect/restart, replicated presentation and bounded\ncost. A working pilot is a checkpoint; the full justified scope must be covered.\nGiven repeated mount/remove cycles, the light and battery remain conserved and\nevery remount spends fresh tape. Given no knife, removal still works by hand.\nGiven cancellation or competing requests, the final state cannot duplicate\nitems or refund consumed tape. Native metadata alone does not establish geometry\nor gameplay compatibility; runtime checks and two clients remain required.\n\nSee [ADR-018](adr/ADR-018-autonomous-testing-public-destination.md) for the\ndestination/testing decision and [original task ledger](specs/001-survival-overhaul/tasks.md)\nfor current completion status.",
       "modes": [
         "engine",
         "server",
@@ -3633,7 +3675,7 @@
       "id": "P2-PROGRAM-019",
       "origin": "program",
       "scenario": "Complete item/crafting audit, salvage and survival utilities",
-      "criterion": "Audit full flashlight mount compatibility on guns/backpacks/helmets, then implement justified duct-tape attachment/removal with power/switch/beam direction, wear, conservation, persistence and replicated held/worn/dropped behavior. Unsupported geometry requires evidence and explicit disposition (#56).",
+      "criterion": "Audit full flashlight mount compatibility on guns/backpacks/helmets, then implement justified duct-tape attachment/removal with power/switch/beam direction, wear, conservation, persistence and replicated held/worn/dropped behavior. User decision: remove by hand without a knife or tool, tape consumed with no recovery, fresh tape required to remount. Unsupported geometry requires evidence and explicit disposition (#56).",
       "modes": [
         "engine",
         "server",
@@ -5060,7 +5102,7 @@
       "criteria": "verbatim table cells"
     },
     "extensions": {
-      "mapped_count": 60,
+      "mapped_count": 61,
       "status": "source intake only; executable coverage unresolved",
       "limitations": [
         "Candidates/open choices are not commitments.",
@@ -5085,6 +5127,7 @@
         },
         "56": {
           "test_ids": [
+            "P2-DESIGN-008",
             "P2-PROGRAM-017",
             "P2-PROGRAM-018",
             "P2-PROGRAM-019",
@@ -5744,6 +5787,12 @@
         {
           "source": "src-005",
           "line": 157
+        }
+      ],
+      "P2-DESIGN-008": [
+        {
+          "source": "src-005",
+          "line": 183
         }
       ],
       "P2-PROGRAM-001": [

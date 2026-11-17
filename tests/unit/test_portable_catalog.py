@@ -62,7 +62,8 @@ class PortableCatalogTests(unittest.TestCase):
                                 "interruption", "concurrent", "restart/recovery")),
             ("flashlight", ("guns/backpacks/helmets", "duct-tape",
                             "power/switch/beam", "conservation", "persistence",
-                            "replicated", "unsupported geometry")),
+                            "replicated", "unsupported geometry", "remove by hand",
+                            "tape consumed", "fresh tape")),
         ):
             with self.subTest(feature=needle):
                 self.assertTrue(any(needle in c and all(t in c for t in terms)
