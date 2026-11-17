@@ -16,6 +16,15 @@ in its fixed per-kind table, and probe_runtime.LAUNCHER_PROBES must list it, bef
 accepted; until then the stager refuses to write the plan. Convert the census with
 tools/audit/interior_points.py.
 
+All-class batches: `plan` enumerates every House class from a class list or a prior census, splits them into
+runs of at most 64 targets (plan_batches), gives each run a deterministic native_run_id and skips classes
+already measured in prior output directories (measured_classes). A run stages with `--batch-plan FILE --run N`.
+Every found placement row of the census carries a "house" object, the House config census that
+interior templates consume (house_rows): the p3d model name, the true door count, up to 64 door positions in the
+building model frame (CoordToLocal of GetDoorSoundPos, index order) and up to 64 selections whose name contains
+"door" with their GetSelectionPositionMS position. Whether that model-space position and the door sound position
+share one frame, and whether door selection names exist for every class, are unobserved until a native run.
+
 Compile shape (observed natively on 1.30.164289 for another generated hook): a statement with
 more than 8 binary '+' is "Formula too complex", and a bare int or float joined to a string is
 "Incompatible parameter". The generated hook therefore keeps at most 8 '+' per statement and
@@ -23,6 +32,7 @@ converts every number through HCProbeInt/HCProbeNum (which use ToString()); lint
 checks both.
 """
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -34,9 +44,12 @@ import xml.etree.ElementTree as ET
 try:
     from . import ce_probe as placements_tool  # public placement parsing/selection only
     from . import probe_runtime as rt
+    from ..audit import interior_points as pts  # census parsing/validation (the builder's own rules)
 except ImportError:  # executed as a script from tools/setup
     import ce_probe as placements_tool
     import probe_runtime as rt
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from tools.audit import interior_points as pts
 
 KIND = "interior-sampler"
 PLAN_NAME = "interior-sampler-plan.json"
@@ -84,6 +97,22 @@ MAX_FRAME_POINTS = 64
 MAX_FRAME_POINTS_PER_CLASS = 32
 FRAME_CONTAINER = "lootFloor"
 FRAME_TRANSFORMS = ("as-is", "rot90")
+# All-class batch plans (docs/INTERIOR_TEMPLATES_CONTRACT.md section 10/12): at most MAX_TARGETS per native run.
+BATCH_PLAN_KIND = "interior-sampler-batch-plan"
+BATCH_PLAN_NAME = "batch-plan.json"
+BATCH_ROLE = "house"
+MAX_BATCH_CLASSES = 2048                 # the contract's House denominator cap (HCInfectedRooms MAX_PRODUCTION_CLASSES)
+MAX_CLASS_LIST_BYTES = 1024 * 1024
+MAX_CENSUS_FILES = 512
+MAX_BATCH_PLAN_BYTES = 8 * 1024 * 1024
+RUN_ID_SALT = "hc-interior-sampler-run-v1"
+# House config census (a "house" object on every found placement row). The in-game caps are literals in the hook.
+MAX_HOUSE_DOORS = 64
+MAX_HOUSE_SELECTIONS = 64
+MAX_HOUSE_COUNT = 4096
+MAX_HOUSE_COORDINATE = 1e5
+HOUSE_KEYS = frozenset({"model", "door_count", "doors", "selection_total", "door_selections"})
+MODEL_TEXT = re.compile(r"^[ -!#-\[\]-~]{1,128}$")
 
 # ---------------------------------------------------------------------------
 # Generated Enforce hook
@@ -1666,6 +1695,62 @@ HOOK_TAIL = r"""
         return text;
     }
 
+    bool HCProbeDoorSelection(string name)
+    {
+        if (name.Contains("door"))
+            return true;
+        if (name.Contains("Door"))
+            return true;
+        if (name.Contains("DOOR"))
+            return true;
+        return false;
+    }
+
+    string HCProbeHouseText()
+    {
+        int doorTotal = m_HCProbeBuilding.GetDoorCount();
+        int doorLimit = doorTotal;
+        if (doorLimit > 64)
+            doorLimit = 64;
+        string doorText = "";
+        int door = 0;
+        for (door = 0; door < doorLimit; door++)
+        {
+            if (door > 0)
+                doorText = doorText + ",";
+            doorText = doorText + HCProbeVector(m_HCProbeBuilding.CoordToLocal(m_HCProbeBuilding.GetDoorSoundPos(door)));
+        }
+        array<string> names = new array<string>;
+        m_HCProbeBuilding.GetSelectionList(names);
+        int nameTotal = names.Count();
+        int nameLimit = nameTotal;
+        if (nameLimit > 512)
+            nameLimit = 512;
+        string selectionText = "";
+        string selectionName = "";
+        vector selectionPos;
+        int written = 0;
+        int index = 0;
+        for (index = 0; index < nameLimit; index++)
+        {
+            selectionName = names.Get(index);
+            if (written >= 64)
+                continue;
+            if (!HCProbeDoorSelection(selectionName))
+                continue;
+            selectionPos = m_HCProbeBuilding.GetSelectionPositionMS(selectionName);
+            if (written > 0)
+                selectionText = selectionText + ",";
+            selectionText = selectionText + "[" + HCProbeStr(selectionName) + "," + HCProbeNum(selectionPos[0]) + ",";
+            selectionText = selectionText + HCProbeNum(selectionPos[1]) + "," + HCProbeNum(selectionPos[2]) + "]";
+            written = written + 1;
+        }
+        string text = "{" + HCProbeKey("model") + HCProbeStr(m_HCProbeBuilding.GetModelName()) + "," + HCProbeKey("door_count") + HCProbeInt(doorTotal) + ",";
+        text = text + HCProbeKey("doors") + "[" + doorText + "]," + HCProbeKey("selection_total") + HCProbeInt(nameTotal) + ",";
+        text = text + HCProbeKey("door_selections") + "[" + selectionText + "]}";
+        return text;
+    }
+
     void HCProbeBeginBuilding()
     {
         string expectedType = m_HCProbeClasses.Get(m_HCProbeCursor);
@@ -1815,6 +1900,8 @@ HOOK_TAIL = r"""
         text = text + HCProbeKey("box_min") + HCProbeVector(m_HCProbeBoxMin) + "," + HCProbeKey("box_max") + HCProbeVector(m_HCProbeBoxMax) + ",";
         text = text + HCProbeKey("grid") + "{" + HCProbeKey("step") + HCProbeNum(m_HCProbeGridStep) + "," + HCProbeKey("rows") + HCProbeInt(m_HCProbeRows) + ",";
         text = text + HCProbeKey("cols") + HCProbeInt(m_HCProbeCols) + "},";
+        if (found)
+            text = text + HCProbeKey("house") + HCProbeHouseText() + ",";
         if (m_HCProbeFrameText.Length() > 0)
             text = text + HCProbeKey("frame") + "[" + m_HCProbeFrameText + "],";
         text = text + HCProbeKey("reach") + "{" + HCProbeKey("state") + HCProbeStr(m_HCProbeReachState) + ",";
@@ -2278,36 +2365,340 @@ def stock_frame_points(proto_xml, classes):
     return result
 
 
+# ---------------------------------------------------------------------------
+# All-class batch plans, the House config census reader and door rows
+# ---------------------------------------------------------------------------
+
+def _plain_path(path, what):
+    """A Path that names no parent-directory step, however it is spelled."""
+    text = str(path)
+    if not text or "\x00" in text or ".." in re.split(r"[\\/]", text):
+        raise ValueError(f"{what} must not be empty or contain '..'")
+    return Path(text)
+
+
+def _bounded_int(name, value, low, high):
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        raise ValueError(f"{name} must be an integer in {low}..{high}")
+    return value
+
+
+def _finite(value, limit=MAX_HOUSE_COORDINATE):
+    return (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+            and abs(value) <= limit)
+
+
+def _vector(value, what):
+    if not isinstance(value, list) or len(value) != 3 or not all(_finite(v) for v in value):
+        raise ValueError(f"{what} must be three bounded finite numbers")
+    return [float(v) for v in value]
+
+
+def _class_name(value):
+    if not isinstance(value, str) or not rt.IDENT_RULE.match(value):
+        raise ValueError(f"class names must be plain identifiers, got {value!r}")
+    return value
+
+
+def parse_class_list(data):
+    """House class names from a class list (JSON array or one name per line, '#' comments) or a census.
+
+    A list refuses duplicates. A census (kind interior-sampler-census) names each class of its placement rows once.
+    At most MAX_BATCH_CLASSES; text lists are bounded to 1 MiB, censuses to the census byte bound."""
+    if not isinstance(data, (bytes, bytearray)):
+        raise ValueError("a class list must be bytes")
+    data = bytes(data)
+    head = data.lstrip()[:1]
+    from_census = False
+    if head in (b"{", b"["):
+        if len(data) > pts.MAX_CENSUS_BYTES:
+            raise ValueError("class list exceeds the byte bound")
+        try:
+            document = json.loads(data.decode("utf-8"), parse_constant=pts._reject_constant)
+        except (UnicodeDecodeError, RecursionError) as error:
+            raise ValueError(f"class list is not valid JSON: {error}") from error
+        if isinstance(document, dict):
+            if document.get("kind") != pts.CENSUS_KIND or not isinstance(document.get("placements"), list):
+                raise ValueError(f"a JSON object class source must be a {pts.CENSUS_KIND}")
+            names, from_census = [], True
+            for row in document["placements"]:
+                if not isinstance(row, dict):
+                    raise ValueError("census placement rows must be objects")
+                name = _class_name(row.get("class"))
+                if name not in names:
+                    names.append(name)
+        elif isinstance(document, list):
+            names = [_class_name(name) for name in document]
+        else:
+            raise ValueError("class list JSON must be an array or a census")
+    else:
+        if len(data) > MAX_CLASS_LIST_BYTES:
+            raise ValueError("class list exceeds 1 MiB")
+        try:
+            lines = data.decode("utf-8").splitlines()
+        except UnicodeDecodeError as error:
+            raise ValueError("class list is not UTF-8") from error
+        names = [_class_name(line.strip()) for line in lines if line.strip() and not line.strip().startswith("#")]
+        if len(lines) > 4 * MAX_BATCH_CLASSES + 16:
+            raise ValueError("class list has too many lines")
+    if not names:
+        raise ValueError("class list names no class")
+    if len(names) > MAX_BATCH_CLASSES:
+        raise ValueError(f"at most {MAX_BATCH_CLASSES} classes")
+    if len(set(names)) != len(names) and not from_census:
+        raise ValueError("duplicate class in the class list")
+    return names
+
+
+def run_id_for(targets):
+    """Deterministic native run id: 32 lowercase hex over the exact (class, position) targets of one run."""
+    rows = [[t["class"], [float(v) for v in t["pos"]]] for t in targets]
+    text = json.dumps([RUN_ID_SALT, rows], separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(text.encode("ascii")).hexdigest()[:32]
+
+
+def plan_batches(classes, placements, *, per_class=1, run_size=MAX_TARGETS, measured=()):
+    """Split every class into resumable runs of at most ``run_size`` (<= 64) targets.
+
+    classes: House class names (unique). placements: {class: [(x, y, z), ...]} from mapgrouppos.
+    Classes are sorted and chunked on the FULL set, so a run keeps its index when others are resumed; classes in
+    ``measured`` are dropped from their chunk (a chunk left empty is omitted) and a changed run is a new
+    native_run_id. A class is never split across runs. A class without a stock placement is listed in
+    "unplaced" with the contract reason not_in_mapgrouppos and is not planned."""
+    if not isinstance(classes, (list, tuple)) or not classes:
+        raise ValueError("at least one class required")
+    if len(classes) > MAX_BATCH_CLASSES:
+        raise ValueError(f"at most {MAX_BATCH_CLASSES} classes")
+    names = [_class_name(name) for name in classes]
+    if len(set(names)) != len(names):
+        raise ValueError("duplicate class")
+    _bounded_int("per class", per_class, 1, MAX_PER_CLASS)
+    _bounded_int("run size", run_size, 1, MAX_TARGETS)
+    done = {_class_name(name) for name in measured}
+    names.sort()
+    placed = [name for name in names if placements.get(name)]
+    unplaced = [{"class": name, "reason": "not_in_mapgrouppos"} for name in names
+                if not placements.get(name) and name not in done]
+    chunks, current, count = [], [], 0
+    for name in placed:
+        wanted = min(per_class, len(placements[name]))
+        if current and count + wanted > run_size:
+            chunks.append(current)
+            current, count = [], 0
+        current.append(name)
+        count += wanted
+    if current:
+        chunks.append(current)
+    runs = []
+    for index, chunk in enumerate(chunks):
+        todo = [name for name in chunk if name not in done]
+        if not todo:
+            continue
+        targets = []
+        for name in todo:
+            for position in placements_tool.select_placements(placements[name], per_class):
+                targets.append({"class": name, "role": BATCH_ROLE, "index": len(targets),
+                                "pos": [float(v) for v in position]})
+        runs.append({"index": index, "native_run_id": run_id_for(targets), "classes": todo, "targets": targets})
+    return {"schema": 1, "kind": BATCH_PLAN_KIND, "run_size": run_size, "per_class": per_class,
+            "class_count": len(names), "measured": sorted(name for name in names if name in done),
+            "unplaced": unplaced, "runs": runs}
+
+
+def _check_house(house, where):
+    """Validate one census "house" object; return the canonical pieces."""
+    if not isinstance(house, dict) or set(house) != HOUSE_KEYS:
+        raise ValueError(f"{where}: house must be an object with exactly {sorted(HOUSE_KEYS)}")
+    model = house["model"]
+    if not isinstance(model, str) or not MODEL_TEXT.match(model):
+        raise ValueError(f"{where}: house model must be 1..128 plain characters")
+    count = _bounded_int(f"{where}: door_count", house["door_count"], 0, MAX_HOUSE_COUNT)
+    doors = house["doors"]
+    if not isinstance(doors, list) or len(doors) != min(count, MAX_HOUSE_DOORS):
+        raise ValueError(f"{where}: doors must hold min(door_count, {MAX_HOUSE_DOORS}) rows")
+    door_rows = [{"index": index, "position": _vector(door, f"{where}: door {index}")}
+                 for index, door in enumerate(doors)]
+    selections = house["door_selections"]
+    if not isinstance(selections, list) or len(selections) > MAX_HOUSE_SELECTIONS:
+        raise ValueError(f"{where}: door_selections must be a list of at most {MAX_HOUSE_SELECTIONS}")
+    selection_rows = []
+    for entry in selections:
+        if (not isinstance(entry, list) or len(entry) != 4 or not isinstance(entry[0], str)
+                or not MODEL_TEXT.match(entry[0])):
+            raise ValueError(f"{where}: a door selection is [name, x, y, z]")
+        selection_rows.append({"name": entry[0], "position": _vector(entry[1:], f"{where}: selection {entry[0]}")})
+    total = _bounded_int(f"{where}: selection_total", house["selection_total"], len(selection_rows), 1000000)
+    return {"model": model, "door_count": count, "doors": door_rows, "door_selections": selection_rows,
+            "selection_total": total}
+
+
+def _house_row(row, run_id, where):
+    box = [_vector(row.get("box_min"), f"{where}: box_min"), _vector(row.get("box_max"), f"{where}: box_max")]
+    if row.get("box_source") != "clipping":
+        raise ValueError(f"{where}: a measured house needs a clipping box")
+    result = {"class": _class_name(row.get("class")), "box_min": box[0], "box_max": box[1],
+              "native_run_id": run_id}
+    result.update(_check_house(row.get("house"), where))
+    return result
+
+
+def _census_rows(document):
+    if not isinstance(document, dict) or document.get("kind") != pts.CENSUS_KIND:
+        raise ValueError(f"census kind must be {pts.CENSUS_KIND}")
+    run_id = document.get("native_run_id")
+    if not isinstance(run_id, str) or not RUN_ID_RULE.fullmatch(run_id):
+        raise ValueError("census native_run_id must be 32 lowercase hex characters")
+    placements = document.get("placements")
+    if not isinstance(placements, list):
+        raise ValueError("census placements must be a list")
+    return run_id, placements
+
+
+def house_rows(document):
+    """Canonical House config rows of one parsed census (the input of interior template building).
+
+    One row per FOUND placement: class, model, box_min/box_max (building model frame), door_count (true count),
+    doors [{"index", "position"}] (model frame, GetDoorSoundPos; at most 64), door_selections
+    [{"name", "position"}] (names containing "door", at most 64), selection_total and native_run_id. A placement
+    that was not found has no row (its class stays unmeasured); a found one without a valid house object refuses."""
+    run_id, placements = _census_rows(document)
+    rows = []
+    for number, row in enumerate(placements):
+        if not isinstance(row, dict):
+            raise ValueError(f"placement {number} must be an object")
+        if row.get("found") is not True:
+            continue
+        rows.append(_house_row(row, run_id, f"placement {number}"))
+    return rows
+
+
+def _census_files(directory):
+    found = []
+    for pattern in ("census.json", "*/census.json", "profiles/HCInteriorSampler/census.json",
+                    "*/profiles/HCInteriorSampler/census.json", "HCInteriorSampler/census.json",
+                    "*/HCInteriorSampler/census.json"):
+        for path in sorted(directory.glob(pattern)):
+            if path.is_file() and path not in found:
+                found.append(path)
+    if len(found) > MAX_CENSUS_FILES:
+        raise ValueError(f"more than {MAX_CENSUS_FILES} census files under {directory}")
+    return found
+
+
+def measured_classes(directories):
+    """Classes already measured in prior output directories, for resuming a batch.
+
+    A census counts only when its complete.txt sentinel sits beside it; an unfinished one is listed in "ignored" and
+    its classes stay unmeasured. A finished census that does not parse, or whose house object is malformed, refuses
+    (never skipped). A class is measured when a found placement row carries a valid house object."""
+    measured, ignored, files = set(), [], []
+    for directory in directories:
+        directory = _plain_path(directory, "prior output directory")
+        if not directory.is_dir():
+            raise ValueError(f"prior output directory not found: {directory.name}")
+        for path in _census_files(directory):
+            if not (path.parent / SENTINEL_NAME).is_file():
+                ignored.append({"path": str(path), "reason": "no complete.txt sentinel"})
+                continue
+            if path.stat().st_size > pts.MAX_CENSUS_BYTES:
+                raise ValueError(f"census exceeds the byte bound: {path}")
+            document = pts.parse_census(path.read_bytes())
+            run_id, placements = _census_rows(document)
+            files.append(str(path))
+            for number, row in enumerate(placements):
+                if row.get("found") is True and "house" in row:
+                    measured.add(_house_row(row, run_id, f"{path} placement {number}")["class"])
+    return {"measured": sorted(measured), "ignored": ignored, "censuses": files}
+
+
+def write_batch_plan(plan, output_dir):
+    """Write batch-plan.json into a new or empty output directory; never overwrite."""
+    output = _plain_path(output_dir, "batch plan output directory")
+    output.mkdir(parents=True, exist_ok=True)
+    target = output / BATCH_PLAN_NAME
+    try:
+        with open(target, "x", encoding="ascii") as handle:
+            json.dump(plan, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+    except FileExistsError as error:
+        raise ValueError(f"{target} already exists; not overwriting") from error
+    return str(target)
+
+
+def _checked_run(run):
+    """Validate a run dict from a batch plan and recompute its deterministic id; return the targets."""
+    if not isinstance(run, dict):
+        raise ValueError("a batch run must be an object")
+    _bounded_int("run index", run.get("index"), 0, MAX_BATCH_CLASSES)
+    targets = run.get("targets")
+    if not isinstance(targets, list) or not 1 <= len(targets) <= MAX_TARGETS:
+        raise ValueError(f"a run holds 1..{MAX_TARGETS} targets")
+    for target in targets:
+        if not isinstance(target, dict):
+            raise ValueError("a run target must be an object")
+        _class_name(target.get("class"))
+        if not isinstance(target.get("role"), str) or not placements_tool.ROLE_RULE.match(target["role"]):
+            raise ValueError("run target role must be a plain identifier")
+        if (not isinstance(target.get("pos"), list) or len(target["pos"]) != 3
+                or not all(_finite(v, 1e6) for v in target["pos"])):
+            raise ValueError("run target position must be three bounded finite numbers")
+    names = []
+    for target in targets:
+        if target["class"] not in names:
+            names.append(target["class"])
+    if run.get("classes") != names:
+        raise ValueError("run classes do not match its targets")
+    expected = run_id_for(targets)
+    if run.get("native_run_id") != expected:
+        raise ValueError("run native_run_id does not match its targets")
+    return targets
+
+
 def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minutes=DEFAULT_WAIT_MINUTES,
           intersect="geom", sample_delay_s=DEFAULT_SAMPLE_DELAY_S, hit_limit=DEFAULT_HIT_LIMIT,
           step_limit=DEFAULT_STEP_LIMIT,
           building_ray_limit=DEFAULT_BUILDING_RAY_LIMIT, run_ray_limit=DEFAULT_RUN_RAY_LIMIT,
           path_limit=DEFAULT_PATH_LIMIT, output_limit=DEFAULT_OUTPUT_LIMIT,
-          battleye_sha256=rt.BATTLEYE_SHA256, native_scripts=None, now=None, _wsl_parent=None):
+          battleye_sha256=rt.BATTLEYE_SHA256, native_scripts=None, now=None, run=None, _wsl_parent=None):
     """Stage a fresh sampler runtime and write interior-sampler-plan.json. Never launches anything.
+
+    ``run`` is one run of a batch plan (plan_batches): its targets, not SAMPLE_CLASSES, are measured, its
+    deterministic native_run_id is the one the hook echoes, and every target must be a stock placement.
 
     ``_wsl_parent`` is an internal test hook; the production parent is always rt.WSL_PARENT
     and the Windows root is always derived from the destination, never supplied.
     """
     if not 5 <= wait_minutes <= 120 or not 1 <= per_class <= MAX_PER_CLASS:
         raise ValueError(f"wait minutes 5..120 and per-class 1..{MAX_PER_CLASS} required")
+    run_targets = None if run is None else _checked_run(run)
     context = rt.begin(source_runtime, destination, parent=rt.WSL_PARENT if _wsl_parent is None else _wsl_parent,
                        battleye_sha256=battleye_sha256, hold=("mapgrouppos.xml", "mapgroupproto.xml"))
     source = context["source"]
-    names = {name for name, _role in SAMPLE_CLASSES}
+    if run is None:
+        sampled = SAMPLE_CLASSES
+    else:
+        sampled = tuple((name, BATCH_ROLE) for name in dict.fromkeys(t["class"] for t in run_targets))
+    names = {name for name, _role in sampled}
     placements = placements_tool.parse_placements(source["held"]["mapgrouppos.xml"], wanted=names)
-    missing = [name for name, _role in SAMPLE_CLASSES if not placements.get(name)]
+    missing = [name for name, _role in sampled if not placements.get(name)]
     if missing:
         raise ValueError("stock mapgrouppos has no placements for: " + ", ".join(missing))
-    targets = placements_tool.build_targets(placements, classes=SAMPLE_CLASSES, per_class=per_class,
-                                            hard_cap=MAX_TARGETS)
+    if run is None:
+        targets = placements_tool.build_targets(placements, classes=SAMPLE_CLASSES, per_class=per_class,
+                                                hard_cap=MAX_TARGETS)
+    else:
+        targets = run_targets
+        for target in targets:
+            if tuple(float(v) for v in target["pos"]) not in placements[target["class"]]:
+                raise ValueError(f"run target {target['class']} is not a stock mapgrouppos placement")
+        per_class = max(sum(1 for t in targets if t["class"] == name) for name in names)
     limits = {"sample_delay_s": sample_delay_s, "run_ray_limit": run_ray_limit,
               "building_ray_limit": building_ray_limit, "hit_limit": hit_limit, "step_limit": step_limit,
               "path_limit": path_limit, "output_limit": output_limit, "intersect": intersect}
-    calibration = [name for name, role in SAMPLE_CLASSES if role == "calibration"]
+    calibration = [name for name, role in SAMPLE_CLASSES if role == "calibration" and name in names]
     frame = stock_frame_points(source["held"]["mapgroupproto.xml"], calibration)
     frame_points = [(name, *point) for name in calibration for point in frame[name]]
-    run_id = new_run_id()  # chosen here, never inside Enforce; the hook echoes it and the plan records it
+    run_id = new_run_id() if run is None else run["native_run_id"]  # chosen here, never inside Enforce
     hook = render_hook(targets, frame_points=frame_points, native_run_id=run_id, **limits)
     native = rt.native_type_names(native_scripts) if native_scripts else frozenset()
     problems = lint_sampler_hook(hook.decode("ascii"), native_types=native)
@@ -2317,7 +2708,7 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
     # The mission instrumentation purpose is the CE probe's (a generated hook); the plan kind is ours.
     built = rt.build_runtime(context, hook, purpose="ce-probe")
     classes = [{"class": name, "role": role, "available": len(placements.get(name, [])),
-                "sampled": sum(1 for t in targets if t["class"] == name)} for name, role in SAMPLE_CLASSES]
+                "sampled": sum(1 for t in targets if t["class"] == name)} for name, role in sampled]
     plan = rt.plan_header(KIND, now, after={"variant": "sampler"})
     plan.update(rt.plan_runtime_fields(context, built))
     plan.update({
@@ -2343,10 +2734,49 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
         "target_classes": classes, "targets": targets,
         "mission_files": built["mission_files"], "staged_files": built["staged"],
     })
+    if run is not None:
+        plan["batch"] = {"index": run["index"], "classes": len(names)}
     return rt.write_plan(context["destination"], PLAN_NAME, plan)
 
 
+def _read_bounded(path, limit, what):
+    path = _plain_path(path, what)
+    if not path.is_file() or path.stat().st_size > limit:
+        raise ValueError(f"{what} must be an existing file of at most {limit} bytes")
+    return path.read_bytes()
+
+
+def plan_main(argv):
+    parser = argparse.ArgumentParser(prog="interior_sampler.py plan",
+                                     description="plan resumable all-class sampler runs (at most 64 targets each)")
+    parser.add_argument("--classes", required=True, help="House class list (JSON array or lines) or a prior census")
+    parser.add_argument("--mapgrouppos", required=True, help="stock mapgrouppos.xml")
+    parser.add_argument("--output", required=True, help="directory that receives batch-plan.json")
+    parser.add_argument("--per-class", type=int, default=1)
+    parser.add_argument("--run-size", type=int, default=MAX_TARGETS)
+    parser.add_argument("--resume", action="append", default=[], help="prior output directory to skip (repeatable)")
+    args = parser.parse_args(argv)
+    try:
+        classes = parse_class_list(_read_bounded(args.classes, pts.MAX_CENSUS_BYTES, "class list"))
+        placements = placements_tool.parse_placements(
+            _read_bounded(args.mapgrouppos, placements_tool.MAX_XML_BYTES, "mapgrouppos"), wanted=set(classes))
+        prior = measured_classes(args.resume)
+        plan = plan_batches(classes, placements, per_class=args.per_class, run_size=args.run_size,
+                            measured=prior["measured"])
+        path = write_batch_plan(plan, args.output)
+    except (OSError, ValueError, json.JSONDecodeError) as error:
+        print(f"interior_sampler: {error}", file=sys.stderr)
+        return 1
+    print(f"wrote {path}: classes={plan['class_count']} measured={len(plan['measured'])} "
+          f"unplaced={len(plan['unplaced'])} runs={len(plan['runs'])} "
+          f"targets={sum(len(run['targets']) for run in plan['runs'])}")
+    return 0
+
+
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "plan":
+        return plan_main(argv[1:])
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--destination", required=True, help="fresh runtime directory (must not exist)")
     parser.add_argument("--source-runtime", default=rt.DEFAULT_SOURCE_RUNTIME)
@@ -2356,15 +2786,29 @@ def main(argv=None):
     parser.add_argument("--sample-delay-s", type=int, default=DEFAULT_SAMPLE_DELAY_S)
     parser.add_argument("--battleye-sha256", default=rt.BATTLEYE_SHA256)
     parser.add_argument("--native-scripts", help="extracted native script cache used to lint the hook")
+    parser.add_argument("--batch-plan", help="batch-plan.json from the plan command; stages one of its runs")
+    parser.add_argument("--run", type=int, help="run index within --batch-plan")
     args = parser.parse_args(argv)
     cache = args.native_scripts
     if cache is None:
         default = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
         cache = default if (default / "3_Game").is_dir() else None
     try:
+        run = None
+        if (args.batch_plan is None) != (args.run is None):
+            raise ValueError("--batch-plan and --run go together")
+        if args.batch_plan is not None:
+            document = json.loads(_read_bounded(args.batch_plan, MAX_BATCH_PLAN_BYTES, "batch plan"))
+            if not isinstance(document, dict) or document.get("kind") != BATCH_PLAN_KIND or \
+                    not isinstance(document.get("runs"), list):
+                raise ValueError(f"not a {BATCH_PLAN_KIND}")
+            matching = [r for r in document["runs"] if isinstance(r, dict) and r.get("index") == args.run]
+            if len(matching) != 1:
+                raise ValueError(f"the batch plan has no run {args.run}")
+            run = matching[0]
         plan = stage(args.source_runtime, args.destination, per_class=args.per_class, intersect=args.intersect,
                      wait_minutes=args.wait_minutes, sample_delay_s=args.sample_delay_s,
-                     battleye_sha256=args.battleye_sha256, native_scripts=cache)
+                     battleye_sha256=args.battleye_sha256, native_scripts=cache, run=run)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"interior_sampler: {error}", file=sys.stderr)
         return 1

@@ -52,6 +52,16 @@ class StrictS(cep.S):
     def Replace(self, sample, replacement):
         return StrictS(str.replace(self, sample, replacement))
 
+    def Contains(self, sample):
+        return str(sample) in str(self)
+
+
+class LooseS(cep.S):
+    """The non-strict Enforce string plus Contains (EnString.c:286)."""
+
+    def Contains(self, sample):
+        return str(sample) in str(self)
+
 
 def mock_to_string(value):
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -119,9 +129,10 @@ class SampBuilding(cep.MockObject):
 
     MOVING = 0.5
 
-    def __init__(self, *args, doors=(), **kwargs):
+    def __init__(self, *args, doors=(), model="synthetic_model", selections=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.doors = list(doors)
+        self.model, self.selections = model, dict(selections or {})
         self.state, self.locked, self.ops = {}, set(), []
         self.phase, self.pending, self.stuck, self.lag = {}, {}, {}, 2
 
@@ -180,6 +191,18 @@ class SampBuilding(cep.MockObject):
 
     def GetDoorCount(self):
         return len(self.doors)
+
+    def GetModelName(self):
+        """Object.c:497 (the p3d name without the suffix)."""
+        return LooseS(self.model)
+
+    def GetSelectionList(self, out):
+        """Object.c:382 (out TStringArray): the model's selection names in model order (REFERENCE data)."""
+        out.extend(LooseS(name) for name in self.selections)
+
+    def GetSelectionPositionMS(self, name):
+        """Object.c:864: the selection's model-space position (REFERENCE data, not an observed frame)."""
+        return self.selections[str(name)]
 
     def GetDoorSoundPos(self, index):
         return self.doors[index]
@@ -491,7 +514,8 @@ MODELLED = ("HCProbeKey", "HCProbeStr", "HCProbeBool", "HCProbeVector", "HCProbe
             "HCProbeVariantState", "HCProbeSetState", "HCProbeUseEntrance", "HCProbeSetEntrance",
             "HCProbeUseFilter", "HCProbeEnteredCheck", "HCProbeDoorsOpen", "HCProbeWait", "HCProbeDoorPhase", "HCProbeDoorsSettled",
             "HCProbeOpenControl", "HCProbeOpenFloors", "HCProbeDoorsClose", "HCProbeDoorsRestored",
-            "HCProbeDoorRunText", "HCProbeEnteredText", "HCProbeFrameProbe", "HCProbeFrameCheck")
+            "HCProbeDoorRunText", "HCProbeEnteredText", "HCProbeFrameProbe", "HCProbeFrameCheck",
+            "HCProbeDoorSelection", "HCProbeHouseText")
 # Methods the reference transpiler deliberately does not execute: the loaders are literal data and
 # HCProbeStart only touches the engine file system and the call queue.
 UNMODELLED = frozenset({"HCProbeAdd", "HCProbeFrameAdd", "HCProbeStart"})
@@ -525,7 +549,7 @@ class HookRun:
         self.files = MockFiles()
         self.game = RunGame([building, *extra_world], nav if ai else None, ground_offset)
         self.prints = []
-        text_type = StrictS if strict else cep.S
+        text_type = StrictS if strict else LooseS
         namespace = {
             "S": text_type, "EArray": SampArray, "ItemBase": cep.MockItemBase, "Math": cep.MockMath,
             "vector": cep.MockVector, "Vector": lambda x, y, z: (x, y, z), "GetGame": lambda: self.game,
@@ -3309,6 +3333,393 @@ class Round8NativeRunIdTests(SamplerWorkspace):
 
     def test_the_hook_text_without_an_explicit_id_still_lints_clean(self):
         self.assertEqual([], samp.lint_sampler_hook(samp.render_hook(sampler_targets()).decode()))
+
+
+# ---------------------------------------------------------------------------
+# T1: all-class batch plans, the House config census and door rows. Synthetic fixtures only; none of this
+# observes the engine, and the in-game census stays pending a native run.
+# ---------------------------------------------------------------------------
+
+def house_names(count, prefix="Land_House_Syn"):
+    return ["%s%04d" % (prefix, index) for index in range(count)]
+
+
+def house_placements(names, per_name=1):
+    return {name: [(1000.0 + 10 * index + 3 * copy, 100.0, 2000.0 + index) for copy in range(per_name)]
+            for index, name in enumerate(names)}
+
+
+def house_census_document(rows, run_id="ab" * 16):
+    """A minimal SYNTHETIC census shaped like the hook output (rows are placement dicts)."""
+    return {"schema": 1, "kind": "interior-sampler-census", "door_phase_contract": samp.DOOR_PHASE_CONTRACT,
+            "native_run_id": run_id, "world": "chernarusplus", "version": "1.30.test",
+            "placements": rows, "summary": {"complete": True}}
+
+
+def house_row(name, doors=((1.0, 0.5, 2.0),), selections=(("door1", 1.0, 0.5, 2.0),), found=True, door_count=None):
+    return {"i": 0, "class": name, "role": "house", "found": found, "actual": [1.0, 2.0, 3.0], "distance": 0.1,
+            "orientation": [0.0, 0.0, 0.0], "box_source": "clipping", "box_min": [-5.0, -1.0, -4.0],
+            "box_max": [7.0, 9.0, 3.0], "hits": [], "grid": {"step": 1.0, "rows": 12, "cols": 7},
+            "house": {"model": "model_" + name, "door_count": len(doors) if door_count is None else door_count,
+                      "doors": [list(d) for d in doors], "selection_total": len(selections) + 2,
+                      "door_selections": [[n, x, y, z] for n, x, y, z in selections]}}
+
+
+def write_census_dir(root, name, rows, run_id="ab" * 16, sentinel=True):
+    directory = Path(root) / name / "profiles" / "HCInteriorSampler"
+    directory.mkdir(parents=True)
+    (directory / "census.json").write_text(json.dumps(house_census_document(rows, run_id)))
+    if sentinel:
+        (directory / "complete.txt").write_text("done\n")
+    return Path(root) / name
+
+
+class BatchPlanTests(unittest.TestCase):
+    def plan(self, count, **kwargs):
+        names = house_names(count)
+        return samp.plan_batches(names, house_placements(names), **kwargs), names
+
+    def test_run_boundaries_at_63_64_65_and_300_classes_never_exceed_64_targets(self):
+        for count, sizes in ((63, [63]), (64, [64]), (65, [64, 1]), (300, [64, 64, 64, 64, 44])):
+            with self.subTest(count=count):
+                plan, names = self.plan(count)
+                self.assertEqual(sizes, [len(run["targets"]) for run in plan["runs"]])
+                self.assertEqual(sorted(names), sorted(c for run in plan["runs"] for c in run["classes"]))
+                self.assertEqual(list(range(len(sizes))), [run["index"] for run in plan["runs"]])
+                self.assertEqual([], plan["unplaced"])
+
+    def test_a_class_with_several_targets_is_never_split_across_runs(self):
+        names = house_names(40)
+        plan = samp.plan_batches(names, house_placements(names, per_name=3), per_class=2)
+        self.assertEqual([64, 16], [len(run["targets"]) for run in plan["runs"]])
+        for run in plan["runs"]:
+            self.assertEqual(2 * len(run["classes"]), len(run["targets"]))
+            for number, target in enumerate(run["targets"]):
+                self.assertEqual(number, target["index"])
+                self.assertRegex(target["role"], r"^[a-z]{1,16}$")
+
+    def test_run_ids_are_32_hex_deterministic_and_independent_of_the_input_order(self):
+        names = house_names(150)
+        placements = house_placements(names)
+        first = samp.plan_batches(names, placements)
+        again = samp.plan_batches(list(reversed(names)), placements)
+        self.assertEqual(first, again)
+        ids = [run["native_run_id"] for run in first["runs"]]
+        self.assertEqual(3, len(set(ids)))
+        for run_id in ids:
+            self.assertRegex(run_id, r"^[0-9a-f]{32}$")
+        changed = samp.plan_batches(names[:-1], placements)
+        self.assertNotEqual(ids[-1], changed["runs"][-1]["native_run_id"])
+        self.assertEqual(ids[:-1], [run["native_run_id"] for run in changed["runs"][:-1]])
+        moved = dict(placements, **{names[0]: [(5.0, 6.0, 7.0)]})
+        self.assertNotEqual(ids[0], samp.plan_batches(names, moved)["runs"][0]["native_run_id"])
+
+    def test_a_class_without_a_stock_placement_is_reported_not_planned(self):
+        names = house_names(5)
+        placements = house_placements(names)
+        placements.pop(names[2])
+        plan = samp.plan_batches(names, placements)
+        self.assertEqual([{"class": names[2], "reason": "not_in_mapgrouppos"}], plan["unplaced"])
+        self.assertNotIn(names[2], [c for run in plan["runs"] for c in run["classes"]])
+
+    def test_the_plan_refuses_bad_inputs(self):
+        names = house_names(3)
+        placements = house_placements(names)
+        cases = (
+            ("duplicate", dict(classes=names + [names[0]])),
+            ("empty", dict(classes=[])),
+            ("bad identifier", dict(classes=names + ["Land Bad;Class"])),
+            ("non string", dict(classes=names + [5])),
+            ("too many", dict(classes=house_names(samp.MAX_BATCH_CLASSES + 1))),
+            ("run size 65", dict(classes=names, run_size=65)),
+            ("run size 0", dict(classes=names, run_size=0)),
+            ("per class 0", dict(classes=names, per_class=0)),
+            ("per class 17", dict(classes=names, per_class=17)),
+            ("bool run size", dict(classes=names, run_size=True)),
+        )
+        for label, kwargs in cases:
+            classes = kwargs.pop("classes")
+            with self.subTest(label), self.assertRaises(ValueError):
+                samp.plan_batches(classes, placements, **kwargs)
+
+
+class ClassListTests(unittest.TestCase):
+    def test_a_json_list_a_text_list_and_a_census_all_enumerate_the_same_classes(self):
+        names = house_names(4)
+        as_json = json.dumps(names).encode()
+        as_text = ("# House classes\n" + "\n".join(names) + "\n").encode()
+        as_census = json.dumps(house_census_document([house_row(n) for n in names] + [house_row(names[0])])).encode()
+        self.assertEqual(sorted(names), sorted(samp.parse_class_list(as_json)))
+        self.assertEqual(sorted(names), sorted(samp.parse_class_list(as_text)))
+        self.assertEqual(sorted(names), sorted(samp.parse_class_list(as_census)))
+
+    def test_a_class_list_refuses_duplicates_malformed_rows_and_oversize(self):
+        names = house_names(3)
+        for label, data in (
+                ("duplicate json", json.dumps(names + [names[0]]).encode()),
+                ("duplicate text", "\n".join(names + [names[1]]).encode()),
+                ("bad identifier", b"Land_House_1\nLand/House\n"),
+                ("empty", b"\n# nothing\n"),
+                ("not bytes", "Land_House_1"),
+                ("non string json", json.dumps(["Land_House_1", 4]).encode()),
+                ("census row without class", json.dumps(house_census_document([{"found": True}])).encode()),
+                ("census class not a string", json.dumps(house_census_document([{"class": 7}])).encode()),
+                ("too many", "\n".join(house_names(samp.MAX_BATCH_CLASSES + 1)).encode()),
+                ("too large", b"Land_X\n" * 3000000)):
+            with self.subTest(label), self.assertRaises(ValueError):
+                samp.parse_class_list(data)
+
+
+class ResumeTests(unittest.TestCase):
+    def setUp(self):
+        temp = __import__("tempfile").TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+
+    def test_classes_measured_in_a_prior_output_are_skipped_and_the_rest_keep_their_run_index(self):
+        names = house_names(130)
+        placements = house_placements(names)
+        full = samp.plan_batches(names, placements)
+        done = sorted(names)[:64] + sorted(names)[64:70]              # run 0 entirely, run 1 partly
+        first = write_census_dir(self.root, "prior-a", [house_row(n) for n in done[:64]], run_id="11" * 16)
+        second = write_census_dir(self.root, "prior-b", [house_row(n) for n in done[64:]], run_id="22" * 16)
+        measured = samp.measured_classes([first, second])
+        self.assertEqual(sorted(done), measured["measured"])
+        self.assertEqual(2, len(measured["censuses"]))
+        resumed = samp.plan_batches(names, placements, measured=measured["measured"])
+        self.assertEqual([1, 2], [run["index"] for run in resumed["runs"]])
+        self.assertEqual([58, 2], [len(run["targets"]) for run in resumed["runs"]])
+        self.assertEqual(sorted(done), resumed["measured"])
+        self.assertEqual(full["runs"][2]["native_run_id"], resumed["runs"][1]["native_run_id"])
+        self.assertNotEqual(full["runs"][1]["native_run_id"], resumed["runs"][0]["native_run_id"])
+        again = samp.plan_batches(names, placements, measured=list(reversed(measured["measured"])))
+        self.assertEqual(resumed, again)
+
+    def test_everything_measured_leaves_no_runs(self):
+        names = house_names(5)
+        prior = write_census_dir(self.root, "prior", [house_row(n) for n in names])
+        plan = samp.plan_batches(names, house_placements(names), measured=samp.measured_classes([prior])["measured"])
+        self.assertEqual([], plan["runs"])
+
+    def test_an_unfinished_census_and_a_row_without_house_evidence_do_not_count_as_measured(self):
+        unfinished = write_census_dir(self.root, "crashed", [house_row("Land_House_A")], run_id="cd" * 16,
+                                      sentinel=False)
+        bare = house_row("Land_House_B")
+        bare.pop("house")
+        lost = house_row("Land_House_C", found=False)
+        complete = write_census_dir(self.root, "done", [bare, lost, house_row("Land_House_D")], run_id="ef" * 16)
+        result = samp.measured_classes([unfinished, complete])
+        self.assertEqual(["Land_House_D"], result["measured"])
+        self.assertEqual(1, len(result["ignored"]))
+
+    def test_a_malformed_finished_census_is_refused_not_skipped(self):
+        bad = write_census_dir(self.root, "bad", [house_row("Land_House_A")])
+        (bad / "profiles/HCInteriorSampler/census.json").write_text('{"kind": "wrong"}')
+        with self.assertRaises(ValueError):
+            samp.measured_classes([bad])
+        broken = write_census_dir(self.root, "broken", [house_row("Land_House_A", doors=[(1, 2)])])
+        with self.assertRaises(ValueError):
+            samp.measured_classes([broken])
+
+    def test_output_paths_with_dotdot_and_missing_directories_are_refused(self):
+        for bad in (self.root / ".." / "elsewhere", str(self.root) + "/a/../b", "prior/../../x"):
+            with self.subTest(bad=str(bad)), self.assertRaises(ValueError):
+                samp.measured_classes([bad])
+            with self.subTest(write=str(bad)), self.assertRaises(ValueError):
+                samp.write_batch_plan({"runs": []}, bad)
+        with self.assertRaises(ValueError):
+            samp.measured_classes([self.root / "missing"])
+
+    def test_write_batch_plan_writes_one_new_file_and_refuses_to_overwrite(self):
+        names = house_names(70)
+        plan = samp.plan_batches(names, house_placements(names))
+        path = samp.write_batch_plan(plan, self.root / "plan-out")
+        self.assertEqual(samp.BATCH_PLAN_NAME, Path(path).name)
+        self.assertEqual(plan, json.loads(Path(path).read_text()))
+        with self.assertRaises(ValueError):
+            samp.write_batch_plan(plan, self.root / "plan-out")
+
+
+class HouseCensusHookTests(unittest.TestCase):
+    DOORS = [(-4.9, 1.0, -0.5), (2.0, 1.0, 3.0), (6.5, 1.0, 0.0)]
+    SELECTIONS = {"door1": (-4.9, 1.0, -0.5), "wall_a": (0.0, 1.0, 0.0), "Door_2": (2.0, 1.0, 3.0),
+                  "windowfront": (3.0, 1.0, 3.0), "DOOR3": (6.5, 1.0, 0.0)}
+
+    def house_building(self, yaw=0.6, doors=None):
+        b = SampBuilding("Land_Tenement_Small", (3000.0, 20.0, 5000.0), yaw=yaw, clip=BOX,
+                         model="tenement_small", selections=self.SELECTIONS)
+        b.doors = [b.to_world(d) for d in (self.DOORS if doors is None else doors)]
+        return b
+
+    def run_house(self, building, strict=False):
+        building.state[0] = True
+        hook = default_hook()
+        return HookRun(hook, building, storey_planes(building), nav=nav_for(building), strict=strict).run().row()
+
+    def test_the_census_row_carries_the_house_config_with_door_positions_in_the_model_frame(self):
+        building = self.house_building()
+        house = self.run_house(building)["house"]
+        self.assertEqual("tenement_small", house["model"])
+        self.assertEqual(3, house["door_count"])
+        self.assertEqual(3, len(house["doors"]))
+        for recorded_door, wanted in zip(house["doors"], self.DOORS):
+            self.assertEqual(3, len(recorded_door))
+            for got, expected in zip(recorded_door, wanted):
+                self.assertAlmostEqual(expected, got, places=4)
+
+    def test_only_door_named_selections_are_recorded_with_model_space_positions_and_the_total_is_kept(self):
+        house = self.run_house(self.house_building())["house"]
+        self.assertEqual(["door1", "Door_2", "DOOR3"], [entry[0] for entry in house["door_selections"]])
+        self.assertEqual([-4.9, 1.0, -0.5], house["door_selections"][0][1:])
+        self.assertEqual(5, house["selection_total"])
+
+    def test_doors_and_selections_are_bounded_while_the_true_count_is_kept(self):
+        many = {"door%d" % index: (float(index), 1.0, 0.0) for index in range(70)}
+        building = SampBuilding("Land_Tenement_Small", (3000.0, 20.0, 5000.0), yaw=0.0, clip=BOX,
+                                model="big", selections=many)
+        building.doors = [building.to_world((index * 0.1, 1.0, 0.0)) for index in range(70)]
+        house = self.run_house(building)["house"]
+        self.assertEqual(70, house["door_count"])
+        self.assertEqual(samp.MAX_HOUSE_DOORS, len(house["doors"]))
+        self.assertEqual(samp.MAX_HOUSE_SELECTIONS, len(house["door_selections"]))
+        self.assertEqual(70, house["selection_total"])
+
+    def test_a_house_without_doors_still_records_its_model_and_an_empty_door_list(self):
+        house = self.run_house(self.house_building(doors=[]))["house"]
+        self.assertEqual(0, house["door_count"])
+        self.assertEqual([], house["doors"])
+
+    def test_the_house_block_is_valid_json_under_strict_strings_and_passes_the_census_parser(self):
+        row = self.run_house(self.house_building(), strict=True)
+        self.assertIn("house", row)
+        hook = default_hook()
+        run = HookRun(hook, self.house_building(), storey_planes(self.house_building()), strict=True)
+        census = run.run().census()
+        pts.parse_census(json.dumps(census).encode())               # the builder's own strict parser accepts it
+        rows = samp.house_rows(census)
+        self.assertEqual("Land_Tenement_Small", rows[0]["class"])
+
+    def test_the_rendered_hook_lints_clean_with_the_house_census(self):
+        self.assertEqual([], samp.lint_sampler_hook(default_hook()))
+
+
+class HouseRowsTests(unittest.TestCase):
+    def test_canonical_rows_carry_class_model_box_and_indexed_door_rows(self):
+        doc = house_census_document([house_row("Land_House_A", doors=[(1.0, 0.5, 2.0), (-3.0, 0.5, 1.0)],
+                                              selections=[("door1", 1.0, 0.5, 2.0)]),
+                                     house_row("Land_House_B", found=False)])
+        rows = samp.house_rows(doc)
+        self.assertEqual(1, len(rows))                                   # a class that was not found is not a row
+        row = rows[0]
+        self.assertEqual({"class", "model", "box_min", "box_max", "door_count", "doors", "door_selections",
+                          "selection_total", "native_run_id"}, set(row))
+        self.assertEqual("Land_House_A", row["class"])
+        self.assertEqual("model_Land_House_A", row["model"])
+        self.assertEqual([-5.0, -1.0, -4.0], row["box_min"])
+        self.assertEqual([{"index": 0, "position": [1.0, 0.5, 2.0]}, {"index": 1, "position": [-3.0, 0.5, 1.0]}],
+                         row["doors"])
+        self.assertEqual([{"name": "door1", "position": [1.0, 0.5, 2.0]}], row["door_selections"])
+        self.assertEqual("ab" * 16, row["native_run_id"])
+
+    def test_malformed_house_blocks_are_refused(self):
+        def mutated(change):
+            row = house_row("Land_House_A", doors=[(1.0, 0.5, 2.0), (2.0, 0.5, 1.0)])
+            change(row["house"])
+            return house_census_document([row])
+        bad = {
+            "door not three numbers": lambda h: h["doors"].__setitem__(0, [1.0, 2.0]),
+            "door nan": lambda h: h["doors"].__setitem__(0, [1.0, float("nan"), 2.0]),
+            "door huge": lambda h: h["doors"].__setitem__(0, [1.0, 1e9, 2.0]),
+            "door bool": lambda h: h["doors"].__setitem__(0, [True, 1.0, 2.0]),
+            "count below rows": lambda h: h.__setitem__("door_count", 1),
+            "count negative": lambda h: h.__setitem__("door_count", -1),
+            "rows missing": lambda h: h.__setitem__("doors", h["doors"][:1]),
+            "too many doors": lambda h: (h.__setitem__("door_count", 65),
+                                         h.__setitem__("doors", [[0.0, 0.0, 0.0]] * 65)),
+            "model not text": lambda h: h.__setitem__("model", 4),
+            "model empty": lambda h: h.__setitem__("model", ""),
+            "selection bad": lambda h: h["door_selections"].append(["x", 1.0]),
+            "selection name": lambda h: h["door_selections"].append([3, 1.0, 1.0, 1.0]),
+            "selection total small": lambda h: h.__setitem__("selection_total", 0),
+            "missing key": lambda h: h.pop("doors"),
+            "extra key": lambda h: h.__setitem__("extra", 1),
+        }
+        for label, change in bad.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                samp.house_rows(mutated(change))
+
+    def test_a_found_row_without_a_house_block_or_a_box_is_refused_and_a_wrong_kind_too(self):
+        row = house_row("Land_House_A")
+        row.pop("house")
+        with self.assertRaises(ValueError):
+            samp.house_rows(house_census_document([row]))
+        with self.assertRaises(ValueError):
+            samp.house_rows({"kind": "other"})
+        boxless = house_row("Land_House_A")
+        boxless["box_source"] = "none"
+        with self.assertRaises(ValueError):
+            samp.house_rows(house_census_document([boxless]))
+
+
+class BatchStageTests(SamplerWorkspace):
+    def setUp(self):
+        patcher = mock.patch.object(cep, "SYNTH_PROTO", SAMPLER_PROTO)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
+        counts = {"Land_Syn_A": 3, "Land_Syn_B": 2, "Land_HouseBlock_2F1": 2, "Land_Mil_Barracks2": 2}
+        self.source = cep.make_source_runtime(self.root / "vanilla-b", counts=counts)
+        xml = (self.source / "stock-backup/mpmissions/dayzOffline.chernarusplus/mapgrouppos.xml").read_bytes()
+        self.placements = probe.parse_placements(xml)
+        self.plan = samp.plan_batches(sorted(counts), self.placements)
+
+    def test_a_run_stages_with_its_own_deterministic_native_run_id(self):
+        run = self.plan["runs"][0]
+        staged = samp.stage(self.source, self.dest, run=run, **self.kw())
+        self.assertEqual(run["native_run_id"], staged["probe"]["native_run_id"])
+        self.assertEqual(len(run["targets"]), staged["probe"]["target_count"])
+        text = (self.dest / "mpmissions/dayzOffline.chernarusplus/init.c").read_text()
+        self.assertIn(run["native_run_id"], text)
+        self.assertIn('HCProbeAdd("Land_Syn_A"', text)
+        self.assertEqual({"index": 0, "classes": len(run["classes"])}, staged["batch"])
+        self.assertEqual([], self.launcher_problems(staged, "interior-sampler-plan.json"))
+        self.assertEqual({"Land_HouseBlock_2F1": 3, "Land_Mil_Barracks2": 1}, staged["frame_check"]["points"])
+
+    def test_a_tampered_or_unplaced_run_is_refused_before_anything_is_created(self):
+        run = json.loads(json.dumps(self.plan["runs"][0]))
+        forged = dict(run, native_run_id="0" * 32)
+        moved = json.loads(json.dumps(run))
+        moved["targets"][0]["pos"][0] += 1.0
+        moved["native_run_id"] = samp.run_id_for(moved["targets"])
+        toomany = dict(run, targets=run["targets"] * 20)
+        for label, bad in (("forged id", forged), ("position not in mapgrouppos", moved), ("too many", toomany)):
+            with self.subTest(label), self.assertRaises(ValueError):
+                samp.stage(self.source, self.dest, run=bad, **self.kw())
+            self.assertFalse(self.dest.exists())
+
+    def test_the_cli_plans_all_classes_and_stages_one_run_from_the_plan_file(self):
+        mission = self.source / "stock-backup/mpmissions/dayzOffline.chernarusplus"
+        classes = self.root / "classes.txt"
+        classes.write_text("\n".join(sorted(self.placements)) + "\n")
+        out = self.root / "plan-out"
+        argv = ["plan", "--classes", str(classes), "--mapgrouppos", str(mission / "mapgrouppos.xml"),
+                "--output", str(out)]
+        with mock.patch("sys.stdout"):
+            self.assertEqual(0, samp.main(argv))
+        written = json.loads((out / samp.BATCH_PLAN_NAME).read_text())
+        self.assertEqual(self.plan, written)
+        with mock.patch("sys.stderr") as err:
+            self.assertEqual(1, samp.main(argv))                    # the plan already exists
+            self.assertEqual(1, samp.main(["plan", "--classes", str(classes), "--mapgrouppos",
+                                           str(mission / "mapgrouppos.xml"), "--output", "x/../y"]))
+        self.assertIn("interior_sampler:", "".join(call.args[0] for call in err.write.call_args_list))
+        stage_argv = ["--source-runtime", str(self.source), "--destination", str(self.dest),
+                      "--battleye-sha256", cep.SYNTH_BE_SHA, "--batch-plan", str(out / samp.BATCH_PLAN_NAME),
+                      "--run", "0"]
+        with mock.patch.object(rt, "WSL_PARENT", self.root), mock.patch("sys.stdout"):
+            self.assertEqual(0, samp.main(stage_argv))
+        staged = json.loads((self.dest / "interior-sampler-plan.json").read_text())
+        self.assertEqual(self.plan["runs"][0]["native_run_id"], staged["probe"]["native_run_id"])
 
 
 if __name__ == "__main__":
