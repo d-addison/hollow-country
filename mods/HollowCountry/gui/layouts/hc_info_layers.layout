@@ -1,0 +1,33 @@
+FrameWidgetClass HCInfoLayerPanel {
+ position 0.01 0.01
+ size 0.70 0.04
+ hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+ priority 150
+ {
+  ButtonWidgetClass HCInfoToggleEvents {
+   position 0 0 size 0.19 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   text "Events: on" font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass HCInfoToggleVisited {
+   position 0.2 0 size 0.19 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   text "Visited: on" font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass HCInfoToggleTeam {
+   position 0.4 0 size 0.19 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   text "Team: on" font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass HCInfoToggleMarkers {
+   position 0.6 0 size 0.19 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   text "Markers: on" font "gui/fonts/sdf_MetronBook24"
+  }
+  ButtonWidgetClass HCInfoToggleGrid {
+   position 0.8 0 size 0.19 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   text "Grid: on" font "gui/fonts/sdf_MetronBook24"
+  }
+ }
+}

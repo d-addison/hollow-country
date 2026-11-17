@@ -12,6 +12,7 @@ class HCGroupMapLayers
     protected ref HCGroupEquipment mHCEquipment;
     protected PlayerBase mHCViewer;
     protected float mHCEquipmentTime;
+    protected ref HCInfoEventCache mHCInfoEvents = new HCInfoEventCache;
 
     void Init(Widget root)
     {
@@ -29,6 +30,7 @@ class HCGroupMapLayers
         mHCTextures.Clear();
         mHCEquipment = null;
         mHCViewer = null;
+        mHCInfoEvents.Clear();
         if (mHCGrid) mHCGrid.Clear();
         if (mHCNavigation) mHCNavigation.SetText("");
         if (mHCEvents) mHCEvents.ClearItems();
@@ -142,29 +144,55 @@ class HCGroupMapLayers
         if (used == 0) mHCEvents.AddItem("No active known missions", null, 0);
     }
 
+    // Client-only toggles hide drawing; they never widen what the server sent.
+    void HideNavigation()
+    {
+        if (mHCGrid) mHCGrid.Clear();
+        if (mHCNavigation) mHCNavigation.SetText("");
+    }
+
+    void HideMissions()
+    {
+        if (mHCEvents) mHCEvents.ClearItems();
+    }
+
     void Draw(MapWidget mapWidget, HCGroupSnapshot frame, PlayerBase viewer)
     {
         mapWidget.ClearUserMarks();
         mHCUsed = 0;
-        Navigation(mapWidget, viewer, frame.Settings);
-        Missions(frame.Settings);
+        HCInfoLayerFlags flags = HCInfoLayerFlags.Get();
+        if (flags.ShowGrid) Navigation(mapWidget, viewer, frame.Settings);
+        else HideNavigation();
+        if (flags.ShowEvents) Missions(frame.Settings);
+        else HideMissions();
         string texture = "\\dz\\gear\\navigation\\data\\map_tree_ca.paa";
         int utc = HCGroupClock.Utc();
         // The bound is validated by HCGroupClient; hidden entries never enter
         // this cache. Text prefixes make the palette usable without colour.
-        foreach (HCGroupMarker marker : frame.Markers)
+        if (flags.ShowMarkers)
         {
-            if (marker.ExpiresUtc > 0 && (utc < 1 || marker.ExpiresUtc <= utc)) continue;
-            if (marker.Icon < 0 || marker.Icon >= eMapMarkerTypes.MARKERTYPE_MAX) continue;
-            string markerTexture = MapMarkerTypes.GetMarkerTypeFromID(marker.Icon);
-            Pin(mapWidget, marker.Position, "[Marker] " + marker.Name, ARGB(255,230,159,0), markerTexture, frame.Settings);
+            foreach (HCGroupMarker marker : frame.Markers)
+            {
+                if (marker.ExpiresUtc > 0 && (utc < 1 || marker.ExpiresUtc <= utc)) continue;
+                if (marker.Icon < 0 || marker.Icon >= eMapMarkerTypes.MARKERTYPE_MAX) continue;
+                string markerTexture = MapMarkerTypes.GetMarkerTypeFromID(marker.Icon);
+                Pin(mapWidget, marker.Position, "[Marker] " + marker.Name, ARGB(255,230,159,0), markerTexture, frame.Settings);
+            }
         }
-        if (frame.Settings.DiscoveryLayer)
+        // Known-event sites come from the already-public event rows only.
+        if (flags.ShowEvents && frame.Settings.MissionLayer)
+        {
+            float worldSize = GetGame().GetWorld().GetWorldSize();
+            array<ref HCInfoPin> sites = mHCInfoEvents.Pins(GetGame().GetTickTime(), worldSize);
+            foreach (HCInfoPin site : sites)
+                Pin(mapWidget, site.Position, site.Label, ARGB(255,213,94,0), texture, frame.Settings);
+        }
+        if (flags.ShowVisited && frame.Settings.DiscoveryLayer)
         {
             foreach (HCGroupPlace place : frame.Places)
                 Pin(mapWidget, place.Position, "[Visited] " + place.Name, ARGB(255,240,228,66), texture, frame.Settings);
         }
-        if (frame.Settings.MapIcons)
+        if (flags.ShowTeam && frame.Settings.MapIcons)
         {
             foreach (HCGroupMember member : frame.Members)
             {

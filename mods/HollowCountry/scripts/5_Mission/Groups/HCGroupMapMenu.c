@@ -21,6 +21,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     protected float mHCRenderTime;
     protected ref HCGroupMarker mHCOriginal;
     protected ref HCGroupMapLayers mHCLayers;
+    protected ref HCInfoLayerControls mHCInfo;
     protected bool mHCConflict;
     protected bool mHCCenterLogged;
     protected bool mHCRefreshing;
@@ -42,6 +43,8 @@ class HCGroupMapMenu extends UIScriptedMenu
         CenterMap();
         mHCLayers = new HCGroupMapLayers;
         mHCLayers.Init(layoutRoot);
+        mHCInfo = new HCInfoLayerControls;
+        mHCInfo.Init(layoutRoot);
         return layoutRoot;
     }
 
@@ -284,6 +287,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     override bool OnClick(Widget w, int x, int y, int button)
     {
         if (!w) return false;
+        if (mHCInfo && mHCInfo.OnClick(w)) return true;
         string action = w.GetName();
         if (action == "HCClose") { Close(); return true; }
         if (action == "HCNew") { NewMarker(); return true; }
