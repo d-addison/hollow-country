@@ -341,7 +341,7 @@ class HCInfectedRoomCatalog
     {
         if (!DiagnosticServer() || !document || !document.EnableDiagnostic || document.SchemaVersion != 1)
             return false;
-        if (document.Build != "1.30.164289" || document.WorldName != GetGame().GetWorldName())
+        if (!HCBuildIdentity.Matches(document.Build) || !HCBuildIdentity.SameWorld(document.WorldName, GetGame().GetWorldName()))
             return false;
         if (!document.Buildings || document.Buildings.Count() < 1 || document.Buildings.Count() > 4 || s_Bindings.Count() != 0)
             return false;
@@ -374,7 +374,7 @@ class HCInfectedRoomCatalog
     {
         if (!DiagnosticServer() || !building || !survey || !survey.Anchors || !existing)
             return null;
-        bool sameBuildWorld = survey.Build == "1.30.164289" && survey.WorldName == GetGame().GetWorldName();
+        bool sameBuildWorld = HCBuildIdentity.Matches(survey.Build) && HCBuildIdentity.SameWorld(survey.WorldName, GetGame().GetWorldName());
         if (!HCInfectedPolicy.AdmitRoomCatalog(survey.Measured, sameBuildWorld, survey.Revision, survey.Anchors.Count(), existing.Count(), 4))
             return null;
         if (survey.BuildingClass != building.GetType() || survey.EvidenceId.Length() < 1 || survey.EvidenceId.Length() > 128)
@@ -659,13 +659,13 @@ class HCInfectedRoomCatalog
         s_ProductionReason = "rooms_build";
         string currentBuild;
         GetGame().GetVersion(currentBuild);
-        if (document.Build != "1.30.164289" || currentBuild != document.Build)
+        if (!HCBuildIdentity.Matches(document.Build) || !HCBuildIdentity.Matches(currentBuild))
         {
             s_ProductionContext = "; observed build=" + ProductionBuildLabel(currentBuild);
             return false;
         }
         s_ProductionReason = "rooms_world";
-        if (!ProductionToken(document.WorldName, 64) || document.WorldName != GetGame().GetWorldName())
+        if (!ProductionToken(document.WorldName, 64) || !HCBuildIdentity.SameWorld(document.WorldName, GetGame().GetWorldName()))
             return false;
         s_ProductionReason = "rooms_limits";
         if (!document.Classes || document.Classes.Count() < 1 || document.Classes.Count() > MAX_PRODUCTION_CLASSES)

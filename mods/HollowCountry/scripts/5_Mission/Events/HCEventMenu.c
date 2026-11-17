@@ -99,7 +99,10 @@ class HCEventMenu : UIScriptedMenu
             HCEventPublicRow row = m_Rows[index];
             string membership = "Not joined";
             if (row.Joined) { membership = "Participation recorded"; }
-            m_Detail.SetText(membership + " | " + row.Progress.ToString() + "/" + row.Goal.ToString() + " | Participants " + row.Participants.ToString() + "/" + row.MaxParticipants.ToString() + "\nLast reported time left " + row.RemainingSeconds.ToString() + " s");
+            string summary = membership + " | " + row.Progress.ToString() + "/" + row.Goal.ToString();
+            summary = summary + " | Participants " + row.Participants.ToString() + "/" + row.MaxParticipants.ToString();
+            summary = summary + "\nLast reported time left " + row.RemainingSeconds.ToString() + " s";
+            m_Detail.SetText(summary + "\n" + row.Briefing);
         }
         else { m_Detail.SetText("Select an event. Joining and leaving are optional; no rewards are issued."); }
     }

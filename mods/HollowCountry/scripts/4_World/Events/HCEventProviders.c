@@ -15,6 +15,8 @@ class HCEventPersistence
 }
 class HCEventObjectiveProvider
 {
+    void RecordDelivery(string lease, ItemBase item, PlayerBase participant, EntityAI destination) {}
+    void RecordKill(string lease, ZombieBase infected, string participantId) {}
     bool Ready(HCEventMission mission) { return false; }
     bool Prepare(string lease, HCEventMission mission) { return false; }
     HCEventObjectiveEvidence Observe(HCEventRun run, PlayerBase participant, int now) { return null; }

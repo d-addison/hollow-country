@@ -12,13 +12,17 @@ from pathlib import Path
 from types import SimpleNamespace as N
 
 from tests.unit import test_group_server
+from tests.unit.build_identity_support import translate as build_identity
 from tests.unit.test_group_server import EArray, body, execute_member
 from tests.unit.test_search_economy_policy import EMap
 
 LOOT = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/Loot'
 FILES = ('HCSearchSupplyProvider.c', 'HCSearchNativeSupply.c', 'HCSearchEconomy.c',
          'HCSearchEconomyStore.c', 'HCSearchRules.c')
-WORLD, BUILD, PIN = 'synthetic_world', 'synthetic_build', 'a' * 64
+# BUILD is what the real engine returns from GetVersion (native census.json); manifests are
+# stamped with the canonical pin, so the two deliberately differ.
+WORLD, BUILD, PIN = 'synthetic_world', '1.30.164289.70', 'a' * 64
+CANONICAL = '1.30.164289'
 GROUND, CARGO, PROXYCARGO = 1, 3, 5
 ROOT = '$profile:HollowCountry/SearchEconomy/epoch_1'
 
@@ -186,8 +190,9 @@ def method_names(source):
 class Runtime:
     """One 'process lifetime': fresh authored objects over shared world + files."""
 
-    def __init__(self, world, fs, ce=True, server=True):
+    def __init__(self, world, fs, ce=True, server=True, engine=BUILD, world_name=WORLD):
         self.world, self.fs, self.log, self.ce, self.server = world, fs, [], ce, server
+        self.engine, self.world_name = engine, world_name
         self.created = []
         self.translated = {}  # (file, member) -> translated function; translation is the slow part
         self.sources = {name: read(name) for name in FILES if (LOOT / name).is_file()}
@@ -195,7 +200,7 @@ class Runtime:
         self.s_Registered = EArray()
         self.s_Registries = EArray()
         self.statics = N(s_Active=None)  # HCSearchEconomy.s_Active is CLASS-static: shared by every economy
-        game = N(IsServer=lambda: self.server, GetVersion=lambda: BUILD, GetWorldName=lambda: WORLD,
+        game = N(IsServer=lambda: self.server, GetVersion=lambda: self.engine, GetWorldName=lambda: self.world_name,
                  GetObjectsAtPosition3D=self.scan, GetPlayers=lambda out: out.extend(world.players),
                  GetTickTime=lambda: world.now)
         # Any creation/deletion primitive is forbidden: calling it fails the test.
@@ -218,6 +223,7 @@ class Runtime:
             'load_manifest_value': lambda p, limit: self.parse_manifest(fs.files.get(p)),
             'load_record': lambda p: self.parse_record(fs.files.get(p)),
             'encode': lambda v: json.dumps(v, default=vars, sort_keys=True),
+            'HCBuildIdentity': build_identity(),
             'HCSearchRules': Static(self, 'HCSearchRules.c'),
             'HCSearchSupplyRegistry': RegistryFactory(self, 'HCSearchNativeSupply.c'),
             'HCSearchEconomyStore': lambda: Store(self, m_Root='', m_Manifest=None, m_Fault=False),
@@ -1416,6 +1422,67 @@ class FailedEconomyReleasesOwnershipTests(SupplyCase):
         self.assertEqual([self.items[0]], self.actor.cargo)
         self.actor.during_move = None
         self.assertIsNotNone(self.prepare(self.volumes, allow=False))
+
+class BuildIdentityTests(SupplyCase):
+    """The real engine reports 1.30.164289.70 (native census.json); the pin is 1.30.164289."""
+
+    def prepared(self, engine, world_name=WORLD):
+        self.item(1)
+        rt = self.restart(engine=engine, world_name=world_name)
+        return rt, self.prepare([volume('site_a')], rt=rt)
+
+    def test_native_full_and_canonical_engine_builds_bind_and_stamp_the_canonical_pin(self):
+        for engine in ('1.30.164289.70', CANONICAL):
+            with self.subTest(engine=engine):
+                self.world.items.clear()
+                self.fs.files.clear()
+                self.fs.dirs.clear()
+                rt, plan = self.prepared(engine)
+                self.assertIsNotNone(plan)
+                self.assertEqual(CANONICAL, plan.Manifest.Build)
+                self.assertEqual(CANONICAL, plan.Registry.m_Build)
+                self.assertTrue(self.bind(plan, rt)[1])
+                self.assertEqual(CANONICAL, json.loads(self.fs.files[ROOT + '/manifest.json'])['Build'])
+
+    def test_other_engine_builds_refuse_without_binding_or_writing(self):
+        for engine in ('1.30.164289.7x', '1.30.164289.700', '1.30.1642890', ' 1.30.164289.70', '1.30.164289.70 ',
+                       '1.30.164289.70\n', '1.30.164290', ''):
+            with self.subTest(engine=engine):
+                self.world.items.clear()
+                self.fs.files.clear()
+                self.fs.dirs.clear()
+                rt, plan = self.prepared(engine)
+                self.assertIsNone(plan)
+                self.assertEqual({}, self.fs.files)
+
+    def test_bind_source_admits_native_build_and_refuses_a_mismatched_caller_or_engine(self):
+        registry = self.rt.env['HCSearchSupplyRegistry']()
+        self.assertTrue(registry.BindSource('synthetic_spawner', PIN, WORLD, BUILD))
+        self.assertEqual(CANONICAL, registry.m_Build)
+        for caller in ('1.30.164289.7x', '', ' ' + CANONICAL):
+            with self.subTest(caller=caller):
+                self.assertFalse(self.restart().env['HCSearchSupplyRegistry']().BindSource(
+                    'synthetic_spawner', PIN, WORLD, caller))
+        self.assertFalse(self.restart(engine='1.30.164289.7x').env['HCSearchSupplyRegistry']().BindSource(
+            'synthetic_spawner', PIN, WORLD, CANONICAL))
+
+    def test_world_name_is_case_normalised_on_the_engine_side(self):
+        rt, plan = self.prepared(BUILD, world_name='Synthetic_World')
+        self.assertIsNotNone(plan)
+        self.assertEqual(WORLD, plan.Manifest.WorldName)
+
+    def test_a_legacy_manifest_stamped_with_the_native_full_build_still_rebinds(self):
+        self.item(1)
+        self.assertTrue(self.bind(self.prepare([volume('site_a')]))[1])
+        path = ROOT + '/manifest.json'
+        data = json.loads(self.fs.files[path])
+        data['Build'] = '1.30.164289.70'
+        self.fs.files[path] = json.dumps(data, sort_keys=True)
+        rt = self.restart()
+        self.assertIsNotNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+        data['Build'] = '1.30.164289.7x'
+        self.fs.files[path] = json.dumps(data, sort_keys=True)
+        self.assertIsNone(self.prepare([volume('site_a')], allow=False, rt=self.restart()))
 
 
 if __name__ == '__main__':

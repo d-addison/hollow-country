@@ -8,6 +8,16 @@ class HCGroupSettings
     bool RequireGPS = false;
     bool RequireLOS = false;
     bool RequireRadio = false;
+    bool NavigationLayer = true;
+    bool DiscoveryLayer = true;
+    bool MissionLayer = true;
+    bool ShareDiscovery = false;
+    int MaxLOSRaysPerTick = 56;
+    int MaxDiscoveries = 64;
+    int MaxExplorers = 256;
+    float DiscoveryIntervalSeconds = 5.0;
+    float IconScale = 1.0;
+    float LabelScale = 1.0;
     int MaxGroups = 32;
     int MaxMembers = 8;
     int MaxMarkers = 64;
@@ -23,11 +33,12 @@ class HCGroupSettings
 }
 class HCGroupRequest
 {
-    int Version = 2;
+    int Version = 3;
     int RequestId = 0;
     int Op = 0;
     int ExpectedRevision = 0;
     int EntityId = 0;
+    int Role = 0;
     string Session;
     string TargetId;
     string Name;
@@ -39,6 +50,7 @@ class HCGroupRequest
 }
 class HCGroupMember
 {
+    int Role = 0;
     string Id;
     string Name;
     bool Online = false;
@@ -69,7 +81,7 @@ class HCGroupMarker
 }
 class HCGroupSnapshot
 {
-    int Version = 2;
+    int Version = 3;
     int Kind = 0;
     int RequestId = 0;
     // Session counter floor, not acknowledgment of the snapshot RequestId.
@@ -83,6 +95,7 @@ class HCGroupSnapshot
     string OwnerId;
     bool Enabled = false;
     ref HCGroupSettings Settings;
+    ref array<ref HCGroupPlace> Places = new array<ref HCGroupPlace>();
     ref array<ref HCGroupMember> Members = new array<ref HCGroupMember>();
     ref array<ref HCGroupMember> Candidates = new array<ref HCGroupMember>();
     ref array<ref HCGroupInvitation> Invitations = new array<ref HCGroupInvitation>();
@@ -90,7 +103,7 @@ class HCGroupSnapshot
 }
 class HCGroupReply
 {
-    int Version = 2;
+    int Version = 3;
     int RequestId = 0;
     int LastMutationId = 0;
     int Code = 0;
@@ -107,6 +120,9 @@ class HCGroupRecord
     string Name;
     string OwnerId;
     ref array<string> Members = new array<string>();
+    // Additive v1 migration: owner stays OwnerId, absent Officers means all
+    // other existing members remain ordinary members. No ACL is inferred.
+    ref array<string> Officers = new array<string>();
     ref array<ref HCGroupMarker> Markers = new array<ref HCGroupMarker>();
 }
 class HCGroupState
@@ -118,6 +134,7 @@ class HCGroupState
     // The next successful mutation establishes it without resetting any ACL.
     int LastMutationUtc = 0;
     string WorldName;
+    ref array<ref HCGroupExplorer> Explorers = new array<ref HCGroupExplorer>();
     ref array<ref HCGroupRecord> Groups = new array<ref HCGroupRecord>();
     ref array<ref HCGroupInvitation> Invitations = new array<ref HCGroupInvitation>();
 }
@@ -128,4 +145,26 @@ class HCGroupReceipt
     int Length = 0;
     int Hash = 0;
     string WorldName;
+}
+
+// Catalog is server-owned; only observed entries are ever sent to clients.
+class HCGroupPlace
+{
+    string Id;
+    string Name;
+    vector Position;
+    float Radius = 100.0;
+}
+class HCGroupExplorer
+{
+    string Id;
+    int LastSeenUtc = 0;
+    ref array<string> PlaceIds = new array<string>();
+    // Read-only migration input for pre-v3 journals. Cleared before saving.
+    ref array<ref HCGroupPlace> Visits = new array<ref HCGroupPlace>();
+}
+class HCGroupPlaceCatalog
+{
+    int SchemaVersion = 1;
+    ref array<ref HCGroupPlace> Places = new array<ref HCGroupPlace>();
 }

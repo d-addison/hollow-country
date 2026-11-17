@@ -51,7 +51,7 @@ class InfectedCompletionTests(unittest.TestCase):
             with self.subTest(path=path.name):
                 self.assertNotIn("GetGetAIWorld", source)
                 self.assertIsNone(re.search(r"\b(?:HCInfectedRoomSurvey\s+owned|vector\s+local)\b", source))
-        self.assertIn("survey.WorldName == GetGame().GetWorldName()", (SOURCE / "HCInfectedRooms.c").read_text())
+        self.assertIn("HCBuildIdentity.SameWorld(survey.WorldName, GetGame().GetWorldName())", (SOURCE / "HCInfectedRooms.c").read_text())
         self.assertIn("GetGame().GetWorldName()", (SOURCE / "HCInfectedModule.c").read_text())
     def test_given_native_voices_when_chain_progresses_then_limits_and_dedupe_hold(self):
         scenarios = json.loads((Path(__file__).parents[1] / "fixtures/runtime/infected-completion-scenarios.json").read_text())

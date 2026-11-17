@@ -6,7 +6,9 @@ enum HCEventFamily
     DELIVERY = 2,
     INVESTIGATION = 3,
     STATIC_SALVAGE = 4,
-    AI_ENCOUNTER = 5
+    AI_ENCOUNTER = 5,
+    PRESENCE = 6,
+    INFECTED_CLEAR = 7
 }
 enum HCEventRunPhase
 {
@@ -33,6 +35,14 @@ class HCEventSite
     vector Position;
     vector Destination;
     string ItemClass;
+    string DeliveryClass;
+    string SalvageClass;
+    string ContainerClass;
+    string AnchorClass;
+    // Source review is not a field survey or runtime geometry acceptance.
+    bool Surveyed = false;
+    string Provenance;
+    string SourceSha256;
 }
 class HCEventMission
 {
@@ -52,6 +62,8 @@ class HCEventMission
     int ActorBudget = 0;
     int LifetimeSeconds = 1800;
     int RewardUnits = 0;
+    string ContainerClass;
+    string AnchorClass;
 }
 class HCEventRun
 {

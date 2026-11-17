@@ -35,8 +35,8 @@ def authored_module(env):
     # Language-only adaptations: constructor syntax, native out parameter,
     # static storage, and the existing translator's chained call limitation.
     source = re.sub(r"new (\w+)\(", r"\1(", source)
-    source = source.replace("GetGame().GetWorldName(context.WorldName);",
-                            "context.WorldName = GetGame().GetWorldName();")
+    source = re.sub(r"GetGame\(\)\.GetWorldName\((\w[\w.]*)\);",
+                    r"\1 = GetGame().GetWorldName();", source)
     source = source.replace("Math.RandomIntInclusive(1, 1000000000).ToString()",
                             "str(Math.RandomIntInclusive(1, 1000000000))")
     source = re.sub(r"\bs_(Instance|CleanupOwner)\b", r"HCEventModule.s_\1", source)
@@ -69,6 +69,9 @@ class EventIntegrationTests(unittest.TestCase):
                         str=str, Math=N(Floor=math.floor, RandomIntInclusive=self.random))
         self.game = N(IsServer=lambda: self.server, GetTickTime=lambda: self.now,
                       GetWorldName=lambda: "synthetic_world")
+        self.env["HCEventQualification"] = N(Admitted=lambda: True)
+        self.env["HCEventWorldBinding"] = N(Bind=lambda observer, mission: True, BindSites=lambda observer, settings, world: None)
+        self.env["HCEventAISelection"] = N(Create=lambda: N(synthetic=True))
         self.env["GetGame"] = lambda: self.game
         self.env["HCEventContext"] = lambda: N(Server=False, WorldName="", Session="", Now=0)
         self.env["HCEventConfiguration"] = lambda: N(Load=lambda: self.cfg)
@@ -171,6 +174,9 @@ class EventIntegrationTests(unittest.TestCase):
         module.m_StartedAt = 0.
         module.m_Session = ""
         # Enforce initializes a new ref field to null; no integration supplied.
+        module.m_NativeObserver = None
+        module.m_RosterElapsed = 0
+        module.m_RosterCursor = 0
         module.m_EventRPC = None
         module.m_Stopping = False
         return module
@@ -333,6 +339,9 @@ class EventCleanupLifecycleTests(unittest.TestCase):
         self.callbacks = []
         self.game = N(IsServer=lambda: True, GetTickTime=lambda: self.now,
                       GetWorldName=lambda: "synthetic_world")
+        self.env["HCEventQualification"] = N(Admitted=lambda: True)
+        self.env["HCEventWorldBinding"] = N(Bind=lambda observer, mission: True, BindSites=lambda observer, settings, world: None)
+        self.env["HCEventAISelection"] = N(Create=lambda: N(synthetic=True))
         self.env["GetGame"] = lambda: self.game
         self.serial = 0
 
@@ -346,6 +355,7 @@ class EventCleanupLifecycleTests(unittest.TestCase):
         self.env["HCEventJournal"] = lambda cfg: self.store
         self.env["HCEventNativeObserver"] = lambda: self.helper.observer
         self.env["HCEventAIProvider"] = lambda: self.ai
+        self.env["HCEventAISelection"] = N(Create=lambda: self.ai)
         self.env["DayZGame"] = N(Event_OnRPC=N(
             Insert=lambda fn: self.callbacks.append(fn),
             Remove=lambda fn: self.callbacks.remove(fn)))
@@ -529,6 +539,7 @@ class EventCleanupLifecycleTests(unittest.TestCase):
         site = self.env["HCEventSite"]()
         site.Id = "module-retention"; site.WorldName = "synthetic_world"
         site.Reviewed = True; site.ItemClass = "SyntheticSupply"
+        site.ContainerClass = "SyntheticContainer"; site.AnchorClass = "SyntheticSite"
         self.helper.cfg.Sites = EArray([site])
         last_id = 1
         for boot in range(100):
@@ -539,12 +550,12 @@ class EventCleanupLifecycleTests(unittest.TestCase):
             self.assertEqual(1, len(self.callbacks))
             records = runtime.m_State.Director.Records
             current = [r for r in records if r.Session == self.module.m_Session]
-            self.assertEqual(5, len(current), boot)
+            self.assertEqual(7, len(current), boot)
             self.assertGreater(current[0].Id, last_id)
             last_id = current[-1].Id
             self.assertLessEqual(len(records), 32)
             self.assertLessEqual(len(runtime.m_State.Director.Sessions), 33)
-        self.assertEqual(501, last_id)
+        self.assertEqual(701, last_id)
 
     def test_observer_release_refusal_is_retained_like_ai_absence(self):
         self.ai.gone = True

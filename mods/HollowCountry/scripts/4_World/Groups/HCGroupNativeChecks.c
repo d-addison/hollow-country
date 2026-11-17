@@ -24,7 +24,7 @@ class HCGroupNativeChecks
 
     string Completion()
     {
-        return "[HC Group Checks] COMPLETE synthetic-policy-fixtures steps=" + m_Steps.ToString() + " wire=2 durable=1 no-network-or-store-proof";
+        return "[HC Group Checks] COMPLETE synthetic-policy-fixtures steps=" + m_Steps.ToString() + " wire=3 durable=1 no-network-or-store-proof";
     }
 
     HCGroupRequest Request(int operation, string actor)
@@ -100,6 +100,21 @@ class HCGroupNativeChecks
         if (!ApplyCase(request, member, HCGroupCode.DENIED, "member_disband")) return false;
         request.Op = HCGroupOp.RENAME;
         if (!ApplyCase(request, member, HCGroupCode.DENIED, "member_rename")) return false;
+        request = Request(HCGroupOp.SET_ROLE, owner);
+        request.TargetId = member;
+        request.Role = HCGroupRole.OFFICER;
+        if (!ApplyCase(request, owner, HCGroupCode.OK, "promote_officer")) return false;
+        request = Request(HCGroupOp.INVITE, member);
+        request.TargetId = third;
+        if (!ApplyCase(request, member, HCGroupCode.OK, "officer_invite")) return false;
+        request = Request(HCGroupOp.SET_ROLE, member);
+        request.TargetId = third;
+        request.Role = HCGroupRole.OFFICER;
+        if (!ApplyCase(request, member, HCGroupCode.DENIED, "officer_cannot_promote")) return false;
+        request = Request(HCGroupOp.SET_ROLE, owner);
+        request.TargetId = member;
+        request.Role = HCGroupRole.MEMBER;
+        if (!ApplyCase(request, owner, HCGroupCode.OK, "demote_officer")) return false;
         request = Request(HCGroupOp.INVITE, owner);
         request.TargetId = third;
         if (!ApplyCase(request, owner, HCGroupCode.OK, "third_invite")) return false;
@@ -212,8 +227,8 @@ class HCGroupNativeChecks
         HCGroupSnapshot snapshot = new HCGroupSnapshot;
         HCGroupReply reply = new HCGroupReply;
         HCGroupReceipt receipt = new HCGroupReceipt;
-        if (!Require(HCGroupProtocol.VERSION == 2 && request.Version == 2, "wire_version")) return false;
-        if (!Require(snapshot.Version == 2 && reply.Version == 2, "wire_dto_version")) return false;
+        if (!Require(HCGroupProtocol.VERSION == 3 && request.Version == 3, "wire_version")) return false;
+        if (!Require(snapshot.Version == 3 && reply.Version == 3, "wire_dto_version")) return false;
         if (!Require(m_State.Version == 1 && receipt.Version == 1, "durable_version")) return false;
         if (!BeginCases()) return false;
         if (!MarkerCases()) return false;

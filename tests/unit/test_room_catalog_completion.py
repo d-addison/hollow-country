@@ -11,9 +11,11 @@ from types import SimpleNamespace
 import unittest
 
 if __package__:
+    from .build_identity_support import translate as build_identity
     from .test_core_lifecycle import NativeArray, tokens
     from .test_infected_contract import SOURCE, policy_functions
 else:
+    from build_identity_support import translate as build_identity
     from test_core_lifecycle import NativeArray, tokens
     from test_infected_contract import SOURCE, policy_functions
 
@@ -182,7 +184,8 @@ def encode(value):
     raise TypeError(type(value))
 
 
-def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None, read_ok=True, parse_ok=True):
+def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None, read_ok=True, parse_ok=True,
+            world_name="chernarusplus"):
     doc, houses = synthetic_document() if document is None else (document, objects or [])
     calls = {"reads": [], "queries": [], "parse": 0}
     raw = json.dumps(doc, default=encode) if raw is None else raw
@@ -200,8 +203,8 @@ def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None,
     def query(position, radius, found, cargos):
         calls["queries"].append((position, radius))
         found.extend(houses if objects is None else objects)
-    game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: "chernarusplus", GetObjectsAtPosition3D=query)
-    ns = dict(GetGame=lambda: game, s_Bindings=Array(), s_DiagnosticAttempted=False, ClearProduction=lambda: None,
+    game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: world_name, GetObjectsAtPosition3D=query)
+    ns = dict(GetGame=lambda: game, HCBuildIdentity=build_identity(), s_Bindings=Array(), s_DiagnosticAttempted=False, ClearProduction=lambda: None,
               char_at=lambda value, index: str(value)[index], ascii_of=lambda value: ord(value) if value else 0,
               DIAGNOSTIC_PATH="$profile:HollowCountry/Infected/measured-rooms.json",
               Array=Array, Text=Text, Vec=Vec, vector=Vec, House=House,
@@ -228,6 +231,20 @@ class RoomCatalogCompletionTests(unittest.TestCase):
         self.assertEqual(calls["reads"], [ns["DIAGNOSTIC_PATH"]])
         self.assertEqual(len(calls["queries"]), 1)
         self.assertEqual(len(ns["s_Bindings"]), 1)
+
+    def test_diagnostic_catalog_world_is_case_normalised_and_build_uses_the_shared_matcher(self):
+        ns, calls, doc, houses = fixture(world_name="ChernarusPlus")
+        self.assertEqual([houses[0].position], ns["BuildOrder"](houses[0].position, 2))
+        for build in ("1.30.164289.70", "1.30.164289"):
+            doc, houses = synthetic_document()
+            doc.Build = build
+            ns, calls, doc, houses = fixture(document=doc, objects=houses)
+            self.assertTrue(ns["BindDiagnostic"](doc), build)
+        for build in ("1.30.164289.7x", "1.30.1642890", " 1.30.164289", ""):
+            doc, houses = synthetic_document()
+            doc.Build = build
+            ns, calls, doc, houses = fixture(document=doc, objects=houses)
+            self.assertFalse(ns["BindDiagnostic"](doc), build)
 
     def test_normal_pbo_and_client_never_read_or_bind(self):
         for options in ({"diagnostic": False}, {"server": False}):

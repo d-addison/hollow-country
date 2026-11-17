@@ -29,7 +29,7 @@ modded class MissionGameplay
             {
                 if (!IsControlDisabled() && !GetGame().GetUIManager().GetMenu())
                 {
-                    if (GetGame().GetInput().LocalPress_ID(UAMapToggle))
+                    if (GetGame().GetInput().LocalPress_ID(UAMapToggle) && HCGroupEquipment.Read(viewer).HasMap)
                         GetGame().GetUIManager().EnterScriptedMenu(HCGroupProtocol.MENU_MAP, null);
                 }
             }

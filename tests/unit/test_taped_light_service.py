@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 from types import SimpleNamespace as NS
 import unittest
+from tests.unit.build_identity_support import translate as build_identity
 from tests.unit.test_group_server import EArray, body, translated_rules
 
 ROOT = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts"
@@ -31,6 +32,7 @@ def service_rules():
     scope = dict(globals(), SimpleNamespace=NS)
     exec(compile(adapter, "synthetic-taped-light-adapter", "exec"), scope)
     env = scope["translated_rules"]()
+    env["HCBuildIdentity"] = build_identity()
     env["HCTapedLightService"] = NS(**env.copy())
     return env
 
@@ -268,7 +270,7 @@ class TapedJournalTests(unittest.TestCase):
         self.e = service_rules()
 
     def load_fixture(self, marker="1", build="synthetic-build",
-                     omit_image=False):
+                     omit_image=False, live="synthetic-build"):
         # Explicit synthetic native filesystem. No temporary files or engine.
         root = "synthetic/journal"
         files = {
@@ -303,13 +305,14 @@ class TapedJournalTests(unittest.TestCase):
 
         journal = NS(mHCRoot=root, mHCFault=False, mHCState=None,
                      mHCSequence=0, Read=read,
-                     Build=lambda: "synthetic-build")
+                     Build=lambda: live)
         env = dict(
             FindFile=find, FindNextFile=next_file,
             CloseFindFile=lambda handle: closes.append(handle),
             FindFileFlags=NS(DIRECTORIES=1), FileAttr=NS(DIRECTORY=1),
             Math=NS(Max=max), Decode=decode,
-            HCTapedLightService=self.e["HCTapedLightService"])
+            HCTapedLightService=self.e["HCTapedLightService"],
+            HCBuildIdentity=self.e["HCBuildIdentity"])
         journal.Number = lambda *args: journal_call(
             "Number", journal, env, *args)
         state = self.e["HCTapedLightState"]()
@@ -339,10 +342,36 @@ class TapedJournalTests(unittest.TestCase):
         self.assertFalse(result)
         self.assertIsNone(journal.mHCState)
 
+    def test_native_full_and_canonical_build_headers_are_the_same_build(self):
+        # Real engine GetVersion is 1.30.164289.70; older journals may carry either text.
+        for stored in ("1.30.164289.70", "1.30.164289"):
+            for live in ("1.30.164289.70", "1.30.164289"):
+                with self.subTest(stored=stored, live=live):
+                    result, journal, reads = self.load_fixture(build=stored, live=live)
+                    self.assertTrue(result)
+
+    def test_other_build_headers_still_block_load(self):
+        for stored, live in (("1.30.164289.7x", "1.30.164289.70"), ("1.30.164289.70", "1.30.164289.7x"),
+                             ("", "1.30.164289.70"), (" 1.30.164289", "1.30.164289"),
+                             ("1.30.164289.70", "1.30.1642890")):
+            with self.subTest(stored=stored, live=live):
+                result, journal, reads = self.load_fixture(build=stored, live=live)
+                self.assertFalse(result)
+
 
 class TapedPendingGuardTests(unittest.TestCase):
     setUp = TapedLightTests.setUp
     run_op = TapedLightTests.run_op
+
+    def test_binding_admits_the_native_full_build_against_a_canonical_binding(self):
+        self.port.CurrentBuild = lambda: "1.30.164289.70"
+        self.port.binding.GameBuild = "1.30.164289"
+        self.assertEqual(self.code.OK, self.run_op())
+        for live in ("1.30.164289.7x", "1.30.1642890", " 1.30.164289"):
+            self.setUp()
+            self.port.CurrentBuild = lambda live=live: live
+            self.port.binding.GameBuild = "1.30.164289"
+            self.assertEqual(self.code.BLOCKED, self.run_op(), live)
 
     def test_pending_history_blocks_new_key_before_any_custody(self):
         for phase in (self.phase.INTENT, self.phase.TAPE_SPENT,
@@ -441,6 +470,7 @@ class TapedCustodyJournalTests(unittest.TestCase):
             name = next(names[0], "")
             return bool(name), name, 0
         env = dict(HCTapedLightService=e["HCTapedLightService"],
+                   HCBuildIdentity=e["HCBuildIdentity"],
                    HCTapedLightPhase=e["HCTapedLightPhase"],
                    GetGame=lambda:NS(IsServer=lambda:True),
                    FindFile=find, FindNextFile=next_file,

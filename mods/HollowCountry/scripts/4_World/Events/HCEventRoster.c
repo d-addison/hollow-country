@@ -5,27 +5,40 @@ class HCEventRoster
     static array<ref HCEventMission> Build(HCEventSite site, bool includeAI)
     {
         array<ref HCEventMission> result = new array<ref HCEventMission>();
-        if (!site || !site.Reviewed)
+        if (!site || !site.Reviewed || (!site.Surveyed && !HCEventQualification.Admitted()))
         {
             return result;
         }
+        // Vanilla lowercases the engine world name; stored identity is canonical lowercase.
+        string world = site.WorldName;
+        world.ToLower();
         int family = 1;
-        while (family <= 5)
+        while (family <= 7)
         {
             HCEventMission mission = new HCEventMission;
             mission.Id = site.Id + "-" + family.ToString();
             mission.SiteId = site.Id;
-            mission.WorldName = site.WorldName;
+            mission.WorldName = world;
             mission.Reviewed = site.Reviewed;
             mission.Family = family;
             mission.Source = site.Position;
             mission.Destination = site.Destination;
             mission.ItemClass = site.ItemClass;
+            mission.ContainerClass = site.ContainerClass;
+            mission.AnchorClass = site.AnchorClass;
+            if (family == HCEventFamily.DELIVERY && site.DeliveryClass != "")
+            {
+                mission.ItemClass = site.DeliveryClass;
+            }
+            if (family == HCEventFamily.STATIC_SALVAGE && site.SalvageClass != "")
+            {
+                mission.ItemClass = site.SalvageClass;
+            }
             if (family == HCEventFamily.AI_ENCOUNTER)
             {
                 mission.ActorBudget = 2;
             }
-            if ((family != HCEventFamily.AI_ENCOUNTER || includeAI) && HCEventRuntimePolicy.MissionValid(mission, site.WorldName))
+            if ((family != HCEventFamily.AI_ENCOUNTER || includeAI) && HCEventRuntimePolicy.MissionValid(mission, world))
             {
                 result.Insert(mission);
             }

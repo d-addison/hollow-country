@@ -34,7 +34,7 @@ class HCEventDirector
         {
             return false;
         }
-        if (definition.MaxParticipants < 1 || definition.MaxParticipants > 90)
+        if (definition.MaxParticipants < 1 || definition.MaxParticipants > HCEventLimits.MAX_PARTICIPANTS)
         {
             return false;
         }
@@ -89,7 +89,7 @@ class HCEventDirector
         {
             return false;
         }
-        if (!record.Participants || record.Participants.Count() > 90)
+        if (!record.Participants || record.Participants.Count() > HCEventLimits.MAX_PARTICIPANTS)
         {
             return false;
         }

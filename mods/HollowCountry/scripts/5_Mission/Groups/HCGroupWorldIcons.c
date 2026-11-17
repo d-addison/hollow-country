@@ -32,6 +32,27 @@ class HCGroupWorldIcons
         return mHCPool.Get(index);
     }
 
+    static void Scale(Widget root, TextWidget label, ImageWidget image, HCGroupSettings settings)
+    {
+        float iconSize = 16 * settings.IconScale;
+        float textHeight = 24 * settings.LabelScale;
+        float labelLeft = iconSize + 8;
+        root.SetSize(labelLeft + 180 * settings.LabelScale, Math.Max(iconSize, textHeight));
+        image.SetPos(0, 0);
+        image.SetSize(iconSize, iconSize);
+        label.SetPos(labelLeft, 0);
+        label.SetSize(180 * settings.LabelScale, textHeight);
+        label.SetTextExactSize(Math.Round(textHeight));
+        label.SetColor(ARGB(255,255,255,255));
+    }
+
+    static string RoleLabel(int role)
+    {
+        if (role == HCGroupRole.OWNER) return "Owner";
+        if (role == HCGroupRole.OFFICER) return "Officer";
+        return "Member";
+    }
+
     void Update(HCGroupSnapshot frame)
     {
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
@@ -76,7 +97,11 @@ class HCGroupWorldIcons
             if (!root) break;
             TextWidget label = TextWidget.Cast(root.FindAnyWidget("HCLabel"));
             if (!label) { Clear(); return; }
-            label.SetText(member.Name);
+            ImageWidget image = ImageWidget.Cast(root.FindAnyWidget("HCMark"));
+            if (!image) { Clear(); return; }
+            Scale(root, label, image, frame.Settings);
+            image.SetColor(ARGB(255,86,180,233));
+            label.SetText("[Team] " + member.Name);
             vector screen = GetGame().GetScreenPos(member.Position);
             root.SetPos(screen[0] - 90, screen[1] - 24);
             root.Show(true);

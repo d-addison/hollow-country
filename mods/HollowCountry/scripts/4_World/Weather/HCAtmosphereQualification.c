@@ -33,9 +33,9 @@ class HCAtmosphereQualification
             s_WorldSupported = atmosphereWorld == "chernarusplus";
             string v;
             GetGame().GetVersion(v);
-            s_WorldSupported = s_WorldSupported && (v == "1.30.164289" || v == "1.30.164289.70");
+            s_WorldSupported = s_WorldSupported && HCBuildIdentity.Matches(v);
             if (!s_WorldSupported)
-                Print("[HollowCountry][Atmosphere] BLOCKED unsupported map/build; ChernarusPlus on 1.30.164289 or 1.30.164289.70 only; no atmosphere changes");
+                Print("[HollowCountry][Atmosphere] BLOCKED unsupported map/build; ChernarusPlus on " + HCBuildIdentity.Canonical() + " only; no atmosphere changes");
         }
         return s_WorldSupported;
     }

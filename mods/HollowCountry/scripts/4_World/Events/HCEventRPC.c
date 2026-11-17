@@ -166,6 +166,8 @@ class HCEventRPC
         if (family == HCEventFamily.DELIVERY) { return "Supply delivery"; }
         if (family == HCEventFamily.INVESTIGATION) { return "Site investigation"; }
         if (family == HCEventFamily.STATIC_SALVAGE) { return "Salvage collection"; }
+        if (family == HCEventFamily.PRESENCE) { return "Incident confirmation"; }
+        if (family == HCEventFamily.INFECTED_CLEAR) { return "Local infected threat"; }
         return "Optional AI encounter";
     }
     HCEventPublicView Project(HCEventPeer peer, int ticket, int code)
@@ -218,6 +220,7 @@ class HCEventRPC
                 row.Revision = record.Revision;
                 row.Family = run.Objective.Family;
                 row.Title = Title(row.Family);
+                row.Briefing = HCEventBriefing.Describe(run.Objective);
                 row.Status = record.Status;
                 row.Progress = record.Progress;
                 row.Goal = record.Definition.Goal;

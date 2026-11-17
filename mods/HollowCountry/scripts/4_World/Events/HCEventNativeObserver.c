@@ -2,12 +2,20 @@ class HCEventTarget
 {
     string MissionId;
     ItemBase Item;
+    ItemBase DeliveryContainer;
+    Object Presence;
+    ZombieBase Infected;
 }
 class HCEventNativeLease
 {
     string Lease;
     ref HCEventMission Objective;
+    PlayerBase DeliveredBy;
+    string KillerId;
     ItemBase Item;
+    ItemBase DeliveryContainer;
+    Object Presence;
+    ZombieBase Infected;
 }
 class HCEventDwell
 {
@@ -60,6 +68,83 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         m_Targets.Insert(entry);
         return true;
     }
+    bool ResetUnleasedTarget(string missionId)
+    {
+        foreach (HCEventNativeLease binding : m_Leases)
+        {
+            if (binding.Objective.Id == missionId) { return false; }
+        }
+        int index = m_Targets.Count() - 1;
+        while (index >= 0)
+        {
+            if (m_Targets[index].MissionId == missionId) { m_Targets.Remove(index); }
+            index = index - 1;
+        }
+        return true;
+    }
+    override void RecordDelivery(string lease, ItemBase item, PlayerBase participant, EntityAI destination)
+    {
+        if (!GetGame().IsServer()) { return; }
+        foreach (HCEventNativeLease binding : m_Leases)
+        {
+            if (binding.Lease == lease && binding.Item == item)
+            {
+                binding.DeliveredBy = null;
+                if (participant && destination == binding.DeliveryContainer && ContainerValid(binding.DeliveryContainer, binding.Objective))
+                {
+                    binding.DeliveredBy = participant;
+                }
+            }
+        }
+    }
+    void RevokeDelivery(ItemBase item)
+    {
+        foreach (HCEventNativeLease binding : m_Leases)
+        {
+            if (binding.Item == item) { binding.DeliveredBy = null; }
+        }
+    }
+    bool RegisterContainer(string missionId, ItemBase container)
+    {
+        HCEventTarget target = Target(missionId);
+        if (!target || !container || container.IsPendingDeletion() || container.GetHierarchyRootPlayer() || container.GetHierarchyParent()) { return false; }
+        if (target.DeliveryContainer) { return false; }
+        target.DeliveryContainer = container;
+        return true;
+    }
+    bool RegisterPresence(string missionId, Object landmark)
+    {
+        if (!GetGame().IsServer() || !landmark || landmark.IsPendingDeletion() || Target(missionId) || m_Targets.Count() >= 32) { return false; }
+        HCEventTarget entry = new HCEventTarget;
+        entry.MissionId = missionId;
+        entry.Presence = landmark;
+        m_Targets.Insert(entry);
+        return true;
+    }
+    bool RegisterInfected(string missionId, ZombieBase infected)
+    {
+        if (!GetGame().IsServer() || !infected || !infected.IsAlive() || infected.IsPendingDeletion() || Target(missionId) || m_Targets.Count() >= 32) { return false; }
+        foreach (HCEventTarget prior : m_Targets)
+        {
+            if (prior.Infected == infected) { return false; }
+        }
+        HCEventTarget entry = new HCEventTarget;
+        entry.MissionId = missionId;
+        entry.Infected = infected;
+        m_Targets.Insert(entry);
+        return true;
+    }
+    override void RecordKill(string lease, ZombieBase infected, string participantId)
+    {
+        if (!GetGame().IsServer() || !infected || infected.IsAlive() || !HCEventDirector.TextValid(participantId, 96)) { return; }
+        foreach (HCEventNativeLease binding : m_Leases)
+        {
+            if (binding.Lease == lease && binding.Infected == infected && binding.KillerId == "")
+            {
+                binding.KillerId = participantId;
+            }
+        }
+    }
     bool Near(vector position, vector anchor, float radius)
     {
         return HCEventRuntimePolicy.PositionValid(position) && vector.DistanceSq(position, anchor) <= radius * radius;
@@ -77,7 +162,7 @@ class HCEventNativeObserver : HCEventObjectiveProvider
     }
     override bool Ready(HCEventMission mission)
     {
-        if (!GetGame().IsServer() || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName))
+        if (!HCEventQualification.Admitted() || !GetGame().IsServer() || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName))
         {
             return false;
         }
@@ -90,6 +175,18 @@ class HCEventNativeObserver : HCEventObjectiveProvider
             return false;
         }
         HCEventTarget target = Target(mission.Id);
+        if (mission.Family == HCEventFamily.PRESENCE)
+        {
+            return target && target.Presence && !target.Presence.IsPendingDeletion() && target.Presence.GetType() == mission.AnchorClass && Near(target.Presence.GetPosition(), mission.Source, mission.Radius);
+        }
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
+        {
+            return target && target.Infected && target.Infected.IsAlive() && !target.Infected.IsPendingDeletion() && Near(target.Infected.GetPosition(), mission.Source, mission.Radius);
+        }
+        if (mission.Family == HCEventFamily.DELIVERY)
+        {
+            if (!target || !ContainerValid(target.DeliveryContainer, mission)) { return false; }
+        }
         if (!target || !target.Item || target.Item.IsPendingDeletion() || target.Item.IsRuined())
         {
             return false;
@@ -125,13 +222,25 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         binding.Objective = mission;
         if (mission.Family != HCEventFamily.INVESTIGATION)
         {
-            binding.Item = Target(mission.Id).Item;
+            HCEventTarget target = Target(mission.Id);
+            binding.Item = target.Item;
+            binding.DeliveryContainer = target.DeliveryContainer;
+            binding.Presence = target.Presence;
+            binding.Infected = target.Infected;
         }
         m_Leases.Insert(binding);
         return true;
     }
+    bool ContainerValid(ItemBase container, HCEventMission mission)
+    {
+        return container && !container.IsPendingDeletion() && !container.IsRuined() && !container.GetHierarchyRootPlayer() && !container.GetHierarchyParent() && container.GetType() == mission.ContainerClass && Near(container.GetPosition(), mission.Destination, mission.Radius);
+    }
     override void Forget(string lease, PlayerBase participant)
     {
+        foreach (HCEventNativeLease carrierLease : m_Leases)
+        {
+            if (carrierLease.Lease == lease && carrierLease.DeliveredBy == participant) { carrierLease.DeliveredBy = null; }
+        }
         int index = m_Dwells.Count() - 1;
         while (index >= 0)
         {
@@ -207,24 +316,20 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         }
         else
         {
-            ItemBase item = selected.Item;
-            if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetType() != mission.ItemClass)
+            if (mission.Family == HCEventFamily.PRESENCE)
             {
-                return null;
-            }
-            if (item.GetHierarchyRootPlayer() != participant)
-            {
-                return null;
-            }
-            if (mission.Family == HCEventFamily.DELIVERY)
-            {
-                observed = Near(participant.GetPosition(), mission.Destination, mission.Radius);
+                observed = selected.Presence && !selected.Presence.IsPendingDeletion() && selected.Presence.GetType() == mission.AnchorClass && Near(selected.Presence.GetPosition(), mission.Source, mission.Radius) && Near(participant.GetPosition(), mission.Source, mission.Radius);
             }
             else
             {
-                // Recovery confirms custody; static salvage also requires
-                // collection at its surveyed site. Neither transforms loot.
-                observed = mission.Family == HCEventFamily.RECOVERY || Near(participant.GetPosition(), mission.Source, mission.Radius);
+                if (mission.Family == HCEventFamily.INFECTED_CLEAR)
+                {
+                    observed = selected.Infected && !selected.Infected.IsPendingDeletion() && !selected.Infected.IsAlive() && selected.KillerId == identity;
+                }
+                else
+                {
+                    observed = SupplyObserved(selected, participant);
+                }
             }
         }
         if (!observed)
@@ -240,6 +345,18 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         result.Sequence = 1;
         result.Token = run.Lease + ":objective";
         return result;
+    }
+    bool SupplyObserved(HCEventNativeLease binding, PlayerBase participant)
+    {
+        HCEventMission mission = binding.Objective;
+        ItemBase item = binding.Item;
+        if (!item || item.IsPendingDeletion() || item.IsRuined() || item.GetType() != mission.ItemClass) { return false; }
+        if (mission.Family == HCEventFamily.DELIVERY)
+        {
+            return binding.DeliveredBy == participant && ContainerValid(binding.DeliveryContainer, mission) && item.GetHierarchyParent() == binding.DeliveryContainer && Near(participant.GetPosition(), mission.Destination, mission.Radius);
+        }
+        // Recovery and salvage expose only an existing native item; no grant.
+        return item.GetHierarchyRootPlayer() == participant && (mission.Family == HCEventFamily.RECOVERY || Near(participant.GetPosition(), mission.Source, mission.Radius));
     }
     override bool Release(string lease)
     {

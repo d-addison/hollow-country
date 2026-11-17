@@ -61,11 +61,11 @@ class HCInteriorMeasuredCatalog
         return build;
     }
 
-    // Exact aliases only: the pinned catalog base and the full native version
-    // observed in runs 047/048. Future suffixes require explicit qualification.
+    // Both texts must be admitted by the one shared matcher (pinned base or the full
+    // native version observed in runs 047/048). Future suffixes need qualification there.
     static bool MeasuredBuildMatches(string actual, string pinned)
     {
-        return pinned == "1.30.164289" && (actual == pinned || actual == "1.30.164289.70");
+        return HCBuildIdentity.Matches(pinned) && HCBuildIdentity.Matches(actual);
     }
 
     static bool MeasuredBound(float value, float low, float high)
@@ -1294,7 +1294,7 @@ class HCInteriorMeasuredCatalog
             return false;
         }
         HCInteriorMeasuredCatalogContext context = record.Context;
-        if (context.WorldName != "chernarusplus" || context.Build != "1.30.164289" || context.NativeScriptsSha256 != "09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a")
+        if (context.WorldName != "chernarusplus" || !HCBuildIdentity.Matches(context.Build) || context.NativeScriptsSha256 != "09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a")
         {
             return false;
         }
@@ -1454,7 +1454,7 @@ class HCInteriorMeasuredCatalog
         {
             return;
         }
-        if (profile.SchemaVersion != 1 || !profile.EnableTrustedExperiment || !profile.TrustedExternalValidation || profile.WorldName != "chernarusplus" || profile.Build != "1.30.164289")
+        if (profile.SchemaVersion != 1 || !profile.EnableTrustedExperiment || !profile.TrustedExternalValidation || profile.WorldName != "chernarusplus" || !HCBuildIdentity.Matches(profile.Build))
         {
             return;
         }

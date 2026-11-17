@@ -4,8 +4,10 @@ from types import SimpleNamespace as NS
 import unittest
 if __package__:
     from .test_infected_contract import SOURCE, policy_functions
+    from .build_identity_support import translate as build_identity
 else:
     from test_infected_contract import SOURCE, policy_functions
+    from build_identity_support import translate as build_identity
 
 
 class Array(list):
@@ -59,7 +61,8 @@ class InfectedDefaultsTests(unittest.TestCase):
         for build in ("1.30.164289", "1.30.164289.70", "", "1.30.164289.71", "1.30.164289.70.extra", "1.30.164290", "1.31.164289"):
             with self.subTest(build=build):
                 self.assertEqual(build in ("1.30.164289", "1.30.164289.70"),
-                    authored("HCInfectedProfiles.c", "static bool NativeBuildSupported(", NS(), build=build))
+                    authored("HCInfectedProfiles.c", "static bool NativeBuildSupported(", NS(), build=build,
+                             HCBuildIdentity=build_identity()))
         self.assertIn("HCInfectedProfiles.NativeBuildSupported(runtimeBuild)",
             (SOURCE / "HCInfectedModule.c").read_text())
 

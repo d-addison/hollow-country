@@ -203,9 +203,9 @@ class EventTransportTests(unittest.TestCase):
         self.rpc.OnRPC(self.sender,None,4853802,SimpleNamespace(Read=lambda:self.request()))
         self.assertEqual([],self.sent)
 
-    def test_public_projection_has_no_accounts_positions_items_or_internal_refs(self):
+    def test_public_projection_has_no_accounts_private_positions_items_or_internal_refs(self):
         view=self.handshake()
-        self.assertEqual({"EventId","Revision","Family","Title","Status","Progress","Goal",
+        self.assertEqual({"EventId","Revision","Family","Title","Briefing","Status","Progress","Goal",
             "Participants","MaxParticipants","RemainingSeconds","Joined"},set(vars(view.Rows[0])))
         self.assertNotIn("alice",repr(vars(view)))
         view.Rows[0].Progress=999

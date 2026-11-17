@@ -17,14 +17,44 @@ FrameWidgetClass HCGroupMapRoot {
    vexactsize 0
    clipchildren 1
   }
-  PanelWidgetClass HCSidebar {
+  FrameWidgetClass HCMapOverlay {
+   position 0 0 size 0.72 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   ignorepointer 1 clipchildren 1
+   {
+    CanvasWidgetClass HCGrid {
+     position 0 0 size 1 1
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     ignorepointer 1
+    }
+   }
+  }
+  ImageWidgetClass HCLayerReadouts {
+   position 0.01 0.79 size 0.69 0.20
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   image0 "#(argb,8,8,3)color(1,1,1,1,co)" color 0.02 0.02 0.02 0.92
+   {
+    TextWidgetClass HCNavigation {
+     position 0.01 0.01 size 0.98 0.20
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
+     "text color" 1 1 1 1
+    }
+    TextListboxWidgetClass HCKnownEvents {
+     position 0.01 0.23 size 0.98 0.76
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+    }
+   }
+  }
+  ImageWidgetClass HCSidebar {
    position 0.72 0
    size 0.28 1
    hexactpos 0
    vexactpos 0
    hexactsize 0
    vexactsize 0
-   style rover_sim_black
+   image0 "#(argb,8,8,3)color(1,1,1,1,co)"
    color 0.05 0.05 0.05 0.95
    {
     TextWidgetClass HCStatus {
@@ -70,7 +100,7 @@ FrameWidgetClass HCGroupMapRoot {
     }
     TextListboxWidgetClass HCMembers {
      position 0.02 0.40
-     size 0.96 0.10
+     size 0.96 0.06
      hexactpos 0
      vexactpos 0
      hexactsize 0
@@ -157,6 +187,16 @@ FrameWidgetClass HCGroupMapRoot {
      vexactsize 0
      text "Decline"
      font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCOfficer {
+     position 0.02 0.465 size 0.46 0.035
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Make officer" font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCMember {
+     position 0.52 0.465 size 0.46 0.035
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Make member" font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCKick {
      position 0.02 0.505
@@ -248,7 +288,7 @@ FrameWidgetClass HCGroupMapRoot {
      ignorepointer 1
      font "gui/fonts/sdf_MetronBook24"
      "exact text" 1 "exact text size" 16 wrap 1
-     text "Double-click map to place or move the selected marker. New clears selection. M closes outside text fields."
+     text "Drag / wheel: pan / zoom. Double-click: marker. Rebind M in Controls > Map. Owner assigns roles; officers manage ordinary members and shared markers. Blue Team / orange Marker / yellow Visited; text labels identify each."
     }
    }
   }

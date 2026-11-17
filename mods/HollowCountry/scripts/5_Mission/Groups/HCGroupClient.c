@@ -268,6 +268,12 @@ class HCGroupClient
             return false;
         if (!frame.Members || !frame.Candidates || !frame.Markers || !frame.Invitations)
             return false;
+        if (!frame.Places || frame.Places.Count() > frame.Settings.MaxDiscoveries)
+            return false;
+        foreach (HCGroupPlace place : frame.Places)
+        {
+            if (!HCGroupRules.PlaceValid(place)) return false;
+        }
         if (frame.Members.Count() > frame.Settings.MaxMembers)
             return false;
         if (frame.Candidates.Count() > 90 || frame.Markers.Count() > frame.Settings.MaxMarkers)
@@ -297,7 +303,7 @@ class HCGroupClient
 
     bool MemberValid(HCGroupMember member)
     {
-        if (!member)
+        if (!member || member.Role < HCGroupRole.MEMBER || member.Role > HCGroupRole.OWNER)
             return false;
         if (!HCGroupRules.TextValid(member.Id, 128, false))
             return false;
@@ -406,7 +412,7 @@ class HCGroupClient
             return false;
         if (m_Session == "" || m_RequestId >= 1000000)
             return false;
-        if (request.Op < 1 || request.Op > 12)
+        if (request.Op < 1 || request.Op > 13)
             return false;
         if (!HCGroupRules.TextValid(request.Name, 64, true))
             return false;

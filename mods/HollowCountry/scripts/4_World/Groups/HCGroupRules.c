@@ -87,7 +87,23 @@ class HCGroupRules
         {
             return false;
         }
-        if (c.RequireLOS || c.RequireRadio)
+        if (c.MaxLOSRaysPerTick < 1 || c.MaxLOSRaysPerTick > 256)
+        {
+            return false;
+        }
+        if (c.MaxDiscoveries < 1 || c.MaxDiscoveries > 256 || c.MaxExplorers < 1 || c.MaxExplorers > 512)
+        {
+            return false;
+        }
+        if (!(c.DiscoveryIntervalSeconds >= 5.0 && c.DiscoveryIntervalSeconds <= 300.0))
+        {
+            return false;
+        }
+        if (!(c.IconScale >= 0.75 && c.IconScale <= 2.0))
+        {
+            return false;
+        }
+        if (!(c.LabelScale >= 0.75 && c.LabelScale <= 2.0))
         {
             return false;
         }
@@ -170,7 +186,7 @@ class HCGroupRules
         array<int> seenIds = new array<int>();
         foreach (HCGroupRecord group : state.Groups)
         {
-            if (!group || !group.Members || !group.Markers)
+            if (!group || !group.Members || !group.Markers || !group.Officers)
             {
                 return false;
             }
@@ -200,6 +216,15 @@ class HCGroupRules
                     return false;
                 }
                 seenMembers.Insert(uid);
+            }
+            array<string> seenOfficers = new array<string>();
+            foreach (string officerId : group.Officers)
+            {
+                if (officerId == group.OwnerId || group.Members.Find(officerId) < 0 || seenOfficers.Find(officerId) >= 0)
+                {
+                    return false;
+                }
+                seenOfficers.Insert(officerId);
             }
             foreach (HCGroupMarker marker : group.Markers)
             {
@@ -241,13 +266,13 @@ class HCGroupRules
                 return false;
             }
             HCGroupRecord offered = HCGroupRules.ById(state, invite.GroupId);
-            if (!offered || offered.OwnerId != invite.InviterId || offered.Name != invite.GroupName || HCGroupRules.FindGroup(state, invite.InviteeId))
+            if (!offered || HCGroupRules.Role(offered, invite.InviterId) < HCGroupRole.OFFICER || offered.Name != invite.GroupName || HCGroupRules.FindGroup(state, invite.InviteeId))
             {
                 return false;
             }
             seenIds.Insert(invite.Id);
         }
-        return true;
+        return HCGroupRules.ExplorersValid(state, c);
     }
 
     // No fallback to previous ACL after any incomplete highest revision. Hash is
@@ -271,7 +296,7 @@ class HCGroupRules
         {
             return HCGroupCode.DISABLED;
         }
-        if (!q || q.Version != HCGroupProtocol.VERSION || q.Op < 1 || q.Op > 12)
+        if (!q || q.Version != HCGroupProtocol.VERSION || q.Op < 1 || q.Op > 13)
         {
             return HCGroupCode.INVALID;
         }
@@ -351,9 +376,29 @@ class HCGroupRules
             return HCGroupCode.CONFLICT;
         }
         bool owner = group.OwnerId == actor;
-        if (q.Op == HCGroupOp.INVITE)
+        bool officer = HCGroupRules.Role(group, actor) >= HCGroupRole.OFFICER;
+        if (q.Op == HCGroupOp.SET_ROLE)
         {
             if (!owner)
+            {
+                return HCGroupCode.DENIED;
+            }
+            if (q.TargetId == actor || group.Members.Find(q.TargetId) < 0 || q.Role < 0 || q.Role > 1)
+            {
+                return HCGroupCode.INVALID;
+            }
+            HCGroupRules.RemoveOfficer(group, q.TargetId);
+            if (q.Role == HCGroupRole.OFFICER)
+            {
+                group.Officers.Insert(q.TargetId);
+            }
+            HCGroupRules.DropInvites(state, group.Id, "");
+            HCGroupRules.Touch(group, true);
+            return HCGroupCode.OK;
+        }
+        if (q.Op == HCGroupOp.INVITE)
+        {
+            if (!officer)
             {
                 return HCGroupCode.DENIED;
             }
@@ -394,6 +439,7 @@ class HCGroupRules
             {
                 return HCGroupCode.DENIED;
             }
+            HCGroupRules.RemoveOfficer(group, actor);
             group.Members.Remove(group.Members.Find(actor));
             HCGroupRules.Touch(group, true);
             HCGroupRules.DropInvites(state, group.Id, actor);
@@ -405,7 +451,15 @@ class HCGroupRules
         }
         if (q.Op == HCGroupOp.KICK || q.Op == HCGroupOp.TRANSFER || q.Op == HCGroupOp.DISBAND || q.Op == HCGroupOp.RENAME)
         {
-            if (!owner)
+            if (!officer)
+            {
+                return HCGroupCode.DENIED;
+            }
+            if (!owner && (q.Op == HCGroupOp.TRANSFER || q.Op == HCGroupOp.DISBAND))
+            {
+                return HCGroupCode.DENIED;
+            }
+            if (!owner && q.Op == HCGroupOp.KICK && HCGroupRules.Role(group, q.TargetId) != HCGroupRole.MEMBER)
             {
                 return HCGroupCode.DENIED;
             }
@@ -439,10 +493,12 @@ class HCGroupRules
             }
             if (q.Op == HCGroupOp.TRANSFER)
             {
+                HCGroupRules.RemoveOfficer(group, q.TargetId);
                 group.OwnerId = q.TargetId;
             }
             else
             {
+                HCGroupRules.RemoveOfficer(group, q.TargetId);
                 group.Members.Remove(memberIndex);
             }
             HCGroupRules.DropInvites(state, group.Id, "");
@@ -463,7 +519,7 @@ class HCGroupRules
             {
                 return HCGroupCode.NOT_FOUND;
             }
-            if (!owner && marker.CreatorId != actor)
+            if (!officer && marker.CreatorId != actor)
             {
                 return HCGroupCode.DENIED;
             }
@@ -525,6 +581,195 @@ class HCGroupRules
         marker.Icon = q.Icon;
         HCGroupRules.Touch(group, false);
         return HCGroupCode.OK;
+    }
+
+    static int Role(HCGroupRecord group, string uid)
+    {
+        if (!group || group.Members.Find(uid) < 0)
+        {
+            return -1;
+        }
+        if (group.OwnerId == uid)
+        {
+            return HCGroupRole.OWNER;
+        }
+        if (group.Officers.Find(uid) >= 0)
+        {
+            return HCGroupRole.OFFICER;
+        }
+        return HCGroupRole.MEMBER;
+    }
+
+    static void RemoveOfficer(HCGroupRecord group, string uid)
+    {
+        int index = group.Officers.Find(uid);
+        if (index >= 0)
+        {
+            group.Officers.Remove(index);
+        }
+    }
+
+    static bool PlaceValid(HCGroupPlace place)
+    {
+        if (!place || !HCGroupRules.TextValid(place.Id, 128, false) || !HCGroupRules.TextValid(place.Name, 64, false))
+        {
+            return false;
+        }
+        return HCGroupRules.PositionValid(place.Position) && place.Radius >= 5.0 && place.Radius <= 500.0;
+    }
+
+    static bool ExplorersValid(HCGroupState state, HCGroupSettings c)
+    {
+        if (!state.Explorers || state.Explorers.Count() > c.MaxExplorers)
+        {
+            return false;
+        }
+        array<string> accounts = new array<string>();
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            if (!explorer || !explorer.Visits || !explorer.PlaceIds || explorer.LastSeenUtc < 0 || !HCGroupRules.TextValid(explorer.Id, 128, false))
+            {
+                return false;
+            }
+            if (accounts.Find(explorer.Id) >= 0 || explorer.Visits.Count() + explorer.PlaceIds.Count() > c.MaxDiscoveries)
+            {
+                return false;
+            }
+            accounts.Insert(explorer.Id);
+            array<string> places = new array<string>();
+            foreach (string placeId : explorer.PlaceIds)
+            {
+                if (!HCGroupRules.TextValid(placeId, 128, false) || places.Find(placeId) >= 0)
+                {
+                    return false;
+                }
+                places.Insert(placeId);
+            }
+            foreach (HCGroupPlace visited : explorer.Visits)
+            {
+                if (!HCGroupRules.PlaceValid(visited) || places.Find(visited.Id) >= 0)
+                {
+                    return false;
+                }
+                places.Insert(visited.Id);
+            }
+        }
+        return true;
+    }
+
+    // Called only with a live server player's actual position, never an RPC
+    // position. Visits survive death/reconnect, shared knowledge is a view of
+    // CURRENT membership and never copied to another account's journal.
+    static bool RecordVisit(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlace place, vector actual)
+    {
+        if (!place) { return false; }
+        float dx = actual[0] - place.Position[0];
+        float dz = actual[2] - place.Position[2];
+        if (dx * dx + dz * dz > place.Radius * place.Radius)
+        {
+            return false;
+        }
+        if (!c.DiscoveryLayer || !HCGroupRules.PlaceValid(place) || !HCGroupRules.PositionValid(actual) || !HCGroupRules.TextValid(uid, 128, false))
+        {
+            return false;
+        }
+        HCGroupExplorer found;
+        foreach (HCGroupExplorer candidate : state.Explorers)
+        {
+            if (candidate.Id == uid)
+            {
+                found = candidate;
+            }
+        }
+        if (!found)
+        {
+            if (state.Explorers.Count() >= c.MaxExplorers)
+            {
+                return false;
+            }
+            found = new HCGroupExplorer;
+            found.Id = uid;
+            state.Explorers.Insert(found);
+        }
+        if (found.PlaceIds.Find(place.Id) >= 0)
+        {
+            return false;
+        }
+        if (found.PlaceIds.Count() >= c.MaxDiscoveries)
+        {
+            return false;
+        }
+        found.PlaceIds.Insert(place.Id);
+        return true;
+    }
+
+    static array<ref HCGroupPlace> KnownPlaces(HCGroupState state, HCGroupSettings c, string uid, HCGroupPlaceCatalog catalog)
+    {
+        array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
+        array<string> ids = new array<string>();
+        if (!c.DiscoveryLayer)
+        {
+            return known;
+        }
+        HCGroupRecord group = HCGroupRules.FindGroup(state, uid);
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            bool permitted = explorer.Id == uid;
+            if (c.ShareDiscovery && group && group.Members.Find(explorer.Id) >= 0)
+            {
+                permitted = true;
+            }
+            if (permitted)
+            {
+                if (!catalog) { continue; }
+                foreach (HCGroupPlace place : catalog.Places)
+                {
+                    if (explorer.PlaceIds.Find(place.Id) >= 0 && ids.Find(place.Id) < 0 && known.Count() < c.MaxDiscoveries)
+                    {
+                        ids.Insert(place.Id);
+                        known.Insert(place);
+                    }
+                }
+            }
+        }
+        return known;
+    }
+
+    static bool HasExplorer(HCGroupState state, string uid)
+    {
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            if (explorer.Id == uid)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool HasVisit(HCGroupState state, string uid, string placeId)
+    {
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            if (explorer.Id == uid && explorer.PlaceIds.Find(placeId) >= 0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void MigrateExplorers(HCGroupState state)
+    {
+        // Validated before migration; no catalog metadata survives the next save.
+        foreach (HCGroupExplorer explorer : state.Explorers)
+        {
+            foreach (HCGroupPlace legacy : explorer.Visits)
+            {
+                explorer.PlaceIds.Insert(legacy.Id);
+            }
+            explorer.Visits.Clear();
+        }
     }
 
     static void Touch(HCGroupRecord group, bool membershipChanged)

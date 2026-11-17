@@ -8,6 +8,9 @@ class HCEventModule : HCModule
     protected static ref HCEventModule s_CleanupOwner;
     protected ref HCEventSettings m_Config;
     protected ref HCEventRuntime m_Runtime;
+    protected ref HCEventNativeObserver m_NativeObserver;
+    protected float m_RosterElapsed = 0;
+    protected int m_RosterCursor = 0;
     protected ref HCEventRPC m_EventRPC;
     protected bool m_Stopping = false;
     protected bool m_Quarantined = false;
@@ -15,6 +18,7 @@ class HCEventModule : HCModule
     protected int m_QuarantineTicks = 0;
     protected float m_StartedAt;
     protected string m_Session;
+    protected ref array<string> m_AnnouncedMissions;
 
     static HCEventModule Get()
     {
@@ -32,7 +36,7 @@ class HCEventModule : HCModule
     }
     HCEventAIProvider CreateAIProvider()
     {
-        return new HCEventAIProvider;
+        return HCEventAISelection.Create();
     }
     HCEventNativeObserver CreateObserver()
     {
@@ -40,9 +44,9 @@ class HCEventModule : HCModule
     }
     void BindReviewedTargets(HCEventNativeObserver observer, HCEventSettings settings)
     {
-        // Trusted integration may register exact existing ItemBase handles.
-        // Never search by client class/position or spawn replacement supplies.
+        HCEventWorldBinding.BindSites(observer, settings, Context().WorldName);
     }
+
     HCEventContext Context()
     {
         HCEventContext context = new HCEventContext;
@@ -56,7 +60,11 @@ class HCEventModule : HCModule
             return context;
         }
         context.Server = true;
-        GetGame().GetWorldName(context.WorldName);
+        // Vanilla lowercases the engine world name (missionBase.c); ToLower mutates in place.
+        string world;
+        GetGame().GetWorldName(world);
+        world.ToLower();
+        context.WorldName = world;
         context.Session = m_Session;
         context.Now = Math.Floor(elapsed);
         return context;
@@ -83,11 +91,16 @@ class HCEventModule : HCModule
         {
             return;
         }
+        if (!HCEventQualification.Admitted()) { return; }
+        m_RosterCursor = 0;
+        m_RosterElapsed = 0;
+        m_AnnouncedMissions = new array<string>();
         m_StartedAt = GetGame().GetTickTime();
         m_Session = "events-" + Math.RandomIntInclusive(1, 1000000000).ToString() + "-" + Math.RandomIntInclusive(1, 1000000000).ToString();
         HCEventContext context = Context();
         HCEventJournal journal = new HCEventJournal(m_Config);
         HCEventNativeObserver observer = CreateObserver();
+        m_NativeObserver = observer;
         HCEventAIProvider ai = CreateAIProvider();
         m_Runtime = new HCEventRuntime;
         if (!m_Runtime.Start(m_Config, context, journal, observer, ai))
@@ -102,7 +115,13 @@ class HCEventModule : HCModule
         int admitted = 0;
         foreach (HCEventSite site : m_Config.Sites)
         {
-            if (!site || site.WorldName != context.WorldName)
+            string siteWorld;
+            if (site)
+            {
+                siteWorld = site.WorldName;
+                siteWorld.ToLower();
+            }
+            if (!site || siteWorld != context.WorldName)
             {
                 Print("[HC Events] blocked site: missing or different world identity");
             }
@@ -114,6 +133,7 @@ class HCEventModule : HCModule
                     int result = m_Runtime.Announce(mission, context);
                     if (result == HCEventCode.OK)
                     {
+                        RememberAnnounced(mission.Id);
                         admitted = admitted + 1;
                     }
                     else
@@ -182,7 +202,64 @@ class HCEventModule : HCModule
                 m_EventRPC.Tick();
             }
             m_Runtime.Tick(context);
+            m_RosterElapsed = m_RosterElapsed + deltaTime;
+            if (m_RosterElapsed >= 5)
+            {
+                m_RosterElapsed = 0;
+                RefreshRoster(context);
+            }
         }
+    }
+    void RefreshRoster(HCEventContext context)
+    {
+        if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0) { return; }
+        // One site's one family per five seconds; late CE population can admit
+        // missions without restart. Current-session terminal missions never repeat.
+        int siteIndex = Math.Floor(m_RosterCursor / 7);
+        int family = (m_RosterCursor % 7) + 1;
+        m_RosterCursor = (m_RosterCursor + 1) % (m_Config.Sites.Count() * 7);
+        HCEventSite site = m_Config.Sites[siteIndex];
+        if (!site || !m_AnnouncedMissions) { return; }
+        string siteWorld = site.WorldName;
+        siteWorld.ToLower();
+        if (siteWorld != context.WorldName) { return; }
+        array<ref HCEventMission> roster = HCEventRoster.Build(site, true);
+        foreach (HCEventMission mission : roster)
+        {
+            // HasMission cannot see pruned records, so this session list is the
+            // authority that a terminal mission never announces again.
+            if (mission.Family == family && m_AnnouncedMissions.Find(mission.Id) < 0 && !m_Runtime.HasMission(mission.Id))
+            {
+                HCEventWorldBinding.Bind(m_NativeObserver, mission);
+                if (m_Runtime.Announce(mission, context) == HCEventCode.OK)
+                {
+                    RememberAnnounced(mission.Id);
+                }
+            }
+        }
+    }
+    // Bounded: at most 8 sites x 7 families; a full list refuses to remember.
+    void RememberAnnounced(string missionId)
+    {
+        if (m_AnnouncedMissions && m_AnnouncedMissions.Count() < 64 && m_AnnouncedMissions.Find(missionId) < 0)
+        {
+            m_AnnouncedMissions.Insert(missionId);
+        }
+    }
+    void ItemLocationChanged(ItemBase item, PlayerBase previousCarrier, EntityAI destination)
+    {
+        if (!m_Runtime || !m_NativeObserver || m_Stopping) { return; }
+        // Every transition revokes an older receipt, even when this actor is
+        // not enrolled. A direct native move from an enrolled actor may renew it.
+        m_NativeObserver.RevokeDelivery(item);
+        // No previous carrier means no actor can be attributed; skip Context().
+        if (!previousCarrier) { return; }
+        m_Runtime.ItemDelivered(item, previousCarrier, destination, Context());
+    }
+    void InfectedKilled(ZombieBase infected, PlayerBase participant)
+    {
+        if (!m_Runtime || !m_NativeObserver || m_Stopping) { return; }
+        m_Runtime.InfectedKilled(infected, participant, Context());
     }
     void PlayerDisconnected(PlayerBase player)
     {
@@ -221,6 +298,7 @@ class HCEventModule : HCModule
                 return;
             }
             m_Runtime = null;
+            m_NativeObserver = null;
         }
         m_Stopping = false;
         m_Quarantined = false;

@@ -168,10 +168,11 @@ class HCEventClient
         foreach (HCEventPublicRow row : view.Rows)
         {
             if (!row || row.EventId < 1 || row.EventId > 32 || ids.Find(row.EventId) >= 0) { return false; }
-            if (row.Revision < 1 || row.Revision > 1000000 || row.Family < 1 || row.Family > 5) { return false; }
+            if (row.Revision < 1 || row.Revision > 1000000 || row.Family < 1 || row.Family > 7) { return false; }
             if (!HCEventDirector.TextValid(row.Title, 96) || row.Status < 1 || row.Status > 6) { return false; }
+            if (row.Briefing.Length() > 768) { return false; }
             if (row.Goal != 1 || row.Progress < 0 || row.Progress > row.Goal) { return false; }
-            if (row.MaxParticipants < 1 || row.MaxParticipants > 90 || row.Participants < 0 || row.Participants > row.MaxParticipants) { return false; }
+            if (row.MaxParticipants < 1 || row.MaxParticipants > HCEventLimits.MAX_PARTICIPANTS || row.Participants < 0 || row.Participants > row.MaxParticipants) { return false; }
             if (row.Joined && row.Participants == 0) { return false; }
             if ((row.Status == HCEventStatus.RESOLVING || row.Status == HCEventStatus.COMPLETED) && row.Progress != row.Goal) { return false; }
             if ((row.Status == HCEventStatus.ANNOUNCED || row.Status == HCEventStatus.ACTIVE) && row.Progress != 0) { return false; }

@@ -24,7 +24,7 @@ def ui_member(source, name, state, env, *args):
     code = re.sub(r'\bmHC\w+\b', lambda m: 'self.' + m[0], code)
     for method in re.findall(r'\b(?:bool|int|void|string) (\w+)\(', source):
         code = re.sub(r'(?<![\w.])' + method + r'\(', 'self.' + method + '(', code)
-    code = re.sub(r'\b(?:Widget|PlayerBase|TextWidget|TextListboxWidget)\s+(?=\w+\s*[=;])',
+    code = re.sub(r'\b(?:Widget|PlayerBase|TextWidget|TextListboxWidget|ImageWidget)\s+(?=\w+\s*[=;])',
                   'HCGroupNative ', code)
     wrapper = 'void ' + name + '(' + match[1] + '){' + code + '}'
     return execute_member(wrapper, name, env, state, *args)
@@ -162,14 +162,15 @@ class GroupUIDraftTests(unittest.TestCase):
     def setUp(self):
         self.source = (ROOT/'scripts/5_Mission/Groups/HCGroupMapMenu.c').read_text()
         self.env = translated_rules()
-        self.env.update(GetFocus=lambda: None, vector=NS(Zero=[0,0,0]))
+        self.env.update(GetFocus=lambda: None, vector=NS(Zero=[0,0,0]),
+            HCGroupWorldIcons=NS(RoleLabel=lambda role:'Member'))
         f = self.env['HCGroupSnapshot']()
         f.GroupId, f.Revision, f.Session, f.Name = 1, 1, 'live', 'Team'
         f.Enabled = True
         marker = self.env['HCGroupMarker']()
         marker.Id, marker.Name, marker.Note = 7, 'Rally', 'Original'
         f.Markers.Insert(marker)
-        f.Members = EArray([NS(Id='a', Name='A'), NS(Id='b', Name='B')])
+        f.Members = EArray([NS(Id='a', Name='A',Role=2), NS(Id='b', Name='B',Role=0)])
         f.Candidates = EArray([NS(Id='c', Name='C'), NS(Id='d', Name='D')])
         f.Invitations = EArray([NS(Id=11, GroupName='X'), NS(Id=12, GroupName='Y')])
         self.state = NS(mHCBound=f, mHCMarkerId=7, mHCOriginal=marker,

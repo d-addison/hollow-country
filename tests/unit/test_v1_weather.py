@@ -15,6 +15,7 @@ import unittest
 from tests.unit.test_crafting_completion import body
 from tests.unit.test_core_lifecycle import tokens
 from tests.unit.test_fuel_transfer import Binary32, FLOAT_MAX, f32
+from tests.unit.build_identity_support import translate as build_identity
 
 ROOT = Path(__file__).resolve().parents[2]
 WEATHER = ROOT / 'mods/HollowCountry/scripts/4_World/Weather'
@@ -229,7 +230,7 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         core = NS(IsStarted=lambda: True, GetSettings=lambda: NS(EnableAtmosphere=True))
         game = NS(IsServer=lambda: server, GetWorldName=lambda: world,
                   GetVersion=lambda: events.append(('version',)) or build)
-        context = dict(GetGame=lambda: game, HCServer=NS(Get=lambda: core),
+        context = dict(GetGame=lambda: game, HCBuildIdentity=build_identity(), HCServer=NS(Get=lambda: core),
                        FileExist=lambda path: True, FileMode=NS(READ=1),
                        OpenFile=lambda *args: events.append(('open', args)) or (0 if missing else 1),
                        ReadFile=lambda handle, limit: events.append(('read', limit)) or document[:limit],
@@ -297,7 +298,7 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         settings = NS(EnableAtmosphere=enabled)
         core = NS(IsStarted=lambda: started, GetSettings=lambda: settings)
         game = NS(IsServer=lambda: server)
-        context = {'GetGame': lambda: game, 'HCServer': NS(Get=lambda: core),
+        context = {'GetGame': lambda: game, 'HCBuildIdentity': build_identity(), 'HCServer': NS(Get=lambda: core),
                    'FileExist': lambda path: events.append(('probe', path)) or marker,
                    'Print': lambda text: events.append(('log', text)),
                    's_Probed': False, 's_OptIn': False, 's_Reported': False}
