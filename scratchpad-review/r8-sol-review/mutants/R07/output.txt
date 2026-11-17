@@ -1,0 +1,20 @@
+.......................................................................................................................................................F.........................................................................................................................
+======================================================================
+FAIL: test_row_and_host_list_flags_must_agree_on_every_lod_even_when_another_lod_qualifies (tests.unit.test_taped_light_report.TierSTests.test_row_and_host_list_flags_must_agree_on_every_lod_even_when_another_lod_qualifies)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2035, in test_row_and_host_list_flags_must_agree_on_every_lod_even_when_another_lod_qualifies
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+----------------------------------------------------------------------
+Ran 273 tests in 11.964s
+
+FAILED (failures=1)

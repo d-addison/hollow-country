@@ -1,0 +1,445 @@
+[
+  {
+    "id": "R01",
+    "description": "alias/config readback conflict check removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [model] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [model] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slot count] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slot count] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution selection] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution vertex] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='model')",
+      "FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='inventory_slots')",
+      "FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='res_lods')",
+      "FAIL: test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order)",
+      "FAIL: test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed (tests.unit.test_taped_light_report.ProxyIdentityTests.test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed)",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "Ran 273 tests in 12.004s",
+      "FAILED (failures=25)"
+    ]
+  },
+  {
+    "id": "R02",
+    "description": "coherent aliases retained as duplicate evidence rows",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "replacements": 1,
+    "summary": [
+      "Ran 273 tests in 12.413s",
+      "OK"
+    ]
+  },
+  {
+    "id": "R03",
+    "description": "proxy inventory slot comparison made exact",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "replacements": 1,
+    "summary": [
+      "Ran 273 tests in 11.358s",
+      "OK"
+    ]
+  },
+  {
+    "id": "R04",
+    "description": "nonfinite vertex guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic (tests.unit.test_taped_light_report.TierSTests.test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic) (vertex=('1e999', '0', '0'))",
+      "Ran 273 tests in 14.005s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "R05",
+    "description": "vertex numeric fullmatch weakened to prefix",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic (tests.unit.test_taped_light_report.TierSTests.test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic) (vertex=('1\\n', '0', '0'))",
+      "Ran 273 tests in 14.208s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "R06",
+    "description": "resolution name fullmatch weakened to prefix",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 2,
+    "summary": [
+      "FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1e3')",
+      "FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1.')",
+      "FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='0x10')",
+      "FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1 ')",
+      "FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1.0.0')",
+      "FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1\\n')",
+      "FAIL: test_resolution_lod_names_are_whole_numbers_and_an_incomplete_name_list_never_decides (tests.unit.test_taped_light_report.TierSTests.test_resolution_lod_names_are_whole_numbers_and_an_incomplete_name_list_never_decides)",
+      "Ran 273 tests in 14.237s",
+      "FAILED (failures=7)"
+    ]
+  },
+  {
+    "id": "R07",
+    "description": "per-row/host LOD list flag agreement removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_row_and_host_list_flags_must_agree_on_every_lod_even_when_another_lod_qualifies (tests.unit.test_taped_light_report.TierSTests.test_row_and_host_list_flags_must_agree_on_every_lod_even_when_another_lod_qualifies)",
+      "Ran 273 tests in 11.964s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "R08",
+    "description": "legacy positive flag empty-selection guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'on_model': True}, name='')",
+      "FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'on_model': True}, name=None)",
+      "FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'memory': True}, name='')",
+      "FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'memory': True}, name=None)",
+      "FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'bone': 3}, name='')",
+      "FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'bone': 3}, name=None)",
+      "Ran 273 tests in 12.149s",
+      "FAILED (failures=6)"
+    ]
+  },
+  {
+    "id": "R09",
+    "description": "legacy/top-level mapping agreement removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [different name]",
+      "FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [empty known name]",
+      "FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [unknown mapping]",
+      "FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [mistyped known flag]",
+      "Ran 273 tests in 11.569s",
+      "FAILED (failures=4)"
+    ]
+  },
+  {
+    "id": "R10",
+    "description": "base attempt overwritten by evaluated attempt",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_prerequisite_route_keeps_base_and_variant_facts_apart (tests.unit.test_taped_light_report.TierSTests.test_prerequisite_route_keeps_base_and_variant_facts_apart)",
+      "Ran 273 tests in 9.414s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "R11",
+    "description": "prerequisite handguard readback identity guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [plastic label and type]",
+      "FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [label says rail but the slot holds plastic]",
+      "FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [label says rail, found type is plastic, rail flag still true]",
+      "FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [found type belongs to another slot]",
+      "FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [found rail handguard but rail property false]",
+      "FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [found type empty]",
+      "FAIL: test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label)",
+      "Ran 273 tests in 9.452s",
+      "FAILED (failures=7)"
+    ]
+  },
+  {
+    "id": "R12",
+    "description": "proxy model-path equality guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify)",
+      "FAIL: test_an_empty_model_with_an_existing_entry_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_an_empty_model_with_an_existing_entry_does_not_qualify)",
+      "FAIL: test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending (tests.unit.test_taped_light_report.SlotListTruncationTests.test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending)",
+      "FAIL: test_the_proxy_path_must_still_be_the_whole_light_model (tests.unit.test_taped_light_report.TierSTests.test_the_proxy_path_must_still_be_the_whole_light_model)",
+      "FAIL: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong model]",
+      "FAIL: test_a_missing_config_model_never_matches_a_resolution_lod (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_missing_config_model_never_matches_a_resolution_lod)",
+      "Ran 273 tests in 9.343s",
+      "FAILED (failures=6)"
+    ]
+  },
+  {
+    "id": "R13",
+    "description": "observed beam-point absence ignored",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_beam_memory_points_are_required_when_observed_and_unknown_when_absent (tests.unit.test_taped_light_report.TierSTests.test_beam_memory_points_are_required_when_observed_and_unknown_when_absent) (beam=(True, False))",
+      "FAIL: test_beam_memory_points_are_required_when_observed_and_unknown_when_absent (tests.unit.test_taped_light_report.TierSTests.test_beam_memory_points_are_required_when_observed_and_unknown_when_absent) (beam=(False, True))",
+      "FAIL: test_beam_memory_points_are_required_when_observed_and_unknown_when_absent (tests.unit.test_taped_light_report.TierSTests.test_beam_memory_points_are_required_when_observed_and_unknown_when_absent) (beam=(False, False))",
+      "Ran 273 tests in 10.449s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "id": "P01",
+    "description": "null resolution LOD guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_null_lod_instance_is_reported_unavailable_and_never_called (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_null_lod_instance_is_reported_unavailable_and_never_called)",
+      "Ran 273 tests in 10.726s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P02",
+    "description": "native resolution selection count replaced by zero",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored)",
+      "FAIL: test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex)",
+      "FAIL: test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut)",
+      "Ran 273 tests in 10.354s",
+      "FAILED (failures=3)"
+    ]
+  },
+  {
+    "id": "P03",
+    "description": "per-LOD count bound raised from 16 to 128",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_lod_counts_are_bounded_and_say_when_they_were_cut (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_lod_counts_are_bounded_and_say_when_they_were_cut)",
+      "Ran 273 tests in 10.972s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P04",
+    "description": "LOD vertex-index guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex)",
+      "Ran 273 tests in 11.243s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P05",
+    "description": "selection vertex-count guard removed",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex)",
+      "Ran 273 tests in 10.955s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P06",
+    "description": "proxy bone queries no longer filtered by slot",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_proxy_name_listed_twice_is_tried_once (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_proxy_name_listed_twice_is_tried_once)",
+      "FAIL: test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to)",
+      "Ran 273 tests in 9.783s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "id": "P07",
+    "description": "firearm control gains inventory spawn flag",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released)",
+      "Ran 273 tests in 9.819s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "P08",
+    "description": "bone object identity comparison reduced to presence",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "replacements": 1,
+    "summary": [
+      "Ran 273 tests in 9.728s",
+      "OK"
+    ]
+  },
+  {
+    "id": "P09",
+    "description": "variant-host proxy bone refresh removed",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "replacements": 1,
+    "summary": [
+      "Ran 273 tests in 11.106s",
+      "OK"
+    ]
+  },
+  {
+    "id": "P10",
+    "description": "firearm control immediate release removed",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "replacements": 1,
+    "summary": [
+      "Ran 273 tests in 12.271s",
+      "OK"
+    ]
+  },
+  {
+    "id": "P11",
+    "description": "explicit numeric ToString removed from JSON output",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_a_clean_run_deletes_every_object_it_spawned_and_reports_what_it_measured (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_clean_run_deletes_every_object_it_spawned_and_reports_what_it_measured)",
+      "ERROR: test_a_fast_class_is_not_marked_timed_out (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_fast_class_is_not_marked_timed_out)",
+      "ERROR: test_a_slow_server_trips_the_watchdog_between_classes_and_the_probe_still_cleans_up (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_slow_server_trips_the_watchdog_between_classes_and_the_probe_still_cleans_up)",
+      "ERROR: test_a_stuck_object_and_a_truncated_census_stop_certification (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_stuck_object_and_a_truncated_census_stop_certification) (label='stuck')",
+      "ERROR: test_a_stuck_object_and_a_truncated_census_stop_certification (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_stuck_object_and_a_truncated_census_stop_certification) (label='truncated')",
+      "ERROR: test_a_variant_that_could_not_attach_records_an_empty_unoccupied_slot (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_variant_that_could_not_attach_records_an_empty_unoccupied_slot)",
+      "ERROR: test_every_spawn_is_non_persistent_and_native_attach_requests_type_then_slot (tests.unit.test_taped_light_probe.HookBehaviorTests.test_every_spawn_is_non_persistent_and_native_attach_requests_type_then_slot)",
+      "ERROR: test_live_after_release_measures_objects_the_engine_did_not_delete (tests.unit.test_taped_light_probe.HookBehaviorTests.test_live_after_release_measures_objects_the_engine_did_not_delete)",
+      "ERROR: test_the_class_timeout_is_checked_after_every_observation_and_stops_the_class (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_class_timeout_is_checked_after_every_observation_and_stops_the_class)",
+      "ERROR: test_the_generated_observations_join_into_a_report_without_integrity_issues (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_generated_observations_join_into_a_report_without_integrity_issues)",
+      "ERROR: test_the_hook_text_is_modelled_in_full_and_arms_itself (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_hook_text_is_modelled_in_full_and_arms_itself)",
+      "ERROR: test_the_last_observation_overrunning_the_budget_still_marks_the_class_timed_out (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_last_observation_overrunning_the_budget_still_marks_the_class_timed_out)",
+      "ERROR: test_the_prerequisite_handguard_is_observed_on_a_fresh_host_and_cleaned_up (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_prerequisite_handguard_is_observed_on_a_fresh_host_and_cleaned_up)",
+      "ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='default')",
+      "ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='stuck_and_background')",
+      "ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='class_timeout')",
+      "ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='watchdog_partial')",
+      "ERROR: test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label)",
+      "ERROR: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong slot]",
+      "ERROR: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong model]",
+      "ERROR: test_a_host_without_proxies_reports_none (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_host_without_proxies_reports_none)",
+      "ERROR: test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name)",
+      "ERROR: test_a_text_inventory_slot_is_read_when_the_array_is_empty (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_text_inventory_slot_is_read_when_the_array_is_empty)",
+      "ERROR: test_each_host_lists_its_unique_proxies_with_their_config_join (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_each_host_lists_its_unique_proxies_with_their_config_join)",
+      "ERROR: test_the_listed_rows_and_the_scan_are_bounded (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_the_listed_rows_and_the_scan_are_bounded)",
+      "ERROR: test_the_slot_selection_evidence_is_still_reported_unchanged (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_the_slot_selection_evidence_is_still_reported_unchanged)",
+      "ERROR: test_unrelated_selections_are_not_proxies (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_unrelated_selections_are_not_proxies)",
+      "ERROR: test_without_selection_evidence_the_proxy_join_qualifies_through_the_report (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_without_selection_evidence_the_proxy_join_qualifies_through_the_report)",
+      "ERROR: test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored)",
+      "ERROR: test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored)",
+      "ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [proxy not in the lod]",
+      "ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [empty lod]",
+      "ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [only non-numeric lods]",
+      "ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [no lods at all]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [geometry]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [memory]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [view]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [VIEW_PILOT]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [landContact]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [geometryView]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [geometryFire]",
+      "ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence)",
+      "ERROR: test_a_selection_without_a_first_vertex_is_pending_vertex_missing (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_selection_without_a_first_vertex_is_pending_vertex_missing)",
+      "ERROR: test_a_server_without_a_view_lod_qualifies_from_the_resolution_lod_with_the_evidence_reported (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_server_without_a_view_lod_qualifies_from_the_resolution_lod_with_the_evidence_reported)",
+      "ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [second lod]",
+      "ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [first lod]",
+      "ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [repeated name]",
+      "ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [repeated name, first holds it]",
+      "ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time)",
+      "ERROR: test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex)",
+      "ERROR: test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed)",
+      "ERROR: test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown)",
+      "ERROR: test_only_lods_with_a_whole_numeric_name_are_scanned_and_every_other_lod_is_never_asked_for_selections (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_only_lods_with_a_whole_numeric_name_are_scanned_and_every_other_lod_is_never_asked_for_selections)",
+      "ERROR: test_the_lod_scan_is_bounded_at_sixteen_lods_and_a_cut_scan_without_the_selection_is_pending_truncated (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_lod_scan_is_bounded_at_sixteen_lods_and_a_cut_scan_without_the_selection_is_pending_truncated)",
+      "ERROR: test_the_resolution_facts_are_emitted_for_every_host_and_stay_within_the_json_contract (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_resolution_facts_are_emitted_for_every_host_and_stay_within_the_json_contract)",
+      "ERROR: test_the_scan_of_each_lod_runs_once_per_host_and_never_once_per_proxy_row (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_scan_of_each_lod_runs_once_per_host_and_never_once_per_proxy_row)",
+      "ERROR: test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut)",
+      "ERROR: test_a_control_that_cannot_be_spawned_is_reported_not_skipped (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_control_that_cannot_be_spawned_is_reported_not_skipped)",
+      "ERROR: test_a_null_lod_counts_as_minus_one_without_hiding_its_neighbours (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_null_lod_counts_as_minus_one_without_hiding_its_neighbours)",
+      "ERROR: test_a_null_lod_instance_is_reported_unavailable_and_never_called (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_null_lod_instance_is_reported_unavailable_and_never_called)",
+      "ERROR: test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex)",
+      "ERROR: test_a_proxy_name_listed_twice_is_tried_once (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_proxy_name_listed_twice_is_tried_once)",
+      "ERROR: test_a_proxy_name_without_a_native_bone_is_recorded_as_not_found_never_as_found (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_proxy_name_without_a_native_bone_is_recorded_as_not_found_never_as_found)",
+      "ERROR: test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex)",
+      "ERROR: test_a_vertex_is_read_in_the_scope_that_listed_its_selections (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_vertex_is_read_in_the_scope_that_listed_its_selections)",
+      "ERROR: test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to)",
+      "ERROR: test_every_lod_is_counted_but_only_numeric_lods_list_selections (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_every_lod_is_counted_but_only_numeric_lods_list_selections)",
+      "ERROR: test_lod_counts_are_bounded_and_say_when_they_were_cut (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_lod_counts_are_bounded_and_say_when_they_were_cut)",
+      "ERROR: test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released)",
+      "ERROR: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [the attached light]",
+      "ERROR: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [another object]",
+      "ERROR: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [no bone at all]",
+      "ERROR: test_the_new_observations_join_into_a_server_qualified_report_that_stays_client_pending (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_new_observations_join_into_a_server_qualified_report_that_stays_client_pending)",
+      "ERROR: test_the_variant_host_reads_its_own_bones_after_its_handguard (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_variant_host_reads_its_own_bones_after_its_handguard)",
+      "ERROR: test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it)",
+      "ERROR: test_a_complete_slot_list_reports_its_count_and_a_text_slot_counts_one (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_complete_slot_list_reports_its_count_and_a_text_slot_counts_one)",
+      "ERROR: test_a_missing_config_model_never_matches_a_resolution_lod (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_missing_config_model_never_matches_a_resolution_lod)",
+      "ERROR: test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped)",
+      "ERROR: test_a_slot_omitted_by_the_per_proxy_cap_stays_pending_end_to_end (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_slot_omitted_by_the_per_proxy_cap_stays_pending_end_to_end)",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [longer model name]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [version suffix]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [longer directory]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [generic named selection]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [generic selection with an instance]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [no instance suffix]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [non-numeric instance suffix]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [different directory]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [only the basename]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [backslashes and upper case]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [no leading slash]",
+      "ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [another instance number]",
+      "ERROR: test_the_slot_list_is_exactly_the_eight_listed_when_the_config_holds_exactly_eight (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_slot_list_is_exactly_the_eight_listed_when_the_config_holds_exactly_eight)",
+      "ERROR: test_a_bare_basename_config_hit_is_only_a_diagnostic_and_never_the_join (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_a_bare_basename_config_hit_is_only_a_diagnostic_and_never_the_join)",
+      "ERROR: test_a_failed_lod_list_is_unknown_in_the_lod_facts_and_the_report_says_enumeration_failed (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_a_failed_lod_list_is_unknown_in_the_lod_facts_and_the_report_says_enumeration_failed)",
+      "ERROR: test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified)",
+      "ERROR: test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check)",
+      "ERROR: test_each_proxy_row_counts_the_raw_separators_so_a_backslash_name_is_measured_not_guessed (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_each_proxy_row_counts_the_raw_separators_so_a_backslash_name_is_measured_not_guessed)",
+      "ERROR: test_each_proxy_row_lists_the_config_names_it_tried_with_the_engine_answer_for_each (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_each_proxy_row_lists_the_config_names_it_tried_with_the_engine_answer_for_each)",
+      "ERROR: test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names) [forward slashes]",
+      "ERROR: test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names) [raw backslashes]",
+      "ERROR: test_the_config_class_scan_is_bounded_and_says_when_it_was_cut (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_config_class_scan_is_bounded_and_says_when_it_was_cut)",
+      "ERROR: test_the_header_carries_the_string_self_test_with_every_result_as_the_engine_gave_it (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_header_carries_the_string_self_test_with_every_result_as_the_engine_gave_it)",
+      "ERROR: test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models)",
+      "ERROR: test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found_by_name (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found_by_name)",
+      "ERROR: test_the_self_test_reports_a_native_last_index_of_that_disagrees_instead_of_hiding_it (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_self_test_reports_a_native_last_index_of_that_disagrees_instead_of_hiding_it)",
+      "FAIL: test_every_generated_row_statement_is_within_the_native_formula_bound_with_explicit_numbers (tests.unit.test_taped_light_probe.HookBehaviorTests.test_every_generated_row_statement_is_within_the_native_formula_bound_with_explicit_numbers)",
+      "FAIL: test_the_hook_keeps_every_native_compile_rule_and_its_size_bound (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_hook_keeps_every_native_compile_rule_and_its_size_bound)",
+      "Ran 273 tests in 6.665s",
+      "FAILED (failures=2, errors=105)"
+    ]
+  }
+]

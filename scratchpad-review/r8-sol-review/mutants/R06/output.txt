@@ -1,0 +1,107 @@
+............................................................................................................FFFFFF........................................F...........................................................................................................................
+======================================================================
+FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1e3')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1458, in test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence
+    self.assertEqual(("pending", "proxy_evidence_malformed"),
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1.')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1458, in test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence
+    self.assertEqual(("pending", "proxy_evidence_malformed"),
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='0x10')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1458, in test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence
+    self.assertEqual(("pending", "proxy_evidence_malformed"),
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1 ')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1458, in test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence
+    self.assertEqual(("pending", "proxy_evidence_malformed"),
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1.0.0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1458, in test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence
+    self.assertEqual(("pending", "proxy_evidence_malformed"),
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence) (refused='1\n')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1458, in test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence
+    self.assertEqual(("pending", "proxy_evidence_malformed"),
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_resolution_lod_names_are_whole_numbers_and_an_incomplete_name_list_never_decides (tests.unit.test_taped_light_report.TierSTests.test_resolution_lod_names_are_whole_numbers_and_an_incomplete_name_list_never_decides)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2043, in test_resolution_lod_names_are_whole_numbers_and_an_incomplete_name_list_never_decides
+    self.assertEqual("server_qualified", slot["verdict"])       # "1junk" is not a LOD the scan could have read
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'server_qualified' != 'pending'
+- server_qualified
++ pending
+
+
+----------------------------------------------------------------------
+Ran 273 tests in 14.237s
+
+FAILED (failures=7)

@@ -1,0 +1,56 @@
+test_coherent_aliases_collapse_without_inventing_an_extra_row (__main__.OwnerRuleRegressions.test_coherent_aliases_collapse_without_inventing_an_extra_row) ... ok
+test_concrete_variants_never_take_the_parent_verdict (__main__.OwnerRuleRegressions.test_concrete_variants_never_take_the_parent_verdict) ... ok
+test_conflicting_light_aliases_outrank_an_attach_refusal (__main__.OwnerRuleRegressions.test_conflicting_light_aliases_outrank_an_attach_refusal) ... FAIL
+test_malformed_diagnostic_scalar_does_not_abort_the_report (__main__.OwnerRuleRegressions.test_malformed_diagnostic_scalar_does_not_abort_the_report) ... ERROR
+test_slot_name_matching_is_exact (__main__.OwnerRuleRegressions.test_slot_name_matching_is_exact) ... FAIL
+test_unrelated_alias_conflict_keeps_independent_light_evidence (__main__.OwnerRuleRegressions.test_unrelated_alias_conflict_keeps_independent_light_evidence) ... FAIL
+
+======================================================================
+ERROR: test_malformed_diagnostic_scalar_does_not_abort_the_report (__main__.OwnerRuleRegressions.test_malformed_diagnostic_scalar_does_not_abort_the_report)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r8-sol-review/test_review_regressions.py", line 38, in test_malformed_diagnostic_scalar_does_not_abort_the_report
+    built = report.build_report(t.classification([t.host('AK74', 'slot_host')]), observations)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tools/audit/taped_light_report.py", line 1207, in build_report
+    "spawn_control": _spawn_control(observations),
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tools/audit/taped_light_report.py", line 747, in _spawn_control
+    if key in raw}
+       ^^^^^^^^^^
+TypeError: argument of type 'NoneType' is not iterable
+
+======================================================================
+FAIL: test_conflicting_light_aliases_outrank_an_attach_refusal (__main__.OwnerRuleRegressions.test_conflicting_light_aliases_outrank_an_attach_refusal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r8-sol-review/test_review_regressions.py", line 19, in test_conflicting_light_aliases_outrank_an_attach_refusal
+    self.assertEqual('pending', built['hosts'][0]['verdict'])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+======================================================================
+FAIL: test_slot_name_matching_is_exact (__main__.OwnerRuleRegressions.test_slot_name_matching_is_exact)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r8-sol-review/test_review_regressions.py", line 32, in test_slot_name_matching_is_exact
+    self.assertNotEqual('server_qualified', built['hosts'][0]['lights']['UniversalLight']['verdict'])
+AssertionError: 'server_qualified' == 'server_qualified'
+
+======================================================================
+FAIL: test_unrelated_alias_conflict_keeps_independent_light_evidence (__main__.OwnerRuleRegressions.test_unrelated_alias_conflict_keeps_independent_light_evidence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/scratchpad-review/r8-sol-review/test_review_regressions.py", line 28, in test_unrelated_alias_conflict_keeps_independent_light_evidence
+    self.assertEqual('server_qualified', built['hosts'][0]['lights']['UniversalLight']['verdict'])
+AssertionError: 'server_qualified' != 'pending'
+- server_qualified
++ pending
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.015s
+
+FAILED (failures=3, errors=1)

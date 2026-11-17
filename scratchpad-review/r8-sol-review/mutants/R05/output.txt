@@ -1,0 +1,16 @@
+............................................................................................................................................................F....................................................................................................................
+======================================================================
+FAIL: test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic (tests.unit.test_taped_light_report.TierSTests.test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic) (vertex=('1\n', '0', '0'))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1901, in test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic
+    self.assertEqual("resolution_vertex_invalid", slot["evidence"]["resolution_status"])
+AssertionError: 'resolution_vertex_invalid' != 'member'
+- resolution_vertex_invalid
++ member
+
+
+----------------------------------------------------------------------
+Ran 273 tests in 14.208s
+
+FAILED (failures=1)

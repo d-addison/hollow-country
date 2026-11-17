@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import tempfile
 import unittest
+from unittest import mock
 
 from tools.audit import taped_light_report as report
 from tools.setup import taped_light_probe as probe
@@ -38,14 +39,19 @@ def classification(hosts):
                         "native_slots": []}]}
 
 
-def slot_obs(slot, has=False, on_model=False, memory=False, bone=-1):
-    return {"slot": slot, "host_has_slot": has, "selection": slot if has else "", "selection_on_model": on_model,
-            "memory_point": memory, "bone_index": bone, "bone_object": ""}
+def slot_obs(slot, has=False, on_model=False, memory=False, bone=-1, selection=None):
+    """``selection`` overrides the queried selection name (default: the slot name for a host slot, else empty)."""
+    return {"slot": slot, "host_has_slot": has, "selection": (slot if has else "") if selection is None else selection,
+            "selection_on_model": on_model, "memory_point": memory, "bone_index": bone, "bone_object": ""}
 
 
-def per_slot(slot, light, fits=True, can_add=True, attach_ok=True, found=None):
-    return {"slot": slot, "light_fits": fits, "can_add": can_add, "attach_ok": attach_ok,
-            "found_type": (light if attach_ok else "") if found is None else found, "proxy_after_attach": ""}
+def per_slot(slot, light, fits=True, can_add=True, attach_ok=True, found=None, beam=None):
+    """``beam`` is (beam_start, beam_end) as the hook reads MemoryPointExists after the attach; None writes neither key."""
+    result = {"slot": slot, "light_fits": fits, "can_add": can_add, "attach_ok": attach_ok,
+              "found_type": (light if attach_ok else "") if found is None else found, "proxy_after_attach": ""}
+    if beam is not None:
+        result.update(beam_start=beam[0], beam_end=beam[1])
+    return result
 
 
 def light_obs(light, slots, spawned=True):
@@ -203,19 +209,19 @@ class JoinTests(unittest.TestCase):
             row("AK74", "slot_host", gun_slots(), good_gun_lights()),
             row("Bat", "no_slot_host", no_slots(), refusal_lights(), index=1)]))
         ak = by_class(result, "AK74")
-        self.assertEqual("qualified", ak["verdict"])
-        self.assertEqual("qualified", ak["lights"]["UniversalLight"]["verdict"])
-        self.assertEqual("qualified", ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["verdict"])
+        self.assertEqual("server_qualified", ak["verdict"])
+        self.assertEqual("server_qualified", ak["lights"]["UniversalLight"]["verdict"])
+        self.assertEqual("server_qualified", ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["verdict"])
         self.assertEqual("geometry_missing", ak["lights"]["TLRLight"]["verdict"])
         self.assertIn("no_compatible_native_slot", ak["lights"]["TLRLight"]["reasons"])
         self.assertEqual("PENDING", result["acceptance"])
 
-    def test_host_without_any_native_slot_is_geometry_missing_not_invented(self):
+    def test_host_without_any_native_slot_is_not_server_evidencable_not_invented(self):
         result = report.build_report(self.cls, observations([
             row("AK74", "slot_host", gun_slots(), good_gun_lights()),
             row("Bat", "no_slot_host", no_slots(), refusal_lights(), index=1)]))
         bat = by_class(result, "Bat")
-        self.assertEqual("geometry_missing", bat["verdict"])
+        self.assertEqual("not_server_evidencable", bat["verdict"])
         self.assertIn("no_native_light_slot", bat["reasons"])
 
     def test_excluded_hosts_keep_their_reasons_and_never_become_pending(self):
@@ -228,7 +234,7 @@ class JoinTests(unittest.TestCase):
         result = report.build_report(self.cls, observations([]))
         self.assertEqual({"AK74": "pending", "Bat": "pending", "Ruined": "excluded"}, verdicts(result))
         self.assertIn("no_probe_row", by_class(result, "AK74")["reasons"])
-        self.assertEqual(0, result["denominators"]["qualified"])
+        self.assertEqual(0, result["denominators"]["server_qualified"])
 
     def test_duplicate_rows_for_one_class_are_ambiguous_pending(self):
         rows = [row("AK74", "slot_host", gun_slots(), good_gun_lights()),
@@ -257,15 +263,15 @@ class JoinTests(unittest.TestCase):
         self.assertEqual("pending", by_class(result, "AK74")["verdict"])
         self.assertIn("host_not_spawned", by_class(result, "Bat")["reasons"])
 
-    def test_attach_without_model_geometry_is_geometry_missing(self):
+    def test_attach_without_model_selection_evidence_is_pending_for_the_client(self):
         # complete proxy evidence (one unrelated, fully configured proxy) that names no flashlight slot
         unrelated = proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",))
         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[unrelated])]
         result = report.build_report(self.cls, observations(rows))
         slot = by_class(result, "AK74")["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual("geometry_missing", slot["verdict"])
-        self.assertEqual("attached_without_model_selection", slot["reason"])
-        self.assertEqual("geometry_missing", by_class(result, "AK74")["verdict"])
+        self.assertEqual("pending", slot["verdict"])
+        self.assertEqual("pending_client", slot["reason"])
+        self.assertEqual("pending", by_class(result, "AK74")["verdict"])
 
     def test_bone_or_memory_point_counts_as_geometry_evidence(self):
         for kwargs in ({"memory": True}, {"bone": 4}):
@@ -273,7 +279,7 @@ class JoinTests(unittest.TestCase):
                      slot_obs("weaponFlashlight", has=True, **kwargs)]
             rows = [row("AK74", "slot_host", slots, good_gun_lights())]
             result = report.build_report(self.cls, observations(rows))
-            self.assertEqual("qualified", by_class(result, "AK74")["verdict"], kwargs)
+            self.assertEqual("server_qualified", by_class(result, "AK74")["verdict"], kwargs)
 
     def test_native_refusal_and_failed_create_are_distinct(self):
         for can_add, verdict, reason in ((False, "geometry_missing", "native_attach_refused"),
@@ -328,10 +334,10 @@ class JoinTests(unittest.TestCase):
         rows = [row("AK74", "slot_host", gun_slots(), good_gun_lights())]
         result = report.build_report(self.cls, observations(rows))
         counts = result["denominators"]
-        self.assertEqual(counts["hosts"], counts["qualified"] + counts["geometry_missing"] + counts["excluded"]
+        self.assertEqual(counts["hosts"], counts["server_qualified"] + counts["geometry_missing"] + counts["excluded"]
                          + counts["pending"])
-        self.assertEqual({"qualified": 1, "geometry_missing": 0, "excluded": 1, "pending": 1, "hosts": 3}, {
-            k: counts[k] for k in ("qualified", "geometry_missing", "excluded", "pending", "hosts")})
+        self.assertEqual({"server_qualified": 1, "geometry_missing": 0, "excluded": 1, "pending": 1, "hosts": 3}, {
+            k: counts[k] for k in ("server_qualified", "geometry_missing", "excluded", "pending", "hosts")})
 
     def test_unobserved_axes_are_always_pending(self):
         result = report.build_report(self.cls, observations([]))
@@ -380,7 +386,7 @@ class EvidenceCompletenessTests(unittest.TestCase):
 
     def test_baseline_is_qualified(self):
         _result, record = host_result(lambda c, o: None)
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
 
     def test_missing_rows_slots_fields_and_types_are_pending_never_geometry_missing(self):
         def row_of(o):
@@ -424,7 +430,7 @@ class EvidenceCompletenessTests(unittest.TestCase):
         def alter(c, o):
             o["hosts"][0]["lights"].pop(1)          # TLRLight not observed; UniversalLight stays qualified
         _result, record = host_result(alter)
-        self.assertEqual("qualified", record["lights"]["UniversalLight"]["verdict"])
+        self.assertEqual("server_qualified", record["lights"]["UniversalLight"]["verdict"])
         self.assertEqual("pending", record["verdict"])
 
     def test_pending_light_beats_geometry_missing_on_a_no_slot_host(self):
@@ -439,7 +445,7 @@ class EvidenceCompletenessTests(unittest.TestCase):
         broken = row("AK74", "slot_host", None, "oops")
         obs = observations([broken, row("Bat", "no_slot_host", no_slots(), refusal_lights(), index=1)])
         result = report.build_report(cls, obs)
-        self.assertEqual({"AK74": "pending", "Bat": "geometry_missing"}, verdicts(result))
+        self.assertEqual({"AK74": "pending", "Bat": "not_server_evidencable"}, verdicts(result))
 
 
 class AmbiguityTests(unittest.TestCase):
@@ -574,10 +580,10 @@ class PrerequisiteTests(unittest.TestCase):
     def test_variant_accepting_the_light_with_a_rail_handguard_qualifies_with_its_own_reason(self):
         variant = variant_obs("weaponHandguardAK", self.variant_lights())
         slot, record = self.refused(prereq_obs(has="weaponHandguardAK"), variant)
-        self.assertEqual(("qualified", "native_attach_with_rail_handguard_prerequisite"),
+        self.assertEqual(("server_qualified", "native_attach_with_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
         self.assertTrue(slot["evidence"]["requires_prerequisite"])
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
 
     def test_variant_that_still_refuses_is_geometry_missing(self):
         variant = variant_obs("weaponHandguardAK", self.variant_lights(can_add=False, attach_ok=False))
@@ -674,7 +680,7 @@ class IntegrityGateTests(unittest.TestCase):
         result, record = host_result(lambda c, o: None)
         self.assertTrue(result["integrity"]["cleanup_clean"])
         self.assertEqual([], result["integrity"]["issues"])
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
 
 
 def pair_counts(result):
@@ -707,8 +713,8 @@ class InvalidationPropagationTests(unittest.TestCase):
             with self.subTest(label):
                 result, record = host_result(alter)
                 self.assertEqual("pending", record["verdict"], label)
-                self.assertNotIn("qualified", nested_verdicts(record), label)
-                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+                self.assertNotIn("server_qualified", nested_verdicts(record), label)
+                self.assertEqual(0, pair_counts(result).get("server_qualified", 0), label)
 
     def test_a_control_hit_also_takes_geometry_missing_out_of_the_nested_verdicts_and_pair_counts(self):
         cls = classification([host("AK74", "slot_host")])
@@ -721,16 +727,16 @@ class InvalidationPropagationTests(unittest.TestCase):
     def test_a_missing_sibling_light_alone_does_not_invalidate_an_independently_valid_pair(self):
         result, record = host_result(lambda c, o: o["hosts"][0]["lights"].pop(1))
         self.assertEqual("pending", record["verdict"])
-        self.assertEqual("qualified", record["lights"]["UniversalLight"]["verdict"])
+        self.assertEqual("server_qualified", record["lights"]["UniversalLight"]["verdict"])
         self.assertEqual("pending", record["lights"]["TLRLight"]["verdict"])
-        self.assertEqual({"pending": 1, "qualified": 1}, pair_counts(result))
+        self.assertEqual({"pending": 1, "server_qualified": 1}, pair_counts(result))
 
     def test_a_duplicated_sibling_light_row_alone_does_not_invalidate_the_independently_valid_pair(self):
         result, record = host_result(lambda c, o: o["hosts"][0]["lights"].append(dict(o["hosts"][0]["lights"][1])))
         self.assertEqual("pending", record["verdict"])
         self.assertIn("duplicate_light_observation", record["reasons"])
         self.assertEqual("pending", record["lights"]["TLRLight"]["verdict"])
-        self.assertEqual("qualified", record["lights"]["UniversalLight"]["verdict"])
+        self.assertEqual("server_qualified", record["lights"]["UniversalLight"]["verdict"])
 
     def test_an_invalid_host_does_not_taint_a_different_valid_host(self):
         cls = classification([host("AK74", "slot_host"), host("M4A1", "slot_host")])
@@ -738,8 +744,8 @@ class InvalidationPropagationTests(unittest.TestCase):
         bad["type"] = "OtherHost"
         good = row("M4A1", "slot_host", gun_slots(), good_gun_lights(), index=1)
         result = report.build_report(cls, observations([bad, good]))
-        self.assertEqual({"AK74": "pending", "M4A1": "qualified"}, verdicts(result))
-        self.assertEqual({"pending": 2, "qualified": 1, "geometry_missing": 1}, pair_counts(result))
+        self.assertEqual({"AK74": "pending", "M4A1": "server_qualified"}, verdicts(result))
+        self.assertEqual({"pending": 2, "server_qualified": 1, "geometry_missing": 1}, pair_counts(result))
 
 
 class ControlEvidenceTests(unittest.TestCase):
@@ -772,11 +778,11 @@ class ControlEvidenceTests(unittest.TestCase):
                 result, record = host_result(alter)
                 self.assertEqual("pending", record["verdict"], label)
                 self.assertTrue(any(reason.startswith("control") for reason in record["reasons"]), (label, record["reasons"]))
-                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+                self.assertEqual(0, pair_counts(result).get("server_qualified", 0), label)
 
     def test_a_complete_spawned_consistent_control_keeps_the_host_qualified(self):
         _result, record = host_result(lambda c, o: None)
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
 
 
 def variant_report(variant, light_alter=None):
@@ -800,8 +806,8 @@ class VariantEvidenceTests(unittest.TestCase):
 
     def test_a_correct_variant_still_qualifies(self):
         slot, record, _result = variant_report(self.variant())
-        self.assertEqual(("qualified", "native_attach_with_rail_handguard_prerequisite"), (slot["verdict"], slot["reason"]))
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual(("server_qualified", "native_attach_with_rail_handguard_prerequisite"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("server_qualified", record["verdict"])
 
     def test_a_variant_light_fit_that_disagrees_with_the_preflight_is_pending(self):
         variant = self.variant()
@@ -854,7 +860,7 @@ class RangeAndRelationTests(unittest.TestCase):
     def pending_without_qualified_pairs(self, label, alter):
         result, record = host_result(alter)
         self.assertEqual("pending", record["verdict"], label)
-        self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+        self.assertEqual(0, pair_counts(result).get("server_qualified", 0), label)
         return result
 
     def test_can_add_false_with_attach_ok_true_is_pending(self):
@@ -891,7 +897,7 @@ class RangeAndRelationTests(unittest.TestCase):
     def test_a_full_scan_at_the_cap_is_still_accepted(self):
         result, record = host_result(lambda c, o: o["counters"].update(
             census_total=probe.CENSUS_SCAN_LIMIT, census_scanned=probe.CENSUS_SCAN_LIMIT))
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
         self.assertTrue(result["integrity"]["cleanup_clean"])
 
 
@@ -936,7 +942,7 @@ class ReadbackContradictionTests(unittest.TestCase):
     def test_a_contradictory_read_back_on_another_slot_still_invalidates_the_pair(self):
         slot, record, result = self.one(lambda lights: lights[2]["per_slot"][0].update(found_type="UniversalLight"))
         self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
-        self.assertEqual(0, pair_counts(result).get("qualified", 0))
+        self.assertEqual(0, pair_counts(result).get("server_qualified", 0))
 
     def test_a_variant_found_item_without_a_successful_attach_is_pending_not_a_refusal(self):
         variant_lights = good_gun_lights()
@@ -957,8 +963,8 @@ class ReadbackContradictionTests(unittest.TestCase):
     def test_the_probe_003_shape_stays_consistent(self):
         """Every probe-003 attempt had found_type '' when attach_ok was false and the light type when true."""
         slot, record, _result = self.one(lambda lights: None)
-        self.assertEqual("qualified", slot["verdict"])
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", slot["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
 
 
 class ProxySlotEvidenceTests(unittest.TestCase):
@@ -978,10 +984,10 @@ class ProxySlotEvidenceTests(unittest.TestCase):
 
     def test_a_proxy_with_an_existing_config_matching_model_and_slot_qualifies(self):
         slot, record, result = self.attach([proxy()])
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
-        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("proxy_config_slot", slot["evidence"]["model_evidence"])
         self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
         self.assertEqual("PENDING", result["acceptance"])
 
     def test_probe_003_selection_and_model_spellings_are_normalised(self):
@@ -991,7 +997,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                       "/dz/weapons/attachments/light/weaponlight_universal"):
             with self.subTest(model=model):
                 slot, _record, _result = self.attach([proxy(model=model)])
-                self.assertEqual("qualified", slot["verdict"])
+                self.assertEqual("server_qualified", slot["verdict"])
 
     def test_the_proxy_prefix_is_matched_case_insensitively_like_the_hook_does(self):
         for prefix in ("Proxy:", "PROXY:", "pRoXy:"):
@@ -999,7 +1005,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                 item = proxy()
                 item["selection"] = prefix + item["selection"][len("proxy:"):]
                 slot, _record, _result = self.attach([item])
-                self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+                self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_selection_without_the_proxy_prefix_is_malformed_evidence_not_a_match(self):
         item = proxy()
@@ -1010,16 +1016,16 @@ class ProxySlotEvidenceTests(unittest.TestCase):
     def test_a_qualifying_proxy_among_other_rows_and_a_truncated_list_still_qualifies(self):
         rows = [proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",)), proxy()]
         slot, _record, _result = self.attach(rows, proxy_count=40)
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_proxy_that_names_a_different_slot_does_not_qualify(self):
         slot, record, _result = self.attach([proxy(slots=("pistolFlashlight",))])
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
-        self.assertNotEqual("qualified", record["verdict"])
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+        self.assertNotEqual("server_qualified", record["verdict"])
 
     def test_the_slot_must_be_in_the_list_not_a_substring_of_it(self):
         slot, _record, _result = self.attach([proxy(slots=("weaponFlashlightExtra",))])
-        self.assertNotEqual("qualified", slot["verdict"])
+        self.assertNotEqual("server_qualified", slot["verdict"])
 
     def test_a_missing_config_entry_is_pending_never_inferred_from_the_proxy_name(self):
         slot, record, _result = self.attach([proxy(exists=False)])
@@ -1034,14 +1040,14 @@ class ProxySlotEvidenceTests(unittest.TestCase):
 
     def test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify(self):
         slot, record, _result = self.attach([proxy(model="\\dz\\weapons\\attachments\\light\\weaponlight_tlr.p3d")])
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
-        self.assertNotEqual("qualified", record["verdict"])
+        self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+        self.assertNotEqual("server_qualified", record["verdict"])
 
     def test_an_empty_model_with_an_existing_entry_does_not_qualify(self):
         slot, _record, _result = self.attach([proxy(model="x")])
-        self.assertNotEqual("qualified", slot["verdict"])
+        self.assertNotEqual("server_qualified", slot["verdict"])
         slot, _record, _result = self.attach([dict(proxy(), model="")])
-        self.assertNotEqual("qualified", slot["verdict"])
+        self.assertNotEqual("server_qualified", slot["verdict"])
 
     def test_malformed_proxy_evidence_is_pending(self):
         def entry(**changes):
@@ -1076,7 +1082,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                 self.assertEqual("pending", slot["verdict"], label)
                 self.assertEqual("proxy_evidence_malformed", slot["reason"], label)
                 self.assertEqual("pending", record["verdict"], label)
-                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+                self.assertEqual(0, pair_counts(result).get("server_qualified", 0), label)
 
     def test_a_proxy_count_without_the_list_is_malformed_not_missing(self):
         slot, _record, _result = self.attach([proxy()], mutate=lambda r: r.pop("proxies"))
@@ -1087,29 +1093,29 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                                              mutate=lambda r: r.update(proxy_scan_complete=False))
         self.assertEqual(("pending", "proxy_evidence_truncated"), (slot["verdict"], slot["reason"]))
         slot, _record, _result = self.attach([proxy()], mutate=lambda r: r.update(proxy_scan_complete=False))
-        self.assertEqual("qualified", slot["verdict"])
+        self.assertEqual("server_qualified", slot["verdict"])
 
     def test_absent_proxy_evidence_is_pending_and_never_qualified(self):
         """The probe-003 shape: neither proxy_count nor proxies, and every slot selection field empty."""
         slot, record, result = self.attach(None)
         self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
         self.assertEqual("pending", record["verdict"])
-        self.assertEqual(0, result["denominators"]["qualified"])
+        self.assertEqual(0, result["denominators"]["server_qualified"])
 
     def test_a_truncated_list_without_a_qualifying_row_is_pending(self):
         slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))], proxy_count=30)
         self.assertEqual(("pending", "proxy_evidence_truncated"), (slot["verdict"], slot["reason"]))
 
-    def test_an_empty_complete_proxy_list_is_a_negative_finding(self):
+    def test_an_empty_complete_proxy_list_is_pending_for_the_client_not_a_negative_finding(self):
         slot, _record, _result = self.attach([])
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
 
     def test_the_selection_memory_and_bone_evidence_stays_an_alternative(self):
         slot, _record, _result = self.attach(None, slots=gun_slots(weapon_model=True))
-        self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
         self.assertEqual("selection", slot["evidence"]["model_evidence"])
         slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))], slots=gun_slots(weapon_model=True))
-        self.assertEqual("qualified", slot["verdict"])
+        self.assertEqual("server_qualified", slot["verdict"])
 
     def test_malformed_proxy_evidence_outranks_selection_evidence(self):
         slot, record, _result = self.attach([proxy()], mutate=lambda r: r.update(proxy_count="x"),
@@ -1125,14 +1131,14 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                     prereq_variant=variant, proxies=[proxy()])]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
         self.assertTrue(slot["evidence"]["requires_prerequisite"])
-        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual("proxy_config_slot", slot["evidence"]["model_evidence"])
         rows[0]["proxies"] = [proxy(slots=("pistolFlashlight",))]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
         for key in ("proxies", "proxy_count", "proxy_scan_complete", *HOST_FACTS):
             del rows[0][key]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
@@ -1163,7 +1169,7 @@ class ProxyIdentityTests(unittest.TestCase):
     def assert_pending_malformed(self, proxies, label="", **extra):
         slot, result = self.judge(proxies, **extra)
         self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
-        self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
+        self.assertEqual(0, pair_counts(result).get("server_qualified", 0), label)
 
     def test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order(self):
         negative = dict(proxy(), cfg_exists=False, model="", inventory_slots=[], slot_count=0)
@@ -1189,7 +1195,7 @@ class ProxyIdentityTests(unittest.TestCase):
                                ("three spellings", [slashed, bare, shouted])):
             with self.subTest(label):
                 slot, result = self.judge(proxies)
-                self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"),
+                self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"),
                                  (slot["verdict"], slot["reason"]), label)
                 self.assertEqual([], result["integrity"]["issues"], label)
 
@@ -1226,7 +1232,7 @@ class ProxyIdentityTests(unittest.TestCase):
         self.assert_pending_malformed([proxy(number="001"), proxy(number="002", slots=("pistolFlashlight",))], "slots")
         self.assert_pending_malformed([proxy(number="001"), proxy(number="002", exists=False)], "exists")
         slot, _result = self.judge([proxy(number="001"), proxy(number="002")])
-        self.assertEqual("qualified", slot["verdict"])
+        self.assertEqual("server_qualified", slot["verdict"])
 
     def test_a_malformed_proxy_name_is_never_qualified(self):
         for label, selection in (("non-numeric suffix", "proxy:" + LIGHT_PROXY_PATH + ".garbage"),
@@ -1293,15 +1299,17 @@ class SlotListTruncationTests(unittest.TestCase):
     def test_a_truncated_slot_list_without_the_slot_is_pending_not_negative(self):
         slot, result = self.judge([proxy(slots=self.FILLER, slot_count=9)])
         self.assertEqual(("pending", "proxy_slot_list_truncated"), (slot["verdict"], slot["reason"]))
-        self.assertEqual(0, result["denominators"]["qualified"])
+        self.assertEqual(0, result["denominators"]["server_qualified"])
 
     def test_a_listed_slot_still_qualifies_when_the_list_is_truncated(self):
         slot, _result = self.judge([proxy(slots=self.FILLER[:7] + ("weaponFlashlight",), slot_count=12)])
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"), (slot["verdict"], slot["reason"]))
 
-    def test_a_complete_slot_list_without_the_slot_stays_a_negative_finding(self):
+    def test_a_complete_slot_list_without_the_slot_is_pending_for_the_client_unless_it_names_another_light_slot(self):
         slot, _result = self.judge([proxy(slots=self.FILLER)])
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+        slot, _result = self.judge([proxy(slots=self.FILLER[:3] + ("pistolFlashlight",))])
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
 
     def test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending(self):
         other = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=self.FILLER, slot_count=20)
@@ -1309,14 +1317,14 @@ class SlotListTruncationTests(unittest.TestCase):
         self.assertEqual(("pending", "proxy_slot_list_truncated"), (slot["verdict"], slot["reason"]))
         mismatched = proxy(slots=self.FILLER, slot_count=20, model="\\dz\\weapons\\attachments\\light\\other.p3d")
         slot, _result = self.judge([mismatched])
-        self.assertEqual("geometry_missing", slot["verdict"])
+        self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
 
     def test_the_older_selection_evidence_is_not_overridden_by_a_truncated_slot_list(self):
         rows = [row("AK74", "slot_host", gun_slots(weapon_model=True), good_gun_lights(),
                     proxies=[proxy(slots=self.FILLER, slot_count=9)])]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
 
 
 def facts_of(res, extra=("geometry",)):
@@ -1340,7 +1348,7 @@ LEGACY_HOST = {"view_lod": False, "view_selection_count": 0, "view_scan_complete
                "lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
                "view_by_name": False}
 SELECTION = "proxy:" + LIGHT_PROXY_PATH + ".001"
-GOOD = ("qualified", "native_attach_with_resolution_lod_proxy_slot")
+GOOD = ("server_qualified", "native_attach_with_proxy_config_slot")
 
 
 class ResolutionLodEvidenceTests(unittest.TestCase):
@@ -1363,15 +1371,20 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
         slot, _record, _result = self.judge(*args, **kwargs)
         return slot["verdict"], slot["reason"]
 
+    def status(self, *args, **kwargs):
+        """Round 8: resolution membership is a diagnostic. (slot verdict, resolution_status) of the AK74 weaponFlashlight pair."""
+        slot, _record, _result = self.judge(*args, **kwargs)
+        return slot["verdict"], slot["evidence"]["resolution_status"]
+
     def test_a_resolution_lod_holding_the_proxy_selection_qualifies_and_the_evidence_is_reported(self):
         slot, record, result = self.judge()
         self.assertEqual(GOOD, (slot["verdict"], slot["reason"]))
         evidence = slot["evidence"]
-        self.assertEqual("resolution_lod_proxy_slot", evidence["model_evidence"])
+        self.assertEqual("proxy_config_slot", evidence["model_evidence"])
         self.assertEqual(SELECTION, evidence["proxy_selection"])
         self.assertEqual(("1.000", SELECTION, [0.5, 0.25, -1.5]),
                          (evidence["resolution_lod"], evidence["resolution_selection"], evidence["resolution_vertex"]))
-        self.assertEqual("qualified", record["verdict"])
+        self.assertEqual("server_qualified", record["verdict"])
         self.assertEqual("PENDING", result["acceptance"])
         self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, result["unobserved_axes"])
 
@@ -1380,7 +1393,7 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
         self.assertNotIn("view_lod", json.dumps(result))
         self.assertNotIn("view_selection", json.dumps(slot))
 
-    def test_without_the_proxy_selection_in_a_complete_resolution_lod_the_slot_is_pending_with_an_explicit_reason(self):
+    def test_without_the_proxy_selection_in_a_complete_resolution_lod_the_pair_still_qualifies_and_the_status_names_why(self):
         failed_list = dict(name="1.000", list_ok=False, selection_count=0, scan_complete=False)
         cut_scan = dict(name="1.000", list_ok=True, selection_count=900, scan_complete=False)
         many = [str(number) for number in range(16)]
@@ -1413,9 +1426,10 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
         for label, (facts, proxies, reason) in cases.items():
             with self.subTest(label):
                 slot, record, result = self.judge(proxies, facts=facts)
-                self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
-                self.assertEqual("pending", record["verdict"], label)
-                self.assertEqual(0, result["denominators"]["qualified"], label)
+                self.assertEqual(GOOD, (slot["verdict"], slot["reason"]), label)       # diagnostic only, never a gate
+                self.assertEqual(reason, slot["evidence"]["resolution_status"], label)
+                self.assertEqual("server_qualified", record["verdict"], label)
+                self.assertEqual(1, result["denominators"]["server_qualified"], label)
 
     def test_one_complete_resolution_lod_holding_the_proxy_is_enough(self):
         facts = facts_of(res_host(("0", 5), ("1", 7)))
@@ -1430,7 +1444,8 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
         repeated = facts_of(res_host(("1", 5), ("1", 5)))       # the engine repeats a resolution name on some hosts
         self.assertEqual(GOOD, self.verdict([proxy(res=[res_entry("1", ""), res_entry("1", SELECTION)])], repeated))
         both = [res_entry("0", "proxy:/dz/x/y.001"), res_entry("1", SELECTION, vertex_ok=False)]
-        self.assertEqual(("pending", "resolution_selection_mismatch"), self.verdict([proxy(res=both)], facts))
+        self.assertEqual(("server_qualified", "resolution_selection_mismatch"), self.status([proxy(res=both)], facts))
+        self.assertEqual(("server_qualified", "member"), self.status([proxy(res=[res_entry("0", ""), res_entry("1", SELECTION)])], facts))
 
     def test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence(self):
         selection = SELECTION
@@ -1445,9 +1460,9 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
 
     def test_a_view_lod_never_stands_in_for_a_resolution_lod(self):
         facts = dict(facts_of(res_host(empty=True), extra=("view", "geometry")), view_by_name=True)
-        self.assertEqual(("pending", "resolution_lod_absent"), self.verdict([proxy(res=[])], facts))
+        self.assertEqual(("server_qualified", "resolution_lod_absent"), self.status([proxy(res=[])], facts))
         facts = dict(facts_of(res_host()), view_by_name=True, lod_names=["1.000", "view"])
-        self.assertEqual(("pending", "resolution_proxy_missing"), self.verdict([proxy(res_selection="")], facts))
+        self.assertEqual(("server_qualified", "resolution_proxy_missing"), self.status([proxy(res_selection="")], facts))
         self.assertEqual(GOOD, self.verdict([proxy()], facts))       # view_by_name and the names are diagnostics only
 
     def test_the_lod_name_list_and_the_resolution_facts_must_not_contradict_each_other(self):
@@ -1507,7 +1522,7 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
                 facts.update({k: v for k, v in LOD_FACTS.items() if k not in facts})
                 slot, _record, result = self.judge([proxy()], facts=facts)
                 self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
-                self.assertEqual(0, result["denominators"]["qualified"], label)
+                self.assertEqual(0, result["denominators"]["server_qualified"], label)
 
     def test_malformed_row_resolution_entries_are_pending_malformed_evidence(self):
         good = res_entry("1.000", SELECTION)
@@ -1559,7 +1574,7 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
                 with self.subTest(label, first=order[0]["selection"]):
                     slot, _record, result = self.judge(list(order))
                     self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
-                    self.assertEqual(0, result["denominators"]["qualified"])
+                    self.assertEqual(0, result["denominators"]["server_qualified"])
 
     def test_two_instances_that_share_one_resolution_result_still_qualify(self):
         self.assertEqual(GOOD, self.verdict([proxy(number="001"), proxy(number="002")]))
@@ -1585,17 +1600,16 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
                                  ("only the basename", "proxy:weaponlight_universal.001"),
                                  ("a trailing component", "proxy:" + base + "/child.001")):
             with self.subTest(label):
-                slot, _record, result = self.judge([proxy(res_selection=selection)])
-                self.assertEqual(("pending", "resolution_selection_mismatch"), (slot["verdict"], slot["reason"]), label)
-                self.assertEqual(0, result["denominators"]["qualified"], label)
+                self.assertEqual(("server_qualified", "resolution_selection_mismatch"),
+                                 self.status([proxy(res_selection=selection)]), label)       # a diagnostic, never a stand-in
 
     def test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence(self):
         unrelated = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",), res_selection="")
         self.assertEqual(GOOD, self.verdict([proxy(), unrelated]))
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"),
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"),
                          self.verdict([proxy(slots=("pistolFlashlight",), res_selection="")]))
 
-    def test_the_prerequisite_variant_uses_the_resolution_lod_reason(self):
+    def test_the_prerequisite_variant_keeps_resolution_membership_as_a_diagnostic(self):
         lights = good_gun_lights()
         lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
         variant = variant_obs("weaponHandguardAK", [good_gun_lights()[2]])
@@ -1603,29 +1617,32 @@ class ResolutionLodEvidenceTests(unittest.TestCase):
                     prereq_variant=variant, proxies=[proxy(res_selection="")])]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("pending", "resolution_proxy_missing"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"),
+                         (slot["verdict"], slot["reason"]))
+        self.assertEqual("resolution_proxy_missing", slot["evidence"]["resolution_status"])
         rows[0]["proxies"] = [proxy()]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
 
-    def test_rows_from_the_view_lod_producers_have_no_resolution_evidence_and_are_pending_never_qualified(self):
+    def test_rows_from_the_view_lod_producers_carry_no_resolution_evidence_and_say_so_as_a_diagnostic(self):
         """probe-004 and probe-005 (rounds 4 to 6) wrote view-LOD fields and no per-resolution-LOD list. Those rows are
-        consistent but prove nothing about the resolution LODs: pending with its own reason, whatever the old fields say."""
+        consistent but prove nothing about the resolution LODs; the proxy config join still decides, and the diagnostic says
+        resolution_lod_evidence_missing whatever the old fields say."""
         legacy_views = (LEGACY_HOST,
                         dict(LEGACY_HOST, view_lod=True, view_selection_count=3, view_scan_complete=True, view_list_ok=True,
                              lod_names=["1.000", "view"], view_by_name=True))
         for index, facts in enumerate(legacy_views):
             with self.subTest(index):
                 slot, record, result = self.judge([legacy_proxy()], facts=facts)
-                self.assertEqual(("pending", "resolution_lod_evidence_missing"), (slot["verdict"], slot["reason"]))
-                self.assertEqual("pending", record["verdict"])
-                self.assertEqual(0, result["denominators"]["qualified"])
+                self.assertEqual(GOOD, (slot["verdict"], slot["reason"]))
+                self.assertEqual("resolution_lod_evidence_missing", slot["evidence"]["resolution_status"])
+                self.assertEqual("server_qualified", record["verdict"])
         slot, _record, _result = self.judge([legacy_proxy(slots=("pistolFlashlight",))], facts=LEGACY_HOST)
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
         slot, _record, _result = self.judge([], facts=LEGACY_HOST)
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
 
     def test_resolution_rows_next_to_a_host_without_resolution_facts_are_malformed(self):
         slot, _record, _result = self.judge([proxy()], facts=LEGACY_HOST)
@@ -1729,7 +1746,7 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         _slot, record, result = self.judge([item])
         self.assertEqual("pending", record["verdict"])
         self.assertIn("proxy_config_name_mismatch", record["reasons"])
-        self.assertEqual(0, result["denominators"]["qualified"])
+        self.assertEqual(0, result["denominators"]["server_qualified"])
         self.assertEqual(1, result["denominators"]["reasons"].get("proxy_config_name_mismatch"))
 
     def test_the_new_row_facts_are_validated_and_a_good_row_still_qualifies(self):
@@ -1765,7 +1782,8 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         self.assertEqual({"list_ok": True, "count": 2, "names": ["1.000", "geometry"], "names_complete": True,
                           "view_by_name": False}, diagnostics["lod"])
         self.assertEqual({"enum_ok": True, "count": 1, "complete": True,
-                          "lods": [{"name": "1.000", "list_ok": True, "selection_count": 3, "scan_complete": True}]},
+                          "lods": [{"name": "1.000", "list_ok": True, "selection_count": 3, "scan_complete": True,
+                                  "instance_ok": None, "native_count": None}]},
                          diagnostics["resolution"])
         self.assertEqual([{"selection": item["selection"], "cfg_tried": item["cfg_tried"],
                            "cfg_tried_exists": item["cfg_tried_exists"], "sep_slash": 0, "sep_backslash": 5}],
@@ -1792,7 +1810,7 @@ class RoundSixNativeFactsTests(unittest.TestCase):
             with self.subTest(label):
                 result = report.build_report(classification([host("AK74", "slot_host")]), data)
                 self.assertEqual({"status": "malformed"}, result["native_diagnostics"])
-                self.assertEqual("qualified", result["hosts"][0]["verdict"])       # diagnostics never change a verdict
+                self.assertEqual("server_qualified", result["hosts"][0]["verdict"])       # diagnostics never change a verdict
 
     def test_the_new_keys_are_consumed_and_the_new_reasons_are_documented(self):
         for key in ("cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash", "lod_list_ok", "lod_count",
@@ -1801,6 +1819,359 @@ class RoundSixNativeFactsTests(unittest.TestCase):
             self.assertIn(key, report.CONSUMED_KEYS)
         for reason in ("view_lod_absent_on_server", "proxy_config_name_mismatch"):
             self.assertIn(reason, report.__doc__)
+
+
+def unavailable_lod(name="0"):
+    """A resolution LOD whose script instance was null (probe-006: 'NULL pointer to instance. Variable scanLod')."""
+    return {"name": name, "list_ok": False, "selection_count": 0, "scan_complete": False, "instance_ok": False,
+            "native_count": -1}
+
+
+def unavailable_facts():
+    """probe-006 host facts: both numeric LODs listed by name, neither instance usable, so no selection list at all."""
+    facts = res_host(unavailable_lod("0"), unavailable_lod("1"), complete=False)
+    facts.update(lod_list_ok=True, lod_count=4, lod_names=["0", "1", "geometry", "memory"], lod_names_complete=True,
+                 view_by_name=False)
+    return facts
+
+
+def unavailable_proxy(**changes):
+    return proxy(res=[res_entry("0", "", list_ok=False), res_entry("1", "", list_ok=False)], **changes)
+
+
+class TierSTests(unittest.TestCase):
+    """Fix round 8 (probe-006: qualified=0 because server-side resolution selection lists are unavailable, null scanLod).
+
+    Tier S: observed slot + native CanAddAttachmentEx + attach and read-back + a host proxy whose CfgNonAIVehicles entry
+    names the light model and the slot + beam memory points + a native switch action. Resolution-vertex membership is a
+    diagnostic. The verdict is server_qualified with client_pending; nothing here is accepted."""
+
+    CLS = classification([host("AK74", "slot_host")])
+
+    def build(self, proxies, slots=None, lights=None, facts=None, prereq=None, variant=None, mutate=None):
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False) if slots is None else slots,
+                    good_gun_lights() if lights is None else lights, proxies=proxies,
+                    facts=unavailable_facts() if facts is None else facts, prereq=prereq, prereq_variant=variant)]
+        obs = observations(rows)
+        if mutate:
+            mutate(obs)
+        result = report.build_report(self.CLS, obs)
+        record = result["hosts"][0]
+        return record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], record, result
+
+    def test_a_proxy_config_join_qualifies_when_the_resolution_lods_are_unavailable(self):
+        slot, record, result = self.build([unavailable_proxy()])
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("server_qualified", record["verdict"])
+        self.assertEqual("proxy_config_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
+        self.assertTrue(slot["evidence"]["client_pending"])
+        self.assertEqual("resolution_lod_instance_unavailable", slot["evidence"]["resolution_status"])
+        self.assertEqual("PENDING", result["acceptance"])
+        self.assertNotIn("qualified", {h["verdict"] for h in result["hosts"]})
+
+    def test_unavailable_is_recorded_apart_from_a_genuine_negative_resolution_scan(self):
+        complete = res_host(("0", 3), ("1", 3))
+        complete.update(lod_list_ok=True, lod_count=2, lod_names=["0", "1"], lod_names_complete=True, view_by_name=False)
+        empty = [res_entry("0", ""), res_entry("1", "")]
+        slot, _record, _result = self.build([proxy(res=empty)], facts=complete)
+        self.assertEqual("server_qualified", slot["verdict"])
+        self.assertEqual("resolution_proxy_missing", slot["evidence"]["resolution_status"])
+        slot, _record, _result = self.build([unavailable_proxy()])
+        self.assertEqual("resolution_lod_instance_unavailable", slot["evidence"]["resolution_status"])
+        legacy = unavailable_facts()
+        for lod in legacy["res_lods"]:
+            del lod["instance_ok"], lod["native_count"]       # probe-006 wrote no instance fields: a failed list, not unavailable
+        slot, _record, _result = self.build([unavailable_proxy()], facts=legacy)
+        self.assertEqual("server_qualified", slot["verdict"])
+        self.assertEqual("resolution_enumeration_failed", slot["evidence"]["resolution_status"])
+
+    def test_resolution_membership_is_recorded_but_never_required(self):
+        slot, _record, _result = self.build([proxy()], facts=HOST_FACTS)
+        self.assertEqual("server_qualified", slot["verdict"])
+        self.assertEqual("member", slot["evidence"]["resolution_status"])
+        self.assertEqual("1.000", slot["evidence"]["resolution_lod"])
+        self.assertEqual([0.5, 0.25, -1.5], slot["evidence"]["resolution_vertex"])
+
+    def test_vertex_text_that_is_not_three_finite_numbers_is_only_a_diagnostic(self):
+        for vertex in (("1e999", "0", "0"), ("1\n", "0", "0"), ("1", "0"), ("nan", "0", "0"), (" 1", "0", "0")):
+            with self.subTest(vertex=vertex):
+                slot, _record, _result = self.build([proxy(vertex=vertex)], facts=HOST_FACTS)
+                self.assertEqual("server_qualified", slot["verdict"])
+                self.assertEqual("resolution_vertex_invalid", slot["evidence"]["resolution_status"])
+
+    def test_the_proxy_path_must_still_be_the_whole_light_model(self):
+        wrong = "\\dz\\weapons\\attachments\\light\\weaponlight_tlr.p3d"
+        slot, _record, _result = self.build([unavailable_proxy(model=wrong)])
+        self.assertNotEqual("server_qualified", slot["verdict"])
+        slot, _record, _result = self.build([unavailable_proxy(slots=("pistolFlashlight",))])
+        self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+
+    def test_raw_proxy_names_are_normalised_before_the_join(self):
+        for raw in ("proxy:\\dz\\weapons\\attachments\\light\\weaponlight_universal.001",
+                    "PROXY:/DZ/Weapons/Attachments/Light/WeaponLight_Universal.012",
+                    "proxy:dz/weapons/attachments/light/weaponlight_universal.100"):
+            with self.subTest(raw=raw):
+                item = unavailable_proxy()
+                item["selection"] = raw
+                slot, _record, _result = self.build([item])
+                self.assertEqual("server_qualified", slot["verdict"])
+                self.assertEqual(raw, slot["evidence"]["proxy_selection"])
+
+    def test_no_light_proxy_on_the_host_is_pending_for_the_client_not_geometry_missing(self):
+        other = proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",),
+                      res=[res_entry("0", "", list_ok=False), res_entry("1", "", list_ok=False)])
+        for proxies in ([other], []):
+            with self.subTest(proxies=len(proxies)):
+                slot, record, _result = self.build(proxies)
+                self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+                self.assertTrue(slot["evidence"]["client_required"])
+                self.assertEqual("pending", record["verdict"])
+        slot, _record, _result = self.build(None, facts=dict(HOST_FACTS))
+        self.assertEqual("pending", slot["verdict"])
+
+    def test_a_host_without_any_proxy_evidence_stays_missing_not_negative(self):
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights())]
+        result = report.build_report(self.CLS, observations(rows))
+        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+        self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
+
+    def test_direct_route_records_the_base_attempt_and_no_variant(self):
+        slot, _record, _result = self.build([unavailable_proxy()])
+        evidence = slot["evidence"]
+        self.assertEqual("direct", evidence["route"])
+        self.assertEqual("base", evidence["evaluated_attempt"])
+        self.assertEqual({"can_add": True, "attach_ok": True, "found_type": "UniversalLight", "beam": None},
+                         evidence["base_attempt"])
+        self.assertIsNone(evidence["variant_attempt"])
+        self.assertIsNone(evidence["prerequisite"])
+
+    def refused_with_variant(self, **variant_changes):
+        refused = good_gun_lights()
+        refused[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+        variant_lights = good_gun_lights()
+        variant_lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", beam=(True, True))
+        variant = variant_obs("weaponHandguardAK", variant_lights, **variant_changes)
+        return self.build([unavailable_proxy()], lights=refused, prereq=prereq_obs(has="weaponHandguardAK"),
+                          variant=variant)
+
+    def test_prerequisite_route_keeps_base_and_variant_facts_apart(self):
+        slot, record, _result = self.refused_with_variant()
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"),
+                         (slot["verdict"], slot["reason"]))
+        evidence = slot["evidence"]
+        self.assertEqual("after_prerequisite_handguard", evidence["route"])
+        self.assertEqual("variant", evidence["evaluated_attempt"])
+        self.assertEqual({"can_add": False, "attach_ok": False, "found_type": "", "beam": None}, evidence["base_attempt"])
+        self.assertEqual({"can_add": True, "attach_ok": True, "found_type": "UniversalLight", "beam": True},
+                         evidence["variant_attempt"])
+        self.assertEqual({"slot": "weaponHandguardAK", "handguard": "AK_RailHndgrd", "found_type": "AK_RailHndgrd",
+                          "rail_functional": True, "attached": True}, evidence["prerequisite"])
+        self.assertTrue(evidence["requires_prerequisite"])
+        self.assertTrue(evidence["can_add"])       # the evaluated (variant) attempt; the raw base fact is in base_attempt
+        self.assertEqual("server_qualified", record["verdict"])
+
+    def test_a_refused_prerequisite_variant_keeps_both_attempts_on_the_pending_or_negative_slot(self):
+        refused = good_gun_lights()
+        refused[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
+        variant = variant_obs("weaponHandguardAK", refused)
+        slot, _record, _result = self.build([unavailable_proxy()], lights=refused, prereq=prereq_obs(has="weaponHandguardAK"),
+                                            variant=variant)
+        self.assertEqual("geometry_missing", slot["verdict"])
+        self.assertFalse(slot["evidence"]["base_attempt"]["can_add"])
+        self.assertFalse(slot["evidence"]["variant_attempt"]["can_add"])
+
+    def test_beam_memory_points_are_required_when_observed_and_unknown_when_absent(self):
+        for beam, verdict, reason in (((True, True), "server_qualified", "native_attach_with_proxy_config_slot"),
+                                      ((True, False), "pending", "light_beam_points_missing"),
+                                      ((False, True), "pending", "light_beam_points_missing"),
+                                      ((False, False), "pending", "light_beam_points_missing")):
+            with self.subTest(beam=beam):
+                lights = good_gun_lights()
+                lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", beam=beam)
+                slot, _record, _result = self.build([unavailable_proxy()], lights=lights)
+                self.assertEqual((verdict, reason), (slot["verdict"], slot["reason"]))
+        slot, _record, _result = self.build([unavailable_proxy()])
+        self.assertIsNone(slot["evidence"]["base_attempt"]["beam"])       # not observed: not a pass, not a block
+        for partial in ({"beam_start": True}, {"beam_end": True}, {"beam_start": "yes", "beam_end": True}):
+            lights = good_gun_lights()
+            lights[2]["per_slot"][2].update(partial)
+            slot, _record, _result = self.build([unavailable_proxy()], lights=lights)
+            self.assertEqual("pending", slot["verdict"], partial)
+
+    def test_a_slot_without_a_native_switch_action_is_not_qualified(self):
+        self.assertEqual({"weaponFlashlight": "ActionTurnOnWeaponFlashlight.c:27",
+                          "pistolFlashlight": "ActionTurnOnWeaponFlashlight.c:32",
+                          "helmetFlashlight": "ActionTurnOnHelmetFlashlight.c:40"}, report.SWITCH_ACTIONS)
+        with mock.patch.dict(report.SWITCH_ACTIONS, clear=True):
+            slot, _record, _result = self.build([unavailable_proxy()])
+        self.assertEqual(("pending", "no_native_switch_action_for_slot"), (slot["verdict"], slot["reason"]))
+
+    def test_instance_unavailable_facts_must_be_self_consistent(self):
+        cases = {
+            "instance down but list ok": {"list_ok": True},
+            "instance down with a count": {"selection_count": 2},
+            "instance down with a native count": {"native_count": 5},
+            "instance flag mistyped": {"instance_ok": 0},
+            "native count below minus one": {"native_count": -2},
+            "native count mistyped": {"native_count": "5"},
+        }
+        for label, changes in cases.items():
+            with self.subTest(label):
+                facts = unavailable_facts()
+                facts["res_lods"][0].update(changes)
+                slot, record, _result = self.build([unavailable_proxy()], facts=facts)
+                self.assertEqual("pending", slot["verdict"], label)
+                self.assertEqual("pending", record["verdict"], label)
+
+    def test_row_and_host_list_flags_must_agree_on_every_lod_even_when_another_lod_qualifies(self):
+        facts = res_host(("0", 3), ("1", 3))
+        facts.update(lod_list_ok=True, lod_count=2, lod_names=["0", "1"], lod_names_complete=True, view_by_name=False)
+        held = "proxy:" + LIGHT_PROXY_PATH + ".001"
+        for index in (0, 1):
+            item = proxy(res=[res_entry("0", held if index else ""), res_entry("1", held if not index else "")])
+            item["res_lods"][index]["list_ok"] = False       # the host row says this LOD listed fine
+            slot, record, _result = self.build([item], facts=facts)
+            self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+            self.assertEqual("pending", record["verdict"])
+
+    def test_resolution_lod_names_are_whole_numbers_and_an_incomplete_name_list_never_decides(self):
+        facts = res_host(("1", 3))
+        facts.update(lod_list_ok=True, lod_count=6, lod_names=["1junk", "geometry"], lod_names_complete=False,
+                     view_by_name=False)
+        slot, _record, _result = self.build([proxy(res=[res_entry("1", "")])], facts=facts)
+        self.assertEqual("server_qualified", slot["verdict"])       # "1junk" is not a LOD the scan could have read
+        facts = res_host(dict(name="1junk", list_ok=True, selection_count=3, scan_complete=True))
+        facts.update(lod_list_ok=True, lod_count=6, lod_names=["1junk", "geometry"], lod_names_complete=False,
+                     view_by_name=False)
+        slot, _record, _result = self.build([proxy(res=[res_entry("1junk", "")])], facts=facts)
+        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+
+    def test_legacy_positive_flags_need_a_queried_selection_name(self):
+        for flags in ({"on_model": True}, {"memory": True}, {"bone": 3}):
+            for name in ("", None):
+                with self.subTest(flags=flags, name=name):
+                    selection = slot_obs("weaponFlashlight", has=True, selection=name, **flags)
+                    if name is None:
+                        del selection["selection"]
+                    slots = [slot_obs("helmetFlashlight"), slot_obs("pistolFlashlight"), selection]
+                    slot, record, _result = self.build([unavailable_proxy()], slots=slots)
+                    self.assertEqual("pending", slot["verdict"])
+                    self.assertEqual("pending", record["verdict"])
+                    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+        selection = slot_obs("weaponFlashlight", has=True, on_model=True)
+        slots = [slot_obs("helmetFlashlight"), slot_obs("pistolFlashlight"), selection]
+        slot, _record, _result = self.build([], slots=slots)
+        self.assertEqual(("server_qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("weaponFlashlight", slot["evidence"]["selection"])
+
+    def test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping(self):
+        slots = [slot_obs("helmetFlashlight"), slot_obs("pistolFlashlight"),
+                 slot_obs("weaponFlashlight", has=True, on_model=True)]
+
+        def top(**changes):
+            return lambda obs: next(item for item in obs["slots"] if item["slot"] == "weaponFlashlight").update(changes)
+        cases = {"different name": top(selection="otherSelection"), "empty known name": top(selection=""),
+                 "unknown mapping": top(selection_known=False), "mistyped known flag": top(selection_known="yes")}
+        for label, mutate in cases.items():
+            with self.subTest(label):
+                slot, record, _result = self.build([unavailable_proxy()], slots=slots, mutate=mutate)
+                self.assertEqual("pending", slot["verdict"], label)
+                self.assertIn("slot_selection_disagree", record["reasons"], label)
+        slot, _record, _result = self.build([unavailable_proxy()], slots=slots, mutate=top(selection="WEAPONFLASHLIGHT"))
+        self.assertEqual("server_qualified", slot["verdict"])       # same name, case-insensitive like the engine's lookup
+
+    def test_hosts_without_a_native_light_slot_are_outside_the_v1_scope_not_failures(self):
+        cls = classification([host("Bat", "no_slot_host"), host("AK74", "slot_host")])
+        rows = [row("Bat", "no_slot_host", no_slots(), refusal_lights(), index=0),
+                row("AK74", "slot_host", gun_slots(), good_gun_lights(), index=1)]
+        result = report.build_report(cls, observations(rows))
+        bat = by_class(result, "Bat")
+        self.assertEqual("not_server_evidencable", bat["verdict"])
+        self.assertIn("no_native_light_slot", bat["reasons"])
+        self.assertFalse(bat["v1_scope"]["in_scope"])
+        self.assertIn("#58", bat["v1_scope"]["note"])
+        self.assertTrue(all(light["verdict"] == "not_server_evidencable" for light in bat["lights"].values()))
+        self.assertTrue(by_class(result, "AK74")["v1_scope"]["in_scope"])
+        denominators = result["denominators"]
+        self.assertEqual(1, denominators["not_server_evidencable"])
+        self.assertEqual(1, denominators["out_of_v1_scope"])
+        self.assertNotIn("geometry_missing", {record["verdict"] for record in result["hosts"]})
+
+    def test_a_slot_host_whose_light_does_not_fit_keeps_the_real_negative(self):
+        result = report.build_report(self.CLS, observations([row("AK74", "slot_host", gun_slots(), good_gun_lights())]))
+        light = by_class(result, "AK74")["lights"]["TLRLight"]
+        self.assertEqual(("geometry_missing", ["no_compatible_native_slot"]), (light["verdict"], light["reasons"]))
+
+    def test_denominators_and_note_say_client_pending_and_accept_nothing(self):
+        slot, record, result = self.build([unavailable_proxy()])
+        denominators = result["denominators"]
+        self.assertEqual(1, denominators["server_qualified"])
+        self.assertEqual(1, denominators["client_pending"])
+        self.assertEqual({"geometry_missing": 1, "server_qualified": 1}, denominators["host_light_pairs"])
+        self.assertEqual("S", result["tier"])
+        self.assertEqual("pending", result["client_tier"])
+        self.assertEqual(("server_qualified", "geometry_missing", "not_server_evidencable", "excluded", "pending"),
+                         report.VERDICT_ORDER)
+        self.assertIn("client_pending", result["note"])
+        self.assertIn("Nothing here is accepted", result["note"])
+
+    def test_pending_and_integrity_failures_still_outrank_server_qualified_and_not_server_evidencable(self):
+        slot, record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs["counters"].update(deleted=3))
+        self.assertEqual("pending", slot["verdict"])
+        self.assertEqual("pending", record["verdict"])
+        cls = classification([host("Bat", "no_slot_host")])
+        rows = [row("Bat", "no_slot_host", no_slots(), refusal_lights())]
+        obs = observations(rows, counters={"deleted": 3})       # a dirty cleanup withholds qualification, not a no-slot label
+        self.assertEqual("not_server_evidencable", by_class(report.build_report(cls, obs), "Bat")["verdict"])
+        lights = refusal_lights()
+        lights[0]["per_slot"][2] = per_slot("weaponFlashlight", "Flashlight", fits=False, can_add=True, attach_ok=True)
+        obs = observations([row("Bat", "no_slot_host", no_slots(), lights)])
+        self.assertEqual("pending", by_class(report.build_report(cls, obs), "Bat")["verdict"])
+
+    def test_the_optional_stronger_bone_evidence_is_recorded_and_never_gates(self):
+        lights = good_gun_lights()
+        lights[2]["per_slot"][2].update(proxy_after_attach="UniversalLight", bone_object_checked=True,
+                                        bone_object_matches=True)
+        slots = gun_slots(weapon_model=False)
+        slots[2].update(proxy_bone_index=7, proxy_bone_name="proxy:\\dz\\weapons\\attachments\\light\\weaponlight_universal.001",
+                        proxy_bone_tried=3)
+        slot, _record, _result = self.build([unavailable_proxy()], slots=slots, lights=lights)
+        self.assertEqual("server_qualified", slot["verdict"])
+        self.assertEqual(7, slot["evidence"]["proxy_bone_index"])
+        self.assertTrue(slot["evidence"]["bone_object_matches_light"])
+        lights[2]["per_slot"][2].update(bone_object_matches=False)
+        slots[2].update(proxy_bone_index=-1)
+        slot, _record, _result = self.build([unavailable_proxy()], slots=slots, lights=lights)
+        self.assertEqual("server_qualified", slot["verdict"])       # a missing bone link is not a negative on a server
+        self.assertFalse(slot["evidence"]["bone_object_matches_light"])
+        slot, _record, _result = self.build([unavailable_proxy()])
+        self.assertIsNone(slot["evidence"]["proxy_bone_index"])
+        self.assertIsNone(slot["evidence"]["bone_object_matches_light"])
+        bad = gun_slots(weapon_model=False)
+        bad[2].update(proxy_bone_index="7")
+        slot, _record, _result = self.build([unavailable_proxy()], slots=bad)
+        self.assertEqual("pending", slot["verdict"])       # mistyped optional evidence is invalid, never ignored
+
+    def test_the_spawn_control_and_lod_counts_are_carried_as_diagnostics_only(self):
+        def control(obs):
+            obs["spawn_control"] = {"class": "AK74", "spawned": True, "spawn_flags": "no_inventory_flag", "proxy_count": 4,
+                                    "selection_list_ok": True}
+        slot, _record, result = self.build([unavailable_proxy()], mutate=control)
+        self.assertEqual("server_qualified", slot["verdict"])
+        self.assertEqual("ok", result["spawn_control"]["status"])
+        self.assertEqual("no_inventory_flag", result["spawn_control"]["spawn_flags"])
+        _slot, _record, result = self.build([unavailable_proxy()])
+        self.assertEqual({"status": "absent"}, result["spawn_control"])
+        _slot, _record, result = self.build([unavailable_proxy()], mutate=lambda obs: obs.update(spawn_control={"class": 4}))
+        self.assertEqual({"status": "malformed"}, result["spawn_control"])
+        facts = unavailable_facts()
+        facts.update(lod_counts=[{"name": "0", "count": -1, "instance_ok": False}, {"name": "geometry", "count": 12,
+                                                                                    "instance_ok": True}],
+                     lod_counts_total=2, lod_counts_complete=True)
+        _slot, record, _result = self.build([unavailable_proxy()], facts=facts)
+        self.assertEqual(2, len(record["diagnostics"]["lod_counts"]["lods"]))
+        self.assertTrue(record["diagnostics"]["lod_counts"]["complete"])
 
 
 class CliTests(unittest.TestCase):
@@ -1820,7 +2191,7 @@ class CliTests(unittest.TestCase):
     def test_writes_a_new_report_once_and_never_overwrites(self):
         self.assertEqual(0, report.main(self.args()))
         document = json.loads((self.root / "report.json").read_text())
-        self.assertEqual("qualified", {h["class"]: h["verdict"] for h in document["hosts"]}["AK74"])
+        self.assertEqual("server_qualified", {h["class"]: h["verdict"] for h in document["hosts"]}["AK74"])
         self.assertEqual(64, len(document["provenance"]["classification_sha256"]))
         self.assertEqual(64, len(document["provenance"]["observations_sha256"]))
         before = (self.root / "report.json").read_bytes()

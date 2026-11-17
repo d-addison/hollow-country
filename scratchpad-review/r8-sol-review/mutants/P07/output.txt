@@ -1,0 +1,20 @@
+....................................................................................................................................................................................................................................................F............................
+======================================================================
+FAIL: test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2183, in test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released
+    self.assertEqual([("AK74", 6)], plain)
+AssertionError: Lists differ: [('AK74', 6)] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+('AK74', 6)
+
+- [('AK74', 6)]
++ []
+
+----------------------------------------------------------------------
+Ran 273 tests in 9.819s
+
+FAILED (failures=1)

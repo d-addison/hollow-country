@@ -2,20 +2,29 @@
 
 Inputs are the classification written by ``tools.audit.flashlight_matrix classify`` and the
 observations JSON written by a native run of the probe staged by
-``tools/setup/taped_light_probe.py``. Every host ends in exactly one verdict:
+``tools/setup/taped_light_probe.py``. Every host ends in exactly one verdict (fix round 8, Tier S):
 
-  qualified         the engine reported a native slot, the representative light attached in
-                    it through the native call, the attachment is found in that slot and the
-                    host model carries geometry for the slot: a proxy selection whose
-                    CfgNonAIVehicles entry exists, names the same model path, lists the slot
-                    in inventorySlot and is present in the host's view LOD, or (older probes) a
-                    slot selection, memory point or bone.
-  geometry_missing  the engine reported no compatible native slot, refused the native attach
-                    for a reason the observation can attribute to the host, or the attach has
-                    no model selection to render at (no proxy is invented).
+  server_qualified  every server-observable requirement of Tier S holds and the client still has to confirm it
+                    (always reported together with ``client_pending``; nothing is accepted): the host slot is
+                    observed and the light fits it, the native CanAddAttachmentEx check allowed the light (directly, or
+                    after the named rail handguard prerequisite, the route is recorded), the native create succeeded
+                    and FindAttachment read the light back, a host GetSelectionList proxy normalises to a
+                    CfgNonAIVehicles ``Proxy<basename>`` entry whose model equals the proxy path and whose
+                    inventorySlot lists the slot, the light model has its beamStart/beamEnd memory points when they
+                    were observed, and a native switch action addresses the slot (SWITCH_ACTIONS). Older evidence
+                    (a slot selection, memory point or bone that the engine itself named) is the legacy route.
+  geometry_missing  a real negative: the light does not fit any observed native slot, the native check refused the
+                    attach for a reason the observation attributes to the host, or the host's complete proxy list
+                    carries only light proxies of other slots (``proxy_belongs_to_other_slot``). Absence of a proxy
+                    in Object.GetSelectionList is never negative evidence: the server model may not list it.
+  not_server_evidencable
+                    the host has no native light slot at all, so a dedicated server cannot evidence a native pair.
+                    This is outside the v1 scope (config-slot reuse and backpack/helmet mounts are post-v1, issue #58),
+                    not a failure; the host record carries a ``v1_scope`` note.
   excluded          the classification excluded the class (reasons are kept).
-  pending           the observation is missing, mistyped, duplicated, ambiguous, timed out,
-                    contradicts the config classification, or the probe itself was not clean.
+  pending           the observation is missing, mistyped, duplicated, ambiguous, timed out, contradicts the config
+                    classification, the probe itself was not clean, or only the client can decide it
+                    (``pending_client``, with ``client_required`` in the evidence).
 
 Evidence rules (the report never fills a gap with a favourable default):
 
@@ -33,7 +42,7 @@ Evidence rules (the report never fills a gap with a favourable default):
     attachment with hasRailFunctionality. A refusal on such a host is pending unless the probe's
     prerequisite variant (a fresh host with the matching rail handguard created in that slot)
     observed the light on the same host.
-  * Qualification needs a clean probe: complete status, matching spawn/delete counters, no
+  * Server qualification needs a clean probe: complete status, matching spawn/delete counters, no
     handles surviving release, a residual census that was complete (not truncated), the native
     slot set resolved and no control light attached anywhere.
 
@@ -44,7 +53,7 @@ LOD that Object.GetLODS/GetLODName lists whose WHOLE name is a non-negative numb
 LOD.GetSelections list. Per proxy row and per resolution LOD the hook records the first selection whose whole normalised
 path equals the model path and that selection's first vertex. Only numeric LODs are ever read: geometry, memory,
 landContact, geometryView, geometryFire, view*, VIEW_PILOT and every other non-numeric LOD are never a substitute.
-A slot has proxy evidence only when ALL of these hold: the native attach was ok, a listed proxy has an existing entry,
+Superseded in round 8 (the resolution LOD requirement below is now a diagnostic). A slot had proxy evidence only when ALL of these held: the native attach was ok, a listed proxy has an existing entry,
 an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path (case-insensitive, slashes and the
 .p3d extension normalised), an inventorySlot list holding the slot, AND at least one resolution LOD whose selection scan
 was complete holds a proxy selection ``proxy:<path>.<digits>`` equal to the model path as a whole (re-verified here)
@@ -86,6 +95,23 @@ hand, tape consumption or persistence; those stay pending in every output.
     native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite. The evidence is source-level and
     server-side; it is not client rendering.
   * A truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
+
+Fix round 8 (probe-006: qualified=0 because the server-side resolution selection lists were all unavailable):
+  * LOD.GetSelections was called on a null script instance for 199 LODs, so no resolution selection list existed to
+    join. Resolution-vertex membership is now a diagnostic only (``resolution_status``, ``resolution_lod``,
+    ``resolution_selection``, ``resolution_vertex`` in the slot evidence) and never selects or blocks a verdict. An LOD
+    whose instance was null is recorded as ``resolution_lod_instance_unavailable`` (``instance_ok`` false, ``native_count``
+    -1), distinct from a genuine false or an empty list; the older statuses below keep their names as diagnostics.
+  * Proxy names are normalised before the join: slashes and backslashes, case, the ``proxy:`` prefix and the ``.NNN``
+    instance suffix. The proxy config entry (exists, ``Proxy<basename>``, model path, inventorySlot) is the join.
+  * A positive legacy slot flag (selection, memory point or bone) needs the selection name that was queried; a flag
+    with an empty or absent name is invalid evidence, and a name that disagrees with the top-level slot-to-selection
+    mapping (or a mapping the engine did not know) is pending.
+  * The slot evidence keeps the base and the prerequisite-variant attempts apart (``base_attempt``, ``variant_attempt``,
+    ``prerequisite`` with the readback and rail flag, ``evaluated_attempt``, ``route``); the base facts are never
+    overwritten. Optional stronger evidence (``proxy_bone_index``, ``bone_object_matches_light``) is recorded and never
+    gates. A control spawn without ECE_IN_INVENTORY (``spawn_control``) and per-LOD selection counts (``lod_counts``) are
+    carried as diagnostics.
 
 Fix round 7 (probe-005: the dedicated server has no LOD named "view" on any of the hosts):
   * The LODs the server lists are the resolution LODs "0"/"1" (sometimes repeated), geometry, memory, landContact,
@@ -130,7 +156,16 @@ CLASSIFICATION_KIND = "flashlight_host_light_classification"
 OBSERVATIONS_KIND = "taped-light-probe-observations"
 REPORT_KIND = "taped_light_matrix_report"
 MAX_INPUT_BYTES = 32 * 1024 * 1024
-VERDICT_ORDER = ("qualified", "geometry_missing", "excluded", "pending")
+VERDICT_ORDER = ("server_qualified", "geometry_missing", "not_server_evidencable", "excluded", "pending")
+# Native switch actions that find a light by its slot name (the Tier S requirement that a switch can address the slot):
+# ActionTurnOnWeaponFlashlight.c:27 (weaponFlashlight) and :32 (pistolFlashlight), ActionTurnOnHelmetFlashlight.c:40
+# (helmetFlashlight); the TurnOff variants address the same slots. A test pins the table; a slot outside it is pending.
+SWITCH_ACTIONS = {"weaponFlashlight": "ActionTurnOnWeaponFlashlight.c:27",
+                  "pistolFlashlight": "ActionTurnOnWeaponFlashlight.c:32",
+                  "helmetFlashlight": "ActionTurnOnHelmetFlashlight.c:40"}
+V1_SCOPE_IN = "v1 covers native light-slot pairs: a vanilla light slot and proxy, directly or after a native rail handguard."
+V1_SCOPE_OUT = ("Out of v1 scope, not a failure: no native light slot on this host. Config-slot reuse and backpack/helmet "
+                "mounts are post-v1 (issue #58).")
 UNOBSERVED_AXES = ("beam", "switch", "two_client_presentation", "removal_by_hand", "tape_consumption",
                    "persistence")
 # Native prerequisite: UniversalLight.c:25-45 (rule) and :123-132 (slot list). The probe creates the
@@ -156,7 +191,9 @@ CONSUMED_KEYS = (
     "res_enum_ok", "res_lod_count", "res_lods_scanned", "res_scan_complete", "res_lods", "name", "list_ok",
     "selection_count", "scan_complete", "vertex_ok", "vertex", "cfg_tried", "cfg_tried_exists", "sep_slash",
     "sep_backslash", "lod_list_ok", "lod_count", "lod_names", "lod_names_complete", "view_by_name", "diagnostics",
-    "string_self_test", "cfg_nonai_scan")
+    "string_self_test", "cfg_nonai_scan", "selection_known", "beam_start", "beam_end", "instance_ok", "native_count",
+    "proxy_bone_index", "proxy_bone_name", "proxy_bone_tried", "bone_object_checked", "bone_object_matches",
+    "spawn_control", "spawn_flags", "selection_list_ok", "lod_counts", "lod_counts_total", "lod_counts_complete", "count")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -211,7 +248,43 @@ def _problem_reason(label, problems):
 # --- host slot, prerequisite and preflight evidence -------------------------------------------------
 
 
-def _host_slots(row, slot_names, reasons):
+def _slot_selections(observations):
+    """{slot: (selection_known, selection)} from the top-level slot rows (InventorySlots.GetSelectionForSlotId), either value
+    MISSING when mistyped. Unusable or duplicated rows are absent here; the integrity check reports them."""
+    index, _problems = _keyed(observations.get("slots"), "slot")
+    return {name: (_get(entry, "selection_known", "bool"), _get(entry, "selection", "str"))
+            for name, entry in index.items() if entry is not None}
+
+
+OPTIONAL_SLOT_KINDS = (("proxy_bone_index", "int"), ("proxy_bone_name", "str"), ("proxy_bone_tried", "int"))
+
+
+def _host_slot_values(entry, name, top, reasons):
+    """Typed evidence of one host slot row, or None when it is incomplete, mistyped or contradicts itself.
+
+    The legacy flags (selection_on_model, memory_point, bone_index) are only evidence for the selection name that was
+    queried: a positive flag with an empty or absent name is refused, and the name must agree with the top-level mapping
+    when that row exists (a mapping the engine did not know is not an agreement). The optional proxy bone readback is
+    typed when present and never required."""
+    values = {"host_has_slot": _get(entry, "host_has_slot", "bool"), "selection_on_model": _get(entry, "selection_on_model", "bool"),
+              "memory_point": _get(entry, "memory_point", "bool"), "bone_index": _get(entry, "bone_index", "int"),
+              "selection": _get(entry, "selection", "str") if "selection" in entry else ""}
+    optional = {key: (_get(entry, key, kind) if key in entry else None) for key, kind in OPTIONAL_SLOT_KINDS}
+    if MISSING in values.values() or MISSING in optional.values():
+        return None
+    if values["selection_on_model"] or values["memory_point"] or values["bone_index"] >= 0:
+        if not values["selection"]:
+            reasons.add("slot_flag_without_selection_name")
+            return None
+        known = top.get(name)
+        if known is not None and (known[0] is not True or known[1] is MISSING
+                                  or known[1].casefold() != values["selection"].casefold()):
+            reasons.add("slot_selection_disagree")
+            return None
+    return dict(values, **optional)
+
+
+def _host_slots(row, slot_names, reasons, top):
     """Typed per-slot host evidence keyed by slot name; None marks an unusable slot entry."""
     index, problems = _keyed(row.get("slots"), "slot")
     if problems:
@@ -220,12 +293,9 @@ def _host_slots(row, slot_names, reasons):
         reasons.add("slot_set_mismatch")
     result = {}
     for name, entry in index.items():
-        values = None if entry is None else {
-            "host_has_slot": _get(entry, "host_has_slot", "bool"), "selection_on_model": _get(entry, "selection_on_model", "bool"),
-            "memory_point": _get(entry, "memory_point", "bool"), "bone_index": _get(entry, "bone_index", "int")}
-        if values is None or MISSING in values.values():
+        values = None if entry is None else _host_slot_values(entry, name, top, reasons)
+        if values is None:
             reasons.add("slot_evidence_invalid")
-            values = None
         result[name] = values
     return result
 
@@ -265,7 +335,8 @@ def _variant(row, prerequisites):
     index, problems = _keyed(value["lights"], "light")
     if problems and attached:
         return MISSING
-    return {"slot": slot, "attached": attached, "lights": index}
+    return {"slot": slot, "attached": attached, "lights": index, "handguard": label, "found_type": found,
+            "rail_functional": rail}
 
 
 def _preflights(light_rows, slot_names, classification_lights):
@@ -287,6 +358,15 @@ def _preflights(light_rows, slot_names, classification_lights):
     return result
 
 
+def _optional_pair(entry, first, second):
+    """(first, second) when both bool keys are present, (None, None) when both are absent, else MISSING."""
+    present = [key in entry for key in (first, second)]
+    if not any(present):
+        return None, None
+    values = (_get(entry, first, "bool"), _get(entry, second, "bool"))
+    return MISSING if not all(present) or MISSING in values else values
+
+
 def _light_slot(entry):
     values = {key: _get(entry, key, "bool") for key in ("light_fits", "can_add", "attach_ok")}
     found = _get(entry, "found_type", "str")
@@ -296,7 +376,12 @@ def _light_slot(entry):
         return None        # a create cannot succeed when the native check refused it: contradictory evidence
     if values["attach_ok"] != bool(found):
         return None        # the hook fills found_type only after a successful create and read-back
-    return dict(values, found_type=found)
+    beam = _optional_pair(entry, "beam_start", "beam_end")
+    bone = _optional_pair(entry, "bone_object_checked", "bone_object_matches")
+    if beam is MISSING or bone is MISSING or (bone[1] and not bone[0]):
+        return None        # beam points and the bone-object readback are both-or-neither facts
+    return dict(values, found_type=found, beam=None if beam[0] is None else beam[0] and beam[1],
+                bone_object=bone[1] if bone[0] else None)
 
 
 def _per_slot(light_entry, slot_names):
@@ -442,14 +527,27 @@ def _lod_facts(row):
 
 
 def _res_lod(entry):
-    """One host-side resolution LOD (name, list_ok, selection_count, scan_complete), or None when it contradicts itself."""
+    """One host-side resolution LOD (name, list_ok, selection_count, scan_complete, instance_ok, native_count), or None when
+    it contradicts itself.
+
+    ``instance_ok`` and ``native_count`` (round 8) are both-or-neither. An LOD whose script instance was null
+    (``instance_ok`` false) read nothing: no list, no count, ``native_count`` -1. They are None for an older producer."""
     name, listed = _get(entry, "name", "str"), _get(entry, "list_ok", "bool")
     total, complete = _get(entry, "selection_count", "int"), _get(entry, "scan_complete", "bool")
     if MISSING in (name, listed, total, complete) or not _RES_LOD_NAME.fullmatch(name) or total < 0:
         return None       # only a whole numeric LOD name is ever a resolution LOD
     if (not listed and total) or complete != (listed and total <= MAX_RES_SELECTIONS):
         return None       # a failed list counts nothing; a list above the cap was cut and is not complete
-    return {"name": name, "list_ok": listed, "selection_count": total, "scan_complete": complete}
+    instance, native = None, None
+    present = [key in entry for key in ("instance_ok", "native_count")]
+    if any(present):
+        instance, native = _get(entry, "instance_ok", "bool"), _get(entry, "native_count", "int")
+        if not all(present) or MISSING in (instance, native) or native < -1 or (instance and native < 0):
+            return None
+        if not instance and (listed or total or complete or native != -1):
+            return None       # a null instance cannot list, count or complete anything
+    return {"name": name, "list_ok": listed, "selection_count": total, "scan_complete": complete,
+            "instance_ok": instance, "native_count": native}
 
 
 def _res_host(row):
@@ -549,10 +647,14 @@ def _vertex(values):
 
 
 def _resolution_check(item, res):
-    """(problem, evidence) for one matching row: a pending reason, or None with the qualifying LOD's evidence.
+    """(status, found) for one matching row: a diagnostic only, never a verdict input (fix round 8).
 
-    A row qualifies when at least one numeric LOD whose selection scan was complete holds the proxy selection whose whole
-    normalised path equals the model path, with a finite first vertex. Nothing unknown is a pass."""
+    ``found`` holds the LOD, selection and first vertex when a numeric LOD whose selection scan was complete holds the proxy
+    selection whose whole normalised path equals the model path, with a finite first vertex; ``status`` is then "member".
+    Otherwise ``found`` is None and ``status`` names why: resolution_lod_evidence_missing, resolution_enumeration_failed,
+    resolution_lod_absent, resolution_lod_instance_unavailable (a null LOD instance: unavailable, not false),
+    resolution_selection_mismatch, resolution_vertex_missing, resolution_vertex_invalid, resolution_evidence_truncated or
+    resolution_proxy_missing."""
     if res is None:
         return "resolution_lod_evidence_missing", None       # a round 4 to 6 row: view-LOD fields, no per-LOD list
     if not res["enum_ok"]:
@@ -571,8 +673,10 @@ def _resolution_check(item, res):
         elif _vertex(found["vertex"]) is None:
             reason = "resolution_vertex_invalid"
         else:
-            return None, {"lod": lod["name"], "selection": found["selection"], "vertex": _vertex(found["vertex"])}
+            return "member", {"lod": lod["name"], "selection": found["selection"], "vertex": _vertex(found["vertex"])}
         problem = problem or reason
+    if any(lod["instance_ok"] is False for lod in res["lods"]):
+        return "resolution_lod_instance_unavailable", None       # a null script instance: nothing could be read
     if not all(lod["list_ok"] for lod in res["lods"]):
         return "resolution_enumeration_failed", None       # LOD.GetSelections reported failure: that LOD may hold it
     if problem:
@@ -603,7 +707,48 @@ def _host_diagnostics(row):
             names.append({"selection": values["selection"], "cfg_tried": list(values["cfg_tried"]),
                           "cfg_tried_exists": list(values["cfg_tried_exists"]), "sep_slash": values["sep_slash"],
                           "sep_backslash": values["sep_backslash"]})
-    return {"lod": lod, "resolution": resolution, "proxy_names": names, "proxy_alias_collapsed": collapsed}
+    return {"lod": lod, "resolution": resolution, "proxy_names": names, "proxy_alias_collapsed": collapsed,
+            "lod_counts": _lod_counts(row)}
+
+
+MAX_LOD_COUNTS = 16       # taped_light_probe.HCTL_LOD_COUNTS: LODs whose native selection count the hook reads per host
+
+
+def _lod_counts(row):
+    """The per-LOD native selection counts (every LOD, not only the numeric ones), as a diagnostic.
+
+    ``{"status": "absent"}`` for a row from an older producer, ``{"status": "malformed"}`` when a value is mistyped or
+    contradicts its bookkeeping (a null instance reads -1, a usable one reads at least 0, ``complete`` means every listed LOD
+    was counted), else the counts. Never read for a verdict."""
+    if not any(key in row for key in ("lod_counts", "lod_counts_total", "lod_counts_complete")):
+        return {"status": "absent"}
+    entries, total, complete = _get(row, "lod_counts", "list"), _get(row, "lod_counts_total", "int"), \
+        _get(row, "lod_counts_complete", "bool")
+    if MISSING in (entries, total, complete) or not len(entries) <= min(total, MAX_LOD_COUNTS) or total < 0 \
+            or complete != (total == len(entries)):
+        return {"status": "malformed"}
+    lods = []
+    for entry in entries:
+        name, count, instance = _get(entry, "name", "str"), _get(entry, "count", "int"), _get(entry, "instance_ok", "bool")
+        if MISSING in (name, count, instance) or count < -1 or (instance and count < 0) or (not instance and count != -1):
+            return {"status": "malformed"}
+        lods.append({"name": name, "count": count, "instance_ok": instance})
+    return {"status": "ok", "lods": lods, "total": total, "complete": complete}
+
+
+def _spawn_control(observations):
+    """The firearm control spawned without ECE_IN_INVENTORY (diagnostic): absent, malformed or the typed values."""
+    if "spawn_control" not in observations:
+        return {"status": "absent"}
+    raw = observations["spawn_control"]
+    kinds = (("class", "str"), ("spawned", "bool"), ("spawn_flags", "str"))
+    values = {key: _get(raw, key, kind) for key, kind in kinds}
+    optional = {key: _get(raw, key, kind) for key, kind in (("proxy_count", "int"), ("selection_list_ok", "bool"))
+                if key in raw}
+    if not isinstance(raw, dict) or MISSING in values.values() or MISSING in optional.values() \
+            or optional.get("proxy_count", 0) < 0:
+        return {"status": "malformed"}
+    return dict({"status": "ok"}, **values, **optional)
 
 
 def _native_diagnostics(observations):
@@ -638,58 +783,70 @@ def _native_diagnostics(observations):
     return result
 
 
-def _model_evidence(host_slot, slot, proxies):
-    """(source, detail, found) for one slot: source is selection, resolution_lod_proxy_slot, none or pending.
+def _model_evidence(host_slot, slot, proxies, slot_names):
+    """Model evidence for one slot as a dict: ``source`` is one of
 
-    ``detail`` is the pending reason, or the proxy selection of a resolution_lod_proxy_slot; ``found`` holds the LOD, the
-    selection and the first vertex that proved it. Selection, memory point and bone are the older evidence; proxy
-    evidence is the join of a proxy selection to its config entry, and then to the numeric resolution LODs of the host
-    model. A row that would match the slot but has no complete resolution-LOD membership is pending, never qualified and
-    never negative. Malformed proxy evidence outranks both kinds, because the row's evidence is then not trustworthy."""
+      selection         the engine named a selection for the slot and a legacy flag is positive (``selection``),
+      proxy_config_slot a host proxy joined to its config entry names the slot (``selection`` is the proxy name,
+                        ``resolution_status``/``resolution`` are the diagnostic resolution-LOD membership),
+      other_slot        a complete proxy list carries only light proxies of other native light slots: a real negative,
+      client            nothing the server can see decides it (no proxy for the slot, none against it),
+      pending           ``detail`` is the pending reason.
+
+    Malformed proxy evidence outranks every kind, because the host's read-back is then not trustworthy. A proxy whose
+    config entry is missing or whose lists were cut is pending, never negative."""
     if proxies[0] == "malformed":
-        return "pending", "proxy_evidence_malformed", None
+        return {"source": "pending", "detail": "proxy_evidence_malformed"}
     if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
-        return "selection", None, None
+        return {"source": "selection", "selection": host_slot["selection"]}
     if proxies[0] == "missing":
-        return "pending", "proxy_evidence_missing", None
+        return {"source": "pending", "detail": "proxy_evidence_missing"}
     if proxies[0] == "mismatch":
-        return "pending", "proxy_config_name_mismatch", None
+        return {"source": "pending", "detail": "proxy_config_name_mismatch"}
     _kind, rows, truncated, res = proxies
-    wanted, pending, slot_list_cut = slot.casefold(), None, False
+    wanted, light_slots = slot.casefold(), {name.casefold() for name in slot_names}
+    slot_list_cut = other_slot = False
     for item in rows:
         if not item["cfg_exists"] or _path(item["model"]) != item["path"]:
             continue
-        if wanted in {name.casefold() for name in item["inventory_slots"]}:
-            problem, found = _resolution_check(item, res)
-            if problem is None:
-                return "resolution_lod_proxy_slot", item["selection"], found
-            pending = pending or problem
-        elif item["slot_count"] > len(item["inventory_slots"]):
+        listed = {name.casefold() for name in item["inventory_slots"]}
+        if wanted in listed:
+            status, found = _resolution_check(item, res)
+            return {"source": "proxy_config_slot", "selection": item["selection"], "resolution_status": status,
+                    "resolution": found}
+        if item["slot_count"] > len(item["inventory_slots"]):
             slot_list_cut = True       # the hook capped this row's slot list: the slot may be among the dropped ones
-    if pending:
-        return "pending", pending, None
+        elif listed & light_slots:
+            other_slot = True
     if truncated:
-        return "pending", "proxy_evidence_truncated", None
+        return {"source": "pending", "detail": "proxy_evidence_truncated"}
     if slot_list_cut:
-        return "pending", "proxy_slot_list_truncated", None
+        return {"source": "pending", "detail": "proxy_slot_list_truncated"}
     if any(not item["cfg_exists"] for item in rows):
-        return "pending", "proxy_config_missing", None
-    return "none", None, None
+        return {"source": "pending", "detail": "proxy_config_missing"}
+    return {"source": "other_slot" if other_slot else "client"}
 
 
-def _accepted(light, model, attempt):
+def _accepted(light, slot, model, attempt):
     """Verdict for an attach the native call allowed (can_add true); ``model`` is a _model_evidence result."""
     if not attempt["attach_ok"]:
         return "pending", "attach_create_failed"
     if attempt["found_type"] != light:
         return "pending", "attached_item_not_found_in_slot"
-    if model[0] == "pending":
-        return "pending", model[1]
-    if model[0] == "resolution_lod_proxy_slot":
-        return "qualified", "native_attach_with_resolution_lod_proxy_slot"
-    if model[0] == "selection":
-        return "qualified", "native_attach_with_model_selection"
-    return "geometry_missing", "attached_without_model_selection"
+    source = model["source"]
+    if source == "pending":
+        return "pending", model["detail"]
+    if source == "client":
+        return "pending", "pending_client"
+    if source == "other_slot":
+        return "geometry_missing", "proxy_belongs_to_other_slot"
+    if attempt["beam"] is False:
+        return "pending", "light_beam_points_missing"       # observed and absent; an unobserved beam neither passes nor blocks
+    if slot not in SWITCH_ACTIONS:
+        return "pending", "no_native_switch_action_for_slot"
+    if source == "proxy_config_slot":
+        return "server_qualified", "native_attach_with_proxy_config_slot"
+    return "server_qualified", "native_attach_with_model_selection"
 
 
 def _variant_attempt(entry, slot, slot_names, preflight):
@@ -708,46 +865,82 @@ def _variant_attempt(entry, slot, slot_names, preflight):
     return _light_slot(per_slot[slot]), None
 
 
-def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names, preflight, model):
-    """Return (verdict, reason, requires_prerequisite) for one compatible host/light/slot observation."""
+def _attempt_record(attempt):
+    """The raw facts of one attach attempt, as observed."""
+    return {key: attempt[key] for key in ("can_add", "attach_ok", "found_type", "beam")}
+
+
+def _evaluate_slot(light, slot, attempt, prerequisites, variant, slot_names, preflight, model):
+    """Return the verdict record for one compatible host/light/slot observation.
+
+    The record names the route (direct, or after the prerequisite handguard), keeps the base attempt and the variant attempt
+    as separate facts, and marks which one was evaluated (``evaluated``); the base facts are never relabelled."""
+    def outcome(verdict, reason, evaluated=attempt, route="direct", variant_attempt=None, prerequisite=None):
+        return {"verdict": verdict, "reason": reason, "requires_prerequisite": route != "direct",
+                "route": route, "evaluated": evaluated, "evaluated_attempt": "base" if evaluated is attempt else "variant",
+                "base_attempt": _attempt_record(attempt),
+                "variant_attempt": None if variant_attempt is None else _attempt_record(variant_attempt),
+                "prerequisite": prerequisite}
     if attempt["can_add"]:
-        return _accepted(light, model, attempt) + (False,)
+        return outcome(*_accepted(light, slot, model, attempt))
     if light not in PREREQUISITE_LIGHTS:
-        return "geometry_missing", "native_attach_refused", False
+        return outcome("geometry_missing", "native_attach_refused")
     if prerequisites is MISSING:
-        return "pending", "prerequisite_evidence_missing", False
+        return outcome("pending", "prerequisite_evidence_missing")
     owns_slot = any(has for has, _rail in prerequisites.values())
     if not owns_slot or any(rail for _has, rail in prerequisites.values()):
-        return "geometry_missing", "native_attach_refused", False     # prerequisite not in play
+        return outcome("geometry_missing", "native_attach_refused")     # prerequisite not in play
     if variant is None:
-        return "pending", "refusal_may_depend_on_prerequisite", False
+        return outcome("pending", "refusal_may_depend_on_prerequisite")
     if variant is MISSING:
-        return "pending", "prerequisite_variant_invalid", False
+        return outcome("pending", "prerequisite_variant_invalid")
     if not variant["attached"]:
-        return "pending", "prerequisite_variant_failed", False
-    attempt, problem = _variant_attempt(variant["lights"].get(light, MISSING), slot, slot_names, preflight)
-    if attempt is None:
-        return "pending", problem or "prerequisite_variant_incomplete", False
-    if not attempt["can_add"]:
-        return "geometry_missing", "native_attach_refused_with_prerequisite", True
-    verdict, reason = _accepted(light, model, attempt)
-    if verdict == "qualified":
-        reason = ("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"
-                  if model[0] == "resolution_lod_proxy_slot"
-                  else "native_attach_with_rail_handguard_prerequisite")
-    return verdict, reason, True
+        return outcome("pending", "prerequisite_variant_failed")
+    chosen, problem = _variant_attempt(variant["lights"].get(light, MISSING), slot, slot_names, preflight)
+    if chosen is None:
+        return outcome("pending", problem or "prerequisite_variant_incomplete")
+    prerequisite = {"slot": variant["slot"], "handguard": variant["handguard"], "found_type": variant["found_type"],
+                    "rail_functional": variant["rail_functional"], "attached": variant["attached"]}
+    route = "after_prerequisite_handguard"
+    if not chosen["can_add"]:
+        return outcome("geometry_missing", "native_attach_refused_with_prerequisite", chosen, route, chosen, prerequisite)
+    verdict, reason = _accepted(light, slot, model, chosen)
+    if verdict == "server_qualified":
+        reason = ("native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"
+                  if model["source"] == "proxy_config_slot" else "native_attach_with_rail_handguard_prerequisite")
+    return outcome(verdict, reason, chosen, route, chosen, prerequisite)
 
 
 def _combine(verdicts):
-    if "pending" in verdicts:
-        return "pending"
-    if "qualified" in verdicts:
-        return "qualified"
-    return "geometry_missing"
+    for verdict in ("pending", "server_qualified", "geometry_missing"):
+        if verdict in verdicts:
+            return verdict
+    return "not_server_evidencable"
 
 
 def _pending(reason):
     return {"verdict": "pending", "reasons": [reason], "slots": {}}
+
+
+def _slot_evidence(host_slot, attempt, result, model):
+    """The evidence recorded for one evaluated slot: the host facts, both attempts, the route and the model join."""
+    resolution = model.get("resolution") or {}
+    evaluated = result["evaluated"]
+    return {"host_has_slot": host_slot["host_has_slot"], "selection": host_slot["selection"],
+            "selection_on_model": host_slot["selection_on_model"], "memory_point": host_slot["memory_point"],
+            "bone_index": max(host_slot["bone_index"], -1), "light_fits": attempt["light_fits"],
+            "can_add": evaluated["can_add"], "attach_ok": evaluated["attach_ok"],
+            "requires_prerequisite": result["requires_prerequisite"], "route": result["route"],
+            "evaluated_attempt": result["evaluated_attempt"], "base_attempt": result["base_attempt"],
+            "variant_attempt": result["variant_attempt"], "prerequisite": result["prerequisite"],
+            "model_evidence": model["source"],
+            "proxy_selection": model["selection"] if model["source"] == "proxy_config_slot" else None,
+            "resolution_status": model.get("resolution_status"), "resolution_lod": resolution.get("lod"),
+            "resolution_selection": resolution.get("selection"), "resolution_vertex": resolution.get("vertex"),
+            "proxy_bone_index": host_slot["proxy_bone_index"], "proxy_bone_name": host_slot["proxy_bone_name"],
+            "proxy_bone_tried": host_slot["proxy_bone_tried"], "bone_object_matches_light": evaluated["bone_object"],
+            "client_pending": result["verdict"] == "server_qualified",
+            "client_required": result["reason"] == "pending_client"}
 
 
 def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prerequisites, variant, proxies):
@@ -775,20 +968,16 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
         elif not (host_slot["host_has_slot"] and attempt["light_fits"]):
             continue
         else:
-            model = _model_evidence(host_slot, slot, proxies)
-            verdict, reason, requires = _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names,
-                                                       preflight, model)
-            evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
-                            attach_ok=attempt["attach_ok"], requires_prerequisite=requires, model_evidence=model[0],
-                            proxy_selection=model[1] if model[0] == "resolution_lod_proxy_slot" else None,
-                            resolution_lod=(model[2] or {}).get("lod"),
-                            resolution_selection=(model[2] or {}).get("selection"),
-                            resolution_vertex=(model[2] or {}).get("vertex"))
-            evidence["bone_index"] = max(host_slot["bone_index"], -1)
+            model = _model_evidence(host_slot, slot, proxies, slot_names)
+            result = _evaluate_slot(light, slot, attempt, prerequisites, variant, slot_names, preflight, model)
+            verdict, reason = result["verdict"], result["reason"]
+            evidence = _slot_evidence(host_slot, attempt, result, model)
         slots[slot] = {"verdict": verdict, "reason": reason, "evidence": evidence}
         verdicts.append(verdict)
         reasons.add(reason)
     if not verdicts:
+        if not any(item and item["host_has_slot"] for item in host_slots.values()):
+            return {"verdict": "not_server_evidencable", "reasons": ["no_native_light_slot"], "slots": slots}
         return {"verdict": "geometry_missing", "reasons": ["no_compatible_native_slot"], "slots": slots}
     return {"verdict": _combine(verdicts), "reasons": sorted(reasons), "slots": slots}
 
@@ -860,8 +1049,9 @@ def _evaluate_host(entry, rows, context):
         reasons.add("invalid_probe_row")
     elif timed_out:
         reasons.add("class_timed_out")
-    host_slots = _host_slots(row, slot_names, reasons)
+    host_slots = _host_slots(row, slot_names, reasons, context["slot_selections"])
     observed = {slot for slot, item in host_slots.items() if item and item["host_has_slot"]}
+    base["v1_scope"] = {"in_scope": bool(observed), "note": V1_SCOPE_IN if observed else V1_SCOPE_OUT}
     configured = entry.get("native_light_slots")
     if not isinstance(configured, list) or observed != set(configured) or bool(observed) != (entry["group"] == "slot_host"):
         reasons.add("config_probe_conflict")
@@ -878,7 +1068,8 @@ def _evaluate_host(entry, rows, context):
         reasons |= _control_issues(light_entries, slot_names, control, context["preflights"].get(control, MISSING))
     invalidating = reasons - SIBLING_SCOPED_REASONS
     if invalidating:       # the host's evidence cannot be trusted, so neither can any pair derived from it
-        _invalidate(base["lights"], invalidating, "host_evidence_invalid", ("qualified", "geometry_missing"))
+        _invalidate(base["lights"], invalidating, "host_evidence_invalid",
+                    ("server_qualified", "geometry_missing", "not_server_evidencable"))
     if reasons:
         return dict(base, verdict="pending", reasons=sorted(reasons))
     records = list(base["lights"].values())
@@ -886,7 +1077,7 @@ def _evaluate_host(entry, rows, context):
         detail = sorted({reason for record in records if record["verdict"] == "pending" for reason in record["reasons"]})
         return dict(base, verdict="pending", reasons=detail)
     if not observed:
-        return dict(base, verdict="geometry_missing", reasons=["no_native_light_slot"])
+        return dict(base, verdict="not_server_evidencable", reasons=["no_native_light_slot"])
     verdict = _combine([record["verdict"] for record in records])
     detail = sorted({reason for record in records if record["verdict"] == verdict for reason in record["reasons"]})
     return dict(base, verdict=verdict, reasons=detail)
@@ -961,7 +1152,7 @@ def _control_hits(rows, controls):
 
 def _demote(record, control_hits):
     """A host verdict, and every light, slot and pair verdict under it, is only as good as the probe."""
-    verdicts = ("qualified", "geometry_missing") if control_hits else ("qualified",)
+    verdicts = ("server_qualified", "geometry_missing", "not_server_evidencable") if control_hits else ("server_qualified",)
     _invalidate(record["lights"], ("probe_integrity_failed",), "probe_integrity_failed", verdicts)
     if record["verdict"] in verdicts:
         return dict(record, verdict="pending", reasons=sorted(set(record["reasons"]) | {"probe_integrity_failed"}))
@@ -993,7 +1184,8 @@ def build_report(classification, observations, provenance=None):
     expected = {entry["name"] for entry in hosts if entry.get("group") != "excluded"}
     unexpected = sorted(str(name) for name in rows_by_class if name not in expected)
     context = {"slots": slot_names, "representatives": representatives, "controls": controls,
-               "preflights": _preflights(observations.get("lights"), slot_names, {e.get("name"): e for e in lights})}
+               "preflights": _preflights(observations.get("lights"), slot_names, {e.get("name"): e for e in lights}),
+               "slot_selections": _slot_selections(observations)}
 
     host_records = [_evaluate_host(entry, rows_by_class.get(entry["name"], []) if entry["group"] != "excluded" else [],
                                    context)
@@ -1006,20 +1198,28 @@ def build_report(classification, observations, provenance=None):
     pair_counts = Counter(light["verdict"] for record in host_records for light in record["lights"].values())
     reasons = Counter(reason for record in host_records for reason in record["reasons"])
     document = {
-        "schema_version": 1, "kind": REPORT_KIND, "acceptance": "PENDING",
+        "schema_version": 1, "kind": REPORT_KIND, "acceptance": "PENDING", "tier": "S", "client_tier": "pending",
         "provenance": dict(provenance or {}),
         "probe": {key: observations.get(key) for key in ("status", "world", "version", "classes", "observed",
                                                          "hard_cap", "per_class_ms")},
         "representative_lights": representatives, "control_lights": controls, "native_light_slots": slot_names,
         "integrity": integrity, "native_diagnostics": _native_diagnostics(observations),
+        "spawn_control": _spawn_control(observations),
         "control": {"unexpected_attachments": control_hits},
         "hosts": host_records,
         "denominators": dict({name: counts.get(name, 0) for name in VERDICT_ORDER}, hosts=len(host_records),
+                             client_pending=counts.get("server_qualified", 0),
+                             out_of_v1_scope=sum(1 for record in host_records
+                                                 if record.get("v1_scope", {}).get("in_scope") is False),
                              host_light_pairs=dict(sorted(pair_counts.items())), reasons=dict(sorted(reasons.items()))),
         "unobserved_axes": {axis: "pending" for axis in UNOBSERVED_AXES},
-        "note": "Dedicated-server observations only. Qualified means the native attach call and a model proxy slot "
-                "(a resolution-LOD proxy selection on the server-side model) or a model selection were observed; beam, switch, two-client presentation, removal by hand, tape consumption and "
-                "persistence remain pending until runtime tests run. Nothing here is accepted.",
+        "note": "Dedicated-server observations only. server_qualified means Tier S: the observed native slot, the native "
+                "attach call (directly or after the recorded rail handguard), the read-back, a host proxy joined to its "
+                "CfgNonAIVehicles entry for the slot, the beam memory points where observed and a native switch action "
+                "were seen on the server; every such pair is client_pending. Resolution-LOD membership is a diagnostic. "
+                "Beam, switch, two-client presentation, removal by hand, tape consumption and persistence remain pending "
+                "until runtime tests run. Hosts without a native light slot are not_server_evidencable and outside the "
+                "v1 scope (post-v1, issue #58). Nothing here is accepted.",
     }
     return document
 

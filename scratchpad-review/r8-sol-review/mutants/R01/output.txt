@@ -1,0 +1,434 @@
+.............................................................FFFFFFFFFFFFFFFF.F.........................................FFFFFFFF.....................................................................................................................................................................
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [model] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : model
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [model] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'pending_client')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'pending_client'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'pending_client') : model
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : slots
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slots] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('geometry_missing', 'proxy_belongs_to_other_slot')
+
+First differing element 0:
+'pending'
+'geometry_missing'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('geometry_missing', 'proxy_belongs_to_other_slot') : slots
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slot count] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : slot count
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [slot count] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : slot count
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : config exists
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [config exists] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('pending', 'proxy_config_missing')
+
+First differing element 1:
+'proxy_evidence_malformed'
+'proxy_config_missing'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('pending', 'proxy_config_missing') : config exists
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : resolution selection
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution selection] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : resolution selection
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : resolution vertex
+
+======================================================================
+FAIL: test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order) [resolution vertex] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+The same identity read two ways is contradictory evidence, whichever spelling comes first.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1229, in test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order
+    self.assert_pending_malformed(list(order), label)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : resolution vertex
+
+======================================================================
+FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='model')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1184, in test_each_conflicting_field_of_a_duplicate_identity_is_caught
+    self.assert_pending_malformed([proxy(), dict(proxy(), **{field: value})], field)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : model
+
+======================================================================
+FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='inventory_slots')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1184, in test_each_conflicting_field_of_a_duplicate_identity_is_caught
+    self.assert_pending_malformed([proxy(), dict(proxy(), **{field: value})], field)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : inventory_slots
+
+======================================================================
+FAIL: test_each_conflicting_field_of_a_duplicate_identity_is_caught (tests.unit.test_taped_light_report.ProxyIdentityTests.test_each_conflicting_field_of_a_duplicate_identity_is_caught) (field='res_lods')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1184, in test_each_conflicting_field_of_a_duplicate_identity_is_caught
+    self.assert_pending_malformed([proxy(), dict(proxy(), **{field: value})], field)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : res_lods
+
+======================================================================
+FAIL: test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order (tests.unit.test_taped_light_report.ProxyIdentityTests.test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1177, in test_one_selection_identity_with_conflicting_readbacks_is_malformed_in_either_order
+    self.assert_pending_malformed(list(order), "conflicting duplicate")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : conflicting duplicate
+
+======================================================================
+FAIL: test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed (tests.unit.test_taped_light_report.ProxyIdentityTests.test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1232, in test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed
+    self.assert_pending_malformed([proxy(number="001"), proxy(number="002", slots=("pistolFlashlight",))], "slots")
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1171, in assert_pending_malformed
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot') : slots
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [missing selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different vertex] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [vertex flag only] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1576, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+----------------------------------------------------------------------
+Ran 273 tests in 12.004s
+
+FAILED (failures=25)

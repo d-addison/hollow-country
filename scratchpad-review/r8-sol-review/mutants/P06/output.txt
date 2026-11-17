@@ -1,0 +1,28 @@
+.............................................................................................................................................................................................................................................F...F...............................
+======================================================================
+FAIL: test_a_proxy_name_listed_twice_is_tried_once (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_proxy_name_listed_twice_is_tried_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2284, in test_a_proxy_name_listed_twice_is_tried_once
+    self.assertEqual(4, light["proxy_bone_tried"])
+AssertionError: 4 != 8
+
+======================================================================
+FAIL: test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2273, in test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to
+    self.assertEqual((-1, "", 0), (helmet["proxy_bone_index"], helmet["proxy_bone_name"], helmet["proxy_bone_tried"]))
+AssertionError: Tuples differ: (-1, '', 0) != (7, '/dz/weapons/attachments/light/weaponlight_universal.001', 4)
+
+First differing element 0:
+-1
+7
+
+- (-1, '', 0)
++ (7, '/dz/weapons/attachments/light/weaponlight_universal.001', 4)
+
+----------------------------------------------------------------------
+Ran 273 tests in 9.783s
+
+FAILED (failures=2)

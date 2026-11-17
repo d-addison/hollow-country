@@ -1,0 +1,53 @@
+................................................................................................................................................FFFFFF................................................................................................................................
+======================================================================
+FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'on_model': True}, name='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2061, in test_legacy_positive_flags_need_a_queried_selection_name
+    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+AssertionError: 'slot_flag_without_selection_name' not found in ['config_probe_conflict', 'slot_evidence_invalid', 'slot_selection_disagree']
+
+======================================================================
+FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'on_model': True}, name=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2061, in test_legacy_positive_flags_need_a_queried_selection_name
+    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+AssertionError: 'slot_flag_without_selection_name' not found in ['config_probe_conflict', 'slot_evidence_invalid', 'slot_selection_disagree']
+
+======================================================================
+FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'memory': True}, name='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2061, in test_legacy_positive_flags_need_a_queried_selection_name
+    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+AssertionError: 'slot_flag_without_selection_name' not found in ['config_probe_conflict', 'slot_evidence_invalid', 'slot_selection_disagree']
+
+======================================================================
+FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'memory': True}, name=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2061, in test_legacy_positive_flags_need_a_queried_selection_name
+    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+AssertionError: 'slot_flag_without_selection_name' not found in ['config_probe_conflict', 'slot_evidence_invalid', 'slot_selection_disagree']
+
+======================================================================
+FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'bone': 3}, name='')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2061, in test_legacy_positive_flags_need_a_queried_selection_name
+    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+AssertionError: 'slot_flag_without_selection_name' not found in ['config_probe_conflict', 'slot_evidence_invalid', 'slot_selection_disagree']
+
+======================================================================
+FAIL: test_legacy_positive_flags_need_a_queried_selection_name (tests.unit.test_taped_light_report.TierSTests.test_legacy_positive_flags_need_a_queried_selection_name) (flags={'bone': 3}, name=None)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2061, in test_legacy_positive_flags_need_a_queried_selection_name
+    self.assertIn("slot_flag_without_selection_name", record["reasons"])
+AssertionError: 'slot_flag_without_selection_name' not found in ['config_probe_conflict', 'slot_evidence_invalid', 'slot_selection_disagree']
+
+----------------------------------------------------------------------
+Ran 273 tests in 12.149s
+
+FAILED (failures=6)

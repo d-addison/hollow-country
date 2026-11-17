@@ -196,6 +196,10 @@ class HCDisposableDiagnosticMission : CustomMission
     protected ref array<string> m_HCTLRows = new array<string>;
     protected ref array<string> m_HCTLLightRows = new array<string>;
     protected ref array<string> m_HCTLSlotRows = new array<string>;
+    protected ref array<int> m_HCTLBoneIndex = new array<int>;
+    protected ref array<string> m_HCTLBoneNames = new array<string>;
+    protected ref array<int> m_HCTLBoneTried = new array<int>;
+    protected string m_HCTLControlRow = "";
 
     override void OnInit()
     {
@@ -283,9 +287,10 @@ class HCDisposableDiagnosticMission : CustomMission
         return "[" + value[0].ToString() + "," + value[1].ToString() + "," + value[2].ToString() + "]";
     }
 
-    Object HCTLSpawn(string typeName)
+    // The single creation point of the probe. Round 8: the flags are a parameter so the one control spawn can leave out
+    // ECE_IN_INVENTORY and show whether that flag changes what the model reports.
+    Object HCTLSpawnFlags(string typeName, int spawnFlags)
     {
-        int spawnFlags = ECE_IN_INVENTORY | ECE_NOPERSISTENCY_WORLD | ECE_NOLIFETIME;
         Object created = GetGame().CreateObjectEx(typeName, m_HCTLPos, spawnFlags);
         if (created)
         {
@@ -293,6 +298,12 @@ class HCDisposableDiagnosticMission : CustomMission
             m_HCTLSpawned = m_HCTLSpawned + 1;
         }
         return created;
+    }
+
+    Object HCTLSpawn(string typeName)
+    {
+        int spawnFlags = ECE_IN_INVENTORY | ECE_NOPERSISTENCY_WORLD | ECE_NOLIFETIME;
+        return HCTLSpawnFlags(typeName, spawnFlags);
     }
 
     void HCTLReleaseAll()
@@ -337,6 +348,7 @@ class HCDisposableDiagnosticMission : CustomMission
             Print("[HC Taped Light Probe] BEGIN; observation only; classes=" + m_HCTLClasses.Count().ToString());
             HCTLObserveSlots();
             HCTLObserveLights();
+            m_HCTLControlRow = HCTLObserveControl();
         }
         if (m_HCTLCursor < m_HCTLClasses.Count())
         {
@@ -597,11 +609,15 @@ class HCDisposableDiagnosticMission : CustomMission
         return true;
     }
 
-    // The per-host resolution scan. It fills, per scanned numeric LOD, resLods (the LOD), resNames (its name) and four
-    // consecutive ints in resFacts (selection list ok 0/1, selections listed, start offset into resSelections/resPaths,
-    // selections kept), and returns the number of numeric LODs found (more than are scanned when above 16), or -1 when
-    // GetLODS failed or listed more than 128 LODs.
-    int HCTLResolutionScan(Object subject, array<LOD> resLods, array<string> resNames, array<int> resFacts, array<Selection> resSelections, array<string> resPaths)
+    // The per-host resolution scan. It fills, per scanned numeric LOD, resNames (its name) and six consecutive ints in
+    // resFacts (selection list ok 0/1, selections listed, start offset into resKeys/resPaths/resVerts, selections kept,
+    // instance ok 0/1, native GetSelectionCount or -1), and returns the number of numeric LODs found (more than are scanned
+    // when above 16), or -1 when GetLODS failed or listed more than 128 LODs. Round 8 (probe-006): the script instance of a
+    // LOD can be null while GetLODName still answers, so only the selection calls sit behind the instance guard, and the
+    // first vertex of every kept proxy selection is read here, in the scope that listed the selections (no LOD or
+    // Selection reference is kept after the scan). resKeys holds the normalised selection name, resPaths the proxy model
+    // path ("" for a non-proxy selection) and resVerts the vertex text ("" when the selection has no readable vertex).
+    int HCTLResolutionScan(Object subject, array<string> resNames, array<int> resFacts, array<string> resKeys, array<string> resPaths, array<string> resVerts)
     {
         array<LOD> lodList = new array<LOD>;
         array<Selection> lodSelections = new array<Selection>;
@@ -618,10 +634,16 @@ class HCDisposableDiagnosticMission : CustomMission
         LOD scanLod = null;
         bool selectionsListed = false;
         int listedFlag = 0;
+        int instanceFlag = 0;
+        int nativeCount = -1;
         int selectionTotal = 0;
         int selectionKept = 0;
         int selectionIndex = 0;
         Selection scanSelection = null;
+        string scanKey = "";
+        string scanPath = "";
+        string vertexText = "";
+        vector vertexPos = "0 0 0";
         while (lodIndex < lodTotal)
         {
             scanLod = lodList.Get(lodIndex);
@@ -633,30 +655,48 @@ class HCDisposableDiagnosticMission : CustomMission
                 if (resNames.Count() < 16)
                 {
                     lodSelections.Clear();
-                    selectionsListed = scanLod.GetSelections(lodSelections);
-                    listedFlag = 1;
-                    if (selectionsListed == false)
+                    listedFlag = 0;
+                    instanceFlag = 0;
+                    nativeCount = -1;
+                    if (scanLod)
                     {
-                        listedFlag = 0;
-                        lodSelections.Clear();
+                        instanceFlag = 1;
+                        nativeCount = scanLod.GetSelectionCount();
+                        selectionsListed = scanLod.GetSelections(lodSelections);
+                        listedFlag = 1;
+                        if (selectionsListed == false)
+                        {
+                            listedFlag = 0;
+                            lodSelections.Clear();
+                        }
                     }
                     selectionTotal = lodSelections.Count();
                     selectionKept = selectionTotal;
                     if (selectionKept > 512)
                         selectionKept = 512;
-                    resLods.Insert(scanLod);
                     resNames.Insert(lodName);
                     resFacts.Insert(listedFlag);
                     resFacts.Insert(selectionTotal);
-                    resFacts.Insert(resSelections.Count());
+                    resFacts.Insert(resKeys.Count());
                     resFacts.Insert(selectionKept);
+                    resFacts.Insert(instanceFlag);
+                    resFacts.Insert(nativeCount);
                     selectionIndex = 0;
                     while (selectionIndex < selectionKept)
                     {
                         scanSelection = lodSelections.Get(selectionIndex);
                         selectionIndex = selectionIndex + 1;
-                        resSelections.Insert(scanSelection);
-                        resPaths.Insert(HCTLViewPath(HCTLViewKey(scanSelection.GetName())));
+                        scanKey = HCTLViewKey(scanSelection.GetName());
+                        scanPath = HCTLViewPath(scanKey);
+                        vertexText = "";
+                        if (scanPath != "" && scanSelection.GetVertexCount() > 0 && scanSelection.GetLODVertexIndex(0) != -1)
+                        {
+                            vertexPos = scanSelection.GetVertexPosition(scanLod, 0);
+                            vertexText = HCTLStr(vertexPos[0].ToString()) + "," + HCTLStr(vertexPos[1].ToString()) + "," + HCTLStr(vertexPos[2].ToString());
+                        }
+                        resKeys.Insert(scanKey);
+                        resPaths.Insert(scanPath);
+                        resVerts.Insert(vertexText);
                     }
                     lodSelections.Clear();
                 }
@@ -667,7 +707,8 @@ class HCDisposableDiagnosticMission : CustomMission
 
     // The host facts of the resolution scan: res_enum_ok (GetLODS listed 128 LODs or fewer), res_lod_count (numeric LODs
     // found, 0 when not listed), res_lods_scanned (at most 16), res_scan_complete (every numeric LOD scanned and every
-    // selection list ok and within 512) and one res_lods entry per scanned LOD.
+    // selection list ok and within 512) and one res_lods entry per scanned LOD with its instance_ok (the script instance
+    // was not null) and native_count (GetSelectionCount, -1 without an instance).
     string HCTLResFacts(int resCount, array<string> resNames, array<int> resFacts)
     {
         bool enumOk = true;
@@ -682,15 +723,21 @@ class HCDisposableDiagnosticMission : CustomMission
         int lodIndex = 0;
         int factBase = 0;
         int selectionTotal = 0;
+        int nativeCount = 0;
         bool lodListed = false;
         bool lodComplete = false;
+        bool instanceOk = false;
         while (lodIndex < resNames.Count())
         {
-            factBase = lodIndex * 4;
+            factBase = lodIndex * 6;
             selectionTotal = resFacts.Get(factBase + 1);
+            nativeCount = resFacts.Get(factBase + 5);
             lodListed = false;
             if (resFacts.Get(factBase) == 1)
                 lodListed = true;
+            instanceOk = false;
+            if (resFacts.Get(factBase + 4) == 1)
+                instanceOk = true;
             lodComplete = false;
             if (lodListed && selectionTotal <= 512)
                 lodComplete = true;
@@ -699,7 +746,8 @@ class HCDisposableDiagnosticMission : CustomMission
             if (lodIndex > 0)
                 lodText = lodText + ",";
             lodText = lodText + "{" + HCTLKey("name") + HCTLStr(resNames.Get(lodIndex)) + "," + HCTLKey("list_ok") + HCTLBool(lodListed) + ",";
-            lodText = lodText + HCTLKey("selection_count") + selectionTotal.ToString() + "," + HCTLKey("scan_complete") + HCTLBool(lodComplete) + "}";
+            lodText = lodText + HCTLKey("selection_count") + selectionTotal.ToString() + "," + HCTLKey("scan_complete") + HCTLBool(lodComplete) + ",";
+            lodText = lodText + HCTLKey("instance_ok") + HCTLBool(instanceOk) + "," + HCTLKey("native_count") + nativeCount.ToString() + "}";
             lodIndex = lodIndex + 1;
         }
         bool scanComplete = false;
@@ -712,8 +760,9 @@ class HCDisposableDiagnosticMission : CustomMission
     }
 
     // One proxy row's per-LOD evidence: for each scanned numeric LOD the first kept selection whose normalised whole path
-    // equals the row's model path (name, list_ok, the matching selection or "", and its first vertex when it has one).
-    string HCTLResRow(string modelPath, array<LOD> resLods, array<string> resNames, array<int> resFacts, array<Selection> resSelections, array<string> resPaths)
+    // equals the row's model path (name, list_ok, the matching selection or "", and its first vertex text when it had one
+    // when the scan read it). Only strings are used: the vertex was read by the scan.
+    string HCTLResRow(string modelPath, array<string> resNames, array<int> resFacts, array<string> resKeys, array<string> resPaths, array<string> resVerts)
     {
         string needle = "";
         if (modelPath.Length() > 5)
@@ -726,39 +775,28 @@ class HCDisposableDiagnosticMission : CustomMission
         int lodIndex = 0;
         int pathIndex = 0;
         int pathEnd = 0;
-        Selection matchSelection = null;
-        LOD matchLod = null;
-        vector vertexPos = "0 0 0";
         while (lodIndex < resNames.Count())
         {
             matchName = "";
             vertexText = "";
             vertexOk = false;
             lodListed = false;
-            if (resFacts.Get(lodIndex * 4) == 1)
+            if (resFacts.Get(lodIndex * 6) == 1)
                 lodListed = true;
-            pathIndex = resFacts.Get(lodIndex * 4 + 2);
-            pathEnd = pathIndex + resFacts.Get(lodIndex * 4 + 3);
+            pathIndex = resFacts.Get(lodIndex * 6 + 2);
+            pathEnd = pathIndex + resFacts.Get(lodIndex * 6 + 3);
             while (needle != "" && pathIndex < pathEnd)
             {
                 if (resPaths.Get(pathIndex) == needle)
                 {
-                    matchSelection = resSelections.Get(pathIndex);
-                    matchName = HCTLViewKey(matchSelection.GetName());
+                    matchName = resKeys.Get(pathIndex);
+                    vertexText = resVerts.Get(pathIndex);
                     break;
                 }
                 pathIndex = pathIndex + 1;
             }
-            if (matchName != "")
-            {
-                matchLod = resLods.Get(lodIndex);
-                if (matchSelection.GetVertexCount() > 0 && matchSelection.GetLODVertexIndex(0) != -1)
-                {
-                    vertexPos = matchSelection.GetVertexPosition(matchLod, 0);
-                    vertexText = HCTLStr(vertexPos[0].ToString()) + "," + HCTLStr(vertexPos[1].ToString()) + "," + HCTLStr(vertexPos[2].ToString());
-                    vertexOk = true;
-                }
-            }
+            if (vertexText != "")
+                vertexOk = true;
             if (lodIndex > 0)
                 rowText = rowText + ",";
             rowText = rowText + "{" + HCTLKey("name") + HCTLStr(resNames.Get(lodIndex)) + "," + HCTLKey("list_ok") + HCTLBool(lodListed) + ",";
@@ -769,7 +807,7 @@ class HCDisposableDiagnosticMission : CustomMission
         return HCTLKey("res_lods") + "[" + rowText + "]";
     }
 
-    string HCTLProxyRow(string selectionName, array<LOD> resLods, array<string> resNames, array<int> resFacts, array<Selection> resSelections, array<string> resPaths)
+    string HCTLProxyRow(string selectionName, array<string> resNames, array<int> resFacts, array<string> resKeys, array<string> resPaths, array<string> resVerts)
     {
         string cfgBase = HCTLProxyBase(selectionName);
         string cfgClass = "Proxy" + cfgBase;
@@ -812,7 +850,7 @@ class HCDisposableDiagnosticMission : CustomMission
         rowText = rowText + HCTLKey("sep_slash") + slashCount.ToString() + "," + HCTLKey("sep_backslash") + backslashCount.ToString() + ",";
         rowText = rowText + HCTLKey("inventory_slots") + "[" + slotList + "]," + HCTLKey("slot_count") + slotTotal.ToString() + ",";
         rowText = rowText + HCTLKey("slot_scan_complete") + HCTLBool(slotComplete) + ",";
-        return rowText + HCTLResRow(modelPath, resLods, resNames, resFacts, resSelections, resPaths) + "}";
+        return rowText + HCTLResRow(modelPath, resNames, resFacts, resKeys, resPaths, resVerts) + "}";
     }
 
     // LOD diagnostics (fix round 6, kept as diagnostics only since round 7). Object.c:106-122 GetLODByName is script: it
@@ -849,7 +887,43 @@ class HCDisposableDiagnosticMission : CustomMission
             namesComplete = true;
         string lodText = HCTLKey("lod_list_ok") + HCTLBool(lodListed) + "," + HCTLKey("lod_count") + lodTotal.ToString() + ",";
         lodText = lodText + HCTLKey("lod_names") + "[" + nameList + "]," + HCTLKey("lod_names_complete") + HCTLBool(namesComplete) + ",";
+        lodText = lodText + HCTLLodCounts(subject, lodList, lodTotal);
         return lodText + HCTLKey("view_by_name") + HCTLBool(viewByName) + ",";
+    }
+
+    // Round 8 (probe-006): the native selection count of EVERY listed LOD (memory, geometry, geometryView, geometryFire
+    // and the rest included, at most 16), read only through LOD.GetSelectionCount (gameplay.c:215, proto native int), never
+    // through GetSelections. A LOD whose script instance is null is reported as instance_ok false and count -1; the
+    // instance guard wraps the count call only, not GetLODName. lod_counts_total is the number of LODs listed and
+    // lod_counts_complete says every one of them has an entry. A diagnostic: it never decides a verdict.
+    string HCTLLodCounts(Object subject, array<LOD> lodList, int lodTotal)
+    {
+        string countText = "";
+        int countIndex = 0;
+        int countValue = 0;
+        bool instanceOk = false;
+        LOD countLod = null;
+        while (countIndex < lodTotal && countIndex < 16)
+        {
+            countLod = lodList.Get(countIndex);
+            countValue = -1;
+            instanceOk = false;
+            if (countLod)
+            {
+                instanceOk = true;
+                countValue = countLod.GetSelectionCount();
+            }
+            if (countIndex > 0)
+                countText = countText + ",";
+            countText = countText + "{" + HCTLKey("name") + HCTLStr(subject.GetLODName(countLod)) + "," + HCTLKey("count") + countValue.ToString() + ",";
+            countText = countText + HCTLKey("instance_ok") + HCTLBool(instanceOk) + "}";
+            countIndex = countIndex + 1;
+        }
+        bool countsComplete = false;
+        if (countIndex == lodTotal)
+            countsComplete = true;
+        string factText = HCTLKey("lod_counts") + "[" + countText + "]," + HCTLKey("lod_counts_total") + lodTotal.ToString() + ",";
+        return factText + HCTLKey("lod_counts_complete") + HCTLBool(countsComplete) + ",";
     }
 
     string HCTLProxyFacts(Object subject)
@@ -863,12 +937,12 @@ class HCDisposableDiagnosticMission : CustomMission
         bool scanComplete = true;
         if (scanLimit < total)
             scanComplete = false;
-        array<LOD> resLods = new array<LOD>;
         array<string> resNames = new array<string>;
         array<int> resFacts = new array<int>;
-        array<Selection> resSelections = new array<Selection>;
+        array<string> resKeys = new array<string>;
         array<string> resPaths = new array<string>;
-        int resCount = HCTLResolutionScan(subject, resLods, resNames, resFacts, resSelections, resPaths);
+        array<string> resVerts = new array<string>;
+        int resCount = HCTLResolutionScan(subject, resNames, resFacts, resKeys, resPaths, resVerts);
         LOD byNameLod = subject.GetLODByName(LOD.NAME_VIEW);
         bool viewByName = false;
         if (byNameLod)
@@ -890,7 +964,7 @@ class HCDisposableDiagnosticMission : CustomMission
                 {
                     if (seen.Count() > 0)
                         rows = rows + ",";
-                    rows = rows + HCTLProxyRow(selectionName, resLods, resNames, resFacts, resSelections, resPaths);
+                    rows = rows + HCTLProxyRow(selectionName, resNames, resFacts, resKeys, resPaths, resVerts);
                 }
                 seen.Insert(selectionName);
             }
@@ -995,6 +1069,102 @@ class HCDisposableDiagnosticMission : CustomMission
         }
     }
 
+    // Round 8 (probe-006): InventorySlots.GetSelectionForSlotId and GetBoneNameForSlotId answer "" for every light slot, so
+    // the only host-side name a light slot can have is the proxy selection the model lists (Object.c:382 GetSelectionList)
+    // whose CfgNonAIVehicles Proxy<base> entry names that slot in its inventorySlot. For every probed slot this reads
+    // Entity.GetBoneIndex (Entity.c:35, proto native int) with each spelling of each such proxy name (as listed, without the
+    // proxy: prefix, lower case, and both): at most four distinct proxy names, so at most sixteen queries per slot. The best
+    // index, the spelling that gave it (the first spelling tried when none did) and the number of queries go into
+    // m_HCTLBoneIndex/m_HCTLBoneNames/m_HCTLBoneTried, one entry per probed slot. A diagnostic and optional stronger
+    // evidence only: a negative index is never read as a negative finding.
+    bool HCTLProxyHoldsSlot(string proxyName, string slotName)
+    {
+        string cfgPath = "CfgNonAIVehicles Proxy" + HCTLProxyBase(proxyName);
+        if (!GetGame().ConfigIsExisting(cfgPath))
+            return false;
+        TStringArray holdSlots = new TStringArray;
+        string holdText = "";
+        GetGame().ConfigGetTextArray(cfgPath + " inventorySlot", holdSlots);
+        if (holdSlots.Count() == 0)
+        {
+            GetGame().ConfigGetText(cfgPath + " inventorySlot", holdText);
+            if (holdText != "")
+                holdSlots.Insert(holdText);
+        }
+        return holdSlots.Find(slotName) != -1;
+    }
+
+    string HCTLBoneSpelling(string proxyName, int spelling)
+    {
+        string spelled = proxyName;
+        if (spelling == 1 || spelling == 3)
+            spelled = proxyName.Substring(6, proxyName.Length() - 6);
+        if (spelling == 2 || spelling == 3)
+            spelled.ToLower();
+        return spelled;
+    }
+
+    void HCTLSlotBones(EntityAI hostItem)
+    {
+        m_HCTLBoneIndex.Clear();
+        m_HCTLBoneNames.Clear();
+        m_HCTLBoneTried.Clear();
+        TStringArray listedNames = new TStringArray;
+        TStringArray triedProxies = new TStringArray;
+        hostItem.GetSelectionList(listedNames);
+        int listedTotal = listedNames.Count();
+        if (listedTotal > 512)
+            listedTotal = 512;
+        int slotIndex = 0;
+        int nameIndex = 0;
+        int spelling = 0;
+        int bestIndex = -1;
+        int triedCount = 0;
+        int spelledIndex = 0;
+        string bestName = "";
+        string listedName = "";
+        string loweredName = "";
+        string spelled = "";
+        while (slotIndex < m_HCTLSlots.Count())
+        {
+            triedProxies.Clear();
+            nameIndex = 0;
+            bestIndex = -1;
+            bestName = "";
+            triedCount = 0;
+            while (nameIndex < listedTotal && triedProxies.Count() < 4)
+            {
+                listedName = listedNames.Get(nameIndex);
+                nameIndex = nameIndex + 1;
+                loweredName = listedName;
+                loweredName.ToLower();
+                if (loweredName.IndexOf("proxy:") == 0 && triedProxies.Find(listedName) == -1 && HCTLProxyHoldsSlot(listedName, m_HCTLSlots.Get(slotIndex)))
+                {
+                    triedProxies.Insert(listedName);
+                    spelling = 0;
+                    while (spelling < 4)
+                    {
+                        spelled = HCTLBoneSpelling(listedName, spelling);
+                        spelledIndex = hostItem.GetBoneIndex(spelled);
+                        triedCount = triedCount + 1;
+                        if (bestName == "")
+                            bestName = spelled;
+                        if (spelledIndex > bestIndex)
+                        {
+                            bestIndex = spelledIndex;
+                            bestName = spelled;
+                        }
+                        spelling = spelling + 1;
+                    }
+                }
+            }
+            m_HCTLBoneIndex.Insert(bestIndex);
+            m_HCTLBoneNames.Insert(bestName);
+            m_HCTLBoneTried.Insert(triedCount);
+            slotIndex = slotIndex + 1;
+        }
+    }
+
     string HCTLHostSlots(EntityAI hostItem)
     {
         GameInventory hostInventory = hostItem.GetInventory();
@@ -1011,6 +1181,9 @@ class HCDisposableDiagnosticMission : CustomMission
         int boneIndex = -1;
         Object boneObject = null;
         string boneType = "";
+        int proxyBone = -1;
+        int proxyTried = 0;
+        HCTLSlotBones(hostItem);
         while (slotIndex < m_HCTLSlots.Count())
         {
             slotName = m_HCTLSlots.Get(slotIndex);
@@ -1046,7 +1219,11 @@ class HCDisposableDiagnosticMission : CustomMission
             result = result + "{" + HCTLKey("slot") + HCTLStr(slotName) + "," + HCTLKey("host_has_slot") + HCTLBool(hostHasSlot) + ",";
             result = result + HCTLKey("selection") + HCTLStr(selection) + ",";
             result = result + HCTLKey("selection_on_model") + HCTLBool(onModel) + "," + HCTLKey("memory_point") + HCTLBool(memoryPoint) + ",";
-            result = result + HCTLKey("bone_index") + boneIndex.ToString() + "," + HCTLKey("bone_object") + HCTLStr(boneType) + "}";
+            result = result + HCTLKey("bone_index") + boneIndex.ToString() + "," + HCTLKey("bone_object") + HCTLStr(boneType) + ",";
+            proxyBone = m_HCTLBoneIndex.Get(slotIndex);
+            proxyTried = m_HCTLBoneTried.Get(slotIndex);
+            result = result + HCTLKey("proxy_bone_index") + proxyBone.ToString() + "," + HCTLKey("proxy_bone_name") + HCTLStr(m_HCTLBoneNames.Get(slotIndex)) + ",";
+            result = result + HCTLKey("proxy_bone_tried") + proxyTried.ToString() + "}";
             slotIndex = slotIndex + 1;
         }
         return result;
@@ -1066,8 +1243,8 @@ class HCDisposableDiagnosticMission : CustomMission
         bool slotValid = false;
         bool canAddSlot = false;
         bool attachOk = false;
-        string selection = "";
-        bool selectionKnown = false;
+        bool boneChecked = false;
+        bool boneMatches = false;
         int boneIndex = -1;
         Object boneObject = null;
         string boneType = "";
@@ -1081,8 +1258,8 @@ class HCDisposableDiagnosticMission : CustomMission
             slotValid = InventorySlots.IsSlotIdValid(slotId);
             canAddSlot = false;
             attachOk = false;
-            selection = "";
-            selectionKnown = false;
+            boneChecked = false;
+            boneMatches = false;
             boneIndex = -1;
             boneObject = null;
             boneType = "";
@@ -1105,14 +1282,19 @@ class HCDisposableDiagnosticMission : CustomMission
                     if (found)
                         foundType = found.GetType();
                     beamFacts = HCTLBeamFacts(attached);
-                    selectionKnown = InventorySlots.GetSelectionForSlotId(slotId, selection);
-                    if (selectionKnown && selection != "")
+                    // Round 8: after the attach, the proxy bone the host reported for this slot (HCTLSlotBones) is asked
+                    // for its object, and that object is compared with the attached light by reference.
+                    boneIndex = m_HCTLBoneIndex.Get(slotIndex);
+                    if (boneIndex >= 0)
                     {
-                        boneIndex = hostItem.GetBoneIndex(selection);
-                        if (boneIndex >= 0)
-                            boneObject = hostItem.GetBoneObject(boneIndex);
-                        if (boneObject)
-                            boneType = boneObject.GetType();
+                        boneObject = hostItem.GetBoneObject(boneIndex);
+                        boneChecked = true;
+                    }
+                    if (boneObject)
+                    {
+                        boneType = boneObject.GetType();
+                        if (boneObject == attached)
+                            boneMatches = true;
                     }
                 }
             }
@@ -1120,13 +1302,60 @@ class HCDisposableDiagnosticMission : CustomMission
                 result = result + ",";
             result = result + "{" + HCTLKey("slot") + HCTLStr(m_HCTLSlots.Get(slotIndex)) + "," + HCTLKey("light_fits") + HCTLBool(lightItem.GetInventory().HasInventorySlot(slotId)) + ",";
             result = result + HCTLKey("can_add") + HCTLBool(canAddSlot) + "," + HCTLKey("attach_ok") + HCTLBool(attachOk) + ",";
-            result = result + HCTLKey("found_type") + HCTLStr(foundType) + "," + HCTLKey("proxy_after_attach") + HCTLStr(boneType);
+            result = result + HCTLKey("found_type") + HCTLStr(foundType) + "," + HCTLKey("proxy_after_attach") + HCTLStr(boneType) + ",";
+            result = result + HCTLKey("bone_object_checked") + HCTLBool(boneChecked) + "," + HCTLKey("bone_object_matches") + HCTLBool(boneMatches);
             if (beamFacts != "")
                 result = result + "," + beamFacts;
             result = result + "}";
             slotIndex = slotIndex + 1;
         }
         return result + "]}";
+    }
+
+    // Round 8: one firearm control, the first slot host, spawned WITHOUT ECE_IN_INVENTORY (the other spawns all carry it) and
+    // released at once. Its model selection list is counted so a reader can see whether the flag changes what the model
+    // reports. It is observation only and never a verdict input.
+    string HCTLObserveControl()
+    {
+        string controlClass = "";
+        int controlIndex = 0;
+        while (controlIndex < m_HCTLClasses.Count() && controlClass == "")
+        {
+            if (m_HCTLGroups.Get(controlIndex) == 1)
+                controlClass = m_HCTLClasses.Get(controlIndex);
+            controlIndex = controlIndex + 1;
+        }
+        int controlFlags = ECE_NOPERSISTENCY_WORLD | ECE_NOLIFETIME;
+        string controlText = "{" + HCTLKey("class") + HCTLStr(controlClass) + "," + HCTLKey("spawn_flags") + HCTLStr("NOPERSISTENCY_WORLD|NOLIFETIME") + ",";
+        if (controlClass == "")
+            return controlText + HCTLKey("spawned") + "false}";
+        Object controlItem = HCTLSpawnFlags(controlClass, controlFlags);
+        if (!controlItem)
+            return controlText + HCTLKey("spawned") + "false}";
+        TStringArray controlNames = new TStringArray;
+        controlItem.GetSelectionList(controlNames);
+        int controlTotal = controlNames.Count();
+        int controlScan = controlTotal;
+        if (controlScan > 512)
+            controlScan = 512;
+        int proxyTotal = 0;
+        int nameIndex = 0;
+        string loweredName = "";
+        while (nameIndex < controlScan)
+        {
+            loweredName = controlNames.Get(nameIndex);
+            loweredName.ToLower();
+            if (loweredName.IndexOf("proxy:") == 0)
+                proxyTotal = proxyTotal + 1;
+            nameIndex = nameIndex + 1;
+        }
+        bool listOk = false;
+        if (controlTotal > 0)
+            listOk = true;
+        controlText = controlText + HCTLKey("spawned") + "true," + HCTLKey("proxy_count") + proxyTotal.ToString() + ",";
+        controlText = controlText + HCTLKey("selection_list_ok") + HCTLBool(listOk) + "}";
+        HCTLReleaseAll();
+        return controlText;
     }
 
     bool HCTLRail(Object subject)
@@ -1258,6 +1487,7 @@ class HCDisposableDiagnosticMission : CustomMission
                 m_HCTLLive.Insert(handguard);
                 m_HCTLSpawned = m_HCTLSpawned + 1;
                 attached = true;
+                HCTLSlotBones(variantHost);
                 lightRows = HCTLHostLightRows(variantHost, m_HCTLPrereqLights, beginMs);
             }
         }
@@ -1475,6 +1705,10 @@ class HCDisposableDiagnosticMission : CustomMission
         FPrintln(handle, outLine);
         outLine = HCTLKey("diagnostics") + "{" + HCTLKey("string_self_test") + HCTLSelfTest() + "," + HCTLKey("cfg_nonai_scan") + HCTLCfgScan() + "},";
         FPrintln(handle, outLine);
+        string controlRow = m_HCTLControlRow;
+        if (controlRow == "")
+            controlRow = "{" + HCTLKey("class") + HCTLStr("") + "," + HCTLKey("spawn_flags") + HCTLStr("") + "," + HCTLKey("spawned") + "false}";
+        FPrintln(handle, HCTLKey("spawn_control") + controlRow + ",");
         HCTLWriteRows(handle, "slots", m_HCTLSlotRows, false);
         HCTLWriteRows(handle, "lights", m_HCTLLightRows, false);
         HCTLWriteRows(handle, "hosts", m_HCTLRows, true);

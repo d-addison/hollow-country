@@ -1,0 +1,20 @@
+...................................................................................................................................................................................................................................................F.............................
+======================================================================
+FAIL: test_lod_counts_are_bounded_and_say_when_they_were_cut (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_lod_counts_are_bounded_and_say_when_they_were_cut)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2236, in test_lod_counts_are_bounded_and_say_when_they_were_cut
+    self.assertEqual((16, 20, False), (len(row["lod_counts"]), row["lod_counts_total"], row["lod_counts_complete"]))
+AssertionError: Tuples differ: (16, 20, False) != (20, 20, True)
+
+First differing element 0:
+16
+20
+
+- (16, 20, False)
++ (20, 20, True)
+
+----------------------------------------------------------------------
+Ran 273 tests in 10.972s
+
+FAILED (failures=1)

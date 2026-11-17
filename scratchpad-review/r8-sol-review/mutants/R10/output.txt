@@ -1,0 +1,18 @@
+...................................................................................................................................................F.............................................................................................................................
+======================================================================
+FAIL: test_prerequisite_route_keeps_base_and_variant_facts_apart (tests.unit.test_taped_light_report.TierSTests.test_prerequisite_route_keeps_base_and_variant_facts_apart)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1965, in test_prerequisite_route_keeps_base_and_variant_facts_apart
+    self.assertEqual({"can_add": False, "attach_ok": False, "found_type": "", "beam": None}, evidence["base_attempt"])
+AssertionError: {'can_add': False, 'attach_ok': False, 'found_type': '', 'beam': None} != {'can_add': True, 'attach_ok': True, 'found_type': 'U[24 chars]True}
+- {'attach_ok': False, 'beam': None, 'can_add': False, 'found_type': ''}
++ {'attach_ok': True,
++  'beam': True,
++  'can_add': True,
++  'found_type': 'UniversalLight'}
+
+----------------------------------------------------------------------
+Ran 273 tests in 9.414s
+
+FAILED (failures=1)

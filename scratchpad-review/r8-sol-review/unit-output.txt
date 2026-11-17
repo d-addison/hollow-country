@@ -1,0 +1,9 @@
+.....taped_light_report: Expecting value: line 1 column 1 (char 0)
+.taped_light_report: report output must be outside the source checkout
+.taped_light_report: [Errno 17] File exists: '/tmp/tmpwpciviho/report.json'
+............................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 291 tests in 13.990s
+
+OK
+report: server_qualified=1 geometry_missing=0 not_server_evidencable=0 excluded=1 pending=0 hosts=2 -> /tmp/tmpwpciviho/report.json

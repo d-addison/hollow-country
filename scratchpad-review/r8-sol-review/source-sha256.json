@@ -1,0 +1,7 @@
+{
+  "tools/audit/taped_light_report.py": "d275bafac638cfbc060c4fd8ce82e8ff78ef0ce5682ba538985554fd16cd009b",
+  "tools/setup/taped_light_probe.py": "531be34f44f801811cc9eec7985965207d3d91c3ca349578c9ccd76300db0a58",
+  "tests/unit/test_taped_light_report.py": "ef5785f491b3c37736725d343f15729ade77396080f8eb47b23aa1885a30d168",
+  "tests/unit/test_taped_light_probe.py": "f6b9a5452b7db0e1a3ce25ab62a3d5396448c10776bf71da10d4b55bf326830f",
+  "tools/setup/probe_runtime.py": "8b1bb73b60516fc91d70cdd0484ff4527cec091eba1f7356063cde94db47eb59"
+}

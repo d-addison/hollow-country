@@ -1,0 +1,9 @@
+{"case": "same light-slot conflicting aliases, attach succeeds", "host": "pending", "pair": "pending", "slot": "pending", "reason": "proxy_evidence_malformed", "issues": []}
+{"case": "same light-slot conflicting aliases, attach refused", "host": "geometry_missing", "pair": "geometry_missing", "slot": "geometry_missing", "reason": "native_attach_refused", "issues": []}
+{"case": "unrelated coherent aliases", "host": "server_qualified", "pair": "server_qualified", "slot": "server_qualified", "reason": "native_attach_with_proxy_config_slot", "issues": []}
+{"case": "unrelated conflicting aliases", "host": "pending", "pair": "pending", "slot": "pending", "reason": "proxy_evidence_malformed", "issues": []}
+{"case": "slot is weaponflashlight (case changed)", "host": "server_qualified", "pair": "server_qualified", "slot": "server_qualified", "reason": "native_attach_with_proxy_config_slot", "issues": []}
+{"case": "slot is pistolFlashlight (different exact slot)", "host": "geometry_missing", "pair": "geometry_missing", "slot": "geometry_missing", "reason": "proxy_belongs_to_other_slot", "issues": []}
+spawn_control None TypeError argument of type 'NoneType' is not iterable
+spawn_control 42 TypeError argument of type 'int' is not iterable
+spawn_control True TypeError argument of type 'bool' is not iterable

@@ -1,0 +1,82 @@
+.................................................................................................................................................................FFFFFF...................F...........................................................................................
+======================================================================
+FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [plastic label and type]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 844, in test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : plastic label and type
+
+======================================================================
+FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [label says rail but the slot holds plastic]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 844, in test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : label says rail but the slot holds plastic
+
+======================================================================
+FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [label says rail, found type is plastic, rail flag still true]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 844, in test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : label says rail, found type is plastic, rail flag still true
+
+======================================================================
+FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [found type belongs to another slot]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 844, in test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : found type belongs to another slot
+
+======================================================================
+FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [found rail handguard but rail property false]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 844, in test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : found rail handguard but rail property false
+
+======================================================================
+FAIL: test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification (tests.unit.test_taped_light_report.VariantEvidenceTests.test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification) [found type empty]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 844, in test_a_wrong_or_unproven_handguard_does_not_keep_the_rail_qualification
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : found type empty
+
+======================================================================
+FAIL: test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1377, in test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label
+    self.assertEqual("pending", slot["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+----------------------------------------------------------------------
+Ran 273 tests in 9.452s
+
+FAILED (failures=7)

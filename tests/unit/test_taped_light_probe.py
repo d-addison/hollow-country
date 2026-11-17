@@ -199,7 +199,7 @@ class HookRenderingTests(unittest.TestCase):
         for api in ("InventorySlots.GetSlotIdFromString", "InventorySlots.GetSelectionForSlotId", "HasAttachmentSlot",
                     "HasSelection", "MemoryPointExists", "GetBoneIndex", "GetMemoryPointPos", "CanAddAttachment(",
                     "CanAddAttachmentEx(", "FindAttachment(", "GetSelectionList", "GetBoneObject", "GetLODByName(",
-                    "GetSelections(", "GetVertexPosition(", "GetLODS(", "GetLODName(", "IndexOfFrom(",
+                    "GetSelections(", "GetVertexPosition(", "GetLODS(", "GetLODName(", "IndexOfFrom(", "GetSelectionCount(",
                     "ConfigGetChildrenCount(", "ConfigGetChildName("):
             self.assertIn(api, self.hook)
         allowed = {"GetSlotIdFromString", "GetSelectionForSlotId", "GetSlotName", "HasAttachmentSlot", "HasSelection",
@@ -212,7 +212,7 @@ class HookRenderingTests(unittest.TestCase):
                    "Insert", "Get", "Count", "Find", "Print", "Vector", "OnInit", "GetGame", "AsciiToString",
                    "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString", "LastIndexOf",
                    "ConfigGetText", "ConfigGetTextArray", "GetLODByName", "GetSelections", "GetName", "GetVertexCount",
-                   "GetLODVertexIndex", "GetVertexPosition", "GetLODS", "GetLODName", "IndexOfFrom",
+                   "GetLODVertexIndex", "GetVertexPosition", "GetLODS", "GetLODName", "IndexOfFrom", "GetSelectionCount",
                    "ConfigGetChildrenCount", "ConfigGetChildName"}
         called = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))))
         own = set(re.findall(r"\b(?:void|bool|int|float|string|vector|EntityAI|Object|array<[^>]+>)\s+(\w+)\s*\(", self.hook))
@@ -753,18 +753,23 @@ SLOT_SELECTION = {"weaponFlashlight": "light_w", "pistolFlashlight": "light_p", 
 
 
 def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=(), res=(),
-         res_no_vertex=(), res_unlisted=False, view=None, lods=None, lods_unlisted=False):
+         res_no_vertex=(), res_unlisted=False, view=None, lods=None, lods_unlisted=False, bones=(), bone_object=False,
+         null_lods=(), count_only=(), index_only=()):
     """``res`` is the selection names held by the resolution LOD "1.000" (the default LOD list); ``res_no_vertex`` names
     selections without a first vertex; ``res_unlisted`` makes LOD.GetSelections return false (with the names still in
     its out array, which the hook must ignore) on every LOD. ``view`` is the selection names of a LOD named "view" (None:
     no such LOD): a decoy, because the hook must never read it as evidence. ``lods`` is the LOD list Object.GetLODS
     reports, each item a name or a (name, selection names) pair (None: "1.000" holding ``res``, plus "view" when ``view``
-    is given); ``lods_unlisted`` makes Object.GetLODS return false with junk in its out array."""
+    is given); ``lods_unlisted`` makes Object.GetLODS return false with junk in its out array. Round 8: ``bones`` is the
+    exact names Entity.GetBoneIndex resolves (to 7), ``bone_object`` makes GetBoneObject return the newest attachment,
+    ``null_lods`` is LOD names whose script instance is null (name still readable), ``count_only`` names selections with
+    a positive GetVertexCount but LOD vertex index -1 and ``index_only`` ones with count 0 but a valid index."""
     return {"slots": tuple(slots), "fits": tuple(fits), "selections": tuple(selections), "memory": tuple(memory),
             "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies), "res": tuple(res),
             "res_no_vertex": tuple(res_no_vertex), "res_unlisted": res_unlisted,
             "view": None if view is None else tuple(view), "lods": None if lods is None else tuple(lods),
-            "lods_unlisted": lods_unlisted}
+            "lods_unlisted": lods_unlisted, "bones": tuple(bones), "bone_object": bone_object,
+            "null_lods": tuple(null_lods), "count_only": tuple(count_only), "index_only": tuple(index_only)}
 
 
 LIGHT_UNIVERSAL_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_universal.001"
@@ -788,7 +793,7 @@ def catalogue():
             "PlainBag": spec(), "PlainHat": spec(),
             "UniversalLight": spec(fits=("helmetFlashlight", "weaponFlashlight"), needs_rail=True,
                                    memory=("beamStart", "beamEnd")),
-            "TLRLight": spec(fits=("pistolFlashlight",)), "Flashlight": spec(),
+            "TLRLight": spec(fits=("pistolFlashlight",), memory=("beamStart", "beamEnd")), "Flashlight": spec(),
             "AK_RailHndgrd": spec(fits=("weaponHandguardAK",), rail=True)}
 
 
@@ -814,9 +819,17 @@ class Entity:
         return name in self.spec["memory"]
 
     def GetBoneIndex(self, name):
+        """Entity.c:35 proto native int GetBoneIndex(string proxySelectionName). Every query is logged."""
+        self.world.bone_calls.append(str(name))
+        if name in self.spec["bones"]:
+            return 7
         return 3 if name in self.spec["selections"] else -1
 
     def GetBoneObject(self, index):
+        """Entity.c:38 proto native Object GetBoneObject(int boneIndex): the newest attachment when the spec says so."""
+        self.world.bone_object_calls.append(index)
+        if self.spec["bone_object"] and index >= 0 and self.attached:
+            return list(self.attached.values())[-1]
         return None
 
     def GetMemoryPointPos(self, name):
@@ -841,7 +854,7 @@ class Entity:
             out.append(ModelLod(self, "9", ("junk",)))
             return False
         for name, names in self.lod_entries():
-            out.append(ModelLod(self, name, names))
+            out.append(NullLod(name) if name in self.spec["null_lods"] else ModelLod(self, name, names))
         return True
 
     def GetLODName(self, lod):
@@ -868,17 +881,17 @@ class ModelSelection:
     """gameplay.c:179 Selection: GetName, GetVertexCount, GetLODVertexIndex and the script GetVertexPosition(lod, index),
     which calls Error() (here: raises) when the LOD vertex index is -1, as the native class does."""
 
-    def __init__(self, name, has_vertex):
-        self.name, self.has_vertex = name, has_vertex
+    def __init__(self, name, has_vertex, count_only=False, index_only=False):
+        self.name, self.has_vertex, self.count_only, self.index_only = name, has_vertex, count_only, index_only
 
     def GetName(self):
         return S(self.name)
 
     def GetVertexCount(self):
-        return 1 if self.has_vertex else 0
+        return 1 if (self.has_vertex and not self.index_only) or self.count_only else 0
 
     def GetLODVertexIndex(self, index):
-        return 0 if self.has_vertex and index == 0 else -1
+        return 0 if ((self.has_vertex and not self.count_only) or self.index_only) and index == 0 else -1
 
     def GetVertexPosition(self, lod, index):
         lod_index = self.GetLODVertexIndex(index)
@@ -894,18 +907,43 @@ class ModelLod:
 
     def __init__(self, entity, name, names):
         self.name, self.entity = name, entity
-        self.selections = [ModelSelection(item, item not in entity.spec["res_no_vertex"]) for item in names]
+        self.selections = [ModelSelection(item, item not in entity.spec["res_no_vertex"], item in entity.spec["count_only"],
+                                          item in entity.spec["index_only"]) for item in names]
 
     def GetSelectionCount(self):
+        """gameplay.c:215 proto native int GetSelectionCount(); logged by LOD name."""
+        self.entity.world.count_log.append(self.name)
         return len(self.selections)
 
     def GetSelections(self, out):
         self.entity.world.selection_log.append(self.name)
+        self.entity.world.event_log.append("sel:" + self.name)
         out.extend(self.selections)
         return not self.entity.spec["res_unlisted"]
 
     def GetVertexPosition(self, index):
+        self.entity.world.event_log.append("vtx:" + self.name)
         return (0.5, 0.25, -1.5)
+
+
+class NullLod:
+    """A LOD whose script instance is null, as probe-006 saw: falsy, its name is still readable through
+    Object.GetLODName, and any call on it is the null-pointer failure the hook must never provoke."""
+
+    def __init__(self, name):
+        self.name = name
+
+    def __bool__(self):
+        return False
+
+    def GetSelectionCount(self):
+        raise AssertionError("GetSelectionCount on a null LOD")
+
+    def GetSelections(self, out):
+        raise AssertionError("GetSelections on a null LOD")
+
+    def GetVertexPosition(self, index):
+        raise AssertionError("GetVertexPosition on a null LOD")
 
 
 class LODNames:
@@ -998,6 +1036,7 @@ class World:
         self.queue, self.files, self.printed = [], {}, []
         self.attach_calls, self.delete_calls, self.create_calls = [], 0, []
         self.selection_log, self.lods_calls = [], 0
+        self.count_log, self.event_log, self.bone_calls, self.bone_object_calls = [], [], [], []
 
     def register(self, entity):
         self.entities.append(entity)
@@ -1261,6 +1300,9 @@ class HookBehaviorTests(unittest.TestCase):
         self.assertEqual(1, len(world.queue))
         drain(world)
         self.assertEqual("partial", observations_of(world)["status"])
+        # Round 8: the run ended before the control spawn ran, so the control row is a valid "did not run" object, not text
+        # that breaks the JSON.
+        self.assertEqual({"class": "", "spawn_flags": "", "spawned": False}, observations_of(world)["spawn_control"])
 
     def test_a_slow_server_trips_the_watchdog_between_classes_and_the_probe_still_cleans_up(self):
         world = World(spawn_ms=15000)
@@ -1272,7 +1314,7 @@ class HookBehaviorTests(unittest.TestCase):
         self.assertEqual(observations["counters"]["spawned"], observations["counters"]["deleted"])
         joined = report.build_report(classification(), observations)
         self.assertIn("probe_status_partial", joined["integrity"]["issues"])
-        self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"]})
+        self.assertNotIn("server_qualified", {h["verdict"] for h in joined["hosts"]})
 
     def test_the_class_timeout_is_checked_after_every_observation_and_stops_the_class(self):
         world = World(spawn_ms=1500)
@@ -1363,38 +1405,29 @@ class HookBehaviorTests(unittest.TestCase):
         # sha256 of the observations.json text and of the printed lines, recorded from the generator that built each
         # row in one long statement (the form the native compiler refused), with the same synthetic engine rules.
         golden = {
-            "default": (12184, "83dc8bf173bb699aacff98f457e80d6384337ef54862f356df97067c478474de",
-                        "549837d7d62767e41db54b0693cbde69fff039ee2d7468bc751ccab83d7bb9c9", lambda: World()),
-            "stuck_and_background": (12184, "63adba104be7bcd623ac429994165ad6d31895bad2c2782c4fc1aec691b2ac20",
-                                     "95b2e08d2d3e4fb5969c67580597b4215082fa362cc52b0992c02b91bc30ccc7",
+            "default": (17893, "8d3bbb71bf66db1ae60dd72728f37d9e554b4fc06e38142ae9771dc6c48096d0",
+                        "986e82040535e93beea61c2ed22ca323333a55f2ecdd39d162378bc055133c13", lambda: World()),
+            "stuck_and_background": (17893, "0288cac8e566c349a733e6cf34d40543ad67ffd6588192ed2feb3b247eb83649",
+                                     "3728e2c86d6ca0c4adfa9152c17307c0b2e611f08fbb2ba48588bfe65cd64a29",
                                      lambda: World(stuck=("PlainBag",), background=3)),
-            "class_timeout": (11124, "25b3f8b793c03418e174fa4e82761db7e30df125e179bea17ca14ac103ba5e35",
-                              "6aa70f5238cc7483e6b7ae4b7ba6ce7ff312e2c6a666a5eeb714543e95d2f9fd",
+            "class_timeout": (16394, "19f40fb92cce5935216b00807614156d4c74d99338438a5d8b948f10bafef0ae",
+                              "69a8f54531476c4a7b832375e8ca09be89a795afe1c8b0c1975b9fe2df4e3320",
                               lambda: World(spawn_ms=600)),
-            "watchdog_partial": (3613, "520ef5127f687809ebce65faf6655648dfe86e06d211602693ecaa99dd441c0e",
-                                 "5b28a8816f58c111cbf5892c5351008c8bc8f6cb56edbee86549df74019b77e2",
+            "watchdog_partial": (5213, "580a820043eb2debba165efc9f2685253d5b4f084a08e734118fdc2ad41c1cbd",
+                                 "32ec34d82d7fc07eb7a55dd756085c16371acab98a7789889f1b55d315b1a27b",
                                  lambda: World(spawn_ms=15000)),
         }
-        # The variant later gained three read-back fields (handguard_found_type, handguard_slot_occupied,
-        # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
-        # Fix round 3 added the per-host proxy facts (proxy_count, proxy_scan_complete, proxies); these hosts have no
-        # proxies, so the empty facts are stripped as well. Fix round 4 added the per-host view-LOD facts, which these
-        # hosts (no view LOD in the synthetic table) report as absent; fix round 5 added view_list_ok.
-        # Fix round 6 added the header diagnostics line and the per-host LOD name facts (a resolution LOD only, no view LOD).
-        # Round 7 replaced the view-LOD facts with the per-resolution-LOD scan: one numeric LOD "1.000" without selections.
-        added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
-                           r'"handguard_rail_functional":(?:true|false),'
-                           r'|"proxy_count":0,"proxy_scan_complete":true,'
-                           r'"res_enum_ok":true,"res_lod_count":1,"res_lods_scanned":1,"res_scan_complete":true,'
-                           r'"res_lods":\[\{"name":"1\.000","list_ok":true,"selection_count":0,"scan_complete":true\}\],'
-                           r'"lod_list_ok":true,"lod_count":1,"lod_names":\["1\.000"\],"lod_names_complete":true,'
-                           r'"view_by_name":false,"proxies":\[\],'
-                           r'|^"diagnostics":[^\n]*\n', re.M)
+        # Round 8 re-recorded these four hashes. Earlier rounds kept the original single-statement hashes by stripping
+        # every later-added fact; round 8 changed the synthetic output in ways a strip no longer isolates: the firearm
+        # control spawn (spawn_control line, spawned/deleted counters 24 to 25), the per-slot proxy_bone_* facts, the
+        # per-light bone_object_* facts, lod_counts*, per-LOD instance_ok/native_count, and the TLRLight fixture gaining its
+        # beamStart/beamEnd memory points. A structural comparison of the round 7 and round 8 synthetic output (json walk)
+        # showed no other added, removed or changed key. The hashes still pin the exact emitted text and printed lines.
         for name, (size, output_sha, printed_sha, make) in golden.items():
             with self.subTest(scenario=name):
                 world = make()
                 run_hook(world)
-                text = added.sub("", world.files[OUTPUT_PATH])
+                text = world.files[OUTPUT_PATH]
                 self.assertEqual((size, output_sha), (len(text), hashlib.sha256(text.encode()).hexdigest()))
                 self.assertEqual(printed_sha, hashlib.sha256("\n".join(world.printed).encode()).hexdigest())
 
@@ -1424,8 +1457,8 @@ class HookBehaviorTests(unittest.TestCase):
         joined = report.build_report(classification(), observations_of(world))
         self.assertEqual([], joined["integrity"]["issues"])
         verdicts = {h["class"]: h["verdict"] for h in joined["hosts"]}
-        self.assertEqual({"AK74": "qualified", "Glock19": "qualified", "PlainBag": "geometry_missing",
-                          "PlainHat": "geometry_missing", "RifleBase": "excluded"}, verdicts)
+        self.assertEqual({"AK74": "server_qualified", "Glock19": "server_qualified", "PlainBag": "not_server_evidencable",
+                          "PlainHat": "not_server_evidencable", "RifleBase": "excluded"}, verdicts)
         ak74 = next(h for h in joined["hosts"] if h["class"] == "AK74")
         slot = ak74["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
         self.assertEqual("native_attach_with_rail_handguard_prerequisite", slot["reason"])
@@ -1439,7 +1472,7 @@ class HookBehaviorTests(unittest.TestCase):
                 run_hook(world)
                 joined = report.build_report(classification(), observations_of(world))
                 self.assertTrue(joined["integrity"]["issues"])
-                self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"]})
+                self.assertNotIn("server_qualified", {h["verdict"] for h in joined["hosts"]})
 
     def test_the_watchdog_limit_is_documented_in_the_hook_and_the_module(self):
         hook = probe.render_hook(probe.select_targets(classification())).decode()
@@ -1530,11 +1563,11 @@ class ProxyEvidenceHookTests(unittest.TestCase):
         joined = report.build_report(classification(), observations)
         self.assertEqual([], joined["integrity"]["issues"])
         by_name = {h["class"]: h for h in joined["hosts"]}
-        self.assertEqual("qualified", by_name["AK74"]["verdict"])
-        self.assertEqual("qualified", by_name["Glock19"]["verdict"])
-        self.assertEqual("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite",
+        self.assertEqual("server_qualified", by_name["AK74"]["verdict"])
+        self.assertEqual("server_qualified", by_name["Glock19"]["verdict"])
+        self.assertEqual("native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite",
                          by_name["AK74"]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["reason"])
-        self.assertEqual("native_attach_with_resolution_lod_proxy_slot",
+        self.assertEqual("native_attach_with_proxy_config_slot",
                          by_name["Glock19"]["lights"]["TLRLight"]["slots"]["pistolFlashlight"]["reason"])
         self.assertEqual("PENDING", joined["acceptance"])
         self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, joined["unobserved_axes"])
@@ -1547,7 +1580,7 @@ class ProxyEvidenceHookTests(unittest.TestCase):
         for name in ("AK74", "Glock19"):
             self.assertEqual("pending", by_name[name]["verdict"], name)
             self.assertIn("proxy_config_missing", by_name[name]["reasons"], name)
-        self.assertEqual(0, joined["denominators"]["qualified"])
+        self.assertEqual(0, joined["denominators"]["server_qualified"])
 
     def test_a_config_whose_slot_or_model_disagrees_does_not_qualify(self):
         wrong_slot = proxy_config()
@@ -1559,8 +1592,8 @@ class ProxyEvidenceHookTests(unittest.TestCase):
                 _world, observations = self.run_world(config=config)
                 joined = report.build_report(classification(), observations)
                 ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
-                self.assertNotEqual("qualified", ak["verdict"])
-                self.assertNotIn("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
+                self.assertNotEqual("server_qualified", ak["verdict"])
+                self.assertNotIn("native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite", ak["reasons"])
 
     def test_the_slot_selection_evidence_is_still_reported_unchanged(self):
         world, observations = self.run_world(proxy_types(old_evidence=True), slots=_Slots)
@@ -1618,14 +1651,14 @@ class RoundFourProxyHookTests(unittest.TestCase):
         row = host_row(observations, "AK74")["proxies"][0]
         self.assertEqual((8, 8, True), (len(row["inventory_slots"]), row["slot_count"], row["slot_scan_complete"]))
         slot, _joined = self.ak_slot(observations)
-        self.assertEqual("qualified", slot["verdict"])
+        self.assertEqual("server_qualified", slot["verdict"])
 
     def test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped(self):
         types, config = self.nine_slot_world()
         config[self.SLOT_CONFIG]["inventorySlot"] = ["weaponFlashlight"] + ["unrelated%d" % number for number in range(11)]
         _world, observations = self.run_world(types, config)
         slot, _joined = self.ak_slot(observations)
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
 
     def test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring(self):
@@ -1653,7 +1686,10 @@ class RoundFourProxyHookTests(unittest.TestCase):
                 _world, observations = self.run_world(types)
                 entry = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
                 self.assertEqual(expected, entry["selection"] != "", label)
-                self.assertEqual(expected, self.ak_slot(observations)[0]["verdict"] == "qualified", label)
+                slot = self.ak_slot(observations)[0]
+                # Round 8: the resolution LOD is diagnostic only, so the verdict stays Tier S either way.
+                self.assertEqual("server_qualified", slot["verdict"], label)
+                self.assertEqual(expected, slot["evidence"]["resolution_status"] == "member", label)
 
     def test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it(self):
         base = "/dz/weapons/attachments/light/weaponlight_universal"
@@ -1663,7 +1699,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
         _world, observations = self.run_world(types)
         entry = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
         self.assertEqual("proxy:" + base + ".003", entry["selection"])
-        self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+        self.assertEqual("server_qualified", self.ak_slot(observations)[0]["verdict"])
 
     def test_a_missing_config_model_never_matches_a_resolution_lod(self):
         config = proxy_config()
@@ -1671,7 +1707,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
         _world, observations = self.run_world(config=config)
         light = host_row(observations, "AK74")["proxies"][0]
         self.assertEqual(("", "", False), (light["model"], light["res_lods"][0]["selection"], light["res_lods"][0]["vertex_ok"]))
-        self.assertNotEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+        self.assertNotEqual("server_qualified", self.ak_slot(observations)[0]["verdict"])
 
 
 class ResolutionLodHookTests(unittest.TestCase):
@@ -1698,15 +1734,17 @@ class ResolutionLodHookTests(unittest.TestCase):
         return self.run_world(types)
 
     def reason(self, observations):
+        """(verdict, resolution status): the resolution LOD is a diagnostic since round 8, so the verdict is Tier S."""
         slot, _joined = self.ak_slot(observations)
-        return slot["verdict"], slot["reason"]
+        return slot["verdict"], slot["evidence"]["resolution_status"]
 
     def test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex(self):
         _world, observations = self.run_world()
         ak = host_row(observations, "AK74")
         self.assertEqual((True, 1, 1, True), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
                                               ak["res_scan_complete"]))
-        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 4, "scan_complete": True}], ak["res_lods"])
+        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 4, "scan_complete": True,
+                           "instance_ok": True, "native_count": 4}], ak["res_lods"])
         light, muzzle = ak["proxies"]
         self.assertEqual([{"name": "1.000", "list_ok": True, "selection": LIGHT_UNIVERSAL_PROXY, "vertex_ok": True,
                            "vertex": ["0.5", "0.25", "-1.5"]}], light["res_lods"])
@@ -1715,7 +1753,8 @@ class ResolutionLodHookTests(unittest.TestCase):
         plain = host_row(observations, "PlainBag")
         self.assertEqual((True, 1, True, []), (plain["res_enum_ok"], plain["res_lod_count"], plain["res_scan_complete"],
                                                plain["proxies"]))
-        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 0, "scan_complete": True}], plain["res_lods"])
+        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 0, "scan_complete": True,
+                           "instance_ok": True, "native_count": 0}], plain["res_lods"])
         self.assertNotIn("view_lod", ak)
         self.assertNotIn("view_selection", light)
 
@@ -1723,9 +1762,9 @@ class ResolutionLodHookTests(unittest.TestCase):
         """The native shape of probe-005: no LOD named "view", the proxy selection in a numeric LOD."""
         _world, observations = self.run_world()
         slot, joined = self.ak_slot(observations)
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("server_qualified", "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
-        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual("proxy_config_slot", slot["evidence"]["model_evidence"])
         self.assertEqual(("1.000", LIGHT_UNIVERSAL_PROXY, [0.5, 0.25, -1.5]),
                          (slot["evidence"]["resolution_lod"], slot["evidence"]["resolution_selection"],
                           slot["evidence"]["resolution_vertex"]))
@@ -1750,18 +1789,17 @@ class ResolutionLodHookTests(unittest.TestCase):
         light = ak["proxies"][0]
         self.assertEqual([("0", ""), ("1", ""), ("1.000", LIGHT_UNIVERSAL_PROXY)],
                          [(item["name"], item["selection"]) for item in light["res_lods"]])
-        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
-                         self.reason(observations))
+        self.assertEqual(("server_qualified", "member"), self.reason(observations))
 
     def test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence(self):
         names = res_of(LIGHT_UNIVERSAL_PROXY)
         for kind in self.ALL_KINDS:
             with self.subTest(kind):
                 world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
-                self.assertEqual(("pending", "resolution_proxy_missing"), self.reason(observations))
+                self.assertEqual(("server_qualified", "resolution_proxy_missing"), self.reason(observations))
                 self.assertNotIn(kind, world.selection_log)
         _world, observations = self.ak_with(res=(), view=names)          # the old decoy: a LOD named "view"
-        self.assertEqual(("pending", "resolution_proxy_missing"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_proxy_missing"), self.reason(observations))
         self.assertTrue(host_row(observations, "AK74")["view_by_name"])
 
     def test_the_numeric_name_rule_accepts_digits_with_at_most_one_inner_dot_and_nothing_else(self):
@@ -1778,22 +1816,22 @@ class ResolutionLodHookTests(unittest.TestCase):
     def test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent(self):
         for label, changes, expected in (
                 ("proxy not in the lod", dict(res=("components", "proxy:\\dz\\other\\thing.001")),
-                 ("pending", "resolution_proxy_missing")),
-                ("empty lod", dict(res=()), ("pending", "resolution_proxy_missing")),
+                 ("server_qualified", "resolution_proxy_missing")),
+                ("empty lod", dict(res=()), ("server_qualified", "resolution_proxy_missing")),
                 ("only non-numeric lods", dict(lods=(("geometry", res_of(LIGHT_UNIVERSAL_PROXY)), ("memory", ()))),
-                 ("pending", "resolution_lod_absent")),
-                ("no lods at all", dict(lods=()), ("pending", "resolution_lod_absent"))):
+                 ("server_qualified", "resolution_lod_absent")),
+                ("no lods at all", dict(lods=()), ("server_qualified", "resolution_lod_absent"))):
             with self.subTest(label):
                 _world, observations = self.ak_with(**changes)
                 self.assertEqual(expected, self.reason(observations), label)
-                self.assertNotIn("qualified", {h["verdict"] for h in report.build_report(classification(), observations)["hosts"]
-                                               if h["class"] == "AK74"})
+                # Round 8: a missing resolution-LOD proxy is a diagnostic and no longer withholds the Tier S verdict.
+                self.assertNotEqual("member", self.reason(observations)[1])
 
     def test_a_selection_without_a_first_vertex_is_pending_vertex_missing(self):
         _world, observations = self.ak_with(res_no_vertex=res_of(LIGHT_UNIVERSAL_PROXY))
         entry = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
         self.assertEqual((LIGHT_UNIVERSAL_PROXY, False, []), (entry["selection"], entry["vertex_ok"], entry["vertex"]))
-        self.assertEqual(("pending", "resolution_vertex_missing"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_vertex_missing"), self.reason(observations))
 
     def test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time(self):
         names = res_of(LIGHT_UNIVERSAL_PROXY)
@@ -1805,7 +1843,7 @@ class ResolutionLodHookTests(unittest.TestCase):
                 ak = host_row(observations, "AK74")
                 self.assertEqual([name for name, _ in lods], [item["name"] for item in ak["res_lods"]])
                 self.assertEqual(2, len(ak["proxies"][0]["res_lods"]))
-                self.assertEqual("qualified", self.reason(observations)[0], label)
+                self.assertEqual("server_qualified", self.reason(observations)[0], label)
         world, _observations = self.ak_with(lods=(("1", ()), ("1", names)))
         self.assertEqual(2, world.selection_log.count("1"))
 
@@ -1824,32 +1862,33 @@ class ResolutionLodHookTests(unittest.TestCase):
                                                  ak["res_scan_complete"]))
         self.assertEqual(16, len(ak["res_lods"]))
         self.assertFalse({str(number) for number in range(16, 20)} & set(world.selection_log))
-        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_evidence_truncated"), self.reason(observations))
         late = many[:17] + (("17", names),) + many[18:]
         _world, observations = self.ak_with(lods=late)
-        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_evidence_truncated"), self.reason(observations))
         early = (("3", names),) + many[:3] + many[4:]
         _world, observations = self.ak_with(lods=early)
-        self.assertEqual("qualified", self.reason(observations)[0])     # a complete LOD that holds it is enough
+        self.assertEqual("server_qualified", self.reason(observations)[0])     # a complete LOD that holds it is enough
 
     def test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut(self):
         filler = tuple("filler%03d" % number for number in range(600))
         _world, observations = self.ak_with(res=filler + res_of(LIGHT_UNIVERSAL_PROXY))
         ak = host_row(observations, "AK74")
-        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 603, "scan_complete": False}], ak["res_lods"])
+        self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 603, "scan_complete": False,
+                           "instance_ok": True, "native_count": 603}], ak["res_lods"])
         self.assertFalse(ak["res_scan_complete"])
         self.assertEqual("", ak["proxies"][0]["res_lods"][0]["selection"])
-        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_evidence_truncated"), self.reason(observations))
         _world, observations = self.ak_with(res=res_of(LIGHT_UNIVERSAL_PROXY) + filler)
         self.assertEqual(LIGHT_UNIVERSAL_PROXY, host_row(observations, "AK74")["proxies"][0]["res_lods"][0]["selection"])
-        self.assertEqual(("pending", "resolution_evidence_truncated"), self.reason(observations))   # found, but the LOD was cut
+        self.assertEqual(("server_qualified", "resolution_evidence_truncated"), self.reason(observations))   # found, but the LOD was cut
         _world, observations = self.ak_with(res=tuple("filler%03d" % number for number in range(512)) + res_of(LIGHT_UNIVERSAL_PROXY)[2:])
         ak = host_row(observations, "AK74")
         self.assertEqual((513, False), (ak["res_lods"][0]["selection_count"], ak["res_lods"][0]["scan_complete"]))
         _world, observations = self.ak_with(res=tuple("filler%03d" % number for number in range(511)) + (res_of(LIGHT_UNIVERSAL_PROXY)[2],))
         ak = host_row(observations, "AK74")
         self.assertEqual((512, True), (ak["res_lods"][0]["selection_count"], ak["res_lods"][0]["scan_complete"]))
-        self.assertEqual("qualified", self.reason(observations)[0])
+        self.assertEqual("server_qualified", self.reason(observations)[0])
 
     def test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored(self):
         world, observations = self.ak_with(lods_unlisted=True)
@@ -1859,7 +1898,7 @@ class ResolutionLodHookTests(unittest.TestCase):
         self.assertEqual((False, 0, []), (ak["lod_list_ok"], ak["lod_count"], ak["lod_names"]))
         self.assertNotIn("9", world.selection_log)      # the junk LOD left in the out array was never read
         self.assertEqual([], ak["proxies"][0]["res_lods"])
-        self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_enumeration_failed"), self.reason(observations))
 
     def test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed(self):
         names = res_of(LIGHT_UNIVERSAL_PROXY)
@@ -1869,7 +1908,7 @@ class ResolutionLodHookTests(unittest.TestCase):
                                                 ak["res_scan_complete"]))
         self.assertEqual((False, 0), (ak["lod_list_ok"], ak["lod_count"]))
         self.assertNotIn("5", world.selection_log)
-        self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_enumeration_failed"), self.reason(observations))
         _world, observations = self.ak_with(lods=tuple((str(number), names) for number in range(128)))
         self.assertEqual((True, 128, 16), (host_row(observations, "AK74")["res_enum_ok"],
                                            host_row(observations, "AK74")["res_lod_count"],
@@ -1880,12 +1919,13 @@ class ResolutionLodHookTests(unittest.TestCase):
         engine leaves the matching selections in the out array of a failed call, as a native failure might."""
         _world, observations = self.ak_with(res_unlisted=True)
         ak = host_row(observations, "AK74")
-        self.assertEqual([{"name": "1.000", "list_ok": False, "selection_count": 0, "scan_complete": False}], ak["res_lods"])
+        self.assertEqual([{"name": "1.000", "list_ok": False, "selection_count": 0, "scan_complete": False,
+                           "instance_ok": True, "native_count": 4}], ak["res_lods"])
         self.assertEqual((True, 1, 1, False), (ak["res_enum_ok"], ak["res_lod_count"], ak["res_lods_scanned"],
                                                ak["res_scan_complete"]))
         self.assertEqual([{"name": "1.000", "list_ok": False, "selection": "", "vertex_ok": False, "vertex": []}],
                          ak["proxies"][0]["res_lods"])
-        self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations))
+        self.assertEqual(("server_qualified", "resolution_enumeration_failed"), self.reason(observations))
 
     def test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown(self):
         names = res_of(LIGHT_UNIVERSAL_PROXY)
@@ -1897,10 +1937,10 @@ class ResolutionLodHookTests(unittest.TestCase):
         with mock.patch.object(ModelLod, "GetSelections", fail_first):
             world = World(types=dict(proxy_types(), AK74=dict(proxy_types()["AK74"], lods=(("0", names), ("1", names)))))
             run_hook(world, slots=_NoSelectionSlots)
-            self.assertEqual("qualified", self.reason(observations_of(world))[0])
+            self.assertEqual("server_qualified", self.reason(observations_of(world))[0])
             world = World(types=dict(proxy_types(), AK74=dict(proxy_types()["AK74"], lods=(("0", names), ("1", ())))))
             run_hook(world, slots=_NoSelectionSlots)
-            self.assertEqual(("pending", "resolution_enumeration_failed"), self.reason(observations_of(world)))
+            self.assertEqual(("server_qualified", "resolution_enumeration_failed"), self.reason(observations_of(world)))
 
     def test_the_selection_out_array_is_cleared_before_every_call_and_again_after_a_failure(self):
         """array.Clear is EnScript.c:385 (class array<Class T>, proto native void Clear())."""
@@ -1997,7 +2037,7 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
                 joined = report.build_report(classification(), observations)
                 ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
                 slot = ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-                self.assertEqual("qualified", slot["verdict"], label)
+                self.assertEqual("server_qualified", slot["verdict"], label)
 
     def test_each_proxy_row_counts_the_raw_separators_so_a_backslash_name_is_measured_not_guessed(self):
         _world, observations = self.run_world(self.backslash_types())
@@ -2029,7 +2069,7 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
                                                          light["inventory_slots"]))
         joined = report.build_report(classification(), observations)
         ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
-        self.assertNotEqual("qualified", ak["verdict"])
+        self.assertNotEqual("server_qualified", ak["verdict"])
 
     def test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check(self):
         types = proxy_types()
@@ -2067,7 +2107,7 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
                                                        ak["lod_names"], ak["view_by_name"]))
         joined = report.build_report(classification(), observations)
         slot = next(h for h in joined["hosts"] if h["class"] == "AK74")["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("pending", "resolution_enumeration_failed"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "resolution_enumeration_failed"), (slot["verdict"], slot["evidence"]["resolution_status"]))
 
     def test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified(self):
         types = proxy_types()
@@ -2076,11 +2116,11 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
         joined = report.build_report(classification(), observations)
         ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
         slot = ak["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("pending", "resolution_lod_absent"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("server_qualified", "resolution_lod_absent"), (slot["verdict"], slot["evidence"]["resolution_status"]))
         self.assertEqual(["geometry", "memory", "view"], ak["diagnostics"]["lod"]["names"])
         self.assertEqual((True, 0, True), (ak["diagnostics"]["resolution"]["enum_ok"], ak["diagnostics"]["resolution"]["count"],
                                            ak["diagnostics"]["resolution"]["complete"]))
-        self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
+        self.assertEqual({"server_qualified"}, {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
 
     def test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models(self):
         _world, observations = self.run_world()
@@ -2117,6 +2157,167 @@ class RoundSixNativeEvidenceTests(unittest.TestCase):
         self.assertEqual([], probe.lint_hook(hook, explicit_numbers=True))
         self.assertLessEqual(probe.rt.max_statement_plus(hook), 8)
         self.assertLess(len(hook.encode("ascii")), 256 * 1024)
+
+
+class RoundEightProbeTests(unittest.TestCase):
+    """Fix round 8 (issue #56): the probe-006 follow-up measurements. Every fact is read natively in the scope that
+    produced it; the synthetic engine here models the cited signatures and establishes nothing about DayZ."""
+
+    LIGHT_RAW = "proxy:\\dz\\weapons\\attachments\\light\\weaponlight_universal.001"
+
+    def run_world(self, types=None, config=None, slots=_NoSelectionSlots):
+        world = World(types=types or proxy_types(), config=config)
+        run_hook(world, slots=slots)
+        return world, observations_of(world)
+
+    def lod_types(self, **keep):
+        types = proxy_types()
+        types["AK74"] = spec(("weaponFlashlight", "weaponHandguardAK"), proxies=(LIGHT_UNIVERSAL_PROXY,), **keep)
+        return types
+
+    # --- the control spawn without ECE_IN_INVENTORY ---------------------------------------------------------------
+
+    def test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released(self):
+        world, observations = self.run_world()
+        plain = [call for call in world.create_calls if call[1] == 6]
+        self.assertEqual([("AK74", 6)], plain)
+        self.assertTrue(all(flags == 7 for _name, flags in world.create_calls if (_name, flags) != ("AK74", 6)))
+        control = observations["spawn_control"]
+        self.assertEqual(("AK74", True, "NOPERSISTENCY_WORLD|NOLIFETIME", 3, True),
+                         (control["class"], control["spawned"], control["spawn_flags"], control["proxy_count"],
+                          control["selection_list_ok"]))
+        self.assertEqual([], world.live())
+        self.assertEqual(observations["counters"]["spawned"], observations["counters"]["deleted"])
+
+    def test_a_control_that_cannot_be_spawned_is_reported_not_skipped(self):
+        types = proxy_types()
+        del types["AK74"]
+        _world, observations = self.run_world(types)
+        control = observations["spawn_control"]
+        self.assertEqual(("AK74", False), (control["class"], control["spawned"]))
+        self.assertNotIn("proxy_count", control)
+
+    # --- null LOD instances and per-LOD counts ----------------------------------------------------------------------
+
+    def test_a_null_lod_instance_is_reported_unavailable_and_never_called(self):
+        types = self.lod_types(lods=(("7", (LIGHT_UNIVERSAL_PROXY,)), "8", "geometry"), null_lods=("7",))
+        world, observations = self.run_world(types)
+        row = host_row(observations, "AK74")
+        first, second = row["res_lods"][0], row["res_lods"][1]
+        self.assertEqual(("7", False, False, -1), (first["name"], first["list_ok"], first["instance_ok"], first["native_count"]))
+        self.assertEqual(("8", True, True, 0), (second["name"], second["list_ok"], second["instance_ok"], second["native_count"]))
+        self.assertNotIn("7", world.selection_log + world.count_log)
+        self.assertIn("8", world.selection_log)
+        proxies = row["proxies"]
+        self.assertEqual([False, True], [lod["list_ok"] for lod in proxies[0]["res_lods"]])
+
+    def test_every_lod_is_counted_but_only_numeric_lods_list_selections(self):
+        names = ("0", "1.000", "memory", "geometry", "geometryView", "geometryFire", "view")
+        types = self.lod_types(lods=tuple((name, ("a", "b") if name == "geometry" else ()) for name in names))
+        world, observations = self.run_world(types)
+        row = host_row(observations, "AK74")
+        counted = {entry["name"]: entry["count"] for entry in row["lod_counts"]}
+        self.assertEqual({"0": 0, "1.000": 0, "memory": 0, "geometry": 2, "geometryView": 0, "geometryFire": 0, "view": 0}, counted)
+        self.assertTrue(all(entry["instance_ok"] for entry in row["lod_counts"]))
+        self.assertEqual((7, True), (row["lod_counts_total"], row["lod_counts_complete"]))
+        self.assertEqual({"0", "1.000"}, set(world.selection_log))
+        self.assertTrue({"memory", "geometry", "geometryView", "geometryFire"} <= set(world.count_log))
+
+    def test_a_null_lod_counts_as_minus_one_without_hiding_its_neighbours(self):
+        types = self.lod_types(lods=(("1.000", ()), ("memory", ("p",))), null_lods=("memory",))
+        _world, observations = self.run_world(types)
+        entries = host_row(observations, "AK74")["lod_counts"]
+        self.assertEqual([("1.000", 0, True), ("memory", -1, False)], [(e["name"], e["count"], e["instance_ok"]) for e in entries])
+
+    def test_lod_counts_are_bounded_and_say_when_they_were_cut(self):
+        types = self.lod_types(lods=tuple(str(number) for number in range(20)))
+        _world, observations = self.run_world(types)
+        row = host_row(observations, "AK74")
+        self.assertEqual((16, 20, False), (len(row["lod_counts"]), row["lod_counts_total"], row["lod_counts_complete"]))
+
+    # --- vertices in the scope that listed the selections ------------------------------------------------------------
+
+    def test_a_vertex_is_read_in_the_scope_that_listed_its_selections(self):
+        types = self.lod_types(lods=(("0", (LIGHT_UNIVERSAL_PROXY.replace("/", "\\"),)), ("1", (LIGHT_UNIVERSAL_PROXY,))))
+        world, observations = self.run_world(types)
+        host_events = [event for event in world.event_log if event.startswith(("sel:", "vtx:"))]
+        first = host_events.index("sel:0")
+        self.assertEqual(["sel:0", "vtx:0", "sel:1", "vtx:1"], host_events[first:first + 4])
+        entry = host_row(observations, "AK74")["proxies"][0]["res_lods"]
+        self.assertEqual([True, True], [lod["vertex_ok"] for lod in entry])
+        self.assertEqual(["0.5", "0.25", "-1.5"], entry[0]["vertex"])
+
+    def test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex(self):
+        types = self.lod_types(lods=(("1.000", (LIGHT_UNIVERSAL_PROXY,)),), count_only=(LIGHT_UNIVERSAL_PROXY,))
+        _world, observations = self.run_world(types)
+        lod = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
+        self.assertEqual((LIGHT_UNIVERSAL_PROXY, False, []), (lod["selection"], lod["vertex_ok"], lod["vertex"]))
+
+    def test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex(self):
+        types = self.lod_types(lods=(("1.000", (LIGHT_UNIVERSAL_PROXY,)),), index_only=(LIGHT_UNIVERSAL_PROXY,))
+        _world, observations = self.run_world(types)
+        lod = host_row(observations, "AK74")["proxies"][0]["res_lods"][0]
+        self.assertEqual((LIGHT_UNIVERSAL_PROXY, False, []), (lod["selection"], lod["vertex_ok"], lod["vertex"]))
+
+    # --- the raw proxy-name bone readback ------------------------------------------------------------------------------
+
+    def test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to(self):
+        types = self.lod_types(bones=(LIGHT_UNIVERSAL_PROXY[6:].lower(),))
+        world, observations = self.run_world(types)
+        slots = {slot["slot"]: slot for slot in host_row(observations, "AK74")["slots"]}
+        light = slots["weaponFlashlight"]
+        self.assertEqual((7, LIGHT_UNIVERSAL_PROXY[6:].lower(), 4), (light["proxy_bone_index"], light["proxy_bone_name"], light["proxy_bone_tried"]))
+        for variant in (LIGHT_UNIVERSAL_PROXY, LIGHT_UNIVERSAL_PROXY[6:], LIGHT_UNIVERSAL_PROXY.lower(), LIGHT_UNIVERSAL_PROXY[6:].lower()):
+            self.assertIn(variant, world.bone_calls)
+        helmet = slots["helmetFlashlight"]
+        self.assertEqual((-1, "", 0), (helmet["proxy_bone_index"], helmet["proxy_bone_name"], helmet["proxy_bone_tried"]))
+
+    def test_a_proxy_name_without_a_native_bone_is_recorded_as_not_found_never_as_found(self):
+        _world, observations = self.run_world(self.lod_types())
+        light = next(slot for slot in host_row(observations, "AK74")["slots"] if slot["slot"] == "weaponFlashlight")
+        self.assertEqual((-1, LIGHT_UNIVERSAL_PROXY, 4), (light["proxy_bone_index"], light["proxy_bone_name"], light["proxy_bone_tried"]))
+
+    def test_a_proxy_name_listed_twice_is_tried_once(self):
+        types = proxy_types()
+        _world, observations = self.run_world(types)
+        light = next(slot for slot in host_row(observations, "AK74")["slots"] if slot["slot"] == "weaponFlashlight")
+        self.assertEqual(4, light["proxy_bone_tried"])
+
+    def test_the_bone_object_after_attach_is_compared_with_the_attached_light(self):
+        cases = (("the attached light", dict(bones=(LIGHT_TLR_PROXY,), bone_object=True), (True, True, "TLRLight")),
+                 ("another object", dict(bones=(LIGHT_TLR_PROXY,), bone_object=False), (True, False, "")),
+                 ("no bone at all", dict(), (False, False, "")))
+        for label, extra, expected in cases:
+            types = proxy_types()
+            types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,), **extra)
+            with self.subTest(label):
+                world, observations = self.run_world(types)
+                tlr = next(entry for entry in host_row(observations, "Glock19")["lights"] if entry["light"] == "TLRLight")
+                slot = next(item for item in tlr["per_slot"] if item["slot"] == "pistolFlashlight")
+                self.assertEqual(expected, (slot["bone_object_checked"], slot["bone_object_matches"], slot["proxy_after_attach"]))
+                self.assertEqual([], world.live())
+
+    def test_the_variant_host_reads_its_own_bones_after_its_handguard(self):
+        types = self.lod_types(bones=(LIGHT_UNIVERSAL_PROXY,), bone_object=True)
+        world, observations = self.run_world(types)
+        variant = host_row(observations, "AK74")["prereq_variant"]
+        universal = next(entry for entry in variant["lights"] if entry["light"] == "UniversalLight")
+        slot = next(item for item in universal["per_slot"] if item["slot"] == "weaponFlashlight")
+        self.assertTrue(slot["attach_ok"])
+        self.assertEqual((True, True, "UniversalLight"), (slot["bone_object_checked"], slot["bone_object_matches"], slot["proxy_after_attach"]))
+
+    # --- the report on the new observations ---------------------------------------------------------------------------
+
+    def test_the_new_observations_join_into_a_server_qualified_report_that_stays_client_pending(self):
+        _world, observations = self.run_world()
+        joined = report.build_report(classification(), observations)
+        self.assertEqual([], joined["integrity"]["issues"])
+        by_name = {h["class"]: h for h in joined["hosts"]}
+        self.assertEqual(("server_qualified", "server_qualified"), (by_name["AK74"]["verdict"], by_name["Glock19"]["verdict"]))
+        self.assertEqual("PENDING", joined["acceptance"])
+        self.assertEqual({"status": "ok", "class": "AK74", "spawned": True, "spawn_flags": "NOPERSISTENCY_WORLD|NOLIFETIME",
+                          "proxy_count": 3, "selection_list_ok": True}, joined["spawn_control"])
+        self.assertEqual("ok", by_name["AK74"]["diagnostics"]["lod_counts"]["status"])
 
 
 if __name__ == "__main__":

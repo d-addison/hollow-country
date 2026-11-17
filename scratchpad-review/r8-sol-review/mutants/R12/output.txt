@@ -1,0 +1,67 @@
+...................................................................F..........F....................................................F.....................F..................................................F.............................................F......................
+======================================================================
+FAIL: test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1043, in test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify
+    self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'pending_client') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'pending_client')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_an_empty_model_with_an_existing_entry_does_not_qualify (tests.unit.test_taped_light_report.ProxySlotEvidenceTests.test_an_empty_model_with_an_existing_entry_does_not_qualify)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1048, in test_an_empty_model_with_an_existing_entry_does_not_qualify
+    self.assertNotEqual("server_qualified", slot["verdict"])
+AssertionError: 'server_qualified' == 'server_qualified'
+
+======================================================================
+FAIL: test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending (tests.unit.test_taped_light_report.SlotListTruncationTests.test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1320, in test_only_a_truncated_row_that_could_hold_the_slot_keeps_the_slot_pending
+    self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'pending_client') != ('pending', 'proxy_slot_list_truncated')
+
+First differing element 1:
+'pending_client'
+'proxy_slot_list_truncated'
+
+- ('pending', 'pending_client')
++ ('pending', 'proxy_slot_list_truncated')
+
+======================================================================
+FAIL: test_the_proxy_path_must_still_be_the_whole_light_model (tests.unit.test_taped_light_report.TierSTests.test_the_proxy_path_must_still_be_the_whole_light_model)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1906, in test_the_proxy_path_must_still_be_the_whole_light_model
+    self.assertNotEqual("server_qualified", slot["verdict"])
+AssertionError: 'server_qualified' == 'server_qualified'
+
+======================================================================
+FAIL: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong model]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1595, in test_a_config_whose_slot_or_model_disagrees_does_not_qualify
+    self.assertNotEqual("server_qualified", ak["verdict"])
+AssertionError: 'server_qualified' == 'server_qualified'
+
+======================================================================
+FAIL: test_a_missing_config_model_never_matches_a_resolution_lod (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_missing_config_model_never_matches_a_resolution_lod)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1710, in test_a_missing_config_model_never_matches_a_resolution_lod
+    self.assertNotEqual("server_qualified", self.ak_slot(observations)[0]["verdict"])
+AssertionError: 'server_qualified' == 'server_qualified'
+
+----------------------------------------------------------------------
+Ran 273 tests in 9.343s
+
+FAILED (failures=6)

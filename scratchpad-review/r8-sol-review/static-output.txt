@@ -1,0 +1,140 @@
+Hook bytes: 98904
+Hook sha256: a8e8d7f3298a9c05905e2c54206a54a5c785d4a03c67ff69d5bca5dc5301931f
+Lint with installed native type names and explicit_numbers: []
+Maximum + per statement: 8
+CreateObjectEx call sites: 1
+ObjectDelete call sites: 1
+Non-HCTL call names: AsciiToString, CallLater, CanAddAttachment, CanAddAttachmentEx, Cast, Clear, CloseFile, ConfigGetBool, ConfigGetChildName, ConfigGetChildrenCount, ConfigGetText, ConfigGetTextArray, ConfigIsExisting, Count, CreateAttachmentEx, CreateObjectEx, FPrintln, FileExist, Find, FindAttachment, Get, GetAttachmentSlotId, GetAttachmentSlotsCount, GetBoneIndex, GetBoneNameForSlotId, GetBoneObject, GetCallQueue, GetGame, GetInventory, GetLODByName, GetLODName, GetLODS, GetLODVertexIndex, GetMemoryPointPos, GetName, GetObjectsAtPosition3D, GetSelectionCount, GetSelectionForSlotId, GetSelectionList, GetSelections, GetSlotId, GetSlotIdCount, GetSlotIdFromString, GetSlotName, GetTime, GetType, GetVersion, GetVertexCount, GetVertexPosition, GetWorldName, HasAttachmentSlot, HasInventorySlot, HasSelection, IndexOf, IndexOfFrom, Insert, IsServer, IsSlotIdValid, LastIndexOf, Length, MakeDirectory, MemoryPointExists, ObjectDelete, OpenFile, Print, Replace, Substring, SurfaceY, ToLower, ToString, Vector
+Loops:
+generated-hook.c:672: while (releaseIndex >= 0)
+generated-hook.c:691: while (liveIndex < m_HCTLReleased.Count())
+generated-hook.c:750: while (slotIndex < m_HCTLSlots.Count())
+generated-hook.c:801: while (scan < scanLimit)
+generated-hook.c:838: while (foundPos != -1 && guard < 256)
+generated-hook.c:853: while (foundPos != -1 && markCount < 256)
+generated-hook.c:917: while (text.Length() > 0 && text.Substring(0, 1) == "")
+generated-hook.c:933: while (digitIndex < instanceText.Length())
+generated-hook.c:957: while (charIndex < nameLength)
+generated-hook.c:1006: while (lodIndex < lodTotal)
+generated-hook.c:1044: while (selectionIndex < selectionKept)
+generated-hook.c:1089: while (lodIndex < resNames.Count())
+generated-hook.c:1137: while (lodIndex < resNames.Count())
+generated-hook.c:1147: while (needle != "" && pathIndex < pathEnd)
+generated-hook.c:1198: while (slotIndex < slotTotal && slotIndex < 8)
+generated-hook.c:1236: while (nameCount < lodTotal && nameCount < 8)
+generated-hook.c:1265: while (countIndex < lodTotal && countIndex < 16)
+generated-hook.c:1314: while (scan < scanLimit)
+generated-hook.c:1347: while (index < total && listed < limit)
+generated-hook.c:1367: while (index < total && listed < limit)
+generated-hook.c:1402: while (lightIndex < m_HCTLLights.Count())
+generated-hook.c:1415: while (slotIndex < m_HCTLSlots.Count())
+generated-hook.c:1487: while (slotIndex < m_HCTLSlots.Count())
+generated-hook.c:1494: while (nameIndex < listedTotal && triedProxies.Count() < 4)
+generated-hook.c:1504: while (spelling < 4)
+generated-hook.c:1546: while (slotIndex < m_HCTLSlots.Count())
+generated-hook.c:1614: while (slotIndex < m_HCTLSlots.Count())
+generated-hook.c:1681: while (controlIndex < m_HCTLClasses.Count() && controlClass == "")
+generated-hook.c:1703: while (nameIndex < controlScan)
+generated-hook.c:1740: while (prereqIndex < m_HCTLPrereqSlots.Count())
+generated-hook.c:1777: while (prereqIndex < m_HCTLPrereqSlots.Count())
+generated-hook.c:1798: while (lightIndex < lightNames.Count())
+generated-hook.c:1901: while (scan < scanLimit)
+generated-hook.c:1925: while (rowIndex < rows.Count())
+generated-hook.c:1994: while (scanIndex < scanLimit)
+
+Installed declaration candidates (selected files, no vanilla source copies retained):
+1_Core/proto/EnConvert.c:30: proto string ToString();
+1_Core/proto/EnConvert.c:44: proto string AsciiToString();
+1_Core/proto/EnConvert.c:115: proto string ToString(bool simple = true);
+1_Core/proto/EnConvert.c:138: proto string ToString(bool beautify = true);
+1_Core/proto/EnConvert.c:169: proto native float Length();
+1_Core/proto/EnConvert.c:553: proto native owned string ToString();
+1_Core/proto/EnScript.c:78: proto external string ToString();
+1_Core/proto/EnScript.c:94: proto static Class Cast(Class from);
+1_Core/proto/EnScript.c:380: proto native int Count();
+1_Core/proto/EnScript.c:385: proto native void Clear();
+1_Core/proto/EnScript.c:394: proto int Find(T value);
+1_Core/proto/EnScript.c:399: proto T Get(int n);
+1_Core/proto/EnScript.c:407: proto int Insert(T value);
+1_Core/proto/EnScript.c:743: proto native int Count();
+1_Core/proto/EnScript.c:744: proto native void Clear();
+1_Core/proto/EnScript.c:749: proto int Find(T value);
+1_Core/proto/EnScript.c:750: proto T Get(int n);
+1_Core/proto/EnScript.c:758: proto int Insert(T value);
+1_Core/proto/EnScript.c:852: proto native int Count();
+1_Core/proto/EnScript.c:857: proto native void Clear();
+1_Core/proto/EnScript.c:877: proto bool Find(TKey key, out TValue val);
+1_Core/proto/EnScript.c:926: proto bool Insert(TKey key, TValue value);
+1_Core/proto/EnString.c:98: static proto string ToString(void var, bool type = false, bool name = false, bool quotes = true);
+1_Core/proto/EnString.c:113: proto string Substring(int start, int len);
+1_Core/proto/EnString.c:156: proto int Replace(string sample, string replace);
+1_Core/proto/EnString.c:171: proto int ToLower();
+1_Core/proto/EnString.c:199: proto native int Length();
+1_Core/proto/EnString.c:240: proto native int IndexOf(string sample);
+1_Core/proto/EnString.c:253: proto native int LastIndexOf(string sample);
+1_Core/proto/EnString.c:271: proto native int IndexOfFrom(int start, string sample);
+1_Core/proto/EnString.c:448: proto string Get(int index);
+1_Core/proto/EnString.c:511: proto void Insert(int index, string input);
+1_Core/proto/EnSystem.c:397: proto bool FileExist(string name);
+1_Core/proto/EnSystem.c:443: proto void		CloseFile(FileHandle file);
+1_Core/proto/EnSystem.c:481: proto void		FPrintln(FileHandle file, void var);
+1_Core/proto/EnSystem.c:525: proto native bool MakeDirectory(string name);
+1_Core/proto/EnDebug.c:96: proto void Print(void var);
+3_Game/gameplay.c:184: proto native owned string GetName();
+3_Game/gameplay.c:185: proto native int GetVertexCount();
+3_Game/gameplay.c:186: proto native int GetLODVertexIndex(int sel_vertex_index);
+3_Game/gameplay.c:188: vector GetVertexPosition(LOD lod, int index)
+3_Game/gameplay.c:215: proto native int GetSelectionCount();
+3_Game/gameplay.c:216: proto native bool GetSelections(notnull out array<Selection> selections);
+3_Game/gameplay.c:218: proto native vector GetVertexPosition(int vertex_index);
+3_Game/gameplay.c:220: proto native owned string GetName(Object myObject);
+3_Game/gameplay.c:362: proto string GetName();
+3_Game/gameplay.c:636: DayZGame GetGame() { return g_Game; }
+3_Game/gameplay.c:700: void OnInit()	{}
+3_Game/gameplay.c:767: bool IsServer()
+3_Game/Global/Game.c:449: proto bool					ConfigGetText(string path, out string value);
+3_Game/Global/Game.c:558: proto native void		ConfigGetTextArray(string path, out TStringArray values);
+3_Game/Global/Game.c:594: proto bool					ConfigGetChildName(string path, int index, out string name);
+3_Game/Global/Game.c:611: proto native int		ConfigGetChildrenCount(string path);
+3_Game/Global/Game.c:612: proto native bool		ConfigIsExisting(string path);
+3_Game/Global/Game.c:703: proto native Object CreateObjectEx( string type, vector pos, int iFlags, int iRotation = RF_DEFAULT );
+3_Game/Global/Game.c:705: proto native void   ObjectDelete( Object obj );
+3_Game/Global/Game.c:930: proto native void		GetObjectsAtPosition3D(vector pos, float radius, out array<Object> objects, out array<CargoBase> proxyCargos);
+3_Game/Global/Game.c:932: proto void					GetWorldName( out string world_name );
+3_Game/Global/Game.c:942: proto void					GetVersion( out string version );
+3_Game/Global/Game.c:1120: proto native bool		IsServer();
+3_Game/Global/Game.c:1176: proto native float		SurfaceY(float x, float z);
+3_Game/Global/Game.c:1535: proto int GetTime();
+3_Game/Global/Game.c:1550: ScriptCallQueue GetCallQueue(int call_category) {}
+3_Game/DayZGame.c:1233: override ScriptCallQueue GetCallQueue(int call_category)
+3_Game/Entities/Object.c:98: proto native bool GetLODS(notnull out array<LOD> lods);
+3_Game/Entities/Object.c:101: proto native owned string GetLODName(LOD lod);
+3_Game/Entities/Object.c:382: proto native void GetSelectionList(out TStringArray selectionList);
+3_Game/Entities/Object.c:405: bool HasSelection( string selection )
+3_Game/Entities/Object.c:452: proto native vector GetMemoryPointPos(string memoryPointName);
+3_Game/Entities/Object.c:454: proto native bool MemoryPointExists(string memoryPoint);
+3_Game/Entities/Object.c:887: bool ConfigGetBool(string entryName)
+3_Game/Entities/Object.c:901: proto native void		ConfigGetTextArray(string entryName, out TStringArray values);
+3_Game/Entities/Object.c:929: proto native bool		ConfigIsExisting(string entryName);
+3_Game/Entities/Entity.c:36: proto native int GetBoneIndex( string proxySelectionName );
+3_Game/Entities/Entity.c:39: proto native Object GetBoneObject( int boneIndex );
+3_Game/Entities/EntityAI.c:1884: proto native GameInventory GetInventory();
+3_Game/Systems/Inventory/Inventory.c:171: proto native int GetSlotId(int index);
+3_Game/Systems/Inventory/Inventory.c:175: proto native int GetSlotIdCount();
+3_Game/Systems/Inventory/Inventory.c:180: proto native int GetAttachmentSlotId(int index);
+3_Game/Systems/Inventory/Inventory.c:184: proto native int GetAttachmentSlotsCount();
+3_Game/Systems/Inventory/Inventory.c:201: proto native bool HasInventorySlot(int slotId);
+3_Game/Systems/Inventory/Inventory.c:215: proto native EntityAI CreateAttachmentEx(string typeName, int slotId);
+3_Game/Systems/Inventory/Inventory.c:224: proto native EntityAI FindAttachment(int slot);
+3_Game/Systems/Inventory/Inventory.c:241: proto native bool CanAddAttachment(notnull EntityAI e);
+3_Game/Systems/Inventory/Inventory.c:246: proto native bool CanAddAttachmentEx(notnull EntityAI e, int slot);
+3_Game/Systems/Inventory/InventorySlots.c:42: static proto native int GetSlotIdFromString(string slot_name);
+3_Game/Systems/Inventory/InventorySlots.c:48: static proto native owned string GetSlotName(int id);
+3_Game/Systems/Inventory/InventorySlots.c:59: static proto native bool IsSlotIdValid(int slotId);
+3_Game/Systems/Inventory/InventorySlots.c:80: static proto bool GetBoneNameForSlotId(int slot_Id, out string bone_name);
+3_Game/Systems/Inventory/InventorySlots.c:86: static proto bool GetSelectionForSlotId(int slot_Id, out string selection);
+3_Game/CE/CentralEconomy.c:30: const int ECE_NOLIFETIME					= 4194304;	// do not set lifetime when creating the object
+3_Game/CE/CentralEconomy.c:31: const int ECE_NOPERSISTENCY_WORLD			= 8388608;	// do not save this object in world
+3_Game/CE/CentralEconomy.c:37: const int ECE_IN_INVENTORY					= 787456;	// ECE_CREATEPHYSICS|ECE_KEEPHEIGHT|ECE_NOSURFACEALIGN
+5_Mission/mission/missionServer.c:85: override void OnInit()
+5_Mission/mission/missionServer.c:235: override bool IsServer()

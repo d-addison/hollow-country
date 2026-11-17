@@ -1,0 +1,26 @@
+...........................................................................................................................................................................................................................................F.....................................
+======================================================================
+FAIL: test_a_null_lod_instance_is_reported_unavailable_and_never_called (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_null_lod_instance_is_reported_unavailable_and_never_called)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2204, in test_a_null_lod_instance_is_reported_unavailable_and_never_called
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 989, in HCTLObserveHost
+  File "<generated-hook>", line 555, in HCTLProxyFacts
+  File "<generated-hook>", line 343, in HCTLResolutionScan
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 940, in GetSelectionCount
+    raise AssertionError("GetSelectionCount on a null LOD")
+AssertionError: GetSelectionCount on a null LOD
+
+----------------------------------------------------------------------
+Ran 273 tests in 10.726s
+
+FAILED (failures=1)

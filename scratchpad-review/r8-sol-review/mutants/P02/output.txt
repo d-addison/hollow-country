@@ -1,0 +1,76 @@
+.......................................................................................................................................................................................................................F.....F..........F........................................
+======================================================================
+FAIL: test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored)
+LOD.GetSelections (gameplay.c:216) returns bool and says nothing about its out array on failure. The synthetic
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1922, in test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored
+    self.assertEqual([{"name": "1.000", "list_ok": False, "selection_count": 0, "scan_complete": False,
+AssertionError: Lists differ: [{'na[55 chars]scan_complete': False, 'instance_ok': True, 'native_count': 4}] != [{'na[55 chars]scan_complete': False, 'instance_ok': True, 'native_count': 0}]
+
+First differing element 0:
+{'nam[53 chars]'scan_complete': False, 'instance_ok': True, 'native_count': 4}
+{'nam[53 chars]'scan_complete': False, 'instance_ok': True, 'native_count': 0}
+
+  [{'instance_ok': True,
+    'list_ok': False,
+    'name': '1.000',
+-   'native_count': 4,
+?                   ^
+
++   'native_count': 0,
+?                   ^
+
+    'scan_complete': False,
+    'selection_count': 0}]
+
+======================================================================
+FAIL: test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1746, in test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex
+    self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 4, "scan_complete": True,
+AssertionError: Lists differ: [{'na[53 chars]'scan_complete': True, 'instance_ok': True, 'native_count': 4}] != [{'na[53 chars]'scan_complete': True, 'instance_ok': True, 'native_count': 0}]
+
+First differing element 0:
+{'nam[51 chars] 'scan_complete': True, 'instance_ok': True, 'native_count': 4}
+{'nam[51 chars] 'scan_complete': True, 'instance_ok': True, 'native_count': 0}
+
+  [{'instance_ok': True,
+    'list_ok': True,
+    'name': '1.000',
+-   'native_count': 4,
+?                   ^
+
++   'native_count': 0,
+?                   ^
+
+    'scan_complete': True,
+    'selection_count': 4}]
+
+======================================================================
+FAIL: test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1877, in test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut
+    self.assertEqual([{"name": "1.000", "list_ok": True, "selection_count": 603, "scan_complete": False,
+AssertionError: Lists differ: [{'na[58 chars]an_complete': False, 'instance_ok': True, 'native_count': 603}] != [{'na[58 chars]an_complete': False, 'instance_ok': True, 'native_count': 0}]
+
+First differing element 0:
+{'nam[56 chars]can_complete': False, 'instance_ok': True, 'native_count': 603}
+{'nam[56 chars]can_complete': False, 'instance_ok': True, 'native_count': 0}
+
+  [{'instance_ok': True,
+    'list_ok': True,
+    'name': '1.000',
+-   'native_count': 603,
+?                   - -
+
++   'native_count': 0,
+    'scan_complete': False,
+    'selection_count': 603}]
+
+----------------------------------------------------------------------
+Ran 273 tests in 10.354s
+
+FAILED (failures=3)

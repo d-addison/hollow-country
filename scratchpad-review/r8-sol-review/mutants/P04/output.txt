@@ -1,0 +1,26 @@
+............................................................................................................................................................................................................................................F....................................
+======================================================================
+FAIL: test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2252, in test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 989, in HCTLObserveHost
+  File "<generated-hook>", line 555, in HCTLProxyFacts
+  File "<generated-hook>", line 368, in HCTLResolutionScan
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 899, in GetVertexPosition
+    raise AssertionError("Error(Vertex doesn't exist)")
+AssertionError: Error(Vertex doesn't exist)
+
+----------------------------------------------------------------------
+Ran 273 tests in 11.243s
+
+FAILED (failures=1)

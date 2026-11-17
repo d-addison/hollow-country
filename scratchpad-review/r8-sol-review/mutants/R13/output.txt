@@ -1,0 +1,50 @@
+...........................................................................................................................................FFF.....................................................................................................................................
+======================================================================
+FAIL: test_beam_memory_points_are_required_when_observed_and_unknown_when_absent (tests.unit.test_taped_light_report.TierSTests.test_beam_memory_points_are_required_when_observed_and_unknown_when_absent) (beam=(True, False))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1993, in test_beam_memory_points_are_required_when_observed_and_unknown_when_absent
+    self.assertEqual((verdict, reason), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'light_beam_points_missing') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'light_beam_points_missing')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_beam_memory_points_are_required_when_observed_and_unknown_when_absent (tests.unit.test_taped_light_report.TierSTests.test_beam_memory_points_are_required_when_observed_and_unknown_when_absent) (beam=(False, True))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1993, in test_beam_memory_points_are_required_when_observed_and_unknown_when_absent
+    self.assertEqual((verdict, reason), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'light_beam_points_missing') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'light_beam_points_missing')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_beam_memory_points_are_required_when_observed_and_unknown_when_absent (tests.unit.test_taped_light_report.TierSTests.test_beam_memory_points_are_required_when_observed_and_unknown_when_absent) (beam=(False, False))
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1993, in test_beam_memory_points_are_required_when_observed_and_unknown_when_absent
+    self.assertEqual((verdict, reason), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'light_beam_points_missing') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'light_beam_points_missing')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+----------------------------------------------------------------------
+Ran 273 tests in 10.449s
+
+FAILED (failures=3)

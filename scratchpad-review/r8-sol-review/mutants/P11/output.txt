@@ -1,0 +1,2171 @@
+....................................................................................................................................................................EE.EEEEFEE.EEEEEEEEE.E......................EEEEEE.EEEEEEEEEEEEEEEEEEEEEEEEEEEEEE...EE.EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEFE.E....
+======================================================================
+ERROR: test_a_clean_run_deletes_every_object_it_spawned_and_reports_what_it_measured (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_clean_run_deletes_every_object_it_spawned_and_reports_what_it_measured)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1236, in test_a_clean_run_deletes_every_object_it_spawned_and_reports_what_it_measured
+    model = run_hook(world)
+            ^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_fast_class_is_not_marked_timed_out (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_fast_class_is_not_marked_timed_out)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1335, in test_a_fast_class_is_not_marked_timed_out
+    run_hook(world, per_class_ms=2000)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_slow_server_trips_the_watchdog_between_classes_and_the_probe_still_cleans_up (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_slow_server_trips_the_watchdog_between_classes_and_the_probe_still_cleans_up)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1309, in test_a_slow_server_trips_the_watchdog_between_classes_and_the_probe_still_cleans_up
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_stuck_object_and_a_truncated_census_stop_certification (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_stuck_object_and_a_truncated_census_stop_certification) (label='stuck')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1472, in test_a_stuck_object_and_a_truncated_census_stop_certification
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_stuck_object_and_a_truncated_census_stop_certification (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_stuck_object_and_a_truncated_census_stop_certification) (label='truncated')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1472, in test_a_stuck_object_and_a_truncated_census_stop_certification
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_variant_that_could_not_attach_records_an_empty_unoccupied_slot (tests.unit.test_taped_light_probe.HookBehaviorTests.test_a_variant_that_could_not_attach_records_an_empty_unoccupied_slot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1383, in test_a_variant_that_could_not_attach_records_an_empty_unoccupied_slot
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_every_spawn_is_non_persistent_and_native_attach_requests_type_then_slot (tests.unit.test_taped_light_probe.HookBehaviorTests.test_every_spawn_is_non_persistent_and_native_attach_requests_type_then_slot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1252, in test_every_spawn_is_non_persistent_and_native_attach_requests_type_then_slot
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_live_after_release_measures_objects_the_engine_did_not_delete (tests.unit.test_taped_light_probe.HookBehaviorTests.test_live_after_release_measures_objects_the_engine_did_not_delete)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1264, in test_live_after_release_measures_objects_the_engine_did_not_delete
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_class_timeout_is_checked_after_every_observation_and_stops_the_class (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_class_timeout_is_checked_after_every_observation_and_stops_the_class)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1321, in test_the_class_timeout_is_checked_after_every_observation_and_stops_the_class
+    run_hook(world, per_class_ms=2000)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_generated_observations_join_into_a_report_without_integrity_issues (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_generated_observations_join_into_a_report_without_integrity_issues)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1456, in test_the_generated_observations_join_into_a_report_without_integrity_issues
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_hook_text_is_modelled_in_full_and_arms_itself (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_hook_text_is_modelled_in_full_and_arms_itself)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1229, in test_the_hook_text_is_modelled_in_full_and_arms_itself
+    model = run_hook(world)
+            ^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_last_observation_overrunning_the_budget_still_marks_the_class_timed_out (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_last_observation_overrunning_the_budget_still_marks_the_class_timed_out)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1328, in test_the_last_observation_overrunning_the_budget_still_marks_the_class_timed_out
+    run_hook(world, per_class_ms=2000)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_prerequisite_handguard_is_observed_on_a_fresh_host_and_cleaned_up (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_prerequisite_handguard_is_observed_on_a_fresh_host_and_cleaned_up)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1340, in test_the_prerequisite_handguard_is_observed_on_a_fresh_host_and_cleaned_up
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='default')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1429, in test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='stuck_and_background')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1429, in test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='class_timeout')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1429, in test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator) (scenario='watchdog_partial')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1429, in test_the_split_row_builders_produce_the_same_observation_text_as_the_single_statement_generator
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label (tests.unit.test_taped_light_probe.HookBehaviorTests.test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1362, in test_the_variant_records_what_the_slot_actually_holds_not_the_requested_label
+    run_hook(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong slot]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1592, in test_a_config_whose_slot_or_model_disagrees_does_not_qualify
+    _world, observations = self.run_world(config=config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 4 (use .ToString())
+
+======================================================================
+ERROR: test_a_config_whose_slot_or_model_disagrees_does_not_qualify (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_config_whose_slot_or_model_disagrees_does_not_qualify) [wrong model]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1592, in test_a_config_whose_slot_or_model_disagrees_does_not_qualify
+    _world, observations = self.run_world(config=config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_host_without_proxies_reports_none (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_host_without_proxies_reports_none)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1528, in test_a_host_without_proxies_reports_none
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1577, in test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name
+    _world, observations = self.run_world(config={})
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_text_inventory_slot_is_read_when_the_array_is_empty (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_a_text_inventory_slot_is_read_when_the_array_is_empty)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1523, in test_a_text_inventory_slot_is_read_when_the_array_is_empty
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_each_host_lists_its_unique_proxies_with_their_config_join (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_each_host_lists_its_unique_proxies_with_their_config_join)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1511, in test_each_host_lists_its_unique_proxies_with_their_config_join
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_listed_rows_and_the_scan_are_bounded (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_the_listed_rows_and_the_scan_are_bounded)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1545, in test_the_listed_rows_and_the_scan_are_bounded
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_slot_selection_evidence_is_still_reported_unchanged (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_the_slot_selection_evidence_is_still_reported_unchanged)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1599, in test_the_slot_selection_evidence_is_still_reported_unchanged
+    world, observations = self.run_world(proxy_types(old_evidence=True), slots=_Slots)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_unrelated_selections_are_not_proxies (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_unrelated_selections_are_not_proxies)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1535, in test_unrelated_selections_are_not_proxies
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_without_selection_evidence_the_proxy_join_qualifies_through_the_report (tests.unit.test_taped_light_probe.ProxyEvidenceHookTests.test_without_selection_evidence_the_proxy_join_qualifies_through_the_report)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1560, in test_without_selection_evidence_the_proxy_join_qualifies_through_the_report
+    world, observations = self.run_world()
+                          ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1507, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1894, in test_a_failed_lod_list_is_unknown_and_its_out_array_is_ignored
+    world, observations = self.ak_with(lods_unlisted=True)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored)
+LOD.GetSelections (gameplay.c:216) returns bool and says nothing about its out array on failure. The synthetic
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1920, in test_a_failed_selection_list_is_reported_unknown_and_its_out_array_is_ignored
+    _world, observations = self.ak_with(res_unlisted=True)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [proxy not in the lod]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1825, in test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent
+    _world, observations = self.ak_with(**changes)
+                           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [empty lod]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1825, in test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent
+    _world, observations = self.ak_with(**changes)
+                           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [only non-numeric lods]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1825, in test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent
+    _world, observations = self.ak_with(**changes)
+                           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent) [no lods at all]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1825, in test_a_listed_lod_without_the_proxy_selection_is_pending_proxy_missing_and_no_numeric_lod_is_pending_absent
+    _world, observations = self.ak_with(**changes)
+                           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [geometry]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [memory]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [view]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [VIEW_PILOT]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [landContact]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [geometryView]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence) [geometryFire]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1798, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    world, observations = self.ak_with(lods=(("1.000", ()), (kind, names)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1801, in test_a_proxy_that_only_a_non_numeric_lod_holds_is_never_evidence
+    _world, observations = self.ak_with(res=(), view=names)          # the old decoy: a LOD named "view"
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_selection_without_a_first_vertex_is_pending_vertex_missing (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_selection_without_a_first_vertex_is_pending_vertex_missing)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1831, in test_a_selection_without_a_first_vertex_is_pending_vertex_missing
+    _world, observations = self.ak_with(res_no_vertex=res_of(LIGHT_UNIVERSAL_PROXY))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_server_without_a_view_lod_qualifies_from_the_resolution_lod_with_the_evidence_reported (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_a_server_without_a_view_lod_qualifies_from_the_resolution_lod_with_the_evidence_reported)
+The native shape of probe-005: no LOD named "view", the proxy selection in a numeric LOD.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1763, in test_a_server_without_a_view_lod_qualifies_from_the_resolution_lod_with_the_evidence_reported
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [second lod]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1842, in test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time
+    world, observations = self.ak_with(lods=lods)
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [first lod]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1842, in test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time
+    world, observations = self.ak_with(lods=lods)
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [repeated name]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1842, in test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time
+    world, observations = self.ak_with(lods=lods)
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time) [repeated name, first holds it]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1842, in test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time
+    world, observations = self.ak_with(lods=lods)
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1847, in test_any_one_numeric_lod_holding_the_proxy_is_enough_and_a_repeated_name_is_scanned_each_time
+    world, _observations = self.ak_with(lods=(("1", ()), ("1", names)))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1742, in test_each_host_reports_the_resolution_scan_and_each_proxy_row_its_per_lod_selection_and_first_vertex
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1905, in test_more_than_128_lods_are_not_scanned_and_are_reported_as_not_listed
+    world, observations = self.ak_with(lods=tuple((str(number), names) for number in range(129)))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1939, in test_one_failed_lod_list_keeps_a_match_in_another_complete_lod_valid_but_a_miss_is_unknown
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_only_lods_with_a_whole_numeric_name_are_scanned_and_every_other_lod_is_never_asked_for_selections (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_only_lods_with_a_whole_numeric_name_are_scanned_and_every_other_lod_is_never_asked_for_selections)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1780, in test_only_lods_with_a_whole_numeric_name_are_scanned_and_every_other_lod_is_never_asked_for_selections
+    world, observations = self.ak_with(lods=lods)
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_lod_scan_is_bounded_at_sixteen_lods_and_a_cut_scan_without_the_selection_is_pending_truncated (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_lod_scan_is_bounded_at_sixteen_lods_and_a_cut_scan_without_the_selection_is_pending_truncated)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1859, in test_the_lod_scan_is_bounded_at_sixteen_lods_and_a_cut_scan_without_the_selection_is_pending_truncated
+    world, observations = self.ak_with(lods=many)
+                          ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_resolution_facts_are_emitted_for_every_host_and_stay_within_the_json_contract (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_resolution_facts_are_emitted_for_every_host_and_stay_within_the_json_contract)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1956, in test_the_resolution_facts_are_emitted_for_every_host_and_stay_within_the_json_contract
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_scan_of_each_lod_runs_once_per_host_and_never_once_per_proxy_row (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_scan_of_each_lod_runs_once_per_host_and_never_once_per_proxy_row)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1851, in test_the_scan_of_each_lod_runs_once_per_host_and_never_once_per_proxy_row
+    world, observations = self.ak_with(lods=(("0", res_of(LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY)), ("1", ())))
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut (tests.unit.test_taped_light_probe.ResolutionLodHookTests.test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1875, in test_the_selection_scan_is_bounded_at_512_and_says_when_it_was_cut
+    _world, observations = self.ak_with(res=filler + res_of(LIGHT_UNIVERSAL_PROXY))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1734, in ak_with
+    return self.run_world(types)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1723, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_control_that_cannot_be_spawned_is_reported_not_skipped (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_control_that_cannot_be_spawned_is_reported_not_skipped)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2195, in test_a_control_that_cannot_be_spawned_is_reported_not_skipped
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_null_lod_counts_as_minus_one_without_hiding_its_neighbours (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_null_lod_counts_as_minus_one_without_hiding_its_neighbours)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2228, in test_a_null_lod_counts_as_minus_one_without_hiding_its_neighbours
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_null_lod_instance_is_reported_unavailable_and_never_called (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_null_lod_instance_is_reported_unavailable_and_never_called)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2204, in test_a_null_lod_instance_is_reported_unavailable_and_never_called
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2252, in test_a_positive_vertex_count_with_no_lod_vertex_index_is_not_a_vertex
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_name_listed_twice_is_tried_once (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_proxy_name_listed_twice_is_tried_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2282, in test_a_proxy_name_listed_twice_is_tried_once
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_proxy_name_without_a_native_bone_is_recorded_as_not_found_never_as_found (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_proxy_name_without_a_native_bone_is_recorded_as_not_found_never_as_found)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2276, in test_a_proxy_name_without_a_native_bone_is_recorded_as_not_found_never_as_found
+    _world, observations = self.run_world(self.lod_types())
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2258, in test_a_valid_lod_vertex_index_with_a_zero_vertex_count_is_not_a_vertex
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_vertex_is_read_in_the_scope_that_listed_its_selections (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_a_vertex_is_read_in_the_scope_that_listed_its_selections)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2242, in test_a_vertex_is_read_in_the_scope_that_listed_its_selections
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2266, in test_each_raw_proxy_name_variant_is_queried_for_the_slot_it_belongs_to
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_every_lod_is_counted_but_only_numeric_lods_list_selections (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_every_lod_is_counted_but_only_numeric_lods_list_selections)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2217, in test_every_lod_is_counted_but_only_numeric_lods_list_selections
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_lod_counts_are_bounded_and_say_when_they_were_cut (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_lod_counts_are_bounded_and_say_when_they_were_cut)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2234, in test_lod_counts_are_bounded_and_say_when_they_were_cut
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2181, in test_one_firearm_control_is_spawned_without_the_inventory_flag_and_released
+    world, observations = self.run_world()
+                          ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [the attached light]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2294, in test_the_bone_object_after_attach_is_compared_with_the_attached_light
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [another object]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2294, in test_the_bone_object_after_attach_is_compared_with_the_attached_light
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_bone_object_after_attach_is_compared_with_the_attached_light (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_bone_object_after_attach_is_compared_with_the_attached_light) [no bone at all]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2294, in test_the_bone_object_after_attach_is_compared_with_the_attached_light
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_new_observations_join_into_a_server_qualified_report_that_stays_client_pending (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_new_observations_join_into_a_server_qualified_report_that_stays_client_pending)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2312, in test_the_new_observations_join_into_a_server_qualified_report_that_stays_client_pending
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_variant_host_reads_its_own_bones_after_its_handguard (tests.unit.test_taped_light_probe.RoundEightProbeTests.test_the_variant_host_reads_its_own_bones_after_its_handguard)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2302, in test_the_variant_host_reads_its_own_bones_after_its_handguard
+    world, observations = self.run_world(types)
+                          ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2170, in run_world
+    run_hook(world, slots=slots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1699, in test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_complete_slot_list_reports_its_count_and_a_text_slot_counts_one (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_complete_slot_list_reports_its_count_and_a_text_slot_counts_one)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1639, in test_a_complete_slot_list_reports_its_count_and_a_text_slot_counts_one
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_missing_config_model_never_matches_a_resolution_lod (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_missing_config_model_never_matches_a_resolution_lod)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1707, in test_a_missing_config_model_never_matches_a_resolution_lod
+    _world, observations = self.run_world(config=config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1659, in test_a_slot_inside_the_cap_still_qualifies_when_more_slots_were_dropped
+    _world, observations = self.run_world(types, config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_slot_omitted_by_the_per_proxy_cap_stays_pending_end_to_end (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_a_slot_omitted_by_the_per_proxy_cap_stays_pending_end_to_end)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1631, in test_a_slot_omitted_by_the_per_proxy_cap_stays_pending_end_to_end
+    _world, observations = self.run_world(types, config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [longer model name]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [version suffix]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [longer directory]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [generic named selection]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [generic selection with an instance]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [no instance suffix]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [non-numeric instance suffix]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [different directory]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [only the basename]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [backslashes and upper case]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [no leading slash]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring) [another instance number]
+Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1686, in test_the_proxy_match_is_the_whole_normalised_proxy_path_never_a_substring
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_slot_list_is_exactly_the_eight_listed_when_the_config_holds_exactly_eight (tests.unit.test_taped_light_probe.RoundFourProxyHookTests.test_the_slot_list_is_exactly_the_eight_listed_when_the_config_holds_exactly_eight)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1650, in test_the_slot_list_is_exactly_the_eight_listed_when_the_config_holds_exactly_eight
+    _world, observations = self.run_world(types, config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1614, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_bare_basename_config_hit_is_only_a_diagnostic_and_never_the_join (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_a_bare_basename_config_hit_is_only_a_diagnostic_and_never_the_join)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2066, in test_a_bare_basename_config_hit_is_only_a_diagnostic_and_never_the_join
+    _world, observations = self.run_world(config=config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_failed_lod_list_is_unknown_in_the_lod_facts_and_the_report_says_enumeration_failed (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_a_failed_lod_list_is_unknown_in_the_lod_facts_and_the_report_says_enumeration_failed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2104, in test_a_failed_lod_list_is_unknown_in_the_lod_facts_and_the_report_says_enumeration_failed
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2115, in test_a_server_without_a_numeric_lod_is_pending_resolution_lod_absent_never_qualified
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2078, in test_each_host_reports_its_lod_names_bounded_with_the_count_and_the_view_by_name_cross_check
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_each_proxy_row_counts_the_raw_separators_so_a_backslash_name_is_measured_not_guessed (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_each_proxy_row_counts_the_raw_separators_so_a_backslash_name_is_measured_not_guessed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2043, in test_each_proxy_row_counts_the_raw_separators_so_a_backslash_name_is_measured_not_guessed
+    _world, observations = self.run_world(self.backslash_types())
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_each_proxy_row_lists_the_config_names_it_tried_with_the_engine_answer_for_each (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_each_proxy_row_lists_the_config_names_it_tried_with_the_engine_answer_for_each)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2055, in test_each_proxy_row_lists_the_config_names_it_tried_with_the_engine_answer_for_each
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names) [forward slashes]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2031, in test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names) [raw backslashes]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2031, in test_the_base_name_is_derived_without_last_index_of_for_slash_and_backslash_names
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_config_class_scan_is_bounded_and_says_when_it_was_cut (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_config_class_scan_is_bounded_and_says_when_it_was_cut)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2138, in test_the_config_class_scan_is_bounded_and_says_when_it_was_cut
+    _world, observations = self.run_world(config=config)
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_header_carries_the_string_self_test_with_every_result_as_the_engine_gave_it (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_header_carries_the_string_self_test_with_every_result_as_the_engine_gave_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2012, in test_the_header_carries_the_string_self_test_with_every_result_as_the_engine_gave_it
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2126, in test_the_header_scans_the_config_class_names_once_and_reports_the_weaponlight_ones_with_their_models
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found_by_name (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found_by_name)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2091, in test_the_lod_name_list_is_capped_at_eight_names_and_a_late_view_lod_is_still_found_by_name
+    _world, observations = self.run_world(types)
+                           ^^^^^^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+ERROR: test_the_self_test_reports_a_native_last_index_of_that_disagrees_instead_of_hiding_it (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_self_test_reports_a_native_last_index_of_that_disagrees_instead_of_hiding_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2022, in test_the_self_test_reports_a_native_last_index_of_that_disagrees_instead_of_hiding_it
+    _world, observations = self.run_world()
+                           ^^^^^^^^^^^^^^^^
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2003, in run_world
+    run_hook(world, slots=_NoSelectionSlots)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1214, in run_hook
+    drain(world)
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1203, in drain
+    function()
+  File "<generated-hook>", line 146, in HCTLStep
+  File "<generated-hook>", line 990, in HCTLObserveHost
+  File "<generated-hook>", line 769, in HCTLHostSlots
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 553, in __add__
+    raise TypeError("bare non-string concatenation operand: %r (use .ToString())" % (other,))
+TypeError: bare non-string concatenation operand: 0 (use .ToString())
+
+======================================================================
+FAIL: test_every_generated_row_statement_is_within_the_native_formula_bound_with_explicit_numbers (tests.unit.test_taped_light_probe.HookBehaviorTests.test_every_generated_row_statement_is_within_the_native_formula_bound_with_explicit_numbers)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 1400, in test_every_generated_row_statement_is_within_the_native_formula_bound_with_explicit_numbers
+    self.assertEqual([], probe.lint_hook(hook, explicit_numbers=True))
+AssertionError: Lists differ: [] != ["line 1091: bare numeric 'proxyTried' con[50 chars]())"]
+
+Second list contains 1 additional elements.
+First extra element 0:
+"line 1091: bare numeric 'proxyTried' concatenated into a string (use an explicit .ToString())"
+
+- []
++ ["line 1091: bare numeric 'proxyTried' concatenated into a string (use an "
++  'explicit .ToString())']
+
+======================================================================
+FAIL: test_the_hook_keeps_every_native_compile_rule_and_its_size_bound (tests.unit.test_taped_light_probe.RoundSixNativeEvidenceTests.test_the_hook_keeps_every_native_compile_rule_and_its_size_bound)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_probe.py", line 2157, in test_the_hook_keeps_every_native_compile_rule_and_its_size_bound
+    self.assertEqual([], probe.lint_hook(hook, explicit_numbers=True))
+AssertionError: Lists differ: [] != ["line 1091: bare numeric 'proxyTried' con[50 chars]())"]
+
+Second list contains 1 additional elements.
+First extra element 0:
+"line 1091: bare numeric 'proxyTried' concatenated into a string (use an explicit .ToString())"
+
+- []
++ ["line 1091: bare numeric 'proxyTried' concatenated into a string (use an "
++  'explicit .ToString())']
+
+----------------------------------------------------------------------
+Ran 273 tests in 6.665s
+
+FAILED (failures=2, errors=105)

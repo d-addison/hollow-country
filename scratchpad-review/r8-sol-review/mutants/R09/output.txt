@@ -1,0 +1,49 @@
+......................................................................................................................................FFFF..........................................................................................................................................
+======================================================================
+FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [different name]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2079, in test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : different name
+
+======================================================================
+FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [empty known name]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2079, in test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : empty known name
+
+======================================================================
+FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [unknown mapping]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2079, in test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : unknown mapping
+
+======================================================================
+FAIL: test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping (tests.unit.test_taped_light_report.TierSTests.test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping) [mistyped known flag]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 2079, in test_a_legacy_selection_name_must_agree_with_the_top_level_slot_mapping
+    self.assertEqual("pending", slot["verdict"], label)
+AssertionError: 'pending' != 'server_qualified'
+- pending
++ server_qualified
+ : mistyped known flag
+
+----------------------------------------------------------------------
+Ran 273 tests in 11.569s
+
+FAILED (failures=4)
