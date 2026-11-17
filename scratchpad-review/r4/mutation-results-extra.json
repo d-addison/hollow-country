@@ -1,0 +1,27 @@
+[
+  {
+    "name": "baseline",
+    "status": "SURVIVED",
+    "tests": 91,
+    "failures": []
+  },
+  {
+    "name": "unknown-eligible",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_points.ReachGateSurvivorTests.test_a_cell_the_cohort_majority_failed_to_reach_is_never_eligible_whatever_its_share",
+      "tests.unit.test_interior_points.ReachGateSurvivorTests.test_an_even_split_between_reached_and_blocked_is_not_reachable_even_at_a_low_agreement_gate"
+    ]
+  },
+  {
+    "name": "refusal-report-removed",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_points.Round3CliTests.test_a_coverage_refusal_writes_the_report_but_no_treatment",
+      "tests.unit.test_interior_points.Round3CliTests.test_a_no_eligible_refusal_writes_the_report_but_no_treatment",
+      "tests.unit.test_interior_points.Round3CliTests.test_the_reach_source_option_defaults_to_strict_and_player_is_explicit"
+    ]
+  }
+]

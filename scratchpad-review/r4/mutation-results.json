@@ -1,0 +1,199 @@
+[
+  {
+    "name": "baseline",
+    "status": "SURVIVED",
+    "tests": 91,
+    "failures": []
+  },
+  {
+    "name": "snap-authorized",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_clear_zero_radius_line_through_a_waist_slot_never_authorizes_a_snapped_point",
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_nontrivial_snap_or_gap_is_never_reached_for_any_clear_geometry"
+    ]
+  },
+  {
+    "name": "gap-authorized",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.SafetyRegressionTests.test_a_final_waypoint_near_the_floor_without_a_wall_still_counts",
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_a_clear_lateral_final_gap_with_a_height_difference_casts_a_level_waist_ray_and_stays_unqualified",
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_nontrivial_snap_or_gap_is_never_reached_for_any_clear_geometry"
+    ]
+  },
+  {
+    "name": "free-clearance-disabled",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.ControlSeedTests.test_a_valid_exterior_seed_passes_for_a_symmetric_box_much_larger_than_the_building",
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_every_candidate_gets_exactly_one_exact_reason_and_the_code_follows_the_reason",
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_point_under_a_low_foreign_object_is_obstructed_even_when_the_owner_ceiling_is_high",
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_solid_foreign_block_over_the_floor_is_not_free_player_clearance"
+    ]
+  },
+  {
+    "name": "owner-rehits-counted",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_owner_volume_rehits_never_become_floors_and_only_advance_the_descent"
+    ]
+  },
+  {
+    "name": "column-cap-eligible",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_the_path_budget_and_capped_columns_are_reasons_not_silence",
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_capped_column_keeps_its_floors_but_never_qualifies_them"
+    ]
+  },
+  {
+    "name": "samples-unbounded",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_samples_are_bounded_to_eight_per_reason_while_the_count_keeps_going",
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_the_diagnostics_are_bounded_for_sixteen_targets"
+    ]
+  },
+  {
+    "name": "samples-one-short",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_samples_are_bounded_to_eight_per_reason_while_the_count_keeps_going"
+    ]
+  },
+  {
+    "name": "player-budget-shared",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3PlayerTests.test_each_filter_variant_has_its_own_path_budget"
+    ]
+  },
+  {
+    "name": "player-budget-disabled",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3PlayerTests.test_each_filter_variant_has_its_own_path_budget"
+    ]
+  },
+  {
+    "name": "strict-budget-disabled",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.DiagnosticsTests.test_each_control_failure_names_its_stage_and_the_raw_values",
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_the_path_budget_and_capped_columns_are_reasons_not_silence",
+      "tests.unit.test_interior_sampler.Round3PlayerTests.test_each_filter_variant_has_its_own_path_budget"
+    ]
+  },
+  {
+    "name": "player-state-uses-strict",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3PlayerTests.test_the_gate_stays_strict_and_a_failing_strict_control_does_not_fail_the_player_control",
+      "tests.unit.test_interior_sampler.Round3PlayerTests.test_a_failing_player_control_leaves_the_player_codes_unknown_while_strict_is_tested"
+    ]
+  },
+  {
+    "name": "player-path-uses-strict",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3PlayerTests.test_the_player_filter_may_use_a_link_that_the_strict_filter_cannot"
+    ]
+  },
+  {
+    "name": "snap-vertical-disabled",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_the_horizontal_snap_and_the_vertical_snap_are_measured_separately"
+    ]
+  },
+  {
+    "name": "gap-vertical-disabled",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_the_final_gap_is_split_and_a_vertical_gap_beyond_the_allowance_is_not_reached"
+    ]
+  },
+  {
+    "name": "unknown-ray-clear",
+    "status": "SURVIVED",
+    "tests": 91,
+    "failures": []
+  },
+  {
+    "name": "far-control-altitude",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.SafetyRegressionTests.test_the_far_control_door_is_sampled_at_the_terrain_height_there_not_at_the_seed_height"
+    ]
+  },
+  {
+    "name": "sloped-gap-ray",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3DiagTests.test_a_clear_lateral_final_gap_with_a_height_difference_casts_a_level_waist_ray_and_stays_unqualified"
+    ]
+  },
+  {
+    "name": "clearance-no-doubling",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_solid_foreign_block_over_the_floor_is_not_free_player_clearance"
+    ]
+  },
+  {
+    "name": "rehit-max-raised",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_sampler.Round3AddendumTests.test_a_solid_foreign_block_over_the_floor_is_not_free_player_clearance"
+    ]
+  },
+  {
+    "name": "unqualified-as-yes",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_points.Round3CodeAndSourceTests.test_unqualified_cells_are_tested_not_reached_and_never_eligible",
+      "tests.unit.test_interior_points.Round3CodeAndSourceTests.test_unqualified_observations_count_against_a_cell_like_failures",
+      "tests.unit.test_interior_points.Round3FunnelTests.test_the_reach_stage_names_what_kept_a_cell_out",
+      "tests.unit.test_interior_points.Round3ReportTests.test_a_no_eligible_refusal_carries_the_report_with_the_reason_counts"
+    ]
+  },
+  {
+    "name": "unqualified-denominator-removed",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_points.Round3CodeAndSourceTests.test_unqualified_observations_count_against_a_cell_like_failures"
+    ]
+  },
+  {
+    "name": "player-source-uses-strict",
+    "status": "KILLED",
+    "tests": 91,
+    "failures": [
+      "tests.unit.test_interior_points.Round3CodeAndSourceTests.test_the_player_source_refuses_a_census_without_player_codes_instead_of_falling_back",
+      "tests.unit.test_interior_points.Round3CodeAndSourceTests.test_the_reach_source_defaults_to_strict_and_never_switches_silently",
+      "tests.unit.test_interior_points.Round3CliTests.test_the_reach_source_option_defaults_to_strict_and_player_is_explicit",
+      "tests.unit.test_interior_points.Round3ReportTests.test_the_player_source_is_recorded_and_selects_the_player_codes"
+    ]
+  }
+]

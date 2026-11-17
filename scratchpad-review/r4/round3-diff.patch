@@ -1,0 +1,2477 @@
+diff --git a/tests/unit/test_interior_points.py b/tests/unit/test_interior_points.py
+index 9f7c80e..fc60d49 100644
+--- a/tests/unit/test_interior_points.py
++++ b/tests/unit/test_interior_points.py
+@@ -818,8 +818,8 @@ class CliTests(unittest.TestCase):
+         with mock.patch("sys.stderr") as err:
+             self.assertEqual(2, pts.main(self.argv("--min-calibration", "0.9")))
+         self.assertIn("coverage", "".join(call.args[0] for call in err.write.call_args_list).lower())
+-        self.assertFalse(self.out.exists())
+-        self.assertFalse(self.report.exists())
++        self.assertFalse(self.out.exists())                      # no treatment; the refusal report is written (round 3)
++        self.assertEqual("refused", json.loads(self.report.read_text())["status"])
+ 
+     def test_cli_refuses_outputs_inside_the_source_checkout_or_with_traversal(self):
+         inside = Path(pts.__file__).resolve().parents[2] / "treatment-must-not-exist.xml"
+@@ -838,5 +838,296 @@ class CliTests(unittest.TestCase):
+         self.assertIn("interior_points:", "".join(call.args[0] for call in err.write.call_args_list))
+ 
+ 
++def with_player(rows, player_hits):
++    """Attach a parallel player_codes array: the hit rows stay six fields, the player codes come from the list."""
++    result = []
++    for row in rows:
++        row = json.loads(json.dumps(row))
++        row["player_codes"] = [h[5] for h in player_hits]
++        result.append(row)
++    return result
++
++
++STAGES = ("candidates", "clearance", "height", "walkable", "reach", "agreement", "eligible")
++
++
++class Round3CodeAndSourceTests(unittest.TestCase):
++    """Round 3: unqualified code 3, the explicit strict/player reach source, and a parallel player_codes array."""
++
++    def test_code_three_is_a_valid_hit_code_and_nothing_above_it_is(self):
++        good = full_census()
++        good["placements"][0]["hits"].append([1.0, 2.0, 3.0, 2.0, 1.0, 3])
++        pts.parse_census(encode(good))
++        for bad in (4, -2, 1.5, True):
++            document = json.loads(json.dumps(full_census()))
++            document["placements"][0]["hits"].append([1.0, 2.0, 3.0, 2.0, 1.0, bad])
++            with self.subTest(code=bad), self.assertRaises(ValueError):
++                pts.parse_census(encode(document))
++
++    def test_player_codes_must_be_a_parallel_array_of_known_codes(self):
++        base = full_census()
++        base["placements"][0]["player_codes"] = [h[5] for h in base["placements"][0]["hits"]]
++        pts.parse_census(encode(base))
++        for mutate in (lambda row: row["player_codes"].pop(), lambda row: row["player_codes"].append(1),
++                       lambda row: row.update(player_codes="nope"), lambda row: row["player_codes"].__setitem__(0, 4),
++                       lambda row: row["player_codes"].__setitem__(0, "x")):
++            document = json.loads(json.dumps(base))
++            mutate(document["placements"][0])
++            with self.subTest(document=str(document["placements"][0]["player_codes"])[:40]), self.assertRaises(ValueError):
++                pts.parse_census(encode(document))
++
++    def test_unqualified_cells_are_tested_not_reached_and_never_eligible(self):
++        document = census(four_placements("Land_Tenement_Small", hits=storey_hits(reach=3)))
++        got = pts.class_candidates(pts.parse_census(encode(document)), "Land_Tenement_Small")
++        self.assertEqual("known", got["reach_mode"])
++        first = got["candidates"][0]
++        self.assertEqual({"yes": 0, "no": 0, "nonav": 0, "unknown": 0}, first["reach"])
++        self.assertEqual(4, first["reach_unqualified"])
++        self.assertFalse(first["reachable"])
++        self.assertEqual([], pts.eligible(got["candidates"], got["reach_mode"], min_agreement=0.25))
++
++    def test_unqualified_observations_count_against_a_cell_like_failures(self):
++        hits = storey_hits()
++        mixed = [placement("Land_Tenement_Small", hits, index=0), placement("Land_Tenement_Small", hits, index=1),
++                 placement("Land_Tenement_Small", storey_hits(reach=3), index=2),
++                 placement("Land_Tenement_Small", storey_hits(reach=3), index=3)]
++        got = pts.class_candidates(pts.parse_census(encode(census(mixed))), "Land_Tenement_Small")
++        cell = got["candidates"][0]
++        self.assertEqual(2, cell["reach"]["yes"])
++        self.assertEqual(2, cell["reach_unqualified"])
++        self.assertFalse(cell["reachable"])                   # two of four tested observations is not a majority
++
++    def hits_with_player_reach(self, strict, player):
++        rows = four_placements("Land_Tenement_Small", hits=storey_hits(reach=strict))
++        return census(with_player(rows, storey_hits(reach=player)))
++
++    def test_the_reach_source_defaults_to_strict_and_never_switches_silently(self):
++        document = pts.parse_census(encode(self.hits_with_player_reach(strict=0, player=1)))
++        strict = pts.class_candidates(document, "Land_Tenement_Small")
++        self.assertEqual([], pts.eligible(strict["candidates"], strict["reach_mode"], 0.75))
++        player = pts.class_candidates(document, "Land_Tenement_Small", reach_source="player")
++        self.assertEqual(32, len(pts.eligible(player["candidates"], player["reach_mode"], 0.75)))
++        explicit = pts.class_candidates(document, "Land_Tenement_Small", reach_source="strict")
++        self.assertEqual(strict, explicit)
++
++    def test_the_player_source_refuses_a_census_without_player_codes_instead_of_falling_back(self):
++        document = pts.parse_census(encode(census(four_placements("Land_Tenement_Small"))))
++        self.assertGreater(len(pts.class_candidates(document, "Land_Tenement_Small")["candidates"]), 0)
++        with self.assertRaises(ValueError):
++            pts.class_candidates(document, "Land_Tenement_Small", reach_source="player")
++
++    def test_an_unknown_reach_source_is_refused(self):
++        document = pts.parse_census(encode(full_census()))
++        with self.assertRaises(ValueError):
++            pts.class_candidates(document, "Land_Tenement_Small", reach_source="loose")
++        with self.assertRaises(ValueError):
++            pts.build_treatment(encode(full_census()), STOCK, 0.4, reach_source="loose")
++
++
++class Round3FunnelTests(unittest.TestCase):
++    def funnel(self, document, name="Land_Tenement_Small", **kwargs):
++        got = pts.class_candidates(pts.parse_census(encode(document)), name, **kwargs)
++        return got, pts.funnel(got, 0.75)
++
++    def test_a_clean_class_passes_every_stage(self):
++        got, funnel = self.funnel(full_census())
++        self.assertEqual(32, funnel["stages"]["candidates"])
++        self.assertEqual({stage: 32 for stage in STAGES}, funnel["stages"])
++        self.assertEqual(4, funnel["usable_placements"])
++        self.assertEqual("known", funnel["reach_mode"])
++        self.assertEqual({"yes": 32, "no": 0, "nonav": 0, "unqualified": 0, "unknown": 0}, funnel["reach_cells"])
++        self.assertEqual({"tested": 4}, funnel["control_states"])
++
++    def test_each_stage_drops_only_what_it_removes(self):
++        low = cells(0.0, XS0, ZS, clearance=1.2) + cells(3.0, XS1, ZS)
++        got, funnel = self.funnel(census(four_placements("Land_Tenement_Small", hits=low)))
++        self.assertEqual(32, funnel["stages"]["candidates"])
++        self.assertEqual(12, funnel["stages"]["clearance"])
++        self.assertEqual(12, funnel["stages"]["eligible"])
++        self.assertEqual(12, len(pts.eligible(got["candidates"], got["reach_mode"], 0.75)))
++        rows = [placement("Land_Tenement_Small", storey_hits(), index=i) for i in range(2)]
++        rows += [placement("Land_Tenement_Small", [], index=i) for i in (2, 3)]
++        _got, thin = self.funnel(census(rows))
++        self.assertEqual(32, thin["stages"]["walkable"])
++        self.assertEqual(32, thin["stages"]["reach"])
++        self.assertEqual(0, thin["stages"]["agreement"])                  # half the cohort never saw those cells
++        self.assertEqual(0, thin["stages"]["eligible"])
++
++    def test_the_reach_stage_names_what_kept_a_cell_out(self):
++        by_column = {-4.5: 0, -3.5: 2, -2.5: 3, -1.5: -1, -0.5: 1}
++        hits = [h[:5] + [by_column[h[0]]] if h[1] < 1.0 else h for h in storey_hits()]
++        got, funnel = self.funnel(census(four_placements("Land_Tenement_Small", hits=hits)))
++        self.assertEqual({"yes": 16, "no": 4, "nonav": 4, "unqualified": 4, "unknown": 4}, funnel["reach_cells"])
++        self.assertEqual(funnel["stages"]["walkable"], sum(funnel["reach_cells"].values()))
++        self.assertEqual({"yes": 64, "no": 16, "nonav": 16, "unqualified": 16, "unknown": 16},
++                         funnel["reach_observations"])
++        self.assertEqual(32, funnel["stages"]["walkable"])
++        self.assertEqual(16, funnel["stages"]["reach"])
++        self.assertEqual(16, funnel["stages"]["agreement"])
++        self.assertEqual(16, funnel["stages"]["eligible"])
++        self.assertEqual(16, len(pts.eligible(got["candidates"], got["reach_mode"], 0.75)))
++
++    def test_an_all_unknown_class_reports_unknown_cells_not_failures(self):
++        got, funnel = self.funnel(census(four_placements("Land_Tenement_Small", hits=storey_hits(reach=-1))))
++        self.assertEqual("unknown", funnel["reach_mode"])
++        self.assertEqual(32, funnel["reach_cells"]["unknown"])
++        self.assertEqual(0, funnel["stages"]["reach"])
++        self.assertEqual(0, funnel["stages"]["eligible"])
++
++    def test_a_class_with_no_usable_placement_has_an_empty_funnel(self):
++        got, funnel = self.funnel(census(four_placements("Land_Tenement_Small", ray_capped=True)))
++        self.assertEqual({stage: 0 for stage in STAGES}, funnel["stages"])
++        self.assertEqual(0, funnel["usable_placements"])
++        self.assertEqual(4, funnel["rows"])
++
++    def test_control_states_follow_the_selected_reach_source(self):
++        rows = four_placements("Land_Tenement_Small", reach_state="control-failed")
++        for row in rows:
++            row["reach"]["player"] = {"state": "tested"}
++        rows = with_player(rows, storey_hits())
++        document = census(rows)
++        _got, strict = self.funnel(document)
++        self.assertEqual({"control-failed": 4}, strict["control_states"])
++        _got, player = self.funnel(document, reach_source="player")
++        self.assertEqual({"tested": 4}, player["control_states"])
++        self.assertEqual("player", player["reach_source"])
++        self.assertEqual("strict", strict["reach_source"])
++
++
++class Round3ReportTests(unittest.TestCase):
++    def build(self, document, **kwargs):
++        options = {"min_calibration": 0.4}
++        options.update(kwargs)
++        return pts.build_treatment(encode(document), STOCK, **options)
++
++    def test_the_success_report_carries_the_funnel_and_the_source(self):
++        _data, report = self.build(full_census())
++        self.assertEqual("strict", report["parameters"]["reach_source"])
++        self.assertEqual("ok", report["status"])
++        for name in ("Land_Tenement_Small", "Land_Tenement_Big", "Land_HouseBlock_2F1", "Land_Mil_Barracks2"):
++            self.assertEqual(set(STAGES), set(report["funnel"][name]["stages"]))
++        for name in ("Land_Tenement_Small", "Land_Tenement_Big"):
++            self.assertEqual(report["classes"][name]["eligible"], report["funnel"][name]["stages"]["eligible"])
++
++    def test_a_calibration_refusal_carries_the_report_with_the_funnel(self):
++        with self.assertRaises(pts.CoverageError) as caught:
++            self.build(full_census(), min_calibration=0.9)
++        report = caught.exception.report
++        self.assertEqual("refused", report["status"])
++        self.assertEqual("calibration", report["refusal"]["kind"])
++        self.assertIn("coverage", report["refusal"]["message"])
++        self.assertEqual(32, report["funnel"]["Land_Tenement_Small"]["stages"]["eligible"])
++        self.assertEqual(report, json.loads(json.dumps(report)))
++
++    def test_a_missing_calibration_class_still_reports_the_tenement_funnel(self):
++        document = census(four_placements("Land_Tenement_Small") + four_placements("Land_Tenement_Big"))
++        with self.assertRaises(pts.CoverageError) as caught:
++            self.build(document)
++        report = caught.exception.report
++        self.assertEqual("refused", report["status"])
++        self.assertEqual(32, report["funnel"]["Land_Tenement_Small"]["stages"]["candidates"])
++        self.assertEqual({stage: 0 for stage in STAGES}, report["funnel"]["Land_HouseBlock_2F1"]["stages"])
++
++    def test_a_no_eligible_refusal_carries_the_report_with_the_reason_counts(self):
++        document = census(four_placements("Land_Tenement_Small", hits=storey_hits(reach=3))
++                          + four_placements("Land_Tenement_Big")
++                          + four_placements("Land_HouseBlock_2F1", role="calibration")
++                          + four_placements("Land_Mil_Barracks2", role="calibration"))
++        with self.assertRaises(ValueError) as caught:
++            self.build(document)
++        report = caught.exception.report
++        self.assertEqual("refused", report["status"])
++        self.assertEqual("no-eligible-candidates", report["refusal"]["kind"])
++        self.assertIn("Land_Tenement_Small", report["refusal"]["message"])
++        funnel = report["funnel"]["Land_Tenement_Small"]
++        self.assertEqual(0, funnel["stages"]["eligible"])
++        self.assertEqual(32, funnel["reach_cells"]["unqualified"])
++        self.assertEqual(32, report["funnel"]["Land_Tenement_Big"]["stages"]["eligible"])
++
++    def test_the_player_source_is_recorded_and_selects_the_player_codes(self):
++        rows = with_player(four_placements("Land_Tenement_Small", hits=storey_hits(reach=0)), storey_hits(reach=1))
++        rows += with_player(four_placements("Land_Tenement_Big", hits=storey_hits(reach=0)), storey_hits(reach=1))
++        rows += with_player(four_placements("Land_HouseBlock_2F1", role="calibration"), storey_hits())
++        rows += with_player(four_placements("Land_Mil_Barracks2", role="calibration"), storey_hits())
++        document = census(rows)
++        with self.assertRaises(ValueError) as strict:
++            self.build(document)
++        self.assertEqual("strict", strict.exception.report["parameters"]["reach_source"])
++        self.assertEqual(0, strict.exception.report["funnel"]["Land_Tenement_Small"]["stages"]["eligible"])
++        _data, report = self.build(document, reach_source="player")
++        self.assertEqual("player", report["parameters"]["reach_source"])
++        self.assertEqual(32, report["funnel"]["Land_Tenement_Small"]["stages"]["eligible"])
++
++    def test_bad_arguments_still_raise_without_a_report(self):
++        with self.assertRaises(ValueError) as caught:
++            self.build(full_census(), radius=0.0)
++        self.assertFalse(hasattr(caught.exception, "report"))
++
++
++class Round3CliTests(unittest.TestCase):
++    def setUp(self):
++        temp = tempfile.TemporaryDirectory()
++        self.addCleanup(temp.cleanup)
++        self.root = Path(temp.name)
++        self.census = self.root / "census.json"
++        self.stock = self.root / "mapgroupproto.xml"
++        self.stock.write_bytes(STOCK)
++        self.out = self.root / "out" / "mapgroupproto.xml"
++        self.report = self.root / "out" / "report.json"
++
++    def argv(self, *extra):
++        return ["--census", str(self.census), "--stock-proto", str(self.stock), "--output", str(self.out),
++                "--report", str(self.report), *extra]
++
++    def run_main(self, *extra):
++        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
++            return pts.main(self.argv(*extra))
++
++    def test_a_coverage_refusal_writes_the_report_but_no_treatment(self):
++        self.census.write_bytes(encode(full_census()))
++        self.assertEqual(2, self.run_main("--min-calibration", "0.9"))
++        self.assertFalse(self.out.exists())
++        report = json.loads(self.report.read_text())
++        self.assertEqual("refused", report["status"])
++        self.assertEqual("calibration", report["refusal"]["kind"])
++        self.assertEqual(32, report["funnel"]["Land_Tenement_Small"]["stages"]["eligible"])
++
++    def test_a_no_eligible_refusal_writes_the_report_but_no_treatment(self):
++        document = census(four_placements("Land_Tenement_Small", hits=storey_hits(reach=-1))
++                          + four_placements("Land_Tenement_Big")
++                          + four_placements("Land_HouseBlock_2F1", role="calibration")
++                          + four_placements("Land_Mil_Barracks2", role="calibration"))
++        self.census.write_bytes(encode(document))
++        self.assertEqual(1, self.run_main("--min-calibration", "0.4"))
++        self.assertFalse(self.out.exists())
++        report = json.loads(self.report.read_text())
++        self.assertEqual("no-eligible-candidates", report["refusal"]["kind"])
++        self.assertEqual(32, report["funnel"]["Land_Tenement_Small"]["reach_cells"]["unknown"])
++
++    def test_the_reach_source_option_defaults_to_strict_and_player_is_explicit(self):
++        rows = with_player(four_placements("Land_Tenement_Small", hits=storey_hits(reach=0)), storey_hits(reach=1))
++        rows += with_player(four_placements("Land_Tenement_Big", hits=storey_hits(reach=0)), storey_hits(reach=1))
++        rows += with_player(four_placements("Land_HouseBlock_2F1", role="calibration"), storey_hits())
++        rows += with_player(four_placements("Land_Mil_Barracks2", role="calibration"), storey_hits())
++        self.census.write_bytes(encode(census(rows)))
++        self.assertEqual(1, self.run_main("--min-calibration", "0.4"))            # strict: nothing reached
++        self.assertEqual("strict", json.loads(self.report.read_text())["parameters"]["reach_source"])
++        self.report.unlink()
++        self.assertEqual(0, self.run_main("--min-calibration", "0.4", "--reach-source", "player"))
++        self.assertEqual("player", json.loads(self.report.read_text())["parameters"]["reach_source"])
++
++    def test_an_unknown_reach_source_is_rejected_by_the_parser(self):
++        self.census.write_bytes(encode(full_census()))
++        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
++            pts.main(self.argv("--reach-source", "loose"))
++
++    def test_a_refusal_report_never_overwrites_an_existing_file(self):
++        self.census.write_bytes(encode(full_census()))
++        self.report.parent.mkdir(parents=True)
++        self.report.write_text("keep")
++        self.assertEqual(1, self.run_main("--min-calibration", "0.9"))
++        self.assertEqual("keep", self.report.read_text())
++
++
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/unit/test_interior_sampler.py b/tests/unit/test_interior_sampler.py
+index 8a3ac6b..08b91ef 100644
+--- a/tests/unit/test_interior_sampler.py
++++ b/tests/unit/test_interior_sampler.py
+@@ -87,11 +87,19 @@ class Plane:
+             owner, y, x0, x1, z0, z1, kind, dir_y, thick)
+ 
+     def hit_y(self, start_y, end_y):
+-        """Height of the contact for a vertical ray from start_y to end_y, or None."""
++        """Height of the contact for a vertical ray from start_y to end_y, or None.
++
++        A thick plane is a closed volume from ``y - thick`` to ``y``: a ray that starts inside re-reports its
++        start, and an upward ray from below meets the underside first (REFERENCE model, not DayZ behavior)."""
+         if end_y < start_y:
+             if self.thick and self.y - self.thick < start_y <= self.y:
+                 return start_y
+             return self.y if end_y <= self.y < start_y else None
++        if self.thick:
++            bottom = self.y - self.thick
++            if bottom < start_y <= self.y:
++                return start_y
++            return bottom if start_y < bottom <= end_y else None
+         return self.y if start_y < self.y <= end_y else None
+ 
+     def covers(self, x, z):
+@@ -201,12 +209,17 @@ class NavMesh:
+     """Reference navmesh: flat zones, links between components, optional truncated paths."""
+ 
+     def __init__(self, building, zones, links=(), partial_gap=0.0, tolerance=1.5, snap=False, offset=(0.0, 0.0, 0.0),
+-                 box=None, single_waypoint=False):
++                 box=None, single_waypoint=False, player_links=None, final_drop=0.0, player_only=None):
+         self.building, self.zones, self.partial_gap, self.tolerance = building, zones, partial_gap, tolerance
+-        self.single_waypoint = single_waypoint
++        self.single_waypoint, self.final_drop = single_waypoint, final_drop
+         self.links = {frozenset(pair) for pair in links}
++        # Links only the player filter may use (stairs, ladders, jumps); strict never sees them.
++        self.player_links = self.links | {frozenset(pair) for pair in (player_links or ())}
++        if player_only is not None:             # the player filter may use exactly these links
++            self.player_links = {frozenset(pair) for pair in player_only}
+         self.snap, self.offset, self.box = snap, offset, box or building.clip
+         self.samples = self.paths = 0
++        self.filters = []                       # the filter object every sample/path call received
+ 
+     def zone_at(self, world, radius):
+         local = self.building.CoordToLocal(world)
+@@ -228,8 +241,9 @@ class NavMesh:
+                 best = (distance, (x, zone.y, z))
+         return None if best is None else best[1]
+ 
+-    def sample(self, position, radius):
++    def sample(self, position, radius, flt=None):
+         self.samples += 1
++        self.filters.append(flt)
+         local = self.building.CoordToLocal(position)
+         if self.snap:
+             point = self.nearest(local, radius)
+@@ -243,22 +257,55 @@ class NavMesh:
+             point = tuple(point[a] + self.offset[a] for a in range(3))
+         return True, self.building.to_world(point)
+ 
+-    def path(self, start, end, waypoints):
++    def path(self, start, end, waypoints, flt=None):
+         self.paths += 1
++        self.filters.append(flt)
+         a, b = self.zone_at(start, self.tolerance), self.zone_at(end, self.tolerance)
+         if a is None or b is None:
+             return False
+-        if a.comp != b.comp and frozenset((a.comp, b.comp)) not in self.links:
++        links = self.player_links if flt is PLAYER_FILTER else self.links
++        if a.comp != b.comp and frozenset((a.comp, b.comp)) not in links:
+             return False
+         stop = end
+         if self.partial_gap:
+             stop = (end[0] + self.partial_gap, end[1], end[2])
++        if self.final_drop:
++            stop = (stop[0], stop[1] + self.final_drop, stop[2])
+         waypoints.Insert(start)
+         if not self.single_waypoint:
+             waypoints.Insert(stop)
+         return True
+ 
+ 
++class MockFilter:
++    """A PGFilter stand-in: only the three getters the census header reads."""
++
++    def __init__(self, include, exclude, exclusive=0):
++        self.include, self.exclude, self.exclusive = include, exclude, exclusive
++
++    def GetIncludeFlags(self):
++        return self.include
++
++    def GetExcludeFlags(self):
++        return self.exclude
++
++    def GetExlusiveFlags(self):
++        return self.exclusive
++
++
++class MockPolyFlags:
++    """PGPolyFlags with REFERENCE values (distinct powers of two); the native values are recorded by the census."""
++    NAMES = ("NONE", "WALK", "DISABLED", "DOOR", "INSIDE", "SWIM", "SWIM_SEA", "LADDER", "JUMP_OVER", "JUMP_DOWN",
++             "CLIMB", "CRAWL", "CROUCH", "UNREACHABLE", "ALL", "JUMP", "SPECIAL")
++
++
++for _index, _name in enumerate(MockPolyFlags.NAMES):
++    setattr(MockPolyFlags, _name, 0 if _name == "NONE" else 1 << (_index - 1))
++
++STRICT_FILTER = MockFilter(MockPolyFlags.WALK | MockPolyFlags.DOOR | MockPolyFlags.INSIDE, 4096)
++PLAYER_FILTER = MockFilter(MockPolyFlags.WALK | MockPolyFlags.DOOR | MockPolyFlags.INSIDE | MockPolyFlags.JUMP, 8192)
++
++
+ class MockWorld:
+     def __init__(self, nav):
+         self.nav = nav
+@@ -343,7 +390,7 @@ class MockFiles:
+         return path in self.files
+ 
+ 
+-_MODEL_TYPES = r"(?:int|float|bool|string|vector|Object|ItemBase|CargoBase|Building|FileHandle|array<[^>]+>)"
++_MODEL_TYPES = r"(?:int|float|bool|string|vector|Object|ItemBase|CargoBase|Building|FileHandle|PGFilter|array<[^>]+>)"
+ 
+ # Exact hook lines whose out-parameter calls cannot be modelled; each must match exactly once.
+ MODEL_REWRITES = (
+@@ -352,10 +399,10 @@ MODEL_REWRITES = (
+      r"null, null, false, false, (ObjIntersect\w+)\);$",
+      r"\1hit, contactPos, contactDir = HCMockRay(rayFrom, rayTo, hitObjects, '\2');"),
+     (r"^( +)bool found = GetGame\(\)\.GetWorld\(\)\.GetAIWorld\(\)\.SampleNavmeshPosition\(position, radius, "
+-     r"m_HCProbeFilter, sampled\);$", r"\1found, sampled = HCMockSample(position, radius);"),
++     r"(m_HCProbeFilter|meshFilter), sampled\);$", r"\1found, sampled = HCMockSample(position, radius, \2);"),
+     (r"^( +)TVectorArray waypoints = new TVectorArray;$", r"\1array<vector> waypoints = new array<vector>;"),
+-    (r"^( +)bool found = GetGame\(\)\.GetWorld\(\)\.GetAIWorld\(\)\.FindPath\(startPos, endPos, m_HCProbeFilter, "
+-     r"waypoints\);$", r"\1found = HCMockPath(startPos, endPos, waypoints);"),
++    (r"^( +)bool found = GetGame\(\)\.GetWorld\(\)\.GetAIWorld\(\)\.FindPath\(startPos, endPos, "
++     r"(m_HCProbeFilter|meshFilter), waypoints\);$", r"\1found = HCMockPath(startPos, endPos, waypoints, \2);"),
+ )
+ 
+ MODELLED = ("HCProbeKey", "HCProbeStr", "HCProbeBool", "HCProbeVector", "HCProbeBoxUsable", "HCProbeCount",
+@@ -365,7 +412,10 @@ MODELLED = ("HCProbeKey", "HCProbeStr", "HCProbeBool", "HCProbeVector", "HCProbe
+             "HCProbeReachSetup", "HCProbeReachHit", "HCProbeStep", "HCProbeFinish",
+             "HCProbeInt", "HCProbeNum", "HCProbeOutsideBox", "HCProbeOpenSky", "HCProbeSeedOutside",
+             "HCProbeTakePath", "HCProbeBlocked", "HCProbeClassify", "HCProbeReachAttempt", "HCProbeReachNote",
+-            "HCProbeHitNote", "HCProbeTypeNote", "HCProbeTypesText", "HCProbeTraceEntry", "HCProbeDiagColumn")
++            "HCProbeHitNote", "HCProbeTypeNote", "HCProbeTypesText", "HCProbeTraceEntry", "HCProbeDiagColumn",
++            "HCProbeReachDoor", "HCProbeDiagReset", "HCProbeDiagSample", "HCProbeReasonName", "HCProbeReachDiagVariant",
++            "HCProbeReachDiagText", "HCProbeControlDetail", "HCProbeColumnFlush", "HCProbeFilterText",
++            "HCProbeFlagEntry", "HCProbeFlagsText", "HCProbeReachResult")
+ # Methods the reference transpiler deliberately does not execute: the loaders are literal data and
+ # HCProbeStart only touches the engine file system and the call queue.
+ UNMODELLED = frozenset({"HCProbeAdd", "HCProbeStart"})
+@@ -407,8 +457,9 @@ class HookRun:
+             "OpenFile": self.files.OpenFile, "FPrintln": self.files.FPrintln, "CloseFile": self.files.CloseFile,
+             "FileExist": self.files.FileExist, "Print": self.prints.append, "CALL_CATEGORY_SYSTEM": 0,
+             "HCProbeStep": None, "HCMockRay": self.scene.ray, "HCMockToString": mock_to_string,
+-            "HCMockSample": (nav.sample if nav else (lambda p, r: (False, None))),
+-            "HCMockPath": (nav.path if nav else (lambda a, b, w: False)),
++            "HCMockSample": (nav.sample if nav else (lambda p, r, f=None: (False, None))),
++            "HCMockPath": (nav.path if nav else (lambda a, b, w, f=None: False)),
++            "PGPolyFlags": MockPolyFlags,
+         }
+         with mock.patch.object(cep, "_TYPE", _MODEL_TYPES):
+             source = cep.enforce_to_python(self.text, MODELLED)
+@@ -417,7 +468,8 @@ class HookRun:
+         for _type, name, value in _MEMBER.findall(self.text):
+             setattr(self.model, name, eval(cep._enforce_expression(value), namespace) if value else None)
+         self.model.m_HCProbeQuote = text_type('"')
+-        self.model.m_HCProbeFilter = object()
++        self.model.m_HCProbeFilter = STRICT_FILTER
++        self.model.m_HCProbePlayerFilter = PLAYER_FILTER
+         for name, value in (overrides or {}).items():
+             setattr(self.model, name, value)
+         self.model.m_HCProbeClasses.Insert(text_type(building.type_name))
+@@ -624,14 +676,14 @@ def run_end_tolerance(hook_text):
+ class PartialNearTarget(NavMesh):
+     """Every path to a point inside the building stops 0.4 m past it (a truncated-path reference model)."""
+ 
+-    def path(self, start, end, waypoints):
++    def path(self, start, end, waypoints, flt=None):
+         local = self.building.CoordToLocal(end)
+         if local[0] > -5:
+             self.paths += 1
+             waypoints.Insert(start)
+             waypoints.Insert(self.building.to_world((local[0] + 0.4, local[1], local[2])))
+             return True
+-        return super().path(start, end, waypoints)
++        return super().path(start, end, waypoints, flt)
+ 
+ 
+ def run_hidden_wall(hook_text):
+@@ -694,9 +746,10 @@ def native_nav(building):
+     return NavMesh(building, zones, links=[("out", "g")])
+ 
+ 
+-def run_native_shape(hook_text, **overrides):
++def run_native_shape(hook_text, clutter=6, **overrides):
+     building = native_building()
+-    run = HookRun(hook_text, building, native_planes(building), nav=native_nav(building), overrides=overrides).run()
++    run = HookRun(hook_text, building, native_planes(building, clutter), nav=native_nav(building),
++                  overrides=overrides).run()
+     return run.row(), run
+ 
+ 
+@@ -745,6 +798,17 @@ def run_sloped_ground(hook_text):
+     return HookRun(hook_text, building, storey_planes(building), nav=nav_for(building), ground_offset=-1.0).run().row()
+ 
+ 
++def run_far_door_downhill(hook_text):
++    """The terrain falls 2 m between the entrance and the far control door: the far sample must use SurfaceY there."""
++    building = flat_building()
++    zones = [Zone("near", -12, -5, -30, 30, 0.0), Zone("out", -30, -12, -30, 30, -2.0), Zone("g", -5, 7, -4, 3, 0.0)]
++    nav = NavMesh(building, zones, links=[("near", "g"), ("near", "out")])
++    run = HookRun(hook_text, building, storey_planes(building), nav=nav)
++    base = run.game.ground
++    run.game.SurfaceY = lambda x, z: base - 2.0 if building.CoordToLocal((x, base, z))[0] < -12.0 else base
++    return run.run().row()
++
++
+ def run_far_unmeshed(hook_text):
+     building = flat_building()
+     zones = [Zone("out", -12, -5, -30, 30, 0.0), Zone("g", -5, 7, -4, 3, 0.0)]
+@@ -859,7 +923,7 @@ def battery(hook_text, first_failure=False):
+             return False
+         row = HookRun(hook_text, building, planes, nav=nav_for(building),
+                       overrides={"m_HCProbePathLimit": 3}).run().row()
+-        tested = [h for h in row["hits"] if h[3] >= 1.9 and h[5] != -1]
++        tested = [h for h in row["hits"] if h[3] >= 1.9 and h[5] in (0, 1)]
+         return (row["reach"]["state"] == "tested" and len(tested) == 2 and row["stats"]["paths"] == 3
+                 and all(h[5] == -1 for h in row["hits"] if h[3] < 1.9))
+ 
+@@ -873,16 +937,18 @@ def battery(hook_text, first_failure=False):
+     def snap_wall():
+         blocked, open_row, loose = run_snap_wall(hook_text)
+         return (blocked["reach"]["state"] == "tested" and mesh_code(blocked, -0.5, 0.5) == 2
+-                and mesh_code(open_row, -0.5, 0.5) == 1 and mesh_code(loose, -0.5, 0.5) == 2)
++                and mesh_code(open_row, -0.5, 0.5) == 3 and mesh_code(loose, -0.5, 0.5) == 2)
+ 
+     def snap_distance():
+         far, near = run_snap_distance(hook_text)
+-        return mesh_code(far, -0.5, 0.5) == 2 and mesh_code(near, -0.5, 0.5) == 1
++        return mesh_code(far, -0.5, 0.5) == 2 and mesh_code(near, -0.5, 0.5) == 3
+ 
+     def final_waypoint():
+         short, trunc = run_final_waypoint(hook_text)
+-        return (short["reach"]["state"] == "tested" and mesh_code(short, -3.5, 0.5) == 1
+-                and trunc["reach"]["state"] == "tested" and mesh_code(trunc, -3.5, 0.5) == 0)
++        far = storey_run(hook_text, nav=inside_nav(flat_building(), gap_x=0.85))
++        return (short["reach"]["state"] == "tested" and mesh_code(short, -3.5, 0.5) == 3
++                and trunc["reach"]["state"] == "tested" and mesh_code(trunc, -3.5, 0.5) == 3
++                and far["reach"]["state"] == "tested" and mesh_code(far, -3.5, 0.5) == 0)
+ 
+     def isolated_mesh():
+         row, nav = run_isolated_mesh(hook_text)
+@@ -915,7 +981,7 @@ def battery(hook_text, first_failure=False):
+ 
+     def end_tolerance():
+         small, large = run_end_tolerance(hook_text)
+-        return (small["reach"]["state"] == "tested" and mesh_code(small, -3.5, 0.5) == 1
++        return (small["reach"]["state"] == "tested" and mesh_code(small, -3.5, 0.5) == 3
+                 and large["reach"]["state"] == "control-failed")
+ 
+     def hidden_wall():
+@@ -926,13 +992,22 @@ def battery(hook_text, first_failure=False):
+         row = run_small_snap(hook_text)
+         return row["reach"]["state"] == "tested" and mesh_code(row, -0.5, 0.5) == 2
+ 
++    def trivial_snap():
++        building = flat_building()
++        row = HookRun(hook_text, building, storey_planes(building), nav=snap_nav(building, east_from=-0.495)).run().row()
++        return row["reach"]["state"] == "tested" and mesh_code(row, -0.5, 0.5) == 1
++
++    def far_door_downhill():
++        row = run_far_door_downhill(hook_text)
++        return row["reach"]["state"] == "tested" and row["reach"]["player"]["state"] == "tested"
++
+     def final_gap_wall():
+         row = run_final_gap_wall(hook_text)
+         building = flat_building()
+         nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
+         open_row = HookRun(hook_text, building, storey_planes(building), nav=nav).run().row()
+         return (row["reach"]["state"] == "tested" and mesh_code(row, -3.5, 0.5) == 0
+-                and mesh_code(open_row, -3.5, 0.5) == 1)
++                and mesh_code(open_row, -3.5, 0.5) == 3)
+ 
+     def other_roof():
+         row = run_other_roof(hook_text)
+@@ -947,7 +1022,8 @@ def battery(hook_text, first_failure=False):
+                 and stats["floor_capped_columns"] == 0 and stats["clearance_capped"] == 0
+                 and relations["proxy"] > 0 and relations["other"] > 0 and relations["building"] > 0
+                 and row["reach"]["state"] == "tested" and row["reach"]["attempts"][0][1] == 11.0
+-                and mesh_code(row, -3.5, 0.5) == 1 and abs(row["reach"]["entrances"][0][1]) < 0.01)
++                and mesh_code(row, -3.5, 0.5) == 3 and abs(row["reach"]["entrances"][0][1]) < 0.01
++                and mesh_code(run_native_shape(hook_text, clutter=0)[0], -3.5, 0.5) == 1)
+ 
+     def sloped_ground():
+         row = run_sloped_ground(hook_text)
+@@ -978,6 +1054,61 @@ def battery(hook_text, first_failure=False):
+         row = HookRun(hook_text, building, planes, ai=False).run().row()
+         return row["stats"]["clearance_capped"] == 4 and row["hits"] == []
+ 
++    def waist_slot():
++        row = run_waist_slot(hook_text)
++        return row["reach"]["state"] == "tested" and mesh_code(row, -0.5, 0.5) == 3
++
++    def final_gap_crate():
++        building = flat_building()
++        nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
++        row = HookRun(hook_text, building, storey_planes(building), nav=nav,
++                      walls=[Wall(CRATE, "x", -3.3, -3.0, 2.0, 0.0, 3.0)]).run().row()
++        return row["reach"]["state"] == "tested" and mesh_code(row, -3.5, 0.5) == 0
++
++    def obstruction():
++        low = storey_run(hook_text, planes_extra=[Plane(CRATE, 1.2, -4, -3, 0, 1, "other")])
++        solid = storey_run(hook_text, planes_extra=[Plane(CRATE, 2.4, -5, 7, -4, 3, "solid-block", thick=2.3)])
++        return (mesh_code(low, -3.5, 0.5) == 3 and mesh_code(storey_run(hook_text), -3.5, 0.5) == 1
++                and diag(low, "clearance_obstructed")["count"] > 0 and mesh_code(solid, -3.5, 0.5) == 3)
++
++    def capped_unqualified():
++        row = storey_run(hook_text, overrides={"m_HCProbeHitLimit": 2})
++        capped = [h for h in candidates(row) if h[5] != -1]
++        return len(capped) > 0 and {h[5] for h in capped} == {3} and diag(row, "column_capped")["count"] == len(capped)
++
++    def owner_rehits():
++        building = tiny_building()
++        roof = Plane(building, 3.5, -5, 5, -5, 5, "owner-solid", thick=3.0)
++        floor = Plane(building, 0.0, -5, 5, -5, 5, "floor")
++        row = HookRun(hook_text, building, [roof, floor], ai=False).run().row()
++        capped = HookRun(hook_text, building, [roof, floor], ai=False, overrides={"m_HCProbeStepLimit": 6}).run().row()
++        return {round(h[1], 3) for h in row["hits"]} == {0.0} and len(row["hits"]) == 4 and capped["hits"] == []
++
++    def player_variant():
++        building = flat_building()
++        row = storey_run(hook_text, nav=nav_for(building, player_links=[("out", "up")]))
++        upstairs = [(h[5], row["player_codes"][i]) for i, h in enumerate(row["hits"])
++                    if h[3] >= 1.9 and abs(h[1] - 3.0) < 0.1 and h[0] < 0.0]
++        zones = [Zone("near", -12, -5, -30, 30, 0.0), Zone("far", -30, -12, -30, 30, 0.0), Zone("g", -5, 7, -4, 3, 0.0)]
++        gate = HookRun(hook_text, building, storey_planes(building), nav=NavMesh(
++            building, zones, links=[("near", "g")], player_links=[("near", "far")])).run().row()
++        return (len(upstairs) > 4 and set(upstairs) == {(0, 1)} and gate["reach"]["state"] == "control-failed"
++                and gate["reach"]["player"]["state"] == "tested" and 1 in gate["player_codes"])
++
++    def variant_budget():
++        row = storey_run(hook_text, overrides={"m_HCProbePathLimit": 3})
++        return (row["stats"]["player_paths"] == 3 and row["stats"]["paths"] == 3
++                and diag(row, "path_budget", "player")["count"] > 0)
++
++    def vertical_allowance():
++        small = storey_run(hook_text, nav=zoned(flat_building(), h=0.2))
++        large = storey_run(hook_text, nav=zoned(flat_building(), h=0.4))
++        low = storey_run(hook_text, nav=inside_nav(flat_building(), drop=0.2))
++        high = storey_run(hook_text, nav=inside_nav(flat_building(), drop=0.4))
++        return (diag(small, "reached")["count"] > 0 and diag(small, "snap_far")["count"] == 0
++                and diag(large, "snap_far")["count"] > 0 and mesh_code(low, -3.5, 0.5) == 1
++                and mesh_code(high, -3.5, 0.5) == 0)
++
+     for name, function in (("floors", floors), ("rotation", rotation), ("grid", grid), ("reach", reach),
+                            ("partial-path", partial_path), ("altitude", altitude), ("budgets", budgets),
+                            ("run-budget", run_budget), ("hit-limit", hit_limit), ("reach-states", reach_states),
+@@ -987,11 +1118,15 @@ def battery(hook_text, first_failure=False):
+                            ("seed-standoff", seed_standoff), ("overhang", overhang), ("sky-cap", sky_cap),
+                            ("zero-paths", zero_paths), ("disconnected-control", disconnected_control),
+                            ("end-tolerance", end_tolerance), ("hidden-wall", hidden_wall),
+-                           ("small-snap", small_snap), ("final-gap-wall", final_gap_wall),
++                           ("small-snap", small_snap), ("trivial-snap", trivial_snap), ("far-door-downhill", far_door_downhill), ("final-gap-wall", final_gap_wall),
+                            ("other-roof", other_roof), ("native-shape", native_shape),
+                            ("sloped-ground", sloped_ground), ("clutter-floor-cap", clutter_floor_cap), ("floor-cap", floor_cap),
+                            ("step-cap", step_cap), ("thick-clutter", thick_clutter),
+-                           ("clearance-capped", clearance_capped)):
++                           ("clearance-capped", clearance_capped), ("waist-slot", waist_slot),
++                           ("final-gap-crate", final_gap_crate), ("obstruction", obstruction),
++                           ("capped-unqualified", capped_unqualified), ("owner-rehits", owner_rehits),
++                           ("player-variant", player_variant), ("variant-budget", variant_budget),
++                           ("vertical-allowance", vertical_allowance)):
+         check(name, function)
+     return failures
+ 
+@@ -1007,8 +1142,9 @@ MUTATIONS = (
+     ("upward range widened", "float endY = surfacePos[1] + 6.0;", "float endY = surfacePos[1] + 60.0;"),
+     ("upward non-building hit ends the search", "if (result == 1)\n                return hitY - surfacePos[1];",
+      "if (true)\n                return hitY - surfacePos[1];"),
+-    ("other-object hits become floors", "            if (rel == 1)\n            {\n                previousY = lastY;",
+-     "            if (true)\n            {\n                previousY = lastY;"),
++    ("other-object hits become floors",
++     "            if (rel == 1 && drop >= 0.02)\n            {\n                previousY = lastY;",
++     "            if (drop >= 0.02)\n            {\n                previousY = lastY;"),
+     ("grid step doubled", "edge = edge + m_HCProbeGridStep;", "edge = edge + 2.0;"),
+     ("grid origin moved to the edge", "float edge = low + 0.5;", "float edge = low;"),
+     ("hit limit removed", "if (floors >= m_HCProbeHitLimit)", "if (floors >= 99)"),
+@@ -1023,17 +1159,29 @@ MUTATIONS = (
+     ("building ray cap removed", "m_HCProbeBuildingRays >= m_HCProbeBuildingRayLimit ||",
+      "m_HCProbeBuildingRays >= 99999999 ||"),
+     ("run ray cap removed", "|| m_HCProbeRunRays >= m_HCProbeRunRayLimit", "|| m_HCProbeRunRays >= 99999999"),
+-    ("model coordinates dropped", "m_HCProbeBuilding.CoordToLocal(floorPos)", "floorPos"),
+-    ("path end gap widened", "if (m_HCProbePathGap > m_HCProbeEndTolerance)", "if (m_HCProbePathGap > 200.0)"),
+-    ("final waypoint not compared with the floor", "m_HCProbePathGap = vector.Distance(finalPoint, goalPos);",
+-     "m_HCProbePathGap = 0.0;"),
+-    ("final gap level ray skipped", "if (gapX * gapX + gapZ * gapZ > 0.000001)", "if (false)"),
++    ("model coordinates dropped",
++     "vector modelPos = m_HCProbeBuilding.CoordToLocal(floorPos);",
++     "vector modelPos = floorPos;"),
++    ("path end gap widened",
++     "if (m_HCProbeDiagHGap > m_HCProbeEndTolerance)",
++     "if (m_HCProbeDiagHGap > 200.0)"),
++    ("final waypoint not compared with the floor",
++     "m_HCProbeDiagHGap = Math.Sqrt(gapX * gapX + gapZ * gapZ);",
++     "m_HCProbeDiagHGap = 0.0;"),
++    ("final gap level ray skipped",
++     "if (m_HCProbeDiagHGap > m_HCProbeTrivialShift)",
++     "if (false)"),
+     ("final gap level ray never blocks", "if (HCProbeBlocked(Vector(finalPoint[0], waistY, finalPoint[2])",
+      "if (false && HCProbeBlocked(Vector(finalPoint[0], waistY, finalPoint[2])"),
+-    ("reach computed without control", 'if (m_HCProbeReachState != "tested")\n            return -1;', "if (false)\n            return -1;"),
+-    ("control failure ignored", "if (stage != 5)\n            return 7 + stage;", "if (false)\n            return 7 + stage;"),
+-    ("control path to its own start", "int stage = HCProbePath(entranceSampled, farSampled, farSampled);",
+-     "int stage = HCProbePath(entranceSampled, entranceSampled, entranceSampled);"),
++    ("reach computed without control",
++     "if (state != \"tested\")\n            return -1;",
++     "if (false)\n            return -1;"),
++    ("control failure ignored",
++     "if (stage != 5 && stage != 6)\n        {\n            HCProbeControlDetail(7 + stage, farSampled);",
++     "if (false)\n        {\n            HCProbeControlDetail(7 + stage, farSampled);"),
++    ("control path to its own start",
++     "int stage = HCProbePath(entranceSampled, farSampled, farSampled, meshFilter);",
++     "int stage = HCProbePath(entranceSampled, entranceSampled, entranceSampled, meshFilter);"),
+     ("path budget removed", "if (m_HCProbeBuildingPaths >= m_HCProbePathLimit)", "if (false)"),
+     ("comma separation removed", "if (m_HCProbeHitsEmitted > 0)", "if (false)"),
+     ("outside point inside the building", "doorPos[0] + unitX * standoff", "doorPos[0] - unitX * standoff"),
+@@ -1044,15 +1192,58 @@ MUTATIONS = (
+     ("open sky not required", "if (!HCProbeOpenSky(entranceSampled))", "if (false)"),
+     ("open-sky ignores other objects roofs", "if (m_HCProbeSkyResult == 0)\n            return true;",
+      "if (m_HCProbeSkyResult != 1)\n            return true;"),
+-    ("snap displacement unbounded", "vector.Distance(candidate, floorPos) > m_HCProbeSnapLimit",
+-     "vector.Distance(candidate, floorPos) > 99.0"),
+-    ("waist wall ray skipped", "if (HCProbeBlocked(Vector(floorPos[0], waistY", "if (false && HCProbeBlocked(Vector(floorPos[0], waistY"),
++    ("snap displacement unbounded",
++     "if (m_HCProbeDiagHSnap > m_HCProbeSnapLimit)",
++     "if (m_HCProbeDiagHSnap > 99.0)"),
++    ("waist wall ray skipped",
++     "            if (snapRay != 0)\n                return HCProbeReachResult(variant, 2, floorPos);",
++     "            if (false)\n                return HCProbeReachResult(variant, 2, floorPos);"),
+     ("waist wall ray never blocks", "        if (result == 0)\n            return false;\n        return true;\n    }",
+      "        if (result == 0)\n            return false;\n        return false;\n    }"),
+-    ("only building collisions block", "        if (result == 0)\n            return false;\n        return true;\n    }",
++    ("only building collisions block",
++     "        if (result == 0)\n            return false;\n        return true;\n    }",
+      "        if (result != 1)\n            return false;\n        return true;\n    }"),
+-    ("small snap shifts skip the wall ray", "if (shiftX * shiftX + shiftZ * shiftZ > 0.000001)",
+-     "if (shiftX * shiftX + shiftZ * shiftZ > 0.0025)"),
++    ("small snap shifts skip the wall ray",
++     "if (m_HCProbeDiagHSnap > m_HCProbeTrivialShift)",
++     "if (m_HCProbeDiagHSnap > 0.05)"),
++    ("far control door uses the seed height", "float farGround = GetGame().SurfaceY(farWorld[0], farWorld[2]);",
++     "float farGround = farWorld[1];"),
++    ("trivial snap threshold removed",
++     "if (m_HCProbeDiagHSnap > m_HCProbeTrivialShift)",
++     "if (m_HCProbeDiagHSnap > 0.0)"),
++    ("owner re-hits become floors",
++     "            if (rel == 1 && drop >= 0.02)\n            {\n                previousY = lastY;",
++     "            if (rel == 1)\n            {\n                previousY = lastY;"),
++    ("vertical gap ignored",
++     "if (m_HCProbeDiagVGap > m_HCProbeVerticalAllowance)",
++     "if (m_HCProbeDiagVGap > 99.0)"),
++    ("vertical snap ignored",
++     "if (m_HCProbeDiagVSnap > m_HCProbeVerticalAllowance)",
++     "if (m_HCProbeDiagVSnap > 99.0)"),
++    ("nontrivial snap authorizes reached",
++     "return HCProbeReachResult(variant, 8, floorPos);",
++     "return HCProbeReachResult(variant, 7, floorPos);"),
++    ("nontrivial gap authorizes reached",
++     "        if (stage == 6)\n            return HCProbeReachResult(variant, 9, floorPos);",
++     "        if (stage == 6)\n            return HCProbeReachResult(variant, 7, floorPos);"),
++    ("clear snap ray treated as blocked",
++     "            if (snapRay != 0)\n                return HCProbeReachResult(variant, 2, floorPos);",
++     "            if (true)\n                return HCProbeReachResult(variant, 2, floorPos);"),
++    ("foreign obstruction not checked",
++     "if (freeClear < m_HCProbeClearRequired)",
++     "if (false)"),
++    ("capped columns qualify",
++     "        if (capKind > 0)\n            return HCProbeReachResult(variant, 11, floorPos);",
++     "        if (false)\n            return HCProbeReachResult(variant, 11, floorPos);"),
++    ("player variant uses the strict filter",
++     "            state = m_HCProbePlayerState;\n            meshFilter = m_HCProbePlayerFilter;",
++     "            state = m_HCProbePlayerState;\n            meshFilter = m_HCProbeFilter;"),
++    ("player control uses the strict filter",
++     "        if (variant == 1)\n            meshFilter = m_HCProbePlayerFilter;\n        HCProbeDiagReset();",
++     "        if (variant == 1)\n            meshFilter = m_HCProbeFilter;\n        HCProbeDiagReset();"),
++    ("player path budget removed",
++     "if (m_HCProbePlayerPaths >= m_HCProbePathLimit)",
++     "if (false)"),
+ )
+ 
+ 
+@@ -1385,33 +1576,38 @@ class ModelBehaviorTests(unittest.TestCase):
+         row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building),
+                       overrides={"m_HCProbePathLimit": 6}).run().row()
+         roofed = [h for h in row["hits"] if h[3] >= 1.9]
+-        self.assertEqual(5, len([h for h in roofed if h[5] != -1]))       # limit 6 minus the control path
+-        self.assertGreater(len([h for h in roofed if h[5] == -1]), 10)
++        counts = {reason: diag(row, reason)["count"] for reason in REASONS}
++        spent = sum(counts[r] for r in REASONS if r not in ("clearance_obstructed", "column_capped", "path_budget"))
++        self.assertEqual(5, spent)                                        # limit 6 minus the control path
++        self.assertGreater(counts["path_budget"], 10)
++        self.assertEqual(counts["path_budget"], len([h for h in roofed if h[5] == -1]))
+         self.assertEqual(6, row["stats"]["paths"])
+         self.assertTrue(all(h[5] == -1 for h in row["hits"] if h[3] < 1.9))
+ 
+     def test_mesh_snapping_across_a_wall_is_not_reachability(self):
+         blocked, open_row, loose = run_snap_wall(self.hook)
+         self.assertEqual("tested", blocked["reach"]["state"])
+-        self.assertEqual(1, mesh_code(open_row, -0.5, 0.5))      # same mesh, no wall: reachable
++        self.assertEqual(3, mesh_code(open_row, -0.5, 0.5))      # same mesh, no wall, but a nontrivial snap: unqualified
+         self.assertEqual(2, mesh_code(blocked, -0.5, 0.5))       # the snapped point is behind a building wall
+         self.assertEqual(2, mesh_code(loose, -0.5, 0.5))         # any collision between the points blocks
+ 
+     def test_the_snap_displacement_from_the_measured_floor_is_bounded(self):
+         far, near = run_snap_distance(self.hook)
+-        self.assertEqual(1, mesh_code(near, -0.5, 0.5))          # 0.4 m: the cell is on that mesh
++        self.assertEqual(3, mesh_code(near, -0.5, 0.5))          # 0.4 m: nontrivial snap, unqualified (round 3)
+         self.assertEqual(2, mesh_code(far, -0.5, 0.5))           # 1.4 m: a different surface
+ 
+     def test_the_final_waypoint_must_end_at_the_measured_floor_not_within_two_metres(self):
+         short, trunc = run_final_waypoint(self.hook)
+-        self.assertEqual(1, mesh_code(short, -3.5, 0.5))         # 0.4 m mesh offset
++        self.assertEqual(3, mesh_code(short, -3.5, 0.5))         # 0.4 m mesh offset: unqualified (round 3)
+         self.assertEqual("tested", trunc["reach"]["state"])      # the 0.45 m stop is inside the control tolerance
+-        self.assertEqual(0, mesh_code(trunc, -3.5, 0.5))         # but 0.85 m from the floor itself
++        self.assertEqual(3, mesh_code(trunc, -3.5, 0.5))         # the 0.4 m mesh offset is unqualified before any path
++        far = storey_run(self.hook, nav=inside_nav(flat_building(), gap_x=0.85))
++        self.assertEqual(0, mesh_code(far, -3.5, 0.5))           # a path that stops 0.85 m from the floor itself
+ 
+     def test_the_path_end_tolerance_is_tight_enough_to_fail_a_truncated_control_path(self):
+         small, large = run_end_tolerance(self.hook)
+         self.assertEqual("tested", small["reach"]["state"])      # 0.3 m short is a complete path
+-        self.assertEqual(1, mesh_code(small, -3.5, 0.5))
++        self.assertEqual(3, mesh_code(small, -3.5, 0.5))         # a 0.3 m final gap is unqualified, not reached
+         self.assertEqual("control-failed", large["reach"]["state"])    # 0.8 m short is truncated, not 2 m
+ 
+     def test_a_door_inside_the_box_on_an_isolated_interior_mesh_cannot_validate_the_exterior_control(self):
+@@ -1530,6 +1726,18 @@ class SafetyRegressionTests(unittest.TestCase):
+         self.assertEqual("tested", row["reach"]["state"])
+         self.assertEqual(2, mesh_code(row, -0.5, 0.5))
+ 
++    def test_the_far_control_door_is_sampled_at_the_terrain_height_there_not_at_the_seed_height(self):
++        row = run_far_door_downhill(self.hook)
++        self.assertEqual("tested", row["reach"]["state"])
++        self.assertEqual("tested", row["reach"]["player"]["state"])
++
++    def test_a_sub_centimetre_snap_is_trivial_and_does_not_need_a_waist_ray(self):
++        building = flat_building()
++        row = HookRun(self.hook, building, storey_planes(building), nav=snap_nav(building, east_from=-0.495)).run().row()
++        self.assertEqual("tested", row["reach"]["state"])
++        self.assertEqual(1, mesh_code(row, -0.5, 0.5))          # 5 mm of mesh quantisation is below the 1 cm trivial shift
++        self.assertLess(sample_at(row, "reached", -0.5, 0.5)[2], 0.01)
++
+     def test_a_final_waypoint_near_the_floor_but_across_a_wall_is_not_reached(self):
+         row = run_final_gap_wall(self.hook)
+         self.assertEqual("tested", row["reach"]["state"])
+@@ -1539,7 +1747,7 @@ class SafetyRegressionTests(unittest.TestCase):
+         building = flat_building()
+         nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
+         row = HookRun(self.hook, building, storey_planes(building), nav=nav).run().row()
+-        self.assertEqual(1, mesh_code(row, -3.5, 0.5))
++        self.assertEqual(3, mesh_code(row, -3.5, 0.5))          # clear, but a nontrivial final gap is unqualified
+ 
+     def test_an_exterior_seed_under_another_objects_roof_is_not_open_sky(self):
+         row = run_other_roof(self.hook)
+@@ -1761,8 +1969,11 @@ class ControlSeedTests(unittest.TestCase):
+         row, _run = run_native_shape(self.hook)
+         self.assertEqual("tested", row["reach"]["state"])
+         codes = {(round(h[0], 1), round(h[2], 1), round(h[1], 1)): h[5] for h in row["hits"]}
+-        self.assertEqual(1, codes[(-3.5, 0.5, 0.0)])
+-        self.assertEqual(2, codes[(-3.5, 0.5, STOREY)])                      # no navmesh under the upper floor
++        self.assertEqual(3, codes[(-3.5, 0.5, 0.0)])                         # crate/proxy clutter within 1.9 m
++        self.assertEqual(3, codes[(-3.5, 0.5, STOREY)])                      # clutter there too (obstruction is checked first)
++        clear, _run = run_native_shape(self.hook, clutter=0)
++        self.assertEqual(1, mesh_code(clear, -3.5, 0.5))
++        self.assertEqual(2, mesh_code(clear, -3.5, 0.5, STOREY))             # no navmesh under the upper floor
+         self.assertLess(row["reach"]["entrances"][0][0], NATIVE_BOX[0][0] - 1.0)
+ 
+     def test_the_seed_height_comes_from_the_ground_not_from_the_unreliable_door_height(self):
+@@ -1797,6 +2008,433 @@ class ControlSeedTests(unittest.TestCase):
+         self.assertEqual("control-failed", row["reach"]["state"])
+ 
+ 
++# ---------------------------------------------------------------------------
++# Round 3: per-hit failure detail, the player filter variant, split snap/gap, control detail and the
++# Sol hc-interior-review-003 addendum (obstruction, unqualified snap/gap, owner re-hits).
++# Every scenario is explicit synthetic geometry; none of it establishes DayZ behavior.
++# ---------------------------------------------------------------------------
++
++REASONS = ("sample_failed", "snap_far", "snap_blocked", "path_not_found", "path_too_short", "gap_far",
++           "gap_blocked", "reached", "snap_unqualified", "gap_unqualified", "clearance_obstructed",
++           "column_capped", "path_budget")
++CODE_OF_REASON = {"reached": 1, "sample_failed": 2, "snap_far": 2, "snap_blocked": 2, "path_not_found": 0,
++                  "path_too_short": 0, "gap_far": 0, "gap_blocked": 0, "snap_unqualified": 3,
++                  "gap_unqualified": 3, "clearance_obstructed": 3, "column_capped": 3, "path_budget": -1}
++PLAYER_FLAGS = ("WALK", "DOOR", "INSIDE", "JUMP", "CLIMB", "CROUCH", "LADDER")
++PLAYER_EXCLUDED = ("DISABLED", "UNREACHABLE", "SWIM", "SWIM_SEA")
++
++
++class InsideNav(NavMesh):
++    """Only paths that END inside the building (model x > -5) are altered: a lateral end gap, a height drop
++    on the final waypoint, or a single-waypoint path. The exterior control path is never touched."""
++
++    def __init__(self, *args, gap_x=0.0, drop=0.0, single=False, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.gap_x, self.drop, self.single = gap_x, drop, single
++
++    def path(self, start, end, waypoints, flt=None):
++        found = super().path(start, end, waypoints, flt)
++        if not found or self.building.CoordToLocal(end)[0] <= -5:
++            return found
++        last = self.building.CoordToLocal(waypoints.Get(waypoints.Count() - 1))
++        waypoints.Set(waypoints.Count() - 1, self.building.to_world((last[0] + self.gap_x, last[1] + self.drop, last[2])))
++        if self.single:
++            waypoints.Clear()
++            waypoints.Insert(start)
++        return True
++
++
++def diag(row, reason, variant="strict"):
++    return row["reach_diag"][variant].get(reason, {"count": 0, "samples": []})
++
++
++def sample_at(row, reason, x, z, variant="strict"):
++    for sample in diag(row, reason, variant)["samples"]:
++        if abs(sample[0][0] - x) < 0.06 and abs(sample[0][2] - z) < 0.06:
++            return sample
++    raise AssertionError("no %s sample at %s,%s: %s" % (reason, x, z, diag(row, reason, variant)))
++
++
++def candidates(row):
++    return [h for h in row["hits"] if h[3] >= 1.9]
++
++
++def zoned(building, h=0.0, **kwargs):
++    zones = [Zone("out", -30, -5, -30, 30, 0.0), Zone("deck", -5, 7, -4, 3, h)]
++    return NavMesh(building, zones, links=[("out", "deck")], **kwargs)
++
++
++def inside_nav(building, **kwargs):
++    return InsideNav(building, nav_for(building).zones, links=[("out", "g")], **kwargs)
++
++
++def run_waist_slot(hook_text):
++    """A closed room: a 0.2 m slot at waist height in the wall lets a zero-radius level ray through, but no
++    player fits; the mesh is 0.4 m away on the other side (Sol P1-1)."""
++    building = flat_building()
++    walls = [Wall(building, "x", -0.2, -3, 2, 0, 0.9), Wall(building, "x", -0.2, -3, 2, 1.1, 3),
++             Wall(building, "x", -1, -3, 2, 0, 3), Wall(building, "z", -3, -1, -0.2, 0, 3),
++             Wall(building, "z", 2, -1, -0.2, 0, 3)]
++    return HookRun(hook_text, building, storey_planes(building), nav=snap_nav(building), walls=walls).run().row()
++
++
++def storey_run(hook_text, nav=None, planes_extra=(), **kwargs):
++    building = flat_building()
++    return HookRun(hook_text, building, storey_planes(building) + list(planes_extra),
++                   nav=nav if nav is not None else nav_for(building), **kwargs).run().row()
++
++
++class Round3DiagTests(unittest.TestCase):
++    def setUp(self):
++        self.hook = default_hook()
++
++    def test_hit_rows_keep_six_fields_and_attempts_keep_seven(self):
++        row = storey_run(self.hook)
++        self.assertTrue(all(len(h) == 6 for h in row["hits"]))
++        self.assertTrue(all(len(a) == 7 for a in row["reach"]["attempts"]))
++        self.assertEqual(len(row["reach"]["attempts"]), len(row["reach"]["detail"]))
++        self.assertEqual(len(row["hits"]), len(row["player_codes"]))
++
++    def test_every_candidate_gets_exactly_one_exact_reason_and_the_code_follows_the_reason(self):
++        row = storey_run(self.hook)
++        self.assertEqual("tested", row["reach"]["state"])
++        for reason in row["reach_diag"]["strict"]:
++            self.assertIn(reason, REASONS)
++        counts = {reason: diag(row, reason)["count"] for reason in REASONS}
++        self.assertEqual(len(candidates(row)), sum(counts.values()))
++        for code in (0, 1, 2, 3, -1):
++            expected = sum(counts[r] for r in REASONS if CODE_OF_REASON[r] == code)
++            self.assertEqual(expected, len([h for h in candidates(row) if h[5] == code]), code)
++        for reason in ("reached", "path_not_found", "sample_failed", "clearance_obstructed"):
++            self.assertGreater(counts[reason], 0, reason)
++
++    def test_samples_are_bounded_to_eight_per_reason_while_the_count_keeps_going(self):
++        row = storey_run(self.hook)
++        reached = diag(row, "reached")
++        self.assertGreater(reached["count"], 8)
++        self.assertEqual(8, len(reached["samples"]))
++        for variant in ("strict", "player"):
++            for entry in row["reach_diag"][variant].values():
++                self.assertLessEqual(len(entry["samples"]), 8)
++                self.assertEqual(min(8, entry["count"]), len(entry["samples"]))
++
++    def test_a_reached_sample_carries_floor_sampled_snap_waypoints_final_gap_and_blocker_fields(self):
++        row = storey_run(self.hook)
++        sample = sample_at(row, "reached", -3.5, 0.5)
++        floor, sampled, h_snap, v_snap, waypoints, final, h_gap, v_gap, rel, kind = sample
++        self.assertEqual(10, len(sample))
++        self.assertEqual(0.0, round(floor[1], 2))
++        self.assertAlmostEqual(0.0, h_snap, places=3)
++        self.assertAlmostEqual(0.0, v_snap, places=3)
++        self.assertEqual(2, waypoints)
++        self.assertAlmostEqual(0.0, h_gap, places=3)
++        self.assertAlmostEqual(0.0, v_gap, places=3)
++        for point in (floor, sampled, final):
++            self.assertEqual(3, len(point))
++        self.assertEqual(0, rel)
++        self.assertEqual("", kind)
++
++    def test_a_failed_sample_reports_that_no_snap_was_measured(self):
++        row = storey_run(self.hook)
++        sample = sample_at(row, "sample_failed", 5.5, -2.5)
++        self.assertEqual(-1.0, sample[2])
++        self.assertEqual(-1.0, sample[3])
++        self.assertEqual(0, sample[4])
++
++    def test_the_horizontal_snap_and_the_vertical_snap_are_measured_separately(self):
++        building = flat_building()
++        far = HookRun(self.hook, building, storey_planes(building), nav=snap_nav(building, east_from=0.9)).run().row()
++        sample = sample_at(far, "snap_far", -0.5, 0.5)
++        self.assertAlmostEqual(1.4, sample[2], places=2)
++        self.assertAlmostEqual(0.0, sample[3], places=3)
++        row = storey_run(self.hook, nav=zoned(flat_building(), h=0.4))
++        sample = diag(row, "snap_far")["samples"][0]
++        self.assertAlmostEqual(0.0, sample[2], places=3)
++        self.assertAlmostEqual(0.4, sample[3], places=2)
++        self.assertEqual(2, mesh_code(row, sample[0][0], sample[0][2]))
++
++    def test_a_small_vertical_offset_is_an_explicit_provisional_allowance_that_stays_reached(self):
++        row = storey_run(self.hook, nav=zoned(flat_building(), h=0.2))
++        self.assertEqual("tested", row["reach"]["state"])
++        sample = diag(row, "reached")["samples"][0]
++        self.assertAlmostEqual(0.2, sample[3], places=2)
++        self.assertEqual(1, mesh_code(row, sample[0][0], sample[0][2]))
++        self.assertRegex(self.hook, r"m_HCProbeVerticalAllowance = 0\.25;")
++        self.assertRegex(self.hook, r"m_HCProbeTrivialShift = 0\.01;")
++
++    def test_the_final_gap_is_split_and_a_vertical_gap_beyond_the_allowance_is_not_reached(self):
++        reached = storey_run(self.hook, nav=inside_nav(flat_building(), drop=0.2))
++        sample = sample_at(reached, "reached", -3.5, 0.5)
++        self.assertAlmostEqual(0.0, sample[6], places=3)
++        self.assertAlmostEqual(0.2, sample[7], places=2)
++        far = storey_run(self.hook, nav=inside_nav(flat_building(), drop=0.4))
++        sample = sample_at(far, "gap_far", -3.5, 0.5)
++        self.assertAlmostEqual(0.4, sample[7], places=2)
++        self.assertEqual(0, mesh_code(far, -3.5, 0.5))
++        self.assertEqual("tested", far["reach"]["state"])
++
++    def test_a_clear_lateral_final_gap_with_a_height_difference_casts_a_level_waist_ray_and_stays_unqualified(self):
++        building = flat_building()
++        run = HookRun(self.hook, building, storey_planes(building), nav=inside_nav(building, drop=0.2, gap_x=0.3)).run()
++        row = run.row()
++        self.assertEqual(3, mesh_code(row, -3.5, 0.5))
++        sample = sample_at(row, "gap_unqualified", -3.5, 0.5)
++        self.assertAlmostEqual(0.3, sample[6], places=2)
++        level = [c for c in run.scene.calls if abs(c[0][1] - c[1][1]) < 1e-9
++                 and abs(building.CoordToLocal(c[0])[1] - 1.0) < 1e-6]
++        self.assertGreater(len(level), 0)
++
++    def test_a_blocked_snap_records_which_object_stopped_the_waist_ray(self):
++        blocked, _open_row, loose = run_snap_wall(self.hook)
++        sample = sample_at(blocked, "snap_blocked", -0.5, 0.5)
++        self.assertEqual(1, sample[8])
++        self.assertEqual("Land_Tenement_Small", sample[9])
++        sample = sample_at(loose, "snap_blocked", -0.5, 0.5)
++        self.assertEqual(3, sample[8])
++        self.assertEqual("Crate", sample[9])
++        self.assertAlmostEqual(0.4, sample[2], places=2)
++
++    def test_a_blocked_final_gap_and_a_far_final_gap_record_their_own_reasons(self):
++        row = run_final_gap_wall(self.hook)
++        sample = sample_at(row, "gap_blocked", -3.5, 0.5)
++        self.assertEqual(1, sample[8])
++        self.assertAlmostEqual(0.4, sample[6], places=2)
++        far = storey_run(self.hook, nav=inside_nav(flat_building(), gap_x=0.85))
++        sample = sample_at(far, "gap_far", -3.5, 0.5)
++        self.assertAlmostEqual(0.85, sample[6], places=2)
++        self.assertAlmostEqual(0.0, sample[2], places=3)
++
++    def test_a_single_waypoint_path_is_path_too_short_and_a_locked_room_is_path_not_found(self):
++        row = storey_run(self.hook, nav=inside_nav(flat_building(), single=True))
++        self.assertGreater(diag(row, "path_too_short")["count"], 0)
++        self.assertEqual(0, mesh_code(row, -3.5, 0.5))
++        self.assertGreater(diag(storey_run(self.hook), "path_not_found")["count"], 0)
++
++    def test_the_path_budget_and_capped_columns_are_reasons_not_silence(self):
++        row = storey_run(self.hook, overrides={"m_HCProbePathLimit": 3})
++        self.assertGreater(diag(row, "path_budget")["count"], 0)
++        self.assertEqual(-1, candidates(row)[-1][5])
++        capped = storey_run(self.hook, overrides={"m_HCProbeStepLimit": 3})
++        tested = [h for h in candidates(capped) if h[5] != -1]
++        self.assertGreater(len(tested), 0)
++        self.assertEqual({3}, {h[5] for h in tested})
++        self.assertEqual(len(tested), diag(capped, "column_capped")["count"])
++        self.assertGreater(capped["stats"]["step_capped_columns"], 0)
++
++    def test_the_diagnostics_are_bounded_for_sixteen_targets(self):
++        row, _run = run_native_shape(self.hook)
++        text = json.dumps(row["reach_diag"], separators=(",", ":"))
++        self.assertLess(len(text), 30000)
++        self.assertLess(len(json.dumps(row, separators=(",", ":"))) * 16, samp.DEFAULT_OUTPUT_LIMIT)
++        self.assertLessEqual(max(len(e["samples"]) for v in row["reach_diag"].values() for e in v.values()), 8)
++
++
++class Round3PlayerTests(unittest.TestCase):
++    def setUp(self):
++        self.hook = default_hook()
++
++    def test_the_two_filters_are_distinct_objects_and_every_navmesh_call_receives_one(self):
++        building = flat_building()
++        nav = nav_for(building)
++        HookRun(self.hook, building, storey_planes(building), nav=nav).run()
++        self.assertEqual({id(STRICT_FILTER), id(PLAYER_FILTER)}, {id(f) for f in nav.filters})
++        self.assertNotEqual(id(STRICT_FILTER), id(PLAYER_FILTER))
++
++    def test_the_player_filter_may_use_a_link_that_the_strict_filter_cannot(self):
++        building = flat_building()
++        row = storey_run(self.hook, nav=nav_for(building, player_links=[("out", "up")]))
++        upstairs = [(h, row["player_codes"][i]) for i, h in enumerate(row["hits"])
++                    if h[3] >= 1.9 and abs(h[1] - 3.0) < 0.1 and h[0] < 0.0]
++        self.assertGreater(len(upstairs), 4)
++        self.assertEqual({(0, 1)}, {(h[5], code) for h, code in upstairs})
++        ground = [(h[5], row["player_codes"][i]) for i, h in enumerate(row["hits"]) if abs(h[1]) < 0.1]
++        self.assertTrue(all(strict == player for strict, player in ground))
++        self.assertGreater(diag(row, "reached", "player")["count"], diag(row, "reached")["count"])
++        self.assertEqual("tested", row["reach"]["player"]["state"])
++
++    def test_the_gate_stays_strict_and_a_failing_strict_control_does_not_fail_the_player_control(self):
++        building = flat_building()
++        zones = [Zone("near", -12, -5, -30, 30, 0.0), Zone("far", -30, -12, -30, 30, 0.0), Zone("g", -5, 7, -4, 3, 0.0)]
++        nav = NavMesh(building, zones, links=[("near", "g")], player_links=[("near", "far")])
++        row = HookRun(self.hook, building, storey_planes(building), nav=nav).run().row()
++        self.assertEqual("control-failed", row["reach"]["state"])
++        self.assertEqual({-1}, {h[5] for h in row["hits"]})
++        self.assertEqual("tested", row["reach"]["player"]["state"])
++        self.assertIn(1, row["player_codes"])
++        self.assertEqual({}, row["reach_diag"]["strict"])
++        self.assertGreater(diag(row, "reached", "player")["count"], 0)
++
++    def test_a_failing_player_control_leaves_the_player_codes_unknown_while_strict_is_tested(self):
++        building = flat_building()
++        zones = [Zone("near", -12, -5, -30, 30, 0.0), Zone("far", -30, -12, -30, 30, 0.0), Zone("g", -5, 7, -4, 3, 0.0)]
++        nav = NavMesh(building, zones, links=[("near", "g"), ("near", "far")], player_only=[("near", "g")])
++        row = HookRun(self.hook, building, storey_planes(building), nav=nav).run().row()
++        self.assertEqual("tested", row["reach"]["state"])
++        self.assertIn(1, {h[5] for h in row["hits"]})
++        self.assertEqual("control-failed", row["reach"]["player"]["state"])
++        self.assertEqual({-1}, set(row["player_codes"]))
++
++    def test_each_filter_variant_has_its_own_path_budget(self):
++        row = storey_run(self.hook, overrides={"m_HCProbePathLimit": 3})
++        self.assertEqual(3, row["stats"]["paths"])
++        self.assertEqual(3, row["stats"]["player_paths"])
++        free = ("clearance_obstructed", "column_capped", "path_budget")
++        for variant in ("strict", "player"):
++            spent = sum(diag(row, r, variant)["count"] for r in REASONS if r not in free)
++            self.assertEqual(2, spent, variant)
++            self.assertGreater(diag(row, "path_budget", variant)["count"], 0, variant)
++
++    def test_the_census_header_records_the_flag_constants_and_both_filters(self):
++        building = flat_building()
++        census = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().census()
++        filters = census["filters"]
++        self.assertEqual({name: getattr(MockPolyFlags, name) for name in MockPolyFlags.NAMES}, filters["flags"])
++        self.assertEqual({"include": STRICT_FILTER.include, "exclude": STRICT_FILTER.exclude, "exclusive": 0}, filters["strict"])
++        self.assertEqual({"include": PLAYER_FILTER.include, "exclude": PLAYER_FILTER.exclude, "exclusive": 0}, filters["player"])
++
++    def test_the_strict_filter_line_is_unchanged_and_the_player_filter_matches_the_brief(self):
++        strict = re.search(r"m_HCProbeFilter\.SetFlags\(([^;]+)\);", self.hook)
++        self.assertIsNotNone(strict)
++        self.assertTrue(strict.group(1).startswith("PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE, "))
++        player = re.search(r"m_HCProbePlayerFilter\.SetFlags\(([^;]+)\);", self.hook)
++        self.assertIsNotNone(player)
++        include, exclude, exclusive = (re.findall(r"PGPolyFlags\.(\w+)", part) for part in player.group(1).split(", "))
++        self.assertEqual(set(PLAYER_FLAGS), set(include))
++        self.assertEqual(7, len(include))
++        self.assertEqual(set(PLAYER_EXCLUDED), set(exclude))
++        self.assertEqual(["NONE"], exclusive)
++        self.assertIn("m_HCProbePlayerFilter.SetCost(PGAreaType.DOOR_CLOSED, 1000);", self.hook)
++        self.assertIn("m_HCProbeFilter.SetCost(PGAreaType.DOOR_CLOSED, 1000);", self.hook)
++
++    @unittest.skipUnless(NATIVE_CACHE.is_dir(), "native script cache not extracted")
++    def test_every_filter_flag_exists_in_the_native_pgpolyflags_enum(self):
++        text = (NATIVE_CACHE / "3_Game/AI/AIWorld.c").read_text(errors="replace")
++        enum = re.search(r"enum PGPolyFlags\s*\{(.*?)\}", text, re.S).group(1)
++        names = re.findall(r"^\s*([A-Z_]+)\s*,?", enum, re.M)
++        for flag in PLAYER_FLAGS + PLAYER_EXCLUDED + tuple(re.findall(r"PGPolyFlags\.(\w+)", self.hook)):
++            self.assertIn(flag, names)
++        self.assertIn("DOOR_CLOSED", re.search(r"enum PGAreaType\s*\{(.*?)\}", text, re.S).group(1))
++        self.assertRegex(text, r"proto native void SetFlags\(int includeFlags, int excludeFlags, int exclusiveFlags\);")
++
++
++class Round3ControlDetailTests(unittest.TestCase):
++    def setUp(self):
++        self.hook = default_hook()
++
++    def test_a_stage_four_control_failure_reports_what_the_seed_sat_on(self):
++        nav = NavMesh(flat_building(), [Zone("g", -5, 7, -4, 3, 0.0)])
++        row = storey_run(self.hook, nav=nav, planes_extra=[Plane(CRATE, -0.2, -30, -5, -30, 30, "other")])
++        self.assertEqual([4], stage_of(row))
++        detail = row["reach"]["detail"][0]
++        self.assertEqual(3, detail["rel"])
++        self.assertEqual("Crate", detail["type"])
++        self.assertAlmostEqual(-0.2, detail["hit_y"], places=2)
++        self.assertEqual(3, len(detail["seed"]))
++        plain = storey_run(self.hook, nav=nav)
++        self.assertEqual(0, plain["reach"]["detail"][0]["rel"])
++        self.assertEqual("", plain["reach"]["detail"][0]["type"])
++
++    def test_a_stage_ten_control_failure_reports_the_sample_the_final_waypoint_and_the_hit_object(self):
++        nav = nav_for(flat_building(), partial_gap=0.8)
++        row = storey_run(self.hook, nav=nav, planes_extra=[Plane(CRATE, -0.2, -30, -5, -30, 30, "other")])
++        self.assertEqual([10], stage_of(row))
++        detail = row["reach"]["detail"][0]
++        self.assertAlmostEqual(0.8, detail["h_gap"], places=2)
++        self.assertAlmostEqual(0.0, detail["v_gap"], places=3)
++        self.assertEqual(2, detail["waypoints"])
++        self.assertAlmostEqual(0.8, detail["final"][0] - detail["sample"][0], places=2)
++        self.assertEqual(3, detail["rel"])
++        self.assertEqual("Crate", detail["type"])
++
++    def test_other_stages_carry_an_empty_detail_object(self):
++        row = storey_run(self.hook)
++        self.assertEqual([{}], row["reach"]["detail"])
++        self.assertEqual([{}], row["reach"]["player"]["detail"])
++
++    def test_the_player_variant_has_its_own_attempts_and_detail(self):
++        row = storey_run(self.hook, nav=nav_for(flat_building(), partial_gap=0.8))
++        player = row["reach"]["player"]
++        self.assertEqual("control-failed", player["state"])
++        self.assertEqual([10], [a[2] for a in player["attempts"]])
++        self.assertEqual(1, len(player["detail"]))
++        self.assertAlmostEqual(0.8, player["detail"][0]["h_gap"], places=2)
++
++
++class Round3AddendumTests(unittest.TestCase):
++    """Sol hc-interior-review-003 of 9816612: P1-1 waist slot, P1-2 foreign obstruction, P2-3 owner re-hits."""
++
++    def setUp(self):
++        self.hook = default_hook()
++
++    def slot_row(self):
++        return run_waist_slot(self.hook)
++
++    def assert_reached_is_trivial(self, row):
++        for variant in ("strict", "player"):
++            for sample in diag(row, "reached", variant)["samples"]:
++                self.assertLessEqual(sample[2], 0.01)
++                self.assertLessEqual(sample[6], 0.01)
++                self.assertLessEqual(sample[3], 0.25)
++                self.assertLessEqual(sample[7], 0.25)
++
++    def test_a_clear_zero_radius_line_through_a_waist_slot_never_authorizes_a_snapped_point(self):
++        row = self.slot_row()
++        self.assertEqual("tested", row["reach"]["state"])
++        self.assertEqual(3, mesh_code(row, -0.5, 0.5))
++        sample = sample_at(row, "snap_unqualified", -0.5, 0.5)
++        self.assertAlmostEqual(0.4, sample[2], places=2)
++        index = [i for i, h in enumerate(row["hits"]) if (round(h[0], 1), round(h[2], 1), round(h[1], 1)) == (-0.5, 0.5, 0.0)][0]
++        self.assertEqual(3, row["player_codes"][index])
++
++    def test_a_nontrivial_snap_or_gap_is_never_reached_for_any_clear_geometry(self):
++        for row in (self.slot_row(), storey_run(self.hook, nav=snap_nav(flat_building())), run_final_gap_wall(self.hook),
++                    run_final_waypoint(self.hook)[0], storey_run(self.hook, nav=inside_nav(flat_building(), gap_x=0.3))):
++            self.assert_reached_is_trivial(row)
++            self.assertEqual(diag(row, "reached")["count"], len([h for h in candidates(row) if h[5] == 1]))
++        row = storey_run(self.hook, nav=snap_nav(flat_building()))
++        self.assertGreater(diag(row, "snap_unqualified")["count"], 0)
++        for sample in diag(row, "snap_unqualified")["samples"]:
++            self.assertEqual(3, mesh_code(row, round(sample[0][0], 1), round(sample[0][2], 1)))
++
++    def test_a_point_under_a_low_foreign_object_is_obstructed_even_when_the_owner_ceiling_is_high(self):
++        row = storey_run(self.hook, planes_extra=[Plane(CRATE, 1.2, -4, -3, 0, 1, "other")])
++        self.assertEqual(3, mesh_code(row, -3.5, 0.5))
++        hit = [h for h in row["hits"] if (round(h[0], 1), round(h[2], 1), round(h[1], 1)) == (-3.5, 0.5, 0.0)][0]
++        self.assertGreaterEqual(hit[3], 1.9)                                   # the owner-ceiling field keeps its meaning
++        sample = sample_at(row, "clearance_obstructed", -3.5, 0.5)
++        self.assertEqual(0, sample[4])                                         # rejected before any path was asked
++        self.assertEqual(1, mesh_code(storey_run(self.hook), -3.5, 0.5))      # the same cell without the object
++
++    def test_a_solid_foreign_block_over_the_floor_is_not_free_player_clearance(self):
++        solid = Plane(CRATE, 2.4, -5, 7, -4, 3, "solid-block", thick=2.3)
++        row = storey_run(self.hook, planes_extra=[solid])
++        self.assertEqual(3, mesh_code(row, -3.5, 0.5))
++        self.assertGreater(diag(row, "clearance_obstructed")["count"], 10)
++        self.assertEqual(0, len([h for h in candidates(row) if h[5] == 1 and abs(h[1]) < 0.1]))
++
++    def test_owner_volume_rehits_never_become_floors_and_only_advance_the_descent(self):
++        building = tiny_building()
++        roof = Plane(building, 3.5, -5, 5, -5, 5, "owner-solid", thick=3.0)
++        floor = Plane(building, 0.0, -5, 5, -5, 5, "floor")
++        row = HookRun(self.hook, building, [roof, floor], ai=False).run().row()
++        self.assertEqual({0.0}, {round(h[1], 3) for h in row["hits"]})
++        self.assertEqual(4, len(row["hits"]))
++        self.assertGreater(row["stats"]["rehits"], 0)
++        capped = HookRun(self.hook, building, [roof, floor], ai=False, overrides={"m_HCProbeStepLimit": 6}).run().row()
++        self.assertEqual([], capped["hits"])
++        self.assertEqual(4, capped["stats"]["step_capped_columns"])
++        actions = {entry[7] for column in capped["diag"]["columns"] for entry in column["seq"]}
++        self.assertIn(5, actions)                                              # ignored re-hits are traced, not emitted
++
++    def test_a_capped_column_keeps_its_floors_but_never_qualifies_them(self):
++        row = storey_run(self.hook, overrides={"m_HCProbeHitLimit": 2})
++        capped = [h for h in candidates(row) if h[5] != -1]
++        self.assertGreater(row["stats"]["floor_capped_columns"], 0)
++        self.assertGreater(len(capped), 0)
++        self.assertEqual({3}, {h[5] for h in capped})
++        self.assertEqual(len(capped), diag(row, "column_capped")["count"])
++
++
+ class SamplerWorkspace(cep.Workspace):
+     def setUp(self):
+         super().setUp()
+diff --git a/tools/audit/interior_points.py b/tools/audit/interior_points.py
+index fd2dcce..d03159e 100644
+--- a/tools/audit/interior_points.py
++++ b/tools/audit/interior_points.py
+@@ -8,7 +8,15 @@ PBO/server testing. Output must be written outside the git checkout.
+ 
+     python3 tools/audit/interior_points.py --census census.json --stock-proto stock/mapgroupproto.xml \
+         --output /mnt/d/HollowCountryLocal/treatment/mapgroupproto.xml --report .../report.json \
+-        --min-calibration 0.6
++        --min-calibration 0.6 [--reach-source strict|player]
++
++Reach codes in a hit row: 1 reached, 0 not reached, 2 no navmesh near the floor, 3 unqualified (a
++nontrivial snap or gap, a foreign obstruction below the required clearance, or a capped column),
++-1 unknown. The hit row's code is the STRICT filter; a parallel ``player_codes`` array carries the
++player-flag filter computed in the same run. ``--reach-source`` selects which one gates eligibility
++(default strict; there is no silent switch and a census without player_codes is refused for player).
++The report carries a per-class eligibility funnel, also when the run is refused, and a refusal
++writes that report (never a treatment).
+ """
+ import argparse
+ from bisect import bisect_left, bisect_right
+@@ -24,6 +32,9 @@ CENSUS_KIND = "interior-sampler-census"
+ TENEMENT_CLASSES = ("Land_Tenement_Small", "Land_Tenement_Big")
+ CALIBRATION_CLASSES = ("Land_HouseBlock_2F1", "Land_Mil_Barracks2")
+ MIN_CLEARANCE = 1.9
++HIT_CODES = (-1, 0, 1, 2, 3)
++REACH_SOURCES = ("strict", "player")
++REACH_BUCKETS = ("yes", "no", "nonav", "unqualified", "unknown")
+ CALIBRATION_RADIUS = 0.5
+ MAX_SLOPE = 0.6
+ BAND_TOLERANCE = 0.25
+@@ -50,6 +61,10 @@ def _number(value):
+     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+ 
+ 
++def _code(value):
++    return _number(value) and value in HIT_CODES
++
++
+ def _reject_constant(name):
+     raise ValueError(f"non-finite JSON constant {name}")
+ 
+@@ -80,8 +95,12 @@ def parse_census(data):
+             raise ValueError(f"placement {index} hits must be a bounded list")
+         for hit in hits:
+             if (not isinstance(hit, list) or len(hit) != 6 or not all(_number(v) for v in hit)
+-                    or hit[3] < 0 or hit[5] not in (-1, 0, 1, 2)):
++                    or hit[3] < 0 or hit[5] not in HIT_CODES):
+                 raise ValueError(f"placement {index} has a malformed hit row")
++        player = row.get("player_codes")
++        if player is not None and (not isinstance(player, list) or len(player) != len(hits)
++                                   or not all(_code(v) for v in player)):
++            raise ValueError(f"placement {index} player_codes must parallel the hits with known codes")
+         if row.get("found") is True and row.get("box_source") != "none":
+             box = row.get("box_min")
+             grid = row.get("grid")
+@@ -122,12 +141,39 @@ def _bands(support, tolerance):
+     return {height: centres[centre] for height, centre in claimed.items()}
+ 
+ 
+-def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=MIN_CLEARANCE):
++def _control_state(row, reach_source):
++    reach = row.get("reach") if isinstance(row.get("reach"), dict) else {}
++    if reach_source == "player":
++        reach = reach.get("player") if isinstance(reach.get("player"), dict) else {}
++    state = reach.get("state")
++    return state if isinstance(state, str) else "absent"
++
++
++def _row_codes(row, reach_source, name):
++    if reach_source == "strict":
++        return [hit[5] for hit in row["hits"]]
++    codes = row.get("player_codes")
++    if codes is None:
++        if row["hits"]:
++            raise ValueError(f"{name}: placement {row.get('i')} has no player_codes; the player reach source "
++                             "needs a census from the round 3 sampler (never falls back to strict)")
++        return []
++    return codes
++
++
++def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=MIN_CLEARANCE,
++                     reach_source="strict"):
+     """Per-class floor-cell candidates, keyed per (grid cell, height band), aggregated over placements."""
++    if reach_source not in REACH_SOURCES:
++        raise ValueError(f"reach_source must be one of {', '.join(REACH_SOURCES)}")
+     rows = [row for row in census["placements"] if row["class"] == name]
+     usable = [row for row in rows if _usable(row)]
++    states = {}
++    for row in rows:
++        state = _control_state(row, reach_source)
++        states[state] = states.get(state, 0) + 1
+     result = {"candidates": [], "usable_placements": len(usable), "rows": len(rows), "reach_mode": "unknown",
+-              "off_grid_hits": 0, "step": 1.0}
++              "off_grid_hits": 0, "step": 1.0, "reach_source": reach_source, "control_states": states}
+     if not usable:
+         return result
+     step = float(usable[0]["grid"]["step"])
+@@ -140,7 +186,8 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
+         row_step = float(row["grid"]["step"])
+         bx, bz = float(row["box_min"][0]) + row_step / 2.0, float(row["box_min"][2]) + row_step / 2.0
+         entries = []
+-        for x, y, z, clearance, ny, code in row["hits"]:
++        codes = _row_codes(row, reach_source, name)
++        for (x, y, z, clearance, ny, _strict), code in zip(row["hits"], codes):
+             ix, iz = round((x - bx) / row_step), round((z - bz) / row_step)
+             if abs(x - (bx + ix * row_step)) > OFF_GRID_TOLERANCE or abs(z - (bz + iz * row_step)) > OFF_GRID_TOLERANCE:
+                 result["off_grid_hits"] += 1
+@@ -161,7 +208,7 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
+                 best[key] = (y, clearance, ny, code)
+         for key, value in best.items():
+             cells.setdefault(key, []).append(value)
+-            if value[3] in (0, 1, 2):
++            if value[3] in (0, 1, 2, 3):
+                 tested_any = True
+     heights = {key: sum(v[0] for v in values) / len(values) for key, values in cells.items()}
+     candidates = []
+@@ -172,9 +219,13 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
+                                            (ix, iz + 1, storey)) if n in heights]
+         walkable = bool(neighbours) and all(abs(heights[key] - h) / step <= MAX_SLOPE + EPSILON for h in neighbours)
+         counts = {"yes": 0, "no": 0, "nonav": 0, "unknown": 0}
++        unqualified = 0
+         for value in values:
++            if value[3] == 3:
++                unqualified += 1
++                continue
+             counts[{1: "yes", 0: "no", 2: "nonav"}.get(value[3], "unknown")] += 1
+-        tested = counts["yes"] + counts["no"] + counts["nonav"]
++        tested = counts["yes"] + counts["no"] + counts["nonav"] + unqualified
+         reachable = None
+         if tested_any:
+             reachable = tested > 0 and counts["yes"] * 2 > tested
+@@ -186,7 +237,8 @@ def class_candidates(census, name, band_tolerance=BAND_TOLERANCE, min_clearance=
+             "height_spread": round(spread, 6), "height_ok": spread <= HEIGHT_SPREAD_BOUND + EPSILON,
+             "walkable": walkable, "ny_abs": round(sum(abs(v[2]) for v in values) / len(values), 6),
+             "agreement": len(values) / len(usable), "placements": len(values),
+-            "reachable": reachable, "reach": counts, "reach_agreement": counts["yes"] / len(usable),
++            "reachable": reachable, "reach": counts, "reach_unqualified": unqualified,
++            "reach_agreement": counts["yes"] / len(usable),
+         })
+     result["candidates"] = candidates
+     result["reach_mode"] = "known" if tested_any else "unknown"
+@@ -206,6 +258,52 @@ def eligible(candidates, reach_mode, min_agreement):
+             and c["reachable"] is True and c["reach_agreement"] >= min_agreement - EPSILON]
+ 
+ 
++def _cell_counts(cell):
++    counts = dict(cell["reach"])
++    counts["unqualified"] = cell.get("reach_unqualified", 0)
++    return counts
++
++
++def _verdict(cell):
++    """The one reach bucket a cell lands in: yes, or the failure observed most often (ties: no, nonav,
++    unqualified), or unknown when nothing was tested."""
++    if cell["reachable"] is True:
++        return "yes"
++    counts = _cell_counts(cell)
++    best, name = 0, "unknown"
++    for key in ("no", "nonav", "unqualified"):
++        if counts[key] > best:
++            best, name = counts[key], key
++    return name
++
++
++def funnel(result, min_agreement):
++    """Per-class eligibility funnel: how many cells survive each stage, in order, and why reach drops cells."""
++    cells = result["candidates"]
++    stages = {"candidates": len(cells)}
++    alive = cells
++    for key, test in (("clearance", lambda c: c["clearance_ok"]), ("height", lambda c: c["height_ok"]),
++                      ("walkable", lambda c: c["walkable"])):
++        alive = [c for c in alive if test(c)]
++        stages[key] = len(alive)
++    reach_cells = {key: 0 for key in REACH_BUCKETS}
++    for cell in alive:
++        reach_cells[_verdict(cell)] += 1
++    reached = [c for c in alive if result["reach_mode"] == "known" and c["reachable"] is True]
++    stages["reach"] = len(reached)
++    stages["agreement"] = len([c for c in reached if c["agreement"] >= min_agreement - EPSILON
++                               and c["reach_agreement"] >= min_agreement - EPSILON])
++    stages["eligible"] = len(eligible(cells, result["reach_mode"], min_agreement))
++    observations = {key: 0 for key in REACH_BUCKETS}
++    for cell in cells:
++        for key, value in _cell_counts(cell).items():
++            observations[key] += value
++    return {"rows": result["rows"], "usable_placements": result["usable_placements"],
++            "reach_source": result.get("reach_source", "strict"), "reach_mode": result["reach_mode"],
++            "stages": stages, "reach_cells": reach_cells, "reach_observations": observations,
++            "control_states": dict(result.get("control_states", {}))}
++
++
+ def _parse_xml(data):
+     if len(data) > MAX_STOCK_BYTES or b"<!DOCTYPE" in data or b"<!ENTITY" in data:
+         raise ValueError("proto XML too large or declares a DTD")
+@@ -447,10 +545,24 @@ def _bounded(name, value, low, high, integer=False):
+     return value
+ 
+ 
++def _refusal(error, kind, base):
++    """Attach the refusal report (status, reason, funnel) to the exception; the CLI writes it."""
++    report = dict(base)
++    report["status"] = "refused"
++    report["refusal"] = {"kind": kind, "message": str(error)}
++    error.report = report
++    return error
++
++
+ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATION_RADIUS, max_per_storey=4,
+                     max_total=48, spacing=2.0, loot_ratio=0.25, max_lootmax=12, min_agreement=0.75,
+-                    allow_empty_classes=False):
+-    """Return (treatment bytes, report). Raise CoverageError when calibration is missing or too low."""
++                    allow_empty_classes=False, reach_source="strict"):
++    """Return (treatment bytes, report). Raise CoverageError when calibration is missing or too low.
++
++    A refusal that has a census to describe carries ``error.report`` with the per-class funnel.
++    """
++    if reach_source not in REACH_SOURCES:
++        raise ValueError(f"reach_source must be one of {', '.join(REACH_SOURCES)}")
+     _bounded("min_calibration", min_calibration, 0.0, 1.0)
+     _bounded("radius", radius, 0.05, 2.0)
+     _bounded("max_per_storey", max_per_storey, 1, 32, integer=True)
+@@ -460,9 +572,24 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
+     _bounded("max_lootmax", max_lootmax, 1, 64, integer=True)
+     _bounded("min_agreement", min_agreement, 0.01, 1.0)
+     census = parse_census(census_bytes)
++    analysed = {name: class_candidates(census, name, reach_source=reach_source)
++                for name in TENEMENT_CLASSES + CALIBRATION_CLASSES}
++    funnels = {name: funnel(analysed[name], min_agreement) for name in analysed}
++    parameters = {"radius": radius, "max_per_storey": max_per_storey, "max_total": max_total,
++                  "spacing": spacing, "loot_ratio": loot_ratio, "max_lootmax": max_lootmax,
++                  "min_agreement": min_agreement, "min_clearance": MIN_CLEARANCE, "max_slope": MAX_SLOPE,
++                  "band_tolerance": BAND_TOLERANCE, "height_spread_bound": HEIGHT_SPREAD_BOUND,
++                  "reach_source": reach_source}
++    base = {
++        "kind": "interior-points-report", "schema_version": 1,
++        "note": "offline aggregation of a native census; candidate only, spawning is not accepted by this tool",
++        "parameters": parameters, "funnel": funnels,
++        "stock_mapgroupproto_sha256": hashlib.sha256(stock_bytes).hexdigest(),
++        "census_sha256": hashlib.sha256(census_bytes).hexdigest(),
++    }
+     calibration, missing = {}, []
+     for name in CALIBRATION_CLASSES:
+-        candidates = class_candidates(census, name)
++        candidates = analysed[name]
+         stock = parse_stock_points(stock_bytes, name)
+         if not candidates["usable_placements"]:
+             missing.append(f"{name} (no usable placement)")
+@@ -472,22 +599,29 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
+             calibration[name] = calibrate(candidates, stock, radius, min_agreement)
+             calibration[name]["usable_placements"] = candidates["usable_placements"]
+     if missing:
+-        raise CoverageError("calibration data missing for " + ", ".join(missing)
+-                            + "; every calibration class is required")
++        base["calibration"] = {"passed": False, "missing": missing, "classes": calibration}
++        raise _refusal(CoverageError("calibration data missing for " + ", ".join(missing)
++                                     + "; every calibration class is required"), "calibration-missing", base)
+     coverage = min(entry["v3_coverage"] for entry in calibration.values())
+     xz_coverage = min(entry["xz_coverage"] for entry in calibration.values())
+     worst = min(calibration, key=lambda name: calibration[name]["v3_coverage"])
+-    if coverage < min_calibration - EPSILON:
+-        raise CoverageError(f"calibration vertical (3D) coverage {coverage:.3f} ({worst}, radius {radius}, "
+-                            f"xz-only {xz_coverage:.3f}) is below the threshold {min_calibration:.3f}")
+-    selections, classes = {}, {}
++    passed = coverage >= min_calibration - EPSILON
++    base["calibration"] = {"passed": passed, "min_coverage": coverage, "min_xz_coverage": xz_coverage,
++                           "gate": "vertical (3D) coverage", "threshold": min_calibration,
++                           "classes": calibration}
++    if not passed:
++        raise _refusal(CoverageError(f"calibration vertical (3D) coverage {coverage:.3f} ({worst}, radius {radius}, "
++                                     f"xz-only {xz_coverage:.3f}) is below the threshold {min_calibration:.3f}"),
++                       "calibration", base)
++    selections, classes, empty = {}, {}, []
+     for name in TENEMENT_CLASSES:
+-        candidates = class_candidates(census, name)
++        candidates = analysed[name]
+         chosen = select_points(candidates["candidates"], candidates["reach_mode"], min_agreement, max_per_storey,
+                                max_total, spacing)
+-        if not chosen and not allow_empty_classes:
+-            raise ValueError(f"{name}: no eligible candidates (usable placements {candidates['usable_placements']}, "
+-                             f"reachability {candidates['reach_mode']}; unknown reachability never enters treatment)")
++        if not chosen:
++            empty.append(f"{name}: no eligible candidates (usable placements {candidates['usable_placements']}, "
++                         f"reachability {candidates['reach_mode']}, source {reach_source}; unknown reachability "
++                         "never enters treatment)")
+         selections[name] = chosen
+         classes[name] = {
+             "usable_placements": candidates["usable_placements"], "rows": candidates["rows"],
+@@ -497,23 +631,15 @@ def build_treatment(census_bytes, stock_bytes, min_calibration, radius=CALIBRATI
+             "storeys": sorted({p["storey"] for p in chosen}), "off_grid_hits": candidates["off_grid_hits"],
+             "points": chosen,
+         }
++    if empty and not allow_empty_classes:
++        base["classes"] = classes
++        raise _refusal(ValueError("; ".join(empty)), "no-eligible-candidates", base)
+     treatment = write_treatment(stock_bytes, selections, loot_ratio=loot_ratio, max_lootmax=max_lootmax)
+-    report = {
+-        "kind": "interior-points-report", "schema_version": 1,
+-        "note": "offline aggregation of a native census; candidate only, spawning is not accepted by this tool",
+-        "parameters": {"radius": radius, "max_per_storey": max_per_storey, "max_total": max_total,
+-                       "spacing": spacing, "loot_ratio": loot_ratio, "max_lootmax": max_lootmax,
+-                       "min_agreement": min_agreement, "min_clearance": MIN_CLEARANCE, "max_slope": MAX_SLOPE,
+-                       "band_tolerance": BAND_TOLERANCE, "height_spread_bound": HEIGHT_SPREAD_BOUND},
+-        "calibration": {"passed": True, "min_coverage": coverage, "min_xz_coverage": xz_coverage,
+-                        "gate": "vertical (3D) coverage", "threshold": min_calibration,
+-                        "classes": calibration},
+-        "classes": classes,
+-        "treatment": {"sha256": hashlib.sha256(treatment).hexdigest(), "bytes": len(treatment),
+-                      "groups_changed": sorted(name for name, chosen in selections.items() if chosen)},
+-        "stock_mapgroupproto_sha256": hashlib.sha256(stock_bytes).hexdigest(),
+-        "census_sha256": hashlib.sha256(census_bytes).hexdigest(),
+-    }
++    report = dict(base)
++    report["status"] = "ok"
++    report["classes"] = classes
++    report["treatment"] = {"sha256": hashlib.sha256(treatment).hexdigest(), "bytes": len(treatment),
++                           "groups_changed": sorted(name for name, chosen in selections.items() if chosen)}
+     return treatment, report
+ 
+ 
+@@ -538,6 +664,22 @@ def _output_path(value):
+     return path
+ 
+ 
++def _write_refusal(path, error):
++    """Write the refusal report (funnel and reason) next to where the run report would go; never a treatment."""
++    report = getattr(error, "report", None)
++    if path is None or report is None:
++        return
++    try:
++        path.parent.mkdir(parents=True, exist_ok=True)
++        with open(path, "x", encoding="utf-8") as stream:
++            json.dump(report, stream, indent=2, sort_keys=True)
++            stream.write("\n")
++    except OSError as problem:
++        print(f"interior_points: refusal report not written: {problem}", file=sys.stderr)
++        return
++    print(f"interior_points: refusal report {path}", file=sys.stderr)
++
++
+ def main(argv=None):
+     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+     parser.add_argument("--census", required=True)
+@@ -553,7 +695,10 @@ def main(argv=None):
+     parser.add_argument("--max-lootmax", type=int, default=12)
+     parser.add_argument("--min-agreement", type=float, default=0.75)
+     parser.add_argument("--allow-empty-classes", action="store_true")
++    parser.add_argument("--reach-source", choices=REACH_SOURCES, default="strict",
++                        help="which navmesh filter's reach codes gate eligibility (default strict; never switched silently)")
+     args = parser.parse_args(argv)
++    report_path = None
+     try:
+         output, report_path = _output_path(args.output), _output_path(args.report)
+         if output == report_path:
+@@ -564,7 +709,7 @@ def main(argv=None):
+             census, stock, args.min_calibration, radius=args.radius, max_per_storey=args.max_per_storey,
+             max_total=args.max_total, spacing=args.spacing, loot_ratio=args.loot_ratio,
+             max_lootmax=args.max_lootmax, min_agreement=args.min_agreement,
+-            allow_empty_classes=args.allow_empty_classes)
++            allow_empty_classes=args.allow_empty_classes, reach_source=args.reach_source)
+         for path in (output, report_path):
+             path.parent.mkdir(parents=True, exist_ok=True)
+         with open(output, "xb") as stream:
+@@ -574,9 +719,11 @@ def main(argv=None):
+             stream.write("\n")
+     except CoverageError as error:
+         print(f"interior_points: calibration coverage refusal: {error}", file=sys.stderr)
++        _write_refusal(report_path, error)
+         return 2
+     except (OSError, ValueError) as error:
+         print(f"interior_points: {error}", file=sys.stderr)
++        _write_refusal(report_path, error)
+         return 1
+     print(f"treatment {output} sha256={report['treatment']['sha256']} groups={','.join(report['treatment']['groups_changed'])}")
+     print(f"calibration min xz coverage {report['calibration']['min_coverage']:.3f} "
+diff --git a/tools/setup/interior_sampler.py b/tools/setup/interior_sampler.py
+index 669f682..ed62542 100644
+--- a/tools/setup/interior_sampler.py
++++ b/tools/setup/interior_sampler.py
+@@ -77,8 +77,16 @@ DEFAULT_WAIT_MINUTES = 10
+ # ---------------------------------------------------------------------------
+ 
+ # Tolerances below are PROVISIONAL: nothing has measured the native navmesh, so they are chosen
+-# tight (a floor cell is only "reached" when the navmesh sits within half a metre of it with no
+-# building wall between) and reported in the plan so a native run can be judged against them.
++# tight and reported in the plan so a native run can be judged against them. A floor cell is only
++# "reached" (code 1) when the mesh point sits within TrivialShift (1 cm) of it horizontally and
++# within VerticalAllowance (0.25 m, an explicit provisional allowance that never replaces the
++# wall/waist checks) vertically, and the path ends within the same limits. A zero-radius level ray
++# is not player volume, so a nontrivial snap or final gap is never "reached": it is code 3
++# (unqualified) when the ray is clear and code 2/0 when it hits something. Code 3 also marks a
++# cell whose free clearance (first collision of any object above the floor, not just the owner's
++# ceiling) is below 1.9 m, and every cell of a column that hit the floor or step cap. Each
++# candidate gets one exact reason (reach_diag) for the strict filter and for the player filter,
++# which is computed in the same run; the hit row and the gate stay strict.
+ HOOK_HEAD = r"""
+ 
+ // Hollow Country DISPOSABLE interior floor sampler; observation only, no gameplay acceptance.
+@@ -97,12 +105,29 @@ class HCDisposableDiagnosticMission : CustomMission
+     protected string m_HCProbeReachState = "none";
+     protected string m_HCProbeReachDoors = "";
+     protected string m_HCProbeReachEntrances = "";
++    protected string m_HCProbeReachDetail = "";
++    protected string m_HCProbePlayerState = "none";
++    protected string m_HCProbePlayerEntrances = "";
++    protected string m_HCProbePlayerAttempts = "";
++    protected string m_HCProbePlayerDetail = "";
++    protected string m_HCProbePlayerCodes = "";
++    protected string m_HCProbeDetailText = "{}";
++    protected string m_HCProbeDiagType = "";
++    protected string m_HCProbeFreeType = "";
+     protected float m_HCProbeGridStep = @@GRID_STEP@@;
+     protected float m_HCProbeSnapLimit = 0.5;
+     protected float m_HCProbeEndTolerance = 0.5;
+     protected float m_HCProbeSeedMargin = 1.0;
+     protected float m_HCProbeProjectedMargin = 0.5;
+     protected float m_HCProbeWaistHeight = 1.0;
++    protected float m_HCProbeVerticalAllowance = 0.25;
++    protected float m_HCProbeTrivialShift = 0.01;
++    protected float m_HCProbeClearRequired = 1.9;
++    protected float m_HCProbeFreeClear = 0.0;
++    protected float m_HCProbeDiagHSnap = -1.0;
++    protected float m_HCProbeDiagVSnap = -1.0;
++    protected float m_HCProbeDiagHGap = -1.0;
++    protected float m_HCProbeDiagVGap = -1.0;
+     protected int m_HCProbeHitLimit = @@HIT_LIMIT@@;
+     protected int m_HCProbeStepLimit = @@STEP_LIMIT@@;
+     protected int m_HCProbeBuildingRayLimit = @@BUILDING_RAY_LIMIT@@;
+@@ -119,6 +144,10 @@ class HCDisposableDiagnosticMission : CustomMission
+     protected int m_HCProbeRunRays = 0;
+     protected int m_HCProbeBuildingRays = 0;
+     protected int m_HCProbeBuildingPaths = 0;
++    protected int m_HCProbePlayerPaths = 0;
++    protected int m_HCProbeDiagWaypoints = 0;
++    protected int m_HCProbeDiagRel = 0;
++    protected int m_HCProbeFreeRel = 0;
+     protected int m_HCProbeHitsEmitted = 0;
+     protected int m_HCProbeOutputChars = 0;
+     protected int m_HCProbeStatColumns = 0;
+@@ -151,7 +180,16 @@ class HCDisposableDiagnosticMission : CustomMission
+     protected ref array<string> m_HCProbeClasses = new array<string>;
+     protected ref array<string> m_HCProbeRoles = new array<string>;
+     protected ref array<vector> m_HCProbePositions = new array<vector>;
++    protected ref array<int> m_HCProbeReachCounts = new array<int>;
++    protected ref array<string> m_HCProbeReachSamples = new array<string>;
++    protected ref array<vector> m_HCProbeColPos = new array<vector>;
++    protected ref array<float> m_HCProbeColClear = new array<float>;
++    protected ref array<float> m_HCProbeColFree = new array<float>;
++    protected ref array<float> m_HCProbeColDir = new array<float>;
++    protected ref array<int> m_HCProbeColRel = new array<int>;
++    protected ref array<string> m_HCProbeColType = new array<string>;
+     protected ref PGFilter m_HCProbeFilter;
++    protected ref PGFilter m_HCProbePlayerFilter;
+     protected Building m_HCProbeBuilding;
+     protected vector m_HCProbeBoxMin;
+     protected vector m_HCProbeBoxMax;
+@@ -162,6 +200,9 @@ class HCDisposableDiagnosticMission : CustomMission
+     protected vector m_HCProbeEntrance;
+     protected vector m_HCProbeSeedWorld;
+     protected vector m_HCProbeSampledModel;
++    protected vector m_HCProbePlayerEntrance;
++    protected vector m_HCProbeDiagSampled;
++    protected vector m_HCProbeDiagFinal;
+ 
+     override void OnInit()
+     {
+@@ -263,8 +304,15 @@ HOOK_TAIL = r"""
+         return false;
+     }
+ 
+-    bool HCProbeTakePath()
++    bool HCProbeTakePath(int variant)
+     {
++        if (variant == 1)
++        {
++            if (m_HCProbePlayerPaths >= m_HCProbePathLimit)
++                return false;
++            m_HCProbePlayerPaths = m_HCProbePlayerPaths + 1;
++            return true;
++        }
+         if (m_HCProbeBuildingPaths >= m_HCProbePathLimit)
+             return false;
+         m_HCProbeBuildingPaths = m_HCProbeBuildingPaths + 1;
+@@ -332,6 +380,9 @@ HOOK_TAIL = r"""
+         float gain = 0.0;
+         int result = 0;
+         int attempt = 0;
++        m_HCProbeFreeClear = 0.0;
++        m_HCProbeFreeRel = 0;
++        m_HCProbeFreeType = "";
+         for (attempt = 0; attempt < 16; attempt++)
+         {
+             if (startY >= endY)
+@@ -340,6 +391,12 @@ HOOK_TAIL = r"""
+             if (result < 1)
+                 return -1.0;
+             hitY = m_HCProbeHitPos[1];
++            if (attempt == 0)
++            {
++                m_HCProbeFreeClear = hitY - surfacePos[1];
++                m_HCProbeFreeRel = m_HCProbeHitRel;
++                m_HCProbeFreeType = m_HCProbeHitType;
++            }
+             if (result == 1)
+                 return hitY - surfacePos[1];
+             gain = hitY - startY;
+@@ -496,6 +553,9 @@ HOOK_TAIL = r"""
+         }
+         string head = "{" + HCProbeKey("schema") + "1," + HCProbeKey("kind") + HCProbeStr("interior-sampler-census") + ",";
+         head = head + HCProbeKey("world") + HCProbeStr(world) + "," + HCProbeKey("version") + HCProbeStr(version) + ",";
++        head = head + HCProbeKey("filters") + "{" + HCProbeKey("flags") + "{" + HCProbeFlagsText() + "},";
++        head = head + HCProbeKey("strict") + HCProbeFilterText(m_HCProbeFilter) + ",";
++        head = head + HCProbeKey("player") + HCProbeFilterText(m_HCProbePlayerFilter) + "},";
+         head = head + HCProbeKey("placements") + "[";
+         FPrintln(handle, head);
+         CloseFile(handle);
+@@ -509,41 +569,54 @@ HOOK_TAIL = r"""
+             return false;
+         if (!m_HCProbeFilter)
+             return false;
++        if (!m_HCProbePlayerFilter)
++            return false;
+         return true;
+     }
+ 
+-    bool HCProbeSampleMesh(vector position, float radius)
++    bool HCProbeSampleMesh(vector position, float radius, PGFilter meshFilter)
+     {
+         vector sampled;
+-        bool found = GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition(position, radius, m_HCProbeFilter, sampled);
++        bool found = GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition(position, radius, meshFilter, sampled);
+         if (!found)
+             return false;
+         m_HCProbeSampled = sampled;
+         return true;
+     }
+ 
+-    int HCProbePath(vector startPos, vector endPos, vector goalPos)
++    int HCProbePath(vector startPos, vector endPos, vector goalPos, PGFilter meshFilter)
+     {
+         m_HCProbePathCount = 0;
+         m_HCProbePathGap = 0.0;
+         TVectorArray waypoints = new TVectorArray;
+-        bool found = GetGame().GetWorld().GetAIWorld().FindPath(startPos, endPos, m_HCProbeFilter, waypoints);
++        bool found = GetGame().GetWorld().GetAIWorld().FindPath(startPos, endPos, meshFilter, waypoints);
+         if (!found)
+             return 1;
+         m_HCProbePathCount = waypoints.Count();
++        m_HCProbeDiagWaypoints = waypoints.Count();
+         if (waypoints.Count() < 2)
+             return 2;
+         vector finalPoint = waypoints.Get(waypoints.Count() - 1);
++        m_HCProbeDiagFinal = m_HCProbeBuilding.CoordToLocal(finalPoint);
+         m_HCProbePathGap = vector.Distance(finalPoint, goalPos);
+-        if (m_HCProbePathGap > m_HCProbeEndTolerance)
+-            return 3;
+         float gapX = goalPos[0] - finalPoint[0];
+         float gapZ = goalPos[2] - finalPoint[2];
+-        if (gapX * gapX + gapZ * gapZ > 0.000001)
++        m_HCProbeDiagHGap = Math.Sqrt(gapX * gapX + gapZ * gapZ);
++        m_HCProbeDiagVGap = Math.AbsFloat(goalPos[1] - finalPoint[1]);
++        if (m_HCProbeDiagHGap > m_HCProbeEndTolerance)
++            return 3;
++        if (m_HCProbeDiagVGap > m_HCProbeVerticalAllowance)
++            return 3;
++        if (m_HCProbeDiagHGap > m_HCProbeTrivialShift)
+         {
+             float waistY = goalPos[1] + m_HCProbeWaistHeight;
+             if (HCProbeBlocked(Vector(finalPoint[0], waistY, finalPoint[2]), Vector(goalPos[0], waistY, goalPos[2])))
++            {
++                m_HCProbeDiagRel = m_HCProbeHitRel;
++                m_HCProbeDiagType = m_HCProbeHitType;
+                 return 4;
++            }
++            return 6;
+         }
+         return 5;
+     }
+@@ -569,8 +642,13 @@ HOOK_TAIL = r"""
+         return false;
+     }
+ 
+-    int HCProbeReachAttempt(vector doorPos, float dirX, float dirZ)
++    int HCProbeReachAttempt(int variant, vector doorPos, float dirX, float dirZ)
+     {
++        PGFilter meshFilter = m_HCProbeFilter;
++        if (variant == 1)
++            meshFilter = m_HCProbePlayerFilter;
++        HCProbeDiagReset();
++        m_HCProbeDetailText = "{}";
+         m_HCProbeAttemptA = 0.0;
+         m_HCProbeAttemptB = 0.0;
+         m_HCProbeStandoff = 0.0;
+@@ -583,10 +661,13 @@ HOOK_TAIL = r"""
+         float unitZ = dirZ / dirLength;
+         if (!HCProbeSeedOutside(doorPos, unitX, unitZ))
+             return 2;
+-        if (!HCProbeTakePath())
++        if (!HCProbeTakePath(variant))
+             return 3;
+-        if (!HCProbeSampleMesh(m_HCProbeSeedWorld, 1.5))
++        if (!HCProbeSampleMesh(m_HCProbeSeedWorld, 1.5, meshFilter))
++        {
++            HCProbeControlDetail(4, m_HCProbeSeedWorld);
+             return 4;
++        }
+         vector entranceSampled = m_HCProbeSampled;
+         m_HCProbeSampledModel = m_HCProbeBuilding.CoordToLocal(entranceSampled);
+         if (!HCProbeOutsideBox(m_HCProbeSampledModel, m_HCProbeProjectedMargin))
+@@ -603,50 +684,109 @@ HOOK_TAIL = r"""
+         vector farModel = Vector(m_HCProbeSeed[0] + unitX * 10.0, m_HCProbeSeed[1], m_HCProbeSeed[2] + unitZ * 10.0);
+         vector farWorld = m_HCProbeBuilding.CoordToParent(farModel);
+         float farGround = GetGame().SurfaceY(farWorld[0], farWorld[2]);
+-        if (!HCProbeSampleMesh(Vector(farWorld[0], farGround, farWorld[2]), 1.5))
++        if (!HCProbeSampleMesh(Vector(farWorld[0], farGround, farWorld[2]), 1.5, meshFilter))
+             return 7;
+         vector farSampled = m_HCProbeSampled;
+-        int stage = HCProbePath(entranceSampled, farSampled, farSampled);
++        m_HCProbeDiagSampled = m_HCProbeBuilding.CoordToLocal(farSampled);
++        int stage = HCProbePath(entranceSampled, farSampled, farSampled, meshFilter);
+         m_HCProbeAttemptA = m_HCProbePathCount;
+         m_HCProbeAttemptB = m_HCProbePathGap;
+-        if (stage != 5)
++        if (stage != 5 && stage != 6)
++        {
++            HCProbeControlDetail(7 + stage, farSampled);
+             return 7 + stage;
+-        m_HCProbeEntrance = entranceSampled;
++        }
++        if (variant == 0)
++            m_HCProbeEntrance = entranceSampled;
++        if (variant == 1)
++            m_HCProbePlayerEntrance = entranceSampled;
+         return 12;
+     }
+ 
+-    void HCProbeReachNote(int door, int stage)
++    void HCProbeReachNote(int variant, int door, int stage)
+     {
+         string entry = "[" + HCProbeInt(door) + "," + HCProbeNum(m_HCProbeStandoff) + "," + HCProbeInt(stage) + ",";
+         entry = entry + HCProbeVector(m_HCProbeSeed) + "," + HCProbeVector(m_HCProbeSampledModel) + ",";
+         entry = entry + HCProbeNum(m_HCProbeAttemptA) + "," + HCProbeNum(m_HCProbeAttemptB) + "]";
+-        if (m_HCProbeReachAttempts.Length() > 0)
+-            m_HCProbeReachAttempts = m_HCProbeReachAttempts + ",";
+-        m_HCProbeReachAttempts = m_HCProbeReachAttempts + entry;
++        string attempts = m_HCProbeReachAttempts;
++        string detail = m_HCProbeReachDetail;
++        if (variant == 1)
++        {
++            attempts = m_HCProbePlayerAttempts;
++            detail = m_HCProbePlayerDetail;
++        }
++        if (attempts.Length() > 0)
++            attempts = attempts + ",";
++        if (detail.Length() > 0)
++            detail = detail + ",";
++        attempts = attempts + entry;
++        detail = detail + m_HCProbeDetailText;
++        if (variant == 0)
++        {
++            m_HCProbeReachAttempts = attempts;
++            m_HCProbeReachDetail = detail;
++        }
++        if (variant == 1)
++        {
++            m_HCProbePlayerAttempts = attempts;
++            m_HCProbePlayerDetail = detail;
++        }
++    }
++
++    void HCProbeReachDoor(int variant, int door, float centreX, float centreZ)
++    {
++        string state = m_HCProbeReachState;
++        if (variant == 1)
++            state = m_HCProbePlayerState;
++        if (state == "tested")
++            return;
++        vector doorPos = m_HCProbeBuilding.CoordToLocal(m_HCProbeBuilding.GetDoorSoundPos(door));
++        int stage = HCProbeReachAttempt(variant, doorPos, doorPos[0] - centreX, doorPos[2] - centreZ);
++        if (stage == 3)
++            state = "path-budget";
++        HCProbeReachNote(variant, door, stage);
++        if (stage == 12)
++        {
++            state = "tested";
++            if (variant == 0)
++                m_HCProbeReachEntrances = HCProbeVector(m_HCProbeSeed);
++            if (variant == 1)
++                m_HCProbePlayerEntrances = HCProbeVector(m_HCProbeSeed);
++        }
++        if (variant == 0)
++            m_HCProbeReachState = state;
++        if (variant == 1)
++            m_HCProbePlayerState = state;
+     }
+ 
+     void HCProbeReachSetup()
+     {
+         m_HCProbeReachState = "unavailable";
++        m_HCProbePlayerState = "unavailable";
+         m_HCProbeReachDoors = "";
+         m_HCProbeReachEntrances = "";
+         m_HCProbeReachAttempts = "";
++        m_HCProbeReachDetail = "";
++        m_HCProbePlayerEntrances = "";
++        m_HCProbePlayerAttempts = "";
++        m_HCProbePlayerDetail = "";
+         if (!HCProbeMeshAvailable())
+             return;
+         int doorCount = m_HCProbeBuilding.GetDoorCount();
+         if (doorCount < 1)
+         {
+             m_HCProbeReachState = "no-door";
++            m_HCProbePlayerState = "no-door";
+             return;
+         }
+         if (doorCount > 4)
+             doorCount = 4;
+         m_HCProbeReachState = "control-failed";
++        m_HCProbePlayerState = "control-failed";
+         float centreX = (m_HCProbeBoxMin[0] + m_HCProbeBoxMax[0]) * 0.5;
+         float centreZ = (m_HCProbeBoxMin[2] + m_HCProbeBoxMax[2]) * 0.5;
+         string doorText = "";
+         int door = 0;
+-        int stage = 0;
+         vector doorPos;
+         for (door = 0; door < doorCount; door++)
+         {
+@@ -654,65 +794,267 @@ HOOK_TAIL = r"""
+             if (door > 0)
+                 doorText = doorText + ",";
+             doorText = doorText + HCProbeVector(doorPos);
+-            if (m_HCProbeReachState != "tested")
+-            {
+-                stage = HCProbeReachAttempt(doorPos, doorPos[0] - centreX, doorPos[2] - centreZ);
+-                if (stage == 3)
+-                    m_HCProbeReachState = "path-budget";
+-                HCProbeReachNote(door, stage);
+-                if (stage == 12)
+-                {
+-                    m_HCProbeReachState = "tested";
+-                    m_HCProbeReachEntrances = HCProbeVector(m_HCProbeSeed);
+-                }
+-            }
++            HCProbeReachDoor(0, door, centreX, centreZ);
++            HCProbeReachDoor(1, door, centreX, centreZ);
+         }
+         m_HCProbeReachDoors = doorText;
+     }
+ 
+-    int HCProbeReachHit(vector floorPos)
++    void HCProbeDiagReset()
+     {
+-        if (m_HCProbeReachState != "tested")
+-            return -1;
+-        if (!HCProbeTakePath())
++        m_HCProbeDiagSampled = Vector(0.0, 0.0, 0.0);
++        m_HCProbeDiagFinal = Vector(0.0, 0.0, 0.0);
++        m_HCProbeDiagHSnap = -1.0;
++        m_HCProbeDiagVSnap = -1.0;
++        m_HCProbeDiagHGap = -1.0;
++        m_HCProbeDiagVGap = -1.0;
++        m_HCProbeDiagWaypoints = 0;
++        m_HCProbeDiagRel = 0;
++        m_HCProbeDiagType = "";
++    }
++
++    string HCProbeReasonName(int reason)
++    {
++        if (reason == 0)
++            return "sample_failed";
++        if (reason == 1)
++            return "snap_far";
++        if (reason == 2)
++            return "snap_blocked";
++        if (reason == 3)
++            return "path_not_found";
++        if (reason == 4)
++            return "path_too_short";
++        if (reason == 5)
++            return "gap_far";
++        if (reason == 6)
++            return "gap_blocked";
++        if (reason == 7)
++            return "reached";
++        if (reason == 8)
++            return "snap_unqualified";
++        if (reason == 9)
++            return "gap_unqualified";
++        if (reason == 10)
++            return "clearance_obstructed";
++        if (reason == 11)
++            return "column_capped";
++        return "path_budget";
++    }
++
++    void HCProbeDiagSample(int variant, int reason, vector floorPos)
++    {
++        int slot = variant * 13 + reason;
++        int seen = m_HCProbeReachCounts.Get(slot);
++        m_HCProbeReachCounts.Set(slot, seen + 1);
++        if (seen >= 8)
++            return;
++        vector floorModel = m_HCProbeBuilding.CoordToLocal(floorPos);
++        string text = "[" + HCProbeVector(floorModel) + "," + HCProbeVector(m_HCProbeDiagSampled) + ",";
++        text = text + HCProbeNum(m_HCProbeDiagHSnap) + "," + HCProbeNum(m_HCProbeDiagVSnap) + "," + HCProbeInt(m_HCProbeDiagWaypoints) + ",";
++        text = text + HCProbeVector(m_HCProbeDiagFinal) + "," + HCProbeNum(m_HCProbeDiagHGap) + "," + HCProbeNum(m_HCProbeDiagVGap) + ",";
++        text = text + HCProbeInt(m_HCProbeDiagRel) + "," + HCProbeStr(m_HCProbeDiagType) + "]";
++        string held = m_HCProbeReachSamples.Get(slot);
++        if (seen > 0)
++            held = held + ",";
++        m_HCProbeReachSamples.Set(slot, held + text);
++    }
++
++    int HCProbeReachResult(int variant, int reason, vector floorPos)
++    {
++        HCProbeDiagSample(variant, reason, floorPos);
++        if (reason == 7)
++            return 1;
++        if (reason == 12)
+             return -1;
+-        if (!HCProbeSampleMesh(floorPos, 1.5))
++        if (reason >= 8)
++            return 3;
++        if (reason <= 2)
+             return 2;
++        return 0;
++    }
++
++    string HCProbeReachDiagVariant(int variant)
++    {
++        string text = "{";
++        int reason = 0;
++        int slot = 0;
++        int seen = 0;
++        for (reason = 0; reason < 13; reason++)
++        {
++            slot = variant * 13 + reason;
++            seen = m_HCProbeReachCounts.Get(slot);
++            if (seen > 0)
++            {
++                if (text.Length() > 1)
++                    text = text + ",";
++                text = text + HCProbeKey(HCProbeReasonName(reason)) + "{" + HCProbeKey("count") + HCProbeInt(seen) + ",";
++                text = text + HCProbeKey("samples") + "[" + m_HCProbeReachSamples.Get(slot) + "]}";
++            }
++        }
++        return text + "}";
++    }
++
++    string HCProbeReachDiagText()
++    {
++        string text = "{" + HCProbeKey("strict") + HCProbeReachDiagVariant(0) + ",";
++        text = text + HCProbeKey("player") + HCProbeReachDiagVariant(1) + "}";
++        return text;
++    }
++
++    void HCProbeControlDetail(int stage, vector probeWorld)
++    {
++        m_HCProbeDetailText = "{}";
++        if (stage != 4 && stage != 10)
++            return;
++        int result = HCProbeRay(Vector(probeWorld[0], probeWorld[1] + 2.0, probeWorld[2]), Vector(probeWorld[0], probeWorld[1] - 2.0, probeWorld[2]));
++        float groundY = -1000.0;
++        if (result > 0)
++        {
++            vector groundLocal = m_HCProbeBuilding.CoordToLocal(m_HCProbeHitPos);
++            groundY = groundLocal[1];
++        }
++        string text = "{" + HCProbeKey("seed") + HCProbeVector(m_HCProbeSeed) + "," + HCProbeKey("sample") + HCProbeVector(m_HCProbeDiagSampled) + ",";
++        text = text + HCProbeKey("final") + HCProbeVector(m_HCProbeDiagFinal) + "," + HCProbeKey("h_gap") + HCProbeNum(m_HCProbeDiagHGap) + ",";
++        text = text + HCProbeKey("v_gap") + HCProbeNum(m_HCProbeDiagVGap) + "," + HCProbeKey("waypoints") + HCProbeInt(m_HCProbeDiagWaypoints) + ",";
++        text = text + HCProbeKey("ray") + HCProbeInt(result) + "," + HCProbeKey("rel") + HCProbeInt(m_HCProbeHitRel) + ",";
++        text = text + HCProbeKey("type") + HCProbeStr(m_HCProbeHitType) + "," + HCProbeKey("hit_y") + HCProbeNum(groundY) + "}";
++        m_HCProbeDetailText = text;
++    }
++
++    string HCProbeFlagEntry(string name, int value)
++    {
++        return HCProbeKey(name) + HCProbeInt(value);
++    }
++
++    string HCProbeFlagsText()
++    {
++        string text = HCProbeFlagEntry("NONE", PGPolyFlags.NONE) + "," + HCProbeFlagEntry("WALK", PGPolyFlags.WALK) + ",";
++        text = text + HCProbeFlagEntry("DISABLED", PGPolyFlags.DISABLED) + "," + HCProbeFlagEntry("DOOR", PGPolyFlags.DOOR) + ",";
++        text = text + HCProbeFlagEntry("INSIDE", PGPolyFlags.INSIDE) + "," + HCProbeFlagEntry("SWIM", PGPolyFlags.SWIM) + ",";
++        text = text + HCProbeFlagEntry("SWIM_SEA", PGPolyFlags.SWIM_SEA) + "," + HCProbeFlagEntry("LADDER", PGPolyFlags.LADDER) + ",";
++        text = text + HCProbeFlagEntry("JUMP_OVER", PGPolyFlags.JUMP_OVER) + "," + HCProbeFlagEntry("JUMP_DOWN", PGPolyFlags.JUMP_DOWN) + ",";
++        text = text + HCProbeFlagEntry("CLIMB", PGPolyFlags.CLIMB) + "," + HCProbeFlagEntry("CRAWL", PGPolyFlags.CRAWL) + ",";
++        text = text + HCProbeFlagEntry("CROUCH", PGPolyFlags.CROUCH) + "," + HCProbeFlagEntry("UNREACHABLE", PGPolyFlags.UNREACHABLE) + ",";
++        text = text + HCProbeFlagEntry("ALL", PGPolyFlags.ALL) + "," + HCProbeFlagEntry("JUMP", PGPolyFlags.JUMP) + ",";
++        text = text + HCProbeFlagEntry("SPECIAL", PGPolyFlags.SPECIAL);
++        return text;
++    }
++
++    string HCProbeFilterText(PGFilter meshFilter)
++    {
++        string text = "{" + HCProbeKey("include") + HCProbeInt(meshFilter.GetIncludeFlags()) + ",";
++        text = text + HCProbeKey("exclude") + HCProbeInt(meshFilter.GetExcludeFlags()) + ",";
++        text = text + HCProbeKey("exclusive") + HCProbeInt(meshFilter.GetExlusiveFlags()) + "}";
++        return text;
++    }
++
++    int HCProbeReachHit(int variant, vector floorPos, float freeClear, int capKind)
++    {
++        string state = m_HCProbeReachState;
++        PGFilter meshFilter = m_HCProbeFilter;
++        vector entrance = m_HCProbeEntrance;
++        if (variant == 1)
++        {
++            state = m_HCProbePlayerState;
++            meshFilter = m_HCProbePlayerFilter;
++            entrance = m_HCProbePlayerEntrance;
++        }
++        if (state != "tested")
++            return -1;
++        HCProbeDiagReset();
++        if (capKind > 0)
++            return HCProbeReachResult(variant, 11, floorPos);
++        if (freeClear < m_HCProbeClearRequired)
++        {
++            m_HCProbeDiagRel = m_HCProbeFreeRel;
++            m_HCProbeDiagType = m_HCProbeFreeType;
++            return HCProbeReachResult(variant, 10, floorPos);
++        }
++        if (!HCProbeTakePath(variant))
++            return HCProbeReachResult(variant, 12, floorPos);
++        if (!HCProbeSampleMesh(floorPos, 1.5, meshFilter))
++            return HCProbeReachResult(variant, 0, floorPos);
+         vector candidate = m_HCProbeSampled;
+-        if (vector.Distance(candidate, floorPos) > m_HCProbeSnapLimit)
+-            return 2;
++        m_HCProbeDiagSampled = m_HCProbeBuilding.CoordToLocal(candidate);
+         float shiftX = candidate[0] - floorPos[0];
+         float shiftZ = candidate[2] - floorPos[2];
+-        float waistY = floorPos[1] + m_HCProbeWaistHeight;
+-        if (shiftX * shiftX + shiftZ * shiftZ > 0.000001)
++        m_HCProbeDiagHSnap = Math.Sqrt(shiftX * shiftX + shiftZ * shiftZ);
++        m_HCProbeDiagVSnap = Math.AbsFloat(candidate[1] - floorPos[1]);
++        if (m_HCProbeDiagHSnap > m_HCProbeSnapLimit)
++            return HCProbeReachResult(variant, 1, floorPos);
++        if (m_HCProbeDiagVSnap > m_HCProbeVerticalAllowance)
++            return HCProbeReachResult(variant, 1, floorPos);
++        if (m_HCProbeDiagHSnap > m_HCProbeTrivialShift)
+         {
+-            if (HCProbeBlocked(Vector(floorPos[0], waistY, floorPos[2]), Vector(candidate[0], waistY, candidate[2])))
+-                return 2;
++            float waistY = floorPos[1] + m_HCProbeWaistHeight;
++            int snapRay = HCProbeRay(Vector(floorPos[0], waistY, floorPos[2]), Vector(candidate[0], waistY, candidate[2]));
++            m_HCProbeDiagRel = m_HCProbeHitRel;
++            m_HCProbeDiagType = m_HCProbeHitType;
++            if (snapRay != 0)
++                return HCProbeReachResult(variant, 2, floorPos);
++            return HCProbeReachResult(variant, 8, floorPos);
+         }
+-        if (HCProbePath(m_HCProbeEntrance, candidate, floorPos) == 5)
+-            return 1;
+-        return 0;
++        int stage = HCProbePath(entrance, candidate, floorPos, meshFilter);
++        if (stage == 1)
++            return HCProbeReachResult(variant, 3, floorPos);
++        if (stage == 2)
++            return HCProbeReachResult(variant, 4, floorPos);
++        if (stage == 3)
++            return HCProbeReachResult(variant, 5, floorPos);
++        if (stage == 4)
++            return HCProbeReachResult(variant, 6, floorPos);
++        if (stage == 6)
++            return HCProbeReachResult(variant, 9, floorPos);
++        return HCProbeReachResult(variant, 7, floorPos);
+     }
+ 
+-    void HCProbeRecordFloor(vector floorPos, float clearance, float dirY)
++    void HCProbeRecordFloor(vector floorPos, float clearance, float freeClear, float dirY, int capKind)
+     {
+         vector modelPos = m_HCProbeBuilding.CoordToLocal(floorPos);
+         int code = -1;
++        int playerCode = -1;
+         if (clearance >= 1.9)
+-            code = HCProbeReachHit(floorPos);
++        {
++            code = HCProbeReachHit(0, floorPos, freeClear, capKind);
++            playerCode = HCProbeReachHit(1, floorPos, freeClear, capKind);
++        }
+         string text = "[" + HCProbeNum(modelPos[0]) + "," + HCProbeNum(modelPos[1]) + "," + HCProbeNum(modelPos[2]) + ",";
+         text = text + HCProbeNum(clearance) + "," + HCProbeNum(dirY) + "," + HCProbeInt(code) + "]";
+-        if (m_HCProbeOutputChars + text.Length() > m_HCProbeOutputLimit)
++        string codeText = HCProbeInt(playerCode);
++        if (m_HCProbeOutputChars + m_HCProbePlayerCodes.Length() + text.Length() > m_HCProbeOutputLimit)
+         {
+             m_HCProbeOutputCapped = true;
+             return;
+         }
+         if (m_HCProbeHitsEmitted > 0)
++        {
+             text = "," + text;
++            codeText = "," + codeText;
++        }
+         m_HCProbeHitsEmitted = m_HCProbeHitsEmitted + 1;
++        m_HCProbePlayerCodes = m_HCProbePlayerCodes + codeText;
+         HCProbeEmit(text);
+     }
+ 
++    void HCProbeColumnFlush(int capKind)
++    {
++        int total = m_HCProbeColPos.Count();
++        int index = 0;
++        for (index = 0; index < total; index++)
++        {
++            m_HCProbeFreeRel = m_HCProbeColRel.Get(index);
++            m_HCProbeFreeType = m_HCProbeColType.Get(index);
++            HCProbeRecordFloor(m_HCProbeColPos.Get(index), m_HCProbeColClear.Get(index), m_HCProbeColFree.Get(index), m_HCProbeColDir.Get(index), capKind);
++        }
++        m_HCProbeColPos.Clear();
++        m_HCProbeColClear.Clear();
++        m_HCProbeColFree.Clear();
++        m_HCProbeColDir.Clear();
++        m_HCProbeColRel.Clear();
++        m_HCProbeColType.Clear();
++    }
++
+     void HCProbeScanColumn(float localX, float localZ)
+     {
+         vector baseWorld = m_HCProbeBuilding.CoordToParent(Vector(localX, m_HCProbeBoxMin[1], localZ));
+@@ -777,6 +1119,8 @@ HOOK_TAIL = r"""
+             HCProbeHitNote(rel, typeName);
+             action = 0;
+             if (rel == 1)
++                action = 5;
++            if (rel == 1 && drop >= 0.02)
+             {
+                 previousY = lastY;
+                 lastY = hitY;
+@@ -790,7 +1134,12 @@ HOOK_TAIL = r"""
+                     {
+                         action = 4;
+                         m_HCProbeStatInterior = m_HCProbeStatInterior + 1;
+-                        HCProbeRecordFloor(surfacePos, clearance, dirY);
++                        m_HCProbeColPos.Insert(surfacePos);
++                        m_HCProbeColClear.Insert(clearance);
++                        m_HCProbeColFree.Insert(m_HCProbeFreeClear);
++                        m_HCProbeColDir.Insert(dirY);
++                        m_HCProbeColRel.Insert(m_HCProbeFreeRel);
++                        m_HCProbeColType.Insert(m_HCProbeFreeType);
+                     }
+                     if (action == 3)
+                         m_HCProbeStatExterior = m_HCProbeStatExterior + 1;
+@@ -810,6 +1159,7 @@ HOOK_TAIL = r"""
+             m_HCProbeStatStepCapped = m_HCProbeStatStepCapped + 1;
+         if (capKind == 2)
+             m_HCProbeStatFloorCapped = m_HCProbeStatFloorCapped + 1;
++        HCProbeColumnFlush(capKind);
+         if (capKind > 0 || steps >= 12)
+             HCProbeDiagColumn(localX, localZ, steps, floors, capKind, trace);
+     }
+@@ -864,7 +1214,9 @@ HOOK_TAIL = r"""
+         }
+         m_HCProbeBuildingRays = 0;
+         m_HCProbeBuildingPaths = 0;
++        m_HCProbePlayerPaths = 0;
+         m_HCProbeHitsEmitted = 0;
++        m_HCProbePlayerCodes = "";
+         m_HCProbeStatColumns = 0;
+         m_HCProbeStatInterior = 0;
+         m_HCProbeStatExterior = 0;
+@@ -882,12 +1234,31 @@ HOOK_TAIL = r"""
+         m_HCProbeTypeNames.Clear();
+         m_HCProbeTypeCounts.Clear();
+         m_HCProbeReachAttempts = "";
++        m_HCProbeReachDetail = "";
++        m_HCProbePlayerAttempts = "";
++        m_HCProbePlayerDetail = "";
++        m_HCProbePlayerEntrances = "";
++        m_HCProbeReachCounts.Clear();
++        m_HCProbeReachSamples.Clear();
++        int slot = 0;
++        for (slot = 0; slot < 26; slot++)
++        {
++            m_HCProbeReachCounts.Insert(0);
++            m_HCProbeReachSamples.Insert("");
++        }
++        m_HCProbeColPos.Clear();
++        m_HCProbeColClear.Clear();
++        m_HCProbeColFree.Clear();
++        m_HCProbeColDir.Clear();
++        m_HCProbeColRel.Clear();
++        m_HCProbeColType.Clear();
+         m_HCProbeRayCapped = false;
+         m_HCProbeOutputCapped = false;
+         m_HCProbeBoxSource = "none";
+         m_HCProbeBoxMin = Vector(0.0, 0.0, 0.0);
+         m_HCProbeBoxMax = Vector(0.0, 0.0, 0.0);
+         m_HCProbeReachState = "none";
++        m_HCProbePlayerState = "none";
+         m_HCProbeReachDoors = "";
+         m_HCProbeReachEntrances = "";
+         m_HCProbeRow = 0;
+@@ -931,15 +1302,21 @@ HOOK_TAIL = r"""
+         text = text + HCProbeKey("cols") + HCProbeInt(m_HCProbeCols) + "},";
+         text = text + HCProbeKey("reach") + "{" + HCProbeKey("state") + HCProbeStr(m_HCProbeReachState) + ",";
+         text = text + HCProbeKey("doors") + "[" + m_HCProbeReachDoors + "]," + HCProbeKey("entrances") + "[" + m_HCProbeReachEntrances + "],";
+-        text = text + HCProbeKey("attempts") + "[" + m_HCProbeReachAttempts + "]},";
++        text = text + HCProbeKey("attempts") + "[" + m_HCProbeReachAttempts + "],";
++        text = text + HCProbeKey("detail") + "[" + m_HCProbeReachDetail + "],";
++        text = text + HCProbeKey("player") + "{" + HCProbeKey("state") + HCProbeStr(m_HCProbePlayerState) + ",";
++        text = text + HCProbeKey("entrances") + "[" + m_HCProbePlayerEntrances + "]," + HCProbeKey("attempts") + "[" + m_HCProbePlayerAttempts + "],";
++        text = text + HCProbeKey("detail") + "[" + m_HCProbePlayerDetail + "]}},";
+         text = text + HCProbeKey("hits") + "[";
+         HCProbeEmit(text);
+     }
+ 
+     void HCProbeEndBuilding()
+     {
+-        string text = "]," + HCProbeKey("stats") + "{" + HCProbeKey("columns") + HCProbeInt(m_HCProbeStatColumns) + ",";
++        string text = "]," + HCProbeKey("player_codes") + "[" + m_HCProbePlayerCodes + "]," + HCProbeKey("stats") + "{";
++        text = text + HCProbeKey("columns") + HCProbeInt(m_HCProbeStatColumns) + ",";
+         text = text + HCProbeKey("rays") + HCProbeInt(m_HCProbeBuildingRays) + "," + HCProbeKey("paths") + HCProbeInt(m_HCProbeBuildingPaths) + ",";
++        text = text + HCProbeKey("player_paths") + HCProbeInt(m_HCProbePlayerPaths) + ",";
+         text = text + HCProbeKey("ray_capped") + HCProbeBool(m_HCProbeRayCapped) + "," + HCProbeKey("output_capped") + HCProbeBool(m_HCProbeOutputCapped) + ",";
+         text = text + HCProbeKey("interior_hits") + HCProbeInt(m_HCProbeStatInterior) + "," + HCProbeKey("exterior_hits") + HCProbeInt(m_HCProbeStatExterior) + ",";
+         text = text + HCProbeKey("other_hits") + HCProbeInt(m_HCProbeStatOther) + "," + HCProbeKey("step_capped_columns") + HCProbeInt(m_HCProbeStatStepCapped) + ",";
+@@ -947,7 +1324,8 @@ HOOK_TAIL = r"""
+         text = text + HCProbeKey("clearance_capped") + HCProbeInt(m_HCProbeStatClearCapped) + "," + HCProbeKey("hit_relations") + "{" + HCProbeKey("none") + HCProbeInt(m_HCProbeRelNone) + ",";
+         text = text + HCProbeKey("building") + HCProbeInt(m_HCProbeRelBuilding) + "," + HCProbeKey("proxy") + HCProbeInt(m_HCProbeRelProxy) + ",";
+         text = text + HCProbeKey("other") + HCProbeInt(m_HCProbeRelOther) + "}," + HCProbeKey("other_types") + "[" + HCProbeTypesText() + "]},";
+-        text = text + HCProbeKey("diag") + "{" + HCProbeKey("columns") + "[" + m_HCProbeDiag + "]}}";
++        text = text + HCProbeKey("diag") + "{" + HCProbeKey("columns") + "[" + m_HCProbeDiag + "]},";
++        text = text + HCProbeKey("reach_diag") + HCProbeReachDiagText() + "}";
+         HCProbeEmit(text);
+         m_HCProbeCursor = m_HCProbeCursor + 1;
+         m_HCProbePhase = 0;
+@@ -1017,6 +1395,9 @@ HOOK_TAIL = r"""
+         m_HCProbeFilter = new PGFilter;
+         m_HCProbeFilter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+         m_HCProbeFilter.SetCost(PGAreaType.DOOR_CLOSED, 1000);
++        m_HCProbePlayerFilter = new PGFilter;
++        m_HCProbePlayerFilter.SetFlags(PGPolyFlags.WALK | PGPolyFlags.DOOR | PGPolyFlags.INSIDE | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CROUCH | PGPolyFlags.LADDER, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA, PGPolyFlags.NONE);
++        m_HCProbePlayerFilter.SetCost(PGAreaType.DOOR_CLOSED, 1000);
+         string world;
+         string version;
+         GetGame().GetWorldName(world);
+@@ -1318,7 +1699,9 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
+                     "hit_limit": hit_limit, "step_limit": step_limit, "building_ray_limit": building_ray_limit,
+                     "run_ray_limit": run_ray_limit, "path_limit": path_limit, "output_limit": output_limit,
+                     "provisional_tolerances_m": {"snap_limit": 0.5, "path_end": 0.5, "seed_margin": 1.0,
+-                                                 "projected_margin": 0.5, "waist_height": 1.0}},
++                                                 "projected_margin": 0.5, "waist_height": 1.0,
++                                                 "vertical_allowance": 0.25, "trivial_shift": 0.01,
++                                                 "clear_required": 1.9}},
+         "target_classes": classes, "targets": targets,
+         "mission_files": built["mission_files"], "staged_files": built["staged"],
+     })
