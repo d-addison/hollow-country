@@ -99,6 +99,14 @@ There is no supported global `UnlimitedReload` JSON field in that class. Keep
 Expansion admin unlimited-reload controls OFF; any nonzero effective global mask
 closes HC admission even if this merge and the per-actor finite setting are used.
 
+The merge also lowers Expansion's global aim and awareness (stock defaults: accuracy
+0.35–0.95, threat 1000 m, noise 500 m, flanking 200 m) to accuracy 0.15–0.45, threat
+300 m, noise 150 m and flanking 50 m, for any Expansion AI not spawned from our
+sites. Site patrols set their own lower values per kind in `HCXAISiteRules`
+(scavengers worst at 0.10–0.30). Damage multipliers stay 1.0. In each loadout some
+`WEAPON` sets are melee only, and they use only items Expansion accepts as melee
+(vanilla Shoulder/Melee slot). How this feels in play has not been observed yet.
+
 The server-only opt-in is the empty file
 `$profile:HollowCountry/acceptance/pve_patrols.enable`, cached until restart.
 For the event lease path `HCXAIQualification.Qualified()` remains false. Opt-in

@@ -8,6 +8,38 @@ class HCXAISiteRules
         if (value == "") { return false; }
         return list.Contains("|" + value + "|");
     }
+    // Owner tuning: worse aim and less awareness than stock Expansion (ExpansionAISettings.Defaults:
+    // accuracy 0.35..0.95, threat 1000 m, noise 500 m, flanking 200 m). Applied per site patrol on the
+    // ExpansionAISpawnBase fields (ExpansionAIPatrolBase.c:35-39); a value <= 0 would fall back to the
+    // global setting in eAIDynamicPatrol, so each is > 0. Feel in play is pending a client session.
+    static float AccuracyMin(string kind)
+    {
+        if (kind == "scavenger") { return 0.10; }
+        return 0.20;
+    }
+    static float AccuracyMax(string kind)
+    {
+        if (kind == "scavenger") { return 0.30; }
+        return 0.45;
+    }
+    static float ThreatDistance(string kind)
+    {
+        if (kind == "scavenger") { return 200; }
+        if (kind == "holdout") { return 250; }
+        return 300;
+    }
+    static float NoiseDistance(string kind)
+    {
+        if (kind == "scavenger") { return 100; }
+        if (kind == "holdout") { return 120; }
+        return 150;
+    }
+    static float FlankDistance(string kind)
+    {
+        if (kind == "holdout") { return 20; }
+        if (kind == "scavenger") { return 30; }
+        return 50;
+    }
     static bool LocalPointValid(vector point)
     {
         if (!HCXAIRules.PositionValid(point, 64)) { return false; }

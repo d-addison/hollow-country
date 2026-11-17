@@ -526,6 +526,11 @@ class HCXAISiteDirector : Managed
         config.ShoryukenChance = 0;
         config.ShoryukenDamageMultiplier = 1;
         config.EnableFlankingOutsideCombat = 0;
+        config.AccuracyMin = HCXAISiteRules.AccuracyMin(site.Kind);
+        config.AccuracyMax = HCXAISiteRules.AccuracyMax(site.Kind);
+        config.ThreatDistanceLimit = HCXAISiteRules.ThreatDistance(site.Kind);
+        config.NoiseInvestigationDistanceLimit = HCXAISiteRules.NoiseDistance(site.Kind);
+        config.MaxFlankingDistance = HCXAISiteRules.FlankDistance(site.Kind);
         config.LootingBehaviour = "NONE";
         config.UseRandomWaypointAsStartPoint = false;
         if (site.Kind == "holdout")

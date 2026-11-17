@@ -3,5 +3,10 @@
   "CanRecruitFriendly": false,
   "CanRecruitGuards": false,
   "DamageMultiplier": 1.0,
-  "DamageReceivedMultiplier": 1.0
+  "DamageReceivedMultiplier": 1.0,
+  "AccuracyMin": 0.15,
+  "AccuracyMax": 0.45,
+  "ThreatDistanceLimit": 300.0,
+  "NoiseInvestigationDistanceLimit": 150.0,
+  "MaxFlankingDistance": 50.0
 }

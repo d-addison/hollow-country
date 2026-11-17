@@ -58,6 +58,19 @@ class SiteRulesTests(unittest.TestCase):
     def site(self, kind):
         return next(s for s in self.policy.Sites if s.Kind == kind)
 
+    # Expansion's stock AI aims at 35-95%, notices threats to 1000 m, investigates noise to 500 m and
+    # flanks up to 200 m (ExpansionAISettings.Defaults). The owner asked for worse aim and less smarts.
+    # A value <= 0 makes eAIDynamicPatrol fall back to the global setting, so every value must be > 0.
+    def test_site_ai_aims_worse_and_notices_less_than_stock_expansion(self):
+        for kind in ('patrol', 'scavenger', 'holdout'):
+            low = self.rules.AccuracyMin(kind)
+            high = self.rules.AccuracyMax(kind)
+            self.assertTrue(0 < low <= high <= 0.5, (kind, low, high))
+            self.assertTrue(0 < self.rules.ThreatDistance(kind) <= 350, kind)
+            self.assertTrue(0 < self.rules.NoiseDistance(kind) <= 200, kind)
+            self.assertTrue(0 < self.rules.FlankDistance(kind) <= 60, kind)
+        self.assertLess(self.rules.AccuracyMax('scavenger'), self.rules.AccuracyMax('patrol'))
+
     def test_shipped_policy_is_admissible_and_has_every_kind(self):
         self.assertEqual(self.rules.PolicyProblem(self.policy), '')
         kinds = {s.Kind for s in self.policy.Sites}
@@ -285,6 +298,16 @@ class SiteSourceTests(unittest.TestCase):
                         found.append('%s: %s' % (path.name, name))
         self.assertEqual(found, [])
 
+    def test_each_site_patrol_carries_its_own_toned_down_tuning(self):
+        code = self.code(self.sites)
+        body = code[code.index('protected void Create('):]
+        body = body[:body.index('config.Waypoints')]
+        for field, rule in (('AccuracyMin', 'AccuracyMin'), ('AccuracyMax', 'AccuracyMax'),
+                            ('ThreatDistanceLimit', 'ThreatDistance'),
+                            ('NoiseInvestigationDistanceLimit', 'NoiseDistance'),
+                            ('MaxFlankingDistance', 'FlankDistance')):
+            self.assertRegex(body, r'config\.%s = HCXAISiteRules\.%s\(site\.Kind\);' % (field, rule))
+
     def test_cache_intent_is_journaled_before_the_container_exists(self):
         code = self.code(self.sites)
         body = code[code.index('void SeedCache('):]
@@ -302,6 +325,57 @@ class ShippedContentTests(unittest.TestCase):
             mags = re.findall(r'"ClassName": "(Mag_[^"]+)"', text)
             self.assertTrue(mags, name)
             self.assertLessEqual(len(mags), 6, name)  # one loaded + spare per weapon set, never a stockpile
+
+    # The merge into Expansion's AISettings.json also lowers the global fallbacks (stock 0.35..0.95,
+    # 1000 m, 500 m, 200 m), so any Expansion AI that does not come from our sites is toned down too.
+    def test_global_expansion_ai_fallbacks_are_toned_down(self):
+        merge = json.loads((AI / 'AISettings.merge.json').read_text())
+        self.assertTrue(0 < merge['AccuracyMin'] <= merge['AccuracyMax'] <= 0.5)
+        self.assertTrue(0 < merge['ThreatDistanceLimit'] <= 350)
+        self.assertTrue(0 < merge['NoiseInvestigationDistanceLimit'] <= 200)
+        self.assertTrue(0 < merge['MaxFlankingDistance'] <= 60)
+        self.assertEqual((merge['DamageMultiplier'], merge['DamageReceivedMultiplier']), (1.0, 1.0))
+
+    # Expansion arms an AI with a hand item only if Expansion_IsMeleeWeapon accepts it (inventorySlot
+    # Shoulder/Melee/Knife, itemInfo Knife/Axe or suicideAnim woodaxe; ItemBase.c). Otherwise the AI
+    # falls back to its knife. These have vanilla inventorySlot Shoulder+Melee (CfgVehicles, read
+    # from the installed 1.30 configs on 2026-11-17); Pipe, Machete, Hatchet, Crowbar, PipeWrench and
+    # Cleaver do not, so they are left out.
+    MELEE = {'FirefighterAxe', 'BaseballBat', 'NailedBaseballBat', 'Shovel', 'WoodAxe', 'Pitchfork',
+             'Pickaxe', 'Mace', 'Broom'}
+
+    def weapon_sets(self, name):
+        data = json.loads((AI / 'loadouts' / (name + '.json')).read_text())
+        return [s for s in data['Sets'] if s.get('ClassName') == 'WEAPON']
+
+    def melee_only(self, weapon_set):
+        hands = [i['ClassName'] for a in weapon_set.get('InventoryAttachments', [])
+                 if a.get('SlotName') == 'Hands' for i in a.get('Items', [])]
+        text = json.dumps(weapon_set)
+        return bool(hands) and set(hands) <= self.MELEE and 'Mag_' not in text and 'Ammo_' not in text
+
+    # Expansion spawns one WEAPON set per AI, picked at random among the sets whose Chance passed
+    # (ExpansionPrefabObject.Spawn), so equal-chance sets give each AI an even pick.
+    def test_some_ai_of_every_kind_fight_with_melee_only(self):
+        shares = {}
+        for name in ('HollowCountry_Patrol', 'HollowCountry_Scavenger', 'HollowCountry_Holdout'):
+            sets = self.weapon_sets(name)
+            self.assertTrue(all(s.get('Chance') == 1.0 for s in sets), name)
+            shares[name] = sum(self.melee_only(s) for s in sets) / len(sets)
+            self.assertTrue(0 < shares[name] < 1, (name, shares[name]))
+        self.assertGreaterEqual(shares['HollowCountry_Scavenger'], 0.5)
+        self.assertGreater(shares['HollowCountry_Scavenger'], shares['HollowCountry_Patrol'])
+
+    def test_every_hand_item_without_ammo_is_a_melee_weapon_expansion_accepts(self):
+        for name in ('HollowCountry_Patrol', 'HollowCountry_Scavenger', 'HollowCountry_Holdout'):
+            for weapon_set in self.weapon_sets(name):
+                text = json.dumps(weapon_set)
+                if 'Mag_' in text or 'Ammo_' in text:
+                    continue
+                hands = [i['ClassName'] for a in weapon_set.get('InventoryAttachments', [])
+                         if a.get('SlotName') == 'Hands' for i in a.get('Items', [])]
+                self.assertTrue(hands, name)
+                self.assertLessEqual(set(hands), self.MELEE, name)
 
 
 if __name__ == '__main__':
