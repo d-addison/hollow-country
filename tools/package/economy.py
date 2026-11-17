@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import stat
 import xml.etree.ElementTree as ET
 
 INPUTS = ('cfgeconomycore.xml', 'db/types.xml', 'cfglimitsdefinition.xml',
@@ -20,6 +21,10 @@ LOG_NAMES = {'log_ce_lootspawn', 'log_ce_lootcleanup', 'log_ce_lootrespawn',
 DELTA_FILES = {'ce/types.xml', 'cfgeconomycore.append.xml', 'core-defaults.patch.json',
                'economy-report.json', 'delta-manifest.json'}
 MANAGED = 'hollow-country'
+# Child tags an installed candidate may change relative to stock. Default is usage only; a
+# caller (the firearms roster) may widen it to budget/tier tags, never flags, cost or quantities.
+MUTABLE_DEFAULT = frozenset({'usage'})
+MUTABLE_ALLOWED = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 'restock'})
 
 
 def encode(value):
@@ -260,7 +265,62 @@ def _patched_core(original, fragment, patches):
     return result
 
 
-def install(stage, target):
+def plain_file(root, path):
+    """Refuse anything but a single-link regular file that resolves inside root.
+
+    Hard links are refused because writing through one would modify a file outside the mission.
+    """
+    root, path = Path(root).absolute(), Path(path).absolute()
+    st = os.lstat(path)
+    if stat.S_ISLNK(st.st_mode) or not stat.S_ISREG(st.st_mode) or st.st_nlink != 1:
+        raise ValueError(f'managed path is a symlink, hard link or not a regular file: {path.name}')
+    resolved = path.resolve(strict=True)
+    if resolved != root.resolve(strict=True) / path.relative_to(root):
+        raise ValueError('managed path resolves outside its directory')
+    return path
+
+
+def read_plain(root, name):
+    return plain_file(root, child(root, name)).read_bytes()
+
+
+def fresh_write(root, name, data):
+    """Create name fresh (O_EXCL). A stale regular file is unlinked, never written through."""
+    path = child(root, name)
+    if os.path.lexists(path):
+        plain_file(root, path)
+        path.unlink()
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o666)
+    with os.fdopen(fd, 'wb') as f:
+        f.write(data)
+    return path
+
+
+def preflight_managed(managed, expected):
+    """Every managed entry must be expected, plain and single-link before anything is modified."""
+    managed = Path(managed)
+    for p in managed.rglob('*'):
+        name = p.relative_to(managed).as_posix()
+        child(managed, name)
+        if p.is_dir() and not p.is_symlink():
+            if name != 'ce':
+                raise ValueError('unexpected managed directory; rollback refuses deletion')
+            continue
+        if name not in expected:
+            raise ValueError('unexpected managed file; rollback refuses deletion')
+        plain_file(managed, p)
+
+
+def restore_core(managed, core, backup):
+    """Stage the backup as a fresh file in the managed directory and atomically swap it in."""
+    staged = fresh_write(managed, 'core.next', backup)
+    os.replace(staged, core)
+
+
+def install(stage, target, mutable=MUTABLE_DEFAULT):
+    mutable = frozenset(mutable)
+    if 'usage' not in mutable or not mutable <= MUTABLE_ALLOWED:
+        raise ValueError('unsupported mutable field set')
     target = _target(target)
     files, manifest = _load_delta(stage)
     data = snapshot(target)
@@ -277,11 +337,11 @@ def install(stage, target):
     _unique(types.findall('type'))
     def retained_fields(element):
         return (element.tag, tuple(sorted(element.attrib.items())), (element.text or '').strip(),
-                tuple(retained_fields(n) for n in element if n.tag != 'usage'))
+                tuple(retained_fields(n) for n in element if n.tag not in mutable))
     for item in types:
         name = item.get('name')
         if item.tag != 'type' or name not in stock or retained_fields(item) != retained_fields(stock[name]):
-            raise ValueError('candidate must retain every stock field except usage')
+            raise ValueError('candidate must retain every stock field except the mutable set')
         _validate_budget(item)
         usages = item.findall('usage')
         _unique(usages)
@@ -294,36 +354,29 @@ def install(stage, target):
                'types_sha256': sha(files['ce/types.xml']), 'sources': manifest['sources']}
     # Receipt+backup exist before the atomic core switch. Rollback also handles
     # an interrupted install whose switch did not happen. Stop the server first.
-    (managed / 'core.backup').write_bytes(original)
-    (managed / 'receipt.json').write_bytes(encode(receipt))
+    fresh_write(managed, 'core.backup', original)
+    fresh_write(managed, 'receipt.json', encode(receipt))
     (managed / 'ce').mkdir()
-    (managed / 'ce/types.xml').write_bytes(files['ce/types.xml'])
-    (managed / 'core.next').write_bytes(patched)
-    os.replace(managed / 'core.next', child(target, 'cfgeconomycore.xml'))
+    fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
+    os.replace(fresh_write(managed, 'core.next', patched), child(target, 'cfgeconomycore.xml'))
     return receipt
 
 
 def rollback(target):
     target = _target(target)
     managed = child(target, MANAGED)
-    receipt = json.loads(child(managed, 'receipt.json').read_bytes())
-    expected = {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next'}
-    for p in managed.rglob('*'):
-        name = p.relative_to(managed).as_posix()
-        child(managed, name)
-        if p.is_file() and name not in expected:
-            raise ValueError('unexpected managed file; rollback refuses deletion')
-    core = child(target, 'cfgeconomycore.xml')
-    backup = child(managed, 'core.backup').read_bytes()
+    receipt = json.loads(read_plain(managed, 'receipt.json'))
+    preflight_managed(managed, {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next'})
+    core = plain_file(target, child(target, 'cfgeconomycore.xml'))
+    backup = read_plain(managed, 'core.backup')
     if sha(backup) != receipt['before'] or sha(core.read_bytes()) not in {receipt['before'], receipt['after']}:
         raise ValueError('core drift; manual reconciliation required')
-    if sha(child(managed, 'ce/types.xml').read_bytes()) != receipt['types_sha256']:
+    if sha(read_plain(managed, 'ce/types.xml')) != receipt['types_sha256']:
         raise ValueError('installed delta drift; inspect before rollback')
     if {n: sha(child(target, n).read_bytes()) for n in INPUTS if n != 'cfgeconomycore.xml'} != {
             n: h for n, h in receipt['sources'].items() if n != 'cfgeconomycore.xml'}:
         raise ValueError('stock drift; inspect before rollback')
-    (managed / 'core.next').write_bytes(backup)
-    os.replace(managed / 'core.next', core)
+    restore_core(managed, core, backup)
     shutil.rmtree(managed)  # only our fixed directory, preflighted above
 
 

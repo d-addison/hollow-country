@@ -1,0 +1,717 @@
+{
+ "schema": 1,
+ "name": "hollow-country-snafu-subset",
+ "workshop_id": "2443122116",
+ "status": "unverified",
+ "rights": {
+  "license": "DPL-ND",
+  "terms_file": "Readme_Terms/Mod_Terms_Of _Use_DPL_ND.pdf",
+  "terms_sha256": "2bb0e30c7b17c487e67151a0a7cf9fc094062b861ecb9e79ff277bfe86696daf",
+  "urls": [
+   "https://steamcommunity.com/sharedfiles/filedetails/?id=2443122116",
+   "https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/"
+  ],
+  "redistribution": "none",
+  "notes": [
+   "Installed Readme_Terms PDF (DayZ Public License - No Derivatives) is the authoritative text.",
+   "Server use of the Workshop item is intended; no SNAFU file is bundled, copied or re-hosted.",
+   "Only a CE types override (our own XML naming SNAFU class names) is generated."
+  ]
+ },
+ "entries": [
+  {
+   "class": "SNAFUMarlin1895",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Hunting",
+    "Farm"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Wood-stock lever-action rifle (Marlin 1895); no vanilla lever rifle in this calibre, fits the hunting/farm tone.",
+   "vanilla_ammo": [],
+   "snafu_ammo": [
+    "SNAFU_Ammo_45_70mm"
+   ],
+   "magazines": []
+  },
+  {
+   "class": "SNAFUSWM629",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Police"
+   ],
+   "value": [
+    "Tier3"
+   ],
+   "justification": "Conventional double-action revolver (S&W 629); sidearm with scarce dedicated ammunition.",
+   "vanilla_ammo": [],
+   "snafu_ammo": [
+    "SNAFU_Ammo_44"
+   ],
+   "magazines": []
+  },
+  {
+   "class": "SN_M870",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Police",
+    "Town"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Pump shotgun (Remington 870); uses the vanilla 12 gauge pool, so it adds no new ammunition to the economy.",
+   "vanilla_ammo": [
+    "Ammo_12gaPellets",
+    "Ammo_12gaSlug"
+   ],
+   "snafu_ammo": [],
+   "magazines": []
+  },
+  {
+   "class": "SN_USP",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Police",
+    "Military"
+   ],
+   "value": [
+    "Tier3"
+   ],
+   "justification": "Conventional service pistol (H&K USP .45); uses the vanilla .45 ACP pool and one SNAFU magazine.",
+   "vanilla_ammo": [
+    "Ammo_45ACP"
+   ],
+   "snafu_ammo": [],
+   "magazines": [
+    "SN_USP_Mag"
+   ]
+  },
+  {
+   "class": "SNAFU_M48",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Hunting"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Wood-stock bolt-action rifle (Mauser M48) shipped in the WW2 pack folder; wood stock and conventional, no futuristic parts; vanilla .308 Win.",
+   "vanilla_ammo": [
+    "Ammo_308Win"
+   ],
+   "snafu_ammo": [],
+   "magazines": []
+  },
+  {
+   "class": "SNAFU_Trenchgun",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Wood-stock pump shotgun (trench gun) shipped in the WW2 pack folder; conventional and period-appropriate; vanilla 12 gauge.",
+   "vanilla_ammo": [
+    "Ammo_12gaPellets",
+    "Ammo_12gaSlug"
+   ],
+   "snafu_ammo": [],
+   "magazines": []
+  },
+  {
+   "class": "GCGN_M1Garand",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Wood-stock semi-automatic rifle (M1 Garand); en-bloc clip is not a separate magazine class here, dedicated .30-06 ammunition only.",
+   "vanilla_ammo": [],
+   "snafu_ammo": [
+    "GCGN_Ammo_3006"
+   ],
+   "magazines": []
+  },
+  {
+   "class": "SNAFUThompsonMk2",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "WW2 Thompson-type submachine gun (wood furniture, 30-round magazine); conventional and period-appropriate; vanilla .45 ACP.",
+   "vanilla_ammo": [
+    "Ammo_45ACP"
+   ],
+   "snafu_ammo": [],
+   "magazines": [
+    "SNAFUThompsonMk2_30rdMag"
+   ]
+  },
+  {
+   "class": "SNAFUPPSh",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "WW2 PPSh-41 submachine gun (wood stock); conventional; dedicated 7.62x25 ammunition kept scarce.",
+   "vanilla_ammo": [],
+   "snafu_ammo": [
+    "SNAFU_Ammo_762x25"
+   ],
+   "magazines": [
+    "SNAFUPPSh_71rdMag"
+   ]
+  },
+  {
+   "class": "SNAFUSten",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "WW2 Sten submachine gun; conventional and austere; vanilla 9x19.",
+   "vanilla_ammo": [
+    "Ammo_9x19"
+   ],
+   "snafu_ammo": [],
+   "magazines": [
+    "SNAFUSten_32rdMag"
+   ]
+  },
+  {
+   "class": "SNAFU_AK103A",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Modern AK-pattern military rifle (AK-103); accepts the vanilla AKM magazines and 7.62x39, so it adds no new ammunition.",
+   "vanilla_ammo": [
+    "Ammo_762x39"
+   ],
+   "snafu_ammo": [],
+   "magazines": []
+  },
+  {
+   "class": "HK416_Gun",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Conventional modern military carbine (HK416) alongside the vanilla M4/M16 family; vanilla STANAG magazines and 5.56x45.",
+   "vanilla_ammo": [
+    "Ammo_556x45"
+   ],
+   "snafu_ammo": [],
+   "magazines": []
+  },
+  {
+   "class": "SCAR_Gun",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Conventional modern military rifle (SCAR-L); vanilla STANAG magazines and 5.56x45.",
+   "vanilla_ammo": [
+    "Ammo_556x45"
+   ],
+   "snafu_ammo": [],
+   "magazines": []
+  },
+  {
+   "class": "SNAFU_MPX_GUN",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Conventional modern submachine gun (SIG MPX, 9x19); military-only; one SNAFU magazine.",
+   "vanilla_ammo": [
+    "Ammo_9x19"
+   ],
+   "snafu_ammo": [],
+   "magazines": [
+    "SNAFU_MPX_30rnd_Mag"
+   ]
+  },
+  {
+   "class": "SNHK417_Gun",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Conventional modern battle rifle (HK417, 7.62x51 / .308 Win); military-only; one SNAFU magazine.",
+   "vanilla_ammo": [
+    "Ammo_308Win"
+   ],
+   "snafu_ammo": [],
+   "magazines": [
+    "SNHK417_Mag"
+   ]
+  },
+  {
+   "class": "SNAFUThompsonMk2_30rdMag",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Magazine for the allowlisted Thompson."
+  },
+  {
+   "class": "SNAFUPPSh_71rdMag",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Drum magazine for the allowlisted PPSh."
+  },
+  {
+   "class": "SNAFUSten_32rdMag",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Magazine for the allowlisted Sten."
+  },
+  {
+   "class": "SNAFU_MPX_30rnd_Mag",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Magazine for the allowlisted MPX."
+  },
+  {
+   "class": "SNHK417_Mag",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Magazine for the allowlisted HK417."
+  },
+  {
+   "class": "SNAFU_Ammo_762x25",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 6,
+    "min": 4,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "7.62x25 box for the PPSh; SNAFU-specific calibre, deliberately sparse."
+  },
+  {
+   "class": "SN_USP_Mag",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 2,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Police",
+    "Military"
+   ],
+   "value": [
+    "Tier3"
+   ],
+   "justification": "Magazine for the allowlisted USP."
+  },
+  {
+   "class": "SNAFU_Ammo_45_70mm",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 4,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Hunting",
+    "Farm"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": ".45-70 box for the Marlin 1895; SNAFU-specific calibre, deliberately sparse."
+  },
+  {
+   "class": "SNAFU_Ammo_44",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 4,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Police"
+   ],
+   "value": [
+    "Tier3"
+   ],
+   "justification": ".44 box for the S&W 629; SNAFU-specific calibre, deliberately sparse."
+  },
+  {
+   "class": "GCGN_Ammo_3006",
+   "kind": "ammo",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 4,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": ".30-06 box for the M1 Garand; SNAFU-specific calibre, deliberately sparse."
+  }
+ ],
+ "excluded": [
+  {
+   "group": "futuristic-and-tactical-modular",
+   "reason": "Tone: bullpups, modular AR/AK platforms and PDWs with rail/attachment systems stay out; the conventional military rifles and SMGs the owner asked for are allowlisted separately.",
+   "classes": [
+    "ACR_Gun",
+    "SNAFUAUG",
+    "SNAFUTAR21_Black",
+    "SNAFUVECTOR_9mm_GUN",
+    "SNAFUP90",
+    "SNAFUKH9",
+    "SNAFU_RDB",
+    "SNAFUHoneyBadger_Black",
+    "SNAFU_ADAR_Modular16_GUN",
+    "SNAFU_CZ805_Gun",
+    "SNAFU_U100",
+    "SNAFU_BR18"
+   ]
+  },
+  {
+   "group": "anti-materiel-and-heavy-sniper",
+   "reason": "Tone and balance: .50 class and magnum sniper systems would dominate a 3-6 player server.",
+   "classes": [
+    "GCGN_M82_Barret",
+    "SNAFUAX50_GUN",
+    "SNAFU_AS50_GUN",
+    "GCGN_M200",
+    "SNAFUKivaari_Black_GUN",
+    "SNAFUM96",
+    "SNAFUM24_GUN",
+    "SNAFUMagnum500"
+   ]
+  },
+  {
+   "group": "machine-guns-and-drums",
+   "reason": "Tone and balance: belt-fed and squad automatic weapons are excluded from the conventional subset.",
+   "classes": [
+    "GCGN_M249",
+    "SNAFU_M60",
+    "Snafu_PKP_Black_GUN",
+    "SNAFU_Bren",
+    "SNAFU_M1918A2",
+    "SNAFU_RPK16_Black"
+   ]
+  },
+  {
+   "group": "other-ww2-pack-and-cold-war-automatics",
+   "reason": "Owner decision 2026-11-17 allowlisted the Thompson, PPSh and Sten; the remaining pack automatics stay out (PPSKN duplicates the PPSh role on 7.62x39, Uzi is not WW2, M1A/M14 are full-power rifles that would overlap the HK417).",
+   "classes": [
+    "SNAFUPPSKN",
+    "SNAFUUzi",
+    "SNAFUM1A_Black",
+    "SNAFU_M14"
+   ]
+  },
+  {
+   "group": "other-modern-rifles-and-smgs-considered",
+   "reason": "Considered for the modern military handful but not chosen: duplicates of a chosen platform, absent from the vendor types list (SNAFU_G3A3, SG552_Gun), a second foreign ammunition economy (GCGN_MP7 4.6x30, SNAFU_KAC_Gun .300 ACC) or a role already covered by a chosen SMG (GCGN_Vityaz).",
+   "classes": [
+    "GCGN_HK416",
+    "MK18_Gun",
+    "SNAFU_CZ805_Gun",
+    "SNAFUSA80",
+    "SNAFU_G3A3",
+    "SG552_Gun",
+    "GCGN_MP7",
+    "SNAFU_KAC_Gun",
+    "GCGN_Vityaz",
+    "SNAFU_SR25_Gun"
+   ]
+  },
+  {
+   "group": "exotic",
+   "reason": "Exotic or novelty weapons do not fit the tone.",
+   "classes": [
+    "SNAFUAlligator",
+    "SNAFU_TP82S",
+    "SNAFUSR3_Vikhr",
+    "SNAFUVSSK",
+    "SNAFUGM6Lynx"
+   ]
+  },
+  {
+   "group": "duplicates-of-vanilla",
+   "reason": "Reskins of weapons that vanilla already provides (AKM, Glock 19, SKS); the roster covers the vanilla classes.",
+   "classes": [
+    "SN_AKM",
+    "SN_Glock19",
+    "SNAFU_SKS",
+    "SN_M9"
+   ]
+  },
+  {
+   "group": "foreign-magazine-pools-and-test-classes",
+   "reason": "Weapons whose magazine arrays pull in other mods or test classes (for example Mag_AKM_Drum_TEST) are not allowlisted.",
+   "classes": [
+    "SNAFU_M70"
+   ]
+  }
+ ],
+ "optics": {
+  "status": "deferred-pending-owner-decision",
+  "entries": []
+ }
+}
