@@ -15,17 +15,19 @@ SOURCE = ROOT / "mods/HollowCountry/scripts/4_World/Infected"
 FIXTURE = ROOT / "tests/fixtures/runtime/infected-policy.json"
 
 
-def policy_functions():
-    source = (SOURCE / "HCInfectedPolicy.c").read_text()
+def policy_functions(filename="HCInfectedPolicy.c", **collaborators):
+    source = (SOURCE / filename).read_text()
     source = re.sub(r"//[^\n]*", "", source)
-    namespace = {}
-    pattern = r"static (?:bool|int|float) (\w+)\(([^)]*)\)\s*\{"
+    namespace = dict(collaborators)
+    pattern = r"static (?:bool|int|float|string|void) (\w+)\(([^)]*)\)\s*\{"
     for match in re.finditer(pattern, source):
         depth, end = 1, match.end()
         while depth:
             depth += (source[end] == "{") - (source[end] == "}")
             end += 1
         body = source[match.end():end - 1]
+        body = re.sub(r"if (\([^\n]+\))\s*([^{};\n]+;)", r"if \1 {\2}", body)
+        body = re.sub(r"foreach \(int (\w+) : (\w+)\)", r"for \1 in \2", body)
         args = [arg.strip().split()[-1] for arg in match[2].split(",") if arg.strip()]
         lines = [f"def {match[1]}({', '.join(args)}):"]
         indent = 1
@@ -41,21 +43,40 @@ def policy_functions():
             if token == "}":
                 indent -= 1
                 continue
-            token = re.sub(r"\b(?:int|float|bool)\s+", "", token)
+            token = re.sub(r"\b(?:int|float|bool|string)\s+", "", token)
+            token = re.sub(r"\b(\w+)\.ToString\(\)", r"str(\1)", token)
+            token = re.sub(r"\b(\w+)\+\+", r"\1 += 1", token)
             token = token.replace("&&", " and ").replace("||", " or ")
             token = re.sub(r"!(?!=)", "not ", token)
             token = re.sub(r"\btrue\b", "True", token)
             token = re.sub(r"\bfalse\b", "False", token)
+            token = re.sub(r"\bnull\b", "None", token)
             if token.startswith("if ("):
                 token = "if " + token[4:-1] + ":"
             elif token == "else":
                 token += ":"
+            elif token.startswith("for "):
+                token += ":"
             lines.append("    " * indent + token)
-        exec(compile("\n".join(lines), str(SOURCE / "HCInfectedPolicy.c"), "exec"), namespace)
+        exec(compile("\n".join(lines), str(SOURCE / filename), "exec"), namespace)
     return namespace
 
 
 class InfectedContractTests(unittest.TestCase):
+    def test_variant_disposition_is_distinct_from_ordinary_resolution(self):
+        policy = policy_functions()
+        for requested in (0, 1, 2, 5):
+            self.assertEqual("supported", policy["VariantDisposition"](requested))
+            self.assertEqual("attention_policy_only", policy["VariantReason"](requested))
+        for requested, reason in ((3, "stalker_physical_unqualified"),
+                                  (4, "heavy_physical_unqualified")):
+            self.assertEqual(0, policy["ResolveVariant"](requested))
+            self.assertEqual("unsupported_substituted_native", policy["VariantDisposition"](requested))
+            self.assertEqual(reason, policy["VariantReason"](requested))
+        for requested in (-1, 6, 7, 100):
+            self.assertEqual("invalid", policy["VariantDisposition"](requested))
+            self.assertEqual("invalid_base_variant", policy["VariantReason"](requested))
+
     def test_low_budget_adoption_rotates_past_already_assigned_members(self):
         policy = policy_functions()
         cursor = 0

@@ -62,8 +62,9 @@ class HCInfectedPolicy
     }
 
     // Base personality IDs 0..5; 6 is the native injury overlay only.
-    // Stalker/heavy physical capabilities are unavailable, so resolve explicitly
-    // to ordinary logical behavior. No probability weights are supplied here.
+    // Stalker/heavy physical capabilities are unavailable. Resolution is ordinary
+    // logical behavior, never capability admission; inspect the disposition too.
+    // No probability weights or physical controllers are supplied here.
     static int ResolveVariant(int requested)
     {
         if (requested < 0 || requested > 5)
@@ -75,6 +76,38 @@ class HCInfectedPolicy
             return 0;
         }
         return requested;
+    }
+
+    // "supported" describes this authored attention-policy choice only. It is
+    // not qualification of native movement, audio, contact, rooms or recognition.
+    static string VariantDisposition(int requested)
+    {
+        if (requested < 0 || requested > 5)
+        {
+            return "invalid";
+        }
+        if (requested == 3 || requested == 4)
+        {
+            return "unsupported_substituted_native";
+        }
+        return "supported";
+    }
+
+    static string VariantReason(int requested)
+    {
+        if (requested < 0 || requested > 5)
+        {
+            return "invalid_base_variant";
+        }
+        if (requested == 3)
+        {
+            return "stalker_physical_unqualified";
+        }
+        if (requested == 4)
+        {
+            return "heavy_physical_unqualified";
+        }
+        return "attention_policy_only";
     }
 
     static float VariantLifetime(int variant, int stance, bool injured)
