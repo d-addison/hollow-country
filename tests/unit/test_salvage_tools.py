@@ -27,6 +27,7 @@ class NativeArray(list):
     def __bool__(self): return True
     def Count(self): return len(self)
     def Insert(self,value): self.append(value)
+    def Clear(self): self.clear()
 
 
 class SyntheticItem:
@@ -44,15 +45,16 @@ class SyntheticItem:
     def GetHierarchyRootPlayer(self):return self.owner
 
 
-def authored(name,params,context,filename=SOURCE):
+def authored(name,params,context,filename=SOURCE,owner=None):
     """Translate control syntax only; native operations remain explicit adapters."""
-    code=re.sub(r'//[^\n]*','',body(filename,name))
+    code=re.sub(r'//[^\n]*','',body(filename,name,owner))
     def expr(value):
-        value=re.sub(r'\b(?:int|float|bool|string|CargoBase|ItemBase)\s+(?=\w+\s*=)','',value)
+        value=re.sub(r'array<ItemBase>\s+(\w+)\s*=\s*new array<ItemBase>', r'\1 = NativeArray()',value)
+        value=re.sub(r'\b(?:int|float|bool|string|CargoBase|ItemBase|EntityAI|TrapBase)\s+(?=\w+\s*=)','',value)
         value=re.sub(r'(?<![\w.])m_\w+\b',lambda m:'self.'+m[0],value)
         value=value.replace('super.','self.native.')
         value=re.sub(r'(?<![\w.])IsOwnedEmptyLooseItem\(', 'self.IsOwnedEmptyLooseItem(',value)
-        for name in ('InsertIngredient','AddResult'):
+        for name in ('InsertIngredient','AddResult','Configure','AddRecoveryResult','IsSourceConditionValid','OutputsMatch','DiscardOutputs','HCValidDrysack','ClassName','CheckRecipe','SpawnItems','ApplyModificationsResults','ApplyModificationsIngredients','Do','DeleleIngredientsPass'):
             value=re.sub(r'(?<![\w.])'+name+r'\(','self.'+name+'(',value)
         value=value.replace('&&',' and ').replace('||',' or ')
         value=re.sub(r'!(?!=)','not ',value)
@@ -70,6 +72,7 @@ def authored(name,params,context,filename=SOURCE):
             while depth:
                 depth+=(token[end]=='(')-(token[end]==')');end+=1
             line='if '+expr(token[4:end-1])+': '+expr(token[end:].strip())
+        elif token=='else':line='else:'
         else:line=expr(token)
         lines.append('    '*indent+line.replace('\n',' '))
     exec(compile('def actual(self,'+params+'):\n'+'\n'.join(lines),
@@ -101,7 +104,8 @@ def configured(seed='KitchenKnife'):
     # the original Configure rather than testing for source text or a new symbol.
     try: policy=tool_policy()
     except AssertionError: policy=None
-    env={'MAX_NUMBER_OF_INGREDIENTS':2,'HCSalvageTools':policy}
+    from tests.unit.test_crafting_families import source_policy
+    env={'MAX_NUMBER_OF_INGREDIENTS':2,'HCSalvageTools':policy,'HCSalvageSources':source_policy()}
     authored('Configure','label,inputType,toolType,outputType,quantity,wear,animationUnits',env)(
         state,'synthetic','CamoNet',seed,'Netting',2,5,2)
     return state
@@ -157,10 +161,12 @@ class SalvageToolsTests(unittest.TestCase):
         try:policy=tool_policy()
         except AssertionError:pass
         player=NS(IsAlive=lambda:True,IsUnconscious=lambda:False)
-        env={'HCSalvageTools':policy,'HCCraftingGate':NS(CanPreviewOrCraft=lambda:True)}
+        from tests.unit.test_crafting_families import source_policy
+        env={'HCSalvageTools':policy,'HCSalvageSources':source_policy(),'HCCraftingGate':NS(CanPreviewOrCraft=lambda:True)}
         state=configured();state.native=NS(CanDo=lambda items,who:True)
         owned=authored('IsOwnedEmptyLooseItem','item,player',env)
         state.IsOwnedEmptyLooseItem=lambda item,who:owned(state,item,who)
+        state.IsSourceConditionValid=lambda item:not item.IsRuined()
         call=authored('CanDo','ingredients,player',env)
         material=SyntheticItem('CamoNet',player,50)
         for kind in CUTTING:

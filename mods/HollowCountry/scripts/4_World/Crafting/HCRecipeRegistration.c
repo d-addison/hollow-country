@@ -7,6 +7,11 @@ modded class PluginRecipesManager
         super.RegisterRecipies();
         RegisterRecipe(new HCSalvageCamoNet);
         RegisterRecipe(new HCSalvageCableReel);
-        RegisterRecipe(new HCSalvageLeatherBelt);
+        RegisterRecipe(new HCRecoverLargeLeather);
+        RegisterRecipe(new HCRecoverMediumLeather);
+        RegisterRecipe(new HCRecoverBatWood);
+        RegisterRecipe(new HCRecoverNailedBat);
+        RegisterRecipe(new HCRecoverBarbedBat);
+        RegisterRecipe(new HCRecoverRuinedCrate);
     }
 }

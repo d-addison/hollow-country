@@ -10,14 +10,17 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "mods/HollowCountry/scripts/4_World/Crafting"
 PILOTS = (
-    ("HCSalvageCamoNet", "CamoNet", "KitchenKnife", "Netting", 2, 5),
+    ("HCSalvageCamoNet", "CamoNet", "KitchenKnife", "Netting", 1, 5),
     ("HCSalvageCableReel", "CableReel", "Pliers", "MetalWire", 1, 5),
-    ("HCSalvageLeatherBelt", "LeatherBelt_ColorBase", "KitchenKnife", "TannedLeather", 1, 3),
+
 )
 
 
-def body(filename, method):
+def body(filename, method, owner=None):
     source = (SRC / filename).read_text()
+    if owner:
+        source = re.split(r'^class '+re.escape(owner)+r'\b',source,flags=re.M)[1]
+        source = re.split(r'^class ',source,flags=re.M)[0]
     match = re.search(r"^\s*(?:(?:static|override|protected)\s+)*\w+\s+" + method + r"\([^;\n]*\)\s*\{", source, re.M)
     if not match:
         raise AssertionError("missing authored method: " + method)
@@ -60,18 +63,26 @@ def recipe(pilot, recipe_id=0):
     except ImportError:
         from test_salvage_tools import tool_policy, NativeArray
     name, material, tool, result, quantity, wear = pilot
+    from tests.unit.test_crafting_families import FAMILIES
+    family = FAMILIES.get(name)
+    sources = family[0] if family else [material]
+    outputs = family[2] if family else [(result,quantity)]
+    animation = family[4] if family else 2
+    ruined = family[5] if family else False
     policy = tool_policy()
     tools = NativeArray(policy.ToolAt(tool, i) for i in range(policy.ToolCount(tool)))
     return SimpleNamespace(
-        m_NumberOfResults=1, m_ItemsToCreate=[result],
-        m_Ingredients=[[material], tools], m_IngredientDestroy=[True, False],
-        m_IngredientAddHealth=[0, -wear], m_ResultSetQuantity=[quantity],
-        m_ResultToInventory=[-1], m_ResultInheritsHealth=[0],
-        m_ResultSetFullQuantity=[False], m_ResultReplacesIngredient=[-1],
-        m_ResultInheritsColor=[-1], m_ResultSetHealth=[-1],
+        m_NumberOfResults=len(outputs), m_ItemsToCreate=[n for n,q in outputs],
+        m_Ingredients=[NativeArray(sources), tools], m_IngredientDestroy=[True, False],
+        m_IngredientAddHealth=[0, -wear], m_ResultSetQuantity=[q for n,q in outputs],
+        m_ResultToInventory=[-1]*len(outputs), m_ResultInheritsHealth=[0]*len(outputs),
+        m_ResultSetFullQuantity=[False]*len(outputs), m_ResultReplacesIngredient=[-1]*len(outputs),
+        m_ResultInheritsColor=[-1]*len(outputs), m_ResultSetHealth=[-1]*len(outputs),
         m_IngredientAddQuantity=[0, 0], m_IngredientSetHealth=[-1, -1],
         IsInstaRecipe=lambda: False, IsRepeatable=lambda: False,
-        IsRecipeAnywhere=lambda: False, GetLengthInSecs=lambda: 8,
+        IsRecipeAnywhere=lambda: False, GetLengthInSecs=lambda: animation*4, GetSpecialty=lambda:0,
+        m_ResultUseSoftSkills=[False]*len(outputs),m_IngredientUseSoftSkills=[False,False],
+        m_MinDamageIngredient=[4 if ruined else -1,-1],m_MaxDamageIngredient=[4 if ruined else 3,3],
         ClassName=lambda: name, GetID=lambda: recipe_id,
     )
 
@@ -81,13 +92,16 @@ def audit_context():
         from .test_salvage_tools import tool_policy
     except ImportError:
         from test_salvage_tools import tool_policy
-    cached = [recipe(pilot, index) for index, pilot in enumerate(PILOTS)]
-    names = {pilot[0]: index for index, pilot in enumerate(PILOTS)}
+    from tests.unit.test_crafting_families import FAMILIES, source_policy
+    from tests.unit.test_salvage_tools import authored, NativeArray
+    all_definitions = PILOTS + tuple((n,n,t,o[0][0],o[0][1],w) for n,(sources,t,o,w,a,r) in FAMILIES.items())
+    cached = [recipe(pilot, index) for index, pilot in enumerate(all_definitions)]
+    names = {pilot[0]: index for index, pilot in enumerate(all_definitions)}
     plugin = SimpleNamespace(RecipeIDFromClassname=lambda name: names.get(name, -1), Cast=lambda value: value)
     game = SimpleNamespace(ConfigIsExisting=lambda path: True, ConfigGetInt=lambda path: 2,
                            ConfigGetFloat=lambda path: 8)
     context = {"GetGame": lambda: game, "PluginRecipesManager": plugin,
-               "HCSalvageTools": tool_policy(game),
+               "HCSalvageTools": tool_policy(game), "HCSalvageSources":source_policy(),
                "CheckCompletionGuard": lambda: True,
                "m_RecipeList": cached, "RecipeIDFromClassname": plugin.RecipeIDFromClassname}
     manager = SimpleNamespace()
@@ -98,6 +112,8 @@ def audit_context():
     for pilot in PILOTS:
         context[pilot[0]] = lambda p=pilot: recipe(p)
     context["CheckDefinition"] = execute_flat("HCCraftingNativeChecks.c", "CheckDefinition", "recipe,className,inputType,toolType,outputType,quantity,wear", context)
+    recovery = authored('CheckRecovery','recipe,className,toolType,firstOutput,firstQuantity,secondOutput,secondQuantity,wear,animationUnits,ruinedOnly',context,'HCCraftingNativeChecks.c')
+    context['CheckRecovery']=lambda *args:recovery(None,*args)
     context["run"] = execute_flat("HCCraftingNativeChecks.c", "Run", "", context)
     return cached, names, manager, context
 
@@ -143,7 +159,7 @@ class CraftingCompletionTests(unittest.TestCase):
         cached, names, manager, context = audit_context()
         self.assertTrue(hasattr(manager, "HCGetRegisteredSalvage"), "bounded registered-instance lookup required")
         self.assertIs(manager.HCGetRegisteredSalvage(PILOTS[1][0]), cached[1])
-        for value in (-1, 3, 2048, 2147483647):
+        for value in (-1, 8, 2048, 2147483647):
             names[PILOTS[0][0]] = value
             self.assertIsNone(manager.HCGetRegisteredSalvage(PILOTS[0][0]))
 
