@@ -1,0 +1,16 @@
+test_invalid_order_requests_do_not_load_and_moved_houses_are_not_used (tests.unit.test_infected_production_rooms.InfectedProductionRoomTests.test_invalid_order_requests_do_not_load_and_moved_houses_are_not_used) ... FAIL
+
+======================================================================
+FAIL: test_invalid_order_requests_do_not_load_and_moved_houses_are_not_used (tests.unit.test_infected_production_rooms.InfectedProductionRoomTests.test_invalid_order_requests_do_not_load_and_moved_houses_are_not_used)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/hc-wp5-budget-u4v626u9/tests/unit/test_infected_production_rooms.py", line 158, in test_invalid_order_requests_do_not_load_and_moved_houses_are_not_used
+    self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 4))
+AssertionError: [] != [(100, 10, 100)]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.056s
+
+FAILED (failures=1)
+
+KILLED budget guard prod (post-admission regression)

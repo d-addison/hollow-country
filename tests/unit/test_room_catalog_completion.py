@@ -73,7 +73,7 @@ class Record:
 
 
 class House:
-    def __init__(self, position=(100, 10, 100), orientation=(0, 0, 0), kind="SyntheticHouse"):
+    def __init__(self, position=(100, 10, 100), orientation=(0, 0, 0), kind="Synthetic_House_1"):
         self.position, self.orientation, self.kind = Vec(position), Vec(orientation), kind
     def GetPosition(self): return self.position
     def GetOrientation(self): return self.orientation
@@ -125,7 +125,7 @@ def expression(text):
 
 def authored(name, arguments, ns, diagnostic=True):
     lines, indent = ["def " + name + "(" + arguments + "):"], 1
-    lines.append("    global s_Bindings, s_DiagnosticAttempted, s_ProductionBindings, s_ProductionAttempted, s_ProductionReason, s_ProductionClasses, s_JsonOffset")
+    lines.append("    global s_Bindings, s_DiagnosticAttempted, s_ProductionBindings, s_ProductionAttempted, s_ProductionReason, s_ProductionClasses, s_ProductionContext, s_JsonOffset")
     for token in tokens(source_method(name, diagnostic)):
         if token == "{": indent += 1; continue
         if token == "}": indent -= 1; continue

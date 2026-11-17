@@ -1,0 +1,2 @@
+Maximum binary + operators per statement: 6
+No ternary operators; out locals and sibling scopes inspected in changed methods.

@@ -6,6 +6,7 @@ establishes native JSON/config/house behavior, authentic evidence or qualificati
 import copy
 import json
 import math
+import re
 from types import SimpleNamespace
 import unittest
 
@@ -24,8 +25,8 @@ def synthetic_production(count=1, anchors=1):
     """Pretends to be measured for boundary tests ONLY; never write a profile."""
     doc = DTO()
     doc.SchemaVersion, doc.Build, doc.WorldName = 1, "1.30.164289", "chernarusplus"
-    doc.Classes = Array([SimpleNamespace(BuildingClass="SyntheticHouse", Disposition="covered"),
-                         SimpleNamespace(BuildingClass="SyntheticShed", Disposition="unmeasured")])
+    doc.Classes = Array([SimpleNamespace(BuildingClass="Synthetic_House_1", Disposition="covered"),
+                         SimpleNamespace(BuildingClass="Synthetic_Shed_1", Disposition="unmeasured")])
     houses = []
     for index in range(count):
         house = House(position=(100 + index * 100, 10, 100))
@@ -52,7 +53,7 @@ def production_fixture(document=None, houses=None, *, server=True, diagnostic=Fa
     if document is None:
         document, houses = synthetic_production()
     ns, calls, _, _ = fixture(server=server, diagnostic=diagnostic)
-    classes = ["SyntheticHouse", "SyntheticShed"] if classes is None else classes
+    classes = ["Synthetic_House_1", "Synthetic_Shed_1"] if classes is None else classes
     raw = json.dumps(document, default=encode) if raw is None else raw
     calls.update(exists=[], logs=[], config=[], io=[], closed=[])
     def file_exists(path):
@@ -89,11 +90,11 @@ def production_fixture(document=None, houses=None, *, server=True, diagnostic=Fa
               ReadFile=read_file, CloseFile=lambda handle: calls["closed"].append(handle),
               FileMode=SimpleNamespace(READ=0), Print=calls["logs"].append,
               Loader=SimpleNamespace(LoadData=load), HCInfectedProductionRoomDocument=DTO,
-              HCInfectedProductionRoomAnchor=Anchor, HCInfectedProductionRoomClass=SimpleNamespace,
+              HCInfectedProductionRoomAnchor=Anchor, HCInfectedOwnedProductionRoomAnchor=Anchor, HCInfectedProductionRoomClass=SimpleNamespace,
               TStringArray=Array,
               HCInfectedRoomRecord=Record,
               s_ProductionBindings=Array(), s_ProductionClasses=Array(),
-              s_ProductionAttempted=False, s_ProductionReason="rooms_not_loaded", s_JsonOffset=0,
+              s_ProductionAttempted=False, s_ProductionReason="rooms_not_loaded", s_ProductionContext="", s_JsonOffset=0,
               PRODUCTION_PATH="$profile:HollowCountry/Infected/production-rooms.json",
               MAX_PRODUCTION_BYTES=1048576, MAX_PRODUCTION_CLASSES=2048,
               MAX_CONFIG_CLASSES=32768, MAX_PRODUCTION_HOUSES=64,
@@ -105,7 +106,7 @@ def production_fixture(document=None, houses=None, *, server=True, diagnostic=Fa
         "ProductionEvidence": "anchor", "ProductionDisposition": "value",
         "ProductionClassIndex": "document, className",
         "ValidateProductionCoverage": "document", "ValidateProductionHouse": "record",
-        "BindProduction": "document", "ProductionJsonChar": "content", "ProductionJsonCode": "content",
+        "ProductionBuildLabel": "value", "BindProduction": "document", "ProductionJsonChar": "content", "ProductionJsonCode": "content",
         "ProductionJsonSkip": "content",
         "ProductionJsonText": "content", "ProductionJsonNumber": "content, integerOnly",
         "ProductionKeyBit": "kind, key", "ProductionRequiredKeys": "kind",
@@ -127,9 +128,9 @@ class InfectedProductionRoomTests(unittest.TestCase):
         self.assertEqual([1], calls["closed"])
         self.assertEqual(1, len(ns["s_ProductionBindings"]))
         self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
-        self.assertEqual([("SyntheticHouse", "covered"), ("SyntheticShed", "unmeasured")],
+        self.assertEqual([("Synthetic_House_1", "covered"), ("Synthetic_Shed_1", "unmeasured")],
                          [(r.BuildingClass, r.Disposition) for r in ns["s_ProductionClasses"]])
-        self.assertEqual((["SyntheticHouse"], ["SyntheticShed=unmeasured"]), ns["ProductionCoverage"]())
+        self.assertEqual((["Synthetic_House_1"], ["Synthetic_Shed_1=unmeasured"]), ns["ProductionCoverage"]())
         self.assertEqual(1, len(calls["logs"]))
         self.assertIn("room classes=2; instances=1", calls["logs"][0])
         self.assertEqual([], ns["s_Bindings"])
@@ -153,13 +154,15 @@ class InfectedProductionRoomTests(unittest.TestCase):
                               (Vec((math.nan, 0, 0)), 2)):
             self.assertEqual([], ns["BuildProductionOrder"](point, budget))
         self.assertEqual([], calls["reads"])
+        ns["EnsureProductionLoaded"]()
+        self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 4))
         self.assertEqual([houses[0].position], ns["BuildProductionOrder"](houses[0].position, 2))
         houses[0].position = Vec((101, 10, 100))
         self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 2))
 
     def test_house_denominator_ignores_nonhouse_configs_and_reports_explicit_all_excluded(self):
-        ns, _, _, _ = production_fixture(classes=["SyntheticHouse", "UnrelatedItem", "SyntheticShed"],
-                                         house_classes=["SyntheticHouse", "SyntheticShed"])
+        ns, _, _, _ = production_fixture(classes=["Synthetic_House_1", "UnrelatedItem", "Synthetic_Shed_1"],
+                                         house_classes=["Synthetic_House_1", "Synthetic_Shed_1"])
         ns["EnsureProductionLoaded"]()
         self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
         doc, houses = synthetic_production()
@@ -169,7 +172,7 @@ class InfectedProductionRoomTests(unittest.TestCase):
         ns["EnsureProductionLoaded"]()
         covered, excluded = ns["ProductionCoverage"]()
         self.assertEqual([], covered)
-        self.assertEqual(["SyntheticHouse=unmeasured", "SyntheticShed=unmeasured"], excluded)
+        self.assertEqual(["Synthetic_House_1=unmeasured", "Synthetic_Shed_1=unmeasured"], excluded)
         excluded.Clear()
         self.assertEqual(2, len(ns["ProductionCoverage"]()[1]))
 
@@ -227,7 +230,7 @@ class InfectedProductionRoomTests(unittest.TestCase):
             ns, calls, _, _ = production_fixture(doc, houses)
             ns["EnsureProductionLoaded"]()
             self.assertEqual([], ns["s_ProductionBindings"])
-            self.assertEqual("rooms_limits", ns["ProductionReason"]())
+            self.assertEqual("rooms_limits" if count == 17 else "rooms_json", ns["ProductionReason"]())
 
     def test_anchor_evidence_is_required_bounded_and_never_synthetic(self):
         for field, value in (("SourceRunId", ""), ("SourceRunId", "native-synthetic-001"),
@@ -339,6 +342,237 @@ class InfectedProductionRoomTests(unittest.TestCase):
                                                                     '"' + key + '": 4294967297')))
         self.assertTrue(ns["ValidProductionJson"](valid.replace('"LocalPosition": [0, 0, 0]',
                                                                '"LocalPosition": [-0.0, 0e0, 0.0E+0]')))
+
+
+    def assert_direct_refused(self, doc, houses, reason, **options):
+        ns, calls, _, _ = production_fixture(doc, houses, **options)
+        self.assertFalse(ns["BindProduction"](doc))
+        self.assertEqual(reason, ns["ProductionReason"]())
+        self.assertEqual([], ns["s_ProductionBindings"])
+        self.assertEqual([], ns["s_ProductionClasses"])
+        return ns, calls
+
+    def test_json_preflight_guards_native_load_path(self):
+        doc, houses = synthetic_production()
+        valid = json.dumps(doc, default=encode)
+        oversized, _ = synthetic_production(1, 17)
+        cases = {
+            "unknown": valid.replace('"Id": 1', '"Id": 1, "Unknown": 0'),
+            "duplicate": valid.replace('"Id": 1', '"Id": 1, "Id": 1'),
+            "17 anchors": json.dumps(oversized, default=encode),
+            "A escape": valid.replace('native-boundary-001', r'native-boundary-001\u0041'),
+        }
+        for name, raw in cases.items():
+            with self.subTest(name=name):
+                json.loads(raw)  # Deliberately accepted by our native-parser stand-in.
+                ns, calls, _, _ = production_fixture(doc, houses, raw=raw)
+                ns["EnsureProductionLoaded"]()
+                self.assertEqual(0, calls["parse"])
+                self.assertEqual("rooms_json", ns["ProductionReason"]())
+                self.assertEqual([], ns["s_ProductionBindings"])
+                self.assertEqual([], ns["s_ProductionClasses"])
+
+    def test_clear_resets_production_and_allows_one_new_read_and_log(self):
+        ns, calls, _, houses = production_fixture()
+        ns["EnsureProductionLoaded"]()
+        self.assertEqual(1, len(ns["s_ProductionBindings"]))
+        self.assertEqual(2, len(ns["s_ProductionClasses"]))
+        ns["Clear"]()
+        self.assertEqual([], ns["s_ProductionBindings"])
+        self.assertEqual([], ns["s_ProductionClasses"])
+        self.assertEqual("rooms_not_loaded", ns["ProductionReason"]())
+        self.assertFalse(ns["s_ProductionAttempted"])
+        self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 2))
+        self.assertEqual(1, len(calls["reads"]))
+        for _ in range(3): ns["EnsureProductionLoaded"]()
+        self.assertEqual(2, len(calls["reads"]))
+        self.assertEqual(2, len(calls["logs"]))
+        self.assertEqual(1, len(ns["s_ProductionBindings"]))
+
+    def assert_run_id_refused(self, value):
+        doc, houses = synthetic_production()
+        doc.Buildings[0].Anchors[0].SourceRunId = value
+        self.assert_direct_refused(doc, houses, "rooms_evidence")
+
+    def test_evidence_native_prefix_required(self):
+        self.assert_run_id_refused("run-0001")
+
+    def test_evidence_fixture_marker_refused(self):
+        self.assert_run_id_refused("native-fixture-1")
+
+    def test_evidence_selftest_marker_refused(self):
+        self.assert_run_id_refused("native-selftest-1")
+
+    def test_evidence_run_id_minimum_eight_characters(self):
+        self.assert_run_id_refused("native-")
+        doc, houses = synthetic_production()
+        doc.Buildings[0].Anchors[0].SourceRunId = "native-1"
+        ns, _, _, _ = production_fixture(doc, houses)
+        self.assertTrue(ns["BindProduction"](doc))
+
+    def test_owned_anchor_copies_all_evidence_fields(self):
+        ns, _, doc, _ = production_fixture()
+        self.assertTrue(ns["BindProduction"](doc))
+        supplied = doc.Buildings[0].Anchors[0]
+        owned = ns["s_ProductionBindings"][0].Survey.Anchors[0]
+        self.assertIsNot(supplied, owned)
+        for field in ("SourceRunId", "SourceSha256", "EvidenceKind"):
+            expected = getattr(supplied, field)
+            self.assertEqual(expected, getattr(owned, field, None), field)
+            setattr(supplied, field, "changed")
+            self.assertEqual(expected, getattr(owned, field), field)
+
+    def test_document_and_runtime_on_same_unpinned_build_refused(self):
+        doc, houses = synthetic_production()
+        doc.Build = "1.31.1"
+        self.assert_direct_refused(doc, houses, "rooms_build", version="1.31.1")
+
+    def test_257th_total_anchor_refused_directly(self):
+        doc, houses = synthetic_production(17, 16)
+        doc.Buildings[-1].Anchors = Array([doc.Buildings[-1].Anchors[0]])
+        self.assertEqual(257, sum(len(row.Anchors) for row in doc.Buildings))
+        self.assert_direct_refused(doc, houses, "rooms_limits")
+
+    def test_65th_house_refused_directly(self):
+        doc, houses = synthetic_production(65)
+        self.assert_direct_refused(doc, houses, "rooms_limits")
+
+    def test_17th_house_anchor_refused_directly(self):
+        doc, houses = synthetic_production(1, 17)
+        # All 17 points otherwise fit the declared house box.
+        doc.Buildings[0].BoxMax = Vec((17, 16, 16))
+        self.assert_direct_refused(doc, houses, "rooms_limits")
+
+    def test_zero_anchor_house_refused_directly(self):
+        doc, houses = synthetic_production(1, 0)
+        self.assert_direct_refused(doc, houses, "rooms_limits")
+
+    def test_house_box_below_minus_512_refused(self):
+        doc, houses = synthetic_production()
+        doc.Buildings[0].BoxMin = Vec((-513, -4, -16))
+        self.assert_direct_refused(doc, houses, "rooms_geometry")
+
+    def test_anchor_id_above_64_refused(self):
+        doc, houses = synthetic_production()
+        doc.Buildings[0].Anchors[0].Id = 65
+        self.assert_direct_refused(doc, houses, "rooms_geometry")
+
+    def test_duplicate_id_at_distinct_valid_positions_refused(self):
+        doc, houses = synthetic_production(1, 2)
+        doc.Buildings[0].Anchors[1].Id = 1
+        self.assert_direct_refused(doc, houses, "rooms_geometry")
+
+    def test_spacing_below_one_with_distinct_ids_refused(self):
+        doc, houses = synthetic_production(1, 2)
+        second = doc.Buildings[0].Anchors[1]
+        second.LocalPosition = Vec((.5, 0, 0))
+        second.LocalMin = Vec((.1, -1, -.4))
+        second.LocalMax = Vec((.9, 1, .4))
+        self.assert_direct_refused(doc, houses, "rooms_geometry")
+
+    def test_local_position_below_room_min_refused(self):
+        doc, houses = synthetic_production()
+        doc.Buildings[0].Anchors[0].LocalPosition = Vec((-.5, 0, 0))
+        self.assert_direct_refused(doc, houses, "rooms_geometry")
+
+    def test_zero_volume_room_containing_point_refused(self):
+        doc, houses = synthetic_production()
+        anchor = doc.Buildings[0].Anchors[0]
+        anchor.LocalMin = anchor.LocalMax = anchor.LocalPosition
+        self.assert_direct_refused(doc, houses, "rooms_geometry")
+
+    def test_nonhouse_padding_cannot_replace_missing_house_class(self):
+        doc, houses = synthetic_production()
+        doc.Classes[1].BuildingClass = "Unrelated_Item"
+        self.assert_direct_refused(doc, houses, "rooms_coverage",
+            classes=["Synthetic_House_1", "Synthetic_Shed_1", "Unrelated_Item"],
+            house_classes=["Synthetic_House_1", "Synthetic_Shed_1"])
+
+    def test_second_valid_bind_refused_and_publication_unchanged(self):
+        ns, _, doc, _ = production_fixture()
+        self.assertTrue(ns["BindProduction"](doc))
+        bindings, classes = ns["s_ProductionBindings"], ns["s_ProductionClasses"]
+        self.assertFalse(ns["BindProduction"](doc))
+        self.assertIs(bindings, ns["s_ProductionBindings"])
+        self.assertIs(classes, ns["s_ProductionClasses"])
+        self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
+
+    def test_house_class_cap_reports_observed_counts_without_claiming_coverage(self):
+        doc, houses = synthetic_production()
+        classes = ["Synthetic_House_1", "Synthetic_Shed_1"]
+        classes += ["Synthetic_House_" + str(i) for i in range(2, 2049)]
+        ns, calls, _, _ = production_fixture(doc, houses, classes=classes + ["Unrelated_Item"],
+                                           house_classes=classes)
+        for _ in range(3): ns["EnsureProductionLoaded"]()
+        self.assertEqual("rooms_house_class_cap", ns["ProductionReason"]())
+        self.assertEqual([], ns["ProductionCoverage"]()[0])
+        self.assertEqual([], ns["s_ProductionClasses"])
+        self.assertEqual(len(classes) + 1, len(calls["config"]))
+        self.assertEqual(1, len(calls["logs"]))
+        self.assertIn("config children=2050; House classes=2049", calls["logs"][0])
+        self.assertLess(len(calls["logs"][0]), 256)
+
+    def test_2049th_declared_class_refused_directly_before_config_scan(self):
+        doc, houses = synthetic_production()
+        doc.Classes.extend(SimpleNamespace(BuildingClass="Synthetic_Excluded_" + str(i),
+                                          Disposition="unmeasured") for i in range(2047))
+        self.assertEqual(2049, len(doc.Classes))
+        _, calls = self.assert_direct_refused(doc, houses, "rooms_limits")
+        self.assertEqual([], calls["config"])
+
+    def test_direct_json_preflight_rejects_1mib_plus_one_before_scanning(self):
+        ns, _, doc, _ = production_fixture()
+        valid = json.dumps(doc, default=encode)
+        raw = valid + " " * (1048577 - len(valid))
+        self.assertEqual(1048577, len(raw))
+        self.assertFalse(ns["ValidProductionJson"](raw))
+        self.assertEqual(0, ns["s_JsonOffset"])
+
+    def test_json_fraction_requires_digits_before_native_parser(self):
+        ns, calls, doc, houses = production_fixture()
+        raw = json.dumps(doc, default=encode).replace('"LocalPosition": [0, 0, 0]',
+                                                     '"LocalPosition": [0., 0, 0]')
+        self.assertFalse(ns["ValidProductionJson"](raw))
+        ns, calls, _, _ = production_fixture(doc, houses, raw=raw)
+        ns["EnsureProductionLoaded"]()
+        self.assertEqual(0, calls["parse"])
+        self.assertEqual("rooms_json", ns["ProductionReason"]())
+
+    def test_production_anchor_dto_is_flat_with_geometry_and_evidence(self):
+        source = PATH.read_text()
+        match = re.search(r'class HCInfectedProductionRoomAnchor\s*\{(.*?)\n\}', source, re.S)
+        self.assertIsNotNone(match, "native JSON must not rely on inherited fields")
+        for field, kind in (("Id", "int"), ("LocalPosition", "vector"), ("LocalMin", "vector"),
+                            ("LocalMax", "vector"), ("SourceRunId", "string"),
+                            ("SourceSha256", "string"), ("EvidenceKind", "string")):
+            self.assertRegex(match[1], r'\b' + kind + ' ' + field + ';')
+        self.assertIn("bool Contains(vector point)", match[1])
+
+    def test_valid_production_order_never_loads_on_first_tick(self):
+        ns, calls, _, houses = production_fixture()
+        for _ in range(3):
+            self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 2))
+        for key in ("exists", "reads", "parse", "config", "queries", "logs"):
+            self.assertFalse(calls[key], key)
+        self.assertEqual("rooms_not_loaded", ns["ProductionReason"]())
+        ns["EnsureProductionLoaded"]()
+        self.assertEqual([houses[0].position], ns["BuildProductionOrder"](houses[0].position, 2))
+        self.assertEqual(1, len(calls["reads"]))
+
+    def test_build_refusal_logs_observed_build_bounded_and_printable(self):
+        for version, label in (("1.31.1", "1.31.1"), ("x" * 100, "x" * 32),
+                               ("1.31\n.1", "1.31?.1")):
+            with self.subTest(version=version):
+                ns, calls, _, _ = production_fixture(version=version)
+                for _ in range(3): ns["EnsureProductionLoaded"]()
+                self.assertEqual("rooms_build", ns["ProductionReason"]())
+                self.assertEqual(1, len(calls["logs"]))
+                self.assertIn("observed build=" + label + ";", calls["logs"][0])
+                self.assertNotIn("\n", calls["logs"][0])
+                self.assertLess(len(calls["logs"][0]), 256)
+
+    def test_string_ascii_calls_use_a_named_local(self):
+        self.assertNotRegex(PATH.read_text(), r'\.Get\([^\n;]*\)\.ToAscii\(')
 
 
 if __name__ == "__main__": unittest.main()

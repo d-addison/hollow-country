@@ -9,7 +9,7 @@
 // :873 ModelToWorld, :874 WorldToModel. House: 4_World/Entities/Game/Super/Building.c:485.
 // 3_Game/tools/JsonFileLoader.c:69 LoadData. 1_Core/proto/EnSystem.c:
 // :397 FileExist, :417 OpenFile, :443 CloseFile, :425 ReadFile.
-// Primitive/collection references are listed in scratchpad-review/wp5/REPORT.md.
+// Primitive/collection references are listed in scratchpad-review/wp5-r2/REPORT.md.
 class HCInfectedRoomAnchor
 {
     int Id;
@@ -73,7 +73,31 @@ class HCInfectedProductionRoomClass
     string Disposition;
 }
 
-class HCInfectedProductionRoomAnchor : HCInfectedRoomAnchor
+// Flat native JSON DTO: inherited-member deserialization is unobserved.
+class HCInfectedProductionRoomAnchor
+{
+    int Id;
+    vector LocalPosition;
+    vector LocalMin;
+    vector LocalMax;
+    string SourceRunId;
+    string SourceSha256;
+    string EvidenceKind;
+
+    bool Contains(vector point)
+    {
+        for (int i = 0; i < 3; i++)
+        {
+            if (point[i] < LocalMin[i] || point[i] > LocalMax[i])
+                return false;
+        }
+        return true;
+    }
+}
+
+// Runtime-only owned subtype; never passed to JsonSerializer. Keeps provenance
+// while the existing diagnostic/order interface consumes base room anchors.
+class HCInfectedOwnedProductionRoomAnchor : HCInfectedRoomAnchor
 {
     string SourceRunId;
     string SourceSha256;
@@ -115,6 +139,7 @@ class HCInfectedRoomCatalog
     protected static ref array<ref HCInfectedProductionRoomClass> s_ProductionClasses = new array<ref HCInfectedProductionRoomClass>;
     protected static bool s_ProductionAttempted = false;
     protected static string s_ProductionReason = "rooms_not_loaded";
+    protected static string s_ProductionContext;
     protected static int s_JsonOffset;
 
     static void Clear()
@@ -408,6 +433,7 @@ class HCInfectedRoomCatalog
         s_ProductionClasses.Clear();
         s_ProductionAttempted = false;
         s_ProductionReason = "rooms_not_loaded";
+        s_ProductionContext = "";
     }
 
     static string ProductionReason()
@@ -442,7 +468,8 @@ class HCInfectedRoomCatalog
             return false;
         for (int i = 0; i < value.Length(); i++)
         {
-            int ascii = value.Get(i).ToAscii();
+            string ch = value.Get(i);
+            int ascii = ch.ToAscii();
             bool letter = (ascii >= 65 && ascii <= 90) || (ascii >= 97 && ascii <= 122);
             if (!letter && !(ascii >= 48 && ascii <= 57) && ascii != 45 && ascii != 95)
                 return false;
@@ -457,7 +484,8 @@ class HCInfectedRoomCatalog
         bool nonzero = false;
         for (int i = 0; i < 64; i++)
         {
-            int ascii = value.Get(i).ToAscii();
+            string ch = value.Get(i);
+            int ascii = ch.ToAscii();
             if (!(ascii >= 48 && ascii <= 57) && !(ascii >= 97 && ascii <= 102))
                 return false;
             if (ascii != 48)
@@ -514,6 +542,7 @@ class HCInfectedRoomCatalog
             known.Insert(entry.BuildingClass);
         }
         int houseClasses = 0;
+        bool complete = true;
         for (int i = 0; i < configCount; i++)
         {
             string className;
@@ -522,9 +551,17 @@ class HCInfectedRoomCatalog
             if (!GetGame().IsKindOf(className, "House"))
                 continue;
             houseClasses++;
-            if (houseClasses > MAX_PRODUCTION_CLASSES || known.Find(className) < 0)
-                return false;
+            if (known.Find(className) < 0)
+                complete = false;
         }
+        if (houseClasses > MAX_PRODUCTION_CLASSES)
+        {
+            s_ProductionReason = "rooms_house_class_cap";
+            s_ProductionContext = "; config children=" + configCount.ToString() + "; House classes=" + houseClasses.ToString();
+            return false;
+        }
+        if (!complete)
+            return false;
         if (houseClasses != known.Count())
             return false;
         // Coverage is bidirectional: no omitted class, no excluded house used,
@@ -587,12 +624,35 @@ class HCInfectedRoomCatalog
         return true;
     }
 
+    static string ProductionBuildLabel(string value)
+    {
+        string label = "";
+        int limit = value.Length();
+        if (limit > 32)
+            limit = 32;
+        for (int i = 0; i < limit; i++)
+        {
+            string ch = value.Get(i);
+            int ascii = ch.ToAscii();
+            if (ascii >= 32 && ascii <= 126)
+            {
+                label = label + ch;
+            }
+            else
+            {
+                label = label + "?";
+            }
+        }
+        return label;
+    }
+
     static bool BindProduction(HCInfectedProductionRoomDocument document)
     {
         if (!ProductionServer())
             return false;
         if (s_ProductionReason == "rooms_admitted_measurements_path_audio_doors_pending")
             return false;
+        s_ProductionContext = "";
         s_ProductionReason = "rooms_schema";
         if (!document || document.SchemaVersion != 1)
             return false;
@@ -600,7 +660,10 @@ class HCInfectedRoomCatalog
         string currentBuild;
         GetGame().GetVersion(currentBuild);
         if (document.Build != "1.30.164289" || currentBuild != document.Build)
+        {
+            s_ProductionContext = "; observed build=" + ProductionBuildLabel(currentBuild);
             return false;
+        }
         s_ProductionReason = "rooms_world";
         if (!ProductionToken(document.WorldName, 64) || document.WorldName != GetGame().GetWorldName())
             return false;
@@ -633,10 +696,10 @@ class HCInfectedRoomCatalog
             survey.BuildingClass = record.BuildingClass;
             survey.Measured = true;
             survey.Revision = 1;
-            // Provenance remains on the owned production anchor subclass.
+            // Provenance remains on the runtime-only owned anchor subtype.
             foreach (HCInfectedProductionRoomAnchor anchor : record.Anchors)
             {
-                HCInfectedProductionRoomAnchor ownedAnchor = new HCInfectedProductionRoomAnchor;
+                HCInfectedOwnedProductionRoomAnchor ownedAnchor = new HCInfectedOwnedProductionRoomAnchor;
                 ownedAnchor.Id = anchor.Id;
                 ownedAnchor.LocalPosition = anchor.LocalPosition;
                 ownedAnchor.LocalMin = anchor.LocalMin;
@@ -855,7 +918,10 @@ class HCInfectedRoomCatalog
             return true;
         // Empty JSON strings are typed correctly; semantic admission assigns
         // their specific build/world/class/evidence refusal instead.
-        return s_JsonOffset == textBegin + 2 && content.Get(textBegin + 1).ToAscii() == 34;
+        if (s_JsonOffset != textBegin + 2)
+            return false;
+        string closingQuote = content.Get(textBegin + 1);
+        return closingQuote.ToAscii() == 34;
     }
 
     static bool ProductionJsonArray(string content, int kind)
@@ -875,7 +941,6 @@ class HCInfectedRoomCatalog
             {
                 if (count >= limit)
                 {
-                    s_ProductionReason = "rooms_limits";
                     return false;
                 }
                 if (kind == 8)
@@ -958,7 +1023,7 @@ class HCInfectedRoomCatalog
             return;
         s_ProductionAttempted = true;
         // Fixed operator-only path; native LoadFile has an excessive allocation
-        // bound, so use capped I/O then LoadData. Never print native error/input.
+        // bound, so use capped I/O then LoadData. Never print parser errors/catalog input.
         s_ProductionReason = "rooms_missing";
         if (FileExist(PRODUCTION_PATH))
         {
@@ -969,7 +1034,12 @@ class HCInfectedRoomCatalog
                 string content;
                 int bytesRead = ReadFile(handle, content, MAX_PRODUCTION_BYTES + 1);
                 CloseFile(handle);
-                // ASCII schema: byte count and string length must agree.
+                // Like HCInfectedStore.ReadBounded, bound the received string
+                // length independently of the requested read size. Additionally
+                // fail closed on negative/mismatched counts for this ASCII-only
+                // schema. ReadFile(string) byte/length semantics remain unobserved;
+                // ReadBounded currently ignores the native count. Compare both
+                // observed values in DayZDiag before enabling production data.
                 if (bytesRead >= 0 && bytesRead == content.Length())
                 {
                     s_ProductionReason = "rooms_size";
@@ -989,7 +1059,7 @@ class HCInfectedRoomCatalog
         }
         // Single bounded log per lifecycle, even for a missing/rejected file.
         // Complete copied class/exclusion rows are available via ProductionCoverage.
-        Print("[HollowCountry] " + s_ProductionReason + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
+        Print("[HollowCountry] " + s_ProductionReason + s_ProductionContext + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
     }
 
     static void BuildOrder(vector observedClue, int budget, out TVectorArray points)
@@ -1008,7 +1078,9 @@ class HCInfectedRoomCatalog
         points = new TVectorArray;
         if (!ProductionServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
             return;
-        EnsureProductionLoaded();
+        // Startup owns the bounded read/config census; AI ticks never load.
+        if (s_ProductionReason != "rooms_admitted_measurements_path_audio_doors_pending")
+            return;
         OrderBindings(observedClue, budget, s_ProductionBindings, points);
     }
 

@@ -1,0 +1,1173 @@
+diff --git a/mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c b/mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c
+index 73d36d3..336b4d4 100644
+--- a/mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c
++++ b/mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c
+@@ -1,5 +1,15 @@
+-// Survey interface, intentionally empty at shipment. Coordinates must be
+-// measured in DayZDiag; there is no invented house/room geometry in this source.
++// Catalogs ship empty. Operator evidence is server-profile data, never an RPC
++// or client-owned catalog. Admission is data validation, NOT native qualification.
++// Native references below are relative to the pinned external cache:
++// /home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/
++// 3_Game/Global/Game.c:1120 IsServer, :930 GetObjectsAtPosition3D,
++// :934 GetWorldName, :942 GetVersion (out declared before call),
++// :594 ConfigGetChildName, :611 ConfigGetChildrenCount, :1437 IsKindOf.
++// 3_Game/Entities/Object.c:287 GetPosition, :305 GetOrientation, :467 GetType,
++// :873 ModelToWorld, :874 WorldToModel. House: 4_World/Entities/Game/Super/Building.c:485.
++// 3_Game/tools/JsonFileLoader.c:69 LoadData. 1_Core/proto/EnSystem.c:
++// :397 FileExist, :417 OpenFile, :443 CloseFile, :425 ReadFile.
++// Primitive/collection references are listed in scratchpad-review/wp5/REPORT.md.
+ class HCInfectedRoomAnchor
+ {
+     int Id;
+@@ -55,16 +65,63 @@ class HCInfectedRoomDocument
+     ref array<ref HCInfectedRoomRecord> Buildings = new array<ref HCInfectedRoomRecord>;
+ }
+ 
++// Production schema v1 is deliberately distinct from the diagnostic schema.
++// No poses ship here. See WP5 report for census conversion and trust boundary.
++class HCInfectedProductionRoomClass
++{
++    string BuildingClass;
++    string Disposition;
++}
++
++class HCInfectedProductionRoomAnchor : HCInfectedRoomAnchor
++{
++    string SourceRunId;
++    string SourceSha256;
++    string EvidenceKind;
++}
++
++class HCInfectedProductionRoomRecord
++{
++    string BuildingClass;
++    vector Position = "200001 200001 200001";
++    vector Orientation = "1000 1000 1000";
++    vector BoxMin = "513 513 513";
++    vector BoxMax = "-513 -513 -513";
++    ref array<ref HCInfectedProductionRoomAnchor> Anchors = new array<ref HCInfectedProductionRoomAnchor>;
++}
++
++class HCInfectedProductionRoomDocument
++{
++    int SchemaVersion;
++    string Build;
++    string WorldName;
++    ref array<ref HCInfectedProductionRoomClass> Classes = new array<ref HCInfectedProductionRoomClass>;
++    ref array<ref HCInfectedProductionRoomRecord> Buildings = new array<ref HCInfectedProductionRoomRecord>;
++}
++
+ class HCInfectedRoomCatalog
+ {
+     static const string DIAGNOSTIC_PATH = "$profile:HollowCountry/Infected/measured-rooms.json";
+     protected static ref array<ref HCInfectedRoomBinding> s_Bindings = new array<ref HCInfectedRoomBinding>;
+     protected static bool s_DiagnosticAttempted = false;
++    static const string PRODUCTION_PATH = "$profile:HollowCountry/Infected/production-rooms.json";
++    static const int MAX_PRODUCTION_BYTES = 1048576;
++    static const int MAX_CONFIG_CLASSES = 32768;
++    static const int MAX_PRODUCTION_CLASSES = 2048;
++    static const int MAX_PRODUCTION_HOUSES = 64;
++    static const int MAX_HOUSE_ANCHORS = 16;
++    static const int MAX_TOTAL_ANCHORS = 256;
++    protected static ref array<ref HCInfectedRoomBinding> s_ProductionBindings = new array<ref HCInfectedRoomBinding>;
++    protected static ref array<ref HCInfectedProductionRoomClass> s_ProductionClasses = new array<ref HCInfectedProductionRoomClass>;
++    protected static bool s_ProductionAttempted = false;
++    protected static string s_ProductionReason = "rooms_not_loaded";
++    protected static int s_JsonOffset;
+ 
+     static void Clear()
+     {
+         s_Bindings.Clear();
+         s_DiagnosticAttempted = false;
++        ClearProduction();
+     }
+ 
+     static bool DiagnosticServer()
+@@ -340,17 +397,629 @@ class HCInfectedRoomCatalog
+         return binding;
+     }
+ 
++    static bool ProductionServer()
++    {
++        return GetGame() && GetGame().IsServer();
++    }
++
++    static void ClearProduction()
++    {
++        s_ProductionBindings.Clear();
++        s_ProductionClasses.Clear();
++        s_ProductionAttempted = false;
++        s_ProductionReason = "rooms_not_loaded";
++    }
++
++    static string ProductionReason()
++    {
++        return s_ProductionReason;
++    }
++
++    // Copied report: each installed House config class appears exactly once.
++    // "covered" means at least one measured instance, never all map placements.
++    static void ProductionCoverage(out TStringArray covered, out TStringArray excluded)
++    {
++        covered = new TStringArray;
++        excluded = new TStringArray;
++        if (!ProductionServer())
++            return;
++        foreach (HCInfectedProductionRoomClass entry : s_ProductionClasses)
++        {
++            if (entry.Disposition == "covered")
++            {
++                covered.Insert(entry.BuildingClass);
++            }
++            else
++            {
++                excluded.Insert(entry.BuildingClass + "=" + entry.Disposition);
++            }
++        }
++    }
++
++    static bool ProductionToken(string value, int limit)
++    {
++        if (value.Length() < 1 || value.Length() > limit)
++            return false;
++        for (int i = 0; i < value.Length(); i++)
++        {
++            int ascii = value.Get(i).ToAscii();
++            bool letter = (ascii >= 65 && ascii <= 90) || (ascii >= 97 && ascii <= 122);
++            if (!letter && !(ascii >= 48 && ascii <= 57) && ascii != 45 && ascii != 95)
++                return false;
++        }
++        return true;
++    }
++
++    static bool ProductionHash(string value)
++    {
++        if (value.Length() != 64)
++            return false;
++        bool nonzero = false;
++        for (int i = 0; i < 64; i++)
++        {
++            int ascii = value.Get(i).ToAscii();
++            if (!(ascii >= 48 && ascii <= 57) && !(ascii >= 97 && ascii <= 102))
++                return false;
++            if (ascii != 48)
++                nonzero = true;
++        }
++        return nonzero;
++    }
++
++    static bool ProductionEvidence(HCInfectedProductionRoomAnchor anchor)
++    {
++        if (!anchor || !ProductionToken(anchor.SourceRunId, 96) || anchor.SourceRunId.Length() < 8)
++            return false;
++        string runId = anchor.SourceRunId;
++        runId.ToLower();
++        if (runId.Substring(0, 7) != "native-" || runId.Contains("synthetic") || runId.Contains("fixture") || runId.Contains("selftest"))
++            return false;
++        // Census floor hits alone lack semantic room bounds. A reviewed native
++        // room survey must supply these; never relabel generated/test poses.
++        return anchor.EvidenceKind == "native-room-survey-v1" && ProductionHash(anchor.SourceSha256);
++    }
++
++    static bool ProductionDisposition(string value)
++    {
++        return value == "covered" || value == "unmeasured" || value == "not_enterable" || value == "path_pending" || value == "door_pending" || value == "unsupported_geometry";
++    }
++
++    static int ProductionClassIndex(HCInfectedProductionRoomDocument document, string className)
++    {
++        for (int i = 0; i < document.Classes.Count(); i++)
++        {
++            if (document.Classes[i].BuildingClass == className)
++                return i;
++        }
++        return -1;
++    }
++
++    static bool ValidateProductionCoverage(HCInfectedProductionRoomDocument document)
++    {
++        // Full denominator = all loaded CfgVehicles subclasses of House,
++        // including base/closed/non-enterable classes, explicitly excluded.
++        int configCount = GetGame().ConfigGetChildrenCount("CfgVehicles");
++        if (configCount < 1 || configCount > MAX_CONFIG_CLASSES)
++        {
++            s_ProductionReason = "rooms_denominator_cap";
++            return false;
++        }
++        ref array<string> known = new array<string>;
++        foreach (HCInfectedProductionRoomClass entry : document.Classes)
++        {
++            if (!entry || !ProductionToken(entry.BuildingClass, 128) || !ProductionDisposition(entry.Disposition))
++                return false;
++            if (known.Find(entry.BuildingClass) >= 0)
++                return false;
++            known.Insert(entry.BuildingClass);
++        }
++        int houseClasses = 0;
++        for (int i = 0; i < configCount; i++)
++        {
++            string className;
++            if (!GetGame().ConfigGetChildName("CfgVehicles", i, className))
++                return false;
++            if (!GetGame().IsKindOf(className, "House"))
++                continue;
++            houseClasses++;
++            if (houseClasses > MAX_PRODUCTION_CLASSES || known.Find(className) < 0)
++                return false;
++        }
++        if (houseClasses != known.Count())
++            return false;
++        // Coverage is bidirectional: no omitted class, no excluded house used,
++        // and no "covered" class without at least one admitted instance.
++        ref array<string> usedClasses = new array<string>;
++        foreach (HCInfectedProductionRoomRecord record : document.Buildings)
++        {
++            if (!record)
++                return false;
++            int classIndex = ProductionClassIndex(document, record.BuildingClass);
++            if (classIndex < 0 || document.Classes[classIndex].Disposition != "covered")
++                return false;
++            if (usedClasses.Find(record.BuildingClass) < 0)
++                usedClasses.Insert(record.BuildingClass);
++        }
++        foreach (HCInfectedProductionRoomClass declared : document.Classes)
++        {
++            if (declared.Disposition == "covered" && usedClasses.Find(declared.BuildingClass) < 0)
++                return false;
++        }
++        return true;
++    }
++
++    static bool ValidateProductionHouse(HCInfectedProductionRoomRecord record)
++    {
++        s_ProductionReason = "rooms_geometry";
++        for (int axis = 0; axis < 3; axis++)
++        {
++            if (!(record.BoxMin[axis] >= -512 && record.BoxMax[axis] <= 512 && record.BoxMin[axis] < record.BoxMax[axis]))
++                return false;
++        }
++        ref array<int> usedIds = new array<int>;
++        ref array<vector> usedPositions = new array<vector>;
++        foreach (HCInfectedProductionRoomAnchor anchor : record.Anchors)
++        {
++            if (!anchor || anchor.Id < 1 || anchor.Id > 64 || usedIds.Find(anchor.Id) >= 0)
++                return false;
++            for (int anchorAxis = 0; anchorAxis < 3; anchorAxis++)
++            {
++                // Positive comparisons reject NaN and infinity as well as bad
++                // ordering; both semantic room box and point stay in house box.
++                if (!(anchor.LocalMin[anchorAxis] >= record.BoxMin[anchorAxis] && anchor.LocalMax[anchorAxis] <= record.BoxMax[anchorAxis] && anchor.LocalMin[anchorAxis] < anchor.LocalMax[anchorAxis]))
++                    return false;
++                if (!(anchor.LocalPosition[anchorAxis] >= anchor.LocalMin[anchorAxis] && anchor.LocalPosition[anchorAxis] <= anchor.LocalMax[anchorAxis]))
++                    return false;
++            }
++            foreach (vector previousPoint : usedPositions)
++            {
++                if (vector.DistanceSq(previousPoint, anchor.LocalPosition) < 1)
++                    return false;
++            }
++            if (!ProductionEvidence(anchor))
++            {
++                s_ProductionReason = "rooms_evidence";
++                return false;
++            }
++            usedIds.Insert(anchor.Id);
++            usedPositions.Insert(anchor.LocalPosition);
++        }
++        return true;
++    }
++
++    static bool BindProduction(HCInfectedProductionRoomDocument document)
++    {
++        if (!ProductionServer())
++            return false;
++        if (s_ProductionReason == "rooms_admitted_measurements_path_audio_doors_pending")
++            return false;
++        s_ProductionReason = "rooms_schema";
++        if (!document || document.SchemaVersion != 1)
++            return false;
++        s_ProductionReason = "rooms_build";
++        string currentBuild;
++        GetGame().GetVersion(currentBuild);
++        if (document.Build != "1.30.164289" || currentBuild != document.Build)
++            return false;
++        s_ProductionReason = "rooms_world";
++        if (!ProductionToken(document.WorldName, 64) || document.WorldName != GetGame().GetWorldName())
++            return false;
++        s_ProductionReason = "rooms_limits";
++        if (!document.Classes || document.Classes.Count() < 1 || document.Classes.Count() > MAX_PRODUCTION_CLASSES)
++            return false;
++        if (!document.Buildings || document.Buildings.Count() > MAX_PRODUCTION_HOUSES)
++            return false;
++        int total = 0;
++        foreach (HCInfectedProductionRoomRecord counted : document.Buildings)
++        {
++            if (!counted || !counted.Anchors || counted.Anchors.Count() < 1 || counted.Anchors.Count() > MAX_HOUSE_ANCHORS)
++                return false;
++            total = total + counted.Anchors.Count();
++            if (total > MAX_TOTAL_ANCHORS)
++                return false;
++        }
++        s_ProductionReason = "rooms_coverage";
++        if (!ValidateProductionCoverage(document))
++            return false;
++        ref array<ref HCInfectedRoomBinding> staged = new array<ref HCInfectedRoomBinding>;
++        ref array<ref HCInfectedProductionRoomClass> coverage = new array<ref HCInfectedProductionRoomClass>;
++        foreach (HCInfectedProductionRoomRecord record : document.Buildings)
++        {
++            if (!ValidateProductionHouse(record))
++                return false;
++            HCInfectedRoomSurvey survey = new HCInfectedRoomSurvey;
++            survey.Build = document.Build;
++            survey.WorldName = document.WorldName;
++            survey.BuildingClass = record.BuildingClass;
++            survey.Measured = true;
++            survey.Revision = 1;
++            // Provenance remains on the owned production anchor subclass.
++            foreach (HCInfectedProductionRoomAnchor anchor : record.Anchors)
++            {
++                HCInfectedProductionRoomAnchor ownedAnchor = new HCInfectedProductionRoomAnchor;
++                ownedAnchor.Id = anchor.Id;
++                ownedAnchor.LocalPosition = anchor.LocalPosition;
++                ownedAnchor.LocalMin = anchor.LocalMin;
++                ownedAnchor.LocalMax = anchor.LocalMax;
++                ownedAnchor.SourceRunId = anchor.SourceRunId;
++                ownedAnchor.SourceSha256 = anchor.SourceSha256;
++                ownedAnchor.EvidenceKind = anchor.EvidenceKind;
++                survey.Anchors.Insert(ownedAnchor);
++            }
++            HCInfectedRoomRecord lookup = new HCInfectedRoomRecord;
++            lookup.Position = record.Position;
++            lookup.Orientation = record.Orientation;
++            lookup.Survey = survey;
++            s_ProductionReason = "rooms_binding";
++            House building = ResolveBuilding(lookup);
++            if (!building)
++                return false;
++            foreach (HCInfectedRoomBinding previous : staged)
++            {
++                if (previous.HouseObject == building)
++                    return false;
++            }
++            HCInfectedRoomBinding binding = new HCInfectedRoomBinding;
++            binding.HouseObject = building;
++            binding.Position = building.GetPosition();
++            binding.Orientation = building.GetOrientation();
++            binding.Survey = survey;
++            staged.Insert(binding);
++        }
++        foreach (HCInfectedProductionRoomClass entry : document.Classes)
++        {
++            HCInfectedProductionRoomClass ownedClass = new HCInfectedProductionRoomClass;
++            ownedClass.BuildingClass = entry.BuildingClass;
++            ownedClass.Disposition = entry.Disposition;
++            coverage.Insert(ownedClass);
++        }
++        s_ProductionBindings = staged;
++        s_ProductionClasses = coverage;
++        s_ProductionReason = "rooms_admitted_measurements_path_audio_doors_pending";
++        return true;
++    }
++
++    // Strict typed JSON preflight. Unlike the diagnostic depth-only key pass,
++    // this enforces array/object roles and scalar types before native allocation.
++    // Recursion follows fixed schema kinds only: root -> class/house -> anchor.
++    static string ProductionJsonChar(string content)
++    {
++        if (s_JsonOffset < 0 || s_JsonOffset >= content.Length())
++            return "";
++        return content.Get(s_JsonOffset);
++    }
++
++    static int ProductionJsonCode(string content)
++    {
++        string ch = ProductionJsonChar(content);
++        if (ch.Length() != 1)
++            return -1;
++        return ch.ToAscii();
++    }
++
++    static void ProductionJsonSkip(string content)
++    {
++        while (s_JsonOffset < content.Length() && JsonSpace(ProductionJsonChar(content)))
++            s_JsonOffset++;
++    }
++
++    static string ProductionJsonText(string content)
++    {
++        if (ProductionJsonCode(content) != 34)
++            return "";
++        s_JsonOffset++;
++        int begin = s_JsonOffset;
++        while (s_JsonOffset < content.Length() && s_JsonOffset - begin <= 128)
++        {
++            int ascii = ProductionJsonCode(content);
++            if (ascii == 34)
++            {
++                string value = content.Substring(begin, s_JsonOffset - begin);
++                s_JsonOffset++;
++                return value;
++            }
++            if (ascii < 32 || ascii > 126 || ascii == 92)
++                return "";
++            s_JsonOffset++;
++        }
++        return "";
++    }
++
++    static bool ProductionJsonNumber(string content, bool integerOnly)
++    {
++        int begin = s_JsonOffset;
++        if (ProductionJsonChar(content) == "-")
++            s_JsonOffset++;
++        int ascii = ProductionJsonCode(content);
++        if (ascii < 48 || ascii > 57)
++            return false;
++        bool zero = ascii == 48;
++        s_JsonOffset++;
++        while (s_JsonOffset < content.Length())
++        {
++            int digit = ProductionJsonCode(content);
++            if (digit < 48 || digit > 57)
++                break;
++            if (zero || s_JsonOffset - begin > 32)
++                return false;
++            s_JsonOffset++;
++        }
++        if (!integerOnly && ProductionJsonChar(content) == ".")
++        {
++            s_JsonOffset++;
++            int fractionBegin = s_JsonOffset;
++            while (s_JsonOffset < content.Length())
++            {
++                int fractionDigit = ProductionJsonCode(content);
++                if (fractionDigit < 48 || fractionDigit > 57)
++                    break;
++                if (s_JsonOffset - begin > 32)
++                    return false;
++                s_JsonOffset++;
++            }
++            if (s_JsonOffset == fractionBegin)
++                return false;
++        }
++        string exponent = ProductionJsonChar(content);
++        if (!integerOnly && (exponent == "e" || exponent == "E"))
++        {
++            s_JsonOffset++;
++            string sign = ProductionJsonChar(content);
++            if (sign == "+" || sign == "-")
++                s_JsonOffset++;
++            int exponentBegin = s_JsonOffset;
++            while (s_JsonOffset < content.Length())
++            {
++                int exponentDigit = ProductionJsonCode(content);
++                if (exponentDigit < 48 || exponentDigit > 57)
++                    break;
++                if (s_JsonOffset - begin > 32)
++                    return false;
++                s_JsonOffset++;
++            }
++            if (s_JsonOffset == exponentBegin)
++                return false;
++        }
++        // DTO integers are parsed by the VM as signed int. Limit digits before
++        // native decoding so an overflow cannot wrap a schema/anchor id to 1.
++        if (integerOnly && s_JsonOffset - begin > 9)
++            return false;
++        return s_JsonOffset - begin <= 32;
++    }
++
++    // Kinds: 1 root; 2 class rows; 3 class; 4 house rows; 5 house;
++    // 6 anchors; 7 anchor; 8 numeric vector. Keys are exact ASCII literals.
++    static int ProductionKeyBit(int kind, string key)
++    {
++        if (kind == 1)
++        {
++            if (key == "SchemaVersion") return 1;
++            if (key == "Build") return 2;
++            if (key == "WorldName") return 4;
++            if (key == "Classes") return 8;
++            if (key == "Buildings") return 16;
++        }
++        if (kind == 3)
++        {
++            if (key == "BuildingClass") return 1;
++            if (key == "Disposition") return 2;
++        }
++        if (kind == 5)
++        {
++            if (key == "BuildingClass") return 1;
++            if (key == "Position") return 2;
++            if (key == "Orientation") return 4;
++            if (key == "BoxMin") return 8;
++            if (key == "BoxMax") return 16;
++            if (key == "Anchors") return 32;
++        }
++        if (kind == 7)
++        {
++            if (key == "Id") return 1;
++            if (key == "LocalPosition") return 2;
++            if (key == "LocalMin") return 4;
++            if (key == "LocalMax") return 8;
++            if (key == "SourceRunId") return 16;
++            if (key == "SourceSha256") return 32;
++            if (key == "EvidenceKind") return 64;
++        }
++        return 0;
++    }
++
++    static int ProductionRequiredKeys(int kind)
++    {
++        if (kind == 1) return 31;
++        if (kind == 3) return 3;
++        if (kind == 5) return 63;
++        if (kind == 7) return 127;
++        return 0;
++    }
++
++    static bool ProductionJsonValue(string content, int kind, string key)
++    {
++        if (kind == 1 && key == "Classes")
++            return ProductionJsonArray(content, 2);
++        if (kind == 1 && key == "Buildings")
++            return ProductionJsonArray(content, 4);
++        if (kind == 5 && key == "Anchors")
++            return ProductionJsonArray(content, 6);
++        if ((kind == 1 && key == "SchemaVersion") || (kind == 7 && key == "Id"))
++            return ProductionJsonNumber(content, true);
++        bool houseVector = kind == 5 && (key == "Position" || key == "Orientation" || key == "BoxMin" || key == "BoxMax");
++        bool anchorVector = kind == 7 && (key == "LocalPosition" || key == "LocalMin" || key == "LocalMax");
++        if (houseVector || anchorVector)
++            return ProductionJsonArray(content, 8);
++        int textBegin = s_JsonOffset;
++        string textValue = ProductionJsonText(content);
++        if (textValue.Length() > 0)
++            return true;
++        // Empty JSON strings are typed correctly; semantic admission assigns
++        // their specific build/world/class/evidence refusal instead.
++        return s_JsonOffset == textBegin + 2 && content.Get(textBegin + 1).ToAscii() == 34;
++    }
++
++    static bool ProductionJsonArray(string content, int kind)
++    {
++        if (ProductionJsonChar(content) != "[")
++            return false;
++        s_JsonOffset++;
++        ProductionJsonSkip(content);
++        int limit = MAX_PRODUCTION_CLASSES;
++        if (kind == 4) limit = MAX_PRODUCTION_HOUSES;
++        if (kind == 6) limit = MAX_HOUSE_ANCHORS;
++        if (kind == 8) limit = 3;
++        int count = 0;
++        if (ProductionJsonChar(content) != "]")
++        {
++            while (s_JsonOffset < content.Length())
++            {
++                if (count >= limit)
++                {
++                    s_ProductionReason = "rooms_limits";
++                    return false;
++                }
++                if (kind == 8)
++                {
++                    if (!ProductionJsonNumber(content, false))
++                        return false;
++                }
++                else
++                {
++                    if (!ProductionJsonObject(content, kind + 1))
++                        return false;
++                }
++                count++;
++                ProductionJsonSkip(content);
++                if (ProductionJsonChar(content) == "]")
++                    break;
++                if (ProductionJsonChar(content) != ",")
++                    return false;
++                s_JsonOffset++;
++                ProductionJsonSkip(content);
++            }
++        }
++        if (kind == 8 && count != 3)
++            return false;
++        if (ProductionJsonChar(content) != "]")
++            return false;
++        s_JsonOffset++;
++        return true;
++    }
++
++    static bool ProductionJsonObject(string content, int kind)
++    {
++        if (ProductionJsonChar(content) != "{")
++            return false;
++        s_JsonOffset++;
++        int mask = 0;
++        for (int fieldIndex = 0; fieldIndex < 7; fieldIndex++)
++        {
++            ProductionJsonSkip(content);
++            string key = ProductionJsonText(content);
++            int bit = ProductionKeyBit(kind, key);
++            if (bit == 0 || (mask & bit) != 0)
++                return false;
++            mask = mask | bit;
++            ProductionJsonSkip(content);
++            if (ProductionJsonChar(content) != ":")
++                return false;
++            s_JsonOffset++;
++            ProductionJsonSkip(content);
++            if (!ProductionJsonValue(content, kind, key))
++                return false;
++            ProductionJsonSkip(content);
++            if (ProductionJsonChar(content) == "}")
++            {
++                s_JsonOffset++;
++                return mask == ProductionRequiredKeys(kind);
++            }
++            if (ProductionJsonChar(content) != ",")
++                return false;
++            s_JsonOffset++;
++        }
++        return false;
++    }
++
++    static bool ValidProductionJson(string content)
++    {
++        s_JsonOffset = 0;
++        if (content.Length() < 1 || content.Length() > MAX_PRODUCTION_BYTES)
++            return false;
++        ProductionJsonSkip(content);
++        if (!ProductionJsonObject(content, 1))
++            return false;
++        ProductionJsonSkip(content);
++        return s_JsonOffset == content.Length();
++    }
++
++    static void EnsureProductionLoaded()
++    {
++        if (!ProductionServer() || s_ProductionAttempted)
++            return;
++        s_ProductionAttempted = true;
++        // Fixed operator-only path; native LoadFile has an excessive allocation
++        // bound, so use capped I/O then LoadData. Never print native error/input.
++        s_ProductionReason = "rooms_missing";
++        if (FileExist(PRODUCTION_PATH))
++        {
++            s_ProductionReason = "rooms_read";
++            FileHandle handle = OpenFile(PRODUCTION_PATH, FileMode.READ);
++            if (handle)
++            {
++                string content;
++                int bytesRead = ReadFile(handle, content, MAX_PRODUCTION_BYTES + 1);
++                CloseFile(handle);
++                // ASCII schema: byte count and string length must agree.
++                if (bytesRead >= 0 && bytesRead == content.Length())
++                {
++                    s_ProductionReason = "rooms_size";
++                    if (content.Length() > 0 && content.Length() <= MAX_PRODUCTION_BYTES)
++                    {
++                        s_ProductionReason = "rooms_json";
++                        if (ValidProductionJson(content))
++                        {
++                            HCInfectedProductionRoomDocument document = new HCInfectedProductionRoomDocument;
++                            string error;
++                            if (JsonFileLoader<HCInfectedProductionRoomDocument>.LoadData(content, document, error))
++                                BindProduction(document);
++                        }
++                    }
++                }
++            }
++        }
++        // Single bounded log per lifecycle, even for a missing/rejected file.
++        // Complete copied class/exclusion rows are available via ProductionCoverage.
++        Print("[HollowCountry] " + s_ProductionReason + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
++    }
++
+     static void BuildOrder(vector observedClue, int budget, out TVectorArray points)
+     {
+         points = new TVectorArray;
+         if (!GetGame().IsServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
+             return;
+         EnsureDiagnosticLoaded();
++        OrderBindings(observedClue, budget, s_Bindings, points);
++    }
++
++    // Only data: caller still owns Investigation AND NativePackRoutes admission,
++    // nav/path checks, expiry, retry budgets and release. No capability is granted.
++    static void BuildProductionOrder(vector observedClue, int budget, out TVectorArray points)
++    {
++        points = new TVectorArray;
++        if (!ProductionServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
++            return;
++        EnsureProductionLoaded();
++        OrderBindings(observedClue, budget, s_ProductionBindings, points);
++    }
++
++    static void OrderBindings(vector observedClue, int budget, array<ref HCInfectedRoomBinding> bindings, out TVectorArray points)
++    {
++        points = new TVectorArray;
+         HCInfectedRoomBinding selected;
+         vector localClue;
+-        // At most four explicitly bound houses, no world/house scan. A clue in
+-        // overlapping surveys is ambiguous and gets no semantic extension.
+-        foreach (HCInfectedRoomBinding binding : s_Bindings)
++        // At most 64 production instances, four diagnostic instances. A clue in
++        // overlapping surveys is ambiguous; no world scan or hidden player input.
++        foreach (HCInfectedRoomBinding binding : bindings)
+         {
+             if (!binding.HouseObject || binding.HouseObject.GetType() != binding.Survey.BuildingClass)
+                 continue;
+diff --git a/tests/unit/test_infected_production_rooms.py b/tests/unit/test_infected_production_rooms.py
+new file mode 100644
+index 0000000..fe968d9
+--- /dev/null
++++ b/tests/unit/test_infected_production_rooms.py
+@@ -0,0 +1,344 @@
++"""Execute authored production admission on explicit SYNTHETIC engine boundaries.
++
++Every coordinate/hash here is fabricated test input. Passing these tests never
++establishes native JSON/config/house behavior, authentic evidence or qualification.
++"""
++import copy
++import json
++import math
++from types import SimpleNamespace
++import unittest
++
++if __package__:
++    from .test_room_catalog_completion import Array, Vec, Text, House, Survey, Anchor, Record, PATH, authored, fixture
++else:
++    from test_room_catalog_completion import Array, Vec, Text, House, Survey, Anchor, Record, PATH, authored, fixture
++
++
++class DTO(SimpleNamespace):
++    def __init__(self):
++        super().__init__(SchemaVersion=0, Build="", WorldName="", Classes=Array(), Buildings=Array())
++
++
++def synthetic_production(count=1, anchors=1):
++    """Pretends to be measured for boundary tests ONLY; never write a profile."""
++    doc = DTO()
++    doc.SchemaVersion, doc.Build, doc.WorldName = 1, "1.30.164289", "chernarusplus"
++    doc.Classes = Array([SimpleNamespace(BuildingClass="SyntheticHouse", Disposition="covered"),
++                         SimpleNamespace(BuildingClass="SyntheticShed", Disposition="unmeasured")])
++    houses = []
++    for index in range(count):
++        house = House(position=(100 + index * 100, 10, 100))
++        houses.append(house)
++        points = Array()
++        for slot in range(anchors):
++            points.append(SimpleNamespace(Id=slot + 1, LocalPosition=Vec((slot, 0, 0)),
++                LocalMin=Vec((slot - .4, -1, -.4)), LocalMax=Vec((slot + .4, 1, .4)),
++                SourceRunId="native-boundary-001", SourceSha256="a" * 64,
++                EvidenceKind="native-room-survey-v1"))
++        doc.Buildings.append(SimpleNamespace(BuildingClass=house.kind,
++            Position=house.position, Orientation=house.orientation,
++            BoxMin=Vec((-16, -4, -16)), BoxMax=Vec((16, 16, 16)), Anchors=points))
++    return doc, houses
++
++
++def encode(value): return value.__dict__
++
++
++def production_fixture(document=None, houses=None, *, server=True, diagnostic=False,
++                       exists=True, read_ok=True, parse_ok=True, raw=None,
++                       classes=None, version="1.30.164289", config_count=None, read_result=None,
++                       house_classes=None):
++    if document is None:
++        document, houses = synthetic_production()
++    ns, calls, _, _ = fixture(server=server, diagnostic=diagnostic)
++    classes = ["SyntheticHouse", "SyntheticShed"] if classes is None else classes
++    raw = json.dumps(document, default=encode) if raw is None else raw
++    calls.update(exists=[], logs=[], config=[], io=[], closed=[])
++    def file_exists(path):
++        calls["exists"].append(path)
++        return exists
++    def open_file(path, mode):
++        calls["reads"].append(path)
++        return 1 if read_ok else 0
++    def read_file(handle, content, limit):
++        calls["io"].append(limit)
++        content.value = raw[:limit]
++        return len(content.value) if read_result is None else read_result
++    def load(content, result, error):
++        calls["parse"] += 1
++        if not parse_ok: return False
++        try: json.loads(str(content))
++        except ValueError: return False
++        result.__dict__.update(copy.deepcopy(document.__dict__))
++        return True
++    def query(position, radius, found, cargos):
++        calls["queries"].append((position, radius))
++        found.extend(houses or [])
++    def child(path, index, output):
++        calls["config"].append(index)
++        if index >= len(classes): return False
++        output.value = classes[index]
++        return True
++    game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: "chernarusplus",
++        GetVersion=lambda output: setattr(output, "value", version), GetObjectsAtPosition3D=query,
++        ConfigGetChildrenCount=lambda path: len(classes) if config_count is None else config_count,
++        ConfigGetChildName=child,
++        IsKindOf=lambda name, base: str(name) in (classes if house_classes is None else house_classes))
++    ns.update(GetGame=lambda: game, FileExist=file_exists, OpenFile=open_file,
++              ReadFile=read_file, CloseFile=lambda handle: calls["closed"].append(handle),
++              FileMode=SimpleNamespace(READ=0), Print=calls["logs"].append,
++              Loader=SimpleNamespace(LoadData=load), HCInfectedProductionRoomDocument=DTO,
++              HCInfectedProductionRoomAnchor=Anchor, HCInfectedProductionRoomClass=SimpleNamespace,
++              TStringArray=Array,
++              HCInfectedRoomRecord=Record,
++              s_ProductionBindings=Array(), s_ProductionClasses=Array(),
++              s_ProductionAttempted=False, s_ProductionReason="rooms_not_loaded", s_JsonOffset=0,
++              PRODUCTION_PATH="$profile:HollowCountry/Infected/production-rooms.json",
++              MAX_PRODUCTION_BYTES=1048576, MAX_PRODUCTION_CLASSES=2048,
++              MAX_CONFIG_CLASSES=32768, MAX_PRODUCTION_HOUSES=64,
++              MAX_HOUSE_ANCHORS=16, MAX_TOTAL_ANCHORS=256)
++    methods = {
++        "ClearProduction": "", "ProductionReason": "", "ProductionServer": "",
++        "ProductionCoverage": "covered=None, excluded=None",
++        "ProductionToken": "value, limit", "ProductionHash": "value",
++        "ProductionEvidence": "anchor", "ProductionDisposition": "value",
++        "ProductionClassIndex": "document, className",
++        "ValidateProductionCoverage": "document", "ValidateProductionHouse": "record",
++        "BindProduction": "document", "ProductionJsonChar": "content", "ProductionJsonCode": "content",
++        "ProductionJsonSkip": "content",
++        "ProductionJsonText": "content", "ProductionJsonNumber": "content, integerOnly",
++        "ProductionKeyBit": "kind, key", "ProductionRequiredKeys": "kind",
++        "ProductionJsonValue": "content, kind, key", "ProductionJsonArray": "content, kind",
++        "ProductionJsonObject": "content, kind", "ValidProductionJson": "content",
++        "EnsureProductionLoaded": "", "BuildProductionOrder": "observedClue, budget, points=None",
++        "OrderBindings": "observedClue, budget, bindings, points=None",
++    }
++    for name, arguments in methods.items(): authored(name, arguments, ns, diagnostic)
++    return ns, calls, document, houses
++
++
++class InfectedProductionRoomTests(unittest.TestCase):
++    def test_normal_server_admits_data_once_and_reports_all_classes_without_routing(self):
++        ns, calls, doc, houses = production_fixture()
++        for _ in range(3): ns["EnsureProductionLoaded"]()
++        self.assertEqual([ns["PRODUCTION_PATH"]], calls["reads"])
++        self.assertEqual([1048577], calls["io"])
++        self.assertEqual([1], calls["closed"])
++        self.assertEqual(1, len(ns["s_ProductionBindings"]))
++        self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
++        self.assertEqual([("SyntheticHouse", "covered"), ("SyntheticShed", "unmeasured")],
++                         [(r.BuildingClass, r.Disposition) for r in ns["s_ProductionClasses"]])
++        self.assertEqual((["SyntheticHouse"], ["SyntheticShed=unmeasured"]), ns["ProductionCoverage"]())
++        self.assertEqual(1, len(calls["logs"]))
++        self.assertIn("room classes=2; instances=1", calls["logs"][0])
++        self.assertEqual([], ns["s_Bindings"])
++        self.assertEqual([], ns["BuildOrder"](houses[0].position, 2))  # old consumer stays DIAG only
++        self.assertEqual([houses[0].position], ns["BuildProductionOrder"](houses[0].position, 2))
++        # Only data ordering is available; there is no route or qualification API here.
++        source = PATH.read_text()
++        for forbidden in ("EnableInvestigation =", "EnableNativePackRoutes =", ".SetWaypoints(", ".CreateGroup("):
++            self.assertNotIn(forbidden, source)
++
++    def test_client_has_no_profile_config_or_object_access(self):
++        ns, calls, doc, houses = production_fixture(server=False)
++        self.assertFalse(ns["BindProduction"](doc))
++        ns["EnsureProductionLoaded"]()
++        self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 1))
++        for name in ("exists", "reads", "queries", "config", "logs"): self.assertEqual([], calls[name])
++
++    def test_invalid_order_requests_do_not_load_and_moved_houses_are_not_used(self):
++        ns, calls, doc, houses = production_fixture()
++        for point, budget in ((houses[0].position, 0), (houses[0].position, 4),
++                              (Vec((math.nan, 0, 0)), 2)):
++            self.assertEqual([], ns["BuildProductionOrder"](point, budget))
++        self.assertEqual([], calls["reads"])
++        self.assertEqual([houses[0].position], ns["BuildProductionOrder"](houses[0].position, 2))
++        houses[0].position = Vec((101, 10, 100))
++        self.assertEqual([], ns["BuildProductionOrder"](houses[0].position, 2))
++
++    def test_house_denominator_ignores_nonhouse_configs_and_reports_explicit_all_excluded(self):
++        ns, _, _, _ = production_fixture(classes=["SyntheticHouse", "UnrelatedItem", "SyntheticShed"],
++                                         house_classes=["SyntheticHouse", "SyntheticShed"])
++        ns["EnsureProductionLoaded"]()
++        self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
++        doc, houses = synthetic_production()
++        doc.Buildings.Clear()
++        doc.Classes[0].Disposition = "unmeasured"
++        ns, _, _, _ = production_fixture(doc, houses)
++        ns["EnsureProductionLoaded"]()
++        covered, excluded = ns["ProductionCoverage"]()
++        self.assertEqual([], covered)
++        self.assertEqual(["SyntheticHouse=unmeasured", "SyntheticShed=unmeasured"], excluded)
++        excluded.Clear()
++        self.assertEqual(2, len(ns["ProductionCoverage"]()[1]))
++
++    def test_total_anchor_boundary_is_admitted_as_data(self):
++        doc, houses = synthetic_production(16, 16)
++        ns, _, _, _ = production_fixture(doc, houses)
++        self.assertTrue(ns["BindProduction"](doc))
++        self.assertEqual(256, sum(len(b.Survey.Anchors) for b in ns["s_ProductionBindings"]))
++
++    def test_native_read_failure_or_inconsistent_byte_count_does_not_parse(self):
++        for read_result in (-1, 1):
++            ns, calls, _, _ = production_fixture(read_result=read_result)
++            ns["EnsureProductionLoaded"]()
++            self.assertEqual("rooms_read", ns["ProductionReason"]())
++            self.assertEqual(0, calls["parse"])
++            self.assertEqual([1], calls["closed"])
++
++    def test_header_wrong_runtime_build_and_wrong_world_are_specific(self):
++        for field, value, reason in (("SchemaVersion", 2, "rooms_schema"),
++                                    ("Build", "other", "rooms_build"),
++                                    ("WorldName", "other", "rooms_world")):
++            doc, houses = synthetic_production()
++            setattr(doc, field, value)
++            ns, calls, _, _ = production_fixture(doc, houses)
++            ns["EnsureProductionLoaded"]()
++            self.assertEqual(reason, ns["ProductionReason"]())
++            self.assertEqual([], calls["queries"])
++        ns, calls, _, _ = production_fixture(version="1.31.1")
++        ns["EnsureProductionLoaded"]()
++        self.assertEqual("rooms_build", ns["ProductionReason"]())
++
++    def test_denominator_missing_unknown_duplicate_and_unknown_exclusion_fail_closed(self):
++        mutations = [lambda d: d.Classes.pop(),
++            lambda d: d.Classes.append(SimpleNamespace(BuildingClass="Unknown", Disposition="unmeasured")),
++            lambda d: d.Classes.append(copy.deepcopy(d.Classes[0])),
++            lambda d: setattr(d.Classes[1], "Disposition", "trust-me"),
++            lambda d: setattr(d.Classes[0], "Disposition", "unmeasured"),
++            lambda d: setattr(d.Classes[1], "Disposition", "covered")]
++        for mutate in mutations:
++            doc, houses = synthetic_production()
++            mutate(doc)
++            ns, calls, _, _ = production_fixture(doc, houses)
++            ns["EnsureProductionLoaded"]()
++            self.assertEqual("rooms_coverage", ns["ProductionReason"]())
++            self.assertEqual([], ns["s_ProductionBindings"])
++            self.assertEqual([], ns["s_ProductionClasses"])
++        ns, calls, _, _ = production_fixture(config_count=32769)
++        ns["EnsureProductionLoaded"]()
++        self.assertEqual("rooms_denominator_cap", ns["ProductionReason"]())
++        self.assertEqual([], calls["config"])
++
++    def test_per_house_total_and_instance_caps(self):
++        for count, anchors in ((1, 17), (17, 16), (65, 1)):
++            doc, houses = synthetic_production(count, anchors)
++            ns, calls, _, _ = production_fixture(doc, houses)
++            ns["EnsureProductionLoaded"]()
++            self.assertEqual([], ns["s_ProductionBindings"])
++            self.assertEqual("rooms_limits", ns["ProductionReason"]())
++
++    def test_anchor_evidence_is_required_bounded_and_never_synthetic(self):
++        for field, value in (("SourceRunId", ""), ("SourceRunId", "native-synthetic-001"),
++                             ("SourceRunId", "native-" + "a" * 100),
++                             ("SourceSha256", ""), ("SourceSha256", "x" * 64),
++                             ("SourceSha256", "0" * 64), ("SourceSha256", "a" * 65),
++                             ("EvidenceKind", "synthetic")):
++            doc, houses = synthetic_production()
++            setattr(doc.Buildings[0].Anchors[0], field, value)
++            ns, _, _, _ = production_fixture(doc, houses)
++            ns["EnsureProductionLoaded"]()
++            self.assertEqual("rooms_evidence", ns["ProductionReason"](), (field, value))
++            self.assertEqual([], ns["s_ProductionBindings"])
++
++    def test_measured_box_room_bounds_pose_nonfinite_and_duplicates(self):
++        for mutate in (
++            lambda r: setattr(r, "BoxMin", Vec((math.nan, -4, -16))),
++            lambda r: setattr(r, "BoxMax", Vec((513, 16, 16))),
++            lambda r: setattr(r, "BoxMax", r.BoxMin),
++            lambda r: setattr(r.Anchors[0], "LocalPosition", Vec((17, 0, 0))),
++            lambda r: setattr(r.Anchors[0], "LocalPosition", Vec((math.nan, 0, 0))),
++            lambda r: setattr(r.Anchors[0], "LocalMin", Vec((-17, -1, -.4))),
++            lambda r: setattr(r.Anchors[0], "LocalMax", Vec((math.inf, 1, .4))),
++            lambda r: setattr(r.Anchors[0], "Id", 0),
++            lambda r: r.Anchors.append(copy.deepcopy(r.Anchors[0])),
++        ):
++            doc, houses = synthetic_production()
++            mutate(doc.Buildings[0])
++            ns, _, _, _ = production_fixture(doc, houses)
++            # Direct DTO admission isolates semantic validation from JSON nonfinite rejection.
++            self.assertFalse(ns["BindProduction"](doc))
++            self.assertEqual("rooms_geometry", ns["ProductionReason"]())
++            self.assertEqual([], ns["s_ProductionBindings"])
++        for field, value in (("Position", Vec((101, 10, 100))),
++                             ("Orientation", Vec((361, 0, 0)))):
++            doc, houses = synthetic_production()
++            setattr(doc.Buildings[0], field, value)
++            ns, _, _, _ = production_fixture(doc, houses)
++            self.assertFalse(ns["BindProduction"](doc))
++            self.assertEqual("rooms_binding", ns["ProductionReason"]())
++
++    def test_atomic_publish_ambiguous_house_and_owned_copy(self):
++        doc, houses = synthetic_production(2)
++        doc.Buildings[1].Anchors[0].SourceRunId = ""
++        ns, _, _, _ = production_fixture(doc, houses)
++        self.assertFalse(ns["BindProduction"](doc))
++        self.assertEqual([], ns["s_ProductionBindings"])
++        doc, houses = synthetic_production()
++        ns, _, _, _ = production_fixture(doc, houses + [House()])
++        self.assertFalse(ns["BindProduction"](doc))
++        ns, _, _, _ = production_fixture(doc, houses)
++        self.assertTrue(ns["BindProduction"](doc))
++        doc.Buildings[0].Anchors[0].LocalPosition = Vec((99, 0, 0))
++        doc.Classes[0].Disposition = "unmeasured"
++        self.assertEqual(Vec((0, 0, 0)), ns["s_ProductionBindings"][0].Survey.Anchors[0].LocalPosition)
++        self.assertEqual("covered", ns["s_ProductionClasses"][0].Disposition)
++        self.assertFalse(ns["BindProduction"](doc))
++        self.assertEqual(1, len(ns["s_ProductionBindings"]))
++
++    def test_io_json_refusals_are_logged_once_until_clear(self):
++        for options, reason in (({"exists": False}, "rooms_missing"),
++                                ({"read_ok": False}, "rooms_read"),
++                                ({"parse_ok": False}, "rooms_json"),
++                                ({"raw": " " * 1048577}, "rooms_size"),
++                                ({"raw": ""}, "rooms_size"), ({"raw": "{"}, "rooms_json")):
++            ns, calls, _, _ = production_fixture(**options)
++            for _ in range(3): ns["EnsureProductionLoaded"]()
++            self.assertEqual(reason, ns["ProductionReason"]())
++            self.assertEqual(1, len(calls["logs"]))
++            self.assertLessEqual(len(calls["reads"]), 1)
++            self.assertEqual([], ns["s_ProductionBindings"])
++            ns["ClearProduction"]()
++            ns["EnsureProductionLoaded"]()
++            self.assertEqual(2, len(calls["logs"]))
++
++    def test_strict_production_json_rejects_unknown_duplicate_missing_types_shapes_and_escapes(self):
++        ns, _, doc, _ = production_fixture()
++        valid = json.dumps(doc, default=encode)
++        self.assertTrue(ns["ValidProductionJson"](valid))
++        invalid = [valid.replace('"SchemaVersion": 1', '"SchemaVersion": 1, "SchemaVersion": 1'),
++            valid.replace('"SchemaVersion": 1', '"SchemaVersion": "1"'),
++            valid.replace('"SchemaVersion": 1', '"SchemaVersion": true'),
++            valid.replace('"Build":', '"Bui\\u006cd":', 1),
++            valid.replace('"Id": 1', '"Id": 1, "Unknown": 0'),
++            valid.replace('"Id": 1', '"Id": 1, "Id": 1'),
++            valid.replace('"Id": 1, ', ''),
++            valid.replace('"Id": 1', '"Id": 1.0'),
++            valid.replace('"LocalPosition": [0, 0, 0]', '"LocalPosition": [0, 0]'),
++            valid.replace('"LocalPosition": [0, 0, 0]', '"LocalPosition": [0, 0, 0, 0]'),
++            valid.replace('"LocalPosition": [0, 0, 0]', '"LocalPosition": "0 0 0"'),
++            valid.replace('"LocalPosition": [0, 0, 0]', '"LocalPosition": [NaN, 0, 0]'),
++            valid.replace('"Classes": [', '"Classes": [null,'),
++            valid.replace('"Classes": [', '"Classes": [['),
++            valid.replace('"Classes": [', '"Classes": {'),
++            valid.replace('"Buildings": [', '"Buildings": [true,'),
++            valid.replace('"Build": "1.30.164289"', '"Build": null'),
++            valid.replace('"Id": 1', '"Id": 01'), valid[:-1] + ',}',
++            valid + valid, '{}', '[]']
++        for raw in invalid:
++            with self.subTest(raw=raw[:120]): self.assertFalse(ns["ValidProductionJson"](raw))
++
++    def test_truncated_json_never_reads_beyond_string_and_integer_overflow_is_not_coerced(self):
++        ns, _, doc, _ = production_fixture()
++        valid = json.dumps(doc, default=encode)
++        for end in range(len(valid)):
++            self.assertFalse(ns["ValidProductionJson"](valid[:end]), end)
++        for key in ("Id", "SchemaVersion"):
++            self.assertFalse(ns["ValidProductionJson"](valid.replace('"' + key + '": 1',
++                                                                    '"' + key + '": 4294967297')))
++        self.assertTrue(ns["ValidProductionJson"](valid.replace('"LocalPosition": [0, 0, 0]',
++                                                               '"LocalPosition": [-0.0, 0e0, 0.0E+0]')))
++
++
++if __name__ == "__main__": unittest.main()
+diff --git a/tests/unit/test_room_catalog_completion.py b/tests/unit/test_room_catalog_completion.py
+index d1a013b..18f4c0e 100644
+--- a/tests/unit/test_room_catalog_completion.py
++++ b/tests/unit/test_room_catalog_completion.py
+@@ -10,8 +10,12 @@ import re
+ from types import SimpleNamespace
+ import unittest
+ 
+-from test_core_lifecycle import NativeArray, tokens
+-from test_infected_contract import SOURCE, policy_functions
++if __package__:
++    from .test_core_lifecycle import NativeArray, tokens
++    from .test_infected_contract import SOURCE, policy_functions
++else:
++    from test_core_lifecycle import NativeArray, tokens
++    from test_infected_contract import SOURCE, policy_functions
+ 
+ 
+ PATH = SOURCE / "HCInfectedRooms.c"
+@@ -21,6 +25,7 @@ class Text:
+     def __init__(self, value=""): self.value = value
+     def __str__(self): return self.value
+     def __len__(self): return len(self.value)
++    def __eq__(self, other): return str(self) == str(other)
+ 
+ 
+ class Vec(tuple):
+@@ -82,7 +87,7 @@ class House:
+ def source_method(name, diagnostic):
+     source = PATH.read_text()
+     source = re.sub(r"#ifdef DIAG_DEVELOPER\n(.*?)#endif", lambda m: m[1] if diagnostic else "", source, flags=re.S)
+-    match = re.search(r"static (?:bool|void|int|HCInfectedRoomBinding|House|HCInfectedRoomDocument) " + name + r"\([^\n]*\)\s*\{", source)
++    match = re.search(r"static (?:bool|void|int|string|HCInfectedRoomBinding|House|HCInfectedRoomDocument) " + name + r"\([^\n]*\)\s*\{", source)
+     if not match: raise AssertionError("missing actual room catalog method: " + name)
+     start = end = match.end()
+     depth = 1
+@@ -95,16 +100,21 @@ def source_method(name, diagnostic):
+ def expression(text):
+     text = re.sub(r"new array<[^;]+?>", "Array()", text)
+     text = re.sub(r"new (\w+)(?![\w(])", r"\1()", text)
+-    text = text.replace("JsonFileLoader<HCInfectedRoomDocument>", "Loader")
+-    text = re.sub(r"\b(?:ref )?(?:array<[^;]+?>|int|float|bool|string|vector|House|Object|HCInfectedRoom\w+) (\w+) =", r"\1 =", text)
+-    empty = re.fullmatch(r"(int|float|bool|string|vector|House|HCInfectedRoom\w+) (\w+)", text)
++    text = re.sub(r"JsonFileLoader<HCInfected\w+>", "Loader", text)
++    text = re.sub(r"\b(?:ref )?(?:array<[^;]+?>|int|float|bool|string|vector|House|Object|FileHandle|HCInfected\w+) (\w+) =", r"\1 =", text)
++    empty = re.fullmatch(r"(int|float|bool|string|vector|House|HCInfected\w+) (\w+)", text)
+     if empty:
+         default = {"int": "0", "float": "0", "bool": "False", "string": "Text()", "vector": "Vec((0, 0, 0))"}.get(empty[1], "None")
+         return empty[2] + " = " + default
+     text = re.sub(r"(\w+(?:\.\w+)*(?:\[[^]]+\])?)\.Length\(\)", r"len(\1)", text)
+-    text = re.sub(r"(\w+)\.Get\(([^)]+)\)", r"str(\1)[\2]", text)
++    text = re.sub(r"(\w+)\.Get\(([^)]+)\)\.ToAscii\(\)", r"ascii_of(char_at(\1, \2))", text)
++    text = re.sub(r"(\w+)\.Get\(([^)]+)\)", r"char_at(\1, \2)", text)
+     text = re.sub(r"(\w+)\.ToAscii\(\)", r"ord(\1)", text)
++    text = text.replace("ProductionJsonChar(content).ToAscii()", "ascii_of(ProductionJsonChar(content))")
+     text = re.sub(r"(\w+)\.Substring\(([^,]+), ([^)]+)\)", r"str(\1)[\2:(\2) + (\3)]", text)
++    text = re.sub(r"(\w+)\.ToLower\(\)", r"\1 = str(\1).lower()", text)
++    text = re.sub(r"\brunId\.Contains\(([^)]+)\)", r"str(runId).__contains__(\1)", text)
++    text = re.sub(r"(\w+(?:\.\w+)*(?:\([^()]*\))?)\.ToString\(\)", r"str(\1)", text)
+     text = text.replace("&&", " and ").replace("||", " or ")
+     text = re.sub(r"!(?!=)", "not ", text)
+     text = re.sub(r"\b(true|false|null)\b", lambda m: {"true": "True", "false": "False", "null": "None"}[m[1]], text)
+@@ -115,7 +125,7 @@ def expression(text):
+ 
+ def authored(name, arguments, ns, diagnostic=True):
+     lines, indent = ["def " + name + "(" + arguments + "):"], 1
+-    lines.append("    global s_Bindings, s_DiagnosticAttempted")
++    lines.append("    global s_Bindings, s_DiagnosticAttempted, s_ProductionBindings, s_ProductionAttempted, s_ProductionReason, s_ProductionClasses, s_JsonOffset")
+     for token in tokens(source_method(name, diagnostic)):
+         if token == "{": indent += 1; continue
+         if token == "}": indent -= 1; continue
+@@ -136,9 +146,12 @@ def authored(name, arguments, ns, diagnostic=True):
+             if re.search(r"\b(?:for|foreach|while|try|catch|switch)\b", token):
+                 raise AssertionError("unsupported syntax: " + token)
+             line = expression(token)
+-        if name == "BuildOrder": line = re.sub(r"\breturn$", "return points", line)
++        if line.startswith("OrderBindings("): line = "points = " + line
++        if name in ("BuildOrder", "BuildProductionOrder", "OrderBindings"): line = re.sub(r"\breturn$", "return points", line)
++        if name == "ProductionCoverage": line = re.sub(r"\breturn$", "return covered, excluded", line)
+         lines.append("    " * indent + line.replace("\n", " "))
+-    if name == "BuildOrder": lines.append("    return points")
++    if name in ("BuildOrder", "BuildProductionOrder", "OrderBindings"): lines.append("    return points")
++    if name == "ProductionCoverage": lines.append("    return covered, excluded")
+     exec(compile("\n".join(lines), "authored-rooms:" + name, "exec"), ns)
+ 
+ 
+@@ -188,7 +201,8 @@ def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None,
+         calls["queries"].append((position, radius))
+         found.extend(houses if objects is None else objects)
+     game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: "chernarusplus", GetObjectsAtPosition3D=query)
+-    ns = dict(GetGame=lambda: game, s_Bindings=Array(), s_DiagnosticAttempted=False,
++    ns = dict(GetGame=lambda: game, s_Bindings=Array(), s_DiagnosticAttempted=False, ClearProduction=lambda: None,
++              char_at=lambda value, index: str(value)[index], ascii_of=lambda value: ord(value) if value else 0,
+               DIAGNOSTIC_PATH="$profile:HollowCountry/Infected/measured-rooms.json",
+               Array=Array, Text=Text, Vec=Vec, vector=Vec, House=House,
+               HCInfectedRoomDocument=Document, HCInfectedRoomSurvey=Survey, HCInfectedRoomAnchor=Anchor,
+@@ -200,6 +214,7 @@ def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None,
+                ("JsonSpace", "ch"), ("ValidJsonKeys", "content"), ("CreateBinding", "building, survey, existing"),
+                ("ResolveBuilding", "record"), ("BindDiagnostic", "document"), ("ReadDiagnostic", ""),
+                ("EnsureDiagnosticLoaded", ""), ("Register", "building, survey"), ("Clear", ""),
++               ("OrderBindings", "observedClue, budget, bindings, points=None"),
+                ("BuildOrder", "observedClue, budget, points=None")]
+     for name, args in methods: authored(name, args, ns, diagnostic)
+     return ns, calls, doc, houses

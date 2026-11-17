@@ -1,0 +1,74 @@
+SURVIVED build literal doc
+KILLED build runtime
+KILLED world compare
+KILLED schema version
+SURVIVED max houses
+SURVIVED per-house cap
+SURVIVED min anchors
+SURVIVED total cap
+KILLED total accum
+SURVIVED class cap
+SURVIVED house cap in coverage
+SURVIVED unknown house class
+KILLED count mismatch
+SURVIVED dup class
+KILLED disposition valid
+KILLED excluded used
+KILLED covered unused
+KILLED config cap hi
+SURVIVED box order
+SURVIVED box -512
+KILLED box 512
+SKIP(anchor count 2): anchor id range lo
+SKIP(anchor count 2): anchor id range hi
+SURVIVED anchor id dup
+KILLED local min in box
+KILLED local max in box
+SURVIVED local min<max
+SURVIVED pos >= min
+KILLED pos <= max
+SURVIVED spacing
+KILLED evidence call
+KILLED ev null
+SURVIVED ev len8
+SURVIVED ev native prefix
+KILLED ev synthetic
+SURVIVED ev fixture
+SURVIVED ev selftest
+KILLED ev kind
+KILLED ev hash
+KILLED hash len
+KILLED hash nonzero
+SURVIVED hash lower
+KILLED log once guard
+KILLED missing file
+KILLED size upper
+KILLED read count
+KILLED close handle
+SURVIVED preflight
+KILLED loaddata result
+KILLED server check ensure
+KILLED server check bind
+SURVIVED rebind guard
+KILLED atomic publish
+KILLED duplicate house
+KILLED binding null
+KILLED status text
+KILLED budget guard prod
+SURVIVED token chars
+KILLED token len
+KILLED json int digits
+SURVIVED json escape
+KILLED json dup key
+KILLED json required
+KILLED json trailing
+SURVIVED json arr limit
+KILLED json vec3
+SURVIVED json len cap
+KILLED orders: diag unchanged
+SURVIVED clear resets prod
+KILLED coverage copies
+SURVIVED evidence copy
+SURVIVED num float frac
+KILLED leading zero
+SURVIVORS: ['build literal doc', 'max houses', 'per-house cap', 'min anchors', 'total cap', 'class cap', 'house cap in coverage', 'unknown house class', 'dup class', 'box order', 'box -512', 'anchor id dup', 'local min<max', 'pos >= min', 'spacing', 'ev len8', 'ev native prefix', 'ev fixture', 'ev selftest', 'hash lower', 'preflight', 'rebind guard', 'token chars', 'json escape', 'json arr limit', 'json len cap', 'clear resets prod', 'evidence copy', 'num float frac']

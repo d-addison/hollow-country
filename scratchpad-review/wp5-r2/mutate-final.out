@@ -1,0 +1,80 @@
+KILLED build literal doc
+KILLED build runtime
+KILLED world compare
+KILLED schema version
+KILLED max houses
+KILLED per-house cap
+KILLED min anchors
+KILLED total cap
+KILLED total accum
+KILLED class cap
+SKIP(anchor count 0): house cap in coverage
+SKIP(anchor count 0): unknown house class
+KILLED count mismatch
+SURVIVED dup class
+KILLED disposition valid
+KILLED excluded used
+KILLED covered unused
+KILLED config cap hi
+SURVIVED box order
+KILLED box -512
+KILLED box 512
+SKIP(anchor count 2): anchor id range lo
+SKIP(anchor count 2): anchor id range hi
+KILLED anchor id dup
+KILLED local min in box
+KILLED local max in box
+KILLED local min<max
+KILLED pos >= min
+KILLED pos <= max
+KILLED spacing
+KILLED evidence call
+KILLED ev null
+KILLED ev len8
+KILLED ev native prefix
+KILLED ev synthetic
+KILLED ev fixture
+KILLED ev selftest
+KILLED ev kind
+KILLED ev hash
+KILLED hash len
+KILLED hash nonzero
+SURVIVED hash lower
+KILLED log once guard
+KILLED missing file
+KILLED size upper
+KILLED read count
+KILLED close handle
+KILLED preflight
+KILLED loaddata result
+KILLED server check ensure
+KILLED server check bind
+KILLED rebind guard
+KILLED atomic publish
+KILLED duplicate house
+KILLED binding null
+KILLED status text
+SURVIVED budget guard prod
+KILLED token chars
+KILLED token len
+KILLED json int digits
+KILLED json escape
+KILLED json dup key
+KILLED json required
+KILLED json trailing
+KILLED json arr limit
+KILLED json vec3
+KILLED json len cap
+KILLED orders: diag unchanged
+KILLED clear resets prod
+KILLED coverage copies
+KILLED evidence copy
+KILLED num float frac
+KILLED leading zero
+SURVIVORS: ['dup class', 'box order', 'hash lower', 'budget guard prod']
+RETARGETED SKIPPED PROBES:
+KILLED house cap new shape
+KILLED unknown house class new shape
+KILLED production id lower bound
+KILLED production id upper bound
+FINAL SURVIVORS: ['dup class', 'box order', 'hash lower', 'budget guard prod']
