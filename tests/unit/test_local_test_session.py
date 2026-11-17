@@ -885,6 +885,13 @@ class Apply(SessionCase):
         self.assertIn('firearms roster', out)
         self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
 
+    def test_the_default_economy_profile_never_enables_ce_diagnostic_logging(self):
+        self.assertNotEqual(lts.DEFAULT_ECONOMY_PROFILE, 'diagnostic')
+        root = Path(__file__).resolve().parents[2] / lts.ECONOMY_PROFILES
+        default = json.loads((root / (lts.DEFAULT_ECONOMY_PROFILE + '.json')).read_text())
+        self.assertFalse(default.get('diagnostics'))
+        self.assertTrue(json.loads((root / 'diagnostic.json').read_text()).get('diagnostics'))
+
     def test_no_roster_drops_the_firearms_roster(self):
         FakeEconomy.rosters = []
         code, out, err = self.run_cli(self.args('apply', '--no-roster'))
@@ -1829,6 +1836,16 @@ class OptionalDeltas(SessionCase):
         self.assertTrue((self.mission / 'hollow-country-tactical-flava' / 'receipt.json').is_file())
         self.assertTrue((self.state / 'deltas' / 'snafu').is_dir())
         self.assertTrue((self.state / 'deltas' / 'tactical_flava').is_dir())
+
+    def test_the_default_roster_rides_with_both_optional_deltas_and_rolls_back(self):
+        FakeEconomy.rosters = []
+        code, out, err = self.run_cli(self.args('apply', *self.both()))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(set(FakeEconomy.rosters), {'roster'})  # the launcher default, not --no-roster
+        self.assertIn('firearms roster', out)
+        self.assertEqual(self.real('economy.install_delta', 'snafu.install', 'tf.install'),
+                         ['economy.install_delta', 'snafu.install', 'tf.install'])
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
 
     def test_an_installer_rollback_that_raises_file_not_found_refuses_the_session_rollback_with_nothing_changed(self):
         self.assertEqual(self.run_cli(self.args('apply', '--snafu', str(self.snafu)))[0], 0)
