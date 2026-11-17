@@ -1,0 +1,545 @@
+commit 0c9f4ece1cee373ec2b5f13e4d64c5a9a44616fc
+Author: David Addison <73078380+d-addison@users.noreply.github.com>
+Date:   Tue Nov 17 06:21:44 2026 -0500
+
+    Taped-light fix round 5 (#56): whole-path view proxy match, conflicting view rows pending, failed GetSelections enumeration pending
+
+diff --git a/tests/unit/test_taped_light_probe.py b/tests/unit/test_taped_light_probe.py
+index 3d192f2..645dc32 100644
+--- a/tests/unit/test_taped_light_probe.py
++++ b/tests/unit/test_taped_light_probe.py
+@@ -1315,11 +1315,11 @@ class HookBehaviorTests(unittest.TestCase):
+         # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
+         # Fix round 3 added the per-host proxy facts (proxy_count, proxy_scan_complete, proxies); these hosts have no
+         # proxies, so the empty facts are stripped as well. Fix round 4 added the per-host view-LOD facts, which these
+-        # hosts (no view LOD in the synthetic table) report as absent.
++        # hosts (no view LOD in the synthetic table) report as absent; fix round 5 added view_list_ok.
+         added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
+                            r'"handguard_rail_functional":(?:true|false),'
+                            r'|"proxy_count":0,"proxy_scan_complete":true,"view_lod":false,"view_selection_count":0,'
+-                           r'"view_scan_complete":false,"proxies":\[\],')
++                           r'"view_scan_complete":false,"view_list_ok":false,"proxies":\[\],')
+         for name, (size, output_sha, printed_sha, make) in golden.items():
+             with self.subTest(scenario=name):
+                 world = make()
+@@ -1449,7 +1449,7 @@ class ProxyEvidenceHookTests(unittest.TestCase):
+         for cite in ("Game.c:449", "Game.c:558", "Game.c:612", "constants.c:237", "SceneEditorMenu.c:1362",
+                      "SceneEditorMenu.c:1385", "EntityAI.c:3996", "AttachmentsOutOfReach.c", "EnString.c:253",
+                      "Object.c:98", "Object.c:106", "gameplay.c:179", "gameplay.c:184", "gameplay.c:185", "gameplay.c:186",
+-                     "gameplay.c:188", "gameplay.c:207", "gameplay.c:216", "gameplay.c:218"):
++                     "gameplay.c:188", "gameplay.c:207", "gameplay.c:216", "gameplay.c:218", "EnScript.c:385"):
+             with self.subTest(cite=cite):
+                 self.assertIn(cite, hook)
+ 
+@@ -1562,6 +1562,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
+         _world, observations = self.run_world()
+         ak = host_row(observations, "AK74")
+         self.assertEqual((True, 4, True), (ak["view_lod"], ak["view_selection_count"], ak["view_scan_complete"]))
++        self.assertEqual(True, ak["view_list_ok"])
+         light, muzzle = ak["proxies"]
+         self.assertEqual(("proxy:/dz/weapons/attachments/light/weaponlight_universal.001", True, ["0.5", "0.25", "-1.5"]),
+                          (light["view_selection"], light["view_vertex_ok"], light["view_vertex"]))
+@@ -1569,6 +1570,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
+         plain = host_row(observations, "PlainBag")
+         self.assertEqual((False, 0, False, []), (plain["view_lod"], plain["view_selection_count"],
+                                                  plain["view_scan_complete"], plain["proxies"]))
++        self.assertEqual(False, plain["view_list_ok"])
+ 
+     def test_a_view_lod_match_qualifies_through_the_report_with_the_view_evidence(self):
+         _world, observations = self.run_world()
+@@ -1614,17 +1616,72 @@ class RoundFourProxyHookTests(unittest.TestCase):
+         _world, observations = self.run_world(types)
+         self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
+ 
+-    def test_the_view_match_is_the_native_lowered_substring_of_the_model_path_without_its_extension(self):
++    def test_the_view_match_is_the_whole_normalised_proxy_path_never_a_substring(self):
++        """Review 005: AttachmentsOutOfReach.c matches by Contains(), which lets weaponlight_universal_extra stand in for
++        weaponlight_universal. Qualification needs the complete lower-case, forward-slash, .p3d-free path, the proxy:
++        prefix and an all-digit .NNN instance suffix, exactly."""
++        base = "/dz/weapons/attachments/light/weaponlight_universal"
+         types = proxy_types()
+-        cases = {"substring of a longer name": ("xx\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal_v2", True),
++        cases = {"longer model name": ("proxy:" + base + "_extra.001", False),
++                 "version suffix": ("xx\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal_v2", False),
++                 "longer directory": ("proxy:/xx" + base + ".001", False),
++                 "generic named selection": ("label" + base, False),
++                 "generic selection with an instance": ("label" + base + ".001", False),
++                 "no instance suffix": ("proxy:" + base, False),
++                 "non-numeric instance suffix": ("proxy:" + base + ".garbage", False),
+                  "different directory": ("proxy:\\dz\\weapons\\attachments\\light2\\weaponlight_universal.001", False),
+-                 "only the basename": ("proxy:weaponlight_universal.001", False)}
++                 "only the basename": ("proxy:weaponlight_universal.001", False),
++                 "backslashes and upper case": ("PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.007", True),
++                 "no leading slash": ("proxy:" + base[1:] + ".001", True),
++                 "another instance number": ("proxy:" + base + ".12", True)}
+         for label, (name, expected) in cases.items():
+             with self.subTest(label):
+                 types["AK74"] = dict(types["AK74"], view=("components", name))
+                 _world, observations = self.run_world(types)
++                item = host_row(observations, "AK74")["proxies"][0]
++                self.assertEqual(expected, item["view_selection"] != "", label)
+                 self.assertEqual(expected, self.ak_slot(observations)[0]["verdict"] == "qualified", label)
+ 
++    def test_a_coincidental_name_listed_first_does_not_hide_the_genuine_selection_after_it(self):
++        base = "/dz/weapons/attachments/light/weaponlight_universal"
++        types = proxy_types()
++        types["AK74"] = dict(types["AK74"], view=("components", "proxy:" + base + "_extra.001", "label" + base,
++                                                  "proxy:" + base + ".003"))
++        _world, observations = self.run_world(types)
++        item = host_row(observations, "AK74")["proxies"][0]
++        self.assertEqual("proxy:" + base + ".003", item["view_selection"])
++        self.assertEqual("qualified", self.ak_slot(observations)[0]["verdict"])
++
++    def test_a_failed_view_enumeration_is_emitted_as_unknown_and_its_output_array_is_ignored(self):
++        """Review 005: LOD.GetSelections (gameplay.c:216) returns bool and says nothing about its out array on failure.
++        The hook clears the array before the call, ignores it after a failure and emits view_list_ok=false."""
++        original = ViewLod.GetSelections
++
++        def failed(lod, out):
++            original(lod, out)       # a failed call that nevertheless left the matching selections in the out array
++            return False
++        world = World(types=proxy_types())
++        with mock.patch.object(ViewLod, "GetSelections", failed):
++            run_hook(world, slots=_NoSelectionSlots)
++        observations = observations_of(world)
++        ak = host_row(observations, "AK74")
++        self.assertEqual((True, False, False, 0), (ak["view_lod"], ak["view_list_ok"], ak["view_scan_complete"],
++                                                   ak["view_selection_count"]))
++        item = ak["proxies"][0]
++        self.assertEqual(("", False, []), (item["view_selection"], item["view_vertex_ok"], item["view_vertex"]))
++        slot, joined = self.ak_slot(observations)
++        self.assertEqual(("pending", "view_enumeration_failed"), (slot["verdict"], slot["reason"]))
++        self.assertNotIn("qualified", {h["verdict"] for h in joined["hosts"] if h["class"] == "AK74"})
++
++    def test_the_out_array_is_cleared_before_the_call_and_again_after_a_failure(self):
++        """array.Clear is EnScript.c:385 (class array<Class T>, proto native void Clear())."""
++        hook = probe.render_hook(probe.select_targets(classification())).decode()
++        call = hook.index("viewLod.GetSelections(viewSelections)")
++        self.assertEqual(1, hook.count("viewLod.GetSelections("))
++        self.assertIn("viewSelections.Clear();", hook[:call])
++        self.assertIn("viewSelections.Clear();", hook[call:call + 200])
++        self.assertIn("EnScript.c:385", hook)
++
+     def test_a_missing_config_model_never_matches_the_view_lod(self):
+         config = proxy_config()
+         config[self.SLOT_CONFIG]["model"] = ""
+@@ -1640,6 +1697,7 @@ class RoundFourProxyHookTests(unittest.TestCase):
+                 self.assertEqual(bool, type(row["view_lod"]), row["class"])
+                 self.assertEqual(int, type(row["view_selection_count"]), row["class"])
+                 self.assertEqual(bool, type(row["view_scan_complete"]), row["class"])
++                self.assertEqual(bool, type(row["view_list_ok"]), row["class"])
+                 for item in row["proxies"]:
+                     self.assertTrue(all(isinstance(number, str) for number in item["view_vertex"]))
+ 
+diff --git a/tests/unit/test_taped_light_report.py b/tests/unit/test_taped_light_report.py
+index 1b8c75e..93c9d4a 100644
+--- a/tests/unit/test_taped_light_report.py
++++ b/tests/unit/test_taped_light_report.py
+@@ -75,8 +75,9 @@ def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exis
+     The probe lists ``proxy:/dz/.../weaponlight_universal.001`` style selections; the config entry is
+     ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list.
+     ``slot_count``/``slot_complete`` are the hook's inventorySlot bookkeeping (the listed rows are capped at 8) and
+-    ``view_selection``/``vertex_ok``/``vertex`` are the view-LOD join (the first view-LOD selection whose lowered name
+-    contains the lowered model path, and the first vertex of that selection as number text)."""
++    ``view_selection``/``vertex_ok``/``vertex`` are the view-LOD join (the first view-LOD proxy selection whose whole
++    normalised path equals the model path, and the first vertex of that selection as number text). It is the result of one
++    lookup per model, so it does not depend on the instance number of the row; the default is the ``.001`` instance."""
+     base = path.rsplit("/", 1)[-1]
+     default_model = "\\" + path.strip("/").replace("/", "\\") + ".p3d"
+     listed = list(slots) if exists else []
+@@ -85,11 +86,11 @@ def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exis
+             "cfg_exists": exists, "model": ("" if not exists else default_model) if model is None else model,
+             "inventory_slots": listed, "slot_count": len(listed) if slot_count is None else slot_count,
+             "slot_scan_complete": (slot_count is None or slot_count == len(listed)) if slot_complete is None else slot_complete,
+-            "view_selection": selection.lower() if view_selection is None else view_selection,
++            "view_selection": ("proxy:" + path + ".001").lower() if view_selection is None else view_selection,
+             "view_vertex_ok": vertex_ok, "view_vertex": list(vertex) if vertex_ok else []}
+ 
+ 
+-VIEW_HOST = {"view_lod": True, "view_selection_count": 3, "view_scan_complete": True}
++VIEW_HOST = {"view_lod": True, "view_selection_count": 3, "view_scan_complete": True, "view_list_ok": True}
+ 
+ 
+ def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
+@@ -1117,7 +1118,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
+ 
+     def test_the_consumed_keys_name_the_proxy_fields(self):
+         for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots",
+-                    "slot_count", "slot_scan_complete", "view_lod", "view_selection_count", "view_scan_complete",
++                    "slot_count", "slot_scan_complete", "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok",
+                     "view_selection", "view_vertex_ok", "view_vertex"):
+             self.assertIn(key, report.CONSUMED_KEYS)
+ 
+@@ -1173,6 +1174,13 @@ class ProxyIdentityTests(unittest.TestCase):
+             with self.subTest(label):
+                 self.assert_pending_malformed([dict(proxy(), selection=selection)], label)
+ 
++    def test_a_raw_trailing_slash_before_the_instance_is_malformed_even_with_a_coherent_config_row(self):
++        """The coherent counterexample: the basename is empty in the selection but the config row agrees with the
++        normalised path, so only the raw trailing-slash guard of the name parser refuses it (review 005 mutant)."""
++        item = proxy(path="/dz/weapons/attachments/light", number="001", cfg_class="Proxylight")
++        item["selection"] = "proxy:/dz/weapons/attachments/light/.001"
++        self.assert_pending_malformed([item], "empty basename, coherent row")
++
+     def test_a_malformed_name_in_any_row_makes_the_host_pending_even_with_a_valid_matching_row_present(self):
+         self.assert_pending_malformed([proxy(), dict(proxy(path="/dz/x/muzzle"), selection="proxy:/dz/x/muzzle.garbage")])
+ 
+@@ -1257,7 +1265,8 @@ class ViewLodEvidenceTests(unittest.TestCase):
+     def test_without_view_lod_membership_a_proxy_slot_match_is_pending_with_an_explicit_reason(self):
+         no_view = dict(proxy(), view_selection="", view_vertex_ok=False, view_vertex=[])
+         cases = {
+-            "no view lod": (dict(VIEW_HOST, view_lod=False), [no_view], "view_lod_missing"),
++            "no view lod": (dict(VIEW_HOST, view_lod=False, view_list_ok=False, view_selection_count=0, view_scan_complete=False),
++                            [no_view], "view_lod_missing"),
+             "no view selection, complete scan": (None, [no_view], "view_selection_missing"),
+             "no view selection, truncated scan": (dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False),
+                                                   [no_view], "view_evidence_truncated"),
+@@ -1288,18 +1297,66 @@ class ViewLodEvidenceTests(unittest.TestCase):
+         slot, _record, _result = self.judge([proxy(slots=("pistolFlashlight",), view_selection="", vertex_ok=False)])
+         self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+ 
+-    def test_a_second_matching_row_with_view_evidence_rescues_a_first_row_without_it(self):
+-        first = proxy(number="001", view_selection="", vertex_ok=False)
+-        slot, _record, _result = self.judge([first, proxy(number="002")])
++    def test_one_model_cannot_have_two_different_view_results_in_either_order(self):
++        """Review 005: both rows read the same per-host view lookup for the same model, so different results are
++        contradictory reads, even when one row would qualify on its own."""
++        cases = {
++            "missing selection": dict(proxy(number="002"), view_selection="", view_vertex_ok=False, view_vertex=[]),
++            "different vertex": proxy(number="002", vertex=("10", "20", "30")),
++            "different selection": proxy(number="002", view_selection="proxy:" + LIGHT_PROXY_PATH + ".002"),
++            "vertex flag only": dict(proxy(number="002"), view_vertex_ok=False),
++        }
++        for label, second in cases.items():
++            for order in ((proxy(number="001"), second), (second, proxy(number="001"))):
++                with self.subTest(label, first=order[0]["selection"]):
++                    slot, _record, result = self.judge(list(order))
++                    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
++                    self.assertEqual(0, result["denominators"]["qualified"])
++
++    def test_two_instances_that_share_one_view_result_still_qualify(self):
++        slot, _record, _result = self.judge([proxy(number="001"), proxy(number="002")])
+         self.assertEqual("qualified", slot["verdict"])
+ 
+-    def test_view_slash_and_case_spellings_are_normalised_before_the_match_is_checked(self):
++    def test_view_slash_case_and_instance_spellings_are_normalised_before_the_whole_path_is_compared(self):
+         for selection in ("PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001",
+-                          "xx/dz/weapons/attachments/light/weaponlight_universal_extra"):
++                          "proxy:/dz/weapons/attachments/light/weaponlight_universal.007",
++                          "proxy:dz/weapons/attachments/light/weaponlight_universal.12"):
+             with self.subTest(selection):
+                 slot, _record, _result = self.judge([proxy(view_selection=selection)])
+                 self.assertEqual("qualified", slot["verdict"])
+ 
++    def test_only_the_same_proxy_model_establishes_view_membership_never_a_coincidental_name(self):
++        """Review 005: AttachmentsOutOfReach.c matches by Contains(); qualification compares the complete proxy path."""
++        base = "/dz/weapons/attachments/light/weaponlight_universal"
++        for label, selection in (("longer model name", "proxy:" + base + "_extra.001"),
++                                 ("version suffix", "proxy:" + base + "_v2.001"),
++                                 ("longer directory", "proxy:/xx" + base + ".001"),
++                                 ("generic named selection", "label" + base),
++                                 ("generic selection with an instance", "label" + base + ".001"),
++                                 ("no proxy prefix", base + ".001"),
++                                 ("no instance suffix", "proxy:" + base),
++                                 ("non-numeric instance suffix", "proxy:" + base + ".garbage"),
++                                 ("empty instance suffix", "proxy:" + base + "."),
++                                 ("only the basename", "proxy:weaponlight_universal.001"),
++                                 ("a trailing component", "proxy:" + base + "/child.001")):
++            with self.subTest(label):
++                slot, _record, result = self.judge([proxy(view_selection=selection)])
++                self.assertEqual(("pending", "view_selection_mismatch"), (slot["verdict"], slot["reason"]), label)
++                self.assertEqual(0, result["denominators"]["qualified"], label)
++
++    def test_a_failed_view_enumeration_is_pending_whatever_else_the_row_claims(self):
++        view = dict(VIEW_HOST, view_list_ok=False, view_scan_complete=False, view_selection_count=0)
++        slot, _record, result = self.judge([proxy(view_selection="", vertex_ok=False)], view=view)
++        self.assertEqual(("pending", "view_enumeration_failed"), (slot["verdict"], slot["reason"]))
++        self.assertEqual(0, result["denominators"]["qualified"])
++        for label, host_view, item in (("a view selection claimed without a list", view, proxy()),
++                                       ("selections counted without a list", dict(view, view_selection_count=3),
++                                        proxy(view_selection="", vertex_ok=False))):
++            slot, _record, _result = self.judge([item], view=host_view)
++            self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
++        slot, _record, _result = self.judge([proxy(view_selection="", vertex_ok=False)], view=dict(view, view_lod=False))
++        self.assertEqual(("pending", "view_lod_missing"), (slot["verdict"], slot["reason"]))
++
+     def test_malformed_view_fields_are_pending_malformed_evidence(self):
+         def host_view(**changes):
+             return dict(VIEW_HOST, **changes)
+@@ -1311,6 +1368,10 @@ class ViewLodEvidenceTests(unittest.TestCase):
+             "view_selection_count a bool": (host_view(view_selection_count=True), None),
+             "view_selection_count negative": (host_view(view_selection_count=-1), None),
+             "view_scan_complete not a bool": (host_view(view_scan_complete="yes"), None),
++            "view_list_ok not a bool": (host_view(view_list_ok=1), None),
++            "view_list_ok without a view lod": (host_view(view_lod=False, view_selection_count=0, view_scan_complete=False), proxy(view_selection="", vertex_ok=False)),
++            "view_list_ok missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_list_ok"}, None),
++            "view_scan_complete claimed after a failed enumeration": (host_view(view_list_ok=False), None),
+             "view_scan_complete missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_scan_complete"}, None),
+             "view_selection not a string": (None, dict(proxy(), view_selection=7)),
+             "view_vertex_ok not a bool": (None, dict(proxy(), view_vertex_ok="true")),
+diff --git a/tools/audit/taped_light_report.py b/tools/audit/taped_light_report.py
+index a77bce3..4cef5c0 100644
+--- a/tools/audit/taped_light_report.py
++++ b/tools/audit/taped_light_report.py
+@@ -41,12 +41,14 @@ Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing
+ is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
+ ``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the view LOD
+ (Object.GetLODByName(LOD.NAME_VIEW) and LOD.GetSelections, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
+-:97-135 reads) with the first view-LOD selection whose lowered name contains the lowered model path and its first
+-vertex. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
++:97-135 reads) with the first view-LOD proxy selection whose whole normalised path equals the model path and its first
++vertex. AttachmentsOutOfReach.c matches with Contains(); that heuristic is not used here, because a different model whose
++name merely contains the path (``weaponlight_universal_extra``) or a generic selection must not stand in for the proxy. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
+ proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path
+ (case-insensitive, slashes and the .p3d extension normalised), an inventorySlot list holding the slot, AND view-LOD
+-membership: a view LOD exists, a view selection contains the model path (re-verified here) and has a finite first
+-vertex. The proxy name alone is never evidence.
++membership: a view LOD exists, its selection list call succeeded, a view proxy selection ``proxy:<path>.<digits>``
++equals the model path as a whole (re-verified here) and has a finite first vertex. The view lookup is one result per
++model: rows of the same model that disagree on it are malformed. The proxy name alone is never evidence.
+ 
+   * Contradictory proxy evidence is malformed before any slot is matched: a name that is not exactly
+     ``proxy:<path>.<digits>`` with a non-empty basename, a duplicate selection identity (even when the copies agree),
+@@ -57,7 +59,8 @@ vertex. The proxy name alone is never evidence.
+     (``proxy_slot_list_truncated``). A listed slot still qualifies over a truncated tail.
+   * A view LOD that is absent, a missing, unmatched or truncated view selection scan, or a missing or non-finite first
+     vertex is pending with its own reason (view_lod_missing, view_selection_missing, view_evidence_truncated,
+-    view_selection_mismatch, view_vertex_missing, view_vertex_invalid), never qualified and never negative. The
++    view_selection_mismatch, view_vertex_missing, view_vertex_invalid, and view_enumeration_failed when the
++    selection list call itself reported failure, whatever its out array held), never qualified and never negative. The
+     qualified reasons are native_attach_with_view_lod_proxy_slot and, with the rail handguard variant,
+     native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite. This is source-level evidence of the native
+     pattern; it does not prove client rendering, which stays pending with the other unobserved axes.
+@@ -106,7 +109,8 @@ CONSUMED_KEYS = (
+     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
+     "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
+     "selection", "cfg_class", "cfg_exists", "model", "inventory_slots", "slot_count", "slot_scan_complete",
+-    "view_lod", "view_selection_count", "view_scan_complete", "view_selection", "view_vertex_ok", "view_vertex")
++    "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok", "view_selection", "view_vertex_ok",
++    "view_vertex")
+ 
+ MISSING = object()   # absent or wrongly typed evidence
+ 
+@@ -295,7 +299,7 @@ _NUMBER_TEXT = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$")
+ PROXY_ROW_KINDS = (("selection", "str"), ("cfg_class", "str"), ("cfg_exists", "bool"), ("model", "str"),
+                    ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"),
+                    ("view_selection", "str"), ("view_vertex_ok", "bool"), ("view_vertex", "list"))
+-VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete")
++VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete", "view_list_ok")
+ PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS
+ 
+ 
+@@ -315,22 +319,26 @@ def _proxies(row):
+ 
+     Everything that makes the host's own read-back contradict itself is malformed here, before any slot is matched:
+     a malformed proxy name, a duplicate selection identity (even when the copies agree), rows that read the same
+-    ``Proxy<basename>`` config entry differently, a view selection claimed by a host without a view LOD."""
++    ``Proxy<basename>`` config entry differently or with different view results (the view lookup is one result per
++    model, so the selection, the vertex flag and the vertex must agree too), a view selection claimed by a host without
++    a view LOD or without a successful selection list."""
+     if not any(key in row for key in PROXY_HOST_KEYS):
+         return ("missing",)
+     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
+     view = {"lod": _get(row, "view_lod", "bool"), "count": _get(row, "view_selection_count", "int"),
+-            "complete": _get(row, "view_scan_complete", "bool")}
++            "complete": _get(row, "view_scan_complete", "bool"), "listed": _get(row, "view_list_ok", "bool")}
+     if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count \
+-            or MISSING in view.values() or view["count"] < 0:
+-        return ("malformed",)
++            or MISSING in view.values() or view["count"] < 0 \
++            or (view["listed"] and not view["lod"]) or (not view["listed"] and (view["count"] or view["complete"])):
++        return ("malformed",)       # no list without a LOD; a failed or skipped list has no selections and is not complete
+     rows, identities, lookups = [], set(), {}
+     for entry in entries:
+         values = _proxy_row(entry)
+         name = _proxy_name(values["selection"]) if values else None
+         if name is None or values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
+             return ("malformed",)
+-        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"])
++        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
++                  values["view_selection"], values["view_vertex_ok"], tuple(values["view_vertex"]))
+         if name in identities or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup \
+                 or (values["view_selection"] and not (view["lod"] and view["count"] > 0)):
+             return ("malformed",)
+@@ -339,10 +347,11 @@ def _proxies(row):
+     return ("ok", rows, count > len(entries) or not complete, view)
+ 
+ 
+-def _needle(model):
+-    """The model path as the hook matches it against view-LOD selection names: lower case, slashes, no .p3d."""
+-    text = model.replace("\\", "/").lower()
+-    return text[:-4] if text.endswith(".p3d") else text
++def _view_path(selection):
++    """The whole proxy path a view selection names (lower case, forward slashes, no leading slash, no .p3d, the
++    ``proxy:`` prefix and the all-digit ``.NNN`` instance suffix stripped), or None for any other spelling."""
++    name = _proxy_name(selection)
++    return name[0] if name else None
+ 
+ 
+ def _vertex(values):
+@@ -357,9 +366,11 @@ def _view_problem(item, view):
+     """Pending reason when the row's view-LOD join does not hold up, else None. Nothing unknown is a pass."""
+     if not view["lod"]:
+         return "view_lod_missing"
++    if not view["listed"]:
++        return "view_enumeration_failed"       # LOD.GetSelections reported failure: its output is unknown
+     if not item["view_selection"]:
+         return "view_selection_missing" if view["complete"] else "view_evidence_truncated"
+-    if len(item["model"]) <= 5 or _needle(item["model"]) not in item["view_selection"].replace("\\", "/").lower():
++    if len(item["model"]) <= 5 or _view_path(item["view_selection"]) != _path(item["model"]):
+         return "view_selection_mismatch"       # the hook's claim is re-verified here, not trusted
+     if not item["view_vertex_ok"]:
+         return "view_vertex_missing"
+diff --git a/tools/setup/taped_light_probe.py b/tools/setup/taped_light_probe.py
+index 91b86de..6acfbba 100644
+--- a/tools/setup/taped_light_probe.py
++++ b/tools/setup/taped_light_probe.py
+@@ -466,8 +466,12 @@ class HCDisposableDiagnosticMission : CustomMission
+ 
+     // View LOD join (fix round 4). GetSelectionList does not establish view-LOD membership, so each proxy model is also
+     // looked up in the host's view LOD the way 4_World/Systems/Inventory/AttachmentsOutOfReach.c:112-131 does it:
+-    // Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections, Selection.GetName lower-cased, a substring match on the
+-    // lower-cased model path without .p3d, then Selection.GetVertexPosition(lod, 0). Native cache 1.30.164289:
++    // Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections, Selection.GetName lower-cased, a match on the lower-cased
++    // model path without .p3d, then Selection.GetVertexPosition(lod, 0). The native script matches with Contains(); this
++    // hook does NOT: it accepts a view selection only when it is proxy:<path>.<digits> and its whole normalised path
++    // (lower case, forward slashes, no leading slash, no .p3d, prefix and instance suffix removed) equals the model path,
++    // so weaponlight_universal_extra or a generic label/... selection never stands in for weaponlight_universal.
++    // Native cache 1.30.164289:
+     //   3_Game/Entities/Object.c:98 GetLODS(notnull out array<LOD> lods) and 3_Game/Entities/Object.c:106
+     //   LOD GetLODByName(string name) (script; null when the model has no such LOD);
+     //   3_Game/gameplay.c:179 class Selection with gameplay.c:184 GetName(), gameplay.c:185 GetVertexCount(),
+@@ -475,6 +479,8 @@ class HCDisposableDiagnosticMission : CustomMission
+     //   Error() when the LOD vertex index is -1, so a vertex is read only after GetVertexCount() > 0 and
+     //   GetLODVertexIndex(0) != -1); gameplay.c:203 class LOD with gameplay.c:207 NAME_VIEW "view", gameplay.c:216
+     //   GetSelections(notnull out array<Selection> selections) returning bool and gameplay.c:218 GetVertexPosition(int).
++    // LOD.GetSelections returns bool and does not promise anything about its out array on failure, so the array is cleared
++    // before the call and again after a failure (1_Core/proto/EnScript.c:385 is proto native void Clear() of class array<Class T>), and view_list_ok is emitted: false is "unknown", never an empty-but-valid list.
+     // The scan reads at most 256 view selections and says so (view_scan_complete); a vertex is emitted as number text.
+     // This is source-level evidence only: it does not show that a client renders the attachment.
+     string HCTLViewKey(string value)
+@@ -485,27 +491,49 @@ class HCDisposableDiagnosticMission : CustomMission
+         return text;
+     }
+ 
+-    string HCTLViewNeedle(string modelPath)
++    string HCTLViewTrim(string value)
+     {
+-        string needle = HCTLViewKey(modelPath);
+-        int needleLength = needle.Length();
+-        if (needleLength > 4 && needle.Substring(needleLength - 4, 4) == ".p3d")
+-            needle = needle.Substring(0, needleLength - 4);
+-        return needle;
++        string text = HCTLViewKey(value);
++        int textLength = text.Length();
++        if (textLength > 4 && text.Substring(textLength - 4, 4) == ".p3d")
++            text = text.Substring(0, textLength - 4);
++        while (text.Length() > 0 && text.Substring(0, 1) == "/")
++            text = text.Substring(1, text.Length() - 1);
++        return text;
++    }
++
++    string HCTLViewPath(string viewKey)
++    {
++        if (viewKey.IndexOf("proxy:") != 0)
++            return "";
++        string stem = viewKey.Substring(6, viewKey.Length() - 6);
++        int lastDot = stem.LastIndexOf(".");
++        if (lastDot < 1 || lastDot == stem.Length() - 1)
++            return "";
++        string digitSet = "0123456789";
++        string instanceText = stem.Substring(lastDot + 1, stem.Length() - lastDot - 1);
++        int digitIndex = 0;
++        while (digitIndex < instanceText.Length())
++        {
++            if (digitSet.IndexOf(instanceText.Substring(digitIndex, 1)) == -1)
++                return "";
++            digitIndex = digitIndex + 1;
++        }
++        return HCTLViewTrim(stem.Substring(0, lastDot));
+     }
+ 
+-    string HCTLViewRow(string modelPath, LOD viewLod, array<Selection> viewSelections, array<string> viewNames)
++    string HCTLViewRow(string modelPath, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
+     {
+         string needle = "";
+         if (modelPath.Length() > 5)
+-            needle = HCTLViewNeedle(modelPath);
++            needle = HCTLViewTrim(modelPath);
+         string matchName = "";
+         int matchIndex = 0;
+-        while (needle != "" && matchIndex < viewNames.Count())
++        while (needle != "" && matchIndex < viewPaths.Count())
+         {
+-            if (viewNames.Get(matchIndex).IndexOf(needle) != -1)
++            if (viewPaths.Get(matchIndex) == needle)
+             {
+-                matchName = viewNames.Get(matchIndex);
++                matchName = HCTLViewKey(viewSelections.Get(matchIndex).GetName());
+                 break;
+             }
+             matchIndex = matchIndex + 1;
+@@ -526,7 +554,7 @@ class HCDisposableDiagnosticMission : CustomMission
+         return viewText + HCTLKey("view_vertex") + "[" + vertexText + "]";
+     }
+ 
+-    string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewNames)
++    string HCTLProxyRow(string selectionName, LOD viewLod, array<Selection> viewSelections, array<string> viewPaths)
+     {
+         string cfgClass = "Proxy" + HCTLProxyBase(selectionName);
+         string cfgPath = "CfgNonAIVehicles " + cfgClass;
+@@ -562,7 +590,7 @@ class HCDisposableDiagnosticMission : CustomMission
+         rowText = rowText + HCTLKey("cfg_exists") + HCTLBool(cfgExists) + "," + HCTLKey("model") + HCTLStr(modelPath) + ",";
+         rowText = rowText + HCTLKey("inventory_slots") + "[" + slotList + "]," + HCTLKey("slot_count") + slotTotal.ToString() + ",";
+         rowText = rowText + HCTLKey("slot_scan_complete") + HCTLBool(slotComplete) + ",";
+-        return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewNames) + "}";
++        return rowText + HCTLViewRow(modelPath, viewLod, viewSelections, viewPaths) + "}";
+     }
+ 
+     string HCTLProxyFacts(Object subject)
+@@ -578,14 +606,17 @@ class HCDisposableDiagnosticMission : CustomMission
+             scanComplete = false;
+         LOD viewLod = subject.GetLODByName(LOD.NAME_VIEW);
+         array<Selection> viewSelections = new array<Selection>;
+-        array<string> viewNames = new array<string>;
++        array<string> viewPaths = new array<string>;
+         bool viewPresent = false;
+         bool viewListed = false;
++        viewSelections.Clear();
+         if (viewLod)
+         {
+             viewPresent = true;
+             viewListed = viewLod.GetSelections(viewSelections);
+         }
++        if (viewListed == false)
++            viewSelections.Clear();
+         int viewTotal = viewSelections.Count();
+         int viewLimit = viewTotal;
+         if (viewLimit > 256)
+@@ -596,7 +627,7 @@ class HCDisposableDiagnosticMission : CustomMission
+         int viewIndex = 0;
+         while (viewIndex < viewLimit)
+         {
+-            viewNames.Insert(HCTLViewKey(viewSelections.Get(viewIndex).GetName()));
++            viewPaths.Insert(HCTLViewPath(HCTLViewKey(viewSelections.Get(viewIndex).GetName())));
+             viewIndex = viewIndex + 1;
+         }
+         TStringArray seen = new TStringArray;
+@@ -616,7 +647,7 @@ class HCDisposableDiagnosticMission : CustomMission
+                 {
+                     if (seen.Count() > 0)
+                         rows = rows + ",";
+-                    rows = rows + HCTLProxyRow(selectionName, viewLod, viewSelections, viewNames);
++                    rows = rows + HCTLProxyRow(selectionName, viewLod, viewSelections, viewPaths);
+                 }
+                 seen.Insert(selectionName);
+             }
+@@ -624,7 +655,7 @@ class HCDisposableDiagnosticMission : CustomMission
+         int proxyTotal = seen.Count();
+         string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
+         facts = facts + HCTLKey("view_lod") + HCTLBool(viewPresent) + "," + HCTLKey("view_selection_count") + viewTotal.ToString() + ",";
+-        facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + ",";
++        facts = facts + HCTLKey("view_scan_complete") + HCTLBool(viewComplete) + "," + HCTLKey("view_list_ok") + HCTLBool(viewListed) + ",";
+         return facts + HCTLKey("proxies") + "[" + rows + "]";
+     }
+ 
