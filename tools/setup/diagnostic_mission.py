@@ -16,6 +16,7 @@ MAX_DEPTH = 12
 MAX_FILE_BYTES = 128 * 1024 * 1024
 MAX_TOTAL_BYTES = 256 * 1024 * 1024
 MAX_INIT_BYTES = 65536
+MAX_HOOK_BYTES = 256 * 1024
 MARKER_NAME = ".hollow-country-diagnostic-mission.json"
 
 # Existing methods inspected in installed 1.30 scripts and the authored addon.
@@ -100,6 +101,9 @@ _PURPOSES = {
                    ["server mode", "matching HCItemCompatibilityAudit PBO", "fresh profile outside Git", "inspect export completeness separately from startup"]),
     'group-checks': ('disposable-group-policy-checks', GROUP_CHECKS_HOOK,
                      ["server mode", "matching HCGroupNativeChecks PBO", "inspect fixture result separately from startup"]),
+    # Hook text is generated per run by tools/setup/ce_probe.py and passed as `hook=`.
+    'ce-probe': ('disposable-ce-probe', None,
+                 ["server mode", "fresh storage and profiles", "inspect census completeness separately from startup"]),
 }
 
 _FACTORY = re.compile(
@@ -165,9 +169,21 @@ def _inventory(source):
     return sorted(files), sorted(directories), total
 
 
-def _instrument(blob, *, purpose='selftests'):
+def _hook_for(purpose, hook):
+    fixed = _PURPOSES[purpose][1]
+    if fixed is not None:
+        if hook is not None:
+            raise ValueError("this diagnostic purpose has a fixed hook")
+        return fixed
+    if not isinstance(hook, bytes) or not hook or len(hook) > MAX_HOOK_BYTES:
+        raise ValueError("bounded generated hook bytes required for this purpose")
+    return hook
+
+
+def _instrument(blob, *, purpose='selftests', hook=None):
     if purpose not in _PURPOSES:
         raise ValueError('unsupported diagnostic purpose')
+    body = _hook_for(purpose, hook)
     if len(blob) > MAX_INIT_BYTES:
         raise ValueError("init.c byte budget exceeded")
     if b"HCDisposableDiagnosticMission" in blob or b"[HC Diagnostic Mission]" in blob:
@@ -179,10 +195,10 @@ def _instrument(blob, *, purpose='selftests'):
     result, count = _FACTORY.subn(rb"\g<1>HCDisposableDiagnosticMission\g<2>", blob)
     if count != 1:
         raise ValueError("unsupported stock mission factory shape")
-    return result + _PURPOSES[purpose][1]
+    return result + body
 
 
-def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
+def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook=None):
     """Return/write provenance for a fresh isolated mission, without engine launch.
 
     Source must be an unmodified stock-shaped Chernarus mission in an isolated
@@ -193,6 +209,7 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
     """
     if purpose not in _PURPOSES:
         raise ValueError('unsupported diagnostic purpose')
+    hook = _hook_for(purpose, hook)
     source, destination = _safe_path(source), _safe_path(destination)
     if not source.is_dir():
         raise ValueError("source mission directory required")
@@ -209,13 +226,13 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
     with init_path.open("rb") as stream:
         original = stream.read(MAX_INIT_BYTES + 1)
     _unchanged(init_path, initial)
-    instrumented = _instrument(original, purpose=purpose)
+    instrumented = _instrument(original, purpose=purpose, hook=None if _PURPOSES[purpose][1] is not None else hook)
     # Validate parents again immediately before mutation; never clean failed output.
     _safe_path(destination)
     destination.mkdir(parents=True, exist_ok=False)
     for relative in directories:
         (destination / relative).mkdir(exist_ok=False)
-    kind, hook, requires = _PURPOSES[purpose]
+    kind, _fixed, requires = _PURPOSES[purpose]
     manifest = {"schema": 1, "kind": kind,
                 "runtime_acceptance": "pending", "source_root": str(source),
                 "mission_path": str(destination), "storage_probe_epoch": 900001 if purpose == 'selftests' else None,
