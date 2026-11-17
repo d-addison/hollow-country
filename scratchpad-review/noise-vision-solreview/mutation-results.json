@@ -1,0 +1,98 @@
+[
+  {
+    "name": "01_zero_floor",
+    "status": "KILLED",
+    "tests": 22,
+    "failures": [
+      "tests.unit.test_v1_native_noise_vision.VisionPolicyBehavior.test_given_any_inputs_then_factor_is_finite_and_clamped_to_0_6_1_3"
+    ],
+    "errors": []
+  },
+  {
+    "name": "02_raise_ceiling",
+    "status": "KILLED",
+    "tests": 22,
+    "failures": [
+      "tests.unit.test_v1_native_noise_vision.VisionPolicyBehavior.test_given_any_inputs_then_factor_is_finite_and_clamped_to_0_6_1_3",
+      "tests.unit.test_v1_native_noise_vision.VisionPolicyBehavior.test_given_best_case_for_detection_then_capped_at_1_3"
+    ],
+    "errors": []
+  },
+  {
+    "name": "03_noise_either_phase",
+    "status": "KILLED",
+    "tests": 22,
+    "failures": [
+      "tests.unit.test_v1_native_noise_vision.NoisePolicyBehavior.test_given_refusal_cancel_stopped_or_repeat_then_no_emission"
+    ],
+    "errors": []
+  },
+  {
+    "name": "04_ignore_clock",
+    "status": "KILLED",
+    "tests": 22,
+    "failures": [
+      "tests.unit.test_v1_native_noise_vision.VisionPolicyBehavior.test_given_darkness_then_unlit_player_is_seen_from_less_far",
+      "tests.unit.test_v1_native_noise_vision.VisionPolicyBehavior.test_given_lit_light_at_night_then_seen_from_further_than_unlit"
+    ],
+    "errors": []
+  },
+  {
+    "name": "05_force_admission",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  },
+  {
+    "name": "06_reverse_vision_server_guard",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  },
+  {
+    "name": "07_ignore_headgear",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  },
+  {
+    "name": "08_remove_actual_loop_cap",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  },
+  {
+    "name": "09_discard_computed_factor",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  },
+  {
+    "name": "10_reverse_noise_server_guard",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  },
+  {
+    "name": "11_notify_before_commit",
+    "status": "KILLED",
+    "tests": 22,
+    "failures": [
+      "tests.unit.test_v1_native_noise_vision.NoiseSourceShape.test_action_hook_is_server_completion_only_never_start_or_end"
+    ],
+    "errors": []
+  },
+  {
+    "name": "12_lights_always_unlit",
+    "status": "SURVIVED",
+    "tests": 22,
+    "failures": [],
+    "errors": []
+  }
+]
