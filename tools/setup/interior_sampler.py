@@ -140,6 +140,7 @@ class HCDisposableDiagnosticMission : CustomMission
     protected bool m_HCProbeRayCapped = false;
     protected bool m_HCProbeOutputCapped = false;
     protected string m_HCProbeQuote = "";
+    protected string m_HCProbeBackslash = "";
     protected string m_HCProbePath = "$profile:@@PROFILE_DIR@@/@@OUTPUT_NAME@@";
     protected string m_HCProbeSentinel = "$profile:@@PROFILE_DIR@@/@@SENTINEL_NAME@@";
     protected string m_HCProbePending = "";
@@ -297,6 +298,8 @@ class HCDisposableDiagnosticMission : CustomMission
         m_HCProbeStarted = true;
         int quoteCode = 34;
         m_HCProbeQuote = quoteCode.AsciiToString();
+        int backslashCode = 92;
+        m_HCProbeBackslash = backslashCode.AsciiToString();
 @@LOADER_CALLS@@
         Print("[HC Interior Sampler] LOADED; targets=" + HCProbeInt(m_HCProbeClasses.Count()));
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCProbeStart, @@START_MS@@, false);
@@ -341,6 +344,7 @@ HOOK_TAIL = r"""
         if (text.Length() > 96)
             text = text.Substring(0, 96);
         text.Replace(m_HCProbeQuote, "'");
+        text.Replace(m_HCProbeBackslash, "/");
         return m_HCProbeQuote + text + m_HCProbeQuote;
     }
 

@@ -568,6 +568,7 @@ class HookRun:
         for _type, name, value in _MEMBER.findall(self.text):
             setattr(self.model, name, eval(cep._enforce_expression(value), namespace) if value else None)
         self.model.m_HCProbeQuote = text_type('"')
+        self.model.m_HCProbeBackslash = text_type('\\')
         self.model.m_HCProbeFilter = STRICT_FILTER
         self.model.m_HCProbePlayerFilter = PLAYER_FILTER
         step = self.model.HCProbeStep
@@ -3572,6 +3573,17 @@ class HouseCensusHookTests(unittest.TestCase):
         self.assertEqual(["door1", "Door_2", "DOOR3"], [entry[0] for entry in house["door_selections"]])
         self.assertEqual([-4.9, 1.0, -0.5], house["door_selections"][0][1:])
         self.assertEqual(5, house["selection_total"])
+
+    def test_backslash_selection_names_are_written_as_valid_json_with_forward_slashes(self):
+        # Native proxy selections carry backslash paths; a raw backslash makes the census invalid JSON.
+        building = SampBuilding("Land_Tenement_Small", (3000.0, 20.0, 5000.0), yaw=0.0, clip=BOX,
+                                model="tenement_small",
+                                selections={"proxy:dz\\structures\\specific\\door_a.001": (1.0, 1.0, 0.0)})
+        building.doors = [building.to_world((1.0, 1.0, 0.0))]
+        house = self.run_house(building)["house"]
+        name = house["door_selections"][0][0]
+        self.assertEqual("proxy:dz/structures/specific/door_a.001", name)
+        self.assertTrue(samp.MODEL_TEXT.match(name))
 
     def test_doors_and_selections_are_bounded_while_the_true_count_is_kept(self):
         many = {"door%d" % index: (float(index), 1.0, 0.0) for index in range(70)}
