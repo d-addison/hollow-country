@@ -103,8 +103,8 @@ def expression(text):
     text = re.sub(r"new array<[^;]+?>", "Array()", text)
     text = re.sub(r"new (\w+)(?![\w(])", r"\1()", text)
     text = re.sub(r"JsonFileLoader<HCInfected\w+>", "Loader", text)
-    text = re.sub(r"\b(?:ref )?(?:array<[^;]+?>|int|float|bool|string|vector|House|Object|FileHandle|HCInfected\w+) (\w+) =", r"\1 =", text)
-    empty = re.fullmatch(r"(int|float|bool|string|vector|House|HCInfected\w+) (\w+)", text)
+    text = re.sub(r"\b(?:ref )?(?:array<[^;]+?>|int|float|bool|string|vector|House|Object|FileHandle|auto|HCInfected\w+|HCInterior\w+) (\w+) =", r"\1 =", text)
+    empty = re.fullmatch(r"(int|float|bool|string|vector|House|HCInfected\w+|HCInterior\w+) (\w+)", text)
     if empty:
         default = {"int": "0", "float": "0", "bool": "False", "string": "Text()", "vector": "Vec((0, 0, 0))"}.get(empty[1], "None")
         return empty[2] + " = " + default
@@ -127,7 +127,9 @@ def expression(text):
 
 def authored(name, arguments, ns, diagnostic=True):
     lines, indent = ["def " + name + "(" + arguments + "):"], 1
-    lines.append("    global s_Bindings, s_DiagnosticAttempted, s_ProductionBindings, s_ProductionAttempted, s_ProductionReason, s_ProductionClasses, s_ProductionContext, s_JsonOffset")
+    lines.append("    global s_Bindings, s_DiagnosticAttempted, s_ProductionBindings, s_ProductionAttempted, s_ProductionReason, s_ProductionClasses, s_ProductionContext, s_JsonOffset, "
+                 "s_TemplateBindings, s_ConflictHouses, s_TemplateRefusals, s_BindRadius, s_BindQueryCap, s_BindQueries, s_BindStamp, s_ConflictsResolved, "
+                 "s_TemplateLogged, s_TemplateReason, s_TemplateCovered, s_TemplateDenominator")
     for token in tokens(source_method(name, diagnostic)):
         if token == "{": indent += 1; continue
         if token == "}": indent -= 1; continue
@@ -148,7 +150,7 @@ def authored(name, arguments, ns, diagnostic=True):
             if re.search(r"\b(?:for|foreach|while|try|catch|switch)\b", token):
                 raise AssertionError("unsupported syntax: " + token)
             line = expression(token)
-        if line.startswith("OrderBindings("): line = "points = " + line
+        if line.startswith("OrderBindings(") or (name == "BuildOrder" and line.startswith("BuildProductionOrder(")): line = "points = " + line
         if name in ("BuildOrder", "BuildProductionOrder", "OrderBindings"): line = re.sub(r"\breturn$", "return points", line)
         if name == "ProductionCoverage": line = re.sub(r"\breturn$", "return covered, excluded", line)
         lines.append("    " * indent + line.replace("\n", " "))
@@ -211,6 +213,8 @@ def fixture(diagnostic=True, server=True, document=None, objects=None, raw=None,
               HCInfectedRoomDocument=Document, HCInfectedRoomSurvey=Survey, HCInfectedRoomAnchor=Anchor,
               HCInfectedRoomBinding=SimpleNamespace, TVectorArray=Array,
               HCInfectedPolicy=SimpleNamespace(**policy_functions()),
+              HCInteriorTemplates=SimpleNamespace(Loaded=lambda: False),  # synthetic reader stub: no pack
+              BuildProductionOrder=lambda clue, budget, points=None: Array(),
               HCInfectedStore=SimpleNamespace(ReadBounded=read, ValidPosition=lambda v: all(-200000 <= x <= 200000 for x in v)),
               Loader=SimpleNamespace(LoadData=load), Print=lambda message: None)
     methods = [("DiagnosticServer", ""), ("KeyBit", "depth, key"), ("RequiredKeys", "depth"),
@@ -383,6 +387,17 @@ class RoomCatalogCompletionTests(unittest.TestCase):
         self.assertEqual(len(ns["s_Bindings"]), 4)
         self.assertEqual(len(calls["queries"]), 4)
         self.assertTrue(all(0 < radius <= .5 for _, radius in calls["queries"]))
+
+    def test_diagnostic_order_falls_through_to_production_only_when_a_template_pack_is_loaded(self):
+        ns, calls, doc, houses = fixture(diagnostic=False)
+        produced = []
+        ns["BuildProductionOrder"] = lambda clue, budget, points=None: produced.append((clue, budget)) or Array([clue])
+        self.assertEqual([], ns["BuildOrder"](houses[0].position, 2))  # no pack: DIAG consumer stays inert
+        self.assertEqual([], produced)
+        ns["HCInteriorTemplates"] = SimpleNamespace(Loaded=lambda: True)  # synthetic reader stub
+        self.assertEqual([houses[0].position], ns["BuildOrder"](houses[0].position, 2))
+        self.assertEqual([(houses[0].position, 2)], produced)
+        self.assertEqual([], calls["reads"])  # the diagnostic file is still never read in a normal PBO
 
     def test_null_building_record_fails_closed_without_dereference(self):
         doc, houses = synthetic_document()

@@ -588,7 +588,7 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
     def run_tick(self, ctx, rec):
         return module_call("override void OnTick(", ctx, 1.0,
             GetGame=lambda: NS(IsServer=lambda: True), HCInfectedClock=NS(UtcSeconds=lambda: 100),
-            HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
+            HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None), HCInfectedRoomCatalog=NS(BeginTick=lambda: None),
             HCHordeRecovery=NS(Reconcile=lambda actor, state, actors, flag, now: rec.events.append("recover") or False),
             HCInfectedPolicy=NS(NextAdoptionCursor=lambda i, n: (i + 1) % n),
             HCInfectedStore=NS(Save=lambda *a: True))
@@ -706,7 +706,8 @@ class StartedModule:
         self.ctx.IsEnabled = lambda settings: settings.EnableInfected
         self.Admission = Admission
         self.settings = NS(EnableInfected=True, EnableHordes=hordes, EnableAlertChains=True,
-            MaxTickWorkItems=work, MaxActiveHordes=2, MaxActiveHordeMembers=24)
+            MaxTickWorkItems=work, MaxActiveHordes=2, MaxActiveHordeMembers=24,
+            InfectedBindRadius=30, MaxBindQueriesPerTick=2)
         def fresh():
             return NS(Groups=Array(), Reserved=0)
 
@@ -745,7 +746,7 @@ class StartedModule:
             HCInfectedProfiles=self.profiles, HCInfectedPolicy=self.policies,
             HCInfectedClock=NS(UtcSeconds=lambda: self.clock[0]), HCHordeSweep=SweepFixture,
             HCHordeRecovery=NS(Reconcile=lambda *a: False), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
-            HCInfectedRoomCatalog=NS(Clear=lambda: None, EnsureProductionLoaded=lambda: False), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
+            HCInfectedRoomCatalog=NS(Clear=lambda: None, EnsureProductionLoaded=lambda: False, ConfigureBinding=lambda radius, queries: True, BeginTick=lambda: None), HCAlertChain=lambda: NS(ProcessPending=lambda *a: 0),
             DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4),
             vector=NS(Zero=(0.0, 0.0, 0.0), DistanceSq=lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b))),
             Print=self.events.append)
@@ -915,6 +916,7 @@ class DormantJournalTests(unittest.TestCase):
         ctx.m_Packs = Array([None]); ctx.m_NextSave = 0; ctx.m_MemberCap = 24; ctx.m_GroupCap = 2
         module_call("override void OnTick(", ctx, 1.0, GetGame=lambda: NS(IsServer=lambda: True),
             HCInfectedClock=NS(UtcSeconds=lambda: 4000), HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
+            HCInfectedRoomCatalog=NS(BeginTick=lambda: None),
             HCInfectedStore=NS(Save=lambda *a: rec.events.append("save") or True))
         self.assertEqual(6, record.State)
         self.assertEqual([], rec.events)

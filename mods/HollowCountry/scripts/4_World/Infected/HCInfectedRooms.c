@@ -10,6 +10,8 @@
 // 3_Game/tools/JsonFileLoader.c:69 LoadData. 1_Core/proto/EnSystem.c:
 // :397 FileExist, :417 OpenFile, :443 CloseFile, :425 ReadFile.
 // Primitive/collection references are listed in scratchpad-review/wp5-r2/REPORT.md.
+// Class templates (docs/INTERIOR_TEMPLATES_CONTRACT.md section 9):
+// :930 GetObjectsAtPosition3D (out arrays declared before the call).
 class HCInfectedRoomAnchor
 {
     int Id;
@@ -45,6 +47,8 @@ class HCInfectedRoomBinding
     vector Position;
     vector Orientation;
     ref HCInfectedRoomSurvey Survey;
+    // Template cache only: recency stamp for least-recently-used release.
+    int Stamp;
 }
 
 // Diagnostic import only. Missing poses use invalid sentinels; omitted fields
@@ -135,6 +139,27 @@ class HCInfectedRoomCatalog
     static const int MAX_PRODUCTION_HOUSES = 64;
     static const int MAX_HOUSE_ANCHORS = 16;
     static const int MAX_TOTAL_ANCHORS = 256;
+    // Class-template anchors (contract sections 8 and 9). Bound lazily from an observed
+    // clue; never loaded at start, never scanned on a timer, never created or moved.
+    static const int DEFAULT_BIND_RADIUS = 30;
+    static const int DEFAULT_BIND_QUERIES = 2;
+    static const int MAX_TEMPLATE_CANDIDATES = 1024;
+    static const int MAX_TEMPLATE_FOUND = 16;
+    static const int MAX_TEMPLATE_LOG = 64;
+    static const string TEMPLATE_EVIDENCE_KIND = "native-room-survey-v1";
+    static const string TEMPLATE_READY = "rooms_templates_provisional_path_audio_doors_pending";
+    protected static ref array<ref HCInfectedRoomBinding> s_TemplateBindings = new array<ref HCInfectedRoomBinding>;
+    protected static ref array<House> s_ConflictHouses = new array<House>;
+    protected static ref array<string> s_TemplateRefusals = new array<string>;
+    protected static int s_BindRadius = 30;
+    protected static int s_BindQueryCap = 2;
+    protected static int s_BindQueries = 0;
+    protected static int s_BindStamp = 0;
+    protected static bool s_ConflictsResolved = false;
+    protected static bool s_TemplateLogged = false;
+    protected static string s_TemplateReason = "rooms_templates_not_loaded";
+    protected static int s_TemplateCovered = 0;
+    protected static int s_TemplateDenominator = 0;
     protected static ref array<ref HCInfectedRoomBinding> s_ProductionBindings = new array<ref HCInfectedRoomBinding>;
     protected static ref array<ref HCInfectedProductionRoomClass> s_ProductionClasses = new array<ref HCInfectedProductionRoomClass>;
     protected static bool s_ProductionAttempted = false;
@@ -434,6 +459,18 @@ class HCInfectedRoomCatalog
         s_ProductionAttempted = false;
         s_ProductionReason = "rooms_not_loaded";
         s_ProductionContext = "";
+        s_TemplateBindings.Clear();
+        s_ConflictHouses.Clear();
+        s_TemplateRefusals.Clear();
+        s_BindRadius = DEFAULT_BIND_RADIUS;
+        s_BindQueryCap = DEFAULT_BIND_QUERIES;
+        s_BindQueries = 0;
+        s_BindStamp = 0;
+        s_ConflictsResolved = false;
+        s_TemplateLogged = false;
+        s_TemplateReason = "rooms_templates_not_loaded";
+        s_TemplateCovered = 0;
+        s_TemplateDenominator = 0;
     }
 
     static string ProductionReason()
@@ -1060,6 +1097,393 @@ class HCInfectedRoomCatalog
         // Single bounded log per lifecycle, even for a missing/rejected file.
         // Complete copied class/exclusion rows are available via ProductionCoverage.
         Print("[HollowCountry] " + s_ProductionReason + s_ProductionContext + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
+        // The template reader may already be loaded; otherwise the first bind logs it.
+        LogTemplateAdmission();
+    }
+
+    // Module start passes InfectedBindRadius (5..60) and MaxBindQueriesPerTick (1..8)
+    // before EnsureProductionLoaded. Out-of-range values keep the defaults.
+    static bool ConfigureBinding(int radius, int queriesPerTick)
+    {
+        if (radius < 5 || radius > 60 || queriesPerTick < 1 || queriesPerTick > 8)
+            return false;
+        s_BindRadius = radius;
+        s_BindQueryCap = queriesPerTick;
+        return true;
+    }
+
+    static string TemplateReason()
+    {
+        return s_TemplateReason;
+    }
+
+    // One bounded log per (reason, class); the latest reason stays readable.
+    static void NoteTemplateRefusal(string reason, string detail)
+    {
+        s_TemplateReason = reason;
+        string key = reason + ":" + detail;
+        if (s_TemplateRefusals.Find(key) >= 0 || s_TemplateRefusals.Count() >= MAX_TEMPLATE_LOG)
+            return;
+        s_TemplateRefusals.Insert(key);
+        Print("[HollowCountry] " + reason + "; class=" + detail);
+    }
+
+    // Denominator = every loaded CfgVehicles House class, as ValidateProductionCoverage counts it.
+    static void CountTemplateClasses()
+    {
+        s_TemplateCovered = 0;
+        s_TemplateDenominator = 0;
+        int configCount = GetGame().ConfigGetChildrenCount("CfgVehicles");
+        if (configCount < 1 || configCount > MAX_CONFIG_CLASSES)
+            return;
+        for (int i = 0; i < configCount; i++)
+        {
+            string className;
+            if (!GetGame().ConfigGetChildName("CfgVehicles", i, className))
+                return;
+            if (!GetGame().IsKindOf(className, "House"))
+                continue;
+            s_TemplateDenominator++;
+            HCInteriorTemplateClassRow row = HCInteriorTemplates.ClassRow(className);
+            if (row && row.Rooms == "covered")
+                s_TemplateCovered++;
+            if (s_TemplateDenominator >= MAX_PRODUCTION_CLASSES)
+                return;
+        }
+    }
+
+    static void LogTemplateAdmission()
+    {
+        if (s_TemplateLogged || !ProductionServer() || !HCInteriorTemplates.Loaded())
+            return;
+        s_TemplateLogged = true;
+        s_TemplateReason = TEMPLATE_READY;
+        CountTemplateClasses();
+        Print("[HollowCountry] " + TEMPLATE_READY + "; classes=" + s_TemplateCovered.ToString() + "/" + s_TemplateDenominator.ToString());
+    }
+
+    static int TemplateAnchorTotal()
+    {
+        int total = 0;
+        foreach (HCInfectedRoomBinding cached : s_TemplateBindings)
+        {
+            total = total + cached.Survey.Anchors.Count();
+        }
+        return total;
+    }
+
+    // Release the least recently used houses (or any whose object is gone) until one
+    // more house with this many anchors fits the 64-house and 256-anchor caps.
+    static void EvictTemplates(int incoming)
+    {
+        while (s_TemplateBindings.Count() > 0 && (s_TemplateBindings.Count() >= MAX_PRODUCTION_HOUSES || TemplateAnchorTotal() + incoming > MAX_TOTAL_ANCHORS))
+        {
+            int victim = 0;
+            for (int i = 0; i < s_TemplateBindings.Count(); i++)
+            {
+                if (!s_TemplateBindings[i].HouseObject)
+                {
+                    victim = i;
+                    break;
+                }
+                if (s_TemplateBindings[i].Stamp < s_TemplateBindings[victim].Stamp)
+                    victim = i;
+            }
+            s_TemplateBindings.Remove(victim);
+        }
+    }
+
+    // Defensive re-check of a loaded template: box within +-512, 1..16 rooms, room boxes in
+    // the house box, anchors in their room and at least 1 m apart, evidence present.
+    static bool TemplateGeometry(HCInteriorTemplate layout)
+    {
+        if (!layout || !layout.Box || !layout.Rooms || !layout.Evidence)
+            return false;
+        if (layout.Rooms.Count() < 1 || layout.Rooms.Count() > MAX_HOUSE_ANCHORS)
+            return false;
+        // T3 DTO boxes and points are array<float>; BoxValid/VectorValid also check Count() == 3.
+        if (!HCInteriorTemplates.BoxValid(layout.Box.Min, layout.Box.Max))
+            return false;
+        ref array<int> usedIds = new array<int>;
+        ref array<vector> usedPositions = new array<vector>;
+        foreach (auto room : layout.Rooms)
+        {
+            if (!room || room.Id < 1 || room.Id > 64 || usedIds.Find(room.Id) >= 0)
+                return false;
+            if (!HCInteriorTemplates.BoxValid(room.Min, room.Max) || !HCInteriorTemplates.VectorValid(room.Anchor, 512))
+                return false;
+            // Positive comparisons reject NaN and infinity as well as bad ordering.
+            if (!HCInteriorTemplates.Inside(room.Min, layout.Box.Min, layout.Box.Max) || !HCInteriorTemplates.Inside(room.Max, layout.Box.Min, layout.Box.Max))
+                return false;
+            if (!HCInteriorTemplates.Inside(room.Anchor, room.Min, room.Max))
+                return false;
+            vector anchorPoint = HCInteriorTemplates.AsVector(room.Anchor);
+            foreach (vector previousPoint : usedPositions)
+            {
+                if (vector.DistanceSq(previousPoint, anchorPoint) < 1)
+                    return false;
+            }
+            usedIds.Insert(room.Id);
+            usedPositions.Insert(anchorPoint);
+        }
+        return true;
+    }
+
+    // One house's runtime binding: model-frame anchors only. OrderBindings converts them with
+    // ModelToWorld and re-checks the live pose on every order, so a moved house yields nothing.
+    static HCInfectedRoomBinding TemplateBinding(House house, HCInteriorTemplate layout)
+    {
+        string houseType = house.GetType();
+        vector orientation = house.GetOrientation();
+        if (!HCInfectedStore.ValidPosition(house.GetPosition()) || !HCInfectedStore.ValidPosition(orientation))
+        {
+            NoteTemplateRefusal("rooms_template_pose", houseType);
+            return null;
+        }
+        // Yaw only: a tilted instance would need a full-basis check the contract does not grant.
+        if (!(Math.AbsFloat(orientation[1]) <= 0.01) || !(Math.AbsFloat(orientation[2]) <= 0.01))
+        {
+            NoteTemplateRefusal("tilted", houseType);
+            return null;
+        }
+        if (layout.BuildingClass != houseType || !TemplateGeometry(layout))
+        {
+            NoteTemplateRefusal("rooms_template_geometry", houseType);
+            return null;
+        }
+        if (layout.Evidence.Count() < 1)
+        {
+            NoteTemplateRefusal("rooms_template_evidence", houseType);
+            return null;
+        }
+        auto evidence = layout.Evidence[0];
+        if (!evidence || evidence.Kind != TEMPLATE_EVIDENCE_KIND || evidence.RunId.Length() < 1 || evidence.Sha256.Length() < 1)
+        {
+            NoteTemplateRefusal("rooms_template_evidence", houseType);
+            return null;
+        }
+        HCInfectedRoomSurvey survey = new HCInfectedRoomSurvey;
+        survey.BuildingClass = houseType;
+        survey.EvidenceId = layout.TemplateId;
+        survey.Measured = true;
+        survey.Revision = 1;
+        foreach (auto source : layout.Rooms)
+        {
+            HCInfectedOwnedProductionRoomAnchor anchor = new HCInfectedOwnedProductionRoomAnchor;
+            anchor.Id = source.Id;
+            anchor.LocalPosition = HCInteriorTemplates.AsVector(source.Anchor);
+            anchor.LocalMin = HCInteriorTemplates.AsVector(source.Min);
+            anchor.LocalMax = HCInteriorTemplates.AsVector(source.Max);
+            anchor.SourceRunId = evidence.RunId;
+            anchor.SourceSha256 = evidence.Sha256;
+            anchor.EvidenceKind = TEMPLATE_EVIDENCE_KIND;
+            survey.Anchors.Insert(anchor);
+        }
+        HCInfectedRoomBinding binding = new HCInfectedRoomBinding;
+        binding.HouseObject = house;
+        binding.Position = house.GetPosition();
+        binding.Orientation = orientation;
+        binding.Survey = survey;
+        return binding;
+    }
+
+    static HCInfectedRoomBinding FindTemplateBinding(House house)
+    {
+        foreach (HCInfectedRoomBinding cached : s_TemplateBindings)
+        {
+            if (cached.HouseObject == house)
+                return cached;
+        }
+        return null;
+    }
+
+    static bool LegacyClaims(House house)
+    {
+        foreach (HCInfectedRoomBinding claim : s_ProductionBindings)
+        {
+            if (claim.HouseObject == house)
+                return true;
+        }
+        return false;
+    }
+
+    static void DropLegacy(House house)
+    {
+        int index = 0;
+        while (index < s_ProductionBindings.Count())
+        {
+            if (s_ProductionBindings[index].HouseObject == house)
+            {
+                s_ProductionBindings.Remove(index);
+            }
+            else
+            {
+                index++;
+            }
+        }
+    }
+
+    // A cached template binding for the house: remove it (anchor totals are summed from the cache).
+    static void DropTemplate(House house)
+    {
+        int index = 0;
+        while (index < s_TemplateBindings.Count())
+        {
+            if (s_TemplateBindings[index].HouseObject == house)
+            {
+                s_TemplateBindings.Remove(index);
+            }
+            else
+            {
+                index++;
+            }
+        }
+    }
+
+    static bool ConflictKnown(House house)
+    {
+        return s_ConflictHouses.Find(house) >= 0;
+    }
+
+    // Claimed by both the legacy file and the templates: use neither, and say so once.
+    static void MarkConflict(House house)
+    {
+        DropTemplate(house);
+        if (s_ConflictHouses.Count() < MAX_PRODUCTION_HOUSES)
+            s_ConflictHouses.Insert(house);
+        NoteTemplateRefusal("rooms_conflict", house.GetType());
+    }
+
+    // Two live objects of the class within 0.75 m cannot be told apart: refuse both.
+    static bool TemplateAmbiguous(House house, array<House> found)
+    {
+        foreach (House other : found)
+        {
+            if (other == house || other.GetType() != house.GetType())
+                continue;
+            if (vector.DistanceSq(other.GetPosition(), house.GetPosition()) <= 0.5625)
+                return true;
+        }
+        return false;
+    }
+
+    static void AdmitTemplateHouse(House house, array<House> found)
+    {
+        string houseType = house.GetType();
+        if (ConflictKnown(house))
+            return;
+        HCInfectedRoomBinding cached = FindTemplateBinding(house);
+        if (cached)
+        {
+            s_BindStamp++;
+            cached.Stamp = s_BindStamp;
+            return;
+        }
+        if (LegacyClaims(house))
+        {
+            DropLegacy(house);
+            MarkConflict(house);
+            return;
+        }
+        if (TemplateAmbiguous(house, found))
+        {
+            NoteTemplateRefusal("rooms_template_ambiguous", houseType);
+            return;
+        }
+        HCInteriorTemplate layout = HCInteriorTemplates.Template(houseType);
+        if (!layout)
+        {
+            NoteTemplateRefusal("rooms_template_missing", houseType);
+            return;
+        }
+        HCInfectedRoomBinding binding = TemplateBinding(house, layout);
+        if (!binding)
+            return;
+        EvictTemplates(binding.Survey.Anchors.Count());
+        s_BindStamp++;
+        binding.Stamp = s_BindStamp;
+        s_TemplateBindings.Insert(binding);
+    }
+
+    // The module tick calls this once per tick. Without it the budget is never reset and the cap
+    // still holds: past it only cached houses are used. GetTickTime is an elapsed clock, not a tick id.
+    static void BeginTick()
+    {
+        s_BindQueries = 0;
+    }
+
+    // A house claimed by the legacy file whose class the templates cover is claimed by both
+    // sources: use neither. Decided once, from loaded data alone, before any query or ordering,
+    // so the query quota can never let a conflicted house through.
+    static void ResolveLegacyConflicts()
+    {
+        if (s_ConflictsResolved)
+            return;
+        if (!ProductionServer() || !HCInteriorTemplates.Loaded())
+            return;
+        if (s_ProductionReason != "rooms_admitted_measurements_path_audio_doors_pending")
+            return;
+        s_ConflictsResolved = true;
+        ref array<House> claimed = new array<House>;
+        foreach (HCInfectedRoomBinding legacy : s_ProductionBindings)
+        {
+            if (!legacy.HouseObject || claimed.Count() >= MAX_PRODUCTION_HOUSES)
+                continue;
+            HCInteriorTemplateClassRow legacyRow = HCInteriorTemplates.ClassRow(legacy.HouseObject.GetType());
+            if (!legacyRow || legacyRow.Rooms != "covered")
+                continue;
+            if (claimed.Find(legacy.HouseObject) < 0)
+                claimed.Insert(legacy.HouseObject);
+        }
+        foreach (House conflicted : claimed)
+        {
+            DropLegacy(conflicted);
+            DropTemplate(conflicted);
+            if (!ConflictKnown(conflicted))
+                MarkConflict(conflicted);
+        }
+    }
+
+    // Called from BuildProductionOrder with an observed clue only. One spatial query per call,
+    // at most s_BindQueryCap between BeginTick calls; past the cap the cached houses are used as they are.
+    static void BindTemplateHouses(vector observedClue)
+    {
+        if (!ProductionServer() || !HCInteriorTemplates.Loaded())
+            return;
+        LogTemplateAdmission();
+        if (s_BindQueries >= s_BindQueryCap)
+            return;
+        s_BindQueries++;
+        ref array<Object> candidates = new array<Object>;
+        ref array<CargoBase> cargos = new array<CargoBase>;
+        GetGame().GetObjectsAtPosition3D(observedClue, s_BindRadius, candidates, cargos);
+        int limit = candidates.Count();
+        if (limit > MAX_TEMPLATE_CANDIDATES)
+        {
+            limit = MAX_TEMPLATE_CANDIDATES;
+            NoteTemplateRefusal("rooms_bind_dense", "");
+        }
+        float radiusSq = s_BindRadius * s_BindRadius;
+        ref array<House> found = new array<House>;
+        for (int i = 0; i < limit; i++)
+        {
+            if (found.Count() >= MAX_TEMPLATE_FOUND)
+                break;
+            House house = House.Cast(candidates[i]);
+            if (!house)
+                continue;
+            // Clue to house origin, whatever the native query's own bounds test returned.
+            if (!(vector.DistanceSq(observedClue, house.GetPosition()) <= radiusSq))
+                continue;
+            HCInteriorTemplateClassRow row = HCInteriorTemplates.ClassRow(house.GetType());
+            if (!row || row.Rooms != "covered")
+                continue;
+            found.Insert(house);
+        }
+        foreach (House admitted : found)
+        {
+            AdmitTemplateHouse(admitted, found);
+        }
     }
 
     static void BuildOrder(vector observedClue, int budget, out TVectorArray points)
@@ -1069,19 +1493,49 @@ class HCInfectedRoomCatalog
             return;
         EnsureDiagnosticLoaded();
         OrderBindings(observedClue, budget, s_Bindings, points);
+        // A loaded template pack opts the production sources in; otherwise this consumer stays DIAG only.
+        if (points.Count() == 0 && HCInteriorTemplates.Loaded())
+        {
+            BuildProductionOrder(observedClue, budget, points);
+        }
     }
 
     // Only data: caller still owns Investigation AND NativePackRoutes admission,
     // nav/path checks, expiry, retry budgets and release. No capability is granted.
+    // Sources: the legacy production file (once admitted at startup) and the lazily bound
+    // class templates. Without a loaded template pack this is the legacy path unchanged.
     static void BuildProductionOrder(vector observedClue, int budget, out TVectorArray points)
     {
         points = new TVectorArray;
         if (!ProductionServer() || budget < 1 || budget > 3 || !HCInfectedStore.ValidPosition(observedClue))
             return;
         // Startup owns the bounded read/config census; AI ticks never load.
-        if (s_ProductionReason != "rooms_admitted_measurements_path_audio_doors_pending")
+        bool legacyReady = s_ProductionReason == "rooms_admitted_measurements_path_audio_doors_pending";
+        bool templatesReady = HCInteriorTemplates.Loaded();
+        if (!legacyReady && !templatesReady)
             return;
-        OrderBindings(observedClue, budget, s_ProductionBindings, points);
+        if (!templatesReady)
+        {
+            OrderBindings(observedClue, budget, s_ProductionBindings, points);
+            return;
+        }
+        ResolveLegacyConflicts();
+        BindTemplateHouses(observedClue);
+        ref array<ref HCInfectedRoomBinding> merged = new array<ref HCInfectedRoomBinding>;
+        if (legacyReady)
+        {
+            foreach (HCInfectedRoomBinding legacy : s_ProductionBindings)
+            {
+                if (!ConflictKnown(legacy.HouseObject))
+                    merged.Insert(legacy);
+            }
+        }
+        foreach (HCInfectedRoomBinding bound : s_TemplateBindings)
+        {
+            if (!ConflictKnown(bound.HouseObject))
+                merged.Insert(bound);
+        }
+        OrderBindings(observedClue, budget, merged, points);
     }
 
     static void OrderBindings(vector observedClue, int budget, array<ref HCInfectedRoomBinding> bindings, out TVectorArray points)

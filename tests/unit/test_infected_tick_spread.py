@@ -54,7 +54,7 @@ class InfectedSaveAdoptStagger(unittest.TestCase):
     def tick(self, ctx, rec, utc):
         module_call("override void OnTick(", ctx, 1.0,
             GetGame=lambda: NS(IsServer=lambda: True), HCInfectedClock=NS(UtcSeconds=lambda: utc),
-            HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
+            HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None), HCInfectedRoomCatalog=NS(BeginTick=lambda: None),
             HCHordeRecovery=NS(Reconcile=lambda *a: False),
             HCInfectedPolicy=NS(NextAdoptionCursor=lambda i, n: (i + 1) % n),
             HCInfectedStore=self.store)
@@ -244,7 +244,7 @@ class InfectedRouteBudget(unittest.TestCase):
             ctx.m_NextAdopt = 0
         module_call("override void OnTick(", ctx, 1.0,
             GetGame=lambda: NS(IsServer=lambda: True), HCInfectedClock=NS(UtcSeconds=lambda: 100),
-            HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None),
+            HCNativeInfectedPack=NS(RetryPendingReleases=lambda: None), HCInfectedRoomCatalog=NS(BeginTick=lambda: None),
             HCHordeRecovery=NS(Reconcile=lambda *a: False),
             HCInfectedPolicy=NS(NextAdoptionCursor=lambda i, n: (i + 1) % n),
             HCInfectedStore=NS(Save=lambda *a: True))

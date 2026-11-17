@@ -99,7 +99,20 @@ def production_fixture(document=None, houses=None, *, server=True, diagnostic=Fa
               PRODUCTION_PATH="$profile:HollowCountry/Infected/production-rooms.json",
               MAX_PRODUCTION_BYTES=1048576, MAX_PRODUCTION_CLASSES=2048,
               MAX_CONFIG_CLASSES=32768, MAX_PRODUCTION_HOUSES=64,
-              MAX_HOUSE_ANCHORS=16, MAX_TOTAL_ANCHORS=256)
+              MAX_HOUSE_ANCHORS=16, MAX_TOTAL_ANCHORS=256,
+              # Template binding state and constants (see the T4 section of the interiors contract).
+              s_TemplateBindings=Array(), s_ConflictHouses=Array(), s_TemplateRefusals=Array(),
+              s_BindRadius=30, s_BindQueryCap=2, s_BindQueries=0, s_BindStamp=0, s_ConflictsResolved=False,
+              s_TemplateLogged=False, s_TemplateReason="rooms_templates_not_loaded",
+              s_TemplateCovered=0, s_TemplateDenominator=0,
+              DEFAULT_BIND_RADIUS=30, DEFAULT_BIND_QUERIES=2, MAX_TEMPLATE_CANDIDATES=1024,
+              MAX_TEMPLATE_FOUND=16, MAX_TEMPLATE_LOG=64,
+              TEMPLATE_EVIDENCE_KIND="native-room-survey-v1",
+              TEMPLATE_READY="rooms_templates_provisional_path_audio_doors_pending",
+              Math=SimpleNamespace(Min=min, AbsFloat=abs),
+              HCInteriorTemplates=SimpleNamespace(Loaded=lambda: False),  # synthetic reader stub: no pack
+              LogTemplateAdmission=lambda: None, BindTemplateHouses=lambda clue: None,
+              ResolveLegacyConflicts=lambda: None)
     methods = {
         "ClearProduction": "", "ProductionReason": "", "ProductionServer": "",
         "ProductionCoverage": "covered=None, excluded=None",
@@ -135,7 +148,7 @@ class InfectedProductionRoomTests(unittest.TestCase):
         self.assertEqual(1, len(calls["logs"]))
         self.assertIn("room classes=2; instances=1", calls["logs"][0])
         self.assertEqual([], ns["s_Bindings"])
-        self.assertEqual([], ns["BuildOrder"](houses[0].position, 2))  # old consumer stays DIAG only
+        self.assertEqual([], ns["BuildOrder"](houses[0].position, 2))  # old consumer stays DIAG only unless a template pack is loaded
         self.assertEqual([houses[0].position], ns["BuildProductionOrder"](houses[0].position, 2))
         # Only data ordering is available; there is no route or qualification API here.
         source = PATH.read_text()
@@ -601,6 +614,401 @@ class InfectedProductionRoomTests(unittest.TestCase):
         self.assertNotRegex(PATH.read_text(), r'\.Get\([^\n;]*\)\.ToAscii\(')
 
 
+# --- Class-level template anchors, bound lazily (interior templates contract, T4) -------------
+# Everything below is SYNTHETIC: fabricated rooms, hashes and a test-only stand-in for the T3
+# reader (HCInteriorTemplates). Passing proves bind/refusal control flow only, never DayZ
+# behaviour. Nothing here is, or may become, a pack.
+TEMPLATE_FIXTURE = {"Synthetic": True, "Reader": "test-only stub of HCInteriorTemplates"}
+TEMPLATE_METHODS = {
+    "ConfigureBinding": "radius, queriesPerTick", "BeginTick": "", "ResolveLegacyConflicts": "",
+    "TemplateReason": "",
+    "NoteTemplateRefusal": "reason, detail", "CountTemplateClasses": "", "LogTemplateAdmission": "",
+    "TemplateAnchorTotal": "", "EvictTemplates": "incoming", "TemplateGeometry": "layout",
+    "TemplateBinding": "house, layout", "FindTemplateBinding": "house", "LegacyClaims": "house",
+    "DropLegacy": "house", "DropTemplate": "house", "ConflictKnown": "house", "MarkConflict": "house",
+    "TemplateAmbiguous": "house, found", "AdmitTemplateHouse": "house, found",
+    "BindTemplateHouses": "observedClue", "ClearProduction": "",
+    "BuildProductionOrder": "observedClue, budget, points=None",
+}
+
+
+def synthetic_room(room_id, x, half=.8):
+    return SimpleNamespace(Id=room_id, Label="room", Min=Array((x - half, -1, -half)),
+                           Max=Array((x + half, 1, half)), Anchor=Array((x, 0, 0)), FloorY=-1, Cells=4)
+
+
+def synthetic_template(kind="Synthetic_House_1", rooms=1, box=32):
+    return SimpleNamespace(BuildingClass=kind, TemplateId=kind.lower() + "-v1",
+        Box=SimpleNamespace(Min=Array((-box, -4, -box)), Max=Array((box, 16, box))),
+        Evidence=Array([SimpleNamespace(Kind="native-room-survey-v1", RunId="c" * 32, Sha256="d" * 64)]),
+        Rooms=Array(synthetic_room(index + 1, index * 2) for index in range(rooms)))
+
+
+def spaced_houses(count, kind="Synthetic_House_1"):
+    return [House(position=(100 + index * 100, 10, 100), kind=kind) for index in range(count)]
+
+
+def template_fixture(houses, *, loaded=True, rows=None, templates=None, legacy_houses=None, **options):
+    """Legacy file is empty unless legacy_houses names the instance the legacy file claims."""
+    doc, claimed = synthetic_production()
+    if legacy_houses is None:
+        doc.Buildings = Array()
+        doc.Classes[0].Disposition = "unmeasured"
+    else:
+        doc.Buildings[0].Position = legacy_houses[0].position
+        doc.Buildings[0].Orientation = legacy_houses[0].orientation
+    ns, calls, _, _ = production_fixture(doc, houses, **options)
+    state = {"loaded": loaded, "tick": 1.0, "rows": {"Synthetic_House_1": "covered"} if rows is None else rows,
+             "templates": {"Synthetic_House_1": synthetic_template()} if templates is None else templates}
+    calls.update(row_calls=[], template_calls=[])
+    def class_row(cls):
+        calls["row_calls"].append(str(cls))
+        status = state["rows"].get(str(cls))
+        if status is None: return None
+        return SimpleNamespace(BuildingClass=str(cls), Rooms=status, Furniture="covered", Search="covered")
+    def template(cls):
+        calls["template_calls"].append(str(cls))
+        return state["templates"].get(str(cls))
+    # Mirrors T3's real HCInteriorTemplates signatures (bld-T3 HCInteriorTemplates.c): points and boxes are
+    # array<float>; VectorValid also requires Count() == 3 and a sane value, AsVector builds a vector.
+    def vector_valid(value, limit):
+        return value is not None and len(value) == 3 and all(math.isfinite(v) and abs(v) <= limit for v in value)
+    def box_valid(minimum, maximum):
+        return vector_valid(minimum, 512) and vector_valid(maximum, 512) and all(minimum[i] < maximum[i] for i in range(3))
+    def inside(point, minimum, maximum):
+        return all(minimum[i] <= point[i] <= maximum[i] for i in range(3))
+    ns["HCInteriorTemplates"] = SimpleNamespace(Loaded=lambda: state["loaded"], ClassRow=class_row, Template=template,
+        VectorValid=vector_valid, BoxValid=box_valid, Inside=inside, AsVector=lambda value: Vec((value[0], value[1], value[2])))
+    # GetTickTime is an elapsed clock, not a tick identity: it changes on every call here.
+    clock = {"now": 1.0}
+    def jittering_clock():
+        clock["now"] += .001
+        return clock["now"]
+    ns["GetGame"]().GetTickTime = jittering_clock
+    for name, arguments in TEMPLATE_METHODS.items(): authored(name, arguments, ns, False)
+    ns["state"] = state
+    return ns, calls
+
+
+def order(ns, house_or_point, budget=2, advance=True):
+    point = house_or_point.position if isinstance(house_or_point, House) else house_or_point
+    if advance: ns["BeginTick"]()  # the module tick starts a new budget window
+    return ns["BuildProductionOrder"](point, budget)
+
+
+class TemplateAnchorBindingTests(unittest.TestCase):
+    def test_fixture_is_explicitly_synthetic_and_never_a_pack(self):
+        self.assertTrue(TEMPLATE_FIXTURE["Synthetic"])
+        self.assertNotIn('"Synthetic":', json.dumps(synthetic_template(), default=lambda o: o.__dict__))
+
+    def test_clue_binds_a_covered_house_lazily_and_converts_anchors_with_model_to_world(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses)
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual([], calls["queries"])  # nothing at start: binding waits for a clue
+        self.assertEqual([houses[0].position], order(ns, houses[0]))
+        self.assertEqual(1, len(ns["s_TemplateBindings"]))
+        self.assertEqual([(houses[0].position, 30)], calls["queries"])
+        anchor = ns["s_TemplateBindings"][0].Survey.Anchors[0]
+        self.assertEqual(Vec((0, 0, 0)), anchor.LocalPosition)  # stored in the model frame
+        self.assertEqual(("native-room-survey-v1", "c" * 32, "d" * 64),
+                         (anchor.EvidenceKind, anchor.SourceRunId, anchor.SourceSha256))
+
+    def test_two_rooms_order_the_clue_room_first_then_the_nearest(self):
+        houses = spaced_houses(1)
+        ns, _ = template_fixture(houses, templates={"Synthetic_House_1": synthetic_template(rooms=3)})
+        clue = Vec((100, 10, 100))
+        self.assertEqual([Vec((100, 10, 100)), Vec((102, 10, 100))], order(ns, clue, 2))
+
+    def test_bind_radius_binds_at_29_m_and_not_at_31_m(self):
+        houses = spaced_houses(1)
+        for distance, bound in ((29, 1), (30, 1), (31, 0)):
+            with self.subTest(distance=distance):
+                ns, calls = template_fixture(houses)
+                order(ns, Vec((100 + distance, 10, 100)))
+                self.assertEqual(bound, len(ns["s_TemplateBindings"]))
+                self.assertEqual([30], [radius for _, radius in calls["queries"]])
+
+    def test_configured_radius_and_cap_obey_the_setting_bounds(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses)
+        for radius, queries in ((4, 2), (61, 2), (30, 0), (30, 9)):
+            self.assertFalse(ns["ConfigureBinding"](radius, queries), (radius, queries))
+        self.assertTrue(ns["ConfigureBinding"](10, 1))
+        order(ns, Vec((111, 10, 100)))
+        self.assertEqual(0, len(ns["s_TemplateBindings"]))
+        self.assertEqual([10], [radius for _, radius in calls["queries"]])
+        order(ns, Vec((109, 10, 100)))
+        self.assertEqual(1, len(ns["s_TemplateBindings"]))
+
+    def test_per_tick_query_cap_defers_extra_binds_to_the_next_tick(self):
+        houses = spaced_houses(3)
+        ns, calls = template_fixture(houses)
+        for house in houses: order(ns, house, advance=False)
+        self.assertEqual(2, len(calls["queries"]))
+        self.assertEqual(2, len(ns["s_TemplateBindings"]))
+        order(ns, houses[2])  # the next tick resumes
+        self.assertEqual(3, len(calls["queries"]))
+        self.assertEqual(3, len(ns["s_TemplateBindings"]))
+        order(ns, houses[0], advance=False)
+        order(ns, houses[1], advance=False)
+        order(ns, houses[2], advance=False)
+        self.assertEqual(4, len(calls["queries"]))  # that tick had one query left, never more than 2 in total
+        ns2, calls2 = template_fixture(houses)
+        ns2["ConfigureBinding"](30, 1)
+        for house in houses: order(ns2, house, advance=False)
+        self.assertEqual(1, len(calls2["queries"]))
+
+    def test_query_budget_follows_begin_tick_not_the_elapsed_clock(self):
+        houses = spaced_houses(3)
+        ns, calls = template_fixture(houses)  # GetTickTime differs on every call
+        for house in houses: order(ns, house, advance=False)
+        self.assertEqual(2, len(calls["queries"]))
+        self.assertEqual(2, len(ns["s_TemplateBindings"]))
+        ns["BeginTick"]()
+        order(ns, houses[2], advance=False)
+        self.assertEqual(3, len(calls["queries"]))
+        self.assertNotIn("GetTickTime", re.sub(r"//[^\n]*", "", PATH.read_text().split("static bool ConfigureBinding(")[1].split("static void BuildOrder(")[0]))
+
+    def test_cap_still_holds_when_begin_tick_is_never_called(self):
+        houses = spaced_houses(4)
+        ns, calls = template_fixture(houses)
+        for house in houses: order(ns, house, advance=False)
+        for house in houses: order(ns, house, advance=False)
+        self.assertEqual(2, len(calls["queries"]))  # never reset: cached houses only afterwards
+        self.assertEqual(2, len(ns["s_TemplateBindings"]))
+        self.assertEqual([houses[0].position], order(ns, houses[0], advance=False))  # a cached house still orders
+
+    def test_conflict_is_decided_before_the_query_quota(self):
+        houses = spaced_houses(2)
+        ns, calls = template_fixture(houses, legacy_houses=houses)
+        ns["EnsureProductionLoaded"]()
+        ns["ConfigureBinding"](30, 1)
+        ns["BeginTick"]()
+        self.assertEqual([houses[1].position], order(ns, houses[1], advance=False))  # uses the only query
+        self.assertEqual([], order(ns, houses[0], advance=False))  # quota gone, yet no legacy anchors
+        self.assertEqual("rooms_conflict", ns["TemplateReason"]())
+        self.assertEqual(1, len([line for line in calls["logs"] if "rooms_conflict" in line]))
+        self.assertEqual([], ns["s_ProductionBindings"])
+        self.assertEqual([houses[1]], [b.HouseObject for b in ns["s_TemplateBindings"]])
+        ns["BeginTick"]()
+        self.assertEqual([], order(ns, houses[0], advance=False))  # still neither source next tick
+
+    def test_conflict_evicts_a_template_cached_before_the_legacy_file_loaded(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses, legacy_houses=houses)
+        self.assertEqual([houses[0].position], order(ns, houses[0], advance=False))  # cached pre-load
+        self.assertEqual(1, len(ns["s_TemplateBindings"]))
+        ns["EnsureProductionLoaded"]()
+        ns["ConfigureBinding"](30, 1)
+        ns["BeginTick"]()
+        order(ns, Vec((900, 10, 900)), advance=False)  # an unrelated clue spends the quota
+        self.assertEqual([], order(ns, houses[0], advance=False))
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual(0, ns["TemplateAnchorTotal"]())
+        self.assertEqual([], ns["s_ProductionBindings"])
+        self.assertEqual("rooms_conflict", ns["TemplateReason"]())
+
+    def test_ordering_skips_a_conflicted_house_even_if_a_binding_survives(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses)
+        order(ns, houses[0], advance=False)
+        ns["s_ConflictHouses"].append(houses[0])  # a belt-and-braces check on the merge itself
+        self.assertEqual(1, len(ns["s_TemplateBindings"]))
+        self.assertEqual([], order(ns, houses[0], advance=False))
+
+    def test_template_dto_names_match_the_real_reader(self):
+        reader = Path("/code/hc-worktrees/bld-T3/mods/HollowCountry/scripts/4_World/Interiors")
+        if not reader.is_dir(): self.skipTest("T3 worktree is not present")
+        text = (reader / "HCInteriorTemplatesData.c").read_text() + (reader / "HCInteriorTemplates.c").read_text()
+        for name in ("static bool Loaded()", "static HCInteriorTemplateClassRow ClassRow(string cls)",
+                     "static HCInteriorTemplate Template(string cls)", "static bool VectorValid(array<float> value, float limit)",
+                     "static bool BoxValid(array<float> minimum, array<float> maximum)",
+                     "static bool Inside(array<float> point, array<float> minimum, array<float> maximum)",
+                     "static vector AsVector(array<float> value)", "ref array<float> Anchor", "ref array<float> Min",
+                     "ref array<ref HCInteriorTemplateEvidence> Evidence", "string RunId;", "string Sha256;"):
+            self.assertIn(name, text)
+
+    def test_conflict_needs_no_query_at_all(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses, legacy_houses=houses)
+        ns["EnsureProductionLoaded"]()
+        queries = len(calls["queries"])
+        ns["ConfigureBinding"](30, 1)
+        ns["BeginTick"]()
+        order(ns, Vec((900, 10, 900)), advance=False)  # an unrelated clue spends the quota
+        self.assertEqual([], order(ns, houses[0], advance=False))
+        self.assertEqual([], ns["s_ProductionBindings"])
+        self.assertEqual("rooms_conflict", ns["TemplateReason"]())
+
+    def test_lru_keeps_at_most_64_houses_and_releases_the_least_recently_used(self):
+        houses = spaced_houses(65)
+        ns, _ = template_fixture(houses)
+        for house in houses[:64]: order(ns, house)
+        self.assertEqual(64, len(ns["s_TemplateBindings"]))
+        order(ns, houses[0])  # touch the oldest binding
+        order(ns, houses[64])  # 65th house evicts the least recently used: house 1, not house 0
+        bound = [binding.HouseObject for binding in ns["s_TemplateBindings"]]
+        self.assertEqual(64, len(bound))
+        self.assertIn(houses[0], bound)
+        self.assertIn(houses[64], bound)
+        self.assertNotIn(houses[1], bound)
+
+    def test_anchor_cap_of_256_evicts_before_the_house_cap(self):
+        houses = spaced_houses(17)
+        ns, _ = template_fixture(houses, templates={"Synthetic_House_1": synthetic_template(rooms=16)})
+        for house in houses[:16]: order(ns, house)
+        total = lambda: sum(len(b.Survey.Anchors) for b in ns["s_TemplateBindings"])
+        self.assertEqual((16, 256), (len(ns["s_TemplateBindings"]), total()))
+        order(ns, houses[16])
+        self.assertEqual((16, 256), (len(ns["s_TemplateBindings"]), total()))
+        bound = [binding.HouseObject for binding in ns["s_TemplateBindings"]]
+        self.assertNotIn(houses[0], bound)
+        self.assertIn(houses[16], bound)
+
+    def test_uncovered_or_unknown_classes_are_ignored(self):
+        houses = spaced_houses(1)
+        for rows in ({"Synthetic_House_1": "unmeasured"}, {"Synthetic_House_1": "not_enterable"}, {}):
+            with self.subTest(rows=rows):
+                ns, calls = template_fixture(houses, rows=rows)
+                self.assertEqual([], order(ns, houses[0]))
+                self.assertEqual([], ns["s_TemplateBindings"])
+                self.assertEqual([], calls["template_calls"])
+                self.assertEqual(["Synthetic_House_1"], calls["row_calls"][:1])
+
+    def test_non_house_candidates_and_dense_results_are_bounded(self):
+        houses = [object() for _ in range(1100)] + spaced_houses(1)
+        ns, calls = template_fixture(houses)
+        self.assertEqual([], order(ns, Vec((100, 10, 100))))
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual("rooms_bind_dense", ns["TemplateReason"]())
+        self.assertLessEqual(len(calls["row_calls"]), 1024)
+
+    def test_legacy_claim_conflicts_refuse_the_house_for_both_sources(self):
+        houses = spaced_houses(2)
+        ns, calls = template_fixture(houses, legacy_houses=houses)
+        ns["EnsureProductionLoaded"]()
+        self.assertEqual(1, len(ns["s_ProductionBindings"]))  # the legacy file admitted house 0
+        self.assertEqual([], order(ns, houses[0]))  # claimed by both: use neither
+        self.assertEqual("rooms_conflict", ns["TemplateReason"]())
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual([], ns["s_ProductionBindings"])
+        for _ in range(3): order(ns, houses[0])
+        self.assertEqual(1, len([line for line in calls["logs"] if "rooms_conflict" in line]))
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual([houses[1].position], order(ns, houses[1]))  # an unclaimed house still binds
+
+    def test_legacy_alone_keeps_working_when_the_pack_is_not_loaded(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses, loaded=False, legacy_houses=houses)
+        self.assertEqual([], order(ns, houses[0]))  # not admitted yet: no first-tick load
+        ns["EnsureProductionLoaded"]()
+        queries = len(calls["queries"])
+        self.assertEqual([houses[0].position], order(ns, houses[0]))
+        self.assertEqual(queries, len(calls["queries"]))  # no template query, no template read
+        self.assertEqual([], calls["row_calls"] + calls["template_calls"])
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertFalse([line for line in calls["logs"] if "templates" in line])
+
+    def test_templates_without_the_legacy_file_work_and_legacy_still_orders_beside_them(self):
+        houses = spaced_houses(2)
+        ns, _ = template_fixture(houses, legacy_houses=houses[:1])
+        ns["EnsureProductionLoaded"]()
+        ns["state"]["rows"] = {"Synthetic_Shed_1": "covered"}  # legacy house is not a template class
+        self.assertEqual([houses[0].position], order(ns, houses[0]))
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
+
+    def test_house_pose_must_be_yaw_only_and_unambiguous(self):
+        tilted = [House(position=(100, 10, 100), orientation=(30, 5, 0))]
+        ns, _ = template_fixture(tilted)
+        self.assertEqual([], order(ns, tilted[0]))
+        self.assertEqual("tilted", ns["TemplateReason"]())
+        self.assertEqual([], ns["s_TemplateBindings"])
+        yawed = [House(position=(100, 10, 100), orientation=(30, 0, 0))]
+        ns, _ = template_fixture(yawed)
+        self.assertEqual([yawed[0].position], order(ns, yawed[0]))
+        twins = [House(position=(100, 10, 100)), House(position=(100.5, 10, 100))]
+        ns, _ = template_fixture(twins)
+        self.assertEqual([], order(ns, twins[0]))
+        self.assertEqual("rooms_template_ambiguous", ns["TemplateReason"]())
+        self.assertEqual([], ns["s_TemplateBindings"])
+
+    def test_malformed_templates_are_refused_without_a_binding(self):
+        def mutate(change):
+            layout = synthetic_template(rooms=2)
+            change(layout)
+            return {"Synthetic_House_1": layout}
+        cases = {
+            "rooms_template_geometry": (
+                lambda t: setattr(t.Rooms[0], "Anchor", Array((5, 0, 0))),
+                lambda t: setattr(t.Rooms[1], "Anchor", Array((0, 0, 0))),
+                lambda t: setattr(t.Rooms[1], "Id", 1),
+                lambda t: setattr(t.Rooms[0], "Max", Array((99, 1, .8))),
+                lambda t: setattr(t.Box, "Max", Array((513, 16, 32))),
+                lambda t: setattr(t.Rooms[0], "Anchor", Array((math.nan, 0, 0))),
+                lambda t: setattr(t, "Rooms", Array()),
+                lambda t: setattr(t, "BuildingClass", "Other_Class")),
+            "rooms_template_evidence": (
+                lambda t: setattr(t.Evidence[0], "Kind", "synthetic"),
+                lambda t: setattr(t.Evidence[0], "RunId", ""),
+                lambda t: setattr(t, "Evidence", Array())),
+        }
+        for reason, changes in cases.items():
+            for change in changes:
+                ns, _ = template_fixture(spaced_houses(1), templates=mutate(change))
+                self.assertEqual([], order(ns, Vec((100, 10, 100))), reason)
+                self.assertEqual(reason, ns["TemplateReason"]())
+                self.assertEqual([], ns["s_TemplateBindings"])
+        seventeen = {"Synthetic_House_1": synthetic_template(rooms=17, box=64)}
+        ns, _ = template_fixture(spaced_houses(1), templates=seventeen)
+        self.assertEqual([], order(ns, Vec((100, 10, 100))))
+        self.assertEqual("rooms_template_geometry", ns["TemplateReason"]())
+        ns, _ = template_fixture(spaced_houses(1), templates={})
+        self.assertEqual([], order(ns, Vec((100, 10, 100))))
+        self.assertEqual("rooms_template_missing", ns["TemplateReason"]())
+
+    def test_refusals_are_logged_once_per_reason_and_class(self):
+        houses = [House(orientation=(0, 5, 0))]
+        ns, calls = template_fixture(houses)
+        for _ in range(5): order(ns, houses[0])
+        self.assertEqual(1, len([line for line in calls["logs"] if "tilted" in line]))
+
+    def test_success_log_names_provisional_pending_state_and_class_counts_once(self):
+        houses = spaced_houses(2)
+        ns, calls = template_fixture(houses)
+        for _ in range(3): order(ns, houses[0])
+        logs = [line for line in calls["logs"] if "rooms_templates_provisional_path_audio_doors_pending" in line]
+        self.assertEqual(1, len(logs))
+        self.assertIn("classes=1/2", logs[0])
+        order(ns, houses[1])
+        self.assertEqual(1, len([line for line in calls["logs"] if "provisional" in line]))
+
+    def test_late_load_and_clear_reset_template_state_and_settings(self):
+        houses = spaced_houses(1)
+        ns, calls = template_fixture(houses, loaded=False)
+        self.assertEqual([], order(ns, houses[0]))
+        self.assertEqual([], calls["queries"])
+        ns["state"]["loaded"] = True  # the reader finished after the Infected module started
+        self.assertEqual([houses[0].position], order(ns, houses[0]))
+        ns["ConfigureBinding"](10, 1)
+        ns["Clear"]()
+        self.assertEqual([], ns["s_TemplateBindings"])
+        self.assertEqual([], ns["s_ConflictHouses"])
+        self.assertFalse(ns["s_TemplateLogged"])
+        self.assertEqual((30, 2), (ns["s_BindRadius"], ns["s_BindQueryCap"]))
+
+    def test_no_fabricated_offsets_spawns_or_blocked_doors_in_the_template_path(self):
+        source = re.sub(r"//[^\n]*", "", PATH.read_text())
+        start = source.index("static bool ConfigureBinding(")
+        end = source.index("static void BuildOrder(")
+        body = source[start:end]
+        for forbidden in ("SetPosition(", "CreateObject", "SpawnEntity", "SetOrientation(", "Door", "GetPlayers("):
+            self.assertNotIn(forbidden, body)
+        self.assertEqual(1, body.count("GetObjectsAtPosition3D("))
+        self.assertNotRegex(body, r"\?[^\n]*:")  # no ternary operator in Enforce script
+
+
 if __name__ == "__main__": unittest.main()
 
 
@@ -616,3 +1024,28 @@ class ProductionCatalogModuleWiringTests(unittest.TestCase):
         self.assertIn("HCInfectedRoomCatalog.EnsureProductionLoaded();", body)
         self.assertLess(body.index('Quarantine("invalid limits")'),
                         body.index("HCInfectedRoomCatalog.EnsureProductionLoaded();"))
+
+
+class TemplateBindingModuleWiringTests(unittest.TestCase):
+    """The module configures template binding from settings and resets its query budget each tick."""
+
+    def module_text(self):
+        module = Path(__file__).resolve().parents[2] / "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c"
+        return re.sub(r"//[^\n]*", "", module.read_text())
+
+    def test_start_configures_binding_before_loading_production_rooms(self):
+        text = self.module_text()
+        start = text.index("override void OnStart(HCSettings settings)")
+        body = text[start:text.index("HCInfectedAdmission.Evaluate(m_Config)", start)]
+        call = "HCInfectedRoomCatalog.ConfigureBinding(settings.InfectedBindRadius, settings.MaxBindQueriesPerTick);"
+        self.assertEqual(1, text.count("HCInfectedRoomCatalog.ConfigureBinding("))
+        self.assertIn(call, body)
+        self.assertLess(body.index(call), body.index("HCInfectedRoomCatalog.EnsureProductionLoaded();"))
+
+    def test_each_healthy_tick_begins_a_new_bind_budget(self):
+        text = self.module_text()
+        start = text.index("override void OnTick(float deltaTime)")
+        body = text[start:text.index("m_RoutesRemaining = 1;", start)]
+        self.assertEqual(1, text.count("HCInfectedRoomCatalog.BeginTick();"))
+        self.assertIn("HCInfectedRoomCatalog.BeginTick();", body)
+        self.assertLess(body.index("if (!m_Healthy"), body.index("HCInfectedRoomCatalog.BeginTick();"))

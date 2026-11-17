@@ -94,6 +94,8 @@ class HCInfectedModule : HCModule
             Quarantine("invalid limits");
             return;
         }
+        // Settings already validated the ranges; out-of-range values keep the catalog defaults.
+        HCInfectedRoomCatalog.ConfigureBinding(settings.InfectedBindRadius, settings.MaxBindQueriesPerTick);
         // One bounded attempt per Clear(); a refusal is latched and logged once.
         HCInfectedRoomCatalog.EnsureProductionLoaded();
         // Preferences stay as the operator wrote them; native-affecting paths use
@@ -780,6 +782,7 @@ class HCInfectedModule : HCModule
         m_Now = nowUtc - m_StartedUtc;
         m_VoiceAttempts = 0;
         m_RegistrationAttempts = 0;
+        HCInfectedRoomCatalog.BeginTick();
         m_ObservationsRemaining = 1;
         m_RoutesRemaining = 1;
         int maintenance = m_Investigators.Count();
