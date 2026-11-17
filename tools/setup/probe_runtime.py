@@ -167,7 +167,7 @@ _EXPONENT = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
 # of what the CE hook and the taped-light hook call, so one lint covers both generated hooks.
 _OUT_CALLS = (("GetObjectsAtPosition3D", (2, 3)), ("ClippingInfo", (0,)), ("GetCollisionBox", (0,)),
               ("GetSelectionForSlotId", (1,)), ("GetBoneNameForSlotId", (1,)), ("GetSelectionList", (0,)),
-              ("GetLODS", (0,)), ("ConfigGetChildName", (2,)))
+              ("GetLODS", (0,)), ("GetSelections", (0,)), ("ConfigGetChildName", (2,)))
 
 # Native compile evidence for the expression limits below. A real DayZServer 1.30.164289 run refused
 # the generated taped-light init.c with `Formula too complex` and `Incompatible parameter 'slot'` on

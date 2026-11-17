@@ -3,6 +3,7 @@
 Nothing here establishes DayZ behavior: the report only joins what a native probe run wrote
 with the config classification, and these tests prove only that join logic.
 """
+import copy
 import json
 from pathlib import Path
 import re
@@ -68,33 +69,59 @@ def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True, found=
 LIGHT_PROXY_PATH = "/dz/weapons/attachments/light/weaponlight_universal"
 
 
+def res_entry(name="1.000", selection="", list_ok=True, vertex_ok=None, vertex=("0.5", "0.25", "-1.5")):
+    """One per-resolution-LOD entry of a proxy row: the LOD, whether its selection list call succeeded, the first
+    selection whose whole normalised path equals the row's model path, and that selection's first vertex as text."""
+    vertex_ok = bool(selection) if vertex_ok is None else vertex_ok
+    return {"name": name, "list_ok": list_ok, "selection": selection, "vertex_ok": vertex_ok,
+            "vertex": list(vertex) if vertex_ok else []}
+
+
 def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exists=True, model=None, cfg_class=None,
-          slot_count=None, slot_complete=None, view_selection=None, vertex_ok=True, vertex=("0.5", "0.25", "-1.5")):
-    """One probe-003 style proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
+          slot_count=None, slot_complete=None, res_selection=None, vertex_ok=None, vertex=("0.5", "0.25", "-1.5"),
+          res=None):
+    """One proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
 
     The probe lists ``proxy:/dz/.../weaponlight_universal.001`` style selections; the config entry is
     ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list.
-    ``slot_count``/``slot_complete`` are the hook's inventorySlot bookkeeping (the listed rows are capped at 8) and
-    ``view_selection``/``vertex_ok``/``vertex`` are the view-LOD join (the first view-LOD proxy selection whose whole
-    normalised path equals the model path, and the first vertex of that selection as number text). It is the result of one
-    lookup per model, so it does not depend on the instance number of the row; the default is the ``.001`` instance."""
+    ``slot_count``/``slot_complete`` are the hook's inventorySlot bookkeeping (the listed rows are capped at 8).
+    ``res`` is the row's per-resolution-LOD list (one entry per numeric-named LOD of the host, see HOST_RES); by default
+    the single LOD "1.000" holds the proxy selection of the ``.001`` instance, whose first vertex is ``vertex``. The lookup
+    is one result per model, so it does not depend on the instance number of the row. ``res_selection`` replaces that
+    selection ("" for none)."""
     base = path.rsplit("/", 1)[-1]
     default_model = "\\" + path.strip("/").replace("/", "\\") + ".p3d"
     listed = list(slots) if exists else []
     selection = "proxy:" + path + "." + number
+    if res is None:
+        found = ("proxy:" + path + ".001").lower() if res_selection is None else res_selection
+        res = [res_entry("1.000", found, vertex_ok=vertex_ok, vertex=vertex)]
     return {"selection": selection, "cfg_class": "Proxy" + base if cfg_class is None else cfg_class,
             "cfg_exists": exists, "model": ("" if not exists else default_model) if model is None else model,
             "inventory_slots": listed, "slot_count": len(listed) if slot_count is None else slot_count,
             "slot_scan_complete": (slot_count is None or slot_count == len(listed)) if slot_complete is None else slot_complete,
-            "view_selection": ("proxy:" + path + ".001").lower() if view_selection is None else view_selection,
-            "view_vertex_ok": vertex_ok, "view_vertex": list(vertex) if vertex_ok else []}
+            "res_lods": res}
 
 
-VIEW_HOST = {"view_lod": True, "view_selection_count": 3, "view_scan_complete": True, "view_list_ok": True}
+def res_host(*lods, enum_ok=True, count=None, complete=None, empty=False):
+    """The host-level resolution-LOD facts. ``lods`` are (name, selection_count) pairs or full dicts; the defaults are the
+    one LOD "1.000" holding three selections, and ``empty`` is a host whose LOD list holds no numeric-named LOD."""
+    entries = [dict(name=item[0], list_ok=True, selection_count=item[1], scan_complete=True) if isinstance(item, tuple) else item
+               for item in ([] if empty else (lods or (("1.000", 3),)))]
+    count = len(entries) if count is None else count
+    if complete is None:
+        complete = enum_ok and len(entries) == count and all(item["scan_complete"] for item in entries)
+    return {"res_enum_ok": enum_ok, "res_lod_count": count, "res_lods_scanned": len(entries), "res_scan_complete": complete,
+            "res_lods": entries}
+
+
+LOD_FACTS = {"lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
+             "view_by_name": False}
+HOST_FACTS = dict(res_host(), **LOD_FACTS)       # what the hook writes per host next to the proxy rows
 
 
 def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
-        prereq_variant=None, proxies=None, proxy_count=None, view=None):
+        prereq_variant=None, proxies=None, proxy_count=None, facts=None):
     if not spawned:
         return {"i": index, "class": name, "root": root, "group": group, "spawned": False, "timed_out": False}
     result = {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
@@ -106,7 +133,7 @@ def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeap
         result["proxy_count"] = len(proxies) if proxy_count is None else proxy_count
         result["proxy_scan_complete"] = True
         result["proxies"] = proxies
-        result.update(VIEW_HOST if view is None else view)
+        result.update(copy.deepcopy(HOST_FACTS) if facts is None else facts)
     return result
 
 
@@ -951,8 +978,8 @@ class ProxySlotEvidenceTests(unittest.TestCase):
 
     def test_a_proxy_with_an_existing_config_matching_model_and_slot_qualifies(self):
         slot, record, result = self.attach([proxy()])
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
         self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
         self.assertEqual("qualified", record["verdict"])
         self.assertEqual("PENDING", result["acceptance"])
@@ -972,7 +999,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                 item = proxy()
                 item["selection"] = prefix + item["selection"][len("proxy:"):]
                 slot, _record, _result = self.attach([item])
-                self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+                self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_selection_without_the_proxy_prefix_is_malformed_evidence_not_a_match(self):
         item = proxy()
@@ -983,7 +1010,7 @@ class ProxySlotEvidenceTests(unittest.TestCase):
     def test_a_qualifying_proxy_among_other_rows_and_a_truncated_list_still_qualifies(self):
         rows = [proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",)), proxy()]
         slot, _record, _result = self.attach(rows, proxy_count=40)
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_proxy_that_names_a_different_slot_does_not_qualify(self):
         slot, record, _result = self.attach([proxy(slots=("pistolFlashlight",))])
@@ -1098,15 +1125,15 @@ class ProxySlotEvidenceTests(unittest.TestCase):
                     prereq_variant=variant, proxies=[proxy()])]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
         self.assertTrue(slot["evidence"]["requires_prerequisite"])
-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual("resolution_lod_proxy_slot", slot["evidence"]["model_evidence"])
         rows[0]["proxies"] = [proxy(slots=("pistolFlashlight",))]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
         self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
-        for key in ("proxies", "proxy_count", "proxy_scan_complete", *VIEW_HOST):
+        for key in ("proxies", "proxy_count", "proxy_scan_complete", *HOST_FACTS):
             del rows[0][key]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
@@ -1118,8 +1145,9 @@ class ProxySlotEvidenceTests(unittest.TestCase):
 
     def test_the_consumed_keys_name_the_proxy_fields(self):
         for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots",
-                    "slot_count", "slot_scan_complete", "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok",
-                    "view_selection", "view_vertex_ok", "view_vertex"):
+                    "slot_count", "slot_scan_complete", "res_enum_ok", "res_lod_count", "res_lods_scanned",
+                    "res_scan_complete", "res_lods", "name", "list_ok", "selection_count", "scan_complete", "vertex_ok",
+                    "vertex"):
             self.assertIn(key, report.CONSUMED_KEYS)
 
 
@@ -1144,16 +1172,55 @@ class ProxyIdentityTests(unittest.TestCase):
 
     def test_each_conflicting_field_of_a_duplicate_identity_is_caught(self):
         for field, value in (("model", "\\dz\\other.p3d"), ("inventory_slots", ["pistolFlashlight"]),
-                             ("cfg_class", "Proxyweaponlight_universal2"), ("view_selection", ""),
-                             ("view_vertex_ok", False)):
+                             ("cfg_class", "Proxyweaponlight_universal2"), ("slot_count", 3),
+                             ("res_lods", [res_entry("1.000", "", vertex_ok=False)])):
             with self.subTest(field=field):
                 self.assert_pending_malformed([proxy(), dict(proxy(), **{field: value})], field)
 
-    def test_duplicate_identities_are_malformed_even_when_they_agree_and_across_case_and_slash_spelling(self):
-        self.assert_pending_malformed([proxy(), proxy()], "identical duplicate")
-        other = proxy()
-        other["selection"] = "PROXY:\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.001"
-        self.assert_pending_malformed([proxy(), other], "case and slash variant")
+    def test_agreeing_aliases_of_one_identity_collapse_into_one_evidence_identity_and_still_qualify(self):
+        """Review 007 P3a: ``proxy:/dz/..x.001`` and ``proxy:dz/..x.001`` (FNX45 natively) normalise to one identity. Copies
+        that read the same config entry and the same resolution lookup are one piece of evidence, never malformed;
+        case, slash and leading-slash spellings all count as the same identity."""
+        slashed = proxy()
+        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
+        shouted = dict(proxy(), selection="PROXY:\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.001")
+        for label, proxies in (("identical copies", [proxy(), proxy()]), ("leading slash pair", [slashed, bare]),
+                               ("reverse order", [bare, slashed]), ("case and slash variant", [proxy(), shouted]),
+                               ("three spellings", [slashed, bare, shouted])):
+            with self.subTest(label):
+                slot, result = self.judge(proxies)
+                self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"),
+                                 (slot["verdict"], slot["reason"]), label)
+                self.assertEqual([], result["integrity"]["issues"], label)
+
+    def test_aliases_keep_their_raw_rows_and_the_collapsed_count_as_diagnostics(self):
+        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[proxy(), bare])]
+        rows[0]["proxy_count"] = 2
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        diagnostics = result["hosts"][0]["diagnostics"]
+        self.assertEqual(2, rows[0]["proxy_count"])
+        self.assertEqual(1, diagnostics["proxy_alias_collapsed"])
+        self.assertEqual([proxy()["selection"], bare["selection"]], [item["selection"] for item in rows[0]["proxies"]])
+        rows[0]["proxies"] = [proxy(number="001"), proxy(number="002")]       # two instances are two identities
+        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
+        self.assertEqual(0, result["hosts"][0]["diagnostics"]["proxy_alias_collapsed"])
+
+    def test_conflicting_aliases_of_one_identity_stay_malformed_in_either_order(self):
+        """The same identity read two ways is contradictory evidence, whichever spelling comes first."""
+        bare = dict(proxy(), selection="proxy:" + LIGHT_PROXY_PATH[1:] + ".001")
+        conflicts = {"model": dict(bare, model="\\dz\\other.p3d"),
+                     "slots": dict(bare, inventory_slots=["pistolFlashlight"]),
+                     "slot count": dict(bare, slot_count=9, slot_scan_complete=False),
+                     "config exists": dict(bare, cfg_exists=False, model="", inventory_slots=[], slot_count=0),
+                     "resolution selection": dict(bare, res_lods=[res_entry("1.000", "", vertex_ok=False)]),
+                     "resolution vertex": dict(bare, res_lods=[res_entry("1.000", bare["res_lods"][0]["selection"],
+                                                                         vertex=("9", "8", "7"))]),
+                     "resolution lod name": dict(bare, res_lods=[dict(bare["res_lods"][0], name="0")])}
+        for label, second in conflicts.items():
+            for order in ((proxy(), second), (second, proxy())):
+                with self.subTest(label, first=order[0]["selection"]):
+                    self.assert_pending_malformed(list(order), label)
 
     def test_two_instances_of_one_proxy_that_read_the_same_config_differently_are_malformed(self):
         self.assert_pending_malformed([proxy(number="001"), proxy(number="002", slots=("pistolFlashlight",))], "slots")
@@ -1180,6 +1247,20 @@ class ProxyIdentityTests(unittest.TestCase):
         item = proxy(path="/dz/weapons/attachments/light", number="001", cfg_class="Proxylight")
         item["selection"] = "proxy:/dz/weapons/attachments/light/.001"
         self.assert_pending_malformed([item], "empty basename, coherent row")
+
+    def test_an_empty_basename_hidden_behind_the_p3d_extension_is_malformed_even_with_a_coherent_row(self):
+        """Review 007 P3b: ``.../light/.p3d.001`` has no raw trailing slash, and only after the extension is stripped is the
+        basename empty. The config row, the model path and the resolution selection all agree with that empty basename, so
+        only the two normalised-path guards of the name parser refuse it (the combined deletion mutant)."""
+        selection = "proxy:/dz/weapons/attachments/light/.p3d.001"
+        item = proxy(path="/dz/weapons/attachments/light/", cfg_class="Proxy",
+                     model="\\dz\\weapons\\attachments\\light\\.p3d", res_selection=selection)
+        item["selection"] = selection
+        self.assertEqual("Proxy", item["cfg_class"])
+        self.assert_pending_malformed([item], "empty basename behind the extension, coherent row")
+        self.assertIsNone(report._proxy_name(selection))
+        for other in ("proxy:/dz/weapons/attachments/light/.P3D.007", "proxy:\\dz\\weapons\\attachments\\light\\.p3d.1"):
+            self.assertIsNone(report._proxy_name(other), other)
 
     def test_a_malformed_name_in_any_row_makes_the_host_pending_even_with_a_valid_matching_row_present(self):
         self.assert_pending_malformed([proxy(), dict(proxy(path="/dz/x/muzzle"), selection="proxy:/dz/x/muzzle.garbage")])
@@ -1216,7 +1297,7 @@ class SlotListTruncationTests(unittest.TestCase):
 
     def test_a_listed_slot_still_qualifies_when_the_list_is_truncated(self):
         slot, _result = self.judge([proxy(slots=self.FILLER[:7] + ("weaponFlashlight",), slot_count=12)])
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
 
     def test_a_complete_slot_list_without_the_slot_stays_a_negative_finding(self):
         slot, _result = self.judge([proxy(slots=self.FILLER)])
@@ -1238,73 +1319,240 @@ class SlotListTruncationTests(unittest.TestCase):
         self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
 
 
-class ViewLodEvidenceTests(unittest.TestCase):
-    """Fix round 4: GetSelectionList does not establish view-LOD membership. A proxy qualifies only when the host's
-    view LOD (Object.GetLODByName(LOD.NAME_VIEW), LOD.GetSelections) holds a selection that contains the proxy model
-    path and the selection has a first vertex. Anything unknown is pending. This is source-level evidence of the
-    pattern AttachmentsOutOfReach.c:97-135 reads; it does not prove client rendering."""
+def facts_of(res, extra=("geometry",)):
+    """Host facts as the hook writes them for a resolution scan ``res`` (a res_host result): the diagnostic LOD name list is
+    the numeric names followed by ``extra`` (non-resolution LODs), cut at eight names like the hook's list."""
+    listed = res["res_enum_ok"]
+    names = [item["name"] for item in res["res_lods"]] + list(extra)
+    count = max(res["res_lod_count"], len(res["res_lods"])) + len(extra) if listed else 0
+    shown = names[:8] if listed else []
+    return dict(copy.deepcopy(res), lod_list_ok=listed, lod_count=count, lod_names=shown,
+                lod_names_complete=len(shown) == count, view_by_name=False)
 
-    def judge(self, proxies=None, view=None, **row_extra):
+
+def legacy_proxy(**changes):
+    """A proxy row as the round-4 to round-6 hook wrote it: view-LOD fields, no per-resolution-LOD list."""
+    item = {key: value for key, value in proxy(**changes).items() if key != "res_lods"}
+    return dict(item, view_selection="", view_vertex_ok=False, view_vertex=[])
+
+
+LEGACY_HOST = {"view_lod": False, "view_selection_count": 0, "view_scan_complete": False, "view_list_ok": False,
+               "lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
+               "view_by_name": False}
+SELECTION = "proxy:" + LIGHT_PROXY_PATH + ".001"
+GOOD = ("qualified", "native_attach_with_resolution_lod_proxy_slot")
+
+
+class ResolutionLodEvidenceTests(unittest.TestCase):
+    """Round 7 (taped-light-probe-005): the dedicated server has no LOD named "view" (a client inventory helper's LOD), so the
+    model-proxy evidence is the resolution LODs, whose names are numeric ("0", "1", "1.000"). A proxy qualifies only when the
+    native attach was ok, the Proxy<basename> class exists with the proxy's own model, the slot is listed, and a numeric LOD
+    whose selection scan was complete holds that proxy selection. Anything unknown is pending. This is source-level evidence
+    of a model proxy slot on the server-side model only; it says nothing about beam render, the switch, two-client
+    presentation, removal by hand, tape consumption or persistence."""
+
+    def judge(self, proxies=None, facts=None, **extra):
         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(),
-                    proxies=[proxy()] if proxies is None else proxies, view=view, **row_extra)]
+                    proxies=[proxy()] if proxies is None else proxies, facts=facts)]
+        rows[0].update(extra)
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         record = result["hosts"][0]
         return record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], record, result
 
-    def test_a_view_lod_match_with_a_vertex_qualifies_and_the_evidence_is_reported(self):
+    def verdict(self, *args, **kwargs):
+        slot, _record, _result = self.judge(*args, **kwargs)
+        return slot["verdict"], slot["reason"]
+
+    def test_a_resolution_lod_holding_the_proxy_selection_qualifies_and_the_evidence_is_reported(self):
         slot, record, result = self.judge()
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), (slot["verdict"], slot["reason"]))
-        self.assertEqual("view_lod_proxy_slot", slot["evidence"]["model_evidence"])
+        self.assertEqual(GOOD, (slot["verdict"], slot["reason"]))
         evidence = slot["evidence"]
-        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", evidence["proxy_selection"])
-        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", evidence["view_selection"])
-        self.assertEqual([0.5, 0.25, -1.5], evidence["view_vertex"])
+        self.assertEqual("resolution_lod_proxy_slot", evidence["model_evidence"])
+        self.assertEqual(SELECTION, evidence["proxy_selection"])
+        self.assertEqual(("1.000", SELECTION, [0.5, 0.25, -1.5]),
+                         (evidence["resolution_lod"], evidence["resolution_selection"], evidence["resolution_vertex"]))
         self.assertEqual("qualified", record["verdict"])
         self.assertEqual("PENDING", result["acceptance"])
+        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, result["unobserved_axes"])
 
-    def test_without_view_lod_membership_a_proxy_slot_match_is_pending_with_an_explicit_reason(self):
-        no_view = dict(proxy(), view_selection="", view_vertex_ok=False, view_vertex=[])
+    def test_no_label_keeps_the_view_lod_name(self):
+        slot, _record, result = self.judge()
+        self.assertNotIn("view_lod", json.dumps(result))
+        self.assertNotIn("view_selection", json.dumps(slot))
+
+    def test_without_the_proxy_selection_in_a_complete_resolution_lod_the_slot_is_pending_with_an_explicit_reason(self):
+        failed_list = dict(name="1.000", list_ok=False, selection_count=0, scan_complete=False)
+        cut_scan = dict(name="1.000", list_ok=True, selection_count=900, scan_complete=False)
+        many = [str(number) for number in range(16)]
         cases = {
-            "no view lod": (dict(VIEW_HOST, view_lod=False, view_list_ok=False, view_selection_count=0, view_scan_complete=False),
-                            [no_view], "view_lod_missing"),
-            "no view selection, complete scan": (None, [no_view], "view_selection_missing"),
-            "no view selection, truncated scan": (dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False),
-                                                  [no_view], "view_evidence_truncated"),
-            "view selection names another model": (None, [proxy(view_selection="proxy:/dz/other/thing.001")],
-                                                   "view_selection_mismatch"),
-            "no first vertex": (None, [proxy(vertex_ok=False)], "view_vertex_missing"),
-            "vertex not three numbers": (None, [proxy(vertex=("1", "2"))], "view_vertex_invalid"),
-            "vertex not numeric": (None, [proxy(vertex=("1", "x", "3"))], "view_vertex_invalid"),
-            "vertex not finite": (None, [proxy(vertex=("1", "nan", "3"))], "view_vertex_invalid"),
-            "vertex infinite": (None, [proxy(vertex=("1", "inf", "3"))], "view_vertex_invalid"),
+            "no numeric lod": (facts_of(res_host(empty=True), extra=("geometry", "memory")), [proxy(res=[])],
+                               "resolution_lod_absent"),
+            "proxy not in the lod, complete scan": (None, [proxy(res_selection="")], "resolution_proxy_missing"),
+            "lod list failed": (facts_of(res_host(enum_ok=False, empty=True)), [proxy(res=[])],
+                                "resolution_enumeration_failed"),
+            "selection list failed on the only lod": (facts_of(res_host(failed_list)),
+                                                      [proxy(res=[res_entry("1.000", "", list_ok=False)])],
+                                                      "resolution_enumeration_failed"),
+            "selection list failed on one of two lods": (facts_of(res_host(("0", 4), dict(failed_list, name="1"))),
+                                                         [proxy(res=[res_entry("0", ""), res_entry("1", "", list_ok=False)])],
+                                                         "resolution_enumeration_failed"),
+            "scan cut, selection missing": (facts_of(res_host(cut_scan)), [proxy(res_selection="")],
+                                            "resolution_evidence_truncated"),
+            "selection found in a cut scan": (facts_of(res_host(cut_scan)), [proxy()], "resolution_evidence_truncated"),
+            "more numeric lods than scanned": (facts_of(res_host(*[(name, 3) for name in many], count=20)),
+                                               [proxy(res=[res_entry(name, "") for name in many])],
+                                               "resolution_evidence_truncated"),
+            "selection names another model": (None, [proxy(res_selection="proxy:/dz/other/thing.001")],
+                                              "resolution_selection_mismatch"),
+            "no first vertex": (None, [proxy(vertex_ok=False)], "resolution_vertex_missing"),
+            "vertex not three numbers": (None, [proxy(vertex=("1", "2"))], "resolution_vertex_invalid"),
+            "vertex not numeric": (None, [proxy(vertex=("1", "x", "3"))], "resolution_vertex_invalid"),
+            "vertex not finite": (None, [proxy(vertex=("1", "nan", "3"))], "resolution_vertex_invalid"),
+            "vertex infinite": (None, [proxy(vertex=("1", "inf", "3"))], "resolution_vertex_invalid"),
         }
-        for label, (view, proxies, reason) in cases.items():
+        for label, (facts, proxies, reason) in cases.items():
             with self.subTest(label):
-                slot, record, result = self.judge(proxies, view=view)
+                slot, record, result = self.judge(proxies, facts=facts)
                 self.assertEqual(("pending", reason), (slot["verdict"], slot["reason"]), label)
                 self.assertEqual("pending", record["verdict"], label)
                 self.assertEqual(0, result["denominators"]["qualified"], label)
 
-    def test_a_view_selection_that_was_found_stands_over_an_incomplete_scan(self):
-        slot, _record, _result = self.judge(view=dict(VIEW_HOST, view_selection_count=900, view_scan_complete=False))
-        self.assertEqual("qualified", slot["verdict"])
+    def test_one_complete_resolution_lod_holding_the_proxy_is_enough(self):
+        facts = facts_of(res_host(("0", 5), ("1", 7)))
+        for label, res in (("second lod", [res_entry("0", ""), res_entry("1", SELECTION)]),
+                           ("first lod", [res_entry("0", SELECTION), res_entry("1", "")]),
+                           ("first lod without a vertex", [res_entry("0", SELECTION, vertex_ok=False),
+                                                           res_entry("1", SELECTION)]),
+                           ("first lod names another model", [res_entry("0", "proxy:/dz/x/y.001"),
+                                                              res_entry("1", SELECTION)])):
+            with self.subTest(label):
+                self.assertEqual(GOOD, self.verdict([proxy(res=res)], facts))
+        repeated = facts_of(res_host(("1", 5), ("1", 5)))       # the engine repeats a resolution name on some hosts
+        self.assertEqual(GOOD, self.verdict([proxy(res=[res_entry("1", ""), res_entry("1", SELECTION)])], repeated))
+        both = [res_entry("0", "proxy:/dz/x/y.001"), res_entry("1", SELECTION, vertex_ok=False)]
+        self.assertEqual(("pending", "resolution_selection_mismatch"), self.verdict([proxy(res=both)], facts))
 
-    def test_view_evidence_is_judged_only_for_a_row_that_would_match_the_slot(self):
-        unrelated = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",), view_selection="",
-                          vertex_ok=False)
-        slot, _record, _result = self.judge([proxy(), unrelated])
-        self.assertEqual("qualified", slot["verdict"])
-        slot, _record, _result = self.judge([proxy(slots=("pistolFlashlight",), view_selection="", vertex_ok=False)])
-        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+    def test_only_numeric_named_lods_count_and_any_other_lod_name_is_malformed_evidence(self):
+        selection = SELECTION
+        for name in ("0", "1", "1.000", "10", "0.5", "01"):
+            with self.subTest(accepted=name):
+                self.assertEqual(GOOD, self.verdict([proxy(res=[res_entry(name, selection)])], facts_of(res_host((name, 3)))))
+        for name in ("geometry", "memory", "view", "View", "VIEW_PILOT", "landContact", "geometryView", "geometryFire", "",
+                     "-1", "1e3", "1.", ".5", "0x10", " 1", "1 ", "1.0.0", "٣", "1\n"):
+            with self.subTest(refused=name):
+                self.assertEqual(("pending", "proxy_evidence_malformed"),
+                                 self.verdict([proxy(res=[res_entry(name, selection)])], facts_of(res_host((name, 3)))))
 
-    def test_one_model_cannot_have_two_different_view_results_in_either_order(self):
-        """Review 005: both rows read the same per-host view lookup for the same model, so different results are
-        contradictory reads, even when one row would qualify on its own."""
+    def test_a_view_lod_never_stands_in_for_a_resolution_lod(self):
+        facts = dict(facts_of(res_host(empty=True), extra=("view", "geometry")), view_by_name=True)
+        self.assertEqual(("pending", "resolution_lod_absent"), self.verdict([proxy(res=[])], facts))
+        facts = dict(facts_of(res_host()), view_by_name=True, lod_names=["1.000", "view"])
+        self.assertEqual(("pending", "resolution_proxy_missing"), self.verdict([proxy(res_selection="")], facts))
+        self.assertEqual(GOOD, self.verdict([proxy()], facts))       # view_by_name and the names are diagnostics only
+
+    def test_the_lod_name_list_and_the_resolution_facts_must_not_contradict_each_other(self):
+        two = facts_of(res_host(("0", 3), ("1", 3)))
+        proxies = [proxy(res=[res_entry("0", ""), res_entry("1", SELECTION)])]
         cases = {
-            "missing selection": dict(proxy(number="002"), view_selection="", view_vertex_ok=False, view_vertex=[]),
+            "list flag disagrees": dict(two, lod_list_ok=False, lod_count=0, lod_names=[]),
+            "complete name list misses a numeric lod": dict(two, lod_names=["0", "geometry", "memory"], lod_count=3),
+            "complete name list holds another numeric lod": dict(two, lod_names=["0", "1", "2"], lod_count=3),
+            "numeric names in another order": dict(two, lod_names=["1", "0", "geometry"], lod_count=3),
+            "count below the numeric lods": dict(two, lod_count=1, lod_names=["0"], lod_names_complete=True),
+        }
+        for label, facts in cases.items():
+            with self.subTest(label):
+                self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict(proxies, facts), label)
+        self.assertEqual(GOOD, self.verdict(proxies, two))
+        lod_less = {key: value for key, value in two.items() if key not in report.LOD_HOST_KEYS}
+        self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict(proxies, lod_less))
+
+    def test_malformed_host_resolution_facts_are_pending_malformed_evidence(self):
+        def host_with(**changes):
+            return dict(copy.deepcopy(HOST_FACTS), **changes)
+
+        def lod(**changes):
+            return host_with(res_lods=[dict(HOST_FACTS["res_lods"][0], **changes)])
+        cases = {"res_enum_ok not a bool": host_with(res_enum_ok=1),
+                 "res_lod_count not an int": host_with(res_lod_count="1"),
+                 "res_lod_count a bool": host_with(res_lod_count=True),
+                 "res_lod_count negative": host_with(res_lod_count=-1),
+                 "res_lods_scanned differs from the list": host_with(res_lods_scanned=2),
+                 "res_scan_complete not a bool": host_with(res_scan_complete="yes"),
+                 "res_scan_complete claimed with a cut lod": lod(scan_complete=False, selection_count=900) | {"res_scan_complete": True},
+                 "res_scan_complete denied with everything scanned": host_with(res_scan_complete=False),
+                 "res_lods not a list": host_with(res_lods={"name": "1.000"}),
+                 "res_lods entry not an object": host_with(res_lods=["1.000"]),
+                 "lod name not text": lod(name=1),
+                 "lod list_ok not a bool": lod(list_ok=1),
+                 "lod selection_count not an int": lod(selection_count="3"),
+                 "lod selection_count a bool": lod(selection_count=True),
+                 "lod selection_count negative": lod(selection_count=-1),
+                 "lod scan_complete not a bool": lod(scan_complete="yes"),
+                 "lod scan_complete after a failed list": lod(list_ok=False, selection_count=0),
+                 "lod selections counted after a failed list": lod(list_ok=False, selection_count=3, scan_complete=False),
+                 "lod scan_complete above the selection cap": lod(selection_count=report.MAX_RES_SELECTIONS + 1),
+                 "lod scan incomplete within the cap": lod(scan_complete=False),
+                 "failed enumeration with lods": host_with(res_enum_ok=False, res_scan_complete=False),
+                 "failed enumeration with a count": host_with(res_enum_ok=False, res_lods=[], res_lods_scanned=0,
+                                                              res_lod_count=2, res_scan_complete=False),
+                 "count above the listed lods within the cap": host_with(res_lod_count=3),
+                 "more lods than the cap": res_host(*[(str(number), 1) for number in range(report.MAX_RES_LODS + 1)]),
+                 "lods above the count": host_with(res_lod_count=0)}
+        for key in report.RES_HOST_KEYS:
+            cases["only some res keys: " + key + " missing"] = {k: v for k, v in HOST_FACTS.items() if k != key}
+        for label, facts in cases.items():
+            with self.subTest(label):
+                facts = dict(facts)
+                facts.update({k: v for k, v in LOD_FACTS.items() if k not in facts})
+                slot, _record, result = self.judge([proxy()], facts=facts)
+                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+                self.assertEqual(0, result["denominators"]["qualified"], label)
+
+    def test_malformed_row_resolution_entries_are_pending_malformed_evidence(self):
+        good = res_entry("1.000", SELECTION)
+        cases = {
+            "res_lods missing": {k: v for k, v in proxy().items() if k != "res_lods"},
+            "res_lods not a list": dict(proxy(), res_lods={"name": "1.000"}),
+            "entry not an object": dict(proxy(), res_lods=["1.000"]),
+            "no entry for the host lod": dict(proxy(), res_lods=[]),
+            "an extra entry": dict(proxy(), res_lods=[good, res_entry("1.000", "")]),
+            "name differs from the host lod": dict(proxy(), res_lods=[dict(good, name="2.000")]),
+            "name missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "name"}]),
+            "list_ok differs from the host lod": dict(proxy(), res_lods=[dict(good, list_ok=False)]),
+            "list_ok missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "list_ok"}]),
+            "selection not text": dict(proxy(), res_lods=[dict(good, selection=7)]),
+            "selection missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "selection"}]),
+            "vertex_ok not a bool": dict(proxy(), res_lods=[dict(good, vertex_ok="true")]),
+            "vertex_ok missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "vertex_ok"}]),
+            "vertex not a list": dict(proxy(), res_lods=[dict(good, vertex="0.5,0.25,-1.5")]),
+            "vertex missing": dict(proxy(), res_lods=[{k: v for k, v in good.items() if k != "vertex"}]),
+            "vertex entries claimed without vertex_ok": dict(proxy(), res_lods=[dict(good, vertex_ok=False)]),
+            "vertex_ok without a selection": dict(proxy(), res_lods=[dict(good, selection="")]),
+            "selection claimed in a lod without selections": None,
+        }
+        empty_lod = dict(res_host(("1.000", 0)))
+        for label, item in cases.items():
+            with self.subTest(label):
+                if item is None:
+                    slot, _record, _result = self.judge([proxy()], facts=facts_of(empty_lod))
+                else:
+                    slot, _record, _result = self.judge([item])
+                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
+
+    def test_a_selection_claimed_while_the_lod_selection_list_failed_is_malformed(self):
+        failed = dict(name="1.000", list_ok=False, selection_count=0, scan_complete=False)
+        self.assertEqual(("pending", "proxy_evidence_malformed"),
+                         self.verdict([proxy(res=[res_entry("1.000", SELECTION, list_ok=False)])], facts_of(res_host(failed))))
+
+    def test_one_model_cannot_have_two_different_resolution_results_in_either_order(self):
+        """The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+        even when one row would qualify on its own."""
+        cases = {
+            "missing selection": dict(proxy(number="002"), res_lods=[res_entry("1.000", "")]),
             "different vertex": proxy(number="002", vertex=("10", "20", "30")),
-            "different selection": proxy(number="002", view_selection="proxy:" + LIGHT_PROXY_PATH + ".002"),
-            "vertex flag only": dict(proxy(number="002"), view_vertex_ok=False),
+            "different selection": proxy(number="002", res_selection="proxy:" + LIGHT_PROXY_PATH + ".002"),
+            "vertex flag only": dict(proxy(number="002"), res_lods=[res_entry("1.000", SELECTION, vertex_ok=False)]),
         }
         for label, second in cases.items():
             for order in ((proxy(number="001"), second), (second, proxy(number="001"))):
@@ -1313,20 +1561,17 @@ class ViewLodEvidenceTests(unittest.TestCase):
                     self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
                     self.assertEqual(0, result["denominators"]["qualified"])
 
-    def test_two_instances_that_share_one_view_result_still_qualify(self):
-        slot, _record, _result = self.judge([proxy(number="001"), proxy(number="002")])
-        self.assertEqual("qualified", slot["verdict"])
+    def test_two_instances_that_share_one_resolution_result_still_qualify(self):
+        self.assertEqual(GOOD, self.verdict([proxy(number="001"), proxy(number="002")]))
 
-    def test_view_slash_case_and_instance_spellings_are_normalised_before_the_whole_path_is_compared(self):
+    def test_slash_case_and_instance_spellings_are_normalised_before_the_whole_path_is_compared(self):
         for selection in ("PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001",
                           "proxy:/dz/weapons/attachments/light/weaponlight_universal.007",
                           "proxy:dz/weapons/attachments/light/weaponlight_universal.12"):
             with self.subTest(selection):
-                slot, _record, _result = self.judge([proxy(view_selection=selection)])
-                self.assertEqual("qualified", slot["verdict"])
+                self.assertEqual(GOOD, self.verdict([proxy(res_selection=selection)]))
 
-    def test_only_the_same_proxy_model_establishes_view_membership_never_a_coincidental_name(self):
-        """Review 005: AttachmentsOutOfReach.c matches by Contains(); qualification compares the complete proxy path."""
+    def test_only_the_same_proxy_model_is_evidence_never_a_coincidental_name(self):
         base = "/dz/weapons/attachments/light/weaponlight_universal"
         for label, selection in (("longer model name", "proxy:" + base + "_extra.001"),
                                  ("version suffix", "proxy:" + base + "_v2.001"),
@@ -1340,87 +1585,64 @@ class ViewLodEvidenceTests(unittest.TestCase):
                                  ("only the basename", "proxy:weaponlight_universal.001"),
                                  ("a trailing component", "proxy:" + base + "/child.001")):
             with self.subTest(label):
-                slot, _record, result = self.judge([proxy(view_selection=selection)])
-                self.assertEqual(("pending", "view_selection_mismatch"), (slot["verdict"], slot["reason"]), label)
+                slot, _record, result = self.judge([proxy(res_selection=selection)])
+                self.assertEqual(("pending", "resolution_selection_mismatch"), (slot["verdict"], slot["reason"]), label)
                 self.assertEqual(0, result["denominators"]["qualified"], label)
 
-    def test_a_failed_view_enumeration_is_pending_whatever_else_the_row_claims(self):
-        view = dict(VIEW_HOST, view_list_ok=False, view_scan_complete=False, view_selection_count=0)
-        slot, _record, result = self.judge([proxy(view_selection="", vertex_ok=False)], view=view)
-        self.assertEqual(("pending", "view_enumeration_failed"), (slot["verdict"], slot["reason"]))
-        self.assertEqual(0, result["denominators"]["qualified"])
-        for label, host_view, item in (("a view selection claimed without a list", view, proxy()),
-                                       ("selections counted without a list", dict(view, view_selection_count=3),
-                                        proxy(view_selection="", vertex_ok=False))):
-            slot, _record, _result = self.judge([item], view=host_view)
-            self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
-        slot, _record, _result = self.judge([proxy(view_selection="", vertex_ok=False)], view=dict(view, view_lod=False))
-        self.assertEqual(("pending", "view_lod_missing"), (slot["verdict"], slot["reason"]))
+    def test_a_row_that_would_not_match_the_slot_is_not_judged_for_resolution_evidence(self):
+        unrelated = proxy(path="/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",), res_selection="")
+        self.assertEqual(GOOD, self.verdict([proxy(), unrelated]))
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"),
+                         self.verdict([proxy(slots=("pistolFlashlight",), res_selection="")]))
 
-    def test_malformed_view_fields_are_pending_malformed_evidence(self):
-        def host_view(**changes):
-            return dict(VIEW_HOST, **changes)
-
-        cases = {
-            "view_lod not a bool": (host_view(view_lod=1), None),
-            "view_lod missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_lod"}, None),
-            "view_selection_count not an int": (host_view(view_selection_count="3"), None),
-            "view_selection_count a bool": (host_view(view_selection_count=True), None),
-            "view_selection_count negative": (host_view(view_selection_count=-1), None),
-            "view_scan_complete not a bool": (host_view(view_scan_complete="yes"), None),
-            "view_list_ok not a bool": (host_view(view_list_ok=1), None),
-            "view_list_ok without a view lod": (host_view(view_lod=False, view_selection_count=0, view_scan_complete=False), proxy(view_selection="", vertex_ok=False)),
-            "view_list_ok missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_list_ok"}, None),
-            "view_scan_complete claimed after a failed enumeration": (host_view(view_list_ok=False), None),
-            "view_scan_complete missing": ({k: v for k, v in VIEW_HOST.items() if k != "view_scan_complete"}, None),
-            "view_selection not a string": (None, dict(proxy(), view_selection=7)),
-            "view_vertex_ok not a bool": (None, dict(proxy(), view_vertex_ok="true")),
-            "view_vertex not a list": (None, dict(proxy(), view_vertex="0.5,0.25,-1.5")),
-            "view_selection claimed with no view lod": (host_view(view_lod=False), proxy()),
-            "view_selection claimed with an empty view": (host_view(view_selection_count=0), proxy()),
-        }
-        for label, (view, item) in cases.items():
-            with self.subTest(label):
-                slot, _record, result = self.judge([item or proxy()], view=view)
-                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]), label)
-                self.assertEqual(0, result["denominators"]["qualified"], label)
-
-    def test_a_row_missing_any_view_field_is_malformed(self):
-        for key in ("view_selection", "view_vertex_ok", "view_vertex"):
-            with self.subTest(key):
-                item = proxy()
-                del item[key]
-                slot, _record, _result = self.judge([item])
-                self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
-
-    def test_view_evidence_is_never_taken_from_the_older_selection_evidence(self):
-        slot, _record, _result = self.judge([proxy(view_selection="", vertex_ok=False)])
-        self.assertEqual("pending", slot["verdict"])
-
-    def test_the_prerequisite_variant_uses_the_view_lod_reason(self):
+    def test_the_prerequisite_variant_uses_the_resolution_lod_reason(self):
         lights = good_gun_lights()
         lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
         variant = variant_obs("weaponHandguardAK", [good_gun_lights()[2]])
         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), lights, prereq=prereq_obs(has="weaponHandguardAK"),
-                    prereq_variant=variant, proxies=[proxy(view_selection="", vertex_ok=False)])]
+                    prereq_variant=variant, proxies=[proxy(res_selection="")])]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("pending", "view_selection_missing"), (slot["verdict"], slot["reason"]))
+        self.assertEqual(("pending", "resolution_proxy_missing"), (slot["verdict"], slot["reason"]))
         rows[0]["proxies"] = [proxy()]
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"),
+        self.assertEqual(("qualified", "native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"),
                          (slot["verdict"], slot["reason"]))
 
-    def test_the_module_documents_that_client_rendering_stays_pending(self):
-        self.assertIn("view LOD", report.__doc__)
-        self.assertIn("client rendering", report.__doc__)
+    def test_rows_from_the_view_lod_producers_have_no_resolution_evidence_and_are_pending_never_qualified(self):
+        """probe-004 and probe-005 (rounds 4 to 6) wrote view-LOD fields and no per-resolution-LOD list. Those rows are
+        consistent but prove nothing about the resolution LODs: pending with its own reason, whatever the old fields say."""
+        legacy_views = (LEGACY_HOST,
+                        dict(LEGACY_HOST, view_lod=True, view_selection_count=3, view_scan_complete=True, view_list_ok=True,
+                             lod_names=["1.000", "view"], view_by_name=True))
+        for index, facts in enumerate(legacy_views):
+            with self.subTest(index):
+                slot, record, result = self.judge([legacy_proxy()], facts=facts)
+                self.assertEqual(("pending", "resolution_lod_evidence_missing"), (slot["verdict"], slot["reason"]))
+                self.assertEqual("pending", record["verdict"])
+                self.assertEqual(0, result["denominators"]["qualified"])
+        slot, _record, _result = self.judge([legacy_proxy(slots=("pistolFlashlight",))], facts=LEGACY_HOST)
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
+        slot, _record, _result = self.judge([], facts=LEGACY_HOST)
+        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
 
+    def test_resolution_rows_next_to_a_host_without_resolution_facts_are_malformed(self):
+        slot, _record, _result = self.judge([proxy()], facts=LEGACY_HOST)
+        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
 
-LOD_HOST = {"lod_list_ok": True, "lod_count": 2, "lod_names": ["1.000", "geometry"], "lod_names_complete": True,
-            "view_by_name": False}
-NO_VIEW_HOST = dict(VIEW_HOST, view_lod=False, view_list_ok=False, view_selection_count=0, view_scan_complete=False)
-NO_VIEW_PROXY = dict(proxy(), view_selection="", view_vertex_ok=False, view_vertex=[])
+    def test_the_module_documents_the_evidence_source_and_what_it_does_not_prove(self):
+        doc = report.__doc__
+        for text in ("resolution LOD", "numeric", "model proxy slot", "server-side model", "view_lod_absent_on_server",
+                     "resolution_lod_absent", "resolution_proxy_missing", "resolution_enumeration_failed",
+                     "beam render", "two-client presentation", "removal by hand", "tape consumption", "persistence"):
+            with self.subTest(text):
+                self.assertIn(text, doc)
+        self.assertNotIn("native_attach_with_view_lod", doc)
+        for reason in ("resolution_lod_absent", "resolution_proxy_missing", "resolution_enumeration_failed",
+                       "resolution_lod_evidence_missing", "resolution_evidence_truncated", "resolution_selection_mismatch",
+                       "resolution_vertex_missing", "resolution_vertex_invalid"):
+            self.assertIn(reason, doc)
 
 
 def tried(item, names=None, exists=None, sep_slash=5, sep_backslash=0):
@@ -1431,13 +1653,13 @@ def tried(item, names=None, exists=None, sep_slash=5, sep_backslash=0):
 
 
 class RoundSixNativeFactsTests(unittest.TestCase):
-    """Fix round 6 (probe-004): the dedicated server answered no view LOD on any host, and the proxy rows carried a
-    whole-path cfg_class. The report must name each cause with its own pending reason and carry the native self-test
-    and LOD names through. Synthetic rows only; nothing here establishes DayZ behavior."""
+    """Fix round 6 (probe-004): the proxy rows carried a whole-path cfg_class and the LOD names were unknown. The report names
+    each cause with its own pending reason and carries the native self-test and LOD names through. Synthetic rows only;
+    nothing here establishes DayZ behavior."""
 
-    def judge(self, proxies=None, view=None, **extra):
+    def judge(self, proxies=None, facts=None, **extra):
         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(),
-                    proxies=[proxy()] if proxies is None else proxies, view=view)]
+                    proxies=[proxy()] if proxies is None else proxies, facts=facts)]
         rows[0].update(extra)
         result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
         record = result["hosts"][0]
@@ -1447,47 +1669,33 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         slot, _record, _result = self.judge(*args, **kwargs)
         return slot["verdict"], slot["reason"]
 
-    def test_a_server_that_lists_its_lods_without_a_view_lod_is_pending_view_lod_absent_on_server(self):
-        self.assertEqual(("pending", "view_lod_absent_on_server"),
-                         self.verdict([NO_VIEW_PROXY], dict(NO_VIEW_HOST, **LOD_HOST)))
-
-    def test_a_failed_lod_list_or_legacy_rows_without_lod_facts_stay_view_lod_missing(self):
-        failed = dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_list_ok=False, lod_count=0, lod_names=[]))
-        self.assertEqual(("pending", "view_lod_missing"), self.verdict([NO_VIEW_PROXY], failed))
-        self.assertEqual(("pending", "view_lod_missing"), self.verdict([NO_VIEW_PROXY], NO_VIEW_HOST))
-
-    def test_lod_facts_alongside_a_found_view_lod_still_qualify(self):
-        view = dict(VIEW_HOST, **dict(LOD_HOST, lod_names=["1.000", "view"], view_by_name=True))
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), self.verdict([proxy()], view))
-
-    def test_contradictory_lod_facts_are_malformed_never_a_clean_absence_or_presence(self):
-        names = ["1.000", "view"]
+    def test_contradictory_lod_name_facts_are_malformed_never_a_clean_absence_or_presence(self):
         cases = {
-            "view lod true yet the complete name list has no view": dict(VIEW_HOST, **LOD_HOST),
-            "view lod false yet a complete name list holds View": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names=["View"],
-                                                                                          lod_count=1)),
-            "view_by_name disagrees with view_lod": dict(VIEW_HOST, **dict(LOD_HOST, lod_names=names, view_by_name=False)),
-            "more than eight names": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names=["a"] * 9, lod_count=9,
-                                                              lod_names_complete=True)),
-            "count below the listed names": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_count=1)),
-            "complete flag against count": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_count=5)),
-            "incomplete flag with every name listed": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names_complete=False)),
-            "failed list with names": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_list_ok=False, lod_count=0)),
-            "failed list with a count": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_list_ok=False, lod_names=[])),
-            "a name that is not text": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_names=["1.000", 2])),
-            "count not an integer": dict(NO_VIEW_HOST, **dict(LOD_HOST, lod_count="2")),
-            "only some lod keys": dict(NO_VIEW_HOST, lod_list_ok=True),
+            "more than eight names": dict(LOD_FACTS, lod_names=["a"] * 9, lod_count=9, lod_names_complete=True),
+            "count below the listed names": dict(LOD_FACTS, lod_count=1),
+            "complete flag against count": dict(LOD_FACTS, lod_count=5),
+            "incomplete flag with every name listed": dict(LOD_FACTS, lod_names_complete=False),
+            "failed list with names": dict(LOD_FACTS, lod_list_ok=False, lod_count=0),
+            "failed list with a count": dict(LOD_FACTS, lod_list_ok=False, lod_names=[]),
+            "a name that is not text": dict(LOD_FACTS, lod_names=["1.000", 2]),
+            "count not an integer": dict(LOD_FACTS, lod_count="2"),
+            "view_by_name not a bool": dict(LOD_FACTS, view_by_name=0),
         }
-        for label, view in cases.items():
+        for label, lod in cases.items():
             with self.subTest(label):
-                self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([NO_VIEW_PROXY], view), label)
+                self.assertEqual(("pending", "proxy_evidence_malformed"),
+                                 self.verdict([proxy()], dict(copy.deepcopy(HOST_FACTS), **lod)), label)
+        for key in report.LOD_HOST_KEYS:
+            with self.subTest("only some lod keys: " + key + " missing"):
+                self.assertEqual(("pending", "proxy_evidence_malformed"),
+                                 self.verdict([proxy()], {k: v for k, v in HOST_FACTS.items() if k != key}), key)
 
-    def test_a_truncated_lod_name_list_is_honest_and_does_not_hide_a_present_view_lod(self):
+    def test_a_truncated_lod_name_list_is_honest_and_a_listed_name_that_contradicts_it_is_malformed(self):
         names = ["res%d" % number for number in range(8)]
-        cut = dict(LOD_HOST, lod_count=11, lod_names=names, lod_names_complete=False)
-        self.assertEqual(("pending", "view_lod_absent_on_server"), self.verdict([NO_VIEW_PROXY], dict(NO_VIEW_HOST, **cut)))
-        found = dict(VIEW_HOST, **dict(cut, view_by_name=True))
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), self.verdict([proxy()], found))
+        cut = dict(copy.deepcopy(HOST_FACTS), lod_count=11, lod_names=names, lod_names_complete=False)
+        self.assertEqual(GOOD, self.verdict([proxy()], cut))
+        wrong = dict(cut, lod_names=["0", "1"] + names[:6])
+        self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([proxy()], wrong))
 
     def test_the_old_producers_whole_path_class_is_a_name_mismatch_not_malformed(self):
         """probe-004 rows: HCTLProxyBase kept the whole path, so cfg_class was "Proxy" + the path (and "Proxydz/..." when
@@ -1495,29 +1703,29 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         own reason, and the native config was never read for the real class."""
         forms = {"leading slash": "Proxy" + LIGHT_PROXY_PATH, "no leading slash": "Proxy" + LIGHT_PROXY_PATH[1:]}
         for label, cfg_class in forms.items():
-            item = proxy(exists=False, cfg_class=cfg_class, view_selection="", vertex_ok=False)
+            item = proxy(exists=False, cfg_class=cfg_class, res_selection="")
             with self.subTest(label):
-                self.assertEqual(("pending", "proxy_config_name_mismatch"),
-                                 self.verdict([item], dict(NO_VIEW_HOST, **LOD_HOST)), label)
                 self.assertEqual(("pending", "proxy_config_name_mismatch"), self.verdict([item]), label)
+                legacy = {k: v for k, v in item.items() if k != "res_lods"}
+                self.assertEqual(("pending", "proxy_config_name_mismatch"), self.verdict([legacy], LEGACY_HOST), label)
 
     def test_other_class_mismatches_and_a_mixed_host_stay_malformed(self):
         wrong = proxy(cfg_class="Proxymagazine_stanag")
-        old = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, view_selection="", vertex_ok=False)
-        other = proxy(path="/dz/a/b", exists=False, cfg_class="Proxy/dz/a/c", view_selection="", vertex_ok=False)
+        old = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, res_selection="")
+        other = proxy(path="/dz/a/b", exists=False, cfg_class="Proxy/dz/a/c", res_selection="")
         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([wrong]))
         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([old, wrong]))
         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([other]))
-        slash_only = proxy(exists=False, cfg_class="Proxy/", view_selection="", vertex_ok=False)
+        slash_only = proxy(exists=False, cfg_class="Proxy/", res_selection="")
         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([slash_only]))
 
     def test_a_row_from_the_new_producer_with_the_whole_path_class_is_malformed(self):
         """The new hook derives the class from the basename; a whole-path class next to cfg_tried is contradictory."""
-        item = tried(proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, view_selection="", vertex_ok=False))
+        item = tried(proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, res_selection=""))
         self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([item]))
 
     def test_a_name_mismatch_is_reported_at_host_level_and_never_qualifies(self):
-        item = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, view_selection="", vertex_ok=False)
+        item = proxy(exists=False, cfg_class="Proxy" + LIGHT_PROXY_PATH, res_selection="")
         _slot, record, result = self.judge([item])
         self.assertEqual("pending", record["verdict"])
         self.assertIn("proxy_config_name_mismatch", record["reasons"])
@@ -1525,7 +1733,7 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         self.assertEqual(1, result["denominators"]["reasons"].get("proxy_config_name_mismatch"))
 
     def test_the_new_row_facts_are_validated_and_a_good_row_still_qualifies(self):
-        self.assertEqual(("qualified", "native_attach_with_view_lod_proxy_slot"), self.verdict([tried(proxy())]))
+        self.assertEqual(GOOD, self.verdict([tried(proxy())]))
         base = tried(proxy())
         bad = {
             "tried not a list": dict(base, cfg_tried="Proxyweaponlight_universal"),
@@ -1544,10 +1752,9 @@ class RoundSixNativeFactsTests(unittest.TestCase):
             with self.subTest(label):
                 self.assertEqual(("pending", "proxy_evidence_malformed"), self.verdict([item]), label)
 
-    def test_each_spawned_host_carries_its_lod_and_proxy_name_diagnostics_and_the_header_is_carried_through(self):
-        view = dict(NO_VIEW_HOST, **LOD_HOST)
-        item = tried(NO_VIEW_PROXY, sep_slash=0, sep_backslash=5)
-        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[item], view=view)]
+    def test_each_spawned_host_carries_its_lod_resolution_and_proxy_name_diagnostics_and_the_header_is_carried_through(self):
+        item = tried(proxy(res_selection=""), sep_slash=0, sep_backslash=5)
+        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[item])]
         data = observations(rows)
         data["diagnostics"] = {
             "string_self_test": {"sample": "proxy:/dz/a/b.001", "first_slash": 6, "last_slash": 11, "last_dot": 13},
@@ -1557,6 +1764,9 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         diagnostics = result["hosts"][0]["diagnostics"]
         self.assertEqual({"list_ok": True, "count": 2, "names": ["1.000", "geometry"], "names_complete": True,
                           "view_by_name": False}, diagnostics["lod"])
+        self.assertEqual({"enum_ok": True, "count": 1, "complete": True,
+                          "lods": [{"name": "1.000", "list_ok": True, "selection_count": 3, "scan_complete": True}]},
+                         diagnostics["resolution"])
         self.assertEqual([{"selection": item["selection"], "cfg_tried": item["cfg_tried"],
                            "cfg_tried_exists": item["cfg_tried_exists"], "sep_slash": 0, "sep_backslash": 5}],
                          diagnostics["proxy_names"])
@@ -1566,9 +1776,10 @@ class RoundSixNativeFactsTests(unittest.TestCase):
         self.assertEqual(data["diagnostics"]["cfg_nonai_scan"], native["cfg_nonai_scan"])
 
     def test_legacy_observations_report_absent_diagnostics_and_malformed_ones_are_dropped_not_trusted(self):
-        _slot, record, result = self.judge()
+        _slot, record, result = self.judge([legacy_proxy()], facts={})
         self.assertEqual({"status": "absent"}, result["native_diagnostics"])
         self.assertEqual({"status": "absent"}, record["diagnostics"]["lod"])
+        self.assertEqual({"status": "absent"}, record["diagnostics"]["resolution"])
         self.assertEqual([], record["diagnostics"]["proxy_names"])
         rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[proxy()])]
         scan = {"child_count": 1, "scanned": 1, "complete": True, "proxy_named": 0, "weaponlight_children": [3]}

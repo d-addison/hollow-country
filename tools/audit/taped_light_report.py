@@ -39,53 +39,76 @@ Evidence rules (the report never fills a gap with a favourable default):
 
 Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing natively, so the proxy join
 is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
-``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the view LOD
-(Object.GetLODByName(LOD.NAME_VIEW) and LOD.GetSelections, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
-:97-135 reads) with the first view-LOD proxy selection whose whole normalised path equals the model path and its first
-vertex. AttachmentsOutOfReach.c matches with Contains(); that heuristic is not used here, because a different model whose
-name merely contains the path (``weaponlight_universal_extra``) or a generic selection must not stand in for the proxy. GetSelectionList alone does not establish view-LOD membership. A slot has proxy evidence only when a listed
-proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path
-(case-insensitive, slashes and the .p3d extension normalised), an inventorySlot list holding the slot, AND view-LOD
-membership: a view LOD exists, its selection list call succeeded, a view proxy selection ``proxy:<path>.<digits>``
-equals the model path as a whole (re-verified here) and has a finite first vertex. The view lookup is one result per
-model: rows of the same model that disagree on it are malformed. The proxy name alone is never evidence.
+``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot) and, per host, the resolution LODs: every
+LOD that Object.GetLODS/GetLODName lists whose WHOLE name is a non-negative number ("0", "1", "1.000"), each with its
+LOD.GetSelections list. Per proxy row and per resolution LOD the hook records the first selection whose whole normalised
+path equals the model path and that selection's first vertex. Only numeric LODs are ever read: geometry, memory,
+landContact, geometryView, geometryFire, view*, VIEW_PILOT and every other non-numeric LOD are never a substitute.
+A slot has proxy evidence only when ALL of these hold: the native attach was ok, a listed proxy has an existing entry,
+an entry class equal to ``Proxy<basename>``, a ``model`` that equals the proxy path (case-insensitive, slashes and the
+.p3d extension normalised), an inventorySlot list holding the slot, AND at least one resolution LOD whose selection scan
+was complete holds a proxy selection ``proxy:<path>.<digits>`` equal to the model path as a whole (re-verified here)
+with a finite first vertex. The per-LOD lookup is one result per model: rows of the same model that disagree on it are
+malformed. The proxy name alone is never evidence. A contains-style match (AttachmentsOutOfReach.c reads view-LOD
+selections with Contains()) is not used: a different model whose name merely contains the path, or a generic selection,
+must not stand in for the proxy.
+
+This proves a model proxy slot on the server-side model only (the resolution LODs of the host and the light model as the
+dedicated server loads them). It says nothing about the beam render, the switch, two-client presentation, removal by
+hand, tape consumption or persistence; those stay pending in every output.
 
   * Contradictory proxy evidence is malformed before any slot is matched: a name that is not exactly
-    ``proxy:<path>.<digits>`` with a non-empty basename, a duplicate selection identity (even when the copies agree),
-    two rows reading the same config entry differently, a mistyped field, or slot/view bookkeeping that contradicts
-    itself. Malformed, missing or truncated proxy evidence is pending, never qualified.
+    ``proxy:<path>.<digits>`` with a non-empty basename, two rows of one selection identity that read the config or the
+    resolution lookup differently, two rows of one config entry that disagree, a mistyped field, or LOD/selection
+    bookkeeping that contradicts itself (a non-numeric LOD name in the resolution list, a scan flag that disagrees with
+    its counts, a selection claimed in a LOD whose list failed or is empty, a per-row LOD list that is not the host's).
+    Malformed, missing or truncated proxy evidence is pending, never qualified.
+  * Coherent aliases collapse: spellings that normalise to one identity (``proxy:/dz/.../x.001`` next to
+    ``proxy:dz/.../x.001``, case and slash variants, identical copies) that read the same config entry and the same
+    resolution lookup are ONE evidence identity, never malformed. The raw rows and ``proxy_count`` stay as read and the
+    number of collapsed copies is reported per host as ``diagnostics.proxy_alias_collapsed``. Conflicting readbacks of
+    one identity stay malformed in either order.
   * The hook lists at most eight inventory slots per proxy row and reports ``slot_count`` and ``slot_scan_complete``:
     a row that matches the model but dropped slots, with the slot not among those listed, is pending
     (``proxy_slot_list_truncated``). A listed slot still qualifies over a truncated tail.
-  * A view LOD that is absent, a missing, unmatched or truncated view selection scan, or a missing or non-finite first
-    vertex is pending with its own reason (view_lod_missing, view_selection_missing, view_evidence_truncated,
-    view_selection_mismatch, view_vertex_missing, view_vertex_invalid, and view_enumeration_failed when the
-    selection list call itself reported failure, whatever its out array held), never qualified and never negative. The
-    qualified reasons are native_attach_with_view_lod_proxy_slot and, with the rail handguard variant,
-    native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite. This is source-level evidence of the native
-    pattern; it does not prove client rendering, which stays pending with the other unobserved axes.
+  * The hook scans at most 16 resolution LODs and keeps at most 512 selections of each (``res_lod_count``,
+    ``res_lods_scanned``, ``res_scan_complete`` per host, ``selection_count`` and ``scan_complete`` per LOD). One LOD whose
+    scan was complete and that holds the proxy is enough, whatever another LOD reported. Otherwise the pending reasons,
+    in the order they are decided: resolution_lod_evidence_missing (the row is from a round 4 to 6 producer that
+    wrote view-LOD fields and no per-LOD list; consistent, but it proves nothing about resolution LODs),
+    resolution_enumeration_failed (Object.GetLODS failed or listed too many LODs, or a LOD.GetSelections call reported
+    failure, whatever its out array held), resolution_lod_absent (the list is ok and holds no numeric LOD),
+    resolution_selection_mismatch (a scanned LOD names another model), resolution_vertex_missing and
+    resolution_vertex_invalid (no first vertex, or not three finite numbers), resolution_evidence_truncated (a scan was
+    cut at a cap, so the proxy may be in the part not read), resolution_proxy_missing (every numeric LOD was scanned
+    completely and none holds the proxy selection). None of these is a negative finding. The qualified reasons are
+    native_attach_with_resolution_lod_proxy_slot and, with the rail handguard variant,
+    native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite. The evidence is source-level and
+    server-side; it is not client rendering.
   * A truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
 
+Fix round 7 (probe-005: the dedicated server has no LOD named "view" on any of the hosts):
+  * The LODs the server lists are the resolution LODs "0"/"1" (sometimes repeated), geometry, memory, landContact,
+    geometryView and geometryFire, plus VIEW_PILOT on a few hosts. The earlier "view" LOD requirement came from a client
+    inventory reachability helper (AttachmentsOutOfReach.IsAttachmentReachable, called only from 5_Mission/GUI/
+    InventoryNew), not from the visible model, and is replaced by the resolution-LOD proxy requirement above. Rows of
+    probe-004 and probe-005 have no per-LOD facts and come out pending (resolution_lod_evidence_missing), never
+    qualified. ``view_lod_absent_on_server`` was the round-6 reason for the missing view LOD; no verdict uses it now.
+  * ``view_by_name`` and the LOD names (``diagnostics.lod``) stay diagnostics only; they never select evidence. They must
+    still agree with the resolution scan: the list flag, a count not below the scanned LODs, and the numeric names in the
+    (at most eight) list being the leading numeric LODs the scan read, else the host is malformed.
+
 Fix round 6 (probe-004: the dedicated server answered no view LOD on any host and no proxy config entry was found):
-  * view_lod_absent_on_server: the server listed its LODs (Object.GetLODS/GetLODName, ``lod_list_ok``) and none of them
-    is named "view" (the script lookup Object.c:106-122 compares the lower-cased name). The names are reported per host
-    under ``diagnostics.lod``; no other LOD is ever substituted for the view LOD. A failed or missing LOD list stays
-    view_lod_missing. LOD facts that contradict each other (``view_lod`` against ``view_by_name`` or against a name list
-    that is complete, a count below the listed names, more than eight names, a failed list that reports names) are
-    malformed.
   * proxy_config_name_mismatch: the earlier producer derived the config class from the whole path ("Proxy" + the path,
     or "Proxy/dz/...") because it looked for the base name before normalising backslashes. A row from that producer (no
     ``cfg_tried`` facts) whose cfg_class is exactly that whole-path spelling is internally consistent and was never a
     config lookup of the real class: it is pending with this reason and the host is not trusted, not malformed. Any other
     class mismatch, and a whole-path class next to ``cfg_tried`` facts, stays malformed.
-  * Finding, not a conclusion: every caller of AttachmentsOutOfReach.IsAttachmentReachable (the view-LOD pattern this join
-    copies) is in 5_Mission/GUI/InventoryNew, the client inventory UI. A dedicated server therefore may simply not hold a
-    view LOD; probe-004 measured a null GetLODByName(LOD.NAME_VIEW) but not why, and that stays open until the LOD names
-    of a native run are read. Without a server-side view LOD this evidence axis can only be completed by a client run.
   * ``cfg_tried``/``cfg_tried_exists`` (at most four names, the first being cfg_class and its ConfigIsExisting answer)
     and ``sep_slash``/``sep_backslash`` (separator counts of the raw selection name) are validated when present.
-  * The header ``diagnostics`` (string self-test, CfgNonAIVehicles scan) and the per-host LOD names and proxy-name facts
-    are carried into the report as ``native_diagnostics`` and ``hosts[].diagnostics``. They never change a verdict.
+  * The header ``diagnostics`` (string self-test, CfgNonAIVehicles scan) and the per-host LOD names, resolution scan
+    and proxy-name facts are carried into the report as ``native_diagnostics`` and ``hosts[].diagnostics``. They never
+    change a verdict.
 
 Attachment read-back must be self-consistent everywhere: found_type is filled only after a successful create,
 so a non-empty found_type with attach_ok false, or attach_ok true with an empty found_type, is contradictory
@@ -130,9 +153,10 @@ CONSUMED_KEYS = (
     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
     "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
     "selection", "cfg_class", "cfg_exists", "model", "inventory_slots", "slot_count", "slot_scan_complete",
-    "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok", "view_selection", "view_vertex_ok",
-    "view_vertex", "cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash", "lod_list_ok", "lod_count",
-    "lod_names", "lod_names_complete", "view_by_name", "diagnostics", "string_self_test", "cfg_nonai_scan")
+    "res_enum_ok", "res_lod_count", "res_lods_scanned", "res_scan_complete", "res_lods", "name", "list_ok",
+    "selection_count", "scan_complete", "vertex_ok", "vertex", "cfg_tried", "cfg_tried_exists", "sep_slash",
+    "sep_backslash", "lod_list_ok", "lod_count", "lod_names", "lod_names_complete", "view_by_name", "diagnostics",
+    "string_self_test", "cfg_nonai_scan")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -317,20 +341,22 @@ def _proxy_name(selection):
 
 
 _ASCII_DIGITS = frozenset("0123456789")
-_NUMBER_TEXT = re.compile(r"^-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?$")
+_NUMBER_TEXT = re.compile(r"-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?")       # fullmatch only: "$" accepts a newline
+_RES_LOD_NAME = re.compile(r"[0-9]+(?:\.[0-9]+)?")       # a whole name that is a non-negative number (fullmatch only)
 PROXY_ROW_KINDS = (("selection", "str"), ("cfg_class", "str"), ("cfg_exists", "bool"), ("model", "str"),
-                   ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"),
-                   ("view_selection", "str"), ("view_vertex_ok", "bool"), ("view_vertex", "list"))
-VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete", "view_list_ok")
+                   ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"))
+RES_HOST_KEYS = ("res_enum_ok", "res_lod_count", "res_lods_scanned", "res_scan_complete", "res_lods")
 LOD_HOST_KEYS = ("lod_list_ok", "lod_count", "lod_names", "lod_names_complete", "view_by_name")
-PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS + LOD_HOST_KEYS
+PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + RES_HOST_KEYS + LOD_HOST_KEYS
 ROW_FACT_KEYS = ("cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash")
 MAX_LOD_NAMES = 8       # taped_light_probe.HCTL_LOD_NAMES (a test keeps both in step)
 MAX_TRIED_NAMES = 4
+MAX_RES_LODS = 16       # taped_light_probe.HCTL_RES_LODS: numeric LODs scanned per host
+MAX_RES_SELECTIONS = 512       # taped_light_probe.HCTL_RES_SELECTIONS: selections kept per LOD
 
 
-def _proxy_row(entry):
-    """Typed values of one proxy row, or None when a key is missing, mistyped or contradicts its own bookkeeping."""
+def _proxy_base(entry):
+    """Typed config-side values of one proxy row, or None when a key is missing, mistyped or contradicts its bookkeeping."""
     values = {key: _get(entry, key, kind) for key, kind in PROXY_ROW_KINDS}
     if MISSING in values.values() or not all(isinstance(item, str) for item in values["inventory_slots"]):
         return None
@@ -345,6 +371,40 @@ def _proxy_row(entry):
             return None
         values.update(facts)
     return values
+
+
+def _res_row(item, lod):
+    """One row-side resolution entry against the host's LOD, or None when it is missing, mistyped or contradictory."""
+    name, listed = _get(item, "name", "str"), _get(item, "list_ok", "bool")
+    selection, vertex_ok = _get(item, "selection", "str"), _get(item, "vertex_ok", "bool")
+    vertex = _get(item, "vertex", "list")
+    if MISSING in (name, listed, selection, vertex_ok, vertex) or name != lod["name"] or listed != lod["list_ok"]:
+        return None       # one entry per host LOD, in the host's order
+    if selection and not (listed and lod["selection_count"] > 0):
+        return None       # a selection cannot come out of a list that failed or holds nothing
+    if (vertex_ok and not selection) or (not vertex_ok and vertex):
+        return None       # a vertex needs the selection it belongs to, and is only listed when it was read
+    return {"name": name, "selection": selection, "vertex_ok": vertex_ok, "vertex": tuple(vertex)}
+
+
+def _proxy_row(entry, res):
+    """Typed values of one proxy row against the host's resolution facts ``res``, or None when anything contradicts.
+
+    ``res`` is None for a host from a round 4 to 6 producer: its rows must then carry no per-LOD list. A host with
+    resolution facts needs exactly one entry per scanned LOD in every row."""
+    values = _proxy_base(entry)
+    if values is None:
+        return None
+    if res is None:
+        return None if "res_lods" in entry else dict(values, res=None, res_key=None)
+    rows = _get(entry, "res_lods", "list")
+    if rows is MISSING or len(rows) != len(res["lods"]):
+        return None
+    found = [_res_row(item, lod) for item, lod in zip(rows, res["lods"])]
+    if None in found:
+        return None
+    key = tuple((item["name"], item["selection"], item["vertex_ok"], item["vertex"]) for item in found)
+    return dict(values, res=found, res_key=key)
 
 
 def _row_facts(entry, values):
@@ -362,27 +422,71 @@ def _row_facts(entry, values):
     return {"cfg_tried": tuple(names), "cfg_tried_exists": tuple(answers), "sep_slash": slash, "sep_backslash": backslash}
 
 
-def _lod_facts(row, view_lod):
+def _lod_facts(row):
     """None for a legacy row without LOD facts, MISSING when they are partial, mistyped or contradictory, else the facts.
 
-    The hook resolves the view LOD itself over every LOD the engine lists (the names are capped at eight for the report),
-    so ``view_lod`` false with a successful list is a measured absence; a "view" name in the list (case-insensitive,
-    as Object.c:106-122 compares) contradicts it, and a complete list without that name contradicts view_lod true."""
+    These are the diagnostic LOD names (at most eight, with the count of every LOD the engine listed): they never select
+    evidence. A failed list reports nothing, and the name count follows the cap."""
     present = [key in row for key in LOD_HOST_KEYS]
     if not any(present):
         return None
     listed, count, names = _get(row, "lod_list_ok", "bool"), _get(row, "lod_count", "int"), _get(row, "lod_names", "list")
     complete, by_name = _get(row, "lod_names_complete", "bool"), _get(row, "view_by_name", "bool")
-    if not all(present) or MISSING in (listed, count, names, complete, by_name, view_lod):
+    if not all(present) or MISSING in (listed, count, names, complete, by_name):
         return MISSING
     if not all(isinstance(name, str) for name in names) or count < 0 or len(names) > min(count, MAX_LOD_NAMES):
         return MISSING
-    named = any(name.casefold() == "view" for name in names)
-    if by_name != view_lod or complete != (count == len(names)) or (not listed and (count or view_lod)):
-        return MISSING
-    if (named and not view_lod) or (view_lod and complete and not named):
+    if complete != (count == len(names)) or (not listed and count):
         return MISSING
     return {"list_ok": listed, "count": count, "names": list(names), "names_complete": complete, "view_by_name": by_name}
+
+
+def _res_lod(entry):
+    """One host-side resolution LOD (name, list_ok, selection_count, scan_complete), or None when it contradicts itself."""
+    name, listed = _get(entry, "name", "str"), _get(entry, "list_ok", "bool")
+    total, complete = _get(entry, "selection_count", "int"), _get(entry, "scan_complete", "bool")
+    if MISSING in (name, listed, total, complete) or not _RES_LOD_NAME.fullmatch(name) or total < 0:
+        return None       # only a whole numeric LOD name is ever a resolution LOD
+    if (not listed and total) or complete != (listed and total <= MAX_RES_SELECTIONS):
+        return None       # a failed list counts nothing; a list above the cap was cut and is not complete
+    return {"name": name, "list_ok": listed, "selection_count": total, "scan_complete": complete}
+
+
+def _res_host(row):
+    """None for a host without resolution facts (a round 4 to 6 producer), MISSING when they are partial, mistyped or
+    contradictory, else {"enum_ok", "count", "complete", "lods"} with the scanned numeric LODs in the engine's order.
+
+    The hook scans at most MAX_RES_LODS numeric LODs: ``res_lods_scanned`` and the list are both min(count, cap); a
+    failed enumeration scanned nothing; ``res_scan_complete`` means every numeric LOD was scanned and read completely."""
+    present = [key in row for key in RES_HOST_KEYS]
+    if not any(present):
+        return None
+    if not all(present):
+        return MISSING
+    enum_ok, count = _get(row, "res_enum_ok", "bool"), _get(row, "res_lod_count", "int")
+    scanned, complete = _get(row, "res_lods_scanned", "int"), _get(row, "res_scan_complete", "bool")
+    entries = _get(row, "res_lods", "list")
+    if MISSING in (enum_ok, count, scanned, complete, entries) or count < 0 or scanned != len(entries) \
+            or len(entries) != min(count, MAX_RES_LODS):
+        return MISSING
+    lods = [_res_lod(entry) for entry in entries]
+    if None in lods or (not enum_ok and (count or lods or complete)):
+        return MISSING
+    if complete != (enum_ok and len(lods) == count and all(lod["scan_complete"] for lod in lods)):
+        return MISSING
+    return {"enum_ok": enum_ok, "count": count, "complete": complete, "lods": lods}
+
+
+def _lods_agree(res, lod):
+    """True when the diagnostic LOD list and the resolution scan describe one engine answer.
+
+    The list flag matches, the LOD count is not below the scanned numeric LODs, and the numeric names in the (at most
+    eight) name list are the leading numeric LODs the scan read (all of them when the name list is complete)."""
+    if lod is None or lod["list_ok"] != res["enum_ok"] or lod["count"] < res["count"]:
+        return False
+    numeric = [name for name in lod["names"] if _RES_LOD_NAME.fullmatch(name)]
+    scanned = [item["name"] for item in res["lods"]]
+    return numeric == scanned if lod["names_complete"] else scanned[:len(numeric)] == numeric
 
 
 def _whole_path_class(cfg_class, path):
@@ -391,29 +495,24 @@ def _whole_path_class(cfg_class, path):
 
 
 def _proxies(row):
-    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or ("ok", rows, truncated, view).
+    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or ("ok", rows, truncated, res).
 
     Everything that makes the host's own read-back contradict itself is malformed here, before any slot is matched:
-    a malformed proxy name, a duplicate selection identity (even when the copies agree), rows that read the same
-    ``Proxy<basename>`` config entry differently or with different view results (the view lookup is one result per
-    model, so the selection, the vertex flag and the vertex must agree too), a view selection claimed by a host without
-    a view LOD or without a successful selection list."""
+    a malformed proxy name, an identity read two ways, rows that read the same ``Proxy<basename>`` config entry
+    differently or with different resolution results (the lookup is one result per model, so the selections and the
+    vertices must agree too), resolution or LOD facts that contradict each other, a per-row LOD list that is not the
+    host's. Copies of one identity that agree (a leading-slash alias, case and slash variants) collapse into one row."""
     if not any(key in row for key in PROXY_HOST_KEYS):
         return ("missing",)
     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
-    view = {"lod": _get(row, "view_lod", "bool"), "count": _get(row, "view_selection_count", "int"),
-            "complete": _get(row, "view_scan_complete", "bool"), "listed": _get(row, "view_list_ok", "bool")}
-    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count \
-            or MISSING in view.values() or view["count"] < 0 \
-            or (view["listed"] and not view["lod"]) or (not view["listed"] and (view["count"] or view["complete"])):
-        return ("malformed",)       # no list without a LOD; a failed or skipped list has no selections and is not complete
-    facts = _lod_facts(row, view["lod"])
-    if facts is MISSING:
+    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
         return ("malformed",)
-    view["absent"] = bool(facts and facts["list_ok"] and not view["lod"])       # measured: the server listed its LODs
-    rows, identities, lookups, mismatch = [], set(), {}, False
+    res, lod = _res_host(row), _lod_facts(row)
+    if res is MISSING or lod is MISSING or (res is not None and not _lods_agree(res, lod)):
+        return ("malformed",)
+    rows, identities, lookups, mismatch = [], {}, {}, False
     for entry in entries:
-        values = _proxy_row(entry)
+        values = _proxy_row(entry, res)
         name = _proxy_name(values["selection"]) if values else None
         if name is None:
             return ("malformed",)
@@ -422,19 +521,20 @@ def _proxies(row):
                 return ("malformed",)
             mismatch = True       # the earlier producer's whole-path class: consistent, but not a lookup of the real class
         lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
-                  values["view_selection"], values["view_vertex_ok"], tuple(values["view_vertex"]))
-        if name in identities or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup \
-                or (values["view_selection"] and not (view["lod"] and view["count"] > 0)):
+                  values["res_key"])
+        reading = (values["cfg_class"].casefold(), lookup)
+        known = identities.setdefault(name, reading)
+        if known != reading or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup:
             return ("malformed",)
-        identities.add(name)
-        rows.append(dict(values, path=name[0]))
+        if known is reading:       # a coherent alias of an identity already read adds no second piece of evidence
+            rows.append(dict(values, path=name[0]))
     if mismatch:
         return ("mismatch",)
-    return ("ok", rows, count > len(entries) or not complete, view)
+    return ("ok", rows, count > len(entries) or not complete, res)
 
 
-def _view_path(selection):
-    """The whole proxy path a view selection names (lower case, forward slashes, no leading slash, no .p3d, the
+def _resolution_path(selection):
+    """The whole proxy path a resolution selection names (lower case, forward slashes, no leading slash, no .p3d, the
     ``proxy:`` prefix and the all-digit ``.NNN`` instance suffix stripped), or None for any other spelling."""
     name = _proxy_name(selection)
     return name[0] if name else None
@@ -442,39 +542,68 @@ def _view_path(selection):
 
 def _vertex(values):
     """Three finite numbers from the hook's number text, or None."""
-    if len(values) != 3 or not all(isinstance(item, str) and _NUMBER_TEXT.match(item) for item in values):
+    if len(values) != 3 or not all(isinstance(item, str) and _NUMBER_TEXT.fullmatch(item) for item in values):
         return None
     numbers = [float(item) for item in values]
     return numbers if all(math.isfinite(number) for number in numbers) else None
 
 
-def _view_problem(item, view):
-    """Pending reason when the row's view-LOD join does not hold up, else None. Nothing unknown is a pass."""
-    if not view["lod"]:
-        return "view_lod_absent_on_server" if view["absent"] else "view_lod_missing"
-    if not view["listed"]:
-        return "view_enumeration_failed"       # LOD.GetSelections reported failure: its output is unknown
-    if not item["view_selection"]:
-        return "view_selection_missing" if view["complete"] else "view_evidence_truncated"
-    if len(item["model"]) <= 5 or _view_path(item["view_selection"]) != _path(item["model"]):
-        return "view_selection_mismatch"       # the hook's claim is re-verified here, not trusted
-    if not item["view_vertex_ok"]:
-        return "view_vertex_missing"
-    return None if _vertex(item["view_vertex"]) else "view_vertex_invalid"
+def _resolution_check(item, res):
+    """(problem, evidence) for one matching row: a pending reason, or None with the qualifying LOD's evidence.
+
+    A row qualifies when at least one numeric LOD whose selection scan was complete holds the proxy selection whose whole
+    normalised path equals the model path, with a finite first vertex. Nothing unknown is a pass."""
+    if res is None:
+        return "resolution_lod_evidence_missing", None       # a round 4 to 6 row: view-LOD fields, no per-LOD list
+    if not res["enum_ok"]:
+        return "resolution_enumeration_failed", None       # Object.GetLODS failed or listed too many LODs
+    if not res["lods"]:
+        return "resolution_lod_absent", None       # the list is ok and holds no numeric LOD; no other LOD stands in
+    problem = None
+    for lod, found in zip(res["lods"], item["res"]):
+        if not lod["scan_complete"] or not found["selection"]:
+            continue
+        reason = None
+        if len(item["model"]) <= 5 or _resolution_path(found["selection"]) != _path(item["model"]):
+            reason = "resolution_selection_mismatch"       # the hook's claim is re-verified here, not trusted
+        elif not found["vertex_ok"]:
+            reason = "resolution_vertex_missing"
+        elif _vertex(found["vertex"]) is None:
+            reason = "resolution_vertex_invalid"
+        else:
+            return None, {"lod": lod["name"], "selection": found["selection"], "vertex": _vertex(found["vertex"])}
+        problem = problem or reason
+    if not all(lod["list_ok"] for lod in res["lods"]):
+        return "resolution_enumeration_failed", None       # LOD.GetSelections reported failure: that LOD may hold it
+    if problem:
+        return problem, None
+    return ("resolution_evidence_truncated" if not res["complete"] else "resolution_proxy_missing"), None
 
 
 def _host_diagnostics(row):
-    """Per-host native facts for the reader: the LOD names and what each proxy row tried. Never read for a verdict."""
-    facts = _lod_facts(row, _get(row, "view_lod", "bool"))
+    """Per-host native facts for the reader: the LOD names, the resolution scan, what each proxy row tried and how many
+    coherent aliases collapsed. Never read for a verdict."""
+    facts, res = _lod_facts(row), _res_host(row)
     lod = {"status": "absent"} if facts is None else {"status": "malformed"} if facts is MISSING else facts
-    names = []
+    if res is None or res is MISSING:
+        resolution = {"status": "absent" if res is None else "malformed"}
+    else:
+        resolution = {"enum_ok": res["enum_ok"], "count": res["count"], "complete": res["complete"],
+                      "lods": [dict(item) for item in res["lods"]]}
+    names, seen, collapsed = [], set(), 0
     for entry in row.get("proxies") if isinstance(row.get("proxies"), list) else []:
-        values = _proxy_row(entry)
-        if values and values["cfg_tried"] is not None:
+        values = _proxy_base(entry)
+        if values is None:
+            continue
+        identity = _proxy_name(values["selection"])
+        if identity is not None:
+            collapsed += identity in seen
+            seen.add(identity)
+        if values["cfg_tried"] is not None:
             names.append({"selection": values["selection"], "cfg_tried": list(values["cfg_tried"]),
                           "cfg_tried_exists": list(values["cfg_tried_exists"]), "sep_slash": values["sep_slash"],
                           "sep_backslash": values["sep_backslash"]})
-    return {"lod": lod, "proxy_names": names}
+    return {"lod": lod, "resolution": resolution, "proxy_names": names, "proxy_alias_collapsed": collapsed}
 
 
 def _native_diagnostics(observations):
@@ -510,13 +639,13 @@ def _native_diagnostics(observations):
 
 
 def _model_evidence(host_slot, slot, proxies):
-    """(source, detail, view) for one slot: source is selection, view_lod_proxy_slot, none or pending.
+    """(source, detail, found) for one slot: source is selection, resolution_lod_proxy_slot, none or pending.
 
-    ``detail`` is the pending reason, or the proxy selection of a view_lod_proxy_slot; ``view`` holds that row's view
-    selection and first vertex. Selection, memory point and bone are the older evidence; proxy evidence is the join of
-    a proxy selection to its config entry, and then to the host's view LOD (Object.GetLODByName(LOD.NAME_VIEW)). A
-    row that would match the slot but has no view-LOD membership is pending, never qualified and never negative.
-    Malformed proxy evidence outranks both kinds, because the row's evidence is then not trustworthy."""
+    ``detail`` is the pending reason, or the proxy selection of a resolution_lod_proxy_slot; ``found`` holds the LOD, the
+    selection and the first vertex that proved it. Selection, memory point and bone are the older evidence; proxy
+    evidence is the join of a proxy selection to its config entry, and then to the numeric resolution LODs of the host
+    model. A row that would match the slot but has no complete resolution-LOD membership is pending, never qualified and
+    never negative. Malformed proxy evidence outranks both kinds, because the row's evidence is then not trustworthy."""
     if proxies[0] == "malformed":
         return "pending", "proxy_evidence_malformed", None
     if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
@@ -525,16 +654,15 @@ def _model_evidence(host_slot, slot, proxies):
         return "pending", "proxy_evidence_missing", None
     if proxies[0] == "mismatch":
         return "pending", "proxy_config_name_mismatch", None
-    _kind, rows, truncated, view = proxies
+    _kind, rows, truncated, res = proxies
     wanted, pending, slot_list_cut = slot.casefold(), None, False
     for item in rows:
         if not item["cfg_exists"] or _path(item["model"]) != item["path"]:
             continue
         if wanted in {name.casefold() for name in item["inventory_slots"]}:
-            problem = _view_problem(item, view)
+            problem, found = _resolution_check(item, res)
             if problem is None:
-                return "view_lod_proxy_slot", item["selection"], {"view_selection": item["view_selection"],
-                                                                  "view_vertex": _vertex(item["view_vertex"])}
+                return "resolution_lod_proxy_slot", item["selection"], found
             pending = pending or problem
         elif item["slot_count"] > len(item["inventory_slots"]):
             slot_list_cut = True       # the hook capped this row's slot list: the slot may be among the dropped ones
@@ -557,8 +685,8 @@ def _accepted(light, model, attempt):
         return "pending", "attached_item_not_found_in_slot"
     if model[0] == "pending":
         return "pending", model[1]
-    if model[0] == "view_lod_proxy_slot":
-        return "qualified", "native_attach_with_view_lod_proxy_slot"
+    if model[0] == "resolution_lod_proxy_slot":
+        return "qualified", "native_attach_with_resolution_lod_proxy_slot"
     if model[0] == "selection":
         return "qualified", "native_attach_with_model_selection"
     return "geometry_missing", "attached_without_model_selection"
@@ -604,8 +732,8 @@ def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot
         return "geometry_missing", "native_attach_refused_with_prerequisite", True
     verdict, reason = _accepted(light, model, attempt)
     if verdict == "qualified":
-        reason = ("native_attach_with_view_lod_proxy_slot_and_rail_handguard_prerequisite"
-                  if model[0] == "view_lod_proxy_slot"
+        reason = ("native_attach_with_resolution_lod_proxy_slot_and_rail_handguard_prerequisite"
+                  if model[0] == "resolution_lod_proxy_slot"
                   else "native_attach_with_rail_handguard_prerequisite")
     return verdict, reason, True
 
@@ -652,9 +780,10 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
                                                        preflight, model)
             evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
                             attach_ok=attempt["attach_ok"], requires_prerequisite=requires, model_evidence=model[0],
-                            proxy_selection=model[1] if model[0] == "view_lod_proxy_slot" else None,
-                            view_selection=(model[2] or {}).get("view_selection"),
-                            view_vertex=(model[2] or {}).get("view_vertex"))
+                            proxy_selection=model[1] if model[0] == "resolution_lod_proxy_slot" else None,
+                            resolution_lod=(model[2] or {}).get("lod"),
+                            resolution_selection=(model[2] or {}).get("selection"),
+                            resolution_vertex=(model[2] or {}).get("vertex"))
             evidence["bone_index"] = max(host_slot["bone_index"], -1)
         slots[slot] = {"verdict": verdict, "reason": reason, "evidence": evidence}
         verdicts.append(verdict)
@@ -888,8 +1017,8 @@ def build_report(classification, observations, provenance=None):
         "denominators": dict({name: counts.get(name, 0) for name in VERDICT_ORDER}, hosts=len(host_records),
                              host_light_pairs=dict(sorted(pair_counts.items())), reasons=dict(sorted(reasons.items()))),
         "unobserved_axes": {axis: "pending" for axis in UNOBSERVED_AXES},
-        "note": "Dedicated-server observations only. Qualified means the native attach call and a model selection "
-                "were observed; beam, switch, two-client presentation, removal by hand, tape consumption and "
+        "note": "Dedicated-server observations only. Qualified means the native attach call and a model proxy slot "
+                "(a resolution-LOD proxy selection on the server-side model) or a model selection were observed; beam, switch, two-client presentation, removal by hand, tape consumption and "
                 "persistence remain pending until runtime tests run. Nothing here is accepted.",
     }
     return document
