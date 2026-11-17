@@ -2,7 +2,8 @@
 // Native: 3_Game/Entities/Object.c:215/287/467/517/1219 deletion/pose/type/life/ruin.
 // Query is local, never GetPlayers/world traversal. The native API allocates its
 // result before our 128-entry refusal; this is not an engine-side query cap.
-// No create/move/delete/CE replenishment call is used by this adapter.
+// No create/move/delete/CE replenishment call is used by this adapter; the reward
+// cache is created by HCEventCacheSpawner (4_World/Events/HCEventRewardCache.c).
 class HCEventWorldBinding
 {
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
@@ -56,11 +57,28 @@ class HCEventWorldBinding
         }
         return found;
     }
+    // Reviewed-site reward cache: created at most once per site and session by the
+    // journaled spawner, then registered like any recovery target. An existing
+    // registration is kept untouched, so a lease, carrier or player drop is never reset.
+    static bool BindCache(HCEventNativeObserver observer, HCEventMission mission)
+    {
+        if (mission.Family != HCEventFamily.RECOVERY || !HCEventSitesGate.Admitted()) { return false; }
+        if (observer.Target(mission.Id)) { return true; }
+        HCEventTarget created = HCEventCacheSpawner.Create(mission);
+        if (!created) { return false; }
+        if (!observer.RegisterTarget(mission.Id, created.Item))
+        {
+            HCEventCacheSpawner.Discard(created.Item);
+            return false;
+        }
+        return true;
+    }
     static bool Bind(HCEventNativeObserver observer, HCEventMission mission)
     {
         if (!observer || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName) || !HCEventQualification.Admitted()) { return false; }
         if (mission.Family == HCEventFamily.INVESTIGATION) { return true; }
         if (mission.Family == HCEventFamily.AI_ENCOUNTER) { return false; }
+        if (mission.RewardCache) { return BindCache(observer, mission); }
         if (!observer.ResetUnleasedTarget(mission.Id)) { return true; }
         array<Object> nearby = Query(mission.Source, 15);
         if (!nearby) { return false; }

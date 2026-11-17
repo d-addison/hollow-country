@@ -1,11 +1,17 @@
 // Each reviewed site supplies four authored noncombat assignments and one
 // optional provider encounter. No coordinates, loot balance or AI are invented.
+// A RewardCache site (events_sites.enable) offers only reach-the-site (INVESTIGATION)
+// and recover-the-cache (RECOVERY); the cache is created at bind time, never here.
 class HCEventRoster
 {
     static array<ref HCEventMission> Build(HCEventSite site, bool includeAI)
     {
         array<ref HCEventMission> result = new array<ref HCEventMission>();
         if (!site || !site.Reviewed || (!site.Surveyed && !HCEventQualification.Admitted()))
+        {
+            return result;
+        }
+        if (site.RewardCache && !HCEventSitesGate.Admitted())
         {
             return result;
         }
@@ -26,6 +32,8 @@ class HCEventRoster
             mission.ItemClass = site.ItemClass;
             mission.ContainerClass = site.ContainerClass;
             mission.AnchorClass = site.AnchorClass;
+            mission.RewardCache = site.RewardCache && family == HCEventFamily.RECOVERY;
+            bool offered = !site.RewardCache || family == HCEventFamily.RECOVERY || family == HCEventFamily.INVESTIGATION;
             if (family == HCEventFamily.DELIVERY && site.DeliveryClass != "")
             {
                 mission.ItemClass = site.DeliveryClass;
@@ -38,7 +46,7 @@ class HCEventRoster
             {
                 mission.ActorBudget = 2;
             }
-            if ((family != HCEventFamily.AI_ENCOUNTER || includeAI) && HCEventRuntimePolicy.MissionValid(mission, world))
+            if (offered && (family != HCEventFamily.AI_ENCOUNTER || includeAI) && HCEventRuntimePolicy.MissionValid(mission, world))
             {
                 result.Insert(mission);
             }

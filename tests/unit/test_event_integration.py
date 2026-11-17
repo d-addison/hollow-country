@@ -65,11 +65,14 @@ class EventIntegrationTests(unittest.TestCase):
         self.rpc_ok = True
         self.next_session = 0
         self.cfg = N(Enabled=True, Sites=EArray([N(WorldName="synthetic_world")]))
-        self.env = dict(EArray=EArray, Print=lambda text: None,
+        self.logs = []
+        self.env = dict(EArray=EArray, Print=lambda text: self.logs.append(text),
                         str=str, Math=N(Floor=math.floor, RandomIntInclusive=self.random))
         self.game = N(IsServer=lambda: self.server, GetTickTime=lambda: self.now,
                       GetWorldName=lambda: "synthetic_world")
         self.env["HCEventQualification"] = N(Admitted=lambda: True)
+        self.sites_admitted = True
+        self.env["HCEventSitesGate"] = N(Admitted=lambda: self.sites_admitted)
         self.env["HCEventWorldBinding"] = N(Bind=lambda observer, mission: True, BindSites=lambda observer, settings, world: None)
         self.env["HCEventAISelection"] = N(Create=lambda: N(synthetic=True))
         self.env["GetGame"] = lambda: self.game
@@ -189,6 +192,18 @@ class EventIntegrationTests(unittest.TestCase):
         self.assertEqual(["runtime.start", "roster.build", "runtime.announce", "rpc.attach"], self.calls)
         self.assertIs(self.module, self.cls.Get())
         self.assertEqual(1, len(self.callbacks))
+
+    def test_admitted_line_reports_the_reward_pool_state_accurately(self):
+        for admitted, expected in ((True, "reward caches from finite journaled pool"), (False, "reward caches unavailable")):
+            self.logs.clear()
+            self.sites_admitted = admitted
+            self.cls.s_Instance = None
+            module = self.make_module()
+            module.IsEnabled(N())
+            module.OnStart(N())
+            line = [text for text in self.logs if "admitted missions" in text][0]
+            self.assertIn(expected, line)
+            self.assertNotIn("rewards unavailable", line)
 
     def test_empty_or_wrong_world_roster_still_exposes_honest_browse(self):
         self.cfg.Sites = EArray([None, N(WorldName="another_world")])

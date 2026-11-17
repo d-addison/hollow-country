@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "world": "chernarusplus",
+  "review": "Data review 2026-11-17 of the stock dayzOffline.chernarusplus mission files. Source review is not a field survey; every site is Surveyed=false and only reachable behind events.enable plus events_sites.enable.",
+  "rules": {
+    "min_map_group_m": 150,
+    "min_player_spawn_m": 500,
+    "min_wreck_clearance_m": 10
+  },
+  "sources": {
+    "cfgeventspawns.xml": "7474b95f7a9349eb98ee19b9a44ba8e41c8dfe767104ea9d571654aba4aaad6c",
+    "cfgeventgroups.xml": "8957770d8b5a45c4b10514800ab955a866639b55729fc11ec50730dc4e99f531",
+    "mapgrouppos.xml": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+    "cfgplayerspawnpoints.xml": "e50a258545cafb49e307e1ae29b2845a738f94fd346c0e072aff011130f3bb90"
+  },
+  "sites": [
+    {
+      "id": "kamenka-supply-cache",
+      "event_group": "Supply_Kamenka",
+      "position": [
+        2512.352,
+        6.736,
+        2054.215
+      ],
+      "event_origin": [
+        2506.352,
+        6.736,
+        2043.815
+      ],
+      "offset": [
+        6.0,
+        10.4
+      ],
+      "note": "stock static event group origin from cfgeventspawns.xml; the name is the only description taken from the source",
+      "why_safe": {
+        "not_inside_building": "no mapgrouppos building group within 167 m; the point is in open terrain by the stock event origin",
+        "reachable_on_foot": "inferred only: the stock event group is placed on a road or open ground by the economy; no slope or walkability check was made",
+        "not_spawn_point": "no cfgplayerspawnpoints.xml point within 1841 m",
+        "nearest_map_group": {
+          "type": "Land_Boat_Small3",
+          "distance_m": 167.0
+        },
+        "nearest_player_spawn_m": 1841.2,
+        "clear_of_event_wrecks_m": 12.0,
+        "surveyed": false,
+        "unproven": "terrain slope, vegetation, collision of the cache with the event wreck children and the effective 3D radius are unobserved; local in-world acceptance is PENDING"
+      }
+    },
+    {
+      "id": "staroye-traffic-cache",
+      "event_group": "Traffic_Staroye",
+      "position": [
+        10676.524,
+        125.785,
+        4579.396
+      ],
+      "event_origin": [
+        10670.524,
+        125.785,
+        4568.996
+      ],
+      "offset": [
+        6.0,
+        10.4
+      ],
+      "note": "stock static event group origin from cfgeventspawns.xml; the name is the only description taken from the source",
+      "why_safe": {
+        "not_inside_building": "no mapgrouppos building group within 381 m; the point is in open terrain by the stock event origin",
+        "reachable_on_foot": "inferred only: the stock event group is placed on a road or open ground by the economy; no slope or walkability check was made",
+        "not_spawn_point": "no cfgplayerspawnpoints.xml point within 930 m",
+        "nearest_map_group": {
+          "type": "Land_Misc_DeerStand2",
+          "distance_m": 381.1
+        },
+        "nearest_player_spawn_m": 930.4,
+        "clear_of_event_wrecks_m": 12.0,
+        "surveyed": false,
+        "unproven": "terrain slope, vegetation, collision of the cache with the event wreck children and the effective 3D radius are unobserved; local in-world acceptance is PENDING"
+      }
+    },
+    {
+      "id": "kumyrna-ambush-cache",
+      "event_group": "Ambush_Kumyrna",
+      "position": [
+        8393.078,
+        292.062,
+        5998.555
+      ],
+      "event_origin": [
+        8387.078,
+        292.062,
+        5988.155
+      ],
+      "offset": [
+        6.0,
+        10.4
+      ],
+      "note": "stock static event group origin from cfgeventspawns.xml; the name is the only description taken from the source",
+      "why_safe": {
+        "not_inside_building": "no mapgrouppos building group within 159 m; the point is in open terrain by the stock event origin",
+        "reachable_on_foot": "inferred only: the stock event group is placed on a road or open ground by the economy; no slope or walkability check was made",
+        "not_spawn_point": "no cfgplayerspawnpoints.xml point within 2037 m",
+        "nearest_map_group": {
+          "type": "Land_Misc_DeerStand1",
+          "distance_m": 158.7
+        },
+        "nearest_player_spawn_m": 2036.9,
+        "clear_of_event_wrecks_m": 12.0,
+        "surveyed": false,
+        "unproven": "terrain slope, vegetation, collision of the cache with the event wreck children and the effective 3D radius are unobserved; local in-world acceptance is PENDING"
+      }
+    }
+  ]
+}

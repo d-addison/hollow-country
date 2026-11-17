@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "note": "Mirror of HCEventRewardPools.V1 (4_World/Events/HCEventRewards.c). Per-session allowance, journaled before creation; vanilla classes only; not a persistent economy.",
+  "max_caches_per_session": 3,
+  "items_per_cache": 4,
+  "entries": [
+    {
+      "type": "BandageDressing",
+      "count": 3
+    },
+    {
+      "type": "TunaCan",
+      "count": 2
+    },
+    {
+      "type": "Matchbox",
+      "count": 2
+    },
+    {
+      "type": "Chemlight_Green",
+      "count": 2
+    },
+    {
+      "type": "MetalWire",
+      "count": 1
+    },
+    {
+      "type": "Battery9V",
+      "count": 1
+    },
+    {
+      "type": "Rag",
+      "count": 1
+    }
+  ]
+}

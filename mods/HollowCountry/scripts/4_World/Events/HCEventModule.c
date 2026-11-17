@@ -166,7 +166,14 @@ class HCEventModule : HCModule
         }
         else
         {
-            Print("[HC Events] admitted missions " + admitted.ToString() + "; participation is optional; rewards unavailable");
+            if (HCEventSitesGate.Admitted())
+            {
+                Print("[HC Events] admitted missions " + admitted.ToString() + "; participation is optional; reward caches from finite journaled pool");
+            }
+            else
+            {
+                Print("[HC Events] admitted missions " + admitted.ToString() + "; participation is optional; reward caches unavailable");
+            }
         }
     }
     override void OnTick(float deltaTime)

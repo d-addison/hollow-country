@@ -85,6 +85,10 @@ class HCEventRuntimePolicy
         {
             return false;
         }
+        if (mission.RewardCache && mission.Family != HCEventFamily.RECOVERY)
+        {
+            return false;
+        }
         if (!PositionValid(mission.Source) || !PositionValid(mission.Destination))
         {
             return false;
