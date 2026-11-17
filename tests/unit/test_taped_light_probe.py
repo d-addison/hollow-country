@@ -1,0 +1,522 @@
+"""Offline stager/hook tests for the taped-light geometry probe; SYNTHETIC fixtures only.
+
+Nothing here proves how DayZ spawns, attaches or presents anything. The generated Enforce
+hook is only checked structurally and against compile-shape rules already observed natively
+(see test_script_syntax/test_script_identifiers). Runtime acceptance stays PENDING until a
+native run produces observations that tools/audit/taped_light_report.py can join.
+
+Actual TDD 2026-11-17:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_taped_light_probe -v
+RED: ModuleNotFoundError for tools.setup.taped_light_probe (whole module missing).
+"""
+import hashlib
+import json
+from pathlib import Path
+import re
+import tempfile
+import unittest
+from unittest import mock
+
+from tests.unit import test_script_identifiers as ident
+from tests.unit import test_script_syntax as syn
+from tools.setup import taped_light_probe as probe
+
+ROOT = Path(__file__).resolve().parents[2]
+PROBE_SOURCE = ROOT / "tools/setup/taped_light_probe.py"
+STOCK_INIT = (b"// SYNTHETIC mission, not purchased game source\r\n"
+              b"void main() {}\r\nclass CustomMission: MissionServer {}\r\n"
+              b"Mission CreateCustomMission(string path)\r\n{\r\n"
+              b"    return new CustomMission();\r\n}\r\n")
+SYNTH_BE = b"SYNTHETIC-BATTLEYE"
+SYNTH_BE_SHA = hashlib.sha256(SYNTH_BE).hexdigest()
+EXE_SHA = "987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805"
+WINDOWS_ROOT = r"D:\HollowCountryLocal\taped-light-test"
+SLOTS = ["helmetFlashlight", "pistolFlashlight", "weaponFlashlight"]
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def host(name, group, root="CfgWeapons", slots=()):
+    return {"id": root + ":" + name, "root": root, "name": name, "role": "gun_candidate", "group": group,
+            "native_light_slots": list(slots), "scope": 2,
+            "exclusion_reasons": ["scope_below_2"] if group == "excluded" else []}
+
+
+def light(name, group, role, slots=()):
+    return {"id": "CfgVehicles:" + name, "root": "CfgVehicles", "name": name, "group": group,
+            "native_slots": list(slots), "probe_role": role, "exclusion_reasons": []}
+
+
+def classification(hosts=None, lights=None):
+    hosts = hosts if hosts is not None else [
+        host("AK74", "slot_host", slots=["weaponFlashlight"]), host("Glock19", "slot_host", slots=["pistolFlashlight"]),
+        host("PlainBag", "no_slot_host", "CfgVehicles"), host("PlainHat", "no_slot_host", "CfgVehicles"),
+        host("RifleBase", "excluded")]
+    lights = lights if lights is not None else [
+        light("UniversalLight", "mount_light", "representative", ["helmetFlashlight", "weaponFlashlight"]),
+        light("TLRLight", "mount_light", "representative", ["pistolFlashlight"]),
+        light("Flashlight", "handheld_battery_light", "control"), light("Torch", "flame_or_chemical_light", "")]
+    return {"schema_version": 1, "kind": "flashlight_host_light_classification", "native_light_slots": SLOTS,
+            "probe_lights": sorted(l["name"] for l in lights if l["probe_role"]), "hosts": hosts, "lights": lights,
+            "denominators": {}, "acceptance": "PENDING"}
+
+
+def make_source_runtime(root):
+    """Synthetic stand-in for the verified runtime's stock-backup and launch plan."""
+    mission = root / "stock-backup/mpmissions/dayzOffline.chernarusplus"
+    (mission / "db").mkdir(parents=True)
+    files = {"init.c": STOCK_INIT, "db/types.xml": b"<types>synthetic</types>\n",
+             "mapgroupproto.xml": b"<prototype/>\n"}
+    plan_files = []
+    for name, data in sorted(files.items()):
+        (mission / name).write_bytes(data)
+        plan_files.append({"path": name, "sha256": sha(data)})
+    config = b'hostname = "SYNTHETIC";\r\n'
+    (root / "serverDZ.cfg").write_bytes(config)
+    (root / "battleye").mkdir()
+    (root / "battleye/BEServer_x64.dll").write_bytes(SYNTH_BE)
+    (root / "launch-plan.json").write_text(json.dumps(
+        {"schema_version": 1, "status": "staged-only-not-launched", "config_sha256": sha(config),
+         "mission_files": plan_files}))
+    return root
+
+
+class Workspace(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.source = make_source_runtime(self.root / "vanilla")
+        self.dest = self.root / "taped-light-test"
+        self.classification = classification()
+
+    def kw(self, **extra):
+        """Internal test-only parent mapping; the production CLI has no such switch."""
+        base = {"battleye_sha256": SYNTH_BE_SHA, "_wsl_parent": self.root}
+        base.update(extra)
+        return base
+
+    def stage(self, **extra):
+        return probe.stage(self.source, self.dest, self.classification, **self.kw(**extra))
+
+
+class TargetSelectionTests(unittest.TestCase):
+    def test_only_live_slot_and_no_slot_hosts_are_probed_and_exclusions_are_counted(self):
+        targets = probe.select_targets(classification())
+        self.assertEqual(["AK74", "Glock19", "PlainBag", "PlainHat"], [h["class"] for h in targets["hosts"]])
+        self.assertEqual(["slot_host", "slot_host", "no_slot_host", "no_slot_host"],
+                         [h["group"] for h in targets["hosts"]])
+        self.assertEqual(1, targets["excluded_not_probed"])
+        self.assertEqual(["Flashlight", "TLRLight", "UniversalLight"], targets["lights"])
+        self.assertEqual(SLOTS, targets["slots"])
+
+    def test_selection_is_deterministic_for_shuffled_input(self):
+        shuffled = classification()
+        shuffled["hosts"].reverse()
+        self.assertEqual(probe.select_targets(classification()), probe.select_targets(shuffled))
+
+    def test_hard_class_cap_is_enforced_before_anything_else(self):
+        many = [host("Gun%03d" % i, "no_slot_host") for i in range(probe.HARD_CAP)]
+        self.assertEqual(probe.HARD_CAP, len(probe.select_targets(classification(many))["hosts"]))
+        with self.assertRaises(ValueError):
+            probe.select_targets(classification(many + [host("OneTooMany", "no_slot_host")]))
+        self.assertLessEqual(probe.HARD_CAP, 600)
+
+    def test_invalid_classifications_are_refused(self):
+        cases = {"kind": dict(classification(), kind="other"),
+                 "no hosts": classification([host("RifleBase", "excluded")]),
+                 "no lights": classification(lights=[light("Torch", "flame_or_chemical_light", "")]),
+                 "bad class": classification([host('Evil"Name', "no_slot_host")]),
+                 "duplicate": classification([host("AK74", "slot_host"), host("ak74", "no_slot_host")]),
+                 "bad group": classification([host("AK74", "mystery")]),
+                 "too many lights": classification(lights=[light("Light%d" % i, "mount_light", "representative")
+                                                           for i in range(probe.MAX_LIGHTS + 1)])}
+        for label, document in cases.items():
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                probe.select_targets(document)
+        for bad in (None, [], "text"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                probe.select_targets(bad)
+
+
+class HookRenderingTests(unittest.TestCase):
+    def setUp(self):
+        self.targets = probe.select_targets(classification())
+        self.hook = probe.render_hook(self.targets).decode("ascii")
+
+    def test_hook_is_ascii_with_every_class_light_and_slot_inlined_as_literal_data(self):
+        self.assertTrue(probe.render_hook(self.targets).isascii())
+        for name in ("AK74", "Glock19", "PlainBag", "PlainHat", "UniversalLight", "TLRLight", "Flashlight"):
+            self.assertIn('"%s"' % name, self.hook)
+        self.assertNotIn("RifleBase", self.hook)
+        self.assertNotIn("Torch", self.hook)
+        for slot in SLOTS:
+            self.assertIn('"%s"' % slot, self.hook)
+
+    def test_hook_runs_server_side_once_with_no_clients_or_player_apis(self):
+        self.assertIn("GetGame().IsServer()", self.hook)
+        self.assertIn("m_HCTLStarted", self.hook)
+        for forbidden in ("GetPlayers", "CreatePlayer", "PlayerBase", "ScriptRPC", "RPC", "GetRPCManager", "SetPosition",
+                          "TeleportPlayer", "GetHive", "SaveWorld", "CreateObject(", "OnClient", "RemoteObject"):
+            self.assertNotIn(forbidden, self.hook, forbidden)
+
+    def test_every_spawn_is_server_only_non_persistent_and_released_by_deletion(self):
+        self.assertIn("ECE_NOPERSISTENCY_WORLD", self.hook)
+        self.assertIn("ECE_NOLIFETIME", self.hook)
+        self.assertIn("GetGame().CreateObjectEx(", self.hook)
+        self.assertEqual(1, self.hook.count("GetGame().CreateObjectEx("))
+        self.assertEqual(1, self.hook.count("GetGame().ObjectDelete("))
+        self.assertIn("HCTLReleaseAll", self.hook)
+        # Attachments created natively are tracked too, so deletion never depends on the parent.
+        self.assertIn("CreateAttachmentEx(", self.hook)
+        self.assertRegex(self.hook, r"m_HCTLLive\.Insert\(att")
+
+    def test_hard_cap_per_class_timeout_and_watchdog_are_generated_constants(self):
+        hook = probe.render_hook(self.targets, start_delay_s=25, per_class_ms=2500).decode()
+        self.assertIn("m_HCTLPerClassMs = 2500", hook)
+        self.assertIn("m_HCTLHardCap = %d" % probe.HARD_CAP, hook)
+        self.assertIn("GetGame().GetTime() - beginMs > m_HCTLPerClassMs", hook)
+        self.assertIn("HCTLWatchdog", hook)
+        self.assertIn("CallLater(HCTLStep, 25000", hook)
+        self.assertIn("m_HCTLClasses.Count() > m_HCTLHardCap", hook)
+        watchdog = int(re.search(r"CallLater\(HCTLWatchdog, (\d+), false\)", hook).group(1))
+        self.assertGreater(watchdog, 25000 + 4 * 2500)
+
+    def test_output_is_one_bounded_json_then_sentinel_inside_the_probe_profile_directory_only(self):
+        self.assertEqual(1, self.hook.count('"$profile:HCTapedLightProbe"'))
+        self.assertEqual(2, self.hook.count("OpenFile("))
+        self.assertEqual(2, self.hook.count("FileMode.WRITE"))
+        self.assertIn("FileExist(outputPath)", self.hook)  # never overwrites earlier evidence
+        self.assertLess(self.hook.index("observations.json"), self.hook.index("complete.txt"))
+        self.assertNotRegex(self.hook, r"\$(?:mission|saves|storage|profile):(?!HCTapedLightProbe)")
+        self.assertIn("residual", self.hook)
+        self.assertIn("GetObjectsAtPosition3D", self.hook)
+
+    def test_observation_surface_uses_only_the_listed_engine_apis(self):
+        for api in ("InventorySlots.GetSlotIdFromString", "InventorySlots.GetSelectionForSlotId", "HasAttachmentSlot",
+                    "HasSelection", "MemoryPointExists", "GetBoneIndex", "GetMemoryPointPos", "CanAddAttachment(",
+                    "CanAddAttachmentEx(", "FindAttachment(", "GetSelectionList", "GetBoneObject"):
+            self.assertIn(api, self.hook)
+        allowed = {"GetSlotIdFromString", "GetSelectionForSlotId", "GetSlotName", "HasAttachmentSlot", "HasSelection",
+                   "MemoryPointExists", "GetBoneIndex", "GetMemoryPointPos", "CanAddAttachment", "CanAddAttachmentEx",
+                   "CreateAttachmentEx", "FindAttachment", "GetSelectionList", "GetBoneObject", "GetSlotIdCount",
+                   "GetSlotId", "GetInventory", "CreateObjectEx", "ObjectDelete", "GetObjectsAtPosition3D", "SurfaceY",
+                   "GetCallQueue", "CallLater", "OpenFile", "FPrintln", "CloseFile", "MakeDirectory", "FileExist",
+                   "IsSlotIdValid", "GetBoneNameForSlotId", "HasInventorySlot", "GetAttachmentSlotId",
+                   "GetAttachmentSlotsCount", "IsServer", "GetTime", "GetWorldName", "GetVersion", "Cast", "Replace", "Substring", "Length",
+                   "Insert", "Get", "Count", "Find", "Print", "Vector", "OnInit", "GetGame", "AsciiToString",
+                   "GetType", "ToLower", "IndexOf", "Clear", "Remove"}
+        called = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))))
+        own = set(re.findall(r"\b(?:void|bool|int|float|string|vector|EntityAI|Object|array<[^>]+>)\s+(\w+)\s*\(", self.hook))
+        keywords = {"if", "while", "for", "return", "override", "array", "super"}
+        leftovers = {c for c in called if c not in allowed and c not in own and c not in keywords
+                     and not c.startswith("HCTL")}
+        self.assertEqual(set(), leftovers)
+
+    def test_hook_size_is_bounded_at_the_hard_cap(self):
+        many = {"hosts": [{"class": "Gun%03d" % i, "root": "CfgWeapons", "group": "no_slot_host", "index": i}
+                          for i in range(probe.HARD_CAP)], "lights": ["UniversalLight"], "slots": SLOTS,
+                "excluded_not_probed": 0}
+        self.assertLess(len(probe.render_hook(many)), 128 * 1024)
+        many["hosts"].append(dict(many["hosts"][0], index=probe.HARD_CAP))
+        with self.assertRaises(ValueError):
+            probe.render_hook(many)
+
+    def test_invalid_targets_delays_and_positions_are_refused(self):
+        bad = dict(self.targets, hosts=[dict(self.targets["hosts"][0], **{"class": 'AK"Evil'})])
+        for kwargs, targets in (({}, bad), ({"start_delay_s": 1}, self.targets), ({"start_delay_s": 5000}, self.targets),
+                                ({"per_class_ms": 10}, self.targets), ({"per_class_ms": 600000}, self.targets),
+                                ({"position": (7680.0, float("nan"))}, self.targets),
+                                ({"position": (-5.0, 100.0)}, self.targets),
+                                ({}, dict(self.targets, hosts=[])), ({}, dict(self.targets, lights=[])),
+                                ({}, dict(self.targets, lights=["A"] * (probe.MAX_LIGHTS + 1)))):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                probe.render_hook(targets, **kwargs)
+
+    def test_generated_hook_passes_every_native_observed_compile_rule(self):
+        self.assertEqual([], probe.lint_hook(self.hook))
+        native = probe.native_type_names(syn.CACHE) if (syn.CACHE / "3_Game").is_dir() else frozenset()
+        self.assertEqual([], probe.lint_hook(self.hook, native_types=native))
+
+    def test_generated_hook_passes_the_existing_authored_source_checkers(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "init.c"
+            path.write_text(self.hook, encoding="utf-8")
+            saved, syn.ROOT = syn.ROOT, Path(temporary)
+            try:
+                self.assertEqual([], syn.leading_operator_lines([path]))
+                if (syn.CACHE / "4_World").is_dir():
+                    self.assertEqual([], syn.mismatched_overrides([path], syn.native_prototypes(syn.CACHE)))
+            finally:
+                syn.ROOT = saved
+            exponent = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
+            for number, line in enumerate(syn.strip_comments(self.hook), 1):
+                self.assertIsNone(exponent.search(re.sub(r'"[^"]*"', '""', line)), number)
+            names = set(ident.PINNED_ENGINE_TYPES)
+            if (ident.CACHE / "3_Game").is_dir():
+                for layer in ident.native_types_by_layer(ident.CACHE).values():
+                    names |= layer
+            clashes = [(n, name) for n, name in ident.declarations(path) if name in names]
+            self.assertEqual([], clashes)
+
+    def test_hook_has_no_ternary_leading_operator_or_shared_scope_redeclaration(self):
+        code = re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))
+        self.assertNotIn("?", code)
+        self.assertEqual([], [l for l in code.splitlines() if syn.LEADING_OPERATOR.match(l)])
+
+    def test_every_class_observation_checks_the_timeout_and_still_releases_what_it_spawned(self):
+        body = self.hook[self.hook.index("string HCTLObserveHost("):]
+        body = body[:body.index("\n    }\n")]
+        self.assertIn("HCTLReleaseAll()", body)
+        self.assertIn("timed_out", self.hook)
+        self.assertGreaterEqual(self.hook.count("m_HCTLPerClassMs"), 3)
+
+
+class LintDetectorTests(unittest.TestCase):
+    def wrap(self, body, header="void F(int a)"):
+        return "class HCSample : CustomMission\n{\n    %s\n    {\n%s\n    }\n}\n" % (header, body)
+
+    def issues(self, body, **extra):
+        return probe.lint_hook(self.wrap(body, **extra))
+
+    def test_ternary_is_flagged_but_question_marks_in_strings_are_not(self):
+        self.assertTrue(any("ternary" in i for i in self.issues("        int x = a ? 1 : 2;")))
+        self.assertEqual([], self.issues('        Print("what?");'))
+
+    def test_duplicate_locals_are_flagged_across_sibling_blocks_and_parameters(self):
+        sibling = "        if (a) { int value = 1; }\n        if (!a) { int value = 2; }"
+        self.assertTrue(any("duplicate local 'value'" in i for i in self.issues(sibling)))
+        self.assertTrue(any("duplicate local 'a'" in i for i in self.issues("        int a = 1;")))
+
+    def test_identifier_equal_to_an_engine_type_or_reserved_word_is_flagged(self):
+        self.assertTrue(any("engine type name" in i for i in self.issues("        Object Object = null;")))
+        found = probe.lint_hook(self.wrap("        int Weather = 1;"), native_types=frozenset({"Weather"}))
+        self.assertTrue(any("'Weather'" in i for i in found))
+        self.assertTrue(any("reserved" in i for i in self.issues("        vector local = a;")))
+
+    def test_leading_logical_operators_and_exponent_literals_are_flagged(self):
+        self.assertTrue(any("leading" in i for i in self.issues("        if (a\n            || a) { }")))
+        self.assertTrue(any("leading" in i for i in self.issues("        if (a\n            && a) { }")))
+        self.assertTrue(any("exponent" in i for i in self.issues("        float big = 3.4e38;")))
+        self.assertEqual([], self.issues('        float big = FLT_MAX;\n        Print("1e5");'))
+
+    def test_out_arguments_must_be_declared_before_the_call(self):
+        bad = "        GetGame().GetObjectsAtPosition3D(a, 1.0, objects, cargos);"
+        self.assertTrue(any("out argument 'objects'" in i for i in self.issues(bad)))
+        selection = "        bool ok = InventorySlots.GetSelectionForSlotId(a, name);"
+        self.assertTrue(any("out argument 'name'" in i for i in self.issues(selection)))
+        names = "        host.GetSelectionList(names);"
+        self.assertTrue(any("out argument 'names'" in i for i in self.issues(names)))
+        good = ("        string name = \"\";\n        bool ok = InventorySlots.GetSelectionForSlotId(a, name);")
+        self.assertEqual([], self.issues(good))
+
+    def test_string_literal_containing_comment_markers_is_refused(self):
+        self.assertTrue(any("comment marker" in i for i in self.issues('        Print("a//b");')))
+
+    def test_override_parameter_names_must_match_the_engine_prototype(self):
+        text = "class HCSample : CustomMission\n{\n    override void OnEvent(int renamed)\n    {\n    }\n}\n"
+        found = probe.lint_hook(text, prototypes={"OnEvent": {("eventTypeId",)}})
+        self.assertTrue(any("override OnEvent" in i for i in found))
+        self.assertEqual([], probe.lint_hook(text, prototypes={"OnEvent": {("renamed",)}}))
+
+
+class StagerTests(Workspace):
+    def test_stage_creates_a_fresh_runtime_with_empty_storage_and_profiles(self):
+        plan = self.stage()
+        for name in ("storage", "profiles"):
+            self.assertTrue((self.dest / name).is_dir())
+            self.assertEqual([], list((self.dest / name).iterdir()))
+        self.assertEqual(SYNTH_BE, (self.dest / "battleye/BEServer_x64.dll").read_bytes())
+        self.assertEqual((self.source / "serverDZ.cfg").read_bytes(), (self.dest / "serverDZ.cfg").read_bytes())
+        self.assertEqual(plan, json.loads((self.dest / "taped-light-probe-plan.json").read_text()))
+
+    def test_plan_has_the_required_identity_paths_arguments_and_status(self):
+        plan = self.stage()
+        self.assertEqual("staged-only-not-launched", plan["status"])
+        self.assertEqual("taped-light-probe", plan["kind"])
+        self.assertEqual(r"D:\SteamLibrary\steamapps\common\DayZServer\DayZServer_x64.exe", plan["server_exe"])
+        self.assertEqual(EXE_SHA, plan["server_exe_sha256"])
+        self.assertEqual(WINDOWS_ROOT, plan["runtime_root"])
+        self.assertEqual(WINDOWS_ROOT + r"\mpmissions\dayzOffline.chernarusplus", plan["mission"])
+        self.assertEqual(2302, plan["port"])
+        self.assertEqual("127.0.0.1:2302", plan["requested_bind"])
+        self.assertEqual(["-ip=127.0.0.1", "-port=2302", f"-config={WINDOWS_ROOT}\\serverDZ.cfg",
+                          f"-mission={plan['mission']}", f"-storage={plan['storage']}",
+                          f"-profiles={plan['profiles']}", f"-BEpath={WINDOWS_ROOT}\\battleye",
+                          "-doLogs", "-adminLog"], plan["arguments"])
+        for argument in plan["arguments"]:
+            self.assertNotRegex(argument, r"(?i)-mod=|-servermod=|-filepatching|-connect")
+        self.assertEqual("server-only-no-clients", plan["probe"]["mode"])
+        self.assertEqual(0, plan["probe"]["clients"])
+
+    def test_plan_records_probe_limits_counts_and_output_locations(self):
+        plan = self.stage(start_delay_s=25, per_class_ms=2000)
+        probe_plan = plan["probe"]
+        self.assertEqual(4, probe_plan["host_count"])
+        self.assertEqual({"slot_host": 2, "no_slot_host": 2}, probe_plan["groups"])
+        self.assertEqual(1, probe_plan["excluded_not_probed"])
+        self.assertEqual(probe.HARD_CAP, probe_plan["hard_cap"])
+        self.assertEqual(2000, probe_plan["per_class_ms"])
+        self.assertEqual(25, probe_plan["start_delay_s"])
+        self.assertEqual(["Flashlight", "TLRLight", "UniversalLight"], probe_plan["lights"])
+        self.assertEqual("profiles/HCTapedLightProbe/observations.json", probe_plan["output_relative_path"])
+        self.assertEqual("profiles/HCTapedLightProbe/complete.txt", probe_plan["sentinel_relative_path"])
+        self.assertEqual(["AK74", "Glock19", "PlainBag", "PlainHat"], [t["class"] for t in plan["targets"]])
+        self.assertGreaterEqual(probe_plan["wait_minutes"], 5)
+        self.assertEqual("PENDING", plan["acceptance"])
+
+    def test_every_staged_file_is_hashed_and_matches_disk(self):
+        plan = self.stage()
+        paths = {entry["path"] for entry in plan["staged_files"]}
+        for expected in ("serverDZ.cfg", "battleye/BEServer_x64.dll", "mpmissions/dayzOffline.chernarusplus/init.c"):
+            self.assertIn(expected, paths)
+        on_disk = {p.relative_to(self.dest).as_posix() for p in self.dest.rglob("*")
+                   if p.is_file() and p.name != "taped-light-probe-plan.json"}
+        self.assertEqual(on_disk, paths)
+        for entry in plan["staged_files"]:
+            data = (self.dest / entry["path"]).read_bytes()
+            self.assertEqual((sha(data), len(data)), (entry["sha256"], entry["bytes"]), entry["path"])
+
+    def test_init_c_gets_the_hook_and_no_other_mission_file_changes(self):
+        plan = self.stage()
+        init = (self.dest / "mpmissions/dayzOffline.chernarusplus/init.c").read_bytes()
+        self.assertIn(b"return new HCDisposableDiagnosticMission();", init)
+        self.assertEqual(plan["probe"]["hook_sha256"], sha(init[init.index(b"\n\n// Hollow Country DISPOSABLE"):]))
+        for name in ("db/types.xml", "mapgroupproto.xml"):
+            self.assertEqual((self.source / "stock-backup/mpmissions/dayzOffline.chernarusplus" / name).read_bytes(),
+                             (self.dest / "mpmissions/dayzOffline.chernarusplus" / name).read_bytes())
+        text = init.decode()
+        self.assertEqual([], probe.lint_hook(text[text.index("// Hollow Country DISPOSABLE"):]))
+        original = next(f for f in plan["mission_files"] if f["path"] == "init.c")
+        self.assertEqual(sha(STOCK_INIT), original["source_sha256"])
+        self.assertNotEqual(original["sha256"], original["source_sha256"])
+
+    def test_already_instrumented_or_unexpected_init_c_is_refused(self):
+        init = self.source / "stock-backup/mpmissions/dayzOffline.chernarusplus/init.c"
+        for payload in (STOCK_INIT + b"class HCDisposableDiagnosticMission {}\n", b"void main() {}\n"):
+            init.write_bytes(payload)
+            plan_path = self.source / "launch-plan.json"
+            document = json.loads(plan_path.read_text())
+            for entry in document["mission_files"]:
+                if entry["path"] == "init.c":
+                    entry["sha256"] = sha(payload)
+            plan_path.write_text(json.dumps(document))
+            with self.subTest(payload=payload[:20]), self.assertRaises(ValueError):
+                self.stage()
+            self.assertFalse(self.dest.exists())
+
+    def test_class_cap_violation_is_refused_before_anything_is_created(self):
+        self.classification = classification([host("Gun%03d" % i, "no_slot_host") for i in range(probe.HARD_CAP + 1)])
+        with self.assertRaises(ValueError):
+            self.stage()
+        self.assertFalse(self.dest.exists())
+
+    def test_tampered_stock_file_and_wrong_hashes_are_refused(self):
+        mission = self.source / "stock-backup/mpmissions/dayzOffline.chernarusplus"
+        (mission / "db/types.xml").write_bytes(b"<types>tampered</types>\n")
+        with self.assertRaises(ValueError):
+            self.stage()
+        (mission / "db/types.xml").write_bytes(b"<types>synthetic</types>\n")
+        (self.source / "serverDZ.cfg").write_bytes(b"changed")
+        with self.assertRaises(ValueError):
+            self.stage()
+        (self.source / "serverDZ.cfg").write_bytes(b'hostname = "SYNTHETIC";\r\n')
+        with self.assertRaises(ValueError):
+            probe.stage(self.source, self.dest, self.classification, **self.kw(battleye_sha256="0" * 64))
+        self.assertFalse(self.dest.exists())
+
+    def test_existing_destination_is_never_overwritten_and_the_source_is_not_modified(self):
+        before = {p.relative_to(self.source).as_posix(): sha(p.read_bytes()) for p in self.source.rglob("*") if p.is_file()}
+        self.stage()
+        marker = self.dest / "storage/keep.txt"
+        marker.write_text("evidence")
+        with self.assertRaises(ValueError):
+            self.stage()
+        self.assertEqual("evidence", marker.read_text())
+        after = {p.relative_to(self.source).as_posix(): sha(p.read_bytes()) for p in self.source.rglob("*") if p.is_file()}
+        self.assertEqual(before, after)
+
+    def test_destination_is_always_a_new_direct_child_of_the_probe_parent(self):
+        with self.assertRaises(ValueError):
+            probe.stage(self.source, self.source / "child", self.classification, **self.kw())
+        with self.assertRaises(ValueError):
+            probe.stage(self.source, ROOT / "taped-light-inside-checkout", self.classification, **self.kw())
+        nested = self.root / "elsewhere"
+        nested.mkdir()
+        for bad in (nested / "taped-x", self.root / "a" / "b" / "taped-y", self.root / "taped z"):
+            with self.subTest(bad=str(bad)), self.assertRaises(ValueError):
+                probe.stage(self.source, bad, self.classification, **self.kw())
+            self.assertFalse(bad.exists())
+        for name in ("vanilla-p0-001", "VANILLA-P0-001"):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                probe.stage(self.source, self.root / name, self.classification, **self.kw())
+        with self.assertRaises(ValueError):  # production parent: a writable temp location is still refused
+            probe.stage(self.source, self.dest, self.classification, battleye_sha256=SYNTH_BE_SHA)
+        self.assertFalse(self.dest.exists())
+
+    def test_windows_paths_derive_from_mnt_d_only(self):
+        self.assertEqual(r"D:\HollowCountryLocal\taped-light-001",
+                         probe.windows_runtime_root(Path("/mnt/d/HollowCountryLocal/taped-light-001")))
+        for bad in ("/mnt/d/Other/x", "/tmp/x", "/mnt/d/HollowCountryLocal/vanilla-p0-001",
+                    "/mnt/d/HollowCountryLocal/bad name", "/mnt/d/HollowCountryLocal/a/b"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                probe.windows_runtime_root(Path(bad))
+        with self.assertRaises(TypeError):
+            probe.stage(self.source, self.dest, self.classification, windows_runtime_root=WINDOWS_ROOT, **self.kw())
+
+    def test_sensitive_source_files_are_refused_even_when_absent_from_the_manifest(self):
+        mission = self.source / "stock-backup/mpmissions/dayzOffline.chernarusplus"
+        secret = b"SYNTHETIC-SECRET-MATERIAL"
+        for relative in ("keys/server.biprivatekey", "profiles/state.json", "storage/data.bin", "notes.txt",
+                         "credentials.json", "scripts/extra.c"):
+            target = mission / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(secret)
+            with self.subTest(relative=relative):
+                with self.assertRaises(ValueError) as raised:
+                    self.stage()
+                self.assertNotIn(secret.decode(), str(raised.exception))
+                self.assertFalse(self.dest.exists())
+            target.unlink()
+            if target.parent != mission and not any(target.parent.iterdir()):
+                target.parent.rmdir()
+        self.stage()
+
+    def test_staged_tree_contains_only_allowlisted_content(self):
+        plan = self.stage()
+        allowed = re.compile(r"^(?:serverDZ\.cfg|battleye/BEServer_x64\.dll|taped-light-probe-plan\.json|"
+                             r"mpmissions/dayzOffline\.chernarusplus/(?:\.hollow-country-diagnostic-mission\.json|"
+                             r"(?:(?:db|env)/)?[A-Za-z0-9_.-]+\.(?:xml|json|map|c)))$")
+        for path in (p.relative_to(self.dest).as_posix() for p in self.dest.rglob("*") if p.is_file()):
+            self.assertRegex(path, allowed)
+        self.assertEqual(sorted(e["path"] for e in plan["staged_files"]),
+                         sorted(e["path"] for e in plan["staged_files"] if allowed.match(e["path"])))
+
+    def test_staging_never_launches_anything_or_touches_the_network(self):
+        with mock.patch("subprocess.Popen", side_effect=AssertionError("launch")), \
+                mock.patch("socket.socket", side_effect=AssertionError("network")), \
+                mock.patch("os.system", side_effect=AssertionError("launch")):
+            self.stage()
+        code = re.sub(r'""".*?"""', "", PROBE_SOURCE.read_text(encoding="utf-8"), flags=re.S)
+        for forbidden in ("import subprocess", "Popen(", "os.system", "os.exec", "wine ", "powershell.exe", "socket"):
+            self.assertNotIn(forbidden, code)
+
+    def test_cli_stages_and_prints_the_plan_path_and_fails_on_reuse(self):
+        document = self.root / "classification.json"
+        document.write_text(json.dumps(self.classification))
+        argv = ["--source-runtime", str(self.source), "--destination", str(self.dest),
+                "--classification", str(document), "--battleye-sha256", SYNTH_BE_SHA, "--per-class-ms", "2000"]
+        with mock.patch.object(probe, "WSL_PARENT", self.root), mock.patch("sys.stdout") as out:
+            self.assertEqual(0, probe.main(argv))
+        self.assertIn("taped-light-probe-plan.json", "".join(call.args[0] for call in out.write.call_args_list))
+        self.assertEqual(2000, json.loads((self.dest / "taped-light-probe-plan.json").read_text())["probe"]["per_class_ms"])
+        with mock.patch.object(probe, "WSL_PARENT", self.root), mock.patch("sys.stderr"):
+            self.assertEqual(1, probe.main(argv))
+        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            probe.main(argv + ["--windows-runtime-root", WINDOWS_ROOT])
+
+
+if __name__ == "__main__":
+    unittest.main()
