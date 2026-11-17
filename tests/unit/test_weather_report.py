@@ -567,13 +567,25 @@ class LimitReadbackTests(unittest.TestCase):
     def test_values_in_range_with_unchanged_live_limits_do_not_show_the_limits_applied(self):
         def conflicting(rows):
             for i, row in enumerate(rows[1:-1]):
-                row["phenomena"]["overcast"].update(actual=0.86 + i * 0.01, limit_min=0.0, limit_max=1.0, forecast=0.3)
+                row["phenomena"]["overcast"].update(actual=0.86 + i * 0.01, limit_min=0.0, limit_max=1.0, forecast=0.9)
         candidate = evaluated(DISTINCT, "candidate", 0.9, mutate=conflicting)
         result = report.compare(evaluated(STOCK, "stock", 0.3), candidate)
         entry = self.overcast(result)
         self.assertEqual("inconclusive_readback", entry["evidence"])
         self.assertIs(True, entry["values_in_range"])
         self.assertFalse(entry["live_readback"]["limits"]["candidate_live_matches_candidate_xml"])
+        self.assertEqual(0, entry["candidate_forecast_outside_limits"])
+        self.assertEqual("complete", result["status"], result["issues"])
+
+    def test_a_forecast_outside_the_candidates_limits_counts_with_values_in_range_and_stale_limits(self):
+        def conflicting(rows):
+            for i, row in enumerate(rows[1:-1]):
+                row["phenomena"]["overcast"].update(actual=0.86 + i * 0.01, limit_min=0.0, limit_max=1.0, forecast=0.3)
+        candidate = evaluated(DISTINCT, "candidate", 0.9, mutate=conflicting)
+        result = report.compare(evaluated(STOCK, "stock", 0.3), candidate)
+        entry = self.overcast(result)
+        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
+        self.assertIs(True, entry["values_in_range"])
         self.assertEqual(6, entry["candidate_forecast_outside_limits"])
         self.assertEqual("complete", result["status"], result["issues"])
 
@@ -906,54 +918,372 @@ class CanceledDeadlineTests(unittest.TestCase):
                 self.assertEqual(expected, report._deadline_progress(points))
 
 
-class CurrentTreatmentTests(unittest.TestCase):
-    """A candidate that changes <current> values is treated but unsupported: reported, coverage pending."""
+def series(name, points):
+    """mutate(rows): set (actual, forecast, next_change) for one phenomenon from `points`, one tuple per sample."""
+    def mutate(rows):
+        for row, (actual, forecast, left) in zip(rows[1:-1], points):
+            row["phenomena"][name].update(actual=actual, forecast=forecast, next_change=left)
+    return mutate
 
-    def test_a_current_only_candidate_is_reported_as_treated_but_unsupported(self):
-        xml = with_current(cfgweather(enable="1"), "fog")
-        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(xml, "candidate", 0.3))
+
+def combine(*mutations):
+    def mutate(rows):
+        for one in mutations:
+            one(rows)
+    return mutate
+
+
+class InitialTransitionTests(unittest.TestCase):
+    """Samples before the first scheduled change (or before the actual reaches the first forecast) form a window."""
+
+    # overcast, DISTINCT limits .8..95, 30 s samples; the countdown runs 100,70,40,10 then a fresh one
+    COUNTDOWN = [100, 70, 40, 10] * 3
+
+    def overcast(self, actual, forecast, countdown=None):
+        points = list(zip(actual, forecast, countdown or self.COUNTDOWN))
+        return evaluated(DISTINCT, "candidate", count=len(points), mutate=series("overcast", points))["phenomena"]["overcast"]
+
+    def test_out_of_limit_actuals_before_the_actual_reaches_the_first_forecast_are_reported_not_violations(self):
+        entry = self.overcast([.3, .45, .6, .75] + [.9] * 8, [.9] * 8 + [.85] * 4)
+        self.assertEqual("within_candidate", entry["status"])
+        self.assertEqual(0, entry["actual_violations"])
+        self.assertEqual([], entry["violating_samples"])
+        window = entry["initial_transition"]
+        self.assertEqual(4, window["samples"])
+        self.assertEqual("actual_reached_initial_forecast", window["ended_by"])
+        self.assertEqual(4, window["actual_outside_limits"])
+        self.assertEqual([0, 1, 2, 3], window["outside_samples"])
+
+    def test_an_out_of_limit_actual_after_the_transition_still_violates(self):
+        entry = self.overcast([.3, .45, .6, .75] + [.9] * 5 + [.5] + [.9] * 2, [.9] * 12)
+        self.assertEqual("violates_candidate", entry["status"])
+        self.assertEqual([9], entry["violating_samples"])
+        self.assertEqual(4, entry["initial_transition"]["samples"])
+
+    def test_the_window_also_ends_at_the_first_scheduled_change(self):
+        entry = self.overcast([.3, .35, .4, .45, .5, .55] + [.9] * 6, [.9] * 4 + [.85] * 8)
+        window = entry["initial_transition"]
+        self.assertEqual((4, "first_scheduled_change"), (window["samples"], window["ended_by"]))
+        self.assertEqual("violates_candidate", entry["status"])
+        self.assertEqual([4, 5], entry["violating_samples"])
+
+    def test_each_kind_of_scheduled_change_ends_the_window_on_its_own(self):
+        never_reaching = [.3, .35, .4, .45, .5, .55, .6, .6]
+        cases = {
+            "a forecast change": ([.9] * 4 + [.85] * 4, [900 - 30 * i for i in range(8)]),
+            "a countdown that ran out": ([.9] * 8, [100, 70, 40, 10, 0, 0, 0, 0]),
+            "a countdown that jumped up": ([.9] * 8, [100, 70, 40, 10, 100, 70, 40, 10]),
+        }
+        for label, (forecast, countdown) in cases.items():
+            with self.subTest(label):
+                window = self.overcast(never_reaching, forecast, countdown)["initial_transition"]
+                self.assertEqual((4, "first_scheduled_change"), (window["samples"], window["ended_by"]))
+
+    def test_a_first_sample_that_already_holds_the_forecast_has_no_window(self):
+        entry = self.overcast([.9] * 12, [.9] * 12)
+        self.assertEqual(0, entry["initial_transition"]["samples"])
+        self.assertEqual("actual_reached_initial_forecast", entry["initial_transition"]["ended_by"])
+
+    def test_a_transition_that_never_ends_is_not_excused(self):
+        points = [(.3, .9, 900 - 30 * i) for i in range(12)]
+        entry = evaluated(DISTINCT, "candidate", count=12, mutate=series("overcast", points))["phenomena"]["overcast"]
+        self.assertIsNone(entry["initial_transition"]["ended_by"])
+        self.assertEqual(0, entry["initial_transition"]["samples"])
+        self.assertEqual("violates_candidate", entry["status"])
+        self.assertEqual(12, entry["actual_violations"])
+
+    def test_a_forecast_outside_the_limits_counts_even_inside_the_window(self):
+        points = [(a, .99, left) for a, left in zip([.3, .45, .6, .75] + [.99] * 8, self.COUNTDOWN)]
+        candidate = evaluated(DISTINCT, "candidate", count=12, mutate=series("overcast", points))
+        self.assertEqual(12, candidate["phenomena"]["overcast"]["forecast_outside_limits"])
+        result = report.compare(evaluated(STOCK, "stock", 0.3, count=12), candidate)
+        self.assertEqual("candidate_values_outside_limits", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual(12, result["phenomena"]["overcast"]["candidate_forecast_outside_limits"])
+
+    def test_the_pair_reports_the_window_for_the_candidate(self):
+        points = list(zip([.3, .45, .6, .75] + [.9] * 8, [.9] * 8 + [.85] * 4, self.COUNTDOWN))
+        candidate = evaluated(DISTINCT, "candidate", count=12, mutate=series("overcast", points))
+        entry = report.compare(evaluated(STOCK, "stock", 0.3, count=12), candidate)["phenomena"]["overcast"]
+        self.assertEqual(4, entry["initial_transition"]["samples"])
+        self.assertEqual("within_candidate", entry["candidate_status"])
+        self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
+
+
+def fog_current_run(xml, variant, fog_series=None, count=14):
+    """A 14 sample, 30 s run whose fog is the XML's <current actual=.75 time=120 duration=240>: forecast .75 from the
+    first sample, a countdown of 360 - weather_time, the actual reaching .75 at 120 s; the countdown then runs out
+    and a fresh one follows."""
+    countdown = [360 - 30 * i for i in range(12)] + [0, 40]
+    actual = [.3, .4, .55, .7] + [.75] * 10
+    points = fog_series or list(zip(actual, [.75] * count, countdown))
+    return evaluated(xml, variant, count=count, mutate=series("fog", points))
+
+
+FOG_CURRENT = with_current(cfgweather(enable="1"), "fog")
+FOG_CURRENT_LIMITS = with_current(cfgweather(enable="1", fog=(0.7, 0.8), times={"fog": (30, 60)}), "fog")
+
+
+class CurrentReadbackTests(unittest.TestCase):
+    """The candidate's <current> is read back when the first forecast, the first countdown and the actual match it."""
+
+    def fog(self, candidate, stock=None, count=14):
+        stock = stock or evaluated(STOCK, "stock", count=count)
+        return report.compare(stock, candidate)["phenomena"]["fog"]
+
+    def test_a_matching_current_is_read_back_and_coverage_is_complete(self):
+        result = report.compare(evaluated(STOCK, "stock", count=14), fog_current_run(FOG_CURRENT, "candidate"))
         entry = result["phenomena"]["fog"]
-        self.assertEqual("treated_unsupported", entry["evidence"])
-        self.assertEqual(["current"], entry["unsupported_treatments"])
-        self.assertEqual({"fog": ["current"]}, result["unsupported_treatments"])
-        self.assertEqual("pending", result["coverage"])
-        self.assertEqual("pending", result["status"])
-        self.assertEqual([], result["treated"])
-        self.assertTrue(any("fog" in issue and "current" in issue for issue in result["issues"]), result["issues"])
+        self.assertEqual("candidate_current_read_back", entry["evidence"])
+        self.assertEqual({"current": "candidate_current_read_back"}, entry["attribute_evidence"])
+        self.assertEqual(["current"], entry["treated_attributes"])
+        self.assertEqual([], entry["unsupported_treatments"])
+        self.assertEqual("complete", result["coverage"])
+        self.assertEqual("complete", result["status"], result["issues"])
+        self.assertEqual({}, result["unsupported_treatments"])
+        detail = entry["current_readback"]["candidate"]
+        self.assertTrue(detail["matches"])
+        self.assertEqual({"actual": 0.75, "time": 120.0, "duration": 240.0}, detail["expected"])
+        self.assertEqual(0.0, detail["observed"]["first_weather_time"])
+        self.assertEqual(120.0, detail["observed"]["actual_reached_weather_time"])
+        self.assertEqual(360.0, detail["observed"]["expected_first_countdown"])
 
-    def test_a_current_target_does_not_vanish_from_a_mixed_candidate(self):
-        xml = with_current(DISTINCT, "fog")
-        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(xml, "candidate", 0.9))
-        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
-        self.assertEqual("treated_unsupported", result["phenomena"]["fog"]["evidence"])
-        self.assertEqual(["overcast"], result["treated"])
-        self.assertEqual({"fog": ["current"]}, result["unsupported_treatments"])
-        self.assertEqual("pending", result["coverage"])
-        self.assertEqual("pending", result["status"], "the mixed candidate must not come back complete")
+    def test_a_current_target_alone_does_not_need_a_forecast_cycle(self):
+        points = [(.3, .75, 360), (.4, .75, 330), (.55, .75, 300), (.7, .75, 270), (.75, .75, 240), (.75, .75, 210)]
+        entry = self.fog(evaluated(FOG_CURRENT, "candidate", count=6, mutate=series("fog", points)), count=6)
+        self.assertEqual("candidate_current_read_back", entry["evidence"])
+        self.assertFalse(entry["boundary_crossed"]["candidate"])
 
-    def test_a_supported_limits_result_is_never_positive_for_the_current_target(self):
-        xml = with_current(DISTINCT, "overcast", "0.85")
-        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(xml, "candidate", 0.9))
-        entry = result["phenomena"]["overcast"]
-        self.assertEqual("treated_unsupported", entry["evidence"])
-        self.assertEqual(["current"], entry["unsupported_treatments"])
-        self.assertEqual("candidate_live_limits_read_back", entry["supported_attribute_evidence"])
-        self.assertEqual(["limits"], entry["treated_attributes"])
-        self.assertEqual("pending", result["status"])
+    def test_a_current_whose_first_countdown_is_far_off_is_inconclusive_even_without_a_cycle(self):
+        points = [(.3, .75, 900 - 30 * i) for i in range(4)] + [(.75, .75, 780), (.75, .75, 750)]
+        entry = self.fog(evaluated(FOG_CURRENT, "candidate", count=6, mutate=series("fog", points)), count=6)
+        self.assertEqual("current_inconclusive", entry["evidence"])
 
-    def test_an_untouched_current_is_not_a_treatment(self):
+    def test_a_first_forecast_that_is_not_the_current_target_is_inconclusive(self):
+        points = list(zip([.3, .4, .55, .7] + [.75] * 10, [.6] * 14, [360 - 30 * i for i in range(12)] + [0, 40]))
+        entry = self.fog(fog_current_run(FOG_CURRENT, "candidate", points))
+        self.assertEqual("current_inconclusive", entry["evidence"])
+        self.assertFalse(entry["current_readback"]["candidate"]["checks"]["first_forecast_equals_current_actual"])
+        self.assertIn("first forecast", entry["reason"])
+
+    def test_a_first_countdown_that_is_not_time_plus_duration_minus_weather_time_is_inconclusive(self):
+        for first in (200, 700, 358.5, 361.5):
+            countdown = [first - 30 * i for i in range(12)] + [0, 40]
+            points = list(zip([.3, .4, .55, .7] + [.75] * 10, [.75] * 14, countdown))
+            with self.subTest(first=first):
+                entry = self.fog(fog_current_run(FOG_CURRENT, "candidate", points))
+                self.assertEqual("current_inconclusive", entry["evidence"])
+                self.assertFalse(entry["current_readback"]["candidate"]["checks"][
+                    "first_countdown_is_time_plus_duration_minus_weather_time"])
+
+    def test_a_first_countdown_within_the_provisional_tolerance_is_read_back(self):
+        for first in (359.2, 360.9):
+            countdown = [first - 30 * i for i in range(12)] + [0, 40]
+            points = list(zip([.3, .4, .55, .7] + [.75] * 10, [.75] * 14, countdown))
+            with self.subTest(first=first):
+                self.assertEqual("candidate_current_read_back",
+                                 self.fog(fog_current_run(FOG_CURRENT, "candidate", points))["evidence"])
+
+    def test_an_actual_that_never_reaches_the_current_target_is_inconclusive(self):
+        points = list(zip([.3] * 14, [.75] * 14, [360 - 30 * i for i in range(12)] + [0, 40]))
+        entry = self.fog(fog_current_run(FOG_CURRENT, "candidate", points))
+        self.assertEqual("current_inconclusive", entry["evidence"])
+        self.assertIsNone(entry["current_readback"]["candidate"]["observed"]["actual_reached_weather_time"])
+
+    def test_an_actual_that_reaches_the_target_only_after_time_plus_slack_is_inconclusive(self):
+        for reach, expected in ((4, "candidate_current_read_back"), (5, "current_inconclusive")):
+            actual = [.3, .4, .5, .6, .7][:reach] + [.75] * (14 - reach)
+            points = list(zip(actual, [.75] * 14, [360 - 30 * i for i in range(12)] + [0, 40]))
+            with self.subTest(reach_sample=reach, weather_time=30 * reach):
+                self.assertEqual(expected, self.fog(fog_current_run(FOG_CURRENT, "candidate", points))["evidence"])
+
+    def test_a_stock_run_that_already_started_at_the_candidates_target_gives_no_differential(self):
+        stock = evaluated(STOCK, "stock", count=14, mutate=series("fog", [(.75, .75, 360 - 30 * i) for i in range(14)]))
+        entry = self.fog(fog_current_run(FOG_CURRENT, "candidate"), stock=stock)
+        self.assertEqual("current_inconclusive", entry["evidence"])
+        self.assertIn("stock", entry["reason"])
+
+    def test_an_inconclusive_current_claims_nothing_and_leaves_the_comparison_complete(self):
+        points = list(zip([.3] * 14, [.6] * 14, [100] * 14))
+        result = report.compare(evaluated(STOCK, "stock", count=14),
+                                fog_current_run(FOG_CURRENT, "candidate", points))
+        entry = result["phenomena"]["fog"]
+        self.assertEqual("current_inconclusive", entry["evidence"])
+        self.assertEqual("complete", result["status"], result["issues"])
+        self.assertIn("no native conclusion", entry["reason"])
+        self.assertEqual("pending", result["runtime_acceptance"])
+
+    def test_a_current_that_does_not_differ_from_the_stock_is_not_a_treatment(self):
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9))
         self.assertEqual({}, result["unsupported_treatments"])
         self.assertEqual("complete", result["coverage"])
-        self.assertEqual([], result["phenomena"]["overcast"]["unsupported_treatments"])
+        self.assertNotIn("current", result["phenomena"]["overcast"]["treated_attributes"])
+        self.assertEqual("not_treated", result["phenomena"]["fog"]["evidence"])
+        self.assertIsNone(result["phenomena"]["fog"]["attribute_evidence"])
+
+    def test_limits_time_limits_and_current_each_get_their_own_label(self):
+        result = report.compare(evaluated(STOCK, "stock", count=14), fog_current_run(FOG_CURRENT_LIMITS, "candidate"))
+        entry = result["phenomena"]["fog"]
+        self.assertEqual(["limits", "time_limits", "current"], entry["treated_attributes"])
+        self.assertEqual({"limits": "candidate_live_limits_read_back", "time_limits": "candidate_live_limits_read_back",
+                          "current": "candidate_current_read_back"}, entry["attribute_evidence"])
+        self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
         self.assertEqual("complete", result["status"], result["issues"])
+        self.assertEqual("complete", result["coverage"])
+        self.assertEqual(4, entry["initial_transition"]["samples"])
+        self.assertEqual("within_candidate", entry["candidate_status"])
+
+    def test_a_positive_limits_label_never_hides_an_inconclusive_current(self):
+        stock = evaluated(STOCK, "stock", count=14, mutate=series("fog", [(.75, .75, 360 - 30 * i) for i in range(14)]))
+        result = report.compare(stock, fog_current_run(FOG_CURRENT_LIMITS, "candidate"))
+        entry = result["phenomena"]["fog"]
+        self.assertEqual("current_inconclusive", entry["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", entry["attribute_evidence"]["limits"])
+        self.assertEqual("current_inconclusive", entry["attribute_evidence"]["current"])
+
+    def test_a_positive_current_never_hides_an_inconclusive_limit_readback(self):
+        def stale(rows):
+            for row in rows[1:-1]:
+                row["phenomena"]["fog"].update(limit_min=0.0, limit_max=1.0)
+        rows_mutation = combine(series("fog", list(zip([.3, .4, .55, .7] + [.75] * 10, [.75] * 14,
+                                                       [360 - 30 * i for i in range(12)] + [0, 40]))), stale)
+        candidate = evaluated(FOG_CURRENT_LIMITS, "candidate", count=14, mutate=rows_mutation)
+        entry = self.fog(candidate)
+        self.assertEqual("inconclusive_readback", entry["evidence"])
+        self.assertEqual("inconclusive_readback", entry["attribute_evidence"]["limits"])
+        self.assertEqual("candidate_current_read_back", entry["attribute_evidence"]["current"])
+
+    def test_an_unsupported_current_never_lets_a_supported_limits_label_stand_for_the_phenomenon(self):
+        root = ET.fromstring(FOG_CURRENT_LIMITS)
+        del root.find("fog/current").attrib["duration"]
+        xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        result = report.compare(evaluated(STOCK, "stock", count=14), fog_current_run(xml, "candidate"))
+        entry = result["phenomena"]["fog"]
+        self.assertEqual("treated_unsupported", entry["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", entry["supported_attribute_evidence"])
+        self.assertEqual(["limits", "time_limits"], entry["treated_attributes"])
+        self.assertEqual("pending", result["status"])
+
+    def test_a_current_with_missing_keys_stays_unsupported_with_coverage_pending(self):
+        root = ET.fromstring(FOG_CURRENT)
+        del root.find("fog/current").attrib["duration"]
+        xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        result = report.compare(evaluated(STOCK, "stock", count=14), fog_current_run(xml, "candidate"))
+        entry = result["phenomena"]["fog"]
+        self.assertEqual("treated_unsupported", entry["evidence"])
+        self.assertEqual(["current"], entry["unsupported_treatments"])
+        self.assertEqual("pending", result["coverage"])
+        self.assertEqual("pending", result["status"])
+        self.assertTrue(any("fog" in issue and "current" in issue for issue in result["issues"]), result["issues"])
+
+    def test_the_provisional_tolerances_are_explicit_constants(self):
+        self.assertEqual(1.0, report.CURRENT_COUNTDOWN_TOLERANCE_S)
+        self.assertEqual(10.0, report.CURRENT_CONVERGENCE_SLACK_S)
+
+
+class CandidateShapedFixtureTests(unittest.TestCase):
+    """Synthetic observations SHAPED like the native candidate run (weather-probe-001-candidate); not that data:
+    a pre-existing actual, the forecast equal to <current> at the first sample, the actual reaching it at 120 s, the
+    first change at 360 s, later countdowns within the 30..60 s time limits."""
+
+    COUNT = 241
+    FIRST, STEP = 5.30287, 5.0
+
+    def rows(self, xml, variant, shapes):
+        rows = [header(self.COUNT, interval_ms=5000, cap_ms=1235000)]
+        for i in range(self.COUNT):
+            row = sample(i, text=True)
+            row["game_ms"] = 220480 + 5000 * i
+            row["weather_time"] = "%.6g" % (self.FIRST + self.STEP * i)
+            rows.append(row)
+        rows.append(end(self.COUNT))
+        apply_live(rows, xml)
+        for i, row in enumerate(rows[1:-1]):
+            weather_time = self.FIRST + self.STEP * i
+            for name, shape in shapes.items():
+                actual, forecast, left = shape(weather_time)
+                row["phenomena"][name].update(actual="%.6g" % actual, forecast="%.6g" % forecast,
+                                              next_change="%.6g" % left)
+            for entry in row["phenomena"].values():
+                for key in ("limit_min", "limit_max", "change_min", "change_max", "time_min", "time_max"):
+                    entry[key] = str(entry[key])
+        return rows, plan_for(xml, variant, samples=self.COUNT, interval_s=5, start_delay_s=5)
+
+    @staticmethod
+    def candidate_shape(start, target, low, high):
+        """Converges to `target` by 120 s; countdown 360.29 - t until 360 s; then 40 s segments alternating the
+        forecast between `high` and `low`, the actual moving to each new forecast within 30 s."""
+        slope = (target - start) / (120.0 - 5.30287)
+
+        def shape(t):
+            if t < 360.0:
+                return min(target, start + slope * (t - 5.30287)), target, 360.29 - t
+            index = int((t - 360.0) // 40)
+            begin = 360.0 + 40 * index
+            forecasts = [target] + [high if k % 2 == 0 else low for k in range(index + 1)]
+            actual = forecasts[-2] + (forecasts[-1] - forecasts[-2]) * min(1.0, (t - begin) / 30.0)
+            return actual, forecasts[-1], begin + 40 - t
+        return shape
+
+    @staticmethod
+    def flat_shape(value, first_left):
+        return lambda t: (value, value, first_left - t)
+
+    def pair(self, candidate_xml):
+        stock_rows, stock_plan = self.rows(STOCK, "stock", {"overcast": self.flat_shape(.2217, 900),
+                                                            "fog": self.flat_shape(0.0, 900)})
+        shapes = {"overcast": self.candidate_shape(.2877, .98, .97, .99), "fog": self.candidate_shape(.0312421, .75, .7, .8)}
+        candidate_rows, candidate_plan = self.rows(candidate_xml, "candidate", shapes)
+        return (report.evaluate(lines(stock_rows), STOCK, plan=stock_plan),
+                report.evaluate(lines(candidate_rows), candidate_xml, plan=candidate_plan))
+
+    def candidate_xml(self):
+        xml = cfgweather(enable="1", overcast=(0.97, 0.99), fog=(0.7, 0.8),
+                         times={"overcast": (30, 60), "fog": (30, 60)})
+        return with_current(with_current(xml, "overcast", "0.98"), "fog", "0.75")
+
+    def test_the_first_samples_are_a_transition_toward_the_current_target(self):
+        stock, candidate = self.pair(self.candidate_xml())
+        self.assertEqual("complete", candidate["status"], candidate["issues"])
+        for name in ("overcast", "fog"):
+            with self.subTest(name):
+                entry = candidate["phenomena"][name]
+                self.assertEqual(23, entry["initial_transition"]["samples"])
+                self.assertEqual("actual_reached_initial_forecast", entry["initial_transition"]["ended_by"])
+                self.assertGreater(entry["initial_transition"]["actual_outside_limits"], 20)
+                self.assertEqual("within_candidate", entry["status"])
+                self.assertEqual(0, entry["actual_violations"])
+                self.assertEqual(0, entry["forecast_outside_limits"])
+                self.assertTrue(entry["current_readback"]["matches"], entry["current_readback"])
+
+    def test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete(self):
+        stock, candidate = self.pair(self.candidate_xml())
+        result = report.compare(stock, candidate)
+        self.assertEqual("complete", result["status"], result["issues"])
+        self.assertEqual("complete", result["coverage"])
+        for name in ("overcast", "fog"):
+            with self.subTest(name):
+                entry = result["phenomena"][name]
+                self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
+                self.assertEqual({"limits": "candidate_live_limits_read_back",
+                                  "time_limits": "candidate_live_limits_read_back",
+                                  "current": "candidate_current_read_back"}, entry["attribute_evidence"])
+                self.assertEqual("within_candidate", entry["candidate_status"])
+                self.assertEqual(23, entry["initial_transition"]["samples"])
+        self.assertEqual("pending", result["runtime_acceptance"])
+
+    def test_the_pre_existing_actual_is_kept_in_the_reported_range(self):
+        stock, candidate = self.pair(self.candidate_xml())
+        entry = candidate["phenomena"]["overcast"]
+        self.assertGreater(entry["initial_transition"]["actual_outside_limits"], 0)
+        self.assertEqual({"min": 0.2877, "max": 0.99}, {key: round(value, 4) for key, value in entry["actual_range"].items()})
 
 
 class NonClaimTests(unittest.TestCase):
     """No output label states precedence or native non-application; a fixed non-claims list travels with it."""
 
     LABELS = {"pending", "not_treated", "treated_unsupported", "candidate_values_outside_limits",
-              "inconclusive_readback", "candidate_live_limits_read_back"}
+              "inconclusive_readback", "candidate_live_limits_read_back", "current_inconclusive",
+              "candidate_current_read_back"}
 
     def test_the_label_set_is_exactly_the_descriptive_one(self):
         self.assertEqual(self.LABELS, set(report.EVIDENCE_LABELS))

@@ -9,14 +9,22 @@ stays False in every result.
 
 Per phenomenon the status is one of:
   within_candidate       every actual value is inside the candidate limits (small boundary tolerance)
-  violates_candidate     at least one actual value is outside them; the violating sample numbers are listed
+  violates_candidate     at least one actual value is outside them after the initial transition; the violating
+                         sample numbers are listed
   insufficient_samples   fewer valid samples than min_samples, or the run itself is pending
 A run is pending (every phenomenon insufficient_samples) when anything is missing, duplicated, out of order,
 malformed (including duplicate JSON object keys and numbers that overflow), non-finite, incomplete (no complete
 end record or no complete sentinel), reports write errors, has timestamps that do not increase by about the
-sampling interval, or disagrees with its plan or cfgweather.xml. The forecast is reported but never decides a
-status because it is not a value the weather has taken yet. mission_weather and update_frozen are reported per
+sampling interval, or disagrees with its plan or cfgweather.xml. mission_weather and update_frozen are reported per
 run; whether the engine sets mission_weather for enable="1" is unobserved and only these samples can say.
+
+Initial transition. A run can start from a pre-existing weather state (the first native candidate run: overcast
+0.2877 and fog 0.0312 at weather_time 5.30 with forecasts already at the <current> targets .98 and .75). The samples
+before the actual first reaches the first sample's forecast, or before the first scheduled change (a forecast change,
+or a countdown that ran out or jumped up), whichever comes first, form the initial_transition window. Actual values
+outside the limits inside that window are reported (initial_transition.actual_outside_limits) and are not
+violations. A window that ends in neither way is not a transition and is not excused. A forecast outside the limits
+is never excused: it is counted in forecast_outside_limits and gives candidate_values_outside_limits in a pair.
 
 next_change semantics. Installed 3_Game/Weather.c:51 describes GetNextChange as "the time in seconds when" the
 phenomenon changes next. The first native run (weather-probe-001-stock, observation only, one run) shows a
@@ -40,23 +48,36 @@ cfgweather.xml. Otherwise the comparison is pending.
 
 Only the treated phenomena are gated: those whose limits, change limits or time limits differ between the two
 cfgweather.xml files. The rest are not_treated: reported, never blocking (an inert zero snowfall or a slow wind
-cycle cannot make a targeted comparison inconclusive). A phenomenon whose <current> differs is treated_unsupported:
-listed under unsupported_treatments with coverage pending (so the comparison is pending); a supported result for the
-same phenomenon is kept apart under supported_attribute_evidence. For a treated phenomenon the evidence is:
+cycle cannot make a targeted comparison inconclusive). The treated attributes are limits, change limits, time limits
+and current. A differing <current> is read back (current_readback) when it carries actual, time and duration:
+the first forecast equals current.actual, the first countdown is about time + duration - weather_time (within
+CURRENT_COUNTDOWN_TOLERANCE_S), the actual equals current.actual by about time (plus CURRENT_CONVERGENCE_SLACK_S),
+and the stock run's first forecast did not already equal it. Both tolerances are provisional. A <current> without
+those keys is treated_unsupported: listed under unsupported_treatments with coverage pending (so the comparison is
+pending); a supported result for the same phenomenon is kept apart under supported_attribute_evidence. Each treated
+attribute also gets its own label under attribute_evidence. For a treated phenomenon the evidence is:
   pending                         a run is pending, frozen or not ticking, the candidate xml is disabled, too few
                                   samples, no countdown (next_change) that ran out in the candidate run,
                                   no fresh countdown or new forecast observed after that (interpolation toward an
                                   unchanged forecast is not a cycle; a jump up from a countdown that was not near
                                   its end was a reschedule or cancel, not a crossing), or nothing observed changing
-  candidate_values_outside_limits the candidate run's actual values left the candidate's limits
+  candidate_values_outside_limits the candidate run's actual values left the candidate's limits after the initial
+                                  transition, or a forecast was outside them at any time
   inconclusive_readback           processing completed but the live limit readings were not the candidate's in every
                                   candidate reading and in no stock reading. No native conclusion: delayed loading
                                   or a measurement defect can produce this; it never says the engine ignored them
   candidate_live_limits_read_back every candidate reading equalled the candidate's xml values and no stock reading
                                   did. Nothing more: the stock run's values relative to the limits are reported in
                                   stock_values_vs_candidate_limits (entirely_outside, partly_outside, inside)
+  current_inconclusive            the candidate's <current> was not read back as above (or the stock run already
+                                  started there). No native conclusion; it never says the engine ignored <current>
+  candidate_current_read_back     the three <current> checks held in the candidate run and the stock run's first
+                                  forecast was not already the candidate's current actual. Nothing more
+When limits and current are both treated the evidence field takes the first non-positive label (inconclusive_readback,
+then current_inconclusive); otherwise candidate_live_limits_read_back, or candidate_current_read_back when only
+<current> is treated (a <current>-only treatment needs no forecast cycle).
 The whole comparison is pending when any treated phenomenon is pending, when a treatment is unsupported, or when
-nothing supported is treated. Every result carries the fixed NON_CLAIMS list: nothing here establishes precedence of
+nothing supported is treated; inconclusive labels are complete, not pending. Every result carries the fixed NON_CLAIMS list: nothing here establishes precedence of
 cfgweather.xml, native non-application, the stock run's controller behaviour or runtime acceptance.
 
 Usage:
@@ -101,8 +122,10 @@ MAX_XML_BYTES = 65536
 MAX_ISSUES = 40
 DEFAULT_MIN_SAMPLES = 6
 _ATTRIBUTES = ("limits", "change_limits", "time_limits")
+_CURRENT_KEYS = ("actual", "time", "duration")
 EVIDENCE_LABELS = ("pending", "not_treated", "treated_unsupported", "candidate_values_outside_limits",
-                   "inconclusive_readback", "candidate_live_limits_read_back")
+                   "inconclusive_readback", "candidate_live_limits_read_back", "current_inconclusive",
+                   "candidate_current_read_back")
 NON_CLAIMS = (
     "This is a descriptive comparison of two sampled runs. It does not establish that cfgweather.xml takes "
     "precedence over world scripts or engine defaults.",
@@ -114,13 +137,23 @@ NON_CLAIMS = (
     "The stock run is not required to show a forecast cycle; its controller behaviour is not characterised.",
     "Values inside or outside the limits, and forecasts outside them, do not show a cause; engine limits and "
     "world-script forecasts can coexist.",
-    "Changes to <current> values are not assessed by this report; they are listed as unsupported with coverage pending.",
+    "candidate_current_read_back states only that, in the candidate run, the first forecast equalled the candidate's "
+    "<current> actual, the first countdown was about time plus duration minus the weather time, and the actual reached "
+    "that value by about time, while the stock run's first forecast did not equal it. current_inconclusive carries no "
+    "native conclusion and does not mean the engine ignored <current>. The tolerances are provisional.",
+    "Actual values outside the limits before the actual first reaches the initial forecast (or before the first "
+    "scheduled change) are reported as an initial transition, not counted as violations; this does not show how the "
+    "engine starts from a pre-existing state.",
     "Two single runs sample random weather. Nothing here is runtime acceptance; runtime acceptance and feature "
     "enablement stay pending.",
 )
 TOLERANCE = 0.001
 COUNTDOWN_TOLERANCE_S = 0.05
 COUNTDOWN_SLACK = 0.1
+# Provisional tolerances for reading <current> back; chosen against one native candidate run (first countdown within
+# 0.29 s of time + duration - weather_time, actual at the target at weather time 120.25 for time 120), not measured.
+CURRENT_COUNTDOWN_TOLERANCE_S = 1.0
+CURRENT_CONVERGENCE_SLACK_S = 10.0
 LIMIT_BOUND = 1000000.0
 EXIT_COMPLETE, EXIT_ERROR, EXIT_PENDING = 0, 2, 3
 _DECIMAL = re.compile(r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$")
@@ -459,13 +492,18 @@ def _phenomenon_result(name, samples, parsed, min_samples):
               "forecast_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
               "cycle_observed": False, "change_observed": False,
               "xml": dict({key: list(parsed[key]) for key in _ATTRIBUTES}, current=dict(parsed["current"])),
-              "live_pairs": None}
+              "live_pairs": None, "initial_transition": None, "current_readback": None, "first_forecast": None}
     if not samples:
         return result
     rows = [(sample["seq"], sample["phenomena"][name]) for sample in samples]
     actual = [row["actual"] for _seq, row in rows]
     forecast = [row["forecast"] for _seq, row in rows]
-    violating = [seq for seq, row in rows if _outside(row["actual"], limits)]
+    points = [(sample["weather_time"], sample["phenomena"][name]["actual"], sample["phenomena"][name]["forecast"],
+               sample["phenomena"][name]["next_change"]) for sample in samples]
+    length, ended_by = _initial_transition(points)
+    outside = [seq for seq, row in rows if _outside(row["actual"], limits)]
+    window = [seq for seq, _row in rows[:length]]
+    violating = [seq for seq in outside if seq not in window]
     live = [(row["limit_min"], row["limit_max"]) for _seq, row in rows]
     result.update({
         "actual_range": _range(actual), "actual_violations": len(violating), "violating_samples": violating,
@@ -484,14 +522,65 @@ def _phenomenon_result(name, samples, parsed, min_samples):
         "limits": _distinct(live),
         "change_limits": _distinct([(row["change_min"], row["change_max"]) for _seq, row in rows]),
         "time_limits": _distinct([(row["time_min"], row["time_max"]) for _seq, row in rows])}
+    result["initial_transition"] = {
+        "samples": length, "ended_by": ended_by, "last_seq": window[-1] if window else None,
+        "actual_outside_limits": sum(1 for seq in outside if seq in window),
+        "outside_samples": [seq for seq in outside if seq in window]}
+    result["current_readback"] = _current_readback(parsed["current"], points)
+    result["first_forecast"] = points[0][2]
     result["boundary_crossed"], result["cycle_observed"] = _deadline_progress(
-        [(sample["weather_time"], sample["phenomena"][name]["next_change"], sample["phenomena"][name]["forecast"])
-         for sample in samples])
+        [(time, left, forecast) for time, _actual, forecast, left in points])
     result["change_observed"] = (len({round(value, 6) for value in actual}) > 1
                                  or len({round(value, 6) for value in forecast}) > 1)
     if len(samples) >= min_samples:
         result["status"] = "violates_candidate" if violating else "within_candidate"
     return result
+
+
+def _initial_transition(points):
+    """(samples, ended_by) of the initial transition from (weather_time, actual, forecast, next_change) per sample.
+
+    The window is the run of samples before the actual first reaches the first sample's forecast or before the first
+    scheduled change (a forecast change, or a countdown that ran out or jumped up), whichever comes first. A window
+    that neither ends in either way is not a transition: it is not excused, (0, None).
+    """
+    target = points[0][2]
+    for index, (_time, actual, forecast, left) in enumerate(points):
+        if _same(actual, target):
+            return index, "actual_reached_initial_forecast"
+        if index:
+            before = points[index - 1][3]
+            if not _same(forecast, target) or left > before + COUNTDOWN_TOLERANCE_S or left <= 0 < before:
+                return index, "first_scheduled_change"
+    return 0, None
+
+
+def _current_readback(current, points):
+    """Whether the run's first samples read back the xml's <current actual time duration> (candidate runs only matter).
+
+    Three checks, with explicit provisional tolerances: the first forecast equals current.actual; the first
+    countdown is about time + duration - weather_time (CURRENT_COUNTDOWN_TOLERANCE_S); the actual equals
+    current.actual at some sample no later than time + CURRENT_CONVERGENCE_SLACK_S of weather time.
+    """
+    if not all(key in current for key in _CURRENT_KEYS):
+        return {"assessable": False, "matches": False}
+    target, time, duration = (current[key] for key in _CURRENT_KEYS)
+    first_time, _actual, first_forecast, first_left = points[0]
+    expected_left = time + duration - first_time
+    reached = next((moment for moment, actual, _forecast, _left in points if _same(actual, target)), None)
+    checks = {
+        "first_forecast_equals_current_actual": _same(first_forecast, target),
+        "first_countdown_is_time_plus_duration_minus_weather_time":
+            abs(first_left - expected_left) <= CURRENT_COUNTDOWN_TOLERANCE_S,
+        "actual_reaches_current_actual_by_time_plus_slack":
+            reached is not None and reached <= time + CURRENT_CONVERGENCE_SLACK_S}
+    return {"assessable": True, "expected": {"actual": target, "time": time, "duration": duration},
+            "observed": {"first_weather_time": first_time, "first_forecast": first_forecast,
+                         "first_countdown": first_left, "expected_first_countdown": expected_left,
+                         "actual_reached_weather_time": reached},
+            "checks": checks, "matches": all(checks.values()),
+            "tolerances": {"countdown_s": CURRENT_COUNTDOWN_TOLERANCE_S, "convergence_slack_s": CURRENT_CONVERGENCE_SLACK_S,
+                           "provisional": True}}
 
 
 def _distinct(pairs):
@@ -619,16 +708,27 @@ def _close(left, right):
     return all(abs(one - two) <= _tolerance(two) for one, two in zip(left, right))
 
 
+def _current_differs(stock, candidate):
+    ours, theirs = stock["xml"]["current"], candidate["xml"]["current"]
+    return set(ours) != set(theirs) or any(not _same(ours[key], theirs[key]) for key in ours if key in theirs)
+
+
+def _current_assessable(candidate):
+    return all(key in candidate["xml"]["current"] for key in _CURRENT_KEYS)
+
+
 def _treated(stock, candidate):
-    """The attributes (limits, changelimits, timelimits) whose cfgweather.xml values differ between the runs."""
-    return [key for key in _ATTRIBUTES if not _close(stock["xml"][key], candidate["xml"][key])]
+    """The attributes (limits, changelimits, timelimits, current) whose cfgweather.xml values differ between the
+    runs; a differing <current> is listed only when it carries actual, time and duration (otherwise unsupported)."""
+    attributes = [key for key in _ATTRIBUTES if not _close(stock["xml"][key], candidate["xml"][key])]
+    if _current_differs(stock, candidate) and _current_assessable(candidate):
+        attributes.append("current")
+    return attributes
 
 
 def _unsupported(stock, candidate):
-    """Treatments this report cannot assess: a differing <current> (keys or values) between the two xml files."""
-    ours, theirs = stock["xml"]["current"], candidate["xml"]["current"]
-    differs = set(ours) != set(theirs) or any(not _same(ours[key], theirs[key]) for key in ours if key in theirs)
-    return ["current"] if differs else []
+    """Treatments this report cannot assess: a differing <current> without actual, time and duration."""
+    return ["current"] if _current_differs(stock, candidate) and not _current_assessable(candidate) else []
 
 
 def _readback(stock, candidate, attributes):
@@ -664,30 +764,70 @@ def _stock_values_vs_candidate_limits(stock, candidate):
     return "inside"
 
 
+_CHECK_NAMES = {"first_forecast_equals_current_actual": "the first forecast did not equal current actual",
+                "first_countdown_is_time_plus_duration_minus_weather_time":
+                    "the first countdown was not about time plus duration minus the weather time",
+                "actual_reaches_current_actual_by_time_plus_slack":
+                    "the actual did not reach current actual by about time"}
+
+
+def _current_evidence(stock, candidate):
+    """(label, reason) for the candidate's <current>: read back in the candidate run and not already in the stock run."""
+    detail = candidate["current_readback"]
+    failed = [text for key, text in _CHECK_NAMES.items() if not detail["checks"][key]]
+    target = candidate["xml"]["current"]["actual"]
+    if stock["first_forecast"] is not None and _same(stock["first_forecast"], target):
+        failed.append("the stock run's first forecast already equalled the candidate's current actual")
+    if failed:
+        return "current_inconclusive", (
+            f"the candidate's <current> was not read back ({'; '.join(failed)}); processing completed with no native "
+            f"conclusion, and this does not mean the engine ignored <current>")
+    return "candidate_current_read_back", None
+
+
 def _evidence(stock, candidate, attributes):
-    """(evidence label, reason) for one phenomenon's supported treatment in a pair of usable runs; a reason is given
-    for the labels pending and inconclusive_readback only."""
+    """(evidence label, reason, per attribute labels) for one phenomenon's treatment in a pair of usable runs; a
+    reason is given for the labels pending, inconclusive_readback and current_inconclusive only.
+
+    A forecast outside the candidate's limits counts like an actual value outside them (the initial transition only
+    excuses actual values). The countdown and cycle gates apply to the live limits, not to a <current>-only treatment.
+    """
+    live = [key for key in attributes if key != "current"]
     if "insufficient_samples" in (stock["status"], candidate["status"]):
-        return "pending", "a run has too few valid samples for this phenomenon"
-    if not candidate["boundary_crossed"]:
-        return "pending", "no forecast countdown (next_change) ran out in the candidate run"
-    if not candidate["cycle_observed"]:
+        return "pending", "a run has too few valid samples for this phenomenon", None
+    if live and not candidate["boundary_crossed"]:
+        return "pending", "no forecast countdown (next_change) ran out in the candidate run", None
+    if live and not candidate["cycle_observed"]:
         return "pending", ("a countdown ran out in the candidate run but next_change never jumped to a fresh countdown "
-                           "and the forecast never changed afterwards; interpolation alone is not a new cycle")
-    if candidate["status"] == "violates_candidate":
-        return "candidate_values_outside_limits", None
-    if not candidate["change_observed"]:
-        return "pending", "nothing was observed changing in the candidate run"
-    detail, applied = _readback(stock, candidate, attributes)
-    if not applied:
-        counts = ", ".join(f"{key} {entry['candidate_readings_matching_candidate_xml']['matching']}/"
-                           f"{entry['candidate_readings_matching_candidate_xml']['total']}"
-                           for key, entry in detail.items())
-        return "inconclusive_readback", (
-            f"the candidate's live limits were not read back in every candidate reading and in no stock reading "
-            f"(candidate readings matching its xml: {counts}); processing completed with no native conclusion, as "
-            f"delayed loading or a measurement defect can produce this")
-    return "candidate_live_limits_read_back", None
+                           "and the forecast never changed afterwards; interpolation alone is not a new cycle"), None
+    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
+        return "candidate_values_outside_limits", None, None
+    if live and not candidate["change_observed"]:
+        return "pending", "nothing was observed changing in the candidate run", None
+    labels, reasons, live_negative = {}, [], False
+    if live:
+        detail, _applied = _readback(stock, candidate, live)
+        for key in live:
+            ok = detail[key]["candidate_live_matches_candidate_xml"] and detail[key]["stock_live_differs_from_candidate_xml"]
+            labels[key] = "candidate_live_limits_read_back" if ok else "inconclusive_readback"
+        live_negative = "inconclusive_readback" in labels.values()
+        if live_negative:
+            counts = ", ".join(f"{key} {entry['candidate_readings_matching_candidate_xml']['matching']}/"
+                               f"{entry['candidate_readings_matching_candidate_xml']['total']}"
+                               for key, entry in detail.items())
+            reasons.append(
+                f"the candidate's live limits were not read back in every candidate reading and in no stock reading "
+                f"(candidate readings matching its xml: {counts}); processing completed with no native conclusion, as "
+                f"delayed loading or a measurement defect can produce this")
+    if "current" in attributes:
+        labels["current"], current_reason = _current_evidence(stock, candidate)
+        if current_reason:
+            reasons.append(current_reason)
+    if live_negative:
+        return "inconclusive_readback", "; ".join(reasons), labels
+    if labels.get("current") == "current_inconclusive":
+        return "current_inconclusive", "; ".join(reasons), labels
+    return ("candidate_live_limits_read_back" if live else "candidate_current_read_back"), None, labels
 
 
 def _short(value):
@@ -762,22 +902,28 @@ def compare(stock_result, candidate_result):
     for name in PHENOMENA:
         stock, candidate = stock_result["phenomena"][name], candidate_result["phenomena"][name]
         attributes = treated[name]
-        reason, readback, supported = None, None, None
+        reason, readback, supported, by_attribute = None, None, None, None
+        live = [key for key in attributes if key != "current"]
         if not attributes:
             evidence = "treated_unsupported" if unsupported[name] else "not_treated"
         elif blocked:
             evidence = "pending"
         else:
-            evidence, reason = _evidence(stock, candidate, attributes)
+            evidence, reason, by_attribute = _evidence(stock, candidate, attributes)
             if evidence == "pending":
                 issues.append(f"{name}: {reason}")
         if attributes and unsupported[name]:
             supported, evidence = evidence, "treated_unsupported"
-        if attributes and candidate["live_pairs"] and stock["live_pairs"]:
-            readback = _readback(stock, candidate, attributes)[0]
+        if live and candidate["live_pairs"] and stock["live_pairs"]:
+            readback = _readback(stock, candidate, live)[0]
         phenomena[name] = {
             "evidence": evidence, "reason": reason, "treated_attributes": attributes,
             "unsupported_treatments": unsupported[name], "supported_attribute_evidence": supported,
+            "attribute_evidence": by_attribute,
+            "current_readback": ({"stock": stock["current_readback"], "candidate": candidate["current_readback"]}
+                                 if "current" in attributes else None),
+            "initial_transition": candidate["initial_transition"],
+            "stock_initial_transition": stock["initial_transition"],
             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
             "values_in_range": None if not candidate["actual_range"] else candidate["status"] == "within_candidate",
             "stock_values_vs_candidate_limits": _stock_values_vs_candidate_limits(stock, candidate),
