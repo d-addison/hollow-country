@@ -4,7 +4,7 @@
 // Stimulus category/provenance contract: HCHordeStimulus.c. Only actual local
 // native voice supplies provenance 1; strength halves per hop, expiry is rooted.
 // Native surface inspected in the installed scripts-1.30.164289 snapshot at
-// /home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/:
+// ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/:
 // 3_Game/gameplay.c:636 GetGame; 3_Game/Global/Game.c:1120 IsServer;
 // 3_Game/Entities/Object.c:517 IsAlive, :287 GetPosition;
 // 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;

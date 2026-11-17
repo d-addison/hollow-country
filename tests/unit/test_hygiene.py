@@ -98,6 +98,24 @@ class HygieneTests(unittest.TestCase):
         self.put(".env.example", "DAYZ_CLIENT_ROOT=C:\\Steam\\DayZ\n")
         self.assertTrue(self.check()["valid"])
 
+    def test_local_absolute_home_paths_are_refused_without_echo(self):
+        samples = ["// /home/" + "someone/.cache/x\n", "C:\\Users\\" + "someone\\x\n",
+                   "/Users/" + "someone/x\n", "/mnt/c/Users/" + "someone/x\n",
+                   "ok\nZ:\\home\\" + "someone\\x\n"]
+        for sample in samples:
+            with self.subTest(kind=samples.index(sample)):
+                self.put("mods/Example/scripts/source.c", sample)
+                report = self.check()
+                self.assertIn("local_absolute_path", self.codes(report))
+                self.assertNotIn("someone", json.dumps(report))
+        self.put("mods/Example/scripts/source.c", "lines = 2\nZ:\\home\\" + "someone\\x\n")
+        found = [e for e in self.check()["errors"] if e["code"] == "local_absolute_path"]
+        self.assertEqual([{"code": "local_absolute_path", "path": "mods/Example/scripts/source.c", "line": 2}], found)
+
+    def test_portable_home_placeholders_are_allowed(self):
+        self.put("docs/SETUP.md", "~/.cache/x $HOME/x Path.home() /home/<user>/x C:\\Users\\<user>\\x /home/runner/work\n")
+        self.assertNotIn("local_absolute_path", self.codes(self.check()))
+
     def test_rejects_precise_private_key_and_github_token_formats_without_echo(self):
         samples = ["-----BEGIN " + "OPENSSH PRIVATE KEY-----\nSYNTHETIC",
                    "gh" + "p_" + "A" * 36,
@@ -344,3 +362,14 @@ class HygieneTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnvExampleTests(unittest.TestCase):
+    def test_repository_env_example_host_is_loopback_or_documentation_range(self):
+        import ipaddress
+        root = Path(__file__).resolve().parents[2]
+        values = dict(line.split("=", 1) for line in (root / ".env.example").read_text().splitlines()
+                      if line and not line.startswith("#") and "=" in line)
+        host = ipaddress.ip_address(values["DAYZ_SERVER_HOST"])
+        documentation = [ipaddress.ip_network(n) for n in ("192.0.2.0/24", "198.51.100.0/24", "203.0.113.0/24")]
+        self.assertTrue(host.is_loopback or any(host in n for n in documentation), str(host))

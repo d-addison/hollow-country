@@ -57,6 +57,13 @@ _SECRET = re.compile(
     r"|(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{36}(?![A-Za-z0-9_])"
     r"|(?<![A-Za-z0-9_])github_pat_[A-Za-z0-9]{22}_[A-Za-z0-9]{59}(?![A-Za-z0-9_])"
 )
+# Personal absolute home paths (POSIX, macOS, Windows, WSL and Wine Z:). Portable
+# placeholders (<user>, $HOME, {user}) and the hosted CI runner home are allowed.
+_LOCAL_HOME = re.compile(
+    r"(?:(?<![A-Za-z0-9_.])/(?:home|Users)/|/mnt/[A-Za-z]/Users/|[A-Za-z]:[\\/]+(?:Users|home)[\\/]+)"
+    r"(?![<${]|runner[\\/])[A-Za-z0-9._-]+[\\/]",
+    re.IGNORECASE,
+)
 _LICENSE_MARKERS = (
     "Copyright (c) 2026 David Addison", "All rights reserved.",
     "No open-source or public reuse license is granted.",
@@ -306,6 +313,11 @@ def check_repository(root=ROOT):
         if match:
             # Emit at most one finding per file; never include bytes or their hash.
             error("credential_content", relative, text.count("\n", 0, match.start()) + 1)
+            continue
+        home = _LOCAL_HOME.search(text)
+        if home:
+            # Same disclosure rule as credentials: rule, path and line only.
+            error("local_absolute_path", relative, text.count("\n", 0, home.start()) + 1)
             continue
         inventory.append({"path": relative, "bytes": len(data),
                           "sha256": hashlib.sha256(data).hexdigest()})

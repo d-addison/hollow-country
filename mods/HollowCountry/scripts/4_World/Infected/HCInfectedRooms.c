@@ -1,7 +1,7 @@
 // Catalogs ship empty. Operator evidence is server-profile data, never an RPC
 // or client-owned catalog. Admission is data validation, NOT native qualification.
 // Native references below are relative to the pinned external cache:
-// /home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/
+// ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // 3_Game/Global/Game.c:1120 IsServer, :930 GetObjectsAtPosition3D,
 // :934 GetWorldName, :942 GetVersion (out declared before call),
 // :594 ConfigGetChildName, :611 ConfigGetChildrenCount, :1437 IsKindOf.
