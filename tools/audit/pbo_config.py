@@ -285,7 +285,7 @@ def _at_line_start(text, i):
 
 
 def _strip_text(text):
-    """Remove comments and preprocessor lines while keeping string literals intact."""
+    """Remove comments/nonconditional directives; refuse unresolved conditional code."""
     out, i, n = [], 0, len(text)
     while i < n:
         c = text[i]
@@ -311,6 +311,9 @@ def _strip_text(text):
                 raise ValueError('unterminated comment in text config')
             out.append(' ')
             i = j + 2
+        elif c == '#' and re.match(r'#(?:[ \t]|/\*.*?\*/)*(?:ifdef|ifndef|if|elif|else|endif)\b',
+                                    text[i:], re.DOTALL):
+            raise ValueError('unresolved conditional preprocessor directive in text config')
         elif c == '#' and _at_line_start(text, i):
             while True:  # preprocessor line, with backslash continuations
                 j = text.find('\n', i)
@@ -481,9 +484,16 @@ def _text_class_body(tokens, depth):
                 items = _text_array(tokens)
                 _expect(tokens, ';')
                 if value in ARRAY_FIELDS:
-                    row[value] = [v for v in items if isinstance(v, str)]
-                    if op == '+=' and value not in appended:
-                        appended.append(value)
+                    values = [v for v in items if isinstance(v, str)]
+                    if op == '+=':
+                        if row[value] is None:
+                            appended.append(value)  # inherited base is still unresolved
+                        values = (row[value] or []) + values
+                    elif value in appended:
+                        appended.remove(value)  # local assignment replaces an inherited append
+                    if len(values) > MAX_ARRAY_ITEMS:
+                        raise ValueError('text array exceeds budget')
+                    row[value] = values
                 continue
             if nxt == ('op', '='):
                 tokens.next()

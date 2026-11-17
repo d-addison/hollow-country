@@ -458,11 +458,19 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
                'types_sha256': sha(files['ce/types.xml']), 'sources': manifest['sources']}
     # Receipt+backup exist before the atomic core switch. Rollback also handles
     # an interrupted install whose switch did not happen. Stop the server first.
-    fresh_write(managed, 'core.backup', original)
-    fresh_write(managed, 'receipt.json', encode(receipt))
-    (managed / 'ce').mkdir()
-    fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
-    os.replace(fresh_write(managed, 'core.next', patched), child(target, 'cfgeconomycore.xml'))
+    try:
+        fresh_write(managed, 'core.backup', original)
+        fresh_write(managed, 'receipt.json', encode(receipt))
+        (managed / 'ce').mkdir()
+        fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
+        os.replace(fresh_write(managed, 'core.next', patched), child(target, 'cfgeconomycore.xml'))
+    except OSError:
+        # Receipt/backup precede the core switch. A failed write before that
+        # switch has changed no mission input; remove only preflighted intent.
+        if read_plain(target, 'cfgeconomycore.xml') == original:
+            preflight_managed(managed, {'core.backup', 'receipt.json', 'ce/types.xml', 'core.next'})
+            shutil.rmtree(managed)
+        raise
     return receipt
 
 
@@ -480,11 +488,20 @@ def install_delta(stage, target):
                                                 for n in listed) or len(set(listed)) != len(listed)):
             raise ValueError(f'delta manifest has an invalid {key}')
         lists[key] = frozenset(listed)
+    from tools.package import firearms
+    roster = json.loads(firearms.ROSTER_PATH.read_bytes())
+    firearms.validate_roster(roster)
+    if not lists['firearms_classes'] <= {r['class'] for r in roster['entries']}:
+        raise ValueError('delta manifest names a class that is not in the shipped firearms roster')
     shipped = {r['class'] for r in datamined_items.load_rows()}
     if not lists['datamined_classes'] <= shipped:
         raise ValueError('delta manifest names a class that is not a shipped datamined row')
     if {n.lower() for n in lists['firearms_classes']} & {n.lower() for n in lists['datamined_classes']}:
         raise ValueError('delta manifest lists a firearms class that is also a datamined class')
+    if lists['firearms_classes']:
+        stock = _unique(xml(read_plain(_target(target), 'db/types.xml'), 'types').findall('type'))
+        candidates = xml(_files['ce/types.xml'], 'types')
+        firearms.check_effective_support(target, stock, roster['entries'], candidates)
     return install(stage, target, widened=lists['firearms_classes'], datamined=lists['datamined_classes'])
 
 

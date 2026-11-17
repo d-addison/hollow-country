@@ -11,16 +11,17 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import economy, firearms, snafu_optional
 
 try:
     from .test_pbo_config import klass, pbo, rap
-    from .test_firearms_roster import roster as vanilla_roster, synthetic as synthetic_mission
+    from .test_firearms_roster import roster as vanilla_roster, synthetic as synthetic_mission, patch_roster
 except ImportError:
     from test_pbo_config import klass, pbo, rap
-    from test_firearms_roster import roster as vanilla_roster, synthetic as synthetic_mission
+    from test_firearms_roster import roster as vanilla_roster, synthetic as synthetic_mission, patch_roster
 
 REPO = Path(__file__).resolve().parents[2]
 ALLOWLIST = REPO / 'tools/package/snafu_allowlist.json'
@@ -88,7 +89,7 @@ def allowlist(*rows):
 
 
 GOOD = (entry('SynWood', snafu_ammo=['SynAmmoA']),
-        entry('SynPistol', role='modern', vanilla_ammo=['Ammo_45ACP'], magazines=['SynPistolMag']),
+        entry('SynPistol', role='modern', usage=['Military'], vanilla_ammo=['Ammo_45ACP'], magazines=['SynPistolMag']),
         entry('SynEmptyMag', snafu_ammo=['SynAmmoA']),
         entry('SynPistolMag', kind='magazine', role='support'),
         entry('SynAmmoA', kind='ammo', role='support', nominal=10, minimum=6))
@@ -199,6 +200,20 @@ class Verifier(unittest.TestCase):
 
 
 class AllowlistValidation(unittest.TestCase):
+    def test_modern_picks_require_exact_military_usage_and_high_tiers(self):
+        """SYNTHETIC policy mutations of the committed HK416_Gun pick."""
+        base = json.loads(ALLOWLIST.read_text())
+        for patch in ({'usage': ['Town']}, {'usage': ['Military', 'Town']},
+                      {'value': ['Tier2']}, {'value': []}, {'value': ['Tier3', 'Tier1']}):
+            a = copy.deepcopy(base)
+            next(e for e in a['entries'] if e['class'] == 'HK416_Gun').update(patch)
+            with self.subTest(patch=patch), self.assertRaisesRegex(ValueError, 'modern pick'):
+                snafu_optional.validate_allowlist(a)
+        for tiers in (['Tier3'], ['Tier4'], ['Tier3', 'Tier4']):
+            a = copy.deepcopy(base)
+            next(e for e in a['entries'] if e['class'] == 'HK416_Gun')['value'] = tiers
+            snafu_optional.validate_allowlist(a)
+
     def test_valid_and_invalid_shapes(self):
         snafu_optional.validate_allowlist(allowlist(*GOOD))
         base = allowlist(*GOOD)
@@ -247,10 +262,32 @@ class FailClosedGeneration(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_spawning_weapons_need_effective_nonzero_support(self):
+        """SYNTHETIC allowlist and stock budgets, independent of static config verification."""
+        for name in ('SynAmmoA', 'SynPistolMag', 'vanilla'):
+            a = copy.deepcopy(self.allow)
+            if name == 'vanilla':
+                # No Ammo_45ACP in this SYNTHETIC stock fixture.
+                a['entries'][1]['vanilla_ammo'] = ['MissingSyntheticAmmo']
+            else:
+                next(e for e in a['entries'] if e['class'] == name)['set'].update(nominal=0, min=0)
+            report = dict(self.report, allowlist_sha256=snafu_optional.allowlist_sha256(a))
+            with self.subTest(support=name), self.assertRaisesRegex(ValueError, 'spawning weapon'):
+                snafu_optional.generate(self.mission, a, report)
+
     def test_no_report_or_unverified_report_generates_nothing(self):
         for report in (None, {}, dict(self.report, status='unverified')):
             with self.subTest(status=(report or {}).get('status')), self.assertRaises(ValueError):
                 snafu_optional.generate(self.mission, self.allow, report)
+
+    def test_native_magazine_requirement_cannot_be_hidden_by_an_empty_policy_list(self):
+        """SYNTHETIC verified config still requires SynPistolMag when the pick omits it."""
+        a = copy.deepcopy(self.allow)
+        next(e for e in a['entries'] if e['class'] == 'SynPistol')['magazines'] = []
+        next(e for e in a['entries'] if e['class'] == 'SynPistolMag')['set'].update(nominal=0, min=0)
+        report = snafu_optional.verify_install(self.install, a)
+        with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine'):
+            snafu_optional.generate(self.mission, a, report)
 
     def test_report_must_match_the_allowlist_and_every_class(self):
         changed = copy.deepcopy(self.allow)
@@ -308,6 +345,7 @@ class InstallRollback(unittest.TestCase):
         t = Path(self.tmp.name)
         self.install = t / 'mod'
         build_install(self.install)
+        patch_roster(self, self.tmp.name)
         self.source = t / 'source'
         self.source.mkdir()
         synthetic_mission(self.source)
@@ -319,6 +357,47 @@ class InstallRollback(unittest.TestCase):
 
     def files(self, target):
         return {p.relative_to(target).as_posix(): p.read_bytes() for p in target.rglob('*') if p.is_file()}
+
+    def test_install_rechecks_effective_support_after_rehashed_stage_tampering(self):
+        """SYNTHETIC rehashed stage still cannot disable required support."""
+        files = snafu_optional.generate(self.source, self.allow, self.report)
+        root = ET.fromstring(files['ce/types.xml'])
+        support = root.find("type[@name='SynAmmoA']")
+        support.find('nominal').text = support.find('min').text = '0'
+        files['ce/types.xml'] = ET.tostring(root)
+        manifest = json.loads(files['delta-manifest.json'])
+        manifest['files']['ce/types.xml'] = economy.sha(files['ce/types.xml'])
+        files['delta-manifest.json'] = economy.encode(manifest)
+        stage = Path(self.tmp.name) / 'tampered-support'
+        snafu_optional.write_delta(stage, files)
+        before = economy.snapshot(self.source)
+        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+            snafu_optional.install(stage, self.source)
+        self.assertEqual(before, economy.snapshot(self.source))
+        self.assertFalse((self.source / snafu_optional.MANAGED).exists())
+
+    def test_failed_types_write_cleans_up_and_allows_byte_exact_retry(self):
+        """SYNTHETIC disk failure, including a partially created managed file."""
+        stage = Path(self.tmp.name) / 'failed-delta'
+        snafu_optional.write_delta(stage, snafu_optional.generate(self.source, self.allow, self.report))
+        before = {p.relative_to(self.source): p.read_bytes() for p in self.source.rglob('*') if p.is_file()}
+        write = economy.fresh_write
+        for partial in (False, True):
+            def fail(root, name, data):
+                if name == 'ce/types.xml':
+                    if partial:
+                        write(root, name, b'<types>')
+                    raise OSError('SYNTHETIC disk full')
+                return write(root, name, data)
+            with self.subTest(partial=partial):
+                with mock.patch.object(economy, 'fresh_write', side_effect=fail):
+                    with self.assertRaisesRegex(OSError, 'SYNTHETIC disk full'):
+                        snafu_optional.install(stage, self.source)
+                self.assertFalse((self.source / snafu_optional.MANAGED).exists())
+                snafu_optional.install(stage, self.source)
+                snafu_optional.rollback(self.source)
+                self.assertEqual(before, {p.relative_to(self.source): p.read_bytes()
+                                          for p in self.source.rglob('*') if p.is_file()})
 
     def test_install_and_rollback_are_byte_exact(self):
         stage = Path(self.tmp.name) / 'delta'

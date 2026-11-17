@@ -25,11 +25,11 @@ import xml.etree.ElementTree as ET
 
 try:
     from tools.audit import pbo_config
-    from tools.package import economy
+    from tools.package import economy, firearms
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.audit import pbo_config
-    from tools.package import economy
+    from tools.package import economy, firearms
 
 ALLOWLIST_PATH = Path(__file__).with_name('snafu_allowlist.json')
 WORKSHOP_ID = '2443122116'
@@ -128,6 +128,13 @@ def validate_allowlist(allowlist):
         _names(e['value'], name)
         if not e['usage']:
             raise ValueError(f'usage required: {name}')
+        if kind == 'weapon' and e['role'] == 'modern':
+            # These original sidearms predate the military-only rifle/SMG picks.
+            legacy_usage = {'SNAFUSWM629': {'Police'}, 'SN_USP': {'Police', 'Military'}}
+            military = e['usage'] == ['Military']
+            legacy = name in legacy_usage and set(e['usage']) == legacy_usage[name]
+            if not (military or legacy) or not e['value'] or not set(e['value']) <= {'Tier3', 'Tier4'}:
+                raise ValueError(f'modern pick must be Military with Tier3/Tier4 values: {name}')
         if kind == 'weapon':
             for field in WEAPON_EXTRA:
                 _names(e[field], name)
@@ -287,7 +294,10 @@ def _evaluate(entry, merged, duplicates, models, vendor, state):
         for a in entry['snafu_ammo']:
             if state.get(a) != 'verified':
                 reasons.append(f'ammo-unverified:{a}')
-    return {'status': 'unverified' if reasons else 'verified', 'reasons': reasons, 'notes': notes}
+    result = {'status': 'unverified' if reasons else 'verified', 'reasons': reasons, 'notes': notes}
+    if kind == 'weapon':
+        result['compatible_magazines'] = [m for m in (magazines or []) if m]
+    return result
 
 
 def verify_install(install, allowlist, max_pbos=MAX_PBOS):
@@ -341,6 +351,9 @@ def _check_report(allowlist, report):
     wanted = {e['class'] for e in allowlist['entries']}
     if set(rows) != wanted or any(not isinstance(r, dict) or r.get('status') != 'verified' for r in rows.values()):
         raise ValueError('every allowlisted class must be individually verified')
+    for e in allowlist['entries']:
+        if e['kind'] == 'weapon' and not isinstance(report['classes'][e['class']].get('compatible_magazines'), list):
+            raise ValueError('verification report lacks compatible magazine evidence; reverify the installed copy')
 
 
 def _roster_types(source):
@@ -386,8 +399,8 @@ def generate(source, allowlist, report):
     _check_report(allowlist, report)
     data = economy.snapshot(source)
     _checked_core(data['cfgeconomycore.xml'])
-    stock = set(economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type')))
-    taken = stock | _roster_types(source)
+    stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
+    taken = set(stock) | _roster_types(source)
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
@@ -405,9 +418,12 @@ def generate(source, allowlist, report):
         rows.append({'class': name, 'kind': entry['kind'], 'role': entry['role'], 'tier': entry['tier'],
                      'set': entry['set'], 'usage': entry['usage'], 'value': entry['value'],
                      'justification': entry['justification'],
-                     'verification': report['classes'][name]['status']})
+                     'verification': report['classes'][name]['status'],
+                     **{k: entry[k] for k in WEAPON_EXTRA if k in entry}})
         if entry['kind'] == 'weapon':
             totals['weapon_nominal'] += entry['set']['nominal']
+    firearms.check_effective_support(source, stock, allowlist['entries'], out, (economy.MANAGED,),
+                                     ammo_fields=('vanilla_ammo', 'snafu_ammo'), verification=report['classes'])
     fragment = ET.Element('economycore')
     ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
     ET.SubElement(ce, 'file', {'name': 'types.xml', 'type': 'types'})
@@ -476,8 +492,8 @@ def install(stage, target):
     if (not isinstance(rows, dict) or names != set(rows)
             or any(not isinstance(r, dict) or r.get('status') != 'verified' for r in rows.values())):
         raise ValueError('delta types must equal the individually verified classes')
-    taken = set(economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type')))
-    taken |= _roster_types(target)
+    stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
+    taken = set(stock) | _roster_types(target)
     if names & taken:
         raise ValueError('delta redefines classes already defined by stock or the roster')
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
@@ -489,16 +505,30 @@ def install(stage, target):
         if (not usages or any(u.get('name') not in usage_vocab or set(u.attrib) != {'name'} for u in usages)
                 or any(v.get('name') not in value_vocab for v in item.findall('value'))):
             raise ValueError('invalid usage/value tags in delta')
+    entries = meta.get('entries', [])
+    if {e['class'] for e in entries} != names:
+        raise ValueError('support policy must cover the verified classes')
+    firearms.check_effective_support(target, stock, entries, types, (economy.MANAGED,),
+                                     ammo_fields=('vanilla_ammo', 'snafu_ammo'), verification=rows)
     managed.mkdir()
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
                'verification_sha256': economy.sha(economy.encode(verification))}
-    economy.fresh_write(managed, 'core.backup', original)
-    economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
-    economy.fresh_write(managed, 'verification.json', economy.encode(verification))
-    (managed / 'ce').mkdir()
-    economy.fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
-    os.replace(economy.fresh_write(managed, 'core.next', patched), economy.child(target, 'cfgeconomycore.xml'))
+    try:
+        economy.fresh_write(managed, 'core.backup', original)
+        economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
+        economy.fresh_write(managed, 'verification.json', economy.encode(verification))
+        (managed / 'ce').mkdir()
+        economy.fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
+        os.replace(economy.fresh_write(managed, 'core.next', patched), economy.child(target, 'cfgeconomycore.xml'))
+    except OSError:
+        # Receipt/backup precede the core switch. A failed write before that
+        # switch has changed no mission input; remove only preflighted intent.
+        if economy.read_plain(target, 'cfgeconomycore.xml') == original:
+            economy.preflight_managed(managed, {'core.backup', 'receipt.json',
+                                                'verification.json', 'ce/types.xml', 'core.next'})
+            shutil.rmtree(managed)
+        raise
     return receipt
 
 

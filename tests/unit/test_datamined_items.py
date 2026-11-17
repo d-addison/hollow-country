@@ -848,6 +848,12 @@ class CombinedDelta(Base):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        from tools.package import firearms
+        shipped = Path(self.tmp.name) / 'SYNTHETIC-shipped-roster.json'
+        shipped.write_bytes(economy.encode(roster_doc()))
+        patcher = mock.patch.object(firearms, 'ROSTER_PATH', shipped)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.root = Path(self.tmp.name) / 'source'
         self.root.mkdir()
         self.rows = self.__class__.rows

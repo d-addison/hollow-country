@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import economy
@@ -27,6 +28,32 @@ def synthetic(root):
 
 
 class EconomyBehavior(unittest.TestCase):
+    def test_failed_types_write_cleans_up_and_allows_byte_exact_retry(self):
+        """SYNTHETIC disk failure, both before creation and after a partial write."""
+        for partial in (False, True):
+            with self.subTest(partial=partial), tempfile.TemporaryDirectory() as tmp:
+                source = Path(tmp) / 'source'
+                source.mkdir()
+                profile = synthetic(source)
+                stage = Path(tmp) / 'delta'
+                economy.write_delta(stage, economy.generate(source, profile, include_datamined=False))
+                before = economy.snapshot(source)
+                write = economy.fresh_write
+                def fail(root, name, data):
+                    if name == 'ce/types.xml':
+                        if partial:
+                            write(root, name, b'<types>')
+                        raise OSError('SYNTHETIC disk full')
+                    return write(root, name, data)
+                with mock.patch.object(economy, 'fresh_write', side_effect=fail):
+                    with self.assertRaisesRegex(OSError, 'SYNTHETIC disk full'):
+                        economy.install(stage, source)
+                self.assertFalse((source / economy.MANAGED).exists())
+                self.assertEqual(before, economy.snapshot(source))
+                economy.install(stage, source)
+                economy.rollback(source)
+                self.assertEqual(before, economy.snapshot(source))
+
     def test_minimal_delta_preserves_replaced_usage_list_and_stock_budgets(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
@@ -66,6 +93,26 @@ class EconomyBehavior(unittest.TestCase):
             core.write_text('<economycore><ce folder="other"><file name="types.xml" type="types"/></ce></economycore>')
             with self.assertRaises(ValueError):
                 economy.generate(root, good, include_datamined=False)
+
+    def test_manifest_cannot_widen_a_non_roster_class(self):
+        """SYNTHETIC attacker recomputes checksums and grants itself budget permissions."""
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / 'source'
+            source.mkdir()
+            profile = synthetic(source)
+            files = economy.generate(source, profile, include_datamined=False)
+            files['ce/types.xml'] = files['ce/types.xml'].replace(b'<nominal>10</nominal>', b'<nominal>999</nominal>')
+            manifest = json.loads(files['delta-manifest.json'])
+            manifest['files']['ce/types.xml'] = economy.sha(files['ce/types.xml'])
+            manifest['firearms_classes'] = ['SyntheticSupply']
+            files['delta-manifest.json'] = economy.encode(manifest)
+            stage = Path(tmp) / 'delta'
+            economy.write_delta(stage, files)
+            before = economy.snapshot(source)
+            with self.assertRaisesRegex(ValueError, 'shipped firearms roster'):
+                economy.install_delta(stage, source)
+            self.assertEqual(before, economy.snapshot(source))
+            self.assertFalse((source / economy.MANAGED).exists())
 
     def test_baseline_has_no_economy_changes(self):
         with tempfile.TemporaryDirectory() as t:

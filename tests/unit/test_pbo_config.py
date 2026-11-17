@@ -84,6 +84,33 @@ SAMPLE = klass(
 )
 
 
+class TextHardening(unittest.TestCase):
+    def test_unresolved_conditionals_are_refused(self):
+        """SYNTHETIC inactive classes must never become verification evidence."""
+        for directive in ('#ifdef OMIT', '#ifndef OMIT', '#if 0', '#else', '#endif', '#elif 1', '# if 0',
+                          '/*SYNTHETIC prefix*/ #if 0', '#/**/if 0'):
+            config = directive + '\nclass CfgWeapons { class SynHidden { scope=2; }; };'
+            with self.subTest(directive=directive), self.assertRaisesRegex(ValueError, 'conditional'):
+                pbo_config.parse_text_config(config, ['CfgWeapons'])
+        pbo_config.parse_text_config('// #if 0\n/* #endif */\nclass CfgWeapons { class Syn {model="#else";};};',
+                                     ['CfgWeapons'])
+
+    def test_local_array_assignment_and_appends_accumulate(self):
+        """SYNTHETIC complete local arrays stay complete; inherited appends stay unresolved."""
+        config = '''class CfgWeapons {
+            class Syn {magazines[]={"A"}; magazines[]+={"B"}; magazines[]+={"C"};};
+            class SynInherited: Unknown {magazines[]+={"B"}; magazines[]+={"C"};};
+            class SynReset: Unknown {magazines[]+={"B"}; magazines[]={"A"}; magazines[]+={"C"};};
+        };'''
+        rows = pbo_config.parse_text_config(config, ['CfgWeapons'])['CfgWeapons']
+        self.assertEqual(rows['Syn']['magazines'], ['A', 'B', 'C'])
+        self.assertNotIn('magazines', rows['Syn'].get('appended', []))
+        self.assertEqual(rows['SynInherited']['magazines'], ['B', 'C'])
+        self.assertIn('magazines', rows['SynInherited']['appended'])
+        self.assertEqual(rows['SynReset']['magazines'], ['A', 'C'])
+        self.assertNotIn('magazines', rows['SynReset'].get('appended', []))
+
+
 class RapParsing(unittest.TestCase):
     def test_reads_classes_scope_and_selected_fields_only(self):
         roots = pbo_config.parse_rap(rap(SAMPLE), roots=('CfgWeapons', 'CfgMagazines'))

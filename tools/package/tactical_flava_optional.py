@@ -9,8 +9,9 @@ its report outside Git.
 
 Generation is fail-closed: with no report, an unverified report, a report for a different allowlist, or any
 class not individually verified, no spawn entries are produced. The delta registers a separate managed folder
-(``hollow-country-tactical-flava/ce``) with complete new ``types.xml`` entries only. It installs on top of, and
-rolls back before (last in, first out), the vanilla roster and the optional SNAFU deltas.
+(``hollow-country-tactical-flava/ce``) with complete new ``types.xml`` entries and required adapter
+preattachments. It installs on top of, and rolls back before (last in, first out), the vanilla roster and
+the optional SNAFU deltas.
 
 Offline static checks establish nothing about DayZ behaviour: weapon firing, ammo acceptance, attachment
 fitting, model loading, script interaction, signature checks, CE spawning and the 3-6 player balance stay
@@ -28,11 +29,11 @@ import xml.etree.ElementTree as ET
 
 try:
     from tools.audit import pbo_config
-    from tools.package import economy
+    from tools.package import economy, firearms
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.audit import pbo_config
-    from tools.package import economy
+    from tools.package import economy, firearms
 
 ALLOWLIST_PATH = Path(__file__).with_name('tactical_flava_allowlist.json')
 WORKSHOP_ID = '2646817942'
@@ -41,6 +42,8 @@ SNAFU_MANAGED = 'hollow-country-snafu'
 ROOTS = ('CfgWeapons', 'CfgMagazines', 'CfgAmmo', 'CfgVehicles')
 VANILLA_ROOTS = ('CfgMagazines', 'CfgAmmo')
 KIND = 'tactical-flava-optional'
+SPAWNABLE = 'ce/cfgspawnabletypes.xml'
+DELTA_FILES = economy.DELTA_FILES | {SPAWNABLE}
 TOP = {'schema', 'name', 'workshop_id', 'status', 'rights', 'entries', 'excluded'}
 RIGHTS_REQUIRED = {'license', 'redistribution', 'dependency_use', 'review', 'terms_file', 'terms_sha256', 'urls'}
 RIGHTS_FIXED = {'license': 'none-recorded', 'redistribution': 'none', 'dependency_use': 'unstated',
@@ -181,9 +184,10 @@ def _validate_usage_rules(rows):
         if e['set']['nominal'] > 0:
             if not e['vanilla_ammo']:
                 raise ValueError(f'spawning weapon needs vanilla ammo: {name}')
-            if any(magazines[m]['set']['nominal'] < 1 for m in e['magazines']):
-                raise ValueError(f'spawning weapon lists a zero-count magazine: {name}')
-            if e['magazines'] and not any(set(magazines[m]['usage']) & set(e['usage']) for m in e['magazines']):
+            if e['magazines'] and not any(magazines[m]['set']['nominal'] > 0 for m in e['magazines']):
+                raise ValueError(f'spawning weapon has no spawning compatible magazine: {name}')
+            if e['magazines'] and not any(magazines[m]['set']['nominal'] > 0 and
+                                          set(magazines[m]['usage']) & set(e['usage']) for m in e['magazines']):
                 raise ValueError(f'no magazine spawns where the weapon does: {name}')
     for name, e in magazines.items():
         parents = [w for w in weapons.values() if name in w['magazines']]
@@ -388,7 +392,10 @@ def _evaluate(entry, merged, duplicates, models, vanilla, state):
         for need in entry['optic_requires']:
             if state.get(need) != 'verified':
                 reasons.append(f'optic-requires-unverified:{need}')
-    return {'status': 'unverified' if reasons else 'verified', 'reasons': reasons, 'notes': notes}
+    result = {'status': 'unverified' if reasons else 'verified', 'reasons': reasons, 'notes': notes}
+    if kind == 'weapon':
+        result['compatible_magazines'] = [m for m in (mags or []) if m]
+    return result
 
 
 def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
@@ -453,6 +460,9 @@ def _check_report(allowlist, report):
     wanted = {e['class'] for e in allowlist['entries']}
     if set(rows) != wanted or any(not isinstance(r, dict) or r.get('status') != 'verified' for r in rows.values()):
         raise ValueError('every allowlisted class must be individually verified')
+    for e in allowlist['entries']:
+        if e['kind'] == 'weapon' and not isinstance(report['classes'][e['class']].get('compatible_magazines'), list):
+            raise ValueError('verification report lacks compatible magazine evidence; reverify the installed copy')
 
 
 def _managed_types(source, managed):
@@ -500,6 +510,23 @@ def _new_type(entry):
     return item
 
 
+def _spawnable_types(entries):
+    """Author only preattachments declared by individually verified allowlist rows."""
+    rows = {e['class']: e for e in entries}
+    root = ET.Element('spawnabletypes')
+    for e in entries:
+        if e['kind'] != 'weapon' or e['set']['nominal'] <= 0 or not e['optic_requires']:
+            continue
+        node = ET.SubElement(root, 'type', {'name': e['class']})
+        attachments = ET.SubElement(node, 'attachments', {'chance': '1.00'})
+        for name in e['optic_requires']:
+            attachment = rows.get(name)
+            if not attachment or attachment['kind'] != 'attachment' or e['class'] not in attachment['fits']:
+                raise ValueError('spawnable attachment must be a verified attachment that fits the weapon')
+            ET.SubElement(attachments, 'item', {'name': name, 'chance': '1.00'})
+    return root
+
+
 def generate(source, allowlist, report):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
@@ -518,11 +545,6 @@ def generate(source, allowlist, report):
             raise ValueError(f'class already defined by stock, the roster or SNAFU: {name}')
         if any(u not in usage_vocab for u in entry['usage']) or any(v not in value_vocab for v in entry['value']):
             raise ValueError(f'unknown usage/value tag: {name}')
-        if entry['kind'] == 'weapon' and entry['set']['nominal'] > 0:
-            for ammo in entry['vanilla_ammo']:
-                node = stock.get(ammo)
-                if node is None or int(node.findtext('nominal') or 0) < 1:
-                    raise ValueError(f'loose ammo is not spawning in stock types: {ammo}')
         item = _new_type(entry)
         economy._validate_budget(item)
         out.append(item)
@@ -533,16 +555,21 @@ def generate(source, allowlist, report):
         rows.append(row)
         if entry['kind'] == 'weapon':
             totals['weapon_nominal'] += entry['set']['nominal']
+    firearms.check_effective_support(source, stock, allowlist['entries'], out, (economy.MANAGED, SNAFU_MANAGED),
+                                     ammo_fields=('vanilla_ammo',), verification=report['classes'])
     fragment = ET.Element('economycore')
     ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
     ET.SubElement(ce, 'file', {'name': 'types.xml', 'type': 'types'})
+    ET.SubElement(ce, 'file', {'name': 'cfgspawnabletypes.xml', 'type': 'spawnabletypes'})
     meta = {'schema': 1, 'kind': KIND, 'profile': allowlist['name'],
             'status': 'offline-only-runtime-pending', 'runtime_acceptance': 'pending',
             'workshop_id': WORKSHOP_ID, 'engine_merge_semantics': 'unobserved', 'loot_fix_claim': False,
             'dependency': 'optional; server and every client must load Tactical Flava; never bundled or repacked',
             'allowlist_sha256': allowlist_sha256(allowlist), 'entries': rows, 'totals': totals,
             'rights': allowlist['rights'], 'verification': report, 'pending': PENDING}
-    files = {'ce/types.xml': ET.tostring(out, encoding='utf-8', xml_declaration=True) + b'\n',
+    files = {SPAWNABLE: ET.tostring(_spawnable_types(allowlist['entries']), encoding='utf-8',
+                                    xml_declaration=True) + b'\n',
+             'ce/types.xml': ET.tostring(out, encoding='utf-8', xml_declaration=True) + b'\n',
              'cfgeconomycore.append.xml': ET.tostring(fragment, encoding='utf-8', xml_declaration=True) + b'\n',
              'core-defaults.patch.json': economy.encode({}), 'economy-report.json': economy.encode(meta)}
     files['delta-manifest.json'] = economy.encode({
@@ -553,7 +580,42 @@ def generate(source, allowlist, report):
     return files
 
 
-write_delta = economy.write_delta
+def write_delta(stage, files):
+    """TF owns its expanded file set; the base economy delta remains unchanged."""
+    stage = Path(stage)
+    if set(files) != DELTA_FILES:
+        raise ValueError('unexpected generated file set')
+    if stage.exists() or stage.is_symlink():
+        raise ValueError('output must be a fresh directory')
+    for name in files:
+        economy.child(stage, name)
+    stage.mkdir(parents=True)
+    for name, data in files.items():
+        path = economy.child(stage, name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+
+
+def _load_delta(stage):
+    stage = Path(stage)
+    found = set()
+    for path in stage.rglob('*'):
+        name = path.relative_to(stage).as_posix()
+        economy.child(stage, name)
+        if path.is_file():
+            found.add(name)
+        elif not path.is_dir():
+            raise ValueError('special stage file')
+    if found != DELTA_FILES:
+        raise ValueError('unexpected or missing stage files')
+    files = {name: economy.read_plain(stage, name) for name in found}
+    manifest = json.loads(files['delta-manifest.json'])
+    if (manifest.get('schema') != 1 or set(manifest.get('sources', {})) != set(economy.INPUTS)
+            or set(manifest.get('files', {})) != DELTA_FILES - {'delta-manifest.json'}):
+        raise ValueError('invalid delta manifest')
+    if any(economy.sha(files[name]) != digest for name, digest in manifest['files'].items()):
+        raise ValueError('delta checksum mismatch')
+    return files, manifest
 
 
 # ------------------------------------------------------------- install/rollback
@@ -564,8 +626,9 @@ def _patched_core(original, fragment, patches):
     core = _checked_core(original)
     frag = economy.xml(fragment, 'economycore')
     if (len(frag) != 1 or frag[0].tag != 'ce' or frag[0].attrib != {'folder': MANAGED + '/ce'}
-            or len(frag[0]) != 1 or frag[0][0].tag != 'file'
-            or frag[0][0].attrib != {'name': 'types.xml', 'type': 'types'}):
+            or len(frag[0]) != 2 or any(n.tag != 'file' for n in frag[0])
+            or [n.attrib for n in frag[0]] != [{'name': 'types.xml', 'type': 'types'},
+                                             {'name': 'cfgspawnabletypes.xml', 'type': 'spawnabletypes'}]):
         raise ValueError('unsupported CE registration')
     closing = list(re.finditer(rb'</economycore\s*>', original))
     if len(closing) != 1 or core.tag != 'economycore':
@@ -578,7 +641,7 @@ def _patched_core(original, fragment, patches):
 
 def install(stage, target):
     target = economy._target(target)
-    files, manifest = economy._load_delta(stage)
+    files, manifest = _load_delta(stage)
     if manifest.get('kind') != KIND:
         raise ValueError('not a Tactical Flava optional delta')
     data = economy.snapshot(target)
@@ -601,7 +664,8 @@ def install(stage, target):
     if (not isinstance(rows, dict) or names != set(rows)
             or any(not isinstance(r, dict) or r.get('status') != 'verified' for r in rows.values())):
         raise ValueError('delta types must equal the individually verified classes')
-    taken = set(economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))) | _taken(target)
+    stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
+    taken = set(stock) | _taken(target)
     if names & taken:
         raise ValueError('delta redefines classes already defined by stock, the roster or SNAFU')
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
@@ -613,16 +677,35 @@ def install(stage, target):
         if (not usages or any(u.get('name') not in usage_vocab or set(u.attrib) != {'name'} for u in usages)
                 or any(v.get('name') not in value_vocab for v in item.findall('value'))):
             raise ValueError('invalid usage/value tags in delta')
+    entries = meta.get('entries', [])
+    if {e['class'] for e in entries} != names:
+        raise ValueError('spawnable policy must cover the verified classes')
+    firearms.check_effective_support(target, stock, entries, types, (economy.MANAGED, SNAFU_MANAGED),
+                                     ammo_fields=('vanilla_ammo',), verification=rows)
+    expected = _spawnable_types(entries)
+    if economy._full(economy.xml(files[SPAWNABLE], 'spawnabletypes')) != economy._full(expected):
+        raise ValueError('spawnable delta differs from verified attachment policy')
     managed.mkdir()
     receipt = {'schema': 1, 'before': economy.sha(original), 'after': economy.sha(patched),
                'types_sha256': economy.sha(files['ce/types.xml']), 'sources': manifest['sources'],
+               'spawnable_sha256': economy.sha(files[SPAWNABLE]),
                'verification_sha256': economy.sha(economy.encode(verification))}
-    economy.fresh_write(managed, 'core.backup', original)
-    economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
-    economy.fresh_write(managed, 'verification.json', economy.encode(verification))
-    (managed / 'ce').mkdir()
-    economy.fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
-    os.replace(economy.fresh_write(managed, 'core.next', patched), economy.child(target, 'cfgeconomycore.xml'))
+    try:
+        economy.fresh_write(managed, 'core.backup', original)
+        economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
+        economy.fresh_write(managed, 'verification.json', economy.encode(verification))
+        (managed / 'ce').mkdir()
+        economy.fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
+        economy.fresh_write(managed, SPAWNABLE, files[SPAWNABLE])
+        os.replace(economy.fresh_write(managed, 'core.next', patched), economy.child(target, 'cfgeconomycore.xml'))
+    except OSError:
+        # Receipt/backup precede the core switch. A failed write before that
+        # switch has changed no mission input; remove only preflighted intent.
+        if economy.read_plain(target, 'cfgeconomycore.xml') == original:
+            economy.preflight_managed(managed, {'core.backup', 'receipt.json',
+                                                'verification.json', 'ce/types.xml', SPAWNABLE, 'core.next'})
+            shutil.rmtree(managed)
+        raise
     return receipt
 
 
@@ -630,8 +713,10 @@ def rollback(target):
     target = economy._target(target)
     managed = economy.child(target, MANAGED)
     receipt = json.loads(economy.read_plain(managed, 'receipt.json'))
-    economy.preflight_managed(managed, {'core.backup', 'receipt.json', 'verification.json',
-                                        'ce/types.xml', 'core.next'})
+    expected_files = {'core.backup', 'receipt.json', 'verification.json', 'ce/types.xml', 'core.next'}
+    if 'spawnable_sha256' in receipt:
+        expected_files.add(SPAWNABLE)
+    economy.preflight_managed(managed, expected_files)
     core = economy.plain_file(target, economy.child(target, 'cfgeconomycore.xml'))
     backup = economy.read_plain(managed, 'core.backup')
     if economy.sha(backup) != receipt['before'] \
@@ -639,6 +724,9 @@ def rollback(target):
         raise ValueError('core drift (roll back later installs first); manual reconciliation required')
     if economy.sha(economy.read_plain(managed, 'ce/types.xml')) != receipt['types_sha256']:
         raise ValueError('installed delta drift; inspect before rollback')
+    if ('spawnable_sha256' in receipt
+            and economy.sha(economy.read_plain(managed, SPAWNABLE)) != receipt['spawnable_sha256']):
+        raise ValueError('spawnable delta drift; inspect before rollback')
     if economy.sha(economy.read_plain(managed, 'verification.json')) != receipt['verification_sha256']:
         raise ValueError('verification evidence drift; inspect before rollback')
     if {n: economy.sha(economy.child(target, n).read_bytes()) for n in economy.INPUTS

@@ -161,14 +161,14 @@ def _read_policy_file(value):
     path = Path(value).absolute()
     _need(".." not in path.parts, "policy path traversal forbidden")
     _need(not any(p.is_symlink() for p in (path, *path.parents)), "policy symlink paths forbidden")
-    info = os.lstat(path)
+    info = staging.lstat_at(path)
     _need(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size <= MAX_POLICY_BYTES,
           "bounded regular policy file required")
-    fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0))
+    fd = staging.open_file_at(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
     with os.fdopen(fd, "rb") as stream:
         _need(staging._identity(os.fstat(stream.fileno())) == staging._identity(info), "policy changed")
         data = stream.read(MAX_POLICY_BYTES + 1)
-    _need(len(data) == info.st_size and staging._identity(os.lstat(path)) == staging._identity(info),
+    _need(len(data) == info.st_size and staging._identity(staging.lstat_at(path)) == staging._identity(info),
           "policy changed or size exceeded")
     return data
 

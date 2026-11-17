@@ -362,7 +362,8 @@ class DeathSelectionExtensionTests(unittest.TestCase):
             self.assertFalse((Path(root) / "other").exists())
 
     def test_module_never_launches_processes(self):
-        text = open(self.p.__file__).read()
+        with open(self.p.__file__) as stream:
+            text = stream.read()
         for token in ("subprocess", "os.system", "Popen", "os.exec"):
             self.assertNotIn(token, text, token)
 
@@ -411,6 +412,34 @@ class DeathSelectionExtensionTests(unittest.TestCase):
                 with self.assertRaises(ValueError, msg=bad):
                     self.p.main(base + ["--selection", "policy", "--policy-source", bad])
             self.assertFalse((root / "stage").exists())
+
+    def test_policy_reader_refuses_a_parent_swapped_to_a_symlink(self):
+        """SYNTHETIC parent swap preserves the leaf inode to defeat leaf-only identity checks."""
+        import os, tempfile
+        from pathlib import Path
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            parent = root / 'checkout'
+            parent.mkdir()
+            policy = parent / 'policy.c'
+            policy.write_bytes(b'// SYNTHETIC policy source')
+            moved = root / 'outside'
+            native_open = os.open
+            swapped = False
+            def swap_then_open(path, flags, mode=0o777, *, dir_fd=None):
+                nonlocal swapped
+                if not swapped and Path(path).name == policy.name:
+                    parent.rename(moved)
+                    parent.symlink_to(moved, target_is_directory=True)
+                    swapped = True
+                return native_open(path, flags, mode, dir_fd=dir_fd)
+            # Preserve the mocked function's real dir_fd capability for the helper's platform guard.
+            supported = os.supports_dir_fd | {swap_then_open}
+            with mock.patch.object(os, 'open', swap_then_open), mock.patch.object(os, 'supports_dir_fd', supported):
+                with self.assertRaisesRegex(ValueError, 'symlink|changed'):
+                    self.p._read_policy_file(policy)
+            self.assertTrue(swapped)
 
     def test_cli_policy_source_and_selection_require_each_other(self):
         import contextlib, io, tempfile

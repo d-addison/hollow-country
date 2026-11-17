@@ -416,7 +416,7 @@
     "Tier3",
     "Tier4"
    ],
-   "justification": "Attachment-only DMR adapter (slot weaponDMRAdapter) that TF_M14_STD scripts require before any optic; nominal 0, so it only arrives through a later spawnabletypes pre-attach.",
+   "justification": "Attachment-only DMR adapter (slot weaponDMRAdapter) that TF_M14_STD scripts require before any optic; nominal 0, so the TF installer's managed spawnabletypes delta pre-attaches it with chance 1.0.",
    "slot": "weaponDMRAdapter",
    "fits": [
     "TF_M14_STD"

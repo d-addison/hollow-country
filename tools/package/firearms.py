@@ -11,6 +11,7 @@ the 3-6 player feel are unobserved; runtime acceptance stays pending.
 import argparse
 import copy
 import json
+import os
 from pathlib import Path
 import re
 import sys
@@ -150,6 +151,51 @@ def _apply(item, entry, usage_vocab, value_vocab):
             item.insert(after + 1 + offset, ET.Element('value', {'name': v}))
 
 
+def effective_types(source, stock, managed_folders):
+    """Layer the known managed overrides over stock for offline dependency checks."""
+    result = dict(stock)
+    for folder in managed_folders:
+        path = economy.child(source, folder + '/ce/types.xml')
+        if os.path.lexists(path):
+            result.update(economy._unique(economy.xml(
+                economy.read_plain(source, folder + '/ce/types.xml'), 'types').findall('type')))
+    return result
+
+
+def check_support(entries, nominal, ammo_fields=('ammo',)):
+    """A spawning weapon needs at least one spawning compatible source of each required kind."""
+    for entry in entries:
+        name = entry['class']
+        if entry['kind'] != 'weapon' or nominal(name) <= 0:
+            continue
+        ammo = [a for field in ammo_fields for a in entry[field]]
+        if not any(nominal(a) > 0 for a in ammo):
+            raise ValueError(f'spawning weapon has no spawning compatible ammo: {name}')
+        if entry['magazines'] and not any(nominal(m) > 0 for m in entry['magazines']):
+            raise ValueError(f'spawning weapon has no spawning compatible magazine: {name}')
+
+
+def check_effective_support(source, stock, entries, generated, managed_folders=(),
+                            ammo_fields=('ammo',), verification=None):
+    """Recheck source plus managed/generated rows at generation and immediately before install."""
+    effective = effective_types(source, stock, managed_folders)
+    effective.update({item.get('name'): item for item in generated})
+    support_entries = []
+    for entry in entries:
+        if entry['kind'] == 'weapon':
+            if any(not isinstance(entry.get(field), list) for field in (*ammo_fields, 'magazines')):
+                raise ValueError('delta lacks compatible support policy; regenerate')
+            if verification is not None:
+                compatible = verification.get(entry['class'], {}).get('compatible_magazines')
+                if not isinstance(compatible, list):
+                    raise ValueError('verification lacks compatible magazine evidence; reverify')
+                entry = dict(entry, magazines=entry['magazines'] or compatible)
+        support_entries.append(entry)
+    check_support(support_entries,
+                  lambda name: int(effective[name].findtext('nominal') or 0) if name in effective else 0,
+                  ammo_fields=ammo_fields)
+
+
 def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True):
     """Pure roster pass shared by the firearms-only delta and the combined economy delta.
 
@@ -180,6 +226,10 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
         if entry['kind'] == 'weapon':
             totals['weapon_nominal_stock'] += rows[-1]['stock']['nominal']
             totals['weapon_nominal_candidate'] += rows[-1]['candidate']['nominal']
+    effective = dict(stock)
+    effective.update({item.get('name'): item for item in changed_elements})
+    check_support([e for e in roster['entries'] if include_datamined or not e.get('datamined')],
+                  lambda name: int(effective[name].findtext('nominal') or 0))
     return changed_elements, rows, totals
 
 

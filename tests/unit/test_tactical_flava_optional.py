@@ -12,6 +12,7 @@ import shutil
 import struct
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.audit import pbo_config
@@ -548,6 +549,7 @@ class FailClosedGeneration(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         t = Path(self.tmp.name)
+        snafu_fixture.patch_roster(self, self.tmp.name)
         self.install = t / 'mod'
         build_install(self.install)
         self.mission = t / 'mission'
@@ -560,10 +562,39 @@ class FailClosedGeneration(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_one_live_compatible_ammo_or_magazine_is_sufficient(self):
+        """SYNTHETIC alternatives may be disabled if another compatible source spawns."""
+        a = copy.deepcopy(self.allow)
+        rifle = a['entries'][0]
+        rifle['vanilla_ammo'].append('MissingSyntheticAmmo')
+        a['entries'].append(entry('SynDisabledMag', kind='magazine', role='support', nominal=0, minimum=0))
+        rifle['magazines'].append('SynDisabledMag')
+        report = copy.deepcopy(self.report)
+        report['allowlist_sha256'] = tfo.allowlist_sha256(a)
+        report['classes']['SynDisabledMag'] = {'status': 'verified'}
+        tfo.generate(self.mission, a, report)
+
+    def test_managed_ammo_override_wins_over_positive_stock_nominal(self):
+        """SYNTHETIC existing roster override disables otherwise positive loose ammo."""
+        managed = self.mission / economy.MANAGED / 'ce'
+        managed.mkdir(parents=True)
+        (managed / 'types.xml').write_text('<types><type name="Ammo_308Win"><nominal>0</nominal></type></types>')
+        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+            tfo.generate(self.mission, self.allow, self.report)
+
     def test_no_report_or_unverified_report_generates_nothing(self):
         for report in (None, {}, dict(self.report, status='unverified')):
             with self.assertRaises(ValueError):
                 tfo.generate(self.mission, self.allow, report)
+
+    def test_native_magazine_requirement_cannot_be_hidden_by_an_empty_policy_list(self):
+        """SYNTHETIC config requires a detachable magazine even if policy omits it."""
+        a = copy.deepcopy(self.allow)
+        next(e for e in a['entries'] if e['class'] == 'SynRifle')['magazines'] = []
+        a['entries'] = [e for e in a['entries'] if e['class'] != 'SynMagA']
+        report = tfo.verify_install(self.install, a, vanilla=VANILLA)
+        with self.assertRaisesRegex(ValueError, 'spawning weapon.*magazine'):
+            tfo.generate(self.mission, a, report)
 
     def test_report_must_match_allowlist_vanilla_terms_and_every_class(self):
         odd = copy.deepcopy(self.allow)
@@ -583,6 +614,28 @@ class FailClosedGeneration(unittest.TestCase):
     def test_committed_allowlist_with_no_report_yields_no_spawns(self):
         with self.assertRaises(ValueError):
             tfo.generate(self.mission, json.loads(ALLOWLIST.read_text()), None)
+
+    def test_required_adapter_is_preattached_in_the_managed_spawnable_delta(self):
+        """SYNTHETIC DMR mirrors the allowlisted TF M14 adapter requirement."""
+        files = tfo.generate(self.mission, self.allow, self.report)
+        self.assertIn('ce/cfgspawnabletypes.xml', files)
+        spawnable = ET.fromstring(files['ce/cfgspawnabletypes.xml'])
+        self.assertEqual(spawnable.tag, 'spawnabletypes')
+        self.assertEqual([n.attrib for n in spawnable], [{'name': 'SynDMR'}])
+        attachments = spawnable[0].find('attachments')
+        self.assertEqual(attachments.attrib, {'chance': '1.00'})
+        self.assertEqual([n.attrib for n in attachments], [{'name': 'SynAdapter', 'chance': '1.00'}])
+        fragment = ET.fromstring(files['cfgeconomycore.append.xml'])
+        self.assertIn({'name': 'cfgspawnabletypes.xml', 'type': 'spawnabletypes'},
+                      [n.attrib for n in fragment[0]])
+        manifest = json.loads(files['delta-manifest.json'])
+        self.assertEqual(manifest['files']['ce/cfgspawnabletypes.xml'], economy.sha(files['ce/cfgspawnabletypes.xml']))
+        # The adapter's independent CE nominal remains zero.
+        self.assertEqual(ET.fromstring(files['ce/types.xml']).find("type[@name='SynAdapter']/nominal").text, '0')
+        a = copy.deepcopy(self.allow)
+        next(e for e in a['entries'] if e['class'] == 'SynDMR')['set'].update(nominal=0, min=0)
+        report = dict(self.report, allowlist_sha256=tfo.allowlist_sha256(a))
+        self.assertEqual(len(ET.fromstring(tfo.generate(self.mission, a, report)['ce/cfgspawnabletypes.xml'])), 0)
 
     def test_verified_report_generates_complete_new_type_entries(self):
         files = tfo.generate(self.mission, self.allow, self.report)
@@ -655,6 +708,7 @@ class InstallRollback(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         t = Path(self.tmp.name)
+        snafu_fixture.patch_roster(self, self.tmp.name)
         self.install = t / 'mod'
         build_install(self.install)
         self.source = t / 'source'
@@ -687,6 +741,86 @@ class InstallRollback(unittest.TestCase):
         self.assertEqual(outside.read_bytes(), b'operator data: preserve exactly\n')
         self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), core)
         self.assertTrue(managed.is_dir())
+
+    def test_install_rechecks_effective_support_after_rehashed_stage_tampering(self):
+        """SYNTHETIC rehashed stage still cannot disable required support."""
+        files = tfo.generate(self.source, self.allow, self.report)
+        root = ET.fromstring(files['ce/types.xml'])
+        support = root.find("type[@name='SynMagA']")
+        support.find('nominal').text = support.find('min').text = '0'
+        files['ce/types.xml'] = ET.tostring(root)
+        manifest = json.loads(files['delta-manifest.json'])
+        manifest['files']['ce/types.xml'] = economy.sha(files['ce/types.xml'])
+        files['delta-manifest.json'] = economy.encode(manifest)
+        stage = Path(self.tmp.name) / 'tampered-support'
+        tfo.write_delta(stage, files)
+        before = economy.snapshot(self.source)
+        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+            tfo.install(stage, self.source)
+        self.assertEqual(before, economy.snapshot(self.source))
+        self.assertFalse((self.source / tfo.MANAGED).exists())
+
+    def test_failed_types_write_cleans_up_and_allows_byte_exact_retry(self):
+        """SYNTHETIC disk failure, including a partially created managed file."""
+        stage = Path(self.tmp.name) / 'failed-delta'
+        tfo.write_delta(stage, tfo.generate(self.source, self.allow, self.report))
+        before = {p.relative_to(self.source): p.read_bytes() for p in self.source.rglob('*') if p.is_file()}
+        write = economy.fresh_write
+        for failing_name in ('ce/types.xml', 'ce/cfgspawnabletypes.xml'):
+            for partial in (False, True):
+                def fail(root, name, data):
+                    if name == failing_name:
+                        if partial:
+                            write(root, name, b'<types>')
+                        raise OSError('SYNTHETIC disk full')
+                    return write(root, name, data)
+                with self.subTest(file=failing_name, partial=partial):
+                    with mock.patch.object(economy, 'fresh_write', side_effect=fail):
+                        with self.assertRaisesRegex(OSError, 'SYNTHETIC disk full'):
+                            tfo.install(stage, self.source)
+                    self.assertFalse((self.source / tfo.MANAGED).exists())
+                    tfo.install(stage, self.source)
+                    tfo.rollback(self.source)
+                    self.assertEqual(before, {p.relative_to(self.source): p.read_bytes()
+                                              for p in self.source.rglob('*') if p.is_file()})
+
+    def test_adapter_delta_installs_and_rolls_back_without_touching_operator_spawnables(self):
+        """SYNTHETIC operator file remains byte exact; the TF delta owns its own file."""
+        original = b'<spawnabletypes><!--SYNTHETIC operator bytes--></spawnabletypes>\r\n'
+        operator = self.source / 'cfgspawnabletypes.xml'
+        operator.write_bytes(original)
+        stage = self.stage()
+        before = files_of(self.source)
+        tfo.install(stage, self.source)
+        installed = self.source / tfo.MANAGED / 'ce/cfgspawnabletypes.xml'
+        self.assertTrue(installed.is_file())
+        installed.write_bytes(installed.read_bytes() + b'<!--SYNTHETIC drift-->')
+        with self.assertRaisesRegex(ValueError, 'spawnable.*drift'):
+            tfo.rollback(self.source)
+        installed.write_bytes((stage / 'ce/cfgspawnabletypes.xml').read_bytes())
+        tfo.rollback(self.source)
+        self.assertEqual(before, files_of(self.source))
+        self.assertEqual(operator.read_bytes(), original)
+
+    def test_rollback_accepts_a_legacy_receipt_without_a_spawnable_delta(self):
+        """SYNTHETIC prior-version install: no managed spawnable file or hash."""
+        stage = self.stage()
+        before = files_of(self.source)
+        tfo.install(stage, self.source)
+        managed = self.source / tfo.MANAGED
+        core = self.source / 'cfgeconomycore.xml'
+        tree = ET.fromstring(core.read_bytes())
+        ce = tree.find("ce[@folder='hollow-country-tactical-flava/ce']")
+        ce.remove(ce.find("file[@type='spawnabletypes']"))
+        legacy_core = ET.tostring(tree)
+        core.write_bytes(legacy_core)
+        (managed / 'ce/cfgspawnabletypes.xml').unlink()
+        receipt = json.loads((managed / 'receipt.json').read_bytes())
+        receipt.pop('spawnable_sha256')
+        receipt['after'] = economy.sha(legacy_core)
+        (managed / 'receipt.json').write_bytes(economy.encode(receipt))
+        tfo.rollback(self.source)
+        self.assertEqual(before, files_of(self.source))
 
     def test_install_and_rollback_are_byte_exact(self):
         stage = self.stage()
@@ -920,6 +1054,22 @@ class RealInstall(unittest.TestCase):
         self.assertEqual(report['install']['problems'], [])
         self.assertEqual(report['status'], 'verified')
         self.assertEqual(len(report['classes']), len(data['entries']))
+        # SYNTHETIC mission budgets; only the allowlisted compatibility evidence is real/read-only.
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / 'mission'
+            source.mkdir()
+            mission(source)
+            stock = ET.parse(source / 'db/types.xml').getroot()
+            existing = {n.get('name') for n in stock}
+            ammo = {a for e in data['entries'] if e['kind'] == 'weapon' for a in e['vanilla_ammo']}
+            for name in sorted(ammo - existing):
+                stock.append(ET.fromstring(stock_entry(name, 50, 30, 14400, 0, ['Military'], ['Tier3'])))
+            (source / 'db/types.xml').write_bytes(ET.tostring(stock))
+            files = tfo.generate(source, data, report)
+            spawnable = ET.fromstring(files['ce/cfgspawnabletypes.xml'])
+            adapter = spawnable.find("type[@name='TF_M14_STD']/attachments/item")
+            self.assertIsNotNone(adapter)
+            self.assertEqual(adapter.attrib, {'name': 'TF_M14_Adapter', 'chance': '1.00'})
 
 
 class BaseAddonStaysIndependent(unittest.TestCase):

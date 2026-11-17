@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 from tools.package import economy, firearms
@@ -34,7 +35,8 @@ def entry(name, nominal, minimum, lifetime, restock, usage, value, extra=''):
 
 def synthetic(root):
     (root / 'db').mkdir(parents=True)
-    rows = [entry('SynthWoodRifle', 40, 30, 14400, 0, ['Town'], ['Tier2']),
+    rows = [entry('Ammo_45ACP', 20, 10, 14400, 0, ['Military'], []),
+            entry('SynthWoodRifle', 40, 30, 14400, 0, ['Town'], ['Tier2']),
             entry('SynthModernRifle', 8, 6, 7200, 3600, ['Military'], ['Tier4']),
             entry('SynthZeroRifle', 0, 0, 14400, 0, ['Hunting'], []),
             entry('SynthMag', 30, 25, 14400, 0, ['Military'], ['Tier2']),
@@ -78,6 +80,16 @@ def roster():
                 {'class': 'SynthOddRifle', 'status': 'requires-local-acceptance', 'note': 'not in types'}]}
 
 
+def patch_roster(testcase, directory, data=None):
+    """SYNTHETIC shipped roster file: exercise the real installer permission check."""
+    path = Path(directory) / 'SYNTHETIC-shipped-roster.json'
+    path.write_bytes(economy.encode(data or roster()))
+    patcher = mock.patch.object(firearms, 'ROSTER_PATH', path)
+    patcher.start()
+    testcase.addCleanup(patcher.stop)
+    return path
+
+
 def children(element):
     return {n.tag: (n.text or '').strip() for n in element if n.tag not in {'usage', 'value'}}
 
@@ -89,9 +101,32 @@ class RosterGeneration(unittest.TestCase):
         self.root.mkdir()
         synthetic(self.root)
         self.stock = {t.get('name'): t for t in ET.parse(self.root / 'db/types.xml').getroot()}
+        self.shipped_roster = patch_roster(self, self.tmp.name)
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def test_spawning_weapons_need_effective_nonzero_support(self):
+        """SYNTHETIC overrides must win over positive stock support counts."""
+        for name in ('SynthAmmo', 'SynthMag'):
+            r = roster()
+            next(e for e in r['entries'] if e['class'] == name)['set'] = {'nominal': 0, 'min': 0}
+            with self.subTest(support=name), self.assertRaisesRegex(ValueError, 'spawning weapon'):
+                firearms.generate(self.root, r)
+
+    def test_one_live_alternative_is_sufficient_and_disabled_weapons_need_no_support(self):
+        """SYNTHETIC compatible alternatives and disabled-only roster."""
+        r = roster()
+        modern = next(e for e in r['entries'] if e['class'] == 'SynthModernRifle')
+        modern['magazines'].append('SynthZeroMag')
+        support = next(e for e in r['entries'] if e['class'] == 'SynthZeroMag')
+        support.pop('datamined')
+        support.pop('acceptance')
+        next(e for e in r['entries'] if e['class'] == 'SynthMag')['set'] = {'nominal': 0, 'min': 0}
+        firearms.generate(self.root, r)
+        for e in r['entries']:
+            e['set'] = {'nominal': 0, 'min': 0}
+        firearms.generate(self.root, r)
 
     def test_only_selected_budget_fields_change_and_everything_else_is_stock(self):
         delta = firearms.generate(self.root, roster())
@@ -209,6 +244,7 @@ class RosterGeneration(unittest.TestCase):
         firearms.write_delta(stage, firearms.generate(self.root, r))
         target = Path(self.tmp.name) / 'bare-target'
         shutil.copytree(self.root, target)
+        self.shipped_roster.write_bytes(economy.encode(r))
         firearms.install(stage, target)  # install guard accepts the added usage/value only
         firearms.rollback(target)
 
@@ -250,6 +286,24 @@ class RosterGeneration(unittest.TestCase):
             '<economycore><ce folder="other"><file name="types.xml" type="types"/></ce></economycore>')
         with self.assertRaises(ValueError):
             firearms.generate(self.root, roster())
+
+    def test_install_rechecks_effective_support_after_rehashed_stage_tampering(self):
+        """SYNTHETIC staged override disables all compatible ammo after generation."""
+        files = firearms.generate(self.root, roster())
+        root = ET.fromstring(files['ce/types.xml'])
+        ammo = root.find("type[@name='SynthAmmo']")
+        ammo.find('nominal').text = ammo.find('min').text = '0'
+        files['ce/types.xml'] = ET.tostring(root)
+        manifest = json.loads(files['delta-manifest.json'])
+        manifest['files']['ce/types.xml'] = economy.sha(files['ce/types.xml'])
+        files['delta-manifest.json'] = economy.encode(manifest)
+        stage = Path(self.tmp.name) / 'tampered-delta'
+        firearms.write_delta(stage, files)
+        before = economy.snapshot(self.root)
+        with self.assertRaisesRegex(ValueError, 'spawning weapon'):
+            firearms.install(stage, self.root)
+        self.assertEqual(before, economy.snapshot(self.root))
+        self.assertFalse((self.root / economy.MANAGED).exists())
 
     def test_install_and_rollback_are_byte_exact_and_core_is_only_extended(self):
         stage = Path(self.tmp.name) / 'delta'
