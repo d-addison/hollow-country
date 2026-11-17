@@ -30,6 +30,20 @@ class HCInfectedSelfTests
         ok = ok && config.IsValid() && config.EnableCEAdoption && config.EnableNativePackRoutes && config.EnableInvestigation && config.EnableContactGuard;
         ok = ok && config.EnableSupplementaryChains && config.EnableMemberRecovery && config.EnableVariantPolicies && config.EnableHordeStimulusRoutes;
         ok = ok && !config.RunPolicySelfTests;
+        // Requested is not admitted: default preferences are on, qualification is closed.
+        HCInfectedAdmission admission = HCInfectedAdmission.Evaluate(config);
+        ok = ok && !admission.CEAdoption && !admission.NativePackRoutes && !admission.Investigation;
+        ok = ok && !admission.SupplementaryChains && !admission.MemberRecovery && !admission.HordeStimulusRoutes;
+        ok = ok && admission.CEAdoptionReason == "ce_adoption_unqualified" && admission.HordeStimulusRoutesReason == "horde_stimulus_routes_unqualified";
+        // Synthetic seam only: hypothetical qualification admits; explicit false still disables.
+        HCInfectedAdmission hypothetical = HCInfectedAdmission.Resolve(config, true, true, true, true, true, true);
+        ok = ok && hypothetical.CEAdoption && hypothetical.NativePackRoutes && hypothetical.Investigation;
+        ok = ok && hypothetical.SupplementaryChains && hypothetical.MemberRecovery && hypothetical.HordeStimulusRoutes;
+        config.EnableInvestigation = false;
+        HCInfectedAdmission disabled = HCInfectedAdmission.Resolve(config, true, true, true, true, true, true);
+        ok = ok && !disabled.Investigation && disabled.InvestigationReason == "disabled_by_preference";
+        config.EnableInvestigation = true;
+        Print("[HC Infected] admission selftest " + admission.Describe());
         Print("[HC Infected] scalar policy selftest result=" + ok);
         return ok;
     }

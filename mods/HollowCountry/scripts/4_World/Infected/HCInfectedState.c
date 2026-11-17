@@ -41,6 +41,135 @@ class HCInfectedConfig
     }
 }
 
+// Server-only static qualification, one per complex path. Each is false until
+// accepted native runtime evidence (DayZDiag plus normal PBO/server test) is
+// recorded for that exact path; flipping one is a source change, never an
+// operator setting, persisted value or client input. Pattern follows
+// HCInfectedProfiles.ContactGuardQualified().
+class HCInfectedQualification
+{
+    // Evidence required: accepted native CE-membership transfer, restart and ownership run.
+    static bool CEAdoptionQualified()
+    {
+        return false;
+    }
+
+    // Evidence required: accepted native pack path, ownership and release run.
+    static bool NativePackRoutesQualified()
+    {
+        return false;
+    }
+
+    // Evidence required: accepted native frozen-observation search path and perception run.
+    static bool InvestigationQualified()
+    {
+        return false;
+    }
+
+    // Evidence required: accepted two-client hearing and relay audibility run.
+    static bool SupplementaryChainsQualified()
+    {
+        return false;
+    }
+
+    // Evidence required: accepted native identity, death/corpse and restart reconciliation run.
+    static bool MemberRecoveryQualified()
+    {
+        return false;
+    }
+
+    // Evidence required: accepted native cohort retarget path and stall/cooldown run.
+    static bool HordeStimulusRoutesQualified()
+    {
+        return false;
+    }
+}
+
+// Per-path capability admission = operator preference AND explicit qualification.
+// Every field defaults closed. Unknown qualification fails closed for that path
+// only; native behavior is retained. Operator preferences are never rewritten.
+class HCInfectedAdmission
+{
+    bool CEAdoption;
+    bool NativePackRoutes;
+    bool Investigation;
+    bool SupplementaryChains;
+    bool MemberRecovery;
+    bool HordeStimulusRoutes;
+    string CEAdoptionReason = "ce_adoption_unqualified";
+    string NativePackRoutesReason = "native_pack_routes_unqualified";
+    string InvestigationReason = "investigation_unqualified";
+    string SupplementaryChainsReason = "supplementary_chains_unqualified";
+    string MemberRecoveryReason = "member_recovery_unqualified";
+    string HordeStimulusRoutesReason = "horde_stimulus_routes_unqualified";
+
+    static string DisabledReason()
+    {
+        return "disabled_by_preference";
+    }
+
+    static bool Admitted(bool requested, bool qualified)
+    {
+        return requested && qualified;
+    }
+
+    static string Reason(bool requested, bool qualified, string unqualified)
+    {
+        if (!requested)
+            return DisabledReason();
+        if (!qualified)
+            return unqualified;
+        return "admitted";
+    }
+
+    static string Flag(bool value)
+    {
+        if (value)
+            return "1";
+        return "0";
+    }
+
+    static string Segment(string path, string reason, bool admitted)
+    {
+        bool requested = reason != DisabledReason();
+        return path + " requested=" + Flag(requested) + " admitted=" + Flag(admitted) + " reason=" + reason;
+    }
+
+    static HCInfectedAdmission Resolve(HCInfectedConfig config, bool ceQualified, bool routesQualified, bool investigationQualified, bool chainsQualified, bool recoveryQualified, bool stimulusQualified)
+    {
+        HCInfectedAdmission admission = new HCInfectedAdmission;
+        admission.CEAdoption = Admitted(config.EnableCEAdoption, ceQualified);
+        admission.CEAdoptionReason = Reason(config.EnableCEAdoption, ceQualified, "ce_adoption_unqualified");
+        admission.NativePackRoutes = Admitted(config.EnableNativePackRoutes, routesQualified);
+        admission.NativePackRoutesReason = Reason(config.EnableNativePackRoutes, routesQualified, "native_pack_routes_unqualified");
+        admission.Investigation = Admitted(config.EnableInvestigation, investigationQualified);
+        admission.InvestigationReason = Reason(config.EnableInvestigation, investigationQualified, "investigation_unqualified");
+        admission.SupplementaryChains = Admitted(config.EnableSupplementaryChains, chainsQualified);
+        admission.SupplementaryChainsReason = Reason(config.EnableSupplementaryChains, chainsQualified, "supplementary_chains_unqualified");
+        admission.MemberRecovery = Admitted(config.EnableMemberRecovery, recoveryQualified);
+        admission.MemberRecoveryReason = Reason(config.EnableMemberRecovery, recoveryQualified, "member_recovery_unqualified");
+        // Cohort stimulus retargets steer native packs; they need admitted pack routes.
+        admission.HordeStimulusRoutes = Admitted(config.EnableHordeStimulusRoutes, stimulusQualified) && admission.NativePackRoutes;
+        admission.HordeStimulusRoutesReason = Reason(config.EnableHordeStimulusRoutes, stimulusQualified, "horde_stimulus_routes_unqualified");
+        if (config.EnableHordeStimulusRoutes && stimulusQualified && !admission.NativePackRoutes)
+            admission.HordeStimulusRoutesReason = "horde_stimulus_routes_requires_pack_routes";
+        return admission;
+    }
+
+    static HCInfectedAdmission Evaluate(HCInfectedConfig config)
+    {
+        return Resolve(config, HCInfectedQualification.CEAdoptionQualified(), HCInfectedQualification.NativePackRoutesQualified(), HCInfectedQualification.InvestigationQualified(), HCInfectedQualification.SupplementaryChainsQualified(), HCInfectedQualification.MemberRecoveryQualified(), HCInfectedQualification.HordeStimulusRoutesQualified());
+    }
+
+    // Bounded one-line report: requested vs admitted vs reason for every path.
+    string Describe()
+    {
+        string text = HCInfectedAdmission.Segment("ce_adoption", CEAdoptionReason, CEAdoption) + "; " + HCInfectedAdmission.Segment("native_pack_routes", NativePackRoutesReason, NativePackRoutes) + "; " + HCInfectedAdmission.Segment("investigation", InvestigationReason, Investigation);
+        text = text + "; " + HCInfectedAdmission.Segment("supplementary_chains", SupplementaryChainsReason, SupplementaryChains) + "; " + HCInfectedAdmission.Segment("member_recovery", MemberRecoveryReason, MemberRecovery) + "; " + HCInfectedAdmission.Segment("horde_stimulus_routes", HordeStimulusRoutesReason, HordeStimulusRoutes);
+        return text;
+    }
+}
+
 class HCInfectedClue
 {
     vector Origin;
