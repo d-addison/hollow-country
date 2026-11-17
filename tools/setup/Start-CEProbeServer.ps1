@@ -71,8 +71,13 @@ $exe = 'D:\SteamLibrary\steamapps\common\DayZServer\DayZServer_x64.exe'
 $exeSha256 = '987fbc47bab1dab37f74d7f700aa2e5b6af936a7181a62f5ba9f0090aebba805'
 $root = $Runtime.TrimEnd('\')
 $name = Split-Path -Leaf $root
-if ($root -match '\.\.' -or (Split-Path -Parent $root) -ne $parent -or $name -notmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' -or
-    $name -eq 'vanilla-p0-001') { throw 'Runtime must be one named child of D:\HollowCountryLocal and not the verified vanilla-p0-001 runtime.' }
+# The last character may not be a dot or space (Windows strips them, so 'vanilla-p0-001.' would
+# name the verified runtime), and reserved device names (CON, NUL, COM1, ... even with an
+# extension) are refused. Mirrors NAME_RULE in tools/setup/probe_runtime.py.
+if ($root -match '\.\.' -or (Split-Path -Parent $root) -ne $parent -or
+    $name -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9_-])?$' -or
+    $name -match '^(?i:(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]))(\..*)?$' -or
+    $name.TrimEnd('.', ' ').ToLowerInvariant() -eq 'vanilla-p0-001') { throw 'Runtime must be one named child of D:\HollowCountryLocal, not a reserved device name and not the verified vanilla-p0-001 runtime.' }
 if (-not [System.IO.Directory]::Exists($root)) { throw "Runtime directory not found: $root" }
 Assert-NoReparsePoints -Path $root
 Assert-NoReparsePoints -Path $install -AncestorsOnly

@@ -104,6 +104,10 @@ _PURPOSES = {
     # Hook text is generated per run by tools/setup/ce_probe.py and passed as `hook=`.
     'ce-probe': ('disposable-ce-probe', None,
                  ["server mode", "fresh storage and profiles", "inspect census completeness separately from startup"]),
+    # Generated per run by tools/setup/taped_light_probe.py (same `hook=` contract as ce-probe).
+    'taped-light-probe': ('disposable-taped-light-probe', None,
+                          ["server mode", "fresh storage and profiles", "no clients",
+                           "inspect observation completeness separately from startup"]),
 }
 
 _FACTORY = re.compile(
@@ -198,7 +202,43 @@ def _instrument(blob, *, purpose='selftests', hook=None):
     return result + body
 
 
-def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook=None):
+def _reread_digest(path):
+    """Digest of the bytes now on disk at ``path`` (re-read, never the bytes just written)."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(131072), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _require_admitted(files, directories, admitted):
+    """The inventory found now must equal the verified inventory: same names, sizes, directories."""
+    expected = admitted["files"]
+    found = {name.as_posix(): info.st_size for name, info in files}
+    if set(found) != set(expected) or sorted(d.as_posix() for d in directories) != sorted(admitted["directories"]):
+        raise ValueError("mission inventory differs from the admitted inventory")
+    for name, size in found.items():
+        if expected[name][1] != size:
+            raise ValueError(f"mission file size differs from the admitted inventory: {name}")
+
+
+def _open_admitted(path, info):
+    """Open a source file for copying without following a symlink; refuse identity drift."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise ValueError("source changed or is a link during staging") from error
+    stream = os.fdopen(descriptor, "rb")
+    opened = os.fstat(stream.fileno())
+    if not stat.S_ISREG(opened.st_mode) or _identity(opened) != _identity(info):
+        stream.close()
+        raise ValueError("source changed during staging")
+    return stream
+
+
+def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook=None, admitted=None,
+                               entry_check=None):
     """Return/write provenance for a fresh isolated mission, without engine launch.
 
     Source must be an unmodified stock-shaped Chernarus mission in an isolated
@@ -206,6 +246,12 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook
     validation precedes creation. Runtime storage uses the server's fresh profile;
     epoch 900001 must be absent there (the existing native probe enforces this).
     This helper does not edit settings, feature flags, profiles or the addon PBO.
+
+    ``admitted`` ({"files": {name: (sha256, size)}, "directories": [name]}) pins the
+    inventory verified by the caller: files or directories that appeared, vanished or changed
+    afterwards are refused, copied bytes are hashed against it and every written file is
+    re-read. ``entry_check(relative, directory=bool)`` may refuse entries by policy. Both
+    default to off so existing callers are unchanged.
     """
     if purpose not in _PURPOSES:
         raise ValueError('unsupported diagnostic purpose')
@@ -218,14 +264,23 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook
     if destination.exists() or destination.is_symlink():
         raise ValueError("destination must be fresh; no overwrite")
     files, directories, total = _inventory(source)
+    if entry_check is not None:
+        for relative in directories:
+            entry_check(relative, directory=True)
+        for relative, _info in files:
+            entry_check(relative)
+    if admitted is not None:
+        _require_admitted(files, directories, admitted)
     initial = next((info for name, info in files if name.as_posix() == "init.c"), None)
     if initial is None or initial.st_size > MAX_INIT_BYTES:
         raise ValueError("bounded stock init.c required")
     init_path = source / "init.c"
     _unchanged(init_path, initial)
-    with init_path.open("rb") as stream:
+    with (init_path.open("rb") if admitted is None else _open_admitted(init_path, initial)) as stream:
         original = stream.read(MAX_INIT_BYTES + 1)
     _unchanged(init_path, initial)
+    if admitted is not None and hashlib.sha256(original).hexdigest() != admitted["files"]["init.c"][0]:
+        raise ValueError("init.c differs from the admitted hash")
     instrumented = _instrument(original, purpose=purpose, hook=None if _PURPOSES[purpose][1] is not None else hook)
     # Validate parents again immediately before mutation; never clean failed output.
     _safe_path(destination)
@@ -252,7 +307,7 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook
             staged_bytes = len(instrumented)
         else:
             remaining = info.st_size
-            with src.open("rb") as stream, dst.open("xb") as output:
+            with (src.open("rb") if admitted is None else _open_admitted(src, info)) as stream, dst.open("xb") as output:
                 while remaining:
                     chunk = stream.read(min(131072, remaining))
                     if not chunk:
@@ -264,6 +319,11 @@ def prepare_diagnostic_mission(source, destination, *, purpose='selftests', hook
                     raise ValueError("source grew during copy")
             staged_hash, staged_bytes = digest.hexdigest(), info.st_size
         _unchanged(src, info)
+        if admitted is not None:
+            if digest.hexdigest() != admitted["files"][relative.as_posix()][0]:
+                raise ValueError(f"source differs from the admitted hash: {relative.as_posix()}")
+            if _reread_digest(dst) != staged_hash:
+                raise ValueError(f"written bytes differ from the verified bytes: {relative.as_posix()}")
         manifest["files"][relative.as_posix()] = {
             "source_sha256": digest.hexdigest(), "staged_sha256": staged_hash,
             "source_bytes": info.st_size, "staged_bytes": staged_bytes}
