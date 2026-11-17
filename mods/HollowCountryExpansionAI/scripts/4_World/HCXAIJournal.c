@@ -1,4 +1,4 @@
-// An intent consumes its id even after uncertain IO. No replay, factory or inventory.
+// An unresolved intent consumes its id even after uncertain IO. No replay or factory.
 // WorldSession must identify a fresh server process, supplied by trusted hooks.
 // HC groups never persist; closed prior-process intents are tombstones, not kills.
 class HCXAIJournal
@@ -50,6 +50,7 @@ class HCXAIJournal
             if (!oldRow.Closed)
             {
                 oldRow.Closed = true;
+                oldRow.Prunable = false;
                 Print("[HC Expansion AI] retired prior-process nonpersistent lease intent; no actors/items restored");
             }
         }
@@ -57,11 +58,20 @@ class HCXAIJournal
     }
     bool Begin(string id, string session, string missionId)
     {
-        if (!this.Valid() || m_Data.Rows.Count() >= m_Limit) { return false; }
+        if (!this.Valid()) { return false; }
         if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return false; }
         foreach (HCXAIJournalRow priorRow : m_Data.Rows)
         {
             if (priorRow.Id == id) { return false; }
+        }
+        if (m_Data.Rows.Count() >= m_Limit)
+        {
+            HCXAIJournalRow oldest;
+            foreach (HCXAIJournalRow candidate : m_Data.Rows)
+            {
+                if (candidate.Closed && candidate.Prunable) { oldest = candidate; break; }
+            }
+            if (!oldest || !this.Prune(oldest.Id)) { return false; }
         }
         HCXAIJournalRow row = new HCXAIJournalRow();
         row.Id = id;
@@ -71,7 +81,7 @@ class HCXAIJournal
         m_Data.Rows.Insert(row);
         return HCXAIStore.SaveJournal(m_Data);
     }
-    bool End(string id)
+    bool End(string id, bool prunable = false)
     {
         if (!this.Valid()) { return false; }
         foreach (HCXAIJournalRow row : m_Data.Rows)
@@ -79,9 +89,35 @@ class HCXAIJournal
             if (row.Id == id)
             {
                 row.Closed = true;
-                return HCXAIStore.SaveJournal(m_Data);
+                bool prior = row.Prunable;
+                row.Prunable = prunable;
+                if (HCXAIStore.SaveJournal(m_Data)) { return true; }
+                row.Prunable = prior;
+                return false;
             }
         }
         return false;
+    }
+    bool Prune(string id)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !this.Valid()) { return false; }
+        HCXAIJournalData retained = new HCXAIJournalData();
+        bool found = false;
+        foreach (HCXAIJournalRow row : m_Data.Rows)
+        {
+            if (row.Id == id)
+            {
+                if (!row.Closed || !row.Prunable) { return false; }
+                found = true;
+            }
+            else { retained.Rows.Insert(row); }
+        }
+        // Do not discard in-memory evidence before durable shrink succeeds.
+        // Begin may already have evicted this clean row while loaded restart
+        // tombstones occupied part of the journal's independent capacity.
+        if (!found) { return true; }
+        if (!HCXAIStore.SaveJournal(retained)) { return false; }
+        m_Data = retained;
+        return true;
     }
 }

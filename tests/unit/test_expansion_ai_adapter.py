@@ -48,7 +48,14 @@ class Authored:
             if not found:
                 raise AssertionError("missing authored method " + name)
             body = block(source, found.end())
-            params = [p.split("=")[0].split()[-1] for p in found[1].split(",") if p.strip()]
+            params = []
+            for param in found[1].split(","):
+                if not param.strip(): continue
+                parts = param.split("=", 1)
+                adapted = parts[0].split()[-1]
+                if len(parts) == 2:
+                    adapted += "=" + parts[1].strip().replace("false", "False").replace("true", "True")
+                params.append(adapted)
             lines, indent = ["def run(self, " + ", ".join(params) + "):"], 1
             for token in re.split(r"([{};])", body):
                 token = token.strip()
@@ -245,6 +252,196 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def step(self,index=0):
         self.mod.StepLease(self.mod.m_Leases[index],self.now)
+
+    def use_authored_journal(self, rows=()):
+        """Explicit synthetic durable store, executing the real journal bodies."""
+        self.disk = self.env["HCXAIJournalData"]()
+        self.disk.Rows = A(copy.deepcopy(rows))
+        self.saves = []
+        def save(data):
+            self.saves.append(copy.deepcopy(data))
+            if self.journal_ok:
+                self.disk = copy.deepcopy(data)
+            return self.journal_ok
+        self.env["HCXAIStore"].LoadJournal = lambda: copy.deepcopy(self.disk)
+        self.env["HCXAIStore"].SaveJournal = save
+        source = (SCRIPTS / "4_World/HCXAIJournal.c").read_text()
+        engine = Authored(source, self.env)
+        def journal():
+            owner = N()
+            for name in re.findall(r"\b\w+ (\w+)\([^)]*\)\s*\{", source):
+                setattr(owner, name, lambda *a,n=name: engine.call(n, owner, *a))
+            return owner
+        self.env["HCXAIJournal"] = journal
+        self.env["HCXAIJournal"].Open = lambda *a: engine.call("Open", None, *a)
+
+    def journal_row(self, lease, closed=False, prunable=False, world=None):
+        row = self.env["HCXAIJournalRow"]()
+        vars(row).update(Id=lease, WorldSession=world or self.profile.WorldSession,
+                         Session="event-session", MissionId=self.route.MissionId,
+                         Closed=closed, Prunable=prunable)
+        return row
+
+    def retire(self, lease):
+        """Only the deletion callback/pointer clearing are synthetic engine input."""
+        self.mod.StopLease(lease.Id)
+        for slot in lease.Slots:
+            if slot.Handle:
+                self.mod.RecordDelete(slot.Handle)
+                slot.Handle = None
+        for _ in lease.Slots:
+            self.mod.StepLease(lease, self.now)
+
+    def test_history_recycles_clean_retirements_past_cap_without_entity_work(self):
+        self.profile.MaxLeaseHistory = 2
+        self.use_authored_journal()
+        self.assertTrue(self.install())
+        for index in range(6):
+            self.assertTrue(self.start(lease="clean-" + str(index)))
+            lease = self.mod.m_Leases[-1]
+            self.mod.StepLease(lease, self.now)
+            self.mod.StepLease(lease, self.now)
+            self.retire(lease)
+            self.assertTrue(lease.Released)
+        self.assertEqual(["clean-4", "clean-5"], [l.Id for l in self.mod.m_Leases])
+        self.assertEqual(["clean-4", "clean-5"], [r.Id for r in self.disk.Rows])
+        self.assertTrue(all(r.Closed and r.Prunable for r in self.disk.Rows))
+        self.assertEqual(0, self.mod.m_ReservedActors)
+        before = list(self.calls)
+        self.assertTrue(self.start(lease="next"))
+        self.assertEqual(before, self.calls)  # Admission pruning does no entity work.
+        self.assertEqual(["clean-5", "next"], [r.Id for r in self.disk.Rows])
+
+    def test_pruning_skips_open_retiring_ambiguous_and_faulted_leases(self):
+        self.profile.MaxLeaseHistory = 5
+        self.use_authored_journal()
+        self.assertTrue(self.install())
+        for name in ("open", "retiring", "ambiguous", "faulted", "clean"):
+            self.assertTrue(self.start(lease=name))
+            lease = self.mod.m_Leases[-1]
+            if name == "clean":
+                self.retire(lease)
+            elif name == "faulted":
+                lease.Failed = True
+                self.retire(lease)
+            else:
+                # Explicit synthetic budget to isolate history eligibility.
+                self.mod.m_ReservedGroups = 0
+                self.mod.m_ReservedActors = 0
+                self.mod.m_ReservedItems = 0
+                if name != "open":
+                    self.mod.StopLease(name)
+                if name == "ambiguous":
+                    lease.Slots[0].Attempted = True  # No deletion evidence.
+        self.assertTrue(self.start(lease="fresh"))
+        expected = ["open", "retiring", "ambiguous", "faulted", "fresh"]
+        self.assertEqual(expected, [l.Id for l in self.mod.m_Leases])
+        self.assertEqual(expected, [r.Id for r in self.disk.Rows])
+        before = copy.deepcopy(self.disk)
+        self.assertFalse(self.start(lease="blocked"))
+        self.assertEqual(vars(before), vars(self.disk))
+        self.assertEqual([], self.created)
+
+    def test_unconfirmed_receipt_closure_is_not_prunable(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install()); self.assertTrue(self.start())
+        lease = self.mod.m_Leases[0]
+        self.hooks.EndLease = lambda *a: False
+        self.retire(lease)
+        self.assertFalse(lease.Released)
+        self.assertFalse(self.disk.Rows[0].Prunable)
+        self.assertFalse(self.start(lease="blocked"))
+        self.hooks.EndLease = lambda *a: True
+        self.retire(lease)
+        self.assertTrue(self.start(lease="fresh"))
+
+    def test_restart_at_cap_prunes_only_oldest_explicitly_confirmed_row(self):
+        self.profile.MaxLeaseHistory = 4
+        rows = [self.journal_row("prior-open", world="prior-process"),
+                self.journal_row("legacy-closed", closed=True),
+                self.journal_row("oldest-clean", closed=True, prunable=True),
+                self.journal_row("newest-clean", closed=True, prunable=True)]
+        self.use_authored_journal(rows)
+        self.assertTrue(self.install()); self.assertTrue(self.start(lease="fresh"))
+        self.assertEqual(["prior-open", "legacy-closed", "newest-clean", "fresh"],
+                         [r.Id for r in self.disk.Rows])
+        self.assertTrue(self.disk.Rows[0].Closed)
+        self.assertFalse(self.disk.Rows[0].Prunable)
+        self.assertEqual([], self.created)
+
+    def test_journal_prune_persists_shrink_and_failed_write_retains_runtime_history(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install()); self.assertTrue(self.start())
+        lease = self.mod.m_Leases[0]
+        self.retire(lease)
+        self.journal_ok = False
+        self.assertFalse(self.start(lease="fresh"))
+        self.assertEqual(["lease"], [l.Id for l in self.mod.m_Leases])
+        self.assertEqual(["lease"], [r.Id for r in self.disk.Rows])
+        self.journal_ok = True
+        self.assertTrue(self.start(lease="fresh"))
+        self.assertIn([], [[r.Id for r in data.Rows] for data in self.saves])
+        self.assertEqual(["fresh"], [r.Id for r in self.disk.Rows])
+
+    def test_released_flag_alone_cannot_discard_ambiguous_actors(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install()); self.assertTrue(self.start())
+        lease = self.mod.m_Leases[0]
+        self.retire(lease)
+        lease.Slots[0].Handle = self.actor()  # Inconsistent synthetic evidence.
+        self.assertFalse(self.start(lease="blocked"))
+        self.assertEqual(["lease"], [r.Id for r in self.disk.Rows])
+        self.assertEqual([], self.created)
+
+    def test_restart_with_retained_fault_can_recycle_more_than_runtime_cap(self):
+        self.profile.MaxLeaseHistory = 2
+        self.use_authored_journal([self.journal_row("fault", closed=True),
+                                   self.journal_row("old-clean", True, True)])
+        self.assertTrue(self.install())
+        for index in range(6):
+            self.assertTrue(self.start(lease="new-" + str(index)))
+            self.retire(self.mod.m_Leases[-1])
+            self.assertEqual(["fault", "new-" + str(index)],
+                             [r.Id for r in self.disk.Rows])
+            self.assertLessEqual(len(self.mod.m_Leases), 2)
+
+    def test_restart_at_hard_cap_is_bounded_and_duplicate_checks_precede_pruning(self):
+        self.profile.MaxLeaseHistory = 64
+        rows = [self.journal_row("old-" + str(i), True, True) for i in range(64)]
+        self.use_authored_journal(rows)
+        self.assertTrue(self.install())
+        self.assertFalse(self.start(lease="old-0"))
+        self.assertEqual(64, len(self.disk.Rows))
+        self.assertTrue(self.start(lease="fresh"))
+        self.assertEqual(["old-" + str(i) for i in range(1, 64)] + ["fresh"],
+                         [r.Id for r in self.disk.Rows])
+
+    def test_reconciliation_does_not_make_old_open_intents_prunable(self):
+        self.profile.MaxLeaseHistory = 2
+        self.use_authored_journal([self.journal_row("open-" + str(i), world="old-process")
+                                   for i in range(2)])
+        self.assertTrue(self.install())
+        self.assertTrue(all(r.Closed and not r.Prunable for r in self.disk.Rows))
+        for index in range(4):
+            self.assertFalse(self.start(lease="blocked-" + str(index)))
+        self.assertEqual(["open-0", "open-1"], [r.Id for r in self.disk.Rows])
+        self.assertLessEqual(len(self.mod.m_Leases), 2)
+        self.assertEqual([], self.created)
+
+    def test_restart_cannot_promote_inconsistent_open_pruning_markers(self):
+        self.profile.MaxLeaseHistory = 2
+        rows = [self.journal_row("open-" + str(i), prunable=True, world="old-process")
+                for i in range(2)]
+        self.use_authored_journal(rows)
+        self.assertTrue(self.install())
+        self.assertFalse(self.start(lease="blocked"))
+        self.assertTrue(all(r.Closed and not r.Prunable for r in self.disk.Rows))
 
     def test_marker_does_not_bypass_version_fairness_or_restart_reconciliation(self):
         self.marker=False
@@ -541,6 +738,92 @@ class ExpansionAdapterTests(unittest.TestCase):
             self.assertFalse(self.engine.call("HCXAI_Fair",changed))
         actor.GetAllowDamage=lambda:False
         self.assertFalse(self.engine.call("HCXAI_Fair",actor))
+
+
+class JournalStoreTests(unittest.TestCase):
+    """Authored file transaction with explicit synthetic native IO/JSON adapters."""
+    PATH = "$profile:HollowCountry/expansion-ai-leases.json"
+    PENDING = "$profile:HollowCountry/expansion-ai-leases.pending.json"
+
+    def setUp(self):
+        self.files = {}
+        self.operations = []
+        self.copy_ok = True
+        self.save_ok = True
+        self.delete_ok = True
+        env = dict(A=A, HCObserverTransitionPolicy=lambda:N())
+        declarations(env)
+        self.data = env["HCXAIJournalData"]()
+        def encode(data):
+            return json.dumps(vars(data), default=vars, sort_keys=True)
+        def decode(data):
+            try:
+                return json.loads(data, object_hook=lambda fields:N(**fields))
+            except (ValueError, TypeError):
+                return None
+        def save(path, data, error):
+            self.operations.append(("save", path))
+            self.files[path] = encode(data) if self.save_ok else "{"
+            return self.save_ok
+        def copy_file(source, target):
+            self.operations.append(("copy", source, target))
+            self.files[target] = self.files[source] if self.copy_ok else "{"
+            return self.copy_ok
+        def delete(path):
+            self.operations.append(("delete", path))
+            if self.delete_ok: self.files.pop(path, None)
+            return self.delete_ok
+        env.update(Json=N(Encode=encode, Decode=decode, SaveFile=save),
+                   GetGame=lambda:N(IsServer=lambda:True), FileExist=lambda p:p in self.files,
+                   MakeDirectory=lambda p:True, FileMode=N(READ=0),
+                   OpenFile=lambda p,m:p if p in self.files else None,
+                   ReadFile=lambda p,n:self.files[p][:n], CloseFile=lambda h:None,
+                   CopyFile=copy_file, DeleteFile=delete)
+        source = (SCRIPTS / "4_World/HCXAIStore.c").read_text()
+        # Native out parameters become Python assignments; no branch is replaced.
+        source = re.sub(r'JsonFileLoader<HCXAIJournalData>\.MakeData\((\w+), (\w+), error\)',
+                        r'((\2 := Json.Encode(\1)) != null)', source)
+        source = re.sub(r'JsonFileLoader<HCXAIJournalData>\.LoadData\((\w+), (\w+), error\)',
+                        r'((\2 := Json.Decode(\1)) != null)', source)
+        source = source.replace('JsonFileLoader<HCXAIJournalData>.SaveFile', 'Json.SaveFile')
+        source = source.replace('FileHandle', 'int')
+        source = source.replace('int count = ReadFile(handle, data, 65537);',
+                                'data = ReadFile(handle, 65537); int count = data.Length();')
+        engine = Authored(source, env)
+        self.store = N()
+        env["HCXAIStore"] = self.store
+        for name in re.findall(r"static \w+ (\w+)\([^)]*\)\s*\{", source):
+            setattr(self.store, name, lambda *a,n=name:engine.call(n, None, *a))
+
+    def test_successful_write_verifies_staged_snapshot_and_clears_guard(self):
+        self.assertTrue(self.store.SaveJournal(self.data))
+        self.assertIn(("save", self.PENDING), self.operations)
+        self.assertIn(("copy", self.PENDING, self.PATH), self.operations)
+        self.assertNotIn(self.PENDING, self.files)
+        self.assertEqual(1, self.store.LoadJournal().SchemaVersion)
+
+    def test_interrupted_publication_blocks_load_and_subsequent_writes(self):
+        self.copy_ok = False
+        self.assertFalse(self.store.SaveJournal(self.data))
+        self.assertIn(self.PENDING, self.files)
+        self.assertIsNone(self.store.LoadJournal())
+        before = list(self.operations)
+        self.copy_ok = True
+        self.assertFalse(self.store.SaveJournal(self.data))
+        self.assertEqual(before, self.operations)
+
+    def test_failed_stage_preserves_committed_bytes_and_retains_guard(self):
+        self.files[self.PATH] = '{"SchemaVersion": 1, "Rows": []}'
+        before = self.files[self.PATH]
+        self.save_ok = False
+        self.assertFalse(self.store.SaveJournal(self.data))
+        self.assertEqual(before, self.files[self.PATH])
+        self.assertIsNone(self.store.LoadJournal())
+
+    def test_guard_cleanup_failure_never_claims_committed_success(self):
+        self.delete_ok = False
+        self.assertFalse(self.store.SaveJournal(self.data))
+        self.assertIsNone(self.store.LoadJournal())
 
 
 if __name__ == "__main__":

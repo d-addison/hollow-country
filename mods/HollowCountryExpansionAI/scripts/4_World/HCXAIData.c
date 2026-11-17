@@ -115,6 +115,9 @@ class HCXAIJournalRow
     string Session;
     string MissionId;
     bool Closed = false;
+    // Closed alone may be a restart tombstone or a faulted intent. Legacy rows
+    // default false: only observed clean retirement may make history reusable.
+    bool Prunable = false;
 }
 class HCXAIJournalData
 {

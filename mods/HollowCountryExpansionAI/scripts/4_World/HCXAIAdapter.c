@@ -145,6 +145,33 @@ class HCXAIAdapter extends HCModule
         }
         return null;
     }
+    protected bool CanPrune(HCXAILease lease)
+    {
+        if (!lease || !lease.Released || lease.Busy || lease.Failed || !lease.IntentConfirmed) { return false; }
+        foreach (HCXAIActorSlot slot : lease.Slots)
+        {
+            if (!slot.Gone || slot.Handle || (slot.Attempted && !slot.DeleteObserved)) { return false; }
+        }
+        return true;
+    }
+    protected bool PruneHistory()
+    {
+        if (m_Leases.Count() < m_Profile.MaxLeaseHistory) { return true; }
+        int index = 0;
+        while (index < m_Leases.Count())
+        {
+            HCXAILease oldest = m_Leases[index];
+            if (this.CanPrune(oldest))
+            {
+                if (!m_Journal.Prune(oldest.Id)) { return false; }
+                m_Leases.RemoveOrdered(index);
+                m_Cursor = 0;
+                return true;
+            }
+            index++;
+        }
+        return false;
+    }
     bool StartLease(string id, string session, string missionId, vector anchor, int actorCap)
     {
         if (m_Starting) { return false; }
@@ -162,7 +189,7 @@ class HCXAIAdapter extends HCModule
         {
             return !prior.Retiring && !prior.Failed && !prior.Released && prior.IntentConfirmed && prior.Session == session && prior.MissionId == missionId && prior.Anchor == anchor && prior.RequestedCap == actorCap;
         }
-        if (actorCap < 1 || actorCap > m_Profile.MaxActors || m_Leases.Count() >= m_Profile.MaxLeaseHistory) { return false; }
+        if (actorCap < 1 || actorCap > m_Profile.MaxActors) { return false; }
         HCXAIMission mission = this.FindMission(missionId);
         if (!mission || anchor != mission.Anchor || mission.Spawns.Count() > actorCap) { return false; }
         if (!m_Hooks.RouteQualified(mission.SurveySha256, mission.LoadoutSha256)) { return false; }
@@ -172,6 +199,7 @@ class HCXAIAdapter extends HCModule
         eAIFaction faction = eAIFaction.Create(mission.FactionName);
         if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return false; }
         if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return false; }
+        if (!this.PruneHistory()) { return false; }
         HCXAILease lease = new HCXAILease();
         lease.Id = id;
         lease.Session = session;
@@ -291,7 +319,9 @@ class HCXAIAdapter extends HCModule
             {
                 if (!member.Gone) { allGone = false; }
             }
-            if (allGone && m_Journal.End(lease.Id) && m_Hooks.EndLease(lease.Id))
+            // Receipt closure must precede persisted pruning eligibility. Failed
+            // leases remain tombstones even when their reservations are released.
+            if (allGone && m_Hooks.EndLease(lease.Id) && m_Journal.End(lease.Id, !lease.Failed && lease.IntentConfirmed))
             {
                 if (lease.Group && lease.Group.Count() == 0) { lease.Group.Delete(); }
                 lease.Released = true;

@@ -20,7 +20,15 @@ class HCXAIStore
     static HCXAIJournalData LoadJournal()
     {
         string path = "$profile:HollowCountry/expansion-ai-leases.json";
+        // No atomic rename is exposed by the pinned native file API. A retained
+        // staging file guards interrupted/uncertain publication: refuse admission
+        // rather than treating a missing or partly copied journal as empty.
+        if (FileExist("$profile:HollowCountry/expansion-ai-leases.pending.json")) { return null; }
         if (!FileExist(path)) { return new HCXAIJournalData(); }
+        return HCXAIStore.ReadJournal(path);
+    }
+    static HCXAIJournalData ReadJournal(string path)
+    {
         FileHandle handle = OpenFile(path, FileMode.READ);
         if (!handle) { return null; }
         string data;
@@ -34,17 +42,25 @@ class HCXAIStore
     }
     static bool SaveJournal(HCXAIJournalData journal)
     {
-        if (!GetGame() || !GetGame().IsServer() || !journal) { return false; }
+        if (!GetGame() || !GetGame().IsServer() || !journal || !journal.Rows || journal.Rows.Count() > 64) { return false; }
+        string path = "$profile:HollowCountry/expansion-ai-leases.json";
+        string pending = "$profile:HollowCountry/expansion-ai-leases.pending.json";
+        if (FileExist(pending)) { return false; }
         string expected;
         string actual;
         string error;
         if (!JsonFileLoader<HCXAIJournalData>.MakeData(journal, expected, error) || expected.Length() > 65536) { return false; }
         MakeDirectory("$profile:HollowCountry");
-        // Interrupted writes fail closed on restart; never discard a malformed journal.
-        if (!JsonFileLoader<HCXAIJournalData>.SaveFile("$profile:HollowCountry/expansion-ai-leases.json", journal, error)) { return false; }
-        HCXAIJournalData observed = HCXAIStore.LoadJournal();
+        // Verify staging before touching committed bytes. Keep the guard on every
+        // failure, including uncertain copy/readback, for explicit reconciliation.
+        if (!JsonFileLoader<HCXAIJournalData>.SaveFile(pending, journal, error)) { return false; }
+        HCXAIJournalData staged = HCXAIStore.ReadJournal(pending);
+        if (!staged || !JsonFileLoader<HCXAIJournalData>.MakeData(staged, actual, error) || actual != expected) { return false; }
+        if (!CopyFile(pending, path)) { return false; }
+        HCXAIJournalData observed = HCXAIStore.ReadJournal(path);
         if (!observed || !JsonFileLoader<HCXAIJournalData>.MakeData(observed, actual, error)) { return false; }
-        return actual == expected;
+        if (actual != expected || !DeleteFile(pending)) { return false; }
+        return !FileExist(pending);
     }
     static HCXAIProfile Load()
     {
