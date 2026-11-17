@@ -4,8 +4,8 @@
 // HCActionSiphonFuelFromCar; the exact-arithmetic functions serve the
 // unregistered diagnostic. Callers establish server authority, live car,
 // held vessel, gasoline compatibility and reach. Leak/FillContainer are
-// separate operations: credit is capped by the observed tank loss, so a
-// rounding gap can only lose fuel, never create it.
+// separate operations: credit is the observed tank loss less a 1 ml spill,
+// bounded so binary32 rounding can only lose fuel, never create it.
 // DayZDiag, normal PBO/server and multiplayer/recovery gates remain pending.
 class HCFuelTransferPolicy
 {
@@ -166,17 +166,45 @@ class HCFuelTransferPolicy
     }
 
     // Credit only what the tank was observed to lose, never more than the step.
-    static float SiphonCreditMl(float stepMl, float fuelBeforeLiters, float fuelAfterLiters)
+    // Credit = observed tank loss, capped by the step, minus a fixed 1 ml spill,
+    // then capped by free space. Error bound: tank <= 4096 L keeps the binary32
+    // liter subtraction within 0.13 ml and the *1000 within 1e-4 ml; vessel
+    // <= 1048576 ml keeps the native GetQuantity()+value rounding under 0.04 ml.
+    // So the destination gain stays strictly below the exact loss: never creates fuel.
+    static float SiphonCreditMl(float stepMl, float fuelBeforeLiters, float fuelAfterLiters, float vesselMl, float vesselMaxMl)
     {
         if (!FiniteNonNegative(stepMl) || !FiniteNonNegative(fuelBeforeLiters) || !FiniteNonNegative(fuelAfterLiters))
             return 0;
-        if (!(stepMl > 0 && fuelAfterLiters < fuelBeforeLiters))
+        if (!FiniteNonNegative(vesselMl) || !FiniteNonNegative(vesselMaxMl))
+            return 0;
+        if (!(stepMl > 0 && fuelAfterLiters < fuelBeforeLiters && vesselMaxMl > vesselMl))
+            return 0;
+        if (!(fuelBeforeLiters <= 4096.0 && vesselMaxMl <= 1048576.0))
             return 0;
         float removedMl = (fuelBeforeLiters - fuelAfterLiters) * 1000.0;
         if (!FiniteNonNegative(removedMl))
             return 0;
         if (removedMl > stepMl)
-            return stepMl;
-        return removedMl;
+            removedMl = stepMl;
+        float creditMl = removedMl - 1.0;
+        float freeMl = vesselMaxMl - vesselMl;
+        if (creditMl > freeMl)
+            creditMl = freeMl;
+        if (!(creditMl > 0))
+            return 0;
+        return creditMl;
+    }
+
+    // Destination readback after FillContainer: a gain is required and may not
+    // exceed the credit by more than the 0.5 ml rounding allowance inside the
+    // 1 ml spill. A smaller gain (native clamp) is a loss and still conserves.
+    static bool SiphonReceiptOk(float creditMl, float vesselBeforeMl, float vesselAfterMl)
+    {
+        if (!FiniteNonNegative(creditMl) || !FiniteNonNegative(vesselBeforeMl) || !FiniteNonNegative(vesselAfterMl))
+            return false;
+        if (!(creditMl > 0 && vesselAfterMl > vesselBeforeMl))
+            return false;
+        float gainedMl = vesselAfterMl - vesselBeforeMl;
+        return gainedMl <= creditMl + 0.5;
     }
 }
