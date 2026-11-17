@@ -8,6 +8,7 @@ import re
 import shutil
 import struct
 import subprocess
+import sys
 import tempfile
 import unittest
 import zipfile
@@ -83,6 +84,59 @@ class PackageBehavior(unittest.TestCase):
             (scripts / 'link.c').symlink_to(root / 'config.cpp')
             with self.assertRaises(ValueError):
                 pbo.collect_addon(root)
+
+    def test_expansion_ai_addon_packs_under_its_own_prefix_only_on_request(self):
+        from tools.setup import local_test_session
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / '$PBOPREFIX$').write_text('HollowCountryExpansionAI\n')
+            (root / 'config.cpp').write_text('class CfgPatches\n{\n    class HollowCountryExpansionAI {};\n};\n')
+            (root / 'scripts/4_World').mkdir(parents=True)
+            (root / 'scripts/4_World/HCXAI.c').write_text('// synthetic')
+            with self.assertRaisesRegex(ValueError, 'prefix'):
+                pbo.collect_addon(root)  # the default contract stays the main HollowCountry prefix
+            self.assertEqual(pbo.addon_prefix(root), 'HollowCountryExpansionAI')
+            blob = pbo.pack(pbo.collect_addon(root, 'HollowCountryExpansionAI'), 'HollowCountryExpansionAI')
+            with self.assertRaisesRegex(ValueError, 'prefix'):
+                pbo.parse(blob)  # callers expecting the main addon still refuse it
+            prefix, entries = pbo.parse(blob, prefixes=pbo.PREFIXES)
+            self.assertEqual(prefix, 'HollowCountryExpansionAI')
+            self.assertEqual(set(entries), {'config.cpp', 'scripts/4_World/HCXAI.c'})
+            local_test_session.check_ai_pbo(blob)
+            (root / '$PBOPREFIX$').write_text('SomeoneElse\n')
+            with self.assertRaisesRegex(ValueError, 'prefix'):
+                pbo.addon_prefix(root)
+            with self.assertRaisesRegex(ValueError, 'prefix'):
+                pbo.pack({'config.cpp': b'x'}, 'SomeoneElse')
+
+    def test_cli_builds_and_verifies_the_repository_expansion_ai_addon(self):
+        from tools.setup import local_test_session
+        with tempfile.TemporaryDirectory() as t:
+            out = Path(t) / 'xai.pbo'
+            run = lambda *a: subprocess.run([sys.executable, '-B', '-m', 'tools.package.pbo', *a],
+                                            capture_output=True, text=True, cwd=Path(__file__).parents[2])
+            refused = run('pbo', '--addon', 'mods/HollowCountryExpansionAI', '--out', str(Path(t) / 'no.pbo'))
+            self.assertNotEqual(refused.returncode, 0)  # the contract is chosen by the caller, not the marker
+            built = run('pbo', '--prefix', 'HollowCountryExpansionAI', '--addon', 'mods/HollowCountryExpansionAI',
+                        '--out', str(out))
+            self.assertEqual(built.returncode, 0, built.stderr)
+            self.assertNotEqual(run('verify', str(out)).returncode, 0)  # default verify is the main addon
+            checked = run('verify', '--prefix', 'HollowCountryExpansionAI', str(out))
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+            self.assertEqual(json.loads(checked.stdout)['prefix'], 'HollowCountryExpansionAI')
+            local_test_session.check_ai_pbo(out.read_bytes())
+
+    def test_cli_main_addon_with_a_foreign_marker_is_refused_by_default(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t) / 'addon'
+            shutil.copytree(Path(__file__).parents[2] / 'mods/HollowCountry', root)
+            (root / '$PBOPREFIX$').write_text('HollowCountryExpansionAI\n')
+            built = subprocess.run([sys.executable, '-B', '-m', 'tools.package.pbo', 'pbo', '--addon', str(root),
+                                    '--out', str(Path(t) / 'main.pbo')],
+                                   capture_output=True, text=True, cwd=Path(__file__).parents[2])
+            self.assertNotEqual(built.returncode, 0)
+            self.assertIn('prefix', built.stderr)
+            self.assertFalse((Path(t) / 'main.pbo').exists())
 
     def test_original_layout_text_is_packaged_without_allowing_game_assets(self):
         with tempfile.TemporaryDirectory() as temporary:

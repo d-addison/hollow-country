@@ -13,6 +13,8 @@ import struct
 import zipfile
 
 PREFIX = 'HollowCountry'
+# The optional server-side Expansion AI adapter is built under its own prefix, only on request.
+PREFIXES = (PREFIX, 'HollowCountryExpansionAI')
 WORDS = struct.Struct('<5I')
 VERS = 0x56657273
 MAX_BYTES = 64 * 1024 * 1024
@@ -26,7 +28,8 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'interiors/pack.json', 'interiors/pack-profile.json', 'interiors/interiors.json',
                  'interiors/evidence/house-candidates.json',
                  # Optional Expansion AI patrol contract and examples; inert without the addon and its marker.
-                 'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json'}
+                 'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json',
+                 'ai/AIPatrolSettings.override.json'}
 
 
 def safe_name(name):
@@ -53,10 +56,12 @@ def _names(files):
     return sorted(files, key=lambda x: (x.casefold(), x))
 
 
-def pack(files):
+def pack(files, prefix=PREFIX):
+    if prefix not in PREFIXES:
+        raise ValueError('unknown addon prefix')
     names = _names(files)
     header = bytearray(b'\0' + WORDS.pack(VERS, 0, 0, 0, 0))
-    header += b'prefix\0' + PREFIX.encode('ascii') + b'\0\0'
+    header += b'prefix\0' + prefix.encode('ascii') + b'\0\0'
     payload = bytearray()
     for name in names:
         data = files[name]
@@ -71,7 +76,7 @@ def pack(files):
     return body + b'\0' + hashlib.sha1(body).digest()
 
 
-def parse(blob):
+def parse(blob, prefixes=(PREFIX,)):
     if not isinstance(blob, bytes) or not 63 <= len(blob) <= MAX_BYTES + 21:
         raise ValueError('invalid PBO length')
     body, trailer = blob[:-21], blob[-21:]
@@ -109,8 +114,8 @@ def parse(blob):
         if key in props:
             raise ValueError('duplicate property')
         props[key] = string()
-    if props != {'prefix': PREFIX}:
-        raise ValueError('exact HollowCountry prefix required')
+    if set(props) != {'prefix'} or props['prefix'] not in prefixes:
+        raise ValueError('exact HollowCountry prefix required' if prefixes == (PREFIX,) else 'unknown addon prefix')
     entries = {}
     while True:
         wire_name, meta = string(), words()
@@ -133,7 +138,7 @@ def parse(blob):
     for name, size in entries.items():
         result[name] = body[offset:offset + size]
         offset += size
-    return PREFIX, result
+    return props['prefix'], result
 
 
 def _regular_files(root):
@@ -166,12 +171,25 @@ def original_addon_name(name):
         r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout)', name))
 
 
-def collect_addon(root):
+def addon_prefix(root):
+    """The contract prefix named by the addon's $PBOPREFIX$ (the main addon when absent)."""
+    marker = Path(root) / '$PBOPREFIX$'
+    if not marker.exists():
+        return PREFIX
+    if marker.is_symlink() or not marker.is_file() or marker.stat().st_size > 256:
+        raise ValueError('prefix file must be a small regular file')
+    prefix = marker.read_text().strip()
+    if prefix not in PREFIXES:
+        raise ValueError('prefix file differs from contract')
+    return prefix
+
+
+def collect_addon(root, prefix=PREFIX):
     files = {}
     for name, path in _regular_files(root):
         safe_name(name)
         if name == '$PBOPREFIX$':
-            if path.read_text().strip() != PREFIX:
+            if path.read_text().strip() != prefix:
                 raise ValueError('prefix file differs from contract')
             continue  # property header is canonical; marker is build metadata
         if name == 'mod.cpp':
@@ -285,10 +303,14 @@ def main():
         p = sub.add_parser(name)
         p.add_argument('--addon', type=Path, required=True)
         p.add_argument('--out', type=Path, required=True)
+        if name == 'pbo':
+            # The caller names the contract; the addon's own marker must then match it.
+            p.add_argument('--prefix', choices=PREFIXES, default=PREFIX)
         if name == 'handoff':
             p.add_argument('--mission', type=Path, required=True)
             p.add_argument('--release', action='store_true')
     p = sub.add_parser('verify')
+    p.add_argument('--prefix', choices=PREFIXES, default=PREFIX)
     p.add_argument('file', type=Path)
     args = parser.parse_args()
     try:
@@ -297,11 +319,12 @@ def main():
                 manifest = verify_handoff(args.file.read_bytes())
                 print(json.dumps({'status': manifest['status'], 'files': len(manifest['files'])}))
                 return
-            prefix, entries = parse(args.file.read_bytes())
+            prefix, entries = parse(args.file.read_bytes(), prefixes=(args.prefix,))
             print(json.dumps({'prefix': prefix, 'entries': len(entries), 'signature': None,
                               'sha256': hashlib.sha256(args.file.read_bytes()).hexdigest()}))
             return
-        blob = (pack(collect_addon(args.addon)) if args.command == 'pbo'
+        blob = (pack(collect_addon(args.addon, args.prefix), args.prefix)
+                if args.command == 'pbo'
                 else handoff(args.addon, args.mission, args.release))
         # No overwriting stale or symlinked artifacts; choose a fresh output.
         with args.out.open('xb') as f:

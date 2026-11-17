@@ -64,12 +64,12 @@ class Authored:
                 if token == "}": indent -= 1; continue
                 token = re.sub(r"new array<[^;()]+>\(\)", "A()", token)
                 token = re.sub(r"new (\w+)\(\)", r"\1()", token)
-                types = r"(?:bool|int|float|string|vector|Object|EntityAI|PlayerBase|Magazine|eAIBase|eAIGroup|eAIFaction|ExpansionAISettings|HCObserverTransition\w+|HCXAI\w+|HCEventObjectiveEvidence)"
+                types = r"(?:bool|int|float|string|vector|Object|EntityAI|PlayerBase|Magazine|eAIBase|eAIGroup|eAIFaction|ExpansionAISettings|HCObserverTransition\w+|HCXAI\w+|HCEventObjectiveEvidence|HCEventAIProvider)"
                 bare = re.fullmatch(types + r" (\w+)", token)
                 if bare: token = bare[1] + " = None"
                 token = re.sub(r"\b" + types + r"\s+(?=\w+\s*=)", "", token)
                 token = re.sub(r"(?<![.\w])m_\w+\b", lambda m: "self." + m[0], token)
-                token = token.replace("this.", "self.")
+                token = re.sub(r"\bthis\b", "self", token)
                 token = token.replace("&&", " and ").replace("||", " or ")
                 token = re.sub(r"!(?!=)", "not ", token)
                 for a, b in (("true", "True"), ("false", "False"), ("null", "None")):
@@ -145,7 +145,9 @@ class ExpansionAdapterTests(unittest.TestCase):
                                                        End=lambda *a:self.journal_ok) if self.reconciled else None)
         self.global_ai = N(s_eAI_UnlimitedReload=0,s_eAI_UnlimitedReloadAll=0)
         self.settings = N(EnableFlankingOutsideCombat=False,DamageMultiplier=1.,
-                          DamageReceivedMultiplier=1.,CanRecruitFriendly=False,CanRecruitGuards=False)
+                          DamageReceivedMultiplier=1.,CanRecruitFriendly=False,CanRecruitGuards=False,
+                          IsLoaded=lambda:self.ai_settings_loaded)
+        self.ai_settings_loaded = True
         self.env.update(eAIBase=self.global_ai,
                         GetExpansionSettings=lambda:N(GetAI=lambda:self.settings),
                         ECE_CREATEPHYSICS=1,ECE_KEEPHEIGHT=2,ECE_NOSURFACEALIGN=4,
@@ -198,11 +200,14 @@ class ExpansionAdapterTests(unittest.TestCase):
             MemberGone=lambda *a:self.journal_ok,
             EndLease=lambda *a:self.journal_ok,
             Observers=lambda *a:N())
+        # Synthetic service port; service tests replace it with the authored statics.
+        self.env["HCXAIService"]=N(Hooks=lambda:None,Adapter=lambda:self.mod,Bind=lambda a:True,
+                                   InstallLocalHooks=lambda:False)
         self.engine=Authored(self.runtime_source,self.env)
         self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
-                   m_Leases=A(),m_PrunedIds=A(),m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
+                   m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
-                   m_LastReceiptSequence=0,m_LastReceiptAt=-1)
+                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False)
         for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
             setattr(self.mod,name,lambda *a,n=name:self.engine.call(n,self.mod,*a))
 
@@ -369,6 +374,21 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertFalse(self.start(lease="clean-0"))
         self.assertFalse(self.mod.HasReservations())
         self.assertEqual([], self.created)
+
+    def test_pruned_id_cap_refusal_is_logged_once(self):
+        self.profile.MaxLeaseHistory = 1
+        self.profile.MaxGroups = 1
+        self.use_authored_journal()
+        self.assertTrue(self.install())
+        for index in range(65):
+            self.assertTrue(self.start(lease="clean-" + str(index)))
+            self.retire(self.mod.m_Leases[0])
+        cap = lambda: [c for c in self.calls if c[0] == "diagnostic" and "pruned-lease-id cap" in c[1]]
+        self.assertEqual([], cap())
+        self.assertFalse(self.start(lease="overflow"))
+        self.assertFalse(self.start(lease="overflow-2"))
+        self.assertEqual(1, len(cap()))
+        self.assertIn("64", cap()[0][1])
 
     def test_full_nonprunable_journal_rejects_without_publishing_reservation(self):
         self.profile.MaxLeaseHistory = 2
@@ -571,6 +591,127 @@ class ExpansionAdapterTests(unittest.TestCase):
             self.assertFalse(self.install())
             self.assertFalse(self.mod.Ready('chernarusplus'))
             self.assertEqual([],self.created)
+
+    def test_provider_not_ready_until_expansion_ai_settings_are_loaded(self):
+        self.ai_settings_loaded = False
+        self.assertFalse(self.mod.NativeGlobalsFair())
+        self.assertFalse(self.install())
+        self.assertFalse(self.mod.Ready('chernarusplus'))
+        self.setUp()
+        self.assertTrue(self.install())
+        self.assertTrue(self.mod.Ready('chernarusplus'))
+        self.ai_settings_loaded = False
+        self.receipt.Sequence += 1
+        self.assertFalse(self.mod.Ready('chernarusplus'))
+        self.assertEqual([], self.created)
+
+    def test_startup_logs_which_provider_the_base_event_selection_sees(self):
+        self.env["HCEventAISelection"] = N(Create=lambda: N(ClassName=lambda: "HCExpansionAIEventProvider"))
+        self.mod.LogAddonChecks()
+        lines = [c[1] for c in self.calls if c[0] == "diagnostic"]
+        self.assertTrue(any("base event AI provider selection=HCExpansionAIEventProvider" in l for l in lines), lines)
+
+    def service(self):
+        """Authored HCXAIService statics, held on an explicit synthetic owner."""
+        source = re.sub(r"\bs_(Hooks|Adapter)\b", r"self.s_\1", self.runtime_source)
+        engine = Authored(source, self.env)
+        svc = N(s_Hooks=None, s_Adapter=None)
+        for name in ("InstallHooks", "InstallLocalHooks", "Hooks", "Adapter", "Bind"):
+            setattr(svc, name, lambda *a, n=name: engine.call(n, svc, *a))
+        self.env["HCXAIService"] = svc
+        self.env["HCXAILocalHooks"] = self.local_hooks
+        return svc
+
+    def local_hooks(self):
+        """Authored HCXAILocalHooks bodies on a synthetic owner."""
+        source = (SCRIPTS / "4_World/HCXAILocalHooks.c").read_text()
+        engine = Authored(source, self.env)
+        owner = N(m_Sequence=0, kind="local")
+        for name in re.findall(r"\b\w+ (\w+)\([^)]*\)\s*\{", source):
+            setattr(owner, name, lambda *a, n=name: engine.call(n, owner, *a))
+        return owner
+
+    def diagnostics(self):
+        return [c[1] for c in self.calls if c[0] == "diagnostic"]
+
+    def test_local_hook_port_installs_once_server_only_and_only_with_expansion(self):
+        self.expansion = None
+        self.env["GetExpansionSettings"] = lambda: self.expansion
+        svc = self.service()
+        patches = {"CfgPatches DayZExpansion_AI_Scripts"}
+        self.game.ConfigIsExisting = lambda path: path not in patches
+        self.game.IsServer = lambda: False
+        self.expansion = N(GetAI=lambda: self.settings)
+        self.assertFalse(svc.InstallLocalHooks())
+        self.game.IsServer = lambda: True
+        self.assertFalse(svc.InstallLocalHooks())  # Expansion AI patch absent.
+        patches.clear(); self.expansion = None
+        self.assertFalse(svc.InstallLocalHooks())  # Expansion settings singleton absent.
+        self.assertIsNone(svc.Hooks())
+        self.expansion = N(GetAI=lambda: self.settings)
+        self.assertTrue(svc.InstallLocalHooks())
+        first = svc.Hooks()
+        self.assertEqual("local", first.kind)
+        self.assertFalse(svc.InstallLocalHooks())
+        self.assertFalse(svc.InstallHooks(N(kind="other")))
+        self.assertIs(first, svc.Hooks())
+
+    def test_local_hook_receipt_reports_each_unverified_flag_and_never_admits(self):
+        hooks = self.local_hooks()
+        receipt = hooks.Admission(self.profile.WorldSession)
+        self.assertEqual(("1.30.164289", "chernarusplus", 1, 1000),
+                         (receipt.BuildVersion, receipt.WorldName, receipt.Sequence, receipt.ObservedAtMs))
+        flags = ("ArtifactBytesVerified", "DependencyClosureVerified", "ObserverProviderQualified",
+                 "RoutesQualified", "InventoryLedgerQualified", "OwnershipReconciled")
+        self.assertFalse(any(getattr(receipt, flag) for flag in flags))
+        self.assertEqual("", receipt.WorldSession)  # The requested session is never echoed as verified.
+        self.assertFalse(self.rule_api.ReceiptValid(self.profile, receipt, 1000))
+        gaps = self.rule_api.ReceiptGaps(receipt)
+        for flag in flags:
+            self.assertIn(flag, gaps)
+        self.assertEqual("", self.rule_api.ReceiptGaps(self.receipt))
+        self.assertEqual(2, hooks.Admission("other").Sequence)
+        self.assertFalse(self.mod.Install(self.profile, hooks))
+        self.assertEqual("pinned live prerequisites rejected", self.mod.m_Status)
+        self.game.IsServer = lambda: False
+        self.assertIsNone(hooks.Admission("other"))
+        self.assertEqual([], self.created)
+
+    def test_policy_problem_names_the_unmet_requirement(self):
+        self.assertEqual("", self.rule_api.ProfileProblem(self.profile))
+        self.assertIn("missing", self.rule_api.ProfileProblem(None))
+        self.assertIn("WorldName", self.rule_api.ProfileProblem(self.env["HCXAIProfile"]()))
+        p = copy.deepcopy(self.profile); p.Missions[0].SurveySha256 = ""
+        problem = self.rule_api.ProfileProblem(p)
+        self.assertIn("mission-site-5", problem); self.assertIn("SurveySha256", problem)
+        self.assertFalse(self.mod.Install(p, self.hooks))
+        self.assertIn("invalid or missing operator policy", self.mod.m_Status)
+        self.assertIn("SurveySha256", self.mod.m_Status)
+
+    def test_start_installs_port_before_bind_and_logs_readiness_once_settings_load(self):
+        svc = self.service()
+        self.env["HCXAIStore"].Load = lambda: None
+        self.env["HCEventAISelection"] = N(Create=lambda: None)
+        self.ai_settings_loaded = False
+        self.mod.OnStart(None)
+        self.assertEqual("local", svc.Hooks().kind)  # Bind first would have refused the port.
+        self.assertIs(self.mod, svc.Adapter())
+        lines = self.diagnostics()
+        self.assertTrue(any("trusted hook port" in l and "installed once" in l for l in lines), lines)
+        ready = [l for l in lines if "readiness" in l]
+        self.assertEqual(1, len(ready), lines)
+        for part in ("ready=false", "expansion_ai_settings=not loaded", "operator policy", "artifactbytesverified"):
+            self.assertIn(part, ready[0].lower())
+        self.calls.clear()
+        self.mod.OnTick(1.)
+        self.assertEqual([], self.diagnostics())
+        self.ai_settings_loaded = True
+        self.mod.OnTick(1.); self.mod.OnTick(1.)
+        ready = [l for l in self.diagnostics() if "readiness" in l]
+        self.assertEqual(1, len(ready), self.calls)
+        self.assertIn("expansion_ai_settings=loaded", ready[0])
+        self.assertIn("ready=false", ready[0].lower())
+        self.assertEqual([], self.created)
 
     def test_both_global_reload_masks_refuse_admission(self):
         for field in ("s_eAI_UnlimitedReload", "s_eAI_UnlimitedReloadAll"):

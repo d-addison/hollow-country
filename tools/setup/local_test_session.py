@@ -70,6 +70,9 @@ FIREARMS_ROSTER = 'tools/package/firearms_roster.json'  # the 2x-scarcity firear
 INTERIORS_PACK = MISSION_ROOT + '/interiors'
 AI_MERGE = MISSION_ROOT + '/ai/AISettings.merge.json'
 AI_SETTINGS_TARGET = 'ExpansionMod/Settings/AISettings.json'
+AI_PATROL_OVERRIDE = MISSION_ROOT + '/ai/AIPatrolSettings.override.json'
+AI_PATROL_TARGET = 'expansion/settings/AIPatrolSettings.json'
+AI_POLICY_TARGET = 'HollowCountry/expansion-ai.json'
 MARKER_DOC = 'docs/LOCAL_ACCEPTANCE_V1.md'
 MARKER_ROW = re.compile(r'^\|\s*`\$profile:HollowCountry/acceptance/(?P<name>[A-Za-z0-9_-]+)\.enable`\s*\|')
 # (label, Workshop id or None, accepted folder names after lowercasing and dropping '@' and punctuation)
@@ -979,7 +982,12 @@ def plan_expansion_ai(args, mod_plan, repo):
         json.loads(repo_file(repo, AI_MERGE))
     except (ValueError, Refused) as error:
         raise Refused('--expansion-ai: %s is not readable JSON: %s' % (AI_MERGE, error)) from None
-    return {'workshop': workshop, 'dependencies': found, 'mod': mod, 'merge': AI_MERGE}
+    try:
+        json.loads(repo_file(repo, AI_PATROL_OVERRIDE))
+    except (ValueError, Refused) as error:
+        raise Refused('--expansion-ai: %s is not readable JSON: %s' % (AI_PATROL_OVERRIDE, error)) from None
+    return {'workshop': workshop, 'dependencies': found, 'mod': mod, 'merge': AI_MERGE,
+            'patrol_override': AI_PATROL_OVERRIDE}
 
 
 def verify_optional(tool_name, label, install, vanilla_dir):
@@ -1249,7 +1257,7 @@ def advisories(plan):
 
 # ---------------------------------------------------------------- reporting
 
-def expansion_lines(ai, profiles):
+def expansion_lines(ai, profiles, mission):
     mod = ai['mod']
     out = ['6. Expansion AI (optional addon): stage %s (%s) from %d file(s), loaded server-only with -serverMod= '
            'after HollowCountry (players do not need it):' %
@@ -1262,6 +1270,14 @@ def expansion_lines(ai, profiles):
                (ai['merge'], profiles, AI_SETTINGS_TARGET))
     out.append('       (a field merge into the existing file, not a replacement: keep every other field and its version;')
     out.append('        keep Expansion admin unlimited-reload controls OFF). Patrols stay closed without the pve_patrols marker.')
+    out.append('     MANUAL step, never applied by this tool: copy %s to %s/%s' %
+               (ai['patrol_override'], mission, AI_PATROL_TARGET))
+    out.append('       (HC events own AI spawning: it turns off Expansion\'s own default patrols, which spawn near players')
+    out.append('        otherwise; back up any existing file first; Expansion loads this version without rewriting it).')
+    out.append('     Operator policy: %s/%s is written as a template on first start and is never generated here; HC AI' %
+               (profiles, AI_POLICY_TARGET))
+    out.append('       stays not Ready until the owner fills it with observed digests, routes and budgets (see the startup')
+    out.append('       "[HC Expansion AI] readiness" log line for the first unmet requirement).')
     return out
 
 
@@ -1299,7 +1315,7 @@ def render_plan(plan, args, commands, applied=False):
         if info['pending']:
             out.append('     pending components (not installed, need a native measurement): %s' % ', '.join(info['pending']))
     if plan.get('expansion_ai'):
-        out += expansion_lines(plan['expansion_ai'], plan['profiles'])
+        out += expansion_lines(plan['expansion_ai'], plan['profiles'], plan['mission'])
     if plan['snafu']:
         out.append('   SNAFU (read-only, optional dependency): %s' % plan['snafu'])
     if plan.get('snafu_delta'):

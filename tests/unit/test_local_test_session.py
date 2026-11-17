@@ -312,6 +312,7 @@ class SessionCase(unittest.TestCase):
         (self.repo / 'mission' / 'hollow-country' / 'interiors' / 'pack.json').write_text('{}')
         (self.repo / 'mission' / 'hollow-country' / 'ai').mkdir(parents=True)
         (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AISettings.merge.json').write_text('{"MaxDifficulty": 1}')
+        (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AIPatrolSettings.override.json').write_text('{"Enabled": 0}')
         self.interiors_errors = []
         self.running = []
         self.world = self.base / 'world'
@@ -1468,6 +1469,23 @@ class OptionalSteps(SessionCase):
         self.assertIn('-serverMod=' + str(self.ai_dest), server_lines)
         self.assertNotIn('serverMod', client_lines.split('NOTE:')[0])
         self.assertEqual(before, self.tree(self.world))
+
+    def test_plan_names_the_manual_patrol_override_and_operator_policy_and_apply_writes_neither(self):
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual(code, 0, err)
+        self.assertIn('AIPatrolSettings.override.json', out)
+        self.assertIn(str(self.mission / 'expansion' / 'settings' / 'AIPatrolSettings.json'), out)
+        self.assertIn(str(self.profiles / 'HollowCountry' / 'expansion-ai.json'), out)
+        code, out, err = self.run_cli(self.ai_args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertFalse((self.mission / 'expansion').exists())
+        self.assertFalse((self.profiles / 'HollowCountry' / 'expansion-ai.json').exists())
+
+    def test_unreadable_patrol_override_refuses_the_ai_plan(self):
+        (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AIPatrolSettings.override.json').write_text('{')
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual(code, 2, out)
+        self.assertIn('AIPatrolSettings.override.json', err)
 
     def test_apply_stages_only_the_hollow_country_addon_never_touches_expansion_or_the_settings(self):
         workshop_before = self.tree(self.workshop)

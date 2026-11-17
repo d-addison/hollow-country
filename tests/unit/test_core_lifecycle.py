@@ -266,5 +266,31 @@ class CoreLifecycleTests(unittest.TestCase):
         self.assertEqual(calls, [])
 
 
+class ModuleRegistryCapTests(unittest.TestCase):
+    """Authored HCModuleRegistry.Register; synthetic modules only (no Enforce runtime)."""
+    def registry(self):
+        from tests.unit import test_event_runtime as runtime_tests
+        from tests.unit.test_group_server import EArray
+        source = (SOURCE.parent / "HCModule.c").read_text().replace("HCModule", "HCEventModule")
+        self.lines = []
+        env = {"Print": self.lines.append, "EArray": EArray}
+        cls = type("AuthoredRegistry", (), {})
+        for name in ("Register", "GetModules"):
+            setattr(cls, name, runtime_tests.translate(source, name, env, "HCEventModuleRegistry", True))
+        registry = cls()
+        registry.m_Modules = EArray()
+        return registry
+
+    def test_cap_matches_perf_sampler_and_refusal_is_logged(self):
+        registry = self.registry()
+        for index in range(16):
+            registry.Register(SimpleNamespace(GetName=lambda i=index: "module-" + str(i)))
+        self.assertEqual(16, len(registry.GetModules()))
+        self.assertEqual([], self.lines)
+        registry.Register(SimpleNamespace(GetName=lambda: "module-16"))
+        self.assertEqual(16, len(registry.GetModules()))
+        self.assertTrue(any("module-16" in line and "cap 16" in line for line in self.lines), self.lines)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -204,12 +204,46 @@ def snapshot_mission(root):
     return result
 
 
-def verify_final_inputs(mission, expected_mission, launch_inputs):
-    if snapshot_mission(mission) != expected_mission:
+# Dependency mods (Expansion) create their own settings/storage trees inside the
+# mission they run. Only new entries under these roots are tolerated, and only
+# for a disposable mission copy; every staged entry must still match exactly.
+PATROL_SETTINGS = 'expansion/settings/AIPatrolSettings.json'
+DEPENDENCY_OUTPUT = re.compile(r'(expansion|storage_[0-9]+)/')
+
+
+def verify_final_inputs(mission, expected_mission, launch_inputs, dependency_outputs=False):
+    observed = snapshot_mission(mission)
+    if dependency_outputs:
+        observed = {name: digest for name, digest in observed.items()
+                    if name in expected_mission or not DEPENDENCY_OUTPUT.match(name)}
+    if observed != expected_mission:
         raise ValueError('complete staged mission inventory drift')
     for path, limit, digest in launch_inputs:
         if input_sha256(path, limit) != digest:
             raise ValueError('launch input drift: ' + path.name)
+
+
+SERVER_MOD_PREFIX = 'HollowCountryExpansionAI'
+SERVER_MOD_PBO = 'hollowcountryexpansionai.pbo'
+
+
+def referenced_mods(paths):
+    """Validate dependency mod folders loaded in place (Workshop content is never copied or modified)."""
+    result, seen = [], set()
+    checkout = Path(__file__).absolute().parents[2]
+    for path in paths:
+        path = Path(path).absolute()
+        if any(p.is_symlink() for p in (path, *path.parents)):
+            raise ValueError('extra mod symlink ancestors forbidden')
+        if path == checkout or checkout in path.parents:
+            raise ValueError('extra mod cannot be inside source checkout')
+        if not path.is_dir() or not (path / 'addons').is_dir():
+            raise ValueError('extra mod must be a folder with addons/: ' + str(path))
+        if ';' in str(path) or str(path).casefold() in seen:
+            raise ValueError('duplicate or unsafe extra mod path')
+        seen.add(str(path).casefold())
+        result.append(path)
+    return result
 
 
 def read_state_seed(root):
@@ -227,7 +261,7 @@ def read_state_seed(root):
     return result
 
 
-def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None):
+def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, settings_case=None, state_seed=None, hold_seconds=0, diagnostic=False, diagnostic_selftests=False, native_autotest_scripts=None, autotest_x=6500, autotest_z=6500, native_actor_direct=False, item_compatibility_audit=False, group_checks=False, infected_death_scripts=None, extra_mods=(), server_mod=None, expansion_patrol_settings=None):
     death_mode = infected_death_scripts is not None
     if death_mode:
         if diagnostic:
@@ -263,6 +297,25 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         raise ValueError('Wine PE loading must use the Linux filesystem')
     blob = Path(source_pbo).read_bytes()
     pbo.parse(blob)
+    extra_mods = referenced_mods(extra_mods)
+    server_blob = None
+    if server_mod is not None:
+        server_blob = Path(server_mod).read_bytes()
+        pbo.parse(server_blob, prefixes=(SERVER_MOD_PREFIX,))
+    patrol_blob = None
+    if expansion_patrol_settings is not None:
+        # Our own configuration override, staged only into the disposable mod-stack mission copy.
+        if not extra_mods or death_mode or diagnostic_selftests or item_compatibility_audit or group_checks \
+                or native_autotest_scripts is not None:
+            raise ValueError('patrol settings require --extra-mod and the stock mission (mod-stack copy)')
+        with Path(expansion_patrol_settings).open('rb') as stream:
+            patrol_blob = stream.read(65537)
+        try:
+            parsed = json.loads(patrol_blob) if len(patrol_blob) <= 65536 else None
+        except ValueError:
+            parsed = None
+        if not isinstance(parsed, dict):
+            raise ValueError('patrol settings must be a JSON object of at most 64 KiB')
     settings_blob = None
     if settings is not None and settings_case is not None:
         raise ValueError('explicit and negative settings are mutually exclusive')
@@ -301,11 +354,19 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
     addon = experiment / '@HollowCountry/addons'
     addon.mkdir(parents=True)
     (addon / 'hollowcountry.pbo').write_bytes(blob)
+    server_addon = None
+    if server_blob is not None:
+        server_addon = experiment / '@HollowCountryExpansionAI/addons'
+        server_addon.mkdir(parents=True)
+        (server_addon / SERVER_MOD_PBO).write_bytes(server_blob)
     config = experiment / 'serverDZ.cfg'
     config.write_text(configuration())
     command = ['xvfb-run', '-a', str(wine), str(executable), '-ip=127.0.0.1', '-port=2402',
                '-config=' + win(config), '-profiles=' + win(profiles), '-storage=' + win(storage),
-               '-mod=' + win(addon.parent), '-BEpath=' + win(battleye), '-doLogs', '-adminLog', '-noPause']
+               '-mod=' + ';'.join([win(m) for m in extra_mods] + [win(addon.parent)]),
+               '-BEpath=' + win(battleye), '-doLogs', '-adminLog', '-noPause']
+    if server_addon is not None:
+        command.append('-serverMod=' + win(server_addon.parent))
     if diagnostic:
         command.append('-server')
     diagnostic_mission = None
@@ -347,6 +408,18 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         diagnostic_mission = death_manifest
         mission = death_mission
         command.append('-mission=' + win(death_mission))
+    mod_stack_mission = False
+    if extra_mods and mission == root / 'mpmissions/dayzOffline.chernarusplus':
+        # Never let dependency mods write into the shared isolated server copy.
+        snapshot_mission(mission)
+        stack_mission = experiment / 'mod-stack.chernarusplus'
+        shutil.copytree(mission, stack_mission, symlinks=True)
+        mission = stack_mission
+        mod_stack_mission = True
+        if patrol_blob is not None:
+            (stack_mission / PATROL_SETTINGS).parent.mkdir(parents=True, exist_ok=True)
+            (stack_mission / PATROL_SETTINGS).write_bytes(patrol_blob)
+        command.append('-mission=' + win(mission))
     env = dict(os.environ, WINEPREFIX=str(prefix), WINEARCH='win64', WINEDEBUG='-all')
     report = {'schema': 1, 'environment': 'actual-DayZ-server-under-Wine',
               'runtime_acceptance': 'pending', 'signature_verified': False,
@@ -355,6 +428,10 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
               'steam_query_may_bind_wildcard': True, 'command': command,
               'pbo_sha256': hashlib.sha256(blob).hexdigest(),
               'server_sha256': hashlib.sha256(executable.read_bytes()).hexdigest()}
+    report['extra_mods'] = [str(m) for m in extra_mods]
+    report['server_mod_sha256'] = hashlib.sha256(server_blob).hexdigest() if server_blob is not None else None
+    report['dependency_mission_copy'] = str(mission) if mod_stack_mission else None
+    report['expansion_patrol_settings_sha256'] = hashlib.sha256(patrol_blob).hexdigest() if patrol_blob is not None else None
     report['config_sha256'] = hashlib.sha256(config.read_bytes()).hexdigest()
     report['executable_kind'] = 'diagnostic-server' if diagnostic else 'dedicated-server'
     report['diagnostic_mission'] = diagnostic_mission
@@ -388,6 +465,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         (battleye / native_be.name, 16 * 1024 * 1024,
          input_sha256(battleye / native_be.name, 16 * 1024 * 1024)),
     ]
+    if server_blob is not None:
+        launch_inputs.append((server_addon / SERVER_MOD_PBO, len(server_blob), report['server_mod_sha256']))
     if settings_blob is not None:
         launch_inputs.append((profiles / 'HollowCountry/settings.json',
                               len(settings_blob), report['settings_sha256']))
@@ -537,7 +616,7 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
                 report['status'] = 'log-collection-incomplete'
             else:
                 try:
-                    verify_final_inputs(mission, mission_snapshot, launch_inputs)
+                    verify_final_inputs(mission, mission_snapshot, launch_inputs, dependency_outputs=bool(extra_mods))
                 except (OSError, ValueError) as exc:
                     report['status'] = 'input-drift'
                     report['input_error'] = str(exc)[:512]
@@ -613,6 +692,11 @@ def main():
     parser.add_argument('--seconds', type=int, default=90)
     parser.add_argument('--hold-seconds', type=int, default=0)
     parser.add_argument('--state-seed', type=Path)
+    parser.add_argument('--extra-mod', type=Path, action='append', default=[],
+                        help='dependency mod folder loaded in place before HollowCountry via -mod (repeatable, in order; never copied)')
+    parser.add_argument('--server-mod', type=Path, help='HollowCountryExpansionAI addon PBO staged fresh and passed via -serverMod')
+    parser.add_argument('--expansion-patrol-settings', type=Path,
+                        help='our AIPatrolSettings override JSON, staged into the mod-stack mission copy before the snapshot; any rewrite is input drift')
     parser.add_argument('--diagnostic', action='store_true', help='use explicitly staged DayZDiag_x64.exe in server mode')
     parser.add_argument('--diagnostic-selftests', action='store_true', help='instrument a fresh disposable mission for native scalar/storage probes')
     parser.add_argument('--item-compatibility-audit', action='store_true', help='request fixed metadata export in a fresh mission; inspect export completeness separately from startup')
@@ -629,7 +713,8 @@ def main():
     args = parser.parse_args()
     try:
         report = run(args.server_root, args.pbo, args.experiment, args.prefix, args.seconds, args.settings, args.settings_case, args.state_seed, args.hold_seconds, args.diagnostic, args.diagnostic_selftests, args.native_autotest_scripts, args.autotest_x, args.autotest_z, args.native_actor_direct, args.item_compatibility_audit, args.group_checks,
-                     infected_death_scripts=args.infected_death_scripts)
+                     infected_death_scripts=args.infected_death_scripts, extra_mods=args.extra_mod,
+                     server_mod=args.server_mod, expansion_patrol_settings=args.expansion_patrol_settings)
         print(json.dumps(report, indent=2))
         expected = 'settings-rejected' if args.settings_case else 'initialized'
         if args.infected_death_scripts is not None:

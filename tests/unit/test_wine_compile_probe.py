@@ -5,6 +5,7 @@ from pathlib import Path
 import tempfile
 import os
 import subprocess
+import shutil
 import sys
 import time
 import hashlib
@@ -285,6 +286,129 @@ class MockedWineRunTests(unittest.TestCase):
         self.assertEqual(report['hold_seconds_observed'], 3)
         self.assertEqual(self.now, 8)
         self.assert_cleaned_report(report)
+
+    def synthetic_dependency(self, name):
+        mod = self.root / 'workshop' / name
+        (mod / 'addons').mkdir(parents=True)
+        (mod / 'addons' / (name + '.pbo')).write_bytes(b'synthetic dependency, never parsed')
+        return mod
+
+    def test_extra_mods_load_in_order_before_hc_and_are_referenced_in_place(self):
+        first, second = self.synthetic_dependency('cf'), self.synthetic_dependency('core')
+        before = sorted(p.relative_to(self.root) for p in (self.root / 'workshop').rglob('*'))
+        report = self.run_mocked(extra_mods=[first, second])
+        mods = [arg for arg in self.launch.call_args.args[0] if arg.startswith('-mod=')]
+        self.assertEqual(mods, ['-mod=' + ';'.join([probe.win(first), probe.win(second),
+                                                     probe.win(self.experiment / '@HollowCountry')])])
+        self.assertEqual(report['extra_mods'], [str(first), str(second)])
+        self.assertEqual(sorted(p.relative_to(self.root) for p in (self.root / 'workshop').rglob('*')), before)
+        self.assertFalse(any(p.name == 'cf.pbo' for p in self.experiment.rglob('*')))
+        self.assertEqual(report['status'], 'initialized')
+        self.assert_cleaned_report(report)
+
+    def test_extra_mods_run_on_a_disposable_mission_copy(self):
+        stock = self.server / 'mpmissions/dayzOffline.chernarusplus'
+        staged = self.experiment / 'mod-stack.chernarusplus'
+
+        def dependency_writes():
+            # Dependency mods (Expansion) write their own settings/storage into the mission.
+            (staged / 'expansion/settings').mkdir(parents=True)
+            (staged / 'expansion/settings/AIPatrolSettings.json').write_text('{}')
+            (staged / 'storage_1/expansion/entitystorage').mkdir(parents=True)
+        report = self.run_mocked(extra_mods=[self.synthetic_dependency('cf')], final_mutation=dependency_writes)
+        self.assertIn('-mission=' + probe.win(staged), self.launch.call_args.args[0])
+        self.assertEqual((staged / 'init.c').read_bytes(), b'// synthetic')
+        self.assertEqual(sorted(p.name for p in stock.iterdir()), ['init.c'])
+        self.assertEqual(report['status'], 'initialized')
+
+    def test_dependency_output_allowance_never_admits_mission_tampering(self):
+        staged = self.experiment / 'mod-stack.chernarusplus'
+        cases = {'changed init': lambda: (staged / 'init.c').write_bytes(b'// changed'),
+                 'new other file': lambda: (staged / 'other.c').write_bytes(b'// added'),
+                 'removed init': lambda: (staged / 'init.c').unlink()}
+        for index, (label, mutate) in enumerate(cases.items()):
+            with self.subTest(label):
+                if self.experiment.exists():
+                    shutil.rmtree(self.experiment)
+                report = self.run_mocked(extra_mods=[self.synthetic_dependency('cf' + str(index))],
+                                         final_mutation=mutate)
+                self.assertEqual(report['status'], 'input-drift')
+
+    def test_without_extra_mods_new_expansion_output_is_still_drift(self):
+        mission = self.server / 'mpmissions/dayzOffline.chernarusplus'
+        report = self.run_mocked(final_mutation=lambda: (mission / 'expansion').mkdir())
+        self.assertEqual(report['status'], 'input-drift')
+
+    def test_extra_mod_rejections_precede_staging(self):
+        valid = self.synthetic_dependency('cf')
+        no_addons = self.root / 'workshop' / 'empty'
+        no_addons.mkdir(parents=True)
+        cases = {'duplicate': [valid, valid], 'missing': [self.root / 'absent'],
+                 'no addons': [no_addons], 'inside checkout': [Path(probe.__file__).parents[2] / 'mods']}
+        for label, mods in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                self.run_mocked(extra_mods=mods)
+            self.assertFalse(self.experiment.exists())
+
+    def test_patrol_settings_are_staged_in_the_mission_copy_and_must_survive_unchanged(self):
+        override = self.root / 'patrols.json'
+        override.write_text('{"m_Version": 32, "Enabled": 0, "Patrols": [], "LoadBalancingCategories": {}}')
+        staged = self.experiment / 'mod-stack.chernarusplus/expansion/settings/AIPatrolSettings.json'
+        report = self.run_mocked(extra_mods=[self.synthetic_dependency('cf')], expansion_patrol_settings=override)
+        self.assertEqual(staged.read_bytes(), override.read_bytes())
+        self.assertEqual(report['expansion_patrol_settings_sha256'], hashlib.sha256(override.read_bytes()).hexdigest())
+        self.assertEqual(report['status'], 'initialized')
+        self.assertFalse((self.server / 'mpmissions/dayzOffline.chernarusplus/expansion').exists())
+        shutil.rmtree(self.experiment)
+        # A dependency rewriting the staged override (e.g. regenerating defaults) is drift.
+        report = self.run_mocked(extra_mods=[self.synthetic_dependency('core')], expansion_patrol_settings=override,
+                                 final_mutation=lambda: staged.write_text('{"Enabled": 1}'))
+        self.assertEqual(report['status'], 'input-drift')
+
+    def test_patrol_settings_require_the_mod_stack_and_a_json_object(self):
+        override = self.root / 'patrols.json'
+        for label, text, mods in (('no mod stack', '{"Enabled": 0}', []), ('not json', '{', None),
+                                  ('not an object', '[]', None)):
+            override.write_text(text)
+            extra = [self.synthetic_dependency('dep-' + label.replace(' ', '-'))] if mods is None else mods
+            with self.subTest(label), self.assertRaises(ValueError):
+                self.run_mocked(extra_mods=extra, expansion_patrol_settings=override)
+            self.assertFalse(self.experiment.exists())
+
+    def test_server_mod_is_staged_hashed_and_passed_as_server_mod(self):
+        addon = self.root / 'xai.pbo'
+        addon.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic server addon'}, 'HollowCountryExpansionAI'))
+        report = self.run_mocked(server_mod=addon)
+        staged = self.experiment / '@HollowCountryExpansionAI/addons/hollowcountryexpansionai.pbo'
+        self.assertEqual(staged.read_bytes(), addon.read_bytes())
+        command = self.launch.call_args.args[0]
+        self.assertIn('-serverMod=' + probe.win(staged.parent.parent), command)
+        self.assertNotIn(probe.win(staged.parent.parent), [a for a in command if a.startswith('-mod=')][0])
+        self.assertEqual(report['server_mod_sha256'], hashlib.sha256(addon.read_bytes()).hexdigest())
+        self.assert_cleaned_report(report)
+
+    def test_server_mod_must_be_a_parseable_pbo_before_staging(self):
+        bad = self.root / 'bad.pbo'
+        for blob in (b'not a pbo', probe.pbo.pack({'config.cpp': b'// main addon prefix'})):
+            bad.write_bytes(blob)
+            with self.subTest(blob=blob[:12]), self.assertRaises(ValueError):
+                self.run_mocked(server_mod=bad)
+            self.assertFalse(self.experiment.exists())
+
+    def test_server_mod_drift_revokes_clean_initialization(self):
+        addon = self.root / 'xai.pbo'
+        addon.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic server addon'}, 'HollowCountryExpansionAI'))
+        staged = self.experiment / '@HollowCountryExpansionAI/addons/hollowcountryexpansionai.pbo'
+        report = self.run_mocked(server_mod=addon, final_mutation=lambda: staged.write_bytes(b'changed'))
+        self.assertEqual(report['status'], 'input-drift')
+
+    def test_default_run_has_no_server_mod_and_only_hc_mod(self):
+        report = self.run_mocked()
+        command = self.launch.call_args.args[0]
+        self.assertFalse(any(a.startswith('-serverMod=') for a in command))
+        self.assertIn('-mod=' + probe.win(self.experiment / '@HollowCountry'), command)
+        self.assertEqual(report['extra_mods'], [])
+        self.assertIsNone(report['server_mod_sha256'])
 
     def test_diagnostic_executable_requires_explicit_server_mode_and_report(self):
         (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic, never launched')

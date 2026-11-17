@@ -18,9 +18,17 @@ class HCXAIService
     protected static ref HCXAIAdapter s_Adapter;
     static bool InstallHooks(HCXAIHooks hooks)
     {
-        if (!GetGame() || !GetGame().IsServer() || s_Adapter || !hooks) { return false; }
+        // Install once per process, before any adapter binds; never on a client.
+        if (!GetGame() || !GetGame().IsServer() || s_Adapter || s_Hooks || !hooks) { return false; }
         s_Hooks = hooks;
         return true;
+    }
+    // Server start installs the local port only when Expansion AI is loaded.
+    static bool InstallLocalHooks()
+    {
+        if (!GetGame() || !GetGame().IsServer()) { return false; }
+        if (!GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts") || !GetExpansionSettings()) { return false; }
+        return HCXAIService.InstallHooks(new HCXAILocalHooks());
     }
     static HCXAIHooks Hooks() { return s_Hooks; }
     static HCXAIAdapter Adapter() { return s_Adapter; }
@@ -42,6 +50,7 @@ class HCXAIAdapter extends HCModule
     protected string m_Build;
     protected ref array<ref HCXAILease> m_Leases = new array<ref HCXAILease>();
     protected ref array<string> m_PrunedIds = new array<string>();
+    protected bool m_PrunedCapLogged;
     protected int m_ReservedActors;
     protected int m_ReservedItems;
     protected int m_ReservedGroups;
@@ -49,6 +58,7 @@ class HCXAIAdapter extends HCModule
     protected int m_LastNow = -1;
     protected int m_LastReceiptSequence;
     protected int m_LastReceiptAt = -1;
+    protected bool m_ReadinessLogged;
 
     override string GetName() { return "optional-expansion-human-ai"; }
     // Invoke startup to create/read the user's preference even without admission.
@@ -56,6 +66,12 @@ class HCXAIAdapter extends HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        // Before Bind: InstallHooks refuses once an adapter is bound.
+        bool installed = HCXAIService.InstallLocalHooks();
+        string port = "not installed (Expansion AI not loaded or not a server)";
+        if (installed) { port = "installed once (local; receipt verification flags stay false until their verifiers land)"; }
+        else if (HCXAIService.Hooks()) { port = "already installed by another server script; local port skipped"; }
+        Print("[HC Expansion AI] trusted hook port " + port);
         if (!HCXAIService.Bind(this))
         {
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
@@ -65,19 +81,56 @@ class HCXAIAdapter extends HCModule
         HCXAIProfile profile = HCXAIStore.Load();
         this.Install(profile, HCXAIService.Hooks());
         Print("[HC Expansion AI] " + m_Status);
+        this.LogReadiness("server start");
+    }
+    bool ExpansionAISettingsLoaded()
+    {
+        return GetExpansionSettings() && GetExpansionSettings().GetAI() && GetExpansionSettings().GetAI().IsLoaded();
+    }
+    // One line naming every open readiness gate; logged at start and once more
+    // when Expansion AI settings are first observed loaded.
+    void LogReadiness(string trigger)
+    {
+        bool loaded = this.ExpansionAISettingsLoaded();
+        if (loaded) { m_ReadinessLogged = true; }
+        bool ready = false;
+        if (m_Profile) { ready = this.Ready(m_Profile.WorldName); }
+        bool admitted = HCXAIQualification.Admitted();
+        string session = "";
+        if (m_Profile) { session = m_Profile.WorldSession; }
+        string hooks = "missing";
+        string receipt = "no hook port";
+        HCXAIHooks installedHooks = HCXAIService.Hooks();
+        if (installedHooks)
+        {
+            hooks = "installed";
+            receipt = HCXAIRules.ReceiptGaps(installedHooks.Admission(session));
+        }
+        string settingsState = "not loaded";
+        if (loaded) { settingsState = "loaded"; }
+        string globals = this.GlobalsProblem();
+        if (globals == "") { globals = "fair"; }
+        Print("[HC Expansion AI] readiness (" + trigger + ") Ready=" + ready.ToString() + "; status=" + m_Status + "; pve_patrols_admission=" + admitted.ToString() + "; hooks=" + hooks + "; expansion_ai_settings=" + settingsState + "; globals=" + globals + "; receipt_unverified=" + receipt);
     }
     void LogAddonChecks()
     {
         bool provider = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts");
         bool animations = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_Animations_AI");
         Print("[HC Expansion AI] installed CfgPatches DayZExpansion_AI_Scripts=" + provider.ToString() + " DayZExpansion_Animations_AI=" + animations.ToString() + "; names alone do not verify artifact/version pin");
+        // Exercise the base late-bound selection (HCEventAISelection) once, so startup logs
+        // whether HC Events resolves this addon's provider; it only constructs a script object.
+        HCEventAIProvider selected = HCEventAISelection.Create();
+        string selectedName = "none";
+        if (selected) { selectedName = selected.ClassName(); }
+        Print("[HC Expansion AI] base event AI provider selection=" + selectedName + "; Ready stays false until Expansion AI settings are loaded and admission passes");
     }
     bool Install(HCXAIProfile profile, HCXAIHooks hooks)
     {
         if (!GetGame() || !GetGame().IsServer() || m_Profile || this.HasReservations()) { return false; }
-        m_Status = "enabled preference; invalid or missing operator policy";
+        string problem = HCXAIRules.ProfileProblem(profile);
+        m_Status = "enabled preference; invalid or missing operator policy: " + problem;
         if (profile && !profile.Enabled) { m_Status = "disabled by operator"; }
-        if (!HCXAIRules.ProfileValid(profile)) { return false; }
+        if (problem != "") { return false; }
         m_Status = "enabled preference; pve_patrols admission closed";
         if (!HCXAIQualification.Admitted()) { return false; }
         m_Status = "enabled preference; trusted artifact/observer/ownership hooks missing";
@@ -104,11 +157,19 @@ class HCXAIAdapter extends HCModule
     bool HasReservations() { return m_ReservedGroups > 0; }
     bool NativeGlobalsFair()
     {
-        if (eAIBase.s_eAI_UnlimitedReload != 0 || eAIBase.s_eAI_UnlimitedReloadAll != 0) { return false; }
-        if (!GetExpansionSettings() || !GetExpansionSettings().GetAI()) { return false; }
+        return this.GlobalsProblem() == "";
+    }
+    // First unfair or unsettled Expansion AI global, or "" when fair.
+    string GlobalsProblem()
+    {
+        if (eAIBase.s_eAI_UnlimitedReload != 0 || eAIBase.s_eAI_UnlimitedReloadAll != 0) { return "unlimited reload mask set"; }
+        // On a server GetAI() returns the instance even before Load(); only loaded settings are settled.
+        if (!this.ExpansionAISettingsLoaded()) { return "Expansion AI settings not loaded"; }
         ExpansionAISettings settings = GetExpansionSettings().GetAI();
-        if (settings.EnableFlankingOutsideCombat || settings.CanRecruitFriendly || settings.CanRecruitGuards) { return false; }
-        return settings.DamageMultiplier == 1 && settings.DamageReceivedMultiplier == 1;
+        if (settings.EnableFlankingOutsideCombat) { return "EnableFlankingOutsideCombat must be false"; }
+        if (settings.CanRecruitFriendly || settings.CanRecruitGuards) { return "CanRecruitFriendly/CanRecruitGuards must be false"; }
+        if (settings.DamageMultiplier != 1 || settings.DamageReceivedMultiplier != 1) { return "DamageMultiplier/DamageReceivedMultiplier must be 1"; }
+        return "";
     }
     bool Prerequisites()
     {
@@ -160,7 +221,15 @@ class HCXAIAdapter extends HCModule
         if (m_Leases.Count() < m_Profile.MaxLeaseHistory) { return true; }
         // Preserve cleanup and consumed-id evidence for this adapter's lifetime.
         // At the bound, refuse admission instead of forgetting an old cleanup.
-        if (m_PrunedIds.Count() >= 64) { return false; }
+        if (m_PrunedIds.Count() >= 64)
+        {
+            if (!m_PrunedCapLogged)
+            {
+                m_PrunedCapLogged = true;
+                Print("[HC Expansion AI] pruned-lease-id cap (64) reached; further pruning and new leases refused to keep cleanup evidence; restart the server to reset");
+            }
+            return false;
+        }
         int index = 0;
         while (index < m_Leases.Count())
         {
@@ -472,7 +541,9 @@ class HCXAIAdapter extends HCModule
     }
     override void OnTick(float deltaTime)
     {
-        if (!GetGame() || !GetGame().IsServer() || !m_Profile) { return; }
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        if (!m_ReadinessLogged && this.ExpansionAISettingsLoaded()) { this.LogReadiness("Expansion AI settings loaded"); }
+        if (!m_Profile) { return; }
         int now = GetGame().GetTime();
         if (now < 0 || now < m_LastNow)
         {
