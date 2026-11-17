@@ -39,6 +39,8 @@ class HCEventSite
     string SalvageClass;
     string ContainerClass;
     string AnchorClass;
+    // Server-created reward cache for this site's RECOVERY assignment (needs events_sites.enable).
+    bool RewardCache = false;
     // Source review is not a field survey or runtime geometry acceptance.
     bool Surveyed = false;
     string Provenance;
@@ -64,6 +66,7 @@ class HCEventMission
     int RewardUnits = 0;
     string ContainerClass;
     string AnchorClass;
+    bool RewardCache = false;
 }
 class HCEventRun
 {

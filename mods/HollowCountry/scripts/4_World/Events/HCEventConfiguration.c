@@ -51,6 +51,11 @@ class HCEventConfiguration
             }
             Print("[HC Events] generated enabled preference template; review world sites and provider prerequisites");
         }
+        if (settings && HCEventSitesGate.Admitted())
+        {
+            // In memory only; settings.json is never rewritten with curated sites.
+            HCEventReviewedSites.Merge(settings);
+        }
         if (!HCEventRuntimePolicy.SettingsValid(settings))
         {
             Print("[HC Events] invalid existing configuration; no overwrite or default fallback");

@@ -96,6 +96,7 @@ def environment():
     data = "\n".join(p.read_text() for p in sorted((ROOT / "3_Game/Events").glob("*.c")))
     env = dict(EArray=EArray, len=len, str=str, Print=lambda text: None)
     env["HCEventQualification"] = SimpleNamespace(Admitted=lambda: True) # explicit synthetic admission
+    env["HCEventSitesGate"] = SimpleNamespace(Admitted=lambda: False) # synthetic: reviewed sites stay closed unless a test opens them
     env["Vector"] = lambda x, y, z: [x, y, z]
     env["PlayerBase"] = SimpleNamespace(Cast=lambda value: value)
     env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Floor=math.floor)
