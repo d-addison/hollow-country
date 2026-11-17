@@ -45,7 +45,7 @@ def expression(text):
     text = re.sub(r"\bnew (HCModuleRegistry)\(\)", r"\1()", text)
     text = re.sub(r"\b(?:int|float|HCSettings|HCModule) (\w+) =", r"\1 =", text)
     text = re.sub(r"\bm_(\w+)\b", r"self.m_\1", text)
-    text = re.sub(r"\b(Stop|Tick)\b", r"self.\1", text)
+    text = re.sub(r"(?<!\.)\b(Stop|Tick)\b", r"self.\1", text)
     text = text.replace("&&", " and ").replace("||", " or ")
     text = re.sub(r"!(?!=)", "not ", text)
     for old, new in (("true", "True"), ("false", "False"), ("null", "None")):
@@ -129,7 +129,10 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                "HCModuleRegistry": lambda: registry, "Print": lambda text: None,
                "CALL_CATEGORY_SYSTEM": 0}
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
-                            m_Registry=None, m_LastTick=0, Tick=lambda: None)
+                            m_Registry=None, m_LastTick=0, Tick=lambda: None,
+                            # The perf sampler is a passive observer; its own tests live in test_perf_capture.
+                            m_Perf=SimpleNamespace(Start=lambda seconds: None, Stop=lambda: None,
+                                                   Sample=lambda elapsed, ticks: None))
     state.Stop = lambda: actual_method("Stop", context)(state)
     state.Start = lambda: actual_method("Start", context)(state)
     return state, calls

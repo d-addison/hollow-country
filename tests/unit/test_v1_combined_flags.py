@@ -140,7 +140,9 @@ class CoreFixture:
             base = lambda fn=fn: fn(self.registry)
         self.registry.RegisterModules = base
         self.state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None,
-                       m_LastTick=0, m_Registry=None)
+                       m_LastTick=0, m_Registry=None,
+                       m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,
+                                Sample=lambda elapsed, ticks: None))
         context = dict(GetGame=lambda: self.game, Print=self.profile.logs.append,
                        HCNativeSelfTests=N(Run=lambda: True),
                        HCSettings=N(LoadFromProfile=self.profile.load),

@@ -6,6 +6,7 @@ class HCServer
     protected ref array<ref HCModule> m_Active = new array<ref HCModule>();
     protected bool m_Started;
     protected float m_LastTick;
+    protected ref HCPerfSampler m_Perf = new HCPerfSampler();
 
     static HCServer Get()
     {
@@ -40,6 +41,7 @@ class HCServer
         }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
+        m_Perf.Start(60);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, m_Settings.TickIntervalMs, true);
         Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
@@ -58,13 +60,16 @@ class HCServer
             Stop();
             return;
         }
+        int perfStart = TickCount(0);
         foreach (HCModule module : m_Active) module.OnTick(elapsed);
+        m_Perf.Sample(elapsed, TickCount(perfStart));
     }
 
     void Stop()
     {
         if (!m_Started && m_Active.Count() == 0) return;
         m_Started = false;
+        m_Perf.Stop();
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
         for (int i = m_Active.Count() - 1; i >= 0; i--)
         {
