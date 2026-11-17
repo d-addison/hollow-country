@@ -1,0 +1,531 @@
+{
+  "kind": "interior-points-report",
+  "schema_version": 2,
+  "note": "offline aggregation of a native census; candidate only, spawning is not accepted by this tool",
+  "parameters": {
+    "radius": 0.5,
+    "max_per_storey": 4,
+    "max_total": 48,
+    "spacing": 2.0,
+    "loot_ratio": 0.25,
+    "max_lootmax": 12,
+    "min_agreement": 0.75,
+    "min_clearance": 1.9,
+    "max_slope": 0.6,
+    "band_tolerance": 0.25,
+    "height_spread_bound": 0.1,
+    "reach_source": "strict",
+    "min_calibration": 0.4
+  },
+  "funnel": {
+    "Land_Tenement_Small": {
+      "status": "computed",
+      "rows": 4,
+      "usable_placements": 4,
+      "reach_source": "strict",
+      "reach_mode": "known",
+      "stages": {
+        "candidates": 32,
+        "clearance": 32,
+        "height": 32,
+        "walkable": 32,
+        "reach": 32,
+        "agreement": 32,
+        "eligible": 32
+      },
+      "reach_cells": {
+        "yes": 32,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "reach_observations": {
+        "yes": 128,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "control_states": {
+        "tested": 4
+      },
+      "entered_states": {
+        "entered": 4
+      }
+    },
+    "Land_Tenement_Big": {
+      "status": "computed",
+      "rows": 4,
+      "usable_placements": 4,
+      "reach_source": "strict",
+      "reach_mode": "known",
+      "stages": {
+        "candidates": 20,
+        "clearance": 20,
+        "height": 20,
+        "walkable": 20,
+        "reach": 20,
+        "agreement": 20,
+        "eligible": 20
+      },
+      "reach_cells": {
+        "yes": 20,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "reach_observations": {
+        "yes": 80,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "control_states": {
+        "tested": 4
+      },
+      "entered_states": {
+        "entered": 4
+      }
+    },
+    "Land_HouseBlock_2F1": {
+      "status": "computed",
+      "rows": 4,
+      "usable_placements": 4,
+      "reach_source": "strict",
+      "reach_mode": "known",
+      "stages": {
+        "candidates": 32,
+        "clearance": 32,
+        "height": 32,
+        "walkable": 32,
+        "reach": 32,
+        "agreement": 32,
+        "eligible": 32
+      },
+      "reach_cells": {
+        "yes": 32,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "reach_observations": {
+        "yes": 128,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "control_states": {
+        "tested": 4
+      },
+      "entered_states": {
+        "entered": 4
+      }
+    },
+    "Land_Mil_Barracks2": {
+      "status": "computed",
+      "rows": 4,
+      "usable_placements": 4,
+      "reach_source": "strict",
+      "reach_mode": "known",
+      "stages": {
+        "candidates": 32,
+        "clearance": 32,
+        "height": 32,
+        "walkable": 32,
+        "reach": 32,
+        "agreement": 32,
+        "eligible": 32
+      },
+      "reach_cells": {
+        "yes": 32,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "reach_observations": {
+        "yes": 128,
+        "no": 0,
+        "nonav": 0,
+        "unqualified": 0,
+        "unknown": 0
+      },
+      "control_states": {
+        "tested": 4
+      },
+      "entered_states": {
+        "entered": 4
+      }
+    }
+  },
+  "stock_mapgroupproto_sha256": "9474908c34c573d62402b678c517068fb973b5682a89622f4677f7116f424891",
+  "census_sha256": "fb22fda110d8064383584eb147b69dc4b9e137554f26f2f610ffd458c5049c44",
+  "frame": {
+    "verdict": "as-is",
+    "classes": {
+      "Land_HouseBlock_2F1": {
+        "records": 32,
+        "as_is_hits": 32,
+        "rot90_hits": 0,
+        "verdict": "as-is"
+      },
+      "Land_Mil_Barracks2": {
+        "records": 32,
+        "as_is_hits": 32,
+        "rot90_hits": 0,
+        "verdict": "as-is"
+      }
+    },
+    "reason": "",
+    "min_records": 4,
+    "min_fraction": 0.8,
+    "min_margin": 0.25
+  },
+  "door_semantics": {
+    "reach_source": "strict",
+    "rows_compared": 16,
+    "closed_reached": 0,
+    "open_reached": 464,
+    "observed": true,
+    "classes": {
+      "Land_Tenement_Small": {
+        "rows_compared": 4,
+        "closed_reached": 0,
+        "open_reached": 128
+      },
+      "Land_Tenement_Big": {
+        "rows_compared": 4,
+        "closed_reached": 0,
+        "open_reached": 80
+      },
+      "Land_HouseBlock_2F1": {
+        "rows_compared": 4,
+        "closed_reached": 0,
+        "open_reached": 128
+      },
+      "Land_Mil_Barracks2": {
+        "rows_compared": 4,
+        "closed_reached": 0,
+        "open_reached": 128
+      }
+    },
+    "doors": {
+      "count": 16,
+      "locked": 0,
+      "opened": 16,
+      "observed_open": 16,
+      "restored": 16,
+      "rows": 16,
+      "invalid_rows": 0,
+      "problems": []
+    }
+  },
+  "calibration": {
+    "passed": true,
+    "min_coverage": 0.5,
+    "min_xz_coverage": 0.5,
+    "gate": "vertical (3D) coverage of lootFloor points only",
+    "threshold": 0.4,
+    "frame": {
+      "verdict": "as-is",
+      "classes": {
+        "Land_HouseBlock_2F1": {
+          "records": 32,
+          "as_is_hits": 32,
+          "rot90_hits": 0,
+          "verdict": "as-is"
+        },
+        "Land_Mil_Barracks2": {
+          "records": 32,
+          "as_is_hits": 32,
+          "rot90_hits": 0,
+          "verdict": "as-is"
+        }
+      },
+      "reason": "",
+      "min_records": 4,
+      "min_fraction": 0.8,
+      "min_margin": 0.25
+    },
+    "classes": {
+      "Land_HouseBlock_2F1": {
+        "radius": 0.5,
+        "frame": "as-is",
+        "gate": "lootFloor",
+        "points": 4,
+        "xz_covered": 2,
+        "v3_covered": 2,
+        "xz_coverage": 0.5,
+        "v3_coverage": 0.5,
+        "containers": {
+          "lootFloor": {
+            "points": 4,
+            "xz_covered": 2,
+            "v3_covered": 2,
+            "gated": true
+          },
+          "lootshelves": {
+            "points": 3,
+            "xz_covered": 3,
+            "v3_covered": 2,
+            "gated": false
+          }
+        },
+        "candidates": 32,
+        "candidates_used": 2,
+        "candidates_unused": 30,
+        "reach_mode": "known",
+        "usable_placements": 4
+      },
+      "Land_Mil_Barracks2": {
+        "radius": 0.5,
+        "frame": "as-is",
+        "gate": "lootFloor",
+        "points": 2,
+        "xz_covered": 2,
+        "v3_covered": 2,
+        "xz_coverage": 1.0,
+        "v3_coverage": 1.0,
+        "containers": {
+          "lootFloor": {
+            "points": 2,
+            "xz_covered": 2,
+            "v3_covered": 2,
+            "gated": true
+          }
+        },
+        "candidates": 32,
+        "candidates_used": 2,
+        "candidates_unused": 30,
+        "reach_mode": "known",
+        "usable_placements": 4
+      }
+    }
+  },
+  "status": "ok",
+  "classes": {
+    "Land_Tenement_Small": {
+      "usable_placements": 4,
+      "rows": 4,
+      "candidates": 32,
+      "eligible": 32,
+      "reachability_mode": "known",
+      "selected": 8,
+      "storeys": [
+        0,
+        1
+      ],
+      "off_grid_hits": 0,
+      "points": [
+        {
+          "x": -4.5,
+          "y": 0.0,
+          "z": -3.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 0,
+          "stock": [
+            -4.5,
+            0.0,
+            -3.5
+          ]
+        },
+        {
+          "x": -4.5,
+          "y": 0.0,
+          "z": -0.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 2,
+          "stock": [
+            -4.5,
+            0.0,
+            -0.5
+          ]
+        },
+        {
+          "x": -1.5,
+          "y": 0.0,
+          "z": -3.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 3,
+          "stock": [
+            -1.5,
+            0.0,
+            -3.5
+          ]
+        },
+        {
+          "x": -0.5,
+          "y": 0.0,
+          "z": -0.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 1,
+          "stock": [
+            -0.5,
+            0.0,
+            -0.5
+          ]
+        },
+        {
+          "x": -4.5,
+          "y": 3.0,
+          "z": -3.5,
+          "storey": 1,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 0,
+          "stock": [
+            -4.5,
+            3.0,
+            -3.5
+          ]
+        },
+        {
+          "x": -4.5,
+          "y": 3.0,
+          "z": -1.5,
+          "storey": 1,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 2,
+          "stock": [
+            -4.5,
+            3.0,
+            -1.5
+          ]
+        },
+        {
+          "x": -2.5,
+          "y": 3.0,
+          "z": -3.5,
+          "storey": 1,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 3,
+          "stock": [
+            -2.5,
+            3.0,
+            -3.5
+          ]
+        },
+        {
+          "x": -2.5,
+          "y": 3.0,
+          "z": -0.5,
+          "storey": 1,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 1,
+          "stock": [
+            -2.5,
+            3.0,
+            -0.5
+          ]
+        }
+      ]
+    },
+    "Land_Tenement_Big": {
+      "usable_placements": 4,
+      "rows": 4,
+      "candidates": 20,
+      "eligible": 20,
+      "reachability_mode": "known",
+      "selected": 4,
+      "storeys": [
+        0
+      ],
+      "off_grid_hits": 0,
+      "points": [
+        {
+          "x": -4.5,
+          "y": 0.0,
+          "z": -3.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 0,
+          "stock": [
+            -4.5,
+            0.0,
+            -3.5
+          ]
+        },
+        {
+          "x": -4.5,
+          "y": 0.0,
+          "z": -0.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 2,
+          "stock": [
+            -4.5,
+            0.0,
+            -0.5
+          ]
+        },
+        {
+          "x": -1.5,
+          "y": 0.0,
+          "z": -3.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 3,
+          "stock": [
+            -1.5,
+            0.0,
+            -3.5
+          ]
+        },
+        {
+          "x": -0.5,
+          "y": 0.0,
+          "z": -0.5,
+          "storey": 0,
+          "clearance": 2.8,
+          "agreement": 1.0,
+          "reachable": true,
+          "pick": 1,
+          "stock": [
+            -0.5,
+            0.0,
+            -0.5
+          ]
+        }
+      ]
+    }
+  },
+  "treatment": {
+    "sha256": "dd2f17b97a436de3b1af3adb34b646460ddc8685f41ca13d5d964ae5b57e8874",
+    "bytes": 2967,
+    "groups_changed": [
+      "Land_Tenement_Big",
+      "Land_Tenement_Small"
+    ],
+    "stock_frame": "as-is"
+  }
+}

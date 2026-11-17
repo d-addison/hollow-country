@@ -1151,8 +1151,9 @@ class Round3CliTests(unittest.TestCase):
 
     def test_an_unknown_reach_source_is_rejected_by_the_parser(self):
         self.census.write_bytes(encode(full_census()))
-        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
-            pts.main(self.argv("--reach-source", "loose"))
+        with mock.patch("sys.stderr"):
+            self.assertEqual(1, pts.main(self.argv("--reach-source", "loose")))   # r6: a refusal report, not SystemExit
+        self.assertEqual("invalid-input", json.loads(self.report.read_text())["refusal"]["kind"])
 
     def test_a_refusal_report_never_overwrites_an_existing_file(self):
         self.census.write_bytes(encode(full_census()))
@@ -1618,6 +1619,213 @@ class Round5RefusalReportTests(unittest.TestCase):
         with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
             self.assertEqual(1, pts.main(argv))
         self.assertEqual("refused", json.loads(self.report.read_text())["status"])
+
+
+def with_door_run(mutate):
+    """The full census with ``mutate(door_run_record_or_row)`` applied to every row's door_run."""
+    def apply(row):
+        if "door_run" in row:
+            mutate(row)
+    return census_with(full_census(), door_run=apply)
+
+
+class Round6DoorRunEvidenceTests(unittest.TestCase):
+    """Sol r5 P2: a door run that does not show doors opened, observed open and restored must not gate treatment."""
+
+    CONTRADICTIONS = (
+        ("missing", lambda row: row.pop("door_run")),
+        ("not-a-record", lambda row: row.update(door_run="done")),
+        ("no-change-zeros", lambda row: row["door_run"].update(opened=0, observed_open=0, restored=0, state="no-change")),
+        ("zero-opened-but-done", lambda row: row["door_run"].update(opened=0, observed_open=0, restored=0)),
+        ("not-restored", lambda row: row["door_run"].update(restored=0, state="not-restored")),
+        ("restored-zero-state-done", lambda row: row["door_run"].update(restored=0)),
+        ("never-observed-open", lambda row: row["door_run"].update(observed_open=0)),
+        ("open-stalled", lambda row: row["door_run"].update(observed_open=0, state="open-stalled")),
+        ("skipped", lambda row: row["door_run"].update(opened=0, observed_open=0, restored=0, state="skipped-capped")),
+        ("opened-exceeds-count", lambda row: row["door_run"].update(count=1, opened=2, observed_open=2, restored=2)),
+        ("count-mismatch-with-records", lambda row: row["door_run"].update(count=3)),
+        ("negative", lambda row: row["door_run"].update(restored=-1)),
+        ("boolean-count", lambda row: row["door_run"].update(opened=True, observed_open=True, restored=True)),
+        ("string-count", lambda row: row["door_run"].update(restored="1")),
+        ("state-missing", lambda row: row["door_run"].pop("state")),
+    )
+
+    def test_a_valid_door_run_still_builds(self):
+        _treatment, report = pts.build_treatment(encode(full_census()), STOCK, 0.4)
+        self.assertTrue(report["door_semantics"]["observed"])
+        self.assertEqual(0, report["door_semantics"]["doors"]["invalid_rows"])
+
+    def test_contradictory_or_missing_door_runs_are_refused_as_door_semantics_unobserved(self):
+        for label, mutate in self.CONTRADICTIONS:
+            with self.subTest(label=label):
+                error = refusal_of(self, encode(with_door_run(mutate)))
+                self.assertEqual("door-semantics-unobserved", error.report["refusal"]["kind"])
+                semantics = error.report["door_semantics"]
+                self.assertFalse(semantics["observed"])
+                self.assertGreater(semantics["doors"]["invalid_rows"], 0)
+                self.assertTrue(semantics["doors"]["problems"])
+                self.assertIn("door-run evidence", str(error))
+                self.assertNotIn("treatment", error.report)
+
+    def test_one_bad_row_among_valid_rows_is_enough_to_refuse(self):
+        document = full_census()
+        document["placements"][0]["door_run"].update(restored=0, state="not-restored")
+        error = refusal_of(self, encode(document))
+        self.assertEqual("door-semantics-unobserved", error.report["refusal"]["kind"])
+        self.assertEqual(1, error.report["door_semantics"]["doors"]["invalid_rows"])
+
+    def test_the_problem_list_is_bounded(self):
+        error = refusal_of(self, encode(with_door_run(lambda row: row.pop("door_run"))))
+        self.assertLessEqual(len(error.report["door_semantics"]["doors"]["problems"]), 8)
+
+    def test_a_door_record_may_carry_a_phase_code_after_the_five_base_fields(self):
+        document = with_door_run(lambda row: row["door_run"].update(doors=[[0.0, 0.0, 0.0, 0, 0, 0]]))
+        _treatment, report = pts.build_treatment(encode(document), STOCK, 0.4)
+        self.assertTrue(report["door_semantics"]["observed"])
+
+    def test_the_player_source_is_gated_by_the_same_door_evidence(self):
+        def rows(good):
+            out = []
+            for name, role in (("Land_Tenement_Small", "tenement"), ("Land_Tenement_Big", "tenement"),
+                               ("Land_HouseBlock_2F1", "calibration"), ("Land_Mil_Barracks2", "calibration")):
+                out += with_player(four_placements(name, role=role, hits=storey_hits(reach=0)), storey_hits(reach=1))
+            if not good:
+                for row in out:
+                    row["door_run"].update(restored=0, state="not-restored")
+            return out
+        _treatment, report = pts.build_treatment(encode(census(rows(True))), STOCK, 0.4, reach_source="player")
+        self.assertTrue(report["door_semantics"]["observed"])
+        error = refusal_of(self, encode(census(rows(False))), reach_source="player")
+        self.assertEqual("door-semantics-unobserved", error.report["refusal"]["kind"])
+
+
+class Round6CliTests(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.stock = self.root / "stock.xml"
+        self.stock.write_bytes(STOCK)
+        self.census = self.root / "census.json"
+        self.out, self.report = self.root / "out" / "t.xml", self.root / "out" / "report.json"
+
+    def argv(self, *extra):
+        return ["--census", str(self.census), "--stock-proto", str(self.stock), "--output", str(self.out),
+                "--report", str(self.report), "--min-calibration", "0.4", *extra]
+
+    def run_main(self, argv, code):
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+            self.assertEqual(code, pts.main(argv))
+        self.assertFalse(self.out.exists())
+        return json.loads(self.report.read_text())
+
+    def test_a_contradictory_door_run_writes_a_refusal_report_and_no_treatment(self):
+        for label, mutate in Round6DoorRunEvidenceTests.CONTRADICTIONS:
+            with self.subTest(label=label):
+                self.report = self.root / label / "report.json"
+                self.out = self.root / label / "t.xml"
+                self.census.write_bytes(encode(with_door_run(mutate)))
+                report = self.run_main(self.argv(), 2)
+                self.assertEqual("refused", report["status"])
+                self.assertEqual("door-semantics-unobserved", report["refusal"]["kind"])
+                self.assertFalse(report["door_semantics"]["observed"])
+
+    def test_a_command_line_parse_failure_writes_a_refusal_report_when_the_report_path_is_safe(self):
+        self.census.write_bytes(encode(full_census()))
+        for label, extra in (("radius", ["--radius", "oops"]), ("max-total", ["--max-total", "1.5"]),
+                             ("reach-source", ["--reach-source", "bogus"]), ("unknown", ["--nonsense"]),
+                             ("min-calibration-equals", ["--min-calibration=high"])):
+            with self.subTest(label=label):
+                self.report = self.root / label / "report.json"
+                self.out = self.root / label / "t.xml"
+                report = self.run_main(self.argv(*extra), 1)
+                self.assertEqual("refused", report["status"])
+                self.assertEqual("invalid-input", report["refusal"]["kind"])
+                self.assertTrue(report["refusal"]["message"])
+                self.assertNotIn("treatment", report)
+
+    def test_a_missing_required_argument_still_writes_the_report_when_one_is_named(self):
+        argv = ["--census", str(self.census), "--output", str(self.out), "--report", str(self.report)]
+        report = self.run_main(argv, 1)
+        self.assertEqual("invalid-input", report["refusal"]["kind"])
+        self.assertIn("--stock-proto", report["refusal"]["message"])
+
+    def test_a_parse_failure_without_a_safe_report_path_writes_nothing_and_exits_nonzero(self):
+        checkout = Path(pts.__file__).resolve().parents[2]
+        for report_arg in (["--report", str(checkout / "scratch-report.json")], ["--report", "../up/report.json"], []):
+            with self.subTest(report=report_arg):
+                argv = ["--census", str(self.census), "--stock-proto", str(self.stock), "--output", str(self.out),
+                        "--radius", "oops", *report_arg]
+                with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+                    self.assertEqual(1, pts.main(argv))
+                self.assertFalse(self.out.exists())
+                self.assertFalse((checkout / "scratch-report.json").exists())
+
+    def test_a_parse_failure_never_overwrites_an_existing_report(self):
+        self.report.parent.mkdir(parents=True)
+        self.report.write_text("keep")
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+            self.assertEqual(1, pts.main(self.argv("--radius", "oops")))
+        self.assertEqual("keep", self.report.read_text())
+
+    def test_help_still_exits_zero_without_a_report(self):
+        with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+            with self.assertRaises(SystemExit) as caught:
+                pts.main(["--help"])
+        self.assertEqual(0, caught.exception.code)
+        self.assertFalse(self.report.exists())
+
+
+HUGE = 10 ** 400
+
+
+class Round6NumericOverflowTests(unittest.TestCase):
+    """Sol r5 P3: an integer too large for a float is a census-invalid input, never an OverflowError."""
+
+    def places(self):
+        return (
+            ("frame-coordinate", lambda row: row["frame"][0].__setitem__(0, HUGE) if "frame" in row else None),
+            ("frame-hit-y", lambda row: row["frame"][1].__setitem__(4, -HUGE) if "frame" in row else None),
+            ("hit-coordinate", lambda row: row["hits"][0].__setitem__(0, HUGE)),
+            ("hit-clearance", lambda row: row["hits"][0].__setitem__(3, HUGE)),
+            ("box", lambda row: row["box_min"].__setitem__(0, HUGE)),
+            ("door-count", lambda row: row["door_run"].__setitem__("count", HUGE)),
+            ("grid-step", lambda row: row["grid"].__setitem__("step", HUGE)),
+        )
+
+    def test_number_rejects_huge_ints_without_raising(self):
+        self.assertFalse(pts._number(HUGE))
+        self.assertFalse(pts._number(-HUGE))
+        self.assertTrue(pts._number(7))
+
+    def test_the_builder_reports_census_invalid_for_a_huge_integer_anywhere(self):
+        for label, mutate in self.places():
+            with self.subTest(label=label):
+                error = refusal_of(self, encode(census_with(full_census(), field=mutate)))
+                self.assertIn(error.report["refusal"]["kind"], ("census-invalid", "door-semantics-unobserved"))
+                self.assertNotIsInstance(error, OverflowError)
+
+    def test_the_frame_overflow_is_census_invalid_specifically(self):
+        document = full_census()
+        document["placements"][8]["frame"][0][0] = HUGE
+        error = refusal_of(self, encode(document))
+        self.assertEqual("census-invalid", error.report["refusal"]["kind"])
+
+    def test_the_cli_writes_a_census_invalid_report_for_a_huge_integer(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "stock.xml").write_bytes(STOCK)
+            for label, mutate in self.places():
+                with self.subTest(label=label):
+                    (root / "census.json").write_bytes(encode(census_with(full_census(), field=mutate)))
+                    out, report_path = root / label / "t.xml", root / label / "report.json"
+                    argv = ["--census", str(root / "census.json"), "--stock-proto", str(root / "stock.xml"),
+                            "--output", str(out), "--report", str(report_path), "--min-calibration", "0.4"]
+                    with mock.patch("sys.stdout"), mock.patch("sys.stderr"):
+                        code = pts.main(argv)
+                    self.assertIn(code, (1, 2))
+                    self.assertFalse(out.exists())
+                    self.assertEqual("refused", json.loads(report_path.read_text())["status"])
 
 
 if __name__ == "__main__":

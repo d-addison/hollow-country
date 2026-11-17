@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<lootmax>
+	<group name="Land_HouseBlock_2F1" lootmax="6">
+		<usage name="Town" />
+		<container name="lootFloor" lootmax="4">
+			<category name="tools" />
+			<tag name="floor" />
+			<point pos="-4.4 0.0 -3.4" range="0.4" height="1.0" />
+			<point pos="-3.4 0.0 -1.6" range="0.4" height="1.0" />
+			<point pos="-1.0 0.0 -2.0" range="0.4" height="1.0" />
+			<point pos="-4.5 0.0 3.5" range="0.4" height="1.0" />
+		</container>
+		<container name="lootshelves" lootmax="2">
+			<category name="books" />
+			<tag name="shelves" />
+			<point pos="-4.5 1.0 -3.5" range="0.1" height="0.25" />
+			<point pos="-4.5 3.4 -3.5" range="0.1" height="0.25" />
+			<point pos="-2.5 5.9 -2.5" range="0.1" height="0.25" />
+		</container>
+	</group>
+	<group name="Land_Mil_Barracks2" lootmax="2">
+		<container name="lootFloor" lootmax="2">
+			<category name="tools" />
+			<point pos="-4.4 0.0 -3.4" range="0.4" height="1.0" />
+			<point pos="-1.4 0.0 -0.4" range="0.4" height="1.0" />
+		</container>
+	</group>
+	<group name="Land_Tenement_Small" lootmax="2">
+		<usage name="Town" />
+		<container name="lootFloor" lootmax="2">
+			<category name="tools" />
+			<category name="clothes" />
+			<tag name="floor" />
+			<point pos="-4.500000 0.000000 -3.500000" range="0.400000" height="1.000000" />
+			<point pos="-4.500000 0.000000 -0.500000" range="0.400000" height="1.000000" />
+			<point pos="-1.500000 0.000000 -3.500000" range="0.400000" height="1.000000" />
+			<point pos="-0.500000 0.000000 -0.500000" range="0.400000" height="1.000000" />
+			<point pos="-4.500000 3.000000 -3.500000" range="0.400000" height="1.000000" />
+			<point pos="-4.500000 3.000000 -1.500000" range="0.400000" height="1.000000" />
+			<point pos="-2.500000 3.000000 -3.500000" range="0.400000" height="1.000000" />
+			<point pos="-2.500000 3.000000 -0.500000" range="0.400000" height="1.000000" />
+		</container>
+		<container name="lootshelves" lootmax="0">
+			<category name="books" />
+			<tag name="shelves" />
+		</container>
+		<container name="lootweapons" lootmax="0">
+			<category name="weapons" />
+		</container>
+	</group>
+	<group name="Land_Tenement_Big" lootmax="1">
+		<usage name="Town" />
+		<container name="lootFloor" lootmax="1">
+			<category name="tools" />
+			<tag name="floor" />
+			<point pos="-4.500000 0.000000 -3.500000" range="0.400000" height="1.000000" />
+			<point pos="-4.500000 0.000000 -0.500000" range="0.400000" height="1.000000" />
+			<point pos="-1.500000 0.000000 -3.500000" range="0.400000" height="1.000000" />
+			<point pos="-0.500000 0.000000 -0.500000" range="0.400000" height="1.000000" />
+		</container>
+		<container name="lootshelves" lootmax="0">
+			<category name="books" />
+			<tag name="shelves" />
+		</container>
+	</group>
+	<group name="Land_Other" lootmax="3">
+		<container name="lootFloor" lootmax="3">
+			<category name="tools" />
+			<point pos="1 2 3" range="1" height="2" />
+		</container>
+	</group>
+</lootmax>

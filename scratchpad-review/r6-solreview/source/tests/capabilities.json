@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "catalog_id": "hollow-country-portable-acceptance-v1",
+  "capabilities": {
+    "pinned_inputs": "unknown",
+    "qualified_measurement": "unknown",
+    "schema_validator": "unknown",
+    "signed_package": "unknown",
+    "qualified_scenario_driver": "unknown",
+    "native_state_capture": "unknown",
+    "dayzdiag": "unknown",
+    "normal_server": "unknown",
+    "native_ce_accounting": "unknown",
+    "licensed_authenticated_rendered_client": "unknown",
+    "criterion_reviewer": "unknown",
+    "qualified_persistence_fault_driver": "unknown",
+    "licensed_authenticated_rendered_client_pair": "unknown",
+    "synchronized_client_capture": "unknown",
+    "surveyed_geometry": "unknown",
+    "native_inventory_ledger": "unknown",
+    "complete_recipe_audit": "unknown",
+    "resource_conservation_oracle": "unknown",
+    "paired_rendered_audio_capture": "unknown",
+    "validated_policy_bounds": "unknown",
+    "qualified_production_horde_provider": "unknown",
+    "complete_fresh_observer_coverage": "unknown",
+    "qualified_network_fault_driver": "unknown",
+    "secret_scan": "unknown",
+    "recorded_scope_decisions": "unknown",
+    "rights_review": "unknown",
+    "qualified_map_adapter": "unknown",
+    "separate_six_and_ninety_player_load": "unknown",
+    "complete_feature_audit": "unknown",
+    "qualified_native_provider": "unknown"
+  },
+  "context": {
+    "environment": "unverified",
+    "session_id": null,
+    "machine_discovery_performed": false,
+    "availability_values": [
+      "available",
+      "blocked",
+      "unknown"
+    ],
+    "verification": "No probes performed or acceptance inferred."
+  }
+}

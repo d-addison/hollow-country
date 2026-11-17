@@ -1,0 +1,523 @@
+[
+  {
+    "probe": "baseline",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 16,
+      "closed_reached": 0,
+      "open_reached": 464,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 16,
+        "locked": 0,
+        "opened": 16,
+        "observed_open": 16,
+        "restored": 16,
+        "rows": 16,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "forged-already-open",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 16,
+      "closed_reached": 0,
+      "open_reached": 464,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 16,
+        "locked": 0,
+        "opened": 16,
+        "observed_open": 16,
+        "restored": 16,
+        "rows": 16,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "forged-locked-closed",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 16,
+      "closed_reached": 0,
+      "open_reached": 464,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 16,
+        "locked": 0,
+        "opened": 16,
+        "observed_open": 16,
+        "restored": 16,
+        "rows": 16,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "forged-invalid-phase",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 16,
+      "closed_reached": 0,
+      "open_reached": 464,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 16,
+        "locked": 0,
+        "opened": 16,
+        "observed_open": 16,
+        "restored": 16,
+        "rows": 16,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "forged-nonbinary-flags",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 16,
+      "closed_reached": 0,
+      "open_reached": 464,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 16,
+        "locked": 0,
+        "opened": 16,
+        "observed_open": 16,
+        "restored": 16,
+        "rows": 16,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "legacy-stalled-close-hook",
+    "door_run": {
+      "count": 1,
+      "locked": 0,
+      "open_at_start": 0,
+      "opened": 1,
+      "observed_open": 1,
+      "restored": 1,
+      "delay_ticks": 30,
+      "state": "done",
+      "doors": [
+        [
+          -4.900000000000091,
+          1.0,
+          -0.5,
+          0,
+          0
+        ]
+      ],
+      "attempts": [
+        [
+          0,
+          2.0,
+          12,
+          [
+            -6.900000000000091,
+            0.0,
+            -0.5
+          ],
+          [
+            -6.900000000000091,
+            0.0,
+            -0.5
+          ],
+          2,
+          0.0
+        ]
+      ],
+      "player_attempts": [
+        [
+          0,
+          2.0,
+          12,
+          [
+            -6.900000000000091,
+            0.0,
+            -0.5
+          ],
+          [
+            -6.900000000000091,
+            0.0,
+            -0.5
+          ],
+          2,
+          0.0
+        ]
+      ]
+    },
+    "actual_open": true,
+    "actual_closed": false
+  },
+  {
+    "probe": "legacy-stalled-close-accepted",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 16,
+      "closed_reached": 0,
+      "open_reached": 464,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 16,
+        "locked": 0,
+        "opened": 16,
+        "observed_open": 16,
+        "restored": 16,
+        "rows": 16,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "player-skip-missing",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "player",
+      "rows_compared": 8,
+      "closed_reached": 0,
+      "open_reached": 256,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 0,
+          "closed_reached": 0,
+          "open_reached": 0
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 0,
+          "closed_reached": 0,
+          "open_reached": 0
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 8,
+        "locked": 0,
+        "opened": 8,
+        "observed_open": 8,
+        "restored": 8,
+        "rows": 8,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "player-skip-not-restored",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "player",
+      "rows_compared": 8,
+      "closed_reached": 0,
+      "open_reached": 256,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 0,
+          "closed_reached": 0,
+          "open_reached": 0
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 0,
+          "closed_reached": 0,
+          "open_reached": 0
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 8,
+        "locked": 0,
+        "opened": 8,
+        "observed_open": 8,
+        "restored": 8,
+        "rows": 8,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "player-skip-open-stalled",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "player",
+      "rows_compared": 8,
+      "closed_reached": 0,
+      "open_reached": 256,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 0,
+          "closed_reached": 0,
+          "open_reached": 0
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 0,
+          "closed_reached": 0,
+          "open_reached": 0
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 8,
+        "locked": 0,
+        "opened": 8,
+        "observed_open": 8,
+        "restored": 8,
+        "rows": 8,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "failed-restore-excluded-control",
+    "status": "ok",
+    "bytes": 2967,
+    "door_semantics": {
+      "reach_source": "strict",
+      "rows_compared": 15,
+      "closed_reached": 0,
+      "open_reached": 432,
+      "observed": true,
+      "classes": {
+        "Land_Tenement_Small": {
+          "rows_compared": 3,
+          "closed_reached": 0,
+          "open_reached": 96
+        },
+        "Land_Tenement_Big": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 80
+        },
+        "Land_HouseBlock_2F1": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        },
+        "Land_Mil_Barracks2": {
+          "rows_compared": 4,
+          "closed_reached": 0,
+          "open_reached": 128
+        }
+      },
+      "doors": {
+        "count": 15,
+        "locked": 0,
+        "opened": 15,
+        "observed_open": 15,
+        "restored": 15,
+        "rows": 15,
+        "invalid_rows": 0,
+        "problems": []
+      }
+    }
+  },
+  {
+    "probe": "refusal-parent-swap",
+    "exit": 1,
+    "wrote_inside_checkout": true,
+    "static": [
+      [
+        "inside",
+        "refused"
+      ],
+      [
+        "dotdot",
+        "refused"
+      ]
+    ]
+  },
+  {
+    "probe": "refusal-existing-file-after-swap",
+    "preserved": true
+  }
+]

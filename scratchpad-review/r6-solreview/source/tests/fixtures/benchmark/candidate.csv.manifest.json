@@ -1,0 +1,22 @@
+{
+  "runs": {
+    "candidate-1": {
+      "hardware": "synthetic-server-and-client/OS",
+      "mission": "synthetic-mission/map/config-hash",
+      "warmup_seconds": 60,
+      "sample_seconds": 120
+    },
+    "candidate-2": {
+      "hardware": "synthetic-server-and-client/OS",
+      "mission": "synthetic-mission/map/config-hash",
+      "warmup_seconds": 60,
+      "sample_seconds": 120
+    },
+    "candidate-3": {
+      "hardware": "synthetic-server-and-client/OS",
+      "mission": "synthetic-mission/map/config-hash",
+      "warmup_seconds": 60,
+      "sample_seconds": 120
+    }
+  }
+}

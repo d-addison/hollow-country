@@ -1,0 +1,18 @@
+[
+  {
+    "probe": "finite-overflow",
+    "exception": "OverflowError",
+    "message": "cannot convert float infinity to integer",
+    "has_report": false,
+    "report": false,
+    "treatment": false
+  },
+  {
+    "probe": "tiny-grid",
+    "exception": "OverflowError",
+    "message": "cannot convert float infinity to integer",
+    "has_report": false,
+    "report": false,
+    "treatment": false
+  }
+]

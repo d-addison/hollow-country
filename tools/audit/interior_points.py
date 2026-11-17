@@ -73,7 +73,13 @@ class CoverageError(ValueError):
 
 
 def _number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    """A finite JSON number. An integer too large for a float (OverflowError in isfinite) is not one."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    try:
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
 def _code(value):
@@ -278,10 +284,62 @@ def _row_codes(row, reach_source, name):
     return codes
 
 
+MAX_DOOR_PROBLEMS = 8
+DOOR_COUNT_KEYS = ("count", "locked", "open_at_start", "opened", "observed_open", "restored")
+
+
+def _count(value):
+    return isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1_000_000
+
+
+def _door_run_problem(record):
+    """Why a placement's door run is not evidence that the doors opened and were put back; None when it is.
+
+    The sampler opens only doors it found unlocked and actually closed, waits for the actual door phase, observes
+    them open, runs the open pass, closes them and observes them closed. Anything short of that is not a
+    door-semantics observation: a run that never opened a door, never saw one open, or left one open cannot be
+    compared against the run with the doors as found.
+    """
+    if not isinstance(record, dict):
+        return "door_run is missing"
+    for key in DOOR_COUNT_KEYS:
+        if key not in record:
+            if key == "open_at_start":
+                continue
+            return f"door_run.{key} is missing"
+        if not _count(record[key]):
+            return f"door_run.{key} is not a non-negative integer"
+    count, opened = record["count"], record["opened"]
+    if record.get("state") != "done":
+        return f"door_run.state is {record.get('state')!r}, not 'done'"
+    if opened < 1:
+        return "no door was opened by the run"
+    if opened > count or record["locked"] > count or opened + record["locked"] > count:
+        return "door_run counts are contradictory (opened plus locked exceed the door count)"
+    if record["observed_open"] != opened:
+        return f"{opened} door(s) opened but {record['observed_open']} observed open"
+    if record["restored"] != opened:
+        return f"{opened} door(s) opened but {record['restored']} restored"
+    delay = record.get("delay_ticks")
+    if delay is not None and not (_count(delay) and delay >= 1):
+        return "door_run.delay_ticks is not a positive integer"
+    doors = record.get("doors")
+    if not isinstance(doors, list) or len(doors) != count:
+        return "door_run.doors does not list every door"
+    for door in doors:
+        if not isinstance(door, list) or not 5 <= len(door) <= 6 or not all(_number(v) for v in door):
+            return "door_run.doors has a malformed record"
+    return None
+
+
 def door_semantics(census, reach_source):
-    """Do open doors reach strictly more cells than closed doors, over every usable row that passed its gate."""
+    """Do open doors reach strictly more cells than closed doors, over every usable row that passed its gate.
+
+    The comparison only counts when every compared row's door run is valid evidence (see ``_door_run_problem``).
+    """
     classes, closed_total, open_total, compared = {}, 0, 0, 0
-    doors = {"count": 0, "locked": 0, "opened": 0, "observed_open": 0, "restored": 0, "rows": 0}
+    doors = {"count": 0, "locked": 0, "opened": 0, "observed_open": 0, "restored": 0, "rows": 0,
+             "invalid_rows": 0, "problems": []}
     for name in TENEMENT_CLASSES + CALIBRATION_CLASSES:
         closed = opened = rows = 0
         for row in census["placements"]:
@@ -295,16 +353,22 @@ def door_semantics(census, reach_source):
             closed += sum(1 for code in closed_codes if code == 1)
             opened += sum(1 for code in open_codes if code == 1)
             record = row.get("door_run")
-            if isinstance(record, dict):
-                doors["rows"] += 1
-                for key in ("count", "locked", "opened", "observed_open", "restored"):
-                    doors[key] += record[key] if _number(record.get(key)) else 0
+            problem = _door_run_problem(record)
+            if problem is not None:
+                doors["invalid_rows"] += 1
+                if len(doors["problems"]) < MAX_DOOR_PROBLEMS:
+                    doors["problems"].append({"class": name, "placement": row.get("i"), "problem": problem})
+                continue
+            doors["rows"] += 1
+            for key in ("count", "locked", "opened", "observed_open", "restored"):
+                doors[key] += record[key]
         classes[name] = {"rows_compared": rows, "closed_reached": closed, "open_reached": opened}
         closed_total += closed
         open_total += opened
         compared += rows
     return {"reach_source": reach_source, "rows_compared": compared, "closed_reached": closed_total,
-            "open_reached": open_total, "observed": compared > 0 and open_total > closed_total,
+            "open_reached": open_total,
+            "observed": compared > 0 and open_total > closed_total and doors["invalid_rows"] == 0,
             "classes": classes, "doors": doors}
 
 
@@ -807,11 +871,15 @@ def _build(census_bytes, stock_bytes, base, min_calibration, radius, max_per_sto
     semantics = door_semantics(census, reach_source)
     base["door_semantics"] = semantics
     if not semantics["observed"]:
-        raise _refusal(CoverageError(
-            "door semantics unobserved: the run with the doors opened reached %d cells, the run with the doors as "
-            "found %d (rows compared %d); open must reach strictly more"
-            % (semantics["open_reached"], semantics["closed_reached"], semantics["rows_compared"])),
-            "door-semantics-unobserved", base)
+        message = ("door semantics unobserved: the run with the doors opened reached %d cells, the run with the "
+                   "doors as found %d (rows compared %d); open must reach strictly more"
+                   % (semantics["open_reached"], semantics["closed_reached"], semantics["rows_compared"]))
+        if semantics["doors"]["invalid_rows"]:
+            first = semantics["doors"]["problems"][0]
+            message += ("; door-run evidence invalid in %d row(s) (a door run must open, observe open and restore "
+                        "at least one door): %s %s: %s"
+                        % (semantics["doors"]["invalid_rows"], first["class"], first["placement"], first["problem"]))
+        raise _refusal(CoverageError(message), "door-semantics-unobserved", base)
     calibration, missing = {}, []
     for name in CALIBRATION_CLASSES:
         candidates = analysed[name]
@@ -916,8 +984,32 @@ def _write_refusal(path, error):
     print(f"interior_points: refusal report {path}", file=sys.stderr)
 
 
+class _UsageError(ValueError):
+    """A command-line parse failure, kept so main can still write a refusal report."""
+
+
+class _Parser(argparse.ArgumentParser):
+    def error(self, message):
+        raise _UsageError(message)
+
+
+def _report_path_from(argv):
+    """The safe --report path named on a command line that failed to parse, or None.
+
+    Only the report option is read, with the same abbreviation rules; the path still has to pass the normal
+    output-path checks (outside the checkout, no '..', not existing). Anything else yields no report.
+    """
+    lenient = _Parser(add_help=False)
+    lenient.add_argument("--report")
+    try:
+        known, _rest = lenient.parse_known_args(argv)
+        return _output_path(known.report) if known.report else None
+    except (ValueError, OSError):
+        return None
+
+
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = _Parser(description=__doc__.splitlines()[0])
     parser.add_argument("--census", required=True)
     parser.add_argument("--stock-proto", required=True, help="stock mapgroupproto.xml")
     parser.add_argument("--output", required=True, help="treatment mapgroupproto.xml (outside the checkout)")
@@ -933,7 +1025,14 @@ def main(argv=None):
     parser.add_argument("--allow-empty-classes", action="store_true")
     parser.add_argument("--reach-source", choices=REACH_SOURCES, default="strict",
                         help="which navmesh filter's reach codes gate eligibility (default strict; never switched silently)")
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except _UsageError as error:
+        print(f"interior_points: {error}", file=sys.stderr)
+        error.report = {"kind": "interior-points-report", "schema_version": 2, "status": "refused",
+                        "refusal": {"kind": "invalid-input", "message": f"command line: {error}"}}
+        _write_refusal(_report_path_from(sys.argv[1:] if argv is None else argv), error)
+        return 1
     report_path = None
     try:
         report_path = _output_path(args.report)

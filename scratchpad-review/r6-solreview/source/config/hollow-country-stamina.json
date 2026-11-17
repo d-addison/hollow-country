@@ -1,0 +1,11 @@
+{
+  "SchemaVersion": 1,
+  "Profile": "custom",
+  "Experimental": true,
+  "Settings": {
+    "SchemaVersion": 1,
+    "Enabled": true,
+    "ContinuousExertionScale": 0.5,
+    "RecoveryScale": 1.25
+  }
+}

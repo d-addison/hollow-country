@@ -1,0 +1,9 @@
+{
+  "kind": "interior-points-report",
+  "refusal": {
+    "kind": "invalid-input",
+    "message": "command line: argument --radius: invalid float value: 'bad'"
+  },
+  "schema_version": 2,
+  "status": "refused"
+}

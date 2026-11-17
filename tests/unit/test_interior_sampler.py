@@ -107,26 +107,66 @@ class Plane:
 
 
 class SampBuilding(cep.MockObject):
+    """REFERENCE door model with a REQUESTED phase apart from the ACTUAL phase (Building.c:33 versus :45/:51).
+
+    ``state`` is the requested phase (IsDoorOpen: the wanted phase is above 0.5). ``phase`` is the actual phase
+    (IsDoorOpened 1.0, IsDoorOpenedAjar 0.2, IsDoorClosed 0.0; anything else is mid-move). A request moves the
+    actual phase after ``lag`` ticks (the hook driver calls ``tick``), unless the door is ``stuck`` for that
+    request. A door is open and unlocked unless a test says otherwise, so a scenario that does not care about
+    doors never triggers the open pass. ``ops`` logs every state change the hook asks for.
+    """
+
+    MOVING = 0.5
+
     def __init__(self, *args, doors=(), **kwargs):
         super().__init__(*args, **kwargs)
         self.doors = list(doors)
-        # REFERENCE door state. A door is open and unlocked unless a test says otherwise, so a scenario that does
-        # not care about doors never triggers the open pass. ``ops`` logs every state change the hook makes.
         self.state, self.locked, self.ops = {}, set(), []
+        self.phase, self.pending, self.stuck, self.lag = {}, {}, {}, 2
+
+    def actual(self, index):
+        return self.phase.get(index, 1.0 if self.state.get(index, True) else 0.0)
 
     def IsDoorOpen(self, index):
         return self.state.get(index, True)
 
+    def IsDoorOpened(self, index):
+        return self.actual(index) == 1.0
+
+    def IsDoorOpenedAjar(self, index):
+        return self.actual(index) == 0.2
+
+    def IsDoorClosed(self, index):
+        return self.actual(index) == 0.0
+
     def IsDoorLocked(self, index):
         return index in self.locked
 
+    def request(self, index, opening):
+        self.ops.append(("open" if opening else "close", index))
+        self.phase[index] = self.actual(index)          # the actual phase is pinned: a request does not move it by itself
+        self.state[index] = opening
+        if ("open" if opening else "close") in self.stuck.get(index, ()):
+            return
+        lag = self.lag[index] if isinstance(self.lag, dict) else self.lag
+        if lag <= 0:
+            self.phase[index] = 1.0 if opening else 0.0
+            self.pending.pop(index, None)
+            return
+        self.phase[index] = self.MOVING
+        self.pending[index] = [lag, 1.0 if opening else 0.0]
+
     def OpenDoor(self, index):
-        self.ops.append(("open", index))
-        self.state[index] = True
+        self.request(index, True)
 
     def CloseDoor(self, index):
-        self.ops.append(("close", index))
-        self.state[index] = False
+        self.request(index, False)
+
+    def tick(self):
+        for index in list(self.pending):
+            self.pending[index][0] -= 1
+            if self.pending[index][0] <= 0:
+                self.phase[index] = self.pending.pop(index)[1]
 
     def GetType(self):
         return StrictS(self.type_name)
@@ -302,7 +342,7 @@ class DoorGatedNav(NavMesh):
         self.gate, self.open_links, self.open_player_links = gate, self.links, self.player_links
 
     def path(self, start, end, waypoints, flt=None):
-        closed = not self.building.IsDoorOpen(self.gate)
+        closed = not self.building.IsDoorOpened(self.gate)
         self.links = set() if closed else self.open_links
         self.player_links = set() if closed else self.open_player_links
         return super().path(start, end, waypoints, flt)
@@ -448,7 +488,7 @@ MODELLED = ("HCProbeKey", "HCProbeStr", "HCProbeBool", "HCProbeVector", "HCProbe
             "HCProbeReachDiagText", "HCProbeControlDetail", "HCProbeColumnFlush", "HCProbeFilterText",
             "HCProbeFlagEntry", "HCProbeFlagsText", "HCProbeReachResult",
             "HCProbeVariantState", "HCProbeSetState", "HCProbeUseEntrance", "HCProbeSetEntrance",
-            "HCProbeUseFilter", "HCProbeEnteredCheck", "HCProbeDoorsOpen", "HCProbeWait",
+            "HCProbeUseFilter", "HCProbeEnteredCheck", "HCProbeDoorsOpen", "HCProbeWait", "HCProbeDoorPhase", "HCProbeDoorsSettled",
             "HCProbeOpenControl", "HCProbeOpenFloors", "HCProbeDoorsClose", "HCProbeDoorsRestored",
             "HCProbeDoorRunText", "HCProbeEnteredText", "HCProbeFrameProbe", "HCProbeFrameCheck")
 # Methods the reference transpiler deliberately does not execute: the loaders are literal data and
@@ -505,6 +545,12 @@ class HookRun:
         self.model.m_HCProbeQuote = text_type('"')
         self.model.m_HCProbeFilter = STRICT_FILTER
         self.model.m_HCProbePlayerFilter = PLAYER_FILTER
+        step = self.model.HCProbeStep
+
+        def stepped():
+            step()
+            getattr(self.building, "tick", lambda: None)()
+        self.model.HCProbeStep = stepped        # one hook tick is one game tick: the doors keep moving
         for name, value in (overrides or {}).items():
             setattr(self.model, name, value)
         self.model.m_HCProbeClasses.Insert(text_type(building.type_name))
@@ -2840,7 +2886,7 @@ class Round5DoorRunTests(unittest.TestCase):
         self.hook = default_hook()
 
     def test_the_hook_opens_unlocked_doors_and_restores_them_and_never_locks_or_moves_anything(self):
-        for needle in ("OpenDoor(", "CloseDoor(", "IsDoorOpen(", "IsDoorLocked(", "m_HCProbeDoorDelayTicks"):
+        for needle in ("OpenDoor(", "CloseDoor(", "IsDoorClosed(", "IsDoorLocked(", "m_HCProbeDoorDelayTicks"):
             self.assertIn(needle, self.hook)
         self.assertEqual(1, self.hook.count(".OpenDoor("))
         self.assertEqual(1, self.hook.count(".CloseDoor("))
@@ -2889,7 +2935,7 @@ class Round5DoorRunTests(unittest.TestCase):
         run, building = gated_run(self.hook)
         row = run.row()
         self.assertEqual([("open", 0), ("close", 0)], building.ops)
-        self.assertFalse(building.IsDoorOpen(0))
+        self.assertTrue(building.IsDoorClosed(0))
         door_run = row["door_run"]
         self.assertEqual((1, 1, 1, "done"), (door_run["opened"], door_run["observed_open"], door_run["restored"], door_run["state"]))
         self.assertEqual(0, door_run["open_at_start"])
@@ -2982,6 +3028,139 @@ class Round5DoorRunTests(unittest.TestCase):
         self.assertEqual({"strict", "player", "strict_open", "player_open"}, set(row["reach_diag"]))
         self.assertIn("reached", row["reach_diag"]["strict_open"])
         self.assertNotIn("reached", row["reach_diag"]["strict"])
+
+
+class Round6DoorPhaseTests(unittest.TestCase):
+    """Sol r5 P2: IsDoorOpen(int) is the REQUESTED phase (Building.c:33). The actual state is IsDoorOpened /
+    IsDoorOpenedAjar / IsDoorClosed (:45/:51); the run waits for it with a bounded settle and says so when it stalls."""
+
+    def setUp(self):
+        self.hook = default_hook()
+
+    def gated(self, lag=2, stuck=None, overrides=None, extra_doors=0, setup=None):
+        building = flat_building()
+        building.doors = [building.doors[0]] + [building.to_world((-4.9 + 0.1 * (i + 1), 1.0, -0.5))
+                                                 for i in range(extra_doors)]
+        building.state[0] = False
+        building.lag = lag
+        building.stuck = dict(stuck or {})
+        if setup:
+            setup(building)
+        nav = DoorGatedNav(building, nav_for(building).zones, links=[("out", "g")])
+        run = HookRun(self.hook, building, storey_planes(building), nav=nav, overrides=overrides)
+        return run.run(), building
+
+    def test_the_hook_reads_the_actual_door_phase_and_never_the_requested_one(self):
+        self.assertIsNone(re.search(r"\bIsDoorOpen\(", self.hook))
+        for needle in ("IsDoorOpened(", "IsDoorClosed(", "IsDoorOpenedAjar(", "m_HCProbeDoorSettleTicks"):
+            self.assertIn(needle, self.hook)
+
+    def test_a_door_that_moves_slower_than_the_fixed_delay_is_waited_for_with_a_bounded_settle(self):
+        run, building = self.gated(lag=6, overrides={"m_HCProbeDoorDelayTicks": 1})
+        row = run.row()
+        door_run = row["door_run"]
+        self.assertEqual("done", door_run["state"])
+        self.assertEqual((1, 1, 1), (door_run["opened"], door_run["observed_open"], door_run["restored"]))
+        self.assertGreater(ones(row["open_codes"]), 0, "the open pass ran before the door actually opened")
+        self.assertEqual({"closed": "not-entered", "open": "entered"}, row["entered"]["strict"])
+        self.assertGreater(door_run["open_settle_ticks"], 0)
+        self.assertGreater(door_run["close_settle_ticks"], 0)
+        self.assertTrue(building.IsDoorClosed(0))
+
+    def test_a_fast_door_needs_no_settle_ticks(self):
+        door_run = self.gated(lag=1)[0].row()["door_run"]
+        self.assertEqual((0, 0), (door_run["open_settle_ticks"], door_run["close_settle_ticks"]))
+
+    def test_the_settle_is_bounded_and_a_close_that_never_completes_fails_explicitly(self):
+        run, building = self.gated(stuck={0: {"close"}})
+        row = run.row()
+        door_run = row["door_run"]
+        self.assertEqual("not-restored", door_run["state"])
+        self.assertEqual((1, 1, 0), (door_run["opened"], door_run["observed_open"], door_run["restored"]))
+        self.assertLessEqual(door_run["close_settle_ticks"], samp.DOOR_SETTLE_TICKS)
+        self.assertTrue(any("not-restored" in str(line) for line in run.prints), run.prints)
+        self.assertTrue(building.IsDoorOpened(0))
+
+    def test_an_open_that_never_completes_skips_the_open_pass_and_still_closes(self):
+        run, building = self.gated(stuck={0: {"open"}})
+        row = run.row()
+        door_run = row["door_run"]
+        self.assertEqual("open-stalled", door_run["state"])
+        self.assertEqual((1, 0, 1), (door_run["opened"], door_run["observed_open"], door_run["restored"]))
+        self.assertLessEqual(door_run["open_settle_ticks"], samp.DOOR_SETTLE_TICKS)
+        self.assertEqual([("open", 0), ("close", 0)], building.ops)
+        self.assertEqual([h[5] for h in row["hits"]], row["open_codes"])
+        self.assertEqual("untested", row["entered"]["strict"]["open"])
+        self.assertEqual("untested", row["entered"]["player"]["open"])
+        self.assertEqual(0, row["stats"]["open_paths"])
+
+    def test_one_door_of_two_that_does_not_open_is_still_an_open_stall(self):
+        run, _building = self.gated(stuck={1: {"open"}}, extra_doors=1,
+                                    setup=lambda b: b.state.__setitem__(1, False))
+        door_run = run.row()["door_run"]
+        self.assertEqual("open-stalled", door_run["state"])
+        self.assertEqual((2, 1), (door_run["opened"], door_run["observed_open"]))
+
+    def test_a_door_slower_than_delay_plus_settle_is_a_stall_not_a_wait_forever(self):
+        slow = samp.DOOR_DELAY_TICKS + samp.DOOR_SETTLE_TICKS + 40
+        door_run = self.gated(lag=slow)[0].row()["door_run"]
+        self.assertEqual("not-restored", door_run["state"])
+        self.assertEqual(0, door_run["observed_open"])
+
+    def test_a_door_inside_the_delay_plus_settle_budget_completes(self):
+        door_run = self.gated(lag=samp.DOOR_DELAY_TICKS + 5)[0].row()["door_run"]
+        self.assertEqual("done", door_run["state"])
+        self.assertGreater(door_run["open_settle_ticks"], 0)
+
+    def test_a_door_requested_open_but_actually_closed_is_opened_and_restored(self):
+        def stale(building):
+            building.state[0], building.phase[0] = True, 0.0
+        run, building = self.gated(setup=stale)
+        door_run = run.row()["door_run"]
+        self.assertEqual([("open", 0), ("close", 0)], building.ops)
+        self.assertEqual("done", door_run["state"])
+        self.assertEqual(0, door_run["open_at_start"])
+
+    def test_doors_found_ajar_open_or_moving_are_left_alone_and_counted(self):
+        def mixed(building):
+            building.phase.update({1: 0.2, 2: 1.0, 3: SampBuilding.MOVING})
+            building.state.update({1: True, 2: True, 3: True})
+        run, building = self.gated(extra_doors=3, setup=mixed)
+        door_run = run.row()["door_run"]
+        self.assertEqual([("open", 0), ("close", 0)], building.ops)
+        self.assertEqual((4, 1, 1, 1), (door_run["count"], door_run["opened"], door_run["observed_open"], door_run["restored"]))
+        self.assertEqual((1, 1, 1), (door_run["open_at_start"], door_run["ajar_at_start"], door_run["moving_at_start"]))
+        self.assertEqual([0, 2, 1, 3], [door[5] for door in door_run["doors"]])
+        self.assertEqual((0.2, 1.0), (building.phase[1], building.phase[2]))
+        self.assertEqual("done", door_run["state"])
+
+    def test_a_building_whose_only_doors_are_ajar_or_open_is_no_change_and_records_why(self):
+        for phase, label in ((0.2, "ajar"), (1.0, "open")):
+            with self.subTest(phase=label):
+                building = flat_building()
+                building.phase[0], building.state[0] = phase, True
+                row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+                self.assertEqual([], building.ops)
+                self.assertEqual("no-change", row["door_run"]["state"])
+                self.assertEqual(1, row["door_run"]["ajar_at_start"] + row["door_run"]["open_at_start"])
+
+    def test_a_locked_door_is_never_opened_even_when_actually_closed(self):
+        building = flat_building()
+        building.locked, building.phase[0], building.state[0] = {0}, 0.0, False
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+        self.assertEqual([], building.ops)
+        self.assertEqual(1, row["door_run"]["locked"])
+
+    def test_the_settle_check_is_what_makes_the_slow_door_work(self):
+        old = "if (!HCProbeDoorsSettled() && m_HCProbeSettleUsed < m_HCProbeDoorSettleTicks)"
+        self.assertEqual(1, self.hook.count(old))
+        mutant = self.hook.replace(old, "if (false)")
+        building = flat_building()
+        building.state[0], building.lag = False, 6
+        nav = DoorGatedNav(building, nav_for(building).zones, links=[("out", "g")])
+        row = HookRun(mutant, building, storey_planes(building), nav=nav,
+                      overrides={"m_HCProbeDoorDelayTicks": 1}).run().row()
+        self.assertEqual(0, ones(row["open_codes"]))
 
 
 class Round5StagerFrameTests(SamplerWorkspace):

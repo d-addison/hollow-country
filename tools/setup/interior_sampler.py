@@ -73,6 +73,7 @@ DEFAULT_PATH_LIMIT = 3000
 DEFAULT_OUTPUT_LIMIT = 6000000
 DEFAULT_WAIT_MINUTES = 10
 DOOR_DELAY_TICKS = 30
+DOOR_SETTLE_TICKS = 30
 MAX_FRAME_POINTS = 64
 MAX_FRAME_POINTS_PER_CLASS = 32
 FRAME_CONTAINER = "lootFloor"
@@ -151,10 +152,16 @@ class HCDisposableDiagnosticMission : CustomMission
     protected int m_HCProbePathLimit = @@PATH_LIMIT@@;
     protected int m_HCProbeOutputLimit = @@OUTPUT_LIMIT@@;
     protected int m_HCProbeDoorDelayTicks = @@DOOR_DELAY@@;
+    protected int m_HCProbeDoorSettleTicks = @@DOOR_SETTLE@@;
     protected int m_HCProbeOpenFloorChunk = 100;
     protected int m_HCProbeDoorCount = 0;
     protected int m_HCProbeDoorLocked = 0;
     protected int m_HCProbeDoorOpenStart = 0;
+    protected int m_HCProbeDoorAjarStart = 0;
+    protected int m_HCProbeDoorMovingStart = 0;
+    protected int m_HCProbeSettleUsed = 0;
+    protected int m_HCProbeOpenSettle = 0;
+    protected int m_HCProbeCloseSettle = 0;
     protected int m_HCProbeDoorsObserved = 0;
     protected int m_HCProbeDoorsRestored = 0;
     protected int m_HCProbeDoorDelay = 0;
@@ -925,6 +932,32 @@ HOOK_TAIL = r"""
         HCProbeSetState(variant, state);
     }
 
+    int HCProbeDoorPhase(int door)
+    {
+        if (m_HCProbeBuilding.IsDoorClosed(door))
+            return 0;
+        if (m_HCProbeBuilding.IsDoorOpened(door))
+            return 1;
+        if (m_HCProbeBuilding.IsDoorOpenedAjar(door))
+            return 2;
+        return 3;
+    }
+
+    bool HCProbeDoorsSettled()
+    {
+        int wanted = 1;
+        if (m_HCProbeWaitNext == 8)
+            wanted = 0;
+        int index = 0;
+        int total = m_HCProbeOpenedDoors.Count();
+        for (index = 0; index < total; index++)
+        {
+            if (HCProbeDoorPhase(m_HCProbeOpenedDoors.Get(index)) != wanted)
+                return false;
+        }
+        return true;
+    }
+
     void HCProbeReachSetup()
     {
         m_HCProbeReachState = "unavailable";
@@ -966,18 +999,25 @@ HOOK_TAIL = r"""
         int door = 0;
         int lockedFlag = 0;
         int openFlag = 0;
+        int phaseCode = 0;
         vector doorPos;
         for (door = 0; door < doorCount; door++)
         {
             doorPos = m_HCProbeBuilding.CoordToLocal(m_HCProbeBuilding.GetDoorSoundPos(door));
             lockedFlag = 0;
             openFlag = 0;
+            phaseCode = HCProbeDoorPhase(door);
             if (m_HCProbeBuilding.IsDoorLocked(door))
                 lockedFlag = 1;
-            if (m_HCProbeBuilding.IsDoorOpen(door))
+            if (phaseCode != 0)
                 openFlag = 1;
+            if (phaseCode == 1)
+                m_HCProbeDoorOpenStart = m_HCProbeDoorOpenStart + 1;
+            if (phaseCode == 2)
+                m_HCProbeDoorAjarStart = m_HCProbeDoorAjarStart + 1;
+            if (phaseCode == 3)
+                m_HCProbeDoorMovingStart = m_HCProbeDoorMovingStart + 1;
             m_HCProbeDoorLocked = m_HCProbeDoorLocked + lockedFlag;
-            m_HCProbeDoorOpenStart = m_HCProbeDoorOpenStart + openFlag;
             if (door > 0)
             {
                 doorText = doorText + ",";
@@ -985,7 +1025,7 @@ HOOK_TAIL = r"""
             }
             doorText = doorText + HCProbeVector(doorPos);
             recordText = recordText + "[" + HCProbeNum(doorPos[0]) + "," + HCProbeNum(doorPos[1]) + "," + HCProbeNum(doorPos[2]) + ",";
-            recordText = recordText + HCProbeInt(lockedFlag) + "," + HCProbeInt(openFlag) + "]";
+            recordText = recordText + HCProbeInt(lockedFlag) + "," + HCProbeInt(openFlag) + "," + HCProbeInt(phaseCode) + "]";
             HCProbeReachDoor(0, door, centreX, centreZ);
             HCProbeReachDoor(1, door, centreX, centreZ);
         }
@@ -1402,7 +1442,7 @@ HOOK_TAIL = r"""
         {
             for (door = 0; door < m_HCProbeDoorCount; door++)
             {
-                if (!m_HCProbeBuilding.IsDoorLocked(door) && !m_HCProbeBuilding.IsDoorOpen(door))
+                if (!m_HCProbeBuilding.IsDoorLocked(door) && HCProbeDoorPhase(door) == 0)
                 {
                     m_HCProbeBuilding.OpenDoor(door);
                     m_HCProbeOpenedDoors.Insert(door);
@@ -1420,6 +1460,7 @@ HOOK_TAIL = r"""
         }
         m_HCProbeDoorState = "opened";
         m_HCProbeDoorDelay = m_HCProbeDoorDelayTicks;
+        m_HCProbeSettleUsed = 0;
         m_HCProbeWaitNext = 5;
         m_HCProbePhase = 4;
     }
@@ -1429,6 +1470,15 @@ HOOK_TAIL = r"""
         m_HCProbeDoorDelay = m_HCProbeDoorDelay - 1;
         if (m_HCProbeDoorDelay > 0)
             return;
+        if (!HCProbeDoorsSettled() && m_HCProbeSettleUsed < m_HCProbeDoorSettleTicks)
+        {
+            m_HCProbeSettleUsed = m_HCProbeSettleUsed + 1;
+            return;
+        }
+        if (m_HCProbeWaitNext == 5)
+            m_HCProbeOpenSettle = m_HCProbeSettleUsed;
+        if (m_HCProbeWaitNext == 8)
+            m_HCProbeCloseSettle = m_HCProbeSettleUsed;
         m_HCProbePhase = m_HCProbeWaitNext;
     }
 
@@ -1439,10 +1489,20 @@ HOOK_TAIL = r"""
         int total = m_HCProbeOpenedDoors.Count();
         for (index = 0; index < total; index++)
         {
-            if (m_HCProbeBuilding.IsDoorOpen(m_HCProbeOpenedDoors.Get(index)))
+            if (HCProbeDoorPhase(m_HCProbeOpenedDoors.Get(index)) == 1)
                 observed = observed + 1;
         }
         m_HCProbeDoorsObserved = observed;
+        if (observed < total)
+        {
+            m_HCProbeDoorState = "open-stalled";
+            m_HCProbeEntered.Set(2, "untested");
+            m_HCProbeEntered.Set(3, "untested");
+            m_HCProbeOpenCodes = m_HCProbeStrictCodes;
+            m_HCProbeOpenPlayerCodes = m_HCProbePlayerCodes;
+            m_HCProbePhase = 7;
+            return;
+        }
         float centreX = (m_HCProbeBoxMin[0] + m_HCProbeBoxMax[0]) * 0.5;
         float centreZ = (m_HCProbeBoxMin[2] + m_HCProbeBoxMax[2]) * 0.5;
         int door = 0;
@@ -1497,6 +1557,7 @@ HOOK_TAIL = r"""
         for (index = 0; index < total; index++)
             m_HCProbeBuilding.CloseDoor(m_HCProbeOpenedDoors.Get(index));
         m_HCProbeDoorDelay = m_HCProbeDoorDelayTicks;
+        m_HCProbeSettleUsed = 0;
         m_HCProbeWaitNext = 8;
         m_HCProbePhase = 4;
     }
@@ -1508,13 +1569,17 @@ HOOK_TAIL = r"""
         int total = m_HCProbeOpenedDoors.Count();
         for (index = 0; index < total; index++)
         {
-            if (!m_HCProbeBuilding.IsDoorOpen(m_HCProbeOpenedDoors.Get(index)))
+            if (HCProbeDoorPhase(m_HCProbeOpenedDoors.Get(index)) == 0)
                 restored = restored + 1;
         }
         m_HCProbeDoorsRestored = restored;
-        m_HCProbeDoorState = "done";
+        if (m_HCProbeDoorState == "opened")
+            m_HCProbeDoorState = "done";
         if (restored < total)
+        {
             m_HCProbeDoorState = "not-restored";
+            Print("[HC Interior Sampler] WARNING doors not-restored: " + HCProbeInt(total - restored) + " opened door(s) did not report closed");
+        }
         m_HCProbePhase = 2;
     }
 
@@ -1524,6 +1589,9 @@ HOOK_TAIL = r"""
         text = text + HCProbeKey("open_at_start") + HCProbeInt(m_HCProbeDoorOpenStart) + "," + HCProbeKey("opened") + HCProbeInt(m_HCProbeOpenedDoors.Count()) + ",";
         text = text + HCProbeKey("observed_open") + HCProbeInt(m_HCProbeDoorsObserved) + "," + HCProbeKey("restored") + HCProbeInt(m_HCProbeDoorsRestored) + ",";
         text = text + HCProbeKey("delay_ticks") + HCProbeInt(m_HCProbeDoorDelayTicks) + "," + HCProbeKey("state") + HCProbeStr(m_HCProbeDoorState) + ",";
+        text = text + HCProbeKey("ajar_at_start") + HCProbeInt(m_HCProbeDoorAjarStart) + "," + HCProbeKey("moving_at_start") + HCProbeInt(m_HCProbeDoorMovingStart) + ",";
+        text = text + HCProbeKey("open_settle_ticks") + HCProbeInt(m_HCProbeOpenSettle) + "," + HCProbeKey("close_settle_ticks") + HCProbeInt(m_HCProbeCloseSettle) + ",";
+        text = text + HCProbeKey("settle_limit") + HCProbeInt(m_HCProbeDoorSettleTicks) + ",";
         text = text + HCProbeKey("doors") + "[" + m_HCProbeDoorText + "]," + HCProbeKey("attempts") + "[" + m_HCProbeOpenAttempts + "],";
         text = text + HCProbeKey("player_attempts") + "[" + m_HCProbePlayerOpenAttempts + "]}";
         return text;
@@ -1625,6 +1693,11 @@ HOOK_TAIL = r"""
         m_HCProbeDoorCount = 0;
         m_HCProbeDoorLocked = 0;
         m_HCProbeDoorOpenStart = 0;
+        m_HCProbeDoorAjarStart = 0;
+        m_HCProbeDoorMovingStart = 0;
+        m_HCProbeSettleUsed = 0;
+        m_HCProbeOpenSettle = 0;
+        m_HCProbeCloseSettle = 0;
         m_HCProbeDoorsObserved = 0;
         m_HCProbeDoorsRestored = 0;
         m_HCProbeOpenIndex = 0;
@@ -1937,7 +2010,7 @@ def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DE
                                ("@@BUILDING_RAY_LIMIT@@", str(building_ray_limit)),
                                ("@@RUN_RAY_LIMIT@@", str(run_ray_limit)), ("@@PATH_LIMIT@@", str(path_limit)),
                                ("@@OUTPUT_LIMIT@@", str(output_limit)),
-                               ("@@DOOR_DELAY@@", str(DOOR_DELAY_TICKS))) + shared:
+                               ("@@DOOR_DELAY@@", str(DOOR_DELAY_TICKS)), ("@@DOOR_SETTLE@@", str(DOOR_SETTLE_TICKS))) + shared:
         head = head.replace(placeholder, value)
     tail = HOOK_TAIL.replace("@@INTERSECT@@", INTERSECTS[intersect])
     for placeholder, value in shared:
@@ -2230,7 +2303,8 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
         "frame_check": {"container": FRAME_CONTAINER, "transforms": list(FRAME_TRANSFORMS),
                         "points": {name: len(frame[name]) for name in calibration},
                         "per_class_limit": MAX_FRAME_POINTS_PER_CLASS},
-        "door_run": {"open_delay_ticks": DOOR_DELAY_TICKS, "restores_doors": True, "locks_doors": False},
+        "door_run": {"open_delay_ticks": DOOR_DELAY_TICKS, "settle_ticks": DOOR_SETTLE_TICKS, "restores_doors": True,
+                     "locks_doors": False, "observes": "actual phase (IsDoorOpened/IsDoorOpenedAjar/IsDoorClosed)"},
         "target_classes": classes, "targets": targets,
         "mission_files": built["mission_files"], "staged_files": built["staged"],
     })

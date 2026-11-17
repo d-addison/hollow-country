@@ -1,0 +1,58 @@
+[
+  {
+    "mutant": "M1-ignore-invalid-door-rows",
+    "test": "Round6DoorRunEvidenceTests.test_one_bad_row_among_valid_rows_is_enough_to_refuse",
+    "killed": true,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "mutant": "M2-ignore-restoration-count",
+    "test": "Round6DoorRunEvidenceTests.test_contradictory_or_missing_door_runs_are_refused_as_door_semantics_unobserved",
+    "killed": true,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "mutant": "M3-wanted-open-phase",
+    "test": "Round6DoorPhaseTests.test_a_door_that_moves_slower_than_the_fixed_delay_is_waited_for_with_a_bounded_settle",
+    "killed": true,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "mutant": "M4-omit-close",
+    "test": "Round5DoorRunTests.test_closed_doors_are_opened_the_codes_are_recorded_again_and_the_doors_are_closed_again",
+    "killed": true,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "mutant": "M5-accept-overflow",
+    "test": "Round6NumericOverflowTests.test_number_rejects_huge_ints_without_raising",
+    "killed": true,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  {
+    "mutant": "M6-parse-exit-without-report",
+    "test": "Round6CliTests.test_a_command_line_parse_failure_writes_a_refusal_report_when_the_report_path_is_safe",
+    "killed": true,
+    "failures": 0,
+    "errors": 5,
+    "skipped": 0
+  },
+  {
+    "mutant": "M7-ignore-unobserved-open",
+    "test": "Round6DoorPhaseTests.test_an_open_that_never_completes_skips_the_open_pass_and_still_closes",
+    "killed": true,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  }
+]
