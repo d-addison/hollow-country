@@ -1,0 +1,53 @@
+........................FF........................................................................................................FF.......................................................................................................................................................................
+======================================================================
+FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another resolution instance] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1599, in test_substantive_differences_are_still_conflicts_when_spellings_also_differ
+    self.assertIsNotNone(report._proxies(built)[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another resolution instance] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1599, in test_substantive_differences_are_still_conflicts_when_spellings_also_differ
+    self.assertIsNotNone(report._proxies(built)[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1915, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+======================================================================
+FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')
+The resolution lookup is one result per model and host: rows of one model that disagree are contradictory reads,
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1915, in test_one_model_cannot_have_two_different_resolution_results_in_either_order
+    self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
+AssertionError: Tuples differ: ('pending', 'proxy_evidence_malformed') != ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+First differing element 0:
+'pending'
+'server_qualified'
+
+- ('pending', 'proxy_evidence_malformed')
++ ('server_qualified', 'native_attach_with_proxy_config_slot')
+
+----------------------------------------------------------------------
+Ran 297 tests in 8.938s
+
+FAILED (failures=4)

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "B00",
+    "test": "test_unknown_case_slots_do_not_implicate_native_slot",
+    "returncode": 0,
+    "output": "test_unknown_case_slots_do_not_implicate_native_slot (adversarial.AdversarialTests.test_unknown_case_slots_do_not_implicate_native_slot) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nOK\n"
+  },
+  {
+    "id": "M03",
+    "test": "test_unknown_case_slots_do_not_implicate_native_slot",
+    "returncode": 1,
+    "output": "test_unknown_case_slots_do_not_implicate_native_slot (adversarial.AdversarialTests.test_unknown_case_slots_do_not_implicate_native_slot) ... FAIL\n\n======================================================================\nFAIL: test_unknown_case_slots_do_not_implicate_native_slot (adversarial.AdversarialTests.test_unknown_case_slots_do_not_implicate_native_slot)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/code/hc-worktrees/taped-r8/scratchpad-review/r11-solreview/test_adversarial.py\", line 105, in test_unknown_case_slots_do_not_implicate_native_slot\n    self.assertEqual('server_qualified', result['hosts'][0]['lights']['UniversalLight']['verdict'])\nAssertionError: 'server_qualified' != 'pending'\n- server_qualified\n+ pending\n\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "id": "B00",
+    "test": "test_class_spelling_alone_collapses",
+    "returncode": 0,
+    "output": "test_class_spelling_alone_collapses (adversarial.AdversarialTests.test_class_spelling_alone_collapses) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nOK\n"
+  },
+  {
+    "id": "M08",
+    "test": "test_class_spelling_alone_collapses",
+    "returncode": 1,
+    "output": "test_class_spelling_alone_collapses (adversarial.AdversarialTests.test_class_spelling_alone_collapses) ... FAIL\n\n======================================================================\nFAIL: test_class_spelling_alone_collapses (adversarial.AdversarialTests.test_class_spelling_alone_collapses)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/code/hc-worktrees/taped-r8/scratchpad-review/r11-solreview/test_adversarial.py\", line 82, in test_class_spelling_alone_collapses\n    self.assertEqual(1, len(report._proxies(raw)[1]))\nAssertionError: 1 != 0\n\n----------------------------------------------------------------------\nRan 1 test in 0.001s\n\nFAILED (failures=1)\n"
+  },
+  {
+    "id": "B00",
+    "test": "identity_guard",
+    "returncode": 0,
+    "output": "pending ['no_probe_row']\n"
+  },
+  {
+    "id": "M07",
+    "test": "identity_guard",
+    "returncode": 0,
+    "output": "pending ['spawned_type_mismatch']\n"
+  }
+]

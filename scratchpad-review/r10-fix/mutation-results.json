@@ -1,0 +1,267 @@
+[
+  {
+    "id": "M03",
+    "description": "review M03: casefolded implicated slot names",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot)",
+      "Ran 297 tests in 11.952s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "M08",
+    "description": "review M08: case-sensitive config class identity",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_config_class_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_config_class_spelling_alone_collapses)",
+      "FAIL: test_a_config_class_spelling_of_two_instances_is_still_one_class (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_config_class_spelling_of_two_instances_is_still_one_class)",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [\\dz\\weapons\\attachments\\light\\weaponlight_universal] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [\\dz\\weapons\\attachments\\light\\weaponlight_universal] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [dz//weapons/attachments/light/weaponlight_universal.p3d] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [dz//weapons/attachments/light/weaponlight_universal.p3d] (first='dz//weapons/attachments/light/weaponlight_universal.p3d')",
+      "Ran 297 tests in 11.821s",
+      "FAILED (failures=10)"
+    ]
+  },
+  {
+    "id": "X1",
+    "description": "implicated reads the conflict only for kind ok (round 9)",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 297 tests in 12.169s",
+      "FAILED (failures=18)"
+    ]
+  },
+  {
+    "id": "X2",
+    "description": "malformed kind drops the conflict",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope)",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 297 tests in 11.609s",
+      "FAILED (failures=12, errors=1)"
+    ]
+  },
+  {
+    "id": "X3",
+    "description": "legacy mismatch kind drops the conflict",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope)",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 297 tests in 9.528s",
+      "FAILED (failures=6, errors=1)"
+    ]
+  },
+  {
+    "id": "X4",
+    "description": "host reason only for kind ok",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 297 tests in 9.344s",
+      "FAILED (failures=18)"
+    ]
+  },
+  {
+    "id": "X5",
+    "description": "generic malformed checked before the implicated conflict",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 297 tests in 9.415s",
+      "FAILED (failures=6)"
+    ]
+  },
+  {
+    "id": "X6",
+    "description": "raw model path in the comparison signature",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [\\dz\\weapons\\attachments\\light\\weaponlight_universal] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [\\dz\\weapons\\attachments\\light\\weaponlight_universal] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [dz//weapons/attachments/light/weaponlight_universal.p3d] (first='\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.p3d')",
+      "FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [dz//weapons/attachments/light/weaponlight_universal.p3d] (first='dz//weapons/attachments/light/weaponlight_universal.p3d')",
+      "Ran 297 tests in 9.839s",
+      "FAILED (failures=8)"
+    ]
+  },
+  {
+    "id": "X7",
+    "description": "raw resolution selection in the comparison signature",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.001] (first='PROXY:/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:\\dz\\weapons\\attachments\\light\\weaponlight_universal.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:\\dz\\weapons\\attachments\\light\\weaponlight_universal.001] (first='proxy:\\\\dz\\\\weapons\\\\attachments\\\\light\\\\weaponlight_universal.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001] (first='PROXY:\\\\DZ\\\\WEAPONS\\\\ATTACHMENTS\\\\LIGHT\\\\WEAPONLIGHT_UNIVERSAL.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:dz/weapons/attachments/light/weaponlight_universal.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:dz/weapons/attachments/light/weaponlight_universal.001] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "Ran 297 tests in 9.224s",
+      "FAILED (failures=8)"
+    ]
+  },
+  {
+    "id": "X8",
+    "description": "resolution selection key drops the instance number",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another resolution instance] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another resolution instance] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_one_model_cannot_have_two_different_resolution_results_in_either_order (tests.unit.test_taped_light_report.ResolutionLodEvidenceTests.test_one_model_cannot_have_two_different_resolution_results_in_either_order) [different selection] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.002')",
+      "Ran 297 tests in 8.938s",
+      "FAILED (failures=4)"
+    ]
+  },
+  {
+    "id": "X9",
+    "description": "unreadable sibling stops the scan",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope)",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [selection] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "Ran 297 tests in 9.030s",
+      "FAILED (failures=8, errors=1)"
+    ]
+  },
+  {
+    "id": "X10",
+    "description": "legacy-class mismatch sibling stops the scan",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope)",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])",
+      "FAIL: test_other_class_mismatches_and_a_mixed_host_stay_malformed (tests.unit.test_taped_light_report.RoundSixNativeFactsTests.test_other_class_mismatches_and_a_mixed_host_stay_malformed)",
+      "Ran 297 tests in 9.019s",
+      "FAILED (failures=5, errors=1)"
+    ]
+  },
+  {
+    "id": "X11",
+    "description": "non-legacy class mismatch sibling stops the scan",
+    "result": "SURVIVED",
+    "returncode": 0,
+    "replacements": 1,
+    "summary": [
+      "Ran 297 tests in 7.898s",
+      "OK"
+    ]
+  },
+  {
+    "id": "X12",
+    "description": "model path signature drops the basename",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "ERROR: test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot)",
+      "FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another model basename] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')",
+      "FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another model basename] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')",
+      "Ran 297 tests in 8.176s",
+      "FAILED (failures=2, errors=1)"
+    ]
+  }
+]

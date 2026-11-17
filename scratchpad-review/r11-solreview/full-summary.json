@@ -1,0 +1,19 @@
+{
+  "command": "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit",
+  "cwd": "scratchpad-review/r11-solreview/source-snapshot",
+  "environment": {
+    "TMPDIR": "scratchpad-review/r11-solreview/tmp"
+  },
+  "source_snapshot_files": 301,
+  "source_snapshot_matches_worktree": true,
+  "summary": [
+    "Ran 2442 tests in 145.812s",
+    "FAILED (failures=1, errors=155, skipped=1)"
+  ],
+  "failed_outcomes": {
+    "Git-checkout guard (deployment fixtures)": 41,
+    "Git-checkout guard (probe fixtures)": 114,
+    "secondary UnboundLocalError after blocked setup": 1
+  },
+  "scope_limitation": "All temporary writes confined to r11 scratch; outer worktree .git is still an ancestor."
+}

@@ -1,0 +1,63 @@
+..................FFFFFF..E...................................................................................................................................................................................................................................................................................
+======================================================================
+ERROR: test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope)
+The conflict is about a magazine proxy: it still implicates no light slot, whatever the sibling's status.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1518, in test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope
+    self.assertEqual({"magazine"}, set(parsed[4]["slots"]), [item["selection"] for item in entries])
+                                       ~~~~~~~~~^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+======================================================================
+FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1486, in test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1486, in test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1486, in test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1486, in test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1486, in test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection) (order=['proxy:/dz/other/legacy_proxy.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1486, in test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 297 tests in 9.528s
+
+FAILED (failures=6, errors=1)

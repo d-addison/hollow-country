@@ -1,0 +1,14 @@
+...................F......................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order)
+A row whose class is neither ``Proxy<basename>`` nor the earlier whole-path spelling is unreadable (malformed);
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1518, in test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 298 tests in 8.815s
+
+FAILED (failures=1)

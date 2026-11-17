@@ -1,0 +1,6 @@
+ M .banso-brief.md
+ M scratchpad-review/r9-solreview/counterexamples.json
+ M tests/unit/test_taped_light_report.py
+ M tools/audit/taped_light_report.py
+?? scratchpad-review/r10-fix/
+?? scratchpad-review/r11-solreview/

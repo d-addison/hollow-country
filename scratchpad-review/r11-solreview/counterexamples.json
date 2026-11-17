@@ -1,0 +1,35 @@
+[
+  {
+    "case": "conflict alone",
+    "parsed": "ok",
+    "host": "pending",
+    "reasons": [
+      "proxy_alias_conflict"
+    ],
+    "pair": "pending",
+    "integrity": [],
+    "acceptance": "PENDING"
+  },
+  {
+    "case": "same conflict plus legacy sibling",
+    "parsed": "mismatch",
+    "host": "pending",
+    "reasons": [
+      "proxy_alias_conflict"
+    ],
+    "pair": "pending",
+    "integrity": [],
+    "acceptance": "PENDING"
+  },
+  {
+    "case": "same conflict plus unreadable sibling and native refusal",
+    "parsed": "malformed",
+    "host": "pending",
+    "reasons": [
+      "proxy_alias_conflict"
+    ],
+    "pair": "pending",
+    "integrity": [],
+    "acceptance": "PENDING"
+  }
+]

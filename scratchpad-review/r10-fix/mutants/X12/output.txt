@@ -1,0 +1,31 @@
+.......................EFF................................................................................................................................................................................................................................................................................
+======================================================================
+ERROR: test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot)
+Review M03: ``weaponflashlight`` is not the native slot ``weaponFlashlight``; an unrelated conflict that lists
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1621, in test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot
+    self.assertEqual({"weaponflashlight"}, set(parsed[4]["slots"]))
+                                               ~~~~~~~~~^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+======================================================================
+FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another model basename] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1599, in test_substantive_differences_are_still_conflicts_when_spellings_also_differ
+    self.assertIsNotNone(report._proxies(built)[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_substantive_differences_are_still_conflicts_when_spellings_also_differ (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_substantive_differences_are_still_conflicts_when_spellings_also_differ) [another model basename] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1599, in test_substantive_differences_are_still_conflicts_when_spellings_also_differ
+    self.assertIsNotNone(report._proxies(built)[4])
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 297 tests in 8.176s
+
+FAILED (failures=2, errors=1)

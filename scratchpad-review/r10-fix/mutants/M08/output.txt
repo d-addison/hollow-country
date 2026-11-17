@@ -1,0 +1,86 @@
+................FF....FFFFFFFF..................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_config_class_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_config_class_spelling_alone_collapses)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1569, in test_a_config_class_spelling_alone_collapses
+    self.assertEqual(1, len(parsed[1]))
+AssertionError: 1 != 0
+
+======================================================================
+FAIL: test_a_config_class_spelling_of_two_instances_is_still_one_class (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_config_class_spelling_of_two_instances_is_still_one_class)
+Two instances (two identities) whose class spellings differ only by case read one config entry; if their
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1580, in test_a_config_class_spelling_of_two_instances_is_still_one_class
+    self.assertIsNotNone(parsed[4])
+AssertionError: unexpectedly None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D] (first='/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [\dz\weapons\attachments\light\weaponlight_universal] (first='\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [\dz\weapons\attachments\light\weaponlight_universal] (first='\\dz\\weapons\\attachments\\light\\weaponlight_universal')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [dz//weapons/attachments/light/weaponlight_universal.p3d] (first='\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_coherent_model_path_spellings_collapse_into_one_row (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_coherent_model_path_spellings_collapse_into_one_row) [dz//weapons/attachments/light/weaponlight_universal.p3d] (first='dz//weapons/attachments/light/weaponlight_universal.p3d')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1542, in test_coherent_model_path_spellings_collapse_into_one_row
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+----------------------------------------------------------------------
+Ran 297 tests in 11.821s
+
+FAILED (failures=10)

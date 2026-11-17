@@ -1,0 +1,44 @@
+[
+  {
+    "case": "native positive",
+    "host": "pending",
+    "pair": "pending",
+    "reason": "proxy_evidence_malformed",
+    "model_evidence": "pending"
+  },
+  {
+    "case": "native positive with selection",
+    "host": "pending",
+    "pair": "pending",
+    "reason": "proxy_evidence_malformed",
+    "model_evidence": "pending"
+  },
+  {
+    "case": "native refusal, no prerequisite owned",
+    "host": "geometry_missing",
+    "pair": "geometry_missing",
+    "reason": "native_attach_refused",
+    "model_evidence": "pending"
+  },
+  {
+    "case": "native refusal, prerequisite evidence absent",
+    "host": "pending",
+    "pair": "pending",
+    "reason": "prerequisite_evidence_missing",
+    "model_evidence": "pending"
+  },
+  {
+    "case": "native refusal, unmet prerequisite",
+    "host": "pending",
+    "pair": "pending",
+    "reason": "refusal_may_depend_on_prerequisite",
+    "model_evidence": "pending"
+  },
+  {
+    "case": "native refusal, satisfied prerequisite",
+    "host": "geometry_missing",
+    "pair": "geometry_missing",
+    "reason": "native_attach_refused",
+    "model_evidence": "pending"
+  }
+]

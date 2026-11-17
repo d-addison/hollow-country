@@ -488,8 +488,15 @@ def _proxy_row(entry, res):
     found = [_res_row(item, lod) for item, lod in zip(rows, res["lods"])]
     if None in found:
         return None
-    key = tuple((item["name"], item["selection"], item["vertex_ok"], item["vertex"]) for item in found)
+    key = tuple((item["name"], _selection_key(item["selection"]), item["vertex_ok"], item["vertex"]) for item in found)
     return dict(values, res=found, res_key=key)
+
+
+def _selection_key(selection):
+    """Comparison spelling of one resolution selection: a proxy name keeps its instance number and loses only its
+    case and slash spelling (owner rule A); text that is no proxy name is compared as observed."""
+    name = _proxy_name(selection)
+    return name if name else selection
 
 
 def _row_facts(entry, values):
@@ -593,26 +600,28 @@ def _whole_path_class(cfg_class, path):
 
 
 def _proxies(row):
-    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or
-    ("ok", rows, truncated, res, conflict).
+    """Typed proxy evidence of a host row as ``(kind, rows, truncated, res, conflict)``; ``kind`` is "missing",
+    "malformed", "mismatch" or "ok". The tuple is always five long: ``conflict`` is independent of ``kind``.
 
     Everything that makes the host's own read-back unreadable as a whole is malformed here, before any slot is matched:
     a malformed proxy name, resolution or LOD facts that contradict each other, a per-row LOD list that is not the host's,
     a row that contradicts its own bookkeeping. Copies of one identity that agree (a leading-slash alias, case and slash
-    variants) collapse into one row. Copies that disagree (an identity read two ways, rows that read the same
-    ``Proxy<basename>`` config entry differently or with different resolution results) are a *conflict*: ``conflict`` is
-    None, or a dict with ``slots`` (every inventory slot any contradicting copy lists, exact names) and ``all`` (a copy's
-    slot list was cut, so any slot may be implicated). The contradicting identities and config classes give no rows;
-    ``_model_evidence`` withholds evidence from the implicated slots only."""
+    variants of the proxy path, the model path, the resolution proxy and the config class) collapse into one row. Copies
+    that disagree (an identity read two ways, rows that read the same ``Proxy<basename>`` config entry differently or with
+    different resolution results) are a *conflict*: ``conflict`` is None, or a dict with ``slots`` (every inventory slot
+    any contradicting copy lists, exact names) and ``all`` (a copy's slot list was cut, so any slot may be implicated).
+    The contradicting identities and config classes give no rows. An unreadable or legacy-named sibling changes ``kind``
+    but never drops a conflict between readable rows; ``_model_evidence`` withholds evidence from the implicated slots
+    only, before any selection or refusal is considered."""
     if not any(key in row for key in PROXY_HOST_KEYS):
-        return ("missing",)
+        return ("missing", [], False, None, None)
     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
     if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
-        return ("malformed",)
+        return ("malformed", [], False, None, None)
     res, lod = _res_host(row), _lod_facts(row)
     if res is MISSING or lod is MISSING or (res is not None and not _lods_agree(res, lod)):
-        return ("malformed",)
-    parsed, identities, lookups, mismatch = [], {}, {}, False
+        return ("malformed", [], False, None, None)
+    parsed, identities, lookups, malformed, mismatch = [], {}, {}, False, False
     conflict = {"slots": set(), "all": False, "names": set(), "classes": set()}
 
     def contradict(name, klass, *readings):
@@ -626,14 +635,16 @@ def _proxies(row):
         values = _proxy_row(entry, res)
         name = _proxy_name(values["selection"]) if values else None
         if name is None:
-            return ("malformed",)
+            malformed = True       # unreadable: it gives no row, but its readable siblings still answer for themselves
+            continue
         if values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
             if values["cfg_tried"] is not None or not _whole_path_class(values["cfg_class"], name[0]):
-                return ("malformed",)
+                malformed = True
+                continue
             mismatch = True       # the earlier producer's whole-path class: consistent, but not a lookup of the real class
         klass = values["cfg_class"].casefold()
-        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
-                  values["res_key"])
+        lookup = (values["cfg_exists"], _path(values["model"]), tuple(values["inventory_slots"]), values["slot_count"],
+                  values["res_key"])       # spelling-insensitive signature; the exact slot names are compared as observed
         reading = (klass, lookup)
         known = identities.setdefault(name, reading)
         if known != reading:
@@ -643,14 +654,15 @@ def _proxies(row):
             contradict(name, klass, lookups[klass][0], lookup)
             conflict["names"].add(lookups[klass][1])
         parsed.append((name, klass, dict(values, path=name[0]), known is reading))
-    if mismatch:
-        return ("mismatch",)
     rows = [item for name, klass, item, first in parsed
             if first and name not in conflict["names"] and klass not in conflict["classes"]]       # an alias adds no second row
     found = None
     if conflict["names"]:
         found = {"slots": frozenset(conflict["slots"]), "all": conflict["all"]}
-    return ("ok", rows, count > len(entries) or not complete, res, found)
+    kind = "malformed" if malformed else "mismatch" if mismatch else "ok"
+    if kind == "malformed":
+        return (kind, [], False, None, found)
+    return (kind, rows, count > len(entries) or not complete, res, found)
 
 
 def _resolution_path(selection):
@@ -808,7 +820,7 @@ def _native_diagnostics(observations):
 
 def _implicated(proxies, slot):
     """True when proxy copies that contradict each other implicate this exact slot (never for an unrelated conflict)."""
-    conflict = proxies[4] if proxies[0] == "ok" else None
+    conflict = proxies[4]       # whatever the overall status: an unreadable or legacy sibling never hides a conflict
     return conflict is not None and (conflict["all"] or slot in conflict["slots"])
 
 
@@ -822,11 +834,14 @@ def _model_evidence(host_slot, slot, proxies, slot_names):
       client            nothing the server can see decides it (no proxy for the slot, none against it),
       pending           ``detail`` is the pending reason.
 
-    Malformed proxy evidence outranks every kind, because the host's read-back is then not trustworthy; so does an alias
-    conflict that implicates this slot (``conflict`` is then True), and only such a slot. A proxy whose
+    An alias conflict that implicates this slot (``conflict`` is then True) outranks every kind, including a sibling's
+    parse status, and only such a slot; malformed proxy evidence outranks the rest, because the host's read-back is then
+    not trustworthy. A proxy whose
     config entry is missing or whose lists were cut is pending, never negative."""
-    if proxies[0] == "malformed" or _implicated(proxies, slot):
-        return {"source": "pending", "detail": "proxy_evidence_malformed", "conflict": proxies[0] != "malformed"}
+    if _implicated(proxies, slot):
+        return {"source": "pending", "detail": "proxy_evidence_malformed", "conflict": True}
+    if proxies[0] == "malformed":
+        return {"source": "pending", "detail": "proxy_evidence_malformed", "conflict": False}
     if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
         return {"source": "selection", "selection": host_slot["selection"]}
     if proxies[0] == "missing":
@@ -1095,7 +1110,7 @@ def _evaluate_host(entry, rows, context):
     prerequisites = _prerequisites(row)
     variant = _variant(row, prerequisites)
     proxies = _proxies(row)
-    if proxies[0] == "ok" and proxies[4] is not None:
+    if proxies[4] is not None:
         reasons.add("proxy_alias_conflict")       # the host stays pending; only the implicated slots lose their evidence
     for light in context["representatives"]:
         base["lights"][light] = _evaluate_light(light, light_entries.get(light, MISSING), slot_names, host_slots,

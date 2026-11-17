@@ -4,6 +4,7 @@ Nothing here establishes DayZ behavior: the report only joins what a native prob
 with the config classification, and these tests prove only that join logic.
 """
 import copy
+import itertools
 import json
 from pathlib import Path
 import re
@@ -1451,6 +1452,189 @@ class AliasConflictScopeTests(unittest.TestCase):
         self.assertEqual(("pending", "pending_client"), (slot["verdict"], slot["reason"]))
         slot = self.build([proxy(slots=("pistolFlashlight",))])["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
         self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+
+
+class ConflictPrecedenceTests(unittest.TestCase):
+    """Fix round 10 (Sol review of round 9): a detected alias conflict survives every parse status of its siblings, and
+    spelling-only differences (model path, resolution proxy name, config class) are never conflicts (owner rule A)."""
+
+    MAG = "/dz/other/magazine"
+
+    def build(self, proxies, selection=False, lights=None):
+        built = row("AK74", "slot_host", gun_slots(weapon_model=selection),
+                    good_gun_lights() if lights is None else lights, proxies=proxies)
+        return built, report.build_report(classification([host("AK74", "slot_host")]), observations([built]))
+
+    def aliases(self):
+        first = proxy()
+        return first, dict(copy.deepcopy(first), selection=first["selection"].replace("proxy:/", "proxy:"),
+                           cfg_exists=False, model="", inventory_slots=[], slot_count=0)
+
+    def legacy_sibling(self):
+        path = "/dz/other/legacy_proxy"
+        return proxy(path, exists=False, cfg_class="Proxy" + path, res_selection="")
+
+    def broken_sibling(self):
+        return dict(proxy("/dz/other/broken"), selection="not-a-proxy")
+
+    def test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection(self):
+        for entries in itertools.permutations([*self.aliases(), self.legacy_sibling()]):
+            with self.subTest(order=[item["selection"] for item in entries]):
+                built, result = self.build(list(entries), selection=True)
+                parsed = report._proxies(built)
+                self.assertEqual("mismatch", parsed[0])
+                self.assertIsNotNone(parsed[4])
+                record = result["hosts"][0]
+                self.assertEqual([], result["integrity"]["issues"])
+                self.assertEqual("pending", record["verdict"])
+                self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+                self.assertIn("proxy_alias_conflict", record["reasons"])
+                self.assertEqual(0, pair_counts(result).get("server_qualified", 0))
+
+    def test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection(self):
+        refused = refusal_lights()
+        for entries in itertools.permutations([*self.aliases(), self.broken_sibling()]):
+            for label, selection, lights in (("refusal", False, refused), ("selection", True, None)):
+                with self.subTest(label, order=[item["selection"] for item in entries]):
+                    built, result = self.build(list(entries), selection, lights)
+                    parsed = report._proxies(built)
+                    self.assertEqual("malformed", parsed[0])
+                    self.assertIsNotNone(parsed[4])
+                    record = result["hosts"][0]
+                    self.assertEqual("pending", record["verdict"])
+                    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+                    self.assertIn("proxy_alias_conflict", record["reasons"])
+                    self.assertEqual(0, pair_counts(result).get("geometry_missing", 0))
+                    self.assertEqual(0, pair_counts(result).get("server_qualified", 0))
+
+    def test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order(self):
+        """A row whose class is neither ``Proxy<basename>`` nor the earlier whole-path spelling is unreadable (malformed);
+        the readable conflicting copies beside it are still a conflict."""
+        wrong = dict(proxy("/dz/other/wrongclass"), cfg_class="ProxySomethingElse")
+        for entries in itertools.permutations([*self.aliases(), wrong]):
+            built, result = self.build(list(entries), selection=True)
+            parsed = report._proxies(built)
+            self.assertEqual("malformed", parsed[0], [item["selection"] for item in entries])
+            self.assertIsNotNone(parsed[4])
+            self.assertEqual("pending", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
+            self.assertIn("proxy_alias_conflict", result["hosts"][0]["reasons"])
+
+    def test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope(self):
+        """The conflict is about a magazine proxy: it still implicates no light slot, whatever the sibling's status."""
+        first = proxy(self.MAG, slots=("magazine",))
+        second = dict(first, selection="proxy:" + self.MAG[1:] + ".001", model="\\dz\\other.p3d")
+        for sibling in (self.broken_sibling(), self.legacy_sibling()):
+            for entries in itertools.permutations([first, second, sibling]):
+                built, _result = self.build(list(entries))
+                parsed = report._proxies(built)
+                self.assertEqual({"magazine"}, set(parsed[4]["slots"]), [item["selection"] for item in entries])
+                self.assertFalse(parsed[4]["all"])
+
+    def test_the_parse_status_without_a_conflict_is_unchanged(self):
+        for label, entries, kind in (("legacy only", [proxy(), self.legacy_sibling()], "mismatch"),
+                                     ("broken only", [proxy(), self.broken_sibling()], "malformed"),
+                                     ("clean", [proxy()], "ok")):
+            built, result = self.build(entries)
+            parsed = report._proxies(built)
+            self.assertEqual(kind, parsed[0], label)
+            self.assertIsNone(parsed[4], label)
+            self.assertNotIn("proxy_alias_conflict", result["hosts"][0]["reasons"], label)
+
+    def test_coherent_model_path_spellings_collapse_into_one_row(self):
+        first = proxy()
+        for model in (LIGHT_PROXY_PATH.upper() + ".P3D", "/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D",
+                      "\\dz\\weapons\\attachments\\light\\weaponlight_universal", "dz//weapons/attachments/light/weaponlight_universal.p3d"):
+            second = dict(copy.deepcopy(first), selection=first["selection"].replace("proxy:/", "proxy:"), model=model,
+                          cfg_class=first["cfg_class"].upper())
+            for entries in ([first, second], [second, first]):
+                with self.subTest(model, first=entries[0]["model"]):
+                    built, result = self.build(list(entries))
+                    parsed = report._proxies(built)
+                    self.assertEqual("ok", parsed[0])
+                    self.assertIsNone(parsed[4])
+                    self.assertEqual(1, len(parsed[1]))
+                    self.assertEqual("server_qualified", result["hosts"][0]["verdict"])
+                    self.assertEqual(1, result["hosts"][0]["diagnostics"]["proxy_alias_collapsed"])
+                    self.assertEqual(entries[0]["model"], built["proxies"][0]["model"])       # raw rows stay as observed
+
+    def test_a_resolution_proxy_spelling_alone_collapses(self):
+        first = proxy()
+        for spelling in (first["res_lods"][0]["selection"].upper(), first["res_lods"][0]["selection"].replace("/", "\\"),
+                         first["res_lods"][0]["selection"].upper().replace("/", "\\"),
+                         "proxy:" + LIGHT_PROXY_PATH[1:] + ".001"):
+            second = copy.deepcopy(first)
+            second["res_lods"][0]["selection"] = spelling
+            for entries in ([first, second], [second, first]):
+                with self.subTest(spelling, first=entries[0]["res_lods"][0]["selection"]):
+                    built, result = self.build(list(entries))
+                    parsed = report._proxies(built)
+                    self.assertIsNone(parsed[4])
+                    self.assertEqual(1, len(parsed[1]))
+                    self.assertEqual("server_qualified", result["hosts"][0]["verdict"])
+
+    def test_a_config_class_spelling_alone_collapses(self):
+        first = proxy()
+        for second in (dict(first, cfg_class=first["cfg_class"].upper()), dict(first, cfg_class=first["cfg_class"].lower())):
+            built, result = self.build([first, second])
+            parsed = report._proxies(built)
+            self.assertEqual("ok", parsed[0])
+            self.assertEqual(1, len(parsed[1]))
+            self.assertIsNone(parsed[4])
+            self.assertEqual("server_qualified", result["hosts"][0]["verdict"])
+
+    def test_a_config_class_spelling_of_two_instances_is_still_one_class(self):
+        """Two instances (two identities) whose class spellings differ only by case read one config entry; if their
+        lookups also differ it is one class read two ways, which proves the spelling is folded for the class join."""
+        first = proxy(self.MAG, slots=("magazine",))
+        second = dict(proxy(self.MAG, number="002", slots=("weaponFlashlight",)), cfg_class=first["cfg_class"].upper())
+        built, _result = self.build([proxy(), first, second])
+        parsed = report._proxies(built)
+        self.assertIsNotNone(parsed[4])
+        self.assertIn("weaponFlashlight", parsed[4]["slots"])
+        self.assertIn("magazine", parsed[4]["slots"])
+
+    def test_substantive_differences_are_still_conflicts_when_spellings_also_differ(self):
+        first = proxy()
+        bare = first["selection"].replace("proxy:/", "proxy:")
+        upper = first["res_lods"][0]["selection"].upper()
+        for label, second in (
+                ("another model", dict(first, selection=bare, model="/DZ/OTHER.P3D")),
+                ("another model basename", dict(first, selection=bare, model=first["model"].upper().replace("UNIVERSAL", "TLR"))),
+                ("another resolution instance", dict(first, selection=bare, res_lods=[dict(
+                    first["res_lods"][0], selection="proxy:" + LIGHT_PROXY_PATH + ".002")])),
+                ("another vertex", dict(first, selection=bare, res_lods=[res_entry("1.000", upper, vertex=("9", "8", "7"))])),
+                ("another slot name case", dict(first, selection=bare, inventory_slots=["weaponflashlight"])),
+                ("another slot count", dict(first, selection=bare, slot_count=9, slot_scan_complete=False))):
+            for entries in ([first, second], [second, first]):
+                with self.subTest(label, first=entries[0]["selection"]):
+                    built, result = self.build(list(entries))
+                    self.assertIsNotNone(report._proxies(built)[4])
+                    self.assertEqual("pending", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
+
+    def test_three_readings_union_their_slots_and_truncation_in_every_order(self):
+        a = proxy(self.MAG, slots=("magazine",))
+        b = proxy(self.MAG, number="002", slots=("weaponFlashlight",))
+        c = proxy(self.MAG, number="003", slots=tuple("extra%d" % n for n in range(8)), slot_count=9)
+        for order in itertools.permutations([a, b, c]):
+            built, result = self.build([proxy(), *order])
+            conflict = report._proxies(built)[4]
+            self.assertTrue(conflict["all"])
+            self.assertIn("weaponFlashlight", conflict["slots"])
+            self.assertEqual("pending", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
+
+    def test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot(self):
+        """Review M03: ``weaponflashlight`` is not the native slot ``weaponFlashlight``; an unrelated conflict that lists
+        only that spelling leaves the independent light pair qualified and the host pending."""
+        a = proxy(self.MAG, slots=("weaponflashlight",))
+        b = dict(copy.deepcopy(a), model="/dz/other/mismatch.p3d")
+        for order in ([a, b], [b, a]):
+            built, result = self.build([proxy(), *order])
+            parsed = report._proxies(built)
+            self.assertEqual({"weaponflashlight"}, set(parsed[4]["slots"]))
+            self.assertFalse(report._implicated(parsed, "weaponFlashlight"))
+            self.assertTrue(report._implicated(parsed, "weaponflashlight"))
+            self.assertEqual("pending", result["hosts"][0]["verdict"])
+            self.assertEqual("server_qualified", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
 
 
 class SlotListTruncationTests(unittest.TestCase):

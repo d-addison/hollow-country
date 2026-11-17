@@ -1,0 +1,342 @@
+diff --git a/tests/unit/test_taped_light_report.py b/tests/unit/test_taped_light_report.py
+index acb8aa0..dd00266 100644
+--- a/tests/unit/test_taped_light_report.py
++++ b/tests/unit/test_taped_light_report.py
+@@ -4,6 +4,7 @@ Nothing here establishes DayZ behavior: the report only joins what a native prob
+ with the config classification, and these tests prove only that join logic.
+ """
+ import copy
++import itertools
+ import json
+ from pathlib import Path
+ import re
+@@ -1453,6 +1454,189 @@ class AliasConflictScopeTests(unittest.TestCase):
+         self.assertEqual(("geometry_missing", "proxy_belongs_to_other_slot"), (slot["verdict"], slot["reason"]))
+ 
+ 
++class ConflictPrecedenceTests(unittest.TestCase):
++    """Fix round 10 (Sol review of round 9): a detected alias conflict survives every parse status of its siblings, and
++    spelling-only differences (model path, resolution proxy name, config class) are never conflicts (owner rule A)."""
++
++    MAG = "/dz/other/magazine"
++
++    def build(self, proxies, selection=False, lights=None):
++        built = row("AK74", "slot_host", gun_slots(weapon_model=selection),
++                    good_gun_lights() if lights is None else lights, proxies=proxies)
++        return built, report.build_report(classification([host("AK74", "slot_host")]), observations([built]))
++
++    def aliases(self):
++        first = proxy()
++        return first, dict(copy.deepcopy(first), selection=first["selection"].replace("proxy:/", "proxy:"),
++                           cfg_exists=False, model="", inventory_slots=[], slot_count=0)
++
++    def legacy_sibling(self):
++        path = "/dz/other/legacy_proxy"
++        return proxy(path, exists=False, cfg_class="Proxy" + path, res_selection="")
++
++    def broken_sibling(self):
++        return dict(proxy("/dz/other/broken"), selection="not-a-proxy")
++
++    def test_a_conflict_survives_a_legacy_whole_path_sibling_in_every_order_even_with_a_native_selection(self):
++        for entries in itertools.permutations([*self.aliases(), self.legacy_sibling()]):
++            with self.subTest(order=[item["selection"] for item in entries]):
++                built, result = self.build(list(entries), selection=True)
++                parsed = report._proxies(built)
++                self.assertEqual("mismatch", parsed[0])
++                self.assertIsNotNone(parsed[4])
++                record = result["hosts"][0]
++                self.assertEqual([], result["integrity"]["issues"])
++                self.assertEqual("pending", record["verdict"])
++                self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
++                self.assertIn("proxy_alias_conflict", record["reasons"])
++                self.assertEqual(0, pair_counts(result).get("server_qualified", 0))
++
++    def test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection(self):
++        refused = refusal_lights()
++        for entries in itertools.permutations([*self.aliases(), self.broken_sibling()]):
++            for label, selection, lights in (("refusal", False, refused), ("selection", True, None)):
++                with self.subTest(label, order=[item["selection"] for item in entries]):
++                    built, result = self.build(list(entries), selection, lights)
++                    parsed = report._proxies(built)
++                    self.assertEqual("malformed", parsed[0])
++                    self.assertIsNotNone(parsed[4])
++                    record = result["hosts"][0]
++                    self.assertEqual("pending", record["verdict"])
++                    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
++                    self.assertIn("proxy_alias_conflict", record["reasons"])
++                    self.assertEqual(0, pair_counts(result).get("geometry_missing", 0))
++                    self.assertEqual(0, pair_counts(result).get("server_qualified", 0))
++
++    def test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order(self):
++        """A row whose class is neither ``Proxy<basename>`` nor the earlier whole-path spelling is unreadable (malformed);
++        the readable conflicting copies beside it are still a conflict."""
++        wrong = dict(proxy("/dz/other/wrongclass"), cfg_class="ProxySomethingElse")
++        for entries in itertools.permutations([*self.aliases(), wrong]):
++            built, result = self.build(list(entries), selection=True)
++            parsed = report._proxies(built)
++            self.assertEqual("malformed", parsed[0], [item["selection"] for item in entries])
++            self.assertIsNotNone(parsed[4])
++            self.assertEqual("pending", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
++            self.assertIn("proxy_alias_conflict", result["hosts"][0]["reasons"])
++
++    def test_an_unreadable_sibling_after_unrelated_conflicting_copies_keeps_their_scope(self):
++        """The conflict is about a magazine proxy: it still implicates no light slot, whatever the sibling's status."""
++        first = proxy(self.MAG, slots=("magazine",))
++        second = dict(first, selection="proxy:" + self.MAG[1:] + ".001", model="\\dz\\other.p3d")
++        for sibling in (self.broken_sibling(), self.legacy_sibling()):
++            for entries in itertools.permutations([first, second, sibling]):
++                built, _result = self.build(list(entries))
++                parsed = report._proxies(built)
++                self.assertEqual({"magazine"}, set(parsed[4]["slots"]), [item["selection"] for item in entries])
++                self.assertFalse(parsed[4]["all"])
++
++    def test_the_parse_status_without_a_conflict_is_unchanged(self):
++        for label, entries, kind in (("legacy only", [proxy(), self.legacy_sibling()], "mismatch"),
++                                     ("broken only", [proxy(), self.broken_sibling()], "malformed"),
++                                     ("clean", [proxy()], "ok")):
++            built, result = self.build(entries)
++            parsed = report._proxies(built)
++            self.assertEqual(kind, parsed[0], label)
++            self.assertIsNone(parsed[4], label)
++            self.assertNotIn("proxy_alias_conflict", result["hosts"][0]["reasons"], label)
++
++    def test_coherent_model_path_spellings_collapse_into_one_row(self):
++        first = proxy()
++        for model in (LIGHT_PROXY_PATH.upper() + ".P3D", "/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.P3D",
++                      "\\dz\\weapons\\attachments\\light\\weaponlight_universal", "dz//weapons/attachments/light/weaponlight_universal.p3d"):
++            second = dict(copy.deepcopy(first), selection=first["selection"].replace("proxy:/", "proxy:"), model=model,
++                          cfg_class=first["cfg_class"].upper())
++            for entries in ([first, second], [second, first]):
++                with self.subTest(model, first=entries[0]["model"]):
++                    built, result = self.build(list(entries))
++                    parsed = report._proxies(built)
++                    self.assertEqual("ok", parsed[0])
++                    self.assertIsNone(parsed[4])
++                    self.assertEqual(1, len(parsed[1]))
++                    self.assertEqual("server_qualified", result["hosts"][0]["verdict"])
++                    self.assertEqual(1, result["hosts"][0]["diagnostics"]["proxy_alias_collapsed"])
++                    self.assertEqual(entries[0]["model"], built["proxies"][0]["model"])       # raw rows stay as observed
++
++    def test_a_resolution_proxy_spelling_alone_collapses(self):
++        first = proxy()
++        for spelling in (first["res_lods"][0]["selection"].upper(), first["res_lods"][0]["selection"].replace("/", "\\"),
++                         first["res_lods"][0]["selection"].upper().replace("/", "\\"),
++                         "proxy:" + LIGHT_PROXY_PATH[1:] + ".001"):
++            second = copy.deepcopy(first)
++            second["res_lods"][0]["selection"] = spelling
++            for entries in ([first, second], [second, first]):
++                with self.subTest(spelling, first=entries[0]["res_lods"][0]["selection"]):
++                    built, result = self.build(list(entries))
++                    parsed = report._proxies(built)
++                    self.assertIsNone(parsed[4])
++                    self.assertEqual(1, len(parsed[1]))
++                    self.assertEqual("server_qualified", result["hosts"][0]["verdict"])
++
++    def test_a_config_class_spelling_alone_collapses(self):
++        first = proxy()
++        for second in (dict(first, cfg_class=first["cfg_class"].upper()), dict(first, cfg_class=first["cfg_class"].lower())):
++            built, result = self.build([first, second])
++            parsed = report._proxies(built)
++            self.assertEqual("ok", parsed[0])
++            self.assertEqual(1, len(parsed[1]))
++            self.assertIsNone(parsed[4])
++            self.assertEqual("server_qualified", result["hosts"][0]["verdict"])
++
++    def test_a_config_class_spelling_of_two_instances_is_still_one_class(self):
++        """Two instances (two identities) whose class spellings differ only by case read one config entry; if their
++        lookups also differ it is one class read two ways, which proves the spelling is folded for the class join."""
++        first = proxy(self.MAG, slots=("magazine",))
++        second = dict(proxy(self.MAG, number="002", slots=("weaponFlashlight",)), cfg_class=first["cfg_class"].upper())
++        built, _result = self.build([proxy(), first, second])
++        parsed = report._proxies(built)
++        self.assertIsNotNone(parsed[4])
++        self.assertIn("weaponFlashlight", parsed[4]["slots"])
++        self.assertIn("magazine", parsed[4]["slots"])
++
++    def test_substantive_differences_are_still_conflicts_when_spellings_also_differ(self):
++        first = proxy()
++        bare = first["selection"].replace("proxy:/", "proxy:")
++        upper = first["res_lods"][0]["selection"].upper()
++        for label, second in (
++                ("another model", dict(first, selection=bare, model="/DZ/OTHER.P3D")),
++                ("another model basename", dict(first, selection=bare, model=first["model"].upper().replace("UNIVERSAL", "TLR"))),
++                ("another resolution instance", dict(first, selection=bare, res_lods=[dict(
++                    first["res_lods"][0], selection="proxy:" + LIGHT_PROXY_PATH + ".002")])),
++                ("another vertex", dict(first, selection=bare, res_lods=[res_entry("1.000", upper, vertex=("9", "8", "7"))])),
++                ("another slot name case", dict(first, selection=bare, inventory_slots=["weaponflashlight"])),
++                ("another slot count", dict(first, selection=bare, slot_count=9, slot_scan_complete=False))):
++            for entries in ([first, second], [second, first]):
++                with self.subTest(label, first=entries[0]["selection"]):
++                    built, result = self.build(list(entries))
++                    self.assertIsNotNone(report._proxies(built)[4])
++                    self.assertEqual("pending", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
++
++    def test_three_readings_union_their_slots_and_truncation_in_every_order(self):
++        a = proxy(self.MAG, slots=("magazine",))
++        b = proxy(self.MAG, number="002", slots=("weaponFlashlight",))
++        c = proxy(self.MAG, number="003", slots=tuple("extra%d" % n for n in range(8)), slot_count=9)
++        for order in itertools.permutations([a, b, c]):
++            built, result = self.build([proxy(), *order])
++            conflict = report._proxies(built)[4]
++            self.assertTrue(conflict["all"])
++            self.assertIn("weaponFlashlight", conflict["slots"])
++            self.assertEqual("pending", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
++
++    def test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot(self):
++        """Review M03: ``weaponflashlight`` is not the native slot ``weaponFlashlight``; an unrelated conflict that lists
++        only that spelling leaves the independent light pair qualified and the host pending."""
++        a = proxy(self.MAG, slots=("weaponflashlight",))
++        b = dict(copy.deepcopy(a), model="/dz/other/mismatch.p3d")
++        for order in ([a, b], [b, a]):
++            built, result = self.build([proxy(), *order])
++            parsed = report._proxies(built)
++            self.assertEqual({"weaponflashlight"}, set(parsed[4]["slots"]))
++            self.assertFalse(report._implicated(parsed, "weaponFlashlight"))
++            self.assertTrue(report._implicated(parsed, "weaponflashlight"))
++            self.assertEqual("pending", result["hosts"][0]["verdict"])
++            self.assertEqual("server_qualified", result["hosts"][0]["lights"]["UniversalLight"]["verdict"])
++
++
+ class SlotListTruncationTests(unittest.TestCase):
+     """Fix round 4: the hook lists at most eight inventory slots per proxy row; a slot beyond the cap is unknown."""
+ 
+diff --git a/tools/audit/taped_light_report.py b/tools/audit/taped_light_report.py
+index b893477..19dc208 100644
+--- a/tools/audit/taped_light_report.py
++++ b/tools/audit/taped_light_report.py
+@@ -488,10 +488,17 @@ def _proxy_row(entry, res):
+     found = [_res_row(item, lod) for item, lod in zip(rows, res["lods"])]
+     if None in found:
+         return None
+-    key = tuple((item["name"], item["selection"], item["vertex_ok"], item["vertex"]) for item in found)
++    key = tuple((item["name"], _selection_key(item["selection"]), item["vertex_ok"], item["vertex"]) for item in found)
+     return dict(values, res=found, res_key=key)
+ 
+ 
++def _selection_key(selection):
++    """Comparison spelling of one resolution selection: a proxy name keeps its instance number and loses only its
++    case and slash spelling (owner rule A); text that is no proxy name is compared as observed."""
++    name = _proxy_name(selection)
++    return name if name else selection
++
++
+ def _row_facts(entry, values):
+     """The round-6 per-row facts, or None when a key is missing, mistyped or contradicts the row."""
+     names, answers = _get(entry, "cfg_tried", "list"), _get(entry, "cfg_tried_exists", "list")
+@@ -593,26 +600,28 @@ def _whole_path_class(cfg_class, path):
+ 
+ 
+ def _proxies(row):
+-    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or
+-    ("ok", rows, truncated, res, conflict).
++    """Typed proxy evidence of a host row as ``(kind, rows, truncated, res, conflict)``; ``kind`` is "missing",
++    "malformed", "mismatch" or "ok". The tuple is always five long: ``conflict`` is independent of ``kind``.
+ 
+     Everything that makes the host's own read-back unreadable as a whole is malformed here, before any slot is matched:
+     a malformed proxy name, resolution or LOD facts that contradict each other, a per-row LOD list that is not the host's,
+     a row that contradicts its own bookkeeping. Copies of one identity that agree (a leading-slash alias, case and slash
+-    variants) collapse into one row. Copies that disagree (an identity read two ways, rows that read the same
+-    ``Proxy<basename>`` config entry differently or with different resolution results) are a *conflict*: ``conflict`` is
+-    None, or a dict with ``slots`` (every inventory slot any contradicting copy lists, exact names) and ``all`` (a copy's
+-    slot list was cut, so any slot may be implicated). The contradicting identities and config classes give no rows;
+-    ``_model_evidence`` withholds evidence from the implicated slots only."""
++    variants of the proxy path, the model path, the resolution proxy and the config class) collapse into one row. Copies
++    that disagree (an identity read two ways, rows that read the same ``Proxy<basename>`` config entry differently or with
++    different resolution results) are a *conflict*: ``conflict`` is None, or a dict with ``slots`` (every inventory slot
++    any contradicting copy lists, exact names) and ``all`` (a copy's slot list was cut, so any slot may be implicated).
++    The contradicting identities and config classes give no rows. An unreadable or legacy-named sibling changes ``kind``
++    but never drops a conflict between readable rows; ``_model_evidence`` withholds evidence from the implicated slots
++    only, before any selection or refusal is considered."""
+     if not any(key in row for key in PROXY_HOST_KEYS):
+-        return ("missing",)
++        return ("missing", [], False, None, None)
+     entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
+     if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
+-        return ("malformed",)
++        return ("malformed", [], False, None, None)
+     res, lod = _res_host(row), _lod_facts(row)
+     if res is MISSING or lod is MISSING or (res is not None and not _lods_agree(res, lod)):
+-        return ("malformed",)
+-    parsed, identities, lookups, mismatch = [], {}, {}, False
++        return ("malformed", [], False, None, None)
++    parsed, identities, lookups, malformed, mismatch = [], {}, {}, False, False
+     conflict = {"slots": set(), "all": False, "names": set(), "classes": set()}
+ 
+     def contradict(name, klass, *readings):
+@@ -626,14 +635,16 @@ def _proxies(row):
+         values = _proxy_row(entry, res)
+         name = _proxy_name(values["selection"]) if values else None
+         if name is None:
+-            return ("malformed",)
++            malformed = True       # unreadable: it gives no row, but its readable siblings still answer for themselves
++            continue
+         if values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
+             if values["cfg_tried"] is not None or not _whole_path_class(values["cfg_class"], name[0]):
+-                return ("malformed",)
++                malformed = True
++                continue
+             mismatch = True       # the earlier producer's whole-path class: consistent, but not a lookup of the real class
+         klass = values["cfg_class"].casefold()
+-        lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
+-                  values["res_key"])
++        lookup = (values["cfg_exists"], _path(values["model"]), tuple(values["inventory_slots"]), values["slot_count"],
++                  values["res_key"])       # spelling-insensitive signature; the exact slot names are compared as observed
+         reading = (klass, lookup)
+         known = identities.setdefault(name, reading)
+         if known != reading:
+@@ -643,14 +654,15 @@ def _proxies(row):
+             contradict(name, klass, lookups[klass][0], lookup)
+             conflict["names"].add(lookups[klass][1])
+         parsed.append((name, klass, dict(values, path=name[0]), known is reading))
+-    if mismatch:
+-        return ("mismatch",)
+     rows = [item for name, klass, item, first in parsed
+             if first and name not in conflict["names"] and klass not in conflict["classes"]]       # an alias adds no second row
+     found = None
+     if conflict["names"]:
+         found = {"slots": frozenset(conflict["slots"]), "all": conflict["all"]}
+-    return ("ok", rows, count > len(entries) or not complete, res, found)
++    kind = "malformed" if malformed else "mismatch" if mismatch else "ok"
++    if kind == "malformed":
++        return (kind, [], False, None, found)
++    return (kind, rows, count > len(entries) or not complete, res, found)
+ 
+ 
+ def _resolution_path(selection):
+@@ -808,7 +820,7 @@ def _native_diagnostics(observations):
+ 
+ def _implicated(proxies, slot):
+     """True when proxy copies that contradict each other implicate this exact slot (never for an unrelated conflict)."""
+-    conflict = proxies[4] if proxies[0] == "ok" else None
++    conflict = proxies[4]       # whatever the overall status: an unreadable or legacy sibling never hides a conflict
+     return conflict is not None and (conflict["all"] or slot in conflict["slots"])
+ 
+ 
+@@ -822,11 +834,14 @@ def _model_evidence(host_slot, slot, proxies, slot_names):
+       client            nothing the server can see decides it (no proxy for the slot, none against it),
+       pending           ``detail`` is the pending reason.
+ 
+-    Malformed proxy evidence outranks every kind, because the host's read-back is then not trustworthy; so does an alias
+-    conflict that implicates this slot (``conflict`` is then True), and only such a slot. A proxy whose
++    An alias conflict that implicates this slot (``conflict`` is then True) outranks every kind, including a sibling's
++    parse status, and only such a slot; malformed proxy evidence outranks the rest, because the host's read-back is then
++    not trustworthy. A proxy whose
+     config entry is missing or whose lists were cut is pending, never negative."""
+-    if proxies[0] == "malformed" or _implicated(proxies, slot):
+-        return {"source": "pending", "detail": "proxy_evidence_malformed", "conflict": proxies[0] != "malformed"}
++    if _implicated(proxies, slot):
++        return {"source": "pending", "detail": "proxy_evidence_malformed", "conflict": True}
++    if proxies[0] == "malformed":
++        return {"source": "pending", "detail": "proxy_evidence_malformed", "conflict": False}
+     if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
+         return {"source": "selection", "selection": host_slot["selection"]}
+     if proxies[0] == "missing":
+@@ -1095,7 +1110,7 @@ def _evaluate_host(entry, rows, context):
+     prerequisites = _prerequisites(row)
+     variant = _variant(row, prerequisites)
+     proxies = _proxies(row)
+-    if proxies[0] == "ok" and proxies[4] is not None:
++    if proxies[4] is not None:
+         reasons.add("proxy_alias_conflict")       # the host stays pending; only the implicated slots lose their evidence
+     for light in context["representatives"]:
+         base["lights"][light] = _evaluate_light(light, light_entries.get(light, MISSING), slot_names, host_slots,

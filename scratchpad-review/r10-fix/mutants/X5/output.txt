@@ -1,0 +1,71 @@
+...................FFFFFF.....................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1505, in test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection
+    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+======================================================================
+FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1505, in test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection
+    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+======================================================================
+FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1505, in test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection
+    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+======================================================================
+FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1505, in test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection
+    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+======================================================================
+FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1505, in test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection
+    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+======================================================================
+FAIL: test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection) [refusal] (order=['not-a-proxy', 'proxy:dz/weapons/attachments/light/weaponlight_universal.001', 'proxy:/dz/weapons/attachments/light/weaponlight_universal.001'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1505, in test_a_conflict_survives_an_unreadable_sibling_in_every_order_with_a_refusal_or_a_selection
+    self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
+AssertionError: 'pending' != 'geometry_missing'
+- pending
++ geometry_missing
+
+
+----------------------------------------------------------------------
+Ran 297 tests in 9.415s
+
+FAILED (failures=6)

@@ -13,23 +13,22 @@
   {
     "case": "same conflict plus legacy sibling",
     "parsed": "mismatch",
-    "host": "server_qualified",
+    "host": "pending",
     "reasons": [
-      "native_attach_with_model_selection"
+      "proxy_alias_conflict"
     ],
-    "pair": "server_qualified",
+    "pair": "pending",
     "integrity": [],
     "acceptance": "PENDING"
   },
   {
     "case": "same conflict plus unreadable sibling and native refusal",
     "parsed": "malformed",
-    "host": "geometry_missing",
+    "host": "pending",
     "reasons": [
-      "native_attach_refused",
-      "no_compatible_native_slot"
+      "proxy_alias_conflict"
     ],
-    "pair": "geometry_missing",
+    "pair": "pending",
     "integrity": [],
     "acceptance": "PENDING"
   }

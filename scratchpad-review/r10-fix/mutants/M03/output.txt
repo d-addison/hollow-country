@@ -1,0 +1,14 @@
+.......................F.................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot)
+Review M03: ``weaponflashlight`` is not the native slot ``weaponFlashlight``; an unrelated conflict that lists
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1622, in test_conflict_slot_names_are_exact_so_a_case_changed_name_implicates_no_native_slot
+    self.assertFalse(report._implicated(parsed, "weaponFlashlight"))
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 297 tests in 11.952s
+
+FAILED (failures=1)

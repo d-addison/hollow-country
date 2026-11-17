@@ -1,0 +1,14 @@
+[
+  {
+    "id": "X11",
+    "description": "non-legacy class mismatch sibling stops the scan",
+    "result": "KILLED",
+    "returncode": 1,
+    "replacements": 1,
+    "summary": [
+      "FAIL: test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_conflict_survives_a_wrongly_named_config_class_sibling_in_every_order)",
+      "Ran 298 tests in 8.815s",
+      "FAILED (failures=1)"
+    ]
+  }
+]

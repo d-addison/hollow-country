@@ -1,0 +1,99 @@
+{
+  "classification": "~/.cache/hollow-country/experiments/taped-light-probe-003/classification.json",
+  "observations": "~/.cache/hollow-country/experiments/taped-light-probe-006/observations.json",
+  "classification_sha256": "9d54882a47c096a27e8ec5ad0022a6f11673d7e4a8d43769e4d4524e90a8f6dd",
+  "observations_sha256": "609722ff6e1463241257c7565b9d3842cf1f47505a7f757c1d79ca44c479fe88",
+  "committed": {
+    "denominators": {
+      "server_qualified": 26,
+      "geometry_missing": 0,
+      "not_server_evidencable": 415,
+      "excluded": 141,
+      "pending": 2,
+      "hosts": 584,
+      "client_pending": 26,
+      "out_of_v1_scope": 415,
+      "host_light_pairs": {
+        "geometry_missing": 28,
+        "not_server_evidencable": 830,
+        "pending": 2,
+        "server_qualified": 26
+      },
+      "reasons": {
+        "classification_excluded": 141,
+        "native_attach_with_proxy_config_slot": 14,
+        "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite": 12,
+        "no_native_light_slot": 415,
+        "pending_client": 2
+      }
+    },
+    "integrity": {
+      "cleanup_clean": true,
+      "issues": [],
+      "unexpected_rows": []
+    },
+    "acceptance": "PENDING",
+    "pending": [
+      {
+        "host": "Mich2001Helmet",
+        "reasons": [
+          "pending_client"
+        ]
+      },
+      {
+        "host": "R12",
+        "reasons": [
+          "pending_client"
+        ]
+      }
+    ],
+    "alias_conflict_hosts": []
+  },
+  "current": {
+    "denominators": {
+      "server_qualified": 26,
+      "geometry_missing": 0,
+      "not_server_evidencable": 415,
+      "excluded": 141,
+      "pending": 2,
+      "hosts": 584,
+      "client_pending": 26,
+      "out_of_v1_scope": 415,
+      "host_light_pairs": {
+        "geometry_missing": 28,
+        "not_server_evidencable": 830,
+        "pending": 2,
+        "server_qualified": 26
+      },
+      "reasons": {
+        "classification_excluded": 141,
+        "native_attach_with_proxy_config_slot": 14,
+        "native_attach_with_proxy_config_slot_and_rail_handguard_prerequisite": 12,
+        "no_native_light_slot": 415,
+        "pending_client": 2
+      }
+    },
+    "integrity": {
+      "cleanup_clean": true,
+      "issues": [],
+      "unexpected_rows": []
+    },
+    "acceptance": "PENDING",
+    "pending": [
+      {
+        "host": "Mich2001Helmet",
+        "reasons": [
+          "pending_client"
+        ]
+      },
+      {
+        "host": "R12",
+        "reasons": [
+          "pending_client"
+        ]
+      }
+    ],
+    "alias_conflict_hosts": []
+  },
+  "all_host_pair_verdicts_unchanged": true
+}

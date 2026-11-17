@@ -1,0 +1,69 @@
+....................FFFFFFFF....................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.001] (first='PROXY:/DZ/WEAPONS/ATTACHMENTS/LIGHT/WEAPONLIGHT_UNIVERSAL.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:\dz\weapons\attachments\light\weaponlight_universal.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:\dz\weapons\attachments\light\weaponlight_universal.001] (first='proxy:\\dz\\weapons\\attachments\\light\\weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:\DZ\WEAPONS\ATTACHMENTS\LIGHT\WEAPONLIGHT_UNIVERSAL.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [PROXY:\DZ\WEAPONS\ATTACHMENTS\LIGHT\WEAPONLIGHT_UNIVERSAL.001] (first='PROXY:\\DZ\\WEAPONS\\ATTACHMENTS\\LIGHT\\WEAPONLIGHT_UNIVERSAL.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:dz/weapons/attachments/light/weaponlight_universal.001] (first='proxy:/dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+======================================================================
+FAIL: test_a_resolution_proxy_spelling_alone_collapses (tests.unit.test_taped_light_report.ConflictPrecedenceTests.test_a_resolution_proxy_spelling_alone_collapses) [proxy:dz/weapons/attachments/light/weaponlight_universal.001] (first='proxy:dz/weapons/attachments/light/weaponlight_universal.001')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/taped-r8/tests/unit/test_taped_light_report.py", line 1559, in test_a_resolution_proxy_spelling_alone_collapses
+    self.assertIsNone(parsed[4])
+AssertionError: {'slots': frozenset({'weaponFlashlight'}), 'all': False} is not None
+
+----------------------------------------------------------------------
+Ran 297 tests in 9.224s
+
+FAILED (failures=8)
