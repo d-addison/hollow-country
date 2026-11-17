@@ -1,0 +1,470 @@
+[
+  {
+    "path": "/code/dayzsa_mods/docs/SPECIFICATION.md",
+    "bytes": 51431,
+    "lines": 380,
+    "sha256": "8d6bfe974dd91b8433d02af6a6661be84f9b775b1a1146d3e5c2d47928123d79"
+  },
+  {
+    "path": "/code/dayzsa_mods/docs/specs/001-survival-overhaul/completion-plan.md",
+    "bytes": 45575,
+    "lines": 547,
+    "sha256": "19ca99f471a2f7ead21606aaa001d87fa608c073522df6e6635246b0e41e3e83"
+  },
+  {
+    "path": "/code/dayzsa_mods/docs/specs/001-survival-overhaul/plan.md",
+    "bytes": 22066,
+    "lines": 308,
+    "sha256": "4b2c079fdec305a3f78d02f4a7bce41c541b4c1efaf4f780959f6d5d36c94821"
+  },
+  {
+    "path": "/code/dayzsa_mods/docs/specs/001-survival-overhaul/spec.md",
+    "bytes": 11130,
+    "lines": 176,
+    "sha256": "7059a05771ebb06f55a4f1cb477cef5bec9dddaa79ea7bb74539bd05476fde8c"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/.github/workflows/static.yml",
+    "bytes": 3240,
+    "lines": 76,
+    "sha256": "06d3e80c4f215d2c85a3e8c9281d17ec7b57c00d71ad9445d7cc65956369f837"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/.issues-b04.md",
+    "bytes": 14654,
+    "lines": 213,
+    "sha256": "9e19fb32dbcde439c887b620ce0dc7832f192d58889e9e2093082170458fad35"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/AGENTS.md",
+    "bytes": 1953,
+    "lines": 31,
+    "sha256": "5140792f21761a4b81b26d44e73437eeede773d18eaf51e5835749799db1bbdc"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/README.md",
+    "bytes": 12133,
+    "lines": 226,
+    "sha256": "51dfcd47b417df70a626b087714768a5733b694969f90d6e37afae59cab5aef7"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/docs/MODULE_STATUS.md",
+    "bytes": 15637,
+    "lines": 130,
+    "sha256": "8f3b0142b024c4b92df58524a1e4fde25d71af8cf240dd8b1aca755a1c1901c4"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/docs/RUNTIME_IMPLEMENTATION_CONTRACT.md",
+    "bytes": 3124,
+    "lines": 62,
+    "sha256": "9cdf455aae8a0f272dccb611787f85b1f28de1adc534e110544ece9b34cbc9d3"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/config.cpp",
+    "bytes": 833,
+    "lines": 29,
+    "sha256": "d7ec11abe83818ece4355a8c72e18bff807cbfff4ae18bd11be1037ce009fcc1"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/3_Game/HCSettings.c",
+    "bytes": 3460,
+    "lines": 90,
+    "sha256": "e3825dcdd73999348b2c30522f8437828d782deaad42465e0d63b68e7875551a"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Core/HCModule.c",
+    "bytes": 916,
+    "lines": 35,
+    "sha256": "a60dcdf8ee9a1a32df6cfa56bfeabcff1966b3999d9e6263a85b28ed663b61b4"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Core/HCServer.c",
+    "bytes": 2932,
+    "lines": 79,
+    "sha256": "ece80618ccc5c4874e68709b2c131683fc7a415dabd55de91cccd3b5ebabcc5e"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c",
+    "bytes": 7834,
+    "lines": 177,
+    "sha256": "6d65eb62807563acd5b29af98dc6de9d50977a359cf30f42d6f2e855ebe94bb3"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCHordeRecovery.c",
+    "bytes": 6566,
+    "lines": 160,
+    "sha256": "7ca22b3896779be8411fb8477b9826f364ed5a6fb94203fb1eb6d2ad5bca8e49"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCHordeStimulus.c",
+    "bytes": 1615,
+    "lines": 38,
+    "sha256": "189de28c399b19d4ed924cd8fcb7e7e4c9894fdd772ec52ff9383a8d9e0aee20"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c",
+    "bytes": 33220,
+    "lines": 855,
+    "sha256": "5c4be3183325540c30e74a4bb671b83b269fb90b9d001fea99f3bd1fad7d6b9f"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+    "bytes": 3370,
+    "lines": 91,
+    "sha256": "002e4af3da81678c9578b5860d6800f3ecc1e4fe565947fb7c078a8f3a87b100"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
+    "bytes": 19618,
+    "lines": 456,
+    "sha256": "92024979a4d80a8ecaa9b0526015fe3349b15f87596a6528bfa6455dd4671928"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedPolicy.c",
+    "bytes": 15981,
+    "lines": 550,
+    "sha256": "1185ecbf88c00c077123c86f472b6dac9af380d18f92e18c0fb6b114b895f691"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedProfiles.c",
+    "bytes": 2059,
+    "lines": 56,
+    "sha256": "34857ebff33f4df2cc9860bdbf41ca295da766c034698f7c6c516e674ab263ce"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+    "bytes": 15014,
+    "lines": 403,
+    "sha256": "eac8684b5bb24cf92fcdffa1e092652e27c1efca343313beaa03620c8faa0455"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedSelfTests.c",
+    "bytes": 2460,
+    "lines": 36,
+    "sha256": "3c5c0fc2e8247aadaebead86bd20997711794da37686d5b36ce8203cc01eb267"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+    "bytes": 14221,
+    "lines": 361,
+    "sha256": "4012de5a003e69eb32d5b081d66407498fc608514672e1119da2af3161d7f757"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
+    "bytes": 16746,
+    "lines": 474,
+    "sha256": "c6d3c0be35997b2e332d95b2752bd06341bd5588e8b0535d3b2735c83c0f4d95"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/mods/HollowCountry/scripts/5_Mission/HCMissionServer.c",
+    "bytes": 239,
+    "lines": 14,
+    "sha256": "21d367b470e2273c91c2c3abde9a4ea226c778019367c5ea26c888f87c5da485"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/capabilities.json",
+    "bytes": 1649,
+    "lines": 47,
+    "sha256": "82efd89506417d2df68bf829874eb4731caf8247f20b6d987fb26e43bfa86a4c"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/catalog.json",
+    "bytes": 209476,
+    "lines": 6243,
+    "sha256": "10def85bdd80f932cdda9dcbe3efd1705cb9ea2ef70184447479b52e174eda6d"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/features/offline.feature",
+    "bytes": 20235,
+    "lines": 365,
+    "sha256": "704a62b57810eb30e024afedd4ba301c264fa44ebcade669cf848cfbb479df80"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/features/runtime.feature",
+    "bytes": 2428,
+    "lines": 47,
+    "sha256": "90464ed25d26607d7098a00e74da8ce8676ed492ee010c8a9831316d571c6d97"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/fixtures/runtime/infected-completion-scenarios.json",
+    "bytes": 1613,
+    "lines": 27,
+    "sha256": "46bc0dbc0637a1d1493d2834df186c1348ecdd6fd6e660cc9b21c42a5844a2a5"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/fixtures/runtime/infected-policy.json",
+    "bytes": 388,
+    "lines": 11,
+    "sha256": "aa5eb9566eb0a7c87f37bf75bd731342431e5c8d75545bbdcd4e73e0074b31d0"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_bdd_bindings.py",
+    "bytes": 10346,
+    "lines": 148,
+    "sha256": "b716694e095a2102ceb793b9ef3a0e9d3c0dd911e196b0938a8b35c12b292622"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_core_lifecycle.py",
+    "bytes": 10751,
+    "lines": 245,
+    "sha256": "bcf4b51fc22a905911c41ed04cc99ac3d786779a760da8f1f517d586a4d9c769"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_death_selection_probe.py",
+    "bytes": 12006,
+    "lines": 207,
+    "sha256": "4e5b6a1433b305e343c8558144130e9e82525634e714b4f6eda9f4a3d40d091b"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_diagnostic_mission.py",
+    "bytes": 10383,
+    "lines": 199,
+    "sha256": "7f0d4aa2ac7bb52e0ff77f537ee21d95e0e2be7171d85481754049ea2f6b1542"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_fuel_siphon_probe.py",
+    "bytes": 27385,
+    "lines": 473,
+    "sha256": "2b7ed979d765f1089533faf5060a6fc20db12c46e8ba63d47416603b21a68b6d"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_completion.py",
+    "bytes": 11733,
+    "lines": 221,
+    "sha256": "eb258b0ec9a6a243ae42ef13b3eaa515a8879157dfb182a50ac342fe5917571c"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_contract.py",
+    "bytes": 14386,
+    "lines": 297,
+    "sha256": "936b946c539a5e0a86884e7b7b16be7f26fa3c0b6870f832dac2a635a1fdd1d0"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_death_probe.py",
+    "bytes": 18681,
+    "lines": 317,
+    "sha256": "193b07e4b71883e7694f33fcbc1a3be2f939d18e510d196c621c73354015d43a"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_defaults.py",
+    "bytes": 14852,
+    "lines": 263,
+    "sha256": "513caa166e0ced38ad89656c612126c83d39592ba0f15d62717bce2e6b50940c"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_persistence.py",
+    "bytes": 4244,
+    "lines": 81,
+    "sha256": "d5468039d689d7f38945d288c0c74edd733ce4d40eb06ef27e8565d8951ff54f"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_routes.py",
+    "bytes": 7605,
+    "lines": 150,
+    "sha256": "4f1f8a11b9564ed7b07d5c6d752479bbd79c879c110aea4b723d43255f10887b"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_infected_wave.py",
+    "bytes": 7397,
+    "lines": 137,
+    "sha256": "eef8aefa64a1d53151a0163584a41f489e60e256aa61a9fabff8feead1376b42"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_observer_transition.py",
+    "bytes": 20425,
+    "lines": 362,
+    "sha256": "cf2814e82eda34035dabc80b0ea4128a7f08669d6d7c0885a7fde2329ace60a5"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_room_catalog_completion.py",
+    "bytes": 18196,
+    "lines": 363,
+    "sha256": "c8d6ee336f65e7f301faee3f53ca2b92df84f4b91b289b32256393b454b37198"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_runtime_settings.py",
+    "bytes": 5176,
+    "lines": 98,
+    "sha256": "5c4997cabb6a0094ad197b66e0be7d009de5d5a58baac0dd95483ab6a135c541"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_script_identifiers.py",
+    "bytes": 4444,
+    "lines": 113,
+    "sha256": "2eb0f5d357ef0df99add58259285a7ceae20ddf9b7af0d4ab22a4edad2816375"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_script_syntax.py",
+    "bytes": 5871,
+    "lines": 128,
+    "sha256": "5266e82793ac8bbd8f0f2dad578c319fbe267d6ae1da7b45b8820f0d6b31dbb2"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tests/unit/test_wine_compile_probe.py",
+    "bytes": 44434,
+    "lines": 786,
+    "sha256": "b986614a8c151cbd9915e2080d3e48fc938d7d25ffff628f19c8d7d24ee5e7b5"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/package/pbo.py",
+    "bytes": 13374,
+    "lines": 310,
+    "sha256": "55629ac2a3a2cca4ebbf900001624d920014e8f646f98d5088b4eefacb573270"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/setup/death_selection_probe.py",
+    "bytes": 30803,
+    "lines": 715,
+    "sha256": "170f2e286336e8028587bec39049a5ab3e48a99e01c51cbc3e219c80fa924be2"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/setup/diagnostic_mission.py",
+    "bytes": 12138,
+    "lines": 273,
+    "sha256": "d91945077c0e3b02c4483af363d9bb1c7f648eccd6f6579e4b1e290641147fb0"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/setup/fuel_siphon_probe.py",
+    "bytes": 53564,
+    "lines": 1094,
+    "sha256": "d7cc8adbe72b0b7a46584348a0133ff4d0d60f427b6b6e8691a438ccb985b27b"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/setup/infected_death_probe.py",
+    "bytes": 33635,
+    "lines": 757,
+    "sha256": "e4fbf35aa8a306e22dc50a288a66a0cd89d380b52fd76fef25d131be35d03b96"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/setup/native_startup_probe.py",
+    "bytes": 28776,
+    "lines": 606,
+    "sha256": "b6b896892c8144134e312242764ee16e2621973ff34ceddf499f24ef10070539"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/setup/wine_compile_probe.py",
+    "bytes": 34123,
+    "lines": 643,
+    "sha256": "1b349825293def857af56d52264adda45c6b4ea8768a987bf29d60881c4fcde9"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/validate/bdd.py",
+    "bytes": 26307,
+    "lines": 334,
+    "sha256": "a162300907962eb42b8d35724c176c5cb52f3f42657693ab0349da8df08c8134"
+  },
+  {
+    "path": "/code/hc-worktrees/b04-audit/tools/validate/runtime.py",
+    "bytes": 2276,
+    "lines": 47,
+    "sha256": "8b8eb4f7bb02ea07d9dc75d65aad59eb4d6a5a91eb7c9c04289a58aea771cb5b"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/1_Core/proto/EnPhysics.c",
+    "bytes": 12831,
+    "lines": 276,
+    "sha256": "4679259ad67a9a62383947d8d1d58bff3d654b1f2e2e51ba458b3292ad098fb4"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/AI/AIAgent.c",
+    "bytes": 168,
+    "lines": 8,
+    "sha256": "a361355bf706783ce0c40399001fe758380ca8e471ee3cc442d4179f6d24a2e1"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/AI/AIGroup.c",
+    "bytes": 421,
+    "lines": 15,
+    "sha256": "10a6977e87af518e2576ab7f9199da40013aec1d50b46f7b6b954c9aa013686f"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/AI/AIGroupBehaviour.c",
+    "bytes": 1151,
+    "lines": 32,
+    "sha256": "a4ad32738a782bd30f93c38f765957f90b9e1153596f41c4e6ca08dfb78738e1"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/AI/AIWorld.c",
+    "bytes": 3309,
+    "lines": 123,
+    "sha256": "6ffd6f8b6e1d80d9f612ef59958bd0e5960432176fa6c1cd27458239b3b124a3"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/CE/CentralEconomy.c",
+    "bytes": 31044,
+    "lines": 769,
+    "sha256": "f0d6825945d41ad24bf91c44a9b8f7f77d75e9e376940a5f567ca3d2ce504076"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Entities/Building.c",
+    "bytes": 10347,
+    "lines": 354,
+    "sha256": "5aa715d188142dfac9e322d50ebd6f980740be0c667eaf42f1fd7abb6c50be38"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Entities/DayZAnimal.c",
+    "bytes": 25943,
+    "lines": 1013,
+    "sha256": "c1600a8c4c1bd112245024c9dd3a4ce90e519e0441b24ab06af715c361f896e8"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Entities/DayZCreatureAIInputController.c",
+    "bytes": 1295,
+    "lines": 39,
+    "sha256": "3ebf6446112f5a96e690225c83d9c3a98dda65d7014fc8001080cf5fe59bcbfe"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Entities/DayZInfected.c",
+    "bytes": 7508,
+    "lines": 209,
+    "sha256": "c864185749d790b3cc2719df52df443e917dda53a0796b3b742e64b990169e8f"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Entities/DayZInfectedInputController.c",
+    "bytes": 584,
+    "lines": 22,
+    "sha256": "152ccfb5f48bddad8df6780354b6419813ffc991b693fe54e6a102369236fbf4"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Entities/EntityAI.c",
+    "bytes": 141807,
+    "lines": 4943,
+    "sha256": "c56a1ed22224f31766bf80b8c547eb265f98a2b7997a73f00f8b89933d6cbbe3"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Global/DayZPhysics.c",
+    "bytes": 8507,
+    "lines": 230,
+    "sha256": "279ce05c528e467cbf7de820954ee0ce98355d47f8efdd04eca4c5de50d86b07"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Global/Game.c",
+    "bytes": 57410,
+    "lines": 1622,
+    "sha256": "04e61c19198a0b942b9b72fffca02358d9dca136c1c552bfb3a6193e79a59c2b"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/Noise.c",
+    "bytes": 924,
+    "lines": 26,
+    "sha256": "7554229b3647074053609f204b20b4b90c5316e783a13c155d46d5b8cd2d1330"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/dayzplayer.c",
+    "bytes": 54684,
+    "lines": 1413,
+    "sha256": "7ca7b34dba0c6230e07e48fa5e4776f3ba7a87728b9e200c60515537711caa10"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/human.c",
+    "bytes": 58027,
+    "lines": 1721,
+    "sha256": "3e334646d91a5975525884d3119d0580e59dad107af053481019fab2b281fc4d"
+  },
+  {
+    "path": "/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289/4_World/Entities/Creatures/Infected/ZombieBase.c",
+    "bytes": 33679,
+    "lines": 1207,
+    "sha256": "c67ec8fdaa8db1fddab20fb8ed0bdeffa0e8785566ee869f465e97803223660c"
+  }
+]
