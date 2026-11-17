@@ -1,0 +1,20 @@
+--- original
++++ W4_cycle_gate_masks_violations
+@@ -806,8 +806,6 @@
+     live = [key for key in attributes if key != "current"]
+     if "insufficient_samples" in (stock["status"], candidate["status"]):
+         return "pending", "a run has too few valid samples for this phenomenon", None
+-    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
+-        return "candidate_values_outside_limits", None, None
+     if live and not candidate["boundary_crossed"]:
+         return "pending", "no forecast countdown (next_change) ran out in the candidate run", None
+     if live and not candidate["cycle_observed"]:
+@@ -815,6 +813,8 @@
+                            "and the forecast never changed afterwards; interpolation alone is not a new cycle"), None
+     if live and not candidate["change_observed"]:
+         return "pending", "nothing was observed changing in the candidate run", None
++    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
++        return "candidate_values_outside_limits", None, None
+     labels, reasons, live_negative = {}, [], False
+     if live:
+         detail, _applied = _readback(stock, candidate, live)

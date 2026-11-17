@@ -1,0 +1,34 @@
+test_changed_preexisting_fixtures_keep_pending_intent (__main__.AdditionalChecks.test_changed_preexisting_fixtures_keep_pending_intent) ... one_pending_treated_phenomenon old {"status": "complete", "evidence": "candidate_values_outside_limits", "reason": null, "actual_outside": 6, "forecast_outside": 6, "boundary": false, "cycle": false}
+one_pending_treated_phenomenon new {"status": "pending", "evidence": "pending", "reason": "no forecast countdown (next_change) ran out in the candidate run", "actual_outside": 0, "forecast_outside": 0, "boundary": false, "cycle": false}
+conflicting_live_limits_without_boundary old {"status": "complete", "evidence": "candidate_values_outside_limits", "reason": null, "actual_outside": 0, "forecast_outside": 6, "boundary": false, "cycle": false}
+conflicting_live_limits_without_boundary new {"status": "pending", "evidence": "pending", "reason": "no forecast countdown (next_change) ran out in the candidate run", "actual_outside": 0, "forecast_outside": 0, "boundary": false, "cycle": false}
+ok
+test_current_only_and_mixed_treatments_reject_every_position_of_a_violation (__main__.AdditionalChecks.test_current_only_and_mixed_treatments_reject_every_position_of_a_violation) ... current-only/mixed: 56 placements checked, 54 assessed violations rejected, 2 initial prefixes explicitly excused
+ok
+test_emitted_transition_prose_matches_first_entry_rule (__main__.AdditionalChecks.test_emitted_transition_prose_matches_first_entry_rule) ... emitted transition non-claim: Actual values outside the limits before the actual first reaches the initial forecast (or before the first scheduled change) are reported as an initial transition, not counted as violations; this does not show how the engine starts from a pre-existing state.
+FAIL
+test_short_clean_run_does_not_claim_post_transition_actuals_outside (__main__.AdditionalChecks.test_short_clean_run_does_not_claim_post_transition_actuals_outside) ... short clean run: {"candidate_status": "insufficient_samples", "evidence": "pending", "values_in_range": true, "values_in_range_after_initial_transition": false, "raw_actual_outside_limits": 0, "initial_transition": {"samples": 0, "ended_by": "actual_reached_initial_forecast", "last_seq": null, "actual_outside_limits": 0, "outside_samples": []}, "candidate_actual_range": {"min": 0.9, "max": 0.9}}
+FAIL
+test_synthetic_positive_label_invariant (__main__.AdditionalChecks.test_synthetic_positive_label_invariant) ... invariant: traces=5296, positives=320, false_positives=0
+ok
+
+======================================================================
+FAIL: test_emitted_transition_prose_matches_first_entry_rule (__main__.AdditionalChecks.test_emitted_transition_prose_matches_first_entry_rule)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/supplemental.py", line 113, in test_emitted_transition_prose_matches_first_entry_rule
+    self.assertIn('enters', note)
+AssertionError: 'enters' not found in 'Actual values outside the limits before the actual first reaches the initial forecast (or before the first scheduled change) are reported as an initial transition, not counted as violations; this does not show how the engine starts from a pre-existing state.'
+
+======================================================================
+FAIL: test_short_clean_run_does_not_claim_post_transition_actuals_outside (__main__.AdditionalChecks.test_short_clean_run_does_not_claim_post_transition_actuals_outside)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/supplemental.py", line 124, in test_short_clean_run_does_not_claim_post_transition_actuals_outside
+    self.assertTrue(entry['values_in_range_after_initial_transition'])
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 5 tests in 3.879s
+
+FAILED (failures=2)

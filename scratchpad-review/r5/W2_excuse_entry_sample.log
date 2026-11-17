@@ -1,0 +1,319 @@
+test_a_clean_run_writes_header_ordered_samples_a_complete_end_record_then_the_sentinel (test_weather_probe.HookBehaviourTests.test_a_clean_run_writes_header_ordered_samples_a_complete_end_record_then_the_sentinel) ... ok
+test_a_stalled_clock_past_the_duration_cap_ends_the_run_partial_instead_of_sampling_on (test_weather_probe.HookBehaviourTests.test_a_stalled_clock_past_the_duration_cap_ends_the_run_partial_instead_of_sampling_on) ... ok
+test_a_watchdog_before_the_file_opened_leaves_no_output (test_weather_probe.HookBehaviourTests.test_a_watchdog_before_the_file_opened_leaves_no_output) ... ok
+test_every_sampled_value_comes_from_its_own_native_getter (test_weather_probe.HookBehaviourTests.test_every_sampled_value_comes_from_its_own_native_getter) ... ok
+test_existing_probe_output_is_never_overwritten_and_nothing_is_scheduled (test_weather_probe.HookBehaviourTests.test_existing_probe_output_is_never_overwritten_and_nothing_is_scheduled) ... ok
+test_only_a_server_runs_the_sampler (test_weather_probe.HookBehaviourTests.test_only_a_server_runs_the_sampler) ... ok
+test_samples_are_spaced_by_exactly_the_configured_interval (test_weather_probe.HookBehaviourTests.test_samples_are_spaced_by_exactly_the_configured_interval) ... ok
+test_the_hook_output_round_trips_through_the_report (test_weather_probe.HookBehaviourTests.test_the_hook_output_round_trips_through_the_report) ... ok
+test_the_sentinel_is_written_only_after_the_end_record_is_in_the_observations (test_weather_probe.HookBehaviourTests.test_the_sentinel_is_written_only_after_the_end_record_is_in_the_observations) ... ok
+test_the_watchdog_does_not_touch_a_run_that_already_finished (test_weather_probe.HookBehaviourTests.test_the_watchdog_does_not_touch_a_run_that_already_finished) ... ok
+test_the_watchdog_finishes_a_run_whose_sampling_chain_stopped (test_weather_probe.HookBehaviourTests.test_the_watchdog_finishes_a_run_whose_sampling_chain_stopped) ... ok
+test_weather_time_is_the_weather_clock_in_seconds_not_the_millisecond_game_clock (test_weather_probe.HookBehaviourTests.test_weather_time_is_the_weather_clock_in_seconds_not_the_millisecond_game_clock) ... ok
+test_every_number_in_a_string_concatenation_goes_through_explicit_to_string (test_weather_probe.HookRenderingTests.test_every_number_in_a_string_concatenation_goes_through_explicit_to_string) ... ok
+test_every_requested_observation_is_called_exactly_through_the_cited_getters (test_weather_probe.HookRenderingTests.test_every_requested_observation_is_called_exactly_through_the_cited_getters) ... ok
+test_every_statement_has_at_most_eight_binary_plus_operators (test_weather_probe.HookRenderingTests.test_every_statement_has_at_most_eight_binary_plus_operators) ... ok
+test_generated_hook_passes_the_shared_native_compile_rule_lint (test_weather_probe.HookRenderingTests.test_generated_hook_passes_the_shared_native_compile_rule_lint) ... ok
+test_hook_is_ascii_server_only_and_runs_once (test_weather_probe.HookRenderingTests.test_hook_is_ascii_server_only_and_runs_once) ... ok
+test_invalid_parameters_are_refused (test_weather_probe.HookRenderingTests.test_invalid_parameters_are_refused) ... ok
+test_no_identifier_equals_an_engine_type_name_even_without_the_cache (test_weather_probe.HookRenderingTests.test_no_identifier_equals_an_engine_type_name_even_without_the_cache) ... ok
+test_no_ternary_leading_operator_exponent_literal_or_shared_scope_redeclaration (test_weather_probe.HookRenderingTests.test_no_ternary_leading_operator_exponent_literal_or_shared_scope_redeclaration) ... ok
+test_numbers_are_emitted_as_json_strings_so_unobserved_float_formatting_cannot_break_json (test_weather_probe.HookRenderingTests.test_numbers_are_emitted_as_json_strings_so_unobserved_float_formatting_cannot_break_json) ... ok
+test_out_parameters_are_declared_before_the_call (test_weather_probe.HookRenderingTests.test_out_parameters_are_declared_before_the_call) ... ok
+test_output_is_json_lines_in_the_probe_profile_directory_then_a_sentinel_written_last (test_weather_probe.HookRenderingTests.test_output_is_json_lines_in_the_probe_profile_directory_then_a_sentinel_written_last) ... ok
+test_sampling_is_bounded_by_inlined_sample_count_duration_cap_and_watchdog (test_weather_probe.HookRenderingTests.test_sampling_is_bounded_by_inlined_sample_count_duration_cap_and_watchdog) ... ok
+test_the_concatenation_checks_flag_the_real_failures (test_weather_probe.HookRenderingTests.test_the_concatenation_checks_flag_the_real_failures) ... ok
+test_the_hook_reads_weather_and_never_writes_it (test_weather_probe.HookRenderingTests.test_the_hook_reads_weather_and_never_writes_it) ... ok
+test_each_citation_resolves_in_the_installed_native_script_cache (test_weather_probe.NativeCitationTests.test_each_citation_resolves_in_the_installed_native_script_cache) ... ok
+test_the_docstring_cites_every_native_api_the_hook_calls (test_weather_probe.NativeCitationTests.test_the_docstring_cites_every_native_api_the_hook_calls) ... ok
+test_a_candidate_generated_from_a_different_source_or_world_is_refused (test_weather_probe.StagerTests.test_a_candidate_generated_from_a_different_source_or_world_is_refused) ... ok
+test_a_candidate_replaced_between_admission_and_reconstruction_is_refused (test_weather_probe.StagerTests.test_a_candidate_replaced_between_admission_and_reconstruction_is_refused) ... ok
+test_a_conflicting_purpose_row_cannot_substitute_another_hook_or_metadata (test_weather_probe.StagerTests.test_a_conflicting_purpose_row_cannot_substitute_another_hook_or_metadata) ... ok
+test_a_missing_launcher_row_is_refused_before_anything_is_created (test_weather_probe.StagerTests.test_a_missing_launcher_row_is_refused_before_anything_is_created) ... ok
+test_a_missing_purpose_row_is_refused_and_the_shared_registry_is_never_mutated (test_weather_probe.StagerTests.test_a_missing_purpose_row_is_refused_and_the_shared_registry_is_never_mutated) ... ok
+test_a_run_too_long_for_the_launcher_wait_limit_is_refused (test_weather_probe.StagerTests.test_a_run_too_long_for_the_launcher_wait_limit_is_refused) ... ok
+test_an_unreported_candidate_change_is_refused_even_when_the_metadata_hashes_were_recomputed (test_weather_probe.StagerTests.test_an_unreported_candidate_change_is_refused_even_when_the_metadata_hashes_were_recomputed) ... ok
+test_candidate_run_replaces_only_cfgweather_with_the_validated_candidate_bytes (test_weather_probe.StagerTests.test_candidate_run_replaces_only_cfgweather_with_the_validated_candidate_bytes) ... ok
+test_cli_stages_and_reports_the_hook_hash_and_fails_on_reuse (test_weather_probe.StagerTests.test_cli_stages_and_reports_the_hook_hash_and_fails_on_reuse) ... ok
+test_existing_destination_and_the_verified_runtime_name_are_never_reused (test_weather_probe.StagerTests.test_existing_destination_and_the_verified_runtime_name_are_never_reused) ... ok
+test_init_c_gets_the_generated_hook_and_its_hash_is_recorded (test_weather_probe.StagerTests.test_init_c_gets_the_generated_hook_and_its_hash_is_recorded) ... ok
+test_plan_is_accepted_by_the_launcher_checks_and_records_probe_limits_and_outputs (test_weather_probe.StagerTests.test_plan_is_accepted_by_the_launcher_checks_and_records_probe_limits_and_outputs) ... ok
+test_reconstruction_refuses_bytes_that_differ_from_the_admitted_digest (test_weather_probe.StagerTests.test_reconstruction_refuses_bytes_that_differ_from_the_admitted_digest) ... ok
+test_staging_never_launches_anything_or_touches_the_network (test_weather_probe.StagerTests.test_staging_never_launches_anything_or_touches_the_network) ... ok
+test_stock_run_stages_the_untouched_stock_cfgweather_and_records_its_hash (test_weather_probe.StagerTests.test_stock_run_stages_the_untouched_stock_cfgweather_and_records_its_hash) ... ok
+test_the_module_no_longer_carries_a_setdefault_registry_fallback (test_weather_probe.StagerTests.test_the_module_no_longer_carries_a_setdefault_registry_fallback) ... ok
+test_the_reconstruction_source_is_the_held_stock_not_a_caller_supplied_file (test_weather_probe.StagerTests.test_the_reconstruction_source_is_the_held_stock_not_a_caller_supplied_file) ... ok
+test_the_stage_is_deterministic_for_both_runs_hook_bytes (test_weather_probe.StagerTests.test_the_stage_is_deterministic_for_both_runs_hook_bytes) ... ok
+test_the_stager_builds_on_probe_runtime_instead_of_duplicating_its_staging_code (test_weather_probe.StagerTests.test_the_stager_builds_on_probe_runtime_instead_of_duplicating_its_staging_code) ... ok
+test_the_stock_mission_must_contain_cfgweather_xml (test_weather_probe.StagerTests.test_the_stock_mission_must_contain_cfgweather_xml) ... ok
+test_unvalidated_or_tampered_candidates_are_refused_before_anything_is_created (test_weather_probe.StagerTests.test_unvalidated_or_tampered_candidates_are_refused_before_anything_is_created) ... ok
+test_wait_minutes_must_cover_the_worst_case_and_the_launcher_limit (test_weather_probe.StagerTests.test_wait_minutes_must_cover_the_worst_case_and_the_launcher_limit) ... ok
+test_a_countdown_replaced_by_a_larger_one_before_it_ended_does_not_establish_a_cycle (test_weather_report.CanceledDeadlineTests.test_a_countdown_replaced_by_a_larger_one_before_it_ended_does_not_establish_a_cycle) ... ok
+test_the_decision_table_with_canceled_and_replaced_countdowns (test_weather_report.CanceledDeadlineTests.test_the_decision_table_with_canceled_and_replaced_countdowns) ... ok
+test_the_first_samples_are_a_transition_toward_the_current_target (test_weather_report.CandidateShapedFixtureTests.test_the_first_samples_are_a_transition_toward_the_current_target) ... 
+  test_the_first_samples_are_a_transition_toward_the_current_target (test_weather_report.CandidateShapedFixtureTests.test_the_first_samples_are_a_transition_toward_the_current_target) [fog] ... FAIL
+test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete (test_weather_report.CandidateShapedFixtureTests.test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete) ... 
+  test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete (test_weather_report.CandidateShapedFixtureTests.test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete) [fog] ... FAIL
+test_the_pre_existing_actual_is_kept_in_the_reported_range (test_weather_report.CandidateShapedFixtureTests.test_the_pre_existing_actual_is_kept_in_the_reported_range) ... ok
+test_limits_are_read_for_every_phenomenon_and_flags (test_weather_report.CfgweatherTests.test_limits_are_read_for_every_phenomenon_and_flags) ... ok
+test_malformed_hostile_or_incomplete_xml_is_refused (test_weather_report.CfgweatherTests.test_malformed_hostile_or_incomplete_xml_is_refused) ... ok
+test_a_candidate_inside_the_stock_range_cannot_discriminate (test_weather_report.CompareTests.test_a_candidate_inside_the_stock_range_cannot_discriminate) ... ok
+test_a_comparison_below_the_minimum_sample_count_is_pending (test_weather_report.CompareTests.test_a_comparison_below_the_minimum_sample_count_is_pending) ... ok
+test_a_comparison_of_two_runs_with_the_same_cfgweather_is_pending (test_weather_report.CompareTests.test_a_comparison_of_two_runs_with_the_same_cfgweather_is_pending) ... ok
+test_a_pending_run_makes_the_comparison_pending (test_weather_report.CompareTests.test_a_pending_run_makes_the_comparison_pending) ... ok
+test_a_stock_run_that_only_partly_leaves_the_candidate_range_is_weak_evidence (test_weather_report.CompareTests.test_a_stock_run_that_only_partly_leaves_the_candidate_range_is_weak_evidence) ... ok
+test_candidate_values_outside_the_candidate_limits_show_limits_exceeded_in_the_candidate_run (test_weather_report.CompareTests.test_candidate_values_outside_the_candidate_limits_show_limits_exceeded_in_the_candidate_run) ... ok
+test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_candidate_live_limits_read_back (test_weather_report.CompareTests.test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_candidate_live_limits_read_back) ... ok
+test_one_pending_treated_phenomenon_makes_the_whole_comparison_pending (test_weather_report.CompareTests.test_one_pending_treated_phenomenon_makes_the_whole_comparison_pending) ... ok
+test_the_mission_weather_flags_of_both_runs_are_carried_through (test_weather_report.CompareTests.test_the_mission_weather_flags_of_both_runs_are_carried_through) ... ok
+test_a_current_target_alone_does_not_need_a_forecast_cycle (test_weather_report.CurrentReadbackTests.test_a_current_target_alone_does_not_need_a_forecast_cycle) ... ok
+test_a_current_that_does_not_differ_from_the_stock_is_not_a_treatment (test_weather_report.CurrentReadbackTests.test_a_current_that_does_not_differ_from_the_stock_is_not_a_treatment) ... ok
+test_a_current_whose_first_countdown_is_far_off_is_inconclusive_even_without_a_cycle (test_weather_report.CurrentReadbackTests.test_a_current_whose_first_countdown_is_far_off_is_inconclusive_even_without_a_cycle) ... ok
+test_a_current_with_missing_keys_stays_unsupported_with_coverage_pending (test_weather_report.CurrentReadbackTests.test_a_current_with_missing_keys_stays_unsupported_with_coverage_pending) ... ok
+test_a_first_countdown_that_is_not_time_plus_duration_minus_weather_time_is_inconclusive (test_weather_report.CurrentReadbackTests.test_a_first_countdown_that_is_not_time_plus_duration_minus_weather_time_is_inconclusive) ... ok
+test_a_first_countdown_within_the_provisional_tolerance_is_read_back (test_weather_report.CurrentReadbackTests.test_a_first_countdown_within_the_provisional_tolerance_is_read_back) ... ok
+test_a_first_forecast_that_is_not_the_current_target_is_inconclusive (test_weather_report.CurrentReadbackTests.test_a_first_forecast_that_is_not_the_current_target_is_inconclusive) ... ok
+test_a_matching_current_is_read_back_and_coverage_is_complete (test_weather_report.CurrentReadbackTests.test_a_matching_current_is_read_back_and_coverage_is_complete) ... ok
+test_a_positive_current_never_hides_an_inconclusive_limit_readback (test_weather_report.CurrentReadbackTests.test_a_positive_current_never_hides_an_inconclusive_limit_readback) ... ok
+test_a_positive_limits_label_never_hides_an_inconclusive_current (test_weather_report.CurrentReadbackTests.test_a_positive_limits_label_never_hides_an_inconclusive_current) ... ok
+test_a_stock_run_that_already_started_at_the_candidates_target_gives_no_differential (test_weather_report.CurrentReadbackTests.test_a_stock_run_that_already_started_at_the_candidates_target_gives_no_differential) ... ok
+test_an_actual_that_never_reaches_the_current_target_is_inconclusive (test_weather_report.CurrentReadbackTests.test_an_actual_that_never_reaches_the_current_target_is_inconclusive) ... ok
+test_an_actual_that_reaches_the_target_only_after_time_plus_slack_is_inconclusive (test_weather_report.CurrentReadbackTests.test_an_actual_that_reaches_the_target_only_after_time_plus_slack_is_inconclusive) ... ok
+test_an_inconclusive_current_claims_nothing_and_leaves_the_comparison_complete (test_weather_report.CurrentReadbackTests.test_an_inconclusive_current_claims_nothing_and_leaves_the_comparison_complete) ... ok
+test_an_unsupported_current_never_lets_a_supported_limits_label_stand_for_the_phenomenon (test_weather_report.CurrentReadbackTests.test_an_unsupported_current_never_lets_a_supported_limits_label_stand_for_the_phenomenon) ... ok
+test_limits_time_limits_and_current_each_get_their_own_label (test_weather_report.CurrentReadbackTests.test_limits_time_limits_and_current_each_get_their_own_label) ... FAIL
+test_the_provisional_tolerances_are_explicit_constants (test_weather_report.CurrentReadbackTests.test_the_provisional_tolerances_are_explicit_constants) ... ok
+test_a_forecast_change_without_any_future_deadline_is_not_a_cycle (test_weather_report.DeadlineProgressionTests.test_a_forecast_change_without_any_future_deadline_is_not_a_cycle) ... ok
+test_a_native_shaped_countdown_with_a_slightly_slow_rate_is_not_a_false_cycle (test_weather_report.DeadlineProgressionTests.test_a_native_shaped_countdown_with_a_slightly_slow_rate_is_not_a_false_cycle) ... ok
+test_interpolation_toward_an_unchanged_forecast_with_an_unchanged_deadline_is_not_a_cycle (test_weather_report.DeadlineProgressionTests.test_interpolation_toward_an_unchanged_forecast_with_an_unchanged_deadline_is_not_a_cycle) ... ok
+test_the_decision_table (test_weather_report.DeadlineProgressionTests.test_the_decision_table) ... ok
+test_every_required_key_is_a_literal_in_the_generated_hook (test_weather_report.HookContractTests.test_every_required_key_is_a_literal_in_the_generated_hook) ... ok
+test_the_synthetic_fixture_uses_exactly_the_documented_sample_shape (test_weather_report.HookContractTests.test_the_synthetic_fixture_uses_exactly_the_documented_sample_shape) ... ok
+test_a_first_sample_that_already_holds_the_forecast_has_no_window (test_weather_report.InitialTransitionTests.test_a_first_sample_that_already_holds_the_forecast_has_no_window) ... ok
+test_a_forecast_outside_the_limits_counts_even_inside_the_window (test_weather_report.InitialTransitionTests.test_a_forecast_outside_the_limits_counts_even_inside_the_window) ... ok
+test_a_transition_that_never_ends_is_not_excused (test_weather_report.InitialTransitionTests.test_a_transition_that_never_ends_is_not_excused) ... ok
+test_an_out_of_limit_actual_after_the_transition_still_violates (test_weather_report.InitialTransitionTests.test_an_out_of_limit_actual_after_the_transition_still_violates) ... ok
+test_each_kind_of_scheduled_change_ends_the_window_on_its_own (test_weather_report.InitialTransitionTests.test_each_kind_of_scheduled_change_ends_the_window_on_its_own) ... ok
+test_out_of_limit_actuals_before_the_actual_reaches_the_first_forecast_are_reported_not_violations (test_weather_report.InitialTransitionTests.test_out_of_limit_actuals_before_the_actual_reaches_the_first_forecast_are_reported_not_violations) ... ok
+test_the_pair_reports_the_window_for_the_candidate (test_weather_report.InitialTransitionTests.test_the_pair_reports_the_window_for_the_candidate) ... ok
+test_the_window_also_ends_at_the_first_scheduled_change (test_weather_report.InitialTransitionTests.test_the_window_also_ends_at_the_first_scheduled_change) ... ok
+test_a_comparison_whose_candidate_changes_no_limits_has_nothing_to_compare (test_weather_report.LimitReadbackTests.test_a_comparison_whose_candidate_changes_no_limits_has_nothing_to_compare) ... ok
+test_a_forecast_outside_the_candidates_limits_counts_with_values_in_range_and_stale_limits (test_weather_report.LimitReadbackTests.test_a_forecast_outside_the_candidates_limits_counts_with_values_in_range_and_stale_limits) ... ok
+test_a_stock_run_that_reads_the_same_live_limits_gives_no_differential (test_weather_report.LimitReadbackTests.test_a_stock_run_that_reads_the_same_live_limits_gives_no_differential) ... ok
+test_a_treated_time_limit_must_also_show_in_the_live_readings (test_weather_report.LimitReadbackTests.test_a_treated_time_limit_must_also_show_in_the_live_readings) ... ok
+test_the_differential_makes_the_positive_label_and_reports_the_live_readings (test_weather_report.LimitReadbackTests.test_the_differential_makes_the_positive_label_and_reports_the_live_readings) ... ok
+test_values_in_range_with_unchanged_live_limits_do_not_show_the_limits_applied (test_weather_report.LimitReadbackTests.test_values_in_range_with_unchanged_live_limits_do_not_show_the_limits_applied) ... ok
+test_a_mixed_time_limit_readback_is_inconclusive_as_well (test_weather_report.MixedReadbackTests.test_a_mixed_time_limit_readback_is_inconclusive_as_well) ... ok
+test_a_readback_that_is_inconclusive_claims_nothing_about_the_native_engine (test_weather_report.MixedReadbackTests.test_a_readback_that_is_inconclusive_claims_nothing_about_the_native_engine) ... ok
+test_one_stale_candidate_reading_among_matching_ones_is_inconclusive (test_weather_report.MixedReadbackTests.test_one_stale_candidate_reading_among_matching_ones_is_inconclusive) ... ok
+test_one_stock_reading_that_already_equals_the_candidate_is_inconclusive (test_weather_report.MixedReadbackTests.test_one_stock_reading_that_already_equals_the_candidate_is_inconclusive) ... ok
+test_a_countdown_run_with_exponent_lexemes_is_read_and_its_crossings_are_found (test_weather_report.NativeShapedTests.test_a_countdown_run_with_exponent_lexemes_is_read_and_its_crossings_are_found) ... ok
+test_a_native_shaped_run_whose_countdown_never_ends_is_pending_for_the_treated_phenomenon (test_weather_report.NativeShapedTests.test_a_native_shaped_run_whose_countdown_never_ends_is_pending_for_the_treated_phenomenon) ... ok
+test_a_pair_of_native_shaped_runs_with_a_countdown_gives_a_descriptive_result (test_weather_report.NativeShapedTests.test_a_pair_of_native_shaped_runs_with_a_countdown_gives_a_descriptive_result) ... ok
+test_every_pair_result_carries_the_fixed_non_claims_and_only_known_labels (test_weather_report.NonClaimTests.test_every_pair_result_carries_the_fixed_non_claims_and_only_known_labels) ... ok
+test_the_label_set_is_exactly_the_descriptive_one (test_weather_report.NonClaimTests.test_the_label_set_is_exactly_the_descriptive_one) ... ok
+test_the_non_claims_name_precedence_non_application_the_stock_cycle_and_acceptance (test_weather_report.NonClaimTests.test_the_non_claims_name_precedence_non_application_the_stock_cycle_and_acceptance) ... ok
+test_a_duplicate_sample_is_pending (test_weather_report.PendingTests.test_a_duplicate_sample_is_pending) ... ok
+test_a_malformed_json_line_is_pending (test_weather_report.PendingTests.test_a_malformed_json_line_is_pending) ... ok
+test_a_missing_or_unknown_phenomenon_or_field_is_pending (test_weather_report.PendingTests.test_a_missing_or_unknown_phenomenon_or_field_is_pending) ... ok
+test_a_missing_sample_is_pending (test_weather_report.PendingTests.test_a_missing_sample_is_pending) ... ok
+test_a_plan_that_disagrees_with_the_observations_or_cfgweather_is_pending (test_weather_report.PendingTests.test_a_plan_that_disagrees_with_the_observations_or_cfgweather_is_pending) ... ok
+test_a_run_without_a_complete_end_record_is_pending (test_weather_report.PendingTests.test_a_run_without_a_complete_end_record_is_pending) ... ok
+test_blank_lines_inside_the_stream_are_malformed_not_ignored (test_weather_report.PendingTests.test_blank_lines_inside_the_stream_are_malformed_not_ignored) ... ok
+test_non_finite_numbers_are_pending (test_weather_report.PendingTests.test_non_finite_numbers_are_pending) ... ok
+test_out_of_order_or_non_contiguous_sequence_numbers_are_pending (test_weather_report.PendingTests.test_out_of_order_or_non_contiguous_sequence_numbers_are_pending) ... ok
+test_oversized_input_is_refused (test_weather_report.PendingTests.test_oversized_input_is_refused) ... ok
+test_structural_oddities_are_pending (test_weather_report.PendingTests.test_structural_oddities_are_pending) ... ok
+test_the_end_record_and_header_must_agree_with_the_sample_count (test_weather_report.PendingTests.test_the_end_record_and_header_must_agree_with_the_sample_count) ... ok
+test_write_errors_reported_by_the_probe_make_the_run_pending (test_weather_report.PendingTests.test_write_errors_reported_by_the_probe_make_the_run_pending) ... ok
+test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates (test_weather_report.PostEntryExcursionTests.test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates) ... FAIL
+test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back (test_weather_report.PostEntryExcursionTests.test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back) ... FAIL
+test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry (test_weather_report.PostEntryExcursionTests.test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry) ... FAIL
+test_the_decision_table_of_the_window_end (test_weather_report.PostEntryExcursionTests.test_the_decision_table_of_the_window_end) ... 
+  test_the_decision_table_of_the_window_end (test_weather_report.PostEntryExcursionTests.test_the_decision_table_of_the_window_end) [the first actual is inside the limits] ... FAIL
+  test_the_decision_table_of_the_window_end (test_weather_report.PostEntryExcursionTests.test_the_decision_table_of_the_window_end) [the entry comes before the forecast is reached] ... FAIL
+test_a_candidate_that_never_changed_anything_does_not_establish_compliance (test_weather_report.ProgressionTests.test_a_candidate_that_never_changed_anything_does_not_establish_compliance) ... ok
+test_a_candidate_with_the_xml_disabled_does_not_establish_anything (test_weather_report.ProgressionTests.test_a_candidate_with_the_xml_disabled_does_not_establish_anything) ... ok
+test_a_stock_run_without_a_cycle_is_reported_but_does_not_block_the_treated_candidate_result (test_weather_report.ProgressionTests.test_a_stock_run_without_a_cycle_is_reported_but_does_not_block_the_treated_candidate_result) ... ok
+test_conflicting_live_limits_without_a_forecast_boundary_do_not_establish_anything (test_weather_report.ProgressionTests.test_conflicting_live_limits_without_a_forecast_boundary_do_not_establish_anything) ... ok
+test_frozen_runs_do_not_establish_anything (test_weather_report.ProgressionTests.test_frozen_runs_do_not_establish_anything) ... ok
+test_no_forecast_boundary_in_the_candidate_run_means_nothing_is_established (test_weather_report.ProgressionTests.test_no_forecast_boundary_in_the_candidate_run_means_nothing_is_established) ... ok
+test_per_run_progression_is_reported (test_weather_report.ProgressionTests.test_per_run_progression_is_reported) ... ok
+test_runs_whose_weather_clock_did_not_advance_do_not_establish_anything (test_weather_report.ProgressionTests.test_runs_whose_weather_clock_did_not_advance_do_not_establish_anything) ... ok
+test_the_evidence_vocabulary_never_claims_precedence (test_weather_report.ProgressionTests.test_the_evidence_vocabulary_never_claims_precedence) ... ok
+test_a_candidate_built_from_another_stock_cfgweather_is_refused (test_weather_report.ProvenanceTests.test_a_candidate_built_from_another_stock_cfgweather_is_refused) ... ok
+test_a_different_observations_kind_is_refused (test_weather_report.ProvenanceTests.test_a_different_observations_kind_is_refused) ... ok
+test_a_differently_spelled_world_is_refused (test_weather_report.ProvenanceTests.test_a_differently_spelled_world_is_refused) ... ok
+test_different_engine_versions_are_refused (test_weather_report.ProvenanceTests.test_different_engine_versions_are_refused) ... ok
+test_different_hooks_and_source_plans_are_refused (test_weather_report.ProvenanceTests.test_different_hooks_and_source_plans_are_refused) ... ok
+test_different_sampling_parameters_are_refused (test_weather_report.ProvenanceTests.test_different_sampling_parameters_are_refused) ... ok
+test_matching_provenance_compares (test_weather_report.ProvenanceTests.test_matching_provenance_compares) ... ok
+test_runs_without_a_plan_or_with_swapped_variants_are_refused (test_weather_report.ProvenanceTests.test_runs_without_a_plan_or_with_swapped_variants_are_refused) ... ok
+test_the_notes_scope_a_clean_status_to_after_the_initial_transition (test_weather_report.RawValuesInRangeTests.test_the_notes_scope_a_clean_status_to_after_the_initial_transition) ... ok
+test_values_in_range_after_the_transition_is_false_for_a_later_violation (test_weather_report.RawValuesInRangeTests.test_values_in_range_after_the_transition_is_false_for_a_later_violation) ... ok
+test_values_in_range_describes_the_raw_samples (test_weather_report.RawValuesInRangeTests.test_values_in_range_describes_the_raw_samples) ... ok
+test_values_in_range_is_true_only_when_no_raw_actual_is_outside (test_weather_report.RawValuesInRangeTests.test_values_in_range_is_true_only_when_no_raw_actual_is_outside) ... ok
+test_a_duplicate_key_in_the_plan_file_is_refused (test_weather_report.RobustnessTests.test_a_duplicate_key_in_the_plan_file_is_refused) ... ok
+test_a_null_or_non_object_phenomena_value_is_pending (test_weather_report.RobustnessTests.test_a_null_or_non_object_phenomena_value_is_pending) ... ok
+test_an_unexpected_failure_becomes_exit_code_two_without_a_traceback (test_weather_report.RobustnessTests.test_an_unexpected_failure_becomes_exit_code_two_without_a_traceback) ... ok
+test_deeply_nested_json_is_malformed_not_a_recursion_crash (test_weather_report.RobustnessTests.test_deeply_nested_json_is_malformed_not_a_recursion_crash) ... ok
+test_duplicate_json_object_keys_are_malformed (test_weather_report.RobustnessTests.test_duplicate_json_object_keys_are_malformed) ... ok
+test_numeric_overflow_is_malformed_not_a_crash (test_weather_report.RobustnessTests.test_numeric_overflow_is_malformed_not_a_crash) ... ok
+test_repeated_or_reversed_timestamps_are_not_an_ordered_sampling_run (test_weather_report.RobustnessTests.test_repeated_or_reversed_timestamps_are_not_an_ordered_sampling_run) ... ok
+test_samples_far_closer_than_the_interval_are_refused (test_weather_report.RobustnessTests.test_samples_far_closer_than_the_interval_are_refused) ... ok
+test_the_cli_never_prints_a_traceback_for_overflow_and_keeps_its_exit_codes (test_weather_report.RobustnessTests.test_the_cli_never_prints_a_traceback_for_overflow_and_keeps_its_exit_codes) ... ok
+test_a_missing_sentinel_or_failed_sentinel_leaves_the_run_pending (test_weather_report.RuntimeAndCliTests.test_a_missing_sentinel_or_failed_sentinel_leaves_the_run_pending) ... ok
+test_a_staged_and_run_runtime_directory_is_read_through_its_plan (test_weather_report.RuntimeAndCliTests.test_a_staged_and_run_runtime_directory_is_read_through_its_plan) ... ok
+test_symlinked_inputs_are_refused (test_weather_report.RuntimeAndCliTests.test_symlinked_inputs_are_refused) ... ok
+test_the_cli_prints_json_and_uses_distinct_exit_codes (test_weather_report.RuntimeAndCliTests.test_the_cli_prints_json_and_uses_distinct_exit_codes) ... ok
+test_the_report_never_runs_processes_or_touches_the_network (test_weather_report.RuntimeAndCliTests.test_the_report_never_runs_processes_or_touches_the_network) ... ok
+test_a_clean_run_inside_the_candidate_limits_is_within_candidate_for_every_phenomenon (test_weather_report.SingleRunTests.test_a_clean_run_inside_the_candidate_limits_is_within_candidate_for_every_phenomenon) ... ok
+test_a_phenomenon_with_too_few_valid_samples_is_insufficient (test_weather_report.SingleRunTests.test_a_phenomenon_with_too_few_valid_samples_is_insufficient) ... ok
+test_actual_values_outside_the_candidate_limits_violate_only_that_phenomenon (test_weather_report.SingleRunTests.test_actual_values_outside_the_candidate_limits_violate_only_that_phenomenon) ... ok
+test_mission_weather_and_frozen_flags_are_reported_per_run (test_weather_report.SingleRunTests.test_mission_weather_and_frozen_flags_are_reported_per_run) ... ok
+test_numbers_emitted_as_text_including_unusual_float_spellings_are_accepted (test_weather_report.SingleRunTests.test_numbers_emitted_as_text_including_unusual_float_spellings_are_accepted) ... ok
+test_the_boundary_tolerance_covers_float_text_but_not_real_excursions (test_weather_report.SingleRunTests.test_the_boundary_tolerance_covers_float_text_but_not_real_excursions) ... ok
+test_the_engines_live_limits_are_compared_to_the_candidates_limits (test_weather_report.SingleRunTests.test_the_engines_live_limits_are_compared_to_the_candidates_limits) ... ok
+test_the_forecast_is_reported_separately_and_never_decides_the_status (test_weather_report.SingleRunTests.test_the_forecast_is_reported_separately_and_never_decides_the_status) ... ok
+test_a_blocked_comparison_keeps_untreated_phenomena_informational (test_weather_report.TreatedGateTests.test_a_blocked_comparison_keeps_untreated_phenomena_informational) ... ok
+test_a_treated_phenomenon_still_needs_its_own_candidate_cycle (test_weather_report.TreatedGateTests.test_a_treated_phenomenon_still_needs_its_own_candidate_cycle) ... ok
+test_an_unchanged_zero_snowfall_does_not_block_a_targeted_overcast_result (test_weather_report.TreatedGateTests.test_an_unchanged_zero_snowfall_does_not_block_a_targeted_overcast_result) ... ok
+test_slow_fog_and_wind_direction_schedules_do_not_block_an_overcast_result_in_a_24_minute_run (test_weather_report.TreatedGateTests.test_slow_fog_and_wind_direction_schedules_do_not_block_an_overcast_result_in_a_24_minute_run) ... ok
+test_an_observed_actual_violation_is_reported_even_without_a_cycle (test_weather_report.VerdictBeforeGateTests.test_an_observed_actual_violation_is_reported_even_without_a_cycle) ... ok
+test_forecast_outside_is_reported_even_without_a_cycle (test_weather_report.VerdictBeforeGateTests.test_forecast_outside_is_reported_even_without_a_cycle) ... ok
+test_too_few_samples_stay_pending_whatever_they_show (test_weather_report.VerdictBeforeGateTests.test_too_few_samples_stay_pending_whatever_they_show) ... ok
+
+======================================================================
+FAIL: test_the_first_samples_are_a_transition_toward_the_current_target (test_weather_report.CandidateShapedFixtureTests.test_the_first_samples_are_a_transition_toward_the_current_target) [fog]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1392, in test_the_first_samples_are_a_transition_toward_the_current_target
+    self.assertEqual(self.WINDOW[name], (entry["initial_transition"]["samples"],
+AssertionError: Tuples differ: (22, 'actual_entered_limits') != (23, 'actual_entered_limits')
+
+First differing element 0:
+22
+23
+
+- (22, 'actual_entered_limits')
+?   ^
+
++ (23, 'actual_entered_limits')
+?   ^
+
+
+======================================================================
+FAIL: test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete (test_weather_report.CandidateShapedFixtureTests.test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete) [fog]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1413, in test_the_pair_reads_back_limits_time_limits_and_current_with_coverage_complete
+    self.assertEqual(self.WINDOW[name][0], entry["initial_transition"]["samples"])
+AssertionError: 22 != 23
+
+======================================================================
+FAIL: test_limits_time_limits_and_current_each_get_their_own_label (test_weather_report.CurrentReadbackTests.test_limits_time_limits_and_current_each_get_their_own_label)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1271, in test_limits_time_limits_and_current_each_get_their_own_label
+    self.assertEqual((3, "actual_entered_limits"),
+AssertionError: Tuples differ: (3, 'actual_entered_limits') != (4, 'actual_entered_limits')
+
+First differing element 0:
+3
+4
+
+- (3, 'actual_entered_limits')
+?  ^
+
++ (4, 'actual_entered_limits')
+?  ^
+
+
+======================================================================
+FAIL: test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates (test_weather_report.PostEntryExcursionTests.test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1054, in test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates
+    self.assertEqual(0, entry["initial_transition"]["samples"])
+AssertionError: 0 != 1
+
+======================================================================
+FAIL: test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back (test_weather_report.PostEntryExcursionTests.test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1066, in test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back
+    self.assertEqual((2, "actual_entered_limits"),
+AssertionError: Tuples differ: (2, 'actual_entered_limits') != (3, 'actual_entered_limits')
+
+First differing element 0:
+2
+3
+
+- (2, 'actual_entered_limits')
+?  ^
+
++ (3, 'actual_entered_limits')
+?  ^
+
+
+======================================================================
+FAIL: test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry (test_weather_report.PostEntryExcursionTests.test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1077, in test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry
+    self.assertEqual((3, "actual_entered_limits"),
+AssertionError: Tuples differ: (3, 'actual_entered_limits') != (4, 'actual_entered_limits')
+
+First differing element 0:
+3
+4
+
+- (3, 'actual_entered_limits')
+?  ^
+
++ (4, 'actual_entered_limits')
+?  ^
+
+
+======================================================================
+FAIL: test_the_decision_table_of_the_window_end (test_weather_report.PostEntryExcursionTests.test_the_decision_table_of_the_window_end) [the first actual is inside the limits]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1097, in test_the_decision_table_of_the_window_end
+    self.assertEqual(expected, report._initial_transition(points, limits))
+AssertionError: Tuples differ: (0, 'actual_entered_limits') != (1, 'actual_entered_limits')
+
+First differing element 0:
+0
+1
+
+- (0, 'actual_entered_limits')
+?  ^
+
++ (1, 'actual_entered_limits')
+?  ^
+
+
+======================================================================
+FAIL: test_the_decision_table_of_the_window_end (test_weather_report.PostEntryExcursionTests.test_the_decision_table_of_the_window_end) [the entry comes before the forecast is reached]
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/baseline/tests/unit/test_weather_report.py", line 1097, in test_the_decision_table_of_the_window_end
+    self.assertEqual(expected, report._initial_transition(points, limits))
+AssertionError: Tuples differ: (1, 'actual_entered_limits') != (2, 'actual_entered_limits')
+
+First differing element 0:
+1
+2
+
+- (1, 'actual_entered_limits')
+?  ^
+
++ (2, 'actual_entered_limits')
+?  ^
+
+
+----------------------------------------------------------------------
+Ran 180 tests in 0.967s
+
+FAILED (failures=8)

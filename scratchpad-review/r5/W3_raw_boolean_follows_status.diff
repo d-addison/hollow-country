@@ -1,0 +1,11 @@
+--- original
++++ W3_raw_boolean_follows_status
+@@ -936,7 +936,7 @@
+             "initial_transition": candidate["initial_transition"],
+             "stock_initial_transition": stock["initial_transition"],
+             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
+-            "values_in_range": None if not candidate["actual_range"] else candidate["raw_actual_outside_limits"] == 0,
++            "values_in_range": None if not candidate["actual_range"] else candidate["status"] == "within_candidate",
+             "values_in_range_after_initial_transition": (
+                 None if not candidate["actual_range"] else candidate["status"] == "within_candidate"),
+             "raw_actual_outside_limits": candidate["raw_actual_outside_limits"],

@@ -1,0 +1,24 @@
+test_excursion_after_convergence_into_limits_is_not_excused_with_current_read_back (__main__.NewFindings.test_excursion_after_convergence_into_limits_is_not_excused_with_current_read_back) ... current also read back: complete None violates_candidate {'samples': 2, 'ended_by': 'actual_entered_limits', 'last_seq': 1, 'actual_outside_limits': 2, 'outside_samples': [0, 1]}
+ok
+test_excursion_after_entering_limits_is_not_initial_transition (__main__.NewFindings.test_excursion_after_entering_limits_is_not_initial_transition) ... inside then excursion: {"evidence": "candidate_values_outside_limits", "candidate_status": "violates_candidate", "values_in_range": false, "initial_transition": {"samples": 0, "ended_by": "actual_entered_limits", "last_seq": null, "actual_outside_limits": 0, "outside_samples": []}, "candidate_actual_range": {"min": 0.4, "max": 0.9}}
+ok
+test_forecast_outside_is_reported_even_without_a_cycle (__main__.NewFindings.test_forecast_outside_is_reported_even_without_a_cycle) ... out-of-range forecast without cycle: candidate_values_outside_limits 6
+ok
+test_values_in_range_describes_the_raw_samples (__main__.NewFindings.test_values_in_range_describes_the_raw_samples) ... raw values outside: False {'min': 0.3, 'max': 0.9} {'samples': 4, 'ended_by': 'actual_reached_initial_forecast', 'last_seq': 3, 'actual_outside_limits': 4, 'outside_samples': [0, 1, 2, 3]}
+ok
+test_native_exponents_and_bad_samples (__main__.RequestedGuards.test_native_exponents_and_bad_samples) ... native copy clean complete []
+native copy duplicate_sample pending ['duplicate sample seq 0 on line 3']
+native copy duplicate_json_key pending ["malformed JSON on line 2: duplicate JSON key 'actual'", 'missing sample(s) seq 0..0 before line 3']
+native copy nonfinite pending ['malformed sample record on line 2: number is not finite', 'missing sample(s) seq 0..0 before line 3']
+native copy null_sample pending ['malformed record on line 2: no record type', 'missing sample(s) seq 0..0 before line 3']
+native copy non_object_phenomenon pending ['malformed sample record on line 2: phenomena differ from the documented set', 'missing sample(s) seq 0..0 before line 3']
+ok
+test_nonending_window_is_not_excused (__main__.RequestedGuards.test_nonending_window_is_not_excused) ... nonending window: violates_candidate 6 {'samples': 0, 'ended_by': None, 'last_seq': None, 'actual_outside_limits': 0, 'outside_samples': []}
+ok
+test_scheduled_change_ends_window_and_counts_same_sample (__main__.RequestedGuards.test_scheduled_change_ends_window_and_counts_same_sample) ... scheduled window end: {'samples': 3, 'ended_by': 'first_scheduled_change', 'last_seq': 2, 'actual_outside_limits': 3, 'outside_samples': [0, 1, 2]} [3, 4, 5]
+ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.123s
+
+OK

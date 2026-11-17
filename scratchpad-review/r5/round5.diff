@@ -1,0 +1,341 @@
+commit 099f96f65da8e4d924f831eca97235e50cd85621
+Author: David Addison <73078380+d-addison@users.noreply.github.com>
+Date:   Tue Nov 17 06:46:26 2026 -0500
+
+    End the weather initial-transition window at first entry into limits, report raw values_in_range and check violations before progression gates
+
+diff --git a/tests/unit/test_weather_report.py b/tests/unit/test_weather_report.py
+index 699d095..a4e245a 100644
+--- a/tests/unit/test_weather_report.py
++++ b/tests/unit/test_weather_report.py
+@@ -471,7 +471,7 @@ class CompareTests(unittest.TestCase):
+         both = XML_TREATING_OVERCAST_AND_FOG
+         def stuck(rows):
+             for row in rows[1:7]:
+-                row["phenomena"]["fog"]["next_change"] = 1000
++                row["phenomena"]["fog"].update(actual=0.75, forecast=0.75, next_change=1000)
+         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(both, "candidate", mutate=stuck))
+         self.assertEqual(["overcast", "fog"], result["treated"])
+         self.assertEqual("pending", result["phenomena"]["fog"]["evidence"])
+@@ -531,7 +531,7 @@ class ProgressionTests(unittest.TestCase):
+         def conflicting(rows):
+             for row in rows[1:7]:
+                 entry = row["phenomena"]["overcast"]
+-                entry.update(limit_min=0.0, limit_max=1.0, forecast=0.3, next_change=1000)
++                entry.update(limit_min=0.0, limit_max=1.0, forecast=0.9, next_change=1000)
+         result = self.compare(candidate_overcast=0.9, candidate_mutate=conflicting)
+         self.assert_not_established(result)
+ 
+@@ -1023,6 +1023,145 @@ FOG_CURRENT = with_current(cfgweather(enable="1"), "fog")
+ FOG_CURRENT_LIMITS = with_current(cfgweather(enable="1", fog=(0.7, 0.8), times={"fog": (30, 60)}), "fog")
+ 
+ 
++class PostEntryExcursionTests(unittest.TestCase):
++    """The initial transition excuses only the run from the reset value up to the first actual inside the limits; an
++    excursion after that first entry is a violation, whatever else was read back. Synthetic traces, not DayZ output."""
++
++    POSITIVE = ("candidate_live_limits_read_back", "candidate_current_read_back")
++
++    def overcast_pair(self, actual):
++        points = list(zip(actual, [.9] * 8, [100, 70, 40, 10, 100, 70, 40, 10]))
++        candidate = evaluated(DISTINCT, "candidate", count=8, mutate=series("overcast", points))
++        return candidate, report.compare(evaluated(STOCK, "stock", 0.3, count=8), candidate)
++
++    def fog_pair(self, actual):
++        countdown = [360 - 30 * i for i in range(12)] + [0, 40]
++        points = list(zip(actual, [.75] * 14, countdown))
++        candidate = fog_current_run(FOG_CURRENT_LIMITS, "candidate", fog_series=points)
++        return candidate, report.compare(evaluated(STOCK, "stock", count=14), candidate)
++
++    def assert_no_positive_labels(self, entry):
++        self.assertNotIn(entry["evidence"], self.POSITIVE)
++        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
++        for label in (entry["attribute_evidence"] or {}).values():
++            self.assertNotIn(label, self.POSITIVE)
++
++    def test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates(self):
++        candidate, result = self.overcast_pair([.81, .4, .6, .75, .9, .9, .9, .9])
++        entry = candidate["phenomena"]["overcast"]
++        self.assertEqual("violates_candidate", entry["status"])
++        self.assertEqual([1, 2, 3], entry["violating_samples"])
++        self.assertEqual(0, entry["initial_transition"]["samples"])
++        self.assertEqual(0, entry["initial_transition"]["actual_outside_limits"])
++        pair = result["phenomena"]["overcast"]
++        self.assert_no_positive_labels(pair)
++        self.assertEqual("violates_candidate", pair["candidate_status"])
++        self.assertIs(False, pair["values_in_range"])
++
++    def test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back(self):
++        candidate, result = self.fog_pair([.3, .4, .72, .1, .75] + [.75] * 9)
++        entry = candidate["phenomena"]["fog"]
++        self.assertEqual("violates_candidate", entry["status"])
++        self.assertEqual([3], entry["violating_samples"])
++        self.assertEqual((2, "actual_entered_limits"),
++                         (entry["initial_transition"]["samples"], entry["initial_transition"]["ended_by"]))
++        self.assertEqual([0, 1], entry["initial_transition"]["outside_samples"])
++        pair = result["phenomena"]["fog"]
++        self.assert_no_positive_labels(pair)
++        self.assertEqual("complete", result["status"], result["issues"])
++
++    def test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry(self):
++        candidate, result = self.fog_pair([.3, .4, .55, .7] + [.75] * 10)
++        entry = candidate["phenomena"]["fog"]
++        self.assertEqual("within_candidate", entry["status"])
++        self.assertEqual((3, "actual_entered_limits"),
++                         (entry["initial_transition"]["samples"], entry["initial_transition"]["ended_by"]))
++        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["fog"]["evidence"])
++
++    def test_the_decision_table_of_the_window_end(self):
++        limits = (.8, .95)
++        cases = {
++            "the first actual is inside the limits": (
++                [(0, .81, .9, 100), (30, .4, .9, 70), (60, .9, .9, 40)], (0, "actual_entered_limits")),
++            "the entry comes before the forecast is reached": (
++                [(0, .3, .9, 100), (30, .85, .9, 70), (60, .5, .9, 40), (90, .9, .9, 10)], (1, "actual_entered_limits")),
++            "the forecast is reached while the limits are not the target": (
++                [(0, .3, .5, 100), (30, .4, .5, 70), (60, .5, .5, 40)], (2, "actual_reached_initial_forecast")),
++            "a forecast change comes before any entry": (
++                [(0, .3, .9, 100), (30, .35, .9, 70), (60, .4, .85, 40), (90, .85, .85, 10)], (2, "first_scheduled_change")),
++            "no entry, no forecast and no scheduled change is no transition": (
++                [(0, .3, .9, 100), (30, .35, .9, 70), (60, .4, .9, 40)], (0, None)),
++        }
++        for label, (points, expected) in cases.items():
++            with self.subTest(label):
++                self.assertEqual(expected, report._initial_transition(points, limits))
++
++
++class VerdictBeforeGateTests(unittest.TestCase):
++    """Known violations are reported once there are enough usable samples, whatever the countdown did."""
++
++    COUNTDOWN = [900 - 30 * i for i in range(6)]
++
++    def pair(self, actual, forecast):
++        points = list(zip(actual, forecast, self.COUNTDOWN))
++        candidate = evaluated(DISTINCT, "candidate", mutate=series("overcast", points))
++        return report.compare(evaluated(STOCK, "stock", 0.3), candidate)
++
++    def test_forecast_outside_is_reported_even_without_a_cycle(self):
++        result = self.pair([.9] * 6, [.99] * 6)
++        entry = result["phenomena"]["overcast"]
++        self.assertEqual((False, False), (entry["boundary_crossed"]["candidate"], entry["cycle_observed"]["candidate"]))
++        self.assertEqual(6, entry["candidate_forecast_outside_limits"])
++        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
++        self.assertEqual("complete", result["status"], result["issues"])
++
++    def test_an_observed_actual_violation_is_reported_even_without_a_cycle(self):
++        result = self.pair([.9, .9, .9, .5, .9, .9], [.9] * 6)
++        entry = result["phenomena"]["overcast"]
++        self.assertFalse(entry["cycle_observed"]["candidate"])
++        self.assertEqual("violates_candidate", entry["candidate_status"])
++        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
++        self.assertEqual("complete", result["status"], result["issues"])
++
++    def test_too_few_samples_stay_pending_whatever_they_show(self):
++        candidate = evaluated(DISTINCT, "candidate", count=3,
++                              mutate=series("overcast", [(.9, .99, 900), (.9, .99, 870), (.9, .99, 840)]))
++        result = report.compare(evaluated(STOCK, "stock", 0.3, count=3), candidate)
++        self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
++
++
++class RawValuesInRangeTests(unittest.TestCase):
++    """values_in_range describes every raw actual; the excused status is reported under its own scoped field."""
++
++    def test_values_in_range_describes_the_raw_samples(self):
++        candidate = fog_current_run(FOG_CURRENT_LIMITS, "candidate")
++        result = report.compare(evaluated(STOCK, "stock", count=14), candidate)
++        entry = result["phenomena"]["fog"]
++        self.assertEqual("within_candidate", entry["candidate_status"])
++        self.assertIs(False, entry["values_in_range"])
++        self.assertIs(True, entry["values_in_range_after_initial_transition"])
++        self.assertEqual(.3, entry["candidate_actual_range"]["min"])
++        self.assertEqual(3, entry["raw_actual_outside_limits"])
++
++    def test_values_in_range_after_the_transition_is_false_for_a_later_violation(self):
++        countdown = [360 - 30 * i for i in range(12)] + [0, 40]
++        points = list(zip([.3, .4, .72, .1, .75] + [.75] * 9, [.75] * 14, countdown))
++        entry = report.compare(evaluated(STOCK, "stock", count=14),
++                               fog_current_run(FOG_CURRENT_LIMITS, "candidate", fog_series=points))["phenomena"]["fog"]
++        self.assertEqual((False, False), (entry["values_in_range"], entry["values_in_range_after_initial_transition"]))
++
++    def test_values_in_range_is_true_only_when_no_raw_actual_is_outside(self):
++        candidate = evaluated(DISTINCT, "candidate", 0.9)
++        entry = report.compare(evaluated(STOCK, "stock", 0.3), candidate)["phenomena"]["overcast"]
++        self.assertEqual((True, True), (entry["values_in_range"], entry["values_in_range_after_initial_transition"]))
++
++    def test_the_notes_scope_a_clean_status_to_after_the_initial_transition(self):
++        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9))
++        self.assertTrue(any("after the initial transition" in note and "not whole-run compliance" in note
++                            for note in result["notes"]), result["notes"])
++        self.assertIn("after the initial transition", report.__doc__.split("within_candidate", 1)[1][:200])
++
++
+ class CurrentReadbackTests(unittest.TestCase):
+     """The candidate's <current> is read back when the first forecast, the first countdown and the actual match it."""
+ 
+@@ -1129,7 +1268,8 @@ class CurrentReadbackTests(unittest.TestCase):
+         self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
+         self.assertEqual("complete", result["status"], result["issues"])
+         self.assertEqual("complete", result["coverage"])
+-        self.assertEqual(4, entry["initial_transition"]["samples"])
++        self.assertEqual((3, "actual_entered_limits"),
++                         (entry["initial_transition"]["samples"], entry["initial_transition"]["ended_by"]))
+         self.assertEqual("within_candidate", entry["candidate_status"])
+ 
+     def test_a_positive_limits_label_never_hides_an_inconclusive_current(self):
+@@ -1187,6 +1327,7 @@ class CandidateShapedFixtureTests(unittest.TestCase):
+ 
+     COUNT = 241
+     FIRST, STEP = 5.30287, 5.0
++    WINDOW = {"overcast": (23, "actual_reached_initial_forecast"), "fog": (22, "actual_entered_limits")}
+ 
+     def rows(self, xml, variant, shapes):
+         rows = [header(self.COUNT, interval_ms=5000, cap_ms=1235000)]
+@@ -1247,8 +1388,9 @@ class CandidateShapedFixtureTests(unittest.TestCase):
+         for name in ("overcast", "fog"):
+             with self.subTest(name):
+                 entry = candidate["phenomena"][name]
+-                self.assertEqual(23, entry["initial_transition"]["samples"])
+-                self.assertEqual("actual_reached_initial_forecast", entry["initial_transition"]["ended_by"])
++                # the fog actual enters .7..8 one sample before it reaches .75; the overcast actual reaches .98 first
++                self.assertEqual(self.WINDOW[name], (entry["initial_transition"]["samples"],
++                                                     entry["initial_transition"]["ended_by"]))
+                 self.assertGreater(entry["initial_transition"]["actual_outside_limits"], 20)
+                 self.assertEqual("within_candidate", entry["status"])
+                 self.assertEqual(0, entry["actual_violations"])
+@@ -1268,7 +1410,9 @@ class CandidateShapedFixtureTests(unittest.TestCase):
+                                   "time_limits": "candidate_live_limits_read_back",
+                                   "current": "candidate_current_read_back"}, entry["attribute_evidence"])
+                 self.assertEqual("within_candidate", entry["candidate_status"])
+-                self.assertEqual(23, entry["initial_transition"]["samples"])
++                self.assertEqual(self.WINDOW[name][0], entry["initial_transition"]["samples"])
++                self.assertIs(False, entry["values_in_range"])
++                self.assertIs(True, entry["values_in_range_after_initial_transition"])
+         self.assertEqual("pending", result["runtime_acceptance"])
+ 
+     def test_the_pre_existing_actual_is_kept_in_the_reported_range(self):
+diff --git a/tools/audit/weather_report.py b/tools/audit/weather_report.py
+index 8641f83..8214cbd 100644
+--- a/tools/audit/weather_report.py
++++ b/tools/audit/weather_report.py
+@@ -8,7 +8,9 @@ observations come from a run the operator performed, runtime acceptance stays "p
+ stays False in every result.
+ 
+ Per phenomenon the status is one of:
+-  within_candidate       every actual value is inside the candidate limits (small boundary tolerance)
++  within_candidate       every actual value after the initial transition is inside the candidate limits (small
++                         boundary tolerance); raw_actual_outside_limits and the pair's values_in_range count and
++                         describe every raw actual, including the excused transition
+   violates_candidate     at least one actual value is outside them after the initial transition; the violating
+                          sample numbers are listed
+   insufficient_samples   fewer valid samples than min_samples, or the run itself is pending
+@@ -20,11 +22,15 @@ run; whether the engine sets mission_weather for enable="1" is unobserved and on
+ 
+ Initial transition. A run can start from a pre-existing weather state (the first native candidate run: overcast
+ 0.2877 and fog 0.0312 at weather_time 5.30 with forecasts already at the <current> targets .98 and .75). The samples
+-before the actual first reaches the first sample's forecast, or before the first scheduled change (a forecast change,
+-or a countdown that ran out or jumped up), whichever comes first, form the initial_transition window. Actual values
+-outside the limits inside that window are reported (initial_transition.actual_outside_limits) and are not
+-violations. A window that ends in neither way is not a transition and is not excused. A forecast outside the limits
+-is never excused: it is counted in forecast_outside_limits and gives candidate_values_outside_limits in a pair.
++before the actual first reaches the first sample's forecast, before it first enters the candidate limits, or before the
++first scheduled change (a forecast change, or a countdown that ran out or jumped up), whichever comes first, form the
++initial_transition window. Actual values outside the limits inside that window are reported
++(initial_transition.actual_outside_limits) and are not violations; the first in-limits sample and every later one are
++assessed, so an excursion after the first entry is a violation. A window that ends in none of these ways is not a
++transition and is not excused. A forecast outside the limits is never excused: it is counted in
++forecast_outside_limits and gives candidate_values_outside_limits in a pair. That verdict, like a violating actual,
++is reported as soon as there are enough usable samples, before the countdown and cycle gates (those stay
++diagnostics in boundary_crossed and cycle_observed).
+ 
+ next_change semantics. Installed 3_Game/Weather.c:51 describes GetNextChange as "the time in seconds when" the
+ phenomenon changes next. The first native run (weather-probe-001-stock, observation only, one run) shows a
+@@ -489,7 +495,7 @@ def _phenomenon_result(name, samples, parsed, min_samples):
+     limits = parsed["limits"]
+     result = {"status": "insufficient_samples", "candidate_limits": {"min": limits[0], "max": limits[1]},
+               "actual_range": None, "actual_violations": 0, "violating_samples": [], "forecast_range": None,
+-              "forecast_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
++              "forecast_outside_limits": 0, "raw_actual_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
+               "cycle_observed": False, "change_observed": False,
+               "xml": dict({key: list(parsed[key]) for key in _ATTRIBUTES}, current=dict(parsed["current"])),
+               "live_pairs": None, "initial_transition": None, "current_readback": None, "first_forecast": None}
+@@ -500,13 +506,14 @@ def _phenomenon_result(name, samples, parsed, min_samples):
+     forecast = [row["forecast"] for _seq, row in rows]
+     points = [(sample["weather_time"], sample["phenomena"][name]["actual"], sample["phenomena"][name]["forecast"],
+                sample["phenomena"][name]["next_change"]) for sample in samples]
+-    length, ended_by = _initial_transition(points)
++    length, ended_by = _initial_transition(points, limits)
+     outside = [seq for seq, row in rows if _outside(row["actual"], limits)]
+     window = [seq for seq, _row in rows[:length]]
+     violating = [seq for seq in outside if seq not in window]
+     live = [(row["limit_min"], row["limit_max"]) for _seq, row in rows]
+     result.update({
+         "actual_range": _range(actual), "actual_violations": len(violating), "violating_samples": violating,
++        "raw_actual_outside_limits": len(outside),
+         "forecast_range": _range(forecast),
+         "forecast_outside_limits": sum(1 for value in forecast if _outside(value, limits)),
+         "distinct_actual_values": len({round(value, 6) for value in actual}),
+@@ -537,17 +544,21 @@ def _phenomenon_result(name, samples, parsed, min_samples):
+     return result
+ 
+ 
+-def _initial_transition(points):
++def _initial_transition(points, limits):
+     """(samples, ended_by) of the initial transition from (weather_time, actual, forecast, next_change) per sample.
+ 
+-    The window is the run of samples before the actual first reaches the first sample's forecast or before the first
+-    scheduled change (a forecast change, or a countdown that ran out or jumped up), whichever comes first. A window
+-    that neither ends in either way is not a transition: it is not excused, (0, None).
++    The window is the run of samples before the actual first reaches the first sample's forecast, before the actual
++    first enters the candidate limits, or before the first scheduled change (a forecast change, or a countdown that
++    ran out or jumped up), whichever comes first. The first in-limits sample and every later one are assessed, so an
++    excursion after the first entry is a violation. A window that ends in none of these ways is not a transition: it
++    is not excused, (0, None).
+     """
+     target = points[0][2]
+     for index, (_time, actual, forecast, left) in enumerate(points):
+         if _same(actual, target):
+             return index, "actual_reached_initial_forecast"
++        if not _outside(actual, limits):
++            return index, "actual_entered_limits"
+         if index:
+             before = points[index - 1][3]
+             if not _same(forecast, target) or left > before + COUNTDOWN_TOLERANCE_S or left <= 0 < before:
+@@ -795,13 +806,13 @@ def _evidence(stock, candidate, attributes):
+     live = [key for key in attributes if key != "current"]
+     if "insufficient_samples" in (stock["status"], candidate["status"]):
+         return "pending", "a run has too few valid samples for this phenomenon", None
++    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
++        return "candidate_values_outside_limits", None, None
+     if live and not candidate["boundary_crossed"]:
+         return "pending", "no forecast countdown (next_change) ran out in the candidate run", None
+     if live and not candidate["cycle_observed"]:
+         return "pending", ("a countdown ran out in the candidate run but next_change never jumped to a fresh countdown "
+                            "and the forecast never changed afterwards; interpolation alone is not a new cycle"), None
+-    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
+-        return "candidate_values_outside_limits", None, None
+     if live and not candidate["change_observed"]:
+         return "pending", "nothing was observed changing in the candidate run", None
+     labels, reasons, live_negative = {}, [], False
+@@ -925,7 +936,10 @@ def compare(stock_result, candidate_result):
+             "initial_transition": candidate["initial_transition"],
+             "stock_initial_transition": stock["initial_transition"],
+             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
+-            "values_in_range": None if not candidate["actual_range"] else candidate["status"] == "within_candidate",
++            "values_in_range": None if not candidate["actual_range"] else candidate["raw_actual_outside_limits"] == 0,
++            "values_in_range_after_initial_transition": (
++                None if not candidate["actual_range"] else candidate["status"] == "within_candidate"),
++            "raw_actual_outside_limits": candidate["raw_actual_outside_limits"],
+             "stock_values_vs_candidate_limits": _stock_values_vs_candidate_limits(stock, candidate),
+             "live_readback": readback,
+             "candidate_forecast_outside_limits": candidate["forecast_outside_limits"],
+@@ -943,7 +957,9 @@ def compare(stock_result, candidate_result):
+         "progression": {"stock": stock_result["progression"], "candidate": candidate_result["progression"]},
+         "mission_weather": {"stock": stock_result["mission_weather"], "candidate": candidate_result["mission_weather"]},
+         "update_frozen": {"stock": stock_result["update_frozen"], "candidate": candidate_result["update_frozen"]},
+-        "notes": ["Values inside the candidate's limits are reported separately (values_in_range) from the live "
++        "notes": ["values_in_range describes every raw actual of the candidate run; "
++                  "values_in_range_after_initial_transition and candidate_status describe the samples after the "
++                  "initial transition only, not whole-run compliance. Both are reported separately from the live "
+                   "limit readback; world-script forecasts and engine limits can coexist.",
+                   "Phenomena the candidate does not change are not_treated: reported, never gating.",
+                   "Whether the engine sets mission_weather for enable=1 is read from the flags above only."],

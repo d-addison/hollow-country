@@ -1,0 +1,11 @@
+--- original
++++ W6_excuse_nonending_window
+@@ -563,7 +563,7 @@
+             before = points[index - 1][3]
+             if not _same(forecast, target) or left > before + COUNTDOWN_TOLERANCE_S or left <= 0 < before:
+                 return index, "first_scheduled_change"
+-    return 0, None
++    return len(points), None
+ 
+ 
+ def _current_readback(current, points):

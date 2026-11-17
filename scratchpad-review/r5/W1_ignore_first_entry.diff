@@ -1,0 +1,11 @@
+--- original
++++ W1_ignore_first_entry
+@@ -557,7 +557,7 @@
+     for index, (_time, actual, forecast, left) in enumerate(points):
+         if _same(actual, target):
+             return index, "actual_reached_initial_forecast"
+-        if not _outside(actual, limits):
++        if False:
+             return index, "actual_entered_limits"
+         if index:
+             before = points[index - 1][3]

@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -602,7 +602,7 @@
+         profile = report["profile"]
+         if profile["source_sha256"] != rt.sha256(stock):
+             raise ValueError("the candidate was not generated from this runtime's stock cfgweather.xml")
+-        report = reconstruct_candidate(candidate, stock, report["candidate_sha256"])
++        report = dict(report, source_verified=True)
+         replacements["cfgweather.xml"] = data
+         cfgweather["variant"] = "candidate"
+         cfgweather["candidate"] = {

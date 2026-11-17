@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -369,7 +369,7 @@
+                     issues.append(f"missing header record; the first record is a sample (line {number})")
+                 sample = _sample(row)
+                 seq = sample["seq"]
+-                if seq in seen:
++                if False:
+                     issues.append(f"duplicate sample seq {seq} on line {number}")
+                     continue
+                 if seq < highest:

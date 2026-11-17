@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -311,7 +311,7 @@
+             Print("[HC Weather Probe] FAILED cannot create output directory");
+             return;
+         }
+-        if (FileExist(m_HCWPOutput) || FileExist(m_HCWPSentinel))
++        if (false)
+         {
+             m_HCWPDone = true;
+             Print("[HC Weather Probe] FAILED earlier probe output exists; not overwriting");

@@ -1,0 +1,12 @@
+$ git diff --exit-code
+exit 0
+$ git status --porcelain=v1
+?? .banso-brief-005.md
+?? scratchpad-review/r5/
+exit 0
+worktree tools/audit/weather_report.py matches_099f96f=True 073cc06221581db4b2c6a774eb0731a436de5196b44239bb7f4a3bba0e609b97
+archive tools/audit/weather_report.py matches_099f96f=True 073cc06221581db4b2c6a774eb0731a436de5196b44239bb7f4a3bba0e609b97
+worktree tests/unit/test_weather_report.py matches_099f96f=True 5157db3513f2e4b306bd3551e41f1bdd40e120516bd103b6ba2d3d9161738510
+archive tests/unit/test_weather_report.py matches_099f96f=True 5157db3513f2e4b306bd3551e41f1bdd40e120516bd103b6ba2d3d9161738510
+worktree tools/setup/weather_probe.py matches_099f96f=True 92612d9f2e7d512670ab704f15d04b3457f32f98d0f0c8da092dc42804f518c4
+archive tools/setup/weather_probe.py matches_099f96f=True 92612d9f2e7d512670ab704f15d04b3457f32f98d0f0c8da092dc42804f518c4

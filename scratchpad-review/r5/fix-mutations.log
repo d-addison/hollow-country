@@ -1,0 +1,7 @@
+{"mutation": "W1_ignore_first_entry", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.937s", "FAILED (failures=9)"]}
+{"mutation": "W2_excuse_entry_sample", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.967s", "FAILED (failures=8)"]}
+{"mutation": "W3_raw_boolean_follows_status", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.946s", "FAILED (failures=3)"]}
+{"mutation": "W4_cycle_gate_masks_violations", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.932s", "FAILED (failures=2)"]}
+{"mutation": "W5_ignore_forecast_violations", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.941s", "FAILED (failures=2)"]}
+{"mutation": "W6_excuse_nonending_window", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.968s", "FAILED (failures=2)"]}
+{"mutation": "W7_excuse_scheduled_change_sample", "exit": 1, "result": "KILLED", "summary": ["Ran 180 tests in 0.959s", "FAILED (failures=5)"]}

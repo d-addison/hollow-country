@@ -1,0 +1,34 @@
+test_changed_preexisting_fixtures_keep_pending_intent (__main__.AdditionalChecks.test_changed_preexisting_fixtures_keep_pending_intent) ... one_pending_treated_phenomenon old {"status": "complete", "evidence": "candidate_values_outside_limits", "reason": null, "actual_outside": 6, "forecast_outside": 6, "boundary": false, "cycle": false}
+one_pending_treated_phenomenon new {"status": "pending", "evidence": "pending", "reason": "no forecast countdown (next_change) ran out in the candidate run", "actual_outside": 0, "forecast_outside": 0, "boundary": false, "cycle": false}
+conflicting_live_limits_without_boundary old {"status": "complete", "evidence": "candidate_values_outside_limits", "reason": null, "actual_outside": 0, "forecast_outside": 6, "boundary": false, "cycle": false}
+conflicting_live_limits_without_boundary new {"status": "pending", "evidence": "pending", "reason": "no forecast countdown (next_change) ran out in the candidate run", "actual_outside": 0, "forecast_outside": 0, "boundary": false, "cycle": false}
+ok
+test_current_only_and_mixed_treatments_reject_every_position_of_a_violation (__main__.AdditionalChecks.test_current_only_and_mixed_treatments_reject_every_position_of_a_violation) ... FAIL
+test_emitted_transition_prose_matches_first_entry_rule (__main__.AdditionalChecks.test_emitted_transition_prose_matches_first_entry_rule) ... emitted transition non-claim: Actual values outside the limits before the actual first reaches the initial forecast (or before the first scheduled change) are reported as an initial transition, not counted as violations; this does not show how the engine starts from a pre-existing state.
+FAIL
+test_synthetic_positive_label_invariant (__main__.AdditionalChecks.test_synthetic_positive_label_invariant) ... invariant: traces=5296, positives=320, false_positives=0
+ok
+
+======================================================================
+FAIL: test_current_only_and_mixed_treatments_reject_every_position_of_a_violation (__main__.AdditionalChecks.test_current_only_and_mixed_treatments_reject_every_position_of_a_violation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/supplemental.py", line 70, in test_current_only_and_mixed_treatments_reject_every_position_of_a_violation
+    self.assertEqual('candidate_values_outside_limits', entry['evidence'], (kind, position, entry))
+AssertionError: 'candidate_values_outside_limits' != 'candidate_current_read_back'
+- candidate_values_outside_limits
++ candidate_current_read_back
+ : ('actual', 0, {'evidence': 'candidate_current_read_back', 'reason': None, 'treated_attributes': ['current'], 'unsupported_treatments': [], 'supported_attribute_evidence': None, 'attribute_evidence': {'current': 'candidate_current_read_back'}, 'current_readback': {'stock': {'assessable': True, 'expected': {'actual': 0.0, 'time': 120.0, 'duration': 240.0}, 'observed': {'first_weather_time': 0.0, 'first_forecast': 0.1, 'first_countdown': 100.0, 'expected_first_countdown': 360.0, 'actual_reached_weather_time': None}, 'checks': {'first_forecast_equals_current_actual': False, 'first_countdown_is_time_plus_duration_minus_weather_time': False, 'actual_reaches_current_actual_by_time_plus_slack': False}, 'matches': False, 'tolerances': {'countdown_s': 1.0, 'convergence_slack_s': 10.0, 'provisional': True}}, 'candidate': {'assessable': True, 'expected': {'actual': 0.75, 'time': 120.0, 'duration': 240.0}, 'observed': {'first_weather_time': 0.0, 'first_forecast': 0.75, 'first_countdown': 360.0, 'expected_first_countdown': 360.0, 'actual_reached_weather_time': 30.0}, 'checks': {'first_forecast_equals_current_actual': True, 'first_countdown_is_time_plus_duration_minus_weather_time': True, 'actual_reaches_current_actual_by_time_plus_slack': True}, 'matches': True, 'tolerances': {'countdown_s': 1.0, 'convergence_slack_s': 10.0, 'provisional': True}}}, 'initial_transition': {'samples': 1, 'ended_by': 'actual_reached_initial_forecast', 'last_seq': 0, 'actual_outside_limits': 1, 'outside_samples': [0]}, 'stock_initial_transition': {'samples': 0, 'ended_by': 'actual_reached_initial_forecast', 'last_seq': None, 'actual_outside_limits': 0, 'outside_samples': []}, 'candidate_limits': {'min': 0.0, 'max': 1.0}, 'candidate_status': 'within_candidate', 'values_in_range': False, 'values_in_range_after_initial_transition': True, 'raw_actual_outside_limits': 1, 'stock_values_vs_candidate_limits': 'inside', 'live_readback': None, 'candidate_forecast_outside_limits': 0, 'stock_actual_range': {'min': 0.1, 'max': 0.1}, 'candidate_actual_range': {'min': 0.75, 'max': 1.2}, 'boundary_crossed': {'stock': True, 'candidate': True}, 'cycle_observed': {'stock': True, 'candidate': True}, 'change_observed': {'stock': True, 'candidate': True}})
+
+======================================================================
+FAIL: test_emitted_transition_prose_matches_first_entry_rule (__main__.AdditionalChecks.test_emitted_transition_prose_matches_first_entry_rule)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/weather-review-3/scratchpad-review/r5/supplemental.py", line 107, in test_emitted_transition_prose_matches_first_entry_rule
+    self.assertIn('enters', note)
+AssertionError: 'enters' not found in 'Actual values outside the limits before the actual first reaches the initial forecast (or before the first scheduled change) are reported as an initial transition, not counted as violations; this does not show how the engine starts from a pre-existing state.'
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.672s
+
+FAILED (failures=2)

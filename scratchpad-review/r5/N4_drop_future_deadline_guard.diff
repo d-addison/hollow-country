@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -616,7 +616,7 @@
+     crossed, before = False, None
+     for (time_a, left_a, forecast_a), (time_b, left_b, forecast_b) in zip(points, points[1:]):
+         if not crossed:
+-            near_end = 0 < left_a <= (time_b - time_a) * (1 + COUNTDOWN_SLACK) + COUNTDOWN_TOLERANCE_S
++            near_end = left_a <= (time_b - time_a) * (1 + COUNTDOWN_SLACK) + COUNTDOWN_TOLERANCE_S
+             if not (near_end and (left_b <= 0 or left_b > left_a + COUNTDOWN_TOLERANCE_S)):
+                 continue
+             crossed, before = True, forecast_a

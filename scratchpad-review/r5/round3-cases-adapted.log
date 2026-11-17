@@ -1,0 +1,21 @@
+test_one_early_mismatch_persists_after_five_matching_readbacks (__main__.AmbiguityDiagnostics.test_one_early_mismatch_persists_after_five_matching_readbacks) ... one early mismatch, then 5 matches: complete inconclusive_readback counts= {'matching': 5, 'total': 6} readback= {'limits': {'candidate_live_matches_candidate_xml': False, 'stock_live_differs_from_candidate_xml': True, 'candidate_readings_matching_candidate_xml': {'matching': 5, 'total': 6}, 'candidate_live': [[0.0, 1.0], [0.8, 0.95]], 'stock_live': [[0.0, 1.0]]}}
+ok
+test_stock_without_cycle_is_accepted_only_as_descriptive_comparison (__main__.AmbiguityDiagnostics.test_stock_without_cycle_is_accepted_only_as_descriptive_comparison) ... stock no cycle: complete candidate_live_limits_read_back {'stock': False, 'candidate': True}
+ok
+test_wrong_readback_units_cannot_be_distinguished_from_mismatch (__main__.AmbiguityDiagnostics.test_wrong_readback_units_cannot_be_distinguished_from_mismatch) ... hypothetical readback milliseconds: complete inconclusive_readback issues= []
+ok
+test_canceled_deadline_does_not_establish_a_later_cycle (__main__.NewRegressions.test_canceled_deadline_does_not_establish_a_later_cycle) ... canceled deadline: {"evidence": "pending", "boundary_crossed": {"stock": true, "candidate": false}, "cycle_observed": {"stock": true, "candidate": false}} status= pending
+ok
+test_current_only_is_not_reported_as_no_treatment (__main__.NewRegressions.test_current_only_is_not_reported_as_no_treatment) ... current only: complete treated= ['fog'] fog= current_inconclusive issues= []
+ok
+test_current_only_target_is_not_hidden_in_a_mixed_treatment (__main__.NewRegressions.test_current_only_target_is_not_hidden_in_a_mixed_treatment) ... mixed current + limits: complete treated= ['overcast', 'fog'] fog= current_inconclusive issues= []
+ok
+test_every_candidate_readback_must_match (__main__.ReadbackQuantifiers.test_every_candidate_readback_must_match) ... mixed candidate readbacks: inconclusive_readback
+ok
+test_no_stock_readback_may_match_candidate (__main__.ReadbackQuantifiers.test_no_stock_readback_may_match_candidate) ... mixed stock readbacks: inconclusive_readback
+ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.018s
+
+OK

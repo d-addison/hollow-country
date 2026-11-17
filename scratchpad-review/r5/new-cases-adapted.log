@@ -1,0 +1,13 @@
+test_constant_future_deadline_is_not_observed_forecast_recomputation (__main__.NewCases.test_constant_future_deadline_is_not_observed_forecast_recomputation) ... ok
+test_crossed_boundary_does_not_override_conflicting_live_limits (__main__.NewCases.test_crossed_boundary_does_not_override_conflicting_live_limits) ... ok
+test_plausible_24_minute_fog_and_wind_schedules (__main__.NewCases.test_plausible_24_minute_fog_and_wind_schedules) ... ok
+test_unchanged_zero_snowfall_does_not_block_targeted_overcast_result (__main__.NewCases.test_unchanged_zero_snowfall_does_not_block_targeted_overcast_result) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.068s
+
+OK
+unchanged deadline, interpolation only: pending pending boundary= False
+boundary crossed + live limits 0..1 + forecast .3: complete candidate_values_outside_limits live= {'matching': 0, 'total': 6} forecast_outside= 6
+24 minute observation window: complete []
+inert unchanged snowfall: complete overcast= candidate_live_limits_read_back snowfall= not_treated []

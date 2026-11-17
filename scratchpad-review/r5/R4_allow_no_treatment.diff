@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -901,7 +901,7 @@
+                for name in PHENOMENA}
+     unsupported = {name: _unsupported(stock_result["phenomena"][name], candidate_result["phenomena"][name])
+                    for name in PHENOMENA}
+-    if not any(treated.values()):
++    if False:
+         issues.append("the candidate's cfgweather.xml changes no phenomenon's limits, change limits or time limits; "
+                       "there is no supported treatment to compare")
+     blocked = bool(issues)

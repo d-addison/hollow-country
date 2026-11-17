@@ -1,0 +1,128 @@
+[
+  {
+    "mutation": "M1_disable_duration_check",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M2_disable_existing_output_refusal",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M3_write_sentinel_before_end_record",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M4_swap_actual_and_forecast_getters",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M5_disable_watchdog_finish",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M6_schedule_samples_without_interval",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M7_remove_duplicate_seq_guard",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "M8_ignore_sentinel",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "N1_weather_time_in_milliseconds",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "N2_swap_volfog_density_getters",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "N3_remove_reconstruction",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "N4_drop_future_deadline_guard",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": true
+  },
+  {
+    "mutation": "N5_reconstruction_pins_wrong_expected_hash",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "R1_bypass_live_application",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": true
+  },
+  {
+    "mutation": "R2_ignore_stock_differential",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": true
+  },
+  {
+    "mutation": "R3_treat_every_attribute",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": true
+  },
+  {
+    "mutation": "R4_allow_no_treatment",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "R5_crossing_alone_is_cycle",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "R6_ignore_cycle_gate",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": true
+  },
+  {
+    "mutation": "R7_one_matching_candidate_readback",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  },
+  {
+    "mutation": "R8_one_different_stock_readback",
+    "exit": 1,
+    "result": "KILLED",
+    "adapted": false
+  }
+]

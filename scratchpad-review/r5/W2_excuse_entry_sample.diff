@@ -1,0 +1,11 @@
+--- original
++++ W2_excuse_entry_sample
+@@ -558,7 +558,7 @@
+         if _same(actual, target):
+             return index, "actual_reached_initial_forecast"
+         if not _outside(actual, limits):
+-            return index, "actual_entered_limits"
++            return index + 1, "actual_entered_limits"
+         if index:
+             before = points[index - 1][3]
+             if not _same(forecast, target) or left > before + COUNTDOWN_TOLERANCE_S or left <= 0 < before:

@@ -1,0 +1,11 @@
+--- original
++++ W5_ignore_forecast_violations
+@@ -806,7 +806,7 @@
+     live = [key for key in attributes if key != "current"]
+     if "insufficient_samples" in (stock["status"], candidate["status"]):
+         return "pending", "a run has too few valid samples for this phenomenon", None
+-    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
++    if candidate["status"] == "violates_candidate":
+         return "candidate_values_outside_limits", None, None
+     if live and not candidate["boundary_crossed"]:
+         return "pending", "no forecast countdown (next_change) ran out in the candidate run", None

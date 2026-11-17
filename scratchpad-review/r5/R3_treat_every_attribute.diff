@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -731,7 +731,7 @@
+ def _treated(stock, candidate):
+     """The attributes (limits, changelimits, timelimits, current) whose cfgweather.xml values differ between the
+     runs; a differing <current> is listed only when it carries actual, time and duration (otherwise unsupported)."""
+-    attributes = [key for key in _ATTRIBUTES if not _close(stock["xml"][key], candidate["xml"][key])]
++    attributes = list(_ATTRIBUTES)
+     if _current_differs(stock, candidate) and _current_assessable(candidate):
+         attributes.append("current")
+     return attributes
