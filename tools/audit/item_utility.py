@@ -56,6 +56,43 @@ MAINTENANCE_ACTIONS = frozenset(('ActionRepairBoatChassis ActionRepairBoatEngine
     'ActionRepairTent ActionRepairTentPart ActionRepairVehiclePartBase').split())
 
 
+# Authored V1 balance decisions over exact identities, never ancestry/prefix rules.
+# Evidence IDs resolve in tests/fixtures/runtime/crafting-contract.json. Config
+# establishes material identity only; output quantities are whole-unit policy.
+HC_RECOVERY_ROWS = (
+    ('HCSalvageCamoNet', ('CamoNet',), 'non-ruined', 'crafting-v1:C1'),
+    ('HCSalvageCableReel', ('CableReel',), 'non-ruined', 'crafting-v1:C1'),
+    ('HCRecoverLargeLeather', ('LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherStorageVest_Beige', 'LeatherStorageVest_Black', 'LeatherStorageVest_Brown', 'LeatherStorageVest_Natural'), 'non-ruined', 'crafting-v1:LARGE'),
+    ('HCRecoverMediumLeather', ('LeatherPants_Beige', 'LeatherPants_Black', 'LeatherPants_Brown', 'LeatherPants_Natural', 'LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige', 'LeatherGloves_Black', 'LeatherGloves_Brown', 'LeatherGloves_Natural', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural'), 'non-ruined', 'crafting-v1:MEDIUM'),
+    ('HCRecoverBatWood', ('BaseballBat', 'XmasBaseballBat'), 'non-ruined', 'crafting-v1:B1'),
+    ('HCRecoverNailedBat', ('NailedBaseballBat',), 'non-ruined', 'crafting-v1:B1'),
+    ('HCRecoverBarbedBat', ('BarbedBaseballBat',), 'non-ruined', 'crafting-v1:B1'),
+    ('HCRecoverRuinedLargeLeather', ('LeatherJacket_Beige', 'LeatherJacket_Black', 'LeatherJacket_Brown', 'LeatherJacket_Natural', 'LeatherStorageVest_Beige', 'LeatherStorageVest_Black', 'LeatherStorageVest_Brown', 'LeatherStorageVest_Natural'), 'ruined-only', 'crafting-v1:LARGE'),
+    ('HCRecoverRuinedBatWood', ('BaseballBat', 'XmasBaseballBat'), 'ruined-only', 'crafting-v1:B1'),
+    ('HCRecoverRuinedNailedBat', ('NailedBaseballBat',), 'ruined-only', 'crafting-v1:B1'),
+    ('HCRecoverRuinedCrate', ('WoodenCrate',), 'ruined-only', 'crafting-v1:C1'),
+)
+HC_RUINED_EXCLUSIONS = (
+    (('LeatherPants_Beige', 'LeatherPants_Black', 'LeatherPants_Brown', 'LeatherPants_Natural', 'LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige', 'LeatherGloves_Black', 'LeatherGloves_Brown', 'LeatherGloves_Natural', 'LeatherHat_Black', 'LeatherHat_Brown', 'LeatherHat_Natural'),
+     'HCRecoverMediumLeather', 'crafting-v1:MIN-PANEL',
+     'single-unit pristine panel; no positive lower whole-unit yield; no proved substitute material'),
+    (('BarbedBaseballBat',), 'HCRecoverBarbedBat', 'crafting-v1:MIN-WIRE',
+     'single-unit pristine wire; no positive lower whole-unit yield; no proved substitute conversion'),
+)
+
+
+def _hc_decisions(root, name):
+    if root != 'CfgVehicles':
+        return []
+    decisions = [dict(recipe=recipe, status='implemented', condition=condition,
+                      evidence_id=evidence, runtime_acceptance='pending')
+                 for recipe, sources, condition, evidence in HC_RECOVERY_ROWS if name in sources]
+    decisions.extend(dict(recipe=recipe, status='excluded', condition='ruined-only',
+                          evidence_id=evidence, reason=reason, runtime_acceptance='pending')
+                     for sources, recipe, evidence, reason in HC_RUINED_EXCLUSIONS if name in sources)
+    return decisions
+
+
 def _decisions(classes, crafting, actions, indexes, budget):
     """N1 decisions reference retained evidence; absence never means useless.
 
@@ -70,9 +107,12 @@ def _decisions(classes, crafting, actions, indexes, budget):
         decision = ('qualify-native-maintenance' if repair['cohort'] == 'positive_id_observed'
                     else 'exclude-regular-kit-extension' if repair['cohort'] in
                     ('empty_observation', 'nonpositive_only') else 'UNKNOWN')
+        hc_decisions = _hc_decisions(row['root'], row['name'])
+        conversion = 'hc-recovery' if any(d['status'] == 'implemented' for d in hc_decisions) else 'UNKNOWN'
         config.append(dict(id=row['id'], native_use='preserve-native', repair=decision,
                            repair_evidence_cohort=repair['cohort'],
-                           material_conversion='UNKNOWN', inventory_eligibility='NOT_EVALUATED'))
+                           material_conversion=conversion, hc_decisions=hc_decisions,
+                           inventory_eligibility='NOT_EVALUATED'))
     for index, row in enumerate(crafting['recipes']):
         budget.take()
         status = row.get('source_status')

@@ -1,0 +1,171 @@
+diff --git a/tests/unit/test_crafting_families.py b/tests/unit/test_crafting_families.py
+index 624af5d..c9929c3 100644
+--- a/tests/unit/test_crafting_families.py
++++ b/tests/unit/test_crafting_families.py
+@@ -6,7 +6,7 @@ from tests.unit.test_salvage_tools import authored, configured, tool_policy, Syn
+ from tests.unit.test_crafting_completion import SRC
+ 
+ LARGE = ['LeatherJacket_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherStorageVest_'+c for c in ('Beige','Black','Brown','Natural')]
+-MEDIUM = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural']
++MEDIUM = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige']
+ FAMILIES = {
+     'HCRecoverLargeLeather':(LARGE,'KitchenKnife',[('TannedLeather',2)],5,2,False),
+     'HCRecoverMediumLeather':(MEDIUM,'KitchenKnife',[('TannedLeather',1)],5,2,False),
+diff --git a/tests/unit/test_item_utility.py b/tests/unit/test_item_utility.py
+index 3ec4eaf..c68d177 100644
+--- a/tests/unit/test_item_utility.py
++++ b/tests/unit/test_item_utility.py
+@@ -74,6 +74,38 @@ class ItemUtilityTests(unittest.TestCase):
+         return self.m.build_audit(list(rows), craft if craft is not None else c,
+                                   actions if actions is not None else a, {"fixture": "synthetic"})
+ 
++    def test_decision_table_is_lossless_and_never_grants_gameplay(self):
++        c, a = censuses()
++        for name, status in [('RepairElectric', 'registered'), ('Legacy', 'disabled'),
++                             ('Orphan', 'unregistered'), ('Conditional', 'UNKNOWN')]:
++            add_recipe(c, name)
++            c['recipes'][-1]['source_status'] = status
++        for name in ('ActionRepairTent', 'ActionRepairWithToolFromHands', 'ActionOther'):
++            add_action(a, name)
++        add_action(a, 'Unresolved', False)
++        add_action(a, 'OrdinaryItem', False)
++        a['classes'][-1]['action_candidate_status'] = 'no-source-path'
++        rows = [row('Positive', fields=[field('repairableWithKits', [7]),
++                                       field('repairCosts', [25, 99])]),
++                row('Empty', fields=[field('repairableWithKits')]), row('Absent')]
++        result = self.build(rows, c, a)
++        table = result['decision_table']
++        self.assertEqual(['Unresolved'], table['unresolved_script_classes'])
++        self.assertEqual({r['id'] for r in result['classes']},
++                         {r['id'] for r in table['config_classes']})
++        self.assertEqual(['qualify-native-maintenance', 'hold-disabled',
++                          'hold-unregistered', 'UNKNOWN'],
++                         [r['decision'] for r in table['recipes']])
++        self.assertEqual(['qualify-native-maintenance', 'hold-test-only', 'preserve-native'],
++                         [r['decision'] for r in table['actions']])
++        self.assertEqual(['Unresolved'], table['unresolved_script_classes'])
++        target = next(r for r in table['config_classes'] if r['id'].endswith(':Positive'))
++        self.assertEqual('qualify-native-maintenance', target['repair'])
++        self.assertEqual('UNKNOWN', target['material_conversion'])
++        self.assertFalse(table['runtime_qualified'])
++        self.assertFalse(table['production_enablement'])
++        self.assertEqual([99], result['classes'][2]['repair']['surplus_costs'])
++
+     def test_complete_cohorts_include_unresolved_and_every_root(self):
+         c, a = censuses()
+         for i in range(234):
+diff --git a/tests/unit/test_v1_crafting.py b/tests/unit/test_v1_crafting.py
+new file mode 100644
+index 0000000..4440032
+--- /dev/null
++++ b/tests/unit/test_v1_crafting.py
+@@ -0,0 +1,30 @@
++"""V1 policy execution with explicit synthetic inventory; never engine proof."""
++from types import SimpleNamespace as NS
++import unittest
++
++from tests.unit.test_crafting_families import source_policy, state_for
++from tests.unit.test_salvage_tools import SyntheticItem
++
++
++class V1LeatherTests(unittest.TestCase):
++    def test_beige_small_garments_share_one_panel_policy_and_retain_containers(self):
++        actor = NS(IsAlive=lambda: True, IsUnconscious=lambda: False)
++        policy = source_policy()
++        for kind in ('LeatherGloves_Beige', 'LeatherHat_Beige'):
++            with self.subTest(kind=kind):
++                self.assertTrue(policy.AllowsSource('HCRecoverMediumLeather', kind))
++                state = state_for('HCRecoverMediumLeather')
++                material, tool = SyntheticItem(kind, actor, 50), SyntheticItem('KitchenKnife', actor, 6)
++                self.assertTrue(state.CanDo([material, tool], actor))
++                self.assertEqual([1], state.m_ResultSetQuantity)
++                for cargo, attachments, worn in ((1, 0, False), (0, 1, False), (0, 0, True)):
++                    material.inventory = NS(IsAttachment=lambda: worn,
++                                            AttachmentCount=lambda: attachments,
++                                            GetCargo=lambda: NS(GetItemCount=lambda: cargo))
++                    self.assertFalse(state.CanDo([material, tool], actor))
++                    self.assertIs(tool, [material, tool][1])
++                    self.assertFalse(material.deleted)
++
++
++if __name__ == '__main__':
++    unittest.main()
+diff --git a/tools/audit/item_utility.py b/tools/audit/item_utility.py
+index bb2ff0e..4804436 100644
+--- a/tools/audit/item_utility.py
++++ b/tools/audit/item_utility.py
+@@ -41,6 +41,66 @@ MAX_SOURCE_BYTES = 128 * 1024 * 1024
+ IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z_0-9]{0,511}\Z")
+ SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+ 
++# Exact inspected source families, not name-pattern eligibility. Decisions only
++# select qualification work; no config/script identity or live route is implied.
++MAINTENANCE_RECIPES = frozenset(('CleanWeapon RepairElectric RepairEpoxy '
++    'RepairWithSewingKit RepairWithLeatherSewingKit RepairWithTape RepairWithTireKit '
++    'SharpenMelee RepairPlanks RepairWithPliers').split())
++MAINTENANCE_ACTIONS = frozenset(('ActionRepairBoatChassis ActionRepairBoatEngine '
++    'ActionRepairCarChassis ActionRepairCarChassisWithBlowtorch ActionRepairCarEngine '
++    'ActionRepairCarEngineWithBlowtorch ActionRepairCarPart ActionRepairCarPartWithBlowtorch '
++    'ActionRepairItemWithBlowtorch ActionRepairMotorbikeChassis '
++    'ActionRepairMotorbikeChassisWithBlowtorch ActionRepairMotorbikeEngine '
++    'ActionRepairMotorbikeEngineWithBlowtorch ActionRepairMotorbikePart '
++    'ActionRepairMotorbikePartWithBlowTorch ActionRepairPart ActionRepairShelter '
++    'ActionRepairTent ActionRepairTentPart ActionRepairVehiclePartBase').split())
++
++
++def _decisions(classes, crafting, actions, indexes, budget):
++    """N1 decisions reference retained evidence; absence never means useless.
++
++    All arrays are bounded upstream. Keep unsupported/conditional declarations,
++    ambiguous repair cohorts and unresolved script ancestry/calls in the report.
++    Native tests must resolve these decisions; this table cannot grant a recipe.
++    """
++    config, recipes, action_rows = [], [], []
++    for row in classes:
++        budget.take()
++        repair = row['repair']
++        decision = ('qualify-native-maintenance' if repair['cohort'] == 'positive_id_observed'
++                    else 'exclude-regular-kit-extension' if repair['cohort'] in
++                    ('empty_observation', 'nonpositive_only') else 'UNKNOWN')
++        config.append(dict(id=row['id'], native_use='preserve-native', repair=decision,
++                           repair_evidence_cohort=repair['cohort'],
++                           material_conversion='UNKNOWN', inventory_eligibility='NOT_EVALUATED'))
++    for index, row in enumerate(crafting['recipes']):
++        budget.take()
++        status = row.get('source_status')
++        decision = ('qualify-native-maintenance' if row['class'] in MAINTENANCE_RECIPES
++                    else 'preserve-native') if status == 'registered' else {
++                        'disabled': 'hold-disabled', 'unregistered': 'hold-unregistered'
++                    }.get(status, 'UNKNOWN')
++        recipes.append(dict(recipe_index=index, **{'class': row['class']},
++                            decision=decision, runtime_status='UNKNOWN'))
++    for index, row in enumerate(actions['actions']):
++        budget.take()
++        name = row['class']
++        decision = ('hold-test-only' if name == 'ActionRepairWithToolFromHands' else
++                    'qualify-native-maintenance' if name in MAINTENANCE_ACTIONS else 'preserve-native')
++        action_rows.append(dict(action_index=index, **{'class': name},
++                                decision=decision, runtime_status='UNKNOWN'))
++    unresolved = []
++    for name, row in indexes['classes'].items():
++        budget.take()
++        if row.get('action_candidate_status') == 'UNKNOWN-unresolved-ancestry':
++            unresolved.append(name)
++    return dict(schema_version=1, config_classes=config, recipes=recipes, actions=action_rows,
++                unresolved_script_classes=sorted(unresolved),
++                # Bindings and method cohorts remain losslessly available in
++                # source_censuses, including conditional and unresolved calls.
++                binding_evidence='source_censuses.actions.bindings',
++                runtime_qualified=False, production_enablement=False)
++
+ 
+ def _require(condition, code):
+     if not condition:
+@@ -432,6 +492,7 @@ def build_audit(rows, crafting_census, action_census, provenance):
+             "Source conditions, inherited actions, callbacks and registrations are not executed."],
+         limits=dict(input_bytes=MAX_INPUT_BYTES, output_bytes=MAX_OUTPUT_BYTES,
+                     nodes=MAX_NODES, work=MAX_WORK, classes=MAX_CLASSES, references=MAX_REFERENCES))
++    report['decision_table'] = _decisions(classes, crafting, actions, source_indexes, budget)
+     report["input_sha256"], _ = _digest([rows, crafting, actions, provenance], MAX_INPUT_BYTES, "input_bytes_limit")
+     report["analysis_work"] = budget.work
+     # Stream the full result before returning: no successful partial/truncated report.

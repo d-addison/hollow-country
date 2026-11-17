@@ -13,5 +13,8 @@ modded class PluginRecipesManager
         RegisterRecipe(new HCRecoverNailedBat);
         RegisterRecipe(new HCRecoverBarbedBat);
         RegisterRecipe(new HCRecoverRuinedCrate);
+        RegisterRecipe(new HCRecoverRuinedLargeLeather);
+        RegisterRecipe(new HCRecoverRuinedBatWood);
+        RegisterRecipe(new HCRecoverRuinedNailedBat);
     }
 }

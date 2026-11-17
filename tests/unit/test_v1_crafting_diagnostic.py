@@ -16,10 +16,19 @@ FILE = 'HCItemUtilityDiagnostic.c'
 def diagnostic(method, params, state, **context):
     code = re.sub(r'//[^\n]*', '', body(FILE, method))
     methods = ('BudgetAllows', 'PollCleanup', 'Stop', 'EnsureActor', 'ObserveMetadata',
-               'ObserveObjects', 'RowFits', 'DeletePair', 'DeleteFixtures', 'ValidRequest')
+               'ObserveObjects', 'RowFits', 'DeletePair', 'DeleteFixtures', 'ValidRequest',
+               'SafeConcrete', 'Snapshot', 'ObserveRepairEligibility', 'ObserveAction', 'CanExecute')
     def expr(value):
+        value = re.sub(r'\bnew (HCItemUtility\w+)\b', r'\1()', value)
+        value = re.sub(r'\b(?:string|RecipeBase) (\w+)$', r'\1 = None', value)
+        value = value.replace('.Length()', '.__len__()').replace('.Contains(', '.__contains__(')
+        value = re.sub(r'([\w.]+)\.Substring\((\w+), 1\)', r'\1[\2:\2+1]', value)
+        value = value.replace('GetGame().ConfigGetBaseName(request.ConfigRoot + " " + current, ancestor)',
+                              '(ancestor := GetGame().ConfigGetBaseName(request.ConfigRoot + " " + current))')
+        value = value.replace('JsonFileLoader<HCItemUtilityObservation>.MakeData(row, payload, error, false)',
+                              '((payload := Serialize(row)) is not None)')
         value = value.replace('array<Man> players = new array<Man>', 'players = NativeArray()')
-        value = re.sub(r'\b(?:int|float|bool|string|ItemBase|EntityAI|Object|RecipeBase|PluginRepairing)\s+(?=\w+\s*=)', '', value)
+        value = re.sub(r'\b(?:int|float|bool|string|ItemBase|EntityAI|Object|RecipeBase|PluginRepairing|CargoBase|Magazine|PlayerBase|PluginRecipesManager|typename|HCItemUtilityState|HCItemUtilitySummary)\s+(?=\w+\s*=)', '', value)
         value = re.sub(r'(?<![\w.])m_\w+', lambda m: 'self.' + m[0], value)
         value = re.sub(r'(?<![\w.])s_Active\b', 'self.s_Active', value)
         for name in methods:
@@ -115,6 +124,9 @@ class UtilityDiagnosticTests(unittest.TestCase):
         call = diagnostic('CanExecute', 'recipe,selected', state)
         recipe = NS(m_NumberOfResults=0)
         self.assertTrue(call(recipe, True))
+        state.m_Execute = False
+        self.assertFalse(call(recipe, True))
+        state.m_Execute = True
         self.assertFalse(call(recipe, False))
         recipe.m_NumberOfResults=1; self.assertFalse(call(recipe, True)); recipe.m_NumberOfResults=0
         state.m_Tool.GetHierarchyRootPlayer=lambda: None; self.assertFalse(call(recipe, True))
@@ -216,4 +228,195 @@ class UtilityDiagnosticTests(unittest.TestCase):
         self.assertTrue(state.m_PairDeleting)
 
 
-if __name__ == '__main__': unittest.main()
+
+class UtilityDiagnosticGateTests(unittest.TestCase):
+    def test_request_identity_charset_size_queue_roots_and_kit_bounds(self):
+        state = NS(m_Cursor=2, m_Total=3)
+        check = diagnostic('ValidRequest', 'request', state)
+        good = dict(Index=2, ItemClass='LeatherHat_Black', KitIndex=0, ConfigRoot='CfgVehicles')
+        self.assertTrue(check(NS(**good)))
+        self.assertFalse(check(None))
+        for field, values in {'Index': (1, 3), 'ItemClass': ('', 'x'*129, 'A B', 'A;B', 'A/B', 'A.B'),
+                              'KitIndex': (-2, 12), 'ConfigRoot': ('Other', 'CfgVehicles x')}.items():
+            for value in values:
+                with self.subTest(field=field, value=value):
+                    self.assertFalse(check(NS(**dict(good, **{field:value}))))
+        for root in ('CfgVehicles', 'CfgWeapons', 'CfgMagazines', 'CfgAmmo'):
+            self.assertTrue(check(NS(**dict(good, ConfigRoot=root, ItemClass='A'*128, KitIndex=11))))
+        state.m_Cursor=state.m_Total
+        self.assertFalse(check(NS(**dict(good, Index=state.m_Cursor))))
+
+    def test_safe_concrete_is_exact_and_unknown_definitions_stay_pending(self):
+        from tests.unit.test_crafting_families import source_policy
+        from tests.unit.test_salvage_tools import tool_policy
+        kit = diagnostic('KitAt', 'index', None)
+        check = diagnostic('SafeConcrete', 'root,name', None, KitAt=kit,
+                           HCSalvageSources=source_policy(), HCSalvageTools=tool_policy())
+        for root, name in [('CfgWeapons','AKM'), ('CfgVehicles','LeatherHat_Black'),
+                           ('CfgVehicles','KitchenKnife'), ('CfgVehicles','SewingKit')]:
+            self.assertTrue(check(root, name))
+        for root, name in [('Other','AKM'), ('CfgAmmo','Bullet_Base'),
+                           ('CfgVehicles','Unknown'), ('CfgVehicles','LeatherHat_Black_Mod'),
+                           ('CfgWeapons','Unknown'), ('CfgVehicles','LandMineTrap')]:
+            with self.subTest(root=root, name=name):self.assertFalse(check(root,name))
+
+    def object_case(self, *, status='metadata-only', ancestry=True, scope=2, kit=0,
+                    reviewed=True, safe=True, stale_target=None, stale_tool=None):
+        events=[]
+        state=NS(m_TargetObject=stale_target, m_ToolObject=stale_tool, m_CreatedObjects=0,
+                 SafeConcrete=lambda root,name:safe, EnsureActor=lambda:events.append('actor') or True,
+                 Stop=lambda reason:events.append(reason))
+        state.m_Actor=NS(GetHumanInventory=lambda:NS(CreateInHands=lambda name:events.append('target') or object()))
+        state.m_Bag=NS(GetInventory=lambda:NS(CreateInInventory=lambda name:events.append('tool') or object()))
+        row=NS(Status=status, AncestryComplete=ancestry, Scope=scope)
+        request=NS(ConfigRoot='CfgVehicles', ItemClass='LeatherHat_Black', KitIndex=kit, CreationReviewed=reviewed)
+        call=diagnostic('ObserveObjects','request,row',state,
+                        KitAt=diagnostic('KitAt','index',None), RecipeAt=diagnostic('RecipeAt','index',None),
+                        ItemBase=NS(Cast=lambda raw:None))
+        call(request,row)
+        return state,row,events
+
+    def test_object_creation_requires_review_scope_ancestry_and_safe_concrete(self):
+        for args in ({'status':'config-missing-pending'}, {'ancestry':False}, {'scope':0},
+                     {'scope':1}, {'kit':-1}, {'reviewed':False}, {'safe':False}):
+            with self.subTest(args=args):
+                state,row,events=self.object_case(**args)
+                self.assertEqual([],events)
+                self.assertEqual(0,state.m_CreatedObjects)
+                self.assertIsNone(state.m_TargetObject)
+                self.assertIsNone(state.m_ToolObject)
+        state,row,events=self.object_case()
+        self.assertEqual(['actor','target','tool'],events)
+        self.assertEqual(2,state.m_CreatedObjects)
+        self.assertTrue(row.Created)
+        self.assertFalse(row.CastSucceeded)  # explicit failed-cast synthetic adapter
+
+    def test_stale_fixture_stops_before_overwriting_either_raw_handle(self):
+        for target,tool in ((object(),None),(None,object()),(object(),object())):
+            state,row,events=self.object_case(stale_target=target,stale_tool=tool)
+            self.assertEqual(['stale-fixture-partial'],events)
+            self.assertIs(target,state.m_TargetObject)
+            self.assertIs(tool,state.m_ToolObject)
+            self.assertEqual(0,state.m_CreatedObjects)
+
+    def test_bag_alone_blocks_cleanup_and_releases_no_exclusivity(self):
+        state=NS(m_TargetObject=None,m_ToolObject=None,m_Target=None,m_Tool=None,
+                 m_PairDeleting=True,m_Stopped=True,m_Bag=object(),m_ActorObject=None,
+                 m_Actor=object(),m_Running=True,s_Active=True)
+        poll=diagnostic('PollCleanup','',state)
+        self.assertFalse(poll())
+        self.assertTrue(state.m_Running)
+        self.assertTrue(state.s_Active)
+        state.m_Bag=None
+        self.assertTrue(poll())
+        self.assertFalse(state.m_Running)
+        self.assertFalse(state.s_Active)
+
+    def test_summary_completion_requires_full_queue_and_confirmed_cleanup(self):
+        for stopped,running,partial,total,complete in ((True,False,False,3,True),
+                (True,False,True,3,False),(True,True,False,3,False),
+                (False,False,False,3,False),(True,False,False,0,False)):
+            state=NS(m_Total=total,m_Emitted=2,m_Cursor=2,m_Bytes=10,m_CreatedObjects=4,
+                     m_DeleteRequests=4,m_Stopped=stopped,m_Running=running,
+                     m_Partial=partial,m_Reason='synthetic')
+            result=diagnostic('Summary','',state,HCItemUtilitySummary=NS)()
+            self.assertEqual(complete,result.Complete)
+            self.assertEqual(not complete,result.Partial)
+            self.assertEqual(total-2,result.Remaining)
+            self.assertEqual((2,1034,4,4,'synthetic'),
+                             (result.Emitted,result.ByteBound,result.CreatedObjects,result.DeleteRequests,result.Reason))
+
+    def test_stop_records_partial_and_deletes_fixtures_once(self):
+        for cursor,partial in ((2,True),(3,False)):
+            events=[]
+            state=NS(m_Running=True,m_Stopped=False,m_Cursor=cursor,m_Total=3,
+                     DeleteFixtures=lambda:events.append('delete'))
+            stop=diagnostic('Stop','reason',state)
+            stop('synthetic-stop');stop('replay')
+            self.assertTrue(state.m_Stopped)
+            self.assertEqual(partial,state.m_Partial)
+            self.assertEqual('synthetic-stop',state.m_Reason)
+            self.assertEqual(['delete'],events)
+
+    def test_final_row_stops_and_replay_cannot_emit(self):
+        reasons=[]
+        state=NS(m_Running=True,m_Stopped=False,m_Cursor=0,m_Total=1,m_Bytes=0,m_Emitted=0,
+                 m_PairDeleting=False,BudgetAllows=lambda *args:True,ValidRequest=lambda req:True,
+                 ObserveMetadata=lambda *args:None,ObserveObjects=lambda *args:None,
+                 RowFits=lambda row:True,DeletePair=lambda:None)
+        def stop(reason):reasons.append(reason);state.m_Stopped=True
+        state.Stop=stop
+        call=diagnostic('ObserveNext','request,row',state,GetGame=lambda:NS(GetTime=lambda:0))
+        self.assertTrue(call(NS(),NS(Captured=False,ByteBound=100)))
+        self.assertEqual(['supplied-queue-emitted'],reasons)
+        self.assertFalse(call(NS(),NS(Captured=False,ByteBound=100)))
+        self.assertEqual(1,state.m_Emitted)
+
+    def test_actor_with_identity_is_rejected_before_bag_creation(self):
+        events=[]
+        actor=NS(GetIdentity=lambda:object(),IsAlive=lambda:True,
+                 GetInventory=lambda:NS(CreateAttachment=lambda kind:events.append('bag') or object()))
+        state=NS(m_Actor=None,m_ActorObject=None,m_CreatedObjects=0,m_Position='synthetic')
+        call=diagnostic('EnsureActor','',state,PlayerBase=NS(Cast=lambda raw:raw),
+                        GetGame=lambda:NS(CreatePlayer=lambda *args:actor))
+        self.assertFalse(call())
+        self.assertIs(actor,state.m_ActorObject)
+        self.assertEqual(1,state.m_CreatedObjects)
+        self.assertEqual([],events)
+        self.assertFalse(call())  # retained connected actor remains forbidden
+
+    def test_metadata_ancestry_limit_reports_incomplete_without_unbounded_walk(self):
+        calls=[]
+        def base(path):
+            calls.append(path)
+            if len(calls)>65:raise AssertionError('unbounded ancestry')
+            return 'Parent'+str(len(calls))
+        row=NS(Ancestors=FindArray(),RepairableWithKits=NativeArray(),RepairCosts=NativeArray(),
+               AncestryComplete=False)
+        request=NS(ConfigRoot='CfgVehicles',ItemClass='Synthetic',Index=0)
+        game=NS(ConfigIsExisting=lambda path:path=='CfgVehicles Synthetic',ConfigGetBaseName=base)
+        diagnostic('ObserveMetadata','request,row',NS(),GetGame=lambda:game)(request,row)
+        self.assertEqual(64,len(calls))
+        self.assertEqual(64,len(row.Ancestors))
+        self.assertFalse(row.AncestryComplete)
+
+    def test_snapshot_zone_limit_is_exact_and_never_claims_truncated_complete(self):
+        for count,complete in ((32,True),(33,False)):
+            item=NS(IsSetForDeletion=lambda:False,GetHealth01=lambda *args:0.4,
+                    HasQuantity=lambda:False,GetQuantity=lambda:0,GetWet=lambda:0,GetAgents=lambda:0,
+                    GetInventory=lambda:NS(AttachmentCount=lambda:0,GetCargo=lambda:None),GetCompEM=lambda:None,
+                    GetDamageZones=lambda dest:dest.extend('Zone'+str(i) for i in range(count)))
+            new_state=lambda:NS(Zones=NativeArray(),ZoneHealth=NativeArray(),ZonesComplete=False)
+            result=diagnostic('Snapshot','item',NS(),HCItemUtilityState=new_state,
+                              Magazine=NS(Cast=lambda raw:None))(item)
+            self.assertEqual(complete,result.ZonesComplete)
+            self.assertEqual(count if complete else 0,len(result.Zones))
+            self.assertEqual(count if complete else 0,len(result.ZoneHealth))
+
+    def test_serialized_row_limit_includes_boundary_and_failed_serialization(self):
+        state=NS(BudgetAllows=lambda now,size:True)
+        for payload,accepted in (('x'*16000,True),('x'*16001,False),(None,False)):
+            row=NS(ByteBound=0)
+            call=diagnostic('RowFits','row',state,Serialize=lambda row:payload,
+                            GetGame=lambda:NS(GetTime=lambda:0))
+            self.assertEqual(accepted,call(row))
+            self.assertEqual(64128 if accepted else 0,row.ByteBound)
+
+    def test_diagnostic_uses_native_config_constants_local_charset_and_diag_gate(self):
+        from tests.unit.test_crafting_completion import SRC
+        text=(SRC/FILE).read_text()
+        self.assertRegex(text,r'(?m)^#ifdef DIAG_DEVELOPER\s*\nclass HCItemUtilityRequest')
+        self.assertTrue(text.rstrip().endswith('#endif'))
+        metadata=body(FILE,'ObserveMetadata')
+        self.assertIn('== CT_INT',metadata)
+        self.assertIn('== CT_ARRAY',metadata)
+        self.assertNotRegex(metadata,r'FieldType == [03]|ScopeType == 0')
+        self.assertNotRegex(body(FILE,'ValidRequest'),r'"[^"\n]+"\.Contains\(')
+
+
+class FindArray(NativeArray):
+    def Find(self,value):return self.index(value) if value in self else -1
+
+
+if __name__ == '__main__':
+    unittest.main()

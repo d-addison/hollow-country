@@ -2,9 +2,10 @@
 // mission, timer, RPC or startup hook. Caller pins the complete N1 queue, calls
 // Begin, ObserveNext once per row and PollCleanup until confirmed, and enforces
 // an EXTERNAL wall-clock deadline. A stalled VM cannot confirm cleanup.
-// API anchors and config evidence: EXP-full-item-scope-decisions V1 appendix.
+// API anchors and config evidence: tests/fixtures/runtime/crafting-contract.json (T0 only).
 // Complete here means supplied rows emitted + owned deletion confirmed, never
 // gameplay acceptance, effective action execution or production qualification.
+#ifdef DIAG_DEVELOPER
 class HCItemUtilityRequest
 {
     int Index;
@@ -247,10 +248,11 @@ class HCItemUtilityDiagnostic
         if (request.ItemClass.Length() < 1 || request.ItemClass.Length() > 128)
             return false;
         // No spaces, separators or config subpaths accepted in a class identity.
+        string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789";
         for (int charIndex = 0; charIndex < request.ItemClass.Length(); charIndex++)
         {
             string character = request.ItemClass.Substring(charIndex, 1);
-            if (!"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789".Contains(character))
+            if (!alphabet.Contains(character))
                 return false;
         }
         if (request.KitIndex < -1 || request.KitIndex > 11)
@@ -270,22 +272,22 @@ class HCItemUtilityDiagnostic
         if (GetGame().ConfigIsExisting(path + " scope"))
         {
             row.ScopeType = GetGame().ConfigGetType(path + " scope");
-            if (row.ScopeType == 0) row.Scope = GetGame().ConfigGetInt(path + " scope");
+            if (row.ScopeType == CT_INT) row.Scope = GetGame().ConfigGetInt(path + " scope");
         }
         if (GetGame().ConfigIsExisting(path + " repairKitType"))
         {
             row.RepairKitFieldType = GetGame().ConfigGetType(path + " repairKitType");
-            if (row.RepairKitFieldType == 0) row.RepairKitType = GetGame().ConfigGetInt(path + " repairKitType");
+            if (row.RepairKitFieldType == CT_INT) row.RepairKitType = GetGame().ConfigGetInt(path + " repairKitType");
         }
         if (GetGame().ConfigIsExisting(path + " repairableWithKits"))
         {
             row.RepairableFieldType = GetGame().ConfigGetType(path + " repairableWithKits");
-            if (row.RepairableFieldType == 3) GetGame().ConfigGetIntArray(path + " repairableWithKits", row.RepairableWithKits);
+            if (row.RepairableFieldType == CT_ARRAY) GetGame().ConfigGetIntArray(path + " repairableWithKits", row.RepairableWithKits);
         }
         if (GetGame().ConfigIsExisting(path + " repairCosts"))
         {
             row.CostsFieldType = GetGame().ConfigGetType(path + " repairCosts");
-            if (row.CostsFieldType == 3) GetGame().ConfigGetFloatArray(path + " repairCosts", row.RepairCosts);
+            if (row.CostsFieldType == CT_ARRAY) GetGame().ConfigGetFloatArray(path + " repairCosts", row.RepairCosts);
         }
         if (row.RepairableWithKits.Count() > 128 || row.RepairCosts.Count() > 128)
         {
@@ -397,6 +399,11 @@ class HCItemUtilityDiagnostic
         if (row.Scope != 2 || request.KitIndex == -1) return;
         row.Status = "creation-unreviewed-pending";
         if (!request.CreationReviewed || !SafeConcrete(request.ConfigRoot, request.ItemClass)) return;
+        if (m_TargetObject || m_ToolObject)
+        {
+            Stop("stale-fixture-partial");
+            return;
+        }
         if (!EnsureActor())
         {
             Stop("actor-creation-failed-partial");
@@ -573,3 +580,5 @@ class HCItemUtilityDiagnostic
         return summary;
     }
 }
+
+#endif

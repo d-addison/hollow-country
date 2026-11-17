@@ -6,13 +6,16 @@ from tests.unit.test_salvage_tools import authored, configured, tool_policy, Syn
 from tests.unit.test_crafting_completion import SRC
 
 LARGE = ['LeatherJacket_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherStorageVest_'+c for c in ('Beige','Black','Brown','Natural')]
-MEDIUM = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige']
+MEDIUM = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige'] + [item+'_'+c for item in ('LeatherGloves','LeatherHat') for c in ('Black','Brown','Natural')]
 FAMILIES = {
     'HCRecoverLargeLeather':(LARGE,'KitchenKnife',[('TannedLeather',2)],5,2,False),
     'HCRecoverMediumLeather':(MEDIUM,'KitchenKnife',[('TannedLeather',1)],5,2,False),
     'HCRecoverBatWood':(['BaseballBat','XmasBaseballBat'],'Hacksaw',[('WoodenStick',2)],5,2,False),
     'HCRecoverNailedBat':(['NailedBaseballBat'],'Hacksaw',[('WoodenStick',1),('Nail',4)],8,3,False),
     'HCRecoverBarbedBat':(['BarbedBaseballBat'],'Pliers',[('MetalWire',1)],8,3,False),
+    'HCRecoverRuinedLargeLeather':(LARGE,'KitchenKnife',[('TannedLeather',1)],5,2,True),
+    'HCRecoverRuinedBatWood':(['BaseballBat','XmasBaseballBat'],'Hacksaw',[('WoodenStick',1)],5,2,True),
+    'HCRecoverRuinedNailedBat':(['NailedBaseballBat'],'Hacksaw',[('Nail',1)],8,3,True),
     'HCRecoverRuinedCrate':(['WoodenCrate'],'Crowbar',[('WoodenPlank',1),('Nail',2)],20,3,True),
 }
 
@@ -90,6 +93,17 @@ class CraftingFamiliesTests(unittest.TestCase):
                 source.ruined=not ruined
                 self.assertFalse(state.CanDo([source,tool],actor))
 
+    def test_ruined_siblings_recover_strictly_less_of_pristine_materials(self):
+        from collections import Counter
+        for ruined, ordinary in [('HCRecoverRuinedLargeLeather','HCRecoverLargeLeather'),
+                                 ('HCRecoverRuinedBatWood','HCRecoverBatWood'),
+                                 ('HCRecoverRuinedNailedBat','HCRecoverNailedBat')]:
+            after = Counter(dict(FAMILIES[ruined][2]))
+            before = Counter(dict(FAMILIES[ordinary][2]))
+            self.assertTrue(all(after[k] <= before[k] for k in after))
+            self.assertTrue(any(after[k] < before[k] for k in before))
+            self.assertEqual(FAMILIES[ordinary][0], FAMILIES[ruined][0])
+
     def test_partial_allocations_clean_only_provisional_outputs_and_never_consume(self):
         for name in ('HCRecoverNailedBat','HCRecoverRuinedCrate'):
             for missing in (0,1):
@@ -117,14 +131,14 @@ class CraftingFamiliesTests(unittest.TestCase):
             source.health=100
             state.Do([source,object()],object(),dest,0)
             for result in dest:
-                self.assertAlmostEqual(10 if name=='HCRecoverRuinedCrate' else 30,result.health)
+                self.assertAlmostEqual(10 if FAMILIES[name][5] else 30,result.health)
             if 'Leather' in name:
                 self.assertEqual(0.6,dest[0].wet);self.assertEqual(7,dest[0].agents)
             dest[0].quantity=999
             state.ApplyModificationsResults([source,object()],dest,None,object())
             self.assertFalse(state.m_HCOutputReady);self.assertTrue(outputs[0].deleted)
 
-    def test_six_definitions_registered_once_and_belt_retired(self):
+    def test_all_definitions_registered_once_and_belt_retired(self):
         source=(SRC/'HCRecipeRegistration.c').read_text()
         for name in FAMILIES:self.assertEqual(1,source.count('RegisterRecipe(new '+name+');'))
         self.assertNotIn('HCSalvageLeatherBelt',source)

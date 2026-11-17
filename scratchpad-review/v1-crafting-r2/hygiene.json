@@ -1,0 +1,3154 @@
+{
+  "errors": [
+    {
+      "code": "unsafe_file",
+      "line": 0,
+      "path": ".banso-brief.md"
+    },
+    {
+      "code": "documentation_target",
+      "line": 9219,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/research/experiments/EXP-full-item-scope-decisions.md"
+    },
+    {
+      "code": "vanilla_dump_path",
+      "line": 0,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/ce/synthetic_valid/mapgrouppos.xml"
+    },
+    {
+      "code": "vanilla_dump_path",
+      "line": 0,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/ce/synthetic_valid/mapgroupproto.xml"
+    },
+    {
+      "code": "unsafe_file",
+      "line": 0,
+      "path": "scratchpad-review/v1-crafting/REPORT.md"
+    }
+  ],
+  "inventory": [
+    {
+      "bytes": 2768,
+      "path": ".banso-writer/brief-backup.md",
+      "sha256": "4168c63b9ec8ccc64f92873b53f08822635fc888bca3fa0b4b90a1ed416f55c6"
+    },
+    {
+      "bytes": 74,
+      "path": ".banso-writer/commit-message",
+      "sha256": "9a5fc4bb29acab4c7ff07d086dbd03df16cd905542e082b1418d5d4375fe083c"
+    },
+    {
+      "bytes": 32115,
+      "path": ".banso-writer/previous-report-backup.md",
+      "sha256": "97bc9476582706dd710624c0b104d489d5161b90f34f57630349d728dcb552f0"
+    },
+    {
+      "bytes": 152,
+      "path": ".editorconfig",
+      "sha256": "d27595e914cc327de96bdbe7b4e5acf11ba7407b6b4dacc1ddb807b35f557877"
+    },
+    {
+      "bytes": 387,
+      "path": ".env.example",
+      "sha256": "115e2857003e2622b379d6bcaefc49b4734b00b0d4dd6f8220ed84b7a3376195"
+    },
+    {
+      "bytes": 170,
+      "path": ".gitattributes",
+      "sha256": "d8d1c69d0e9754b22fab3334b5eae3f2d5b05f6b1a8d2e9caded4db91dae9c4b"
+    },
+    {
+      "bytes": 846,
+      "path": ".github/ISSUE_TEMPLATE/bug.yml",
+      "sha256": "6e8a04b52a8510948f4d7dd8ccb2c1c0fe0b72f0bd30e934975eb442c9f278e9"
+    },
+    {
+      "bytes": 797,
+      "path": ".github/ISSUE_TEMPLATE/change.yml",
+      "sha256": "d190de6e11ede9403ec095303d5fc14a65ffacd307c229c29f78c8a924a829ab"
+    },
+    {
+      "bytes": 27,
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "sha256": "13064e7bea658e01e718b414fbb7b3b244f36411fe25ee2055c151f7b534547a"
+    },
+    {
+      "bytes": 495,
+      "path": ".github/pull_request_template.md",
+      "sha256": "9c168ba1323871a19cf060d19cbe7d93c364d9535f52e2286c862aec2364fbcb"
+    },
+    {
+      "bytes": 3240,
+      "path": ".github/workflows/static.yml",
+      "sha256": "06d3e80c4f215d2c85a3e8c9281d17ec7b57c00d71ad9445d7cc65956369f837"
+    },
+    {
+      "bytes": 1880,
+      "path": ".gitignore",
+      "sha256": "da7340f2f57ef8d6ead0a6f28914283d52975cd333d24ea654f92515b1b57d23"
+    },
+    {
+      "bytes": 1841,
+      "path": "CONTRIBUTING.md",
+      "sha256": "51b4c00c2611b814cf0fb94f0ea64aa48cddd40a248ed23d139f483d54e1c2b0"
+    },
+    {
+      "bytes": 980,
+      "path": "LICENSE.md",
+      "sha256": "b73f9f736e6f886056c905064c72f50f2f6eea006400c5939c4eb62929894196"
+    },
+    {
+      "bytes": 13057,
+      "path": "README.md",
+      "sha256": "e866d52e31bac1ca136f2c7b507b6797ba339ae75a0febaebc57fa821da6c348"
+    },
+    {
+      "bytes": 368,
+      "path": "config/hollow-country-settings.json",
+      "sha256": "0333376f08fbbed179426885b8182c7609c3f4b36e308987dc86dcc246972095"
+    },
+    {
+      "bytes": 200,
+      "path": "config/hollow-country-stamina.json",
+      "sha256": "a73c7aadfd782f97cf2e4fe3c058213cbb4e96286dfc2fdadc5a3ec38d6d1699"
+    },
+    {
+      "bytes": 12706,
+      "path": "docs/INSTALL_ROLLBACK.md",
+      "sha256": "31ca8dca271122d40efce7babd1074dcbb6686d5c63217ddfa7826d66cefec7e"
+    },
+    {
+      "bytes": 1740,
+      "path": "docs/LOCAL_SERVER_TEST.md",
+      "sha256": "68e342493c990c7765a3d1eb9ad6d2f3da9d9e4e0cc628ab85a978f4f3d0ebfd"
+    },
+    {
+      "bytes": 16125,
+      "path": "docs/MODULE_STATUS.md",
+      "sha256": "2563dc48c16c336bc01b47f816b3e172843bb2f0fe20bff8aecc85916a69f686"
+    },
+    {
+      "bytes": 7091,
+      "path": "docs/MOD_DEVELOPMENT.md",
+      "sha256": "934d69b54362dde64c77837883ff5bf433ea249563db313cf7acebe8a005a15e"
+    },
+    {
+      "bytes": 4597,
+      "path": "docs/PROVENANCE_AND_LICENSES.md",
+      "sha256": "deb7d705d5d4507f720a346a75a62082c4538fc16ee6e1656f0ae2e503ec4c91"
+    },
+    {
+      "bytes": 1281,
+      "path": "docs/README.md",
+      "sha256": "524c7ce36ed16733cd7e95657a557afb24a989a9c3490cee7632eeccd7506f44"
+    },
+    {
+      "bytes": 3124,
+      "path": "docs/RUNTIME_IMPLEMENTATION_CONTRACT.md",
+      "sha256": "9cdf455aae8a0f272dccb611787f85b1f28de1adc534e110544ece9b34cbc9d3"
+    },
+    {
+      "bytes": 6800,
+      "path": "docs/SOURCES.md",
+      "sha256": "7df7214483acef608b7770fce706a5817ca381bc537cb0f59cfa339e77c9b10a"
+    },
+    {
+      "bytes": 711,
+      "path": "metrics/README.md",
+      "sha256": "84cb95dcf9a9e9e65dfee1778aeb37283672340ba17ff509aa04d9ac36c8e997"
+    },
+    {
+      "bytes": 301,
+      "path": "metrics/benchmark-template.csv",
+      "sha256": "651082e4a5da132acf0cafedc5b944128fb769442bef2a0780135fd2e445ada4"
+    },
+    {
+      "bytes": 254,
+      "path": "metrics/loot-evaluation-template.csv",
+      "sha256": "335bf1361c4f5fb6dc050abfd4bdab96575f29a686a352406b88e879143d10af"
+    },
+    {
+      "bytes": 8474,
+      "path": "mission/hollow-country/INSTALL_AND_ROLLBACK.md",
+      "sha256": "9c751a8fc4439fccb4685c814debaea72601d3b77fb935f4f399d122d4f110e8"
+    },
+    {
+      "bytes": 2543,
+      "path": "mission/hollow-country/README.md",
+      "sha256": "3a2295e227ed5d0ac2611f0a61f436809b48b99c0444c6e78e9e3ace74ba3cb9"
+    },
+    {
+      "bytes": 147,
+      "path": "mission/hollow-country/ce/types.xml",
+      "sha256": "dcc9b54107c6ce8ce757030b21feed4a2badd1ca8f75771ee399ba028273e573"
+    },
+    {
+      "bytes": 133,
+      "path": "mission/hollow-country/cfgeconomycore.append.xml",
+      "sha256": "f0db3bf2f5cdb11dc1db3df0e781296ee24332d566505bd2806194b9d3c090da"
+    },
+    {
+      "bytes": 80,
+      "path": "mission/hollow-country/economy-profiles/baseline.json",
+      "sha256": "b5c35d5023621d9ed158a6a9c5ae12bce876a22609d3dd33e4e69bba25b6033d"
+    },
+    {
+      "bytes": 264,
+      "path": "mission/hollow-country/economy-profiles/contextual-pilot.json",
+      "sha256": "93402af932462e9f830005b43dd6042e35ac27a4473bbe2075fe8d41ac7123c7"
+    },
+    {
+      "bytes": 188,
+      "path": "mission/hollow-country/economy-profiles/diagnostic.json",
+      "sha256": "f76808b15bdaa020b404561b736e8d306a34e1b15045f38e015f71d832700f0a"
+    },
+    {
+      "bytes": 368,
+      "path": "mission/hollow-country/operator/settings.json",
+      "sha256": "0333376f08fbbed179426885b8182c7609c3f4b36e308987dc86dcc246972095"
+    },
+    {
+      "bytes": 833,
+      "path": "mods/HollowCountry/config.cpp",
+      "sha256": "d7ec11abe83818ece4355a8c72e18bff807cbfff4ae18bd11be1037ce009fcc1"
+    },
+    {
+      "bytes": 2437,
+      "path": "mods/HollowCountry/gui/layouts/hc_events.layout",
+      "sha256": "4b0584c9eb4a02e3f595bf1a55d5f6a16c5a852a787a9cd893850e880398e648"
+    },
+    {
+      "bytes": 580,
+      "path": "mods/HollowCountry/gui/layouts/hc_group_icon.layout",
+      "sha256": "9ddccbcd7e1a5f30ac424cc41791a2d0bf37bc73e8a07bdc37c1d6d317827015"
+    },
+    {
+      "bytes": 5304,
+      "path": "mods/HollowCountry/gui/layouts/hc_group_map.layout",
+      "sha256": "ce21430c225f46b82957e282c5ee0449bbaa2eddb5fd7b1a8b6be02dab759a2e"
+    },
+    {
+      "bytes": 2578,
+      "path": "mods/HollowCountry/gui/layouts/hc_stamina.layout",
+      "sha256": "b810e7e3533aea1539cf90247f41d7b97187d280729bfaf9a87a02bd29794571"
+    },
+    {
+      "bytes": 352,
+      "path": "mods/HollowCountry/inputs.xml",
+      "sha256": "aacaa45736a8595b767b26e285754c4f51e57adf03da1a80ccc31ba78ed72968"
+    },
+    {
+      "bytes": 205,
+      "path": "mods/HollowCountry/mod.cpp",
+      "sha256": "54b0fb3d540b9dd11f2af1ac47da656baec896946939950fdae37bb5be5327be"
+    },
+    {
+      "bytes": 4009,
+      "path": "mods/HollowCountry/scripts/3_Game/Ecology/HCEcologyData.c",
+      "sha256": "3c1fe385a76d9e318e9e5a3fe223b9b67c6f072f0f7c918a78cc8029b43da300"
+    },
+    {
+      "bytes": 1127,
+      "path": "mods/HollowCountry/scripts/3_Game/Ecology/HCEcologyRuntimeData.c",
+      "sha256": "4f736b38f68776755f1673131f7dc85af279747c9a345e0b5576403664794182"
+    },
+    {
+      "bytes": 2922,
+      "path": "mods/HollowCountry/scripts/3_Game/Events/HCEventData.c",
+      "sha256": "e7f3e1307380f34b27d4c46973d7125d3fd0e223904fc74bb6e66589401fc996"
+    },
+    {
+      "bytes": 1848,
+      "path": "mods/HollowCountry/scripts/3_Game/Events/HCEventRuntimeData.c",
+      "sha256": "8bfa41e5a8b019fbc1e9bdb302f6cc0b66bdb4d2e435cb5c938e155bcfe8d84b"
+    },
+    {
+      "bytes": 1206,
+      "path": "mods/HollowCountry/scripts/3_Game/Events/HCEventTransportData.c",
+      "sha256": "025b43dc0f547cdec71ad71db1b0acd927c0733ba825a237dd27356d23d0c83a"
+    },
+    {
+      "bytes": 3334,
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupData.c",
+      "sha256": "e0f89d5e16744b1b544ab6286567cdb13672fcf04c06f9013c1959a5c3b6f706"
+    },
+    {
+      "bytes": 816,
+      "path": "mods/HollowCountry/scripts/3_Game/Groups/HCGroupProtocol.c",
+      "sha256": "1c0295e4a18ee48cefd0e2cada6ff52a7af7f7ce580cf17763d7ac8d00d9b3e1"
+    },
+    {
+      "bytes": 3460,
+      "path": "mods/HollowCountry/scripts/3_Game/HCSettings.c",
+      "sha256": "e3825dcdd73999348b2c30522f8437828d782deaad42465e0d63b68e7875551a"
+    },
+    {
+      "bytes": 5357,
+      "path": "mods/HollowCountry/scripts/3_Game/Interiors/HCInteriorMeasuredCatalogData.c",
+      "sha256": "9ae6f6306a6abfe092c6c831eb243f03cbbbc721c5a0fb1eb80cfa8d4c22f802"
+    },
+    {
+      "bytes": 9457,
+      "path": "mods/HollowCountry/scripts/3_Game/Survival/HCStaminaConfiguration.c",
+      "sha256": "8916455190100ed8d2c95d5bdd8db446143c1148ea3f1f2446f38d8052be8f9c"
+    },
+    {
+      "bytes": 421,
+      "path": "mods/HollowCountry/scripts/3_Game/Survival/HCStaminaSettings.c",
+      "sha256": "3720fa4652fc9a00b7b037eaff0205adb6d9da0526ee9061b0fd18eeb8e7e099"
+    },
+    {
+      "bytes": 1736,
+      "path": "mods/HollowCountry/scripts/3_Game/Survival/HCTapedLightData.c",
+      "sha256": "bfd7e1b524275cf2dc9d953f3f885b01311fd89af5be3cbc219a6f135f79a54b"
+    },
+    {
+      "bytes": 19514,
+      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
+      "sha256": "d28f4453d5ed09d8cff69eff9da937955bd08f98860617ba566dd55c6d461775"
+    },
+    {
+      "bytes": 916,
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCModule.c",
+      "sha256": "a60dcdf8ee9a1a32df6cfa56bfeabcff1966b3999d9e6263a85b28ed663b61b4"
+    },
+    {
+      "bytes": 1304,
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCNativeSelfTests.c",
+      "sha256": "8927b0c0de77374fa9077069b787b09d8af9f8233630fca8100729bd8513a0f5"
+    },
+    {
+      "bytes": 2932,
+      "path": "mods/HollowCountry/scripts/4_World/Core/HCServer.c",
+      "sha256": "ece80618ccc5c4874e68709b2c131683fc7a415dabd55de91cccd3b5ebabcc5e"
+    },
+    {
+      "bytes": 1965,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c",
+      "sha256": "ba821e10d38935be5f56c15df4c489857bb4066cab75a44854d097865317eaaf"
+    },
+    {
+      "bytes": 8770,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingNativeChecks.c",
+      "sha256": "e3a23e7d5ce5eed6d680e9387ec265e04a3cb7e674cc8c244859bb9804f65a7c"
+    },
+    {
+      "bytes": 616,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCCraftingRegistryAudit.c",
+      "sha256": "6e1c5fe6426e24b1fe558a49b869f4a76994ac98f45f56d09be1bd221fb1d94a"
+    },
+    {
+      "bytes": 2135,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCDrysackSafety.c",
+      "sha256": "548448ed96c8dd5bd9dceb62f3c6aac0fe4e2074db452929661e8aa56233baf8"
+    },
+    {
+      "bytes": 6816,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCFuelTransferPolicy.c",
+      "sha256": "69a5450e8578e16136cf4dbd9c444dbabbf1c217d90ba44e5d69a42d959d8413"
+    },
+    {
+      "bytes": 48727,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "sha256": "2e0af485a267db383d397a09481db6e8e9b091778ef60cec8d06c3a6628aa838"
+    },
+    {
+      "bytes": 23462,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "sha256": "f5378789469b9fe04c58436ee202340b107375b22c284de23f8a23314c16fae4"
+    },
+    {
+      "bytes": 17095,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCNativeCraftingSafety.c",
+      "sha256": "c7664f019567fc13b944bfff7b8b99da75636a013e08eafa53e5753774ed9187"
+    },
+    {
+      "bytes": 839,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCRecipeRegistration.c",
+      "sha256": "49db3034b5cd267f375cfc958654143da0f6f8b2fe8819e5ae5d2388b4475b9b"
+    },
+    {
+      "bytes": 18863,
+      "path": "mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c",
+      "sha256": "7ed19cf2b6524289c111d518d257ebb18ce4b724b9e59f993f65676b4d0ab142"
+    },
+    {
+      "bytes": 789,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyHooks.c",
+      "sha256": "00bf1b26451f86dc5d6b31c688549b56867f594cf90b869fe0630209fa2fd49d"
+    },
+    {
+      "bytes": 5646,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
+      "sha256": "732cd5a3b814b86f7269336211bce06a95657a6e8af0e4e16a7baef94f3c20ef"
+    },
+    {
+      "bytes": 22612,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
+      "sha256": "e66ddbb8773e66cd713a89ae73f2cd6d2c2d05cd67771d60ac57950caa3c9e68"
+    },
+    {
+      "bytes": 14719,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "sha256": "0d4b6c73890b82452165b1b7a5571f92f3b6474b1fc88f231e4cc470a6920273"
+    },
+    {
+      "bytes": 2494,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeModule.c",
+      "sha256": "ff30829e2417002156ac0a411cb3228f669814517251f1e119b3ae6d681ea2cb"
+    },
+    {
+      "bytes": 5149,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeRules.c",
+      "sha256": "ba476c64b60363bd6d12811e735ec1cbcf5279e175c1e5337ea1ed254cd2c1fd"
+    },
+    {
+      "bytes": 5167,
+      "path": "mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "sha256": "1fddea06bd505acc048b092d5b131ec5952958751d96efe2c156c1320980957a"
+    },
+    {
+      "bytes": 1840,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventConfiguration.c",
+      "sha256": "4edfb5b1ce564136566f29d78f3c99a4130cb11e42efd4616fede27729c28578"
+    },
+    {
+      "bytes": 19187,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventDirector.c",
+      "sha256": "3e289356f714f9c61627c4f75099b953907f75f1da28617b834cab6d04db9d21"
+    },
+    {
+      "bytes": 9493,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "sha256": "317fdc5b09907288da82bbcd9ecb16f3e47a81527fa3a23d3658b323c77d28ef"
+    },
+    {
+      "bytes": 7860,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "sha256": "d10b0d52341845a1b8aceedfa8eb83aa5db7a7bfbedc7342be8801043822d51f"
+    },
+    {
+      "bytes": 8499,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventNativeObserver.c",
+      "sha256": "347be10a74fa8eb774ba9d0110a941130fbdf6dc9e280a2f6d23a902d09d4610"
+    },
+    {
+      "bytes": 420,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventPlayerLifecycle.c",
+      "sha256": "e84bdace28fe609c9638840d84976f6189106bc376b79726116392d9e5c7d000"
+    },
+    {
+      "bytes": 1569,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventProviders.c",
+      "sha256": "68b1b9cfeb43c802256ba5b8d0b9dabffb1aeba254765ee096cd844730889373"
+    },
+    {
+      "bytes": 12120,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRPC.c",
+      "sha256": "1970a52d8f19e8eadbac8fb9417858bc08bca0f383173d9e337876a541d9df1b"
+    },
+    {
+      "bytes": 1309,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRoster.c",
+      "sha256": "c5d7439036f8f403ae0c9eee62887c6205248ac6c60fcba992a9e32dc6f08797"
+    },
+    {
+      "bytes": 21384,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRuntime.c",
+      "sha256": "55f5dcb55adf58c557ac64fa6d74ca1eacdb72ef880956775a8759c52c1caf29"
+    },
+    {
+      "bytes": 6238,
+      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventRuntimePolicy.c",
+      "sha256": "814d33d2698bec60805a0aad187819bf07feab35cdc42cae640fe1a7937e2cdd"
+    },
+    {
+      "bytes": 1231,
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupModule.c",
+      "sha256": "d7661a0a4e604c04041c550e25097cab05c44bbf80fd59e720a67f4dd6c145f5"
+    },
+    {
+      "bytes": 12109,
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupNativeChecks.c",
+      "sha256": "e58756cae3a0ccf948b9ca326d3a9d2df5c05f8e39bb005ddfb09ef470f2ee46"
+    },
+    {
+      "bytes": 18781,
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
+      "sha256": "bdc078974609a88c74e663ad51170842bc05f95803dfb8cb2db464e065566c55"
+    },
+    {
+      "bytes": 20156,
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
+      "sha256": "db8b0d34866b13f6086ff185dc5618bc45843fd382c7c04cd10c165d9c96d993"
+    },
+    {
+      "bytes": 8051,
+      "path": "mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "sha256": "0bd82a00d7555e0a76bc589ccc666617df085a2e467cb9ea7b371ba9c92b695c"
+    },
+    {
+      "bytes": 8983,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c",
+      "sha256": "2c4c15c29f5693cebc163039fa22b8411d9435fd2d70247a4b3b20aca14299af"
+    },
+    {
+      "bytes": 6566,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCHordeRecovery.c",
+      "sha256": "7ca22b3896779be8411fb8477b9826f364ed5a6fb94203fb1eb6d2ad5bca8e49"
+    },
+    {
+      "bytes": 5195,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCHordeStimulus.c",
+      "sha256": "2acedbe1cf27f0aa0054749138c67af345ad495fae9f43ad4d8299194e65d5d0"
+    },
+    {
+      "bytes": 36674,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c",
+      "sha256": "4a22baac6b66e30c64e7192c0d409ec04176f1c94b03888c40ba146b694a65e4"
+    },
+    {
+      "bytes": 3370,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+      "sha256": "002e4af3da81678c9578b5860d6800f3ecc1e4fe565947fb7c078a8f3a87b100"
+    },
+    {
+      "bytes": 23720,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
+      "sha256": "36a8a3b223a1ec54b7b678a4c547368b4292be496cb0edbc952814261402aa31"
+    },
+    {
+      "bytes": 17135,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedPolicy.c",
+      "sha256": "256f01c427bbe0b133a32065830213fb1bc2859d050d1d43cfa7487d4e638d86"
+    },
+    {
+      "bytes": 4906,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedProfiles.c",
+      "sha256": "cc86a250f64b4a8e78e0b84b3191f553043e851f579494996c1182dee05e1dc5"
+    },
+    {
+      "bytes": 15014,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "sha256": "eac8684b5bb24cf92fcdffa1e092652e27c1efca343313beaa03620c8faa0455"
+    },
+    {
+      "bytes": 3817,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedSelfTests.c",
+      "sha256": "98e000a593a08280abf42548c966db277b74605bea9181d40cc5e74bf4cc2bb3"
+    },
+    {
+      "bytes": 20795,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "sha256": "86f7b43a144b48b791a833a0459545b0c4a88d765171cd95974c2567789bc230"
+    },
+    {
+      "bytes": 16746,
+      "path": "mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
+      "sha256": "c6d3c0be35997b2e332d95b2752bd06341bd5588e8b0535d3b2735c83c0f4d95"
+    },
+    {
+      "bytes": 3103,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorAction.c",
+      "sha256": "bd02306961dd2ee4622837278e72351eed99014e513a44b0b2c36fb969f8ccd0"
+    },
+    {
+      "bytes": 5133,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorCatalog.c",
+      "sha256": "352f823888b3a24ee07a45f002d866cb0ad0b3c9d00bfe97d67df10e2c15a1b7"
+    },
+    {
+      "bytes": 57475,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "sha256": "120e2aae2e9d47c24fe2b18a16962a1eea81fbc51daaba8f0c754c0fbd4077db"
+    },
+    {
+      "bytes": 27448,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+      "sha256": "3f85aa3655a81f4b534da09841fef8087abfbf7228c1cf67ed7210bb35cf3b97"
+    },
+    {
+      "bytes": 4564,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c",
+      "sha256": "18006f1cfa44548b625286012d21fca20b028d5e7dd3e5112d99aeda205397d9"
+    },
+    {
+      "bytes": 3980,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorSearchPool.c",
+      "sha256": "3e325aa946208a8545c30879d5c643ad3728c819610ba01dd81323ba0a324322"
+    },
+    {
+      "bytes": 5268,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorSelfTests.c",
+      "sha256": "7a8d013872fcba00342930aada553c015ad04e7cba7e9529843081ee8554401d"
+    },
+    {
+      "bytes": 15024,
+      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "sha256": "4fa56d4506de9e707805937ac6b38e0ebb5051caa63000ba289ca5647ba51de8"
+    },
+    {
+      "bytes": 7137,
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomy.c",
+      "sha256": "691182275756db7207d2552b7bc22f6a40d653f6489da13ed163835e1a291267"
+    },
+    {
+      "bytes": 6487,
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "sha256": "a70cf82f75f9d9746ea3253b5e9f39e6854da2d47161fff73c39ccb63985d72d"
+    },
+    {
+      "bytes": 14239,
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchNativeSupply.c",
+      "sha256": "8bda61538730892e557bb2fe6e1cf9278c603a8dfb4ce72b07c9f4af612a0ffc"
+    },
+    {
+      "bytes": 2068,
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRules.c",
+      "sha256": "168876c332a7139e0add60877313395846b6a5d3db74e5ed53362d76519a270a"
+    },
+    {
+      "bytes": 13579,
+      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
+      "sha256": "a689a7f20de36217eb68c431116251f1d00b2669dee97ce35d32ce93076d8945"
+    },
+    {
+      "bytes": 2732,
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c",
+      "sha256": "e7052d355a0d8ab6b1d94d884dc442b0565f19d081d3d5ba3904723896f83c35"
+    },
+    {
+      "bytes": 9579,
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCStaminaPolicy.c",
+      "sha256": "d8fe42693587d5251d9bb14779143b7a337afe92682c2dfda06e81c2297ac592"
+    },
+    {
+      "bytes": 32020,
+      "path": "mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c",
+      "sha256": "1344ab72ef0017deaff2a14bf1d77931d34501efd033ee0f3b1a4377133a5249"
+    },
+    {
+      "bytes": 11001,
+      "path": "mods/HollowCountry/scripts/5_Mission/Events/HCEventClient.c",
+      "sha256": "1f704a12a84d369f3a7db860e72cc8e32beae72296e9e7226aa0f6378df2ab1d"
+    },
+    {
+      "bytes": 1681,
+      "path": "mods/HollowCountry/scripts/5_Mission/Events/HCEventGameplay.c",
+      "sha256": "2940b9e3038c9c910fe9da98e3e10383a8a7e7d3e8b1a0291bf4bd91d2ee256d"
+    },
+    {
+      "bytes": 6097,
+      "path": "mods/HollowCountry/scripts/5_Mission/Events/HCEventMenu.c",
+      "sha256": "871b9bae317460f9095fe26203c76bf5b0828e769711cf40ab9159b52f655983"
+    },
+    {
+      "bytes": 308,
+      "path": "mods/HollowCountry/scripts/5_Mission/Events/HCEventMenuFactory.c",
+      "sha256": "30729d5f5f077263495e997371a6da23da4d3fbe348cf75f0ef63c2cb1efda86"
+    },
+    {
+      "bytes": 18241,
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupClient.c",
+      "sha256": "2515196aeaeab68bc6e04070d121f677ba4ceea28a01c47b8b11b34b4400fe6e"
+    },
+    {
+      "bytes": 1241,
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupConnections.c",
+      "sha256": "2d5ecb96af541e504e18c5a4c2622c966692b2a6f1a4f281eaf918f002573948"
+    },
+    {
+      "bytes": 1728,
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupGameplay.c",
+      "sha256": "68734c6c48a4f8599c4b16b5a2f10b3976aa6fe62c52052dd60ad798995d8100"
+    },
+    {
+      "bytes": 13779,
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c",
+      "sha256": "f70d91875cd5bcfa6079221935e2f6cb93da20264885a687f62a98590267aabd"
+    },
+    {
+      "bytes": 389,
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMenuFactory.c",
+      "sha256": "718e009d6e0d48bdf43b1f1a8a27c62d8235050dcc6890a5d820a3d37dbef439"
+    },
+    {
+      "bytes": 4362,
+      "path": "mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
+      "sha256": "d2015482c534072de35ee4129d46a1e30f3b2084d71375d1d78a6ec5ed60ee3d"
+    },
+    {
+      "bytes": 239,
+      "path": "mods/HollowCountry/scripts/5_Mission/HCMissionServer.c",
+      "sha256": "21d367b470e2273c91c2c3abde9a4ea226c778019367c5ea26c888f87c5da485"
+    },
+    {
+      "bytes": 7862,
+      "path": "mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c",
+      "sha256": "09fbcaa49e50bbaa0e8c1e9bd2eaa2b579032ae79782196c151892fcf6b3a945"
+    },
+    {
+      "bytes": 25,
+      "path": "mods/HollowCountryExpansionAI/$PBOPREFIX$",
+      "sha256": "283d8d9a9bf20bfeb5ec98c293a4bd722d5e589a3f66c3453281b1719993919e"
+    },
+    {
+      "bytes": 923,
+      "path": "mods/HollowCountryExpansionAI/config.cpp",
+      "sha256": "1cf30610df8fa5e7d332a8a56980642bc530e5a795e55d7705a6c1d9c36ffb14"
+    },
+    {
+      "bytes": 21124,
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
+      "sha256": "8eb22e74fbc20474434c1030416229c3e0a62a13c0ac27f2deb81d9135830210"
+    },
+    {
+      "bytes": 3151,
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c",
+      "sha256": "b4c969b90a80b3f8150207a6eed00b058a760e870217b8486db09807d6057c10"
+    },
+    {
+      "bytes": 5738,
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRules.c",
+      "sha256": "5137ee9d5118e07314a0ffa68b0200829200a8181c7413de6651289f3d74588d"
+    },
+    {
+      "bytes": 1746,
+      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "sha256": "2337b2560a4f3d6dc89b423d5d9006e7385987da31b7da796cc49a60f83907b1"
+    },
+    {
+      "bytes": 5744,
+      "path": "scratchpad-review/v1-crafting-r2/add_decisions.py",
+      "sha256": "baa03d85349dbd1df4be1b667c074c5e863452f18a8298530b137ccad607c86d"
+    },
+    {
+      "bytes": 6770,
+      "path": "scratchpad-review/v1-crafting-r2/config-evidence.json",
+      "sha256": "1ad744d5ccebcca43a9855975e1be28d35949ed9e709b3a157cb1efa8f9a731a"
+    },
+    {
+      "bytes": 2815,
+      "path": "scratchpad-review/v1-crafting-r2/config_evidence.py",
+      "sha256": "3f31175fbc47dfe4e7b7ae9dfdce6746ab53646cfd8b389fedc989c098b20db8"
+    },
+    {
+      "bytes": 0,
+      "path": "scratchpad-review/v1-crafting-r2/hygiene.json",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 2839,
+      "path": "scratchpad-review/v1-crafting-r2/mutate.py",
+      "sha256": "cae0058377e656c9ac25bb9e47cc9a963eb6763ea263d0e50de46df4babf4fe0"
+    },
+    {
+      "bytes": 19458,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/REVIEW.md",
+      "sha256": "ebe824102eb91dec24a37ed49c3b98bd61d18687557869056c88b497330fa334"
+    },
+    {
+      "bytes": 10216,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/d.diff",
+      "sha256": "803ec25051b008b54acdb04307c91b4b8694d7cccbf1db7106f54268bca556c6"
+    },
+    {
+      "bytes": 1953,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/AGENTS.md",
+      "sha256": "5140792f21761a4b81b26d44e73437eeede773d18eaf51e5835749799db1bbdc"
+    },
+    {
+      "bytes": 1841,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/CONTRIBUTING.md",
+      "sha256": "51b4c00c2611b814cf0fb94f0ea64aa48cddd40a248ed23d139f483d54e1c2b0"
+    },
+    {
+      "bytes": 980,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/LICENSE.md",
+      "sha256": "b73f9f736e6f886056c905064c72f50f2f6eea006400c5939c4eb62929894196"
+    },
+    {
+      "bytes": 13057,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/README.md",
+      "sha256": "e866d52e31bac1ca136f2c7b507b6797ba339ae75a0febaebc57fa821da6c348"
+    },
+    {
+      "bytes": 368,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/config/hollow-country-settings.json",
+      "sha256": "0333376f08fbbed179426885b8182c7609c3f4b36e308987dc86dcc246972095"
+    },
+    {
+      "bytes": 200,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/config/hollow-country-stamina.json",
+      "sha256": "a73c7aadfd782f97cf2e4fe3c058213cbb4e96286dfc2fdadc5a3ec38d6d1699"
+    },
+    {
+      "bytes": 12706,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/INSTALL_ROLLBACK.md",
+      "sha256": "31ca8dca271122d40efce7babd1074dcbb6686d5c63217ddfa7826d66cefec7e"
+    },
+    {
+      "bytes": 1740,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/LOCAL_SERVER_TEST.md",
+      "sha256": "68e342493c990c7765a3d1eb9ad6d2f3da9d9e4e0cc628ab85a978f4f3d0ebfd"
+    },
+    {
+      "bytes": 16125,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/MODULE_STATUS.md",
+      "sha256": "2563dc48c16c336bc01b47f816b3e172843bb2f0fe20bff8aecc85916a69f686"
+    },
+    {
+      "bytes": 7091,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/MOD_DEVELOPMENT.md",
+      "sha256": "934d69b54362dde64c77837883ff5bf433ea249563db313cf7acebe8a005a15e"
+    },
+    {
+      "bytes": 4597,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/PROVENANCE_AND_LICENSES.md",
+      "sha256": "deb7d705d5d4507f720a346a75a62082c4538fc16ee6e1656f0ae2e503ec4c91"
+    },
+    {
+      "bytes": 1281,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/README.md",
+      "sha256": "524c7ce36ed16733cd7e95657a557afb24a989a9c3490cee7632eeccd7506f44"
+    },
+    {
+      "bytes": 3124,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/RUNTIME_IMPLEMENTATION_CONTRACT.md",
+      "sha256": "9cdf455aae8a0f272dccb611787f85b1f28de1adc534e110544ece9b34cbc9d3"
+    },
+    {
+      "bytes": 6800,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/docs/SOURCES.md",
+      "sha256": "7df7214483acef608b7770fce706a5817ca381bc537cb0f59cfa339e77c9b10a"
+    },
+    {
+      "bytes": 711,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/metrics/README.md",
+      "sha256": "84cb95dcf9a9e9e65dfee1778aeb37283672340ba17ff509aa04d9ac36c8e997"
+    },
+    {
+      "bytes": 301,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/metrics/benchmark-template.csv",
+      "sha256": "651082e4a5da132acf0cafedc5b944128fb769442bef2a0780135fd2e445ada4"
+    },
+    {
+      "bytes": 254,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/metrics/loot-evaluation-template.csv",
+      "sha256": "335bf1361c4f5fb6dc050abfd4bdab96575f29a686a352406b88e879143d10af"
+    },
+    {
+      "bytes": 8474,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/INSTALL_AND_ROLLBACK.md",
+      "sha256": "9c751a8fc4439fccb4685c814debaea72601d3b77fb935f4f399d122d4f110e8"
+    },
+    {
+      "bytes": 2543,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/README.md",
+      "sha256": "3a2295e227ed5d0ac2611f0a61f436809b48b99c0444c6e78e9e3ace74ba3cb9"
+    },
+    {
+      "bytes": 147,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/ce/types.xml",
+      "sha256": "dcc9b54107c6ce8ce757030b21feed4a2badd1ca8f75771ee399ba028273e573"
+    },
+    {
+      "bytes": 133,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/cfgeconomycore.append.xml",
+      "sha256": "f0db3bf2f5cdb11dc1db3df0e781296ee24332d566505bd2806194b9d3c090da"
+    },
+    {
+      "bytes": 80,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/economy-profiles/baseline.json",
+      "sha256": "b5c35d5023621d9ed158a6a9c5ae12bce876a22609d3dd33e4e69bba25b6033d"
+    },
+    {
+      "bytes": 264,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/economy-profiles/contextual-pilot.json",
+      "sha256": "93402af932462e9f830005b43dd6042e35ac27a4473bbe2075fe8d41ac7123c7"
+    },
+    {
+      "bytes": 188,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/economy-profiles/diagnostic.json",
+      "sha256": "f76808b15bdaa020b404561b736e8d306a34e1b15045f38e015f71d832700f0a"
+    },
+    {
+      "bytes": 368,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mission/hollow-country/operator/settings.json",
+      "sha256": "0333376f08fbbed179426885b8182c7609c3f4b36e308987dc86dcc246972095"
+    },
+    {
+      "bytes": 833,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/config.cpp",
+      "sha256": "d7ec11abe83818ece4355a8c72e18bff807cbfff4ae18bd11be1037ce009fcc1"
+    },
+    {
+      "bytes": 2437,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/gui/layouts/hc_events.layout",
+      "sha256": "4b0584c9eb4a02e3f595bf1a55d5f6a16c5a852a787a9cd893850e880398e648"
+    },
+    {
+      "bytes": 580,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/gui/layouts/hc_group_icon.layout",
+      "sha256": "9ddccbcd7e1a5f30ac424cc41791a2d0bf37bc73e8a07bdc37c1d6d317827015"
+    },
+    {
+      "bytes": 5304,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/gui/layouts/hc_group_map.layout",
+      "sha256": "ce21430c225f46b82957e282c5ee0449bbaa2eddb5fd7b1a8b6be02dab759a2e"
+    },
+    {
+      "bytes": 2578,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/gui/layouts/hc_stamina.layout",
+      "sha256": "b810e7e3533aea1539cf90247f41d7b97187d280729bfaf9a87a02bd29794571"
+    },
+    {
+      "bytes": 352,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/inputs.xml",
+      "sha256": "aacaa45736a8595b767b26e285754c4f51e57adf03da1a80ccc31ba78ed72968"
+    },
+    {
+      "bytes": 205,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/mod.cpp",
+      "sha256": "54b0fb3d540b9dd11f2af1ac47da656baec896946939950fdae37bb5be5327be"
+    },
+    {
+      "bytes": 4009,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Ecology/HCEcologyData.c",
+      "sha256": "3c1fe385a76d9e318e9e5a3fe223b9b67c6f072f0f7c918a78cc8029b43da300"
+    },
+    {
+      "bytes": 1127,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Ecology/HCEcologyRuntimeData.c",
+      "sha256": "4f736b38f68776755f1673131f7dc85af279747c9a345e0b5576403664794182"
+    },
+    {
+      "bytes": 2922,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Events/HCEventData.c",
+      "sha256": "e7f3e1307380f34b27d4c46973d7125d3fd0e223904fc74bb6e66589401fc996"
+    },
+    {
+      "bytes": 1848,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Events/HCEventRuntimeData.c",
+      "sha256": "8bfa41e5a8b019fbc1e9bdb302f6cc0b66bdb4d2e435cb5c938e155bcfe8d84b"
+    },
+    {
+      "bytes": 1206,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Events/HCEventTransportData.c",
+      "sha256": "025b43dc0f547cdec71ad71db1b0acd927c0733ba825a237dd27356d23d0c83a"
+    },
+    {
+      "bytes": 3334,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Groups/HCGroupData.c",
+      "sha256": "e0f89d5e16744b1b544ab6286567cdb13672fcf04c06f9013c1959a5c3b6f706"
+    },
+    {
+      "bytes": 816,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Groups/HCGroupProtocol.c",
+      "sha256": "1c0295e4a18ee48cefd0e2cada6ff52a7af7f7ce580cf17763d7ac8d00d9b3e1"
+    },
+    {
+      "bytes": 3460,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/HCSettings.c",
+      "sha256": "e3825dcdd73999348b2c30522f8437828d782deaad42465e0d63b68e7875551a"
+    },
+    {
+      "bytes": 5357,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Interiors/HCInteriorMeasuredCatalogData.c",
+      "sha256": "9ae6f6306a6abfe092c6c831eb243f03cbbbc721c5a0fb1eb80cfa8d4c22f802"
+    },
+    {
+      "bytes": 9457,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Survival/HCStaminaConfiguration.c",
+      "sha256": "8916455190100ed8d2c95d5bdd8db446143c1148ea3f1f2446f38d8052be8f9c"
+    },
+    {
+      "bytes": 421,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Survival/HCStaminaSettings.c",
+      "sha256": "3720fa4652fc9a00b7b037eaff0205adb6d9da0526ee9061b0fd18eeb8e7e099"
+    },
+    {
+      "bytes": 1736,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/3_Game/Survival/HCTapedLightData.c",
+      "sha256": "bfd7e1b524275cf2dc9d953f3f885b01311fd89af5be3cbc219a6f135f79a54b"
+    },
+    {
+      "bytes": 19514,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
+      "sha256": "d28f4453d5ed09d8cff69eff9da937955bd08f98860617ba566dd55c6d461775"
+    },
+    {
+      "bytes": 916,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Core/HCModule.c",
+      "sha256": "a60dcdf8ee9a1a32df6cfa56bfeabcff1966b3999d9e6263a85b28ed663b61b4"
+    },
+    {
+      "bytes": 1304,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Core/HCNativeSelfTests.c",
+      "sha256": "8927b0c0de77374fa9077069b787b09d8af9f8233630fca8100729bd8513a0f5"
+    },
+    {
+      "bytes": 2932,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Core/HCServer.c",
+      "sha256": "ece80618ccc5c4874e68709b2c131683fc7a415dabd55de91cccd3b5ebabcc5e"
+    },
+    {
+      "bytes": 1965,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCCraftingModule.c",
+      "sha256": "ba821e10d38935be5f56c15df4c489857bb4066cab75a44854d097865317eaaf"
+    },
+    {
+      "bytes": 8198,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCCraftingNativeChecks.c",
+      "sha256": "2c387533d7c08fc352be6a5073af056efaf9f545cec6a53477ac46b808a26462"
+    },
+    {
+      "bytes": 616,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCCraftingRegistryAudit.c",
+      "sha256": "6e1c5fe6426e24b1fe558a49b869f4a76994ac98f45f56d09be1bd221fb1d94a"
+    },
+    {
+      "bytes": 2135,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCDrysackSafety.c",
+      "sha256": "548448ed96c8dd5bd9dceb62f3c6aac0fe4e2074db452929661e8aa56233baf8"
+    },
+    {
+      "bytes": 6816,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCFuelTransferPolicy.c",
+      "sha256": "69a5450e8578e16136cf4dbd9c444dbabbf1c217d90ba44e5d69a42d959d8413"
+    },
+    {
+      "bytes": 48727,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCItemCompatibilityAudit.c",
+      "sha256": "2e0af485a267db383d397a09481db6e8e9b091778ef60cec8d06c3a6628aa838"
+    },
+    {
+      "bytes": 23231,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCItemUtilityDiagnostic.c",
+      "sha256": "eccceaceb0303c920b4848de6a36516f17dec86c00641073969edd8ee02f4996"
+    },
+    {
+      "bytes": 17095,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCNativeCraftingSafety.c",
+      "sha256": "c7664f019567fc13b944bfff7b8b99da75636a013e08eafa53e5753774ed9187"
+    },
+    {
+      "bytes": 676,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCRecipeRegistration.c",
+      "sha256": "d85ff4ee6364558d66fb690244798defe81be64d50b89e6ee433226b61c6ff25"
+    },
+    {
+      "bytes": 17067,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Crafting/HCSalvageRecipe.c",
+      "sha256": "7a2cdec116d389125721bb45fd27ec1a07a58596f724b457343dc3130beb593b"
+    },
+    {
+      "bytes": 789,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyHooks.c",
+      "sha256": "00bf1b26451f86dc5d6b31c688549b56867f594cf90b869fe0630209fa2fd49d"
+    },
+    {
+      "bytes": 5646,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyNative.c",
+      "sha256": "732cd5a3b814b86f7269336211bce06a95657a6e8af0e4e16a7baef94f3c20ef"
+    },
+    {
+      "bytes": 22612,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRules.c",
+      "sha256": "e66ddbb8773e66cd713a89ae73f2cd6d2c2d05cd67771d60ac57950caa3c9e68"
+    },
+    {
+      "bytes": 14719,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntime.c",
+      "sha256": "0d4b6c73890b82452165b1b7a5571f92f3b6474b1fc88f231e4cc470a6920273"
+    },
+    {
+      "bytes": 2494,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeModule.c",
+      "sha256": "ff30829e2417002156ac0a411cb3228f669814517251f1e119b3ae6d681ea2cb"
+    },
+    {
+      "bytes": 5149,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeRules.c",
+      "sha256": "ba476c64b60363bd6d12811e735ec1cbcf5279e175c1e5337ea1ed254cd2c1fd"
+    },
+    {
+      "bytes": 5167,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Ecology/HCEcologyRuntimeStore.c",
+      "sha256": "1fddea06bd505acc048b092d5b131ec5952958751d96efe2c156c1320980957a"
+    },
+    {
+      "bytes": 1840,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventConfiguration.c",
+      "sha256": "4edfb5b1ce564136566f29d78f3c99a4130cb11e42efd4616fede27729c28578"
+    },
+    {
+      "bytes": 19187,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventDirector.c",
+      "sha256": "3e289356f714f9c61627c4f75099b953907f75f1da28617b834cab6d04db9d21"
+    },
+    {
+      "bytes": 9493,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventJournal.c",
+      "sha256": "317fdc5b09907288da82bbcd9ecb16f3e47a81527fa3a23d3658b323c77d28ef"
+    },
+    {
+      "bytes": 7860,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventModule.c",
+      "sha256": "d10b0d52341845a1b8aceedfa8eb83aa5db7a7bfbedc7342be8801043822d51f"
+    },
+    {
+      "bytes": 8499,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventNativeObserver.c",
+      "sha256": "347be10a74fa8eb774ba9d0110a941130fbdf6dc9e280a2f6d23a902d09d4610"
+    },
+    {
+      "bytes": 420,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventPlayerLifecycle.c",
+      "sha256": "e84bdace28fe609c9638840d84976f6189106bc376b79726116392d9e5c7d000"
+    },
+    {
+      "bytes": 1569,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventProviders.c",
+      "sha256": "68b1b9cfeb43c802256ba5b8d0b9dabffb1aeba254765ee096cd844730889373"
+    },
+    {
+      "bytes": 12120,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventRPC.c",
+      "sha256": "1970a52d8f19e8eadbac8fb9417858bc08bca0f383173d9e337876a541d9df1b"
+    },
+    {
+      "bytes": 1309,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventRoster.c",
+      "sha256": "c5d7439036f8f403ae0c9eee62887c6205248ac6c60fcba992a9e32dc6f08797"
+    },
+    {
+      "bytes": 21384,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventRuntime.c",
+      "sha256": "55f5dcb55adf58c557ac64fa6d74ca1eacdb72ef880956775a8759c52c1caf29"
+    },
+    {
+      "bytes": 6238,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Events/HCEventRuntimePolicy.c",
+      "sha256": "814d33d2698bec60805a0aad187819bf07feab35cdc42cae640fe1a7937e2cdd"
+    },
+    {
+      "bytes": 1231,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Groups/HCGroupModule.c",
+      "sha256": "d7661a0a4e604c04041c550e25097cab05c44bbf80fd59e720a67f4dd6c145f5"
+    },
+    {
+      "bytes": 12109,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Groups/HCGroupNativeChecks.c",
+      "sha256": "e58756cae3a0ccf948b9ca326d3a9d2df5c05f8e39bb005ddfb09ef470f2ee46"
+    },
+    {
+      "bytes": 18781,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Groups/HCGroupRules.c",
+      "sha256": "bdc078974609a88c74e663ad51170842bc05f95803dfb8cb2db464e065566c55"
+    },
+    {
+      "bytes": 20156,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c",
+      "sha256": "db8b0d34866b13f6086ff185dc5618bc45843fd382c7c04cd10c165d9c96d993"
+    },
+    {
+      "bytes": 8051,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Groups/HCGroupStore.c",
+      "sha256": "0bd82a00d7555e0a76bc589ccc666617df085a2e467cb9ea7b371ba9c92b695c"
+    },
+    {
+      "bytes": 8983,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c",
+      "sha256": "2c4c15c29f5693cebc163039fa22b8411d9435fd2d70247a4b3b20aca14299af"
+    },
+    {
+      "bytes": 6566,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCHordeRecovery.c",
+      "sha256": "7ca22b3896779be8411fb8477b9826f364ed5a6fb94203fb1eb6d2ad5bca8e49"
+    },
+    {
+      "bytes": 5195,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCHordeStimulus.c",
+      "sha256": "2acedbe1cf27f0aa0054749138c67af345ad495fae9f43ad4d8299194e65d5d0"
+    },
+    {
+      "bytes": 36674,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedModule.c",
+      "sha256": "4a22baac6b66e30c64e7192c0d409ec04176f1c94b03888c40ba146b694a65e4"
+    },
+    {
+      "bytes": 3370,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNative.c",
+      "sha256": "002e4af3da81678c9578b5860d6800f3ecc1e4fe565947fb7c078a8f3a87b100"
+    },
+    {
+      "bytes": 23720,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedNavigation.c",
+      "sha256": "36a8a3b223a1ec54b7b678a4c547368b4292be496cb0edbc952814261402aa31"
+    },
+    {
+      "bytes": 17135,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedPolicy.c",
+      "sha256": "256f01c427bbe0b133a32065830213fb1bc2859d050d1d43cfa7487d4e638d86"
+    },
+    {
+      "bytes": 4906,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedProfiles.c",
+      "sha256": "cc86a250f64b4a8e78e0b84b3191f553043e851f579494996c1182dee05e1dc5"
+    },
+    {
+      "bytes": 15014,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedRooms.c",
+      "sha256": "eac8684b5bb24cf92fcdffa1e092652e27c1efca343313beaa03620c8faa0455"
+    },
+    {
+      "bytes": 3817,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedSelfTests.c",
+      "sha256": "98e000a593a08280abf42548c966db277b74605bea9181d40cc5e74bf4cc2bb3"
+    },
+    {
+      "bytes": 20795,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCInfectedState.c",
+      "sha256": "86f7b43a144b48b791a833a0459545b0c4a88d765171cd95974c2567789bc230"
+    },
+    {
+      "bytes": 16746,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Infected/HCObserverTransitionGate.c",
+      "sha256": "c6d3c0be35997b2e332d95b2752bd06341bd5588e8b0535d3b2735c83c0f4d95"
+    },
+    {
+      "bytes": 3103,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorAction.c",
+      "sha256": "bd02306961dd2ee4622837278e72351eed99014e513a44b0b2c36fb969f8ccd0"
+    },
+    {
+      "bytes": 5133,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorCatalog.c",
+      "sha256": "352f823888b3a24ee07a45f002d866cb0ad0b3c9d00bfe97d67df10e2c15a1b7"
+    },
+    {
+      "bytes": 57475,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
+      "sha256": "120e2aae2e9d47c24fe2b18a16962a1eea81fbc51daaba8f0c754c0fbd4077db"
+    },
+    {
+      "bytes": 27448,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
+      "sha256": "3f85aa3655a81f4b534da09841fef8087abfbf7228c1cf67ed7210bb35cf3b97"
+    },
+    {
+      "bytes": 4564,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorRules.c",
+      "sha256": "18006f1cfa44548b625286012d21fca20b028d5e7dd3e5112d99aeda205397d9"
+    },
+    {
+      "bytes": 3980,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorSearchPool.c",
+      "sha256": "3e325aa946208a8545c30879d5c643ad3728c819610ba01dd81323ba0a324322"
+    },
+    {
+      "bytes": 5268,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorSelfTests.c",
+      "sha256": "7a8d013872fcba00342930aada553c015ad04e7cba7e9529843081ee8554401d"
+    },
+    {
+      "bytes": 15024,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
+      "sha256": "4fa56d4506de9e707805937ac6b38e0ebb5051caa63000ba289ca5647ba51de8"
+    },
+    {
+      "bytes": 7137,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomy.c",
+      "sha256": "691182275756db7207d2552b7bc22f6a40d653f6489da13ed163835e1a291267"
+    },
+    {
+      "bytes": 6487,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Loot/HCSearchEconomyStore.c",
+      "sha256": "a70cf82f75f9d9746ea3253b5e9f39e6854da2d47161fff73c39ccb63985d72d"
+    },
+    {
+      "bytes": 14239,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Loot/HCSearchNativeSupply.c",
+      "sha256": "8bda61538730892e557bb2fe6e1cf9278c603a8dfb4ce72b07c9f4af612a0ffc"
+    },
+    {
+      "bytes": 2068,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Loot/HCSearchRules.c",
+      "sha256": "168876c332a7139e0add60877313395846b6a5d3db74e5ed53362d76519a270a"
+    },
+    {
+      "bytes": 13579,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Loot/HCSearchSupplyProvider.c",
+      "sha256": "a689a7f20de36217eb68c431116251f1d00b2669dee97ce35d32ce93076d8945"
+    },
+    {
+      "bytes": 2732,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c",
+      "sha256": "e7052d355a0d8ab6b1d94d884dc442b0565f19d081d3d5ba3904723896f83c35"
+    },
+    {
+      "bytes": 9579,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Survival/HCStaminaPolicy.c",
+      "sha256": "d8fe42693587d5251d9bb14779143b7a337afe92682c2dfda06e81c2297ac592"
+    },
+    {
+      "bytes": 32020,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/4_World/Survival/HCTapedLightService.c",
+      "sha256": "1344ab72ef0017deaff2a14bf1d77931d34501efd033ee0f3b1a4377133a5249"
+    },
+    {
+      "bytes": 11001,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Events/HCEventClient.c",
+      "sha256": "1f704a12a84d369f3a7db860e72cc8e32beae72296e9e7226aa0f6378df2ab1d"
+    },
+    {
+      "bytes": 1681,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Events/HCEventGameplay.c",
+      "sha256": "2940b9e3038c9c910fe9da98e3e10383a8a7e7d3e8b1a0291bf4bd91d2ee256d"
+    },
+    {
+      "bytes": 6097,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Events/HCEventMenu.c",
+      "sha256": "871b9bae317460f9095fe26203c76bf5b0828e769711cf40ab9159b52f655983"
+    },
+    {
+      "bytes": 308,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Events/HCEventMenuFactory.c",
+      "sha256": "30729d5f5f077263495e997371a6da23da4d3fbe348cf75f0ef63c2cb1efda86"
+    },
+    {
+      "bytes": 18241,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Groups/HCGroupClient.c",
+      "sha256": "2515196aeaeab68bc6e04070d121f677ba4ceea28a01c47b8b11b34b4400fe6e"
+    },
+    {
+      "bytes": 1241,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Groups/HCGroupConnections.c",
+      "sha256": "2d5ecb96af541e504e18c5a4c2622c966692b2a6f1a4f281eaf918f002573948"
+    },
+    {
+      "bytes": 1728,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Groups/HCGroupGameplay.c",
+      "sha256": "68734c6c48a4f8599c4b16b5a2f10b3976aa6fe62c52052dd60ad798995d8100"
+    },
+    {
+      "bytes": 13779,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMapMenu.c",
+      "sha256": "f70d91875cd5bcfa6079221935e2f6cb93da20264885a687f62a98590267aabd"
+    },
+    {
+      "bytes": 389,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Groups/HCGroupMenuFactory.c",
+      "sha256": "718e009d6e0d48bdf43b1f1a8a27c62d8235050dcc6890a5d820a3d37dbef439"
+    },
+    {
+      "bytes": 4362,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Groups/HCGroupWorldIcons.c",
+      "sha256": "d2015482c534072de35ee4129d46a1e30f3b2084d71375d1d78a6ec5ed60ee3d"
+    },
+    {
+      "bytes": 239,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/HCMissionServer.c",
+      "sha256": "21d367b470e2273c91c2c3abde9a4ea226c778019367c5ea26c888f87c5da485"
+    },
+    {
+      "bytes": 7862,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountry/scripts/5_Mission/Survival/HCStaminaHUD.c",
+      "sha256": "09fbcaa49e50bbaa0e8c1e9bd2eaa2b579032ae79782196c151892fcf6b3a945"
+    },
+    {
+      "bytes": 25,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountryExpansionAI/$PBOPREFIX$",
+      "sha256": "283d8d9a9bf20bfeb5ec98c293a4bd722d5e589a3f66c3453281b1719993919e"
+    },
+    {
+      "bytes": 923,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountryExpansionAI/config.cpp",
+      "sha256": "1cf30610df8fa5e7d332a8a56980642bc530e5a795e55d7705a6c1d9c36ffb14"
+    },
+    {
+      "bytes": 21124,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
+      "sha256": "8eb22e74fbc20474434c1030416229c3e0a62a13c0ac27f2deb81d9135830210"
+    },
+    {
+      "bytes": 3151,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountryExpansionAI/scripts/4_World/HCXAIData.c",
+      "sha256": "b4c969b90a80b3f8150207a6eed00b058a760e870217b8486db09807d6057c10"
+    },
+    {
+      "bytes": 5738,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountryExpansionAI/scripts/4_World/HCXAIRules.c",
+      "sha256": "5137ee9d5118e07314a0ffa68b0200829200a8181c7413de6651289f3d74588d"
+    },
+    {
+      "bytes": 1746,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/mods/HollowCountryExpansionAI/scripts/4_World/HCXAIStore.c",
+      "sha256": "2337b2560a4f3d6dc89b423d5d9006e7385987da31b7da796cc49a60f83907b1"
+    },
+    {
+      "bytes": 821043,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/research/experiments/EXP-full-item-scope-decisions.md",
+      "sha256": "f5f9507804ecc0e7d312e82bb594736ae1290532ca24e5cf05ebad4f542d74d3"
+    },
+    {
+      "bytes": 14291,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/README.md",
+      "sha256": "c930645509f4d8dc80b88bd3ec6c32f376100d56dff35b98bbac837d3017c04f"
+    },
+    {
+      "bytes": 1649,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/capabilities.json",
+      "sha256": "82efd89506417d2df68bf829874eb4731caf8247f20b6d987fb26e43bfa86a4c"
+    },
+    {
+      "bytes": 209476,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/catalog.json",
+      "sha256": "10def85bdd80f932cdda9dcbe3efd1705cb9ea2ef70184447479b52e174eda6d"
+    },
+    {
+      "bytes": 20235,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/features/offline.feature",
+      "sha256": "704a62b57810eb30e024afedd4ba301c264fa44ebcade669cf848cfbb479df80"
+    },
+    {
+      "bytes": 2428,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/features/runtime.feature",
+      "sha256": "90464ed25d26607d7098a00e74da8ce8676ed492ee010c8a9831316d571c6d97"
+    },
+    {
+      "bytes": 785,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/benchmark/baseline.csv",
+      "sha256": "616d977f202c97ebed23a1721d1035bc1ac269fa1d463f1a455b08aa6dc68990"
+    },
+    {
+      "bytes": 574,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/benchmark/baseline.csv.manifest.json",
+      "sha256": "79911bafb4d25d73876d40738df4e30ba6734d0d0c4ac670160f09322ddc52c2"
+    },
+    {
+      "bytes": 809,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/benchmark/candidate.csv",
+      "sha256": "2a0d190d96b2f550bf07ec0212fe829c3e93333b8e21b1db2ac81696b6c75e1f"
+    },
+    {
+      "bytes": 589,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/benchmark/candidate.csv.manifest.json",
+      "sha256": "8963944ded74a43d9320ed663a84caa9e9f8faae5f17591739b1c0e698192a6e"
+    },
+    {
+      "bytes": 637,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/ce/README.md",
+      "sha256": "d03aa1df8f6b37421a78ee0e0c092cabbc0c856126456b4ef95280a636b7e72c"
+    },
+    {
+      "bytes": 127,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/ce/synthetic_known_types.txt",
+      "sha256": "6cb9118321c671f4ed3d4dad3b52274f79a321fba072f1ba54f637a60da8684f"
+    },
+    {
+      "bytes": 15,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/ce/synthetic_valid/cfgeconomycore.xml",
+      "sha256": "10c1cbd1aecc18f3a3a5551c6443f2019d1a75fcb854027c4c8bf076305a910f"
+    },
+    {
+      "bytes": 377,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/ce/synthetic_valid/db/types.xml",
+      "sha256": "26618f8601131414bbd2af65c7591aa426f17126b5fe086838c868e97a011de2"
+    },
+    {
+      "bytes": 904,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/deploy/README.md",
+      "sha256": "f5a9a7d98b2d953722407c94b7da6aaa974ed119a0cef9cffaf4e180d5414cec"
+    },
+    {
+      "bytes": 1330,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/deploy/deployment.feature",
+      "sha256": "83623e0f45ec96d22157a74512785a0e4629ea8ca9f5c3047dd8f564fcb9a167"
+    },
+    {
+      "bytes": 18379,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/runtime/crafting-contract.json",
+      "sha256": "3428f9095e8d048ddccc322cc9b5ec9a30bc20fd21de6554f234e555e1bdb7ec"
+    },
+    {
+      "bytes": 1613,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/runtime/infected-completion-scenarios.json",
+      "sha256": "46bc0dbc0637a1d1493d2834df186c1348ecdd6fd6e660cc9b21c42a5844a2a5"
+    },
+    {
+      "bytes": 388,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/runtime/infected-policy.json",
+      "sha256": "aa5eb9566eb0a7c87f37bf75bd731342431e5c8d75545bbdcd4e73e0074b31d0"
+    },
+    {
+      "bytes": 1427,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/runtime/interiors-completion-synthetic.json",
+      "sha256": "8a9feefa77769e8f2e34de745879246137b4845106bdb244eb91234f9600c66c"
+    },
+    {
+      "bytes": 685,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/fixtures/runtime/interiors-synthetic.json",
+      "sha256": "329a61ae335d9d88bee783aed00b7105e9fe102e7e0b0beb090de263d136263d"
+    },
+    {
+      "bytes": 18565,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_action_audit.py",
+      "sha256": "bac0c91aa96c7758bc37352f5399e54eeb7770130a283585fa26e278ddec6d38"
+    },
+    {
+      "bytes": 12931,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_alert_chain.py",
+      "sha256": "02bf539c42ecc7c18a77a3b28ba23a9153d570ff7dfe81b267a99564abc53d3f"
+    },
+    {
+      "bytes": 13297,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_atmosphere.py",
+      "sha256": "5f078f100823c3fd84bcdeaae9bcaf54e283952f726e8b49afd2dd648545155c"
+    },
+    {
+      "bytes": 6187,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_automation.py",
+      "sha256": "8fca104b3588883aa4261da9da902cc6f2427cf214c35c8f68aeaf6f29bd7939"
+    },
+    {
+      "bytes": 10346,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_bdd_bindings.py",
+      "sha256": "b716694e095a2102ceb793b9ef3a0e9d3c0dd911e196b0938a8b35c12b292622"
+    },
+    {
+      "bytes": 21400,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_benchmark.py",
+      "sha256": "07f240fd4a9e8a9506283556a5dd4f516624caa2a8f8632391a3afc917310eed"
+    },
+    {
+      "bytes": 32414,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ce_audit.py",
+      "sha256": "ac5fccae71c7d68d7e9f79ffb6b7f575fdfbef99ecb0b555db1f47e05a0d8c8a"
+    },
+    {
+      "bytes": 59390,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ce_probe.py",
+      "sha256": "be9b706a3b0afe8852076b3c8e7bf036e4d9d563a702df761907d09d6f5cb82f"
+    },
+    {
+      "bytes": 13929,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ce_probe_report.py",
+      "sha256": "0d48877e46d7e75d416143d7dd4f93c2506e13d7048db75cff310043923df78d"
+    },
+    {
+      "bytes": 10751,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_core_lifecycle.py",
+      "sha256": "bcf4b51fc22a905911c41ed04cc99ac3d786779a760da8f1f517d586a4d9c769"
+    },
+    {
+      "bytes": 6617,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_coverage_patch.py",
+      "sha256": "b6cfadf2554e8bec6be7f0a457588b93e700dbb94987a31c229cd0418ef0c391"
+    },
+    {
+      "bytes": 25889,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_crafting_audit.py",
+      "sha256": "d3ed4391ad098085cda12b3155a2f2e3167989eb693d095882922241b56d65c5"
+    },
+    {
+      "bytes": 12217,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_crafting_completion.py",
+      "sha256": "54d2b7778b9e7096e849523f914bc575122546f9ad525dc58abab7c2791f2526"
+    },
+    {
+      "bytes": 12460,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_crafting_contract.py",
+      "sha256": "38cf726f57c2a9e5bbffa6e87f201f1f37f39b8d4422cc4cab1d64417300b354"
+    },
+    {
+      "bytes": 10535,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_crafting_families.py",
+      "sha256": "468c1deb72129e8e594f69380b5398ffb90518ec8465bbb238a6f0c8b17aa294"
+    },
+    {
+      "bytes": 14620,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_crafting_families_native.py",
+      "sha256": "de2e37ddb52da647032ba1161b721125207a14cb9354cadc18a87f290a777662"
+    },
+    {
+      "bytes": 12006,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_death_selection_probe.py",
+      "sha256": "4e5b6a1433b305e343c8558144130e9e82525634e714b4f6eda9f4a3d40d091b"
+    },
+    {
+      "bytes": 35443,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_deploy.py",
+      "sha256": "e42ec90bfc462f16d4f0eb704b5caecc9bb5a8ffd8073f65d4ca8f9dab10ff8a"
+    },
+    {
+      "bytes": 15198,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_diagnostic_mission.py",
+      "sha256": "bef385347b22ef35362d9a17d66d5fbb05ac9e12e1a8cc6ce023bf737f751952"
+    },
+    {
+      "bytes": 3907,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ecology_module.py",
+      "sha256": "ef131ec91daec644218675fc42c804983f2b99959c6cac27cab5eafe207807f9"
+    },
+    {
+      "bytes": 7389,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ecology_native.py",
+      "sha256": "d1ab62430bfab60ba9f68f07f4cb1fdf6624520037c626e1fe86515a368947cd"
+    },
+    {
+      "bytes": 36245,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ecology_rules.py",
+      "sha256": "98073d826255abc152961bca22368aec99135165721570c3c32d411538f2d09b"
+    },
+    {
+      "bytes": 29062,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_ecology_runtime.py",
+      "sha256": "dd330e636d3a716ac0c418589643344f701a301fe05161b32e2c379dfc18b0a0"
+    },
+    {
+      "bytes": 9321,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_economy_contract.py",
+      "sha256": "4f991b574867e28b10873ed7e48afb45f6d21149abd7d960aab516a248fdd323"
+    },
+    {
+      "bytes": 14934,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_event_director.py",
+      "sha256": "e4b0d0dfa995c1ae3554e2ec08fa94581c617f11951a084c40456e9360caad10"
+    },
+    {
+      "bytes": 23968,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_event_integration.py",
+      "sha256": "9267a709611efcde7d077260e3168e5007c050ea5f185cb0a7c3a3a97ee276eb"
+    },
+    {
+      "bytes": 48946,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_event_runtime.py",
+      "sha256": "c53d8ae2f91af2ce0e7b36e4b2aace0d602cb29f304d628faa262c61a38729dc"
+    },
+    {
+      "bytes": 14720,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_event_transport.py",
+      "sha256": "ce7033760b86f90bdda4dfcdb4ef547c940c79fa2d31002b18cd741a6e1cdf64"
+    },
+    {
+      "bytes": 20387,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_event_ui.py",
+      "sha256": "5bc99248545201d00bb1b757c04ba5740c7f5253c23abd27eab0efa14ef8508f"
+    },
+    {
+      "bytes": 25929,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_evidence.py",
+      "sha256": "ddaf4e7d63155fbc37d29ad25ef6f5621a8ea7a0081e90b0bfe1861f44f8ad43"
+    },
+    {
+      "bytes": 25406,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_expansion_ai_adapter.py",
+      "sha256": "2f4a6d40b5236153301a90ad246b1fd0c91b092f3a0e98baabb976966de82864"
+    },
+    {
+      "bytes": 23535,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_flashlight_matrix.py",
+      "sha256": "c713e715ccadf74e42563bd3fd4b83a0f145642dbe404a71bf073fb0c6f1a45e"
+    },
+    {
+      "bytes": 26054,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_fuel_probe_runner.py",
+      "sha256": "8623b44da478f9fe6d8a190983dafeab9cc8e4fd4c258441a060f7e887e17993"
+    },
+    {
+      "bytes": 27385,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_fuel_siphon_probe.py",
+      "sha256": "2b7ed979d765f1089533faf5060a6fc20db12c46e8ba63d47416603b21a68b6d"
+    },
+    {
+      "bytes": 9643,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_fuel_transfer.py",
+      "sha256": "12fd785c235276b77f8ee202a6676f99e857530f85b54da3c13d713e9db8ee0c"
+    },
+    {
+      "bytes": 11194,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_client.py",
+      "sha256": "1dc682eb39e80da53d54d9cd845dc848406513729d9520b00c8251dfeca54ed9"
+    },
+    {
+      "bytes": 11791,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_clock.py",
+      "sha256": "52b054255ed5e3ca316294f8a149b960b06df2f74b3d6e01d166bc30feebd589"
+    },
+    {
+      "bytes": 5643,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_native_checks.py",
+      "sha256": "3a0f9621c0be5596b8d6d16738f1560f959efc0a4188756105bc555a9a89ec31"
+    },
+    {
+      "bytes": 12308,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_persistence.py",
+      "sha256": "8c9dd6be9f9f84d269e0ce7e5f835f2bd02c3b0b5f7f572686bb88374017ccc1"
+    },
+    {
+      "bytes": 5945,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_rpc.py",
+      "sha256": "f85e15d4538c98fa1c3de785c10cf67bbdf9e104d1eced5c3879ed0666a19fdf"
+    },
+    {
+      "bytes": 39809,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_server.py",
+      "sha256": "4e20d9306983ef9885fd984ce19d1426b0b3e4a1e8a99837601e40e8a4c71cf8"
+    },
+    {
+      "bytes": 13467,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_group_ui.py",
+      "sha256": "28583d506f4806aad32fee09217d54c8c8de31cc645c0704067a28adf131a9d2"
+    },
+    {
+      "bytes": 11596,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_horde_stimulus.py",
+      "sha256": "c3c5c821eb8d4b005d7ac2224dc33bd5123350002d21a0acf01e0ebeba69aefb"
+    },
+    {
+      "bytes": 16808,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_hygiene.py",
+      "sha256": "186b37abb0cc96d994ea26adb5a5563a2b9812812b05abd3a74ee72cfc424fdd"
+    },
+    {
+      "bytes": 64538,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_admission.py",
+      "sha256": "11f7c111581becd6f610f2b5e56a3fc302a11799f6eff243bad18694ff3f292a"
+    },
+    {
+      "bytes": 12992,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_completion.py",
+      "sha256": "871c768a5e25f1191a8c05577dfab165cd7915afb0c1a8b955f2d520505aac9a"
+    },
+    {
+      "bytes": 15787,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_contract.py",
+      "sha256": "ff787669c0eb746ee58379cafc4f8c483ed27cf63056cddea221e685346c3e3f"
+    },
+    {
+      "bytes": 18681,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_death_probe.py",
+      "sha256": "193b07e4b71883e7694f33fcbc1a3be2f939d18e510d196c621c73354015d43a"
+    },
+    {
+      "bytes": 16107,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_defaults.py",
+      "sha256": "e49f1a2824dd40da1084161e3ecbdd496d5b9b20a56b2c3e7953a07e9c3ba3ed"
+    },
+    {
+      "bytes": 6484,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_pack_ownership.py",
+      "sha256": "5d2145e8f6e6b7456c5dc22eaf8c4b0606ab82293ae755f1156f11955f622158"
+    },
+    {
+      "bytes": 3834,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_perception.py",
+      "sha256": "cbb2ef17df2b1e1ed322cbf1346e33d8ac9675674a5864cf77fd483ed83b0b0c"
+    },
+    {
+      "bytes": 5395,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_persistence.py",
+      "sha256": "f1d0e48ce92a8fc6a0f12eb158c65b19a6133a6bb7d8c5d6318458afdc9dc938"
+    },
+    {
+      "bytes": 10936,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_routes.py",
+      "sha256": "7933469528a4a013b0e1e53371916f428578a50d81c0e4a0405d03e41ad8a6bf"
+    },
+    {
+      "bytes": 7726,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_variants.py",
+      "sha256": "a6d069d355897f5a560092a5eea996196e1a9e9ca344b4f0a92d10270b0e994f"
+    },
+    {
+      "bytes": 7786,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_infected_wave.py",
+      "sha256": "050d4a830ed81d71f1a5f059700bc6481f95e85995537e2a626f80b17972c19c"
+    },
+    {
+      "bytes": 18206,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_interior_catalog.py",
+      "sha256": "b58e3b49c05a44ca7d7a642af74fe016df6c4d55646373c5eccd990b20964bd5"
+    },
+    {
+      "bytes": 22056,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_interior_measured_catalog.py",
+      "sha256": "93fcaec9bc8d4cba8db6fbbe18b146093dca81b88625b1ab255e4bc0fb7a0869"
+    },
+    {
+      "bytes": 21344,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_interior_measurement_probe.py",
+      "sha256": "a42ae38fc241b9454ddb2b342e31a27e0a312df42f4b892d224dce3a76fc4a76"
+    },
+    {
+      "bytes": 16365,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_interior_survey.py",
+      "sha256": "1dad63848386ddf56ce73b598269f9650fb5b8ffe94878339b5d0206f71a89b4"
+    },
+    {
+      "bytes": 25310,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_interiors_contract.py",
+      "sha256": "73c23f52b55228daae46e4477a7075d7ccb7dbae26b1489f29fdc0a24165560d"
+    },
+    {
+      "bytes": 23908,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_item_compatibility_audit.py",
+      "sha256": "93c1d7cfbd8220d918ec5b51eea7ca91f036aa344b91d13fe7c1f517c03ab0ca"
+    },
+    {
+      "bytes": 15327,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_item_compatibility_manifest.py",
+      "sha256": "24395661789052e1374154d7a180c89d435cdfd29a65c0a53a66b6b73f4060a0"
+    },
+    {
+      "bytes": 16938,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_item_review.py",
+      "sha256": "f69644ae9b79321f335e17b1c297e203b782cd0c0612d4f3f2509cafd819093b"
+    },
+    {
+      "bytes": 21640,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_item_utility.py",
+      "sha256": "ea0cd7dfea1026ba86fa8d5c209d2abac5c8646b0ea1f94355041a1d43588e3c"
+    },
+    {
+      "bytes": 16582,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_native_autotest.py",
+      "sha256": "2a0ed6ec188d94e0042ede35cdf9b6a12647f3fafa8bdb427b1faf55bc24fe92"
+    },
+    {
+      "bytes": 19653,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_native_startup_probe.py",
+      "sha256": "f85f1f8d71c4a5624e26624c316fc48fc0fdc5f5691b047e58fedcc07e0a5a24"
+    },
+    {
+      "bytes": 28812,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_native_startup_runner.py",
+      "sha256": "287a23e148cb53cc0fcbb8ebd2becbac942c07980593b555489637fa3c78ba67"
+    },
+    {
+      "bytes": 20425,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_observer_transition.py",
+      "sha256": "cf2814e82eda34035dabc80b0ea4128a7f08669d6d7c0885a7fde2329ace60a5"
+    },
+    {
+      "bytes": 21154,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_optional_provider.py",
+      "sha256": "180c824a0999d08c3fdbc0d80073d4dc925005363d963e60c80f3bc881887a0c"
+    },
+    {
+      "bytes": 22523,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_package.py",
+      "sha256": "b974325858a2d01917bc78e12374d36d84b9a47f9373f0fd00531d5200903f35"
+    },
+    {
+      "bytes": 5579,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_portable_catalog.py",
+      "sha256": "1c090fe9115cab772cef14b6db11d990d3c7968c5737c5b6e856c2d222fa930f"
+    },
+    {
+      "bytes": 56931,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_probe_runtime.py",
+      "sha256": "70ab191366f633eb1524b6d3e00ab91405e8c7280bb985bd107dc1f60f6e6094"
+    },
+    {
+      "bytes": 14930,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_process_observation.py",
+      "sha256": "915588ecc476e3aaab81e0d74275c18d7715a0a18dd11faecb1c84cc466d81a3"
+    },
+    {
+      "bytes": 18196,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_room_catalog_completion.py",
+      "sha256": "c8d6ee336f65e7f301faee3f53ca2b92df84f4b91b289b32256393b454b37198"
+    },
+    {
+      "bytes": 5176,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_runtime_settings.py",
+      "sha256": "5c4997cabb6a0094ad197b66e0be7d009de5d5a58baac0dd95483ab6a135c541"
+    },
+    {
+      "bytes": 11073,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_salvage_tools.py",
+      "sha256": "0572501ae2d3ee029aa8b0a900676e71778b1e62677ced601e7b693e7661fc75"
+    },
+    {
+      "bytes": 4444,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_script_identifiers.py",
+      "sha256": "2eb0f5d357ef0df99add58259285a7ceae20ddf9b7af0d4ab22a4edad2816375"
+    },
+    {
+      "bytes": 8425,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_script_syntax.py",
+      "sha256": "7524793afa11e6192437b8f9e36c430be80e69ee9bc2d66940549da5acb7f582"
+    },
+    {
+      "bytes": 9095,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_search_economy.py",
+      "sha256": "41067201a0a71173ebee6d9acf617737092a99282ff0b287f1be5c4642f7109e"
+    },
+    {
+      "bytes": 25362,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_search_economy_integration.py",
+      "sha256": "1c088081fbce210d0d534a9b7ceb7267fb43658a5f12f7334f5bea40830e7e43"
+    },
+    {
+      "bytes": 7010,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_search_economy_native.py",
+      "sha256": "5cdc34b2ce63bfe5f5d70f3561991bb84197b673254c0dde9f61e56ef3d6968b"
+    },
+    {
+      "bytes": 3654,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_search_economy_policy.py",
+      "sha256": "637e47a603406cd7dd13603f8c426aa24e0d0bcb09a58992cb841ca51ae0a86a"
+    },
+    {
+      "bytes": 7109,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_search_economy_recovery.py",
+      "sha256": "d01c77ddee45ec3ebab4ef85cca771fec2044b901925f69fe056b06e86bdc889"
+    },
+    {
+      "bytes": 66996,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_search_supply_provider.py",
+      "sha256": "5cb65c0a2d63855f43889956a1fdafe75494e04d56ac043fe6ae4a5d1202e768"
+    },
+    {
+      "bytes": 28358,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_siphon_fuel_action.py",
+      "sha256": "0aedea6e2c870a127713236b1a486de4be2b2a73ed4edef0aa128d98fda164e7"
+    },
+    {
+      "bytes": 12130,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_stamina_configuration.py",
+      "sha256": "fa2926e6475a57a83a35ee992ede4616687d11dcf6dc20dad12bce1cb1274971"
+    },
+    {
+      "bytes": 9818,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_stamina_hud.py",
+      "sha256": "f1738a01f11b760b077e6f932a858834eb83b04b696c32752a8f36bed5a12f4f"
+    },
+    {
+      "bytes": 8476,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_stamina_integration.py",
+      "sha256": "de003ea9b5c6c724369570a3551c79fa88b1052d576c0ba5c932fcd2326137b0"
+    },
+    {
+      "bytes": 12585,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_stamina_policy.py",
+      "sha256": "9d3e3746882c5990e6d008d6e20b16863bced480af7bd12927a7e439fa5eb526"
+    },
+    {
+      "bytes": 6482,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_stamina_transport_probe.py",
+      "sha256": "bb3554f40f54f668eb884c16d2b478535ea32475274bc10104e32bd8d044d199"
+    },
+    {
+      "bytes": 107745,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_taped_light_probe.py",
+      "sha256": "5b101ccace598fddc56e41f236a487604afe8bae21c9ca8c36736898b0514172"
+    },
+    {
+      "bytes": 103688,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_taped_light_report.py",
+      "sha256": "63024e95d2cfc4e8f9977f6c3b35eaea0c0ea3bef468f6539b7d346c90c6c994"
+    },
+    {
+      "bytes": 30118,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_taped_light_service.py",
+      "sha256": "aab4485beca7a4b2bcd53dfe2b4aa8de26da5841e1fd6fad1e3994f55c262abb"
+    },
+    {
+      "bytes": 31072,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_utility_review.py",
+      "sha256": "9b9b946c968ba883207ed5c442814d9a2b9941e371e3a0b2fc086cdd1a8d1299"
+    },
+    {
+      "bytes": 1568,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_v1_crafting.py",
+      "sha256": "82ba03adc648c99b7d7ad97c7563ed45b537d46492d87e7df4e21bfa64ebdf4f"
+    },
+    {
+      "bytes": 12774,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_v1_crafting_diagnostic.py",
+      "sha256": "0df726ee2b8a2e8870cbd7a4ce78d1cedafd077fcb5b9578d4da690e68df787a"
+    },
+    {
+      "bytes": 49069,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_weather_probe.py",
+      "sha256": "9aaf6dee549ecb4160cf54f3b5c6c5e60fbd4a9fcc24e6ddd5ee6a03ffaaf782"
+    },
+    {
+      "bytes": 99890,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_weather_report.py",
+      "sha256": "971b7ba07be337aa0347a0c9767d228264224a45425586cbb86e97dda96d4e87"
+    },
+    {
+      "bytes": 44434,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tests/unit/test_wine_compile_probe.py",
+      "sha256": "b986614a8c151cbd9915e2080d3e48fc938d7d25ffff628f19c8d7d24ee5e7b5"
+    },
+    {
+      "bytes": 5243,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/README.md",
+      "sha256": "3399f5908381a61aeb838e2b5406107a4588fad721a63a1f4149af37897f7b73"
+    },
+    {
+      "bytes": 16211,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/README.md",
+      "sha256": "0083d021c6137ec212fb933ce225440b4b72e39fb6ceebf9bd284cae02e82d73"
+    },
+    {
+      "bytes": 22751,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/action_audit.py",
+      "sha256": "e4114966168d3006e5097dd7190b3f5fb8f5fa958c816a6ffc162d6d233aaaad"
+    },
+    {
+      "bytes": 28647,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/ce_audit.py",
+      "sha256": "cd11fab01d60a073fd5ecb68b0e574631a95c5bb0d1a96f1d0ea2d5a0bf40a10"
+    },
+    {
+      "bytes": 11275,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/ce_probe_report.py",
+      "sha256": "8f04c14107014ca5db5b49ebef213d7f4b7c49db17cf15f4c1cbf995e41aaec0"
+    },
+    {
+      "bytes": 30716,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/crafting_audit.py",
+      "sha256": "2035ea2e788b162c3548ef4da4ab6d38df4d8584f3f560713a00b964a074b9bc"
+    },
+    {
+      "bytes": 22756,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/flashlight_matrix.py",
+      "sha256": "3ef5a21ec67e7c566af892945bab99faaa39bf7aeb16ec3f8f2ae4e69749ad75"
+    },
+    {
+      "bytes": 33213,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/interior_survey.py",
+      "sha256": "18319b47091978396fde4dc59be4a56bae1bc582a3fe922a6931f8ff74886772"
+    },
+    {
+      "bytes": 24205,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/item_compatibility.py",
+      "sha256": "7d369956bde0cb548b18c9eeda853d8ae2b3ea74f99e8bd6dcc53b7b05147779"
+    },
+    {
+      "bytes": 23399,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/item_review.py",
+      "sha256": "8078c5f23f9acb69e8e3e54937e2bb95f0f105e88e97ddcf2d06bbb13372142a"
+    },
+    {
+      "bytes": 25580,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/item_utility.py",
+      "sha256": "1fdacc95f867d27a72269a759df6360abe81db5119c654d0349039fa727a9741"
+    },
+    {
+      "bytes": 53739,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/taped_light_report.py",
+      "sha256": "1f55e7349a2b81a540992c2ff8f2a9920c6affe5e2fac083aedca70d4015ed1e"
+    },
+    {
+      "bytes": 39516,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/utility_review.py",
+      "sha256": "bb1f73b21f8d5fdda259d93d5248c53c85d298d5cf544e477b5d00deb1f0f0c6"
+    },
+    {
+      "bytes": 59682,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/audit/weather_report.py",
+      "sha256": "6296a07738668da58370bce3828ea73784bd56f130ec99203575e9aaa94fc9d6"
+    },
+    {
+      "bytes": 5706,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/benchmark/README.md",
+      "sha256": "d3276f7f712542ad0e054518877cf2bad49ead8f8ee43660623146bdfae0624c"
+    },
+    {
+      "bytes": 76,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/benchmark/__init__.py",
+      "sha256": "cccb69c9f9cf3d0626f3ea9fccbc729d76983608c251bdab3bcd650752384294"
+    },
+    {
+      "bytes": 18311,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/benchmark/compare.py",
+      "sha256": "4fab5716da4db4ffd5666a5080b7e30f6de6c30077125eb74ec202f0c75e9975"
+    },
+    {
+      "bytes": 11,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/.gitignore",
+      "sha256": "f162171ded7ff8c1d6032f7cb50317bc19cc4d1bbd4757be9f8ea75cdec540f1"
+    },
+    {
+      "bytes": 3003,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/Build-Sign-Verify.ps1",
+      "sha256": "f6411c7f4601c3da7044593b354a3dd52ca4f23185d05f7cd1c5524453b578e8"
+    },
+    {
+      "bytes": 10413,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/Invoke-NativeSmoke.ps1",
+      "sha256": "99beba8cf27c11589d59c0d2333515c313d14e658306c9cc3235ef4eedc4fb8b"
+    },
+    {
+      "bytes": 11093,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/README.md",
+      "sha256": "4b92fcdc614e26c7ca7dba2d5c354c29328a0dadcaff87407aeb6261fc519b6c"
+    },
+    {
+      "bytes": 2968,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/Test-NativePackage.ps1",
+      "sha256": "1304a457490218bdb72679ca65163ed573a39360dc151a449cb09ee95a751f9b"
+    },
+    {
+      "bytes": 21218,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/atmosphere.py",
+      "sha256": "b200d8fe59d38c6317d298d58e3977426e4eb8662ce28cf448d383f6126f7d93"
+    },
+    {
+      "bytes": 9262,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/coverage.py",
+      "sha256": "b17755615ed96cd2663b6118a831d779f5e1ffb3bf1cee6755e663ef359e54dc"
+    },
+    {
+      "bytes": 34826,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/deploy.py",
+      "sha256": "423eba3e019d0997bee5c4bdd74a41cfd1b4b3164db63cffa8de4e0d02edb4df"
+    },
+    {
+      "bytes": 17201,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/economy.py",
+      "sha256": "c8d6fc8580917065b91fd55c9b6cb454286e687188e498bae658b94a769947fe"
+    },
+    {
+      "bytes": 18950,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/interior_catalog.py",
+      "sha256": "b826594ab552588059c44278379fb92a6caee16097d402916d723af6140ee5fc"
+    },
+    {
+      "bytes": 18652,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/optional_provider.py",
+      "sha256": "2ab4fb881cbafa3faf11413b465146cfd9381d058dba8b53859f2ad1485597fc"
+    },
+    {
+      "bytes": 13374,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/pbo.py",
+      "sha256": "55629ac2a3a2cca4ebbf900001624d920014e8f646f98d5088b4eefacb573270"
+    },
+    {
+      "bytes": 4027,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/package/sign.py",
+      "sha256": "b2e10ea8cb9655eee4c9731fe549772d1dd8b3ff9b1219a2c026024ef0fd12a3"
+    },
+    {
+      "bytes": 12402,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/Start-CEProbeServer.ps1",
+      "sha256": "e3a6ad5ebab93fc049634b3fd9aa31eb447a450de48da1269480679ca2f1581f"
+    },
+    {
+      "bytes": 1936,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/Start-LocalClient.ps1",
+      "sha256": "a427016b63bf864e4fdec78a71c731135242e1e44042e9ccc0312307753fdbae"
+    },
+    {
+      "bytes": 28435,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/ce_probe.py",
+      "sha256": "d1ccd852d9fa66fea35703c9e053cb581b334fa74aa2b0fb23fda012dbb39f93"
+    },
+    {
+      "bytes": 30803,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/death_selection_probe.py",
+      "sha256": "170f2e286336e8028587bec39049a5ab3e48a99e01c51cbc3e219c80fa924be2"
+    },
+    {
+      "bytes": 26938,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/diagnostic_mission.py",
+      "sha256": "eb290137e1b6d00b5566bdaa05bbaf253656df115796ce5e394b42dacd5a3761"
+    },
+    {
+      "bytes": 21136,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/fuel_probe_runner.py",
+      "sha256": "b614c4fc645fc6cd68c291f67b4d438d672aa092ee212b851560cc5d818343f6"
+    },
+    {
+      "bytes": 53564,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/fuel_siphon_probe.py",
+      "sha256": "d7cc8adbe72b0b7a46584348a0133ff4d0d60f427b6b6e8691a438ccb985b27b"
+    },
+    {
+      "bytes": 33635,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/infected_death_probe.py",
+      "sha256": "e4fbf35aa8a306e22dc50a288a66a0cd89d380b52fd76fef25d131be35d03b96"
+    },
+    {
+      "bytes": 46967,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/interior_measurement_probe.py",
+      "sha256": "52dde1553af73808d138e48d908ab4f0b1ff0e06fc455c87c51d6e5ba4418169"
+    },
+    {
+      "bytes": 28776,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/native_startup_probe.py",
+      "sha256": "b6b896892c8144134e312242764ee16e2621973ff34ceddf499f24ef10070539"
+    },
+    {
+      "bytes": 22767,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/native_startup_runner.py",
+      "sha256": "2c728b2fdb86ef7d07be36464a951ac086aa83a49f8413ba187aa10af5cfa61e"
+    },
+    {
+      "bytes": 41461,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/probe_runtime.py",
+      "sha256": "ddb56a756c11d3c90900fbeacfadf8afc025c0004d61bb8578ebddd69f0fd2e1"
+    },
+    {
+      "bytes": 15747,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/process_observation.py",
+      "sha256": "b068fb7824743496924330d0bae8034daad3fb25fee71720a40b771d7fa44ee6"
+    },
+    {
+      "bytes": 17512,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/stamina_transport_probe.py",
+      "sha256": "4b6395e4f53d52df284eb01a8dc5b3a998541dc859e59c06c6bd4a963349ad01"
+    },
+    {
+      "bytes": 71794,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/taped_light_probe.py",
+      "sha256": "f18799cdd141398c0b06942e271f0713a8d1036c9e8111dd8376b9bd4b7559b2"
+    },
+    {
+      "bytes": 32086,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/weather_probe.py",
+      "sha256": "92612d9f2e7d512670ab704f15d04b3457f32f98d0f0c8da092dc42804f518c4"
+    },
+    {
+      "bytes": 34123,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/setup/wine_compile_probe.py",
+      "sha256": "1b349825293def857af56d52264adda45c6b4ea8768a987bf29d60881c4fcde9"
+    },
+    {
+      "bytes": 10539,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/testing/automation.py",
+      "sha256": "f12e2b7d6f7179dbb6d81fcf8d269b8d1e3ae617c619f43da1f9d9fe7bcd5a32"
+    },
+    {
+      "bytes": 35296,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/testing/native_autotest.py",
+      "sha256": "393b983ef3544a34c9e9e720bb7fd7595b424992eaa6eae17dc847fe4492cc55"
+    },
+    {
+      "bytes": 26307,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/validate/bdd.py",
+      "sha256": "a162300907962eb42b8d35724c176c5cb52f3f42657693ab0349da8df08c8134"
+    },
+    {
+      "bytes": 25848,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/validate/evidence.py",
+      "sha256": "459689579cce53635404e6f8c348f10f8a99504412b688aca8456e1af1addf75"
+    },
+    {
+      "bytes": 16711,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/validate/hygiene.py",
+      "sha256": "d3aac68ba8d4dc16225053d50e7e10e4c6b6980a793965d60eedf9b9a83553ea"
+    },
+    {
+      "bytes": 2276,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/base/tools/validate/runtime.py",
+      "sha256": "8b8eb4f7bb02ea07d9dc75d65aad59eb4d6a5a91eb7c9c04289a58aea771cb5b"
+    },
+    {
+      "bytes": 1550,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/full.py",
+      "sha256": "c878a75b5f74ab2eb68b748356badf6eb59635db72fe59ace23c770032554555"
+    },
+    {
+      "bytes": 48,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/results.json",
+      "sha256": "97e722a77280f9247565d03d65f057ada9a208b19f22188bbca37b6d08857195"
+    },
+    {
+      "bytes": 7244,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/run.py",
+      "sha256": "fd09a29af45363020c738799f8569dbeaa3d23fadc0a5a9641c2045da3a18dcc"
+    },
+    {
+      "bytes": 7491,
+      "path": "scratchpad-review/v1-crafting-sonnet-review/mut/run2.py",
+      "sha256": "ab23bd00b25ef8c5e32d898b4ea1c8599c83fd8921eab6789e390120156a0bd3"
+    },
+    {
+      "bytes": 14291,
+      "path": "tests/README.md",
+      "sha256": "c930645509f4d8dc80b88bd3ec6c32f376100d56dff35b98bbac837d3017c04f"
+    },
+    {
+      "bytes": 1649,
+      "path": "tests/capabilities.json",
+      "sha256": "82efd89506417d2df68bf829874eb4731caf8247f20b6d987fb26e43bfa86a4c"
+    },
+    {
+      "bytes": 209476,
+      "path": "tests/catalog.json",
+      "sha256": "10def85bdd80f932cdda9dcbe3efd1705cb9ea2ef70184447479b52e174eda6d"
+    },
+    {
+      "bytes": 20235,
+      "path": "tests/features/offline.feature",
+      "sha256": "704a62b57810eb30e024afedd4ba301c264fa44ebcade669cf848cfbb479df80"
+    },
+    {
+      "bytes": 2428,
+      "path": "tests/features/runtime.feature",
+      "sha256": "90464ed25d26607d7098a00e74da8ce8676ed492ee010c8a9831316d571c6d97"
+    },
+    {
+      "bytes": 785,
+      "path": "tests/fixtures/benchmark/baseline.csv",
+      "sha256": "616d977f202c97ebed23a1721d1035bc1ac269fa1d463f1a455b08aa6dc68990"
+    },
+    {
+      "bytes": 574,
+      "path": "tests/fixtures/benchmark/baseline.csv.manifest.json",
+      "sha256": "79911bafb4d25d73876d40738df4e30ba6734d0d0c4ac670160f09322ddc52c2"
+    },
+    {
+      "bytes": 809,
+      "path": "tests/fixtures/benchmark/candidate.csv",
+      "sha256": "2a0d190d96b2f550bf07ec0212fe829c3e93333b8e21b1db2ac81696b6c75e1f"
+    },
+    {
+      "bytes": 589,
+      "path": "tests/fixtures/benchmark/candidate.csv.manifest.json",
+      "sha256": "8963944ded74a43d9320ed663a84caa9e9f8faae5f17591739b1c0e698192a6e"
+    },
+    {
+      "bytes": 637,
+      "path": "tests/fixtures/ce/README.md",
+      "sha256": "d03aa1df8f6b37421a78ee0e0c092cabbc0c856126456b4ef95280a636b7e72c"
+    },
+    {
+      "bytes": 127,
+      "path": "tests/fixtures/ce/synthetic_known_types.txt",
+      "sha256": "6cb9118321c671f4ed3d4dad3b52274f79a321fba072f1ba54f637a60da8684f"
+    },
+    {
+      "bytes": 15,
+      "path": "tests/fixtures/ce/synthetic_valid/cfgeconomycore.xml",
+      "sha256": "10c1cbd1aecc18f3a3a5551c6443f2019d1a75fcb854027c4c8bf076305a910f"
+    },
+    {
+      "bytes": 377,
+      "path": "tests/fixtures/ce/synthetic_valid/db/types.xml",
+      "sha256": "26618f8601131414bbd2af65c7591aa426f17126b5fe086838c868e97a011de2"
+    },
+    {
+      "bytes": 268,
+      "path": "tests/fixtures/ce/synthetic_valid/mapgrouppos.xml",
+      "sha256": "420e865a3c89cf55026a7d6656a9ec89abedd0e7c8735aa76a7167ea6c69d00a"
+    },
+    {
+      "bytes": 550,
+      "path": "tests/fixtures/ce/synthetic_valid/mapgroupproto.xml",
+      "sha256": "1f8b3ea0fb4bc098b7355795f3edf4aed66ab7173b3247e31f8c9fac2e8a7c81"
+    },
+    {
+      "bytes": 904,
+      "path": "tests/fixtures/deploy/README.md",
+      "sha256": "f5a9a7d98b2d953722407c94b7da6aaa974ed119a0cef9cffaf4e180d5414cec"
+    },
+    {
+      "bytes": 1330,
+      "path": "tests/fixtures/deploy/deployment.feature",
+      "sha256": "83623e0f45ec96d22157a74512785a0e4629ea8ca9f5c3047dd8f564fcb9a167"
+    },
+    {
+      "bytes": 27823,
+      "path": "tests/fixtures/runtime/crafting-contract.json",
+      "sha256": "de4245f10f60c646095733e50e24303ac6a1e8969fd4360baeb127b1f6b8cde4"
+    },
+    {
+      "bytes": 1613,
+      "path": "tests/fixtures/runtime/infected-completion-scenarios.json",
+      "sha256": "46bc0dbc0637a1d1493d2834df186c1348ecdd6fd6e660cc9b21c42a5844a2a5"
+    },
+    {
+      "bytes": 388,
+      "path": "tests/fixtures/runtime/infected-policy.json",
+      "sha256": "aa5eb9566eb0a7c87f37bf75bd731342431e5c8d75545bbdcd4e73e0074b31d0"
+    },
+    {
+      "bytes": 1427,
+      "path": "tests/fixtures/runtime/interiors-completion-synthetic.json",
+      "sha256": "8a9feefa77769e8f2e34de745879246137b4845106bdb244eb91234f9600c66c"
+    },
+    {
+      "bytes": 685,
+      "path": "tests/fixtures/runtime/interiors-synthetic.json",
+      "sha256": "329a61ae335d9d88bee783aed00b7105e9fe102e7e0b0beb090de263d136263d"
+    },
+    {
+      "bytes": 18565,
+      "path": "tests/unit/test_action_audit.py",
+      "sha256": "bac0c91aa96c7758bc37352f5399e54eeb7770130a283585fa26e278ddec6d38"
+    },
+    {
+      "bytes": 12931,
+      "path": "tests/unit/test_alert_chain.py",
+      "sha256": "02bf539c42ecc7c18a77a3b28ba23a9153d570ff7dfe81b267a99564abc53d3f"
+    },
+    {
+      "bytes": 13297,
+      "path": "tests/unit/test_atmosphere.py",
+      "sha256": "5f078f100823c3fd84bcdeaae9bcaf54e283952f726e8b49afd2dd648545155c"
+    },
+    {
+      "bytes": 6187,
+      "path": "tests/unit/test_automation.py",
+      "sha256": "8fca104b3588883aa4261da9da902cc6f2427cf214c35c8f68aeaf6f29bd7939"
+    },
+    {
+      "bytes": 10346,
+      "path": "tests/unit/test_bdd_bindings.py",
+      "sha256": "b716694e095a2102ceb793b9ef3a0e9d3c0dd911e196b0938a8b35c12b292622"
+    },
+    {
+      "bytes": 21400,
+      "path": "tests/unit/test_benchmark.py",
+      "sha256": "07f240fd4a9e8a9506283556a5dd4f516624caa2a8f8632391a3afc917310eed"
+    },
+    {
+      "bytes": 32414,
+      "path": "tests/unit/test_ce_audit.py",
+      "sha256": "ac5fccae71c7d68d7e9f79ffb6b7f575fdfbef99ecb0b555db1f47e05a0d8c8a"
+    },
+    {
+      "bytes": 59390,
+      "path": "tests/unit/test_ce_probe.py",
+      "sha256": "be9b706a3b0afe8852076b3c8e7bf036e4d9d563a702df761907d09d6f5cb82f"
+    },
+    {
+      "bytes": 13929,
+      "path": "tests/unit/test_ce_probe_report.py",
+      "sha256": "0d48877e46d7e75d416143d7dd4f93c2506e13d7048db75cff310043923df78d"
+    },
+    {
+      "bytes": 10751,
+      "path": "tests/unit/test_core_lifecycle.py",
+      "sha256": "bcf4b51fc22a905911c41ed04cc99ac3d786779a760da8f1f517d586a4d9c769"
+    },
+    {
+      "bytes": 6617,
+      "path": "tests/unit/test_coverage_patch.py",
+      "sha256": "b6cfadf2554e8bec6be7f0a457588b93e700dbb94987a31c229cd0418ef0c391"
+    },
+    {
+      "bytes": 25889,
+      "path": "tests/unit/test_crafting_audit.py",
+      "sha256": "d3ed4391ad098085cda12b3155a2f2e3167989eb693d095882922241b56d65c5"
+    },
+    {
+      "bytes": 12217,
+      "path": "tests/unit/test_crafting_completion.py",
+      "sha256": "54d2b7778b9e7096e849523f914bc575122546f9ad525dc58abab7c2791f2526"
+    },
+    {
+      "bytes": 12911,
+      "path": "tests/unit/test_crafting_contract.py",
+      "sha256": "fc545c1600ab99b771ddd70ce5a3491b669b73135080bac13e2b8f93f2de3de1"
+    },
+    {
+      "bytes": 11605,
+      "path": "tests/unit/test_crafting_families.py",
+      "sha256": "78aef794244c461f26bf51d7cc96cfa438ec84107bf314d9956933143d18e408"
+    },
+    {
+      "bytes": 14620,
+      "path": "tests/unit/test_crafting_families_native.py",
+      "sha256": "de2e37ddb52da647032ba1161b721125207a14cb9354cadc18a87f290a777662"
+    },
+    {
+      "bytes": 12006,
+      "path": "tests/unit/test_death_selection_probe.py",
+      "sha256": "4e5b6a1433b305e343c8558144130e9e82525634e714b4f6eda9f4a3d40d091b"
+    },
+    {
+      "bytes": 35443,
+      "path": "tests/unit/test_deploy.py",
+      "sha256": "e42ec90bfc462f16d4f0eb704b5caecc9bb5a8ffd8073f65d4ca8f9dab10ff8a"
+    },
+    {
+      "bytes": 15198,
+      "path": "tests/unit/test_diagnostic_mission.py",
+      "sha256": "bef385347b22ef35362d9a17d66d5fbb05ac9e12e1a8cc6ce023bf737f751952"
+    },
+    {
+      "bytes": 3907,
+      "path": "tests/unit/test_ecology_module.py",
+      "sha256": "ef131ec91daec644218675fc42c804983f2b99959c6cac27cab5eafe207807f9"
+    },
+    {
+      "bytes": 7389,
+      "path": "tests/unit/test_ecology_native.py",
+      "sha256": "d1ab62430bfab60ba9f68f07f4cb1fdf6624520037c626e1fe86515a368947cd"
+    },
+    {
+      "bytes": 36245,
+      "path": "tests/unit/test_ecology_rules.py",
+      "sha256": "98073d826255abc152961bca22368aec99135165721570c3c32d411538f2d09b"
+    },
+    {
+      "bytes": 29062,
+      "path": "tests/unit/test_ecology_runtime.py",
+      "sha256": "dd330e636d3a716ac0c418589643344f701a301fe05161b32e2c379dfc18b0a0"
+    },
+    {
+      "bytes": 9321,
+      "path": "tests/unit/test_economy_contract.py",
+      "sha256": "4f991b574867e28b10873ed7e48afb45f6d21149abd7d960aab516a248fdd323"
+    },
+    {
+      "bytes": 14934,
+      "path": "tests/unit/test_event_director.py",
+      "sha256": "e4b0d0dfa995c1ae3554e2ec08fa94581c617f11951a084c40456e9360caad10"
+    },
+    {
+      "bytes": 23968,
+      "path": "tests/unit/test_event_integration.py",
+      "sha256": "9267a709611efcde7d077260e3168e5007c050ea5f185cb0a7c3a3a97ee276eb"
+    },
+    {
+      "bytes": 48946,
+      "path": "tests/unit/test_event_runtime.py",
+      "sha256": "c53d8ae2f91af2ce0e7b36e4b2aace0d602cb29f304d628faa262c61a38729dc"
+    },
+    {
+      "bytes": 14720,
+      "path": "tests/unit/test_event_transport.py",
+      "sha256": "ce7033760b86f90bdda4dfcdb4ef547c940c79fa2d31002b18cd741a6e1cdf64"
+    },
+    {
+      "bytes": 20387,
+      "path": "tests/unit/test_event_ui.py",
+      "sha256": "5bc99248545201d00bb1b757c04ba5740c7f5253c23abd27eab0efa14ef8508f"
+    },
+    {
+      "bytes": 25929,
+      "path": "tests/unit/test_evidence.py",
+      "sha256": "ddaf4e7d63155fbc37d29ad25ef6f5621a8ea7a0081e90b0bfe1861f44f8ad43"
+    },
+    {
+      "bytes": 25406,
+      "path": "tests/unit/test_expansion_ai_adapter.py",
+      "sha256": "2f4a6d40b5236153301a90ad246b1fd0c91b092f3a0e98baabb976966de82864"
+    },
+    {
+      "bytes": 23535,
+      "path": "tests/unit/test_flashlight_matrix.py",
+      "sha256": "c713e715ccadf74e42563bd3fd4b83a0f145642dbe404a71bf073fb0c6f1a45e"
+    },
+    {
+      "bytes": 26054,
+      "path": "tests/unit/test_fuel_probe_runner.py",
+      "sha256": "8623b44da478f9fe6d8a190983dafeab9cc8e4fd4c258441a060f7e887e17993"
+    },
+    {
+      "bytes": 27385,
+      "path": "tests/unit/test_fuel_siphon_probe.py",
+      "sha256": "2b7ed979d765f1089533faf5060a6fc20db12c46e8ba63d47416603b21a68b6d"
+    },
+    {
+      "bytes": 9643,
+      "path": "tests/unit/test_fuel_transfer.py",
+      "sha256": "12fd785c235276b77f8ee202a6676f99e857530f85b54da3c13d713e9db8ee0c"
+    },
+    {
+      "bytes": 11194,
+      "path": "tests/unit/test_group_client.py",
+      "sha256": "1dc682eb39e80da53d54d9cd845dc848406513729d9520b00c8251dfeca54ed9"
+    },
+    {
+      "bytes": 11791,
+      "path": "tests/unit/test_group_clock.py",
+      "sha256": "52b054255ed5e3ca316294f8a149b960b06df2f74b3d6e01d166bc30feebd589"
+    },
+    {
+      "bytes": 5643,
+      "path": "tests/unit/test_group_native_checks.py",
+      "sha256": "3a0f9621c0be5596b8d6d16738f1560f959efc0a4188756105bc555a9a89ec31"
+    },
+    {
+      "bytes": 12308,
+      "path": "tests/unit/test_group_persistence.py",
+      "sha256": "8c9dd6be9f9f84d269e0ce7e5f835f2bd02c3b0b5f7f572686bb88374017ccc1"
+    },
+    {
+      "bytes": 5945,
+      "path": "tests/unit/test_group_rpc.py",
+      "sha256": "f85e15d4538c98fa1c3de785c10cf67bbdf9e104d1eced5c3879ed0666a19fdf"
+    },
+    {
+      "bytes": 39809,
+      "path": "tests/unit/test_group_server.py",
+      "sha256": "4e20d9306983ef9885fd984ce19d1426b0b3e4a1e8a99837601e40e8a4c71cf8"
+    },
+    {
+      "bytes": 13467,
+      "path": "tests/unit/test_group_ui.py",
+      "sha256": "28583d506f4806aad32fee09217d54c8c8de31cc645c0704067a28adf131a9d2"
+    },
+    {
+      "bytes": 11596,
+      "path": "tests/unit/test_horde_stimulus.py",
+      "sha256": "c3c5c821eb8d4b005d7ac2224dc33bd5123350002d21a0acf01e0ebeba69aefb"
+    },
+    {
+      "bytes": 16808,
+      "path": "tests/unit/test_hygiene.py",
+      "sha256": "186b37abb0cc96d994ea26adb5a5563a2b9812812b05abd3a74ee72cfc424fdd"
+    },
+    {
+      "bytes": 64538,
+      "path": "tests/unit/test_infected_admission.py",
+      "sha256": "11f7c111581becd6f610f2b5e56a3fc302a11799f6eff243bad18694ff3f292a"
+    },
+    {
+      "bytes": 12992,
+      "path": "tests/unit/test_infected_completion.py",
+      "sha256": "871c768a5e25f1191a8c05577dfab165cd7915afb0c1a8b955f2d520505aac9a"
+    },
+    {
+      "bytes": 15787,
+      "path": "tests/unit/test_infected_contract.py",
+      "sha256": "ff787669c0eb746ee58379cafc4f8c483ed27cf63056cddea221e685346c3e3f"
+    },
+    {
+      "bytes": 18681,
+      "path": "tests/unit/test_infected_death_probe.py",
+      "sha256": "193b07e4b71883e7694f33fcbc1a3be2f939d18e510d196c621c73354015d43a"
+    },
+    {
+      "bytes": 16107,
+      "path": "tests/unit/test_infected_defaults.py",
+      "sha256": "e49f1a2824dd40da1084161e3ecbdd496d5b9b20a56b2c3e7953a07e9c3ba3ed"
+    },
+    {
+      "bytes": 6484,
+      "path": "tests/unit/test_infected_pack_ownership.py",
+      "sha256": "5d2145e8f6e6b7456c5dc22eaf8c4b0606ab82293ae755f1156f11955f622158"
+    },
+    {
+      "bytes": 3834,
+      "path": "tests/unit/test_infected_perception.py",
+      "sha256": "cbb2ef17df2b1e1ed322cbf1346e33d8ac9675674a5864cf77fd483ed83b0b0c"
+    },
+    {
+      "bytes": 5395,
+      "path": "tests/unit/test_infected_persistence.py",
+      "sha256": "f1d0e48ce92a8fc6a0f12eb158c65b19a6133a6bb7d8c5d6318458afdc9dc938"
+    },
+    {
+      "bytes": 10936,
+      "path": "tests/unit/test_infected_routes.py",
+      "sha256": "7933469528a4a013b0e1e53371916f428578a50d81c0e4a0405d03e41ad8a6bf"
+    },
+    {
+      "bytes": 7726,
+      "path": "tests/unit/test_infected_variants.py",
+      "sha256": "a6d069d355897f5a560092a5eea996196e1a9e9ca344b4f0a92d10270b0e994f"
+    },
+    {
+      "bytes": 7786,
+      "path": "tests/unit/test_infected_wave.py",
+      "sha256": "050d4a830ed81d71f1a5f059700bc6481f95e85995537e2a626f80b17972c19c"
+    },
+    {
+      "bytes": 18206,
+      "path": "tests/unit/test_interior_catalog.py",
+      "sha256": "b58e3b49c05a44ca7d7a642af74fe016df6c4d55646373c5eccd990b20964bd5"
+    },
+    {
+      "bytes": 22056,
+      "path": "tests/unit/test_interior_measured_catalog.py",
+      "sha256": "93fcaec9bc8d4cba8db6fbbe18b146093dca81b88625b1ab255e4bc0fb7a0869"
+    },
+    {
+      "bytes": 21344,
+      "path": "tests/unit/test_interior_measurement_probe.py",
+      "sha256": "a42ae38fc241b9454ddb2b342e31a27e0a312df42f4b892d224dce3a76fc4a76"
+    },
+    {
+      "bytes": 16365,
+      "path": "tests/unit/test_interior_survey.py",
+      "sha256": "1dad63848386ddf56ce73b598269f9650fb5b8ffe94878339b5d0206f71a89b4"
+    },
+    {
+      "bytes": 25310,
+      "path": "tests/unit/test_interiors_contract.py",
+      "sha256": "73c23f52b55228daae46e4477a7075d7ccb7dbae26b1489f29fdc0a24165560d"
+    },
+    {
+      "bytes": 23908,
+      "path": "tests/unit/test_item_compatibility_audit.py",
+      "sha256": "93c1d7cfbd8220d918ec5b51eea7ca91f036aa344b91d13fe7c1f517c03ab0ca"
+    },
+    {
+      "bytes": 15327,
+      "path": "tests/unit/test_item_compatibility_manifest.py",
+      "sha256": "24395661789052e1374154d7a180c89d435cdfd29a65c0a53a66b6b73f4060a0"
+    },
+    {
+      "bytes": 16938,
+      "path": "tests/unit/test_item_review.py",
+      "sha256": "f69644ae9b79321f335e17b1c297e203b782cd0c0612d4f3f2509cafd819093b"
+    },
+    {
+      "bytes": 21640,
+      "path": "tests/unit/test_item_utility.py",
+      "sha256": "ea0cd7dfea1026ba86fa8d5c209d2abac5c8646b0ea1f94355041a1d43588e3c"
+    },
+    {
+      "bytes": 16582,
+      "path": "tests/unit/test_native_autotest.py",
+      "sha256": "2a0ed6ec188d94e0042ede35cdf9b6a12647f3fafa8bdb427b1faf55bc24fe92"
+    },
+    {
+      "bytes": 19653,
+      "path": "tests/unit/test_native_startup_probe.py",
+      "sha256": "f85f1f8d71c4a5624e26624c316fc48fc0fdc5f5691b047e58fedcc07e0a5a24"
+    },
+    {
+      "bytes": 28812,
+      "path": "tests/unit/test_native_startup_runner.py",
+      "sha256": "287a23e148cb53cc0fcbb8ebd2becbac942c07980593b555489637fa3c78ba67"
+    },
+    {
+      "bytes": 20425,
+      "path": "tests/unit/test_observer_transition.py",
+      "sha256": "cf2814e82eda34035dabc80b0ea4128a7f08669d6d7c0885a7fde2329ace60a5"
+    },
+    {
+      "bytes": 21154,
+      "path": "tests/unit/test_optional_provider.py",
+      "sha256": "180c824a0999d08c3fdbc0d80073d4dc925005363d963e60c80f3bc881887a0c"
+    },
+    {
+      "bytes": 22523,
+      "path": "tests/unit/test_package.py",
+      "sha256": "b974325858a2d01917bc78e12374d36d84b9a47f9373f0fd00531d5200903f35"
+    },
+    {
+      "bytes": 5579,
+      "path": "tests/unit/test_portable_catalog.py",
+      "sha256": "1c090fe9115cab772cef14b6db11d990d3c7968c5737c5b6e856c2d222fa930f"
+    },
+    {
+      "bytes": 56931,
+      "path": "tests/unit/test_probe_runtime.py",
+      "sha256": "70ab191366f633eb1524b6d3e00ab91405e8c7280bb985bd107dc1f60f6e6094"
+    },
+    {
+      "bytes": 14930,
+      "path": "tests/unit/test_process_observation.py",
+      "sha256": "915588ecc476e3aaab81e0d74275c18d7715a0a18dd11faecb1c84cc466d81a3"
+    },
+    {
+      "bytes": 18196,
+      "path": "tests/unit/test_room_catalog_completion.py",
+      "sha256": "c8d6ee336f65e7f301faee3f53ca2b92df84f4b91b289b32256393b454b37198"
+    },
+    {
+      "bytes": 5176,
+      "path": "tests/unit/test_runtime_settings.py",
+      "sha256": "5c4997cabb6a0094ad197b66e0be7d009de5d5a58baac0dd95483ab6a135c541"
+    },
+    {
+      "bytes": 11073,
+      "path": "tests/unit/test_salvage_tools.py",
+      "sha256": "0572501ae2d3ee029aa8b0a900676e71778b1e62677ced601e7b693e7661fc75"
+    },
+    {
+      "bytes": 4444,
+      "path": "tests/unit/test_script_identifiers.py",
+      "sha256": "2eb0f5d357ef0df99add58259285a7ceae20ddf9b7af0d4ab22a4edad2816375"
+    },
+    {
+      "bytes": 8425,
+      "path": "tests/unit/test_script_syntax.py",
+      "sha256": "7524793afa11e6192437b8f9e36c430be80e69ee9bc2d66940549da5acb7f582"
+    },
+    {
+      "bytes": 9095,
+      "path": "tests/unit/test_search_economy.py",
+      "sha256": "41067201a0a71173ebee6d9acf617737092a99282ff0b287f1be5c4642f7109e"
+    },
+    {
+      "bytes": 25362,
+      "path": "tests/unit/test_search_economy_integration.py",
+      "sha256": "1c088081fbce210d0d534a9b7ceb7267fb43658a5f12f7334f5bea40830e7e43"
+    },
+    {
+      "bytes": 7010,
+      "path": "tests/unit/test_search_economy_native.py",
+      "sha256": "5cdc34b2ce63bfe5f5d70f3561991bb84197b673254c0dde9f61e56ef3d6968b"
+    },
+    {
+      "bytes": 3654,
+      "path": "tests/unit/test_search_economy_policy.py",
+      "sha256": "637e47a603406cd7dd13603f8c426aa24e0d0bcb09a58992cb841ca51ae0a86a"
+    },
+    {
+      "bytes": 7109,
+      "path": "tests/unit/test_search_economy_recovery.py",
+      "sha256": "d01c77ddee45ec3ebab4ef85cca771fec2044b901925f69fe056b06e86bdc889"
+    },
+    {
+      "bytes": 66996,
+      "path": "tests/unit/test_search_supply_provider.py",
+      "sha256": "5cb65c0a2d63855f43889956a1fdafe75494e04d56ac043fe6ae4a5d1202e768"
+    },
+    {
+      "bytes": 28358,
+      "path": "tests/unit/test_siphon_fuel_action.py",
+      "sha256": "0aedea6e2c870a127713236b1a486de4be2b2a73ed4edef0aa128d98fda164e7"
+    },
+    {
+      "bytes": 12130,
+      "path": "tests/unit/test_stamina_configuration.py",
+      "sha256": "fa2926e6475a57a83a35ee992ede4616687d11dcf6dc20dad12bce1cb1274971"
+    },
+    {
+      "bytes": 9818,
+      "path": "tests/unit/test_stamina_hud.py",
+      "sha256": "f1738a01f11b760b077e6f932a858834eb83b04b696c32752a8f36bed5a12f4f"
+    },
+    {
+      "bytes": 8476,
+      "path": "tests/unit/test_stamina_integration.py",
+      "sha256": "de003ea9b5c6c724369570a3551c79fa88b1052d576c0ba5c932fcd2326137b0"
+    },
+    {
+      "bytes": 12585,
+      "path": "tests/unit/test_stamina_policy.py",
+      "sha256": "9d3e3746882c5990e6d008d6e20b16863bced480af7bd12927a7e439fa5eb526"
+    },
+    {
+      "bytes": 6482,
+      "path": "tests/unit/test_stamina_transport_probe.py",
+      "sha256": "bb3554f40f54f668eb884c16d2b478535ea32475274bc10104e32bd8d044d199"
+    },
+    {
+      "bytes": 107745,
+      "path": "tests/unit/test_taped_light_probe.py",
+      "sha256": "5b101ccace598fddc56e41f236a487604afe8bae21c9ca8c36736898b0514172"
+    },
+    {
+      "bytes": 103688,
+      "path": "tests/unit/test_taped_light_report.py",
+      "sha256": "63024e95d2cfc4e8f9977f6c3b35eaea0c0ea3bef468f6539b7d346c90c6c994"
+    },
+    {
+      "bytes": 30118,
+      "path": "tests/unit/test_taped_light_service.py",
+      "sha256": "aab4485beca7a4b2bcd53dfe2b4aa8de26da5841e1fd6fad1e3994f55c262abb"
+    },
+    {
+      "bytes": 31072,
+      "path": "tests/unit/test_utility_review.py",
+      "sha256": "9b9b946c968ba883207ed5c442814d9a2b9941e371e3a0b2fc086cdd1a8d1299"
+    },
+    {
+      "bytes": 6830,
+      "path": "tests/unit/test_v1_crafting.py",
+      "sha256": "69256101e8b136d30edfcfb91a5371d95b94b0a5465688f69706004fb3c147b1"
+    },
+    {
+      "bytes": 25172,
+      "path": "tests/unit/test_v1_crafting_diagnostic.py",
+      "sha256": "8f8c00fae5b2e4ce761936be0c0d3d44f2b16e66a5563bd710320142dac9b4ed"
+    },
+    {
+      "bytes": 49069,
+      "path": "tests/unit/test_weather_probe.py",
+      "sha256": "9aaf6dee549ecb4160cf54f3b5c6c5e60fbd4a9fcc24e6ddd5ee6a03ffaaf782"
+    },
+    {
+      "bytes": 99890,
+      "path": "tests/unit/test_weather_report.py",
+      "sha256": "971b7ba07be337aa0347a0c9767d228264224a45425586cbb86e97dda96d4e87"
+    },
+    {
+      "bytes": 44434,
+      "path": "tests/unit/test_wine_compile_probe.py",
+      "sha256": "b986614a8c151cbd9915e2080d3e48fc938d7d25ffff628f19c8d7d24ee5e7b5"
+    },
+    {
+      "bytes": 5243,
+      "path": "tools/README.md",
+      "sha256": "3399f5908381a61aeb838e2b5406107a4588fad721a63a1f4149af37897f7b73"
+    },
+    {
+      "bytes": 16211,
+      "path": "tools/audit/README.md",
+      "sha256": "0083d021c6137ec212fb933ce225440b4b72e39fb6ceebf9bd284cae02e82d73"
+    },
+    {
+      "bytes": 22751,
+      "path": "tools/audit/action_audit.py",
+      "sha256": "e4114966168d3006e5097dd7190b3f5fb8f5fa958c816a6ffc162d6d233aaaad"
+    },
+    {
+      "bytes": 28647,
+      "path": "tools/audit/ce_audit.py",
+      "sha256": "cd11fab01d60a073fd5ecb68b0e574631a95c5bb0d1a96f1d0ea2d5a0bf40a10"
+    },
+    {
+      "bytes": 11275,
+      "path": "tools/audit/ce_probe_report.py",
+      "sha256": "8f04c14107014ca5db5b49ebef213d7f4b7c49db17cf15f4c1cbf995e41aaec0"
+    },
+    {
+      "bytes": 30716,
+      "path": "tools/audit/crafting_audit.py",
+      "sha256": "2035ea2e788b162c3548ef4da4ab6d38df4d8584f3f560713a00b964a074b9bc"
+    },
+    {
+      "bytes": 22756,
+      "path": "tools/audit/flashlight_matrix.py",
+      "sha256": "3ef5a21ec67e7c566af892945bab99faaa39bf7aeb16ec3f8f2ae4e69749ad75"
+    },
+    {
+      "bytes": 33213,
+      "path": "tools/audit/interior_survey.py",
+      "sha256": "18319b47091978396fde4dc59be4a56bae1bc582a3fe922a6931f8ff74886772"
+    },
+    {
+      "bytes": 24205,
+      "path": "tools/audit/item_compatibility.py",
+      "sha256": "7d369956bde0cb548b18c9eeda853d8ae2b3ea74f99e8bd6dcc53b7b05147779"
+    },
+    {
+      "bytes": 23399,
+      "path": "tools/audit/item_review.py",
+      "sha256": "8078c5f23f9acb69e8e3e54937e2bb95f0f105e88e97ddcf2d06bbb13372142a"
+    },
+    {
+      "bytes": 28974,
+      "path": "tools/audit/item_utility.py",
+      "sha256": "952a3e484b19786158fb3b1c3baf4a7645b33b5dc3ee0aa7c1abd94f1bbbf79b"
+    },
+    {
+      "bytes": 53739,
+      "path": "tools/audit/taped_light_report.py",
+      "sha256": "1f55e7349a2b81a540992c2ff8f2a9920c6affe5e2fac083aedca70d4015ed1e"
+    },
+    {
+      "bytes": 39516,
+      "path": "tools/audit/utility_review.py",
+      "sha256": "bb1f73b21f8d5fdda259d93d5248c53c85d298d5cf544e477b5d00deb1f0f0c6"
+    },
+    {
+      "bytes": 59682,
+      "path": "tools/audit/weather_report.py",
+      "sha256": "6296a07738668da58370bce3828ea73784bd56f130ec99203575e9aaa94fc9d6"
+    },
+    {
+      "bytes": 5706,
+      "path": "tools/benchmark/README.md",
+      "sha256": "d3276f7f712542ad0e054518877cf2bad49ead8f8ee43660623146bdfae0624c"
+    },
+    {
+      "bytes": 76,
+      "path": "tools/benchmark/__init__.py",
+      "sha256": "cccb69c9f9cf3d0626f3ea9fccbc729d76983608c251bdab3bcd650752384294"
+    },
+    {
+      "bytes": 18311,
+      "path": "tools/benchmark/compare.py",
+      "sha256": "4fab5716da4db4ffd5666a5080b7e30f6de6c30077125eb74ec202f0c75e9975"
+    },
+    {
+      "bytes": 11,
+      "path": "tools/package/.gitignore",
+      "sha256": "f162171ded7ff8c1d6032f7cb50317bc19cc4d1bbd4757be9f8ea75cdec540f1"
+    },
+    {
+      "bytes": 3003,
+      "path": "tools/package/Build-Sign-Verify.ps1",
+      "sha256": "f6411c7f4601c3da7044593b354a3dd52ca4f23185d05f7cd1c5524453b578e8"
+    },
+    {
+      "bytes": 10413,
+      "path": "tools/package/Invoke-NativeSmoke.ps1",
+      "sha256": "99beba8cf27c11589d59c0d2333515c313d14e658306c9cc3235ef4eedc4fb8b"
+    },
+    {
+      "bytes": 11093,
+      "path": "tools/package/README.md",
+      "sha256": "4b92fcdc614e26c7ca7dba2d5c354c29328a0dadcaff87407aeb6261fc519b6c"
+    },
+    {
+      "bytes": 2968,
+      "path": "tools/package/Test-NativePackage.ps1",
+      "sha256": "1304a457490218bdb72679ca65163ed573a39360dc151a449cb09ee95a751f9b"
+    },
+    {
+      "bytes": 21218,
+      "path": "tools/package/atmosphere.py",
+      "sha256": "b200d8fe59d38c6317d298d58e3977426e4eb8662ce28cf448d383f6126f7d93"
+    },
+    {
+      "bytes": 9262,
+      "path": "tools/package/coverage.py",
+      "sha256": "b17755615ed96cd2663b6118a831d779f5e1ffb3bf1cee6755e663ef359e54dc"
+    },
+    {
+      "bytes": 34826,
+      "path": "tools/package/deploy.py",
+      "sha256": "423eba3e019d0997bee5c4bdd74a41cfd1b4b3164db63cffa8de4e0d02edb4df"
+    },
+    {
+      "bytes": 17201,
+      "path": "tools/package/economy.py",
+      "sha256": "c8d6fc8580917065b91fd55c9b6cb454286e687188e498bae658b94a769947fe"
+    },
+    {
+      "bytes": 18950,
+      "path": "tools/package/interior_catalog.py",
+      "sha256": "b826594ab552588059c44278379fb92a6caee16097d402916d723af6140ee5fc"
+    },
+    {
+      "bytes": 18652,
+      "path": "tools/package/optional_provider.py",
+      "sha256": "2ab4fb881cbafa3faf11413b465146cfd9381d058dba8b53859f2ad1485597fc"
+    },
+    {
+      "bytes": 13374,
+      "path": "tools/package/pbo.py",
+      "sha256": "55629ac2a3a2cca4ebbf900001624d920014e8f646f98d5088b4eefacb573270"
+    },
+    {
+      "bytes": 4027,
+      "path": "tools/package/sign.py",
+      "sha256": "b2e10ea8cb9655eee4c9731fe549772d1dd8b3ff9b1219a2c026024ef0fd12a3"
+    },
+    {
+      "bytes": 12402,
+      "path": "tools/setup/Start-CEProbeServer.ps1",
+      "sha256": "e3a6ad5ebab93fc049634b3fd9aa31eb447a450de48da1269480679ca2f1581f"
+    },
+    {
+      "bytes": 1936,
+      "path": "tools/setup/Start-LocalClient.ps1",
+      "sha256": "a427016b63bf864e4fdec78a71c731135242e1e44042e9ccc0312307753fdbae"
+    },
+    {
+      "bytes": 28435,
+      "path": "tools/setup/ce_probe.py",
+      "sha256": "d1ccd852d9fa66fea35703c9e053cb581b334fa74aa2b0fb23fda012dbb39f93"
+    },
+    {
+      "bytes": 30803,
+      "path": "tools/setup/death_selection_probe.py",
+      "sha256": "170f2e286336e8028587bec39049a5ab3e48a99e01c51cbc3e219c80fa924be2"
+    },
+    {
+      "bytes": 26938,
+      "path": "tools/setup/diagnostic_mission.py",
+      "sha256": "eb290137e1b6d00b5566bdaa05bbaf253656df115796ce5e394b42dacd5a3761"
+    },
+    {
+      "bytes": 21136,
+      "path": "tools/setup/fuel_probe_runner.py",
+      "sha256": "b614c4fc645fc6cd68c291f67b4d438d672aa092ee212b851560cc5d818343f6"
+    },
+    {
+      "bytes": 53564,
+      "path": "tools/setup/fuel_siphon_probe.py",
+      "sha256": "d7cc8adbe72b0b7a46584348a0133ff4d0d60f427b6b6e8691a438ccb985b27b"
+    },
+    {
+      "bytes": 33635,
+      "path": "tools/setup/infected_death_probe.py",
+      "sha256": "e4fbf35aa8a306e22dc50a288a66a0cd89d380b52fd76fef25d131be35d03b96"
+    },
+    {
+      "bytes": 46967,
+      "path": "tools/setup/interior_measurement_probe.py",
+      "sha256": "52dde1553af73808d138e48d908ab4f0b1ff0e06fc455c87c51d6e5ba4418169"
+    },
+    {
+      "bytes": 28776,
+      "path": "tools/setup/native_startup_probe.py",
+      "sha256": "b6b896892c8144134e312242764ee16e2621973ff34ceddf499f24ef10070539"
+    },
+    {
+      "bytes": 22767,
+      "path": "tools/setup/native_startup_runner.py",
+      "sha256": "2c728b2fdb86ef7d07be36464a951ac086aa83a49f8413ba187aa10af5cfa61e"
+    },
+    {
+      "bytes": 41461,
+      "path": "tools/setup/probe_runtime.py",
+      "sha256": "ddb56a756c11d3c90900fbeacfadf8afc025c0004d61bb8578ebddd69f0fd2e1"
+    },
+    {
+      "bytes": 15747,
+      "path": "tools/setup/process_observation.py",
+      "sha256": "b068fb7824743496924330d0bae8034daad3fb25fee71720a40b771d7fa44ee6"
+    },
+    {
+      "bytes": 17512,
+      "path": "tools/setup/stamina_transport_probe.py",
+      "sha256": "4b6395e4f53d52df284eb01a8dc5b3a998541dc859e59c06c6bd4a963349ad01"
+    },
+    {
+      "bytes": 71794,
+      "path": "tools/setup/taped_light_probe.py",
+      "sha256": "f18799cdd141398c0b06942e271f0713a8d1036c9e8111dd8376b9bd4b7559b2"
+    },
+    {
+      "bytes": 32086,
+      "path": "tools/setup/weather_probe.py",
+      "sha256": "92612d9f2e7d512670ab704f15d04b3457f32f98d0f0c8da092dc42804f518c4"
+    },
+    {
+      "bytes": 34123,
+      "path": "tools/setup/wine_compile_probe.py",
+      "sha256": "1b349825293def857af56d52264adda45c6b4ea8768a987bf29d60881c4fcde9"
+    },
+    {
+      "bytes": 10539,
+      "path": "tools/testing/automation.py",
+      "sha256": "f12e2b7d6f7179dbb6d81fcf8d269b8d1e3ae617c619f43da1f9d9fe7bcd5a32"
+    },
+    {
+      "bytes": 35296,
+      "path": "tools/testing/native_autotest.py",
+      "sha256": "393b983ef3544a34c9e9e720bb7fd7595b424992eaa6eae17dc847fe4492cc55"
+    },
+    {
+      "bytes": 26307,
+      "path": "tools/validate/bdd.py",
+      "sha256": "a162300907962eb42b8d35724c176c5cb52f3f42657693ab0349da8df08c8134"
+    },
+    {
+      "bytes": 25848,
+      "path": "tools/validate/evidence.py",
+      "sha256": "459689579cce53635404e6f8c348f10f8a99504412b688aca8456e1af1addf75"
+    },
+    {
+      "bytes": 16711,
+      "path": "tools/validate/hygiene.py",
+      "sha256": "d3aac68ba8d4dc16225053d50e7e10e4c6b6980a793965d60eedf9b9a83553ea"
+    },
+    {
+      "bytes": 2276,
+      "path": "tools/validate/runtime.py",
+      "sha256": "8b8eb4f7bb02ea07d9dc75d65aad59eb4d6a5a91eb7c9c04289a58aea771cb5b"
+    }
+  ],
+  "license": {
+    "project": "all-rights-reserved",
+    "publication_authorized": false,
+    "third_party_rights": "pending-human-review"
+  },
+  "report_version": 1,
+  "scope": "working-tree hygiene; not authorship, rights or runtime acceptance",
+  "valid": false
+}

@@ -119,8 +119,11 @@ class HCSalvageSources
 {
     static int SourceCount(string seed)
     {
+        if (seed == "HCRecoverRuinedLargeLeather") seed = "HCRecoverLargeLeather";
+        if (seed == "HCRecoverRuinedBatWood") seed = "HCRecoverBatWood";
+        if (seed == "HCRecoverRuinedNailedBat") seed = "HCRecoverNailedBat";
         if (seed == "HCRecoverLargeLeather") return 8;
-        if (seed == "HCRecoverMediumLeather") return 7;
+        if (seed == "HCRecoverMediumLeather") return 13;
         if (seed == "HCRecoverBatWood") return 2;
         if (seed == "HCRecoverNailedBat") return 1;
         if (seed == "HCRecoverBarbedBat") return 1;
@@ -131,6 +134,9 @@ class HCSalvageSources
 
     static string SourceAt(string seed, int index)
     {
+        if (seed == "HCRecoverRuinedLargeLeather") seed = "HCRecoverLargeLeather";
+        if (seed == "HCRecoverRuinedBatWood") seed = "HCRecoverBatWood";
+        if (seed == "HCRecoverRuinedNailedBat") seed = "HCRecoverNailedBat";
         if (seed == "HCRecoverLargeLeather")
         {
             if (index == 0) return "LeatherJacket_Beige";
@@ -149,10 +155,16 @@ class HCSalvageSources
             if (index == 2) return "LeatherPants_Brown";
             if (index == 3) return "LeatherPants_Natural";
             if (index == 4) return "LeatherShirt_Natural";
-            // V1 beige garments: exact native config material selections, not
-            // a Leather* wildcard. One recovered panel, same as pants/shirt.
+            // Exact concrete colours: config refs L1/L2 in crafting-contract.json.
+            // One recovered panel, same as pants/shirt; no ancestry wildcard.
             if (index == 5) return "LeatherGloves_Beige";
             if (index == 6) return "LeatherHat_Beige";
+            if (index == 7) return "LeatherGloves_Black";
+            if (index == 8) return "LeatherGloves_Brown";
+            if (index == 9) return "LeatherGloves_Natural";
+            if (index == 10) return "LeatherHat_Black";
+            if (index == 11) return "LeatherHat_Brown";
+            if (index == 12) return "LeatherHat_Natural";
         }
         if (seed == "HCRecoverBatWood")
         {
@@ -465,6 +477,39 @@ class HCRecoverRuinedCrate extends HCSalvageRecipe
     {
         Configure("Recover planks and nails from ruined crate", "HCRecoverRuinedCrate", "Crowbar", "WoodenPlank", 1, 20, 3);
         AddRecoveryResult("Nail", 2);
+        m_HCRuinedOnly = true;
+        m_MinDamageIngredient[0] = 4;
+        m_MaxDamageIngredient[0] = 4;
+    }
+}
+
+class HCRecoverRuinedLargeLeather extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover panel from ruined leather garment", "HCRecoverRuinedLargeLeather", "KitchenKnife", "TannedLeather", 1, 5, 2);
+        m_HCRuinedOnly = true;
+        m_MinDamageIngredient[0] = 4;
+        m_MaxDamageIngredient[0] = 4;
+    }
+}
+
+class HCRecoverRuinedBatWood extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover stick from ruined bat", "HCRecoverRuinedBatWood", "Hacksaw", "WoodenStick", 1, 5, 2);
+        m_HCRuinedOnly = true;
+        m_MinDamageIngredient[0] = 4;
+        m_MaxDamageIngredient[0] = 4;
+    }
+}
+
+class HCRecoverRuinedNailedBat extends HCSalvageRecipe
+{
+    override void Init()
+    {
+        Configure("Recover nail from ruined nailed bat", "HCRecoverRuinedNailedBat", "Hacksaw", "Nail", 1, 8, 3);
         m_HCRuinedOnly = true;
         m_MinDamageIngredient[0] = 4;
         m_MaxDamageIngredient[0] = 4;

@@ -1,0 +1,209 @@
+[
+  {
+    "id": "M14",
+    "name": "M14 server check dropped",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_non_server_perform_recipe_never_calls_native_or_mutates_ingredients (tests.unit.test_v1_crafting.V1CommitAuthorityTests.test_non_server_perform_recipe_never_calls_native_or_mutates_ingredients)",
+      "Ran 188 tests in 25.797s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D04",
+    "name": "D04 SafeConcrete allow all",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_safe_concrete_is_exact_and_unknown_definitions_stay_pending (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_safe_concrete_is_exact_and_unknown_definitions_stay_pending) (root='Other', name='AKM')",
+      "FAIL: test_safe_concrete_is_exact_and_unknown_definitions_stay_pending (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_safe_concrete_is_exact_and_unknown_definitions_stay_pending) (root='CfgAmmo', name='Bullet_Base')",
+      "FAIL: test_safe_concrete_is_exact_and_unknown_definitions_stay_pending (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_safe_concrete_is_exact_and_unknown_definitions_stay_pending) (root='CfgVehicles', name='Unknown')",
+      "FAIL: test_safe_concrete_is_exact_and_unknown_definitions_stay_pending (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_safe_concrete_is_exact_and_unknown_definitions_stay_pending) (root='CfgVehicles', name='LeatherHat_Black_Mod')",
+      "FAIL: test_safe_concrete_is_exact_and_unknown_definitions_stay_pending (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_safe_concrete_is_exact_and_unknown_definitions_stay_pending) (root='CfgVehicles', name='LandMineTrap')",
+      "Ran 188 tests in 24.117s",
+      "FAILED (failures=5)"
+    ]
+  },
+  {
+    "id": "D07",
+    "name": "D07 ValidRequest charset removed",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_request_identity_charset_size_queue_roots_and_kit_bounds (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_request_identity_charset_size_queue_roots_and_kit_bounds) (field='ItemClass', value='A B')",
+      "FAIL: test_request_identity_charset_size_queue_roots_and_kit_bounds (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_request_identity_charset_size_queue_roots_and_kit_bounds) (field='ItemClass', value='A;B')",
+      "FAIL: test_request_identity_charset_size_queue_roots_and_kit_bounds (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_request_identity_charset_size_queue_roots_and_kit_bounds) (field='ItemClass', value='A/B')",
+      "FAIL: test_request_identity_charset_size_queue_roots_and_kit_bounds (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_request_identity_charset_size_queue_roots_and_kit_bounds) (field='ItemClass', value='A.B')",
+      "Ran 188 tests in 22.588s",
+      "FAILED (failures=4)"
+    ]
+  },
+  {
+    "id": "D08",
+    "name": "D08 ValidRequest index replay",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_request_identity_charset_size_queue_roots_and_kit_bounds (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_request_identity_charset_size_queue_roots_and_kit_bounds) (field='Index', value=1)",
+      "FAIL: test_request_identity_charset_size_queue_roots_and_kit_bounds (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_request_identity_charset_size_queue_roots_and_kit_bounds) (field='Index', value=3)",
+      "Ran 188 tests in 23.287s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "id": "D09",
+    "name": "D09 PollCleanup ignores bag",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_bag_alone_blocks_cleanup_and_releases_no_exclusivity (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_bag_alone_blocks_cleanup_and_releases_no_exclusivity)",
+      "Ran 188 tests in 21.501s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D10",
+    "name": "D10 Begin max queue 262144->10M",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_begin_requires_opt_in_isolation_empty_server_and_bounded_queue (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticTests.test_begin_requires_opt_in_isolation_empty_server_and_bounded_queue) (args={'total': 262145})",
+      "Ran 188 tests in 22.283s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D11",
+    "name": "D11 ObserveObjects scope check dropped",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_object_creation_requires_review_scope_ancestry_and_safe_concrete (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_object_creation_requires_review_scope_ancestry_and_safe_concrete) (args={'scope': 0})",
+      "FAIL: test_object_creation_requires_review_scope_ancestry_and_safe_concrete (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_object_creation_requires_review_scope_ancestry_and_safe_concrete) (args={'scope': 1})",
+      "Ran 188 tests in 19.293s",
+      "FAILED (failures=2)"
+    ]
+  },
+  {
+    "id": "D12",
+    "name": "D12 creation review dropped",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_object_creation_requires_review_scope_ancestry_and_safe_concrete (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_object_creation_requires_review_scope_ancestry_and_safe_concrete) (args={'reviewed': False})",
+      "Ran 188 tests in 19.009s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D13",
+    "name": "D13 ancestors depth 64->1000000",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_metadata_ancestry_limit_reports_incomplete_without_unbounded_walk (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_metadata_ancestry_limit_reports_incomplete_without_unbounded_walk)",
+      "Ran 188 tests in 19.251s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D14",
+    "name": "D14 delete requests count off",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_deletion_request_is_once_and_never_confirmation (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticTests.test_deletion_request_is_once_and_never_confirmation)",
+      "Ran 188 tests in 21.196s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D15",
+    "name": "D15 ObserveNext does not stop at end",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_final_row_stops_and_replay_cannot_emit (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_final_row_stops_and_replay_cannot_emit)",
+      "Ran 188 tests in 19.218s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D16",
+    "name": "D16 Snapshot zone limit dropped",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_snapshot_zone_limit_is_exact_and_never_claims_truncated_complete (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_snapshot_zone_limit_is_exact_and_never_claims_truncated_complete)",
+      "Ran 188 tests in 20.565s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D17",
+    "name": "D17 Summary Complete ignores partial",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_summary_completion_requires_full_queue_and_confirmed_cleanup (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_summary_completion_requires_full_queue_and_confirmed_cleanup)",
+      "Ran 188 tests in 21.279s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D18",
+    "name": "D18 RowFits payload limit removed",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_serialized_row_limit_includes_boundary_and_failed_serialization (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_serialized_row_limit_includes_boundary_and_failed_serialization)",
+      "Ran 188 tests in 24.078s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D19",
+    "name": "D19 actor identity allowed",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_actor_with_identity_is_rejected_before_bag_creation (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_actor_with_identity_is_rejected_before_bag_creation)",
+      "Ran 188 tests in 30.310s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D20",
+    "name": "D20 executes without opt-in (m_Execute)",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_only_discovered_zero_result_maintenance_can_execute_on_owned_handles (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticTests.test_only_discovered_zero_result_maintenance_can_execute_on_owned_handles)",
+      "Ran 188 tests in 35.285s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "D21",
+    "name": "D21 Stop partial flag",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_stop_records_partial_and_deletes_fixtures_once (tests.unit.test_v1_crafting_diagnostic.UtilityDiagnosticGateTests.test_stop_records_partial_and_deletes_fixtures_once)",
+      "Ran 188 tests in 34.069s",
+      "FAILED (failures=1)"
+    ]
+  },
+  {
+    "id": "A03",
+    "name": "A03 audit empty cohort -> qualify",
+    "status": "killed",
+    "returncode": 1,
+    "results": [
+      "FAIL: test_empty_and_nonpositive_repair_cohorts_are_excluded_from_extension (tests.unit.test_v1_crafting.V1DecisionTableTests.test_empty_and_nonpositive_repair_cohorts_are_excluded_from_extension)",
+      "Ran 188 tests in 34.997s",
+      "FAILED (failures=1)"
+    ]
+  }
+]

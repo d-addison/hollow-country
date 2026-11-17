@@ -99,6 +99,30 @@
     },
     "LeatherShirt_Natural": {
       "hide": 2
+    },
+    "LeatherGloves_Beige": {
+      "hide": 2
+    },
+    "LeatherGloves_Black": {
+      "hide": 2
+    },
+    "LeatherGloves_Brown": {
+      "hide": 2
+    },
+    "LeatherGloves_Natural": {
+      "hide": 2
+    },
+    "LeatherHat_Beige": {
+      "hide": 2
+    },
+    "LeatherHat_Black": {
+      "hide": 2
+    },
+    "LeatherHat_Brown": {
+      "hide": 2
+    },
+    "LeatherHat_Natural": {
+      "hide": 2
     }
   },
   "native_boundary": [
@@ -245,6 +269,45 @@
       "wear": 20.0,
       "animation_units": 3.0,
       "class": "HCRecoverRuinedCrate"
+    },
+    {
+      "input": "HCRecoverRuinedLargeLeather",
+      "tool": "KitchenKnife",
+      "outputs": [
+        {
+          "item": "TannedLeather",
+          "quantity": 1
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCRecoverRuinedLargeLeather"
+    },
+    {
+      "input": "HCRecoverRuinedBatWood",
+      "tool": "Hacksaw",
+      "outputs": [
+        {
+          "item": "WoodenStick",
+          "quantity": 1
+        }
+      ],
+      "wear": 5.0,
+      "animation_units": 2.0,
+      "class": "HCRecoverRuinedBatWood"
+    },
+    {
+      "input": "HCRecoverRuinedNailedBat",
+      "tool": "Hacksaw",
+      "outputs": [
+        {
+          "item": "Nail",
+          "quantity": 1
+        }
+      ],
+      "wear": 8.0,
+      "animation_units": 3.0,
+      "class": "HCRecoverRuinedNailedBat"
     }
   ],
   "pending_scenarios": [
@@ -255,7 +318,10 @@
     "CRF-005 full inventory ground fallback, spawn failure, disconnect and crash at spawn/consume/delete boundaries",
     "CRF-006 graph and condition conservation against native boundaries",
     "CRF-007 Diag and normal PBO, both ingredient orders, stacks, output classes, animation/audio",
-    "NET-001 NET-002 NET-003 NET-007 latency/replay/forged requests; 3-6 player profiling"
+    "NET-001 NET-002 NET-003 NET-007 latency/replay/forged requests; 3-6 player profiling",
+    "CRF-002 ruined large leather: all eight sources at damage 4 only, one panel at 10 percent condition, equipped/cargo/attachment refusal",
+    "CRF-002 ruined plain/Xmas bats: damage 4 only, one stick; native ordinary and sibling recipe discovery disjoint",
+    "CRF-002 ruined nailed bat: damage 4 only, one nail and no stick; medium leather/barbed exclusions and native-overlap qualification"
   ],
   "aliases": {
     "LeatherBelt_Lizard": "LeatherBelt_ColorBase"
@@ -853,5 +919,202 @@
         }
       ]
     }
-  ]
+  ],
+  "v1_config_evidence": {
+    "L1": {
+      "layer": "T0 packed config; not merged live config or material yield",
+      "pbo": "characters_gloves.pbo",
+      "entry": "config.bin",
+      "sha256": "269902f105209baebd30dc56eaad0f98ace55476b422e26a9a43a2368038f51a",
+      "base": "LeatherGloves_ColorBase",
+      "base_offset": 27079,
+      "repairableWithKits": [
+        3
+      ],
+      "repairCosts": [
+        25.0
+      ],
+      "concrete": [
+        {
+          "item": "LeatherGloves_Natural",
+          "offset": 28155,
+          "scope": 2,
+          "materials": [
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Natural.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Natural.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Natural.rvmat"
+          ]
+        },
+        {
+          "item": "LeatherGloves_Beige",
+          "offset": 28767,
+          "scope": 2,
+          "materials": [
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Beige.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Beige.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Beige.rvmat"
+          ]
+        },
+        {
+          "item": "LeatherGloves_Black",
+          "offset": 29344,
+          "scope": 2,
+          "materials": [
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Black.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Black.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_Black.rvmat"
+          ]
+        },
+        {
+          "item": "LeatherGloves_Brown",
+          "offset": 29946,
+          "scope": 2,
+          "materials": [
+            "DZ\\Characters\\gloves\\data\\leather_gloves_brown.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_brown.rvmat",
+            "DZ\\Characters\\gloves\\data\\leather_gloves_brown.rvmat"
+          ]
+        }
+      ]
+    },
+    "L2": {
+      "layer": "T0 packed config; not merged live config or material yield",
+      "pbo": "characters_headgear.pbo",
+      "entry": "config.bin",
+      "sha256": "ae7c5ebe2fd14336bf9d63e93ccb7694f5cdacb3573f1a9549d5b05cdc268a66",
+      "base": "LeatherHat_ColorBase",
+      "base_offset": 93014,
+      "repairableWithKits": [
+        5,
+        2
+      ],
+      "repairCosts": [
+        30.0,
+        25.0
+      ],
+      "concrete": [
+        {
+          "item": "LeatherHat_Natural",
+          "offset": 94163,
+          "scope": 2,
+          "materials": [
+            "dz\\characters\\headgear\\data\\Hat_Leather_natural.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_natural.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_natural.rvmat"
+          ]
+        },
+        {
+          "item": "LeatherHat_Beige",
+          "offset": 94766,
+          "scope": 2,
+          "materials": [
+            "dz\\characters\\headgear\\data\\Hat_Leather_beige.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_beige.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_beige.rvmat"
+          ]
+        },
+        {
+          "item": "LeatherHat_Brown",
+          "offset": 95359,
+          "scope": 2,
+          "materials": [
+            "dz\\characters\\headgear\\data\\Hat_Leather_brown.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_brown.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_brown.rvmat"
+          ]
+        },
+        {
+          "item": "LeatherHat_Black",
+          "offset": 95927,
+          "scope": 2,
+          "materials": [
+            "dz\\characters\\headgear\\data\\Hat_Leather_black.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_black.rvmat",
+            "dz\\characters\\headgear\\data\\Hat_Leather_black.rvmat"
+          ]
+        }
+      ]
+    }
+  },
+  "v1_decision_evidence": {
+    "crafting-v1:LARGE": {
+      "config_refs": [
+        "characters_tops.pbo/config.bin:LeatherJacket_ColorBase@105118",
+        "characters_vests.pbo/config.bin:LeatherStorageVest_ColorBase@22424"
+      ],
+      "decision": "Leather material selections; authored 2 panels ordinary, 1 ruined. No registered native garment DeCraft overlap in inspected census."
+    },
+    "crafting-v1:MEDIUM": {
+      "config_refs": [
+        "L1",
+        "L2",
+        "characters_tops.pbo/config.bin:LeatherShirt_ColorBase@141720",
+        "characters_pants.pbo/config.bin:LeatherPants_ColorBase@50723"
+      ],
+      "decision": "Exact leather selections; authored 1 panel ordinary."
+    },
+    "crafting-v1:C1": {
+      "config_refs": [
+        "gear_camping.pbo/config.bin:CamoNet@123889",
+        "gear_camping.pbo/config.bin:CableReel@138132",
+        "gear_camping.pbo/config.bin:WoodenCrate@127895"
+      ],
+      "decision": "Textile, cord and wood definitions. Native DeCraftWoodenCrate max damage 3; ruined HC crate is disjoint."
+    },
+    "crafting-v1:B1": {
+      "config_refs": [
+        "weapons_melee.pbo/blunt/config.bin:BaseballBat@474",
+        "weapons_melee.pbo/blunt/config.bin:NailedBaseballBat@1699",
+        "weapons_melee.pbo/blunt/config.bin:BarbedBaseballBat@2949",
+        "weapons_melee.pbo/blunt/config.bin:XmasBaseballBat@4527"
+      ],
+      "decision": "Wood impact/bat materials. CraftBaseBallBatNailed consumes 12 nails; ordinary HC recovers stick 1+nails 4, ruined recovers only nail 1. No registered native bat DeCraft overlap."
+    },
+    "crafting-v1:MIN-PANEL": {
+      "config_refs": [
+        "L1",
+        "L2",
+        "gear_consumables.pbo/config.bin:TannedLeather@30720"
+      ],
+      "sha256": "ed0a211a281fb39a545c9fba18b0881ae8f7e5921aa1775a30989f9a0c343223",
+      "native_fields": {
+        "varQuantityMin": 0,
+        "varQuantityDestroyOnMin": 1
+      },
+      "decision": "Excluded ruined medium leather: ordinary output is 1 panel, Configure quantity is int. A lower whole-unit output is zero and destroys on minimum. Material selections do not establish cloth/rag yield. Fractional balance and runtime qualification are deferred, not an engine impossibility."
+    },
+    "crafting-v1:MIN-WIRE": {
+      "config_refs": [
+        "gear_crafting.pbo/config.bin:MetalWire@4323",
+        "crafting-v1:B1"
+      ],
+      "sha256": "28285d6ab07d1429b1461f494d3994e541f7dce9efb7002503f2972940dfa94d",
+      "native_fields": {
+        "varStackMax": 1,
+        "varQuantityMin": 0,
+        "varQuantityDestroyOnMin": 1
+      },
+      "decision": "Excluded ruined barbed bat: ordinary output is 1 wire unit. No positive lower whole-unit yield under Configure int contract. Wood is proved but a wood-for-wire conversion would not be strictly below the ordinary material vector. Fractional yield policy remains deferred."
+    }
+  },
+  "v1_mechanical_candidates": [
+    {
+      "item": "RabbitSnareTrap",
+      "status": "native-action-qualification-pending",
+      "sources": [
+        "4_World/Classes/Recipes/Recipes/CraftRabbitSnare.c",
+        "4_World/Entities/ItemBase/TrapSpawnBase/Trap_RabbitSnare.c",
+        "4_World/Entities/ItemBase/TrapSpawnBase.c"
+      ],
+      "facts": "CraftRabbitSnare consumes 1 WoodenStick and destroys MetalWire. No registered DeCraftRabbitSnare or explicit dismantle action found in inspected trap SetActions chain; folding/deactivation is not proved material recovery. No engine invocation performed.",
+      "decision": "Candidate for mechanical recovery after native action qualification; no HC recipe added."
+    }
+  ],
+  "v1_native_overlap": {
+    "layer": "T0 installed source inspection; not engine recipe discovery",
+    "source": "4_World/Classes/Recipes/Recipes",
+    "garment_bat_decraft_matches": [],
+    "crate_native_max_damage": 3,
+    "rule": "No registered native DeCraft garment/bat source found; ordinary and ruined HC rows have disjoint damage bounds."
+  }
 }

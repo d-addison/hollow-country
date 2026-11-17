@@ -135,6 +135,12 @@ class HCCraftingNativeChecks
             return false;
         if (!CheckRecovery(manager.HCGetRegisteredSalvage("HCRecoverRuinedCrate"), "HCRecoverRuinedCrate", "Crowbar", "WoodenPlank", 1, "Nail", 2, 20, 3, true))
             return false;
+        if (!CheckRecovery(manager.HCGetRegisteredSalvage("HCRecoverRuinedLargeLeather"), "HCRecoverRuinedLargeLeather", "KitchenKnife", "TannedLeather", 1, "", 0, 5, 2, true))
+            return false;
+        if (!CheckRecovery(manager.HCGetRegisteredSalvage("HCRecoverRuinedBatWood"), "HCRecoverRuinedBatWood", "Hacksaw", "WoodenStick", 1, "", 0, 5, 2, true))
+            return false;
+        if (!CheckRecovery(manager.HCGetRegisteredSalvage("HCRecoverRuinedNailedBat"), "HCRecoverRuinedNailedBat", "Hacksaw", "Nail", 1, "", 0, 8, 3, true))
+            return false;
         return true;
     }
 }

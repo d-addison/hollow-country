@@ -374,7 +374,7 @@ class WeightedCycleTests(unittest.TestCase):
             names.update(x['item'].split(':')[1] for side in ('inputs','outputs','tools') for x in p[side])
         return proposals, {'Bat.c':bat,'Crate.c':crate}, [item(n) for n in sorted(names)]
 
-    def test_all_six_exact_proposals_pass_quantity_gate(self):
+    def test_all_exact_proposals_pass_quantity_gate(self):
         proposals, files, rows = self.cohort()
         result = self.build(files,rows,proposals=proposals)
         self.assertEqual({p['id']:p['cycle_status'] for p in result['proposals']}, {
@@ -383,7 +383,10 @@ class WeightedCycleTests(unittest.TestCase):
             'HCRecoverBatWood':'acyclic-declared-graph',
             'HCRecoverNailedBat':'lossy-cycle-admissible',
             'HCRecoverBarbedBat':'acyclic-declared-graph',
-            'HCRecoverRuinedCrate':'lossy-cycle-admissible'})
+            'HCRecoverRuinedCrate':'lossy-cycle-admissible',
+            'HCRecoverRuinedLargeLeather':'acyclic-declared-graph',
+            'HCRecoverRuinedBatWood':'acyclic-declared-graph',
+            'HCRecoverRuinedNailedBat':'lossy-cycle-admissible'})
         self.assertTrue(all(p['quantity_gate_passed'] for p in result['proposals']))
         self.assertFalse(any(p['gameplay_acceptance'] for p in result['proposals']))
 
