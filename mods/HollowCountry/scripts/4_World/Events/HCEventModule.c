@@ -19,6 +19,9 @@ class HCEventModule : HCModule
     protected float m_StartedAt;
     protected string m_Session;
     protected ref array<string> m_AnnouncedMissions;
+    // Same provider the runtime owns; read-only here so the roster offers the
+    // AI encounter family only while that provider reports ready.
+    protected ref HCEventAIProvider m_AIProvider;
 
     static HCEventModule Get()
     {
@@ -102,6 +105,7 @@ class HCEventModule : HCModule
         HCEventNativeObserver observer = CreateObserver();
         m_NativeObserver = observer;
         HCEventAIProvider ai = CreateAIProvider();
+        m_AIProvider = ai;
         m_Runtime = new HCEventRuntime;
         if (!m_Runtime.Start(m_Config, context, journal, observer, ai))
         {
@@ -112,6 +116,7 @@ class HCEventModule : HCModule
         // Runtime canonicalizes the nonce with its persisted session generation.
         m_Session = context.Session;
         BindReviewedTargets(observer, m_Config);
+        bool aiReady = AIReady(context);
         int admitted = 0;
         foreach (HCEventSite site : m_Config.Sites)
         {
@@ -127,7 +132,7 @@ class HCEventModule : HCModule
             }
             else
             {
-                array<ref HCEventMission> roster = HCEventRoster.Build(site, true);
+                array<ref HCEventMission> roster = HCEventRoster.Build(site, aiReady);
                 foreach (HCEventMission mission : roster)
                 {
                     int result = m_Runtime.Announce(mission, context);
@@ -230,7 +235,7 @@ class HCEventModule : HCModule
         string siteWorld = site.WorldName;
         siteWorld.ToLower();
         if (siteWorld != context.WorldName) { return; }
-        array<ref HCEventMission> roster = HCEventRoster.Build(site, true);
+        array<ref HCEventMission> roster = HCEventRoster.Build(site, AIReady(context));
         foreach (HCEventMission mission : roster)
         {
             // HasMission cannot see pruned records, so this session list is the
@@ -240,18 +245,31 @@ class HCEventModule : HCModule
                 HCEventWorldBinding.Bind(m_NativeObserver, mission);
                 if (m_Runtime.Announce(mission, context) == HCEventCode.OK)
                 {
-                    RememberAnnounced(mission.Id);
+                    // Remembered once, so this line appears once per mission id.
+                    if (RememberAnnounced(mission.Id))
+                    {
+                        Print("[HC Events] mission admitted later; " + mission.Id);
+                    }
                 }
             }
         }
     }
+    // No provider, or a provider that is not ready, means no AI mission is offered.
+    bool AIReady(HCEventContext context)
+    {
+        if (!m_AIProvider) { return false; }
+        return m_AIProvider.Ready(context.WorldName);
+    }
     // Bounded: at most 8 sites x 7 families; a full list refuses to remember.
-    void RememberAnnounced(string missionId)
+    // True only when the id was newly remembered.
+    bool RememberAnnounced(string missionId)
     {
         if (m_AnnouncedMissions && m_AnnouncedMissions.Count() < 64 && m_AnnouncedMissions.Find(missionId) < 0)
         {
             m_AnnouncedMissions.Insert(missionId);
+            return true;
         }
+        return false;
     }
     void ItemLocationChanged(ItemBase item, PlayerBase previousCarrier, EntityAI destination)
     {
@@ -306,6 +324,7 @@ class HCEventModule : HCModule
             }
             m_Runtime = null;
             m_NativeObserver = null;
+            m_AIProvider = null;
         }
         m_Stopping = false;
         m_Quarantined = false;

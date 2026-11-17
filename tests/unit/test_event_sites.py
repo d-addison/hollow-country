@@ -38,7 +38,10 @@ def load(filename, owner, env, statics=None):
     following = source.find("\nclass ", 1)
     if following >= 0:
         source = source[:following]
-    cls = type(owner, (), dict(statics or {}))
+    # Unset static fields start null, as native Enforce statics do.
+    defaults = {"s_" + name: None for name in re.findall(r"\bs_(\w+)\b", source)}
+    defaults.update(statics or {})
+    cls = type(owner, (), defaults)
     env[owner] = cls
     source = re.sub(r"\bs_(\w+)\b", owner + r".s_\1", source)
     for static, name in re.findall(r"^    (?:override )?(static )?(?:bool|int|float|string|void|HCEvent\w+|array<[^>]+>) (\w+)\(", source, re.M):
@@ -595,6 +598,87 @@ class ObjectiveAdapters(Fixture):
             self.assertTrue(observer.RegisterTarget("filler-%d" % index, filler))
         self.assertFalse(binder.Bind(observer, mission))
         self.assertEqual(1, len(self.game.deleted), "an unregistered cache is removed, never left as loot")
+
+
+class BindDiagnosticTests(unittest.TestCase):
+    """Why a reviewed target did not bind: one bounded line per (mission, reason)."""
+
+    def setUp(self):
+        fixture = runtime_tests.NativeObservationTests()
+        fixture.setUp()
+        self.f = fixture
+        self.e = fixture.e
+        self.logs = []
+        self.e["Print"] = lambda text: self.logs.append(text)
+        self.objects = []
+        self.e["GetGame"] = lambda: N(IsServer=lambda: True,
+            GetObjectsAtPosition3D=lambda anchor, radius, objects, proxies: objects.extend(self.objects))
+        self.e["ItemBase"] = N(Cast=lambda value: value)
+        self.e["ZombieBase"] = N(Cast=lambda value: value)
+        self.e["HCEventTarget"] = lambda: N(Presence=None, Item=None)
+        self.mission = fixture.mission
+        self.mission.Family = 1
+        self.mission.ItemClass = "SyntheticSupply"
+        self.binder = load("HCEventWorldBinding.c", "HCEventWorldBinding", self.e)
+
+    def candidate(self, kind="SyntheticSupply"):
+        item = Handle(identity="", kind=kind)
+        item.HCEventEconomyCandidate = lambda: True
+        return item
+
+    def bind_lines(self):
+        return [text for text in self.logs if text.startswith("[HC Events] bind failed;")]
+
+    def test_query_overflow_is_reported_once_however_often_it_is_retried(self):
+        self.objects = [self.candidate() for _ in range(129)]
+        for _ in range(5):
+            self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(["[HC Events] bind failed; %s; reason=query_overflow" % self.mission.Id], self.bind_lines())
+
+    def test_zero_candidates_are_reported_as_no_candidate(self):
+        self.objects = [self.candidate("SomethingElse")]
+        for _ in range(3):
+            self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate" % self.mission.Id], self.bind_lines())
+
+    def test_more_than_one_candidate_is_reported_as_ambiguous(self):
+        self.objects = [self.candidate(), self.candidate()]
+        for _ in range(3):
+            self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(["[HC Events] bind failed; %s; reason=ambiguous" % self.mission.Id], self.bind_lines())
+
+    def test_infected_clear_reports_zero_and_multiple_candidates(self):
+        self.mission.Family = 7
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        def zombie():
+            actor = Handle(identity="", kind="SyntheticZombie")
+            actor.HCEventEconomyCandidate = lambda: True
+            return actor
+        self.objects = [zombie(), zombie()]
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate" % self.mission.Id,
+                          "[HC Events] bind failed; %s; reason=ambiguous" % self.mission.Id], self.bind_lines())
+
+    def test_a_new_reason_for_the_same_mission_is_reported_again(self):
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.objects = [self.candidate(), self.candidate()]
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(2, len(self.bind_lines()))
+
+    def test_success_and_unrelated_refusals_log_nothing(self):
+        self.objects = [self.candidate()]
+        self.assertTrue(self.binder.Bind(self.f.o, self.mission))
+        self.mission.Family = 5
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual([], self.bind_lines())
+
+    def test_the_report_set_is_bounded(self):
+        for index in range(200):
+            mission = copy.copy(self.mission)
+            mission.Id = "bounded-%d" % index
+            self.assertFalse(self.binder.Bind(self.f.o, mission))
+        self.assertEqual(64, len(self.bind_lines()))
 
 
 class SourceContracts(unittest.TestCase):
