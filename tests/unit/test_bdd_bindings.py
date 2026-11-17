@@ -19,6 +19,8 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Bound effective item metadata acquisition without claiming compatibility': 'test_item_compatibility_audit.py',
+            'Authorize group changes and bound durable server state': 'test_group_server.py',
             'Retain ambiguous recipes in a whole-source census': 'test_crafting_audit.py',
             'Reject fuel credits that can create quantity through rounding': 'test_fuel_transfer.py',
             'Calculate bounded stamina and carried-load changes': 'test_stamina_policy.py',

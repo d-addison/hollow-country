@@ -2,6 +2,18 @@
 Feature: Research tooling preserves honest evidence
   Offline checks validate authored data and never claim DayZ behavior.
 
+  @ISSUE-52 @ISSUE-56
+  Scenario: Bound effective item metadata acquisition without claiming compatibility
+    Given synthetic configuration types and explicit export budgets
+    When the authored acquisition policies and fixed mission hook checks execute
+    Then variants and partial scans remain explicit without geometry or gameplay claims
+
+  @ISSUE-37
+  Scenario: Authorize group changes and bound durable server state
+    Given synthetic authenticated peers group state and store failures
+    When the authored group rules and server orchestration execute
+    Then unauthorized changes unsafe persistence and outsider position disclosure fail
+
   @ISSUE-52 @ISSUE-54
   Scenario: Retain ambiguous recipes in a whole-source census
     Given synthetic source trees with conditional recipes and unregistered descendants

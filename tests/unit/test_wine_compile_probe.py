@@ -96,6 +96,27 @@ class MockedWineRunTests(unittest.TestCase):
             self.run_mocked(diagnostic_selftests=True)
         self.assertFalse(self.experiment.exists())
 
+    def test_item_audit_uses_normal_server_and_does_not_claim_export_completion(self):
+        with patch('tools.setup.diagnostic_mission.prepare_diagnostic_mission',
+                   return_value={'kind': 'synthetic-item-audit-staging'}) as prepare:
+            report = self.run_mocked(item_compatibility_audit=True)
+        prepare.assert_called_once_with(self.server / 'mpmissions/dayzOffline.chernarusplus',
+                                        self.experiment / 'item-audit.chernarusplus', purpose='item-audit')
+        self.assertIn('-mission=' + probe.win(self.experiment / 'item-audit.chernarusplus'),
+                      self.launch.call_args.args[0])
+        self.assertEqual(report['executable_kind'], 'dedicated-server')
+        self.assertTrue(report['item_compatibility_audit_requested'])
+        self.assertEqual(report['runtime_acceptance'], 'pending')
+        self.assertNotIn('item_compatibility_audit_passed', report)
+        self.assert_cleaned_report(report)
+
+    def test_item_audit_cannot_combine_with_another_mission_hook(self):
+        for kwargs in ({'diagnostic_selftests': True, 'diagnostic': True},
+                       {'native_autotest_scripts': self.root / 'interfaces', 'diagnostic': True}):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ValueError, 'one mission hook'):
+                self.run_mocked(item_compatibility_audit=True, **kwargs)
+            self.assertFalse(self.experiment.exists())
+
     def test_native_autotest_waits_for_real_completion_and_keeps_engine_error(self):
         (self.server / 'DayZDiag_x64.exe').write_bytes(b'synthetic diagnostic')
         def prepare(source, destination, scripts, **kwargs):

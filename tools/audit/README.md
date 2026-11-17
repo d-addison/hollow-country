@@ -35,6 +35,28 @@ recipe counts and merged item counts remain unknown. This census is the starting
 inventory for the full-content audit, not permission to declare three recipes or
 a few attachment combinations feature-complete.
 
+## Effective item metadata acquisition
+
+`HCItemCompatibilityAudit` is an opt-in diagnostic exporter inside the addon.
+The isolated compiler probe's `--item-compatibility-audit` option stages a fresh
+mission with a fixed exporter hook. Its JSON stays in that disposable profile,
+outside source control. The hook does not register gameplay, spawn items or alter
+inventory. Do not combine it with the other probe mission hooks.
+
+The exporter visits `CfgWeapons` and `CfgVehicles`, retaining class ancestry and
+selected attachment, repair, cargo, liquid and energy metadata. It preserves
+actual scalar types, including empty strings and zero. Unsupported types and
+unverified array element types remain explicit. Missing properties are omitted;
+they are not evidence that an attachment or action is supported.
+
+Always inspect `Header.Partial`, `StopReason`, per-root advertised/visited counts
+and output identity separately from the server startup result. Run 032 compiled
+and initialized but stopped at the conservative byte budget after 945 rows;
+`CfgVehicles` enumeration is incomplete. A clean startup is not a successful full
+audit. Even completed enumeration leaves `FullCoverage=false`: model proxies,
+beam alignment, switching, inventory eligibility and multiplayer behavior need
+their own observations. Native exports and game assets must remain local.
+
 ## Central Economy audit
 
 Run from the project root with Python 3.11+; only the standard library is used:

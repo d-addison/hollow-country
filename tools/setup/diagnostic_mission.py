@@ -48,6 +48,31 @@ class HCDisposableDiagnosticMission : CustomMission
 }
 """
 
+ITEM_AUDIT_HOOK = b"""
+
+// Hollow Country DISPOSABLE metadata acquisition; no gameplay acceptance.
+class HCDisposableDiagnosticMission : CustomMission
+{
+    protected bool m_HCDiagnosticExecuted = false;
+    override void OnInit()
+    {
+        super.OnInit();
+        if (!GetGame() || !GetGame().IsServer() || m_HCDiagnosticExecuted)
+            return;
+        m_HCDiagnosticExecuted = true;
+        string world;
+        string version;
+        GetGame().GetWorldName(world);
+        GetGame().GetVersion(version);
+        string outputPath;
+        string error;
+        Print("[HC Item Audit] BEGIN; metadata only");
+        bool complete = HCItemCompatibilityAudit.Export("native-item-audit", world, version, "isolated compiler-report PBO/config hashes and mission provenance", true, outputPath, error);
+        Print("[HC Item Audit] complete=" + complete + "; output=" + outputPath + "; error=" + error);
+    }
+}
+"""
+
 _FACTORY = re.compile(
     rb"(Mission\s+CreateCustomMission\s*\(\s*string\s+path\s*\)\s*"
     rb"\{\s*return\s+new\s+)CustomMission(\s*\(\s*\)\s*;\s*\})")
@@ -111,7 +136,9 @@ def _inventory(source):
     return sorted(files), sorted(directories), total
 
 
-def _instrument(blob):
+def _instrument(blob, *, purpose='selftests'):
+    if purpose not in ('selftests', 'item-audit'):
+        raise ValueError('unsupported diagnostic purpose')
     if len(blob) > MAX_INIT_BYTES:
         raise ValueError("init.c byte budget exceeded")
     if b"HCDisposableDiagnosticMission" in blob or b"[HC Diagnostic Mission]" in blob:
@@ -123,10 +150,10 @@ def _instrument(blob):
     result, count = _FACTORY.subn(rb"\g<1>HCDisposableDiagnosticMission\g<2>", blob)
     if count != 1:
         raise ValueError("unsupported stock mission factory shape")
-    return result + DIAGNOSTIC_HOOK
+    return result + (DIAGNOSTIC_HOOK if purpose == 'selftests' else ITEM_AUDIT_HOOK)
 
 
-def prepare_diagnostic_mission(source, destination):
+def prepare_diagnostic_mission(source, destination, *, purpose='selftests'):
     """Return/write provenance for a fresh isolated mission, without engine launch.
 
     Source must be an unmodified stock-shaped Chernarus mission in an isolated
@@ -135,6 +162,8 @@ def prepare_diagnostic_mission(source, destination):
     epoch 900001 must be absent there (the existing native probe enforces this).
     This helper does not edit settings, feature flags, profiles or the addon PBO.
     """
+    if purpose not in ('selftests', 'item-audit'):
+        raise ValueError('unsupported diagnostic purpose')
     source, destination = _safe_path(source), _safe_path(destination)
     if not source.is_dir():
         raise ValueError("source mission directory required")
@@ -151,19 +180,20 @@ def prepare_diagnostic_mission(source, destination):
     with init_path.open("rb") as stream:
         original = stream.read(MAX_INIT_BYTES + 1)
     _unchanged(init_path, initial)
-    instrumented = _instrument(original)
+    instrumented = _instrument(original, purpose=purpose)
     # Validate parents again immediately before mutation; never clean failed output.
     _safe_path(destination)
     destination.mkdir(parents=True, exist_ok=False)
     for relative in directories:
         (destination / relative).mkdir(exist_ok=False)
-    manifest = {"schema": 1, "kind": "disposable-diagnostic-selftests",
+    manifest = {"schema": 1, "kind": "disposable-diagnostic-selftests" if purpose == 'selftests' else 'disposable-item-compatibility-audit',
                 "runtime_acceptance": "pending", "source_root": str(source),
-                "mission_path": str(destination), "storage_probe_epoch": 900001,
+                "mission_path": str(destination), "storage_probe_epoch": 900001 if purpose == 'selftests' else None,
                 "source_bytes": total, "files": {},
                 "init_change": "stock factory subclass substitution plus authored appended OnInit hook",
-                "hook_sha256": hashlib.sha256(DIAGNOSTIC_HOOK).hexdigest(),
-                "requires": ["actual DIAG_DEVELOPER", "server mode", "unchanged HC PBO", "fresh profile epoch 900001"]}
+                "hook_sha256": hashlib.sha256(DIAGNOSTIC_HOOK if purpose == 'selftests' else ITEM_AUDIT_HOOK).hexdigest(),
+                "requires": (["actual DIAG_DEVELOPER", "server mode", "unchanged HC PBO", "fresh profile epoch 900001"]
+                             if purpose == 'selftests' else ["server mode", "matching HCItemCompatibilityAudit PBO", "fresh profile outside Git", "inspect export completeness separately from startup"])}
     for relative, info in files:
         src, dst = source / relative, destination / relative
         _unchanged(src, info)

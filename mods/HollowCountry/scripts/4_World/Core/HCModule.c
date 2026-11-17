@@ -11,7 +11,10 @@ class HCModuleRegistry
 {
     protected ref array<ref HCModule> m_Modules = new array<ref HCModule>();
 
-    void RegisterModules() {}
+    void RegisterModules()
+    {
+        Register(new HCGroupModule());
+    }
 
     void Register(HCModule module)
     {

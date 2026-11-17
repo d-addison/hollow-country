@@ -30,6 +30,24 @@ class DiagnosticMissionTests(unittest.TestCase):
     def prepare(self):
         return dm.prepare_diagnostic_mission(self.source, self.dest)
 
+    def test_item_audit_has_a_fixed_normal_server_hook_and_separate_provenance(self):
+        result = dm.prepare_diagnostic_mission(self.source, self.dest, purpose='item-audit')
+        copied = (self.dest / 'init.c').read_bytes()
+        self.assertIn(b'HCItemCompatibilityAudit.Export(', copied)
+        self.assertIn(b'GetVersion(version)', copied)
+        self.assertIn(b'GetWorldName(world)', copied)
+        self.assertNotIn(b'#ifdef DIAG_DEVELOPER', copied)
+        self.assertNotIn(b'RunStorageProbe', copied)
+        self.assertEqual(result['kind'], 'disposable-item-compatibility-audit')
+        self.assertIsNone(result['storage_probe_epoch'])
+        self.assertEqual(result['hook_sha256'], hashlib.sha256(dm.ITEM_AUDIT_HOOK).hexdigest())
+        self.assertEqual(result['runtime_acceptance'], 'pending')
+
+    def test_unknown_diagnostic_purpose_fails_before_any_output(self):
+        with self.assertRaises(ValueError):
+            dm.prepare_diagnostic_mission(self.source, self.dest, purpose='arbitrary-script')
+        self.assertFalse(self.dest.exists())
+
     def test_copy_preserves_stock_and_records_exact_exception_and_hashes(self):
         before = {p.relative_to(self.source).as_posix(): p.read_bytes()
                   for p in self.source.rglob("*") if p.is_file()}

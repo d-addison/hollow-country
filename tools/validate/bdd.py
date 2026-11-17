@@ -13,6 +13,14 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Bound effective item metadata acquisition without claiming compatibility": (
+        ("Given synthetic configuration types and explicit export budgets",
+         "When the authored acquisition policies and fixed mission hook checks execute",
+         "Then variants and partial scans remain explicit without geometry or gameplay claims"), "test_item_compatibility_audit.py"),
+    "Authorize group changes and bound durable server state": (
+        ("Given synthetic authenticated peers group state and store failures",
+         "When the authored group rules and server orchestration execute",
+         "Then unauthorized changes unsafe persistence and outsider position disclosure fail"), "test_group_server.py"),
     "Retain ambiguous recipes in a whole-source census": (
         ("Given synthetic source trees with conditional recipes and unregistered descendants",
          "When the bounded crafting census executes",
