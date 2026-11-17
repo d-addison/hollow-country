@@ -99,6 +99,8 @@ maxPlayers = 6;                   // intended load is 3 to 6 players
   subscriptions. They are never repacked or bundled.
 - Every value is provisional until the owner's local session checks it with one
   client.
+- Which mods each player needs, their load order and the friend server's ports:
+  see `docs/TRANSFER_AND_ROLLBACK.md` (Mods each player needs).
 
 ## CE generation and installation
 
