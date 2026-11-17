@@ -471,7 +471,7 @@ class CompareTests(unittest.TestCase):
         both = XML_TREATING_OVERCAST_AND_FOG
         def stuck(rows):
             for row in rows[1:7]:
-                row["phenomena"]["fog"]["next_change"] = 1000
+                row["phenomena"]["fog"].update(actual=0.75, forecast=0.75, next_change=1000)
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(both, "candidate", mutate=stuck))
         self.assertEqual(["overcast", "fog"], result["treated"])
         self.assertEqual("pending", result["phenomena"]["fog"]["evidence"])
@@ -531,7 +531,7 @@ class ProgressionTests(unittest.TestCase):
         def conflicting(rows):
             for row in rows[1:7]:
                 entry = row["phenomena"]["overcast"]
-                entry.update(limit_min=0.0, limit_max=1.0, forecast=0.3, next_change=1000)
+                entry.update(limit_min=0.0, limit_max=1.0, forecast=0.9, next_change=1000)
         result = self.compare(candidate_overcast=0.9, candidate_mutate=conflicting)
         self.assert_not_established(result)
 
@@ -1023,6 +1023,145 @@ FOG_CURRENT = with_current(cfgweather(enable="1"), "fog")
 FOG_CURRENT_LIMITS = with_current(cfgweather(enable="1", fog=(0.7, 0.8), times={"fog": (30, 60)}), "fog")
 
 
+class PostEntryExcursionTests(unittest.TestCase):
+    """The initial transition excuses only the run from the reset value up to the first actual inside the limits; an
+    excursion after that first entry is a violation, whatever else was read back. Synthetic traces, not DayZ output."""
+
+    POSITIVE = ("candidate_live_limits_read_back", "candidate_current_read_back")
+
+    def overcast_pair(self, actual):
+        points = list(zip(actual, [.9] * 8, [100, 70, 40, 10, 100, 70, 40, 10]))
+        candidate = evaluated(DISTINCT, "candidate", count=8, mutate=series("overcast", points))
+        return candidate, report.compare(evaluated(STOCK, "stock", 0.3, count=8), candidate)
+
+    def fog_pair(self, actual):
+        countdown = [360 - 30 * i for i in range(12)] + [0, 40]
+        points = list(zip(actual, [.75] * 14, countdown))
+        candidate = fog_current_run(FOG_CURRENT_LIMITS, "candidate", fog_series=points)
+        return candidate, report.compare(evaluated(STOCK, "stock", count=14), candidate)
+
+    def assert_no_positive_labels(self, entry):
+        self.assertNotIn(entry["evidence"], self.POSITIVE)
+        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
+        for label in (entry["attribute_evidence"] or {}).values():
+            self.assertNotIn(label, self.POSITIVE)
+
+    def test_an_actual_that_starts_inside_the_limits_and_leaves_them_violates(self):
+        candidate, result = self.overcast_pair([.81, .4, .6, .75, .9, .9, .9, .9])
+        entry = candidate["phenomena"]["overcast"]
+        self.assertEqual("violates_candidate", entry["status"])
+        self.assertEqual([1, 2, 3], entry["violating_samples"])
+        self.assertEqual(0, entry["initial_transition"]["samples"])
+        self.assertEqual(0, entry["initial_transition"]["actual_outside_limits"])
+        pair = result["phenomena"]["overcast"]
+        self.assert_no_positive_labels(pair)
+        self.assertEqual("violates_candidate", pair["candidate_status"])
+        self.assertIs(False, pair["values_in_range"])
+
+    def test_an_excursion_after_the_first_entry_violates_even_with_the_current_read_back(self):
+        candidate, result = self.fog_pair([.3, .4, .72, .1, .75] + [.75] * 9)
+        entry = candidate["phenomena"]["fog"]
+        self.assertEqual("violates_candidate", entry["status"])
+        self.assertEqual([3], entry["violating_samples"])
+        self.assertEqual((2, "actual_entered_limits"),
+                         (entry["initial_transition"]["samples"], entry["initial_transition"]["ended_by"]))
+        self.assertEqual([0, 1], entry["initial_transition"]["outside_samples"])
+        pair = result["phenomena"]["fog"]
+        self.assert_no_positive_labels(pair)
+        self.assertEqual("complete", result["status"], result["issues"])
+
+    def test_the_convergence_from_the_reset_value_is_excused_only_before_the_first_entry(self):
+        candidate, result = self.fog_pair([.3, .4, .55, .7] + [.75] * 10)
+        entry = candidate["phenomena"]["fog"]
+        self.assertEqual("within_candidate", entry["status"])
+        self.assertEqual((3, "actual_entered_limits"),
+                         (entry["initial_transition"]["samples"], entry["initial_transition"]["ended_by"]))
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["fog"]["evidence"])
+
+    def test_the_decision_table_of_the_window_end(self):
+        limits = (.8, .95)
+        cases = {
+            "the first actual is inside the limits": (
+                [(0, .81, .9, 100), (30, .4, .9, 70), (60, .9, .9, 40)], (0, "actual_entered_limits")),
+            "the entry comes before the forecast is reached": (
+                [(0, .3, .9, 100), (30, .85, .9, 70), (60, .5, .9, 40), (90, .9, .9, 10)], (1, "actual_entered_limits")),
+            "the forecast is reached while the limits are not the target": (
+                [(0, .3, .5, 100), (30, .4, .5, 70), (60, .5, .5, 40)], (2, "actual_reached_initial_forecast")),
+            "a forecast change comes before any entry": (
+                [(0, .3, .9, 100), (30, .35, .9, 70), (60, .4, .85, 40), (90, .85, .85, 10)], (2, "first_scheduled_change")),
+            "no entry, no forecast and no scheduled change is no transition": (
+                [(0, .3, .9, 100), (30, .35, .9, 70), (60, .4, .9, 40)], (0, None)),
+        }
+        for label, (points, expected) in cases.items():
+            with self.subTest(label):
+                self.assertEqual(expected, report._initial_transition(points, limits))
+
+
+class VerdictBeforeGateTests(unittest.TestCase):
+    """Known violations are reported once there are enough usable samples, whatever the countdown did."""
+
+    COUNTDOWN = [900 - 30 * i for i in range(6)]
+
+    def pair(self, actual, forecast):
+        points = list(zip(actual, forecast, self.COUNTDOWN))
+        candidate = evaluated(DISTINCT, "candidate", mutate=series("overcast", points))
+        return report.compare(evaluated(STOCK, "stock", 0.3), candidate)
+
+    def test_forecast_outside_is_reported_even_without_a_cycle(self):
+        result = self.pair([.9] * 6, [.99] * 6)
+        entry = result["phenomena"]["overcast"]
+        self.assertEqual((False, False), (entry["boundary_crossed"]["candidate"], entry["cycle_observed"]["candidate"]))
+        self.assertEqual(6, entry["candidate_forecast_outside_limits"])
+        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
+        self.assertEqual("complete", result["status"], result["issues"])
+
+    def test_an_observed_actual_violation_is_reported_even_without_a_cycle(self):
+        result = self.pair([.9, .9, .9, .5, .9, .9], [.9] * 6)
+        entry = result["phenomena"]["overcast"]
+        self.assertFalse(entry["cycle_observed"]["candidate"])
+        self.assertEqual("violates_candidate", entry["candidate_status"])
+        self.assertEqual("candidate_values_outside_limits", entry["evidence"])
+        self.assertEqual("complete", result["status"], result["issues"])
+
+    def test_too_few_samples_stay_pending_whatever_they_show(self):
+        candidate = evaluated(DISTINCT, "candidate", count=3,
+                              mutate=series("overcast", [(.9, .99, 900), (.9, .99, 870), (.9, .99, 840)]))
+        result = report.compare(evaluated(STOCK, "stock", 0.3, count=3), candidate)
+        self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
+
+
+class RawValuesInRangeTests(unittest.TestCase):
+    """values_in_range describes every raw actual; the excused status is reported under its own scoped field."""
+
+    def test_values_in_range_describes_the_raw_samples(self):
+        candidate = fog_current_run(FOG_CURRENT_LIMITS, "candidate")
+        result = report.compare(evaluated(STOCK, "stock", count=14), candidate)
+        entry = result["phenomena"]["fog"]
+        self.assertEqual("within_candidate", entry["candidate_status"])
+        self.assertIs(False, entry["values_in_range"])
+        self.assertIs(True, entry["values_in_range_after_initial_transition"])
+        self.assertEqual(.3, entry["candidate_actual_range"]["min"])
+        self.assertEqual(3, entry["raw_actual_outside_limits"])
+
+    def test_values_in_range_after_the_transition_is_false_for_a_later_violation(self):
+        countdown = [360 - 30 * i for i in range(12)] + [0, 40]
+        points = list(zip([.3, .4, .72, .1, .75] + [.75] * 9, [.75] * 14, countdown))
+        entry = report.compare(evaluated(STOCK, "stock", count=14),
+                               fog_current_run(FOG_CURRENT_LIMITS, "candidate", fog_series=points))["phenomena"]["fog"]
+        self.assertEqual((False, False), (entry["values_in_range"], entry["values_in_range_after_initial_transition"]))
+
+    def test_values_in_range_is_true_only_when_no_raw_actual_is_outside(self):
+        candidate = evaluated(DISTINCT, "candidate", 0.9)
+        entry = report.compare(evaluated(STOCK, "stock", 0.3), candidate)["phenomena"]["overcast"]
+        self.assertEqual((True, True), (entry["values_in_range"], entry["values_in_range_after_initial_transition"]))
+
+    def test_the_notes_scope_a_clean_status_to_after_the_initial_transition(self):
+        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9))
+        self.assertTrue(any("after the initial transition" in note and "not whole-run compliance" in note
+                            for note in result["notes"]), result["notes"])
+        self.assertIn("after the initial transition", report.__doc__.split("within_candidate", 1)[1][:200])
+
+
 class CurrentReadbackTests(unittest.TestCase):
     """The candidate's <current> is read back when the first forecast, the first countdown and the actual match it."""
 
@@ -1129,7 +1268,8 @@ class CurrentReadbackTests(unittest.TestCase):
         self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
         self.assertEqual("complete", result["status"], result["issues"])
         self.assertEqual("complete", result["coverage"])
-        self.assertEqual(4, entry["initial_transition"]["samples"])
+        self.assertEqual((3, "actual_entered_limits"),
+                         (entry["initial_transition"]["samples"], entry["initial_transition"]["ended_by"]))
         self.assertEqual("within_candidate", entry["candidate_status"])
 
     def test_a_positive_limits_label_never_hides_an_inconclusive_current(self):
@@ -1187,6 +1327,7 @@ class CandidateShapedFixtureTests(unittest.TestCase):
 
     COUNT = 241
     FIRST, STEP = 5.30287, 5.0
+    WINDOW = {"overcast": (23, "actual_reached_initial_forecast"), "fog": (22, "actual_entered_limits")}
 
     def rows(self, xml, variant, shapes):
         rows = [header(self.COUNT, interval_ms=5000, cap_ms=1235000)]
@@ -1247,8 +1388,9 @@ class CandidateShapedFixtureTests(unittest.TestCase):
         for name in ("overcast", "fog"):
             with self.subTest(name):
                 entry = candidate["phenomena"][name]
-                self.assertEqual(23, entry["initial_transition"]["samples"])
-                self.assertEqual("actual_reached_initial_forecast", entry["initial_transition"]["ended_by"])
+                # the fog actual enters .7..8 one sample before it reaches .75; the overcast actual reaches .98 first
+                self.assertEqual(self.WINDOW[name], (entry["initial_transition"]["samples"],
+                                                     entry["initial_transition"]["ended_by"]))
                 self.assertGreater(entry["initial_transition"]["actual_outside_limits"], 20)
                 self.assertEqual("within_candidate", entry["status"])
                 self.assertEqual(0, entry["actual_violations"])
@@ -1268,7 +1410,9 @@ class CandidateShapedFixtureTests(unittest.TestCase):
                                   "time_limits": "candidate_live_limits_read_back",
                                   "current": "candidate_current_read_back"}, entry["attribute_evidence"])
                 self.assertEqual("within_candidate", entry["candidate_status"])
-                self.assertEqual(23, entry["initial_transition"]["samples"])
+                self.assertEqual(self.WINDOW[name][0], entry["initial_transition"]["samples"])
+                self.assertIs(False, entry["values_in_range"])
+                self.assertIs(True, entry["values_in_range_after_initial_transition"])
         self.assertEqual("pending", result["runtime_acceptance"])
 
     def test_the_pre_existing_actual_is_kept_in_the_reported_range(self):
