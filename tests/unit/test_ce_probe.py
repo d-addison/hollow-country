@@ -781,6 +781,10 @@ def enforce_to_python(text, wanted):
                     out.append("    " * depth + "%s %s:" % (control.group(1), _enforce_expression(control.group(2))))
                     expect_body = True
                 elif loop:
+                    if not (loop.group(1) == loop.group(3) == loop.group(5)):
+                        raise ValueError("unmodelled loop variables in %s: %s" % (name, line))
+                    if re.search(r"\b%s\b" % re.escape(loop.group(1)), loop.group(4)):
+                        raise ValueError("unmodelled self-referencing loop bound in %s: %s" % (name, line))
                     out.append("    " * depth + "for %s in range(%s, %s):" % (
                         loop.group(1), _enforce_expression(loop.group(2)), _enforce_expression(loop.group(4))))
                     expect_body = True
@@ -969,6 +973,15 @@ class GeneratedLogicBehaviorTests(unittest.TestCase):
             with self.subTest(label):
                 self.assertIn(old, self.hook)
                 self.assertNotEqual([], scenario_mismatches(self.hook.replace(old, new, 1)))
+
+    def test_the_model_refuses_loops_whose_condition_or_increment_names_another_variable(self):
+        original = "for (scan = 0; scan < total; scan++)"
+        self.assertIn(original, self.hook)
+        for mutated in ("for (scan = 0; total < total; scan++)", "for (scan = 0; scan < total; total++)"):
+            with self.subTest(mutated=mutated):
+                with self.assertRaises(ValueError):
+                    enforce_to_python(self.hook.replace(original, mutated, 1), GEOMETRY_METHODS)
+                self.assertNotEqual([], scenario_mismatches(self.hook.replace(original, mutated, 1)))
 
     def test_the_model_refuses_raw_boolean_concatenation(self):
         with self.assertRaises(TypeError):
