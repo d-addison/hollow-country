@@ -1,4 +1,8 @@
-"""Synthetic CE mini-mission. Tests only offline generation/install behavior."""
+"""Synthetic CE mini-mission. Tests only offline generation/install behavior.
+
+The synthetic stock has none of the datamined classes, so these tests generate with the datamined
+switch off; the datamined rows are covered in test_datamined_items.
+"""
 import json
 from pathlib import Path
 import tempfile
@@ -28,7 +32,7 @@ class EconomyBehavior(unittest.TestCase):
             root = Path(t)
             profile = synthetic(root)
             before = {p.name: p.read_bytes() for p in root.rglob('*') if p.is_file()}
-            delta = economy.generate(root, profile)
+            delta = economy.generate(root, profile, include_datamined=False)
             x = ET.fromstring(delta['ce/types.xml'])
             item = x.find('type')
             self.assertEqual(item.attrib, {'name': 'SyntheticSupply'})
@@ -46,7 +50,7 @@ class EconomyBehavior(unittest.TestCase):
             self.assertEqual(report['raw_geometry'][0]['raw_points'], 0)
             self.assertEqual(report['status'], 'offline-only-runtime-pending')
             self.assertEqual(report['engine_merge_semantics'], 'unobserved')
-            self.assertEqual(delta, economy.generate(root, profile))
+            self.assertEqual(delta, economy.generate(root, profile, include_datamined=False))
 
     def test_reject_unknown_item_usage_or_unsupported_policy_and_modular_conflicts(self):
         with tempfile.TemporaryDirectory() as t:
@@ -57,17 +61,18 @@ class EconomyBehavior(unittest.TestCase):
                           {'nominal_multiplier': 5}, {'mapgroupproto': 'fake'},
                           {'diagnostics': ['dyn_radius']}, {'add_usage': {'SyntheticSupply': []}}]:
                 with self.subTest(patch=patch), self.assertRaises(ValueError):
-                    economy.generate(root, dict(good, **patch))
+                    economy.generate(root, dict(good, **patch), include_datamined=False)
             core = root / 'cfgeconomycore.xml'
             core.write_text('<economycore><ce folder="other"><file name="types.xml" type="types"/></ce></economycore>')
             with self.assertRaises(ValueError):
-                economy.generate(root, good)
+                economy.generate(root, good, include_datamined=False)
 
     def test_baseline_has_no_economy_changes(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)
             synthetic(root)
-            delta = economy.generate(root, {'schema': 1, 'name': 'baseline', 'add_usage': {}, 'diagnostics': []})
+            delta = economy.generate(root, {'schema': 1, 'name': 'baseline', 'add_usage': {}, 'diagnostics': []},
+                                      include_datamined=False)
             self.assertEqual(len(ET.fromstring(delta['ce/types.xml'])), 0)
             self.assertEqual(len(ET.fromstring(delta['cfgeconomycore.append.xml'])), 0)
 
@@ -79,7 +84,7 @@ class EconomyBehavior(unittest.TestCase):
             profile = synthetic(source)
             original = (source / 'cfgeconomycore.xml').read_bytes()
             stage = root / 'delta'
-            economy.write_delta(stage, economy.generate(source, profile))
+            economy.write_delta(stage, economy.generate(source, profile, include_datamined=False))
             import shutil
             target = root / 'private-copy'
             shutil.copytree(source, target)
@@ -105,7 +110,7 @@ class EconomyBehavior(unittest.TestCase):
             source.mkdir()
             profile = synthetic(source)
             stage = root / 'delta'
-            economy.write_delta(stage, economy.generate(source, profile))
+            economy.write_delta(stage, economy.generate(source, profile, include_datamined=False))
             (stage / 'ce/types.xml').write_text('<types/>')
             with self.assertRaises(ValueError):
                 economy.install(stage, source)
@@ -129,7 +134,7 @@ class EconomyBehavior(unittest.TestCase):
                         original.replace(' count_in_cargo="0"', '')]:
                 source.write_text(bad)
                 with self.subTest(bad=bad), self.assertRaises(ValueError):
-                    economy.generate(root, profile)
+                    economy.generate(root, profile, include_datamined=False)
 
     def test_stage_symlink_and_modified_rollback_are_refused(self):
         with tempfile.TemporaryDirectory() as t:
@@ -138,7 +143,7 @@ class EconomyBehavior(unittest.TestCase):
             source.mkdir()
             profile = synthetic(source)
             stage = root / 'delta'
-            economy.write_delta(stage, economy.generate(source, profile))
+            economy.write_delta(stage, economy.generate(source, profile, include_datamined=False))
             path = stage / 'ce/types.xml'
             content = path.read_bytes()
             path.unlink()

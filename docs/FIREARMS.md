@@ -27,7 +27,9 @@ python3 -m tools.package.firearms rollback --target <that mission copy>
 - Install refuses the Steam path, symlinks, drifted stock and any candidate that changes a field outside
   the allowed set. Rollback restores `cfgeconomycore.xml` byte for byte (tested, including on a copy of the
   real stock files).
-- `economy.install(..., mutable=...)` gained an additive keyword; the default (usage only) is unchanged.
+- `economy.install(..., mutable=...)` keeps its usage-only default. `firearms install` and `rollback` are the
+  same single installer as `economy install` and `rollback` (see section 3b): a roster delta installed alone
+  or composed with the profile and the datamined items is installed once with per-class permissions.
 
 Roster: 37 weapons (12 conventional modern, 15 wood-stock vanilla-spawning and 10 datamined wood-stock
 rows), 18 magazines and 12 ammunition types. Owner decision 2026-11-17: scarcity is "double generous, 2x for
@@ -272,16 +274,193 @@ weapon fires, loads, spawns or balances.
 - Update: when the Workshop item updates, re-run `verify` on the server copy; if any class is not `verified`
   do not regenerate. Remove the delta (`rollback`) if a class disappears, then re-curate the allowlist.
 
-## 4. Pending, honestly
+## 3b. Datamined non-weapon items (economy delta)
+
+`tools/package/datamined_items.json` lists unused-but-finished vanilla clothing, bags and tools
+(55 rows: Leather jackets/shoes/hats/shirt, hunting and winter gear, Drysacks, Iceaxe, FilteringBottle,
+CrabCan and extras) with modest rare budgets. `economy.generate` emits them as complete-entry rows in the
+managed `hollow-country/ce/types.xml`, beside any profile `add_usage` rows.
+
+- Only nominal, min, lifetime, restock, usage and value change. Flags, cost and quantities stay
+  stock-identical; `economy.install_delta` refuses any other change. The category is never changed; it is
+  added only to `FilteringBottle` (the one row whose stock entry has none), and only as `tools`, both named in
+  `economy.CATEGORY_ADDED`; any other category name is refused.
+- Three Bandana rows have no stock entry and are listed in the report but not emitted (install refuses types
+  stock lacks). Leather pants and storage vests are craft outputs and are not rows.
+- Every row is `acceptance: pending-local`; the report repeats it. Switch all rows off with
+  `economy generate --no-datamined` (or `include_datamined=False`).
+- One delta, one install. The profile, the firearms roster and these rows are composed by one generate and
+  installed and rolled back once, because every Hollow Country delta uses the single managed folder
+  `hollow-country/ce` (a second install fails the source-hash check):
+
+  ```
+  python3 -m tools.package.economy generate --source <stock mission copy> --profile <profile.json> \
+      --roster tools/package/firearms_roster.json --out <new delta dir>
+  python3 -m tools.package.economy install  --delta <delta dir> --target <stopped private mission copy>
+  python3 -m tools.package.economy rollback --target <that mission copy>
+  ```
+
+  `python3 -m tools.package.firearms generate --with-items [--profile <profile.json>] ...` produces the same
+  composed delta; without `--with-items` it stays roster-only. Both CLIs install and roll back through the same
+  code. `economy.generate(..., roster=...)` is the library entry.
+- Switches: `--no-datamined` (economy) leaves the datamined non-weapon items out; the roster's datamined
+  weapon and magazine rows are left out by `--no-roster-datamined` (economy) or `--no-datamined` (firearms).
+- Generation refuses a class that two sources would both change (profile `add_usage`, roster entry, datamined
+  item), case-insensitively, before anything is written.
+- Per-class install permissions come from the manifest: profile rows stay usage-only, roster rows
+  (`firearms_classes`) may also change nominal, min, lifetime, restock and value, datamined item rows
+  (`datamined_classes`, each must be a shipped row) the same. Flags, cost and quantities are stock-identical for
+  all of them. Mutable tags are compared only as direct `<type>` children; a nested child inside a retained
+  tag (for example `<flags><nominal/></flags>`) is a change and is refused.
+- `economy.install()` called directly keeps its usage-only default. Rollback is byte-exact and keeps the
+  hard-link and outside-path refusals.
+- The SNAFU delta keeps its own managed folder and still installs on top of the composed delta (rollback last
+  in, first out).
+- Pending: CE spawn of rows with stock nominal 0 is unobserved, including Leather and Drysack rows whose
+  stock flags carry `crafted="1"`; per-row local acceptance; 3-6 player budgets.
+
+## 4. Tactical Flava (optional)
+
+Item: Tactical Flava (TF), Steam Workshop 2646817942, installed read-only on the operator machine and read
+from there. We never repack, copy, bundle or re-host any TF file; the repository holds only TF class names and
+our own economy numbers. Code: `tools/package/tactical_flava_optional.py`; data:
+`tools/package/tactical_flava_allowlist.json`; tests: `tests/unit/test_tactical_flava_optional.py`. Config is
+read with the extended `tools/audit/pbo_config.py` (rapified `config.bin` plus the plain-text `config.cpp` that
+the `weapon_a` addon ships).
+
+### Rights: rights review pending
+
+The installed item has no licence file. The only static file we hash is the vendor `extra files/readme.txt`
+(sha256 `c42804ca177e504668f253e0459894e27959615387f87d8fef5723534455c0fc`), which is a readme and not a
+licence. The Steam page forbids monetisation and repacks and is silent on using the item as a dependency. The
+rights review is pending; the allowlist records `license: none-recorded`, `redistribution: none`,
+`dependency_use: unstated`, `review: pending`. Nothing is bundled and a hosted server must not depend on TF
+until the owner finishes that review. Verification fails closed if the readme hash changes.
+
+### Curated subset (owner KEEP list)
+
+Lifetime and restock follow the SNAFU convention: weapons and optics 7200/1800, magazines 14400/0. Counts are
+nominal/min and proposals only.
+
+| Class | nominal/min | Usage | Value |
+|---|---|---|---|
+| `TF_AK74M` | 4/2 | Military | Tier2 Tier3 |
+| `TF_M1A_Black` | 5/2 | Village Hunting | Tier3 Tier4 |
+| `TF_M14_STD` | 3/1 | Military | Tier3 Tier4 |
+| `TF_VPO190` | 8/4 | Village Hunting Farm | Tier2 Tier3 |
+| `TF_MP443` | 8/4 | Military Police | Tier2 Tier3 |
+| `TF_M24` | 2/1 | Military | Tier4 |
+| `TF_ElcanSpecterDROptic_Black` | 3/1 | Military | Tier3 Tier4 |
+| `TF_ElcanSpecterDROptic_FDE` | 2/1 | Military | Tier3 Tier4 |
+| `TF_ElcanSpecterDR_6xOptic_Black` | 2/1 | Military | Tier3 Tier4 |
+| `TF_ElcanSpecterDR_6xOptic_FDE` | 1/0 | Military | Tier3 Tier4 |
+| `TF_Mag_M14_10Rnd` | 12/6 | Military Hunting | Tier3 Tier4 |
+| `TF_Mag_M14_20Rnd` | 6/3 | Military | Tier3 Tier4 |
+| `TF_Mag_VPO190_4Rnd` | 10/5 | Village Hunting Farm | Tier2-4 |
+| `TF_Mag_MP443_18Rnd` | 8/4 | Military Police | Tier2 Tier3 |
+| `TF_Mag_AK74_Bakelit30Rnd` | 8/4 | Military | Tier2-4 |
+| `TF_M14_Adapter` | 0/0 | attachment-only | Military Tier3 Tier4 |
+
+`TF_M24` has no entry in TF's own types file, so ours is authored here. Every weapon uses vanilla loose ammo
+that is already in stock types (`Ammo_545x39`, `Ammo_308Win`, `Ammo_9x19`); the verifier checks each TF magazine
+bullet equals a vanilla loose-ammo bullet that the weapon lists in `chamberableFrom`. PKM, the machine guns,
+anti-materiel and `.338` rifles, TF-only ammunition, launchers, the 9x39 and specops guns, SCAR/SR25/MK47 and the
+near-vanilla AK and M4A1 families, the grenades, other optics and NVGs, armour and camo stay cut; the allowlist
+`excluded` list records each with its reason.
+
+### M14 adapter (`weaponDMRAdapter`)
+
+`TF_M14_STD` lists the attachment slots `weaponWrap`, `suppressorImpro`, `weaponDMRAdapter`, `weaponOptics` and
+`weaponOpticsHunting`. The TF script `TF_M14_DMR_Base.CanReceiveAttachment` refuses every optic unless the
+`weaponDMRAdapter` slot holds an adapter, so `TF_M14_STD` cannot mount any Elcan without `TF_M14_Adapter`. The
+adapter is therefore in the allowlist as an attachment-only entry (nominal 0, `fits: [TF_M14_STD]`, and
+`optic_requires: [TF_M14_Adapter]` on the rifle). `TF_M1A_Black` has no adapter slot and takes optics directly.
+`TF_M24` has no `weaponOptics` slot, so the Elcan `fits` lists are `TF_AK74M`, `TF_M1A_Black`, `TF_M14_STD`.
+Gap: the generated delta has no `cfgspawnabletypes`, so a spawned `TF_M14_STD` has no adapter and no optic.
+TF's own spawnabletypes pre-attaches the adapter with chance 1.0; a spawnabletypes follow-up is needed before
+M14 optics are obtainable.
+
+### Script-risk census (unobserved at runtime)
+
+Loading any TF addon pulls in its scripts. Static census of `script_a`, `grenades_a`, `clothing_a` and
+`weapon_a`; dropping `grenades_a` is impossible because it shares `script_a`, so everything below loads
+regardless of the allowlist.
+
+| ID | Severity | Finding |
+|---|---|---|
+| S1 | high | `Optics.c` modded `M4_CarryHandleOptic`/`BUISOptic.CanPutAsAttachment` returns true only for `TF_M4A1_Base`/`TF_M16A4_Base` parents, so a vanilla M4A1 may lose its BUIS and carry handle |
+| S2 | high | `Vanilla_M4.c` and `AKM_Vanilla.c`: `M4A1_Base`/`AKM_Base.CanReceiveAttachment` skip `super` and can null-dereference |
+| S3 | medium | `Weapon_Base.SetActions` adds flip/bipod actions to every weapon; the vanilla Mosin9130 gets bipod actions and `BoltActionBipodRecoil` |
+| S4 | medium | `PlayerBase` attachment hooks run for all players |
+| S5 | medium | `DayZPlayerImplementAiming.CalculateWeight` override with an unsafe cast |
+| S6 | medium | `DayZGame.FirearmEffects` explosive-ammo hook (inert unless explosive ammo spawns) |
+| S7 | medium | grenades stack: net-sync variables `m_TFTeargasLevel` and `m_TFWPState` on `PlayerBase`/`ZombieBase`, `MDF_PHOSPHORUS` 616, `MDF_TEARGAS` 617, `NTF_TFPOISONED` 42, PPE requesters, 12 vanilla knives with `CutOutBurningShard` actions |
+| S8 | low | `SmershBag` inverted cargo check |
+| S9 | low | 10 armour-camo recipes plus `OpenZinkBox` always registered |
+| S10 | low | keybinds `UAToggleBipod` (T), `UAToggleMagni` (I), `UAToggleVisor` (L); `weapon_a` redefines `UAToggleBipod` on T inside TF |
+| S11 | low | HAMR power modded `DayZPlayerImplement` |
+| S12 | low | `TF_Magazines.c` `AmmoData` is commented out by an unterminated comment |
+| C1 | high | `clothing_a` appends `Shoulder`, `Melee` and `Shoulder1..30` slots to vanilla `Rifle_Base` |
+| C2 | high | `weapon_a` replaces attachment arrays of vanilla M4A1, AK74, AK101, AKM and Mosin9130, and the magazine arrays of the FAL, Aug, M16A2 and AK74 bases |
+| C3 | low | boots `IsHighBoots`, `PlateCarrierVest` mappack and `ImprovisedSuppressor` slots |
+| N1 | info | no RPCs registered |
+
+### Collision check against Hollow Country
+
+Static check of `mods/HollowCountry` against TF:
+
+- No modifier or notifier use in our scripts, so no collision with `MDF_PHOSPHORUS` 616, `MDF_TEARGAS` 617 or
+  `NTF_TFPOISONED` 42. No `RegisterNetSyncVariable` or `SetSynchDirty`, so no net-sync name or ID collision.
+- Our only keybind is `UAHollowCountryEvents` on `O`; TF binds T, I and L. Overlap with vanilla keybindings
+  is unchecked offline.
+- Our RPC IDs are 4853701-3 (groups) and 4853801-2 (events); TF registers none.
+- Same-method overlaps: `ZombieBase.EEKilled`, `ActionConstructor.RegisterActions`, and recipe registration
+  (`RegisterRecipies`, TF on `PluginRecipesManagerBase`, ours on `PluginRecipesManager`). Every override on both
+  sides calls `super`; stacking order depends on load order and is untested.
+- TF also overrides `ZombieBase` constructor/`CommandHandler`/`OnVariablesSynchronized`, `PlayerBase`
+  `Init`/`EEKilled`/`OnVariablesSynchronized`/`EOnPostFrame`/`CanReceiveAttachment`/`CanReleaseAttachment`/
+  `EEItemAttached`/`EEItemDetached`, and `DayZGame.FirearmEffects`; we do not override those.
+
+Result: no ID, keybind or RPC collision found; the residual risks are the stacked overrides and the unchecked
+vanilla keybind overlap.
+
+### Local-session checks (pending, with TF loaded)
+
+1. A vanilla M4A1 still takes its BUIS and carry handle (S1).
+2. Vanilla Mosin and AK attachments still work (C2) and the Mosin gains no stray bipod actions (S3).
+3. T, I and L do not collide with vanilla or Hollow Country keys (S10, `UAToggleBipod`).
+4. `ZombieBase.EEKilled` and `ActionConstructor.RegisterActions` stack with ours without errors in the script log.
+5. `TF_M14_STD` with `TF_M14_Adapter` accepts an Elcan; `TF_M24`, `TF_VPO190`, `TF_MP443` and `TF_AK74M` fire, load and spawn.
+6. Rifle slot changes (C1) leave vanilla rifles and clothing behaving normally.
+
+### Verification, install and rollback
+
+- `verify --install <Workshop item> --vanilla-addons <DayZ Addons> --out <dir>/verification.json` reads
+  the install read-only, and the evidence file records per class `verified` or the failing reasons: defined once,
+  scope 2, model present, magazines accepted by the weapon, magazine bullet equal to a vanilla loose-ammo bullet,
+  vanilla ammo in `chamberableFrom`, optic/attachment slot present on every `fits` weapon, and `optic_requires`.
+  Append (`+=`) arrays are reported, never treated as full replacements. Paths in reports are printed with `~`.
+- `generate` refuses unverified, drifted or colliding input (classes already in stock, the roster or SNAFU) and
+  writes only our own `types.xml` delta. `install` composes on top of the roster and SNAFU deltas.
+- Rollback is last in first out: `tactical_flava_optional rollback` first, then `snafu_optional rollback`, then
+  `firearms rollback`. Out-of-order SNAFU or roster rollback is refused while TF is installed (core drift). TF rolls back
+  by restoring the previous `cfgeconomycore.xml` byte for byte (tested). When a TF update changes the item,
+  re-run `verify`; if any class is not `verified`, do not regenerate; the owner rolls back and re-curates.
+- Static verification shows names, scope, models and ammo links; it does not show that anything fires, loads,
+  spawns or balances. Runtime acceptance stays pending.
+
+## 5. Pending, honestly
 
 - No native/local acceptance for any roster or SNAFU entry: normal PBO/server load, CE spawn and error
   trials, firing and ammo acceptance per weapon, 3-6 player counts.
 - Every datamined row (`acceptance: pending-local`) needs local acceptance before any production use, or the
   owner switches them off with `--no-datamined`. The nine variants missing from stock types are not enabled.
-- Optics are undecided; only the empty extension point exists.
 - The 2x counts are a deliberate owner choice for now; the effective spawn totals are unobserved.
 - The roster nominals are proposals; effective CE merging and world totals are unobserved.
 - The SNAFU class list rests on one version (1.28.1); the verifier must be re-run on the real server copy.
 - Signed packaging of the roster/SNAFU deltas and signature handling for a signed server are pending.
 - The census can see no event-only classes from files; event/carrier activity at runtime is unobserved.
 - Offline checks never establish DayZ behaviour; no two-client behaviour was exercised.
+- Tactical Flava: rights review pending (no licence file); the script-risk census and collision check are static
+  and the local-session checks above are unrun; M14 optics need a spawnabletypes pre-attach; all numbers are
+  proposals and no runtime acceptance exists.

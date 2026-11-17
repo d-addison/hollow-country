@@ -6,6 +6,7 @@ are streamed with explicit size budgets; compressed members and unknown rap entr
 refused rather than guessed. A parsed config is static file evidence, never proof of what
 the running engine does.
 """
+import re
 import struct
 
 MAX_HEADER_BYTES = 16 * 1024 * 1024
@@ -18,7 +19,9 @@ MAX_ARRAY_ITEMS = 100_000
 MAX_ARRAY_DEPTH = 8
 PACK_VERS = 0x56657273
 SCALAR_FIELDS = ('scope', 'model', 'ammo', 'count')
-ARRAY_FIELDS = ('magazines', 'chamberableFrom', 'handAnim')
+ARRAY_FIELDS = ('magazines', 'chamberableFrom', 'handAnim', 'attachments', 'inventorySlot')
+MAX_TEXT_TOKENS = 4_000_000
+MAX_TEXT_DEPTH = 16
 CHUNK = 65536
 
 
@@ -206,7 +209,7 @@ class _Rap:
                 _flag, pos = self.fixed(pos, '<I')
                 name, pos = self.cstring(pos)
                 value, pos = self.array(pos)
-                out.append(('array', name, value))
+                out.append(('array+', name, value))  # ``+=``: the array extends the parent's, never replaces it
             else:
                 raise ValueError('unsupported rapified entry type')
         return parent, out
@@ -249,14 +252,327 @@ def parse_rap(data, roots, max_bytes=MAX_CONFIG_BYTES):
             parent, body = rap.entries(cpos)
             row = {'parent': parent or None, 'scope': None, 'model': None, 'ammo': None,
                    'count': None, 'magazines': None, 'chamberableFrom': None, 'handAnim': None}
+            appended = []
             for bkind, bname, value in body:
                 if bkind == 'value' and bname in SCALAR_FIELDS:
                     row[bname] = _whole(value) if isinstance(value, (int, float)) else value
-                elif bkind == 'array' and bname in ARRAY_FIELDS:
+                elif bkind in ('array', 'array+') and bname in ARRAY_FIELDS:
                     row[bname] = [v for v in value if isinstance(v, str)]
+                    if bkind == 'array+' and bname not in appended:
+                        appended.append(bname)
+            if appended:
+                row['appended'] = appended
             row = {k: v for k, v in row.items() if v is not None or k in ('parent', 'scope')}
             result[root_name][cname] = row
     return result
+
+
+_TEXT_TOKEN = re.compile(r'''
+    (?P<str>"(?:[^"]|"")*")
+  | (?P<id>[A-Za-z_][A-Za-z0-9_.\\]*)
+  | (?P<num>[-+]?(?:0[xX][0-9A-Fa-f]+|[0-9]+\.?[0-9]*(?:[eE][-+]?[0-9]+)?|\.[0-9]+))
+  | (?P<op>\+=|[{}\[\]=;:,])
+  | (?P<other>\S)
+''', re.VERBOSE)
+_KEYWORD_SCOPE = {'public': 2, 'protected': 1, 'private': 0}
+
+
+def _at_line_start(text, i):
+    j = i - 1
+    while j >= 0 and text[j] in ' \t':
+        j -= 1
+    return j < 0 or text[j] == '\n'
+
+
+def _strip_text(text):
+    """Remove comments and preprocessor lines while keeping string literals intact."""
+    out, i, n = [], 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while j < n:
+                if text[j] == '"':
+                    if j + 1 < n and text[j + 1] == '"':
+                        j += 2
+                        continue
+                    break
+                j += 1
+            if j >= n:
+                raise ValueError('unterminated string in text config')
+            out.append(text[i:j + 1])
+            i = j + 1
+        elif text.startswith('//', i):
+            j = text.find('\n', i)
+            i = n if j < 0 else j
+        elif text.startswith('/*', i):
+            j = text.find('*/', i + 2)
+            if j < 0:
+                raise ValueError('unterminated comment in text config')
+            out.append(' ')
+            i = j + 2
+        elif c == '#' and _at_line_start(text, i):
+            while True:  # preprocessor line, with backslash continuations
+                j = text.find('\n', i)
+                if j < 0:
+                    i = n
+                    break
+                continued = text[i:j].rstrip().endswith('\\')
+                i = j
+                if not continued:
+                    break
+                i += 1
+        else:
+            out.append(c)
+            i += 1
+    return ''.join(out)
+
+
+class _Tokens:
+    def __init__(self, text, max_tokens):
+        self.iter = (self._classify(m) for m in _TEXT_TOKEN.finditer(text))
+        self.buffer, self.count, self.max_tokens = [], 0, max_tokens
+
+    @staticmethod
+    def _classify(match):
+        kind = match.lastgroup
+        value = match.group()
+        if kind == 'str':
+            value = value[1:-1].replace('""', '"')
+        return kind, value
+
+    def peek(self):
+        if not self.buffer:
+            self.count += 1
+            if self.count > self.max_tokens:
+                raise ValueError('text config exceeds token budget')
+            self.buffer.append(next(self.iter, ('eof', '')))
+        return self.buffer[0]
+
+    def next(self):
+        token = self.peek()
+        self.buffer.pop(0)
+        return token
+
+
+def _expect(tokens, value):
+    kind, got = tokens.next()
+    if got != value or kind in ('str',):
+        raise ValueError(f'malformed text config: expected {value!r}')
+
+
+def _skip_braced(tokens, depth):
+    """Consume tokens up to and including the matching ``}`` (the ``{`` is already consumed)."""
+    while True:
+        kind, value = tokens.next()
+        if kind == 'eof':
+            raise ValueError('truncated text config')
+        if kind == 'op' and value == '{':
+            depth += 1
+            if depth > MAX_TEXT_DEPTH:
+                raise ValueError('text config nesting exceeds budget')
+        elif kind == 'op' and value == '}':
+            depth -= 1
+            if depth == 0:
+                return
+
+
+def _skip_statement(tokens):
+    while True:
+        kind, value = tokens.next()
+        if kind == 'eof':
+            raise ValueError('truncated text config')
+        if kind == 'op' and value == ';':
+            return
+        if kind == 'op' and value == '{':
+            _skip_braced(tokens, 1)
+
+
+def _text_array(tokens, depth=0):
+    if depth > MAX_ARRAY_DEPTH:
+        raise ValueError('text array nesting exceeds budget')
+    _expect(tokens, '{')
+    items = []
+    while True:
+        kind, value = tokens.next()
+        if kind == 'eof':
+            raise ValueError('truncated text config')
+        if kind == 'op' and value == '}':
+            return items
+        if kind == 'op' and value == ',':
+            continue
+        if len(items) >= MAX_ARRAY_ITEMS:
+            raise ValueError('text array exceeds budget')
+        if kind == 'op' and value == '{':
+            tokens.buffer.insert(0, (kind, value))
+            items.append(_text_array(tokens, depth + 1))
+        elif kind == 'str':
+            items.append(value)
+        elif kind == 'num':
+            items.append(_text_number(value))
+        else:
+            items.append(None)  # identifiers/expressions are never trusted as class names
+
+
+def _text_number(value):
+    try:
+        return int(value, 0) if value.lower().lstrip('+-').startswith('0x') else (
+            int(value) if re.fullmatch(r'[-+]?[0-9]+', value) else float(value))
+    except ValueError:
+        return None
+
+
+def _text_scalar(tokens):
+    parts = []
+    while True:
+        kind, value = tokens.next()
+        if kind == 'eof':
+            raise ValueError('truncated text config')
+        if kind == 'op' and value == ';':
+            break
+        if kind == 'op' and value == '{':
+            _skip_braced(tokens, 1)
+            parts.append(('other', '{}'))
+            continue
+        parts.append((kind, value))
+    if len(parts) != 1:
+        return None
+    kind, value = parts[0]
+    if kind == 'str':
+        return value
+    if kind == 'num':
+        return _text_number(value)
+    return value if kind == 'id' else None
+
+
+def _text_class_body(tokens, depth):
+    """Parse one first-level class body (fields only); nested classes are skipped."""
+    row = {'parent': None, 'scope': None, 'model': None, 'ammo': None, 'count': None, 'magazines': None,
+           'chamberableFrom': None, 'handAnim': None, 'attachments': None, 'inventorySlot': None}
+    appended = []
+    while True:
+        kind, value = tokens.next()
+        if kind == 'eof':
+            raise ValueError('truncated text config')
+        if kind == 'op' and value == '}':
+            break
+        if kind == 'op' and value == ';':
+            continue
+        if kind == 'id' and value == 'class':
+            kind2, _name = tokens.next()
+            nxt = tokens.next()
+            if nxt == ('op', ':'):
+                tokens.next()
+                nxt = tokens.next()
+            if nxt == ('op', '{'):
+                _skip_braced(tokens, 1)
+                _expect(tokens, ';')
+            elif nxt != ('op', ';'):
+                raise ValueError('malformed nested class')
+            continue
+        if kind == 'id':
+            nxt = tokens.peek()
+            if nxt == ('op', '['):
+                tokens.next()
+                _expect(tokens, ']')
+                op_kind, op = tokens.next()
+                if op not in ('=', '+='):
+                    raise ValueError('malformed array assignment')
+                items = _text_array(tokens)
+                _expect(tokens, ';')
+                if value in ARRAY_FIELDS:
+                    row[value] = [v for v in items if isinstance(v, str)]
+                    if op == '+=' and value not in appended:
+                        appended.append(value)
+                continue
+            if nxt == ('op', '='):
+                tokens.next()
+                scalar = _text_scalar(tokens)
+                if value in SCALAR_FIELDS and scalar is not None:
+                    if value == 'scope' and isinstance(scalar, str):
+                        scalar = _KEYWORD_SCOPE.get(scalar.lower())
+                        if scalar is None:
+                            continue
+                    row[value] = _whole(scalar) if isinstance(scalar, (int, float)) else scalar
+                continue
+        _skip_statement_from(tokens, kind, value)
+    if appended:
+        row['appended'] = appended
+    return row
+
+
+def _skip_statement_from(tokens, kind, value):
+    if kind == 'op' and value == '{':
+        _skip_braced(tokens, 1)
+    _skip_statement(tokens)
+
+
+def parse_text_config(text, roots, max_bytes=MAX_CONFIG_BYTES // 4, max_tokens=MAX_TEXT_TOKENS):
+    """Return the same ``{root: {class: row}}`` shape as ``parse_rap`` from plain-text config source.
+
+    Handles derapped ``config.cpp`` text: comments, preprocessor lines, forward declarations,
+    ``name[] = {..}`` and ``+=`` arrays and doubled-quote strings. Only first-level classes of the
+    named roots are decoded; nested classes are skipped. Budgets bound bytes, tokens and nesting.
+    """
+    if isinstance(text, bytes):
+        text = text.decode('latin-1')
+    if len(text) > max_bytes:
+        raise ValueError('text config exceeds budget')
+    tokens = _Tokens(_strip_text(text), max_tokens)
+    result = {name: {} for name in roots}
+    canonical = {name.lower(): name for name in roots}
+    seen = 0
+    while True:
+        kind, value = tokens.next()
+        if kind == 'eof':
+            return result
+        if not (kind == 'id' and value == 'class'):
+            _skip_statement_from(tokens, kind, value)
+            continue
+        _kind, name = tokens.next()
+        nxt = tokens.next()
+        if nxt == ('op', ':'):
+            tokens.next()
+            nxt = tokens.next()
+        if nxt == ('op', ';'):
+            continue
+        if nxt != ('op', '{'):
+            raise ValueError('malformed class declaration')
+        if name.lower() not in canonical:
+            _skip_braced(tokens, 1)
+            _expect(tokens, ';')
+            continue
+        classes = result[canonical[name.lower()]]
+        while True:
+            kind, value = tokens.next()
+            if kind == 'eof':
+                raise ValueError('truncated text config')
+            if kind == 'op' and value == '}':
+                break
+            if kind == 'op' and value == ';':
+                continue
+            if not (kind == 'id' and value == 'class'):
+                _skip_statement_from(tokens, kind, value)
+                continue
+            _k, cname = tokens.next()
+            parent = None
+            nxt = tokens.next()
+            if nxt == ('op', ':'):
+                _k, parent = tokens.next()
+                nxt = tokens.next()
+            if nxt == ('op', ';'):
+                continue  # forward declaration, not a definition
+            if nxt != ('op', '{'):
+                raise ValueError('malformed class declaration')
+            seen += 1
+            if seen > MAX_CLASSES:
+                raise ValueError('config class count exceeds budget')
+            row = _text_class_body(tokens, 1)
+            _expect(tokens, ';')
+            row['parent'] = parent or None
+            row = {k: v for k, v in row.items() if v is not None or k in ('parent', 'scope')}
+            classes[cname] = row
+        _expect(tokens, ';')
 
 
 def ancestry(classes, name, limit=128):
@@ -298,6 +614,20 @@ def read_configs(path, roots, index=None):
         for root, classes in parse_rap(data, roots).items():
             merged[root].update(classes)
     return merged
+
+
+def read_config_members(path, roots, index=None):
+    """``[(member_name, {root: classes})]`` for every ``config.bin`` and plain-text ``config.cpp`` member."""
+    index = index or read_pbo_index(path)
+    out = []
+    for entry in index['entries']:
+        base = entry['name'].replace('/', '\\').lower().split('\\')[-1]
+        if base not in ('config.bin', 'config.cpp'):
+            continue
+        data = read_member(path, index, entry['name'])
+        out.append((entry['name'], parse_rap(data, roots) if base == 'config.bin'
+                    else parse_text_config(data, roots)))
+    return out
 
 
 def resolve_field(classes, name, field):

@@ -1,0 +1,1710 @@
+{
+ "schema": 1,
+ "status": "offline-only-runtime-pending",
+ "flags_order": [
+  "count_in_cargo",
+  "count_in_hoarder",
+  "count_in_map",
+  "count_in_player",
+  "crafted",
+  "deloot"
+ ],
+ "census": "datamine-2026-11-17 (static config parsing; not CE behaviour)",
+ "craft_output_candidates": [
+  "LeatherPants_Natural",
+  "LeatherPants_Beige",
+  "LeatherPants_Brown",
+  "LeatherPants_Black",
+  "LeatherStorageVest_Natural",
+  "LeatherStorageVest_Beige",
+  "LeatherStorageVest_Brown",
+  "LeatherStorageVest_Black"
+ ],
+ "rows": [
+  {
+   "class": "LeatherJacket_Natural",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Brown",
+    "nominal": 7
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherJacket_Beige",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Brown",
+    "nominal": 7
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherJacket_Brown",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Brown",
+    "nominal": 7
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherJacket_Black",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Brown",
+    "nominal": 7
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; civilian leather outerwear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherShoes_Natural",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HikingBoots_Brown",
+    "nominal": 30
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherShoes_Beige",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HikingBoots_Brown",
+    "nominal": 30
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherShoes_Brown",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HikingBoots_Brown",
+    "nominal": 30
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherShoes_Black",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HikingBoots_Brown",
+    "nominal": 30
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherHat_Natural",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "CowboyHat_Brown",
+    "nominal": 20
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherHat_Beige",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "CowboyHat_Brown",
+    "nominal": 20
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherHat_Brown",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "CowboyHat_Brown",
+    "nominal": 20
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherHat_Black",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "CowboyHat_Brown",
+    "nominal": 20
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "LeatherShirt_Natural",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Shirt_PlaneBlack",
+    "nominal": 30
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting and Village cabins and houses; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "HuntingJacket_Spring",
+   "nominal": 6,
+   "min": 4,
+   "lifetime": 14400,
+   "restock": 600,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Hunting"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HuntingJacket_Brown",
+    "nominal": 14
+   },
+   "source_maps": {
+    "enoch": 18,
+    "sakhal": 4
+   },
+   "source_map_note": "spawns on enoch (nominal 18), sakhal (nominal 4); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting; stock usage and tiers kept, nominal below the native recolours",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "HunterPants_Spring",
+   "nominal": 6,
+   "min": 4,
+   "lifetime": 14400,
+   "restock": 600,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Hunting"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HunterPants_Brown",
+    "nominal": 14
+   },
+   "source_maps": {
+    "enoch": 18,
+    "sakhal": 3
+   },
+   "source_map_note": "spawns on enoch (nominal 18), sakhal (nominal 3); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting; stock usage and tiers kept, nominal below the native recolours",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "WinterMilitaryCoat_Brown",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "MilitarySweater_Chernarus",
+    "nominal": 14
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Military barracks and camps; warm late-game tier, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "WinterMilitaryCoat_DarkGrey",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "MilitarySweater_Chernarus",
+    "nominal": 14
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Military barracks and camps; warm late-game tier, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "WinterMilitaryCoat_Grey",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "MilitarySweater_Chernarus",
+    "nominal": 14
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Military barracks and camps; warm late-game tier, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "HuntingBag_Hannah",
+   "nominal": 1,
+   "min": 1,
+   "lifetime": 28800,
+   "restock": 43200,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "containers",
+   "usage": [
+    "Hunting"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "HuntingBag",
+    "nominal": 12
+   },
+   "source_maps": {
+    "enoch": 1
+   },
+   "source_map_note": "spawns on enoch (nominal 1); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting; one-off unique-style bag, long restock (Livonia restock 43200 kept)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DrysackBag_Green",
+   "nominal": 3,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "containers",
+   "usage": [
+    "Coast",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "MountainBag_Blue",
+    "nominal": 5
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Coast and Village boat houses and cabins; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DrysackBag_Orange",
+   "nominal": 3,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "containers",
+   "usage": [
+    "Coast",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "MountainBag_Blue",
+    "nominal": 5
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Coast and Village boat houses and cabins; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DrysackBag_Yellow",
+   "nominal": 3,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001010",
+   "category": "containers",
+   "usage": [
+    "Coast",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "MountainBag_Blue",
+    "nominal": 5
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Coast and Village boat houses and cabins; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Iceaxe",
+   "nominal": 3,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 1200,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "weapons",
+   "usage": [
+    "Farm",
+    "Industrial"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "Pickaxe",
+    "nominal": 20
+   },
+   "source_maps": {
+    "sakhal": 14
+   },
+   "source_map_note": "spawns on sakhal (nominal 14); Chernarus types.xml has it at nominal 0",
+   "placement": "Industrial and Farm tool sheds; rare, restock 1200 as on Sakhal",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "FilteringBottle",
+   "nominal": 1,
+   "min": 0,
+   "lifetime": 7200,
+   "restock": 1800,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "tools",
+   "usage": [
+    "Hunting",
+    "Medic"
+   ],
+   "value": [
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "WaterBottle",
+    "nominal": 100
+   },
+   "source_maps": {
+    "sakhal": 1
+   },
+   "source_map_note": "spawns on sakhal (nominal 1); Chernarus types.xml has it at nominal 0",
+   "placement": "Medic and Hunting; rare, Sakhal restock 1800 and Medic/Tier3 hint",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "CrabCan",
+   "nominal": 8,
+   "min": 5,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "food",
+   "usage": [
+    "Coast",
+    "Village"
+   ],
+   "value": [
+    "Tier1",
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "TunaCan",
+    "nominal": 20
+   },
+   "source_maps": {
+    "sakhal": 20
+   },
+   "source_map_note": "spawns on sakhal (nominal 20); Chernarus types.xml has it at nominal 0",
+   "placement": "Coast and Village food shelves; below the vanilla canned fish",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "GorkaEJacket_Winter",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 600,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "GorkaEJacket_Autumn",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 15
+   },
+   "source_map_note": "spawns on sakhal (nominal 15); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; winter recolour rarer than the native Gorka recolours (nominal 4)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "GorkaPants_Winter",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 600,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "GorkaEJacket_Autumn",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 15
+   },
+   "source_map_note": "spawns on sakhal (nominal 15); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; winter recolour rarer than the native Gorka recolours (nominal 4)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "HuntingVest_Winter",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 7200,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Hunting"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "HuntingVest",
+    "nominal": 10
+   },
+   "source_maps": {
+    "sakhal": 6
+   },
+   "source_map_note": "spawns on sakhal (nominal 6); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting; winter recolour, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "BoonieHat_Winter",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Hunting"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "BoonieHat_DPM",
+    "nominal": 12
+   },
+   "source_maps": {
+    "sakhal": 6
+   },
+   "source_map_note": "spawns on sakhal (nominal 6); Chernarus types.xml has it at nominal 0",
+   "placement": "Hunting; winter recolour, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "BudenovkaHat_Gray",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Ushanka_Black",
+    "nominal": 20
+   },
+   "source_maps": {
+    "sakhal": 12
+   },
+   "source_map_note": "spawns on sakhal (nominal 12); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village; low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "ColdOperationBoots_Camo",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "JungleBoots_Green",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 5
+   },
+   "source_map_note": "spawns on sakhal (nominal 5); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; cold boots, low (stock tiers kept)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "ColdOperationBoots_Green",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "JungleBoots_Green",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 5
+   },
+   "source_map_note": "spawns on sakhal (nominal 5); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; cold boots, low (stock tiers kept)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "ColdOperationBoots_Grey",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "JungleBoots_Green",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 5
+   },
+   "source_map_note": "spawns on sakhal (nominal 5); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; cold boots, low (stock tiers kept)",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "PilotJacket_Black",
+   "nominal": 3,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Hunting",
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Olive",
+    "nominal": 9
+   },
+   "source_maps": {
+    "sakhal": 20
+   },
+   "source_map_note": "spawns on sakhal (nominal 20); Chernarus types.xml has it at nominal 0",
+   "placement": "Military airfield and Hunting (stock usage kept); low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "PilotJacket_Brown",
+   "nominal": 3,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Olive",
+    "nominal": 9
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Military airfield and Village (stock usage kept); low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "PilotJacket_Yellow",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Military",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "BomberJacket_Olive",
+    "nominal": 9
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Military airfield and Village (stock usage kept); low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DownJacket_Blue",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 7200,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "HikingJacket_Green",
+    "nominal": 15
+   },
+   "source_maps": {
+    "sakhal": 4
+   },
+   "source_map_note": "spawns on sakhal (nominal 4); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter jacket, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DownJacket_Red",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 7200,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "HikingJacket_Green",
+    "nominal": 15
+   },
+   "source_maps": {
+    "sakhal": 4
+   },
+   "source_map_note": "spawns on sakhal (nominal 4); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter jacket, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DownJacket_Orange",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 7200,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "HikingJacket_Green",
+    "nominal": 15
+   },
+   "source_maps": {
+    "sakhal": 4
+   },
+   "source_map_note": "spawns on sakhal (nominal 4); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter jacket, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "DownJacket_Green",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 7200,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "HikingJacket_Green",
+    "nominal": 15
+   },
+   "source_maps": {
+    "sakhal": 4
+   },
+   "source_map_note": "spawns on sakhal (nominal 4); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter jacket, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SkiGloves_90s",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter gloves, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SkiGloves_Blue",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter gloves, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SkiGloves_Red",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "WorkingGloves_Brown",
+    "nominal": 13
+   },
+   "source_maps": {
+    "sakhal": 8
+   },
+   "source_map_note": "spawns on sakhal (nominal 8); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter gloves, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SkiGoggles_BlackYellow",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "TacticalGoggles",
+    "nominal": 8
+   },
+   "source_maps": {
+    "sakhal": 12
+   },
+   "source_map_note": "spawns on sakhal (nominal 12); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter eyewear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SkiGoggles_WhiteClear",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "TacticalGoggles",
+    "nominal": 8
+   },
+   "source_maps": {
+    "sakhal": 12
+   },
+   "source_map_note": "spawns on sakhal (nominal 12); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter eyewear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "SkiGoggles_WhiteDark",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "TacticalGoggles",
+    "nominal": 8
+   },
+   "source_maps": {
+    "sakhal": 12
+   },
+   "source_map_note": "spawns on sakhal (nominal 12); Chernarus types.xml has it at nominal 0",
+   "placement": "Town and Village houses; winter eyewear, low",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Bandana_Blue",
+   "nominal": 5,
+   "min": 3,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "absent",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Bandana_Blackpattern",
+    "nominal": 12
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); absent from Chernarus types.xml",
+   "placement": "Town and Village; common civilian, under half the native pattern bandanas",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Bandana_Pink",
+   "nominal": 5,
+   "min": 3,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "absent",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Bandana_Blackpattern",
+    "nominal": 12
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); absent from Chernarus types.xml",
+   "placement": "Town and Village; common civilian, under half the native pattern bandanas",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Bandana_Yellow",
+   "nominal": 5,
+   "min": 3,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "clothes",
+   "usage": [
+    "Town",
+    "Village"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "absent",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Bandana_Blackpattern",
+    "nominal": 12
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); absent from Chernarus types.xml",
+   "placement": "Town and Village; common civilian, under half the native pattern bandanas",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Attack2Bag_Black",
+   "nominal": 1,
+   "min": 0,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "containers",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Attack2Bag_Green",
+    "nominal": 2
+   },
+   "source_maps": {
+    "enoch": 2,
+    "sakhal": 2
+   },
+   "source_map_note": "spawns on enoch (nominal 2), sakhal (nominal 2); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; rare long-haul pack colour",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "Attack2Bag_Yeger",
+   "nominal": 1,
+   "min": 0,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "containers",
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "Attack2Bag_Green",
+    "nominal": 2
+   },
+   "source_maps": {
+    "sakhal": 3
+   },
+   "source_map_note": "spawns on sakhal (nominal 3); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; rare long-haul pack colour",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "AssaultBag_Winter",
+   "nominal": 1,
+   "min": 0,
+   "lifetime": 28800,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "containers",
+   "usage": [
+    "Military"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "AssaultBag_Black",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 4
+   },
+   "source_map_note": "spawns on sakhal (nominal 4); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; winter recolour, rare",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "CoyoteBag_Winter",
+   "nominal": 1,
+   "min": 0,
+   "lifetime": 28800,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "containers",
+   "usage": [
+    "Military"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "CoyoteBag_Brown",
+    "nominal": 4
+   },
+   "source_maps": {
+    "sakhal": 3
+   },
+   "source_map_note": "spawns on sakhal (nominal 3); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; winter recolour, rare",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "TortillaBag_Winter",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 28800,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001000",
+   "category": "containers",
+   "usage": [
+    "Military"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": true,
+   "equivalent": {
+    "class": "TortillaBag",
+    "nominal": 8
+   },
+   "source_maps": {
+    "sakhal": 3
+   },
+   "source_map_note": "spawns on sakhal (nominal 3); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; winter recolour, rare",
+   "acceptance": "pending-local"
+  },
+  {
+   "class": "TortillaBag_Desert",
+   "nominal": 2,
+   "min": 1,
+   "lifetime": 14400,
+   "restock": 0,
+   "quantmin": -1,
+   "quantmax": -1,
+   "cost": 100,
+   "flags": "001001",
+   "category": "weapons",
+   "usage": [
+    "Military"
+   ],
+   "value": [],
+   "stock": "present",
+   "winter_only": false,
+   "equivalent": {
+    "class": "TortillaBag",
+    "nominal": 8
+   },
+   "source_maps": {},
+   "source_map_note": "spawns on no map (nominal 0, no carrier); Chernarus types.xml has it at nominal 0",
+   "placement": "Military; desert recolour (vanilla pbo, not the Nasdara DLC packs), rare",
+   "acceptance": "pending-local"
+  }
+ ]
+}

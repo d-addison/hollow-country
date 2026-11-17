@@ -1,0 +1,560 @@
+{
+ "schema": 1,
+ "name": "hollow-country-tactical-flava-subset",
+ "workshop_id": "2646817942",
+ "status": "unverified",
+ "rights": {
+  "license": "none-recorded",
+  "redistribution": "none",
+  "dependency_use": "unstated",
+  "review": "pending",
+  "terms_file": "extra files/readme.txt",
+  "terms_sha256": "c42804ca177e504668f253e0459894e27959615387f87d8fef5723534455c0fc",
+  "urls": [
+   "https://steamcommunity.com/sharedfiles/filedetails/?id=2646817942"
+  ],
+  "notes": [
+   "The installed item has no licence file; the only static file hashed is the vendor readme (extra files/readme.txt), which is not a licence.",
+   "The Steam page forbids monetisation and repacks and says nothing about dependency use; rights review pending before any hosted server depends on it.",
+   "Intended use is an optional server dependency; no TF file is bundled, copied, repacked or re-hosted.",
+   "Only a CE types override (our own XML naming TF class names with our own economy numbers) is generated."
+  ]
+ },
+ "entries": [
+  {
+   "class": "TF_AK74M",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 4,
+    "min": 2,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Modernised AK-74 in vanilla 5.45x39; military-tier rifle that accepts vanilla Mag_AK74 magazines as well as the TF Bakelit one.",
+   "vanilla_ammo": [
+    "Ammo_545x39"
+   ],
+   "magazines": [
+    "TF_Mag_AK74_Bakelit30Rnd"
+   ],
+   "optic_requires": []
+  },
+  {
+   "class": "TF_M1A_Black",
+   "kind": "weapon",
+   "role": "civilian",
+   "tier": "rare",
+   "set": {
+    "nominal": 5,
+    "min": 2,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Village",
+    "Hunting"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Semi-automatic .308 hunting rifle (civilian M14 pattern) for village and hunting loot; takes optics directly.",
+   "vanilla_ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": [
+    "TF_Mag_M14_10Rnd",
+    "TF_Mag_M14_20Rnd"
+   ],
+   "optic_requires": []
+  },
+  {
+   "class": "TF_M14_STD",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Military M14 in vanilla .308; TF scripts refuse every optic until a weaponDMRAdapter is attached.",
+   "vanilla_ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": [
+    "TF_Mag_M14_10Rnd",
+    "TF_Mag_M14_20Rnd"
+   ],
+   "optic_requires": [
+    "TF_M14_Adapter"
+   ]
+  },
+  {
+   "class": "TF_VPO190",
+   "kind": "weapon",
+   "role": "civilian",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 4,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Village",
+    "Hunting",
+    "Farm"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Civilian bolt/hunting rifle for village, hunting and farm loot; vanilla ammo, TF 4-round magazine.",
+   "vanilla_ammo": [
+    "Ammo_545x39"
+   ],
+   "magazines": [
+    "TF_Mag_VPO190_4Rnd"
+   ],
+   "optic_requires": []
+  },
+  {
+   "class": "TF_MP443",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 4,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military",
+    "Police"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Russian service pistol in vanilla 9x19; military and police loot only.",
+   "vanilla_ammo": [
+    "Ammo_9x19"
+   ],
+   "magazines": [
+    "TF_Mag_MP443_18Rnd"
+   ],
+   "optic_requires": []
+  },
+  {
+   "class": "TF_M24",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier4"
+   ],
+   "justification": "Military bolt-action sniper rifle in vanilla .308 with an internal magazine; TF ships no types entry so this one is authored here.",
+   "vanilla_ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": [],
+   "optic_requires": []
+  },
+  {
+   "class": "TF_ElcanSpecterDROptic_Black",
+   "kind": "optic",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Elcan 1-4x optic, black; military loot, no battery.",
+   "slot": "weaponOptics",
+   "fits": [
+    "TF_AK74M",
+    "TF_M1A_Black",
+    "TF_M14_STD"
+   ]
+  },
+  {
+   "class": "TF_ElcanSpecterDROptic_FDE",
+   "kind": "optic",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Elcan 1-4x optic, desert colour.",
+   "slot": "weaponOptics",
+   "fits": [
+    "TF_AK74M",
+    "TF_M1A_Black",
+    "TF_M14_STD"
+   ]
+  },
+  {
+   "class": "TF_ElcanSpecterDR_6xOptic_Black",
+   "kind": "optic",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 2,
+    "min": 1,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Elcan 6x optic, black.",
+   "slot": "weaponOptics",
+   "fits": [
+    "TF_AK74M",
+    "TF_M1A_Black",
+    "TF_M14_STD"
+   ]
+  },
+  {
+   "class": "TF_ElcanSpecterDR_6xOptic_FDE",
+   "kind": "optic",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 1,
+    "min": 0,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Elcan 6x optic, desert colour; rarest.",
+   "slot": "weaponOptics",
+   "fits": [
+    "TF_AK74M",
+    "TF_M1A_Black",
+    "TF_M14_STD"
+   ]
+  },
+  {
+   "class": "TF_Mag_M14_10Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 12,
+    "min": 6,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military",
+    "Hunting"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Ten-round M14/M1A magazine; hunting copies serve the civilian M1A."
+  },
+  {
+   "class": "TF_Mag_M14_20Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 6,
+    "min": 3,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Twenty-round M14 magazine, military only."
+  },
+  {
+   "class": "TF_Mag_VPO190_4Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 10,
+    "min": 5,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Village",
+    "Hunting",
+    "Farm"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Four-round VPO-190 magazine; follows its rifle."
+  },
+  {
+   "class": "TF_Mag_MP443_18Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 4,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military",
+    "Police"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3"
+   ],
+   "justification": "Eighteen-round MP-443 magazine; follows its pistol."
+  },
+  {
+   "class": "TF_Mag_AK74_Bakelit30Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "uncommon",
+   "set": {
+    "nominal": 8,
+    "min": 4,
+    "lifetime": 14400,
+    "restock": 0
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier2",
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Bakelit 30-round AK-74 magazine; vanilla AK74 magazines also work in TF_AK74M."
+  },
+  {
+   "class": "TF_M14_Adapter",
+   "kind": "attachment",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 0,
+    "min": 0,
+    "lifetime": 7200,
+    "restock": 1800
+   },
+   "usage": [
+    "Military"
+   ],
+   "value": [
+    "Tier3",
+    "Tier4"
+   ],
+   "justification": "Attachment-only DMR adapter (slot weaponDMRAdapter) that TF_M14_STD scripts require before any optic; nominal 0, so it only arrives through a later spawnabletypes pre-attach.",
+   "slot": "weaponDMRAdapter",
+   "fits": [
+    "TF_M14_STD"
+   ]
+  }
+ ],
+ "excluded": [
+  {
+   "group": "machine-guns",
+   "reason": "Owner cut: belt-fed machine guns and their parts are the wrong tone for a 3-6 player survival server.",
+   "classes": [
+    "TF_PKM",
+    "TF_Mag_PKM_100Rnd",
+    "TF_PKP_PlasticBttstck"
+   ]
+  },
+  {
+   "group": "anti-materiel-and-gimmick-guns",
+   "reason": "20mm anti-materiel rifle and a gimmick machine gun; TF-only ammunition.",
+   "classes": [
+    "TF_Anzio20",
+    "TF_AEK999",
+    "TF_Mag_Anzio20_3Rnd",
+    "TF_Ammo_20mm",
+    "TF_Ammo_20mm_HE"
+   ]
+  },
+  {
+   "group": "lapua-tacticool",
+   "reason": ".338 Lapua precision rifles; TF-only ammunition and wrong tone.",
+   "classes": [
+    "TF_MAR10",
+    "TF_SWORD_Mk18_Mjolnir",
+    "TF_Mag_MAR10_10Rnd",
+    "TF_Mag_SWORD_Mk18_10Rnd",
+    "TF_Ammo_338LM"
+   ]
+  },
+  {
+   "group": "tf-specific-ammo",
+   "reason": "5.7x28 needs TF-only ammunition that would have to spawn too.",
+   "classes": [
+    "TF_FiveSeven",
+    "TF_Mag_FiveSeven_20Rnd",
+    "TF_Ammo_57"
+   ]
+  },
+  {
+   "group": "explosive-launchers",
+   "reason": "Explosive launchers with HEDP ammunition; they would make the explosive-ammo hook live.",
+   "classes": [
+    "TF_M79",
+    "TF_M79_AOR1",
+    "TF_Ammo_40mm_HEDP"
+   ]
+  },
+  {
+   "group": "specops-and-9x39",
+   "reason": "Special-operations or 9x39 weapons, too futuristic for the tone.",
+   "classes": [
+    "TF_AN94",
+    "TF_AN94M",
+    "TF_OTs_12_Tiss",
+    "TF_OTs_14_Groza",
+    "TF_SVCh",
+    "TF_SVCh308",
+    "TF_Mag_SVCh308_10Rnd"
+   ]
+  },
+  {
+   "group": "too-modern-or-vanilla-duplicates",
+   "reason": "Too modern, or duplicates of vanilla AK and M4A1 families (the vanilla roster already covers them).",
+   "classes": [
+    "TF_SCAR_L_Black",
+    "TF_SCAR_L_FDE",
+    "TF_SCAR_L_CQC_Black",
+    "TF_SCAR_L_CQC_FDE",
+    "TF_SCAR_H_CQC_Black",
+    "TF_SCAR_H_CQC_FDE",
+    "TF_SCAR_H_FDE",
+    "TF_SCAR_20_Black",
+    "TF_SCAR_20_FDE",
+    "TF_SCAR_20_Shd",
+    "TF_MK47",
+    "TF_MK47_CQBR",
+    "TF_M14_DMR",
+    "TF_M14_EBR",
+    "TF_M16A4",
+    "TF_M4A1",
+    "TF_M4A1_CQBR",
+    "TF_ADAR2_15",
+    "TF_AKS74U",
+    "TF_AK101",
+    "TF_AK102",
+    "TF_AK105_Bullpup",
+    "TF_AKM"
+   ]
+  },
+  {
+   "group": "maybe-not-selected",
+   "reason": "Reviewed and left out of v1: near-vanilla AKs, one extra NATO rifle, machine guns and a pistol that overlaps vanilla.",
+   "classes": [
+    "TF_AKMN",
+    "TF_AK103",
+    "TF_AK104",
+    "TF_AK105",
+    "TF_VPO136",
+    "TF_MakarovPB",
+    "TF_SCAR_H_Black",
+    "TF_SR25",
+    "TF_M240",
+    "TF_M249",
+    "TF_PKP"
+   ]
+  },
+  {
+   "group": "colour-variants",
+   "reason": "Colour variants of the selected M1A; one finish is enough.",
+   "classes": [
+    "TF_M1A_OD",
+    "TF_M1A_Tan"
+   ]
+  },
+  {
+   "group": "grenades",
+   "reason": "Gimmick grenades tied to the player and zombie net-sync hooks: TF_EMPGrenade, TF_PhosphorusGrenade, TF_TeargasGrenade, TF_ChemicalGrenade."
+  },
+  {
+   "group": "other-optics-and-electronics",
+   "reason": "Non-Elcan optics (EOTech, HAMR with its battery script, DeltaPoint, OKP-7, PK122 Valday, Groza PO) and night-vision devices are not requested or too modern."
+  },
+  {
+   "group": "armour-clothing-and-gimmicks",
+   "reason": "Plate carriers, camo recipes, pouches, Russian armour, TF_Foil_hat and TF_RifleSling_*: not requested; slings need clothing_a slot changes that already load."
+  },
+  {
+   "group": "attachment-only-items",
+   "reason": "Bipods, suppressors, stocks, handguards, compensators and magazines for non-selected guns are not spawned."
+  }
+ ]
+}

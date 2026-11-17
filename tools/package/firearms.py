@@ -150,19 +150,14 @@ def _apply(item, entry, usage_vocab, value_vocab):
             item.insert(after + 1 + offset, ET.Element('value', {'name': v}))
 
 
-def generate(source, roster, include_datamined=True):
+def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True):
+    """Pure roster pass shared by the firearms-only delta and the combined economy delta.
+
+    Returns ``(changed_elements, report_rows, totals)``; ``stock`` is economy's name -> <type> map.
+    """
     validate_roster(roster)
-    data = economy.snapshot(source)
-    core = economy.xml(data['cfgeconomycore.xml'], 'economycore')
-    if core.findall('ce'):
-        raise ValueError('existing CE extensions need explicit operator reconciliation')
-    stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
-    limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
-    usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
-    value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
-    out = ET.Element('types')
+    changed_elements = []
     rows, totals = [], {'weapon_nominal_stock': 0, 'weapon_nominal_candidate': 0}
-    datamined = sorted(e['class'] for e in roster['entries'] if e.get('datamined'))
     for entry in roster['entries']:
         name = entry['class']
         if entry.get('datamined') and not include_datamined:
@@ -175,7 +170,7 @@ def generate(source, roster, include_datamined=True):
         economy._validate_budget(item)
         changed = ET.tostring(item) != ET.tostring(stock[name])
         if changed:
-            out.append(item)
+            changed_elements.append(item)
         rows.append({'class': name, 'kind': entry['kind'], 'role': entry['role'], 'tier': entry['tier'],
                      'stock': _row(stock[name]), 'candidate': _row(item), 'changed': changed,
                      'ammo': entry.get('ammo', []), 'magazines': entry.get('magazines', []),
@@ -185,6 +180,23 @@ def generate(source, roster, include_datamined=True):
         if entry['kind'] == 'weapon':
             totals['weapon_nominal_stock'] += rows[-1]['stock']['nominal']
             totals['weapon_nominal_candidate'] += rows[-1]['candidate']['nominal']
+    return changed_elements, rows, totals
+
+
+def generate(source, roster, include_datamined=True):
+    validate_roster(roster)
+    data = economy.snapshot(source)
+    core = economy.xml(data['cfgeconomycore.xml'], 'economycore')
+    if core.findall('ce'):
+        raise ValueError('existing CE extensions need explicit operator reconciliation')
+    stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
+    limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
+    usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
+    value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
+    out = ET.Element('types')
+    datamined = sorted(e['class'] for e in roster['entries'] if e.get('datamined'))
+    changed, rows, totals = roster_items(stock, usage_vocab, value_vocab, roster, include_datamined)
+    out.extend(changed)
     fragment = ET.Element('economycore')
     if len(out):
         ce = ET.SubElement(fragment, 'ce', {'folder': economy.MANAGED + '/ce'})
@@ -203,8 +215,17 @@ def generate(source, roster, include_datamined=True):
     files['delta-manifest.json'] = economy.encode({
         'schema': 1, 'kind': 'firearms-roster', 'profile': roster['name'],
         'sources': {n: economy.sha(d) for n, d in data.items()},
-        'files': {n: economy.sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending'})
+        'files': {n: economy.sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending',
+        'firearms_classes': sorted(n.get('name') for n in out), 'datamined_classes': []})
     return files
+
+
+def generate_combined(source, roster, include_datamined=True, include_items=True, profile=None):
+    """Profile + roster + datamined items as one delta (delegates to economy.generate)."""
+    validate_roster(roster)
+    profile = profile or {'schema': 1, 'name': roster['name'], 'add_usage': {}, 'diagnostics': []}
+    return economy.generate(source, profile, include_datamined=include_items, roster=roster,
+                            include_roster_datamined=include_datamined)
 
 
 write_delta = economy.write_delta
@@ -212,7 +233,8 @@ rollback = economy.rollback
 
 
 def install(stage, target):
-    return economy.install(stage, target, mutable=MUTABLE)
+    """The single installer: per-class permissions come from the delta manifest."""
+    return economy.install_delta(stage, target)
 
 
 def main(argv=None):
@@ -223,6 +245,10 @@ def main(argv=None):
     p.add_argument('--roster', type=Path, default=ROSTER_PATH)
     p.add_argument('--no-datamined', action='store_true',
                    help='single switch: leave every datamined (acceptance: pending-local) row out of the delta')
+    p.add_argument('--with-items', action='store_true',
+                   help='compose the datamined non-weapon items (and --profile) into the same single delta')
+    p.add_argument('--profile', type=Path, default=None,
+                   help='economy profile to compose (implies --with-items)')
     p.add_argument('--out', type=Path, required=True)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
@@ -232,8 +258,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == 'generate':
-            write_delta(args.out, generate(args.source, json.loads(args.roster.read_bytes()),
-                                           include_datamined=not args.no_datamined))
+            roster = json.loads(args.roster.read_bytes())
+            if args.with_items or args.profile:
+                profile = json.loads(args.profile.read_bytes()) if args.profile else None
+                files = generate_combined(args.source, roster, include_datamined=not args.no_datamined,
+                                          profile=profile)
+            else:
+                files = generate(args.source, roster, include_datamined=not args.no_datamined)
+            write_delta(args.out, files)
         elif args.command == 'install':
             install(args.delta, args.target)
         else:

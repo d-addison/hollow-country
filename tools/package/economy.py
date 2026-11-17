@@ -12,7 +12,14 @@ from pathlib import Path
 import re
 import shutil
 import stat
+import sys
 import xml.etree.ElementTree as ET
+
+try:
+    from tools.package import datamined_items
+except ImportError:  # run as a script
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    from tools.package import datamined_items
 
 INPUTS = ('cfgeconomycore.xml', 'db/types.xml', 'cfglimitsdefinition.xml',
           'mapgroupproto.xml', 'mapgrouppos.xml')
@@ -25,6 +32,10 @@ MANAGED = 'hollow-country'
 # caller (the firearms roster) may widen it to budget/tier tags, never flags, cost or quantities.
 MUTABLE_DEFAULT = frozenset({'usage'})
 MUTABLE_ALLOWED = frozenset({'usage', 'value', 'nominal', 'min', 'lifetime', 'restock'})
+# The datamined non-weapon rows (datamined_items.py) may change MUTABLE_ALLOWED on their own classes only.
+# A category may be ADDED, never changed, only on a named class whose stock row has none, and only as
+# the declared category (class -> category).
+CATEGORY_ADDED = {'FilteringBottle': 'tools'}
 
 
 def encode(value):
@@ -113,15 +124,42 @@ def _validate_budget(item):
         raise ValueError('targeted stock flags must be complete and binary')
 
 
-def generate(source, profile):
+def _refuse_collisions(profile_names, roster_names, item_names):
+    """One class may be changed by only one source: a second <type> for it would be ambiguous."""
+    def lower(names):
+        return {n.lower() for n in names if isinstance(n, str)}
+    prof, ros, items = lower(profile_names), lower(roster_names), lower(item_names)
+    for label, a, b in (('roster class also named by the profile add_usage', ros, prof),
+                        ('datamined class also named by the profile add_usage', items, prof),
+                        ('roster class also a datamined item class', ros, items)):
+        clash = sorted(a & b)
+        if clash:
+            raise ValueError(f'{label} (case-insensitive): ' + ', '.join(clash))
+
+
+def generate(source, profile, include_datamined=True, roster=None, include_roster_datamined=True):
+    """One delta from the profile, the optional firearms roster and the datamined non-weapon items."""
     _validate_profile(profile)
+    if roster is not None:
+        try:
+            from tools.package import firearms
+        except ImportError:  # pragma: no cover - script mode
+            import firearms
+        firearms.validate_roster(roster)
+        roster_names = [e['class'] for e in roster['entries']
+                        if include_roster_datamined or not e.get('datamined')]
+    else:
+        roster_names = []
+    item_rows = datamined_items.load_rows() if include_datamined else []
+    _refuse_collisions(profile['add_usage'], roster_names, [r['class'] for r in item_rows])
     data = snapshot(source)
     core = xml(data['cfgeconomycore.xml'], 'economycore')
     # Stock-only generator refuses to silently merge another operator's overrides.
     if core.findall('ce'):
         raise ValueError('existing CE extensions need explicit operator reconciliation')
     types = _unique(xml(data['db/types.xml'], 'types').findall('type'))
-    vocabulary = _unique(xml(data['cfglimitsdefinition.xml'], 'lists').findall('./usageflags/usage'))
+    limits = xml(data['cfglimitsdefinition.xml'], 'lists')
+    vocabulary = _unique(limits.findall('./usageflags/usage'))
     defaults = _unique(core.findall('./defaults/default'))
     for name in profile['diagnostics']:
         if name not in defaults or defaults[name].get('value') not in {'true', 'false'}:
@@ -152,6 +190,35 @@ def generate(source, profile):
         routes.append({'item': name, 'stock_usage': old, 'candidate_usage': new,
                        'rates_flags_categories_tags_tiers': 'copied-exact-stock-runtime-semantics-pending',
                        'observed_acquisition_routes': None})
+    firearms_report = firearms_classes = None
+    if roster is not None:
+        value_vocab = _unique(limits.findall('./valueflags/value'))
+        changed, rows, totals = firearms.roster_items(types, vocabulary, value_vocab, roster,
+                                                      include_roster_datamined)
+        out.extend(changed)
+        firearms_classes = sorted(n.get('name') for n in changed)
+        firearms_report = {
+            'enabled': True, 'profile': roster['name'], 'players': roster['players'], 'entries': rows,
+            'totals': totals,
+            'datamined': {'enabled': bool(include_roster_datamined),
+                          'classes': sorted(e['class'] for e in roster['entries'] if e.get('datamined'))},
+            'deferred_datamined': roster['deferred_datamined']}
+    datamined_report = None
+    if include_datamined:
+        datamined = datamined_items.type_rows(types, vocabulary, rows=item_rows)
+        emitted = {n.get('name') for n in datamined}
+        absent = sorted(r['class'] for r in item_rows if r['class'] not in emitted)
+        out.extend(datamined)
+        by_class = {r['class']: r for r in item_rows}
+        datamined_report = {'enabled': True, 'classes': sorted(emitted),
+                            'acceptance': datamined_items.ACCEPTANCE, 'stock_absent_not_emitted': absent,
+                            'rows': [{'class': n, 'acceptance': by_class[n]['acceptance'],
+                                      'nominal': by_class[n]['nominal'], 'min': by_class[n]['min'],
+                                      'lifetime': by_class[n]['lifetime'], 'restock': by_class[n]['restock'],
+                                      'usage': sorted(by_class[n]['usage']), 'value': sorted(by_class[n]['value']),
+                                      'stock_nominal': int(types[n].findtext('nominal'))}
+                                     for n in sorted(emitted)],
+                            'note': 'budgets are proposals; CE spawn of unused vanilla rows is unobserved'}
     fragment = ET.Element('economycore')
     if len(out):
         ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
@@ -171,6 +238,8 @@ def generate(source, profile):
               'unresolved_placement_names': sorted(n for n in placements if n not in proto),
               'diagnostics': profile['diagnostics'], 'supplementary_loot_budget': 0,
               'population_budget': 'selected entries copy stock counts/flags; effective merging and world totals unobserved',
+              'datamined': datamined_report or {'enabled': False, 'classes': []},
+              'firearms': firearms_report or {'enabled': False},
               'pending': ['DayZDiag eligibility/geometry', 'normal PBO/server load',
                           'CE spawn/error trials', '3-6-player budget measurement',
                           'two-client multiplayer', 'destination rollback']}
@@ -180,7 +249,9 @@ def generate(source, profile):
              'core-defaults.patch.json': encode(patches), 'economy-report.json': encode(report)}
     files['delta-manifest.json'] = encode({'schema': 1, 'profile': profile['name'],
         'sources': {n: sha(d) for n, d in data.items()},
-        'files': {n: sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending'})
+        'files': {n: sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending',
+        'datamined_classes': datamined_report['classes'] if datamined_report else [],
+        'firearms_classes': firearms_classes or []})
     return files
 
 
@@ -317,8 +388,31 @@ def restore_core(managed, core, backup):
     os.replace(staged, core)
 
 
-def install(stage, target, mutable=MUTABLE_DEFAULT):
+def _full(element):
+    """Complete subtree identity: tag, attributes, text and every descendant."""
+    return (element.tag, tuple(sorted(element.attrib.items())), (element.text or '').strip(),
+            tuple(_full(n) for n in element))
+
+
+def _retained(item, allowed, skip_category=False):
+    """The type's identity with only its DIRECT children of the allowed tags set aside.
+
+    Everything else, including any descendant of a retained child, is compared completely.
+    """
+    return (item.tag, tuple(sorted(item.attrib.items())), (item.text or '').strip(),
+            tuple(_full(n) for n in item if n.tag not in allowed and not (skip_category and n.tag == 'category')))
+
+
+def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamined=frozenset()):
+    """Install a staged delta.
+
+    ``mutable`` is the field set every row may change (default usage only). ``widened`` names the classes
+    that may change MUTABLE_ALLOWED (firearms and datamined rows); ``datamined`` names the classes that may
+    additionally ADD the one category CATEGORY_ADDED declares for them. Profile rows stay at ``mutable``.
+    """
     mutable = frozenset(mutable)
+    widened = frozenset(widened) | frozenset(datamined)
+    datamined = frozenset(datamined)
     if 'usage' not in mutable or not mutable <= MUTABLE_ALLOWED:
         raise ValueError('unsupported mutable field set')
     target = _target(target)
@@ -335,13 +429,23 @@ def install(stage, target, mutable=MUTABLE_DEFAULT):
     stock = _unique(xml(data['db/types.xml'], 'types').findall('type'))
     vocabulary = _unique(xml(data['cfglimitsdefinition.xml'], 'lists').findall('./usageflags/usage'))
     _unique(types.findall('type'))
-    def retained_fields(element):
-        return (element.tag, tuple(sorted(element.attrib.items())), (element.text or '').strip(),
-                tuple(retained_fields(n) for n in element if n.tag not in mutable))
     for item in types:
         name = item.get('name')
-        if item.tag != 'type' or name not in stock or retained_fields(item) != retained_fields(stock[name]):
+        if item.tag != 'type' or name not in stock:
             raise ValueError('candidate must retain every stock field except the mutable set')
+        allowed = mutable | MUTABLE_ALLOWED if name in widened else mutable
+        # A category may only be added, once, as the declared category, where stock has none.
+        add_category = name in datamined and name in CATEGORY_ADDED and stock[name].find('category') is None
+        if add_category:
+            cats = item.findall('category')
+            if len(cats) > 1 or any(dict(c.attrib) != {'name': CATEGORY_ADDED[name]} or len(c) or (c.text or '').strip()
+                                    for c in cats):
+                raise ValueError(f'invalid category addition (only {CATEGORY_ADDED[name]!r} is declared): {name}')
+        if _retained(item, allowed, add_category) != _retained(stock[name], allowed, add_category):
+            raise ValueError('candidate must retain every stock field except the mutable set')
+        for n in item:  # a changed tag is a plain value: no attributes beyond the name, no descendants
+            if n.tag in allowed and (len(n) or set(n.attrib) != ({'name'} if n.tag in {'usage', 'value'} else set())):
+                raise ValueError(f'mutable field must be a plain value: {name}')
         _validate_budget(item)
         usages = item.findall('usage')
         _unique(usages)
@@ -360,6 +464,28 @@ def install(stage, target, mutable=MUTABLE_DEFAULT):
     fresh_write(managed, 'ce/types.xml', files['ce/types.xml'])
     os.replace(fresh_write(managed, 'core.next', patched), child(target, 'cfgeconomycore.xml'))
     return receipt
+
+
+def install_delta(stage, target):
+    """Install a generated delta once, with per-class permissions taken from its manifest.
+
+    datamined_classes must be shipped datamined rows (they may also add the declared category);
+    firearms_classes are roster rows (budget fields only); every other row is usage-only.
+    """
+    _files, manifest = _load_delta(stage)
+    lists = {}
+    for key in ('datamined_classes', 'firearms_classes'):
+        listed = manifest.get(key, [])
+        if (not isinstance(listed, list) or any(not isinstance(n, str) or not re.fullmatch(r'[A-Za-z0-9_]{1,80}', n)
+                                                for n in listed) or len(set(listed)) != len(listed)):
+            raise ValueError(f'delta manifest has an invalid {key}')
+        lists[key] = frozenset(listed)
+    shipped = {r['class'] for r in datamined_items.load_rows()}
+    if not lists['datamined_classes'] <= shipped:
+        raise ValueError('delta manifest names a class that is not a shipped datamined row')
+    if {n.lower() for n in lists['firearms_classes']} & {n.lower() for n in lists['datamined_classes']}:
+        raise ValueError('delta manifest lists a firearms class that is also a datamined class')
+    return install(stage, target, widened=lists['firearms_classes'], datamined=lists['datamined_classes'])
 
 
 def rollback(target):
@@ -386,6 +512,12 @@ def main():
     p = sub.add_parser('generate')
     p.add_argument('--source', type=Path, required=True)
     p.add_argument('--profile', type=Path, required=True)
+    p.add_argument('--roster', type=Path, default=None,
+                   help='compose this firearms roster (e.g. tools/package/firearms_roster.json) into the one delta')
+    p.add_argument('--no-datamined', action='store_true',
+                   help='leave every datamined non-weapon item row (acceptance: pending-local) out of the delta')
+    p.add_argument('--no-roster-datamined', action='store_true',
+                   help='leave the roster\'s datamined weapon/magazine rows (pending-local) out of the delta')
     p.add_argument('--out', type=Path, required=True)
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
@@ -395,9 +527,12 @@ def main():
     args = parser.parse_args()
     try:
         if args.command == 'generate':
-            write_delta(args.out, generate(args.source, json.loads(args.profile.read_bytes())))
+            write_delta(args.out, generate(
+                args.source, json.loads(args.profile.read_bytes()), include_datamined=not args.no_datamined,
+                roster=json.loads(args.roster.read_bytes()) if args.roster else None,
+                include_roster_datamined=not args.no_roster_datamined))
         elif args.command == 'install':
-            install(args.delta, args.target)
+            install_delta(args.delta, args.target)
         else:
             rollback(args.target)
         print('Offline operation complete; DayZ runtime acceptance pending.')

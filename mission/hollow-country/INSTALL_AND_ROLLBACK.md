@@ -69,6 +69,37 @@ For atmosphere rollback, stop the server, set EnableAtmosphere=false, remove the
 local marker and restore the backed-up mission/settings before restarting. DayZDiag,
 normal PBO/server and two-client visibility/audio acceptance remain pending.
 
+## Server configuration for the friend server (serverDZ.cfg)
+
+The owner's local session gets these lines from the launcher
+(`tools/setup/local_test_session.py`). On another host, the operator sets them by
+hand in `serverDZ.cfg`. No other tool here edits server configuration. Back the
+file up first.
+
+```
+thirdPersonView = 2;              // first person on foot, third person in vehicles (owner rule)
+disable3rdPerson = 0;             // legacy key; 1 would override thirdPersonView and force first person everywhere
+serverTimeAcceleration = 4;       // day runs at 4x
+serverNightTimeAcceleration = 8;  // multiplies the day value: 32x at night, about 17 real minutes
+enableCfgGameplayFile = 1;        // without it the cfggameplay delta below is ignored
+lightingConfig = 0;               // bright nights; admitted atmosphere also forces 0 and logs the old value
+verifySignatures = 2;             // keep signature checks on; install the Hollow Country public key under keys
+maxPlayers = 6;                   // intended load is 3 to 6 players
+```
+
+- Camera: at startup the server logs `[HollowCountry] Camera mode: <mode>`. The
+  mode comes from the native `GetThirdPersonViewMode()`. The expected line is
+  `first person on foot, third person in vehicles`. Any other mode means a key
+  above is missing or overridden.
+- Night pace: the 32x figure assumes the BI server rule that the night value
+  multiplies the day value. Check it with an in-game clock during local acceptance.
+- Mods: the server `-mod` and `-serverMod` lists, and the client `-mod` list, keep the
+  launcher's order. Optional weapon and AI dependencies (listed in `docs/FIREARMS.md`
+  and the launcher plan) load before HollowCountry and come from the server owner's own Workshop
+  subscriptions. They are never repacked or bundled.
+- Every value is provisional until the owner's local session checks it with one
+  client.
+
 ## CE generation and installation
 
 Leave the Steam mission read-only. In native Windows create a mission copy under
