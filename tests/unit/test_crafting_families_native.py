@@ -129,7 +129,7 @@ class NativeFamilySafetyTests(unittest.TestCase):
             if hole is not None:outputs[hole]=None
             def debit(pair,actor):
                 events.append('debit');source.health=100
-            state=NS(ClassName=lambda:'DeCraftWoodenCrate',
+            state=NS(ClassName=lambda:'DeCraftWoodenCrate',HCIsScoped=lambda:True,
                      m_HCNativeCommitGuard=NS(TryEnter=lambda:True,Release=lambda:events.append('release')),
                      CheckRecipe=lambda *args:True,m_IngredientsSorted=[source,tool],m_NumberOfResults=2,m_Specialty=0.02,
                      SpawnItems=lambda pair,actor,dest:dest.extend(outputs),

@@ -22,7 +22,7 @@ class HCActionMountTapedLight extends ActionSingleUseBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (!GetGame().IsServer()) { return HCTapedLightRuntime.Preview(player, item, true); }
+        if (!GetGame().IsServer()) { return HCTapedLightRuntime.PreviewHint(player, item, true); }
         return HCTapedLightRuntime.CanExecute(player, item, true);
     }
 
@@ -54,7 +54,7 @@ class HCActionRemoveTapedLight extends ActionSingleUseBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (!GetGame().IsServer()) { return HCTapedLightRuntime.Preview(player, item, false); }
+        if (!GetGame().IsServer()) { return HCTapedLightRuntime.PreviewHint(player, item, false); }
         return HCTapedLightRuntime.CanExecute(player, item, false);
     }
 
