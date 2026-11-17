@@ -93,9 +93,10 @@ def sample(seq, actuals=None, mission_weather=False, frozen=False, text=False, l
             "volfog_enabled": True, "volfog_distance_density": number(0.1, text),
             "volfog_height_density": number(0.2, text), "volfog_height_bias": number(50, text),
             "phenomena": {name: phenomenon(name, values[name], text, (limits or {}).get(name)) for name in PHENOMENA}}
-    # Synthetic progression: a forecast boundary every 100 s and a forecast that moves after the first one.
+    # Synthetic progression: next_change is the REMAINING seconds (a countdown, as natively observed); a forecast
+    # boundary falls every 100 s of weather time and the forecast moves after the first one.
     for name, entry in row["phenomena"].items():
-        entry["next_change"] = number(100 * (30 * seq // 100 + 1), text)
+        entry["next_change"] = number(100 * (30 * seq // 100 + 1) - 30 * seq, text)
         if seq >= 4:
             entry["forecast"] = number(round(values[name] + 0.01, 6), text)
     return row
@@ -403,38 +404,41 @@ XML_TREATING_OVERCAST_AND_FOG = cfgweather(enable="1", overcast=(0.8, 0.95), fog
 
 
 class CompareTests(unittest.TestCase):
-    def test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_observed_limit_compliance(self):
+    def test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_candidate_live_limits_read_back(self):
         stock = evaluated(STOCK, "stock", 0.3)
         candidate = evaluated(DISTINCT, "candidate", 0.9)
         narrow = evaluated(NARROW, "stock", 0.3, stock=NARROW, limits={"overcast": (0.2, 0.6)})
         narrow_candidate = evaluated(DISTINCT, "candidate", 0.9, stock=NARROW)
         result = report.compare(narrow, narrow_candidate)
-        self.assertEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
         self.assertEqual("not_treated", result["phenomena"]["fog"]["evidence"])
         self.assertEqual(["overcast"], result["treated"])
         self.assertEqual("complete", result["status"], result["issues"])
         self.assertEqual("pending", result["runtime_acceptance"])
         self.assertFalse(result["feature_complete"])
         plain = report.compare(stock, candidate)
-        self.assertEqual("observed_limit_compliance", plain["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", plain["phenomena"]["overcast"]["evidence"])
         self.assertNotIn("candidate_governs", json.dumps(plain))
-        self.assertTrue(any("not proof" in note for note in plain["notes"]), plain["notes"])
+        self.assertEqual("entirely_outside", plain["phenomena"]["overcast"]["stock_values_vs_candidate_limits"])
+        self.assertEqual(list(report.NON_CLAIMS), plain["non_claims"])
 
     def test_candidate_values_outside_the_candidate_limits_show_limits_exceeded_in_the_candidate_run(self):
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.3))
-        self.assertEqual("candidate_limits_exceeded", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_values_outside_limits", result["phenomena"]["overcast"]["evidence"])
         self.assertEqual("complete", result["status"], result["issues"])
 
     def test_a_candidate_inside_the_stock_range_cannot_discriminate(self):
         result = report.compare(evaluated(STOCK, "stock", 0.9), evaluated(DISTINCT, "candidate", 0.9))
-        self.assertEqual("not_discriminating", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("inside", result["phenomena"]["overcast"]["stock_values_vs_candidate_limits"])
 
     def test_a_stock_run_that_only_partly_leaves_the_candidate_range_is_weak_evidence(self):
         def partly(rows):
             for i, row in enumerate(rows[1:7]):
                 row["phenomena"]["overcast"]["actual"] = 0.3 if i < 2 else 0.9
         result = report.compare(evaluated(STOCK, "stock", mutate=partly), evaluated(DISTINCT, "candidate", 0.9))
-        self.assertEqual("weakly_discriminating", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("partly_outside", result["phenomena"]["overcast"]["stock_values_vs_candidate_limits"])
 
     def test_a_comparison_of_two_runs_with_the_same_cfgweather_is_pending(self):
         result = report.compare(evaluated(DISTINCT, "candidate"), evaluated(DISTINCT, "candidate"))
@@ -471,7 +475,7 @@ class CompareTests(unittest.TestCase):
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(both, "candidate", mutate=stuck))
         self.assertEqual(["overcast", "fog"], result["treated"])
         self.assertEqual("pending", result["phenomena"]["fog"]["evidence"])
-        self.assertEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
         self.assertEqual("pending", result["status"])
         self.assertTrue(any("fog" in issue for issue in result["issues"]), result["issues"])
 
@@ -485,7 +489,7 @@ class ProgressionTests(unittest.TestCase):
         return report.compare(stock, candidate)
 
     def assert_not_established(self, result):
-        self.assertNotEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
+        self.assertNotEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
         self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
         self.assertEqual("pending", result["status"])
 
@@ -567,7 +571,7 @@ class LimitReadbackTests(unittest.TestCase):
         candidate = evaluated(DISTINCT, "candidate", 0.9, mutate=conflicting)
         result = report.compare(evaluated(STOCK, "stock", 0.3), candidate)
         entry = self.overcast(result)
-        self.assertEqual("limits_not_observed_applied", entry["evidence"])
+        self.assertEqual("inconclusive_readback", entry["evidence"])
         self.assertIs(True, entry["values_in_range"])
         self.assertFalse(entry["live_readback"]["limits"]["candidate_live_matches_candidate_xml"])
         self.assertEqual(6, entry["candidate_forecast_outside_limits"])
@@ -579,14 +583,14 @@ class LimitReadbackTests(unittest.TestCase):
                 row["phenomena"]["overcast"].update(limit_min=0.8, limit_max=0.95)
         result = report.compare(evaluated(STOCK, "stock", 0.3, mutate=same_as_candidate), evaluated(DISTINCT, "candidate"))
         readback = self.overcast(result)["live_readback"]["limits"]
-        self.assertEqual("limits_not_observed_applied", self.overcast(result)["evidence"])
+        self.assertEqual("inconclusive_readback", self.overcast(result)["evidence"])
         self.assertTrue(readback["candidate_live_matches_candidate_xml"])
         self.assertFalse(readback["stock_live_differs_from_candidate_xml"])
 
     def test_the_differential_makes_the_positive_label_and_reports_the_live_readings(self):
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9))
         entry = self.overcast(result)
-        self.assertEqual("observed_limit_compliance", entry["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
         self.assertEqual(["limits"], entry["treated_attributes"])
         self.assertEqual([[0.8, 0.95]], entry["live_readback"]["limits"]["candidate_live"])
         self.assertEqual([[0.0, 1.0]], entry["live_readback"]["limits"]["stock_live"])
@@ -599,16 +603,16 @@ class LimitReadbackTests(unittest.TestCase):
                 row["phenomena"]["fog"].update(time_min=61, time_max=901)
         ignored = report.compare(evaluated(STOCK, "stock"), evaluated(xml, "candidate", mutate=stale))
         self.assertEqual(["time_limits"], ignored["phenomena"]["fog"]["treated_attributes"])
-        self.assertEqual("limits_not_observed_applied", ignored["phenomena"]["fog"]["evidence"])
+        self.assertEqual("inconclusive_readback", ignored["phenomena"]["fog"]["evidence"])
         shown = report.compare(evaluated(STOCK, "stock"), evaluated(xml, "candidate"))
         self.assertTrue(shown["phenomena"]["fog"]["live_readback"]["time_limits"]["candidate_live_matches_candidate_xml"])
-        self.assertNotEqual("limits_not_observed_applied", shown["phenomena"]["fog"]["evidence"])
+        self.assertNotEqual("inconclusive_readback", shown["phenomena"]["fog"]["evidence"])
 
     def test_a_comparison_whose_candidate_changes_no_limits_has_nothing_to_compare(self):
         result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(cfgweather(enable="1"), "candidate", 0.3))
         self.assertEqual("pending", result["status"])
         self.assertEqual([], result["treated"])
-        self.assertTrue(any("no treatment" in issue for issue in result["issues"]), result["issues"])
+        self.assertTrue(any("no supported treatment" in issue for issue in result["issues"]), result["issues"])
         self.assertEqual({"not_treated"}, {entry["evidence"] for entry in result["phenomena"].values()})
 
 
@@ -622,7 +626,7 @@ class TreatedGateTests(unittest.TestCase):
         result = report.compare(evaluated(STOCK, "stock", 0.3, mutate=inert), evaluated(DISTINCT, "candidate", mutate=inert))
         self.assertEqual("complete", result["status"], result["issues"])
         self.assertEqual("not_treated", result["phenomena"]["snowfall"]["evidence"])
-        self.assertEqual("observed_limit_compliance", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
 
     def test_slow_fog_and_wind_direction_schedules_do_not_block_an_overcast_result_in_a_24_minute_run(self):
         # Invented deadlines reflecting visible native durations; not recorded native observations.
@@ -633,10 +637,10 @@ class TreatedGateTests(unittest.TestCase):
                 row["game_ms"] = 30000 + 5000 * i
                 row["weather_time"] = 30 + 5 * i
                 for entry in row["phenomena"].values():
-                    entry["next_change"] = 100 * ((30 + 5 * i) // 100 + 1)
+                    entry["next_change"] = 100 * ((30 + 5 * i) // 100 + 1) - (30 + 5 * i)
                     entry["forecast"] = entry["actual"] if i < 14 else entry["actual"] + 0.01
-                row["phenomena"]["fog"]["next_change"] = 1805
-                row["phenomena"]["windDirection"]["next_change"] = 2205
+                row["phenomena"]["fog"]["next_change"] = 1805 - (30 + 5 * i)
+                row["phenomena"]["windDirection"]["next_change"] = 2205 - (30 + 5 * i)
                 rows.append(row)
             rows.append(end(289))
             apply_live(rows, xml)
@@ -663,13 +667,86 @@ class TreatedGateTests(unittest.TestCase):
         self.assertEqual("not_treated", result["phenomena"]["rain"]["evidence"])
 
 
+class NativeShapedTests(unittest.TestCase):
+    """Synthetic observations SHAPED like the first native stock run (weather-probe-001-stock); not that data."""
+
+    COUNT = 241
+
+    def shaped(self, xml, variant, overcast_actual=None):
+        rows = [header(self.COUNT, interval_ms=5000, cap_ms=1235000)]
+        for i in range(self.COUNT):
+            row = sample(i, {"overcast": overcast_actual if overcast_actual is not None else 0.2217}, text=True)
+            row["game_ms"] = 80529 + 5000 * i
+            row["weather_time"] = "%.6g" % (5.30287 + 5.0 * i)
+            entries = row["phenomena"]
+            # fog: a countdown of remaining seconds, run out at sample 58, a fresh countdown and forecast at 59
+            fog = 294.987 - 5.03 * i if i < 59 else 898.934 - 5.03 * (i - 59)
+            entries["fog"].update(next_change="%.6g" % fog, forecast="0" if i < 59 else "0.0081521",
+                                  actual="0" if i < 59 else "5.51835e-05")
+            # overcast: a remainder of about zero at the first sample, then a fresh countdown and a new forecast
+            overcast = 0.000964308 if i == 0 else 1582.11 - 4.89 * (i - 1)
+            entries["overcast"].update(next_change="%.6g" % overcast)
+            if i >= 1:
+                entries["overcast"]["forecast"] = "%.6g" % (overcast_actual - 0.01 if overcast_actual else 0.0753319)
+            # windMagnitude: a first jump up from a large countdown (a reschedule, not a crossing)
+            entries["windMagnitude"].update(next_change="294.987" if i == 0 else "%.6g" % (3000 - 4.89 * (i - 1)))
+            # rain: script managed, 30 then 60 and constant
+            entries["rain"].update(next_change="30" if i == 0 else "60")
+            rows.append(row)
+        rows.append(end(self.COUNT))
+        apply_live(rows, xml)
+        for row in rows[1:-1]:
+            for entry in row["phenomena"].values():
+                for key in ("limit_min", "limit_max", "change_min", "change_max", "time_min", "time_max"):
+                    entry[key] = str(entry[key])
+        plan = plan_for(xml, variant, samples=self.COUNT, interval_s=5, start_delay_s=5)
+        return report.evaluate(lines(rows), xml, plan=plan)
+
+    def test_a_countdown_run_with_exponent_lexemes_is_read_and_its_crossings_are_found(self):
+        single = self.shaped(STOCK, "stock")
+        self.assertEqual("complete", single["status"], single["issues"])
+        for name, crossed in (("fog", True), ("overcast", True), ("windMagnitude", False), ("rain", False)):
+            with self.subTest(name):
+                self.assertEqual(crossed, single["phenomena"][name]["boundary_crossed"])
+                self.assertEqual(crossed, single["phenomena"][name]["cycle_observed"])
+        self.assertAlmostEqual(0.0, single["phenomena"]["fog"]["actual_range"]["min"])
+        self.assertAlmostEqual(5.51835e-05, single["phenomena"]["fog"]["actual_range"]["max"])
+
+    def test_a_pair_of_native_shaped_runs_with_a_countdown_gives_a_descriptive_result(self):
+        result = report.compare(self.shaped(STOCK, "stock", 0.3), self.shaped(DISTINCT, "candidate", 0.9))
+        self.assertEqual("complete", result["status"], result["issues"])
+        entry = result["phenomena"]["overcast"]
+        self.assertEqual("candidate_live_limits_read_back", entry["evidence"])
+        self.assertEqual({"stock": True, "candidate": True}, entry["cycle_observed"])
+
+    def test_a_native_shaped_run_whose_countdown_never_ends_is_pending_for_the_treated_phenomenon(self):
+        # a candidate whose overcast countdown starts large and only counts down over the 20 minutes
+        rows = [header(self.COUNT, interval_ms=5000, cap_ms=1235000)]
+        for i in range(self.COUNT):
+            row = sample(i, {"overcast": 0.9}, text=True)
+            row["game_ms"] = 80529 + 5000 * i
+            row["weather_time"] = "%.6g" % (5.30287 + 5.0 * i)
+            for entry in row["phenomena"].values():
+                entry["next_change"] = "%.6g" % (2000 - 4.89 * i)
+            rows.append(row)
+        rows.append(end(self.COUNT))
+        apply_live(rows, DISTINCT)
+        plan = plan_for(DISTINCT, "candidate", samples=self.COUNT, interval_s=5, start_delay_s=5)
+        stuck = report.evaluate(lines(rows), DISTINCT, plan=plan)
+        self.assertFalse(stuck["phenomena"]["overcast"]["boundary_crossed"])
+        result = report.compare(self.shaped(STOCK, "stock", 0.3), stuck)
+        self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("pending", result["status"])
+
+
 class DeadlineProgressionTests(unittest.TestCase):
     """Passing a deadline shows nothing unless the controller then rescheduled or chose a new forecast."""
 
     def test_interpolation_toward_an_unchanged_forecast_with_an_unchanged_deadline_is_not_a_cycle(self):
         def interpolate(rows):
             for i, row in enumerate(rows[1:-1]):
-                row["phenomena"]["overcast"].update(actual=0.81 + i * 0.01, forecast=0.9, next_change=100)
+                row["phenomena"]["overcast"].update(actual=0.81 + i * 0.01, forecast=0.9,
+                                                    next_change=max(100 - 30 * i, 0))
         single = evaluated(DISTINCT, "candidate", mutate=interpolate)
         entry = single["phenomena"]["overcast"]
         self.assertTrue(entry["boundary_crossed"])
@@ -682,18 +759,53 @@ class DeadlineProgressionTests(unittest.TestCase):
     def test_the_decision_table(self):
         spread = (0, 30, 60, 90, 120, 150)
         cases = {
-            "no deadline reached": ([(0, 100, .5), (30, 100, .5), (60, 100, .5)], (False, False)),
-            "crossed, nothing recomputed": ([(0, 100, .5), (60, 100, .5), (120, 100, .5), (150, 100, .5)], (True, False)),
-            "crossed, new deadline": ([(0, 100, .5), (60, 100, .5), (120, 200, .5)], (True, True)),
-            "crossed, deadline appears one sample later": ([(0, 100, .5), (120, 100, .5), (150, 260, .5)], (True, True)),
-            "crossed, new forecast": ([(0, 100, .5), (60, 100, .5), (120, 100, .6)], (True, True)),
-            "crossed, forecast changes one sample later": ([(0, 100, .5), (120, 100, .5), (150, 100, .6)], (True, True)),
-            "deadline reset to an expired value": ([(0, 100, .5), (120, 100, .5), (150, 90, .5)], (True, False)),
-            "forecast moved before the deadline only": ([(0, 100, .5), (60, 100, .6), (120, 100, .6), (150, 100, .6)],
-                                                        (True, False)),
-            "zero deadlines never count": ([(t, 0, 0.5) for t in spread], (False, False)),
-            "zero deadlines with a changing forecast": ([(t, 0, 0.5 + t / 1000) for t in spread], (False, False)),
-            "negative deadlines": ([(t, -5, 0.5 + t / 1000) for t in spread], (False, False)),
+            "countdown not yet at its end": ([(0, 100, .5), (30, 70, .5), (60, 40, .5)], (False, False)),
+            "countdown steady and never reaching the end": ([(0, 100, .5), (30, 70, .5), (60, 40, .5), (90, 10, .5)],
+                                                            (False, False)),
+            "crossed, nothing recomputed": ([(0, 100, .5), (60, 40, .5), (120, 0, .5), (150, 0, .5)], (True, False)),
+            "crossed, exactly at a sample": ([(0, 60, .5), (30, 30, .5), (60, 0, .5)], (True, False)),
+            "crossed, a fresh countdown": ([(0, 100, .5), (60, 40, .5), (120, 80, .5)], (True, True)),
+            "crossed, the fresh countdown appears one sample later": ([(0, 100, .5), (120, 0, .5), (150, 110, .5)],
+                                                                      (True, True)),
+            "crossed, new forecast": ([(0, 100, .5), (60, 40, .5), (120, 0, .6)], (True, True)),
+            "crossed, forecast changes one sample later": ([(0, 100, .5), (120, 0, .5), (150, 0, .6)], (True, True)),
+            "crossed, countdown stays at zero": ([(0, 100, .5), (120, 0, .5), (150, 0, .5)], (True, False)),
+            "forecast moved before the end only": ([(0, 100, .5), (60, 40, .6), (120, 0, .6), (150, 0, .6)],
+                                                   (True, False)),
+            "zero countdowns never count": ([(t, 0, 0.5) for t in spread], (False, False)),
+            "zero countdowns with a changing forecast": ([(t, 0, 0.5 + t / 1000) for t in spread], (False, False)),
+            "negative countdowns": ([(t, -5, 0.5 + t / 1000) for t in spread], (False, False)),
+            "a constant countdown (script managed) is never crossed": ([(5 * i, 30, .5) for i in range(8)],
+                                                                      (False, False)),
+            # the near-the-end window is one sample interval plus 10 percent and 0.05 s (interval 5 s here)
+            "a remainder just inside the slack still crosses": ([(0, 5.4, .5), (5, 600, .5)], (True, True)),
+            "a remainder just outside the slack is a reschedule": ([(0, 5.7, .5), (5, 600, .5)], (False, False)),
+            # the rise tolerance is 0.05 s: reading noise is not a jump up
+            "a rise inside the tolerance is no crossing": ([(0, 4.0, .5), (5, 4.03, .5), (10, 4.0, .5)],
+                                                          (False, False)),
+            "a rise inside the tolerance after a crossing is no cycle": ([(0, 4.0, .5), (5, 0, .5), (10, 0.03, .5)],
+                                                                         (True, False)),
+        }
+        for label, (points, expected) in cases.items():
+            with self.subTest(label):
+                self.assertEqual(expected, report._deadline_progress(points))
+
+    def test_a_native_shaped_countdown_with_a_slightly_slow_rate_is_not_a_false_cycle(self):
+        # The native countdown drifted 0.97-1.03 of the weather clock (observation: weather-probe-001-stock).
+        cases = {
+            "slow countdown leaves a small positive rest": ([(0, 9.8, .5), (5, 4.95, .5), (10, 0.06, .5), (15, 0, .5)],
+                                                            (True, False)),
+            "the rest is followed by a jump up": ([(0, 9.8, .5), (5, 4.95, .5), (10, 0.06, .5), (15, 898.9, .5)],
+                                                  (True, True)),
+            "a jump up straight from a small remainder": ([(0, 10.0, .5), (5, 3.907, .5), (10, 898.934, .6)],
+                                                          (True, True)),
+            "overcast style: a tiny remainder at the first sample": ([(5.3, 0.000964, .22), (10.3, 1582.11, .075)],
+                                                                     (True, True)),
+            "windMagnitude style: a first jump up from a large countdown is no crossing": (
+                [(5.3, 294.987, 10.0), (10.3, 876.111, 7.277), (15.3, 871.2, 7.277), (20.3, 866.3, 7.277)],
+                (False, False)),
+            "rain style: 30 then 60, never counting down": ([(5.3, 30, .0), (10.3, 60, .0), (15.3, 60, .0)],
+                                                           (False, False)),
         }
         for label, (points, expected) in cases.items():
             with self.subTest(label):
@@ -705,6 +817,168 @@ class DeadlineProgressionTests(unittest.TestCase):
                 row["phenomena"]["overcast"].update(next_change=0, forecast=0.5 + i * 0.01)
         entry = evaluated(DISTINCT, "candidate", mutate=expired)["phenomena"]["overcast"]
         self.assertEqual((False, False), (entry["boundary_crossed"], entry["cycle_observed"]))
+
+
+def with_current(xml, name, actual="0.75"):
+    """The same cfgweather.xml with one phenomenon's <current actual=...> changed (limits untouched)."""
+    root = ET.fromstring(xml)
+    root.find(name + "/current").set("actual", actual)
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+
+class MixedReadbackTests(unittest.TestCase):
+    """The readback needs EVERY candidate reading to match and NO stock reading to; partial matches are inconclusive."""
+
+    def overcast(self, stock, candidate):
+        return report.compare(stock, candidate)["phenomena"]["overcast"]
+
+    def test_one_stale_candidate_reading_among_matching_ones_is_inconclusive(self):
+        def one_stale(rows):
+            rows[1]["phenomena"]["overcast"].update(limit_min=0.0, limit_max=1.0)
+        candidate = evaluated(DISTINCT, "candidate", mutate=one_stale)
+        entry = self.overcast(evaluated(STOCK, "stock", 0.3), candidate)
+        self.assertEqual("inconclusive_readback", entry["evidence"])
+        detail = entry["live_readback"]["limits"]
+        self.assertFalse(detail["candidate_live_matches_candidate_xml"])
+        self.assertEqual({"matching": 5, "total": 6}, detail["candidate_readings_matching_candidate_xml"])
+
+    def test_one_stock_reading_that_already_equals_the_candidate_is_inconclusive(self):
+        def one_match(rows):
+            rows[1]["phenomena"]["overcast"].update(limit_min=0.8, limit_max=0.95)
+        entry = self.overcast(evaluated(STOCK, "stock", 0.3, mutate=one_match), evaluated(DISTINCT, "candidate"))
+        self.assertEqual("inconclusive_readback", entry["evidence"])
+        self.assertFalse(entry["live_readback"]["limits"]["stock_live_differs_from_candidate_xml"])
+
+    def test_a_mixed_time_limit_readback_is_inconclusive_as_well(self):
+        xml = cfgweather(enable="1", times={"fog": (30, 60)})
+
+        def one_stale(rows):
+            rows[3]["phenomena"]["fog"].update(time_min=60, time_max=900)
+        entry = report.compare(evaluated(STOCK, "stock"), evaluated(xml, "candidate", mutate=one_stale))["phenomena"]["fog"]
+        self.assertEqual("inconclusive_readback", entry["evidence"])
+
+    def test_a_readback_that_is_inconclusive_claims_nothing_about_the_native_engine(self):
+        def stale(rows):
+            for row in rows[1:-1]:
+                row["phenomena"]["overcast"].update(limit_min=0.0, limit_max=1.0)
+        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", mutate=stale))
+        entry = result["phenomena"]["overcast"]
+        self.assertEqual("complete", result["status"], result["issues"])
+        self.assertIn("no native conclusion", entry["reason"])
+        self.assertIn("delayed", entry["reason"])
+        self.assertEqual("pending", result["runtime_acceptance"])
+
+
+class CanceledDeadlineTests(unittest.TestCase):
+    """A deadline that was replaced before it was reached is not crossed; only the active deadline counts."""
+
+    def test_a_countdown_replaced_by_a_larger_one_before_it_ended_does_not_establish_a_cycle(self):
+        def canceled(rows):
+            for i, row in enumerate(rows[1:-1]):
+                row["phenomena"]["overcast"].update(actual=0.81 + 0.01 * i, forecast=0.9,
+                                                    next_change=100 if i == 0 else 1000 - 30 * (i - 1))
+        candidate = evaluated(DISTINCT, "candidate", mutate=canceled)
+        entry = candidate["phenomena"]["overcast"]
+        self.assertEqual((False, False), (entry["boundary_crossed"], entry["cycle_observed"]))
+        result = report.compare(evaluated(STOCK, "stock", 0.3), candidate)
+        self.assertEqual("pending", result["status"])
+        self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
+        self.assertFalse(result["phenomena"]["overcast"]["cycle_observed"]["candidate"])
+
+    def test_the_decision_table_with_canceled_and_replaced_countdowns(self):
+        cases = {
+            "a jump up from a countdown that was not near its end is a reschedule, not a crossing": (
+                [(0, 100, .5), (30, 1000, .5), (60, 970, .5), (120, 910, .5)], (False, False)),
+            "the same jump with a forecast change is still no crossing": (
+                [(0, 100, .5), (30, 1000, .6), (60, 970, .6)], (False, False)),
+            "a replaced countdown that later runs out without a cycle": (
+                [(0, 100, .5), (30, 200, .5), (150, 80, .5), (180, 50, .5), (210, 20, .5), (240, 0, .5), (270, 0, .5)],
+                (True, False)),
+            "a replaced countdown that later runs out and is rescheduled": (
+                [(0, 100, .5), (30, 200, .5), (210, 20, .5), (240, 300, .5)], (True, True)),
+            "a countdown moved earlier then run out without a cycle": (
+                [(0, 500, .5), (30, 60, .5), (60, 30, .5), (90, 0, .5), (120, 0, .5)], (True, False)),
+            "a canceled countdown would have ended, the forecast changes much later": (
+                [(0, 100, .5), (30, 1000, .5), (150, 880, .6)], (False, False)),
+        }
+        for label, (points, expected) in cases.items():
+            with self.subTest(label):
+                self.assertEqual(expected, report._deadline_progress(points))
+
+
+class CurrentTreatmentTests(unittest.TestCase):
+    """A candidate that changes <current> values is treated but unsupported: reported, coverage pending."""
+
+    def test_a_current_only_candidate_is_reported_as_treated_but_unsupported(self):
+        xml = with_current(cfgweather(enable="1"), "fog")
+        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(xml, "candidate", 0.3))
+        entry = result["phenomena"]["fog"]
+        self.assertEqual("treated_unsupported", entry["evidence"])
+        self.assertEqual(["current"], entry["unsupported_treatments"])
+        self.assertEqual({"fog": ["current"]}, result["unsupported_treatments"])
+        self.assertEqual("pending", result["coverage"])
+        self.assertEqual("pending", result["status"])
+        self.assertEqual([], result["treated"])
+        self.assertTrue(any("fog" in issue and "current" in issue for issue in result["issues"]), result["issues"])
+
+    def test_a_current_target_does_not_vanish_from_a_mixed_candidate(self):
+        xml = with_current(DISTINCT, "fog")
+        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(xml, "candidate", 0.9))
+        self.assertEqual("candidate_live_limits_read_back", result["phenomena"]["overcast"]["evidence"])
+        self.assertEqual("treated_unsupported", result["phenomena"]["fog"]["evidence"])
+        self.assertEqual(["overcast"], result["treated"])
+        self.assertEqual({"fog": ["current"]}, result["unsupported_treatments"])
+        self.assertEqual("pending", result["coverage"])
+        self.assertEqual("pending", result["status"], "the mixed candidate must not come back complete")
+
+    def test_a_supported_limits_result_is_never_positive_for_the_current_target(self):
+        xml = with_current(DISTINCT, "overcast", "0.85")
+        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(xml, "candidate", 0.9))
+        entry = result["phenomena"]["overcast"]
+        self.assertEqual("treated_unsupported", entry["evidence"])
+        self.assertEqual(["current"], entry["unsupported_treatments"])
+        self.assertEqual("candidate_live_limits_read_back", entry["supported_attribute_evidence"])
+        self.assertEqual(["limits"], entry["treated_attributes"])
+        self.assertEqual("pending", result["status"])
+
+    def test_an_untouched_current_is_not_a_treatment(self):
+        result = report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9))
+        self.assertEqual({}, result["unsupported_treatments"])
+        self.assertEqual("complete", result["coverage"])
+        self.assertEqual([], result["phenomena"]["overcast"]["unsupported_treatments"])
+        self.assertEqual("complete", result["status"], result["issues"])
+
+
+class NonClaimTests(unittest.TestCase):
+    """No output label states precedence or native non-application; a fixed non-claims list travels with it."""
+
+    LABELS = {"pending", "not_treated", "treated_unsupported", "candidate_values_outside_limits",
+              "inconclusive_readback", "candidate_live_limits_read_back"}
+
+    def test_the_label_set_is_exactly_the_descriptive_one(self):
+        self.assertEqual(self.LABELS, set(report.EVIDENCE_LABELS))
+        for label in report.EVIDENCE_LABELS:
+            for word in ("precedence", "governs", "applied", "ignored", "compliance", "proof"):
+                self.assertNotIn(word, label)
+
+    def test_every_pair_result_carries_the_fixed_non_claims_and_only_known_labels(self):
+        def stale(rows):
+            for row in rows[1:-1]:
+                row["phenomena"]["overcast"].update(limit_min=0.0, limit_max=1.0)
+        pairs = [report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.9)),
+                 report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", mutate=stale)),
+                 report.compare(evaluated(STOCK, "stock", 0.3), evaluated(DISTINCT, "candidate", 0.3)),
+                 report.compare(evaluated(STOCK, "stock", 0.3), report.evaluate("", DISTINCT))]
+        for result in pairs:
+            self.assertEqual(list(report.NON_CLAIMS), result["non_claims"])
+            self.assertLessEqual({entry["evidence"] for entry in result["phenomena"].values()}, self.LABELS)
+        self.assertEqual(list(report.NON_CLAIMS), evaluated(DISTINCT, "candidate")["non_claims"])
+
+    def test_the_non_claims_name_precedence_non_application_the_stock_cycle_and_acceptance(self):
+        text = " ".join(report.NON_CLAIMS).lower()
+        for needle in ("precedence", "ignored", "delayed loading", "measurement defect", "stock run",
+                       "runtime acceptance", "current"):
+            self.assertIn(needle, text)
 
 
 class ProvenanceTests(unittest.TestCase):

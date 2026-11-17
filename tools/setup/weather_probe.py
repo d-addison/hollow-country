@@ -75,8 +75,16 @@ Native APIs the hook calls, verified against the installed 1.30.164289 script ca
 
 The phenomenon accessors return typedefs of WeatherPhenomenon (3_Game/Weather.c:153-158). The setters
 (Set, SetLimits, MissionWeather, SetWeatherUpdateFreeze, SuppressLightningSimulation) are never called.
-Float formatting of float.ToString is unobserved, so floats are written as quoted JSON strings and the
-report parses them; integers are written unquoted.
+Float formatting of float.ToString was unobserved when the hook was written, so floats are written as quoted
+JSON strings and the report parses them; integers are written unquoted. The first native run
+(weather-probe-001-stock, observation only) showed about six significant digits and an exponent form for
+very small values, e.g. "5.51835e-05".
+
+GetNextChange: the Weather.c:51 comment says "the time in seconds when". The same native run shows a
+countdown of the REMAINING seconds until the next forecast (fog 294.987 at weather_time 5.30, 234.57 at
+65.3, 3.907 and then a jump up to 898.934 at 301.47 with a new forecast), not an absolute time; the report reads it so. That
+one run is observation, not a guarantee, and the countdown rate differed by phenomenon (about 0.98 to 1.0
+of the weather clock).
 
 Limits of the in-script guards: the duration cap is checked before every sample and the watchdog is a
 queued call, so neither can interrupt a synchronous call that never returns. A hung engine call hangs the

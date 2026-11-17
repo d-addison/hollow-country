@@ -18,8 +18,19 @@ sampling interval, or disagrees with its plan or cfgweather.xml. The forecast is
 status because it is not a value the weather has taken yet. mission_weather and update_frozen are reported per
 run; whether the engine sets mission_weather for enable="1" is unobserved and only these samples can say.
 
+next_change semantics. Installed 3_Game/Weather.c:51 describes GetNextChange as "the time in seconds when" the
+phenomenon changes next. The first native run (weather-probe-001-stock, observation only, one run) shows a
+COUNTDOWN of the remaining seconds instead: fog 294.987 at weather_time 5.30, 234.57 at 65.3, 3.907 shortly before
+a jump up to 898.934 at 301.47 together with a new forecast; overcast 0.00096 at the first sample then 1582.11 with
+a new forecast; windMagnitude 294.987 then a jump up to 876.111 that did not follow a countdown that had run out
+(a reschedule, not a crossing); rain 30 then 60, constant. The countdown also ran 0.97 to 1.03 of the weather
+clock per phenomenon. So a deadline is crossed when a countdown near its end (within one sample interval, plus
+10 percent and 0.05 s) reads zero or less, or jumps up; a jump up from a countdown that was not near its end is a
+reschedule or cancel, never a crossing; and a constant countdown is never crossed. The report applies exactly this
+and nothing about the native scheduler beyond these observed lexemes.
+
 Every run also reports its progression: whether the weather clock advanced, whether update was ever frozen,
-whether cfgweather.xml is enabled and, per phenomenon, whether a forecast deadline (next_change) was crossed and rescheduled and
+whether cfgweather.xml is enabled and, per phenomenon, whether a forecast countdown (next_change) was crossed and rescheduled and
 whether the actual or forecast value changed. Observed compliance with limits means nothing when nothing moved.
 
 Pair comparison (compare) needs a stock run and a candidate run staged from the same runtime with different
@@ -29,21 +40,24 @@ cfgweather.xml. Otherwise the comparison is pending.
 
 Only the treated phenomena are gated: those whose limits, change limits or time limits differ between the two
 cfgweather.xml files. The rest are not_treated: reported, never blocking (an inert zero snowfall or a slow wind
-cycle cannot make a targeted comparison inconclusive). For a treated phenomenon the evidence is:
-  pending                       a run is pending, frozen or not ticking, the candidate xml is disabled, too few
-                                samples, no deadline (next_change) crossed in the candidate run, no new deadline
-                                or new forecast observed after the crossing (interpolation toward an unchanged
-                                forecast is not a cycle), or nothing observed changing
-  candidate_limits_exceeded     the candidate run's actual values left the candidate's limits
-  limits_not_observed_applied   values may lie inside the range, but the live limit readings do not show the
-                                candidate's values against the stock run's; range coincidence proves nothing
-  observed_limit_compliance     the live readings show the candidate's limits (and not in the stock run), the
-                                values stayed inside them and the stock run's values were entirely outside
-  weakly_discriminating         as above, but the stock run's values were only partly outside the limits
-  not_discriminating            as above, but the stock run's values were inside them as well
-The whole comparison is pending when any treated phenomenon is pending, or when nothing is treated. One pair of
-runs samples random weather; observed_limit_compliance is evidence for #35, never proof of precedence and never
-acceptance. Engine limits and world-script forecasts can coexist; the forecast is reported, not decisive.
+cycle cannot make a targeted comparison inconclusive). A phenomenon whose <current> differs is treated_unsupported:
+listed under unsupported_treatments with coverage pending (so the comparison is pending); a supported result for the
+same phenomenon is kept apart under supported_attribute_evidence. For a treated phenomenon the evidence is:
+  pending                         a run is pending, frozen or not ticking, the candidate xml is disabled, too few
+                                  samples, no countdown (next_change) that ran out in the candidate run,
+                                  no fresh countdown or new forecast observed after that (interpolation toward an
+                                  unchanged forecast is not a cycle; a jump up from a countdown that was not near
+                                  its end was a reschedule or cancel, not a crossing), or nothing observed changing
+  candidate_values_outside_limits the candidate run's actual values left the candidate's limits
+  inconclusive_readback           processing completed but the live limit readings were not the candidate's in every
+                                  candidate reading and in no stock reading. No native conclusion: delayed loading
+                                  or a measurement defect can produce this; it never says the engine ignored them
+  candidate_live_limits_read_back every candidate reading equalled the candidate's xml values and no stock reading
+                                  did. Nothing more: the stock run's values relative to the limits are reported in
+                                  stock_values_vs_candidate_limits (entirely_outside, partly_outside, inside)
+The whole comparison is pending when any treated phenomenon is pending, when a treatment is unsupported, or when
+nothing supported is treated. Every result carries the fixed NON_CLAIMS list: nothing here establishes precedence of
+cfgweather.xml, native non-application, the stock run's controller behaviour or runtime acceptance.
 
 Usage:
   python3 tools/audit/weather_report.py single --runtime RUNTIME_DIR
@@ -87,7 +101,26 @@ MAX_XML_BYTES = 65536
 MAX_ISSUES = 40
 DEFAULT_MIN_SAMPLES = 6
 _ATTRIBUTES = ("limits", "change_limits", "time_limits")
+EVIDENCE_LABELS = ("pending", "not_treated", "treated_unsupported", "candidate_values_outside_limits",
+                   "inconclusive_readback", "candidate_live_limits_read_back")
+NON_CLAIMS = (
+    "This is a descriptive comparison of two sampled runs. It does not establish that cfgweather.xml takes "
+    "precedence over world scripts or engine defaults.",
+    "inconclusive_readback does not establish that the engine ignored or failed to apply the candidate's limits; "
+    "delayed loading, a measurement defect or different getter semantics can produce it. It carries no native "
+    "conclusion.",
+    "candidate_live_limits_read_back states only that the candidate's live limits were read back in every candidate "
+    "reading and in no stock reading; it does not show why, or that the values follow from them.",
+    "The stock run is not required to show a forecast cycle; its controller behaviour is not characterised.",
+    "Values inside or outside the limits, and forecasts outside them, do not show a cause; engine limits and "
+    "world-script forecasts can coexist.",
+    "Changes to <current> values are not assessed by this report; they are listed as unsupported with coverage pending.",
+    "Two single runs sample random weather. Nothing here is runtime acceptance; runtime acceptance and feature "
+    "enablement stay pending.",
+)
 TOLERANCE = 0.001
+COUNTDOWN_TOLERANCE_S = 0.05
+COUNTDOWN_SLACK = 0.1
 LIMIT_BOUND = 1000000.0
 EXIT_COMPLETE, EXIT_ERROR, EXIT_PENDING = 0, 2, 3
 _DECIMAL = re.compile(r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$")
@@ -425,7 +458,8 @@ def _phenomenon_result(name, samples, parsed, min_samples):
               "actual_range": None, "actual_violations": 0, "violating_samples": [], "forecast_range": None,
               "forecast_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
               "cycle_observed": False, "change_observed": False,
-              "xml": {key: list(parsed[key]) for key in _ATTRIBUTES}, "live_pairs": None}
+              "xml": dict({key: list(parsed[key]) for key in _ATTRIBUTES}, current=dict(parsed["current"])),
+              "live_pairs": None}
     if not samples:
         return result
     rows = [(sample["seq"], sample["phenomena"][name]) for sample in samples]
@@ -471,22 +505,23 @@ def _same(left, right):
 def _deadline_progress(points):
     """(deadline_crossed, cycle_observed) from (weather_time, next_change, forecast) per sample.
 
-    A deadline only counts while it lies in the future of the sample that showed it; an expired or zero
-    next_change is not one. Crossing it is not enough: a cycle is observed only when, at or after the crossing,
-    next_change moved to a new future deadline or the forecast differs from the one before the crossing. Actual
-    values drifting toward an unchanged forecast are interpolation, not a new cycle.
+    next_change is a COUNTDOWN: the remaining seconds until the next forecast, not an absolute time (see the module
+    docstring). A deadline is crossed when a countdown that was close enough to its end to run out before the next
+    sample (remaining within one sample interval, plus a small slack) then reads zero or less, or jumps UP to a fresh
+    countdown. A jump up from a countdown that was not near its end is a reschedule or a cancel, never a crossing,
+    and a constant countdown (script managed) is never crossed. Crossing is not enough: a cycle is observed only
+    when, at or after the crossing, the countdown jumped up again or the forecast differs from the one before the
+    crossing. Actual values drifting toward an unchanged forecast are interpolation, not a new cycle.
     """
-    deadline, crossed, before = None, False, None
-    for time, next_change, forecast in points:
-        if deadline is not None and not crossed and time >= deadline:
-            crossed = True
-            before = previous
-        if crossed:
-            if (next_change > time and not _same(next_change, deadline)) or not _same(forecast, before):
-                return True, True
-        elif next_change > time and (deadline is None or next_change < deadline):
-            deadline = next_change
-        previous = forecast
+    crossed, before = False, None
+    for (time_a, left_a, forecast_a), (time_b, left_b, forecast_b) in zip(points, points[1:]):
+        if not crossed:
+            near_end = 0 < left_a <= (time_b - time_a) * (1 + COUNTDOWN_SLACK) + COUNTDOWN_TOLERANCE_S
+            if not (near_end and (left_b <= 0 or left_b > left_a + COUNTDOWN_TOLERANCE_S)):
+                continue
+            crossed, before = True, forecast_a
+        if left_b > left_a + COUNTDOWN_TOLERANCE_S or not _same(forecast_b, before):
+            return True, True
     return crossed, False
 
 
@@ -569,6 +604,7 @@ def evaluate(observations, cfgweather_bytes, *, plan=None, min_samples=DEFAULT_M
                        "planned_samples": None if header is None else header["planned_samples"],
                        "plan": _plan_provenance(plan)},
         "phenomena": {name: _phenomenon_result(name, usable, parsed["phenomena"][name], min_samples) for name in PHENOMENA},
+        "non_claims": list(NON_CLAIMS),
         "runtime_acceptance": "pending", "feature_complete": False,
     }
     return result
@@ -588,11 +624,19 @@ def _treated(stock, candidate):
     return [key for key in _ATTRIBUTES if not _close(stock["xml"][key], candidate["xml"][key])]
 
 
+def _unsupported(stock, candidate):
+    """Treatments this report cannot assess: a differing <current> (keys or values) between the two xml files."""
+    ours, theirs = stock["xml"]["current"], candidate["xml"]["current"]
+    differs = set(ours) != set(theirs) or any(not _same(ours[key], theirs[key]) for key in ours if key in theirs)
+    return ["current"] if differs else []
+
+
 def _readback(stock, candidate, attributes):
     """Live engine readings against the candidate's xml: (per attribute detail, whether all show the differential).
 
-    Applied needs every candidate reading to equal the candidate's xml values and no stock reading to; values
-    that merely fall inside the limits prove nothing about which limits the engine holds.
+    The differential needs every candidate reading to equal the candidate's xml values and no stock reading to;
+    values that merely fall inside the limits prove nothing about which limits the engine holds. The mismatch
+    counts keep a mixed early/late readback visible instead of only its verdict.
     """
     detail, applied = {}, True
     for key in attributes:
@@ -601,36 +645,49 @@ def _readback(stock, candidate, attributes):
         matches = bool(theirs) and all(_close(pair, wanted) for pair in theirs)
         differs = bool(ours) and not any(_close(pair, wanted) for pair in ours)
         detail[key] = {"candidate_live_matches_candidate_xml": matches, "stock_live_differs_from_candidate_xml": differs,
+                       "candidate_readings_matching_candidate_xml": candidate["engine_limits"][key],
                        "candidate_live": theirs, "stock_live": ours}
         applied = applied and matches and differs
     return detail, applied
 
 
-def _evidence(stock, candidate, attributes):
-    """(evidence label, reason) for one treated phenomenon of a pair of usable runs; a reason is a pending reason
-    only for the label pending."""
-    if "insufficient_samples" in (stock["status"], candidate["status"]):
-        return "pending", "a run has too few valid samples for this phenomenon"
-    if not candidate["boundary_crossed"]:
-        return "pending", "no forecast deadline (next_change) was crossed in the candidate run"
-    if not candidate["cycle_observed"]:
-        return "pending", ("a deadline was crossed in the candidate run but next_change never moved to a new deadline "
-                           "and the forecast never changed afterwards; interpolation alone is not a new cycle")
-    if candidate["status"] == "violates_candidate":
-        return "candidate_limits_exceeded", None
-    if not candidate["change_observed"]:
-        return "pending", "nothing was observed changing in the candidate run"
-    _detail, applied = _readback(stock, candidate, attributes)
-    if not applied:
-        return "limits_not_observed_applied", ("the live limit readings do not show the candidate's limits against "
-                                               "the stock run's; values inside the range prove nothing about them")
+def _stock_values_vs_candidate_limits(stock, candidate):
+    """Where the stock run's actual values lay relative to the candidate's limits; descriptive only."""
+    if not stock["actual_range"] or not candidate["actual_range"]:
+        return None
     bounds = (candidate["candidate_limits"]["min"], candidate["candidate_limits"]["max"])
     low, high = stock["actual_range"]["min"], stock["actual_range"]["max"]
     if high < bounds[0] - _tolerance(bounds[0]) or low > bounds[1] + _tolerance(bounds[1]):
-        return "observed_limit_compliance", None
+        return "entirely_outside"
     if _outside(low, bounds) or _outside(high, bounds):
-        return "weakly_discriminating", None
-    return "not_discriminating", None
+        return "partly_outside"
+    return "inside"
+
+
+def _evidence(stock, candidate, attributes):
+    """(evidence label, reason) for one phenomenon's supported treatment in a pair of usable runs; a reason is given
+    for the labels pending and inconclusive_readback only."""
+    if "insufficient_samples" in (stock["status"], candidate["status"]):
+        return "pending", "a run has too few valid samples for this phenomenon"
+    if not candidate["boundary_crossed"]:
+        return "pending", "no forecast countdown (next_change) ran out in the candidate run"
+    if not candidate["cycle_observed"]:
+        return "pending", ("a countdown ran out in the candidate run but next_change never jumped to a fresh countdown "
+                           "and the forecast never changed afterwards; interpolation alone is not a new cycle")
+    if candidate["status"] == "violates_candidate":
+        return "candidate_values_outside_limits", None
+    if not candidate["change_observed"]:
+        return "pending", "nothing was observed changing in the candidate run"
+    detail, applied = _readback(stock, candidate, attributes)
+    if not applied:
+        counts = ", ".join(f"{key} {entry['candidate_readings_matching_candidate_xml']['matching']}/"
+                           f"{entry['candidate_readings_matching_candidate_xml']['total']}"
+                           for key, entry in detail.items())
+        return "inconclusive_readback", (
+            f"the candidate's live limits were not read back in every candidate reading and in no stock reading "
+            f"(candidate readings matching its xml: {counts}); processing completed with no native conclusion, as "
+            f"delayed loading or a measurement defect can produce this")
+    return "candidate_live_limits_read_back", None
 
 
 def _short(value):
@@ -679,8 +736,9 @@ def _progression_issues(stock, candidate):
 def compare(stock_result, candidate_result):
     """Compare a stock run's result with a candidate run's result (both from evaluate/load_run).
 
-    Only the treated phenomena (those whose cfgweather.xml limits differ between the runs) are gated;
-    the others are reported as informational and never block the comparison.
+    Only the treated phenomena (those whose cfgweather.xml limits differ between the runs) are gated. Phenomena
+    whose <current> differs are treated_unsupported: listed, with coverage pending, never silently dropped. The
+    others are reported as informational and never block the comparison.
     """
     issues = [f"stock run: {issue}" for issue in stock_result["issues"]]
     issues += [f"candidate run: {issue}" for issue in candidate_result["issues"]]
@@ -690,50 +748,60 @@ def compare(stock_result, candidate_result):
     issues += _progression_issues(stock_result, candidate_result)
     treated = {name: _treated(stock_result["phenomena"][name], candidate_result["phenomena"][name])
                for name in PHENOMENA}
+    unsupported = {name: _unsupported(stock_result["phenomena"][name], candidate_result["phenomena"][name])
+                   for name in PHENOMENA}
     if not any(treated.values()):
         issues.append("the candidate's cfgweather.xml changes no phenomenon's limits, change limits or time limits; "
-                      "there is no treatment to compare")
+                      "there is no supported treatment to compare")
     blocked = bool(issues)
+    for name in PHENOMENA:
+        if unsupported[name]:
+            issues.append(f"{name}: the candidate changes its {', '.join(unsupported[name])} values, which this report "
+                          f"does not assess; treatment coverage is pending")
     phenomena = {}
     for name in PHENOMENA:
         stock, candidate = stock_result["phenomena"][name], candidate_result["phenomena"][name]
         attributes = treated[name]
-        reason, readback = None, None
+        reason, readback, supported = None, None, None
         if not attributes:
-            evidence = "not_treated"
+            evidence = "treated_unsupported" if unsupported[name] else "not_treated"
         elif blocked:
             evidence = "pending"
         else:
             evidence, reason = _evidence(stock, candidate, attributes)
             if evidence == "pending":
                 issues.append(f"{name}: {reason}")
+        if attributes and unsupported[name]:
+            supported, evidence = evidence, "treated_unsupported"
         if attributes and candidate["live_pairs"] and stock["live_pairs"]:
             readback = _readback(stock, candidate, attributes)[0]
         phenomena[name] = {
             "evidence": evidence, "reason": reason, "treated_attributes": attributes,
+            "unsupported_treatments": unsupported[name], "supported_attribute_evidence": supported,
             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
             "values_in_range": None if not candidate["actual_range"] else candidate["status"] == "within_candidate",
+            "stock_values_vs_candidate_limits": _stock_values_vs_candidate_limits(stock, candidate),
             "live_readback": readback,
             "candidate_forecast_outside_limits": candidate["forecast_outside_limits"],
             "stock_actual_range": stock["actual_range"], "candidate_actual_range": candidate["actual_range"],
             "boundary_crossed": {"stock": stock["boundary_crossed"], "candidate": candidate["boundary_crossed"]},
             "cycle_observed": {"stock": stock["cycle_observed"], "candidate": candidate["cycle_observed"]},
             "change_observed": {"stock": stock["change_observed"], "candidate": candidate["change_observed"]}}
+    unsupported = {name: values for name, values in unsupported.items() if values}
     pending = bool(issues)
     return {
         "kind": "weather-probe-comparison", "status": "pending" if pending else "complete", "issues": issues,
         "treated": [name for name in PHENOMENA if treated[name]],
+        "unsupported_treatments": unsupported, "coverage": "pending" if unsupported else "complete",
         "phenomena": phenomena,
         "progression": {"stock": stock_result["progression"], "candidate": candidate_result["progression"]},
         "mission_weather": {"stock": stock_result["mission_weather"], "candidate": candidate_result["mission_weather"]},
         "update_frozen": {"stock": stock_result["update_frozen"], "candidate": candidate_result["update_frozen"]},
-        "notes": ["Two single runs sample random weather; observed_limit_compliance means the live limit readings "
-                  "differed as the candidate's xml says and the values stayed inside them, not proof of precedence "
-                  "and never acceptance.",
-                  "Values inside the candidate's limits are reported separately (values_in_range) from the live "
+        "notes": ["Values inside the candidate's limits are reported separately (values_in_range) from the live "
                   "limit readback; world-script forecasts and engine limits can coexist.",
                   "Phenomena the candidate does not change are not_treated: reported, never gating.",
                   "Whether the engine sets mission_weather for enable=1 is read from the flags above only."],
+        "non_claims": list(NON_CLAIMS),
         "runtime_acceptance": "pending", "feature_complete": False,
     }
 
