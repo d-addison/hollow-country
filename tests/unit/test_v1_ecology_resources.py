@@ -34,6 +34,11 @@ class NativeResourceSurveys(unittest.TestCase):
         self.assertIsNone(self.observe(self.handle, 'food-a', 101))
         self.assertIsNone(self.observe(None, 'food-a', 101))
 
+    def test_resource_metadata_uses_the_same_canonical_world_as_migration(self):
+        self.game.GetWorldName = lambda: 'SYNTHETIC-World'
+        self.assertEqual('synthetic-world', self.pond([10.,0.,0.], 'pond-a', 100).WorldName)
+        self.assertEqual('synthetic-world', self.observe(self.handle, 'food-a', 100).WorldName)
+
     def test_client_and_unqualified_process_cannot_survey(self):
         self.enabled = False
         self.assertIsNone(self.pond([10.,0.,0.], 'x', 100))

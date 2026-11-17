@@ -365,10 +365,11 @@ class ChecklistShapeTests(unittest.TestCase):
 
     def test_pending_landing_rows_cover_every_unfinished_feature(self):
         section = self.text.split("## Features pending landing", 1)[-1].split("\n## ", 1)[0]
-        for feature in ("Weather", "Ecology", "Events", "Groups r2", "Crafting r2", "Deaths", "Noise/vision",
+        # Ecology landed in batch 093 (feature rows #34 and #63 #34).
+        for feature in ("Weather", "Events", "Groups r2", "Crafting r2", "Deaths", "Noise/vision",
                         "Batch A pathgraph", "Batch B cfggameplay", "Firearms", "Build-identity fix"):
             self.assertIn(feature, section)
-        self.assertGreaterEqual(section.count("pending landing"), 11)
+        self.assertGreaterEqual(section.count("pending landing"), 10)
 
     def test_readme_v1_items_are_each_covered(self):
         lowered = self.text.lower()

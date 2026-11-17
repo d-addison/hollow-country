@@ -20,7 +20,7 @@ class HCEcologyMigrationRules
 		if (!UtcValid(slot.NextDueUtc)) { return false; }
 		if (slot.Sequence < 0 || slot.Sequence > 1000000000) { return false; }
 		if (slot.ReservedMembers < 0 || slot.ReservedMembers > 6) { return false; }
-		if (slot.LastOutcome < 0 || slot.LastOutcome > 3) { return false; }
+		if (slot.LastOutcome < 0 || slot.LastOutcome > 4) { return false; }
 		if (slot.Pending) { return slot.Sequence > 0 && slot.LastOutcome == 1; }
 		if (slot.LastOutcome == 1) { return false; }
 		return true;
@@ -28,7 +28,9 @@ class HCEcologyMigrationRules
 
 	static bool JournalValid(HCEcologyMigrationJournal state, string worldName)
 	{
-		if (!state || state.Version != 1 || state.WorldName != worldName) { return false; }
+		worldName = HCBuildIdentity.CanonicalWorld(worldName);
+		if (!state || state.Version != 1 || !HCBuildIdentity.SameWorld(state.WorldName, worldName)) { return false; }
+		if (!HCBuildIdentity.Matches(state.Build)) { return false; }
 		if (!HCEcologyRuntimeRules.Token(worldName) || !UtcValid(state.LastUtc)) { return false; }
 		if (state.Revision < 0 || state.Revision > 1000000000) { return false; }
 		if (!state.Schedules || state.Schedules.Count() > 8) { return false; }
@@ -93,6 +95,25 @@ class HCEcologyMigrationRules
 		slot.LastOutcome = 1;
 		state.LastUtc = utc;
 		return true;
+	}
+
+	static int RecoverPending(HCEcologyMigrationJournal state)
+	{
+		if (!state || !JournalValid(state, state.WorldName)) { return -1; }
+		int recovered = 0;
+		int i = 0;
+		while (i < state.Schedules.Count())
+		{
+			HCEcologyMigrationSchedule slot = state.Schedules.Get(i);
+			if (slot.Pending)
+			{
+				slot.Pending = false;
+				slot.LastOutcome = 4; // ambiguous, not replayed; never command acceptance
+				recovered++;
+			}
+			i++;
+		}
+		return recovered;
 	}
 
 	static bool Complete(HCEcologyMigrationSchedule slot, int sequence, int outcome)

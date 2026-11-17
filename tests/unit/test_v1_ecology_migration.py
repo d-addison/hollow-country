@@ -12,6 +12,13 @@ STORE = ROOT / '4_World/Ecology/HCEcologyMigrationStore.c'
 
 def setup():
     env = environment()
+    from tests.unit.build_identity_support import translate as build_identity
+    env['HCBuildIdentity'] = build_identity()
+    base_journal = env['HCEcologyMigrationJournal']
+    def migration_journal():
+        value = base_journal(); value.Build = ''
+        return value
+    env['HCEcologyMigrationJournal'] = migration_journal
     env['HCEcologyPopulation'] = NS(ANIMAL=1, INFECTED=2)
     rules = NS(); env['HCEcologyMigrationRules'] = rules
     source = POLICY.read_text()
@@ -30,6 +37,7 @@ def row(env, key='route-a'):
 
 def journal(env):
     result = env['HCEcologyMigrationJournal']()
+    result.Build = env['HCBuildIdentity'].Canonical()
     result.Version = 1; result.WorldName = 'synthetic-world'
     result.Revision = 1; result.LastUtc = 1800000000
     result.Schedules.Insert(row(env))
@@ -84,6 +92,17 @@ class MigrationRulesBehavior(unittest.TestCase):
         self.assertFalse(self.slot.Pending)
         self.assertFalse(self.r.Complete(self.slot, 1, 2))
 
+    def test_world_case_and_journal_build_are_checked_by_shared_identity(self):
+        self.assertTrue(self.r.JournalValid(self.state, 'SYNTHETIC-World'))
+        self.state.WorldName = 'SYNTHETIC-WORLD'
+        self.assertTrue(self.r.JournalValid(self.state, 'synthetic-world'))
+        for value in ('1.30.164289', '1.30.164289.70'):
+            self.state.Build = value
+            self.assertTrue(self.r.JournalValid(self.state, 'synthetic-world'))
+        for value in ('', '1.30.164289.700', '1.30.1642890', '1.30.164289.71'):
+            self.state.Build = value
+            self.assertFalse(self.r.JournalValid(self.state, 'synthetic-world'))
+
     def test_foreign_slot_and_exhaustion_cannot_mutate_state(self):
         other = row(self.e, 'foreign')
         self.assertFalse(self.r.Prepare(self.state, other, 1800000300))
@@ -99,14 +118,16 @@ class MigrationProviderBehavior(unittest.TestCase):
         self.service = NS(m_State=self.state, m_Fault=False, m_World='synthetic-world')
         self.service.Persist = lambda: self.trace.append(('save', self.slot.Pending, self.slot.NextDueUtc)) or True
         self.clue = NS(Origin=[1., 0., 2.]); self.pack = NS(); self.members = EArray([NS()])
+        self.hidden = True; self.build_ok = True
         self.owns = True; self.ce = 1000; self.result = 2
         self.e['HCEcologyMigrationQualification'] = NS(Admitted=lambda: self.enabled)
         self.e['HCEcologyNative'] = NS(Authority=lambda: self.authority)
         self.e['HCEcologyMigrationNative'] = NS(
-            CurrentWorld=lambda: 'synthetic-world', Ceiling=lambda kind: self.ce,
+            CurrentWorld=lambda: 'synthetic-world', BuildSupported=lambda: self.build_ok,
+            Unobserved=lambda members, clue: self.hidden, Ceiling=lambda kind: self.ce,
             Owns=lambda pack, members: self.owns,
             Choose=lambda members, now, visual, heard: self.clue,
-            Move=lambda pack, clue, now: self.trace.append(('move', clue.Origin[:])) or self.result)
+            Move=lambda pack, clue, members, now: self.trace.append(('move', clue.Origin[:])) or self.result)
         source = SERVICE.read_text().replace('HCNativeInfectedPack ', 'HCEcologyPack ').replace('HCInfectedClue ', 'HCEcologyClue ')
         self.submit = translated(source, 'SubmitOwned', self.e, 'HCEcologyMigration', True)
 
@@ -154,7 +175,7 @@ class MigrationProviderBehavior(unittest.TestCase):
         self.assertEqual(0, self.submit_now())
 
     def test_qualification_ownership_ce_or_missing_clue_vetoes_before_writes(self):
-        for field, value in [('enabled', False), ('authority', False), ('owns', False), ('ce', 0), ('clue', None)]:
+        for field, value in [('enabled', False), ('authority', False), ('owns', False), ('ce', 0), ('clue', None), ('hidden', False), ('build_ok', False)]:
             old = getattr(self, field); setattr(self, field, value)
             self.assertEqual(0, self.submit_now(), field)
             self.assertEqual([], self.trace)
@@ -183,6 +204,32 @@ class MigrationProviderBehavior(unittest.TestCase):
         self.assertTrue(self.service.m_Fault)
         self.assertEqual(0, self.submit_now())
         self.assertEqual([('move', [1., 0., 2.])], self.trace)
+
+
+class MigrationCohortWiringBehavior(unittest.TestCase):
+    def test_only_exact_bounded_owned_group_is_enrolled_and_submitted(self):
+        env = setup(); trace = []; enabled = [True]
+        facade = NS(Enroll=lambda key, kind, interval: trace.append(('enroll', key, kind, interval)) or True,
+                    Submit=lambda key, pack, members, now, visual, heard:
+                        trace.append(('submit', key, list(members), now, visual, heard)) or 2)
+        env['HCEcologyMigration'] = facade
+        env['HCEcologyMigrationQualification'] = NS(Admitted=lambda: enabled[0])
+        env['HCEcologyMigrationNative'] = NS(Owns=lambda pack, members: True)
+        source = SERVICE.read_text().replace('HCNativeInfectedPack ', 'HCEcologyPack ').replace('HCInfectedActor ', 'HCEcologyActor ')
+        submit = translated(source, 'SubmitCohort', env, 'HCEcologyMigration')
+        actor = NS(GroupId=2, InfectedEntity=NS(IsAlive=lambda: True))
+        other = NS(GroupId=3, InfectedEntity=NS(IsAlive=lambda: True))
+        roster = EArray([actor, other]); pack = NS()
+        self.assertEqual(2, submit(2, pack, roster, 1, 30., True, False))
+        self.assertEqual([('enroll', 'infected-2', 2, 300),
+                          ('submit', 'infected-2', [actor], 30., True, False)], trace)
+        trace.clear()
+        for roster_value, expected in ((roster,2),(EArray([actor]*25),1),(None,1)):
+            self.assertEqual(0, submit(2,pack,roster_value,expected,30.,True,False))
+            self.assertEqual([],trace)
+        enabled[0] = False
+        self.assertEqual(0, submit(2, pack, roster, 1, 30., True, False))
+        self.assertEqual([], trace)
 
 
 class MigrationStoreBehavior(unittest.TestCase):
@@ -232,6 +279,7 @@ class MigrationStoreBehavior(unittest.TestCase):
         self.e['FileExist'] = lambda p: p in self.files or p in ('owned', '$profile:HollowCountry')
         self.e['MakeDirectory'] = lambda p: True
         self.e['DeleteFile'] = delete
+        self.e['HCEcologyMigrationNative'] = NS(BuildSupported=lambda: True)
         text = STORE.read_text()
         self.save = translated(text, 'Save', self.e, 'HCEcologyMigrationStore', True)
         self.open = translated(text, 'Open', self.e, 'HCEcologyMigrationStore', True)
@@ -253,16 +301,59 @@ class MigrationStoreBehavior(unittest.TestCase):
             self.assertEqual(before, self.trace)
             if mode != 'intent': self.assertIn('owned/migration-pending-synthetic-world.json', self.files)
 
-    def test_restart_retains_due_sequence_and_ambiguous_attempt_without_replay(self):
+    def test_restart_resolves_ambiguous_attempt_durably_without_replay(self):
         self.e['HCEcologyMigrationRules'].Prepare(self.state, self.state.Schedules[0], 1800000300)
         self.files['owned/migration-state-synthetic-world.json'] = self.encode(self.state)
         reopened = self.open(self.store, 'synthetic-world', 1800000400)
         self.assertIsNotNone(reopened)
         slot = reopened.Schedules[0]
-        self.assertTrue(slot.Pending)
-        self.assertEqual((1, 1800000600), (slot.Sequence, slot.NextDueUtc))
-        self.assertFalse(self.e['HCEcologyMigrationRules'].Due(slot, 1800000900))
+        self.assertFalse(slot.Pending)
+        self.assertEqual((1, 1800000600, 4, 0),
+                         (slot.Sequence, slot.NextDueUtc, slot.LastOutcome, slot.ReservedMembers))
+        self.assertEqual(2, reopened.Revision)
+        self.assertFalse(self.e['HCEcologyMigrationRules'].Due(slot, 1800000599))
+        self.assertTrue(self.e['HCEcologyMigrationRules'].Due(slot, 1800000900))
+        self.trace.clear()
+        again = self.open(self.store, 'synthetic-world', 1800000500)
+        self.assertEqual(2, again.Revision)
         self.assertEqual([], [op for op, path in self.trace if op != 'read'])
+
+    def test_fresh_journal_uses_lowercase_paths_and_canonical_build(self):
+        opened = self.open(self.store, 'SYNTHETIC-World', 1800000400)
+        self.assertIsNotNone(opened)
+        self.assertEqual(('synthetic-world', self.e['HCBuildIdentity'].Canonical(), 1),
+                         (opened.WorldName, opened.Build, opened.Revision))
+        self.assertEqual([], opened.Schedules)
+        self.assertIn('owned/migration-state-synthetic-world.json', self.files)
+        self.assertFalse(self.store.m_Fault)
+
+    def test_wrong_or_missing_journal_build_and_live_build_refuse_without_writes(self):
+        for build in ('', '1.30.164289.700', None):
+            self.setUp()
+            data = json.loads(self.encode(self.state))
+            if build is None: del data['Build']
+            else: data['Build'] = build
+            self.files['owned/migration-state-synthetic-world.json'] = json.dumps(data)
+            before = dict(self.files)
+            self.assertIsNone(self.open(self.store, 'synthetic-world', 1800000400))
+            self.assertEqual(before, self.files)
+        self.setUp()
+        self.e['HCEcologyMigrationNative'].BuildSupported = lambda: False
+        self.assertIsNone(self.open(self.store, 'synthetic-world', 1800000400))
+        self.assertEqual({}, self.files)
+
+    def test_recovery_preserves_capacity_and_failed_write_quarantines(self):
+        self.e['HCEcologyMigrationRules'].Prepare(self.state, self.state.Schedules[0], 1800000300)
+        self.state.Schedules[0].ReservedMembers = 4
+        self.files['owned/migration-state-synthetic-world.json'] = self.encode(self.state)
+        self.failure_mode = 'intent'
+        self.assertIsNone(self.open(self.store, 'synthetic-world', 1800000400))
+        self.assertTrue(self.store.m_Fault)
+        self.failure_mode = ''
+        self.store.m_Fault = False
+        opened = self.open(self.store, 'synthetic-world', 1800000400)
+        self.assertEqual((4, 1, 4), (opened.Schedules[0].ReservedMembers,
+                                  opened.Schedules[0].Sequence, opened.Schedules[0].LastOutcome))
 
     def test_pending_corrupt_world_clock_or_oversize_never_reinitializes(self):
         for mode in ('pending', 'corrupt', 'world', 'clock', 'oversize'):
@@ -330,6 +421,47 @@ class MigrationNativeBehavior(unittest.TestCase):
         self.assertIsNotNone(choose(members,30.,False,True))
         env['HCInfectedQualification'].SupplementaryChainsAdmitted=lambda:False
         self.assertIsNone(choose(members,30.,False,True))
+
+    def test_move_rechecks_marker_build_ownership_and_sight_after_write_ahead(self):
+        env = setup(); moves = []; enabled = [True]; build = [True]; hidden = [True]; owned = [True]
+        env['HCEcologyNative'] = NS(Authority=lambda: True)
+        env['HCEcologyMigrationQualification'] = NS(Admitted=lambda: enabled[0])
+        env['HCInfectedQualification'] = NS(NativePackRoutesAdmitted=lambda: True,
+                                           HordeStimulusRoutesAdmitted=lambda: True)
+        env['HCEcologyMigrationNative'] = NS(BuildSupported=lambda: build[0],
+            Owns=lambda pack, members: owned[0], Unobserved=lambda members, clue: hidden[0])
+        source = (ROOT / '4_World/Ecology/HCEcologyMigrationNative.c').read_text()
+        source = source.replace('HCNativeInfectedPack ', 'HCEcologyPack ').replace('HCInfectedClue ', 'HCEcologyClue ')
+        move = translated(source, 'Move', env, 'HCEcologyMigrationNative')
+        pack = NS(Retarget=lambda clue, now: moves.append(now) or 2)
+        for gate in (enabled, build, hidden, owned):
+            gate[0] = False
+            self.assertEqual(0, move(pack, NS(), EArray([NS()]), 30.))
+            self.assertEqual([], moves)
+            gate[0] = True
+        self.assertEqual(2, move(pack, NS(), EArray([NS()]), 30.))
+        self.assertEqual([30.], moves)
+
+    def test_decode_bounds_before_native_json_and_canonicalizes_world(self):
+        env = setup(); calls = []
+        class Codec:
+            def LoadData(self, text, state, error):
+                calls.append(text)
+                state.WorldName = 'SYNTHETIC-WORLD'
+                state.Build = '1.30.164289.70'
+                return True
+        # Native out DTO syntax becomes an explicit mutable synthetic DTO.
+        source = STORE.read_text().replace('HCEcologyMigrationJournal state;',
+            'HCEcologyMigrationJournal state = new HCEcologyMigrationJournal;')
+        source = source.replace('JsonFileLoader<HCEcologyMigrationJournal>', 'Codec')
+        env['Codec'] = Codec()
+        decode = translated(source, 'Decode', env, 'HCEcologyMigrationIO')
+        for text in ('', ' ' * 16385): self.assertIsNone(decode(text))
+        self.assertEqual([], calls)
+        result = decode(' ' * 16384)
+        self.assertEqual('synthetic-world', result.WorldName)
+        self.assertEqual(env['HCBuildIdentity'].Canonical(), result.Build)
+        self.assertEqual(1, len(calls))
 
     def test_native_clock_reuses_consistent_shared_utc_reader(self):
         env = setup(); values = iter([1800000000, -1])

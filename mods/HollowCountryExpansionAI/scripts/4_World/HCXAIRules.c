@@ -34,13 +34,15 @@ class HCXAIRules
     }
     static bool MissionValid(HCXAIProfile p, HCXAIMission route)
     {
-        if (!route || !HCXAIRules.Token(route.MissionId)) { return false; }
+        if (!route || !HCXAIRules.Token(route.MissionId) || !HCXAIRules.Token(route.SiteId)) { return false; }
+        if (route.MissionId != route.SiteId + "-5") { return false; }
         if (route.ActorClass.Length() < 13 || route.ActorClass.Length() > 64) { return false; }
         if (route.ActorClass.Substring(0, 12) != "eAI_Survivor") { return false; }
         if (!HCXAIRules.Token(route.FactionName) || route.FactionName == "RANDOM") { return false; }
         if (!HCXAIRules.Hex(route.SurveySha256) || !HCXAIRules.Hex(route.LoadoutSha256)) { return false; }
         if (!HCXAIRules.PositionValid(route.Anchor, p.CoordinateBound)) { return false; }
         if (!route.Spawns || route.Spawns.Count() < 1 || route.Spawns.Count() > 8) { return false; }
+        if (route.GroupSize != route.Spawns.Count()) { return false; }
         if (route.Spawns.Count() > p.MaxActors) { return false; }
         if (!route.Waypoints || route.Waypoints.Count() < 1 || route.Waypoints.Count() > 16) { return false; }
         if (!route.Equipment || route.Equipment.Count() < 1 || route.Equipment.Count() > 8) { return false; }

@@ -28,6 +28,8 @@ def translated(text, name, env, owner, member=False):
 def environment():
     data = (ROOT / "3_Game/Ecology/HCEcologyRuntimeData.c").read_text()
     env = dict(EArray=EArray, len=len, str=str, Print=lambda s: None)
+    from tests.unit.build_identity_support import translate as build_identity
+    env["HCBuildIdentity"] = build_identity()
     env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max)
     env["FLT_MAX"] = 3.4028234663852886e38  # native float max (1_Core EnScript.c)
     env["vector"] = SimpleNamespace(DistanceSq=lambda a, b: sum((x-y)**2 for x,y in zip(a,b)))
@@ -419,6 +421,24 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.assertEqual([],self.runtime.m_Intents)
         self.assertEqual([],self.runtime.m_Actors)
         self.assertEqual([],self.runtime.m_Resources)
+    def test_mixed_case_native_world_does_not_stop_live_observation(self):
+        self.world = "SYNTHETIC-WORLD"
+        self.pump(self.runtime,5100)
+        self.assertEqual([], self.stops)
+        self.assertEqual([5100], self.queries)
+
+    def test_begin_canonicalizes_world_before_token_and_native_world_checks(self):
+        clocks = []
+        self.e['GetGame'] = lambda:SimpleNamespace(GetWorldName=lambda:'SYNTHETIC-WORLD',
+            GetTime=lambda:clocks.append('clock') or -1)
+        self.runtime.m_Running = False
+        source = (ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
+        source = source.replace('JsonFileLoader<HCEcologyRuntimeSettings>', 'HCEcologySettingsCodec')
+        begin = translated(source,
+                           'Begin',self.e,'HCEcologyRuntime',True)
+        self.assertFalse(begin(self.runtime,None,'synthetic-world','session-b'))
+        self.assertEqual(['clock'],clocks)
+
     def test_startup_clock_admission_precedes_store_and_settings_io(self):
         source=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
         begin=body(source,re.search(r"bool Begin\([^)]*\)\s*\{",source).end())
@@ -475,6 +495,17 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         close(self.runtime)
         self.assertTrue(self.runtime.m_Collecting)
         self.assertEqual(1,len(self.runtime.m_Actors))
+    def test_full_resource_cohort_returns_before_resource_inspection(self):
+        self.runtime.m_Settings.MaxResources = 1
+        self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(),Serial=1))
+        def forbidden():
+            self.fail("full cohort must return before native resource inspection")
+        self.e['ItemBase'] = SimpleNamespace(Cast=lambda entity: forbidden())
+        self.add = translated((ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text(),
+                              'Add', self.e, 'HCEcologyRuntime', True)
+        self.add(self.runtime, self.actor, False)
+        self.assertEqual(1, len(self.runtime.m_Resources))
+
     def test_duplicates_budgets_and_retirement_never_reuse_identity(self):
         self.runtime.m_Settings.MaxActors=1
         self.add(self.runtime,self.actor,True)

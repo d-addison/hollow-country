@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-interiors-pack",
+  "world": "chernarusplus",
+  "build": "1.30.164289",
+  "runtime_acceptance": "pending",
+  "files": {
+    "interiors.json": "6f027406d799de163bda4cc60ac6a5309170158d522856804d508ee715c91b3f"
+  },
+  "sources": {
+    "pack-profile.json": "5957d59bd87e0428c4539c48edefda7015811b7b64d592a665d708347107934f",
+    "evidence/house-candidates.json": "9ab3a86f4ca266e8f238b9d74ae4c1e5d705faba2124bb561ee08cd57d5a89fc"
+  },
+  "instances": [
+    {
+      "slot_id": 0,
+      "house": "house-663",
+      "instance_id": "chernarusplus_130164289_s1_e1_Land_House_1W01_159803_30451_897062_1504_0_0_d0",
+      "storage_site_id": "chernarusplus_130164289_s1_e1_Land_House_1W01_159803_30451_897062_1504_0_0_d0_storage_v1",
+      "layout_id": "ransacked-storage-v1",
+      "history": "ransacked"
+    }
+  ],
+  "components": [
+    {
+      "id": "house-candidates",
+      "state": "native-evidenced-pending-acceptance",
+      "count": 1
+    },
+    {
+      "id": "measured-interiors",
+      "state": "pending-measurement",
+      "needs": [
+        "Native survey (DayZDiag or normal-server-survey) of the evidenced Land_House_1W01 pose that yields an interior_catalog schema-1 record: authored prop Position/Orientation/SearchPoint and measured bounds for the three pilot layouts, room labels, door-sweep and stair keepouts, clearance observations, and the five observation artifacts (native-build, asset-config, geometry, door-clearance, stairs-clearance).",
+        "The record SourceSha256 must equal the current HCInteriorCatalog.c, HCInteriorRules.c and HCInteriorStore.c digests.",
+        "Then: interiors_profile.py generate --measured-record R --sources DIR --artifacts DIR --trusted-addon-sha256 SHA."
+      ]
+    },
+    {
+      "id": "infected-production-rooms",
+      "state": "pending-measurement",
+      "needs": [
+        "Native room survey with per-room local bounds for each admitted house; the pose-only acquisition has no room labels or bounds. The run id must start with native- and its SHA-256 pins the survey bytes.",
+        "Native House-class census: every installed CfgVehicles House subclass, each classified (covered by a survey building, or unmeasured/not_enterable/path_pending/door_pending/unsupported_geometry).",
+        "Then: interiors_profile.py generate --rooms-survey S --house-classes C."
+      ]
+    }
+  ]
+}

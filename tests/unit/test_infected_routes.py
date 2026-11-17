@@ -168,7 +168,7 @@ class InfectedRouteTests(unittest.TestCase):
         self.assertIn("return 2;", after_path)
         self.assertIn("m_RetargetAttempts++", before_path)
 
-    def _schedule(self, geometry_fails=False):
+    def _schedule(self, geometry_fails=False, migration=False, complete=True, submitted=None):
         ns = authored_scheduler()
         policy = policy_functions()["RetargetAllowed"]
         calls, attempts = [0, 0], [0, 0]
@@ -192,6 +192,17 @@ class InfectedRouteTests(unittest.TestCase):
                   m_Config=SimpleNamespace(EnableHordeStimulusRoutes=True),
                   m_State=SimpleNamespace(Groups=[SimpleNamespace(State=1), SimpleNamespace(State=1)]),
                   m_Dirty=False, SnapshotRoute=lambda record, pack: None)
+        # SYNTHETIC migration gate and cohort submitter; the real ones are native and marker-gated.
+        def submit(group_id, pack, actors, living, instant, visual, heard):
+            submitted.append((group_id, pack.idx, living, visual, heard))
+            return 2
+        for index, record in enumerate(ns["m_State"].Groups):
+            record.Id = 100 + index; record.Reserved = 6
+        for sweep in sweeps:
+            sweep.Living = 6; sweep.ConfirmedDead = 0; sweep.Accounted = 6 if complete else 5; sweep.Ambiguous = False
+        ns.update(HCEcologyMigrationQualification=SimpleNamespace(Admitted=lambda: migration),
+                  HCEcologyMigration=SimpleNamespace(SubmitCohort=submit), m_Actors=[],
+                  m_Admission=SimpleNamespace(Investigation=True, SupplementaryChains=False))
         for instant in range(12,20):
             now[0] = instant; ns["m_Now"] = instant; ns["m_RoutesRemaining"] = 1
             ns["run"]()
@@ -208,6 +219,25 @@ class InfectedRouteTests(unittest.TestCase):
         calls, attempts, ns = self._schedule(geometry_fails=True)
         self.assertEqual([0,1], attempts)
         self.assertGreater(calls[1], 0)
+
+    def test_admitted_migration_submits_complete_cohorts_instead_of_the_ordinary_route(self):
+        submitted = []
+        calls, attempts, ns = self._schedule(migration=True, submitted=submitted)
+        self.assertEqual([0, 0], calls)
+        self.assertTrue(submitted)
+        self.assertEqual({(6, True, False)}, {entry[2:] for entry in submitted})
+
+    def test_admitted_migration_never_falls_back_for_an_incomplete_cohort(self):
+        submitted = []
+        calls, attempts, ns = self._schedule(migration=True, complete=False, submitted=submitted)
+        self.assertEqual([0, 0], calls)
+        self.assertEqual([], submitted)
+
+    def test_without_the_migration_marker_the_ordinary_route_is_unchanged(self):
+        submitted = []
+        calls, attempts, ns = self._schedule(submitted=submitted)
+        self.assertEqual([], submitted)
+        self.assertEqual([0, 1], attempts)
 
 
 if __name__ == "__main__": unittest.main()

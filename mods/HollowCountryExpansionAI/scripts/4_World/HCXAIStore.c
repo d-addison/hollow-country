@@ -17,6 +17,35 @@ class HCXAIStore
         if (!JsonFileLoader<HCXAIProfile>.LoadData(data, frozen, error)) { return null; }
         return frozen;
     }
+    static HCXAIJournalData LoadJournal()
+    {
+        string path = "$profile:HollowCountry/expansion-ai-leases.json";
+        if (!FileExist(path)) { return new HCXAIJournalData(); }
+        FileHandle handle = OpenFile(path, FileMode.READ);
+        if (!handle) { return null; }
+        string data;
+        int count = ReadFile(handle, data, 65537);
+        CloseFile(handle);
+        if (count < 1 || count > 65536) { return null; }
+        string error;
+        HCXAIJournalData journal;
+        if (!JsonFileLoader<HCXAIJournalData>.LoadData(data, journal, error)) { return null; }
+        return journal;
+    }
+    static bool SaveJournal(HCXAIJournalData journal)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !journal) { return false; }
+        string expected;
+        string actual;
+        string error;
+        if (!JsonFileLoader<HCXAIJournalData>.MakeData(journal, expected, error) || expected.Length() > 65536) { return false; }
+        MakeDirectory("$profile:HollowCountry");
+        // Interrupted writes fail closed on restart; never discard a malformed journal.
+        if (!JsonFileLoader<HCXAIJournalData>.SaveFile("$profile:HollowCountry/expansion-ai-leases.json", journal, error)) { return false; }
+        HCXAIJournalData observed = HCXAIStore.LoadJournal();
+        if (!observed || !JsonFileLoader<HCXAIJournalData>.MakeData(observed, actual, error)) { return false; }
+        return actual == expected;
+    }
     static HCXAIProfile Load()
     {
         string path = "$profile:HollowCountry/expansion-ai.json";

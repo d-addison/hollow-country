@@ -1,0 +1,153 @@
+{
+  "SchemaVersion": 1,
+  "Missions": [
+    {
+      "SiteId": "coastal-police-source",
+      "MissionId": "coastal-police-source-5",
+      "Anchor": [
+        3569.727783,
+        13.309641,
+        2431.353027
+      ],
+      "GroupSize": 2,
+      "Spawns": [
+        [
+          3589.727783,
+          13.309641,
+          2451.353027
+        ],
+        [
+          3592.727783,
+          13.309641,
+          2451.353027
+        ]
+      ],
+      "Waypoints": [
+        [
+          3589.727783,
+          13.309641,
+          2451.353027
+        ],
+        [
+          3609.727783,
+          13.309641,
+          2451.353027
+        ],
+        [
+          3609.727783,
+          13.309641,
+          2471.353027
+        ],
+        [
+          3589.727783,
+          13.309641,
+          2471.353027
+        ]
+      ],
+      "ActorClass": "eAI_SurvivorM_Mirek",
+      "FactionName": "Raiders",
+      "SurveySha256": "",
+      "LoadoutSha256": "cc560cd487cf88a5b579ac99dd4b72ce90c8cc87c53205ea44215601c126247b",
+      "Equipment": [
+        {
+          "ClassName": "MakarovIJ70",
+          "InHands": true,
+          "IsMagazine": false,
+          "AmmoCount": 0
+        },
+        {
+          "ClassName": "Mag_IJ70_8Rnd",
+          "InHands": false,
+          "IsMagazine": true,
+          "AmmoCount": 8
+        },
+        {
+          "ClassName": "TrackSuitJacket_Blue",
+          "InHands": false,
+          "IsMagazine": false,
+          "AmmoCount": 0
+        },
+        {
+          "ClassName": "TrackSuitPants_Blue",
+          "InHands": false,
+          "IsMagazine": false,
+          "AmmoCount": 0
+        }
+      ]
+    },
+    {
+      "SiteId": "inland-police-source",
+      "MissionId": "inland-police-source-5",
+      "Anchor": [
+        3421.308105,
+        199.735687,
+        13019.891602
+      ],
+      "GroupSize": 2,
+      "Spawns": [
+        [
+          3441.308105,
+          199.735687,
+          13039.891602
+        ],
+        [
+          3444.308105,
+          199.735687,
+          13039.891602
+        ]
+      ],
+      "Waypoints": [
+        [
+          3441.308105,
+          199.735687,
+          13039.891602
+        ],
+        [
+          3461.308105,
+          199.735687,
+          13039.891602
+        ],
+        [
+          3461.308105,
+          199.735687,
+          13059.891602
+        ],
+        [
+          3441.308105,
+          199.735687,
+          13059.891602
+        ]
+      ],
+      "ActorClass": "eAI_SurvivorM_Mirek",
+      "FactionName": "Raiders",
+      "SurveySha256": "",
+      "LoadoutSha256": "cc560cd487cf88a5b579ac99dd4b72ce90c8cc87c53205ea44215601c126247b",
+      "Equipment": [
+        {
+          "ClassName": "MakarovIJ70",
+          "InHands": true,
+          "IsMagazine": false,
+          "AmmoCount": 0
+        },
+        {
+          "ClassName": "Mag_IJ70_8Rnd",
+          "InHands": false,
+          "IsMagazine": true,
+          "AmmoCount": 8
+        },
+        {
+          "ClassName": "TrackSuitJacket_Blue",
+          "InHands": false,
+          "IsMagazine": false,
+          "AmmoCount": 0
+        },
+        {
+          "ClassName": "TrackSuitPants_Blue",
+          "InHands": false,
+          "IsMagazine": false,
+          "AmmoCount": 0
+        }
+      ]
+    }
+  ]
+}

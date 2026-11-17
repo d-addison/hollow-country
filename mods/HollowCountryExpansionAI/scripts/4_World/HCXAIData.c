@@ -9,6 +9,8 @@ class HCXAIEquipment
 class HCXAIMission
 {
     string MissionId;
+    string SiteId;
+    int GroupSize = 0;
     string ActorClass;
     string FactionName;
     vector Anchor;
@@ -104,4 +106,18 @@ class HCXAILease
     ref HCXAIMission Objective;
     ref array<ref HCXAIActorSlot> Slots = new array<ref HCXAIActorSlot>();
     ref array<ref HCXAIKill> Kills = new array<ref HCXAIKill>();
+}
+// Metadata only: never serialize native actors, groups or inventories.
+class HCXAIJournalRow
+{
+    string Id;
+    string WorldSession;
+    string Session;
+    string MissionId;
+    bool Closed = false;
+}
+class HCXAIJournalData
+{
+    int SchemaVersion = 1;
+    ref array<ref HCXAIJournalRow> Rows = new array<ref HCXAIJournalRow>();
 }

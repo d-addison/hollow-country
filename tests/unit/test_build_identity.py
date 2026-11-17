@@ -230,7 +230,8 @@ class GetVersionSiteTests(unittest.TestCase):
             "4_World/Loot/HCSearchNativeSupply.c", "4_World/Loot/HCSearchSupplyProvider.c",
             "4_World/Infected/HCInfectedRooms.c", "4_World/Infected/HCInfectedModule.c",
             "4_World/Interiors/HCInteriorMeasuredCatalog.c", "4_World/Survival/HCTapedLightService.c",
-            "4_World/Weather/HCAtmosphereQualification.c"},
+            "4_World/Weather/HCAtmosphereQualification.c",
+            "4_World/Ecology/HCEcologyMigrationNative.c"},
             set(users))
         for relative, code in users.items():
             with self.subTest(relative=relative):

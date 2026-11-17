@@ -1,0 +1,22 @@
+{
+  "Sites": [
+    {
+      "Id": "coastal-police-source",
+      "Position": [
+        3569.727783,
+        13.309641,
+        2431.353027
+      ],
+      "Reviewed": true
+    },
+    {
+      "Id": "inland-police-source",
+      "Position": [
+        3421.308105,
+        199.735687,
+        13019.891602
+      ],
+      "Reviewed": true
+    }
+  ]
+}

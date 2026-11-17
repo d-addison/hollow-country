@@ -1,5 +1,5 @@
-// No hooks or automatic enablement. Operator supplies qualified measurements,
-// native LOS and exclusive custody. Catalog metadata alone grants nothing.
+// Transaction policy. HCTapedLightNative supplies the opt-in v1 action adapter;
+// production acceptance stays closed. Catalog metadata alone grants nothing.
 // Native reference: scripts-1.30.164289. Journal readback is NOT fsync/atomicity.
 class HCTapedLightService
 {
@@ -53,7 +53,7 @@ class HCTapedLightService
         if (HCBuildIdentity.Normalize(a.GameBuild) != HCBuildIdentity.Normalize(b.GameBuild) || a.HostConfigRoot != b.HostConfigRoot) { return false; }
         if (a.HostClass != b.HostClass || a.LightClass != b.LightClass) { return false; }
         if (a.SlotName != b.SlotName || a.BatterySlotName != b.BatterySlotName) { return false; }
-        return a.TapeUnits == b.TapeUnits && a.MaxDistance == b.MaxDistance;
+        return a.TapeUnits == b.TapeUnits && a.MaxDistance == b.MaxDistance && a.ReturnToCargo == b.ReturnToCargo;
     }
     static HCTapedLightBinding CopyBinding(HCTapedLightBinding b)
     {
@@ -69,6 +69,7 @@ class HCTapedLightService
         n.BatterySlotName = b.BatterySlotName;
         n.TapeUnits = b.TapeUnits;
         n.MaxDistance = b.MaxDistance;
+        n.ReturnToCargo = b.ReturnToCargo;
         return n;
     }
     static bool SnapshotValid(HCTapedLightSnapshot s, bool mounting)
@@ -304,6 +305,7 @@ class HCTapedLightService
         HCTapedLightSnapshot after = p.Observe(b);
         if (!moved || !SnapshotValid(after, false) || !Preserved(fresh, after)) { return Quarantine(s, p, r); }
         int expectedPlace = 2;
+        if (b.ReturnToCargo) { expectedPlace = 0; }
         if (mounting) { expectedPlace = 1; }
         if (after.Place != expectedPlace) { return Quarantine(s, p, r); }
         if (mounting)
@@ -336,6 +338,7 @@ class HCTapedLightCustody
     bool Ready() { return false; }
     bool Acquire(PlayerBase actor, EntityAI host, ItemBase light, ItemBase tape, bool mounting) { return false; }
     bool Release() { return false; }
+    InventoryLocation Destination() { return null; }
 }
 
 // Immutable intent + full-image pairs, bounded at 768 images / 128 operations.
@@ -633,23 +636,65 @@ class HCTapedLightPort
         int slotId = InventorySlots.GetSlotIdFromString(b.SlotName);
         if (slotId < 0) { return false; }
         InventoryLocation sourceLocation = new InventoryLocation;
-        InventoryLocation destination = new InventoryLocation;
         if (!mHCLight.GetInventory().GetCurrentInventoryLocation(sourceLocation)) { return false; }
         if (mounting)
         {
             if (!mHCTape || !mHCTape.IsKindOf("DuctTape")) { return false; }
             if (mHCTape.GetHierarchyRootPlayer() != mHCActor) { return false; }
+        }
+        else
+        {
+            if (mHCHost.GetInventory().FindAttachment(slotId) != mHCLight) { return false; }
+        }
+        if (mHCHeld)
+        {
+            InventoryLocation reservedDestination = mHCCustody.Destination();
+            if (!reservedDestination) { return false; }
+            if (mounting)
+            {
+                if (reservedDestination.GetType() != InventoryLocationType.ATTACHMENT) { return false; }
+                if (reservedDestination.GetParent() != mHCHost || reservedDestination.GetSlot() != slotId) { return false; }
+            }
+            else
+            {
+                if (b.ReturnToCargo)
+                {
+                    if (reservedDestination.GetType() != InventoryLocationType.CARGO) { return false; }
+                    EntityAI cargoParent = reservedDestination.GetParent();
+                    if (!cargoParent) { return false; }
+                    if (cargoParent != mHCActor && cargoParent.GetHierarchyRootPlayer() != mHCActor) { return false; }
+                }
+                else
+                {
+                    if (reservedDestination.GetType() != InventoryLocationType.HANDS) { return false; }
+                    if (reservedDestination.GetParent() != mHCActor) { return false; }
+                }
+            }
+            // Native sync-check context, with our exact item/destination lease.
+            // Do not search again: our reserved last free cell is not "free".
+            return GameInventory.LocationCanMoveEntitySyncCheck(sourceLocation, reservedDestination);
+        }
+        InventoryLocation destination = new InventoryLocation;
+        if (mounting)
+        {
             if (!mHCHost.GetInventory().CanAddAttachmentEx(mHCLight, slotId)) { return false; }
             destination.SetAttachment(mHCHost, mHCLight, slotId);
         }
         else
         {
-            if (mHCActor.GetItemInHands()) { return false; }
-            if (mHCHost.GetInventory().FindAttachment(slotId) != mHCLight) { return false; }
-            destination.SetHands(mHCActor, mHCLight);
+            if (b.ReturnToCargo)
+            {
+                if (!mHCActor.GetInventory().FindFreeLocationFor(mHCLight, FindInventoryLocationType.CARGO, destination)) { return false; }
+            }
+            else
+            {
+                if (mHCActor.GetItemInHands()) { return false; }
+                destination.SetHands(mHCActor, mHCLight);
+            }
         }
         return GameInventory.LocationCanMoveEntity(sourceLocation, destination);
     }
+
     void ConsumeTape(float units)
     {
         if (!mHCHeld || !ActorAllowed() || !mHCTape) { return; }
@@ -661,13 +706,12 @@ class HCTapedLightPort
     {
         if (!mHCHeld || !CanTransfer(b, mounting)) { return false; }
         InventoryLocation sourceLocation = new InventoryLocation;
-        InventoryLocation destination = new InventoryLocation;
         if (!mHCLight.GetInventory().GetCurrentInventoryLocation(sourceLocation)) { return false; }
-        int slotId = InventorySlots.GetSlotIdFromString(b.SlotName);
-        if (mounting) { destination.SetAttachment(mHCHost, mHCLight, slotId); }
-        else { destination.SetHands(mHCActor, mHCLight); }
-        return GameInventory.LocationSyncMoveEntity(sourceLocation, destination);
+        InventoryLocation reservedDestination = mHCCustody.Destination();
+        if (!reservedDestination) { return false; }
+        return GameInventory.LocationSyncMoveEntity(sourceLocation, reservedDestination);
     }
+
     bool Load(HCTapedLightState state)
     {
         if (!ActorAllowed() || !CustodyAvailable()) { return false; }

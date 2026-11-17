@@ -1,0 +1,19 @@
+{
+  "SchemaVersion": 1,
+  "MapName": "chernarusplus",
+  "Build": "1.30.164289",
+  "Epoch": 1,
+  "Seed": 1,
+  "InitializeNewEpoch": true,
+  "MigrateLegacyJournal": false,
+  "DiagnosticPlacementTrial": false,
+  "DiagnosticSearchTrial": false,
+  "Candidates": [
+    {
+      "SlotId": 0,
+      "Type": "Land_House_1W01",
+      "Position": [1598.0286865234375, 304.5144348144531, 8970.615234375],
+      "Orientation": [15.041482925415039, 0.0, 0.0]
+    }
+  ]
+}

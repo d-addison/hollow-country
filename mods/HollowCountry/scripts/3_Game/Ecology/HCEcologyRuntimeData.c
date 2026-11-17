@@ -65,6 +65,7 @@ class HCEcologyMigrationJournal
 {
 	int Version;
 	string WorldName;
+	string Build;
 	int Revision;
 	int LastUtc = -1;
 	ref array<ref HCEcologyMigrationSchedule> Schedules = new array<ref HCEcologyMigrationSchedule>;

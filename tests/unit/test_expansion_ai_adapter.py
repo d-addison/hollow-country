@@ -113,6 +113,8 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.now = 1000
         self.observer_code = 3  # Explicit synthetic observer dependency result.
         self.journal_ok = True
+        self.marker = True
+        self.reconciled = True
         self.created = []
         self.pending_factory = []
         self.env = dict(A=A, HCObserverTransitionState=lambda: N(), HCObserverTransitionPolicy=lambda:N(),
@@ -130,6 +132,9 @@ class ExpansionAdapterTests(unittest.TestCase):
         for name in re.findall(r"static \w+ (\w+)\(", self.rule_source):
             setattr(self.rule_api, name, lambda *a,n=name: self.rules.call(n,None,*a))
         self.env["HCXAIRules"] = self.rule_api
+        self.env["HCXAIQualification"] = N(Admitted=lambda:self.marker)
+        self.env["HCXAIJournal"] = N(Open=lambda *a:N(Begin=lambda *a:self.journal_ok,
+                                                       End=lambda *a:self.journal_ok) if self.reconciled else None)
         self.global_ai = N(s_eAI_UnlimitedReload=0,s_eAI_UnlimitedReloadAll=0)
         self.settings = N(EnableFlankingOutsideCombat=False,DamageMultiplier=1.,
                           DamageReceivedMultiplier=1.,CanRecruitFriendly=False,CanRecruitGuards=False)
@@ -160,7 +165,7 @@ class ExpansionAdapterTests(unittest.TestCase):
             MaxObservationAgeMs=100,MaxLeaseMs=10000,CoordinateBound=20000.,
             ObserverPolicy=N(Revision=1))
         self.route=self.env["HCXAIMission"]()
-        vars(self.route).update(MissionId="mission",ActorClass="eAI_SurvivorM_Mirek",
+        vars(self.route).update(MissionId="mission-site-5",SiteId="mission-site",GroupSize=2,ActorClass="eAI_SurvivorM_Mirek",
                                 FactionName="Raiders",Anchor=(100.,0.,100.),
                                 SurveySha256="d"*64,LoadoutSha256="e"*64)
         self.route.Spawns=A([(100.,0.,100.),(101.,0.,100.)])
@@ -217,6 +222,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         actor.GetIdentity=lambda:None
         actor.GetAllowDamage=lambda:True
         actor.HCXAI_Fair=lambda:True
+        actor.HCXAI_Own=lambda:None
         actor.eAI_SetUnlimitedReload=lambda x:self.calls.append(("reload",x))
         actor.eAI_SetDamageMultiplier=lambda x:self.calls.append(("damage-out",x))
         actor.eAI_SetDamageReceivedMultiplier=lambda x:self.calls.append(("damage-in",x))
@@ -235,10 +241,56 @@ class ExpansionAdapterTests(unittest.TestCase):
         return self.mod.Install(self.profile,self.hooks)
 
     def start(self,lease="lease",session="event-session",cap=4):
-        return self.mod.StartLease(lease,session,"mission",(100.,0.,100.),cap)
+        return self.mod.StartLease(lease,session,"mission-site-5",(100.,0.,100.),cap)
 
     def step(self,index=0):
         self.mod.StepLease(self.mod.m_Leases[index],self.now)
+
+    def test_marker_does_not_bypass_version_fairness_or_restart_reconciliation(self):
+        self.marker=False
+        self.assertFalse(self.install())
+        self.marker=True;self.reconciled=False
+        self.assertFalse(self.install())
+        self.reconciled=True
+        self.profile.ProviderVersion="different"
+        self.assertFalse(self.install())
+
+    def test_marker_does_not_bypass_installed_patch_version_or_receipt(self):
+        for mutate in (lambda:setattr(self.profile,'ProviderVersion','1.9.85'),
+                       lambda:setattr(self.game,'ConfigIsExisting',lambda path:False),
+                       lambda:setattr(self.receipt,'ArtifactBytesVerified',False)):
+            self.setUp();mutate()
+            self.assertFalse(self.install())
+            self.assertFalse(self.mod.Ready('chernarusplus'))
+            self.assertEqual([],self.created)
+
+    def test_both_global_reload_masks_refuse_admission(self):
+        for field in ("s_eAI_UnlimitedReload", "s_eAI_UnlimitedReloadAll"):
+            setattr(self.global_ai,field,1)
+            self.assertFalse(self.mod.NativeGlobalsFair())
+            setattr(self.global_ai,field,0)
+        self.assertTrue(self.mod.NativeGlobalsFair())
+
+    def test_timeout_retires_only_after_unobserved_gate(self):
+        self.install();self.start();self.step();self.step()
+        self.now += self.profile.MaxLeaseMs
+        self.receipt.ObservedAtMs=self.now;self.receipt.Sequence+=1
+        self.observer_code=2;self.step()
+        self.assertTrue(self.mod.m_Leases[0].Retiring)
+        self.assertFalse([c for c in self.calls if c[0]=="delete"])
+        self.observer_code=3;self.step()
+        self.assertEqual(1,len([c for c in self.calls if c[0]=="delete"]))
+
+    def test_owned_recreate_is_refused_before_any_provider_clone(self):
+        calls=[]
+        actor=N(HCXAI_LeaseOwned=True,m_eAI_Recreate=True)
+        self.env["super"]=N(eAI_Recreate=lambda:calls.append("clone"))
+        self.engine.call("eAI_Recreate",actor)
+        self.assertEqual([],calls)
+        self.assertFalse(actor.m_eAI_Recreate)
+        actor.HCXAI_LeaseOwned=False
+        self.engine.call("eAI_Recreate",actor)
+        self.assertEqual(["clone"],calls)
 
     def test_enabled_preference_is_not_admission(self):
         empty=self.env["HCXAIProfile"]()
@@ -258,6 +310,8 @@ class ExpansionAdapterTests(unittest.TestCase):
     def test_route_bounds_duplicates_and_observed_hashes(self):
         for change in (lambda p:p.Missions.append(copy.deepcopy(p.Missions[0])),
                        lambda p:p.Missions[0].Spawns.clear(),
+                       lambda p:setattr(p.Missions[0],"GroupSize",3),
+                       lambda p:setattr(p.Missions[0],"SiteId","other"),
                        lambda p:p.Missions[0].Waypoints.append((float("inf"),0,0)),
                        lambda p:setattr(p.Missions[0],"SurveySha256",""),
                        lambda p:setattr(p.Missions[0],"ActorClass","eAIDummy_SurvivorM_Mirek")):
@@ -292,7 +346,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertEqual((1,2,2),(len(self.mod.m_Leases),self.mod.m_ReservedActors,
                                   self.mod.m_ReservedItems))
         self.assertFalse(self.start(session="old-session"))
-        self.assertFalse(self.mod.StartLease("other","event-session","mission",(0.,0.,0.),4))
+        self.assertFalse(self.mod.StartLease("other","event-session","mission-site-5",(0.,0.,0.),4))
         self.assertFalse(self.start(lease="small",cap=1))
         self.assertEqual([],self.created)
 
@@ -317,6 +371,8 @@ class ExpansionAdapterTests(unittest.TestCase):
         lease=self.mod.m_Leases[0]
         self.assertEqual(self.route.Waypoints,lease.Group.waypoints)
         self.assertEqual(1,lease.Group.mode)
+        self.assertTrue(all(a.HCXAI_LeaseOwned for a in self.created))
+        self.assertFalse(lease.Group.m_Persist)
         self.assertEqual(2,self.calls.count(("reload",0)))
         self.assertEqual(2,self.calls.count(("damage-in",1)))
         self.assertEqual(2,self.calls.count(("damage-out",1)))
@@ -411,7 +467,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         config=(ADDON/"config.cpp").read_text()
         for name in ("HollowCountry","DayZExpansion_AI_Scripts","DayZExpansion_Core_Scripts",
                      "DayZExpansion_ModStorage_Scripts","JM_CF_Scripts","DF_Scripts","DF_GUI",
-                     "DayZExpansion_AI_Animations","DayZExpansion_Sounds_AI"):
+                     "DayZExpansion_Animations_AI","DayZExpansion_Sounds_AI"):
             self.assertIn('"'+name+'"',config)
         self.assertNotIn("HollowCountryExpansionAI",(ROOT/"mods/HollowCountry/config.cpp").read_text())
         self.assertIn("extends HCEventAIProvider",self.runtime_source)
@@ -476,7 +532,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         actor=N(GetAllowDamage=lambda:True,m_eAI_EnableFlankingOutsideCombat=False,
                 m_eAI_UnlimitedReload=0,m_eAI_IsUnlimitedReloadAll=False,
                 m_eAI_DamageMultiplier=1.,m_eAI_DamageReceivedMultiplier=1.,
-                m_eAI_HeadshotResistance=0.)
+                m_eAI_HeadshotResistance=0.,m_HCXAI_Owned=False,m_eAI_Recreate=False)
         self.assertTrue(self.engine.call("HCXAI_Fair",actor))
         for field in ("m_eAI_EnableFlankingOutsideCombat","m_eAI_UnlimitedReload",
                       "m_eAI_IsUnlimitedReloadAll","m_eAI_DamageMultiplier",

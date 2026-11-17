@@ -1,0 +1,7 @@
+{
+  "EnableFlankingOutsideCombat": false,
+  "CanRecruitFriendly": false,
+  "CanRecruitGuards": false,
+  "DamageMultiplier": 1.0,
+  "DamageReceivedMultiplier": 1.0
+}

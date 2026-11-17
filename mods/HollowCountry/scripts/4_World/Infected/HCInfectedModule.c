@@ -527,7 +527,20 @@ class HCInfectedModule : HCModule
             {
                 continue;
             }
-            int result = pack.Retarget(sweep.Stimulus, m_Now);
+            // An admitted migration replaces the ordinary route; a refused or incomplete
+            // cohort gets no fallback route. Without the marker the ordinary route is unchanged.
+            int result = 0;
+            if (HCEcologyMigrationQualification.Admitted())
+            {
+                if (HCInfectedPolicy.CompleteMembership(record.Reserved, sweep.Living, sweep.ConfirmedDead, sweep.Accounted, sweep.Ambiguous))
+                {
+                    result = HCEcologyMigration.SubmitCohort(record.Id, pack, m_Actors, sweep.Living, m_Now, m_Admission.Investigation, m_Admission.SupplementaryChains);
+                }
+            }
+            else
+            {
+                result = pack.Retarget(sweep.Stimulus, m_Now);
+            }
             // 0=pre-path rejection; 1=path attempted/failed; 2=accepted.
             // Failed geometry remains charged, cooldown/attempts remain spent.
             if (HCInfectedPolicy.RetargetSpent(result))

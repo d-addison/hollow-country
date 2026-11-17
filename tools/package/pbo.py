@@ -21,7 +21,12 @@ RESERVED = {'CON', 'PRN', 'AUX', 'NUL'} | {f'{p}{i}' for p in ('COM', 'LPT') for
 MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json', 'ce/types.xml', 'cfgeconomycore.append.xml',
                  'economy-profiles/baseline.json', 'economy-profiles/contextual-pilot.json',
                  'economy-profiles/diagnostic.json', 'gameplay-profiles/hollow-country-v1.json',
-                 'gear/hardscrabble.json'}
+                 'gear/hardscrabble.json',
+                 # Interiors data pack (W1.1): one evidenced house; measured layouts and rooms stay pending.
+                 'interiors/pack.json', 'interiors/pack-profile.json', 'interiors/interiors.json',
+                 'interiors/evidence/house-candidates.json',
+                 # Optional Expansion AI patrol contract and examples; inert without the addon and its marker.
+                 'ai/README.md', 'ai/AISettings.merge.json', 'ai/event-sites.contract.json', 'ai/patrols.example.json'}
 
 
 def safe_name(name):
@@ -212,7 +217,7 @@ def handoff(addon, mission, release=False):
             raise ValueError(f'mission handoff file outside allowlist: {name}')
         files['mission/hollow-country/' + name] = path.read_bytes()
     # Only these authored helpers, never arbitrary repository or build outputs.
-    for name in ('economy.py', 'gameplay.py', 'coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'):
+    for name in ('economy.py', 'gameplay.py', 'coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1', 'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'README.md'):
         path = Path(__file__).with_name(name)
         if path.is_file():
             files['tools/package/' + name] = path.read_bytes()
@@ -256,7 +261,7 @@ def verify_handoff(blob):
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
             helper_names = {'economy.py', 'gameplay.py', 'coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
-                            'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'README.md'}
+                            'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'README.md'}
             for name, expected in manifest['files'].items():
                 if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp', 'docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'}
                         or name in {'mission/hollow-country/' + n for n in MISSION_FILES}

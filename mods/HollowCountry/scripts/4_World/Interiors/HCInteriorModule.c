@@ -259,6 +259,7 @@ class HCInteriorsModule : HCModule
         }
         m_Ready = true;
         s_Instance = this;
+        HCSearchBinding.PlacementComplete(this, m_Config, m_Manifest, m_Sites);
     }
 
     // Fixed manifest, one small native spatial query per building. No player scan.
@@ -571,6 +572,8 @@ modded class HCModuleRegistry
     override void RegisterModules()
     {
         super.RegisterModules();
+        // The binder must be registered first: Interiors places inside its own OnStart and calls the binder hook there.
+        Register(new HCSearchBinding);
         Register(new HCInteriorsModule);
     }
 }

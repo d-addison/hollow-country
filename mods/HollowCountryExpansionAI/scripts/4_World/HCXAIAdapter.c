@@ -35,6 +35,7 @@ class HCXAIAdapter extends HCModule
 {
     protected ref HCXAIProfile m_Profile;
     protected ref HCXAIHooks m_Hooks;
+    protected ref HCXAIJournal m_Journal;
     protected bool m_Accepting;
     protected bool m_Starting;
     protected string m_Status = "not initialized";
@@ -59,9 +60,16 @@ class HCXAIAdapter extends HCModule
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
             return;
         }
+        this.LogAddonChecks();
         HCXAIProfile profile = HCXAIStore.Load();
         this.Install(profile, HCXAIService.Hooks());
         Print("[HC Expansion AI] " + m_Status);
+    }
+    void LogAddonChecks()
+    {
+        bool provider = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts");
+        bool animations = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_Animations_AI");
+        Print("[HC Expansion AI] installed CfgPatches DayZExpansion_AI_Scripts=" + provider.ToString() + " DayZExpansion_Animations_AI=" + animations.ToString() + "; names alone do not verify artifact/version pin");
     }
     bool Install(HCXAIProfile profile, HCXAIHooks hooks)
     {
@@ -69,12 +77,17 @@ class HCXAIAdapter extends HCModule
         m_Status = "enabled preference; invalid or missing operator policy";
         if (profile && !profile.Enabled) { m_Status = "disabled by operator"; }
         if (!HCXAIRules.ProfileValid(profile)) { return false; }
+        m_Status = "enabled preference; pve_patrols admission closed";
+        if (!HCXAIQualification.Admitted()) { return false; }
         m_Status = "enabled preference; trusted artifact/observer/ownership hooks missing";
         if (!hooks) { return false; }
         m_Profile = HCXAIStore.Freeze(profile);
         if (!m_Profile || !HCXAIRules.ProfileValid(m_Profile)) { return false; }
         m_Hooks = hooks;
         m_Build = HCXAIStore.NativeBuild();
+        if (!this.Prerequisites()) { m_Status = "pinned live prerequisites rejected"; return false; }
+        m_Journal = HCXAIJournal.Open(m_Profile.WorldSession, m_Profile.MaxLeaseHistory);
+        if (!m_Journal) { m_Status = "lease journal reconciliation refused"; return false; }
         m_Accepting = true;
         m_LastNow = GetGame().GetTime();
         if (!this.Ready(m_Profile.WorldName))
@@ -83,6 +96,7 @@ class HCXAIAdapter extends HCModule
             m_Status = "enabled preference; pinned live prerequisites rejected";
             return false;
         }
+        Print("[HC Expansion AI] exact source pin d84d3c73694969eba2f969e9178a1914e2f1b31d version 1.9.84 required; built-in human AI stuck recovery owner-approved; recreate blocked for leased actors");
         m_Status = "experimental adapter prerequisites observed; gameplay qualification pending";
         return true;
     }
@@ -100,6 +114,8 @@ class HCXAIAdapter extends HCModule
         if (!GetGame() || !GetGame().IsServer() || !m_Profile || !m_Hooks) { return false; }
         int now = GetGame().GetTime();
         if (now < 0 || now < m_LastNow || m_Profile.BuildVersion != m_Build) { return false; }
+        if (!HCXAIQualification.Admitted()) { return false; }
+        if (!GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts") || !GetGame().ConfigIsExisting("CfgPatches DayZExpansion_Animations_AI")) { return false; }
         if (GetGame().GetWorldName() != m_Profile.WorldName || !this.NativeGlobalsFair()) { return false; }
         HCXAIAdmission receipt = m_Hooks.Admission(m_Profile.WorldSession);
         if (!HCXAIRules.ReceiptValid(m_Profile, receipt, now)) { return false; }
@@ -180,7 +196,9 @@ class HCXAIAdapter extends HCModule
         m_ReservedGroups++;
         m_ReservedActors += actors;
         m_ReservedItems += items;
-        lease.IntentConfirmed = m_Hooks.BeginLease(id, session, missionId, actors, items);
+        // Journal intent first. Unknown write outcomes consume the id; never recreate.
+        lease.IntentConfirmed = m_Journal.Begin(id, session, missionId);
+        if (lease.IntentConfirmed) { lease.IntentConfirmed = m_Hooks.BeginLease(id, session, missionId, actors, items); }
         if (!lease.IntentConfirmed)
         {
             lease.Failed = true;
@@ -194,6 +212,7 @@ class HCXAIAdapter extends HCModule
             lease.Retiring = true;
             return false;
         }
+        lease.Group.m_Persist = false;
         lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
         foreach (vector waypoint : mission.Waypoints) { lease.Group.AddWaypoint(waypoint); }
         return true;
@@ -237,13 +256,13 @@ class HCXAIAdapter extends HCModule
     protected void StepLeaseWork(HCXAILease lease, int now)
     {
         if (!lease || lease.Released || !m_Profile || !m_Hooks || now < lease.StartedAtMs) { return; }
-        if (now - lease.StartedAtMs > m_Profile.MaxLeaseMs) { lease.Retiring = true; }
+        if (now - lease.StartedAtMs >= m_Profile.MaxLeaseMs) { lease.Retiring = true; }
         if (!lease.Retiring && !this.Ready(m_Profile.WorldName))
         {
             lease.Failed = true;
             lease.Retiring = true;
         }
-        if (!lease.Retiring && (!lease.Group || lease.Group.m_Leave))
+        if (!lease.Retiring && (!lease.Group || lease.Group.m_Leave || lease.Group.m_Persist))
         {
             lease.Failed = true;
             lease.Retiring = true;
@@ -272,7 +291,7 @@ class HCXAIAdapter extends HCModule
             {
                 if (!member.Gone) { allGone = false; }
             }
-            if (allGone && m_Hooks.EndLease(lease.Id))
+            if (allGone && m_Journal.End(lease.Id) && m_Hooks.EndLease(lease.Id))
             {
                 if (lease.Group && lease.Group.Count() == 0) { lease.Group.Delete(); }
                 lease.Released = true;
@@ -316,6 +335,7 @@ class HCXAIAdapter extends HCModule
             lease.Retiring = true;
             return;
         }
+        actor.HCXAI_LeaseOwned = true;
         actor.SetGroup(lease.Group);
         actor.eAI_SetUnlimitedReload(0);
         actor.eAI_SetEnableFlankingOutsideCombat(0);
@@ -484,6 +504,17 @@ modded class HCModuleRegistry
 // Narrow original observation/getter extension; no provider source is replaced.
 modded class eAIBase
 {
+    bool HCXAI_LeaseOwned;
+    override void eAI_Recreate()
+    {
+        if (this.HCXAI_LeaseOwned)
+        {
+            m_eAI_Recreate = false;
+            Print("[HC Expansion AI] refused inventory-cloning recreate for leased actor; native recovery remains owner-approved");
+            return;
+        }
+        super.eAI_Recreate();
+    }
     bool HCXAI_Fair()
     {
         return this.GetAllowDamage() && !m_eAI_EnableFlankingOutsideCombat && m_eAI_UnlimitedReload == 0 && !m_eAI_IsUnlimitedReloadAll && m_eAI_DamageMultiplier == 1 && m_eAI_DamageReceivedMultiplier == 1 && m_eAI_HeadshotResistance == 0;

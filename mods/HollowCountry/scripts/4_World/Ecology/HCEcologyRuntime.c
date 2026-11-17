@@ -79,6 +79,13 @@ class HCEcologyRuntime
 			limit = m_Settings.MaxResources;
 			if (actor) { limit = m_Settings.MaxActors; }
 		}
+		// EEInit hot path: full cohorts never inspect resources or scan duplicates.
+		if (entries.Count() >= limit || m_NextSerial >= 2147483647)
+		{
+			if (!m_Overflow) { Print("[HC Ecology] registration overflow; coverage partial, no population census"); }
+			m_Overflow = true;
+			return;
+		}
 		if (!actor)
 		{
 			ItemBase item = ItemBase.Cast(entity);
@@ -91,12 +98,6 @@ class HCEcologyRuntime
 		{
 			if (entries.Get(i).Live == entity) { return; }
 			i++;
-		}
-		if (entries.Count() >= limit || m_NextSerial >= 2147483647)
-		{
-			if (!m_Overflow) { Print("[HC Ecology] registration overflow; coverage partial, no population census"); }
-			m_Overflow = true;
-			return;
 		}
 		HCEcologyLiveBinding binding = new HCEcologyLiveBinding;
 		binding.Live = entity;
@@ -149,7 +150,8 @@ class HCEcologyRuntime
 	bool Begin(HCEcologyRuntimeSettings settings, string worldName, string session)
 	{
 		if (m_Running || session == m_Session) { return false; }
-		if (!HCEcologyNative.Authority() || worldName != GetGame().GetWorldName()) { return false; }
+		worldName = HCBuildIdentity.CanonicalWorld(worldName);
+		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(worldName, GetGame().GetWorldName())) { return false; }
 		if (!HCEcologyRuntimeRules.Token(worldName) || !HCEcologyRuntimeRules.Token(session)) { return false; }
 		int nowMs = GetGame().GetTime();
 		if (!HCEcologyRuntimeRules.ClockValid(nowMs)) { return false; }
@@ -205,7 +207,7 @@ class HCEcologyRuntime
 		m_Intents.Clear();
 		m_Collecting = true;
 		m_Running = true;
-		Print("[HC Ecology] enabled observation/path adapter; coverage partial; feeding/drinking and resource movement unsupported; native brains preserved");
+		Print("[HC Ecology] observation/path adapter started; native brains preserved");
 		return true;
 	}
 
@@ -217,7 +219,7 @@ class HCEcologyRuntime
 	void Pump(int nowMs)
 	{
 		if (!m_Running) { return; }
-		if (!HCEcologyNative.Authority() || GetGame().GetWorldName() != m_Policy.WorldName)
+		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(m_Policy.WorldName, GetGame().GetWorldName()))
 		{
 			Finish();
 			return;

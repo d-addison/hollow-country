@@ -34,6 +34,8 @@ class HCTapedLightBinding
     // Explicit qualified policy inputs, never inferred from class-name hints.
     float TapeUnits = 0;
     float MaxDistance = 0;
+    // v1 keeps the weapon in hands and returns the existing light to cargo.
+    bool ReturnToCargo = false;
 }
 
 class HCTapedLightSnapshot

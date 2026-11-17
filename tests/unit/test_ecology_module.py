@@ -16,6 +16,7 @@ class EcologyModuleBehavior(unittest.TestCase):
     def setUp(self):
         self.calls = []
         self.e = environment()
+        self.e["HCEcologyDisposition"] = SimpleNamespace(Report=lambda: None)
         self.settings = self.e["HCEcologyRuntimeSettings"]()
         self.game = SimpleNamespace(IsServer=lambda: True, GetWorldName=lambda: "chernarusplus", GetTime=lambda: 4321)
         self.e["GetGame"] = lambda: self.game

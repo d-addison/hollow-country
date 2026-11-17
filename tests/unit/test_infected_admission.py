@@ -471,8 +471,10 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
         self.assertNotIn("Provenance ==", body)
         self.assertIn("return m_Chains && m_Admission.SupplementaryChains;", text)
         # The pair is spelled once in the helper; the only other uses are the
-        # NativeVoice emission gate and the relay-work gate, not heard-clue sites.
-        self.assertEqual(3, text.count("m_Admission.SupplementaryChains"))
+        # NativeVoice emission gate, the relay-work gate and the admitted
+        # ecology migration submit (which passes the flag through), not heard-clue sites.
+        self.assertEqual(4, text.count("m_Admission.SupplementaryChains"))
+        self.assertEqual(1, text.count("m_Admission.Investigation, m_Admission.SupplementaryChains)"))
         for signature in ("protected void SampleMembership(", "protected void TryAdopt("):
             _, site = _body(_mask(text)[0], signature)
             self.assertIn("HeardAdmitted()", site)

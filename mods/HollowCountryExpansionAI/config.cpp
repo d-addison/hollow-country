@@ -6,7 +6,7 @@ class CfgPatches
         weapons[] = {};
         requiredVersion = 0.1;
         requiredAddons[] = {"HollowCountry", "DayZExpansion_AI_Scripts",
-            "DayZExpansion_AI_Animations", "DayZExpansion_Sounds_AI",
+            "DayZExpansion_Animations_AI", "DayZExpansion_Sounds_AI",
             "DayZExpansion_Core_Scripts", "DayZExpansion_ModStorage_Scripts",
             "JM_CF_Scripts", "DF_Scripts", "DF_GUI"};
     };

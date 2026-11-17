@@ -10,7 +10,8 @@ class HCEcologyMigration
 
 	static bool Start(string worldName)
 	{
-		if (!HCEcologyNative.Authority() || !HCEcologyMigrationQualification.Admitted()) { return false; }
+		worldName = HCBuildIdentity.CanonicalWorld(worldName);
+		if (!HCEcologyNative.Authority() || !HCEcologyMigrationNative.BuildSupported() || !HCEcologyMigrationQualification.Admitted()) { return false; }
 		if (worldName != HCEcologyMigrationNative.CurrentWorld()) { return false; }
 		if (s_Service) { return !s_Service.m_Fault && s_Service.m_World == worldName; }
 		HCEcologyMigration service = new HCEcologyMigration;
@@ -46,7 +47,7 @@ class HCEcologyMigration
 
 	bool EnrollOwned(string id, int populationKind, int intervalSeconds, int utc)
 	{
-		if (m_Fault || !m_State || HCEcologyMigrationNative.CurrentWorld() != m_World) { return false; }
+		if (!HCEcologyMigrationNative.BuildSupported() || m_Fault || !m_State || HCEcologyMigrationNative.CurrentWorld() != m_World) { return false; }
 		if (populationKind == HCEcologyPopulation.ANIMAL && !HCEcologyMigrationNative.AnimalDestinationSupported()) { return false; }
 		if (!HCEcologyMigrationRules.UtcValid(utc) || utc < m_State.LastUtc) { return false; }
 		if (intervalSeconds < 60 || intervalSeconds > 86400 || utc > 2140000000 - intervalSeconds) { return false; }
@@ -69,6 +70,31 @@ class HCEcologyMigration
 		return false;
 	}
 
+	// Core caller seam: use only the Infected owner's already-observed roster.
+	// 24 tracked actors and six members are the owner's current hard ceilings.
+	// No discovery, ownership acquisition, ordinary-route fallback or replay here.
+	static int SubmitCohort(int groupId, HCNativeInfectedPack pack, array<ref HCInfectedActor> actors, int expectedMembers, float nativeNow, bool visualAdmitted, bool heardAdmitted)
+	{
+		if (!HCEcologyMigrationQualification.Admitted() || !pack || !actors) { return 0; }
+		if (groupId < 1 || actors.Count() > 24 || expectedMembers < 1 || expectedMembers > 6) { return 0; }
+		array<HCInfectedActor> members = new array<HCInfectedActor>;
+		int i = 0;
+		while (i < actors.Count())
+		{
+			HCInfectedActor actor = actors.Get(i);
+			if (actor && actor.GroupId == groupId)
+			{
+				if (!actor.InfectedEntity) { return 0; }
+				if (actor.InfectedEntity.IsAlive()) { members.Insert(actor); }
+			}
+			i++;
+		}
+		if (members.Count() != expectedMembers || !HCEcologyMigrationNative.Owns(pack, members)) { return 0; }
+		string id = "infected-" + groupId.ToString();
+		if (!Enroll(id, HCEcologyPopulation.INFECTED, 300)) { return 0; }
+		return Submit(id, pack, members, nativeNow, visualAdmitted, heardAdmitted);
+	}
+
 	static int Submit(string id, HCNativeInfectedPack pack, array<HCInfectedActor> members, float nativeNow, bool visualAdmitted, bool heardAdmitted)
 	{
 		if (!s_Service) { return 0; }
@@ -77,7 +103,7 @@ class HCEcologyMigration
 
 	int SubmitOwned(string id, HCNativeInfectedPack pack, array<HCInfectedActor> members, int utc, float nativeNow, bool visualAdmitted, bool heardAdmitted)
 	{
-		if (m_Fault || !HCEcologyNative.Authority() || !HCEcologyMigrationQualification.Admitted()) { return 0; }
+		if (m_Fault || !HCEcologyNative.Authority() || !HCEcologyMigrationNative.BuildSupported() || !HCEcologyMigrationQualification.Admitted()) { return 0; }
 		if (!m_State || HCEcologyMigrationNative.CurrentWorld() != m_World) { return 0; }
 		HCEcologyMigrationSchedule slot = HCEcologyMigrationRules.Find(m_State, id);
 		if (!slot || slot.PopulationKind != HCEcologyPopulation.INFECTED || !HCEcologyMigrationRules.Due(slot, utc)) { return 0; }
@@ -87,11 +113,12 @@ class HCEcologyMigration
 		if (!HCEcologyMigrationRules.CapacityAvailable(m_State, slot, members.Count(), ceMaximum)) { return 0; }
 		if (!HCEcologyMigrationNative.Owns(pack, members)) { return 0; }
 		HCInfectedClue clue = HCEcologyMigrationNative.Choose(members, nativeNow, visualAdmitted, heardAdmitted);
-		if (!clue || !HCEcologyMigrationRules.Prepare(m_State, slot, utc)) { return 0; }
+		if (!clue || !HCEcologyMigrationNative.Unobserved(members, clue)) { return 0; }
+		if (!HCEcologyMigrationRules.Prepare(m_State, slot, utc)) { return 0; }
 		slot.ReservedMembers = Math.Max(slot.ReservedMembers, members.Count());
 		int sequence = slot.Sequence;
 		if (!Persist()) { m_Fault = true; return 0; }
-		int result = HCEcologyMigrationNative.Move(pack, clue, nativeNow);
+		int result = HCEcologyMigrationNative.Move(pack, clue, members, nativeNow);
 		int outcome = 3;
 		if (result == 2) { outcome = 2; }
 		if (!HCEcologyMigrationRules.Complete(slot, sequence, outcome) || !Persist())

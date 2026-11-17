@@ -120,6 +120,7 @@ class SearchIntegrationTests(unittest.TestCase):
                         MeasuredClear=lambda:self.events.append('measured_clear')),
                     'HCSearchEconomy':lambda:self.economy,
                     'HCInteriorSearchSession':lambda:N(), 'Print':self.events.append,
+                    'HCSearchBinding':N(PlacementComplete=lambda *args:None),
                     's_Instance':None}
         for name in ('SearchGate','CanStart','CanContinue','SearchSession','SessionValid',
                      'SearchBindingValid','PreserveLegacyManifest','SetSession'):
