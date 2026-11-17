@@ -19,22 +19,31 @@ status because it is not a value the weather has taken yet. mission_weather and 
 run; whether the engine sets mission_weather for enable="1" is unobserved and only these samples can say.
 
 Every run also reports its progression: whether the weather clock advanced, whether update was ever frozen,
-whether cfgweather.xml is enabled and, per phenomenon, whether a forecast boundary (next_change) was crossed and
+whether cfgweather.xml is enabled and, per phenomenon, whether a forecast deadline (next_change) was crossed and rescheduled and
 whether the actual or forecast value changed. Observed compliance with limits means nothing when nothing moved.
 
 Pair comparison (compare) needs a stock run and a candidate run staged from the same runtime with different
 cfgweather.xml bytes. The runs must agree on engine version, world, plan source hashes, hook hash and sampling
 (start delay, interval, sample count); the candidate must have been generated from the stock run's
-cfgweather.xml. Otherwise the comparison is pending. Per phenomenon the evidence is:
-  candidate_limits_exceeded   the candidate run left the candidate's limits
-  observed_limit_compliance   the candidate run stayed inside them while changing, and the stock run's actual
-                              values were entirely outside them (the pair observed the limits being honoured)
-  weakly_discriminating       the stock run was only partly outside the candidate's limits
-  not_discriminating          the stock run was inside them as well, so the pair cannot tell
-  pending                     a run is pending, frozen or not ticking, the candidate xml is disabled, no
-                              forecast boundary was crossed, or nothing was observed changing
-The whole comparison is pending when any phenomenon is pending. A single pair of runs is a sample of random
-weather: observed_limit_compliance is evidence for #35, never proof of precedence and never acceptance.
+cfgweather.xml. Otherwise the comparison is pending.
+
+Only the treated phenomena are gated: those whose limits, change limits or time limits differ between the two
+cfgweather.xml files. The rest are not_treated: reported, never blocking (an inert zero snowfall or a slow wind
+cycle cannot make a targeted comparison inconclusive). For a treated phenomenon the evidence is:
+  pending                       a run is pending, frozen or not ticking, the candidate xml is disabled, too few
+                                samples, no deadline (next_change) crossed in the candidate run, no new deadline
+                                or new forecast observed after the crossing (interpolation toward an unchanged
+                                forecast is not a cycle), or nothing observed changing
+  candidate_limits_exceeded     the candidate run's actual values left the candidate's limits
+  limits_not_observed_applied   values may lie inside the range, but the live limit readings do not show the
+                                candidate's values against the stock run's; range coincidence proves nothing
+  observed_limit_compliance     the live readings show the candidate's limits (and not in the stock run), the
+                                values stayed inside them and the stock run's values were entirely outside
+  weakly_discriminating         as above, but the stock run's values were only partly outside the limits
+  not_discriminating            as above, but the stock run's values were inside them as well
+The whole comparison is pending when any treated phenomenon is pending, or when nothing is treated. One pair of
+runs samples random weather; observed_limit_compliance is evidence for #35, never proof of precedence and never
+acceptance. Engine limits and world-script forecasts can coexist; the forecast is reported, not decisive.
 
 Usage:
   python3 tools/audit/weather_report.py single --runtime RUNTIME_DIR
@@ -77,6 +86,7 @@ MAX_OBSERVATION_BYTES = 4 * 1024 * 1024
 MAX_XML_BYTES = 65536
 MAX_ISSUES = 40
 DEFAULT_MIN_SAMPLES = 6
+_ATTRIBUTES = ("limits", "change_limits", "time_limits")
 TOLERANCE = 0.001
 LIMIT_BOUND = 1000000.0
 EXIT_COMPLETE, EXIT_ERROR, EXIT_PENDING = 0, 2, 3
@@ -414,7 +424,8 @@ def _phenomenon_result(name, samples, parsed, min_samples):
     result = {"status": "insufficient_samples", "candidate_limits": {"min": limits[0], "max": limits[1]},
               "actual_range": None, "actual_violations": 0, "violating_samples": [], "forecast_range": None,
               "forecast_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
-              "change_observed": False}
+              "cycle_observed": False, "change_observed": False,
+              "xml": {key: list(parsed[key]) for key in _ATTRIBUTES}, "live_pairs": None}
     if not samples:
         return result
     rows = [(sample["seq"], sample["phenomena"][name]) for sample in samples]
@@ -435,8 +446,13 @@ def _phenomenon_result(name, samples, parsed, min_samples):
             "time_limits": _matching([(row["time_min"], row["time_max"]) for _seq, row in rows],
                                      parsed["time_limits"])},
     })
-    result["boundary_crossed"] = _boundary_crossed([(sample["weather_time"], sample["phenomena"][name]["next_change"])
-                                                    for sample in samples])
+    result["live_pairs"] = {
+        "limits": _distinct(live),
+        "change_limits": _distinct([(row["change_min"], row["change_max"]) for _seq, row in rows]),
+        "time_limits": _distinct([(row["time_min"], row["time_max"]) for _seq, row in rows])}
+    result["boundary_crossed"], result["cycle_observed"] = _deadline_progress(
+        [(sample["weather_time"], sample["phenomena"][name]["next_change"], sample["phenomena"][name]["forecast"])
+         for sample in samples])
     result["change_observed"] = (len({round(value, 6) for value in actual}) > 1
                                  or len({round(value, 6) for value in forecast}) > 1)
     if len(samples) >= min_samples:
@@ -444,15 +460,34 @@ def _phenomenon_result(name, samples, parsed, min_samples):
     return result
 
 
-def _boundary_crossed(points):
-    """True when a later sample's weather time reached a next_change that lay ahead when it was observed."""
-    earliest = None
-    for time, next_change in points:
-        if earliest is not None and time >= earliest:
-            return True
-        if next_change > time and (earliest is None or next_change < earliest):
-            earliest = next_change
-    return False
+def _distinct(pairs):
+    return sorted([list(pair) for pair in {(round(low, 6), round(high, 6)) for low, high in pairs}])
+
+
+def _same(left, right):
+    return abs(left - right) <= _tolerance(left)
+
+
+def _deadline_progress(points):
+    """(deadline_crossed, cycle_observed) from (weather_time, next_change, forecast) per sample.
+
+    A deadline only counts while it lies in the future of the sample that showed it; an expired or zero
+    next_change is not one. Crossing it is not enough: a cycle is observed only when, at or after the crossing,
+    next_change moved to a new future deadline or the forecast differs from the one before the crossing. Actual
+    values drifting toward an unchanged forecast are interpolation, not a new cycle.
+    """
+    deadline, crossed, before = None, False, None
+    for time, next_change, forecast in points:
+        if deadline is not None and not crossed and time >= deadline:
+            crossed = True
+            before = previous
+        if crossed:
+            if (next_change > time and not _same(next_change, deadline)) or not _same(forecast, before):
+                return True, True
+        elif next_change > time and (deadline is None or next_change < deadline):
+            deadline = next_change
+        previous = forecast
+    return crossed, False
 
 
 def _progression(samples, enabled):
@@ -544,20 +579,54 @@ def evaluate(observations, cfgweather_bytes, *, plan=None, min_samples=DEFAULT_M
 # ---------------------------------------------------------------------------
 
 
-def _evidence(stock, candidate):
-    """(evidence label, reason when pending) for one phenomenon of a pair of usable runs."""
+def _close(left, right):
+    return all(abs(one - two) <= _tolerance(two) for one, two in zip(left, right))
+
+
+def _treated(stock, candidate):
+    """The attributes (limits, changelimits, timelimits) whose cfgweather.xml values differ between the runs."""
+    return [key for key in _ATTRIBUTES if not _close(stock["xml"][key], candidate["xml"][key])]
+
+
+def _readback(stock, candidate, attributes):
+    """Live engine readings against the candidate's xml: (per attribute detail, whether all show the differential).
+
+    Applied needs every candidate reading to equal the candidate's xml values and no stock reading to; values
+    that merely fall inside the limits prove nothing about which limits the engine holds.
+    """
+    detail, applied = {}, True
+    for key in attributes:
+        wanted = candidate["xml"][key]
+        theirs, ours = candidate["live_pairs"][key], stock["live_pairs"][key]
+        matches = bool(theirs) and all(_close(pair, wanted) for pair in theirs)
+        differs = bool(ours) and not any(_close(pair, wanted) for pair in ours)
+        detail[key] = {"candidate_live_matches_candidate_xml": matches, "stock_live_differs_from_candidate_xml": differs,
+                       "candidate_live": theirs, "stock_live": ours}
+        applied = applied and matches and differs
+    return detail, applied
+
+
+def _evidence(stock, candidate, attributes):
+    """(evidence label, reason) for one treated phenomenon of a pair of usable runs; a reason is a pending reason
+    only for the label pending."""
     if "insufficient_samples" in (stock["status"], candidate["status"]):
         return "pending", "a run has too few valid samples for this phenomenon"
-    for label, run in (("stock", stock), ("candidate", candidate)):
-        if not run["boundary_crossed"]:
-            return "pending", f"no forecast boundary (next_change) was crossed in the {label} run"
+    if not candidate["boundary_crossed"]:
+        return "pending", "no forecast deadline (next_change) was crossed in the candidate run"
+    if not candidate["cycle_observed"]:
+        return "pending", ("a deadline was crossed in the candidate run but next_change never moved to a new deadline "
+                           "and the forecast never changed afterwards; interpolation alone is not a new cycle")
     if candidate["status"] == "violates_candidate":
         return "candidate_limits_exceeded", None
+    if not candidate["change_observed"]:
+        return "pending", "nothing was observed changing in the candidate run"
+    _detail, applied = _readback(stock, candidate, attributes)
+    if not applied:
+        return "limits_not_observed_applied", ("the live limit readings do not show the candidate's limits against "
+                                               "the stock run's; values inside the range prove nothing about them")
     bounds = (candidate["candidate_limits"]["min"], candidate["candidate_limits"]["max"])
     low, high = stock["actual_range"]["min"], stock["actual_range"]["max"]
     if high < bounds[0] - _tolerance(bounds[0]) or low > bounds[1] + _tolerance(bounds[1]):
-        if not candidate["change_observed"]:
-            return "pending", "nothing was observed changing in the candidate run"
         return "observed_limit_compliance", None
     if _outside(low, bounds) or _outside(high, bounds):
         return "weakly_discriminating", None
@@ -608,35 +677,62 @@ def _progression_issues(stock, candidate):
 
 
 def compare(stock_result, candidate_result):
-    """Compare a stock run's result with a candidate run's result (both from evaluate/load_run)."""
+    """Compare a stock run's result with a candidate run's result (both from evaluate/load_run).
+
+    Only the treated phenomena (those whose cfgweather.xml limits differ between the runs) are gated;
+    the others are reported as informational and never block the comparison.
+    """
     issues = [f"stock run: {issue}" for issue in stock_result["issues"]]
     issues += [f"candidate run: {issue}" for issue in candidate_result["issues"]]
     if stock_result["cfgweather"]["sha256"] == candidate_result["cfgweather"]["sha256"]:
         issues.append("both runs used the same cfgweather.xml; stage the candidate run with a different one")
     issues += _provenance_issues(stock_result, candidate_result)
     issues += _progression_issues(stock_result, candidate_result)
+    treated = {name: _treated(stock_result["phenomena"][name], candidate_result["phenomena"][name])
+               for name in PHENOMENA}
+    if not any(treated.values()):
+        issues.append("the candidate's cfgweather.xml changes no phenomenon's limits, change limits or time limits; "
+                      "there is no treatment to compare")
     blocked = bool(issues)
     phenomena = {}
     for name in PHENOMENA:
         stock, candidate = stock_result["phenomena"][name], candidate_result["phenomena"][name]
-        evidence, reason = ("pending", None) if blocked else _evidence(stock, candidate)
-        if reason:
-            issues.append(f"{name}: {reason}")
+        attributes = treated[name]
+        reason, readback = None, None
+        if not attributes:
+            evidence = "not_treated"
+        elif blocked:
+            evidence = "pending"
+        else:
+            evidence, reason = _evidence(stock, candidate, attributes)
+            if evidence == "pending":
+                issues.append(f"{name}: {reason}")
+        if attributes and candidate["live_pairs"] and stock["live_pairs"]:
+            readback = _readback(stock, candidate, attributes)[0]
         phenomena[name] = {
-            "evidence": evidence, "reason": reason,
+            "evidence": evidence, "reason": reason, "treated_attributes": attributes,
             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
+            "values_in_range": None if not candidate["actual_range"] else candidate["status"] == "within_candidate",
+            "live_readback": readback,
+            "candidate_forecast_outside_limits": candidate["forecast_outside_limits"],
             "stock_actual_range": stock["actual_range"], "candidate_actual_range": candidate["actual_range"],
             "boundary_crossed": {"stock": stock["boundary_crossed"], "candidate": candidate["boundary_crossed"]},
+            "cycle_observed": {"stock": stock["cycle_observed"], "candidate": candidate["cycle_observed"]},
             "change_observed": {"stock": stock["change_observed"], "candidate": candidate["change_observed"]}}
     pending = bool(issues)
     return {
         "kind": "weather-probe-comparison", "status": "pending" if pending else "complete", "issues": issues,
+        "treated": [name for name in PHENOMENA if treated[name]],
         "phenomena": phenomena,
         "progression": {"stock": stock_result["progression"], "candidate": candidate_result["progression"]},
         "mission_weather": {"stock": stock_result["mission_weather"], "candidate": candidate_result["mission_weather"]},
         "update_frozen": {"stock": stock_result["update_frozen"], "candidate": candidate_result["update_frozen"]},
-        "notes": ["Two single runs sample random weather; observed_limit_compliance is evidence that the observed "
-                  "values stayed inside the candidate's limits, not proof of precedence and never acceptance.",
+        "notes": ["Two single runs sample random weather; observed_limit_compliance means the live limit readings "
+                  "differed as the candidate's xml says and the values stayed inside them, not proof of precedence "
+                  "and never acceptance.",
+                  "Values inside the candidate's limits are reported separately (values_in_range) from the live "
+                  "limit readback; world-script forecasts and engine limits can coexist.",
+                  "Phenomena the candidate does not change are not_treated: reported, never gating.",
                   "Whether the engine sets mission_weather for enable=1 is read from the flags above only."],
         "runtime_acceptance": "pending", "feature_complete": False,
     }

@@ -447,6 +447,7 @@ class FakeEngine:
         self.queue, self.counter, self.server = [], 0, server
         self.prints, self.delays, self.observations_at_sentinel_open = [], [], None
         self.handles, self.next_handle = {}, 1
+        self.weather_offset = 4321.5
         self.phenomena = [FakeWeatherPhenomenon(index) for index in range(6)]
         namespace = self.namespace()
         tree = _ValueCalls().visit(ast.parse(transpile(hook.decode("ascii"))))
@@ -462,7 +463,8 @@ class FakeEngine:
 
         class Weather:
             def GetTime(_self):
-                return engine.now / 1000.0
+                # Elapsed weather seconds; deliberately not derived from the millisecond game clock alone.
+                return engine.weather_offset + engine.now / 1000.0
 
             def GetMissionWeather(_self):
                 return True
@@ -629,6 +631,14 @@ class HookBehaviourTests(unittest.TestCase):
         self.assertEqual((True, False), (sample["mission_weather"], sample["update_frozen"]))
         self.assertEqual((2026, 11, 17, 9, 30), tuple(sample[k] for k in ("year", "month", "day", "hour", "minute")))
 
+    def test_weather_time_is_the_weather_clock_in_seconds_not_the_millisecond_game_clock(self):
+        engine = self.full_run()
+        for row in engine.rows()[1:7]:
+            self.assertEqual(_format_float(engine.weather_offset + row["game_ms"] / 1000.0), row["weather_time"])
+            self.assertNotEqual(str(row["game_ms"]), row["weather_time"])
+        first, second = engine.rows()[1:3]
+        self.assertEqual(5.0, float(second["weather_time"]) - float(first["weather_time"]))
+
     def test_the_hook_output_round_trips_through_the_report(self):
         from tools.audit import weather_report
         engine = self.full_run()
@@ -787,6 +797,30 @@ class StagerTests(Workspace):
         with self.assertRaisesRegex(ValueError, "reconstruction"):
             self.stage(candidate=candidate)
         self.assertFalse(self.dest.exists())
+
+    def test_a_candidate_replaced_between_admission_and_reconstruction_is_refused(self):
+        first = write_candidate(self.root / "first")
+        second = write_candidate(self.root / "second", overrides={"fog": {"limits": {"min": 0.3, "max": 0.5},
+                                                                          "current": {"actual": 0.4}}})
+        self.assertNotEqual((first / "cfgweather.xml").read_bytes(), (second / "cfgweather.xml").read_bytes())
+        real = probe.load_candidate
+
+        def swapping(candidate):
+            loaded = real(candidate)  # admitted: the first candidate's bytes and digest
+            for name in ("cfgweather.xml", "atmosphere-report.json", "atmosphere-manifest.json"):
+                (Path(candidate) / name).write_bytes((second / name).read_bytes())
+            return loaded
+        atmosphere.validate_candidate(second, source=self.root / "vanilla" / "stock-backup" / MISSION / "cfgweather.xml")
+        with mock.patch.object(probe, "load_candidate", swapping):
+            with self.assertRaisesRegex(ValueError, "changed during reconstruction"):
+                self.stage(candidate=first)
+        self.assertFalse(self.dest.exists())
+
+    def test_reconstruction_refuses_bytes_that_differ_from_the_admitted_digest(self):
+        candidate = write_candidate(self.root / "candidate")
+        probe.reconstruct_candidate(candidate, STOCK_XML, sha((candidate / "cfgweather.xml").read_bytes()))
+        with self.assertRaisesRegex(ValueError, "changed during reconstruction"):
+            probe.reconstruct_candidate(candidate, STOCK_XML, "0" * 64)
 
     def test_the_reconstruction_source_is_the_held_stock_not_a_caller_supplied_file(self):
         seen = []
