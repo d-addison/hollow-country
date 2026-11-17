@@ -661,6 +661,14 @@ class SweepFixture:
         self.__init__()
 
 
+def authored_load_wrapper(slot_loader, policies):
+    """Authored Load body (translated) composed of the given explicit slot-loader double
+    and the actual translated ApplyRestart body; nothing of the restart is re-implemented here."""
+    restart = translate("HCInfectedState.c", "static void ApplyRestart(", (), HCInfectedPolicy=policies)
+    return translate("HCInfectedState.c", "static bool Load(", (), LoadVerbatim=slot_loader,
+        ApplyRestart=lambda snapshot: restart(None, snapshot))
+
+
 class StartedModule:
     """Executes the authored OnStart/OnTick/OnStop on explicit synthetic collaborators."""
 
@@ -694,25 +702,28 @@ class StartedModule:
         self.Admission = Admission
         self.settings = NS(EnableInfected=True, EnableHordes=hordes, EnableAlertChains=True,
             MaxTickWorkItems=work, MaxActiveHordes=2, MaxActiveHordeMembers=24)
-        has_restart = "static void ApplyRestart(" in (SOURCE / "HCInfectedState.c").read_text()
-        restart = None
-        if has_restart:
-            restart = translate("HCInfectedState.c", "static void ApplyRestart(", (), HCInfectedPolicy=self.policies)
+        def fresh():
+            return NS(Groups=Array(), Reserved=0)
 
-        def snapshot():
-            return NS(Groups=Array(copy.deepcopy(list(self.journal))), Reserved=sum(g.Reserved for g in self.journal))
+        def slot_loader(snapshot, *args):
+            # Explicit slot-loader double: committed bytes as validated records, no restart applied.
+            self.slot_loads.append("slot")
+            snapshot.Groups.Clear()
+            snapshot.Groups.extend(copy.deepcopy(list(self.journal)))
+            snapshot.Reserved = sum(g.Reserved for g in self.journal)
+            return True
+        self.slot_loads = []
+        authored_load = authored_load_wrapper(slot_loader, self.policies)
 
         def verbatim(*args):
             self.store_calls.append("verbatim")
-            self.ctx.m_State = snapshot()
-            return True
+            self.ctx.m_State = fresh()
+            return slot_loader(self.ctx.m_State)
 
         def load(*args):
             self.store_calls.append("load")
-            self.ctx.m_State = snapshot()
-            if restart:
-                restart(None, self.ctx.m_State)
-            return True
+            self.ctx.m_State = fresh()
+            return authored_load(None, self.ctx.m_State, *args[1:])
 
         def save(snapshot_value, member_cap, group_cap):
             self.saves.append(copy.deepcopy(vars(snapshot_value)))
@@ -958,6 +969,116 @@ class DormantJournalTests(unittest.TestCase):
         self.assertIn("ApplyRestart(", load)
         verbatim = state.split("static bool LoadVerbatim(", 1)[1].split("static void ApplyRestart(", 1)[0]
         self.assertNotIn("AfterRestart", verbatim)
+
+
+class CommittedRecordRestartThroughAuthoredLoadTests(unittest.TestCase):
+    """A previously committed active record must become unresolved by the real Load wrapper
+    before any admitted consumer sees it (#19 #44). Slot loading is an explicit synthetic double;
+    restart interpretation is the authored ApplyRestart body, not a fixture re-implementation."""
+
+    def route_record(self, state, stage=2, created=9000):
+        record = committed_record(1, created)
+        record.State = state
+        record.AdoptionStage = stage
+        record.MemberIds = Array(["a", "b", "c"])
+        return record
+
+    def load(self, journal):
+        loaded = []
+        def slot_loader(snapshot, *args):
+            loaded.append(args)
+            snapshot.Groups.Clear()
+            snapshot.Groups.extend(copy.deepcopy(list(journal)))
+            snapshot.Reserved = sum(g.Reserved for g in journal)
+            return True
+        load = authored_load_wrapper(slot_loader, NS(**policy_functions()))
+        snapshot = NS(Groups=Array(), Reserved=0)
+        self.assertTrue(load(None, snapshot, "chernarusplus", 24, 2, 10000))
+        self.assertEqual(1, len(loaded))
+        return snapshot
+
+    def test_committed_active_states_load_as_unresolved_with_interrupted_route_and_kept_reservation(self):
+        for state in (0, 2, 3):
+            with self.subTest(state=state):
+                committed = self.route_record(state)
+                self.assertTrue(committed.HasRoute)
+                self.assertEqual(3, committed.Reserved)
+                snapshot = self.load((committed,))
+                record = snapshot.Groups[0]
+                self.assertEqual(6, record.State)
+                self.assertIs(False, record.HasRoute)
+                self.assertEqual(5, record.RouteResult)
+                self.assertEqual(2, record.AdoptionStage)
+                self.assertEqual(["a", "b", "c"], list(record.MemberIds))
+                self.assertEqual((3, 3), (record.Living, record.Reserved))
+                self.assertEqual(3, snapshot.Reserved)
+                self.assertEqual((2.0, 0.0, 2.0), record.RouteEnd)
+
+    def test_retired_state_is_kept_and_stage_one_becomes_conflicted_by_the_same_wrapper(self):
+        retired = self.route_record(5)
+        pending = self.route_record(0, stage=1)
+        snapshot = self.load((retired, pending))
+        self.assertEqual(5, snapshot.Groups[0].State)
+        self.assertEqual(6, snapshot.Groups[1].State)
+        self.assertEqual(3, snapshot.Groups[1].AdoptionStage)
+        self.assertIs(True, snapshot.Groups[1].RecoveryConflicted)
+
+    def test_started_admitted_lifecycle_sees_unresolved_state_and_does_not_replay_before_expiry(self):
+        for name, flags, expiry in (("adoption", hypothetical("CEAdoption"), None),
+                                    ("recovery", hypothetical("MemberRecovery"), 12600)):
+            for state in (0, 2, 3):
+                with self.subTest(path=name, state=state):
+                    journal = (self.route_record(state),)
+                    started = StartedModule(journal=journal, flags=flags).start()
+                    self.assertTrue(started.ctx.m_Healthy, started.events)
+                    self.assertEqual(["load"], started.store_calls)
+                    self.assertEqual(["slot"], started.slot_loads)
+                    self.assertIs(True, started.ctx.m_Dirty)
+                    record = started.ctx.m_State.Groups[0]
+                    self.assertEqual((6, False, 5, 3), (record.State, record.HasRoute, record.RouteResult, record.Reserved))
+                    self.assertEqual(3, started.ctx.m_State.Reserved)
+                    for utc in (10001, 10060, 11000, 12599):
+                        started.tick(utc)
+                        record = started.ctx.m_State.Groups[0]
+                        self.assertEqual((6, False, 5, 3, 3), (record.State, record.HasRoute, record.RouteResult,
+                            record.Reserved, record.Living), (name, state, utc))
+                        self.assertEqual(["a", "b", "c"], list(record.MemberIds))
+                    self.assertEqual(3, started.ctx.m_State.Reserved)
+                    for snapshot in started.saves:
+                        self.assertTrue(all(g.State == 6 and not g.HasRoute for g in snapshot["Groups"]))
+                    if expiry:
+                        started.tick(expiry)
+                        started.tick(expiry + 1)
+                        self.assertEqual(5, started.ctx.m_State.Groups[0].State)
+                        self.assertEqual(3, started.ctx.m_State.Groups[0].Reserved)
+                    else:
+                        started.tick(20000)
+                        self.assertEqual(6, started.ctx.m_State.Groups[0].State)
+
+    def test_admission_selects_verbatim_loading_when_neither_journal_lifecycle_is_admitted(self):
+        for name, flags in (("none", hypothetical()),
+                            ("pack_routes_only", hypothetical("NativePackRoutes")),
+                            ("investigation_chains_stimulus", hypothetical("Investigation", "SupplementaryChains",
+                                "HordeStimulusRoutes"))):
+            with self.subTest(admitted=name):
+                journal = (self.route_record(0), self.route_record(2))
+                journal[1].Id = 2
+                before = copy.deepcopy([vars(r) for r in journal])
+                started = StartedModule(journal=journal, flags=flags).start()
+                self.assertTrue(started.ctx.m_Healthy, started.events)
+                self.assertEqual(["verbatim"], started.store_calls)
+                self.assertEqual(["slot"], started.slot_loads)
+                self.assertEqual(before, [vars(r) for r in started.ctx.m_State.Groups])
+                self.assertIs(False, started.ctx.m_Dirty)
+                self.assertEqual([], started.saves)
+
+    def test_admission_selects_the_restart_wrapper_when_either_journal_lifecycle_is_admitted(self):
+        for admitted in ("CEAdoption", "MemberRecovery"):
+            with self.subTest(admitted=admitted):
+                started = StartedModule(journal=(self.route_record(0),), flags=hypothetical(admitted)).start()
+                self.assertEqual(["load"], started.store_calls)
+                self.assertEqual(6, started.ctx.m_State.Groups[0].State)
+                self.assertIs(True, started.ctx.m_Dirty)
 
 
 class NativeIntegrationInterfaceTests(unittest.TestCase):
