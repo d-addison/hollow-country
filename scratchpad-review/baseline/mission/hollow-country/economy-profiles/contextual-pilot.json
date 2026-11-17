@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "name": "contextual-pilot",
+  "add_usage": {
+    "BandageDressing": ["Town", "Village"],
+    "Battery9V": ["Town", "Military"],
+    "CanOpener": ["Hunting"],
+    "DuctTape": ["Military"],
+    "SewingKit": ["Military"]
+  },
+  "diagnostics": []
+}

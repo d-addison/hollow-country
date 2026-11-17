@@ -1,0 +1,2226 @@
+commit b9d2d154c23843208152268c50cccbbcea6a6a99
+Author: David Addison <73078380+d-addison@users.noreply.github.com>
+Date:   Tue Nov 17 04:44:10 2026 -0500
+
+    Add weather precedence probe stager and report (review candidate)
+
+diff --git a/tests/unit/test_weather_probe.py b/tests/unit/test_weather_probe.py
+new file mode 100644
+index 0000000..bf2ad26
+--- /dev/null
++++ b/tests/unit/test_weather_probe.py
+@@ -0,0 +1,498 @@
++"""Offline stager/hook tests for the native weather precedence probe; SYNTHETIC fixtures only.
++
++Nothing here proves how DayZ weather behaves. The generated Enforce hook is only checked
++structurally and against compile-shape rules already observed natively. Runtime acceptance
++stays PENDING until a native run produces observations that tools/audit/weather_report.py
++can read.
++
++Actual TDD 2026-11-17:
++PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_weather_probe tests.unit.test_weather_report -v
++RED: ImportError cannot import name 'weather_probe' from 'tools.setup' and 'weather_report' from 'tools.audit'.
++"""
++import copy
++import hashlib
++import json
++from pathlib import Path
++import re
++import tempfile
++import unittest
++from unittest import mock
++
++from tests.unit import test_atmosphere as atmosphere_fixtures
++from tools.package import atmosphere
++from tools.setup import probe_runtime as rt
++from tools.setup import weather_probe as probe
++
++ROOT = Path(__file__).resolve().parents[2]
++PROBE_SOURCE = ROOT / "tools/setup/weather_probe.py"
++CACHE = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
++STOCK_INIT = (b"// SYNTHETIC mission, not purchased game source\r\n"
++              b"void main() {}\r\nclass CustomMission: MissionServer {}\r\n"
++              b"Mission CreateCustomMission(string path)\r\n{\r\n"
++              b"    return new CustomMission();\r\n}\r\n")
++SYNTH_BE = b"SYNTHETIC-BATTLEYE"
++SYNTH_BE_SHA = hashlib.sha256(SYNTH_BE).hexdigest()
++WINDOWS_ROOT = r"D:\HollowCountryLocal\weather-test"
++MISSION = "mpmissions/dayzOffline.chernarusplus"
++STOCK_XML = atmosphere_fixtures.fixture()
++LAUNCHER_ROW = {"weather-probe": ("weather-probe-plan.json", "HCWeatherProbe", "observations.json")}
++
++
++def sha(data):
++    return hashlib.sha256(data).hexdigest()
++
++
++# --- compile-shape checks that the parallel probe_runtime lint is meant to enforce ---------------
++
++_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
++
++
++def code_of(text):
++    """Text with comments dropped and string literal contents blanked."""
++    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
++    return "\n".join(_STRING.sub('""', line).split("//")[0] for line in text.splitlines())
++
++
++def statements(text):
++    """(first_line, statement) pairs, split on ; { }; a statement may span lines."""
++    result, current, first, line = [], [], None, 1
++    for char in code_of(text):
++        if char == "\n":
++            line += 1
++        if char in ";{}":
++            body = "".join(current).strip()
++            if body:
++                result.append((first, body))
++            current, first = [], None
++            continue
++        if first is None and not char.isspace():
++            first = line
++        current.append(char)
++    return result
++
++
++def plus_counts(text):
++    """Binary '+' count per statement and per physical line (strings blanked)."""
++    per_statement = [(first, body.count("+")) for first, body in statements(text)]
++    per_line = [(number, line.count("+")) for number, line in enumerate(code_of(text).splitlines(), 1)]
++    return per_statement, per_line
++
++
++def top_level_operands(expression):
++    operands, depth, current = [], 0, []
++    for char in expression:
++        if char in "([":
++            depth += 1
++        elif char in ")]":
++            depth -= 1
++        if char == "+" and depth == 0:
++            operands.append("".join(current).strip())
++            current = []
++        else:
++            current.append(char)
++    operands.append("".join(current).strip())
++    return operands
++
++
++def concatenation_problems(text):
++    """Operands of a string concatenation that are not provably string typed."""
++    code = code_of(text)
++    string_names = set(re.findall(r"\bstring\s+(\w+)", code))
++    string_functions = set(re.findall(r"^[ \t]{4}string\s+(\w+)\s*\(", code, re.M))
++    problems = []
++    for first, body in statements(text):
++        body = re.sub(r"^(?:if|while|else if)\s*\(", "(", body)
++        if "+" not in body or '""' not in body:
++            continue
++        right = body.split("=", 1)[1] if re.match(r"^[\w\[\]\. ]+=[^=]", body) else body
++        right = re.sub(r"^return\s+", "", right.strip())
++        for operand in top_level_operands(right):
++            if (operand == '""' or operand.endswith(".ToString()") or operand.endswith(".AsciiToString()")
++                    or operand in string_names or re.match(r"^(\w+)\(", operand) and re.match(r"^(\w+)", operand).group(1) in string_functions):
++                continue
++            problems.append(f"line {first}: operand '{operand}' is not provably a string (use .ToString())")
++    return problems
++
++
++def write_source_runtime(root):
++    mission = root / "stock-backup" / MISSION
++    (mission / "db").mkdir(parents=True)
++    files = {"init.c": STOCK_INIT, "db/types.xml": b"<types>synthetic</types>\n", "cfgweather.xml": STOCK_XML}
++    plan_files = []
++    for name, data in sorted(files.items()):
++        (mission / name).write_bytes(data)
++        plan_files.append({"path": name, "sha256": sha(data)})
++    config = b'hostname = "SYNTHETIC";\r\n'
++    (root / "serverDZ.cfg").write_bytes(config)
++    (root / "battleye").mkdir()
++    (root / "battleye/BEServer_x64.dll").write_bytes(SYNTH_BE)
++    (root / "launch-plan.json").write_text(json.dumps(
++        {"schema_version": 1, "status": "staged-only-not-launched", "config_sha256": sha(config),
++         "mission_files": plan_files}))
++    return root
++
++
++def write_candidate(directory, overrides=None, **profile_changes):
++    """A validated atmosphere candidate generated from the synthetic stock cfgweather.xml."""
++    source = directory.parent / "stock-source.xml"
++    if not source.exists():
++        source.write_bytes(STOCK_XML)
++    profile = dict(schema=1, name="distinctive", world="chernarusplus", build="1.30.164289",
++                   source_sha256=sha(STOCK_XML), enable=True, reset=False,
++                   overrides=overrides if overrides is not None else
++                   {"overcast": {"limits": {"min": 0.8, "max": 0.95}, "current": {"actual": 0.85}}})
++    profile.update(profile_changes)
++    atmosphere.write_candidate(directory, atmosphere.generate(source, profile))
++    return directory
++
++
++class Workspace(unittest.TestCase):
++    def setUp(self):
++        temp = tempfile.TemporaryDirectory()
++        self.addCleanup(temp.cleanup)
++        self.root = Path(temp.name)
++        self.source = write_source_runtime(self.root / "vanilla")
++        self.dest = self.root / "weather-test"
++        patcher = mock.patch.dict(rt.LAUNCHER_PROBES, LAUNCHER_ROW)
++        patcher.start()
++        self.addCleanup(patcher.stop)
++
++    def stage(self, **extra):
++        base = {"battleye_sha256": SYNTH_BE_SHA, "_wsl_parent": self.root}
++        base.update(extra)
++        return probe.stage(self.source, self.dest, **base)
++
++
++class HookRenderingTests(unittest.TestCase):
++    def setUp(self):
++        self.hook = probe.render_hook().decode("ascii")
++
++    def test_hook_is_ascii_server_only_and_runs_once(self):
++        self.assertTrue(probe.render_hook().isascii())
++        self.assertIn("GetGame().IsServer()", self.hook)
++        self.assertIn("m_HCWPStarted", self.hook)
++        self.assertTrue(self.hook.lstrip().startswith("// Hollow Country DISPOSABLE"))
++        for forbidden in ("GetPlayers", "PlayerBase", "ScriptRPC", "GetRPCManager", "TeleportPlayer", "GetHive",
++                          "CreateObject", "ObjectDelete", "SaveWorld", "SetPosition", "OnClient"):
++            self.assertNotIn(forbidden, self.hook, forbidden)
++
++    def test_the_hook_reads_weather_and_never_writes_it(self):
++        setters = re.findall(r"\.(Set\w*|MissionWeather|SuppressLightningSimulation)\s*\(", self.hook)
++        self.assertEqual([], setters)
++        self.assertNotRegex(self.hook, r"(?<![A-Za-z])Set[A-Z]\w*\(")
++        # The only Set-like spelling allowed is the sampler's own SetStep helper name: none exists.
++        self.assertNotIn("SetStorm", self.hook)
++
++    def test_every_requested_observation_is_called_exactly_through_the_cited_getters(self):
++        for api in ("GetGame().GetWeather()", "GetMissionWeather()", "GetWeatherUpdateFrozen()", ".GetActual()",
++                    ".GetForecast()", ".GetNextChange()", ".GetLimits(", ".GetForecastChangeLimits(",
++                    ".GetForecastTimeLimits(", ".GetWindSpeed()", ".GetWindMaximumSpeed()", ".IsDynVolFogEnabled()",
++                    ".GetDynVolFogDistanceDensity()", ".GetDynVolFogHeightDensity()", ".GetDynVolFogHeightBias()",
++                    ".GetTime()", "GetGame().GetTime()", "GetGame().GetWorld().GetDate(", ".GetOvercast()", ".GetFog()",
++                    ".GetRain()", ".GetSnowfall()", ".GetWindMagnitude()", ".GetWindDirection()"):
++            self.assertIn(api, self.hook, api)
++        for name in probe.PHENOMENA:
++            self.assertIn('"%s"' % name, self.hook)
++
++    def test_sampling_is_bounded_by_inlined_sample_count_duration_cap_and_watchdog(self):
++        hook = probe.render_hook(start_delay_s=40, interval_s=15, samples=12).decode("ascii")
++        self.assertIn("m_HCWPMaxSamples = 12;", hook)
++        self.assertIn("m_HCWPIntervalMs = 15000;", hook)
++        self.assertIn("m_HCWPCapMs = %d;" % probe.cap_ms(15, 12), hook)
++        self.assertIn("CallLater(HCWPBegin, 40000, false)", hook)
++        self.assertIn("CallLater(HCWPWatchdog, %d, false)" % probe.watchdog_ms(40, 15, 12), hook)
++        self.assertIn("m_HCWPSamples >= m_HCWPMaxSamples", hook)
++        self.assertIn("m_HCWPSamples = m_HCWPSamples + 1;", hook)
++        self.assertEqual(1, hook.count("CALL_CATEGORY_SYSTEM).CallLater(HCWPStep"))
++        self.assertEqual([], re.findall(r"CallLater\([^;]*,\s*true\)", hook))  # no repeating timers
++        self.assertGreater(probe.watchdog_ms(40, 15, 12), 40000 + 11 * 15000)
++
++    def test_output_is_json_lines_in_the_probe_profile_directory_then_a_sentinel_written_last(self):
++        self.assertIn('"$profile:HCWeatherProbe/observations.json"', self.hook)
++        self.assertIn('"$profile:HCWeatherProbe/complete.txt"', self.hook)
++        self.assertEqual(2, self.hook.count("FileMode.WRITE"))  # header and sentinel only
++        self.assertIn("FileMode.APPEND", self.hook)
++        self.assertEqual(2, len(re.findall(r"\$profile:", self.hook)))
++        self.assertLess(self.hook.index("HCWPAppend(HCWPEndLine"), self.hook.index("m_HCWPSentinel, FileMode.WRITE"))
++        self.assertIn("earlier probe output exists; not overwriting", self.hook)
++        for key in ('"header"', '"sample"', '"end"'):
++            self.assertIn(key, self.hook)
++
++    def test_numbers_are_emitted_as_json_strings_so_unobserved_float_formatting_cannot_break_json(self):
++        self.assertIn("string HCWPFloat(", self.hook)
++        self.assertRegex(self.hook, r"HCWPQuoted\(value\.ToString\(\)\)")
++
++    def test_invalid_parameters_are_refused(self):
++        for kwargs in ({"start_delay_s": 4}, {"start_delay_s": 601}, {"interval_s": 4}, {"interval_s": 601},
++                       {"samples": 5}, {"samples": probe.MAX_SAMPLES + 1}, {"samples": True}, {"interval_s": 1.5},
++                       {"interval_s": 600, "samples": 720}):
++            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
++                probe.render_hook(**kwargs)
++
++    def test_generated_hook_passes_the_shared_native_compile_rule_lint(self):
++        self.assertEqual([], rt.lint_hook(self.hook))
++        native = rt.native_type_names(CACHE) if (CACHE / "3_Game").is_dir() else frozenset()
++        self.assertEqual([], rt.lint_hook(self.hook, native_types=native))
++
++    def test_no_identifier_equals_an_engine_type_name_even_without_the_cache(self):
++        for match in rt._DECLARATION.finditer(code_of(self.hook)):
++            self.assertNotIn(match.group(2), rt.ENGINE_TYPE_NAMES)
++
++    def test_every_statement_has_at_most_eight_binary_plus_operators(self):
++        per_statement, per_line = plus_counts(self.hook)
++        self.assertLessEqual(max(count for _n, count in per_statement), probe.MAX_PLUS_PER_STATEMENT)
++        self.assertLessEqual(max(count for _n, count in per_line), probe.MAX_PLUS_PER_STATEMENT)
++        self.assertEqual(8, probe.MAX_PLUS_PER_STATEMENT)
++        self.assertNotIn("++", code_of(self.hook))
++        self.assertNotIn("+=", code_of(self.hook))
++        self.assertEqual([], probe.statement_problems(self.hook))
++
++    def test_every_number_in_a_string_concatenation_goes_through_explicit_to_string(self):
++        self.assertEqual([], concatenation_problems(self.hook))
++        self.assertEqual([], probe.statement_problems(self.hook))
++
++    def test_the_concatenation_checks_flag_the_real_failures(self):
++        nine = 'void F()\n{\n    string s = "a" + b + "c" + d + "e" + f + "g" + h + "i" + j;\n}\n'
++        self.assertTrue(probe.statement_problems(nine))
++        self.assertTrue(any("'+'" in p or "operators" in p for p in probe.statement_problems(nine)))
++        eight = 'void F()\n{\n    string s = "a" + b + "c" + d + "e" + f + "g" + h + "i";\n}\n'
++        self.assertFalse([p for p in probe.statement_problems(eight) if "operators" in p])
++        implicit = 'void F()\n{\n    int count = 3;\n    string s = "n=" + count;\n}\n'
++        self.assertTrue(concatenation_problems(implicit))
++        self.assertTrue(probe.statement_problems(implicit))
++        explicit = 'void F()\n{\n    int count = 3;\n    string s = "n=" + count.ToString();\n}\n'
++        self.assertEqual([], concatenation_problems(explicit))
++        self.assertEqual([], probe.statement_problems(explicit))
++        multi_line = 'void F()\n{\n    string s = "a" + b + "c" + d\n        + "e" + f + "g" + h + "i" + j;\n}\n'
++        self.assertTrue([p for p in probe.statement_problems(multi_line) if "operators" in p])
++        numeric_only = 'void F()\n{\n    int total = 1 + 2 + 3;\n}\n'
++        self.assertEqual([], probe.statement_problems(numeric_only))
++
++    def test_no_ternary_leading_operator_exponent_literal_or_shared_scope_redeclaration(self):
++        code = code_of(self.hook)
++        self.assertNotIn("?", code)
++        self.assertEqual([], [l for l in code.splitlines() if re.match(r"^\s*(\|\||&&)", l)])
++        self.assertIsNone(re.search(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b", code))
++        self.assertEqual([], [i for i in rt.lint_hook(self.hook) if "duplicate local" in i])
++
++    def test_out_parameters_are_declared_before_the_call(self):
++        for call in ("GetLimits(", "GetForecastChangeLimits(", "GetForecastTimeLimits(", "GetDate(", "GetWorldName(",
++                     "GetVersion("):
++            index = self.hook.index(call)
++            before = self.hook[:index]
++            arguments = self.hook[index + len(call):self.hook.index(")", index)]
++            for name in [a.strip() for a in arguments.split(",")]:
++                self.assertRegex(before, r"(?:float|int|string)\s+%s\s*=?" % re.escape(name), call + " " + name)
++
++
++class NativeCitationTests(unittest.TestCase):
++    """Every API cited in the module docstring is looked up at its file:line in the native script cache."""
++
++    def citations(self):
++        text = probe.__doc__
++        return re.findall(r"^\s+(\S+?)\s+->\s+(\S+?):(\d+)", text, re.M)
++
++    def test_the_docstring_cites_every_native_api_the_hook_calls(self):
++        cited = {api for api, _file, _line in self.citations()}
++        for api in ("GetWeather", "GetMissionWeather", "GetWeatherUpdateFrozen", "GetActual", "GetForecast",
++                    "GetNextChange", "GetLimits", "GetForecastChangeLimits", "GetForecastTimeLimits", "GetWindSpeed",
++                    "GetWindMaximumSpeed", "IsDynVolFogEnabled", "GetDynVolFogDistanceDensity",
++                    "GetDynVolFogHeightDensity", "GetDynVolFogHeightBias", "Weather.GetTime", "CGame.GetTime", "GetDate",
++                    "GetOvercast", "GetFog", "GetRain", "GetSnowfall", "GetWindMagnitude", "GetWindDirection",
++                    "CallLater", "OpenFile", "FPrintln", "MakeDirectory", "FileExist", "GetWorldName", "GetVersion",
++                    "float.ToString", "int.ToString", "int.AsciiToString", "IsServer"):
++            self.assertIn(api, cited, api)
++
++    def test_each_citation_resolves_in_the_installed_native_script_cache(self):
++        if not (CACHE / "3_Game").is_dir():
++            self.skipTest("native script cache not extracted")
++        for api, name, line in self.citations():
++            lines = (CACHE / name).read_text(encoding="utf-8", errors="replace").splitlines()
++            leaf = api.split(".")[-1]
++            self.assertIn(leaf, lines[int(line) - 1], f"{api} not at {name}:{line}")
++
++
++class StagerTests(Workspace):
++    def test_stock_run_stages_the_untouched_stock_cfgweather_and_records_its_hash(self):
++        plan = self.stage()
++        staged = (self.dest / MISSION / "cfgweather.xml").read_bytes()
++        self.assertEqual(STOCK_XML, staged)
++        self.assertEqual("weather-probe", plan["kind"])
++        self.assertEqual("stock", plan["probe"]["cfgweather"]["variant"])
++        self.assertEqual(sha(STOCK_XML), plan["probe"]["cfgweather"]["staged_sha256"])
++        self.assertEqual(sha(STOCK_XML), plan["probe"]["cfgweather"]["stock_sha256"])
++        self.assertIsNone(plan["probe"]["cfgweather"]["candidate"])
++        origin = {f["path"]: f["origin"] for f in plan["mission_files"]}
++        self.assertEqual("stock-copy", origin["cfgweather.xml"])
++        self.assertEqual("instrumented", origin["init.c"])
++
++    def test_candidate_run_replaces_only_cfgweather_with_the_validated_candidate_bytes(self):
++        candidate = write_candidate(self.root / "candidate")
++        plan = self.stage(candidate=candidate, candidate_source=self.root / "stock-source.xml")
++        staged = (self.dest / MISSION / "cfgweather.xml").read_bytes()
++        self.assertEqual((candidate / "cfgweather.xml").read_bytes(), staged)
++        self.assertNotEqual(STOCK_XML, staged)
++        info = plan["probe"]["cfgweather"]
++        self.assertEqual("candidate", info["variant"])
++        self.assertEqual(sha(staged), info["staged_sha256"])
++        self.assertEqual(sha(STOCK_XML), info["stock_sha256"])
++        self.assertEqual({"name": "distinctive", "source_verified": True, "enable": True, "reset": False},
++                         {k: info["candidate"][k] for k in ("name", "source_verified", "enable", "reset")})
++        self.assertEqual(sha(staged), info["candidate"]["sha256"])
++        self.assertGreater(info["candidate"]["changes"], 0)
++        origin = {f["path"]: f["origin"] for f in plan["mission_files"]}
++        self.assertEqual("treatment-replacement", origin["cfgweather.xml"])
++        for name in ("db/types.xml",):
++            self.assertEqual((self.source / "stock-backup" / MISSION / name).read_bytes(),
++                             (self.dest / MISSION / name).read_bytes())
++
++    def test_unvalidated_or_tampered_candidates_are_refused_before_anything_is_created(self):
++        candidate = write_candidate(self.root / "candidate")
++        xml = candidate / "cfgweather.xml"
++        xml.write_bytes(xml.read_bytes() + b" ")
++        with self.assertRaises(ValueError):
++            self.stage(candidate=candidate)
++        self.assertFalse(self.dest.exists())
++        partial = self.root / "partial"
++        partial.mkdir()
++        (partial / "cfgweather.xml").write_bytes(STOCK_XML)
++        for bad in (partial, self.root / "missing", self.source / "launch-plan.json"):
++            with self.subTest(bad=bad), self.assertRaises((ValueError, OSError)):
++                self.stage(candidate=bad)
++        self.assertFalse(self.dest.exists())
++
++    def test_a_candidate_generated_from_a_different_source_or_world_is_refused(self):
++        other = STOCK_XML.replace(b'actual="0"', b'actual="0.0"', 1)
++        self.assertNotEqual(other, STOCK_XML)
++        source = self.root / "other-source.xml"
++        source.write_bytes(other)
++        profile = dict(schema=1, name="other", world="chernarusplus", build="1.30.164289", source_sha256=sha(other),
++                       enable=True, reset=False, overrides={"fog": {"limits": {"max": 0.5}}})
++        atmosphere.write_candidate(self.root / "foreign", atmosphere.generate(source, profile))
++        with self.assertRaisesRegex(ValueError, "stock cfgweather"):
++            self.stage(candidate=self.root / "foreign")
++        sakhal = write_candidate(self.root / "sakhal", world="sakhal")
++        with self.assertRaisesRegex(ValueError, "chernarusplus"):
++            self.stage(candidate=sakhal)
++        self.assertFalse(self.dest.exists())
++
++    def test_candidate_reconstruction_against_a_wrong_pinned_source_is_refused(self):
++        candidate = write_candidate(self.root / "candidate")
++        wrong = self.root / "wrong.xml"
++        wrong.write_bytes(STOCK_XML + b"<!-- x -->")
++        with self.assertRaises(ValueError):
++            self.stage(candidate=candidate, candidate_source=wrong)
++        self.assertFalse(self.dest.exists())
++
++    def test_without_a_pinned_source_the_candidate_is_integrity_checked_but_not_source_verified(self):
++        plan = self.stage(candidate=write_candidate(self.root / "candidate"))
++        self.assertFalse(plan["probe"]["cfgweather"]["candidate"]["source_verified"])
++
++    def test_the_stock_mission_must_contain_cfgweather_xml(self):
++        mission = self.source / "stock-backup" / MISSION
++        (mission / "cfgweather.xml").unlink()
++        plan_path = self.source / "launch-plan.json"
++        data = json.loads(plan_path.read_text())
++        data["mission_files"] = [f for f in data["mission_files"] if f["path"] != "cfgweather.xml"]
++        plan_path.write_text(json.dumps(data))
++        with self.assertRaisesRegex(ValueError, "cfgweather.xml"):
++            self.stage()
++        self.assertFalse(self.dest.exists())
++
++    def test_plan_is_accepted_by_the_launcher_checks_and_records_probe_limits_and_outputs(self):
++        plan = self.stage(start_delay_s=40, interval_s=20, samples=30)
++        self.assertEqual("staged-only-not-launched", plan["status"])
++        self.assertEqual(WINDOWS_ROOT, plan["runtime_root"])
++        plan_path = self.dest / "weather-probe-plan.json"
++        self.assertEqual(plan, json.loads(plan_path.read_text()))
++        # launcher_problems inventories every file, and the plan file is by design not in staged_files.
++        held = self.root / "held-plan.json"
++        plan_path.rename(held)
++        try:
++            self.assertEqual([], rt.launcher_problems(plan, self.dest, "weather-probe-plan.json"))
++        finally:
++            held.rename(plan_path)
++        info = plan["probe"]
++        self.assertEqual(("server-only-no-clients", 0), (info["mode"], info["clients"]))
++        self.assertEqual((40, 20, 30), (info["start_delay_s"], info["interval_s"], info["samples"]))
++        self.assertEqual(probe.cap_ms(20, 30), info["cap_ms"])
++        self.assertEqual(probe.watchdog_ms(40, 20, 30), info["watchdog_ms"])
++        self.assertEqual("profiles/HCWeatherProbe/observations.json", info["output_relative_path"])
++        self.assertEqual("profiles/HCWeatherProbe/complete.txt", info["sentinel_relative_path"])
++        self.assertEqual("weather-probe-observations", info["observations_kind"])
++        self.assertEqual("PENDING", plan["acceptance"])
++        self.assertGreaterEqual(info["wait_minutes"], probe.worst_case_minutes(40, 20, 30))
++        self.assertTrue(5 <= info["wait_minutes"] <= 120)
++        for argument in plan["arguments"]:
++            self.assertNotRegex(argument, r"(?i)-mod=|-servermod=|-filepatching|-connect")
++
++    def test_init_c_gets_the_generated_hook_and_its_hash_is_recorded(self):
++        plan = self.stage()
++        init = (self.dest / MISSION / "init.c").read_bytes()
++        self.assertIn(b"return new HCDisposableDiagnosticMission();", init)
++        hook = probe.render_hook()
++        self.assertEqual(plan["probe"]["hook_sha256"], sha(hook))
++        self.assertEqual(plan["probe"]["hook_bytes"], len(hook))
++        self.assertEqual(plan["probe"]["hook_sha256"], sha(init[init.index(b"\n\n// Hollow Country DISPOSABLE"):]))
++
++    def test_the_stage_is_deterministic_for_both_runs_hook_bytes(self):
++        first = self.stage()
++        self.dest = self.root / "weather-test2"
++        second = self.stage()
++        self.assertEqual(first["probe"]["hook_sha256"], second["probe"]["hook_sha256"])
++
++    def test_wait_minutes_must_cover_the_worst_case_and_the_launcher_limit(self):
++        for wait in (5, probe.worst_case_minutes(30, 30, 60) - 1, 121):
++            with self.subTest(wait=wait), self.assertRaises(ValueError):
++                self.stage(wait_minutes=wait)
++            self.assertFalse(self.dest.exists())
++
++    def test_a_run_too_long_for_the_launcher_wait_limit_is_refused(self):
++        with self.assertRaises(ValueError):
++            self.stage(interval_s=300, samples=probe.MAX_SAMPLES)
++        self.assertFalse(self.dest.exists())
++
++    def test_a_missing_launcher_row_is_refused_before_anything_is_created(self):
++        with mock.patch.dict(rt.LAUNCHER_PROBES, clear=False):
++            rt.LAUNCHER_PROBES.pop("weather-probe")
++            with self.assertRaisesRegex(ValueError, "LAUNCHER_PROBES"):
++                self.stage()
++        self.assertFalse(self.dest.exists())
++
++    def test_existing_destination_and_the_verified_runtime_name_are_never_reused(self):
++        self.dest.mkdir()
++        with self.assertRaises(ValueError):
++            self.stage()
++        with self.assertRaises(ValueError):
++            probe.stage(self.source, self.root / "vanilla-p0-001", battleye_sha256=SYNTH_BE_SHA, _wsl_parent=self.root)
++
++    def test_the_stager_builds_on_probe_runtime_instead_of_duplicating_its_staging_code(self):
++        text = PROBE_SOURCE.read_text(encoding="utf-8")
++        for duplicated in ("def verify_source", "def build_runtime", "def lint_hook", "def _hash_file", "def write_plan",
++                           "def windows_runtime_root", "def server_arguments", "NAME_RULE =", "SERVER_EXE ="):
++            self.assertNotIn(duplicated, text)
++        for used in ("rt.begin(", "rt.build_runtime(", "rt.plan_header(", "rt.plan_runtime_fields(", "rt.write_plan(",
++                     "rt.lint_hook("):
++            self.assertIn(used, text)
++
++    def test_staging_never_launches_anything_or_touches_the_network(self):
++        text = PROBE_SOURCE.read_text(encoding="utf-8")
++        for forbidden in ("subprocess", "socket", "urllib", "os.system", "Popen", "powershell", "wine"):
++            self.assertNotIn(forbidden, text)
++
++    def test_cli_stages_and_reports_the_hook_hash_and_fails_on_reuse(self):
++        stdout = mock.MagicMock()
++        with mock.patch.object(probe, "WSL_PARENT", self.root), \
++                mock.patch.object(rt, "WSL_PARENT", self.root), \
++                mock.patch.object(probe, "BATTLEYE_SHA256", SYNTH_BE_SHA), \
++                mock.patch("builtins.print", stdout):
++            code = probe.main(["--destination", str(self.dest), "--source-runtime", str(self.source),
++                               "--native-scripts", str(self.root / "no-cache")])
++            self.assertEqual(0, code)
++            self.assertTrue((self.dest / "weather-probe-plan.json").is_file())
++            self.assertIn("hook_sha256=", " ".join(str(c) for c in stdout.call_args_list))
++            self.assertEqual(1, probe.main(["--destination", str(self.dest), "--source-runtime", str(self.source)]))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/unit/test_weather_report.py b/tests/unit/test_weather_report.py
+new file mode 100644
+index 0000000..2564911
+--- /dev/null
++++ b/tests/unit/test_weather_report.py
+@@ -0,0 +1,501 @@
++"""Offline tests for the weather precedence report; every observation here is SYNTHETIC.
++
++The report compares native observations to a cfgweather.xml's limits. These tests only prove the
++comparison and its pending rules; they say nothing about what DayZ actually does.
++
++Actual TDD 2026-11-17:
++PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_weather_probe tests.unit.test_weather_report -v
++RED: ImportError cannot import name 'weather_report' from 'tools.audit' (module missing).
++"""
++import copy
++import hashlib
++import io
++import json
++from pathlib import Path
++import re
++import tempfile
++import unittest
++from unittest import mock
++import xml.etree.ElementTree as ET
++
++from tests.unit import test_atmosphere as atmosphere_fixtures
++from tools.audit import weather_report as report
++
++ROOT = Path(__file__).resolve().parents[2]
++PHENOMENA = ("overcast", "fog", "rain", "windMagnitude", "windDirection", "snowfall")
++
++
++def sha(data):
++    return hashlib.sha256(data).hexdigest()
++
++
++def cfgweather(**limits):
++    """Synthetic cfgweather.xml; limits maps phenomenon -> (min, max) overriding the fixture's limits."""
++    root = ET.fromstring(atmosphere_fixtures.fixture())
++    for name, (low, high) in limits.items():
++        node = root.find(name + "/limits")
++        node.set("min", str(low))
++        node.set("max", str(high))
++    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
++
++
++STOCK = cfgweather()
++# Distinct from the script's own picks (0.2-0.7 start overcast) on purpose.
++DISTINCT = cfgweather(overcast=(0.8, 0.95))
++
++
++def number(value, text=False):
++    return str(value) if text else value
++
++
++# Live limits the DISTINCT fixture's cfgweather.xml declares (see tests.unit.test_atmosphere.fixture).
++LIVE_LIMITS = {"overcast": (0.8, 0.95), "fog": (0.0, 1.0), "rain": (0.0, 1.0), "windMagnitude": (0.0, 20.0),
++               "windDirection": (-3.14, 3.14), "snowfall": (0.0, 0.0)}
++LIVE_CHANGE_MAX = {"overcast": 1.0, "fog": 1.0, "rain": 1.0, "windMagnitude": 20.0, "windDirection": 3.14,
++                   "snowfall": 0.0}
++
++
++def phenomenon(name, actual, text=False, limits=None, **extra):
++    low, high = limits or LIVE_LIMITS[name]
++    row = {"actual": number(actual, text), "forecast": number(actual, text), "next_change": number(300, text),
++           "limit_min": number(low, text), "limit_max": number(high, text),
++           "change_min": number(0.0, text), "change_max": number(LIVE_CHANGE_MAX[name], text),
++           "time_min": number(60.0, text), "time_max": number(900.0, text)}
++    row.update(extra)
++    return row
++
++
++def header(planned=6, **extra):
++    row = {"type": "header", "schema": 1, "kind": "weather-probe-observations", "world": "ChernarusPlus",
++           "version": "1.30.164289", "planned_samples": planned, "interval_ms": 30000, "cap_ms": 300000}
++    row.update(extra)
++    return row
++
++
++def sample(seq, actuals=None, mission_weather=False, frozen=False, text=False, limits=None):
++    actuals = actuals or {}
++    values = {"overcast": 0.9, "fog": 0.1, "rain": 0.0, "windMagnitude": 4.0, "windDirection": 0.5, "snowfall": 0.0}
++    values.update(actuals)
++    return {"type": "sample", "seq": seq, "game_ms": 30000 * seq, "weather_time": number(30 * seq, text),
++            "mission_weather": mission_weather, "update_frozen": frozen, "year": 2026, "month": 11, "day": 17,
++            "hour": 9, "minute": seq, "wind_speed": number(4, text), "wind_max_speed": number(20, text),
++            "volfog_enabled": True, "volfog_distance_density": number(0.1, text),
++            "volfog_height_density": number(0.2, text), "volfog_height_bias": number(50, text),
++            "phenomena": {name: phenomenon(name, values[name], text, (limits or {}).get(name)) for name in PHENOMENA}}
++
++
++def end(samples=6, status="complete"):
++    return {"type": "end", "status": status, "samples": samples, "write_errors": 0, "end_ms": 200000}
++
++
++def lines(rows):
++    return "\n".join(row if isinstance(row, str) else json.dumps(row) for row in rows) + "\n"
++
++
++def run(count=6, xml=DISTINCT, overrides=None, **kwargs):
++    """Observations of `count` clean samples inside the DISTINCT candidate's overcast limits."""
++    rows = [header(count)] + [sample(i, overrides) for i in range(count)] + [end(count)]
++    return lines(rows)
++
++
++class SingleRunTests(unittest.TestCase):
++    def test_a_clean_run_inside_the_candidate_limits_is_within_candidate_for_every_phenomenon(self):
++        result = report.evaluate(run(), DISTINCT)
++        self.assertEqual("complete", result["status"])
++        self.assertEqual([], result["issues"])
++        self.assertEqual(6, result["samples"])
++        for name in PHENOMENA:
++            self.assertEqual("within_candidate", result["phenomena"][name]["status"], name)
++        overcast = result["phenomena"]["overcast"]
++        self.assertEqual({"min": 0.8, "max": 0.95}, overcast["candidate_limits"])
++        self.assertEqual({"min": 0.9, "max": 0.9}, overcast["actual_range"])
++        self.assertEqual("pending", result["runtime_acceptance"])
++        self.assertFalse(result["feature_complete"])
++
++    def test_actual_values_outside_the_candidate_limits_violate_only_that_phenomenon(self):
++        rows = [header(6)] + [sample(i, {"overcast": 0.3 if i < 2 else 0.9}) for i in range(6)] + [end(6)]
++        result = report.evaluate(lines(rows), DISTINCT)
++        self.assertEqual("complete", result["status"])
++        overcast = result["phenomena"]["overcast"]
++        self.assertEqual("violates_candidate", overcast["status"])
++        self.assertEqual(2, overcast["actual_violations"])
++        self.assertEqual([0, 1], overcast["violating_samples"])
++        for name in PHENOMENA[1:]:
++            self.assertEqual("within_candidate", result["phenomena"][name]["status"], name)
++
++    def test_the_boundary_tolerance_covers_float_text_but_not_real_excursions(self):
++        for value, expected in ((0.8, "within_candidate"), (0.95, "within_candidate"), (0.9501, "within_candidate"),
++                                (0.7995, "within_candidate"), (0.97, "violates_candidate"), (0.7, "violates_candidate")):
++            rows = [header(6)] + [sample(i, {"overcast": value}) for i in range(6)] + [end(6)]
++            with self.subTest(value=value):
++                self.assertEqual(expected, report.evaluate(lines(rows), DISTINCT)["phenomena"]["overcast"]["status"])
++
++    def test_the_forecast_is_reported_separately_and_never_decides_the_status(self):
++        rows = [header(6)]
++        for i in range(6):
++            row = sample(i)
++            row["phenomena"]["overcast"]["forecast"] = 0.3
++            rows.append(row)
++        rows.append(end(6))
++        overcast = report.evaluate(lines(rows), DISTINCT)["phenomena"]["overcast"]
++        self.assertEqual("within_candidate", overcast["status"])
++        self.assertEqual(6, overcast["forecast_outside_limits"])
++        self.assertEqual({"min": 0.3, "max": 0.3}, overcast["forecast_range"])
++
++    def test_the_engines_live_limits_are_compared_to_the_candidates_limits(self):
++        rows = [header(6)]
++        for i in range(6):
++            row = sample(i)
++            if i >= 3:
++                row["phenomena"]["overcast"]["limit_min"] = 0.0
++                row["phenomena"]["overcast"]["limit_max"] = 1.0
++            rows.append(row)
++        rows.append(end(6))
++        live = report.evaluate(lines(rows), DISTINCT)["phenomena"]["overcast"]["engine_limits"]
++        self.assertEqual({"matching": 3, "total": 6}, live["limits"])
++        self.assertEqual([[0.0, 1.0], [0.8, 0.95]], live["distinct_live_limits"])
++        self.assertEqual({"matching": 6, "total": 6}, live["change_limits"])
++        self.assertEqual({"matching": 6, "total": 6}, live["time_limits"])
++
++    def test_a_phenomenon_with_too_few_valid_samples_is_insufficient(self):
++        rows = [header(4)] + [sample(i) for i in range(4)] + [end(4)]
++        result = report.evaluate(lines(rows), DISTINCT)
++        self.assertEqual("complete", result["status"])
++        for name in PHENOMENA:
++            self.assertEqual("insufficient_samples", result["phenomena"][name]["status"])
++        relaxed = report.evaluate(lines(rows), DISTINCT, min_samples=4)
++        self.assertEqual("within_candidate", relaxed["phenomena"]["overcast"]["status"])
++
++    def test_mission_weather_and_frozen_flags_are_reported_per_run(self):
++        result = report.evaluate(run(), DISTINCT)
++        self.assertEqual({"values": [False], "any_true": False, "all_true": False, "consistent": True},
++                         result["mission_weather"])
++        self.assertEqual({"values": [False], "any_true": False, "all_true": False, "consistent": True},
++                         result["update_frozen"])
++        rows = [header(6)] + [sample(i, mission_weather=True, frozen=(i == 2)) for i in range(6)] + [end(6)]
++        result = report.evaluate(lines(rows), DISTINCT)
++        self.assertEqual({"values": [True], "any_true": True, "all_true": True, "consistent": True},
++                         result["mission_weather"])
++        self.assertEqual({"values": [False, True], "any_true": True, "all_true": False, "consistent": False},
++                         result["update_frozen"])
++
++    def test_numbers_emitted_as_text_including_unusual_float_spellings_are_accepted(self):
++        rows = [header(6)] + [sample(i, text=True) for i in range(6)] + [end(6)]
++        self.assertEqual("complete", report.evaluate(lines(rows), DISTINCT)["status"])
++        for spelling, value in ((".9", 0.9), ("0.9", 0.9), ("9e-1", 0.9), ("+0.9", 0.9), ("0.90000", 0.9)):
++            rows = [header(6)]
++            for i in range(6):
++                row = sample(i, text=True)
++                row["phenomena"]["overcast"]["actual"] = spelling
++                rows.append(row)
++            rows.append(end(6))
++            with self.subTest(spelling=spelling):
++                result = report.evaluate(lines(rows), DISTINCT)
++                self.assertEqual("complete", result["status"])
++                self.assertEqual({"min": value, "max": value}, result["phenomena"]["overcast"]["actual_range"])
++
++
++class PendingTests(unittest.TestCase):
++    def assert_pending(self, text, fragment, xml=DISTINCT, **kwargs):
++        result = report.evaluate(text, xml, **kwargs)
++        self.assertEqual("pending", result["status"], text[:200])
++        self.assertTrue(any(fragment in issue for issue in result["issues"]), result["issues"])
++        for name in PHENOMENA:
++            self.assertEqual("insufficient_samples", result["phenomena"][name]["status"])
++        return result
++
++    def rows(self, count=6):
++        return [header(count)] + [sample(i) for i in range(count)] + [end(count)]
++
++    def test_a_missing_sample_is_pending(self):
++        rows = self.rows()
++        del rows[3]
++        self.assert_pending(lines(rows), "missing")
++
++    def test_a_duplicate_sample_is_pending(self):
++        rows = self.rows()
++        rows.insert(3, copy.deepcopy(rows[3]))
++        self.assert_pending(lines(rows), "duplicate")
++
++    def test_out_of_order_or_non_contiguous_sequence_numbers_are_pending(self):
++        rows = self.rows()
++        rows[2], rows[3] = rows[3], rows[2]
++        self.assert_pending(lines(rows), "sequence")
++        rows = self.rows()
++        rows[3]["seq"] = 9
++        self.assert_pending(lines(rows), "missing")
++
++    def test_a_malformed_json_line_is_pending(self):
++        rows = self.rows()
++        rows[3] = '{"type": "sample", "seq": 2, '
++        self.assert_pending(lines(rows), "malformed")
++
++    def test_non_finite_numbers_are_pending(self):
++        for bad in ("NaN", "nan", "-nan(ind)", "inf", "Infinity", "", "abc", "0.9x", None, True, [1]):
++            rows = self.rows()
++            rows[2]["phenomena"]["fog"]["actual"] = bad
++            with self.subTest(bad=bad):
++                self.assert_pending(lines(rows), "malformed")
++        text = lines(self.rows()).replace('"seq": 1', '"seq": NaN', 1)
++        self.assert_pending(text, "malformed")
++
++    def test_a_missing_or_unknown_phenomenon_or_field_is_pending(self):
++        rows = self.rows()
++        del rows[2]["phenomena"]["snowfall"]
++        self.assert_pending(lines(rows), "malformed")
++        rows = self.rows()
++        rows[2]["phenomena"]["sandstorm"] = phenomenon("fog", 0.1)
++        self.assert_pending(lines(rows), "malformed")
++        rows = self.rows()
++        del rows[2]["phenomena"]["fog"]["next_change"]
++        self.assert_pending(lines(rows), "malformed")
++        rows = self.rows()
++        del rows[2]["mission_weather"]
++        self.assert_pending(lines(rows), "malformed")
++        rows = self.rows()
++        rows[2]["mission_weather"] = "false"
++        self.assert_pending(lines(rows), "malformed")
++
++    def test_a_run_without_a_complete_end_record_is_pending(self):
++        rows = self.rows()[:-1]
++        self.assert_pending(lines(rows), "end record")
++        for status in ("partial", "failed"):
++            rows = self.rows()
++            rows[-1] = end(6, status)
++            self.assert_pending(lines(rows), status)
++
++    def test_write_errors_reported_by_the_probe_make_the_run_pending(self):
++        rows = self.rows()
++        rows[-1]["write_errors"] = 2
++        self.assert_pending(lines(rows), "write errors")
++
++    def test_the_end_record_and_header_must_agree_with_the_sample_count(self):
++        rows = self.rows()
++        rows[-1] = end(5)
++        self.assert_pending(lines(rows), "end record")
++        rows = self.rows()
++        rows[0]["planned_samples"] = 9
++        self.assert_pending(lines(rows), "planned")
++
++    def test_structural_oddities_are_pending(self):
++        rows = self.rows()
++        self.assert_pending(lines(rows[1:]), "header")
++        self.assert_pending(lines(rows + [sample(6)]), "after the end record")
++        extra_header = self.rows()
++        extra_header.insert(2, header(6))
++        self.assert_pending(lines(extra_header), "header")
++        wrong_kind = self.rows()
++        wrong_kind[0]["kind"] = "taped-light-probe-observations"
++        self.assert_pending(lines(wrong_kind), "kind")
++        wrong_schema = self.rows()
++        wrong_schema[0]["schema"] = 2
++        self.assert_pending(lines(wrong_schema), "schema")
++        self.assert_pending("", "empty")
++        self.assert_pending("\n\n", "empty")
++        unknown = self.rows()
++        unknown.insert(2, {"type": "note"})
++        self.assert_pending(lines(unknown), "unknown record")
++
++    def test_blank_lines_inside_the_stream_are_malformed_not_ignored(self):
++        rows = self.rows()
++        text = lines(rows[:3]) + "\n" + lines(rows[3:])
++        self.assert_pending(text, "blank")
++
++    def test_oversized_input_is_refused(self):
++        with self.assertRaises(ValueError):
++            report.evaluate("x" * (report.MAX_OBSERVATION_BYTES + 1), DISTINCT)
++        with self.assertRaises(ValueError):
++            report.evaluate(run(), b"x" * (report.MAX_XML_BYTES + 1))
++
++    def test_a_plan_that_disagrees_with_the_observations_or_cfgweather_is_pending(self):
++        plan = {"kind": "weather-probe", "probe": {"samples": 6, "interval_s": 30, "observations_kind":
++                                                    "weather-probe-observations",
++                                                    "cfgweather": {"staged_sha256": sha(DISTINCT), "variant": "candidate"}}}
++        ok = report.evaluate(run(), DISTINCT, plan=plan)
++        self.assertEqual("complete", ok["status"])
++        self.assertEqual("candidate", ok["cfgweather"]["variant"])
++        bad = copy.deepcopy(plan)
++        bad["probe"]["cfgweather"]["staged_sha256"] = sha(STOCK)
++        self.assert_pending(run(), "cfgweather.xml", plan=bad)
++        bad = copy.deepcopy(plan)
++        bad["probe"]["samples"] = 7
++        self.assert_pending(run(), "plan", plan=bad)
++        bad = copy.deepcopy(plan)
++        bad["kind"] = "ce-probe"
++        self.assert_pending(run(), "plan", plan=bad)
++
++
++class CfgweatherTests(unittest.TestCase):
++    def test_limits_are_read_for_every_phenomenon_and_flags(self):
++        parsed = report.parse_cfgweather(DISTINCT)
++        self.assertEqual((0.8, 0.95), parsed["phenomena"]["overcast"]["limits"])
++        self.assertEqual((-3.14, 3.14), parsed["phenomena"]["windDirection"]["limits"])
++        self.assertEqual((0.0, 0.0), parsed["phenomena"]["snowfall"]["limits"])
++        self.assertEqual((60.0, 900.0), parsed["phenomena"]["fog"]["time_limits"])
++        self.assertEqual((False, False), (parsed["enable"], parsed["reset"]))
++        self.assertEqual(sorted(PHENOMENA), sorted(parsed["phenomena"]))
++
++    def test_malformed_hostile_or_incomplete_xml_is_refused(self):
++        root = ET.fromstring(STOCK)
++        root.remove(root.find("fog"))
++        for bad in (b"", b"<weather", b"<other/>", ET.tostring(root),
++                    b'<!DOCTYPE weather [<!ENTITY a "b">]>' + STOCK, STOCK.replace(b'max="1"', b'max="nan"', 1),
++                    STOCK.replace(b'min="0"', b'min="1.5"', 1)):
++            with self.subTest(bad=bad[:40]), self.assertRaises(ValueError):
++                report.parse_cfgweather(bad)
++
++
++class CompareTests(unittest.TestCase):
++    def evaluate(self, xml, overcast):
++        rows = [header(6)] + [sample(i, {"overcast": overcast}) for i in range(6)] + [end(6)]
++        return report.evaluate(lines(rows), xml)
++
++    def test_candidate_values_outside_the_stock_limits_and_inside_the_candidate_show_it_governs(self):
++        stock = self.evaluate(STOCK, 0.3)
++        candidate = self.evaluate(DISTINCT, 0.9)
++        # Make the stock limits narrower than the candidate's observed values.
++        narrow = report.evaluate(lines([header(6)] + [sample(i, {"overcast": 0.3}, limits={"overcast": (0.2, 0.6)})
++                                                      for i in range(6)] + [end(6)]), cfgweather(overcast=(0.2, 0.6)))
++        result = report.compare(narrow, candidate)
++        self.assertEqual("candidate_governs", result["phenomena"]["overcast"]["evidence"])
++        self.assertEqual("not_discriminating", result["phenomena"]["fog"]["evidence"])
++        self.assertEqual("complete", result["status"])
++        self.assertNotEqual("accepted", result["runtime_acceptance"])
++        self.assertEqual("pending", result["runtime_acceptance"])
++        self.assertEqual("candidate_governs", report.compare(stock, candidate)["phenomena"]["overcast"]["evidence"])
++
++    def test_candidate_values_outside_the_candidate_limits_show_a_script_or_engine_override(self):
++        stock = self.evaluate(STOCK, 0.3)
++        candidate = self.evaluate(DISTINCT, 0.3)
++        result = report.compare(stock, candidate)
++        self.assertEqual("script_or_engine_overrides", result["phenomena"]["overcast"]["evidence"])
++
++    def test_a_candidate_inside_the_stock_range_cannot_discriminate(self):
++        stock = self.evaluate(STOCK, 0.9)
++        candidate = self.evaluate(DISTINCT, 0.9)
++        result = report.compare(stock, candidate)
++        self.assertEqual("not_discriminating", result["phenomena"]["overcast"]["evidence"])
++
++    def test_a_stock_run_that_only_partly_leaves_the_candidate_range_is_weak_evidence(self):
++        rows = [header(6)] + [sample(i, {"overcast": 0.3 if i < 2 else 0.9}) for i in range(6)] + [end(6)]
++        stock = report.evaluate(lines(rows), STOCK)
++        result = report.compare(stock, self.evaluate(DISTINCT, 0.9))
++        self.assertEqual("weakly_discriminating", result["phenomena"]["overcast"]["evidence"])
++
++    def test_a_comparison_of_two_runs_with_the_same_cfgweather_is_pending(self):
++        plan = {"kind": "weather-probe", "probe": {"samples": 6, "interval_s": 30,
++                                                    "observations_kind": "weather-probe-observations",
++                                                    "cfgweather": {"staged_sha256": sha(DISTINCT), "variant": "candidate"}}}
++        one = report.evaluate(run(), DISTINCT, plan=plan)
++        two = report.evaluate(run(), DISTINCT, plan=plan)
++        result = report.compare(one, two)
++        self.assertEqual("pending", result["status"])
++        self.assertTrue(any("same cfgweather.xml" in issue for issue in result["issues"]))
++
++    def test_a_pending_run_makes_the_comparison_pending(self):
++        stock = self.evaluate(STOCK, 0.3)
++        bad = report.evaluate("", DISTINCT)
++        for pair in ((stock, bad), (bad, stock)):
++            result = report.compare(*pair)
++            self.assertEqual("pending", result["status"])
++            self.assertEqual("pending", result["phenomena"]["overcast"]["evidence"])
++
++    def test_the_mission_weather_flags_of_both_runs_are_carried_through(self):
++        rows = [header(6)] + [sample(i, {"overcast": 0.9}, mission_weather=True) for i in range(6)] + [end(6)]
++        candidate = report.evaluate(lines(rows), DISTINCT)
++        result = report.compare(self.evaluate(STOCK, 0.3), candidate)
++        self.assertEqual([False], result["mission_weather"]["stock"]["values"])
++        self.assertEqual([True], result["mission_weather"]["candidate"]["values"])
++
++
++class RuntimeAndCliTests(unittest.TestCase):
++    def make_runtime(self, root, xml=DISTINCT, observations=None, sentinel="status=complete samples=6\n", variant="candidate"):
++        mission = root / "mpmissions/dayzOffline.chernarusplus"
++        mission.mkdir(parents=True)
++        (mission / "cfgweather.xml").write_bytes(xml)
++        plan = {"kind": "weather-probe", "probe": {"samples": 6, "interval_s": 30,
++                                                    "observations_kind": "weather-probe-observations",
++                                                    "cfgweather": {"staged_sha256": sha(xml), "variant": variant}}}
++        (root / "weather-probe-plan.json").write_text(json.dumps(plan))
++        directory = root / "profiles/HCWeatherProbe"
++        directory.mkdir(parents=True)
++        (directory / "observations.json").write_text(run() if observations is None else observations)
++        if sentinel is not None:
++            (directory / "complete.txt").write_text(sentinel)
++        return root
++
++    def test_a_staged_and_run_runtime_directory_is_read_through_its_plan(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = self.make_runtime(Path(temp))
++            result = report.load_run(root)
++            self.assertEqual("complete", result["status"])
++            self.assertEqual("candidate", result["cfgweather"]["variant"])
++
++    def test_a_missing_sentinel_or_failed_sentinel_leaves_the_run_pending(self):
++        for sentinel in (None, "status=partial samples=6\n", ""):
++            with self.subTest(sentinel=sentinel), tempfile.TemporaryDirectory() as temp:
++                result = report.load_run(self.make_runtime(Path(temp), sentinel=sentinel))
++                self.assertEqual("pending", result["status"])
++                self.assertTrue(any("sentinel" in issue for issue in result["issues"]))
++
++    def test_symlinked_inputs_are_refused(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = self.make_runtime(Path(temp) / "run")
++            target = Path(temp) / "elsewhere.json"
++            target.write_text(run())
++            output = root / "profiles/HCWeatherProbe/observations.json"
++            output.unlink()
++            output.symlink_to(target)
++            with self.assertRaises(ValueError):
++                report.load_run(root)
++
++    def test_the_cli_prints_json_and_uses_distinct_exit_codes(self):
++        with tempfile.TemporaryDirectory() as temp:
++            good = self.make_runtime(Path(temp) / "good")
++            bad = self.make_runtime(Path(temp) / "bad", observations="")
++            out = io.StringIO()
++            with mock.patch("sys.stdout", out):
++                self.assertEqual(0, report.main(["single", "--runtime", str(good)]))
++            self.assertEqual("complete", json.loads(out.getvalue())["status"])
++            out = io.StringIO()
++            with mock.patch("sys.stdout", out):
++                self.assertEqual(3, report.main(["single", "--runtime", str(bad)]))
++            self.assertEqual("pending", json.loads(out.getvalue())["status"])
++            out = io.StringIO()
++            with mock.patch("sys.stdout", out), mock.patch("sys.stderr", io.StringIO()):
++                self.assertEqual(2, report.main(["single", "--runtime", str(Path(temp) / "absent")]))
++            stock = self.make_runtime(Path(temp) / "stock", xml=STOCK, observations=run(overrides={"overcast": 0.3}),
++                                      variant="stock")
++            out = io.StringIO()
++            with mock.patch("sys.stdout", out):
++                code = report.main(["compare", "--stock", str(stock), "--candidate", str(good)])
++            self.assertEqual(0, code)
++            self.assertEqual("complete", json.loads(out.getvalue())["status"])
++
++    def test_the_report_never_runs_processes_or_touches_the_network(self):
++        text = (ROOT / "tools/audit/weather_report.py").read_text(encoding="utf-8")
++        for forbidden in ("subprocess", "socket", "urllib", "os.system", "Popen"):
++            self.assertNotIn(forbidden, text)
++
++
++class HookContractTests(unittest.TestCase):
++    """The keys the report requires must be keys the generated hook can emit."""
++
++    def test_every_required_key_is_a_literal_in_the_generated_hook(self):
++        from tools.setup import weather_probe as probe
++        hook = probe.render_hook().decode("ascii")
++        literals = set(re.findall(r'"(\w+)"', hook))
++        required = (set(report.HEADER_KEYS) | set(report.SAMPLE_KEYS) | set(report.PHENOMENON_KEYS)
++                    | set(report.END_KEYS) | set(PHENOMENA))
++        self.assertEqual([], sorted(required - literals))
++        self.assertEqual(report.OBSERVATIONS_KIND, probe.OBSERVATIONS_KIND)
++        self.assertEqual(tuple(report.PHENOMENA), tuple(probe.PHENOMENA))
++
++    def test_the_synthetic_fixture_uses_exactly_the_documented_sample_shape(self):
++        row = sample(0)
++        self.assertEqual(set(report.SAMPLE_KEYS) | {"type", "phenomena"}, set(row))
++        self.assertEqual(set(report.PHENOMENON_KEYS), set(row["phenomena"]["fog"]))
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tools/audit/weather_report.py b/tools/audit/weather_report.py
+new file mode 100644
+index 0000000..5ab290b
+--- /dev/null
++++ b/tools/audit/weather_report.py
+@@ -0,0 +1,566 @@
++"""Compare native weather probe observations to a cfgweather.xml candidate's limits; offline and read-only.
++
++The weather probe (tools/setup/weather_probe.py) samples the server's native weather state while a stock or a
++candidate cfgweather.xml is staged. This report answers one narrow question per run and per pair of runs: do the
++observed actual values stay inside the limits that cfgweather.xml declares, or does something (world script,
++engine) move them elsewhere? It is evidence for #35 only. It never establishes how DayZ behaves on its own: the
++observations come from a run the operator performed, runtime acceptance stays "pending" and feature_complete
++stays False in every result.
++
++Per phenomenon the status is one of:
++  within_candidate       every actual value is inside the candidate limits (small boundary tolerance)
++  violates_candidate     at least one actual value is outside them; the violating sample numbers are listed
++  insufficient_samples   fewer valid samples than min_samples, or the run itself is pending
++A run is pending (every phenomenon insufficient_samples) when anything is missing, duplicated, out of order,
++malformed, non-finite, incomplete (no complete end record or no complete sentinel), reports write errors, or
++disagrees with its plan or cfgweather.xml. The forecast is reported but never decides a status because it is
++not a value the weather has taken yet. mission_weather and update_frozen are reported per run; whether the
++engine sets mission_weather for enable="1" is unobserved and only these samples can say.
++
++Pair comparison (compare) needs a stock run and a candidate run staged from the same runtime with different
++cfgweather.xml bytes. Per phenomenon the evidence is:
++  script_or_engine_overrides  the candidate run left the candidate's limits
++  candidate_governs           the candidate run stayed inside them and the stock run's actual values were
++                              entirely outside them (the limits changed the outcome)
++  weakly_discriminating       the stock run was only partly outside the candidate's limits
++  not_discriminating          the stock run was inside them as well, so the pair cannot tell
++  pending                     either run is pending or has too few samples
++A single pair of runs is a sample of random weather, not proof; candidate_governs is evidence, not acceptance.
++
++Usage:
++  python3 tools/audit/weather_report.py single --runtime RUNTIME_DIR
++  python3 tools/audit/weather_report.py compare --stock RUNTIME_DIR --candidate RUNTIME_DIR
++Exit codes: 0 complete, 3 pending, 2 unreadable input. Input is read through
++RUNTIME/weather-probe-plan.json, the staged cfgweather.xml, profiles/HCWeatherProbe/observations.json and
++complete.txt; symlinks are refused. Numbers are accepted as JSON numbers or as strictly formatted decimal
++strings (the hook writes floats as strings because float.ToString formatting is unobserved).
++"""
++import argparse
++import hashlib
++import json
++import math
++import os
++from pathlib import Path
++import re
++import stat
++import sys
++import xml.etree.ElementTree as ET
++
++OBSERVATIONS_KIND = "weather-probe-observations"
++PLAN_KIND = "weather-probe"
++PLAN_NAME = "weather-probe-plan.json"
++MISSION_RELATIVE = "mpmissions/dayzOffline.chernarusplus/cfgweather.xml"
++OUTPUT_RELATIVE = "profiles/HCWeatherProbe/observations.json"
++SENTINEL_RELATIVE = "profiles/HCWeatherProbe/complete.txt"
++PHENOMENA = ("overcast", "fog", "rain", "windMagnitude", "windDirection", "snowfall")
++HEADER_KEYS = ("schema", "kind", "world", "version", "planned_samples", "interval_ms", "cap_ms")
++SAMPLE_KEYS = ("seq", "game_ms", "weather_time", "mission_weather", "update_frozen", "year", "month", "day",
++               "hour", "minute", "wind_speed", "wind_max_speed", "volfog_enabled", "volfog_distance_density",
++               "volfog_height_density", "volfog_height_bias")
++PHENOMENON_KEYS = ("actual", "forecast", "next_change", "limit_min", "limit_max", "change_min", "change_max",
++                   "time_min", "time_max")
++END_KEYS = ("status", "samples", "write_errors", "end_ms")
++SAMPLE_INT_KEYS = ("seq", "game_ms", "year", "month", "day", "hour", "minute")
++SAMPLE_BOOL_KEYS = ("mission_weather", "update_frozen", "volfog_enabled")
++SAMPLE_NUMBER_KEYS = tuple(key for key in SAMPLE_KEYS if key not in SAMPLE_INT_KEYS + SAMPLE_BOOL_KEYS)
++SCHEMA = 1
++MAX_OBSERVATION_BYTES = 4 * 1024 * 1024
++MAX_XML_BYTES = 65536
++MAX_ISSUES = 40
++DEFAULT_MIN_SAMPLES = 6
++TOLERANCE = 0.001
++LIMIT_BOUND = 1000000.0
++EXIT_COMPLETE, EXIT_ERROR, EXIT_PENDING = 0, 2, 3
++_DECIMAL = re.compile(r"^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$")
++_SENTINEL = re.compile(r"^status=(\w+) samples=(\d+)(?: write_errors=(\d+))?\s*$")
++_NOT_CHECKED = object()
++
++
++# ---------------------------------------------------------------------------
++# Strict value parsing
++# ---------------------------------------------------------------------------
++
++
++def _number(value):
++    """A finite float from a JSON number or a strictly formatted decimal string; ValueError otherwise."""
++    if isinstance(value, bool):
++        raise ValueError("a boolean is not a number")
++    if isinstance(value, (int, float)):
++        result = float(value)
++    elif isinstance(value, str) and _DECIMAL.match(value):
++        result = float(value)
++    else:
++        raise ValueError(f"not a number: {str(value)[:30]!r}")
++    if not math.isfinite(result):
++        raise ValueError("number is not finite")
++    return result
++
++
++def _integer(value):
++    if isinstance(value, bool) or not isinstance(value, int):
++        raise ValueError(f"not an integer: {str(value)[:30]!r}")
++    return value
++
++
++def _boolean(value):
++    if not isinstance(value, bool):
++        raise ValueError(f"not a boolean: {str(value)[:30]!r}")
++    return value
++
++
++def _text(value):
++    if not isinstance(value, str):
++        raise ValueError(f"not a string: {str(value)[:30]!r}")
++    return value
++
++
++def _tolerance(bound):
++    return TOLERANCE * max(1.0, abs(bound))
++
++
++def _reject_constant(name):
++    raise ValueError(f"non-finite JSON constant {name}")
++
++
++# ---------------------------------------------------------------------------
++# cfgweather.xml
++# ---------------------------------------------------------------------------
++
++
++def _attribute_flag(node, name):
++    value = node.get(name)
++    if value is None:
++        return False
++    if value not in ("0", "1", "true", "false"):
++        raise ValueError(f"cfgweather.xml {name} must be 0 or 1")
++    return value in ("1", "true")
++
++
++def _pair(node, name, parent):
++    if node is None:
++        raise ValueError(f"cfgweather.xml {parent} lacks {name}")
++    low, high = (_number(node.get(key)) for key in ("min", "max"))
++    if low > high or abs(low) > LIMIT_BOUND or abs(high) > LIMIT_BOUND:
++        raise ValueError(f"cfgweather.xml {parent}/{name} limits {low}..{high} are reversed or out of range")
++    return (low, high)
++
++
++def parse_cfgweather(data):
++    """Read the flags and per-phenomenon limits of a cfgweather.xml; ValueError on anything unexpected."""
++    if not isinstance(data, (bytes, bytearray)) or not data:
++        raise ValueError("cfgweather.xml is empty")
++    if len(data) > MAX_XML_BYTES:
++        raise ValueError("cfgweather.xml is too large")
++    lowered = bytes(data).lower()
++    if b"<!doctype" in lowered or b"<!entity" in lowered:
++        raise ValueError("cfgweather.xml must not carry a DOCTYPE or entities")
++    try:
++        root = ET.fromstring(bytes(data))
++    except ET.ParseError as error:
++        raise ValueError(f"cfgweather.xml is not well-formed: {error}") from error
++    if root.tag != "weather":
++        raise ValueError("cfgweather.xml root is not weather")
++    result = {"enable": _attribute_flag(root, "enable"), "reset": _attribute_flag(root, "reset"), "phenomena": {}}
++    for name in PHENOMENA:
++        node = root.find(name)
++        if node is None:
++            raise ValueError(f"cfgweather.xml lacks {name}")
++        current = node.find("current")
++        result["phenomena"][name] = {
++            "limits": _pair(node.find("limits"), "limits", name),
++            "change_limits": _pair(node.find("changelimits"), "changelimits", name),
++            "time_limits": _pair(node.find("timelimits"), "timelimits", name),
++            "current": {key: _number(value) for key, value in (current.attrib.items() if current is not None else ())},
++        }
++    return result
++
++
++# ---------------------------------------------------------------------------
++# Observation stream
++# ---------------------------------------------------------------------------
++
++
++def _header(row):
++    if set(row) != set(HEADER_KEYS) | {"type"}:
++        raise ValueError("header keys differ from the documented set")
++    return {"schema": _integer(row["schema"]), "kind": _text(row["kind"]), "world": _text(row["world"]),
++            "version": _text(row["version"]), "planned_samples": _integer(row["planned_samples"]),
++            "interval_ms": _integer(row["interval_ms"]), "cap_ms": _integer(row["cap_ms"])}
++
++
++def _end(row):
++    if set(row) != set(END_KEYS) | {"type"}:
++        raise ValueError("end record keys differ from the documented set")
++    return {"status": _text(row["status"]), "samples": _integer(row["samples"]),
++            "write_errors": _integer(row["write_errors"]), "end_ms": _integer(row["end_ms"])}
++
++
++def _sample(row):
++    if set(row) != set(SAMPLE_KEYS) | {"type", "phenomena"}:
++        raise ValueError("sample keys differ from the documented set")
++    result = {}
++    for key in SAMPLE_INT_KEYS:
++        result[key] = _integer(row[key])
++    for key in SAMPLE_BOOL_KEYS:
++        result[key] = _boolean(row[key])
++    for key in SAMPLE_NUMBER_KEYS:
++        result[key] = _number(row[key])
++    if result["seq"] < 0:
++        raise ValueError("negative sequence number")
++    phenomena = row["phenomena"]
++    if not isinstance(phenomena, dict) or set(phenomena) != set(PHENOMENA):
++        raise ValueError("phenomena differ from the documented set")
++    result["phenomena"] = {}
++    for name in PHENOMENA:
++        values = phenomena[name]
++        if not isinstance(values, dict) or set(values) != set(PHENOMENON_KEYS):
++            raise ValueError(f"{name} keys differ from the documented set")
++        result["phenomena"][name] = {key: _number(values[key]) for key in PHENOMENON_KEYS}
++    return result
++
++
++def _parse_stream(text):
++    """(header, samples, end, issues) from the JSON-lines text; samples keep file order."""
++    issues, header, end, samples = [], None, None, []
++    lines = text.split("\n")
++    if lines and lines[-1] == "":
++        lines.pop()
++    if not any(line.strip() for line in lines):
++        return None, [], None, ["observations are empty"]
++    seen, expected, highest = set(), 0, -1
++    for number, raw in enumerate(lines, 1):
++        line = raw.rstrip("\r")
++        if not line.strip():
++            issues.append(f"blank line {number} inside the observation stream (malformed)")
++            continue
++        try:
++            row = json.loads(line, parse_constant=_reject_constant)
++        except ValueError as error:
++            issues.append(f"malformed JSON on line {number}: {str(error)[:60]}")
++            continue
++        if not isinstance(row, dict) or not isinstance(row.get("type"), str):
++            issues.append(f"malformed record on line {number}: no record type")
++            continue
++        kind = row["type"]
++        if end is not None:
++            issues.append(f"record on line {number} after the end record")
++            continue
++        try:
++            if kind == "header":
++                if header is not None:
++                    issues.append(f"extra header record on line {number}")
++                    continue
++                header = _header(row)
++                if samples:
++                    issues.append(f"header on line {number} is not the first record")
++            elif kind == "sample":
++                if header is None and not samples:
++                    issues.append(f"missing header record; the first record is a sample (line {number})")
++                sample = _sample(row)
++                seq = sample["seq"]
++                if seq in seen:
++                    issues.append(f"duplicate sample seq {seq} on line {number}")
++                    continue
++                if seq < highest:
++                    issues.append(f"sample sequence out of order: seq {seq} after seq {highest} (line {number})")
++                elif seq > expected:
++                    issues.append(f"missing sample(s) seq {expected}..{seq - 1} before line {number}")
++                seen.add(seq)
++                highest = max(highest, seq)
++                expected = highest + 1
++                samples.append(sample)
++            elif kind == "end":
++                end = _end(row)
++            else:
++                issues.append(f"unknown record type {kind[:20]!r} on line {number}")
++        except ValueError as error:
++            issues.append(f"malformed {kind} record on line {number}: {str(error)[:70]}")
++    if header is None and not any("missing header" in issue for issue in issues):
++        issues.append("missing header record")
++    return header, samples, end, issues
++
++
++def _structure_issues(header, samples, end, plan, cfgweather_sha):
++    issues = []
++    if header is not None:
++        if header["kind"] != OBSERVATIONS_KIND:
++            issues.append(f"header kind {header['kind'][:40]!r} is not {OBSERVATIONS_KIND}")
++        if header["schema"] != SCHEMA:
++            issues.append(f"header schema {header['schema']} is not supported (expected {SCHEMA})")
++        if header["world"].lower() != "chernarusplus":
++            issues.append(f"header world {header['world'][:30]!r} is not ChernarusPlus")
++        if header["planned_samples"] != len(samples):
++            issues.append(f"header planned_samples {header['planned_samples']} differs from "
++                          f"{len(samples)} samples observed")
++    if end is None:
++        issues.append("end record missing; the run did not finish")
++    else:
++        if end["status"] != "complete":
++            issues.append(f"end record status {end['status']!r} is not complete (partial or failed run)")
++        if end["samples"] != len(samples):
++            issues.append(f"end record samples {end['samples']} differs from {len(samples)} samples observed")
++        if end["write_errors"] > 0:
++            issues.append(f"end record reports {end['write_errors']} write errors")
++    if plan is not None:
++        issues.extend(_plan_issues(plan, header, samples, cfgweather_sha))
++    return issues
++
++
++def _plan_issues(plan, header, samples, cfgweather_sha):
++    probe = plan.get("probe") if isinstance(plan, dict) else None
++    if not isinstance(probe, dict):
++        return ["plan is malformed: no probe section"]
++    issues = []
++    if plan.get("kind") != PLAN_KIND:
++        issues.append(f"plan kind {str(plan.get('kind'))[:30]!r} is not {PLAN_KIND}")
++    if probe.get("samples") != len(samples):
++        issues.append(f"plan samples {probe.get('samples')!r} differs from {len(samples)} samples observed")
++    if probe.get("observations_kind") != OBSERVATIONS_KIND:
++        issues.append("plan observations_kind differs from the report's")
++    if header is not None and isinstance(probe.get("interval_s"), int) and probe["interval_s"] * 1000 != header["interval_ms"]:
++        issues.append("plan interval_s differs from the header interval_ms")
++    staged = (probe.get("cfgweather") or {}).get("staged_sha256") if isinstance(probe.get("cfgweather"), dict) else None
++    if staged != cfgweather_sha:
++        issues.append("plan staged cfgweather.xml sha256 differs from the supplied cfgweather.xml")
++    return issues
++
++
++def _sentinel_issues(sentinel, samples):
++    if sentinel is None:
++        return ["sentinel complete.txt is missing; the run did not finish"]
++    match = _SENTINEL.match(sentinel)
++    if not match:
++        return ["sentinel complete.txt is empty or malformed"]
++    issues = []
++    if match.group(1) != "complete":
++        issues.append(f"sentinel status {match.group(1)!r} is not complete")
++    if int(match.group(2)) != samples:
++        issues.append(f"sentinel samples {match.group(2)} differs from {samples} samples observed")
++    if match.group(3) and int(match.group(3)) > 0:
++        issues.append(f"sentinel reports {match.group(3)} write errors")
++    return issues
++
++
++# ---------------------------------------------------------------------------
++# Evaluation
++# ---------------------------------------------------------------------------
++
++
++def _matching(values, bounds):
++    low, high = bounds
++    hits = sum(1 for lo, hi in values if abs(lo - low) <= _tolerance(low) and abs(hi - high) <= _tolerance(high))
++    return {"matching": hits, "total": len(values)}
++
++
++def _range(values):
++    return {"min": min(values), "max": max(values)}
++
++
++def _outside(value, bounds):
++    low, high = bounds
++    return value < low - _tolerance(low) or value > high + _tolerance(high)
++
++
++def _phenomenon_result(name, samples, parsed, min_samples):
++    limits = parsed["limits"]
++    result = {"status": "insufficient_samples", "candidate_limits": {"min": limits[0], "max": limits[1]},
++              "actual_range": None, "actual_violations": 0, "violating_samples": [], "forecast_range": None,
++              "forecast_outside_limits": 0, "engine_limits": None}
++    if not samples:
++        return result
++    rows = [(sample["seq"], sample["phenomena"][name]) for sample in samples]
++    actual = [row["actual"] for _seq, row in rows]
++    forecast = [row["forecast"] for _seq, row in rows]
++    violating = [seq for seq, row in rows if _outside(row["actual"], limits)]
++    live = [(row["limit_min"], row["limit_max"]) for _seq, row in rows]
++    result.update({
++        "actual_range": _range(actual), "actual_violations": len(violating), "violating_samples": violating,
++        "forecast_range": _range(forecast),
++        "forecast_outside_limits": sum(1 for value in forecast if _outside(value, limits)),
++        "distinct_actual_values": len({round(value, 6) for value in actual}),
++        "engine_limits": {
++            "limits": _matching(live, limits),
++            "distinct_live_limits": sorted([list(pair) for pair in {(round(lo, 6), round(hi, 6)) for lo, hi in live}]),
++            "change_limits": _matching([(row["change_min"], row["change_max"]) for _seq, row in rows],
++                                       parsed["change_limits"]),
++            "time_limits": _matching([(row["time_min"], row["time_max"]) for _seq, row in rows],
++                                     parsed["time_limits"])},
++    })
++    if len(samples) >= min_samples:
++        result["status"] = "violates_candidate" if violating else "within_candidate"
++    return result
++
++
++def _flag(samples, key):
++    if not samples:
++        return None
++    values = sorted({sample[key] for sample in samples})
++    return {"values": values, "any_true": True in values, "all_true": values == [True], "consistent": len(values) == 1}
++
++
++def evaluate(observations, cfgweather_bytes, *, plan=None, min_samples=DEFAULT_MIN_SAMPLES, sentinel=_NOT_CHECKED):
++    """Evaluate one run's observations (text or bytes) against the cfgweather.xml it ran with."""
++    if isinstance(min_samples, bool) or not isinstance(min_samples, int) or min_samples < 1:
++        raise ValueError("min_samples must be a positive integer")
++    raw = observations.encode("utf-8") if isinstance(observations, str) else bytes(observations)
++    if len(raw) > MAX_OBSERVATION_BYTES:
++        raise ValueError("observations are too large")
++    parsed = parse_cfgweather(cfgweather_bytes)
++    cfgweather_sha = hashlib.sha256(bytes(cfgweather_bytes)).hexdigest()
++    try:
++        text = raw.decode("utf-8")
++    except UnicodeDecodeError:
++        text = None
++    if text is None:
++        header, samples, end, issues = None, [], None, ["malformed observations: not valid UTF-8"]
++    else:
++        header, samples, end, issues = _parse_stream(text)
++        if not any(issue.startswith("observations are empty") for issue in issues):
++            issues.extend(_structure_issues(header, samples, end, plan, cfgweather_sha))
++    if sentinel is not _NOT_CHECKED:
++        issues.extend(_sentinel_issues(sentinel, len(samples)))
++    pending = bool(issues)
++    usable = [] if pending else samples
++    variant = None
++    if isinstance(plan, dict) and isinstance(plan.get("probe"), dict) and isinstance(plan["probe"].get("cfgweather"), dict):
++        variant = plan["probe"]["cfgweather"].get("variant")
++    result = {
++        "kind": "weather-probe-report", "status": "pending" if pending else "complete",
++        "issues": issues[:MAX_ISSUES] + ([f"{len(issues) - MAX_ISSUES} further issues omitted"] if len(issues) > MAX_ISSUES else []),
++        "samples": len(samples), "min_samples": min_samples,
++        "header": None if header is None else {"world": header["world"], "version": header["version"],
++                                                "interval_ms": header["interval_ms"]},
++        "cfgweather": {"sha256": cfgweather_sha, "variant": variant, "enable": parsed["enable"], "reset": parsed["reset"]},
++        "mission_weather": _flag(usable, "mission_weather"), "update_frozen": _flag(usable, "update_frozen"),
++        "volfog_enabled": _flag(usable, "volfog_enabled"),
++        "weather_time_advanced": bool(usable) and len({sample["weather_time"] for sample in usable}) > 1,
++        "phenomena": {name: _phenomenon_result(name, usable, parsed["phenomena"][name], min_samples) for name in PHENOMENA},
++        "runtime_acceptance": "pending", "feature_complete": False,
++    }
++    return result
++
++
++# ---------------------------------------------------------------------------
++# Comparison
++# ---------------------------------------------------------------------------
++
++
++def _evidence(stock, candidate):
++    if "insufficient_samples" in (stock["status"], candidate["status"]):
++        return "pending"
++    if candidate["status"] == "violates_candidate":
++        return "script_or_engine_overrides"
++    bounds = (candidate["candidate_limits"]["min"], candidate["candidate_limits"]["max"])
++    low, high = stock["actual_range"]["min"], stock["actual_range"]["max"]
++    if high < bounds[0] - _tolerance(bounds[0]) or low > bounds[1] + _tolerance(bounds[1]):
++        return "candidate_governs"
++    if _outside(low, bounds) or _outside(high, bounds):
++        return "weakly_discriminating"
++    return "not_discriminating"
++
++
++def compare(stock_result, candidate_result):
++    """Compare a stock run's result with a candidate run's result (both from evaluate/load_run)."""
++    issues = [f"stock run: {issue}" for issue in stock_result["issues"]]
++    issues += [f"candidate run: {issue}" for issue in candidate_result["issues"]]
++    if stock_result["cfgweather"]["sha256"] == candidate_result["cfgweather"]["sha256"]:
++        issues.append("both runs used the same cfgweather.xml; stage the candidate run with a different one")
++    if stock_result["cfgweather"]["variant"] not in (None, "stock") or candidate_result["cfgweather"]["variant"] not in (None, "candidate"):
++        issues.append("the plans do not describe a stock run and a candidate run (variant mismatch)")
++    pending = bool(issues)
++    phenomena = {}
++    for name in PHENOMENA:
++        stock, candidate = stock_result["phenomena"][name], candidate_result["phenomena"][name]
++        phenomena[name] = {
++            "evidence": "pending" if pending else _evidence(stock, candidate),
++            "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
++            "stock_actual_range": stock["actual_range"], "candidate_actual_range": candidate["actual_range"]}
++    return {
++        "kind": "weather-probe-comparison", "status": "pending" if pending else "complete", "issues": issues,
++        "phenomena": phenomena,
++        "mission_weather": {"stock": stock_result["mission_weather"], "candidate": candidate_result["mission_weather"]},
++        "update_frozen": {"stock": stock_result["update_frozen"], "candidate": candidate_result["update_frozen"]},
++        "notes": ["Two single runs sample random weather; candidate_governs is evidence, never acceptance.",
++                  "Whether the engine sets mission_weather for enable=1 is read from the flags above only."],
++        "runtime_acceptance": "pending", "feature_complete": False,
++    }
++
++
++# ---------------------------------------------------------------------------
++# Runtime directory loading
++# ---------------------------------------------------------------------------
++
++
++def _read(root, relative, limit, required=True):
++    """Bytes of a regular, non-symlink file below root; None when optional and absent."""
++    path = root
++    for part in Path(relative).parts:
++        path = path / part
++        try:
++            info = os.lstat(path)
++        except FileNotFoundError:
++            if required:
++                raise ValueError(f"{relative} is missing from {root}") from None
++            return None
++        if stat.S_ISLNK(info.st_mode):
++            raise ValueError(f"{relative} passes through a symlink; refusing")
++    if not stat.S_ISREG(info.st_mode):
++        raise ValueError(f"{relative} is not a regular file")
++    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
++    descriptor = os.open(path, flags)
++    with os.fdopen(descriptor, "rb") as handle:
++        data = handle.read(limit + 1)
++    if len(data) > limit:
++        raise ValueError(f"{relative} is too large")
++    return data
++
++
++def load_run(runtime_dir):
++    """Evaluate a staged and run runtime directory through its plan; ValueError when unreadable."""
++    root = Path(runtime_dir)
++    if not root.is_dir() or root.is_symlink():
++        raise ValueError(f"{runtime_dir} is not a runtime directory")
++    try:
++        plan = json.loads(_read(root, PLAN_NAME, MAX_XML_BYTES * 4).decode("utf-8"), parse_constant=_reject_constant)
++    except (UnicodeDecodeError, json.JSONDecodeError) as error:
++        raise ValueError(f"{PLAN_NAME} is not valid JSON: {error}") from error
++    cfgweather = _read(root, MISSION_RELATIVE, MAX_XML_BYTES)
++    observations = _read(root, OUTPUT_RELATIVE, MAX_OBSERVATION_BYTES, required=False)
++    sentinel = _read(root, SENTINEL_RELATIVE, 4096, required=False)
++    result = evaluate(b"" if observations is None else observations, cfgweather, plan=plan,
++                      sentinel=None if sentinel is None else sentinel.decode("utf-8", "replace"))
++    if observations is None:
++        result["issues"].insert(0, "observations.json is missing")
++    return result
++
++
++# ---------------------------------------------------------------------------
++# Command line
++# ---------------------------------------------------------------------------
++
++
++def _emit(result):
++    print(json.dumps(result, indent=2, sort_keys=True))
++    return EXIT_COMPLETE if result["status"] == "complete" else EXIT_PENDING
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
++    commands = parser.add_subparsers(dest="command", required=True)
++    single = commands.add_parser("single", help="evaluate one run")
++    single.add_argument("--runtime", required=True)
++    pair = commands.add_parser("compare", help="compare a stock run with a candidate run")
++    pair.add_argument("--stock", required=True)
++    pair.add_argument("--candidate", required=True)
++    args = parser.parse_args(argv)
++    try:
++        if args.command == "single":
++            return _emit(load_run(args.runtime))
++        return _emit(compare(load_run(args.stock), load_run(args.candidate)))
++    except (OSError, ValueError) as error:
++        print(f"weather_report: {error}", file=sys.stderr)
++        return EXIT_ERROR
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/tools/setup/weather_probe.py b/tools/setup/weather_probe.py
+new file mode 100644
+index 0000000..3ba392a
+--- /dev/null
++++ b/tools/setup/weather_probe.py
+@@ -0,0 +1,631 @@
++"""Stage a disposable native weather precedence probe runtime; never launch the engine.
++
++Question (#35, DayZ 1.30.164289, ChernarusPlus): does a cfgweather.xml candidate actually govern
++the weather, or does world script override it? The stock scripts decide this through
++WeatherPhenomenon.OnBeforeChange: it returns without changes when Weather.GetMissionWeather()
++is true, freezes when GetWeatherUpdateFrozen() is true, and otherwise hands the decision to
++WorldData.WeatherOnBeforeChange (ChernarusPlus overrides it, and its constructor forces snowfall
++limits and a random starting overcast). Whether the engine sets MissionWeather(true) when
++cfgweather.xml carries enable="1" is UNKNOWN; the probe measures it instead of assuming it.
++
++The probe is a server-only, observation-only harness. A hook appended to the stock mission's init.c
++samples every N seconds for a bounded number of samples and writes JSON lines; it calls no setter, makes
++no gameplay change and writes nothing outside its own profile directory. tools/audit/weather_report.py
++reads the output. The comparison needs two runs staged from the same stock runtime, one with the stock
++cfgweather.xml and one with a distinctive validated candidate; the operator runs both. Nothing here proves
++how DayZ behaves, and runtime acceptance stays PENDING.
++
++Stage a fresh runtime (destination must not exist). The candidate directory is the output of
++tools/package/atmosphere.py write_candidate and is re-validated here; an unvalidated or tampered
++candidate is refused:
++
++    python3 tools/setup/weather_probe.py --destination /mnt/d/HollowCountryLocal/weather-stock-001
++    python3 tools/setup/weather_probe.py --destination /mnt/d/HollowCountryLocal/weather-cand-001 \
++        --candidate CANDIDATE_DIR [--candidate-source STOCK_CFGWEATHER_XML]
++
++Native APIs the hook calls, verified against the installed 1.30.164289 script cache
++(~/.cache/hollow-country/native-scripts/scripts-1.30.164289), as `API -> file:line`:
++
++  GetGame -> 2_GameLib/gameLib.c:4
++  IsServer -> 3_Game/Global/Game.c:1120
++  GetWeather -> 3_Game/Global/Game.c:1371
++  CGame.GetTime -> 3_Game/Global/Game.c:1535
++  GetCallQueue -> 3_Game/Global/Game.c:1550
++  GetWorld -> 3_Game/Global/Game.c:931
++  GetWorldName -> 3_Game/Global/Game.c:932
++  GetVersion -> 3_Game/Global/Game.c:942
++  GetDate -> 3_Game/Global/World.c:28
++  CallLater -> 2_GameLib/tools.c:61
++  GetActual -> 3_Game/Weather.c:38
++  GetForecast -> 3_Game/Weather.c:41
++  GetNextChange -> 3_Game/Weather.c:52
++  GetLimits -> 3_Game/Weather.c:61
++  GetForecastChangeLimits -> 3_Game/Weather.c:81
++  GetForecastTimeLimits -> 3_Game/Weather.c:102
++  Weather.GetTime -> 3_Game/Weather.c:180
++  GetOvercast -> 3_Game/Weather.c:183
++  GetFog -> 3_Game/Weather.c:186
++  GetRain -> 3_Game/Weather.c:189
++  GetSnowfall -> 3_Game/Weather.c:192
++  GetWindDirection -> 3_Game/Weather.c:199
++  GetWindMagnitude -> 3_Game/Weather.c:205
++  GetWindSpeed -> 3_Game/Weather.c:248
++  GetWindMaximumSpeed -> 3_Game/Weather.c:263
++  IsDynVolFogEnabled -> 3_Game/Weather.c:354
++  GetDynVolFogDistanceDensity -> 3_Game/Weather.c:364
++  GetDynVolFogHeightDensity -> 3_Game/Weather.c:374
++  GetDynVolFogHeightBias -> 3_Game/Weather.c:385
++  GetMissionWeather -> 3_Game/Weather.c:392
++  GetWeatherUpdateFrozen -> 3_Game/Weather.c:402
++  OnBeforeChange -> 3_Game/Weather.c:125
++  WeatherOnBeforeChange -> 3_Game/WorldData.c:251
++  WeatherOnBeforeChange -> 4_World/Classes/Worlds/ChernarusPlus.c:92
++  SetLimits -> 4_World/Classes/Worlds/ChernarusPlus.c:70
++  FileExist -> 1_Core/proto/EnSystem.c:397
++  OpenFile -> 1_Core/proto/EnSystem.c:417
++  CloseFile -> 1_Core/proto/EnSystem.c:443
++  FPrintln -> 1_Core/proto/EnSystem.c:481
++  MakeDirectory -> 1_Core/proto/EnSystem.c:525
++  int.ToString -> 1_Core/proto/EnConvert.c:30
++  int.AsciiToString -> 1_Core/proto/EnConvert.c:44
++  float.ToString -> 1_Core/proto/EnConvert.c:115
++  OnInit -> 5_Mission/mission/missionServer.c:85
++
++The phenomenon accessors return typedefs of WeatherPhenomenon (3_Game/Weather.c:153-158). The setters
++(Set, SetLimits, MissionWeather, SetWeatherUpdateFreeze, SuppressLightningSimulation) are never called.
++Float formatting of float.ToString is unobserved, so floats are written as quoted JSON strings and the
++report parses them; integers are written unquoted.
++
++Limits of the in-script guards: the duration cap is checked before every sample and the watchdog is a
++queued call, so neither can interrupt a synchronous call that never returns. A hung engine call hangs the
++probe; the launcher's wait limit is the only outer bound, and nothing is read from a run that did not write
++its sentinel. Weather ticking without any connected client is unobserved; if it does not tick, the samples
++will show constant values and the report cannot discriminate (it says so).
++
++Compile rules applied to the generated text are those observed in native compiles: no identifier equal to
++an engine type name, no line starting with || or &&, no ternary, one declaration per local per function,
++out arguments declared before the call, no exponent literals, and at most 8 binary '+' per statement with
++explicit .ToString() for every number in a string concatenation (a 27-plus line was refused natively with
++"Formula too complex"; at most 9 compiled). statement_problems enforces the plus and ToString rule here
++until the shared probe_runtime lint carries it.
++"""
++import argparse
++import math
++from pathlib import Path
++import re
++import sys
++
++try:
++    from . import diagnostic_mission as dm
++    from . import probe_runtime as rt
++except ImportError:  # executed as a script from tools/setup
++    import diagnostic_mission as dm
++    import probe_runtime as rt
++
++try:
++    from tools.package import atmosphere
++except ImportError:  # executed as a script from tools/setup
++    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
++    from tools.package import atmosphere
++
++BATTLEYE_SHA256 = rt.BATTLEYE_SHA256
++DEFAULT_SOURCE_RUNTIME = rt.DEFAULT_SOURCE_RUNTIME
++WSL_PARENT = Path("/mnt/d/HollowCountryLocal")
++PLAN_NAME = "weather-probe-plan.json"
++PLAN_KIND = "weather-probe"
++OBSERVATIONS_KIND = "weather-probe-observations"
++PROBE_DIRECTORY = "HCWeatherProbe"
++OUTPUT_NAME = "observations.json"
++SENTINEL_NAME = "complete.txt"
++OUTPUT_RELATIVE = "profiles/" + PROBE_DIRECTORY + "/" + OUTPUT_NAME
++SENTINEL_RELATIVE = "profiles/" + PROBE_DIRECTORY + "/" + SENTINEL_NAME
++LAUNCHER_ROW = (PLAN_NAME, PROBE_DIRECTORY, OUTPUT_NAME)
++PHENOMENA = ("overcast", "fog", "rain", "windMagnitude", "windDirection", "snowfall")
++WORLD = "chernarusplus"
++MIN_START_DELAY_S, MAX_START_DELAY_S = 5, 600
++MIN_INTERVAL_S, MAX_INTERVAL_S = 5, 600
++MIN_SAMPLES, MAX_SAMPLES = 6, 360
++DEFAULT_START_DELAY_S, DEFAULT_INTERVAL_S, DEFAULT_SAMPLES = 30, 30, 60
++# Start-CEProbeServer.ps1 refuses a plan whose wait is outside 5..120 minutes.
++MAX_WORST_CASE_MINUTES = 120
++CAP_SLACK_MS = 30000
++WATCHDOG_SLACK_MS = 60000
++BOOT_MARGIN_MINUTES = 3
++MAX_PLUS_PER_STATEMENT = 8
++MAX_CANDIDATE_XML_BYTES = atmosphere.MAX_XML_BYTES
++# Mirrors the diagnostic_mission._PURPOSES row the shared module should carry for this probe.
++PURPOSE = "weather-probe"
++PURPOSE_ROW = ("disposable-weather-probe", None,
++               ["server mode", "fresh storage and profiles", "no clients",
++                "inspect observation completeness separately from startup"])
++
++HOOK_TEMPLATE = r"""
++
++// Hollow Country DISPOSABLE weather precedence probe; observation only, no gameplay acceptance.
++// Server only; runs once per process. It reads native weather state and never sets any of it.
++// Samples are bounded by an inlined count, an inlined duration cap and a watchdog. Output is JSON lines
++// in the probe profile directory (numbers as quoted strings) and a sentinel file written last.
++// Limits: the cap is checked before each sample and the watchdog fires between steps; neither can
++// interrupt a synchronous call that never returns.
++class HCDisposableDiagnosticMission : CustomMission
++{
++    protected bool m_HCWPStarted = false;
++    protected bool m_HCWPDone = false;
++    protected bool m_HCWPOpened = false;
++    protected int m_HCWPSamples = 0;
++    protected int m_HCWPMaxSamples = @@SAMPLES@@;
++    protected int m_HCWPIntervalMs = @@INTERVAL_MS@@;
++    protected int m_HCWPCapMs = @@CAP_MS@@;
++    protected int m_HCWPBeginMs = 0;
++    protected int m_HCWPEndMs = 0;
++    protected int m_HCWPWriteErrors = 0;
++    protected string m_HCWPQuote = "";
++    protected string m_HCWPSlash = "";
++    protected string m_HCWPOutput = "";
++    protected string m_HCWPSentinel = "";
++
++    override void OnInit()
++    {
++        super.OnInit();
++        if (!GetGame() || !GetGame().IsServer() || m_HCWPStarted)
++            return;
++        m_HCWPStarted = true;
++        int quoteCode = 34;
++        m_HCWPQuote = quoteCode.AsciiToString();
++        int slashCode = 92;
++        m_HCWPSlash = slashCode.AsciiToString();
++        m_HCWPOutput = "$profile:HCWeatherProbe/observations.json";
++        m_HCWPSentinel = "$profile:HCWeatherProbe/complete.txt";
++        string message = "[HC Weather Probe] ARMED; observation only; samples=" + m_HCWPMaxSamples.ToString();
++        Print(message);
++        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCWPBegin, @@START_MS@@, false);
++        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCWPWatchdog, @@WATCHDOG_MS@@, false);
++    }
++
++    string HCWPKey(string name)
++    {
++        return m_HCWPQuote + name + m_HCWPQuote + ":";
++    }
++
++    string HCWPQuoted(string value)
++    {
++        string text = value;
++        if (text.Length() > 96)
++            text = text.Substring(0, 96);
++        text.Replace(m_HCWPQuote, "'");
++        text.Replace(m_HCWPSlash, "/");
++        return m_HCWPQuote + text + m_HCWPQuote;
++    }
++
++    string HCWPBool(bool value)
++    {
++        if (value)
++            return "true";
++        return "false";
++    }
++
++    string HCWPFloat(float value)
++    {
++        return HCWPQuoted(value.ToString());
++    }
++
++    void HCWPAppend(string line)
++    {
++        FileHandle handle = OpenFile(m_HCWPOutput, FileMode.APPEND);
++        if (!handle)
++        {
++            m_HCWPWriteErrors = m_HCWPWriteErrors + 1;
++            return;
++        }
++        FPrintln(handle, line);
++        CloseFile(handle);
++    }
++
++    string HCWPHeaderLine()
++    {
++        string world;
++        string version;
++        GetGame().GetWorldName(world);
++        GetGame().GetVersion(version);
++        string row = "{" + HCWPKey("type") + HCWPQuoted("header") + "," + HCWPKey("schema") + "1," + HCWPKey("kind") + HCWPQuoted("@@OBSERVATIONS_KIND@@") + ",";
++        row = row + HCWPKey("world") + HCWPQuoted(world) + "," + HCWPKey("version") + HCWPQuoted(version) + ",";
++        row = row + HCWPKey("planned_samples") + m_HCWPMaxSamples.ToString() + "," + HCWPKey("interval_ms") + m_HCWPIntervalMs.ToString() + ",";
++        row = row + HCWPKey("cap_ms") + m_HCWPCapMs.ToString() + "}";
++        return row;
++    }
++
++    string HCWPEndLine(string status)
++    {
++        string row = "{" + HCWPKey("type") + HCWPQuoted("end") + "," + HCWPKey("status") + HCWPQuoted(status) + ",";
++        row = row + HCWPKey("samples") + m_HCWPSamples.ToString() + "," + HCWPKey("write_errors") + m_HCWPWriteErrors.ToString() + ",";
++        row = row + HCWPKey("end_ms") + m_HCWPEndMs.ToString() + "}";
++        return row;
++    }
++
++    string HCWPPhenomenon(string name, WeatherPhenomenon phenomenon)
++    {
++        float limitMin = 0;
++        float limitMax = 0;
++        float changeMin = 0;
++        float changeMax = 0;
++        float timeMin = 0;
++        float timeMax = 0;
++        phenomenon.GetLimits(limitMin, limitMax);
++        phenomenon.GetForecastChangeLimits(changeMin, changeMax);
++        phenomenon.GetForecastTimeLimits(timeMin, timeMax);
++        string row = HCWPKey(name) + "{";
++        row = row + HCWPKey("actual") + HCWPFloat(phenomenon.GetActual()) + "," + HCWPKey("forecast") + HCWPFloat(phenomenon.GetForecast()) + ",";
++        row = row + HCWPKey("next_change") + HCWPFloat(phenomenon.GetNextChange()) + ",";
++        row = row + HCWPKey("limit_min") + HCWPFloat(limitMin) + "," + HCWPKey("limit_max") + HCWPFloat(limitMax) + ",";
++        row = row + HCWPKey("change_min") + HCWPFloat(changeMin) + "," + HCWPKey("change_max") + HCWPFloat(changeMax) + ",";
++        row = row + HCWPKey("time_min") + HCWPFloat(timeMin) + "," + HCWPKey("time_max") + HCWPFloat(timeMax) + "}";
++        return row;
++    }
++
++    string HCWPSampleLine(int seq)
++    {
++        Weather weather = GetGame().GetWeather();
++        int nowMs = GetGame().GetTime();
++        int year = 0;
++        int month = 0;
++        int day = 0;
++        int hour = 0;
++        int minute = 0;
++        GetGame().GetWorld().GetDate(year, month, day, hour, minute);
++        string row = "{" + HCWPKey("type") + HCWPQuoted("sample") + "," + HCWPKey("seq") + seq.ToString() + ",";
++        row = row + HCWPKey("game_ms") + nowMs.ToString() + "," + HCWPKey("weather_time") + HCWPFloat(weather.GetTime()) + ",";
++        row = row + HCWPKey("mission_weather") + HCWPBool(weather.GetMissionWeather()) + "," + HCWPKey("update_frozen") + HCWPBool(weather.GetWeatherUpdateFrozen()) + ",";
++        row = row + HCWPKey("year") + year.ToString() + "," + HCWPKey("month") + month.ToString() + ",";
++        row = row + HCWPKey("day") + day.ToString() + "," + HCWPKey("hour") + hour.ToString() + ",";
++        row = row + HCWPKey("minute") + minute.ToString() + ",";
++        row = row + HCWPKey("wind_speed") + HCWPFloat(weather.GetWindSpeed()) + "," + HCWPKey("wind_max_speed") + HCWPFloat(weather.GetWindMaximumSpeed()) + ",";
++        row = row + HCWPKey("volfog_enabled") + HCWPBool(weather.IsDynVolFogEnabled()) + "," + HCWPKey("volfog_distance_density") + HCWPFloat(weather.GetDynVolFogDistanceDensity()) + ",";
++        row = row + HCWPKey("volfog_height_density") + HCWPFloat(weather.GetDynVolFogHeightDensity()) + "," + HCWPKey("volfog_height_bias") + HCWPFloat(weather.GetDynVolFogHeightBias()) + ",";
++        row = row + HCWPKey("phenomena") + "{";
++        row = row + HCWPPhenomenon("overcast", weather.GetOvercast()) + "," + HCWPPhenomenon("fog", weather.GetFog()) + ",";
++        row = row + HCWPPhenomenon("rain", weather.GetRain()) + "," + HCWPPhenomenon("windMagnitude", weather.GetWindMagnitude()) + ",";
++        row = row + HCWPPhenomenon("windDirection", weather.GetWindDirection()) + "," + HCWPPhenomenon("snowfall", weather.GetSnowfall()) + "}}";
++        return row;
++    }
++
++    void HCWPBegin()
++    {
++        if (m_HCWPDone)
++            return;
++        m_HCWPBeginMs = GetGame().GetTime();
++        string directory = m_HCWPOutput.Substring(0, m_HCWPOutput.IndexOf("/"));
++        if (!FileExist(directory) && !MakeDirectory(directory))
++        {
++            m_HCWPDone = true;
++            Print("[HC Weather Probe] FAILED cannot create output directory");
++            return;
++        }
++        if (FileExist(m_HCWPOutput) || FileExist(m_HCWPSentinel))
++        {
++            m_HCWPDone = true;
++            Print("[HC Weather Probe] FAILED earlier probe output exists; not overwriting");
++            return;
++        }
++        FileHandle handle = OpenFile(m_HCWPOutput, FileMode.WRITE);
++        if (!handle)
++        {
++            m_HCWPDone = true;
++            Print("[HC Weather Probe] FAILED cannot open observations file");
++            return;
++        }
++        FPrintln(handle, HCWPHeaderLine());
++        CloseFile(handle);
++        m_HCWPOpened = true;
++        Print("[HC Weather Probe] BEGIN; observation only");
++        HCWPStep();
++    }
++
++    void HCWPStep()
++    {
++        if (m_HCWPDone || m_HCWPSamples >= m_HCWPMaxSamples)
++            return;
++        int elapsedMs = GetGame().GetTime() - m_HCWPBeginMs;
++        if (elapsedMs > m_HCWPCapMs)
++        {
++            HCWPFinish("partial");
++            return;
++        }
++        HCWPAppend(HCWPSampleLine(m_HCWPSamples));
++        m_HCWPSamples = m_HCWPSamples + 1;
++        if (m_HCWPSamples >= m_HCWPMaxSamples)
++        {
++            HCWPFinish("complete");
++            return;
++        }
++        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCWPStep, m_HCWPIntervalMs, false);
++    }
++
++    void HCWPWatchdog()
++    {
++        if (m_HCWPDone)
++            return;
++        if (!m_HCWPOpened)
++        {
++            m_HCWPDone = true;
++            Print("[HC Weather Probe] FAILED watchdog fired before the observations file was opened");
++            return;
++        }
++        HCWPFinish("partial");
++    }
++
++    void HCWPFinish(string status)
++    {
++        if (m_HCWPDone)
++            return;
++        m_HCWPDone = true;
++        m_HCWPEndMs = GetGame().GetTime();
++        string outcome = status;
++        if (m_HCWPWriteErrors > 0)
++            outcome = "failed";
++        HCWPAppend(HCWPEndLine(outcome));
++        HCWPWriteSentinel(outcome);
++    }
++
++    void HCWPWriteSentinel(string status)
++    {
++        FileHandle sentinel = OpenFile(m_HCWPSentinel, FileMode.WRITE);
++        if (!sentinel)
++        {
++            Print("[HC Weather Probe] FAILED cannot open sentinel file");
++            return;
++        }
++        string line = "status=" + status + " samples=" + m_HCWPSamples.ToString() + " write_errors=" + m_HCWPWriteErrors.ToString();
++        FPrintln(sentinel, line);
++        CloseFile(sentinel);
++        string summary = "[HC Weather Probe] " + status + " samples=" + m_HCWPSamples.ToString();
++        Print(summary);
++    }
++}
++"""
++
++# ---------------------------------------------------------------------------
++# Parameters, timing and rendering
++# ---------------------------------------------------------------------------
++
++
++def _integer(value, low, high, what):
++    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
++        raise ValueError(f"{what} must be an integer {low}..{high}")
++    return value
++
++
++def _parameters(start_delay_s, interval_s, samples):
++    _integer(start_delay_s, MIN_START_DELAY_S, MAX_START_DELAY_S, "start delay (s)")
++    _integer(interval_s, MIN_INTERVAL_S, MAX_INTERVAL_S, "interval (s)")
++    _integer(samples, MIN_SAMPLES, MAX_SAMPLES, "samples")
++
++
++def cap_ms(interval_s, samples):
++    """The sampling duration cap the hook enforces before each sample."""
++    return samples * interval_s * 1000 + CAP_SLACK_MS
++
++
++def watchdog_ms(start_delay_s, interval_s, samples):
++    """The watchdog fires after the begin delay plus the full cap plus slack and finishes partial."""
++    return start_delay_s * 1000 + cap_ms(interval_s, samples) + WATCHDOG_SLACK_MS
++
++
++def worst_case_minutes(start_delay_s, interval_s, samples):
++    """Minutes the launcher must wait: the watchdog plus a server boot margin."""
++    return math.ceil(watchdog_ms(start_delay_s, interval_s, samples) / 60000) + BOOT_MARGIN_MINUTES
++
++
++def render_hook(start_delay_s=DEFAULT_START_DELAY_S, interval_s=DEFAULT_INTERVAL_S, samples=DEFAULT_SAMPLES):
++    """Return the generated Enforce text (bytes); it is candidate-independent so both runs share one hook."""
++    _parameters(start_delay_s, interval_s, samples)
++    text = (HOOK_TEMPLATE.replace("@@SAMPLES@@", str(samples)).replace("@@INTERVAL_MS@@", str(interval_s * 1000))
++            .replace("@@CAP_MS@@", str(cap_ms(interval_s, samples))).replace("@@START_MS@@", str(start_delay_s * 1000))
++            .replace("@@WATCHDOG_MS@@", str(watchdog_ms(start_delay_s, interval_s, samples)))
++            .replace("@@OBSERVATIONS_KIND@@", OBSERVATIONS_KIND))
++    if "@@" in text or not text.isascii():
++        raise ValueError("hook must be ASCII with every placeholder resolved")
++    return text.encode("ascii")
++
++
++# ---------------------------------------------------------------------------
++# Statement-shape lint (plus count and explicit ToString); mirrors the shared lint rule
++# ---------------------------------------------------------------------------
++
++_STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
++
++
++def _code_of(text):
++    """Text with comments dropped and string literal contents blanked."""
++    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
++    return "\n".join(_STRING.sub('""', line).split("//")[0] for line in text.splitlines())
++
++
++def _statements(text):
++    """(first_line, statement) pairs split on ; { } so a statement may span lines."""
++    result, current, first, line = [], [], None, 1
++    for char in _code_of(text):
++        if char == "\n":
++            line += 1
++        if char in ";{}":
++            body = "".join(current).strip()
++            if body:
++                result.append((first, body))
++            current, first = [], None
++            continue
++        if first is None and not char.isspace():
++            first = line
++        current.append(char)
++    return result
++
++
++def _top_level_operands(expression):
++    operands, depth, current = [], 0, []
++    for char in expression:
++        if char in "([":
++            depth += 1
++        elif char in ")]":
++            depth -= 1
++        if char == "+" and depth == 0:
++            operands.append("".join(current).strip())
++            current = []
++        else:
++            current.append(char)
++    operands.append("".join(current).strip())
++    return operands
++
++
++def statement_problems(text):
++    """Problems with the plus count per statement and with implicit number-to-string conversion."""
++    code = _code_of(text)
++    string_names = set(re.findall(r"\bstring\s+(\w+)", code))
++    string_functions = set(re.findall(r"^[ \t]{4}string\s+(\w+)\s*\(", code, re.M))
++    problems = []
++    if "++" in code or "+=" in code:
++        problems.append("increment and compound-assignment operators are not used in generated hooks")
++    for first, body in _statements(text):
++        plus = body.count("+")
++        if plus > MAX_PLUS_PER_STATEMENT:
++            problems.append(f"line {first}: statement has {plus} '+' operators (max {MAX_PLUS_PER_STATEMENT}); "
++                            "the native compiler refuses long formulas")
++        body = re.sub(r"^(?:if|while|else if)\s*\(", "(", body)
++        if "+" not in body or '""' not in body:
++            continue
++        right = body.split("=", 1)[1] if re.match(r"^[\w\[\]\. ]+=[^=]", body) else body
++        right = re.sub(r"^return\s+", "", right.strip())
++        for operand in _top_level_operands(right):
++            function = re.match(r"^(\w+)\(", operand)
++            if (operand == '""' or operand.endswith(".ToString()") or operand.endswith(".AsciiToString()")
++                    or operand in string_names or (function and function.group(1) in string_functions)):
++                continue
++            problems.append(f"line {first}: operand '{operand}' is not provably a string (use .ToString())")
++    return problems
++
++
++def max_plus_per_statement(text):
++    """Largest binary '+' count in one statement of the generated hook (informational)."""
++    return max((body.count("+") for _line, body in _statements(text)), default=0)
++
++
++# ---------------------------------------------------------------------------
++# Candidate handling
++# ---------------------------------------------------------------------------
++
++
++def load_candidate(candidate, candidate_source=None):
++    """Re-validate an atmosphere candidate and return (cfgweather bytes, validated report)."""
++    report = atmosphere.validate_candidate(candidate, source=candidate_source)
++    profile = report["profile"]
++    if profile["world"] != WORLD:
++        raise ValueError(f"the candidate was generated for {profile['world']}; the probe runs {WORLD} only")
++    data, _identity = rt.read_identified(Path(candidate) / "cfgweather.xml", MAX_CANDIDATE_XML_BYTES)
++    if rt.sha256(data) != report["candidate_sha256"]:
++        raise ValueError("candidate cfgweather.xml changed during staging")
++    return data, report
++
++
++def _check_launcher_row():
++    if rt.LAUNCHER_PROBES.get(PLAN_KIND) != LAUNCHER_ROW:
++        raise ValueError(
++            "probe_runtime.LAUNCHER_PROBES lacks the weather-probe row "
++            f"{PLAN_KIND!r}: {LAUNCHER_ROW!r}; the launcher would refuse this plan")
++
++
++def _ensure_purpose():
++    """Register the diagnostic purpose until diagnostic_mission carries the row itself."""
++    dm._PURPOSES.setdefault(PURPOSE, PURPOSE_ROW)
++
++
++# ---------------------------------------------------------------------------
++# Staging (shared lint, name rule, verification and skeleton live in probe_runtime)
++# ---------------------------------------------------------------------------
++
++
++def stage(source_runtime, destination, *, candidate=None, candidate_source=None,
++          start_delay_s=DEFAULT_START_DELAY_S, interval_s=DEFAULT_INTERVAL_S, samples=DEFAULT_SAMPLES,
++          wait_minutes=None, battleye_sha256=BATTLEYE_SHA256, native_scripts=None, now=None, _wsl_parent=None):
++    """Stage a fresh probe runtime and write weather-probe-plan.json. Never launches anything.
++
++    Without ``candidate`` the stock cfgweather.xml is staged untouched (the control run); with one,
++    the validated candidate bytes replace it (the treatment run). ``_wsl_parent`` is an internal test
++    hook; the production parent is always WSL_PARENT.
++    """
++    _check_launcher_row()
++    hook = render_hook(start_delay_s, interval_s, samples)
++    native = rt.native_type_names(native_scripts) if native_scripts else frozenset()
++    problems = rt.lint_hook(hook.decode("ascii"), native_types=native) + statement_problems(hook.decode("ascii"))
++    if problems:
++        raise ValueError("generated hook violates native compile rules: " + "; ".join(problems[:3]))
++    worst_minutes = worst_case_minutes(start_delay_s, interval_s, samples)
++    if wait_minutes is None:
++        wait_minutes = max(5, worst_minutes)
++    if (isinstance(wait_minutes, bool) or not isinstance(wait_minutes, int)
++            or not 5 <= wait_minutes <= MAX_WORST_CASE_MINUTES or wait_minutes < worst_minutes):
++        raise ValueError(f"wait minutes must be 5..{MAX_WORST_CASE_MINUTES} and cover the {worst_minutes} minute worst case")
++    treatment = load_candidate(candidate, candidate_source) if candidate is not None else None
++    _ensure_purpose()
++    context = rt.begin(source_runtime, destination, parent=WSL_PARENT if _wsl_parent is None else _wsl_parent,
++                       battleye_sha256=battleye_sha256, hold=("cfgweather.xml",))
++    stock = context["source"]["held"]["cfgweather.xml"]
++    replacements = {}
++    cfgweather = {"variant": "stock", "stock_sha256": rt.sha256(stock), "candidate": None}
++    if treatment is not None:
++        data, report = treatment
++        profile = report["profile"]
++        if profile["source_sha256"] != rt.sha256(stock):
++            raise ValueError("the candidate was not generated from this runtime's stock cfgweather.xml")
++        replacements["cfgweather.xml"] = data
++        cfgweather["variant"] = "candidate"
++        cfgweather["candidate"] = {
++            "name": profile["name"], "world": profile["world"], "source_verified": report["source_verified"],
++            "enable": profile["enable"], "reset": profile["reset"], "sha256": report["candidate_sha256"],
++            "changes": len(report["changes"]), "change_paths": [change["path"] for change in report["changes"]]}
++    built = rt.build_runtime(context, hook, purpose=PURPOSE, replacements=replacements)
++    cfgweather["staged_sha256"] = built["staged_hash"]["mpmissions/" + rt.MISSION_NAME + "/cfgweather.xml"]
++    plan = rt.plan_header(PLAN_KIND, now, before={"acceptance": "PENDING"}, after={"variant": cfgweather["variant"]})
++    plan.update(rt.plan_runtime_fields(context, built))
++    plan.update({
++        "probe": {"mode": "server-only-no-clients", "clients": 0, "start_delay_s": start_delay_s,
++                  "interval_s": interval_s, "samples": samples, "cap_ms": cap_ms(interval_s, samples),
++                  "watchdog_ms": watchdog_ms(start_delay_s, interval_s, samples), "wait_minutes": wait_minutes,
++                  "hook_sha256": rt.sha256(hook), "hook_bytes": len(hook), "phenomena": list(PHENOMENA),
++                  "output_relative_path": OUTPUT_RELATIVE, "sentinel_relative_path": SENTINEL_RELATIVE,
++                  "observations_kind": OBSERVATIONS_KIND, "cfgweather": cfgweather},
++        "mission_files": built["mission_files"], "staged_files": built["staged"],
++    })
++    return rt.write_plan(context["destination"], PLAN_NAME, plan)
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
++    parser.add_argument("--destination", required=True, help="fresh runtime directory (must not exist)")
++    parser.add_argument("--source-runtime", default=DEFAULT_SOURCE_RUNTIME)
++    parser.add_argument("--candidate", help="validated atmosphere candidate directory (omit for the stock control run)")
++    parser.add_argument("--candidate-source", help="stock cfgweather.xml used to reconstruct and verify the candidate")
++    parser.add_argument("--start-delay-s", type=int, default=DEFAULT_START_DELAY_S)
++    parser.add_argument("--interval-s", type=int, default=DEFAULT_INTERVAL_S)
++    parser.add_argument("--samples", type=int, default=DEFAULT_SAMPLES)
++    parser.add_argument("--wait-minutes", type=int)
++    parser.add_argument("--battleye-sha256", default=BATTLEYE_SHA256)
++    parser.add_argument("--native-scripts", help="extracted native script cache used to lint the hook")
++    args = parser.parse_args(argv)
++    cache = args.native_scripts
++    if cache is None:
++        default = Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"
++        cache = default if (default / "3_Game").is_dir() else None
++    try:
++        plan = stage(args.source_runtime, args.destination, candidate=args.candidate,
++                     candidate_source=args.candidate_source, start_delay_s=args.start_delay_s,
++                     interval_s=args.interval_s, samples=args.samples, wait_minutes=args.wait_minutes,
++                     battleye_sha256=args.battleye_sha256, native_scripts=cache)
++    except (OSError, ValueError) as error:
++        print(f"weather_probe: {error}", file=sys.stderr)
++        return 1
++    info = plan["probe"]
++    print(f"staged weather probe runtime: {Path(args.destination) / PLAN_NAME}")
++    print(f"variant={info['cfgweather']['variant']} samples={info['samples']} interval_s={info['interval_s']} "
++          f"wait_minutes={info['wait_minutes']} hook_bytes={info['hook_bytes']} hook_sha256={info['hook_sha256']}")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())

@@ -1,0 +1,27 @@
+{
+  "evidence": "synthetic-policy-only; no engine or acoustic measurements",
+  "root": {"observed": 10, "expires": 25, "recipient_cap": 4},
+  "relay_checks": [
+    {"given": "live native root", "when": [12, 10, 25, 0, 1.0, true, true], "then": true},
+    {"given": "actual first-hop vocalization", "when": [14, 10, 25, 1, 0.5, true, true], "then": true},
+    {"given": "second-hop endpoint vocalizes", "when": [16, 10, 25, 2, 0.25, true, true], "then": false},
+    {"given": "root expired although source still exists", "when": [25, 10, 25, 1, 0.5, true, true], "then": false},
+    {"given": "missing actual emitter", "when": [15, 10, 25, 1, 0.5, false, true], "then": false}
+  ],
+  "hearing_checks": [
+    {"recipient": "near", "now": 12, "distance_sq": 16, "geometry": true, "then": true},
+    {"recipient": "near", "now": 13, "distance_sq": 16, "geometry": true, "then": false},
+    {"recipient": "wall", "now": 13, "distance_sq": 4, "geometry": false, "then": false},
+    {"recipient": "second", "now": 14, "distance_sq": 25, "geometry": true, "then": true},
+    {"recipient": "third", "now": 15, "distance_sq": 25, "geometry": true, "then": true},
+    {"recipient": "over_cap", "now": 16, "distance_sq": 25, "geometry": true, "then": false},
+    {"recipient": "expired", "now": 25, "distance_sq": 1, "geometry": true, "then": false}
+  ],
+  "rooms": [
+    {"id": 9, "clue_room": false, "distance_sq": 9},
+    {"id": 3, "clue_room": false, "distance_sq": 9},
+    {"id": 5, "clue_room": true, "distance_sq": 100},
+    {"id": 2, "clue_room": false, "distance_sq": 4}
+  ],
+  "expected_room_order": [5, 2, 3, 9]
+}

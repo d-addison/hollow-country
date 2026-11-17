@@ -1,0 +1,1 @@
+run_id,game_build,git_commit,scenario,seed,player_count,active_infected,active_hordes,active_interiors,active_objects,avg_server_fps,p01_server_fps,p95_server_frame_ms,p99_server_frame_ms,client_avg_fps,client_1pct_low_fps,peak_ram_mb,script_ms_per_frame,allocations_per_min,network_kbps,errors,notes

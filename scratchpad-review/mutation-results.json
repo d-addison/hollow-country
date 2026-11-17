@@ -1,0 +1,42 @@
+[
+  {
+    "mutation": "M1_disable_duration_check",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "M2_disable_existing_output_refusal",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "M3_write_sentinel_before_end_record",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "M4_swap_actual_and_forecast_getters",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "M5_disable_watchdog_finish",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "M6_schedule_samples_without_interval",
+    "exit_code": 0,
+    "result": "SURVIVED"
+  },
+  {
+    "mutation": "M7_remove_duplicate_seq_guard",
+    "exit_code": 1,
+    "result": "KILLED"
+  },
+  {
+    "mutation": "M8_ignore_sentinel",
+    "exit_code": 1,
+    "result": "KILLED"
+  }
+]

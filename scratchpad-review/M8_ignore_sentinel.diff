@@ -1,0 +1,11 @@
+--- tools/audit/weather_report.py
++++ tools/audit/weather_report.py
+@@ -417,7 +417,7 @@
+         header, samples, end, issues = _parse_stream(text)
+         if not any(issue.startswith("observations are empty") for issue in issues):
+             issues.extend(_structure_issues(header, samples, end, plan, cfgweather_sha))
+-    if sentinel is not _NOT_CHECKED:
++    if False:
+         issues.extend(_sentinel_issues(sentinel, len(samples)))
+     pending = bool(issues)
+     usable = [] if pending else samples

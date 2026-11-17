@@ -1,0 +1,11 @@
+--- tools/setup/weather_probe.py
++++ tools/setup/weather_probe.py
+@@ -325,7 +325,7 @@
+         if (m_HCWPDone || m_HCWPSamples >= m_HCWPMaxSamples)
+             return;
+         int elapsedMs = GetGame().GetTime() - m_HCWPBeginMs;
+-        if (elapsedMs > m_HCWPCapMs)
++        if (false)
+         {
+             HCWPFinish("partial");
+             return;
