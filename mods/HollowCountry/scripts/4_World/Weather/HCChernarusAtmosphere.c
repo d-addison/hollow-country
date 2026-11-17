@@ -13,7 +13,7 @@
 // 3_Game/CfgGameplayHandler.c:6 m_Data, :88-98 native synchronization;
 // 3_Game/CfgGameplayDataJson.c:16-17 PlayerData/WorldsData,
 // :89 disablePersonalLight, :192 lightingConfig.
-// 3_Game/WorldLighting.c:11-22 preset 1; native client consumers:
+// 3_Game/WorldLighting.c:12-22 presets 0 default/1 darknight (never applied); native client consumers:
 // 4_World/Entities/ManBase/PlayerBase.c:6042-6058,
 // 4_World/Entities/ManBase/PlayerBaseClient.c:39-55. No renderer authority invented.
 modded class ChernarusPlusData
@@ -59,22 +59,13 @@ modded class ChernarusPlusData
         m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1, 90);
         // Already-loaded native DTO, before joins: native sync owns distribution.
         // Preserve the existing native/operator seasonal temperature arrays.
+        // Owner rule 2026-11-17: never dark nights. Config 0 is lighting_default
+        // (WorldLighting.c:17); 1 is lighting_darknight (:21). Forced to 0 whatever
+        // the operator value. Personal light (CfgGameplayDataJson.c:89) is not written.
         int previousLighting = CfgGameplayHandler.m_Data.WorldsData.lightingConfig;
-        if (previousLighting == 0)
-        {
-            PrintFormat("[HollowCountry][Atmosphere] lightingConfig previous=%1; applying 1", previousLighting);
-            CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 1;
-        }
-        else
-            PrintFormat("[HollowCountry][Atmosphere] lightingConfig operator-set; retained %1", previousLighting);
-        bool previousPersonalLight = CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight;
-        if (!previousPersonalLight)
-        {
-            PrintFormat("[HollowCountry][Atmosphere] disablePersonalLight previous=%1; applying true", previousPersonalLight);
-            CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight = true;
-        }
-        else
-            PrintFormat("[HollowCountry][Atmosphere] disablePersonalLight operator-set; retained %1", previousPersonalLight);
+        PrintFormat("[HollowCountry][Atmosphere] lightingConfig previous=%1; forcing 0 (bright nights, owner rule)", previousLighting);
+        CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 0;
+        PrintFormat("[HollowCountry][Atmosphere] disablePersonalLight untouched; value %1", CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight);
         if (!m_Weather.IsDynVolFogEnabled())
             Print("[HollowCountry][Atmosphere] PARTIAL world config lacks volumetric fog; normalized fog only; valley-fog acceptance PENDING");
         HCForecast(EWeatherPhenomenon.OVERCAST);
@@ -84,7 +75,7 @@ modded class ChernarusPlusData
         HCForecast(EWeatherPhenomenon.WIND_DIRECTION);
         HCForecast(EWeatherPhenomenon.SNOWFALL);
         CalculateVolFog(m_Weather.GetOvercast().GetActual(), m_Weather.GetWindSpeed(), 300);
-        Print("[HollowCountry][Atmosphere] EXPERIMENTAL ChernarusPlus script owner; native lighting defaults adjusted; operator settings and seasonal curve retained; runtime acceptance PENDING");
+        Print("[HollowCountry][Atmosphere] EXPERIMENTAL ChernarusPlus script owner; bright-night lighting 0 forced, personal light untouched, night cloud/rain capped; other operator settings and seasonal curve retained; runtime acceptance PENDING");
         return true;
     }
 
@@ -93,14 +84,16 @@ modded class ChernarusPlusData
         float daytime = GetGame().GetDayTime();
         float elapsed = m_Weather.GetTime();
         float cloud = m_Weather.GetOvercast().GetActual();
+        // Lagging storm cloud at dusk must not drive night rain or wind.
+        float cappedCloud = HCAtmospherePolicy.NightCapped(cloud, daytime);
         if (type == EWeatherPhenomenon.OVERCAST)
             m_Weather.GetOvercast().Set(HCAtmospherePolicy.CloudTarget(elapsed, daytime), 300, 300);
         else if (type == EWeatherPhenomenon.RAIN)
-            m_Weather.GetRain().Set(HCAtmospherePolicy.RainTarget(cloud), 180, 120);
+            m_Weather.GetRain().Set(HCAtmospherePolicy.RainTarget(cappedCloud), 180, 120);
         else if (type == EWeatherPhenomenon.FOG)
             m_Weather.GetFog().Set(HCAtmospherePolicy.FogTarget(daytime), 300, 0);
         else if (type == EWeatherPhenomenon.WIND_MAGNITUDE)
-            m_Weather.GetWindMagnitude().Set(HCAtmospherePolicy.WindTarget(cloud), 180, 120);
+            m_Weather.GetWindMagnitude().Set(HCAtmospherePolicy.WindTarget(cappedCloud), 180, 120);
         else if (type == EWeatherPhenomenon.WIND_DIRECTION)
             m_Weather.GetWindDirection().Set(HCAtmospherePolicy.WindDirectionTarget(elapsed), 300, 300);
         else if (type == EWeatherPhenomenon.SNOWFALL)

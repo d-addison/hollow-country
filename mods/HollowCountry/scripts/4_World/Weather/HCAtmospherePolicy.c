@@ -17,20 +17,26 @@ class HCAtmospherePolicy
         return elapsed - Math.Floor(elapsed / 7200) * 7200;
     }
 
+    static float NightCapped(float cloud, float daytime)
+    {
+        // Owner rule 2026-11-17: never dark nights. Dusk to dawn (20..5) caps
+        // cloud at 0.55, below the 0.65 rain threshold, so Rain/WindTarget map
+        // it to dry and calm. Out-of-range or non-finite hours count as day.
+        if (HCAtmospherePolicy.Finite(daytime) && daytime >= 0 && daytime < 24 && (daytime < 5 || daytime >= 20) && cloud > 0.55)
+            return 0.55;
+        return cloud;
+    }
+
     static float CloudTarget(float elapsed, float daytime)
     {
         float phase = HCAtmospherePolicy.CyclePosition(elapsed);
         if (phase >= 3600 && phase < 5400)
-            return 0.95;
+            return HCAtmospherePolicy.NightCapped(0.95, daytime);
         if (phase >= 2700 && phase < 3600)
-            return 0.72;
-        float target = 0.35;
+            return HCAtmospherePolicy.NightCapped(0.72, daytime);
         if (phase >= 5400)
-            target = 0.25;
-        // Native cloud cover supplies darker nights without client PPE hooks.
-        if (HCAtmospherePolicy.Finite(daytime) && daytime >= 0 && daytime < 24 && (daytime < 5 || daytime >= 20))
-            target = 0.55;
-        return target;
+            return 0.25;
+        return 0.35;
     }
 
     static float RainTarget(float cloud)

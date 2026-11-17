@@ -141,9 +141,18 @@ class V1WeatherPolicyTests(unittest.TestCase):
         for phase, expected in ((0, .35), (2699, .35), (2700, .72), (3599, .72),
                                 (3600, .95), (5399, .95), (5400, .25), (7199, .25)):
             self.assertEqual(f32(expected), p.CloudTarget(phase, 12))
-        for hour, expected in ((-1, .35), (0, .55), (4.5, .55), (5, .35), (5.5, .35),
-                               (19.5, .35), (20, .55), (23, .55), (24, .35), (math.inf, .35)):
-            self.assertEqual(f32(expected), p.CloudTarget(0, hour))
+        # Owner decision 2026-11-17: never dark nights. Dusk to dawn (20..5) caps cloud
+        # at .55; day bands are untouched and out-of-range hours count as day.
+        for hour in (0, 4.5, 20, 23, 23.9):
+            self.assertEqual(f32(.35), p.CloudTarget(0, hour))
+            self.assertEqual(f32(.55), p.CloudTarget(3600, hour))
+            self.assertEqual(f32(.55), p.CloudTarget(2700, hour))
+            self.assertEqual(f32(.25), p.CloudTarget(5400, hour))
+        for hour in (-1, 5, 5.5, 12, 19.5, 24, math.inf, math.nan):
+            self.assertEqual(f32(.35), p.CloudTarget(0, hour))
+            self.assertEqual(f32(.72), p.CloudTarget(2700, hour))
+            self.assertEqual(f32(.95), p.CloudTarget(3600, hour))
+            self.assertEqual(f32(.25), p.CloudTarget(5400, hour))
         for cloud, rain, wind in ((-.1, 0, 4), (0, 0, 4), (.6, 0, 4), (.65, .25, 8),
                                   (.84, .25, 8), (.85, .85, 14), (1, .85, 14), (1.1, 0, 4)):
             self.assertEqual(f32(rain), p.RainTarget(cloud))
@@ -176,7 +185,25 @@ class V1WeatherPolicyTests(unittest.TestCase):
             self.assertEqual(0., p.RainTarget(p.CloudTarget(seconds, 12.)))
             self.assertLessEqual(p.WindTarget(p.CloudTarget(seconds, 12.)), 6.)
         self.assertEqual(p.CloudTarget(0., 12.), p.CloudTarget(7200., 12.))
-        self.assertGreater(p.CloudTarget(0., 23.), p.CloudTarget(0., 12.))
+        # Daytime storms are unchanged; the night storm band is capped below rain.
+        for hour in (5., 12., 19.9):
+            self.assertEqual(f32(.95), p.CloudTarget(3600., hour))
+            self.assertEqual(f32(.85), p.RainTarget(p.CloudTarget(3600., hour)))
+        for hour in (0., 3., 4.9, 20., 23., 23.9):
+            for seconds in (0., 2700., 3600., 4499., 5399., 5400., 7199.):
+                cloud = p.CloudTarget(seconds, hour)
+                self.assertLessEqual(cloud, f32(.55), (seconds, hour))
+                self.assertEqual(0., p.RainTarget(cloud))
+                self.assertEqual(4, p.WindTarget(cloud))
+            for seconds in (0., 2699., 5400., 7199.):
+                self.assertEqual(p.CloudTarget(seconds, 12.), p.CloudTarget(seconds, hour))
+        # Lagging actual cloud (storm cloud still present at dusk) is capped too.
+        for hour in (0., 4.9, 20., 23.):
+            self.assertEqual(f32(.55), p.NightCapped(.95, hour))
+            self.assertEqual(f32(.35), p.NightCapped(.35, hour))
+            self.assertEqual(0., p.RainTarget(p.NightCapped(.95, hour)))
+        for hour in (5., 12., 19.9, 24., -1.):
+            self.assertEqual(f32(.95), p.NightCapped(.95, hour))
 
     def test_morning_fog_is_stronger_and_wind_reduces_it(self):
         p = self.policy
@@ -372,9 +399,28 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         self.assertTrue(authored(WORLD, 'WeatherOnBeforeChange', context, NS(), 'FOG', .2, .1, 30.))
         self.assertEqual(['FOG'], calls)
 
+    def test_night_forecasts_cap_cloud_rain_and_wind_even_with_lagging_storm_cloud(self):
+        enum_names = ('OVERCAST', 'RAIN', 'FOG', 'WIND_MAGNITUDE', 'WIND_DIRECTION',
+                      'SNOWFALL', 'VOLFOG_HEIGHT_DENSITY', 'VOLFOG_DISTANCE_DENSITY', 'VOLFOG_HEIGHT_BIAS')
+        kinds = NS(**{name: name for name in enum_names})
+        calls = []
+        def phenomenon(name):
+            return NS(GetActual=lambda: .95, Set=lambda *args: calls.append((name, args)))
+        weather = NS(GetTime=lambda: 4000., GetWindSpeed=lambda: 14.)
+        for name in ('Overcast', 'Rain', 'Fog', 'WindMagnitude', 'WindDirection', 'Snowfall'):
+            setattr(weather, 'Get' + name, lambda name=name: phenomenon(name))
+        context = {'GetGame': lambda: NS(GetDayTime=lambda: 22.),
+                   'HCAtmospherePolicy': authored_policy(), 'EWeatherPhenomenon': kinds,
+                   'm_Weather': weather, 'CalculateVolFog': lambda *args: calls.append(('volfog', args))}
+        for kind, expected in (('OVERCAST', (f32(.55), 300, 300)), ('RAIN', (0, 180, 120)),
+                               ('WIND_MAGNITUDE', (4, 180, 120))):
+            calls.clear()
+            self.assertTrue(authored(WORLD, 'HCForecast', context, NS(), kind))
+            self.assertEqual(expected, calls[0][1], kind)
+
     def test_startup_blocks_foreign_drivers_and_uses_synced_native_lighting_once(self):
         for (mission, frozen), lighting, personal in product(
-                ((True, False), (False, True), (False, False)), (0, 2), (False, True)):
+                ((True, False), (False, True), (False, False)), (0, 1, 2, 3, 7), (False, True)):
             calls, logs = [], []
             weather = NS(GetMissionWeather=lambda: mission, GetWeatherUpdateFrozen=lambda: frozen,
                          SetWindMaximumSpeed=lambda *args: calls.append(('maxwind', args)),
@@ -407,12 +453,17 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                 self.assertEqual(personal, data.PlayerData.disablePersonalLight)
                 self.assertEqual([], logs)
             else:
-                self.assertEqual(1 if lighting == 0 else lighting, data.WorldsData.lightingConfig)
-                self.assertTrue(data.PlayerData.disablePersonalLight)
+                # Owner rule: never dark nights; lightingConfig is forced to 0 whatever
+                # the operator value is. The personal light is never written.
+                self.assertEqual(0, data.WorldsData.lightingConfig)
+                self.assertEqual(personal, data.PlayerData.disablePersonalLight)
                 self.assertEqual(2, len(logs))
-                self.assertIn('previous=' if lighting == 0 else 'operator-set; retained', logs[0][0])
+                self.assertEqual('[HollowCountry][Atmosphere] lightingConfig previous=%1; forcing 0 (bright nights, owner rule)', logs[0][0])
+                self.assertNotIn('retained', logs[0][0])
                 self.assertEqual(lighting, logs[0][1])
-                self.assertIn('previous=' if not personal else 'operator-set; retained', logs[1][0])
+                self.assertIn('disablePersonalLight', logs[1][0])
+                self.assertIn('untouched', logs[1][0])
+                self.assertNotIn('applying true', logs[1][0])
                 self.assertEqual(personal, logs[1][1])
                 self.assertEqual(dict(m_RainThreshold=.65, m_StormThreshold=.85,
                     m_OvercastMinTime=300, m_OvercastMaxTime=300,
@@ -547,8 +598,11 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         source = '\n'.join(p.read_text() for p in WEATHER.glob('*.c'))
         for unwanted in ('extends HCModule', 'RegisterModules', 'SetBrightness(', 'LoadNewLightingCfg(', 'AddNoiseTarget('):
             self.assertNotIn(unwanted, source)
-        self.assertIn('CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 1;', source)
-        self.assertIn('CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight = true;', source)
+        self.assertIn('CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 0;', source)
+        self.assertNotIn('lightingConfig = 1;', source)
+        self.assertNotIn('operator-set; retained', source)
+        self.assertNotIn('disablePersonalLight = true;', source)
+        self.assertNotIn('PlayerData.disablePersonalLight =', source)
         self.assertIn('GetMissionWeather()', source)
         self.assertIn('GetWeatherUpdateFrozen()', source)
         self.assertIn('$mission:cfgweather.xml', source)
