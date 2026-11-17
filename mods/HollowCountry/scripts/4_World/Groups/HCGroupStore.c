@@ -145,14 +145,15 @@ class HCGroupStore
     bool Save(HCGroupState state)
     {
         if (m_Fault || !state || state.Revision != m_Latest + 1 || !HCGroupRules.StateValid(state, m_Settings, GetGame().GetWorldName())) return Fault();
-        // Invitations stay ephemeral on disk: swap them out for one native
-        // serialise pass (no clone/readback), then swap the live ones back.
+        // Invitations stay ephemeral on disk: hold the live array in a local,
+        // serialise once with an empty one, then put the live array back. A
+        // native Swap between ref arrays does not compile.
         string text;
         string error;
-        array<ref HCGroupInvitation> invitations = new array<ref HCGroupInvitation>();
-        state.Invitations.Swap(invitations);
+        array<ref HCGroupInvitation> invitations = state.Invitations;
+        state.Invitations = new array<ref HCGroupInvitation>();
         bool serialized = JsonFileLoader<HCGroupState>.MakeData(state, text, error);
-        state.Invitations.Swap(invitations);
+        state.Invitations = invitations;
         if (!serialized || text.Length() > m_Settings.MaxStoreBytes) return Fault();
         HCGroupReceipt receipt = new HCGroupReceipt;
         receipt.Revision = state.Revision;
