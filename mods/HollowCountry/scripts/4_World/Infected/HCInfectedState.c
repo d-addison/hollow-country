@@ -29,8 +29,6 @@ class HCInfectedConfig
             return false;
         if (!HCInfectedProfiles.ValidateMap(MilitaryVariants, false))
             return false;
-        if (EnableHordeStimulusRoutes && !EnableNativePackRoutes)
-            return false;
         if (!(SchemaVersion == 1 && MaxTracked >= 1 && MaxTracked <= 24))
             return false;
         if (!(MaxVoiceQueue >= 1 && MaxVoiceQueue <= 32 && MaxVoicePerTick >= 1 && MaxVoicePerTick <= 8))
@@ -404,7 +402,9 @@ class HCInfectedStore
         return ReadBounded(path, content) && JsonFileLoader<HCInfectedSnapshot>.LoadData(content, snapshot, error) && Validate(snapshot, world, memberCap, groupCap, now);
     }
 
-    static bool Load(out HCInfectedSnapshot snapshot, string world, int memberCap, int groupCap, int now)
+    // Validated snapshot exactly as stored. A journal whose lifecycle paths are
+    // not admitted stays evidence: no restart interpretation is applied to it.
+    static bool LoadVerbatim(out HCInfectedSnapshot snapshot, string world, int memberCap, int groupCap, int now)
     {
         string pathA = DIRECTORY + "/hordes-a.json";
         string pathB = DIRECTORY + "/hordes-b.json";
@@ -452,6 +452,11 @@ class HCInfectedStore
                     return false;
             }
         }
+        return true;
+    }
+
+    static void ApplyRestart(HCInfectedSnapshot snapshot)
+    {
         foreach (HCHordeRecord group : snapshot.Groups)
         {
             // Native CE identity cannot be proved across restart. Preserve each
@@ -464,6 +469,13 @@ class HCInfectedStore
                 group.RouteResult = 5; // Restart interrupts native intent, never replays it.
             group.HasRoute = false; // RouteEnd remains historical, never active intent.
         }
+    }
+
+    static bool Load(out HCInfectedSnapshot snapshot, string world, int memberCap, int groupCap, int now)
+    {
+        if (!LoadVerbatim(snapshot, world, memberCap, groupCap, now))
+            return false;
+        ApplyRestart(snapshot);
         return true;
     }
 

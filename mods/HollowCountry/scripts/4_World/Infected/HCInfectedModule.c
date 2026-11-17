@@ -98,7 +98,10 @@ class HCInfectedModule : HCModule
         // only the admitted capability (preference AND qualification).
         m_Admission = HCInfectedAdmission.Evaluate(m_Config);
         m_WorkCap = Math.Min(settings.MaxTickWorkItems, 32);
-        if ((settings.EnableHordes || m_Admission.NativePackRoutes || m_Admission.Investigation) && m_WorkCap < 8)
+        // The eight-item floor follows work that can actually run. An unadmitted
+        // horde preference or a dormant journal never raises the prerequisite.
+        bool admittedHordeWork = settings.EnableHordes && (m_Admission.CEAdoption || m_Admission.MemberRecovery || m_Admission.HordeStimulusRoutes);
+        if ((admittedHordeWork || m_Admission.NativePackRoutes || m_Admission.Investigation) && m_WorkCap < 8)
         {
             Quarantine("hordes/routing require at least eight bounded work items");
             return;
@@ -130,12 +133,19 @@ class HCInfectedModule : HCModule
                 return;
             }
         }
-        bool variantMaps = HCInfectedProfiles.ValidateMap(m_Config.CivilianVariants, true);
-        variantMaps = variantMaps && HCInfectedProfiles.ValidateMap(m_Config.MilitaryVariants, true);
+        // Syntax validation plus populated maps mirrors ConfiguredVariant selection;
+        // unsupported stalker/heavy slots are reported, never admitted.
+        bool variantMaps = HCInfectedProfiles.ValidateMap(m_Config.CivilianVariants, false);
+        variantMaps = variantMaps && HCInfectedProfiles.ValidateMap(m_Config.MilitaryVariants, false);
+        if (variantMaps)
+        {
+            variantMaps = m_Config.CivilianVariants.Count() == 4 && m_Config.MilitaryVariants.Count() == 4;
+        }
         if (m_Config.EnableVariantPolicies && !variantMaps)
         {
-            Print("[HC Infected] variant preference enabled; explicit stance maps missing; native profiles retained");
+            Print("[HC Infected] variant preference enabled; explicit stance maps missing or invalid; native profiles retained");
         }
+        HCInfectedProfiles.LogUnsupportedSubstitutions(m_Config);
         if (m_Config.EnableContactGuard && !HCInfectedProfiles.ContactGuardQualified())
             Print("[HC Infected] contact guard pending native wall-hit qualification; native combat retained");
         Print("[HC Infected] enabled-preference template defaults; existing explicit disables preserved");
@@ -153,7 +163,16 @@ class HCInfectedModule : HCModule
         m_StartedUtc = m_LastUtc;
         if (m_Hordes)
         {
-            if (!HCInfectedStore.Load(m_State, GetGame().GetWorldName(), m_MemberCap, m_GroupCap, m_LastUtc))
+            // Restart interpretation, retirement and persistence belong to an
+            // admitted journal lifecycle (adoption or member recovery). Without
+            // one the stored journal is validated and kept verbatim.
+            bool journalLifecycle = m_Admission.CEAdoption || m_Admission.MemberRecovery;
+            bool journalLoaded;
+            if (journalLifecycle)
+                journalLoaded = HCInfectedStore.Load(m_State, GetGame().GetWorldName(), m_MemberCap, m_GroupCap, m_LastUtc);
+            else
+                journalLoaded = HCInfectedStore.LoadVerbatim(m_State, GetGame().GetWorldName(), m_MemberCap, m_GroupCap, m_LastUtc);
+            if (!journalLoaded)
             {
                 Quarantine("state/schema/build/world/clock mismatch; no fallback or reset");
                 return;
@@ -163,7 +182,7 @@ class HCInfectedModule : HCModule
                 m_Sweeps.Insert(new HCHordeSweep);
                 m_Packs.Insert(null);
             }
-            m_Dirty = true;
+            m_Dirty = journalLifecycle;
         }
         m_Healthy = true;
         Instance = this;
@@ -326,7 +345,7 @@ class HCInfectedModule : HCModule
         if (actor.InfectedEntity && actor.InfectedEntity.IsAlive())
         {
             actor.RefreshProfile();
-            if (m_Admission.Investigation && m_ObservationsRemaining > 0 && m_Now >= actor.NextVisualSample)
+            if (m_Admission.Investigation && HCInfectedObservation.VisualSamplingAvailable() && m_ObservationsRemaining > 0 && m_Now >= actor.NextVisualSample)
             {
                 HCInfectedObservation.SampleVisual(actor, m_Now);
                 actor.NextVisualSample = m_Now + Math.Max(2, m_Actors.Count());
@@ -393,11 +412,18 @@ class HCInfectedModule : HCModule
 
     protected void FinishSweep(int nowUtc)
     {
-        for (int i = 0; i < m_Sweeps.Count(); i++)
+        // Journal records advance only under an admitted lifecycle; an unresolved
+        // record is never retired by anything but admitted member recovery.
+        int sweepCount = 0;
+        if (m_Admission.CEAdoption || m_Admission.MemberRecovery)
+            sweepCount = m_Sweeps.Count();
+        for (int i = 0; i < sweepCount; i++)
         {
             HCHordeRecord record = m_State.Groups[i];
             HCHordeSweep sweep = m_Sweeps[i];
             if (record.State == 5)
+                continue;
+            if (record.State == 6 && !m_Admission.MemberRecovery && !m_Packs[i])
                 continue;
             if (record.State != 5 && record.State != 6)
             {
@@ -696,16 +722,21 @@ class HCInfectedModule : HCModule
             }
         }
         m_Investigators.Clear();
-        if (m_State)
+        // Only an admitted lifecycle owns route intent; a dormant journal keeps
+        // its stored route fields untouched.
+        int routeRecords = 0;
+        if (m_State && (m_Admission.CEAdoption || m_Admission.MemberRecovery))
+            routeRecords = Math.Min(m_State.Groups.Count(), m_Packs.Count());
+        for (int r = 0; r < routeRecords; r++)
         {
-            foreach (HCHordeRecord record : m_State.Groups)
+            HCHordeRecord routeRecord = m_State.Groups[r];
+            if (routeRecord.State == 6 && !m_Admission.MemberRecovery && !m_Packs[r])
+                continue;
+            if (routeRecord.HasRoute)
             {
-                if (record.HasRoute)
-                {
-                    record.HasRoute = false;
-                    record.RouteResult = 5;
-                    m_Dirty = true;
-                }
+                routeRecord.HasRoute = false;
+                routeRecord.RouteResult = 5;
+                m_Dirty = true;
             }
         }
     }
@@ -734,13 +765,21 @@ class HCInfectedModule : HCModule
         m_ObservationsRemaining = 1;
         m_RoutesRemaining = 1;
         int maintenance = m_Investigators.Count();
-        for (int p = 0; p < m_Packs.Count(); p++)
+        int packSlots = 0;
+        if (m_Admission.CEAdoption || m_Admission.MemberRecovery)
+            packSlots = m_Packs.Count();
+        for (int p = 0; p < packSlots; p++)
         {
+            HCHordeRecord record = m_State.Groups[p];
+            // A pending (state 6) journal with no runtime pack is evidence for
+            // member recovery. Without that path admitted it is neither retired,
+            // marked dirty nor saved.
+            if (record.State == 6 && !m_Admission.MemberRecovery && !m_Packs[p])
+                continue;
             maintenance++;
             // Absolute lifetime cannot depend on finishing an actor sweep:
             // continuous CE registration can reset a partial aggregate.
-            HCHordeRecord record = m_State.Groups[p];
-            if (record.State != 5 && nowUtc - record.CreatedUtc >= 3600)
+            if (record.State != 5 && (record.State != 6 || m_Admission.MemberRecovery) && nowUtc - record.CreatedUtc >= 3600)
             {
                 record.State = 5;
                 m_Dirty = true;
