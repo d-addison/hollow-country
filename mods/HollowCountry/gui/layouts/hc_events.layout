@@ -1,0 +1,116 @@
+FrameWidgetClass HCEventRoot {
+ position 0.15 0.12
+ size 0.70 0.76
+ hexactpos 0
+ vexactpos 0
+ hexactsize 0
+ vexactsize 0
+ clipchildren 1
+ priority 145
+ {
+  PanelWidgetClass HCEventPanel {
+   position 0 0
+   size 1 1
+   hexactpos 0
+   vexactpos 0
+   hexactsize 0
+   vexactsize 0
+   style rover_sim_black
+   color 0.04 0.04 0.04 0.97
+   {
+    TextWidgetClass HCEventTitle {
+     position 0.03 0.03
+     size 0.94 0.06
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     ignorepointer 1
+     font "gui/fonts/sdf_MetronBook24"
+     text "Hollow Country - Optional Events"
+    }
+    MultilineTextWidgetClass HCEventStatus {
+     position 0.03 0.11
+     size 0.94 0.08
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     ignorepointer 1
+     font "gui/fonts/sdf_MetronBook24"
+     text "Waiting for event service"
+    }
+    TextListboxWidgetClass HCEventRows {
+     position 0.03 0.20
+     size 0.94 0.43
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    MultilineTextWidgetClass HCEventDetail {
+     position 0.03 0.64
+     size 0.94 0.10
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     ignorepointer 1
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    TextWidgetClass HCEventOptional {
+     position 0.03 0.75
+     size 0.94 0.06
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     ignorepointer 1
+     font "gui/fonts/sdf_MetronBook24"
+     text "Participation is optional. No rewards are issued."
+    }
+    ButtonWidgetClass HCEventJoin {
+     position 0.03 0.86
+     size 0.21 0.08
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+     text "Join"
+    }
+    ButtonWidgetClass HCEventLeave {
+     position 0.27 0.86
+     size 0.21 0.08
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+     text "Leave"
+    }
+    ButtonWidgetClass HCEventRefresh {
+     position 0.51 0.86
+     size 0.21 0.08
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+     text "Refresh"
+    }
+    ButtonWidgetClass HCEventClose {
+     position 0.75 0.86
+     size 0.22 0.08
+     hexactpos 0
+     vexactpos 0
+     hexactsize 0
+     vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+     text "Close"
+    }
+   }
+  }
+ }
+}

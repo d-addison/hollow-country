@@ -17,6 +17,7 @@ class CfgMods
         author = "David Addison";
         version = "0.1.0-dev";
         type = "mod";
+        inputs = "HollowCountry\inputs.xml";
         dependencies[] = {"Game", "World", "Mission"};
         class defs
         {

@@ -102,6 +102,47 @@ class PackageBehavior(unittest.TestCase):
                     pbo.collect_addon(root)
                 path.unlink()
 
+    def test_custom_input_defaults_survive_pbo_and_handoff_without_admitting_other_xml(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            addon, mission = root / 'addon', root / 'mission'
+            addon.mkdir()
+            mission.mkdir()
+            (addon / 'config.cpp').write_text('class Synthetic {};')
+            inputs = (b'<?xml version="1.0" encoding="UTF-8"?>\n'
+                      b'<modded_inputs><inputs><actions><input name="UASynthetic" '
+                      b'loc="Synthetic" /></actions></inputs><preset><input '
+                      b'name="UASynthetic"><btn name="kO" /></input></preset></modded_inputs>\n')
+            (addon / 'inputs.xml').write_bytes(inputs)
+            self.assertEqual(inputs, pbo.parse(pbo.pack(pbo.collect_addon(addon)))[1]['inputs.xml'])
+            handoff = pbo.handoff(addon, mission)
+            self.assertEqual(hashlib.sha256(inputs).hexdigest(),
+                             pbo.verify_handoff(handoff)['sources']['inputs.xml'])
+            with zipfile.ZipFile(io.BytesIO(handoff)) as archive:
+                _, entries = pbo.parse(archive.read('@HollowCountry/addons/hollowcountry.pbo'))
+                self.assertEqual(inputs, entries['inputs.xml'])
+            for name in ('other.xml', 'input.xml', 'scripts/inputs.xml', 'INPUTS.xml'):
+                candidate = addon / name
+                candidate.parent.mkdir(parents=True, exist_ok=True)
+                candidate.write_bytes(inputs)
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    pbo.collect_addon(addon)
+                candidate.unlink()
+
+    def test_custom_input_file_preserves_existing_text_and_link_guards(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            target = root / 'inputs.xml'
+            for data in (b'\x00binary', b'\xffinvalid-utf8'):
+                target.write_bytes(data)
+                with self.subTest(data=data), self.assertRaises(ValueError):
+                    pbo.collect_addon(root)
+            target.unlink()
+            target.symlink_to(root / 'config.cpp')
+            with self.assertRaises(ValueError):
+                pbo.collect_addon(root)
+
     def test_handoff_allowlist_determinism_and_release_gate(self):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t)

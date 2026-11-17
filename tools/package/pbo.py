@@ -156,7 +156,7 @@ def _text(data):
 
 
 def original_addon_name(name):
-    return name == 'config.cpp' or bool(re.fullmatch(
+    return name in {'config.cpp', 'inputs.xml'} or bool(re.fullmatch(
         r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout)', name))
 
 
@@ -179,7 +179,7 @@ def collect_addon(root):
         try:
             text = data.decode('utf-8-sig')
         except UnicodeDecodeError as e:
-            raise ValueError('only original UTF-8 config/script/layout text allowed') from e
+            raise ValueError('only original UTF-8 config/input/script/layout text allowed') from e
         if '\0' in text:
             raise ValueError('binary source forbidden')
         files[name] = data

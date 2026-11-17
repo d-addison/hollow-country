@@ -92,6 +92,20 @@ class DeploymentBehavior(unittest.TestCase):
                 with self.subTest(target=target), self.assertRaisesRegex(ValueError, 'source/root'):
                     deploy._root(target)
 
+    def test_custom_input_defaults_survive_verified_install_and_rollback(self):
+        inputs = b'<modded_inputs><inputs/><preset/></modded_inputs>\n'
+        addon = self.root / 'addon-one'
+        (addon / 'inputs.xml').write_bytes(inputs)
+        self.one.write_bytes(pbo.handoff(addon, self.root / 'mission-one'))
+        result = self.install()
+        _, entries = pbo.parse((self.dest / deploy.ACTIVE /
+                                '@HollowCountry/addons/hollowcountry.pbo').read_bytes())
+        self.assertEqual(inputs, entries['inputs.xml'])
+        self.assert_profiles()
+        deploy.rollback(self.dest, result['transaction'], server_stopped=True)
+        self.assertFalse((self.dest / deploy.ACTIVE).exists())
+        self.assert_profiles()
+
     def test_native_short_name_parent_allows_exact_install_and_rollback(self):
         # Hosted Windows uses RUNNER~1 in TEMP. Host paths are not PBO members.
         short = self.root / 'RUNNER~1'

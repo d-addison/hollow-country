@@ -14,6 +14,7 @@ class HCModuleRegistry
     void RegisterModules()
     {
         Register(new HCGroupModule());
+        Register(new HCEventModule());
     }
 
     void Register(HCModule module)
