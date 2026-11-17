@@ -93,11 +93,11 @@ class HCEcologyMigrationNative
 			// Ecology cannot widen the Infected module's perception admission.
 			// These source qualifications remain false until their owner accepts.
 			HCInfectedClue candidate;
-			if (actor && visualAdmitted && HCInfectedQualification.InvestigationQualified() && HCInfectedObservation.VisualSamplingAvailable())
+			if (actor && visualAdmitted && HCInfectedQualification.InvestigationAdmitted() && HCInfectedObservation.VisualSamplingAvailable())
 			{
 				if (actor.Visual && actor.Visual.Provenance == 2 && actor.Visual.IsLive(nativeNow)) { candidate = actor.Visual; }
 			}
-			if (actor && !candidate && heardAdmitted && HCInfectedQualification.SupplementaryChainsQualified() && actor.HeardExternally)
+			if (actor && !candidate && heardAdmitted && HCInfectedQualification.SupplementaryChainsAdmitted() && actor.HeardExternally)
 			{
 				if (actor.Heard && actor.Heard.Provenance == 1 && actor.Heard.IsLive(nativeNow)) { candidate = actor.Heard; }
 			}
@@ -111,7 +111,7 @@ class HCEcologyMigrationNative
 	static int Move(HCNativeInfectedPack pack, HCInfectedClue clue, float nativeNow)
 	{
 		if (!HCEcologyNative.Authority() || !HCEcologyMigrationQualification.Admitted()) { return 0; }
-		if (!HCInfectedQualification.NativePackRoutesQualified() || !HCInfectedQualification.HordeStimulusRoutesQualified()) { return 0; }
+		if (!HCInfectedQualification.NativePackRoutesAdmitted() || !HCInfectedQualification.HordeStimulusRoutesAdmitted()) { return 0; }
 		if (!pack || !clue) { return 0; }
 		// Retarget rechecks ownership, combat/injury, expiry, path geometry,
 		// cooldown and bounded attempts; no Start/AddAgent/waypoint duplication.

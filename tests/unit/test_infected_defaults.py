@@ -116,7 +116,7 @@ class InfectedDefaultsTests(unittest.TestCase):
     def test_contact_preference_does_not_claim_qualified_wall_hit_filter(self):
         self.assertFalse(authored("HCInfectedProfiles.c", "static bool ContactGuardQualified()", NS()))
         module = (SOURCE / "HCInfectedModule.c").read_text()
-        self.assertIn("HCInfectedProfiles.ContactGuardQualified()", module)
+        self.assertIn("HCInfectedProfiles.ContactGuardAdmitted()", module)
         self.assertIn("contact guard pending native wall-hit qualification", module)
 
     def valid_map(self, configured, enabled):
@@ -266,7 +266,10 @@ class InfectedDefaultsTests(unittest.TestCase):
 
     def test_policy_selftest_checks_default_requested_versus_closed_admission(self):
         selftest = (SOURCE / "HCInfectedSelfTests.c").read_text()
-        self.assertIn("HCInfectedAdmission.Evaluate(config)", selftest)
+        # The closed-admission assertion resolves with every qualification false so a local-acceptance
+        # profile marker cannot fail a DayZDiag self-test (Evaluate honours the markers).
+        self.assertIn("HCInfectedAdmission.Resolve(config, false, false, false, false, false, false)", selftest)
+        self.assertNotIn("HCInfectedAdmission.Evaluate(", selftest)
         for path in ("CEAdoption", "NativePackRoutes", "Investigation", "SupplementaryChains",
                      "MemberRecovery", "HordeStimulusRoutes"):
             self.assertIn("!admission." + path, selftest)

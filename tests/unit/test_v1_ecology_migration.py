@@ -307,7 +307,7 @@ class MigrationNativeBehavior(unittest.TestCase):
 
     def test_native_clue_selection_requires_owner_admission_and_freezes_evidence(self):
         env = setup(); frozen = []
-        env['HCInfectedQualification'] = NS(InvestigationQualified=lambda:True, SupplementaryChainsQualified=lambda:True)
+        env['HCInfectedQualification'] = NS(InvestigationAdmitted=lambda:True, SupplementaryChainsAdmitted=lambda:True)
         env['HCInfectedObservation'] = NS(VisualSamplingAvailable=lambda:True)
         env['HCHordeStimulus'] = NS(PreferClue=lambda a,b,now:a is not None and b is None,
             FreezeClue=lambda clue: frozen.append(clue) or NS(**vars(clue)))
@@ -328,7 +328,7 @@ class MigrationNativeBehavior(unittest.TestCase):
         actor.HeardExternally=True
         self.assertIsNone(choose(members,30.,False,False))
         self.assertIsNotNone(choose(members,30.,False,True))
-        env['HCInfectedQualification'].SupplementaryChainsQualified=lambda:False
+        env['HCInfectedQualification'].SupplementaryChainsAdmitted=lambda:False
         self.assertIsNone(choose(members,30.,False,True))
 
     def test_native_clock_reuses_consistent_shared_utc_reader(self):

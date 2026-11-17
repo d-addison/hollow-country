@@ -39,17 +39,67 @@ class HCInfectedConfig
     }
 }
 
-// Server-only static qualification, one per complex path. Each is false until
-// accepted native runtime evidence (DayZDiag plus normal PBO/server test) is
-// recorded for that exact path; flipping one is a source change, never an
-// operator setting, persisted value or client input. Pattern follows
+// Server-only static qualification, one per complex path. Each *Qualified() is
+// false until accepted native runtime evidence (DayZDiag plus normal PBO/server
+// test) is recorded for that exact path; flipping one is a source change, never
+// an operator setting, persisted value or client input. Pattern follows
 // HCInfectedProfiles.ContactGuardQualified().
+// Local acceptance only: a server operator may create the matching marker file
+// under $profile:HollowCountry/acceptance/ (named at each *OptIn() below) so the
+// owner's local server run can exercise that one path. Each *Admitted() is
+// Qualified OR marker, server-only, probes the marker once per process, caches
+// the answer and logs one EXPERIMENTAL line only when the marker opens the path.
+// A path whose marker is absent behaves, and logs, exactly as before. Markers are
+// independent and are never auto-opened: horde_routes steers native packs, so it
+// is only meaningful with pack_routes (HCInfectedAdmission.Resolve already keeps
+// it closed with reason horde_stimulus_routes_requires_pack_routes otherwise);
+// ecology migration (ecology_migration.enable) additionally needs pack_routes,
+// horde_routes and, for its clue sources, investigation or supplementary_chains.
 class HCInfectedQualification
 {
+    protected static bool s_CEAdoptionChecked;
+    protected static bool s_CEAdoptionOptIn;
+
+    protected static bool s_NativePackRoutesChecked;
+    protected static bool s_NativePackRoutesOptIn;
+
+    protected static bool s_InvestigationChecked;
+    protected static bool s_InvestigationOptIn;
+
+    protected static bool s_SupplementaryChainsChecked;
+    protected static bool s_SupplementaryChainsOptIn;
+
+    protected static bool s_MemberRecoveryChecked;
+    protected static bool s_MemberRecoveryOptIn;
+
+    protected static bool s_HordeStimulusRoutesChecked;
+    protected static bool s_HordeStimulusRoutesOptIn;
+
     // Evidence required: accepted native CE-membership transfer, restart and ownership run.
     static bool CEAdoptionQualified()
     {
         return false;
+    }
+
+    static bool CEAdoptionOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_ce_adoption.enable");
+    }
+
+    static bool CEAdoptionAdmitted()
+    {
+        if (CEAdoptionQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_CEAdoptionChecked)
+        {
+            s_CEAdoptionChecked = true;
+            s_CEAdoptionOptIn = CEAdoptionOptIn();
+            if (s_CEAdoptionOptIn)
+                Print("[HC Infected] CE adoption EXPERIMENTAL local acceptance opt-in (infected_ce_adoption.enable); runtime acceptance PENDING");
+        }
+        return s_CEAdoptionOptIn;
     }
 
     // Evidence required: accepted native pack path, ownership and release run.
@@ -58,10 +108,52 @@ class HCInfectedQualification
         return false;
     }
 
+    static bool NativePackRoutesOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_pack_routes.enable");
+    }
+
+    static bool NativePackRoutesAdmitted()
+    {
+        if (NativePackRoutesQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_NativePackRoutesChecked)
+        {
+            s_NativePackRoutesChecked = true;
+            s_NativePackRoutesOptIn = NativePackRoutesOptIn();
+            if (s_NativePackRoutesOptIn)
+                Print("[HC Infected] native pack routes EXPERIMENTAL local acceptance opt-in (infected_pack_routes.enable); runtime acceptance PENDING");
+        }
+        return s_NativePackRoutesOptIn;
+    }
+
     // Evidence required: accepted native frozen-observation search path and perception run.
     static bool InvestigationQualified()
     {
         return false;
+    }
+
+    static bool InvestigationOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_investigation.enable");
+    }
+
+    static bool InvestigationAdmitted()
+    {
+        if (InvestigationQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_InvestigationChecked)
+        {
+            s_InvestigationChecked = true;
+            s_InvestigationOptIn = InvestigationOptIn();
+            if (s_InvestigationOptIn)
+                Print("[HC Infected] investigation EXPERIMENTAL local acceptance opt-in (infected_investigation.enable); runtime acceptance PENDING");
+        }
+        return s_InvestigationOptIn;
     }
 
     // Evidence required: accepted two-client hearing and relay audibility run.
@@ -70,16 +162,79 @@ class HCInfectedQualification
         return false;
     }
 
+    static bool SupplementaryChainsOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_supplementary_chains.enable");
+    }
+
+    static bool SupplementaryChainsAdmitted()
+    {
+        if (SupplementaryChainsQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_SupplementaryChainsChecked)
+        {
+            s_SupplementaryChainsChecked = true;
+            s_SupplementaryChainsOptIn = SupplementaryChainsOptIn();
+            if (s_SupplementaryChainsOptIn)
+                Print("[HC Infected] supplementary chains EXPERIMENTAL local acceptance opt-in (infected_supplementary_chains.enable); runtime acceptance PENDING");
+        }
+        return s_SupplementaryChainsOptIn;
+    }
+
     // Evidence required: accepted native identity, death/corpse and restart reconciliation run.
     static bool MemberRecoveryQualified()
     {
         return false;
     }
 
+    static bool MemberRecoveryOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_member_recovery.enable");
+    }
+
+    static bool MemberRecoveryAdmitted()
+    {
+        if (MemberRecoveryQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_MemberRecoveryChecked)
+        {
+            s_MemberRecoveryChecked = true;
+            s_MemberRecoveryOptIn = MemberRecoveryOptIn();
+            if (s_MemberRecoveryOptIn)
+                Print("[HC Infected] member recovery EXPERIMENTAL local acceptance opt-in (infected_member_recovery.enable); runtime acceptance PENDING");
+        }
+        return s_MemberRecoveryOptIn;
+    }
+
     // Evidence required: accepted native cohort retarget path and stall/cooldown run.
     static bool HordeStimulusRoutesQualified()
     {
         return false;
+    }
+
+    static bool HordeStimulusRoutesOptIn()
+    {
+        return FileExist("$profile:HollowCountry/acceptance/infected_horde_routes.enable");
+    }
+
+    static bool HordeStimulusRoutesAdmitted()
+    {
+        if (HordeStimulusRoutesQualified())
+            return true;
+        if (!GetGame() || !GetGame().IsServer())
+            return false;
+        if (!s_HordeStimulusRoutesChecked)
+        {
+            s_HordeStimulusRoutesChecked = true;
+            s_HordeStimulusRoutesOptIn = HordeStimulusRoutesOptIn();
+            if (s_HordeStimulusRoutesOptIn)
+                Print("[HC Infected] horde stimulus routes EXPERIMENTAL local acceptance opt-in (infected_horde_routes.enable); runtime acceptance PENDING");
+        }
+        return s_HordeStimulusRoutesOptIn;
     }
 }
 
@@ -156,7 +311,7 @@ class HCInfectedAdmission
 
     static HCInfectedAdmission Evaluate(HCInfectedConfig config)
     {
-        return Resolve(config, HCInfectedQualification.CEAdoptionQualified(), HCInfectedQualification.NativePackRoutesQualified(), HCInfectedQualification.InvestigationQualified(), HCInfectedQualification.SupplementaryChainsQualified(), HCInfectedQualification.MemberRecoveryQualified(), HCInfectedQualification.HordeStimulusRoutesQualified());
+        return Resolve(config, HCInfectedQualification.CEAdoptionAdmitted(), HCInfectedQualification.NativePackRoutesAdmitted(), HCInfectedQualification.InvestigationAdmitted(), HCInfectedQualification.SupplementaryChainsAdmitted(), HCInfectedQualification.MemberRecoveryAdmitted(), HCInfectedQualification.HordeStimulusRoutesAdmitted());
     }
 
     // Bounded one-line report: requested vs admitted vs reason for every path.

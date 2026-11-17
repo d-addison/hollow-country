@@ -160,6 +160,9 @@ def admission_functions():
     for path in PATHS:
         fn = translate("HCInfectedState.c", "static bool %sQualified(" % path, ())
         setattr(qualification, path + "Qualified", lambda fn=fn: fn(None))
+        # Admitted() = Qualified OR a local-acceptance marker; with no marker it is the closed gate
+        # (marker behavior is executed in test_acceptance_optins.py).
+        setattr(qualification, path + "Admitted", lambda fn=fn: fn(None))
     namespace = dict(HCInfectedAdmission=Admission, HCInfectedQualification=qualification)
     for name in ("DisabledReason", "Admitted", "Reason", "Flag", "Segment"):
         if ("static " in source) and re.search(r"static \w+ %s\(" % name, source):
@@ -689,7 +692,7 @@ class StartedModule:
             MaxVoicePerTick=8, VoiceCooldownSeconds=10, SaveIntervalSeconds=60, MaxInvestigators=2,
             CivilianVariants=Array(), MilitaryVariants=Array(), **overrides)
         self.profiles = NS(ValidateMap=lambda *x: True, NativeBuildSupported=lambda x: x == "1.30.164289",
-            ContactGuardQualified=lambda: False, LogUnsupportedSubstitutions=lambda config: None)
+            ContactGuardQualified=lambda: False, ContactGuardAdmitted=lambda: False, LogUnsupportedSubstitutions=lambda config: None)
         is_valid = translate("HCInfectedState.c", "bool IsValid(", (), fields=tuple(vars(self.config)),
             HCInfectedProfiles=self.profiles)
         self.config.IsValid = lambda: is_valid(self.config)

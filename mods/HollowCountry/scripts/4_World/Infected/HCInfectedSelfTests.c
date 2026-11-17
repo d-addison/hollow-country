@@ -31,7 +31,9 @@ class HCInfectedSelfTests
         ok = ok && config.EnableSupplementaryChains && config.EnableMemberRecovery && config.EnableVariantPolicies && config.EnableHordeStimulusRoutes;
         ok = ok && !config.RunPolicySelfTests;
         // Requested is not admitted: default preferences are on, qualification is closed.
-        HCInfectedAdmission admission = HCInfectedAdmission.Evaluate(config);
+        // Resolve with every qualification false, not Evaluate: Evaluate also honours the
+        // local-acceptance profile markers, which must not fail a DayZDiag self-test.
+        HCInfectedAdmission admission = HCInfectedAdmission.Resolve(config, false, false, false, false, false, false);
         ok = ok && !admission.CEAdoption && !admission.NativePackRoutes && !admission.Investigation;
         ok = ok && !admission.SupplementaryChains && !admission.MemberRecovery && !admission.HordeStimulusRoutes;
         ok = ok && admission.CEAdoptionReason == "ce_adoption_unqualified" && admission.HordeStimulusRoutesReason == "horde_stimulus_routes_unqualified";

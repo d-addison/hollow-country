@@ -148,7 +148,7 @@ class HCInfectedModule : HCModule
             Print("[HC Infected] variant preference enabled; explicit stance maps missing or invalid; native profiles retained");
         }
         HCInfectedProfiles.LogUnsupportedSubstitutions(m_Config);
-        if (m_Config.EnableContactGuard && !HCInfectedProfiles.ContactGuardQualified())
+        if (m_Config.EnableContactGuard && !HCInfectedProfiles.ContactGuardAdmitted())
             Print("[HC Infected] contact guard pending native wall-hit qualification; native combat retained");
         Print("[HC Infected] enabled-preference template defaults; existing explicit disables preserved");
         Print("[HC Infected] capability admission (requested vs admitted; unqualified paths fail closed, native behavior retained): " + m_Admission.Describe());
@@ -214,7 +214,7 @@ class HCInfectedModule : HCModule
 
     bool ContactGuardEnabled()
     {
-        return m_Healthy && m_Config.EnableContactGuard && HCInfectedProfiles.ContactGuardQualified() && GetGame().IsServer();
+        return m_Healthy && m_Config.EnableContactGuard && HCInfectedProfiles.ContactGuardAdmitted() && GetGame().IsServer();
     }
 
     protected HCInfectedActor FindActor(ZombieBase entity)

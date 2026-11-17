@@ -61,7 +61,7 @@ class HCInteriorStore
     bool Open(HCInteriorConfig config, HCInteriorManifest expected)
     {
         if (m_Fault || !config || !expected) return false;
-        if (expected.Epoch != config.Epoch || expected.MapName != config.MapName || expected.Build != config.Build || expected.Seed != config.Seed) return Fail("manifest/config world/build/epoch/seed mismatch");
+        if (expected.Epoch != config.Epoch || expected.MapName != config.MapName || !HCBuildIdentity.SameBuild(expected.Build, config.Build) || expected.Seed != config.Seed) return Fail("manifest/config world/build/epoch/seed mismatch");
         m_Pool = new HCInteriorSearchPool;
         if (!m_Pool.Open(expected)) return Fail("invalid or over-budget allocation manifest");
         m_Root = "$profile:HollowCountry/interiors_s1_e" + config.Epoch.ToString();
@@ -76,6 +76,10 @@ class HCInteriorStore
         }
         HCInteriorManifest actual;
         if (!HCInteriorJson<HCInteriorManifest>.Load(m_Root + "/manifest.json", actual)) return Fail("missing/corrupt/oversized manifest; no backup rewind");
+        // Admitted build aliases are one identity. Normalise the in-memory images only for this
+        // exact comparison; the stored manifest file is never rewritten.
+        expected.Build = HCBuildIdentity.Normalize(expected.Build);
+        actual.Build = HCBuildIdentity.Normalize(actual.Build);
         string left;
         string right;
         string error;
@@ -105,6 +109,9 @@ class HCInteriorStore
         HCInteriorJournalIdentity actual;
         if (!HCInteriorJson<HCInteriorJournalIdentity>.Load(path, actual) || !actual) return Fail("journal identity corrupt/oversized; no migration replay");
         if (!HCInteriorRules.JournalVersionAccepted(actual.SchemaVersion, actual.SourceSchema) || !actual.Manifest) return Fail("journal version unsupported; no downgrade");
+        // Same alias rule for the embedded manifest; the journal file keeps its stored spelling.
+        expected.Manifest.Build = HCBuildIdentity.Normalize(expected.Manifest.Build);
+        actual.Manifest.Build = HCBuildIdentity.Normalize(actual.Manifest.Build);
         string left;
         string right;
         string error;
