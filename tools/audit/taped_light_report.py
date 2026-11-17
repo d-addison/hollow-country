@@ -66,6 +66,27 @@ model: rows of the same model that disagree on it are malformed. The proxy name 
     pattern; it does not prove client rendering, which stays pending with the other unobserved axes.
   * A truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
 
+Fix round 6 (probe-004: the dedicated server answered no view LOD on any host and no proxy config entry was found):
+  * view_lod_absent_on_server: the server listed its LODs (Object.GetLODS/GetLODName, ``lod_list_ok``) and none of them
+    is named "view" (the script lookup Object.c:106-122 compares the lower-cased name). The names are reported per host
+    under ``diagnostics.lod``; no other LOD is ever substituted for the view LOD. A failed or missing LOD list stays
+    view_lod_missing. LOD facts that contradict each other (``view_lod`` against ``view_by_name`` or against a name list
+    that is complete, a count below the listed names, more than eight names, a failed list that reports names) are
+    malformed.
+  * proxy_config_name_mismatch: the earlier producer derived the config class from the whole path ("Proxy" + the path,
+    or "Proxy/dz/...") because it looked for the base name before normalising backslashes. A row from that producer (no
+    ``cfg_tried`` facts) whose cfg_class is exactly that whole-path spelling is internally consistent and was never a
+    config lookup of the real class: it is pending with this reason and the host is not trusted, not malformed. Any other
+    class mismatch, and a whole-path class next to ``cfg_tried`` facts, stays malformed.
+  * Finding, not a conclusion: every caller of AttachmentsOutOfReach.IsAttachmentReachable (the view-LOD pattern this join
+    copies) is in 5_Mission/GUI/InventoryNew, the client inventory UI. A dedicated server therefore may simply not hold a
+    view LOD; probe-004 measured a null GetLODByName(LOD.NAME_VIEW) but not why, and that stays open until the LOD names
+    of a native run are read. Without a server-side view LOD this evidence axis can only be completed by a client run.
+  * ``cfg_tried``/``cfg_tried_exists`` (at most four names, the first being cfg_class and its ConfigIsExisting answer)
+    and ``sep_slash``/``sep_backslash`` (separator counts of the raw selection name) are validated when present.
+  * The header ``diagnostics`` (string self-test, CfgNonAIVehicles scan) and the per-host LOD names and proxy-name facts
+    are carried into the report as ``native_diagnostics`` and ``hosts[].diagnostics``. They never change a verdict.
+
 Attachment read-back must be self-consistent everywhere: found_type is filled only after a successful create,
 so a non-empty found_type with attach_ok false, or attach_ok true with an empty found_type, is contradictory
 evidence and makes the attempt (base, variant or control) invalid.
@@ -110,7 +131,8 @@ CONSUMED_KEYS = (
     "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
     "selection", "cfg_class", "cfg_exists", "model", "inventory_slots", "slot_count", "slot_scan_complete",
     "view_lod", "view_selection_count", "view_scan_complete", "view_list_ok", "view_selection", "view_vertex_ok",
-    "view_vertex")
+    "view_vertex", "cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash", "lod_list_ok", "lod_count",
+    "lod_names", "lod_names_complete", "view_by_name", "diagnostics", "string_self_test", "cfg_nonai_scan")
 
 MISSING = object()   # absent or wrongly typed evidence
 
@@ -300,7 +322,11 @@ PROXY_ROW_KINDS = (("selection", "str"), ("cfg_class", "str"), ("cfg_exists", "b
                    ("inventory_slots", "list"), ("slot_count", "int"), ("slot_scan_complete", "bool"),
                    ("view_selection", "str"), ("view_vertex_ok", "bool"), ("view_vertex", "list"))
 VIEW_HOST_KEYS = ("view_lod", "view_selection_count", "view_scan_complete", "view_list_ok")
-PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS
+LOD_HOST_KEYS = ("lod_list_ok", "lod_count", "lod_names", "lod_names_complete", "view_by_name")
+PROXY_HOST_KEYS = ("proxies", "proxy_count", "proxy_scan_complete") + VIEW_HOST_KEYS + LOD_HOST_KEYS
+ROW_FACT_KEYS = ("cfg_tried", "cfg_tried_exists", "sep_slash", "sep_backslash")
+MAX_LOD_NAMES = 8       # taped_light_probe.HCTL_LOD_NAMES (a test keeps both in step)
+MAX_TRIED_NAMES = 4
 
 
 def _proxy_row(entry):
@@ -311,11 +337,61 @@ def _proxy_row(entry):
     listed = len(values["inventory_slots"])
     if values["slot_count"] < listed or values["slot_scan_complete"] != (values["slot_count"] == listed):
         return None       # the hook caps the slot list: a count above the listed slots is a truncated list
+    values["cfg_tried"] = None       # legacy producer: the names it tried are unknown
+    present = [key in entry for key in ROW_FACT_KEYS]
+    if any(present):
+        facts = _row_facts(entry, values)
+        if facts is None:
+            return None
+        values.update(facts)
     return values
 
 
+def _row_facts(entry, values):
+    """The round-6 per-row facts, or None when a key is missing, mistyped or contradicts the row."""
+    names, answers = _get(entry, "cfg_tried", "list"), _get(entry, "cfg_tried_exists", "list")
+    slash, backslash = _get(entry, "sep_slash", "int"), _get(entry, "sep_backslash", "int")
+    if MISSING in (names, answers, slash, backslash) or slash < 0 or backslash < 0:
+        return None
+    if not 1 <= len(names) <= MAX_TRIED_NAMES or len(answers) != len(names):
+        return None
+    if not all(isinstance(name, str) for name in names) or not all(isinstance(item, bool) for item in answers):
+        return None
+    if names[0] != values["cfg_class"] or answers[0] != values["cfg_exists"]:
+        return None       # the first name tried is the row's class and its answer is cfg_exists
+    return {"cfg_tried": tuple(names), "cfg_tried_exists": tuple(answers), "sep_slash": slash, "sep_backslash": backslash}
+
+
+def _lod_facts(row, view_lod):
+    """None for a legacy row without LOD facts, MISSING when they are partial, mistyped or contradictory, else the facts.
+
+    The hook resolves the view LOD itself over every LOD the engine lists (the names are capped at eight for the report),
+    so ``view_lod`` false with a successful list is a measured absence; a "view" name in the list (case-insensitive,
+    as Object.c:106-122 compares) contradicts it, and a complete list without that name contradicts view_lod true."""
+    present = [key in row for key in LOD_HOST_KEYS]
+    if not any(present):
+        return None
+    listed, count, names = _get(row, "lod_list_ok", "bool"), _get(row, "lod_count", "int"), _get(row, "lod_names", "list")
+    complete, by_name = _get(row, "lod_names_complete", "bool"), _get(row, "view_by_name", "bool")
+    if not all(present) or MISSING in (listed, count, names, complete, by_name, view_lod):
+        return MISSING
+    if not all(isinstance(name, str) for name in names) or count < 0 or len(names) > min(count, MAX_LOD_NAMES):
+        return MISSING
+    named = any(name.casefold() == "view" for name in names)
+    if by_name != view_lod or complete != (count == len(names)) or (not listed and (count or view_lod)):
+        return MISSING
+    if (named and not view_lod) or (view_lod and complete and not named):
+        return MISSING
+    return {"list_ok": listed, "count": count, "names": list(names), "names_complete": complete, "view_by_name": by_name}
+
+
+def _whole_path_class(cfg_class, path):
+    """True for exactly the earlier producer's mistake: "Proxy" + the whole path, with or without the leading slash."""
+    return "/" in path and cfg_class.casefold() in ("proxy" + path, "proxy/" + path)
+
+
 def _proxies(row):
-    """Typed proxy evidence of a host row: ("missing",), ("malformed",) or ("ok", rows, truncated, view).
+    """Typed proxy evidence of a host row: ("missing",), ("malformed",), ("mismatch",) or ("ok", rows, truncated, view).
 
     Everything that makes the host's own read-back contradict itself is malformed here, before any slot is matched:
     a malformed proxy name, a duplicate selection identity (even when the copies agree), rows that read the same
@@ -331,12 +407,20 @@ def _proxies(row):
             or MISSING in view.values() or view["count"] < 0 \
             or (view["listed"] and not view["lod"]) or (not view["listed"] and (view["count"] or view["complete"])):
         return ("malformed",)       # no list without a LOD; a failed or skipped list has no selections and is not complete
-    rows, identities, lookups = [], set(), {}
+    facts = _lod_facts(row, view["lod"])
+    if facts is MISSING:
+        return ("malformed",)
+    view["absent"] = bool(facts and facts["list_ok"] and not view["lod"])       # measured: the server listed its LODs
+    rows, identities, lookups, mismatch = [], set(), {}, False
     for entry in entries:
         values = _proxy_row(entry)
         name = _proxy_name(values["selection"]) if values else None
-        if name is None or values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
+        if name is None:
             return ("malformed",)
+        if values["cfg_class"].casefold() != ("Proxy" + name[0].rsplit("/", 1)[-1]).casefold():
+            if values["cfg_tried"] is not None or not _whole_path_class(values["cfg_class"], name[0]):
+                return ("malformed",)
+            mismatch = True       # the earlier producer's whole-path class: consistent, but not a lookup of the real class
         lookup = (values["cfg_exists"], values["model"], tuple(values["inventory_slots"]), values["slot_count"],
                   values["view_selection"], values["view_vertex_ok"], tuple(values["view_vertex"]))
         if name in identities or lookups.setdefault(values["cfg_class"].casefold(), lookup) != lookup \
@@ -344,6 +428,8 @@ def _proxies(row):
             return ("malformed",)
         identities.add(name)
         rows.append(dict(values, path=name[0]))
+    if mismatch:
+        return ("mismatch",)
     return ("ok", rows, count > len(entries) or not complete, view)
 
 
@@ -365,7 +451,7 @@ def _vertex(values):
 def _view_problem(item, view):
     """Pending reason when the row's view-LOD join does not hold up, else None. Nothing unknown is a pass."""
     if not view["lod"]:
-        return "view_lod_missing"
+        return "view_lod_absent_on_server" if view["absent"] else "view_lod_missing"
     if not view["listed"]:
         return "view_enumeration_failed"       # LOD.GetSelections reported failure: its output is unknown
     if not item["view_selection"]:
@@ -375,6 +461,52 @@ def _view_problem(item, view):
     if not item["view_vertex_ok"]:
         return "view_vertex_missing"
     return None if _vertex(item["view_vertex"]) else "view_vertex_invalid"
+
+
+def _host_diagnostics(row):
+    """Per-host native facts for the reader: the LOD names and what each proxy row tried. Never read for a verdict."""
+    facts = _lod_facts(row, _get(row, "view_lod", "bool"))
+    lod = {"status": "absent"} if facts is None else {"status": "malformed"} if facts is MISSING else facts
+    names = []
+    for entry in row.get("proxies") if isinstance(row.get("proxies"), list) else []:
+        values = _proxy_row(entry)
+        if values and values["cfg_tried"] is not None:
+            names.append({"selection": values["selection"], "cfg_tried": list(values["cfg_tried"]),
+                          "cfg_tried_exists": list(values["cfg_tried_exists"]), "sep_slash": values["sep_slash"],
+                          "sep_backslash": values["sep_backslash"]})
+    return {"lod": lod, "proxy_names": names}
+
+
+def _native_diagnostics(observations):
+    """The header diagnostics (string self-test and CfgNonAIVehicles scan) when they are well formed.
+
+    ``{"status": "absent"}`` for observations taken before the hook wrote them, ``{"status": "malformed"}`` when any
+    value has the wrong type; nothing malformed is carried. They are measurements for the reader, not evidence."""
+    if "diagnostics" not in observations:
+        return {"status": "absent"}
+    raw = observations["diagnostics"]
+    if not isinstance(raw, dict):
+        return {"status": "malformed"}
+    result = {"status": "ok"}
+    test = raw.get("string_self_test")
+    if "string_self_test" in raw:
+        if not isinstance(test, dict) or not isinstance(test.get("sample"), str) \
+                or not all(_int(value) for key, value in test.items() if key != "sample"):
+            return {"status": "malformed"}
+        result["string_self_test"] = dict(test)
+    scan = raw.get("cfg_nonai_scan")
+    if "cfg_nonai_scan" in raw:
+        children = scan.get("weaponlight_children") if isinstance(scan, dict) else None
+        if not isinstance(scan, dict) or not isinstance(children, list) or len(children) > 8 \
+                or not all(isinstance(child, dict) and isinstance(child.get("name"), str)
+                           and isinstance(child.get("model"), str) for child in children) \
+                or not all(_int(scan.get(key)) for key in ("child_count", "scanned", "proxy_named")) \
+                or not isinstance(scan.get("complete"), bool):
+            return {"status": "malformed"}
+        result["cfg_nonai_scan"] = {"child_count": scan["child_count"], "scanned": scan["scanned"],
+                                    "complete": scan["complete"], "proxy_named": scan["proxy_named"],
+                                    "weaponlight_children": [dict(child) for child in children]}
+    return result
 
 
 def _model_evidence(host_slot, slot, proxies):
@@ -391,6 +523,8 @@ def _model_evidence(host_slot, slot, proxies):
         return "selection", None, None
     if proxies[0] == "missing":
         return "pending", "proxy_evidence_missing", None
+    if proxies[0] == "mismatch":
+        return "pending", "proxy_config_name_mismatch", None
     _kind, rows, truncated, view = proxies
     wanted, pending, slot_list_cut = slot.casefold(), None, False
     for item in rows:
@@ -588,6 +722,7 @@ def _evaluate_host(entry, rows, context):
         return dict(base, verdict="pending", reasons=["invalid_probe_row"])
     if not spawned:
         return dict(base, verdict="pending", reasons=["host_not_spawned"])
+    base["diagnostics"] = _host_diagnostics(row)
     reasons = set()
     if _get(row, "type", "str") != entry["name"]:
         reasons.add("spawned_type_mismatch")
@@ -747,7 +882,7 @@ def build_report(classification, observations, provenance=None):
         "probe": {key: observations.get(key) for key in ("status", "world", "version", "classes", "observed",
                                                          "hard_cap", "per_class_ms")},
         "representative_lights": representatives, "control_lights": controls, "native_light_slots": slot_names,
-        "integrity": integrity,
+        "integrity": integrity, "native_diagnostics": _native_diagnostics(observations),
         "control": {"unexpected_attachments": control_hits},
         "hosts": host_records,
         "denominators": dict({name: counts.get(name, 0) for name in VERDICT_ORDER}, hosts=len(host_records),

@@ -264,6 +264,20 @@ class HookExpressionLintTests(unittest.TestCase):
     def chain(self, plus_count):
         return '        row = ' + " + ".join(['"x"'] * (plus_count + 1)) + ";"
 
+    def test_a_ref_or_autoptr_returning_method_is_linted_like_any_other(self):
+        """Review 006: ``ref array<string> HCReview()`` was not recognised as a method header, so duplicate locals, an
+        over-long statement or a late out argument inside it were never seen."""
+        for modifier in ("ref ", "autoptr ", "protected ref ", "static ref "):
+            with self.subTest(modifier):
+                header = modifier + "array<string> HCReview()"
+                duplicate = "        int sample = 0;\n        int sample = 1;\n        return null;"
+                self.assertTrue(any("sample" in item for item in self.issues(duplicate, header=header)),
+                                self.issues(duplicate, header=header))
+                self.assertTrue(any("binary '+'" in item for item in self.issues(self.chain(rt.MAX_STATEMENT_PLUS + 1) +
+                                                                                 "\n        return null;", header=header)))
+        clean = "        int sample = 0;\n        return null;"
+        self.assertEqual([], self.issues(clean, header="ref array<string> HCReview()"))
+
     def test_the_bound_is_the_observed_native_maximum_and_cites_its_evidence(self):
         self.assertEqual(9, rt.MAX_STATEMENT_PLUS)
         for phrase in ("Formula too complex", "164289", "ce-probe-001"):

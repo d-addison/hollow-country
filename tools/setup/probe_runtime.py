@@ -158,14 +158,16 @@ _NOT_TYPES = frozenset({"return", "new", "class", "typename", "modded", "overrid
 # A method header at any indentation, with the opening brace on its own line or on the header line.
 # `else if (...) {` is the one control-flow shape that looks like `type name(...)`, so it is excluded.
 _FUNCTION = re.compile(
-    r"^[ \t]*((?:(?:override|static|protected|private)[ \t]+)*)(?!(?:else|return|new|delete|case)\b)[\w<>]+[ \t]+"
+    r"^[ \t]*((?:(?:override|static|protected|private|ref|autoptr|owned|notnull)[ \t]+)*)"
+    r"(?!(?:else|return|new|delete|case)\b)[\w<>]+[ \t]+"
     r"(?!(?:if|while|for|foreach|switch)\b)(\w+)[ \t]*\(([^()]*)\)\s*\{", re.M)
 _STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
 _EXPONENT = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
 # (callee, positions of arguments that are `out` parameters and must be declared first); the union
 # of what the CE hook and the taped-light hook call, so one lint covers both generated hooks.
 _OUT_CALLS = (("GetObjectsAtPosition3D", (2, 3)), ("ClippingInfo", (0,)), ("GetCollisionBox", (0,)),
-              ("GetSelectionForSlotId", (1,)), ("GetBoneNameForSlotId", (1,)), ("GetSelectionList", (0,)))
+              ("GetSelectionForSlotId", (1,)), ("GetBoneNameForSlotId", (1,)), ("GetSelectionList", (0,)),
+              ("GetLODS", (0,)), ("ConfigGetChildName", (2,)))
 
 # Native compile evidence for the expression limits below. A real DayZServer 1.30.164289 run refused
 # the generated taped-light init.c with `Formula too complex` and `Incompatible parameter 'slot'` on
@@ -184,7 +186,7 @@ _NUMERIC_LITERAL = re.compile(r"^-?\d+(?:\.\d+)?$")
 _CALL_TERM = re.compile(r"^(\w+)\s*\(.*\)$", re.S)
 _NUMERIC_METHOD = re.compile(r"\.(?:Count|Length|IndexOf|GetTime)\s*\([^()]*\)$", re.S)
 _FUNCTION_RETURN = re.compile(
-    r"^[ \t]*(?:(?:override|static|protected|private)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
+    r"^[ \t]*(?:(?:override|static|protected|private|ref|autoptr|owned|notnull)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
 
 
 def _clean(text):
