@@ -1053,7 +1053,7 @@ class WindowsLaunchScriptStaticTests(unittest.TestCase):
             self.assertNotIn(claim, self.script)
 
     def test_probe_kind_is_an_allowlisted_parameter_mapping_to_fixed_plan_dir_and_output(self):
-        self.assertRegex(self.script, r"\[ValidateSet\('ce-probe', 'taped-light-probe'\)\]\s*\[string\]\$Kind = 'ce-probe'")
+        self.assertRegex(self.script, r"\[ValidateSet\('ce-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler'\)\]\s*\[string\]\$Kind = 'ce-probe'")
         table = {
             "ce-probe": ("ce-probe-plan.json", "HCCEProbe", "census.json"),
             "taped-light-probe": ("taped-light-probe-plan.json", "HCTapedLightProbe", "observations.json"),

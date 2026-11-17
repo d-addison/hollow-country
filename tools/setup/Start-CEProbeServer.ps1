@@ -7,7 +7,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Runtime,
-    [ValidateSet('ce-probe', 'taped-light-probe')]
+    [ValidateSet('ce-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler')]
     [string]$Kind = 'ce-probe',
     [ValidateRange(0, 120)]
     [int]$TimeoutMinutes = 0
@@ -64,6 +64,31 @@ function Get-FileRecords {
     }
     return $records
 }
+# A server that refuses the mission script stays alive on its error dialog until stopped
+# (taped-light-probe-002). Read only a bounded tail of the newest script log, sharing the file
+# with the server that is still writing it. A crash_*.log alone is not a compile failure: the
+# completed taped-light-probe-003 run also wrote one, for non-fatal script VM exceptions.
+function Test-CompileRefused {
+    param([string]$Directory)
+    if (-not [System.IO.Directory]::Exists($Directory)) { return $false }
+    $newest = @([System.IO.Directory]::GetFiles($Directory, 'script_*.log') | Sort-Object { [System.IO.File]::GetLastWriteTimeUtc($_) } | Select-Object -Last 1)
+    if ($newest.Count -eq 0) { return $false }
+    $tail = 65536
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($newest[0], [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $start = [Math]::Max([long]0, $stream.Length - $tail)
+        [void]$stream.Seek($start, [System.IO.SeekOrigin]::Begin)
+        $buffer = New-Object byte[] ([int]($stream.Length - $start))
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+        $text = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $read)
+        return ($text.Contains("Can't compile"))
+    } catch [System.IO.IOException] {
+        return $false
+    } finally {
+        if ($null -ne $stream) { $stream.Dispose() }
+    }
+}
 
 $parent = 'D:\HollowCountryLocal'
 $install = 'D:\SteamLibrary\steamapps\common\DayZServer'
@@ -86,6 +111,8 @@ Assert-NoReparsePoints -Path $install -AncestorsOnly
 $probes = @{
     'ce-probe' = @{ Plan = 'ce-probe-plan.json'; Directory = 'HCCEProbe'; Output = 'census.json' }
     'taped-light-probe' = @{ Plan = 'taped-light-probe-plan.json'; Directory = 'HCTapedLightProbe'; Output = 'observations.json' }
+    'weather-probe' = @{ Plan = 'weather-probe-plan.json'; Directory = 'HCWeatherProbe'; Output = 'observations.json' }
+    'interior-sampler' = @{ Plan = 'interior-sampler-plan.json'; Directory = 'HCInteriorSampler'; Output = 'census.json' }
 }
 $probe = $probes[$Kind]
 $planPath = Join-Path $root $probe.Plan
@@ -140,6 +167,7 @@ try {
         $server.Refresh()
         if ([System.IO.File]::Exists($sentinel)) { $outcome = 'sentinel-seen'; break }
         if ($server.HasExited) { $outcome = 'process-exited-before-sentinel'; break }
+        if (Test-CompileRefused "$root\profiles") { $outcome = 'compile-failed'; break }
     }
     if ($outcome -eq 'sentinel-seen') { Start-Sleep -Seconds 5 }
 } finally {
@@ -177,6 +205,7 @@ $report = [ordered]@{
     sentinel = $sentinelRecord
     rpt_logs = @(Get-FileRecords $profiles '*.RPT' ([System.IO.SearchOption]::TopDirectoryOnly))
     script_logs = @(Get-FileRecords $profiles 'script_*.log' ([System.IO.SearchOption]::TopDirectoryOnly))
+    crash_logs = @(Get-FileRecords $profiles 'crash_*.log' ([System.IO.SearchOption]::TopDirectoryOnly))
     error_logs = @(Get-FileRecords $profiles 'error_*.log' ([System.IO.SearchOption]::TopDirectoryOnly))
     admin_logs = @(Get-FileRecords $profiles '*.ADM' ([System.IO.SearchOption]::TopDirectoryOnly))
     probe_outputs = @(Get-FileRecords "$profiles\$($probe.Directory)" '*' ([System.IO.SearchOption]::TopDirectoryOnly))

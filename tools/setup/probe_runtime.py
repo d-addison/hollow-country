@@ -752,7 +752,9 @@ def plan_runtime_fields(context, built):
 
 # What the launcher fixes per probe kind; nothing is read from the plan to choose these.
 LAUNCHER_PROBES = {"ce-probe": ("ce-probe-plan.json", "HCCEProbe", "census.json"),
-                   "taped-light-probe": ("taped-light-probe-plan.json", "HCTapedLightProbe", "observations.json")}
+                   "taped-light-probe": ("taped-light-probe-plan.json", "HCTapedLightProbe", "observations.json"),
+                   "weather-probe": ("weather-probe-plan.json", "HCWeatherProbe", "observations.json"),
+                   "interior-sampler": ("interior-sampler-plan.json", "HCInteriorSampler", "census.json")}
 
 
 def launcher_problems(plan, destination, plan_name):
