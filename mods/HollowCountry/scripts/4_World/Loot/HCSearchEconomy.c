@@ -51,6 +51,10 @@ class HCSearchEconomy
 
     void SetEnabled(bool enabled) { m_Enabled = enabled; }
 
+    // True while this economy may still grant. Fail()/Stop() clear it, which also
+    // releases the process-wide service and registry ownership for a replacement.
+    bool Serving() { return m_Ready; }
+
     bool Fail(string reason)
     {
         m_Ready = false;
@@ -60,14 +64,14 @@ class HCSearchEconomy
 
     bool Open(HCSearchManifest expected, HCSearchSupplyRegistry source, bool initializeNewEpoch)
     {
-        if (s_Active || m_Store || !GetGame().IsServer()) return Fail("duplicate service or not server");
+        if ((s_Active && s_Active.Serving()) || m_Store || !GetGame().IsServer()) return Fail("duplicate service or not server");
         if (!HCSearchRules.ManifestValid(expected)) return Fail("invalid bounded allocation manifest");
         if (!source || !source.ReadyFor(expected)) return Fail("missing exact pinned native source registry");
         m_Store = new HCSearchEconomyStore;
         if (!m_Store.Open(expected, initializeNewEpoch)) return Fail("manifest/journal unavailable; preserve state");
         m_Manifest = m_Store.Snapshot();
         m_Source = source;
-        source.Seal();
+        source.Seal(this);
         int index;
         while (index < m_Manifest.Entries.Count())
         {
@@ -85,6 +89,10 @@ class HCSearchEconomy
     {
         m_Ready = false;
         if (s_Active == this) s_Active = null;
+        // Hand the pinned handles back so a later lifecycle can rebind untouched supply.
+        // The registry defers this itself while a transfer is mid-flight; the journal
+        // (and so every consumed supply) is untouched either way.
+        if (m_Source) m_Source.Retire();
     }
 
     int Index(string siteId)
