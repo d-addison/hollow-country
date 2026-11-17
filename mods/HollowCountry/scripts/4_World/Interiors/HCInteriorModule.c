@@ -373,6 +373,7 @@ class HCInteriorsModule : HCModule
             }
         }
         foreach (Object ownedObject : created) m_Objects.Insert(ownedObject);
+        HCInteriorPathgraph.Schedule(created);
         if (site && !FindSite(site.Target)) m_Sites.Insert(site);
     }
 

@@ -67,8 +67,11 @@ class HCActionSearchInterior : ActionContinuousBase
 
     override void OnFinishProgressServer(ActionData action_data)
     {
+        int phaseBefore = HCSearchNoise.PhaseOf(action_data);
         HCInteriorsModule module = HCInteriorsModule.Get();
         if (module) module.CommitSearch(action_data);
+        // One native AI noise only if this commit completed the search.
+        HCSearchNoise.OnCommitted(action_data, phaseBefore);
     }
 
     override void OnEndServer(ActionData action_data)

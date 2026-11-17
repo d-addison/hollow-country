@@ -8,14 +8,27 @@ one byte snapshot and requires the actual external outcome/duration. These are
 correlations, not authentication. No ragdoll/render/gameplay acceptance follows.
 Native cap 60s; external total cap 180s including startup and cleanup; two cases,
 one victim plus one owned Stone source, 2s deletion windows, 16 samples/case.
-No filesystem writes, process launch, assets or balance/config installation.
+No process launch, assets or balance/config installation. stage() is the only
+filesystem write: it creates a fresh directory of the bundle plus the packed
+probe PBO and never launches anything.
+
+Optional request fields (absent = the original probe text, byte for byte):
+spawn_profile names the victim creation flags (initai-only reproduces the
+unexplained run-065 access violation; surface-initai matches vanilla debug and
+the run-047 spawn; surface-only has no AI agent and bisects the crash).
+selection "policy" adds the production HCInfectedDeathPolicy file and replaces
+the forced case-1 IMPULSE with that policy's decision for a heavy frontal
+torso kill. None of this establishes DayZ behavior until a real run is observed.
 """
+import argparse
 import copy
+import hashlib
 import json
 import math
 from pathlib import Path
 import re
 import secrets
+import struct
 
 from tools.setup import diagnostic_mission as staging
 from tools.setup import native_startup_probe as syntax
@@ -28,6 +41,23 @@ PREFIX = "addon/$PBOPREFIX$"
 RESULT = "hc-death-selection-result.json"
 KIND = "native-death-selection-observations"
 CASES = ("vanilla", "impulse-selection")
+CASES_POLICY = ("vanilla", "policy-selection")
+POLICY = "addon/scripts/4_World/HCInfectedDeathPolicy.c"
+STAGED_PBO = "@HCDeathSelectionProbe/addons/hc-death-selection.pbo"
+POLICY_SIGNATURE = ("static int SelectDeathType(int nativeType, bool finisher, int ammoHitAnimation, "
+                    "bool heavyOverride, string zone, float hitDirection)")
+POLICY_FORBIDDEN = ("StartCommand_Death", "dBodyApply", "SetPosition", "PhysicsSet", "SetHealth", "HCDS")
+MAX_POLICY_BYTES = 64*1024
+SPAWN_PROFILES = {"initai-only": "ECE_INITAI",
+                  "surface-initai": "ECE_PLACE_ON_SURFACE|ECE_INITAI",
+                  "surface-only": "ECE_PLACE_ON_SURFACE"}
+BASE_REQUEST = "world_name engine_version stock_init_sha256 victim_position source_position".split()
+OPTIONAL_REQUEST = ("spawn_profile", "selection")
+CASE_FIELDS = ("index name spawn_frame spawn_queue damage_frame damage_queue command_frame delete_frame "
+               "delete_queue cleanup_frame cleanup_queue spawn_elapsed damage_elapsed command_elapsed "
+               "delete_elapsed cleanup_elapsed damage_calls eval_calls before_type after_type command_type "
+               "hit_direction command_direction ammo zone ammo_physics_flag ammo_damage cleanup_confirmed samples")
+POLICY_FRONT_HALF_ANGLE = 60
 MAX_BYTES = 256*1024
 MAX_OUTER_SECONDS = 180
 ENGINE_VERSION = "1.30.164289.70"
@@ -101,7 +131,12 @@ def _vector(value):
     return value
 
 def _request(req, stock=None):
-    _fields(req, "world_name engine_version stock_init_sha256 victim_position source_position")
+    _need(type(req) is dict and set(BASE_REQUEST) <= set(req) and set(req) <= set(BASE_REQUEST) | set(OPTIONAL_REQUEST),
+          "exact fields required")
+    if "spawn_profile" in req:
+        _need(type(req["spawn_profile"]) is str and req["spawn_profile"] in SPAWN_PROFILES, "known spawn profile")
+    if "selection" in req:
+        _need(type(req["selection"]) is str and req["selection"] == "policy", "known selection mode")
     _need(req["world_name"] == "chernarusplus" and req["engine_version"] == ENGINE_VERSION,
           "fixed inspected world/build required")
     _need(type(req["stock_init_sha256"]) is str and re.fullmatch("[0-9a-f]{64}",req["stock_init_sha256"]),
@@ -112,6 +147,21 @@ def _request(req, stock=None):
     _need(all(1 <= v[i] <= 100000 for v in (a,b) for i in (0,2)), "world coordinates")
     _need(1 <= sum((a[i]-b[i])**2 for i in range(3)) <= 25, "source distance 1..5m")
     return req
+
+def _policy_mode(req):
+    return req.get("selection") == "policy"
+
+def _cases(req):
+    return CASES_POLICY if _policy_mode(req) else CASES
+
+def _policy_source(blob):
+    _need(type(blob) is bytes and 0 < len(blob) <= MAX_POLICY_BYTES, "bounded policy source required")
+    try: text = blob.decode("utf-8")
+    except UnicodeError as exc: raise ValueError("policy UTF-8 required") from exc
+    flat = " ".join(text.split())
+    _need("class HCInfectedDeathPolicy" in flat and POLICY_SIGNATURE in flat, "policy class and selector required")
+    _need(not any(token in text for token in POLICY_FORBIDDEN), "policy contains forbidden calls")
+    return blob
 
 def inspect_interfaces(root):
     return {name: _read(Path(root)/name, 2*1024*1024) for name in INTERFACES}
@@ -164,9 +214,12 @@ class HCDSMission : CustomMission
 }
 """
 
-def generate_probe(init_bytes, request, interfaces, run_id=None):
+def generate_probe(init_bytes, request, interfaces, run_id=None, policy_source=None):
     init_bytes = _bytes(init_bytes,staging.MAX_INIT_BYTES)
     req = copy.deepcopy(_request(request,init_bytes))
+    policy = _policy_mode(req)
+    _need(policy == (policy_source is not None), "policy source exactly when selection is policy")
+    if policy: _policy_source(policy_source)
     run_id = secrets.token_hex(16) if run_id is None else run_id
     _need(type(run_id) is str and re.fullmatch("[0-9a-f]{32}",run_id), "hex run nonce")
     records = _interfaces(interfaces)
@@ -176,30 +229,52 @@ def generate_probe(init_bytes, request, interfaces, run_id=None):
     # The inspected normal server rejects a guard continuation beginning with
     # ||/&& (native compile 062). Keep each logical expression on one line.
     native = re.sub(r'\n\s*(\|\||&&)\s*', r' \1 ', NATIVE)
+    replacements.update(_variant(req))
     for key, value in replacements.items(): native = native.replace(key,value)
     files = {"init.c":_instrument(init_bytes), PROVIDER:native.encode(),
              CONFIG:ADDON.encode(), PREFIX:b"HCDeathSelectionProbe"}
+    if policy: files[POLICY] = policy_source
     manifest = dict(schema=1,kind=KIND,run_id=run_id,request=req,
         request_sha256=_sha(_encode(req)),interfaces=records,
         ce_initialization="omitted",max_outer_seconds=180,native_watchdog_seconds=60,
-        max_owned_entities=2,cases=list(CASES),
+        max_owned_entities=2,cases=list(_cases(req)),
         files={n:dict(bytes=len(v),sha256=_sha(v)) for n,v in files.items()})
     files[MARKER] = _encode(manifest)
     for v in files.values(): _bytes(v)
     _need(sum(map(len,files.values())) <= MAX_BYTES, "bundle total bound")
     return files
 
+def _variant(req):
+    """Template substitutions; the absent-optional values reproduce the original text exactly."""
+    flags = SPAWN_PROFILES[req.get("spawn_profile", "initai-only")]
+    values = {"@VFLAGS@":flags, "@CASE1NAME@":_cases(req)[1], "@CASEFIELDS@":"", "@PREDAMAGE@":"",
+        "@SELECT@":"if (HCDS.Row.index == 1) pAnimType = DayZInfectedDeathAnims.ANIM_DEATH_IMPULSE;"}
+    if _policy_mode(req):
+        values["@CASEFIELDS@"] = "\n    int policy_type = -1;\n    int heavy_override;"
+        values["@PREDAMAGE@"] = ("\n        if (Row.index == 1)\n        {\n"
+            "            Victim.m_HeavyHitOverride = true;\n            Row.heavy_override = 1;\n        }")
+        values["@SELECT@"] = ("if (HCDS.Row.index == 1)\n        {\n"
+            "            int ammoHitAnimation = GetGame().ConfigGetInt(\"cfgAmmo \" + data.m_AmmoType + \" hitAnimation\");\n"
+            "            HCDS.Row.policy_type = HCInfectedDeathPolicy.SelectDeathType(pAnimType, IsBeingBackstabbed(), "
+            "ammoHitAnimation, m_HeavyHitOverride, data.m_DamageZone, pAnimHitDir);\n"
+            "            pAnimType = HCDS.Row.policy_type;\n        }")
+    return values
+
 def _bundle(files):
-    _need(type(files) is dict and set(files) == {"init.c",PROVIDER,CONFIG,PREFIX,MARKER}, "exact bundle")
+    _need(type(files) is dict and MARKER in files, "exact bundle")
+    manifest = _json(_bytes(files[MARKER]))
+    _need(type(manifest.get("request")) is dict, "manifest request")
+    names = {"init.c",PROVIDER,CONFIG,PREFIX,MARKER}
+    if _policy_mode(manifest["request"]): names.add(POLICY)
+    _need(set(files) == names, "exact bundle")
     _need(sum(len(_bytes(v)) for v in files.values()) <= MAX_BYTES, "bundle bound")
-    manifest = _json(files[MARKER])
     _fields(manifest,"schema kind run_id request request_sha256 interfaces ce_initialization max_outer_seconds native_watchdog_seconds max_owned_entities cases files")
     _need(type(manifest["schema"]) is int and manifest["schema"] == 1 and manifest["kind"] == KIND, "manifest schema")
     _need(type(manifest["run_id"]) is str and re.fullmatch("[0-9a-f]{32}",manifest["run_id"]), "manifest nonce")
     _request(manifest["request"])
     _need(manifest["request_sha256"] == _sha(_encode(manifest["request"])), "request pin")
     for k, wanted in (("ce_initialization","omitted"),("max_outer_seconds",180),
-        ("native_watchdog_seconds",60),("max_owned_entities",2),("cases",list(CASES))):
+        ("native_watchdog_seconds",60),("max_owned_entities",2),("cases",list(_cases(manifest["request"])))):
         _need(manifest[k] == wanted and type(manifest[k]) is type(wanted), "manifest policy")
     _need(type(manifest["interfaces"]) is dict and set(manifest["interfaces"]) == set(INTERFACES), "interface pins")
     for pin in manifest["interfaces"].values():
@@ -235,10 +310,11 @@ def validate_receipt(receipt_bytes, files, *, outer_timed_out, outer_elapsed_sec
     _need(elapsed <= outer_elapsed_seconds, "native duration beyond outer duration")
     _int(row["peak_owned_entities"],2,2); _int(row["owned_entities_remaining"],0,0)
     _need(type(row["cases"]) is list and len(row["cases"]) == 2, "two cases required")
+    policy = _policy_mode(manifest["request"]); names = _cases(manifest["request"])
     last_frame = last_queue = -1; last_time = -1
     for index, case in enumerate(row["cases"]):
-        _fields(case,"index name spawn_frame spawn_queue damage_frame damage_queue command_frame delete_frame delete_queue cleanup_frame cleanup_queue spawn_elapsed damage_elapsed command_elapsed delete_elapsed cleanup_elapsed damage_calls eval_calls before_type after_type command_type hit_direction command_direction ammo zone ammo_physics_flag ammo_damage cleanup_confirmed samples")
-        _need(type(case["index"]) is int and case["index"] == index and case["name"] == CASES[index], "case identity")
+        _fields(case,CASE_FIELDS+(" policy_type heavy_override" if policy else ""))
+        _need(type(case["index"]) is int and case["index"] == index and case["name"] == names[index], "case identity")
         for field in ("spawn_frame","damage_frame","command_frame","delete_frame","cleanup_frame"):
             _int(case[field],2,frames)
         for field in ("spawn_queue","damage_queue","delete_queue","cleanup_queue"):
@@ -257,6 +333,10 @@ def validate_receipt(receipt_bytes, files, *, outer_timed_out, outer_elapsed_sec
         _need(case["ammo"] == "MeleeFist" and case["zone"] == "Torso", "native damage inputs")
         _number(case["ammo_damage"],.000001,1000000)
         direction = _number(case["hit_direction"],-180,180)
+        if policy:
+            wanted = 1 if index == 1 else -1
+            _int(case["policy_type"],wanted,wanted); _flag(case["heavy_override"],index == 1)
+            _need(index == 0 or abs(direction) <= POLICY_FRONT_HALF_ANGLE, "policy case needs a frontal observation")
         _need(type(case["command_direction"]) in (int,float) and case["command_direction"] == direction, "native direction changed")
         _flag(case["cleanup_confirmed"],True)
         samples = case["samples"]
@@ -275,6 +355,76 @@ def validate_receipt(receipt_bytes, files, *, outer_timed_out, outer_elapsed_sec
     return dict(status="death-selection-observations-complete",receipt_sha256=_sha(receipt_bytes),
         bundle_sha256=digest,run_id=row["run_id"],gameplay_acceptance=False,
         visual_acceptance=False,ragdoll_acceptance=False,receipt=row)
+
+def pack_addon(files):
+    """Deterministic stored PBO (prefix HCDeathSelectionProbe) of the bundle's addon/ files.
+
+    Same layout as tools.package.pbo.pack, which hard-codes the HollowCountry prefix.
+    """
+    _bundle(files)
+    entries = {name[len("addon/"):]: data for name, data in files.items()
+               if name.startswith("addon/") and name != PREFIX}
+    _need(entries and len(entries) <= 16, "bounded addon entries")
+    words = struct.Struct("<5I")
+    header = bytearray(b"\0" + words.pack(0x56657273, 0, 0, 0, 0))
+    header += b"prefix\0" + files[PREFIX] + b"\0\0"
+    payload = bytearray()
+    for name in sorted(entries, key=lambda n: (n.casefold(), n)):
+        _need(re.fullmatch(r"[A-Za-z0-9_./]+", name) and ".." not in name, "safe PBO entry name")
+        header += name.replace("/", "\\").encode("ascii") + b"\0"
+        header += words.pack(0, 0, 0, 0, len(entries[name]))
+        payload += entries[name]
+    body = bytes(header + bytes(21) + payload)
+    return body + b"\0" + hashlib.sha1(body).digest()
+
+def stage(destination, files):
+    """Write the validated bundle plus the packed PBO into a FRESH directory. Never launches.
+
+    The destination must be absolute, free of '..' and not exist; files are created
+    exclusively. Returns the sorted staged relative names.
+    """
+    _bundle(files)
+    dest = Path(destination)
+    _need(dest.is_absolute() and ".." not in dest.parts, "absolute destination without '..' required")
+    _need(not dest.exists() and not dest.is_symlink(), "fresh destination required")
+    _need(dest.parent.is_dir() and not dest.parent.is_symlink(), "existing real parent directory required")
+    staged = dict(files)
+    staged[STAGED_PBO] = pack_addon(files)
+    dest.mkdir()
+    for name, data in sorted(staged.items()):
+        target = dest / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("xb") as stream:
+            stream.write(data)
+    return sorted(staged)
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Stage (never launch) the CE-disabled death-selection probe.")
+    parser.add_argument("--stock-init", required=True, help="pinned stock mission init.c")
+    parser.add_argument("--interfaces", required=True, help="installed native script root")
+    parser.add_argument("--destination", required=True, help="fresh absolute directory to create")
+    parser.add_argument("--victim", required=True, nargs=2, type=float, metavar=("X", "Z"))
+    parser.add_argument("--source", required=True, nargs=2, type=float, metavar=("X", "Z"))
+    parser.add_argument("--spawn-profile", choices=sorted(SPAWN_PROFILES))
+    parser.add_argument("--selection", choices=("policy",))
+    parser.add_argument("--policy-source", help="HCInfectedDeathPolicy.c; required with --selection policy")
+    parser.add_argument("--run-id", help="32 lowercase hex characters; random when omitted")
+    args = parser.parse_args(argv)
+    stock = _read(Path(args.stock_init), staging.MAX_INIT_BYTES)
+    req = dict(world_name="chernarusplus", engine_version=ENGINE_VERSION, stock_init_sha256=_sha(stock),
+               victim_position=[args.victim[0], 0, args.victim[1]], source_position=[args.source[0], 0, args.source[1]])
+    if args.spawn_profile: req["spawn_profile"] = args.spawn_profile
+    policy = None
+    if args.selection:
+        req["selection"] = args.selection
+        policy = _read(Path(args.policy_source), MAX_POLICY_BYTES) if args.policy_source else None
+    files = generate_probe(stock, req, inspect_interfaces(args.interfaces), run_id=args.run_id, policy_source=policy)
+    names = stage(args.destination, files)
+    manifest, digest = _bundle(files)
+    print("staged %d files run_id=%s bundle_sha256=%s" % (len(names), manifest["run_id"], digest))
+    for name in names: print("  " + name)
+    print("Nothing was launched. Run in a fresh experiment with fresh profiles/storage; see docs/INFECTED_DEATHS.md.")
+    return 0
 
 ADDON = r'''
 class CfgPatches
@@ -345,7 +495,7 @@ class HCDSCase
     string ammo;
     string zone;
     int ammo_physics_flag = -1;
-    float ammo_damage;
+    float ammo_damage;@CASEFIELDS@
     bool cleanup_confirmed;
     ref array<ref HCDSSample> samples = new array<ref HCDSSample>;
 }
@@ -547,14 +697,14 @@ class HCDS
         Row = new HCDSCase;
         Row.index = State.cases.Count();
         Row.name = "vanilla";
-        if (Row.index == 1) Row.name = "impulse-selection";
+        if (Row.index == 1) Row.name = "@CASE1NAME@";
         Row.spawn_frame = State.frames;
         Row.spawn_queue = State.queues;
         Row.spawn_elapsed = Elapsed();
         State.cases.Insert(Row);
         OwnedSource = GetGame().CreateObjectEx("Stone", sp, 0);
         Source = EntityAI.Cast(OwnedSource);
-        OwnedVictim = GetGame().CreateObjectEx("ZmbF_JournalistNormal_Blue", vp, ECE_INITAI);
+        OwnedVictim = GetGame().CreateObjectEx("ZmbF_JournalistNormal_Blue", vp, @VFLAGS@);
         Victim = ZombieBase.Cast(OwnedVictim);
         State.peak_owned_entities = Math.Max(State.peak_owned_entities, Owned());
         if (!Source || !Victim || !Victim.IsAlive())
@@ -593,7 +743,7 @@ class HCDS
         Row.damage_queue = State.queues;
         Row.damage_elapsed = Elapsed();
         Row.damage_calls++;
-        Phase = 2;
+        Phase = 2;@PREDAMAGE@
         // GetDamageZonePos returns world space; ProcessDirectDamage takes model space.
         vector modelPos = Victim.WorldToModel(Victim.GetDamageZonePos("Torso"));
         Victim.ProcessDirectDamage(DamageType.CUSTOM, Source, "Torso", "MeleeFist",
@@ -694,7 +844,7 @@ modded class ZombieBase
             HCDS.Fault("unexpected-native-animation");
             return result;
         }
-        if (HCDS.Row.index == 1) pAnimType = DayZInfectedDeathAnims.ANIM_DEATH_IMPULSE;
+        @SELECT@
         HCDS.Row.after_type = pAnimType;
         HCDS.Row.hit_direction = pAnimHitDir;
         return result;
@@ -713,3 +863,6 @@ modded class ZombieBase
     }
 }
 '''
+
+if __name__ == "__main__":
+    raise SystemExit(main())

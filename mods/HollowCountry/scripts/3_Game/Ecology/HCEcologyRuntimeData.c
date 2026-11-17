@@ -43,3 +43,42 @@ class HCEcologyRouteIntent
 	bool NativePath = false;
 	bool MovementAccepted = false;
 }
+
+// Durable cadence only: no entity identities, live positions or session clocks.
+// Outcomes: 0=idle, 1=write-ahead pending, 2=command accepted (NOT arrival),
+// 3=command rejected. Pending is preserved across restart and blocks replay.
+class HCEcologyMigrationSchedule
+{
+	string Id;
+	int PopulationKind;
+	int IntervalSeconds;
+	int NextDueUtc = -1;
+	int Sequence = -1;
+	// Conservative route reservations, never a live population census.
+	// Retained on rejected retarget/restart because an old route may still run.
+	int ReservedMembers = -1;
+	bool Pending;
+	int LastOutcome = -1;
+}
+
+class HCEcologyMigrationJournal
+{
+	int Version;
+	string WorldName;
+	int Revision;
+	int LastUtc = -1;
+	ref array<ref HCEcologyMigrationSchedule> Schedules = new array<ref HCEcologyMigrationSchedule>;
+}
+
+// Frozen resource presence for diagnostic route surveys. Coordinates never
+// become a sensory ticket or an inventory/consumption transaction.
+class HCEcologyResourceSample
+{
+	string WorldName;
+	string Id;
+	string SourceKind;
+	int ResourceKind;
+	int ObservedAtMs;
+	vector Position;
+	bool SensoryEligibility = false;
+}

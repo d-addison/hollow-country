@@ -779,5 +779,14 @@ class EcologyRulesTests(unittest.TestCase):
                          [(d.ActorId, d.ZoneId) for d in second])
 
 
+def load_tests(loader, tests, pattern):
+    # Keep the public BDD binding stable while executing the v1 ecology cases.
+    # Normal whole-suite discovery already finds these files independently.
+    if pattern == "test_ecology_rules.py":
+        tests.addTests(loader.discover(str(ROOT.parents[2] / "tests/unit"),
+                                     pattern="test_v1_ecology*.py"))
+    return tests
+
+
 if __name__ == "__main__":
     unittest.main()
