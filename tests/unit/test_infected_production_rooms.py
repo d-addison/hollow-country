@@ -50,7 +50,7 @@ def encode(value): return value.__dict__
 def production_fixture(document=None, houses=None, *, server=True, diagnostic=False,
                        exists=True, read_ok=True, parse_ok=True, raw=None,
                        classes=None, version="1.30.164289", config_count=None, read_result=None,
-                       house_classes=None):
+                       house_classes=None, world_name="chernarusplus"):
     if document is None:
         document, houses = synthetic_production()
     ns, calls, _, _ = fixture(server=server, diagnostic=diagnostic)
@@ -82,7 +82,7 @@ def production_fixture(document=None, houses=None, *, server=True, diagnostic=Fa
         if index >= len(classes): return False
         output.value = classes[index]
         return True
-    game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: "chernarusplus",
+    game = SimpleNamespace(IsServer=lambda: server, GetWorldName=lambda: world_name,
         GetVersion=lambda output: setattr(output, "value", version), GetObjectsAtPosition3D=query,
         ConfigGetChildrenCount=lambda path: len(classes) if config_count is None else config_count,
         ConfigGetChildName=child,
@@ -427,6 +427,31 @@ class InfectedProductionRoomTests(unittest.TestCase):
         doc, houses = synthetic_production()
         doc.Build = "1.31.1"
         self.assert_direct_refused(doc, houses, "rooms_build", version="1.31.1")
+
+    def test_native_full_engine_build_admits_the_canonical_document(self):
+        """Real engine GetVersion is 1.30.164289.70 (native census.json); the pinned document is 1.30.164289."""
+        for version in ("1.30.164289.70", "1.30.164289"):
+            with self.subTest(version=version):
+                ns, calls, _, _ = production_fixture(version=version)
+                ns["EnsureProductionLoaded"]()
+                self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
+                self.assertEqual(1, len(ns["s_ProductionBindings"]))
+
+    def test_other_engine_builds_still_refuse_even_with_a_matching_document(self):
+        for version in ("1.30.164289.7x", "1.30.164289.700", "1.30.1642890", " 1.30.164289.70", "1.30.164289 ", ""):
+            with self.subTest(version=version):
+                doc, houses = synthetic_production()
+                doc.Build = version
+                self.assert_direct_refused(doc, houses, "rooms_build", version=version)
+                doc, houses = synthetic_production()
+                self.assert_direct_refused(doc, houses, "rooms_build", version=version)
+
+    def test_world_name_compare_is_case_normalised(self):
+        ns, _, _, _ = production_fixture(world_name="ChernarusPlus")
+        ns["EnsureProductionLoaded"]()
+        self.assertEqual("rooms_admitted_measurements_path_audio_doors_pending", ns["ProductionReason"]())
+        doc, houses = synthetic_production()
+        self.assert_direct_refused(doc, houses, "rooms_world", world_name="enoch")
 
     def test_257th_total_anchor_refused_directly(self):
         doc, houses = synthetic_production(17, 16)

@@ -62,7 +62,7 @@ class HCInteriorsModule : HCModule
 
     bool ValidateConfig(HCSettings settings)
     {
-        if (!m_Config || m_Config.SchemaVersion != 1 || m_Config.MapName != "chernarusplus" || m_Config.Build != "1.30.164289") return Reject("config schema/map/build mismatch; migration is manual");
+        if (!m_Config || m_Config.SchemaVersion != 1 || m_Config.MapName != "chernarusplus" || !HCBuildIdentity.Matches(m_Config.Build)) return Reject("config schema/map/build mismatch; migration is manual");
         if (m_Config.Epoch < 1 || m_Config.Epoch > 899999 || m_Config.Seed < 1 || m_Config.Seed > 1000000) return Reject("epoch or seed outside supported bounds");
         string world = GetGame().GetWorldName();
         world.ToLower();

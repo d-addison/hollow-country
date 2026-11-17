@@ -38,7 +38,7 @@ class HCTapedLightService
     {
         if (!b || b.Version != 1) { return false; }
         if (!DigestValid(b.ManifestDigest) || !DigestValid(b.MeasurementDigest)) { return false; }
-        if (!TextValid(build, 96) || b.GameBuild != build) { return false; }
+        if (!TextValid(build, 96) || !HCBuildIdentity.SameBuild(b.GameBuild, build)) { return false; }
         if (b.HostConfigRoot != "CfgVehicles" && b.HostConfigRoot != "CfgWeapons") { return false; }
         if (!TextValid(b.HostClass, 128) || !TextValid(b.LightClass, 128)) { return false; }
         if (!TextValid(b.SlotName, 96)) { return false; }
@@ -50,7 +50,7 @@ class HCTapedLightService
     {
         if (!a || !b || a.Version != b.Version) { return false; }
         if (a.ManifestDigest != b.ManifestDigest || a.MeasurementDigest != b.MeasurementDigest) { return false; }
-        if (a.GameBuild != b.GameBuild || a.HostConfigRoot != b.HostConfigRoot) { return false; }
+        if (HCBuildIdentity.Normalize(a.GameBuild) != HCBuildIdentity.Normalize(b.GameBuild) || a.HostConfigRoot != b.HostConfigRoot) { return false; }
         if (a.HostClass != b.HostClass || a.LightClass != b.LightClass) { return false; }
         if (a.SlotName != b.SlotName || a.BatterySlotName != b.BatterySlotName) { return false; }
         return a.TapeUnits == b.TapeUnits && a.MaxDistance == b.MaxDistance;
@@ -352,7 +352,8 @@ class HCTapedLightJournal
     {
         string version;
         GetGame().GetVersion(version);
-        return version;
+        // The engine reports 1.30.164289.70; journals and bindings carry the canonical pin.
+        return HCBuildIdentity.Normalize(version);
     }
     bool Read(string path, int limit, out string text)
     {
@@ -387,7 +388,7 @@ class HCTapedLightJournal
             if (!WriteNew(mHCRoot + "/build.txt", Build())) { return false; }
         }
         string actual;
-        return Read(mHCRoot + "/build.txt", 96, actual) && actual == Build();
+        return Read(mHCRoot + "/build.txt", 96, actual) && HCBuildIdentity.SameBuild(actual, Build());
     }
     int Number(string name, string prefix, string suffix)
     {
@@ -436,7 +437,7 @@ class HCTapedLightJournal
         string buildText;
         string buildPath = mHCRoot + "/build.txt";
         if (!Read(buildPath, 96, buildText)) { mHCFault = true; return false; }
-        if (buildText != Build()) { mHCFault = true; return false; }
+        if (!HCBuildIdentity.SameBuild(buildText, Build())) { mHCFault = true; return false; }
         if (highestState > 0)
         {
             string marker;
@@ -531,7 +532,8 @@ class HCTapedLightPort
     {
         string version;
         GetGame().GetVersion(version);
-        return version;
+        // The engine reports 1.30.164289.70; journals and bindings carry the canonical pin.
+        return HCBuildIdentity.Normalize(version);
     }
     bool CustodyAvailable()
     {

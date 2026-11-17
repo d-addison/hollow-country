@@ -2,10 +2,10 @@
 // No health/damage, sensory, locomotion, sound or door capability is changed.
 class HCInfectedProfiles
 {
-    // Exact aliases of the inspected snapshot; future suffixes need qualification.
+    // Delegates to the one shared matcher; future suffixes need qualification there.
     static bool NativeBuildSupported(string build)
     {
-        return build == "1.30.164289" || build == "1.30.164289.70";
+        return HCBuildIdentity.Matches(build);
     }
 
     // Preference is not evidence that the experimental attack filter is safe.

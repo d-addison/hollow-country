@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from types import SimpleNamespace as NS
 import unittest
+from tests.unit.build_identity_support import translate as build_identity
 from tests.unit.test_group_server import EArray, body, translated_rules
 from tests.unit import test_interior_catalog as measured_fixtures
 from tools.package import interior_catalog as export
@@ -212,7 +213,7 @@ def fixture(enabled=True, trusted=True):
 
     game = NS(IsServer=lambda: True, GetWorldName=lambda: "chernarusplus",
               GetObjectsAtPosition3D=query)
-    e.update(EMap=EMap, ord=ord, Vector=lambda x, y, z: [x, y, z],
+    e.update(HCBuildIdentity=build_identity(), EMap=EMap, ord=ord, Vector=lambda x, y, z: [x, y, z],
              vector=NS(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b))),
              House=SyntheticHouse, GetGame=lambda: game, NativeLoad=load,
              FileExist=lambda path: path in raw,
@@ -261,6 +262,25 @@ class InteriorMeasuredCatalogTests(unittest.TestCase):
                         "1.30.164289.70x"):
             self.assertFalse(e["MeasuredBuildMatches"](version, "1.30.164289"))
         self.assertFalse(e["MeasuredBuildMatches"]("1.30.164289.70", "1.30.16428"))
+
+    def test_pinned_and_actual_use_the_one_shared_build_matcher(self):
+        e, raw, calls, house, objects, candidate, profile = fixture()
+        for actual in ("1.30.164289", "1.30.164289.70"):
+            for pinned in ("1.30.164289", "1.30.164289.70"):
+                self.assertTrue(e["MeasuredBuildMatches"](actual, pinned), (actual, pinned))
+        for bad in ("", "1.30.164289.7x", "1.30.1642890", "1.30.164289 "):
+            self.assertFalse(e["MeasuredBuildMatches"](bad, "1.30.164289"), bad)
+            self.assertFalse(e["MeasuredBuildMatches"]("1.30.164289.70", bad), bad)
+
+    def test_trusted_profile_build_text_is_admitted_through_the_shared_matcher(self):
+        path = "$profile:HollowCountry/interiors-measured-profile.json"
+        for stamped, expected in (("1.30.164289.70", True), ("1.30.164289", True),
+                                  ("1.30.164289.7x", False), ("1.30.1642890", False)):
+            e, raw, calls, house, objects, candidate, profile = fixture()
+            e["MeasuredEngineBuild"] = lambda: "1.30.164289.70"
+            raw[path] = json.dumps(dict(profile, Build=stamped))
+            e["MeasuredEnsureLoaded"]()
+            self.assertEqual(expected, e["s_Binding"] is not None, stamped)
 
     def test_empty_path_components_are_rejected_before_native_split(self):
         e, raw, calls, house, objects, candidate, profile = fixture()

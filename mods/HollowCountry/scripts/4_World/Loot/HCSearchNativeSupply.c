@@ -57,7 +57,11 @@ class HCSearchSupplyRegistry
         if (!HCSearchRules.TextValid(sourceId, 128) || !HCSearchRules.PinValid(sourcePin)) return false;
         string actualBuild;
         GetGame().GetVersion(actualBuild);
-        if (GetGame().GetWorldName() != worldName || actualBuild != build) return false;
+        // The engine reports its full version (1.30.164289.70 natively); the caller passes the
+        // build the manifest will carry. Both must be admitted builds, and the registry
+        // always records the canonical pin so every later compare is build-text independent.
+        if (!HCBuildIdentity.SameWorld(GetGame().GetWorldName(), worldName)) return false;
+        if (!HCBuildIdentity.Matches(actualBuild) || !HCBuildIdentity.Matches(build)) return false;
         // A stopped lifecycle was retired by its economy and an abandoned unbound plan
         // is retired here, so untouched supplies can be rebound. A registry bound to a
         // LIVE economy is never retired by a replacement: the bind is refused instead.
@@ -65,8 +69,8 @@ class HCSearchSupplyRegistry
         if (!HCSearchSupplyRegistry.ClaimLifecycle(this)) return false;
         m_SourceId = sourceId;
         m_SourcePin = sourcePin;
-        m_WorldName = worldName;
-        m_Build = build;
+        m_WorldName = HCBuildIdentity.CanonicalWorld(worldName);
+        m_Build = HCBuildIdentity.Canonical();
         m_Opened = true;
         Print("[HC Search Economy] registry provenance is caller-attested; not stock CE qualification");
         return true;
@@ -76,7 +80,7 @@ class HCSearchSupplyRegistry
     {
         if (!m_Opened || !manifest || !GetGame().IsServer() || !GetCEApi()) return false;
         if (manifest.SourceId != m_SourceId || manifest.SourcePin != m_SourcePin) return false;
-        return manifest.WorldName == m_WorldName && manifest.Build == m_Build;
+        return HCBuildIdentity.SameWorld(manifest.WorldName, m_WorldName) && HCBuildIdentity.SameBuild(manifest.Build, m_Build);
     }
 
     void Seal(HCSearchEconomy owner)

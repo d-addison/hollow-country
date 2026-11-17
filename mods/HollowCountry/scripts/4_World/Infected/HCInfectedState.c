@@ -355,7 +355,7 @@ class HCInfectedStore
 
     static bool Validate(HCInfectedSnapshot snapshot, string world, int memberCap, int groupCap, int now)
     {
-        if (!snapshot || !snapshot.Groups || snapshot.Build != "1.30.164289")
+        if (!snapshot || !snapshot.Groups || !HCBuildIdentity.Matches(snapshot.Build))
             return false;
         if (!HCInfectedPolicy.ValidSnapshotHeader(snapshot.SchemaVersion, snapshot.WorldName == world, snapshot.Epoch, snapshot.Groups.Count(), snapshot.Reserved, memberCap, snapshot.SavedUtc, now))
             return false;
@@ -414,7 +414,7 @@ class HCInfectedStore
         {
             snapshot = new HCInfectedSnapshot;
             snapshot.SchemaVersion = 2;
-            snapshot.Build = "1.30.164289";
+            snapshot.Build = HCBuildIdentity.Canonical();
             snapshot.WorldName = world;
             snapshot.Epoch = 1;
             snapshot.Reserved = 0;

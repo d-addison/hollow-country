@@ -187,7 +187,7 @@ class HCSearchSupplyProvider
             Refuse(registry, "stored manifest missing/corrupt; never reinitialize or rescan an existing epoch");
             return null;
         }
-        if (!HCSearchRules.ManifestValid(stored) || stored.Epoch != epoch || stored.WorldName != worldName || stored.Build != build || stored.SourceId != sourceId || stored.SourcePin != sourcePin)
+        if (!HCSearchRules.ManifestValid(stored) || stored.Epoch != epoch || !HCBuildIdentity.SameWorld(stored.WorldName, worldName) || !HCBuildIdentity.SameBuild(stored.Build, build) || stored.SourceId != sourceId || stored.SourcePin != sourcePin)
         {
             Refuse(registry, "stored epoch identity changed; migration required");
             return null;
@@ -279,9 +279,12 @@ class HCSearchSupplyProvider
         if (!GetGame().IsServer() || !GetCEApi()) return Refuse(null, "not a CE-enabled server");
         if (epoch < 1 || epoch > 1000000 || !HCSearchRules.TextValid(sourceId, 128) || !HCSearchRules.PinValid(sourcePin)) return Refuse(null, "invalid epoch or source pin");
         if (!VolumesValid(volumes)) return Refuse(null, "invalid reviewed site volumes");
-        string build;
-        GetGame().GetVersion(build);
-        string worldName = GetGame().GetWorldName();
+        string engineBuild;
+        GetGame().GetVersion(engineBuild);
+        if (!HCBuildIdentity.Matches(engineBuild)) return Refuse(null, "unsupported engine build");
+        // Manifests are stamped with the canonical pin, never the raw engine text.
+        string build = HCBuildIdentity.Canonical();
+        string worldName = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName());
         string root = "$profile:HollowCountry/SearchEconomy/epoch_" + epoch.ToString();
         bool existing = FileExist(root);
         if (!existing && !allowNewEpoch) return Refuse(null, "new epoch requires explicit initialization; never auto-refill");
