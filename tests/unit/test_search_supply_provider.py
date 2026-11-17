@@ -83,6 +83,8 @@ class Player:
         self.world, self.ident, self.capacity, self.position = world, ident, capacity, list(position)
         self.cargo, self.alive, self.crash_after_move = [], True, False
         self.during_move = None  # concurrent callback inside the native move
+        self.during_find = None  # callback(n) inside the n-th native FindFreeLocationFor
+        self.finds = 0
 
     def IsAlive(self): return self.alive
     def IsUnconscious(self): return False
@@ -91,6 +93,9 @@ class Player:
     def GetInventory(self): return N(FindFreeLocationFor=self.find, TakeToDst=self.take)
 
     def find(self, item, flags, destination):
+        self.finds += 1
+        if self.during_find:
+            self.during_find(self.finds)
         if len(self.cargo) >= self.capacity:
             return False
         destination.parent, destination.item, destination.signature = self, item, ('dst', id(self))
@@ -116,11 +121,13 @@ class World:
         self.items, self.events, self.players, self.now = [], [], [], 1000.
         self.extra_objects = [N(name='building_without_inventory_item')]
         self.extra_cargos = []
+        self.scan_hooks = []  # callables(position, objects, cargos) adding synthetic native results
 
 
 class FS:
     def __init__(self):
         self.files, self.dirs, self.crash_before, self.torn = {}, set(), None, None
+        self.on_write = None  # callable(path) run just before a journal write lands
 
 
 class Bound:
@@ -160,7 +167,8 @@ class Static:
 class RegistryFactory(Static):
     def __call__(self):
         return Registry(self._rt, m_Entries=EArray(), m_SourceId='', m_SourcePin='', m_WorldName='',
-                        m_Build='', m_Opened=False, m_Sealed=False, m_Transferring=False)
+                        m_Build='', m_Opened=False, m_Sealed=False, m_Transferring=False,
+                        m_RetirePending=False)
 
 
 def read(name):
@@ -185,7 +193,7 @@ class Runtime:
         self.methods = {name: method_names(text) for name, text in self.sources.items()}
         self.s_Registered = EArray()
         self.s_Registries = EArray()
-        self.s_Active = None
+        self.statics = N(s_Active=None)  # HCSearchEconomy.s_Active is CLASS-static: shared by every economy
         game = N(IsServer=lambda: self.server, GetVersion=lambda: BUILD, GetWorldName=lambda: WORLD,
                  GetObjectsAtPosition3D=self.scan, GetPlayers=lambda out: out.extend(world.players),
                  GetTickTime=lambda: world.now)
@@ -200,7 +208,7 @@ class Runtime:
             'InventoryLocationType': N(UNKNOWN=0, GROUND=GROUND, ATTACHMENT=2, CARGO=CARGO,
                                        HANDS=4, PROXYCARGO=PROXYCARGO),
             'FindInventoryLocationType': N(CARGO=2), 'InventoryMode': N(SERVER=1),
-            's_Registered': self.s_Registered, 's_Registries': self.s_Registries,
+            's_Registered': self.s_Registered, 's_Registries': self.s_Registries, '_statics': self.statics,
             'HCSearchScanBudget': self.budget_factory,
             'vector': N(DistanceSq=lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b))),
             'EntityAI': N(Cast=lambda obj: obj if hasattr(obj, 'IsInventoryItem') else None),
@@ -214,7 +222,7 @@ class Runtime:
             'HCSearchEconomyStore': lambda: Store(self, m_Root='', m_Manifest=None, m_Fault=False),
             'HCSearchEconomy': lambda: Economy(self, m_Enabled=True, m_Ready=False, m_Busy=False,
                                                m_Manifest=None, m_Store=None, m_Source=None,
-                                               m_Phases=EArray(), s_Active=None),
+                                               m_Phases=EArray()),
             'HCSearchOwnedSupply': lambda: N(ItemHandle=None, SupplyId='', SourceRecordId='', ItemClass='',
                                              Quantity=0., Attempted=False, OriginalLocation=None),
             'HCSearchEntry': lambda: N(SiteId='', SupplyId='', ItemClass=''),
@@ -255,6 +263,8 @@ class Runtime:
                         GetItem=lambda index: self.world.items[0]))  # must be ignored
         for extra in self.world.extra_cargos:
             cargos.Insert(extra)
+        for hook in self.world.scan_hooks:
+            hook(position, objects, cargos)
 
     def mkdir(self, path):
         self.fs.dirs.add(path)
@@ -266,6 +276,8 @@ class Runtime:
         text = json.dumps(value, default=vars, sort_keys=True)
         if len(text) > limit:
             return False
+        if self.fs.on_write:
+            self.fs.on_write(path)
         if self.fs.crash_before and self.fs.crash_before in path:
             raise Crash('died before writing ' + path)
         if self.fs.torn and self.fs.torn in path:
@@ -330,7 +342,7 @@ class Runtime:
         text = re.sub(r'(\w+)\.GetPersistentID\(([^)]+)\)', r'\2 = \1.GetPersistentID()', text)
         text = re.sub(r'GetGame\(\)\.GetVersion\((\w+)\)', r'\1 = GetGame().GetVersion()', text)
         text = re.sub(r'GetGame\(\)\.GetPlayers\((\w+)\)', r'GetGame().GetPlayers(\1)', text)
-        text = re.sub(r'\bs_Active\b', 'self.s_Active', text)
+        text = re.sub(r'\bs_Active\b', '_statics.s_Active', text)
         text = re.sub(r'\bthis\b', 'self', text)
         # The restricted translator lacks "else if"; nest it (same semantics).
         text = re.sub(r'else if \(([^\n]*)\) (return [^;\n]*;)', r'else { if (\1) \2 }', text)
@@ -997,6 +1009,323 @@ class ScanBudgetTests(SupplyCase):
         plan = self.prepare(volumes, allow=False, rt=rt)
         self.assertIsNotNone(plan)
         self.assertEqual([target], [s.ItemHandle for s in plan.Registry.m_Entries])
+
+
+class TransferGuardTests(SupplyCase):
+    """Inventory callbacks run inside preflight and TakeToDst. Retirement or a
+    replacement bind during them must neither interrupt a move nor overlap ownership."""
+
+    def started(self):
+        self.item1 = self.item(1)
+        self.volumes = [volume('site_a')]
+        self.plan = self.prepare(self.volumes)
+        self.registry = self.plan.Registry
+        self.economy, ok = self.bind(self.plan)
+        self.assertTrue(ok)
+        self.results = []
+
+    def at_find(self, nth, action):
+        self.actor.finds = 0
+
+        def hook(count):
+            if count == nth:
+                action()
+        self.actor.during_find = hook
+
+    def assert_closed(self, registry, plan):
+        self.assertFalse(registry.ReadyFor(plan.Manifest))
+        self.assertFalse(registry.CanTransfer(plan.Manifest.Entries[0], self.actor))
+        self.assertEqual([], list(registry.m_Entries))
+        self.assertEqual([], list(self.rt.s_Registered))
+
+    def test_stop_or_retire_during_any_preflight_callback_never_moves_the_item(self):
+        actions = {'stop': lambda: self.economy.Stop(),
+                   'retire': lambda: self.results.append(self.registry.Retire())}
+        for name in sorted(actions):
+            for nth in (1, 2, 3):
+                with self.subTest(action=name, find=nth):
+                    self.setUp()
+                    self.started()
+                    self.at_find(nth, actions[name])
+                    outcome = self.economy.Grant('site_a', self.actor)
+                    self.assertIn(outcome, (-4, 4))
+                    self.assertEqual([], self.moves())
+                    self.assertEqual('ground', self.item1.where)
+                    self.assertEqual([], self.actor.cargo)
+                    self.assert_closed(self.registry, self.plan)
+                    self.assertEqual([], self.rt.created)
+
+    def test_replacement_prepare_during_any_preflight_callback_cannot_take_the_item_over(self):
+        for nth in (1, 2, 3):
+            with self.subTest(find=nth):
+                self.setUp()
+                self.started()
+                self.at_find(nth, lambda: self.results.append(self.prepare(self.volumes, allow=False)))
+                self.assertEqual(2, self.economy.Grant('site_a', self.actor))
+                self.assertEqual([None], self.results)
+                self.assertEqual(['move:1_2_3_4'], self.moves())
+                self.assertEqual([self.item1], self.actor.cargo)
+                self.assertEqual([self.item1], [s.ItemHandle for s in self.registry.m_Entries])
+
+    def test_membership_lost_after_preflight_stops_the_move(self):
+        for name, tamper in (('entries', lambda: self.registry.m_Entries.Clear()),
+                             ('static', lambda: self.rt.s_Registered.Clear())):
+            with self.subTest(tamper=name):
+                self.setUp()
+                self.started()
+                self.at_find(3, tamper)
+                self.assertEqual(4, self.economy.Grant('site_a', self.actor))
+                self.assertEqual([], self.moves())
+                self.assertEqual('ground', self.item1.where)
+
+    def test_stop_during_the_native_move_defers_retirement_until_the_move_and_journal_finish(self):
+        self.started()
+        seen = []
+
+        def stop_midmove():
+            self.economy.Stop()
+            seen.append(self.registry.Retire())  # also refused while the move is in flight
+            seen.append(len(self.rt.s_Registered))  # handle still owned: move is not interrupted
+        self.actor.during_move = stop_midmove
+        self.assertEqual(2, self.economy.Grant('site_a', self.actor))
+        self.assertEqual([False, 1], seen)
+        self.assertEqual(['move:1_2_3_4'], self.moves())
+        self.assertEqual([self.item1], self.actor.cargo)
+        self.assertEqual([2], list(self.economy.m_Phases))
+        self.assertIn(ROOT + '/result_0.json', self.fs.files)
+        self.assert_closed(self.registry, self.plan)
+
+    def test_replacement_prepare_during_the_native_move_is_refused(self):
+        self.started()
+        self.actor.during_move = lambda: self.results.append(self.prepare(self.volumes, allow=False))
+        self.assertEqual(2, self.economy.Grant('site_a', self.actor))
+        self.assertEqual([None], self.results)
+        self.assertEqual(['move:1_2_3_4'], self.moves())
+
+    def test_stop_while_the_result_journal_is_written_still_records_the_result_then_closes(self):
+        self.started()
+        self.fs.on_write = lambda path: self.economy.Stop() if 'result_' in path else None
+        self.assertEqual(2, self.economy.Grant('site_a', self.actor))
+        self.assertEqual(['move:1_2_3_4'], self.moves())
+        self.assertIn(ROOT + '/result_0.json', self.fs.files)
+        self.assert_closed(self.registry, self.plan)
+
+
+class EconomyStopWiringTests(SupplyCase):
+    def started(self, count=2):
+        items = [self.item(n) for n in range(1, count + 1)]
+        volumes = [volume('site_' + str(n)) for n in range(count)]
+        plan = self.prepare(volumes)
+        economy, ok = self.bind(plan)
+        self.assertTrue(ok)
+        return items, volumes, plan, economy
+
+    def test_stop_retires_the_source_immediately_before_any_further_prepare(self):
+        items, volumes, plan, economy = self.started()
+        economy.Stop()
+        self.assertFalse(plan.Registry.ReadyFor(plan.Manifest))
+        self.assertFalse(plan.Registry.CanTransfer(plan.Manifest.Entries[0], self.actor))
+        self.assertEqual([], list(plan.Registry.m_Entries))
+        self.assertEqual([], list(self.rt.s_Registered))
+        self.assertEqual([], list(self.rt.s_Registries))
+        self.assertEqual(-2, economy.Grant('site_0', self.actor))
+        self.assertEqual([], self.moves())
+
+    def test_after_stop_untouched_supplies_rebind_and_consumed_supplies_stay_terminal(self):
+        items, volumes, plan, economy = self.started()
+        self.assertEqual(2, economy.Grant('site_0', self.actor))
+        economy.Stop()
+        self.assertEqual([], list(self.rt.s_Registered))
+        plan = self.prepare(volumes, allow=False)
+        self.assertIsNotNone(plan)
+        self.assertEqual([items[1]], [s.ItemHandle for s in plan.Registry.m_Entries])
+        economy, ok = self.bind(plan)
+        self.assertTrue(ok)
+        items[0].where, items[0].position = 'ground', [0., 0., 0.]  # dropped back in the volume
+        self.assertEqual(2, economy.Grant('site_0', self.actor))
+        self.assertEqual(['move:1_2_3_4'], self.moves())
+        self.assertEqual(2, economy.Grant('site_1', self.actor))
+        self.assertEqual(['move:1_2_3_4', 'move:2_2_3_4'], self.moves())
+
+    def test_stop_is_idempotent_and_safe_before_any_open(self):
+        items, volumes, plan, economy = self.started()
+        economy.Stop()
+        economy.Stop()
+        self.rt.economy().Stop()  # never opened: no source
+
+    def test_a_live_economy_blocks_a_replacement_prepare_and_keeps_working(self):
+        items, volumes, plan, economy = self.started()
+        self.assertIsNone(self.prepare(volumes, allow=False))
+        self.assertTrue(plan.Registry.ReadyFor(plan.Manifest))
+        self.assertEqual([items[0], items[1]], [s.ItemHandle for s in plan.Registry.m_Entries])
+        self.assertEqual(2, economy.Grant('site_0', self.actor))
+        self.assertEqual(['move:1_2_3_4'], self.moves())
+
+    def test_a_replacement_that_would_fail_validation_cannot_disable_the_live_source(self):
+        items, volumes, plan, economy = self.started()
+        self.fs.files[ROOT + '/manifest.json'] = '{broken'
+        self.assertIsNone(self.prepare(volumes, allow=False))
+        self.assertTrue(plan.Registry.ReadyFor(plan.Manifest))
+        self.assertEqual(2, economy.Grant('site_0', self.actor))
+
+    def test_second_economy_open_is_refused_while_the_first_is_live(self):
+        items, volumes, plan, economy = self.started()
+        other = self.rt.economy()
+        self.assertFalse(other.Open(plan.Manifest, plan.Registry, False))
+        self.assertEqual(2, economy.Grant('site_0', self.actor))
+        economy.Stop()
+        self.assertFalse(other.Open(plan.Manifest, plan.Registry, False))  # source is closed now
+
+    def test_economy_class_static_is_shared_between_instances(self):
+        items, volumes, plan, economy = self.started()
+        self.assertIs(economy, self.rt.statics.s_Active)
+        economy.Stop()
+        self.assertIsNone(self.rt.statics.s_Active)
+
+
+class RegistryRetentionTests(SupplyCase):
+    def test_refused_prepare_leaves_no_registry_or_handle_behind(self):
+        self.item(1)
+        for n in range(100, 165):
+            self.item(n, position=(10., 0., 0.))
+        self.assertIsNone(self.prepare([volume('site_a'), volume('site_b', center=(10, 0, 0))]))
+        self.assertEqual([], list(self.rt.s_Registries))
+        self.assertEqual([], list(self.rt.s_Registered))
+
+    def test_expired_registry_entries_are_skipped_not_dereferenced(self):
+        self.item(1)
+        self.rt.s_Registries.append(None)  # weak element that expired in the engine
+        plan = self.prepare([volume('site_a')])
+        self.assertIsNotNone(plan)
+        self.assertEqual([plan.Registry], list(self.rt.s_Registries))
+
+    def test_a_replaced_unbound_plan_is_abandoned_and_cannot_be_opened(self):
+        a = self.item(1)
+        first = self.prepare([volume('site_a')])
+        self.assertEqual([a], list(self.rt.s_Registered))
+        second = self.prepare([volume('site_a')])
+        self.assertIsNotNone(second)
+        self.assertEqual([], list(first.Registry.m_Entries))
+        self.assertFalse(first.Registry.ReadyFor(first.Manifest))
+        self.assertEqual([a], list(self.rt.s_Registered))
+        economy, ok = self.bind(first)
+        self.assertFalse(ok)
+        economy, ok = self.bind(second)
+        self.assertTrue(ok)
+
+    def test_abandoning_a_successful_plan_releases_its_handles(self):
+        self.item(1)
+        plan = self.prepare([volume('site_a')])
+        self.assertEqual(1, len(self.rt.s_Registered))
+        self.rt.provider().Abandon(plan)
+        self.assertEqual([], list(self.rt.s_Registered))
+        self.assertEqual([], list(self.rt.s_Registries))
+        self.assertFalse(plan.Registry.ReadyFor(plan.Manifest))
+
+    def test_abandon_never_closes_a_registry_that_belongs_to_a_live_economy(self):
+        self.item(1)
+        plan = self.prepare([volume('site_a')])
+        economy, ok = self.bind(plan)
+        self.assertTrue(ok)
+        self.rt.provider().Abandon(plan)
+        self.assertTrue(plan.Registry.ReadyFor(plan.Manifest))
+        self.assertEqual(2, economy.Grant('site_a', self.actor))
+
+
+class SlotBudgetBoundaryTests(SupplyCase):
+    LIMIT = 32768
+
+    def cargo(self, count, calls):
+        return N(IsProxyCargo=lambda: True, GetItemCount=lambda: count,
+                 GetItem=lambda index: calls.append(index))
+
+    def stored_absent(self):
+        item = self.item(1)
+        economy, ok = self.bind(self.prepare([volume('site_a')]))
+        self.assertTrue(ok)
+        self.world.items.remove(item)
+        return self.restart()
+
+    def test_exactly_the_slot_budget_is_allowed_and_one_more_slot_refuses(self):
+        rt = self.stored_absent()
+        calls = []
+        self.world.extra_cargos = [self.cargo(256, calls)] * 128
+        plan = self.prepare([volume('site_a')], allow=False, rt=rt)
+        self.assertIsNotNone(plan)
+        self.assertEqual(self.LIMIT, len(calls))
+        del calls[:]
+        self.world.extra_cargos = [self.cargo(256, calls)] * 128 + [self.cargo(1, calls)]
+        rt = self.restart()
+        self.assertIsNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+        self.assertEqual(self.LIMIT, len(calls))
+
+    def test_per_cargo_boundary_256_is_complete_257_is_not(self):
+        rt = self.stored_absent()
+        calls = []
+        self.world.extra_cargos = [self.cargo(256, calls)]
+        self.assertIsNotNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+        self.assertEqual(256, len(calls))
+        del calls[:]
+        self.world.extra_cargos = [self.cargo(257, calls)]
+        self.assertIsNone(self.prepare([volume('site_a')], allow=False, rt=self.restart()))
+        self.assertEqual(256, len(calls))
+
+    def test_object_and_container_boundaries_are_exact(self):
+        rt = self.stored_absent()
+        casts = []
+        original = rt.env['EntityAI'].Cast
+        rt.env['EntityAI'] = N(Cast=lambda obj: (casts.append(1), original(obj))[1])
+        self.world.extra_objects = [N(name='tree')] * self.LIMIT
+        self.assertIsNotNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+        self.assertEqual(self.LIMIT, len(casts))
+        rt = self.restart()
+        self.world.extra_objects = [N(name='tree')] * (self.LIMIT + 1)
+        self.assertIsNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+        # the scan fake always supplies one non-proxy cargo, which also costs a container slot
+        rt = self.restart()
+        self.world.extra_objects = []
+        visited = []
+        empty = N(IsProxyCargo=lambda: (visited.append(1), True)[1], GetItemCount=lambda: 0,
+                  GetItem=lambda index: None)
+        self.world.extra_cargos = [empty] * 4095
+        self.assertIsNotNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+        rt = self.restart()
+        self.world.extra_cargos = [empty] * 4096
+        self.assertIsNone(self.prepare([volume('site_a')], allow=False, rt=rt))
+
+    def stored_cargo_matches(self, sites):
+        """Every stored target lives in its own 256-slot proxy cargo at slot 255."""
+        items = [self.item(n, position=(n * 20., 0., 0.)) for n in range(1, sites + 1)]
+        volumes = [volume('site_' + str(n), center=(n * 20., 0., 0.)) for n in range(1, sites + 1)]
+        economy, ok = self.bind(self.prepare(volumes))
+        self.assertTrue(ok)
+        reads = []
+        by_x = {n * 20.: items[n - 1] for n in range(1, sites + 1)}
+        for item in items:
+            item.where = 'hidden'  # a cargo location, reachable only through the cargo below
+
+        def hook(position, objects, cargos):
+            target = by_x[position[0]]
+
+            def get(index):
+                reads.append(index)
+                return target if index == 255 else None
+            cargos.Insert(N(IsProxyCargo=lambda: True, GetItemCount=lambda: 256, GetItem=get))
+        self.world.scan_hooks.append(hook)
+        return items, volumes, reads, self.restart()
+
+    def test_matches_deep_in_a_cargo_are_debited_and_exact_budget_still_binds(self):
+        items, volumes, reads, rt = self.stored_cargo_matches(128)
+        plan = self.prepare(volumes, allow=False, rt=rt)
+        self.assertIsNotNone(plan)
+        self.assertEqual(self.LIMIT, len(reads))
+        self.assertEqual(items, [s.ItemHandle for s in plan.Registry.m_Entries])
+
+    def test_one_more_deep_match_exceeds_the_shared_slot_budget_and_refuses(self):
+        items, volumes, reads, rt = self.stored_cargo_matches(129)
+        self.assertIsNone(self.prepare(volumes, allow=False, rt=rt))
+        self.assertEqual(self.LIMIT, len(reads))
+        self.assertEqual([], list(rt.s_Registered))
 
 
 if __name__ == '__main__':

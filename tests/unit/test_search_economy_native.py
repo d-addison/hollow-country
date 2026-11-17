@@ -20,7 +20,7 @@ class SearchNativeTests(unittest.TestCase):
         self.actor=N(IsAlive=lambda:True,IsUnconscious=lambda:False,GetPosition=lambda:[0,0,0])
         self.actor.GetIdentity=lambda:N(GetId=lambda:'actor',GetPlayer=lambda:self.actor)
         self.actor.GetInventory=lambda:N(FindFreeLocationFor=self.destination,TakeToDst=self.take)
-        self.port=N(m_Opened=True,m_Sealed=False,m_Transferring=False,m_Entries=EArray())
+        self.port=N(m_Opened=True,m_Sealed=False,m_Transferring=False,m_RetirePending=False,m_Entries=EArray())
         self.env={'str':str,'GetGame':lambda:N(IsServer=lambda:True),'GetCEApi':lambda:object(),
                   'InventoryLocation':Location,'InventoryLocationType':N(GROUND=0,CARGO=2),
                   'FindInventoryLocationType':N(CARGO=2),'InventoryMode':N(SERVER=1),
@@ -31,6 +31,10 @@ class SearchNativeTests(unittest.TestCase):
         self.env['HCSearchSupplyRegistry']=N(PersistentId=lambda item:self.call('PersistentId',item))
         for name in ('Find','Unchanged','CandidateValid','CanTransfer'):
             setattr(self.port,name,lambda *a,n=name:self.call(n,*a))
+        # invoke() rewrites only its fixed method list to self.X; the authored split of
+        # Transfer/CanTransfer into guarded wrappers + Preflight/Move is bound as globals.
+        for name in ('Move','Preflight','Retire','Owning'):
+            self.env[name]=lambda *a,n=name:self.call(n,*a)
         self.item=self.item_fixture((1,2,3,4))
         self.assertTrue(self.call('RegisterOwned',self.item,'record_a'))
         self.entry=N(SupplyId='1_2_3_4',ItemClass='SyntheticClass')

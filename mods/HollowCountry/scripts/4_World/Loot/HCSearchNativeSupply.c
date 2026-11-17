@@ -16,9 +16,10 @@ class HCSearchOwnedSupply
 class HCSearchSupplyRegistry
 {
     protected static ref array<EntityAI> s_Registered = new array<EntityAI>;
-    // Registries whose handles are still owned. At most one is live: opening a new
-    // lifecycle retires the previous one (see RetirePrevious).
-    protected static ref array<HCSearchSupplyRegistry> s_Registries = new array<HCSearchSupplyRegistry>;
+    // Strong references keep every registry (and so its handle bookkeeping) alive until
+    // it is retired; a non-ref element would silently expire to null while its handles
+    // stayed pinned in s_Registered. At most one registry is bound to a live economy.
+    protected static ref array<ref HCSearchSupplyRegistry> s_Registries = new array<ref HCSearchSupplyRegistry>;
     protected ref array<ref HCSearchOwnedSupply> m_Entries = new array<ref HCSearchOwnedSupply>;
     protected string m_SourceId;
     protected string m_SourcePin;
@@ -27,6 +28,8 @@ class HCSearchSupplyRegistry
     protected bool m_Opened;
     protected bool m_Sealed;
     protected bool m_Transferring;
+    // Retire() arrived while a transfer was in flight; applied when it completes.
+    protected bool m_RetirePending;
 
     static bool CandidateValid(EntityAI item)
     {
@@ -53,10 +56,11 @@ class HCSearchSupplyRegistry
         string actualBuild;
         GetGame().GetVersion(actualBuild);
         if (GetGame().GetWorldName() != worldName || actualBuild != build) return false;
-        // A completed shutdown leaves its sealed registry owning handles in this
-        // process-wide static set. Retire it so untouched supplies can be rebound by
-        // this lifecycle; depletion lives in the journal, never in this registry.
-        if (!HCSearchSupplyRegistry.RetirePrevious(this)) return false;
+        // A stopped lifecycle was retired by its economy and an abandoned unbound plan
+        // is retired here, so untouched supplies can be rebound. A registry bound to a
+        // LIVE economy is never retired by a replacement: the bind is refused instead.
+        // Depletion lives in the journal, never in this registry.
+        if (!HCSearchSupplyRegistry.ClaimLifecycle(this)) return false;
         m_SourceId = sourceId;
         m_SourcePin = sourcePin;
         m_WorldName = worldName;
@@ -75,6 +79,9 @@ class HCSearchSupplyRegistry
 
     void Seal() { m_Sealed = true; }
 
+    // True while bound to an economy that has not retired it.
+    bool Owning() { return m_Opened && m_Sealed; }
+
     HCSearchOwnedSupply Find(string supplyId)
     {
         foreach (HCSearchOwnedSupply candidate : m_Entries)
@@ -84,19 +91,28 @@ class HCSearchSupplyRegistry
         return null;
     }
 
-    // Retire every other registry before this one opens. Refuses (and changes
-    // nothing further) while a previous registry is mid-transfer.
-    static bool RetirePrevious(HCSearchSupplyRegistry opening)
+    // Make `opening` the only registry in the process-wide list. Expired entries are
+    // dropped, an unbound (abandoned) predecessor is retired, and a predecessor that is
+    // still bound to a live economy blocks the claim without being touched.
+    static bool ClaimLifecycle(HCSearchSupplyRegistry opening)
     {
-        int index;
-        while (index < s_Registries.Count())
+        int index = s_Registries.Count() - 1;
+        while (index >= 0)
         {
             HCSearchSupplyRegistry previous = s_Registries[index];
-            if (previous != opening && !previous.Retire()) return false;
-            index++;
+            index = index - 1;
+            if (!previous) continue;
+            if (previous == opening) continue;
+            if (previous.Owning()) return false;
+            if (!previous.Retire()) return false;
         }
-        s_Registries.Clear();
-        s_Registries.Insert(opening);
+        index = s_Registries.Count() - 1;
+        while (index >= 0)
+        {
+            if (!s_Registries[index]) s_Registries.Remove(index);
+            index = index - 1;
+        }
+        if (s_Registries.Find(opening) < 0) s_Registries.Insert(opening);
         return true;
     }
 
@@ -146,23 +162,24 @@ class HCSearchSupplyRegistry
         return true;
     }
 
-    // Provider-refusal cleanup only: forget handles of a registry that was never
-    // sealed into an economy. Touches no entity, inventory or journal.
-    void Release()
-    {
-        if (m_Sealed || m_Transferring) return;
-        ForgetHandles();
-    }
-
-    // Shutdown cleanup: relinquish ownership and disable this registry for good
-    // (ReadyFor/CanTransfer/Transfer/RegisterOwned/BindSource all refuse afterwards). Touches no
-    // entity, inventory or journal; refused while a transfer is in flight.
+    // Shutdown/abandon cleanup: relinquish ownership and disable this registry for good
+    // (ReadyFor/CanTransfer/Transfer/RegisterOwned/BindSource all refuse afterwards).
+    // Touches no entity, inventory or journal. While a transfer is in flight the native
+    // move is never interrupted and ownership never overlaps: retirement is recorded and
+    // applied the moment that transfer returns, and false is returned meanwhile.
     bool Retire()
     {
-        if (m_Transferring) return false;
+        if (m_Transferring)
+        {
+            m_RetirePending = true;
+            return false;
+        }
         ForgetHandles();
         m_Opened = false;
         m_Sealed = true;
+        m_RetirePending = false;
+        int listed = s_Registries.Find(this);
+        if (listed >= 0) s_Registries.Remove(listed);
         return true;
     }
 
@@ -187,9 +204,21 @@ class HCSearchSupplyRegistry
         return item.GetInventory().GetCurrentInventoryLocation(current) && current.CompareLocationOnly(supply.OriginalLocation);
     }
 
+    // FindFreeLocationFor runs item/container scripts, so the whole check is a guarded
+    // callback window: Retire/Stop arriving inside it is deferred and applied after.
     bool CanTransfer(HCSearchEntry entry, PlayerBase actor)
     {
-        if (!m_Opened || m_Transferring || !entry || !actor) return false;
+        if (!m_Opened || m_Transferring || m_RetirePending) return false;
+        m_Transferring = true;
+        bool allowed = Preflight(entry, actor);
+        m_Transferring = false;
+        if (m_RetirePending) Retire();
+        return allowed && m_Opened;
+    }
+
+    protected bool Preflight(HCSearchEntry entry, PlayerBase actor)
+    {
+        if (!m_Opened || !entry || !actor) return false;
         if (!GetGame().IsServer() || !GetCEApi() || !actor.IsAlive() || actor.IsUnconscious()) return false;
         if (!actor.GetIdentity() || actor.GetIdentity().GetPlayer() != actor) return false;
         HCSearchOwnedSupply supply = Find(entry.SupplyId);
@@ -203,9 +232,21 @@ class HCSearchSupplyRegistry
         return actor.GetInventory().FindFreeLocationFor(supply.ItemHandle, FindInventoryLocationType.CARGO, destination);
     }
 
+    // The transfer, including every native callback (preflight, FindFreeLocationFor,
+    // TakeToDst), runs with m_Transferring set so no retirement or rebind can overlap it.
     int Transfer(HCSearchEntry entry, PlayerBase actor)
     {
-        if (!CanTransfer(entry, actor)) return 4;
+        if (m_Transferring || m_RetirePending) return 4;
+        m_Transferring = true;
+        int result = Move(entry, actor);
+        m_Transferring = false;
+        if (m_RetirePending) Retire();
+        return result;
+    }
+
+    protected int Move(HCSearchEntry entry, PlayerBase actor)
+    {
+        if (!Preflight(entry, actor)) return 4;
         string actorId = actor.GetIdentity().GetId();
         HCSearchOwnedSupply supply = Find(entry.SupplyId);
         InventoryLocation sourceLocation = new InventoryLocation;
@@ -215,17 +256,17 @@ class HCSearchSupplyRegistry
         if (!sourceLocation.CompareLocationOnly(supply.OriginalLocation)) return 4;
         if (!destination.GetParent()) return 4;
         if (destination.GetParent() != actor && destination.GetParent().GetHierarchyRootPlayer() != actor) return 4;
-        // Native inventory preflight invokes item/container scripts. Revalidate
-        // after those callbacks, immediately before the single native move.
+        // Native inventory preflight invokes item/container scripts. Revalidate the
+        // actor, the source AND this registry's ownership after those callbacks,
+        // immediately before the single native move.
+        if (!m_Opened || m_RetirePending || Find(entry.SupplyId) != supply || s_Registered.Find(supply.ItemHandle) < 0) return 4;
         if (!actor.IsAlive() || actor.IsUnconscious() || !actor.GetIdentity()) return 4;
         if (actor.GetIdentity().GetId() != actorId || actor.GetIdentity().GetPlayer() != actor) return 4;
         if (!Unchanged(supply)) return 4;
         supply.Attempted = true;
-        m_Transferring = true;
         // Installed Inventory.c TakeToDst(SERVER) synchronously moves then sends
         // SYNC_MOVE. Readback remains mandatory; cross-save atomicity unproved.
         bool moved = actor.GetInventory().TakeToDst(InventoryMode.SERVER, sourceLocation, destination);
-        m_Transferring = false;
         EntityAI item = supply.ItemHandle;
         if (!item || HCSearchSupplyRegistry.PersistentId(item) != supply.SupplyId) return 3;
         if (item.GetType() != supply.ItemClass || item.GetQuantity() != supply.Quantity) return 3;

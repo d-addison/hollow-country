@@ -85,6 +85,10 @@ class HCSearchEconomy
     {
         m_Ready = false;
         if (s_Active == this) s_Active = null;
+        // Hand the pinned handles back so a later lifecycle can rebind untouched supply.
+        // The registry defers this itself while a transfer is mid-flight; the journal
+        // (and so every consumed supply) is untouched either way.
+        if (m_Source) m_Source.Retire();
     }
 
     int Index(string siteId)

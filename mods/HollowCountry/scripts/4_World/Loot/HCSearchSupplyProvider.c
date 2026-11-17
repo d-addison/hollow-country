@@ -39,9 +39,18 @@ class HCSearchSupplyProvider
 {
     HCSearchSupplyPlan Refuse(HCSearchSupplyRegistry registry, string reason)
     {
-        if (registry) registry.Release();
+        if (registry) registry.Retire();
         Print("[HC Search Supply] refused: " + reason);
         return null;
+    }
+
+    // A plan that will not be bound to an economy (for example the caller gave up after
+    // Prepare) must hand its handles back. A registry already bound to an economy is
+    // owned by that economy and is only ever retired by its Stop.
+    void Abandon(HCSearchSupplyPlan plan)
+    {
+        if (!plan || !plan.Registry) return;
+        if (!plan.Registry.Owning()) plan.Registry.Retire();
     }
 
     bool VolumesValid(array<ref HCSearchSiteVolume> volumes)
@@ -135,18 +144,25 @@ class HCSearchSupplyProvider
             int count = cargo.GetItemCount();
             int limit = count;
             if (limit > 256) limit = 256;
-            if (limit > budget.SlotsLeft) limit = budget.SlotsLeft;
             int slot = 0;
             while (slot < limit)
             {
+                // Every visited slot is debited BEFORE it is read, so a match deep in a
+                // cargo costs exactly what a miss does and nothing bypasses the budget.
+                if (budget.SlotsLeft < 1)
+                {
+                    budget.Overflow = true;
+                    budget.Reason = "cargo slot budget exhausted";
+                    return;
+                }
+                budget.SlotsLeft = budget.SlotsLeft - 1;
                 if (Accept(volume, budget, wantedId, wantedClass, cargo.GetItem(slot), output)) return;
                 slot++;
             }
-            budget.SlotsLeft = budget.SlotsLeft - limit;
             if (limit < count)
             {
                 budget.Overflow = true;
-                budget.Reason = "cargo slot budget exhausted";
+                budget.Reason = "more than 256 slots in one cargo";
                 return;
             }
         }
