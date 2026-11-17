@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "appid": "221100",
-  "note": "Workshop dependency manifest for tools/setup/workshop_sync.py. Third-party items are referenced by numeric Workshop id only and are never bundled or re-hosted. rank is the -mod load order (low loads first). side client = in -mod and required by every player; side server = -serverMod only. id null = no Workshop item (own mod before it is published, or a mod that is never published).",
+  "note": "Workshop dependency manifest for tools/setup/workshop_sync.py. Third-party items are referenced by numeric Workshop id only and are never bundled or re-hosted. rank is the -mod load order (low loads first). side client = in -mod and required by every player; side server = -serverMod only. id null = no Workshop item yet (an own mod with publish true that has not been uploaded; fill the id in once it is). Our own mods (publish true) are published as Unlisted Workshop items; the server-side one is loaded with -serverMod only. We publish nothing third-party.",
   "mods": [
     {"id": "1559212036", "name": "Community Framework", "folder": "@CF", "rank": 10, "side": "client", "group": "pve_patrols", "publish": false},
     {"id": "2545327648", "name": "Dabs Framework", "folder": "@DabsFramework", "rank": 20, "side": "client", "group": "pve_patrols", "publish": false},
@@ -10,7 +10,7 @@
     {"id": "2792982069", "name": "Expansion-AI", "folder": "@Expansion-AI", "rank": 50, "side": "client", "group": "pve_patrols", "publish": false},
     {"id": "2443122116", "name": "SNAFU Weapons", "folder": "@SnafuWeapons", "rank": 60, "side": "client", "group": "snafu", "publish": false},
     {"id": "2646817942", "name": "Tactical Flava", "folder": "@TacticalFlava", "rank": 70, "side": "client", "group": "tactical_flava", "publish": false},
-    {"id": null, "name": "Hollow Country", "folder": "@HollowCountry", "rank": 80, "side": "client", "group": "base", "publish": true},
-    {"id": null, "name": "Hollow Country Expansion AI", "folder": "@HollowCountryExpansionAI", "rank": 90, "side": "server", "group": "pve_patrols", "publish": false}
+    {"id": "3841628320", "name": "Hollow Country", "folder": "@HollowCountry", "rank": 80, "side": "client", "group": "base", "publish": true},
+    {"id": "3841637854", "name": "Hollow Country Expansion AI", "folder": "@HollowCountryExpansionAI", "rank": 90, "side": "server", "group": "pve_patrols", "publish": true}
   ]
 }

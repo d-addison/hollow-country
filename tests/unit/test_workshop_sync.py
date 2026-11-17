@@ -22,7 +22,9 @@ REPO = Path(__file__).resolve().parents[2]
 MANIFEST = REPO / 'tools/setup/workshop_mods.json'
 IDS = {'cf': '1559212036', 'dabs': '2545327648', 'core': '2291785308', 'anim': '2793893086',
        'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942'}
-HC_ID = '3600000001'
+HC_ID = '3841628320'
+AI_ID = '3900000002'
+AI_REAL_ID = '3841637854'
 FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
             '@SnafuWeapons;@TacticalFlava;@HollowCountry')
 RECEIPT = 'hollow-country-workshop-receipt.json'
@@ -85,6 +87,18 @@ class Base(unittest.TestCase):
     def rollback(self, *extra):
         return self.main('rollback', '--server-root', str(self.root), *extra)
 
+    def manifest_copy(self, **ids):
+        """A copy of the real manifest with the given own-mod ids ('base', 'addon'); unnamed ones become null."""
+        data = json.loads(MANIFEST.read_text())
+        wanted = {'@HollowCountry': ids.get('base'), '@HollowCountryExpansionAI': ids.get('addon')}
+        for mod in data['mods']:
+            if mod['folder'] in wanted:
+                mod['id'] = wanted[mod['folder']]
+                mod['publish'] = True
+        path = self.tmp / 'manifest-copy.json'
+        path.write_text(json.dumps(data))
+        return str(path)
+
 
 class Manifest(unittest.TestCase):
     def setUp(self):
@@ -92,7 +106,7 @@ class Manifest(unittest.TestCase):
         self.mods = {m['folder']: m for m in self.data['mods']}
 
     def test_third_party_items_are_referenced_by_id_only(self):
-        by_id = {m['id']: m for m in self.data['mods'] if m['id']}
+        by_id = {m['id']: m for m in self.data['mods'] if m['id'] and not m['publish']}
         self.assertEqual(sorted(by_id), sorted(IDS.values()))
         for item_id in IDS.values():
             self.assertTrue(by_id[item_id]['name'] and by_id[item_id]['folder'].startswith('@'))
@@ -113,11 +127,17 @@ class Manifest(unittest.TestCase):
                                  '@HollowCountryExpansionAI'])
         self.assertEqual(len({m['rank'] for m in self.data['mods']}), len(self.data['mods']))
 
-    def test_own_mods_have_no_workshop_id_until_published_and_the_ai_mod_is_never_published(self):
-        self.assertIsNone(self.mods['@HollowCountry']['id'])
+    def test_own_mods_are_published_with_their_workshop_ids(self):
+        self.assertEqual(self.mods['@HollowCountry']['id'], HC_ID)
         self.assertTrue(self.mods['@HollowCountry']['publish'])
-        self.assertIsNone(self.mods['@HollowCountryExpansionAI']['id'])
-        self.assertFalse(self.mods['@HollowCountryExpansionAI']['publish'])
+        self.assertEqual(self.mods['@HollowCountryExpansionAI']['id'], '3841637854')
+        self.assertTrue(self.mods['@HollowCountryExpansionAI']['publish'])
+        self.assertEqual(self.mods['@HollowCountryExpansionAI']['side'], 'server')
+
+    def test_manifest_note_no_longer_says_the_ai_mod_is_never_published(self):
+        note = self.data['note'].lower()
+        self.assertNotIn('never published', note)
+        self.assertIn('published', note)
 
     def test_manifest_stays_outside_the_base_mission_folders(self):
         self.assertEqual(MANIFEST.parent, REPO / 'tools/setup')
@@ -152,11 +172,17 @@ class Manifest(unittest.TestCase):
 
 
 class Plan(Base):
-    def test_base_only_prints_the_mod_line_and_marks_the_unpublished_mod(self):
+    def test_base_only_prints_the_mod_line_and_wants_the_published_item(self):
         code, text, _ = self.run_cmd('plan', 'base')
         self.assertEqual(code, 0, text)
         self.assertIn('-mod=@HollowCountry', text)
         self.assertNotIn('-serverMod', text)
+        self.assertIn('%s missing; run fetch' % HC_ID, text)
+        self.assertNotIn('unpublished', text)
+
+    def test_base_whose_id_is_still_null_is_marked_unpublished(self):
+        code, text, _ = self.run_cmd('plan', 'base', '--manifest', self.manifest_copy())
+        self.assertEqual(code, 0, text)
         self.assertIn('unpublished', text)
 
     def test_full_set_prints_the_documented_load_order(self):
@@ -205,20 +231,44 @@ class Plan(Base):
         self.assertIn('base', text.lower())
         self.assertIn('warning', text.lower())
 
-    def test_hollowcountry_id_option_makes_the_own_mod_downloadable(self):
-        make_item(self.content, HC_ID)
-        _, text, _ = self.run_cmd('plan', 'base', '--hollowcountry-id', HC_ID)
-        self.assertIn('%s present' % HC_ID, text)
+    def test_hollowcountry_id_option_makes_an_idless_own_mod_downloadable(self):
+        make_item(self.content, '3600000001')
+        _, text, _ = self.run_cmd('plan', 'base', '--manifest', self.manifest_copy(),
+                                  '--hollowcountry-id', '3600000001')
+        self.assertIn('3600000001 present', text)
         self.assertNotIn('unpublished', text)
+
+    def test_hollowcountry_id_never_fills_the_ai_addon(self):
+        manifest = ws.load_manifest(self.manifest_copy())
+        items = {i['folder']: i for i in ws.select(manifest, ['base', 'pve_patrols'], '3600000001')}
+        self.assertEqual(items['@HollowCountry']['id'], '3600000001')
+        self.assertIsNone(items['@HollowCountryExpansionAI']['id'])
+
+    def test_present_base_item_is_planned_like_a_third_party_one(self):
+        make_item(self.content, HC_ID)
+        _, text, _ = self.run_cmd('plan', 'base')
+        self.assertIn('%s present' % HC_ID, text)
+        self.assertIn('copy %s -> %s' % (self.content / HC_ID, self.root / '@HollowCountry'), text)
 
     def test_bad_hollowcountry_id_refused(self):
         with self.assertRaises(SystemExit):
             self.run_cmd('plan', 'base', '--hollowcountry-id', 'abc')
 
-    def test_server_only_mod_is_reported_as_a_local_build(self):
-        _, text, _ = self.run_cmd('plan', 'pve_patrols')
-        self.assertIn('@HollowCountryExpansionAI', text)
-        self.assertIn('never published', text)
+    def test_ai_addon_without_an_id_is_reported_as_unpublished_not_never_published(self):
+        _, text, _ = self.run_cmd('plan', 'pve_patrols', '--manifest', self.manifest_copy(base=HC_ID))
+        line = next(l for l in text.splitlines() if '@HollowCountryExpansionAI' in l and 'Workshop' in l)
+        self.assertIn('unpublished', line)
+        self.assertNotIn('never published', text)
+        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+
+    def test_ai_addon_with_an_id_is_fetched_and_planned_but_stays_server_side(self):
+        make_item(self.content, AI_ID)
+        code, text, _ = self.run_cmd('plan', 'pve_patrols', '--manifest', self.manifest_copy(addon=AI_ID))
+        self.assertEqual(code, 0, text)
+        self.assertIn('%s present' % AI_ID, text)
+        self.assertIn('copy %s -> %s' % (self.content / AI_ID, self.root / '@HollowCountryExpansionAI'), text)
+        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+        self.assertNotIn('@HollowCountryExpansionAI', ''.join(l for l in text.splitlines() if l.startswith('-mod=')))
 
 
 class Fetch(Base):
@@ -233,7 +283,8 @@ class Fetch(Base):
         steam = self.tmp / 'steamcmd'
         deep = steam / 'steamapps/workshop/content/221100'
         calls = []
-        base_fake = self.fake_steamcmd(deep, [IDS['cf'], IDS['dabs'], IDS['core'], IDS['anim'], IDS['ai']])
+        base_fake = self.fake_steamcmd(deep, [IDS['cf'], IDS['dabs'], IDS['core'], IDS['anim'], IDS['ai'],
+                                              AI_REAL_ID])
         self.run_mock.side_effect = lambda cmd, **kw: (calls.append((cmd, kw)), base_fake(cmd, **kw))[1]
         code, text, _ = self.main('fetch', '--server-root', str(self.root), '--groups', 'pve_patrols',
                                   '--steamcmd', str(steam / 'steamcmd.sh'), '--steam-user', 'owner_login')
@@ -246,6 +297,7 @@ class Fetch(Base):
                                '+workshop_download_item', '221100', IDS['core'], 'validate',
                                '+workshop_download_item', '221100', IDS['anim'], 'validate',
                                '+workshop_download_item', '221100', IDS['ai'], 'validate',
+                               '+workshop_download_item', '221100', AI_REAL_ID, 'validate',
                                '+quit'])
         # Interactive: the operator types the password into steamcmd; we never touch stdin, stdout or env.
         for forbidden in ('input', 'stdin', 'stdout', 'stderr', 'capture_output', 'env', 'shell'):
@@ -321,10 +373,26 @@ class Fetch(Base):
                                 out=io.StringIO())
 
     def test_nothing_to_fetch_does_not_start_steamcmd(self):
-        code, text, _ = self.main('fetch', *self.common('base'), '--steam-user', 'owner')
+        code, text, _ = self.main('fetch', *self.common('base', '--manifest', self.manifest_copy()),
+                                  '--steam-user', 'owner')
         self.assertEqual(code, 0)
         self.assertIn('nothing to fetch', text)
+        self.assertIn('not published yet', text)
+        self.assertNotIn('never published', text)
         self.run_mock.assert_not_called()
+
+    def test_published_own_items_are_downloaded_like_third_party_ones(self):
+        calls = []
+        base_fake = self.fake_steamcmd(self.content, [HC_ID, AI_ID])
+        self.run_mock.side_effect = lambda cmd, **kw: (calls.append(cmd), base_fake(cmd, **kw))[1]
+        code, text, _ = self.main('fetch', *self.common('base,pve_patrols', '--manifest',
+                                                        self.manifest_copy(base=HC_ID, addon=AI_ID)),
+                                  '--steam-user', 'owner')
+        self.assertEqual(code, 1, text)  # the fake only supplies the two own items; third-party ones are missing
+        command = calls[0]
+        for item_id in (HC_ID, AI_ID):
+            at = command.index(item_id)
+            self.assertEqual(command[at - 2:at + 2], ['+workshop_download_item', '221100', item_id, 'validate'])
 
     def test_no_known_download_location_is_refused_before_running(self):
         code, _, err = self.main('fetch', '--server-root', str(self.root), '--groups', 'snafu',
@@ -380,14 +448,34 @@ class Install(Base):
             self.populate(key)
         make_item(self.content, HC_ID)
         code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols',
-                                     '--hollowcountry-id', HC_ID)
+                                     '--manifest', self.manifest_copy(base=HC_ID))
         self.assertEqual(code, 0, text)
         self.assertIn(FULL_MOD, text.splitlines())
         self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
         self.assertTrue((self.root / '@HollowCountry' / 'addons').is_dir())
-        # The locally built server-only mod is never created or copied by this tool.
+        # Its Workshop id is still null: the server-only mod is neither created nor copied by this tool.
         self.assertFalse((self.root / '@HollowCountryExpansionAI').exists())
         self.assertIn('@HollowCountryExpansionAI', text)
+        self.assertIn('no Workshop id', text)
+
+    def test_installs_the_published_ai_addon_and_keeps_it_in_server_mod_only(self):
+        for key in IDS:
+            self.populate(key)
+        make_item(self.content, HC_ID)
+        make_item(self.content, AI_ID, name='hollowcountryexpansionai')
+        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols',
+                                     '--manifest', self.manifest_copy(base=HC_ID, addon=AI_ID))
+        self.assertEqual(code, 0, text)
+        folder = self.root / '@HollowCountryExpansionAI'
+        self.assertTrue((folder / 'addons' / 'hollowcountryexpansionai.pbo').is_file())
+        self.assertTrue((self.root / 'keys' / ('key_%s.bikey' % AI_ID)).is_file())
+        self.assertIn(FULL_MOD, text.splitlines())
+        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+        self.assertFalse(any('@HollowCountryExpansionAI' in l for l in text.splitlines() if l.startswith('-mod=')))
+        receipt = json.loads((self.root / RECEIPT).read_text())
+        self.assertIn('@HollowCountryExpansionAI', receipt['dirs'])
+        self.assertEqual(self.rollback('--manifest', self.manifest_copy(base=HC_ID, addon=AI_ID))[0], 0)
+        self.assertFalse(folder.exists())
 
     def test_refuses_all_or_nothing_when_an_item_is_missing(self):
         self.populate('cf')
@@ -690,8 +778,11 @@ class ServerDetection(unittest.TestCase):
 class Documentation(unittest.TestCase):
     def test_docs_cover_the_workshop_flow(self):
         text = (REPO / 'docs/FRIEND_SERVER.md').read_text()
-        for needle in ('workshop_sync.py', 'workshop_publish.py', '-serverMod', 'Unlisted', 'Publisher'):
+        for needle in ('workshop_sync.py', 'workshop_publish.py', '-serverMod', 'Unlisted', 'Publisher',
+                       HC_ID, '--item addon', 'Hollow Country Expansion AI (server)'):
             self.assertIn(needle, text)
+        self.assertNotIn('never fetched or published', text)
+        self.assertNotIn('and is never published', text)
         self.assertNotIn('@HollowCountryExpansionAI` in `-mod`', text)
 
 

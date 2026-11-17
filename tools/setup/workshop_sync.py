@@ -19,8 +19,11 @@ Safety rules:
   recorded there (and only if they still match the recorded SHA-256) and the now-empty folders it created.
 * ``install`` and ``rollback`` refuse while a DayZ server process is running; ``--assume-stopped`` skips the
   check (also needed where the process list cannot be read).
-* @HollowCountryExpansionAI is a -serverMod built locally: it is listed in the launch lines but never fetched,
-  published or copied here.
+* Our own mods are published as Unlisted Workshop items: @HollowCountry and the server-side
+  @HollowCountryExpansionAI. One with an id in the manifest is fetched and installed like a third-party item.
+  One whose id is still null ("unpublished") is listed in the launch lines but never fetched or copied here;
+  copy its signed folder into the server root yourself. @HollowCountryExpansionAI always goes into
+  -serverMod, never -mod.
 
 The printed ``-mod=`` / ``-serverMod=`` lines follow the documented load order (CF, Dabs Framework,
 Expansion Core, Animations, AI, the optional weapons packs, @HollowCountry, then the server-only mod).
@@ -46,6 +49,7 @@ RECEIPT_NAME = 'hollow-country-workshop-receipt.json'
 SERVER_EXE = 'DayZServer_x64.exe'
 GROUPS = ('base', 'snafu', 'tactical_flava', 'pve_patrols')
 SIDES = ('client', 'server')
+BASE_FOLDER = '@HollowCountry'
 ID = re.compile(r'^[1-9][0-9]{5,12}$')
 FOLDER = re.compile(r'^@[A-Za-z0-9][A-Za-z0-9_.-]*$')
 STEAM_USER = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}$')
@@ -112,13 +116,13 @@ def parse_groups(text):
 
 
 def select(manifest, groups, hollowcountry_id=None):
-    """Items in the chosen groups in load order. ``hollowcountry_id`` fills our own mod's Workshop id."""
+    """Items in the chosen groups in load order. ``hollowcountry_id`` fills the base mod's id if it has none."""
     chosen = []
     for mod in manifest['mods']:
         if mod['group'] not in groups:
             continue
         item = dict(mod)
-        if item['id'] is None and item['publish'] and hollowcountry_id:
+        if item['id'] is None and item['folder'] == BASE_FOLDER and hollowcountry_id:
             item['id'] = str(hollowcountry_id)
         chosen.append(item)
     return chosen
@@ -640,7 +644,7 @@ def build_parser():
             p.add_argument('--steamcmd', help='path to steamcmd (its folder is searched for downloads)')
             p.add_argument('--manifest', help='alternative workshop_mods.json')
             p.add_argument('--hollowcountry-id', type=_positive_id,
-                           help='Workshop id of our own published mod (the manifest has none)')
+                           help='Workshop id of @HollowCountry, used only if the manifest has none')
 
     plan = sub.add_parser('plan', help='show what is needed, present and will be copied', allow_abbrev=False)
     common(plan)
