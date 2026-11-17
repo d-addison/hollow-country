@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.HookTests.test_r3_unchanged_leg_health_is_inconclusive -v
+test_r3_unchanged_leg_health_is_inconclusive (tests.unit.test_infected_competence.HookTests.test_r3_unchanged_leg_health_is_inconclusive) ... FAIL
+
+======================================================================
+FAIL: test_r3_unchanged_leg_health_is_inconclusive (tests.unit.test_infected_competence.HookTests.test_r3_unchanged_leg_health_is_inconclusive)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-dvf8lbd0/tests/unit/test_infected_competence.py", line 68, in test_r3_unchanged_leg_health_is_inconclusive
+    self.assertRegex(method, r'if \(currentLegHealth >= m_LegBefore\)\s*\{\s*m_Trial.reason = "left_leg_health_did_not_fall";\s*HCICNext\(\);\s*return;')
+AssertionError: Regex didn't match: 'if \\(currentLegHealth >= m_LegBefore\\)\\s*\\{\\s*m_Trial.reason = "left_leg_health_did_not_fall";\\s*HCICNext\\(\\);\\s*return;' not found in '\n    {\n        if (m_Done)\n            return;\n        if (!HCICNoClients())\n            return;\n        int elapsed = GetGame().GetTime() - m_TrialBegin;\n        if (elapsed > 5000 + 1000)\n        {\n            m_Trial.reason = "trial_time_budget";\n            HCICNext();\n            return;\n        }\n        if (!HCICSampleActor())\n        {\n            m_Trial.reason = "actor_dead_missing_or_target_present";\n            HCICNext();\n            return;\n        }\n        if (m_Trial.kind == "limb_damage" || m_Trial.kind == "crawl_health_only")\n        {\n            float currentLegHealth = m_Actor.GetHealth("LeftLeg", "Health");\n            if (currentLegHealth > m_LegBefore)\n            {\n                m_Trial.reason = "left_leg_health_did_not_fall";\n                HCICNext();\n                return;\n            }\n        }\n        m_Trial.observed = true;\n        m_Trial.status = "completed";\n        m_Trial.reason = "two_endpoint_samples_only";\n        HCICNext();\n    }\n\n'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+exit_code=1

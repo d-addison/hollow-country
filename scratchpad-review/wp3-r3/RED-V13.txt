@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_one_sample_completed_row_refused -v
+test_r3_one_sample_completed_row_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_one_sample_completed_row_refused) ... FAIL
+
+======================================================================
+FAIL: test_r3_one_sample_completed_row_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_one_sample_completed_row_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-z64zk7sb/tests/unit/test_infected_competence.py", line 398, in test_r3_one_sample_completed_row_refused
+    with self.assertRaisesRegex(ValueError, 'completed trial needs'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.211s
+
+FAILED (failures=1)
+
+exit_code=1

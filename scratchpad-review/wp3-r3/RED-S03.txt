@@ -1,0 +1,24 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_classes_sorted_before_limit -v
+test_r3_survey_classes_sorted_before_limit (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_classes_sorted_before_limit) ... FAIL
+
+======================================================================
+FAIL: test_r3_survey_classes_sorted_before_limit (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_classes_sorted_before_limit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-pmhtpp7a/tests/unit/test_infected_competence.py", line 415, in test_r3_survey_classes_sorted_before_limit
+    self.assertEqual(document['survey']['selection']['classes'], ['Land_Alpha'])
+AssertionError: Lists differ: ['Land_Zebra'] != ['Land_Alpha']
+
+First differing element 0:
+'Land_Zebra'
+'Land_Alpha'
+
+- ['Land_Zebra']
++ ['Land_Alpha']
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+exit_code=1

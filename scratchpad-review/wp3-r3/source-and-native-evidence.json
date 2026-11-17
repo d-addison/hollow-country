@@ -1,0 +1,248 @@
+{
+  "runtime_acceptance": "PENDING",
+  "hook_template_unchanged": true,
+  "rendered_hook_sha256": "6d009bbfa2a9daaf90358923b1f354868d455f5435c3f9d8599d6da45792ff19",
+  "rendered_hook_bytes": 16903,
+  "native_evidence": [
+    {
+      "api": "GetGame",
+      "file": "2_GameLib/gameLib.c",
+      "line": 4
+    },
+    {
+      "api": "OnInit",
+      "file": "5_Mission/mission/missionServer.c",
+      "line": 85
+    },
+    {
+      "api": "OnMissionFinish",
+      "file": "3_Game/gameplay.c",
+      "line": 702
+    },
+    {
+      "api": "IsServer",
+      "file": "3_Game/Global/Game.c",
+      "line": 1120
+    },
+    {
+      "api": "GetPlayerIndentities",
+      "file": "3_Game/Global/Game.c",
+      "line": 1166
+    },
+    {
+      "api": "SurfaceY",
+      "file": "3_Game/Global/Game.c",
+      "line": 1176
+    },
+    {
+      "api": "GetTime",
+      "file": "3_Game/Global/Game.c",
+      "line": 1535
+    },
+    {
+      "api": "GetCallQueue",
+      "file": "3_Game/Global/Game.c",
+      "line": 1550
+    },
+    {
+      "api": "GetWorldName",
+      "file": "3_Game/Global/Game.c",
+      "line": 932
+    },
+    {
+      "api": "GetVersion",
+      "file": "3_Game/Global/Game.c",
+      "line": 942
+    },
+    {
+      "api": "CallLater",
+      "file": "2_GameLib/tools.c",
+      "line": 61
+    },
+    {
+      "api": "CreateObjectEx",
+      "file": "3_Game/Global/Game.c",
+      "line": 703
+    },
+    {
+      "api": "ObjectDelete",
+      "file": "3_Game/Global/Game.c",
+      "line": 705
+    },
+    {
+      "api": "GetObjectsAtPosition3D",
+      "file": "3_Game/Global/Game.c",
+      "line": 930
+    },
+    {
+      "api": "GetPosition",
+      "file": "3_Game/Entities/Object.c",
+      "line": 287
+    },
+    {
+      "api": "GetType",
+      "file": "3_Game/Entities/Object.c",
+      "line": 467
+    },
+    {
+      "api": "IsAlive",
+      "file": "3_Game/Entities/Object.c",
+      "line": 517
+    },
+    {
+      "api": "GetHealth",
+      "file": "3_Game/Entities/Object.c",
+      "line": 994
+    },
+    {
+      "api": "DecreaseHealth",
+      "file": "3_Game/Entities/Object.c",
+      "line": 1034
+    },
+    {
+      "api": "GetInputController",
+      "file": "3_Game/Entities/DayZInfected.c",
+      "line": 107
+    },
+    {
+      "api": "GetMindState",
+      "file": "3_Game/Entities/DayZInfectedInputController.c",
+      "line": 9
+    },
+    {
+      "api": "GetTargetEntity",
+      "file": "3_Game/Entities/DayZInfectedInputController.c",
+      "line": 10
+    },
+    {
+      "api": "IsCrawling",
+      "file": "4_World/Entities/Creatures/Infected/ZombieBase.c",
+      "line": 1090
+    },
+    {
+      "api": "GetDoorCount",
+      "file": "3_Game/Entities/Building.c",
+      "line": 31
+    },
+    {
+      "api": "IsDoorOpen",
+      "file": "3_Game/Entities/Building.c",
+      "line": 34
+    },
+    {
+      "api": "IsDoorLocked",
+      "file": "3_Game/Entities/Building.c",
+      "line": 55
+    },
+    {
+      "api": "RaycastRV",
+      "file": "3_Game/Global/DayZPhysics.c",
+      "line": 199
+    },
+    {
+      "api": "Cast",
+      "file": "1_Core/proto/EnScript.c",
+      "line": 94
+    },
+    {
+      "api": "Count",
+      "file": "1_Core/proto/EnScript.c",
+      "line": 380
+    },
+    {
+      "api": "Get",
+      "file": "1_Core/proto/EnScript.c",
+      "line": 399
+    },
+    {
+      "api": "Insert",
+      "file": "1_Core/proto/EnScript.c",
+      "line": 407
+    },
+    {
+      "api": "Vector",
+      "file": "1_Core/proto/EnMath3D.c",
+      "line": 18
+    },
+    {
+      "api": "ToString",
+      "file": "1_Core/proto/EnConvert.c",
+      "line": 30
+    },
+    {
+      "api": "ToString",
+      "file": "1_Core/proto/EnConvert.c",
+      "line": 115
+    },
+    {
+      "api": "ToString",
+      "file": "1_Core/proto/EnConvert.c",
+      "line": 138
+    },
+    {
+      "api": "Length",
+      "file": "1_Core/proto/EnString.c",
+      "line": 199
+    },
+    {
+      "api": "FileExist",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 397
+    },
+    {
+      "api": "OpenFile",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 417
+    },
+    {
+      "api": "ReadFile",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 425
+    },
+    {
+      "api": "CloseFile",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 443
+    },
+    {
+      "api": "FPrint",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 462
+    },
+    {
+      "api": "FPrintln",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 481
+    },
+    {
+      "api": "MakeDirectory",
+      "file": "1_Core/proto/EnSystem.c",
+      "line": 525
+    },
+    {
+      "api": "MakeData",
+      "file": "3_Game/tools/JsonFileLoader.c",
+      "line": 85
+    },
+    {
+      "api": "$mission:",
+      "file": "5_Mission/GUI/ScriptConsole.c",
+      "line": 72
+    },
+    {
+      "api": "ECE_PLACE_ON_SURFACE",
+      "file": "3_Game/CE/CentralEconomy.c",
+      "line": 38
+    },
+    {
+      "api": "ECE_INITAI",
+      "file": "3_Game/CE/CentralEconomy.c",
+      "line": 18
+    }
+  ],
+  "lint_errors": [],
+  "source_sha256": {
+    "tools/setup/infected_competence_probe.py": "a31647bdc3e57ed03ac4039655f4490926b6b9fa1a3bb0b638f016f88e658bf5",
+    "tests/unit/test_infected_competence.py": "89d80bfbf214bd2caab5a250d6bd968e056a366b582c18df2ec0c7e44dd4bc3f"
+  }
+}

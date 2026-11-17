@@ -1,0 +1,55 @@
+V01 completed-leg-fall >= -> >: killed test_f3_health_only_labels_drop_and_shared_coverage,test_f3_health_only_labels_drop_and_shared_coverage
+V02 completed elapsed upper +1000 -> +100000: killed test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound,test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V03 inconclusive cap +30000 -> +30000000: killed test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound
+V04 completed lower bound dropped: killed test_completed_records_require_kind_specific_evidence_and_pinned_build
+V05 spawned==deleted dropped: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V06 client elapsed check dropped: killed test_client_required_each_field_refused_independently
+V07 authored Y tol 0.01 -> 1000: killed test_f1_authored_height_roundtrip_and_invalid_height_receipts,test_f1_authored_height_roundtrip_and_invalid_height_receipts
+V08 surface_y finite check dropped: killed test_f1_authored_height_roundtrip_and_invalid_height_receipts,test_f1_authored_height_roundtrip_and_invalid_height_receipts
+V09 clients != 0 -> < 0: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V10 sample exact keys dropped: killed test_f8_exact_nested_and_document_fields,test_f8_exact_nested_and_document_fields
+V11 door index check dropped: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V12 geometry must be clear dropped: killed test_completed_records_require_kind_specific_evidence_and_pinned_build
+V13 two samples -> >=1: SURVIVED 
+V14 version lookbehind dropped: SURVIVED 
+V15 completed target/alive contamination dropped: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies,test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V16 per-row doors outside door-state dropped: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V17 document key set exact dropped: killed test_f8_exact_nested_and_document_fields,test_f8_exact_nested_and_document_fields
+V18 limb range <=10000 -> 10**9: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V19 total spawned/deleted check dropped: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V20 receipt hook sha check dropped: killed test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies
+V21 config staged==source check dropped: SURVIVED 
+V22 sidecar mismatch dropped: killed test_sidecar_and_hook_bytes_tamper_refused
+V23 client reason mismatch dropped: killed test_client_required_each_field_refused_independently
+V24 client terrain-obs-empty dropped: killed test_client_required_each_field_refused_independently,test_client_required_each_field_refused_independently (+2)
+H01 spawn SurfaceY dropped: killed test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded
+H02 anchor SurfaceY dropped: killed test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded
+H03 query radius 5.0 -> 2.0: killed test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded
+H04 matches != 1 -> < 1: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H05 observe time budget +1000 -> +100000: SURVIVED 
+H06 client elapsed zero branch removed: killed test_f7_client_elapsed_is_explicitly_zero
+H07 leg fall >= -> >: SURVIVED 
+H08 DecreaseHealth stimulus removed: killed test_server_trials_and_explicit_client_exclusions
+H09 cleanup m_Owned=null removed: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H10 ray count 4 -> 3: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H11 initial leg health guard dropped: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H12 no-client identity abort dropped: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H13 trial CAP check removed: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H14 deleted-count in cleanup dropped: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H15 door budget guard 16 -> 1600: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H16 ECE flag ECE_INITAI dropped: killed test_hook_cleanup_ownership_guards_and_bounds_structure
+H17 ray height 0.8 -> 8.0: SURVIVED 
+H18 target presence ends sample false dropped: SURVIVED 
+S01 staged config hash differs from source: killed test_f1_authored_height_roundtrip_and_invalid_height_receipts,test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (+56)
+S02 survey x offset sin->cos: killed test_survey_read_only_even_placements_yaw_provenance_and_stage
+S03 survey class sort dropped: SURVIVED 
+S04 survey offset max 10 -> 1000: SURVIVED 
+S05 survey ambiguous rpy check dropped: SURVIVED 
+S06 spawn within 20m 400 -> 40000: killed test_check_trials_each_guard_and_plus_budget
+S07 wait_minutes +40000 -> +0: killed test_stage_entity_and_wait_bounds_follow_explicit_trials
+S08 registration refusal dropped: killed test_missing_real_registration_fails_loudly_before_staging
+S09 fixture limitation text dropped: killed test_f5_fixture_status_printed_and_default_stage_warning
+S10 path label swapped: killed test_f3_health_only_labels_drop_and_shared_coverage
+S11 stock-derived requires provenance dropped: SURVIVED 
+S12 hash sidecar written wrong: killed test_f1_authored_height_roundtrip_and_invalid_height_receipts,test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (+58)
+S13 start delay lower bound 5 -> 0: SURVIVED 

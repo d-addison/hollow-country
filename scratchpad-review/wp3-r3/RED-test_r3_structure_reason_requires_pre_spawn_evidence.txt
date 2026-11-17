@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_structure_reason_requires_pre_spawn_evidence -v
+test_r3_structure_reason_requires_pre_spawn_evidence (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_structure_reason_requires_pre_spawn_evidence) ... FAIL
+
+======================================================================
+FAIL: test_r3_structure_reason_requires_pre_spawn_evidence (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_structure_reason_requires_pre_spawn_evidence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 383, in test_r3_structure_reason_requires_pre_spawn_evidence
+    with self.assertRaisesRegex(ValueError, 'structure reason evidence'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.182s
+
+FAILED (failures=1)
+
+exit_code=1

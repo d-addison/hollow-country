@@ -47,7 +47,7 @@ LAUNCHER_ROW = (PLAN_NAME, PROBE_DIRECTORY, 'observations.json')
 PURPOSE_ROW = ('disposable-infected-competence-probe', None,
                ['server mode', 'fresh storage and profiles', 'no clients',
                 'inspect observation completeness separately from startup'])
-DEFAULT_NATIVE = Path('/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289')
+DEFAULT_NATIVE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 WSL_PARENT = Path('/mnt/d/HollowCountryLocal')
 MAX_TRIALS = 100
 MAX_OUTPUT_BYTES = 262144
@@ -65,6 +65,15 @@ KINDS = {
     'player_los_chase': ('client_required', 'Requires a real connected player and paired LOS/chase observations; server-only has no target.'),
     'player_wall_attack': ('client_required', 'Requires real player damage/attack observations through walls with two clients.'),
     'audible_pursuit': ('client_required', 'Requires two clients hearing pursuit on surfaces, at distance and through occlusion.'),
+}
+OUTCOME_REASONS = {
+    'completed': {'two_endpoint_samples_only'},
+    'inconclusive': {
+        'structure_missing_ambiguous_or_query_budget', 'footprint_ray_hit',
+        'spawn_controller_or_no_target_control_failed', 'door_budget_or_no_doors',
+        'invalid_initial_leg_health', 'trial_time_budget',
+        'actor_dead_missing_or_target_present', 'left_leg_health_did_not_fall',
+    },
 }
 
 # Every called native/script API, pinned to the user-supplied cache. No native source copied.
@@ -799,6 +808,11 @@ def validate(runtime):
 
     Deletion counters attest ObjectDelete calls, not a verified residual-world census.
     Receipts are not authenticated against a malicious operator; hashes bind staged bytes.
+    Initial placement allows 2m horizontal (radial) and 3m vertical from SurfaceY.
+    Authored/surface deltas above 3m flag non-default fixtures for operator review.
+    CallLater and GetTime timing is unobserved: allow 250ms below the requested
+    delay and 100ms above the hook's +1000ms budget for the Observe/Next clock race.
+    These provisional tolerances do not establish native placement/timer behavior.
     """
     root = Path(runtime)
     plan = _json(root / PLAN_NAME, 1024 * 1024)
@@ -840,6 +854,7 @@ def validate(runtime):
     if not isinstance(rows, list) or len(rows) != len(plan['trials']):
         raise ValueError('incomplete trial denominator')
     counts = dict(attempted=0, completed=0, inconclusive=0, client_required=0)
+    placement_evidence = []
     spawned = deleted = 0
     for row, trial in zip(rows, plan['trials']):
         if not isinstance(row, dict) or row.get('kind') not in KINDS:
@@ -856,7 +871,7 @@ def validate(runtime):
         _integer(row.get('spawned'), 0, 1, 'trial spawned')
         _integer(row.get('deleted'), 0, 1, 'trial deleted')
         if row.get('status') == 'completed':
-            _integer(row.get('elapsed_ms'), 0, plan['probe']['per_trial_ms'] + 1000, 'trial elapsed')
+            _integer(row.get('elapsed_ms'), 0, plan['probe']['per_trial_ms'] + 1100, 'trial elapsed')
         else:
             cap = len(plan['trials']) * (plan['probe']['per_trial_ms'] + 1100) + 30000
             _integer(row.get('elapsed_ms'), 0, cap, 'trial elapsed')
@@ -880,26 +895,46 @@ def validate(runtime):
                 raise ValueError('client-required reason mismatch')
             counts['client_required'] += 1
             continue
+        deltas = {}
         for prefix, position_key in (('anchor', 'structure_position'), ('spawn', 'position')):
             # Enforce float/ToString round trips are not Python double identities.
             if not math.isclose(_finite(row[prefix + '_authored_y']), trial[position_key][1],
                                 rel_tol=0, abs_tol=0.01):
                 raise ValueError('authored terrain height mismatch')
-            _finite(row[prefix + '_surface_y'])
+            surface_y = _finite(row[prefix + '_surface_y'])
+            if not -100 <= surface_y <= 2000:
+                raise ValueError('surface height outside Chernarus bounds')
+            deltas[prefix + '_authored_surface_delta_m'] = abs(_finite(row[prefix + '_authored_y']) - surface_y)
+        placement_evidence.append(dict(id=trial['id'], fixture_status=trial['fixture_status'], **deltas,
+                                       surface_delta_warning=trial['fixture_status'] != 'unqualified-candidate'
+                                       and max(deltas.values()) > 3))
         counts['attempted'] += 1
         status = row.get('status')
         if status not in ('completed', 'inconclusive') or row['observed'] != (status == 'completed'):
             raise ValueError('invalid trial outcome')
+        if row['reason'] not in OUTCOME_REASONS[status]:
+            raise ValueError('invalid outcome reason for status')
+        if row['reason'] == 'structure_missing_ambiguous_or_query_budget':
+            if row['spawned'] or row['samples'] or row['doors'] or row['geometry']:
+                raise ValueError('structure reason evidence must precede geometry/spawn')
+        if row['reason'] == 'footprint_ray_hit':
+            if (len(row['geometry']) != 4 or 1 not in row['geometry'] or
+                    row['spawned'] or row['samples'] or row['doors']):
+                raise ValueError('footprint reason evidence needs four rays with a hit before spawn')
+        if row['reason'] == 'trial_time_budget':
+            if (row['elapsed_ms'] <= plan['probe']['per_trial_ms'] + 1000 or
+                    row['spawned'] != 1 or len(row['samples']) != 1 or row['geometry'] != [0, 0, 0, 0]):
+                raise ValueError('time-budget reason evidence needs an owned initial sample and observe timeout')
         if status == 'completed':
             if (row['spawned'] != 1 or len(row['samples']) != 2 or row['geometry'] != [0, 0, 0, 0] or
-                    row['elapsed_ms'] < plan['probe']['per_trial_ms']):
+                    row['elapsed_ms'] < plan['probe']['per_trial_ms'] - 250):
                 raise ValueError('completed trial needs owned spawn, clear rays and two timed samples')
             if trial['kind'] == 'door_state' and not row['doors']:
                 raise ValueError('completed door trial needs door state')
         if trial['kind'] != 'door_state' and row['doors']:
             raise ValueError('door records outside door-state trial')
         counts[status] += 1
-        for sample in row['samples']:
+        for sample_index, sample in enumerate(row['samples']):
             if not isinstance(sample, dict):
                 raise ValueError('invalid sample')
             if set(sample) != {'mind', 'target', 'crawling', 'alive', 'left', 'right', 'position'}:
@@ -919,8 +954,11 @@ def validate(runtime):
             coordinates = position.replace('<', '').replace('>', '').replace(',', ' ').split()
             if len(coordinates) != 3:
                 raise ValueError('three native position coordinates required')
-            for coordinate in coordinates:
-                _finite(coordinate)
+            actual = [_finite(coordinate) for coordinate in coordinates]
+            if status == 'completed' and sample_index == 0:
+                horizontal = math.hypot(actual[0] - trial['position'][0], actual[2] - trial['position'][2])
+                if horizontal > 2 or abs(actual[1] - _finite(row['spawn_surface_y'])) > 3:
+                    raise ValueError('initial spawn placement outside 2m horizontal / 3m surface tolerances')
         for ray in row['geometry']:
             _integer(ray, 0, 1, 'geometry ray')
         if status == 'completed' and trial['kind'] in ('limb_damage', 'crawl_health_only'):
@@ -945,11 +983,20 @@ def validate(runtime):
     if fixture_counts.get('unqualified-candidate'):
         fixture_limitations.append(f"{fixture_counts['unqualified-candidate']} trials used unqualified-candidate fixtures; "
                                    'not the #18 building/angle denominator')
+    if fixture_counts.get('stock-derived') or fixture_counts.get('operator-surveyed'):
+        fixture_limitations.append('stock-derived and operator-surveyed fixtures remain candidates requiring '
+                                   'native qualification; provenance is operator-supplied, stock XML hashes '
+                                   'are not rechecked here, and the survey bearing convention is unobserved')
     return dict(kind=OBSERVATIONS_KIND, runtime_acceptance='PENDING', hook_sha256=expected_sha,
                 fixture_status_counts=fixture_counts,
+                placement_evidence=placement_evidence,
                 completed_observation_paths=sorted(paths, reverse=True),
                 denominator=counts, spawned=spawned, deletion_calls=deleted,
                 limitations=fixture_limitations + ['synthetic/offline validation does not establish DayZ behavior',
+                             'placement tolerances: initial sample within 2m horizontal / 3m of surface Y; '
+                             'non-default authored/surface deltas above 3m require review',
+                             'unobserved CallLater/GetTime allowance: -250ms requested delay, '
+                             '+100ms beyond hook timeout for the Observe/Next clock race',
                              'trial counts are repetitions, not distinct coverage; shared paths reported once',
                              'limb/crawl health-only stimulus: hit-path not exercised; no crawl-transition inference',
                              'two endpoint samples only; deletion calls require native residual checks',

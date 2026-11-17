@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_stock_trials_without_provenance_refused_before_write -v
+test_r3_stock_trials_without_provenance_refused_before_write (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_stock_trials_without_provenance_refused_before_write) ... FAIL
+
+======================================================================
+FAIL: test_r3_stock_trials_without_provenance_refused_before_write (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_stock_trials_without_provenance_refused_before_write)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-f3oiiubx/tests/unit/test_infected_competence.py", line 439, in test_r3_stock_trials_without_provenance_refused_before_write
+    with self.assertRaisesRegex(ValueError, 'stock-derived trials require survey provenance'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.174s
+
+FAILED (failures=1)
+
+exit_code=1

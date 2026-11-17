@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.HookTests.test_r3_geometry_ray_height_and_offsets -v
+test_r3_geometry_ray_height_and_offsets (tests.unit.test_infected_competence.HookTests.test_r3_geometry_ray_height_and_offsets) ... FAIL
+
+======================================================================
+FAIL: test_r3_geometry_ray_height_and_offsets (tests.unit.test_infected_competence.HookTests.test_r3_geometry_ray_height_and_offsets)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-x7vedfqe/tests/unit/test_infected_competence.py", line 73, in test_r3_geometry_ray_height_and_offsets
+    self.assertIn('vector rayBegin = spawnPoint + Vector(0, 0.8, 0);', method)
+AssertionError: 'vector rayBegin = spawnPoint + Vector(0, 0.8, 0);' not found in '\n    {\n        bool clear = true;\n        vector rayBegin = spawnPoint + Vector(0, 8.0, 0);\n        for (int rayIndex = 0; rayIndex < 4; rayIndex++)\n        {\n            vector rayOffset = Vector(0.6, 0, 0);\n            if (rayIndex == 1)\n                rayOffset = Vector(-0.6, 0, 0);\n            if (rayIndex == 2)\n                rayOffset = Vector(0, 0, 0.6);\n            if (rayIndex == 3)\n                rayOffset = Vector(0, 0, -0.6);\n            vector rayEnd = rayBegin + rayOffset;\n            vector contactPoint;\n            vector contactDirection;\n            int contactComponent;\n            bool hit = DayZPhysics.RaycastRV(rayBegin, rayEnd, contactPoint, contactDirection, contactComponent);\n            int hitValue = 0;\n            if (hit)\n            {\n                hitValue = 1;\n                clear = false;\n            }\n            m_Trial.geometry.Insert(hitValue);\n        }\n        return clear;\n    }\n\n'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+exit_code=1

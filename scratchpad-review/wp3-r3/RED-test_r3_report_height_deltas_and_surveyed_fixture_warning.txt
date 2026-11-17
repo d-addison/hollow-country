@@ -1,0 +1,18 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_report_height_deltas_and_surveyed_fixture_warning -v
+test_r3_report_height_deltas_and_surveyed_fixture_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_report_height_deltas_and_surveyed_fixture_warning) ... ERROR
+
+======================================================================
+ERROR: test_r3_report_height_deltas_and_surveyed_fixture_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_report_height_deltas_and_surveyed_fixture_warning)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 304, in test_r3_report_height_deltas_and_surveyed_fixture_warning
+    self.assertEqual(len(result['placement_evidence']), 6)  # Clients have no terrain evidence.
+                         ~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'placement_evidence'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.184s
+
+FAILED (errors=1)
+
+exit_code=1

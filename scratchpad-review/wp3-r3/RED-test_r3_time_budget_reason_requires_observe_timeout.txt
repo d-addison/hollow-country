@@ -1,0 +1,27 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout -v
+test_r3_time_budget_reason_requires_observe_timeout (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout) ... 
+  test_r3_time_budget_reason_requires_observe_timeout (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout) (elapsed=10) ... FAIL
+  test_r3_time_budget_reason_requires_observe_timeout (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout) (elapsed=6000) ... FAIL
+
+======================================================================
+FAIL: test_r3_time_budget_reason_requires_observe_timeout (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout) (elapsed=10)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 373, in test_r3_time_budget_reason_requires_observe_timeout
+    with self.assertRaisesRegex(ValueError, 'time-budget reason evidence'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_time_budget_reason_requires_observe_timeout (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout) (elapsed=6000)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 373, in test_r3_time_budget_reason_requires_observe_timeout
+    with self.assertRaisesRegex(ValueError, 'time-budget reason evidence'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.190s
+
+FAILED (failures=2)
+
+exit_code=1

@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_ambiguous_rpy_refused -v
+test_r3_survey_ambiguous_rpy_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_ambiguous_rpy_refused) ... FAIL
+
+======================================================================
+FAIL: test_r3_survey_ambiguous_rpy_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_ambiguous_rpy_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-zev4sew8/tests/unit/test_infected_competence.py", line 432, in test_r3_survey_ambiguous_rpy_refused
+    with self.assertRaisesRegex(ValueError, 'ambiguous placement rpy'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+exit_code=1

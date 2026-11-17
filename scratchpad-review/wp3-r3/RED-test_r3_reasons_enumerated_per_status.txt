@@ -1,0 +1,54 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status -v
+test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) ... 
+  test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='completed', reason='sampled') ... FAIL
+  test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='completed', reason='trial_time_budget') ... FAIL
+  test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='inconclusive', reason='two_endpoint_samples_only') ... FAIL
+  test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='inconclusive', reason='structure_missing') ... FAIL
+  test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='inconclusive', reason='totally fabricated reason') ... FAIL
+
+======================================================================
+FAIL: test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='completed', reason='sampled')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 337, in test_r3_reasons_enumerated_per_status
+    with self.subTest(status=status, reason=reason), self.assertRaisesRegex(ValueError, 'outcome reason'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='completed', reason='trial_time_budget')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 337, in test_r3_reasons_enumerated_per_status
+    with self.subTest(status=status, reason=reason), self.assertRaisesRegex(ValueError, 'outcome reason'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='inconclusive', reason='two_endpoint_samples_only')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 337, in test_r3_reasons_enumerated_per_status
+    with self.subTest(status=status, reason=reason), self.assertRaisesRegex(ValueError, 'outcome reason'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='inconclusive', reason='structure_missing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 337, in test_r3_reasons_enumerated_per_status
+    with self.subTest(status=status, reason=reason), self.assertRaisesRegex(ValueError, 'outcome reason'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) (status='inconclusive', reason='totally fabricated reason')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 337, in test_r3_reasons_enumerated_per_status
+    with self.subTest(status=status, reason=reason), self.assertRaisesRegex(ValueError, 'outcome reason'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.188s
+
+FAILED (failures=5)
+
+exit_code=1

@@ -1,0 +1,31 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range -v
+test_r3_survey_offset_range (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range) ... 
+  test_r3_survey_offset_range (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range) (offset=10.001) ... FAIL
+  test_r3_survey_offset_range (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range) (offset=100) ... FAIL
+
+======================================================================
+FAIL: test_r3_survey_offset_range (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range) (offset=10.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-36y4lrsu/tests/unit/test_infected_competence.py", line 422, in test_r3_survey_offset_range
+    with self.subTest(offset=offset), self.assertRaisesRegex(ValueError, 'spawn offset'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_survey_offset_range (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range) (offset=100)
+----------------------------------------------------------------------
+ValueError: spawn must be within 20m of chosen structure anchor
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-36y4lrsu/tests/unit/test_infected_competence.py", line 422, in test_r3_survey_offset_range
+    with self.subTest(offset=offset), self.assertRaisesRegex(ValueError, 'spawn offset'):
+AssertionError: "spawn offset" does not match "spawn must be within 20m of chosen structure anchor"
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=2)
+
+exit_code=1

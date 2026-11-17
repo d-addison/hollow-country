@@ -1,0 +1,63 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence -v
+test_bounds_and_injection_rejected (tests.unit.test_infected_competence.HookTests.test_bounds_and_injection_rejected) ... ok
+test_check_trials_each_guard_and_plus_budget (tests.unit.test_infected_competence.HookTests.test_check_trials_each_guard_and_plus_budget) ... ok
+test_compile_shape_against_real_cache (tests.unit.test_infected_competence.HookTests.test_compile_shape_against_real_cache) ... ok
+test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded (tests.unit.test_infected_competence.HookTests.test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded) ... ok
+test_f7_client_elapsed_is_explicitly_zero (tests.unit.test_infected_competence.HookTests.test_f7_client_elapsed_is_explicitly_zero) ... ok
+test_hook_cleanup_ownership_guards_and_bounds_structure (tests.unit.test_infected_competence.HookTests.test_hook_cleanup_ownership_guards_and_bounds_structure) ... ok
+test_r3_geometry_ray_height_and_offsets (tests.unit.test_infected_competence.HookTests.test_r3_geometry_ray_height_and_offsets) ... ok
+test_r3_no_target_sample_returns_false (tests.unit.test_infected_competence.HookTests.test_r3_no_target_sample_returns_false) ... ok
+test_r3_observe_budget_stops_at_extra_1000_ms (tests.unit.test_infected_competence.HookTests.test_r3_observe_budget_stops_at_extra_1000_ms) ... ok
+test_r3_start_delay_lower_boundary (tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary) ... ok
+test_r3_unchanged_leg_health_is_inconclusive (tests.unit.test_infected_competence.HookTests.test_r3_unchanged_leg_health_is_inconclusive) ... ok
+test_server_trials_and_explicit_client_exclusions (tests.unit.test_infected_competence.HookTests.test_server_trials_and_explicit_client_exclusions) ... ok
+test_client_required_each_field_refused_independently (tests.unit.test_infected_competence.StagingAndReceiptTests.test_client_required_each_field_refused_independently) ... ok
+test_completed_records_require_kind_specific_evidence_and_pinned_build (tests.unit.test_infected_competence.StagingAndReceiptTests.test_completed_records_require_kind_specific_evidence_and_pinned_build) ... ok
+test_f1_authored_height_roundtrip_and_invalid_height_receipts (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f1_authored_height_roundtrip_and_invalid_height_receipts) ... ok
+test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f2_inconclusive_elapsed_uses_plan_cap_completed_keeps_tight_bound) ... ok
+test_f3_health_only_labels_drop_and_shared_coverage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f3_health_only_labels_drop_and_shared_coverage) ... ok
+test_f5_fixture_status_printed_and_default_stage_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f5_fixture_status_printed_and_default_stage_warning) ... ok
+test_f8_exact_nested_and_document_fields (tests.unit.test_infected_competence.StagingAndReceiptTests.test_f8_exact_nested_and_document_fields) ... ok
+test_missing_real_registration_fails_loudly_before_staging (tests.unit.test_infected_competence.StagingAndReceiptTests.test_missing_real_registration_fails_loudly_before_staging) ... ok
+test_native_cache_required_and_config_duplicates_refused_before_writes (tests.unit.test_infected_competence.StagingAndReceiptTests.test_native_cache_required_and_config_duplicates_refused_before_writes) ... ok
+test_output_budget_and_duplicate_keys_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_output_budget_and_duplicate_keys_refused) ... ok
+test_plan_and_staged_hook_tamper_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_plan_and_staged_hook_tamper_refused) ... ok
+test_r3_completed_clock_slack_boundaries (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries) ... ok
+test_r3_footprint_reason_requires_hit_before_spawn (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_footprint_reason_requires_hit_before_spawn) ... ok
+test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) ... ok
+test_r3_one_sample_completed_row_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_one_sample_completed_row_refused) ... ok
+test_r3_reasons_enumerated_per_status (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_reasons_enumerated_per_status) ... ok
+test_r3_report_height_deltas_and_surveyed_fixture_warning (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_report_height_deltas_and_surveyed_fixture_warning) ... ok
+test_r3_stock_trials_without_provenance_refused_before_write (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_stock_trials_without_provenance_refused_before_write) ... ok
+test_r3_structure_reason_requires_pre_spawn_evidence (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_structure_reason_requires_pre_spawn_evidence) ... ok
+test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) ... ok
+test_r3_survey_ambiguous_rpy_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_ambiguous_rpy_refused) ... FAIL
+test_r3_survey_classes_sorted_before_limit (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_classes_sorted_before_limit) ... ok
+test_r3_survey_offset_range (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_offset_range) ... ok
+test_r3_time_budget_reason_requires_observe_timeout (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_time_budget_reason_requires_observe_timeout) ... ok
+test_r3_version_cannot_embed_pinned_version_in_other_build (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_version_cannot_embed_pinned_version_in_other_build) ... ok
+test_receipt_denominator_and_inconclusive_are_honest (tests.unit.test_infected_competence.StagingAndReceiptTests.test_receipt_denominator_and_inconclusive_are_honest) ... ok
+test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies (tests.unit.test_infected_competence.StagingAndReceiptTests.test_refuse_hash_unknown_kind_client_observations_and_cleanup_lies) ... ok
+test_refuse_incomplete_and_bad_sentinel (tests.unit.test_infected_competence.StagingAndReceiptTests.test_refuse_incomplete_and_bad_sentinel) ... ok
+test_sidecar_and_hook_bytes_tamper_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_sidecar_and_hook_bytes_tamper_refused) ... ok
+test_stage_entity_and_wait_bounds_follow_explicit_trials (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_entity_and_wait_bounds_follow_explicit_trials) ... ok
+test_stage_is_fresh_pinned_no_clients_and_never_launches (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_is_fresh_pinned_no_clients_and_never_launches) ... ok
+test_stage_refuses_native_drift_and_lint_before_destination (tests.unit.test_infected_competence.StagingAndReceiptTests.test_stage_refuses_native_drift_and_lint_before_destination) ... ok
+test_staged_config_and_each_init_binding_guard (tests.unit.test_infected_competence.StagingAndReceiptTests.test_staged_config_and_each_init_binding_guard) ... ok
+test_survey_read_only_even_placements_yaw_provenance_and_stage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage) ... ok
+test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_refuses_unsafe_missing_or_over_budget_inputs_without_output) ... ok
+
+======================================================================
+FAIL: test_r3_survey_ambiguous_rpy_refused (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_survey_ambiguous_rpy_refused)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-3tltlk7g/tests/unit/test_infected_competence.py", line 432, in test_r3_survey_ambiguous_rpy_refused
+    with self.assertRaisesRegex(ValueError, 'ambiguous placement rpy'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 47 tests in 11.676s
+
+FAILED (failures=1)
+
+exit_code=1

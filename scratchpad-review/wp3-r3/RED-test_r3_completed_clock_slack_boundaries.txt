@@ -1,0 +1,33 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries -v
+test_r3_completed_clock_slack_boundaries (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries) ... 
+  test_r3_completed_clock_slack_boundaries (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries) (elapsed=4750) ... ERROR
+  test_r3_completed_clock_slack_boundaries (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries) (elapsed=6100) ... ERROR
+
+======================================================================
+ERROR: test_r3_completed_clock_slack_boundaries (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries) (elapsed=4750)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 322, in test_r3_completed_clock_slack_boundaries
+    probe.validate(self.dest)
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 896, in validate
+    raise ValueError('completed trial needs owned spawn, clear rays and two timed samples')
+ValueError: completed trial needs owned spawn, clear rays and two timed samples
+
+======================================================================
+ERROR: test_r3_completed_clock_slack_boundaries (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_completed_clock_slack_boundaries) (elapsed=6100)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 322, in test_r3_completed_clock_slack_boundaries
+    probe.validate(self.dest)
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 859, in validate
+    _integer(row.get('elapsed_ms'), 0, plan['probe']['per_trial_ms'] + 1000, 'trial elapsed')
+  File "/code/hc-worktrees/wp3-integ/tools/setup/infected_competence_probe.py", line 142, in _integer
+    raise ValueError(f'{name} must be an integer {low}..{high}')
+ValueError: trial elapsed must be an integer 0..6000
+
+----------------------------------------------------------------------
+Ran 1 test in 0.224s
+
+FAILED (errors=2)
+
+exit_code=1

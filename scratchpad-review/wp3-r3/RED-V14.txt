@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_version_cannot_embed_pinned_version_in_other_build -v
+test_r3_version_cannot_embed_pinned_version_in_other_build (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_version_cannot_embed_pinned_version_in_other_build) ... FAIL
+
+======================================================================
+FAIL: test_r3_version_cannot_embed_pinned_version_in_other_build (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_version_cannot_embed_pinned_version_in_other_build)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-5vljah4g/tests/unit/test_infected_competence.py", line 406, in test_r3_version_cannot_embed_pinned_version_in_other_build
+    with self.assertRaisesRegex(ValueError, 'pinned Chernarus/build'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.169s
+
+FAILED (failures=1)
+
+exit_code=1

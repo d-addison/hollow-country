@@ -21,7 +21,7 @@ from tools.setup import diagnostic_mission as dm
 from tools.setup import probe_runtime as rt
 from tools.setup import infected_competence_probe as probe
 
-CACHE = Path('/home/david/.cache/hollow-country/native-scripts/scripts-1.30.164289')
+CACHE = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'
 
 
 def synthetic_receipt(plan):
@@ -30,7 +30,7 @@ def synthetic_receipt(plan):
         client = trial['support_state'] == 'client_required'
         rows.append(dict(id=trial['id'], kind=trial['kind'], support_state=trial['support_state'],
                          status='client_required' if client else 'completed', observed=not client,
-                         reason=trial['reason'] if client else 'sampled', spawned=0 if client else 1,
+                         reason=trial['reason'] if client else 'two_endpoint_samples_only', spawned=0 if client else 1,
                          deleted=0 if client else 1, elapsed_ms=0 if client else 5000,
                          anchor_authored_y='' if client else str(trial['structure_position'][1]),
                          anchor_surface_y='' if client else '20',
@@ -38,7 +38,8 @@ def synthetic_receipt(plan):
                          spawn_surface_y='' if client else '21',
                          samples=[] if client else [dict(mind=0, target=False, crawling=False,
                                                          left='100', right='100', alive=True,
-                                                         position='6500 0 2500') for _ in range(2)],
+                                                         position=f"{trial['position'][0]} 21 {trial['position'][2]}")
+                                                   for _ in range(2)],
                          doors=[dict(index=0, opened=False, locked=True)] if trial['kind'] == 'door_state' else [],
                          geometry=[] if client else [0, 0, 0, 0]))
         if trial['kind'] in ('limb_damage', 'crawl_health_only'):
@@ -50,6 +51,40 @@ def synthetic_receipt(plan):
 
 
 class HookTests(unittest.TestCase):
+    def test_r3_no_target_sample_returns_false(self):
+        hook = probe.render_hook().decode('ascii')
+        method = hook.split('    bool HCICSampleActor()')[1].split('    void HCICStep()')[0]
+        self.assertRegex(method, r'm_Trial.samples.Insert\(sampleRow\);\s*if \(sampleRow.target\)\s*return false;\s*return true;')
+
+    def test_r3_observe_budget_stops_at_extra_1000_ms(self):
+        hook = probe.render_hook(per_trial_ms=7000).decode('ascii')
+        method = hook.split('    void HCICObserve()')[1].split('    void HCICCleanup()')[0]
+        self.assertRegex(method, r'if \(elapsed > 7000 \+ 1000\)\s*\{\s*m_Trial.reason = "trial_time_budget";\s*HCICNext\(\);\s*return;')
+        self.assertLess(method.index('elapsed >'), method.index('if (!HCICSampleActor())'))
+
+    def test_r3_unchanged_leg_health_is_inconclusive(self):
+        hook = probe.render_hook().decode('ascii')
+        method = hook.split('    void HCICObserve()')[1].split('    void HCICCleanup()')[0]
+        self.assertRegex(method, r'if \(currentLegHealth >= m_LegBefore\)\s*\{\s*m_Trial.reason = "left_leg_health_did_not_fall";\s*HCICNext\(\);\s*return;')
+
+    def test_r3_geometry_ray_height_and_offsets(self):
+        hook = probe.render_hook().decode('ascii')
+        method = hook.split('    bool HCICGeometry(vector spawnPoint)')[1].split('    bool HCICSampleActor()')[0]
+        self.assertIn('vector rayBegin = spawnPoint + Vector(0, 0.8, 0);', method)
+        self.assertIn('vector rayOffset = Vector(0.6, 0, 0);', method)
+        for index, offset in ((1, '-0.6, 0, 0'), (2, '0, 0, 0.6'), (3, '0, 0, -0.6')):
+            self.assertRegex(method, rf'if \(rayIndex == {index}\)\s*rayOffset = Vector\({re.escape(offset)}\);')
+        self.assertIn('vector rayEnd = rayBegin + rayOffset;', method)
+        self.assertIn('DayZPhysics.RaycastRV(rayBegin, rayEnd,', method)
+
+    def test_r3_start_delay_lower_boundary(self):
+        for delay in (0, 4):
+            with self.subTest(delay=delay), self.assertRaisesRegex(ValueError, 'start delay'):
+                probe.render_hook(start_delay_s=delay)
+        hook = probe.render_hook(start_delay_s=5).decode('ascii')
+        on_init = hook.split('    override void OnInit()')[1].split('    override void OnMissionFinish()')[0]
+        self.assertIn('CallLater(HCICBegin, 5000, false);', on_init)
+
     def test_f1_surface_height_precedes_queries_and_spawn_and_is_recorded(self):
         hook = probe.render_hook().decode('ascii')
         step = hook.split('    void HCICStep()')[1].split('    void HCICObserve()')[0]
@@ -205,18 +240,205 @@ class StagingAndReceiptTests(unittest.TestCase):
         (self.source / 'launch-plan.json').write_text(json.dumps(source_plan))
         self.dest = self.root / 'infected-test'
 
-    def stage(self):
+    def stage(self, **kwargs):
         # Explicit integration stand-ins; never mutate shared production files.
         with mock.patch.dict(dm._PURPOSES, {probe.PURPOSE: probe.PURPOSE_ROW}), \
                 mock.patch.dict(rt.LAUNCHER_PROBES, {probe.PURPOSE: probe.LAUNCHER_ROW}):
             return probe.stage(self.source, self.dest, native_scripts=CACHE,
-                               battleye_sha256=SYNTH_BE_SHA, _wsl_parent=self.root)
+                               battleye_sha256=SYNTH_BE_SHA, _wsl_parent=self.root, **kwargs)
 
     def write_receipt(self, receipt):
         directory = self.dest / 'profiles/HCInfectedCompetence'
         directory.mkdir(parents=True, exist_ok=True)
         (directory / 'observations.json').write_text(json.dumps(receipt))
         (directory / 'complete.txt').write_text('status=complete\n')
+
+    def test_r3_initial_position_boundaries_and_later_movement(self):
+        plan = self.stage()
+        original = synthetic_receipt(plan)
+        for position in ('6502 24 2500', '6500 18 2498'):
+            receipt = copy.deepcopy(original)
+            receipt['trials'][0]['samples'][0]['position'] = position
+            receipt['trials'][0]['samples'][1]['position'] = '6507 21 2506'
+            self.write_receipt(receipt)
+            probe.validate(self.dest)  # Exactly 2m horizontal / 3m vertical; later motion is allowed.
+        for position in ('0 0 0', '6502.001 21 2500', '6500 21 2497.999',
+                         '6501.5 21 2501.5', '6500 24.001 2500', '6500 17.999 2500'):
+            receipt = copy.deepcopy(original)
+            receipt['trials'][0]['samples'][0]['position'] = position
+            self.write_receipt(receipt)
+            with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+                probe.validate(self.dest)
+
+    def test_r3_surface_height_bounds_for_completed_and_inconclusive(self):
+        plan = self.stage()
+        original = synthetic_receipt(plan)
+        for status in ('completed', 'inconclusive'):
+            for field in ('anchor_surface_y', 'spawn_surface_y'):
+                for height in (-100, 2000, -100.001, 2000.001, -5000, 99999):
+                    receipt = copy.deepcopy(original)
+                    row = receipt['trials'][0]
+                    if status == 'inconclusive':
+                        row.update(status=status, observed=False, reason='actor_dead_missing_or_target_present')
+                    row[field] = str(height)
+                    if field == 'spawn_surface_y':
+                        row['samples'][0]['position'] = f'6500 {height} 2500'
+                    self.write_receipt(receipt)
+                    with self.subTest(status=status, field=field, height=height):
+                        if -100 <= height <= 2000:
+                            probe.validate(self.dest)
+                        else:
+                            with self.assertRaisesRegex(ValueError, 'surface height outside'):
+                                probe.validate(self.dest)
+
+    def test_r3_report_height_deltas_and_surveyed_fixture_warning(self):
+        trials = probe.default_trials()
+        for trial in trials:
+            trial['fixture_status'] = 'operator-surveyed'
+            trial['position'][1] = trial['structure_position'][1] = 25
+        plan = self.stage(trials=trials)
+        receipt = synthetic_receipt(plan)
+        receipt['trials'][1].update(anchor_surface_y='22', spawn_surface_y='22')
+        self.write_receipt(receipt)
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(probe.main(['report', str(self.dest)]), 0)
+        result = json.loads(output.getvalue())
+        self.assertEqual(len(result['placement_evidence']), 6)  # Clients have no terrain evidence.
+        first, boundary = result['placement_evidence'][:2]
+        self.assertEqual(first, dict(id='t000', fixture_status='operator-surveyed',
+                                    anchor_authored_surface_delta_m=5.0,
+                                    spawn_authored_surface_delta_m=4.0, surface_delta_warning=True))
+        self.assertEqual(boundary['spawn_authored_surface_delta_m'], 3.0)
+        self.assertFalse(boundary['surface_delta_warning'])
+        self.assertTrue(any('operator-surveyed' in line and 'candidates' in line
+                            for line in result['limitations']))
+
+    def test_r3_completed_clock_slack_boundaries(self):
+        plan = self.stage()
+        receipt = synthetic_receipt(plan)
+        for elapsed, accepted in ((4750, True), (4749, False), (6100, True), (6101, False)):
+            receipt['trials'][0]['elapsed_ms'] = elapsed
+            self.write_receipt(receipt)
+            with self.subTest(elapsed=elapsed):
+                if accepted:
+                    probe.validate(self.dest)
+                else:
+                    with self.assertRaisesRegex(ValueError, 'timed samples|trial elapsed'):
+                        probe.validate(self.dest)
+
+    def test_r3_reasons_enumerated_per_status(self):
+        plan = self.stage()
+        original = synthetic_receipt(plan)
+        for status, reason in (('completed', 'sampled'), ('completed', 'trial_time_budget'),
+                               ('inconclusive', 'two_endpoint_samples_only'),
+                               ('inconclusive', 'structure_missing'),
+                               ('inconclusive', 'totally fabricated reason')):
+            receipt = copy.deepcopy(original)
+            receipt['trials'][0].update(status=status, reason=reason, observed=status == 'completed')
+            self.write_receipt(receipt)
+            with self.subTest(status=status, reason=reason), self.assertRaisesRegex(ValueError, 'outcome reason'):
+                probe.validate(self.dest)
+
+    def test_r3_footprint_reason_requires_hit_before_spawn(self):
+        plan = self.stage()
+        original = synthetic_receipt(plan)
+        row = original['trials'][0]
+        row.update(status='inconclusive', observed=False, reason='footprint_ray_hit', spawned=0,
+                   deleted=0, samples=[], geometry=[0, 1, 0, 0], elapsed_ms=10)
+        original['spawned'] -= 1
+        original['deleted'] -= 1
+        self.write_receipt(original)
+        probe.validate(self.dest)
+        for change in (dict(geometry=[0, 0, 0, 0]), dict(geometry=[1]), dict(spawned=1, deleted=1),
+                       dict(samples=[synthetic_receipt(plan)['trials'][0]['samples'][0]])):
+            receipt = copy.deepcopy(original)
+            receipt['trials'][0].update(change)
+            receipt['spawned'] += receipt['trials'][0]['spawned']
+            receipt['deleted'] += receipt['trials'][0]['deleted']
+            self.write_receipt(receipt)
+            with self.subTest(change=change), self.assertRaisesRegex(ValueError, 'footprint reason evidence'):
+                probe.validate(self.dest)
+
+    def test_r3_time_budget_reason_requires_observe_timeout(self):
+        plan = self.stage()
+        receipt = synthetic_receipt(plan)
+        row = receipt['trials'][0]
+        row.update(status='inconclusive', observed=False, reason='trial_time_budget')
+        row['samples'] = row['samples'][:1]
+        for elapsed, accepted in ((10, False), (6000, False), (6001, True)):
+            row['elapsed_ms'] = elapsed
+            self.write_receipt(receipt)
+            with self.subTest(elapsed=elapsed):
+                if accepted:
+                    probe.validate(self.dest)
+                else:
+                    with self.assertRaisesRegex(ValueError, 'time-budget reason evidence'):
+                        probe.validate(self.dest)
+
+    def test_r3_structure_reason_requires_pre_spawn_evidence(self):
+        plan = self.stage()
+        original = synthetic_receipt(plan)
+        row = original['trials'][0]
+        row.update(status='inconclusive', observed=False,
+                   reason='structure_missing_ambiguous_or_query_budget', elapsed_ms=10)
+        self.write_receipt(original)
+        with self.assertRaisesRegex(ValueError, 'structure reason evidence'):
+            probe.validate(self.dest)
+        row.update(spawned=0, deleted=0, samples=[], geometry=[])
+        original['spawned'] -= 1
+        original['deleted'] -= 1
+        self.write_receipt(original)
+        probe.validate(self.dest)
+
+    def test_r3_one_sample_completed_row_refused(self):
+        plan = self.stage()
+        receipt = synthetic_receipt(plan)
+        receipt['trials'][0]['samples'].pop()
+        self.write_receipt(receipt)
+        with self.assertRaisesRegex(ValueError, 'completed trial needs'):
+            probe.validate(self.dest)
+
+    def test_r3_version_cannot_embed_pinned_version_in_other_build(self):
+        plan = self.stage()
+        receipt = synthetic_receipt(plan)
+        receipt['version'] = '21.30.164289'
+        self.write_receipt(receipt)
+        with self.assertRaisesRegex(ValueError, 'pinned Chernarus/build'):
+            probe.validate(self.dest)
+
+    def test_r3_survey_classes_sorted_before_limit(self):
+        stock = self.root / 'synthetic-mapgrouppos.xml'
+        stock.write_text('<map><group name="Land_Zebra" pos="100 0 200" rpy="0 0 0"/>'
+                         '<group name="Land_Alpha" pos="200 0 200" rpy="0 0 0"/></map>')
+        for classes in (None, ['Land_Zebra', 'Land_Alpha']):
+            document = probe.survey(stock, classes=classes, class_limit=1)
+            self.assertEqual(document['survey']['selection']['classes'], ['Land_Alpha'])
+            self.assertEqual({row['structure'] for row in document['trials']}, {'Land_Alpha'})
+
+    def test_r3_survey_offset_range(self):
+        stock = self.root / 'synthetic-mapgrouppos.xml'
+        stock.write_text('<map><group name="Land_Synthetic" pos="100 0 200" rpy="0 0 0"/></map>')
+        for offset in (0.999, 10.001, 100, math.inf, math.nan, True):
+            with self.subTest(offset=offset), self.assertRaisesRegex(ValueError, 'spawn offset'):
+                probe.survey(stock, spawn_offset_m=offset)
+        for offset in (1, 10):
+            self.assertEqual(probe.survey(stock, spawn_offset_m=offset)['trials'][0]['position'][2],
+                             200 + offset)
+
+    def test_r3_survey_ambiguous_rpy_refused(self):
+        stock = self.root / 'synthetic-mapgrouppos.xml'
+        stock.write_text('<map><group name="Land_Synthetic" pos="100 0 200" rpy="0 0 0"/>'
+                         '<group name="Land_Synthetic" pos="100 0 200" rpy="0 0 90"/></map>')
+        with self.assertRaisesRegex(ValueError, 'ambiguous placement rpy'):
+            probe.survey(stock)
+
+    def test_r3_stock_trials_without_provenance_refused_before_write(self):
+        trials = probe.default_trials()
+        for trial in trials:
+            trial['fixture_status'] = 'stock-derived'
+        with self.assertRaisesRegex(ValueError, 'stock-derived trials require survey provenance'):
+            self.stage(trials=trials)
+        self.assertFalse(self.dest.exists())
 
     def test_survey_read_only_even_placements_yaw_provenance_and_stage(self):
         # Tiny invented mapgrouppos, never copied from game files. Angles are rpy degrees.
@@ -253,7 +475,9 @@ class StagingAndReceiptTests(unittest.TestCase):
                            battleye_sha256=SYNTH_BE_SHA, _wsl_parent=self.root)
         self.assertEqual(plan['fixture_survey'], document['survey'])
         self.write_receipt(synthetic_receipt(plan))
-        self.assertEqual(probe.validate(self.dest)['fixture_status_counts'], {'stock-derived': 18})
+        result = probe.validate(self.dest)
+        self.assertEqual(result['fixture_status_counts'], {'stock-derived': 18})
+        self.assertTrue(any('stock-derived' in line and 'candidates' in line for line in result['limitations']))
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
             self.assertEqual(probe.main(['survey', '--mapgrouppos', str(stock), '--output', str(output_path)]), 1)
         self.assertEqual(stock.read_bytes(), xml)
@@ -356,8 +580,8 @@ class StagingAndReceiptTests(unittest.TestCase):
     def test_receipt_denominator_and_inconclusive_are_honest(self):
         plan = self.stage()
         receipt = synthetic_receipt(plan)
-        receipt['trials'][0].update(status='inconclusive', reason='structure_missing', observed=False,
-                                    spawned=0, deleted=0, samples=[])
+        receipt['trials'][0].update(status='inconclusive', reason='structure_missing_ambiguous_or_query_budget',
+                                    observed=False, spawned=0, deleted=0, samples=[], geometry=[])
         receipt['spawned'] -= 1
         receipt['deleted'] -= 1
         self.write_receipt(receipt)
@@ -488,6 +712,7 @@ class StagingAndReceiptTests(unittest.TestCase):
         cap = len(plan['trials']) * (plan['probe']['per_trial_ms'] + 1100) + 30000
         row = receipt['trials'][0]
         row.update(status='inconclusive', observed=False, reason='trial_time_budget', elapsed_ms=6070)
+        row['samples'] = row['samples'][:1]
         self.write_receipt(receipt)
         self.assertEqual(probe.validate(self.dest)['denominator']['inconclusive'], 1)
         row['elapsed_ms'] = cap
@@ -497,7 +722,7 @@ class StagingAndReceiptTests(unittest.TestCase):
         self.write_receipt(receipt)
         with self.assertRaisesRegex(ValueError, 'trial elapsed'):
             probe.validate(self.dest)
-        row.update(status='completed', observed=True, elapsed_ms=6001)
+        row.update(status='completed', observed=True, elapsed_ms=6101, reason='two_endpoint_samples_only')
         self.write_receipt(receipt)
         with self.assertRaisesRegex(ValueError, 'trial elapsed'):
             probe.validate(self.dest)

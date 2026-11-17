@@ -1,0 +1,153 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive -v
+test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) ... 
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=-100.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=2000.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=-5000) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=99999) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=-100.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=2000.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=-5000) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=99999) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=-100.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=2000.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=-5000) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=99999) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=-100.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=2000.001) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=-5000) ... FAIL
+  test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=99999) ... FAIL
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=-100.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=2000.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=-5000)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='anchor_surface_y', height=99999)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=-100.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=2000.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=-5000)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='completed', field='spawn_surface_y', height=99999)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=-100.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=2000.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=-5000)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='anchor_surface_y', height=99999)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=-100.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=2000.001)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=-5000)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_surface_height_bounds_for_completed_and_inconclusive (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_surface_height_bounds_for_completed_and_inconclusive) (status='inconclusive', field='spawn_surface_y', height=99999)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 289, in test_r3_surface_height_bounds_for_completed_and_inconclusive
+    with self.assertRaisesRegex(ValueError, 'surface height outside'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.280s
+
+FAILED (failures=16)
+
+exit_code=1

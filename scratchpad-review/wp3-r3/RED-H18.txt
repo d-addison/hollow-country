@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.HookTests.test_r3_no_target_sample_returns_false -v
+test_r3_no_target_sample_returns_false (tests.unit.test_infected_competence.HookTests.test_r3_no_target_sample_returns_false) ... FAIL
+
+======================================================================
+FAIL: test_r3_no_target_sample_returns_false (tests.unit.test_infected_competence.HookTests.test_r3_no_target_sample_returns_false)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-qxn8o2gw/tests/unit/test_infected_competence.py", line 57, in test_r3_no_target_sample_returns_false
+    self.assertRegex(method, r'm_Trial.samples.Insert\(sampleRow\);\s*if \(sampleRow.target\)\s*return false;\s*return true;')
+AssertionError: Regex didn't match: 'm_Trial.samples.Insert\\(sampleRow\\);\\s*if \\(sampleRow.target\\)\\s*return false;\\s*return true;' not found in '\n    {\n        if (!m_Actor || !m_Actor.IsAlive())\n            return false;\n        DayZInfectedInputController nativeInput = m_Actor.GetInputController();\n        if (!nativeInput)\n            return false;\n        HCICSample sampleRow = new HCICSample;\n        sampleRow.mind = nativeInput.GetMindState();\n        if (nativeInput.GetTargetEntity())\n            sampleRow.target = true;\n        sampleRow.crawling = m_Actor.IsCrawling();\n        sampleRow.alive = m_Actor.IsAlive();\n        sampleRow.left = m_Actor.GetHealth("LeftLeg", "Health").ToString();\n        sampleRow.right = m_Actor.GetHealth("RightLeg", "Health").ToString();\n        vector actualPoint = m_Actor.GetPosition();\n        sampleRow.position = actualPoint.ToString();\n        m_Trial.samples.Insert(sampleRow);\n        return true;\n    }\n\n'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+exit_code=1

@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage -v
+test_survey_read_only_even_placements_yaw_provenance_and_stage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage) ... FAIL
+
+======================================================================
+FAIL: test_survey_read_only_even_placements_yaw_provenance_and_stage (tests.unit.test_infected_competence.StagingAndReceiptTests.test_survey_read_only_even_placements_yaw_provenance_and_stage)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 478, in test_survey_read_only_even_placements_yaw_provenance_and_stage
+    self.assertTrue(any('stock-derived' in line and 'candidates' in line for line in result['limitations']))
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 1 test in 0.190s
+
+FAILED (failures=1)
+
+exit_code=1

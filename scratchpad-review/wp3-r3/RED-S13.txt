@@ -1,0 +1,27 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary -v
+test_r3_start_delay_lower_boundary (tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary) ... 
+  test_r3_start_delay_lower_boundary (tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary) (delay=0) ... FAIL
+  test_r3_start_delay_lower_boundary (tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary) (delay=4) ... FAIL
+
+======================================================================
+FAIL: test_r3_start_delay_lower_boundary (tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary) (delay=0)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-il6moa6d/tests/unit/test_infected_competence.py", line 82, in test_r3_start_delay_lower_boundary
+    with self.subTest(delay=delay), self.assertRaisesRegex(ValueError, 'start delay'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_start_delay_lower_boundary (tests.unit.test_infected_competence.HookTests.test_r3_start_delay_lower_boundary) (delay=4)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-il6moa6d/tests/unit/test_infected_competence.py", line 82, in test_r3_start_delay_lower_boundary
+    with self.subTest(delay=delay), self.assertRaisesRegex(ValueError, 'start delay'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.007s
+
+FAILED (failures=2)
+
+exit_code=1

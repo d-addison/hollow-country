@@ -1,0 +1,63 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement -v
+test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) ... 
+  test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='0 0 0') ... FAIL
+  test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6502.001 21 2500') ... FAIL
+  test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6500 21 2497.999') ... FAIL
+  test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6501.5 21 2501.5') ... FAIL
+  test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6500 24.001 2500') ... FAIL
+  test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6500 17.999 2500') ... FAIL
+
+======================================================================
+FAIL: test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='0 0 0')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 268, in test_r3_initial_position_boundaries_and_later_movement
+    with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6502.001 21 2500')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 268, in test_r3_initial_position_boundaries_and_later_movement
+    with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6500 21 2497.999')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 268, in test_r3_initial_position_boundaries_and_later_movement
+    with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6501.5 21 2501.5')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 268, in test_r3_initial_position_boundaries_and_later_movement
+    with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6500 24.001 2500')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 268, in test_r3_initial_position_boundaries_and_later_movement
+    with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+AssertionError: ValueError not raised
+
+======================================================================
+FAIL: test_r3_initial_position_boundaries_and_later_movement (tests.unit.test_infected_competence.StagingAndReceiptTests.test_r3_initial_position_boundaries_and_later_movement) (position='6500 17.999 2500')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/code/hc-worktrees/wp3-integ/tests/unit/test_infected_competence.py", line 268, in test_r3_initial_position_boundaries_and_later_movement
+    with self.subTest(position=position), self.assertRaisesRegex(ValueError, 'initial spawn placement'):
+AssertionError: ValueError not raised
+
+----------------------------------------------------------------------
+Ran 1 test in 0.285s
+
+FAILED (failures=6)
+
+exit_code=1

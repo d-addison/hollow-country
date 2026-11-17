@@ -1,0 +1,17 @@
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_infected_competence.HookTests.test_r3_observe_budget_stops_at_extra_1000_ms -v
+test_r3_observe_budget_stops_at_extra_1000_ms (tests.unit.test_infected_competence.HookTests.test_r3_observe_budget_stops_at_extra_1000_ms) ... FAIL
+
+======================================================================
+FAIL: test_r3_observe_budget_stops_at_extra_1000_ms (tests.unit.test_infected_competence.HookTests.test_r3_observe_budget_stops_at_extra_1000_ms)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/wp3-r3-mutant-nqnu06p_/tests/unit/test_infected_competence.py", line 62, in test_r3_observe_budget_stops_at_extra_1000_ms
+    self.assertRegex(method, r'if \(elapsed > 7000 \+ 1000\)\s*\{\s*m_Trial.reason = "trial_time_budget";\s*HCICNext\(\);\s*return;')
+AssertionError: Regex didn't match: 'if \\(elapsed > 7000 \\+ 1000\\)\\s*\\{\\s*m_Trial.reason = "trial_time_budget";\\s*HCICNext\\(\\);\\s*return;' not found in '\n    {\n        if (m_Done)\n            return;\n        if (!HCICNoClients())\n            return;\n        int elapsed = GetGame().GetTime() - m_TrialBegin;\n        if (elapsed > 7000 + 100000)\n        {\n            m_Trial.reason = "trial_time_budget";\n            HCICNext();\n            return;\n        }\n        if (!HCICSampleActor())\n        {\n            m_Trial.reason = "actor_dead_missing_or_target_present";\n            HCICNext();\n            return;\n        }\n        if (m_Trial.kind == "limb_damage" || m_Trial.kind == "crawl_health_only")\n        {\n            float currentLegHealth = m_Actor.GetHealth("LeftLeg", "Health");\n            if (currentLegHealth >= m_LegBefore)\n            {\n                m_Trial.reason = "left_leg_health_did_not_fall";\n                HCICNext();\n                return;\n            }\n        }\n        m_Trial.observed = true;\n        m_Trial.status = "completed";\n        m_Trial.reason = "two_endpoint_samples_only";\n        HCICNext();\n    }\n\n'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.003s
+
+FAILED (failures=1)
+
+exit_code=1

@@ -1,0 +1,11 @@
+V13 two samples -> >=1: KILLED; test_r3_one_sample_completed_row_refused
+V14 version lookbehind dropped: KILLED; test_r3_version_cannot_embed_pinned_version_in_other_build
+H05 observe time budget +1000 -> +100000: KILLED; test_r3_observe_budget_stops_at_extra_1000_ms
+H07 leg fall >= -> >: KILLED; test_r3_unchanged_leg_health_is_inconclusive
+H17 ray height 0.8 -> 8.0: KILLED; test_r3_geometry_ray_height_and_offsets
+H18 target presence ends sample false dropped: KILLED; test_r3_no_target_sample_returns_false
+S03 survey class sort dropped: KILLED; test_r3_survey_classes_sorted_before_limit
+S04 survey offset max 10 -> 1000: KILLED; test_r3_survey_offset_range, test_r3_survey_offset_range
+S05 survey ambiguous rpy check dropped: KILLED; test_r3_survey_ambiguous_rpy_refused
+S11 stock-derived requires provenance dropped: KILLED; test_r3_stock_trials_without_provenance_refused_before_write
+S13 start delay lower bound 5 -> 0: KILLED; test_r3_start_delay_lower_boundary, test_r3_start_delay_lower_boundary
