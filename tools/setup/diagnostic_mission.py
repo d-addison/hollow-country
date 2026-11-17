@@ -142,12 +142,19 @@ def _identity(info):
 # O_DIRECTORY|O_NOFOLLOW relative to the previous descriptor, and acts on the leaf through that last
 # descriptor (dir_fd=, follow_symlinks=False, O_NOFOLLOW). A symlink swapped in for a component BEFORE that
 # component is opened is refused by the kernel in that very call; there is no check-then-use gap on a path
-# string. Concurrency contract (narrower than "at any moment"): a directory renamed AFTER it was opened keeps
-# being used through its descriptor, so one leaf written in that window lands in the moved directory, outside
-# the requested destination; only a protected directory/ancestor namespace could prevent that, and staging
-# only guarantees that such a run ends refused with no plan. What the final tree scan (walk_plain) does add is
-# that every directory it read, the root and its ancestors included, is reopened without following links and
-# must still be the same (st_dev, st_ino) before the scan can certify the tree.
+# string.
+# Concurrency contract. Staging assumes a stable, trusted destination namespace: nothing else renames, replaces
+# or writes into the destination, its ancestors or the source while it runs. Under that assumption the result is
+# exact. Without it only these things are guaranteed. A directory renamed AFTER it was opened keeps being used
+# through its descriptor, so one leaf written in that window lands in the moved directory, outside the requested
+# destination. The final tree scan (walk_plain) refuses only displacements that are still detectable: one still in
+# effect or happening during the scan, a missing entry, different names or bytes, or a directory replaced between
+# the scan's own opens; every directory it read, the root and its ancestors included, is reopened without
+# following links and must still be the same (st_dev, st_ino) before the scan can certify the tree.
+# NOT detected: a concurrent writer that moves an opened directory away during a write and supplies a replacement
+# with the same names and bytes before the scan begins. The scan then certifies the replacement, staging
+# succeeds, and one leaf was written outside the requested destination (reproduced synthetically in review 004 and
+# pinned in tests/unit/test_probe_runtime.py). Only a protected directory/ancestor namespace prevents this.
 # Residual on a DrvFs/9p mount (/mnt/d): O_NOFOLLOW/O_DIRECTORY and *at() calls are served by the WSL
 # kernel, but NTFS junctions and reparse points are interpreted by the Windows side, which these calls
 # cannot see; a Windows-side process that replaces a directory by a junction between two of our calls is
