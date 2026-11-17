@@ -96,6 +96,11 @@ rename do not establish filesystem crash durability or authenticate the engine.
 
 ## Validation order
 
+The [local connection guide](LOCAL_SERVER_TEST.md) records the explicit game and
+Steam query port launch and the observed vanilla Windows baseline. Vanilla join,
+movement, inventory and reconnect passed on 2026-11-17; addon loading and feature
+acceptance remain separate.
+
 1. Run unit tests, operator settings admission, repository hygiene and executable
    offline BDD. These validate authored policies, data and tooling.
 2. Build with the installed official Tools; load the addon into DayZDiag and a
