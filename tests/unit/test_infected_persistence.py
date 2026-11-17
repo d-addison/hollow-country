@@ -1,6 +1,11 @@
 """Actual authored reservation-policy execution; synthetic crash boundaries only."""
 import unittest
-from test_infected_contract import SOURCE, policy_functions
+if __package__:
+    from .test_infected_contract import SOURCE, policy_functions
+    from .test_infected_admission import UnqualifiedPathsPerformNoMutation as Admission
+else:
+    from test_infected_contract import SOURCE, policy_functions
+    from test_infected_admission import UnqualifiedPathsPerformNoMutation as Admission
 
 
 class InfectedPersistenceTests(unittest.TestCase):
@@ -67,6 +72,17 @@ class InfectedPersistenceTests(unittest.TestCase):
         boundary = module.split("protected bool SaveAdoptionBoundary", 1)[1].split("protected void TryAdopt", 1)[0]
         self.assertIn("HCInfectedStore.Save", boundary)
         self.assertIn("Quarantine", boundary)
+
+    def test_unqualified_adoption_writes_no_prepare_intent_and_reserves_nothing(self):
+        # Requested-but-unadmitted CE adoption must not create a durable reservation:
+        # a prepare record would pin finite escrow for a transfer that never runs.
+        probe = Admission("test_ce_adoption_requested_but_unadmitted_does_not_reserve_save_capture_or_transfer")
+        probe.setUpClass()
+        probe.test_ce_adoption_requested_but_unadmitted_does_not_reserve_save_capture_or_transfer()
+        module = (SOURCE / "HCInfectedModule.c").read_text()
+        adopt = module.split("protected void TryAdopt", 1)[1].split("protected void TryInvestigate", 1)[0]
+        self.assertLess(adopt.index("m_Admission.CEAdoption"), adopt.index('SaveAdoptionBoundary("prepare")'))
+        self.assertLess(adopt.index("m_Admission.CEAdoption"), adopt.index("m_State.Groups.Insert(record)"))
 
     def test_restart_validates_generations_and_latches_aborted_preparation(self):
         state = (SOURCE / "HCInfectedState.c").read_text()

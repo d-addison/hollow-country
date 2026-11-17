@@ -244,7 +244,8 @@ class InfectedDefaultsTests(unittest.TestCase):
         self.assertIn("enabled-preference template", module)
         self.assertIn("unsupported native source build:", module)
         self.assertIn("native pack routing prerequisites unavailable", module)
-        self.assertIn("if (settings.EnableHordes && m_Config.EnableHordeStimulusRoutes && m_WorkCap < 24)", module)
+        self.assertIn("if (settings.EnableHordes && m_Admission.HordeStimulusRoutes && m_WorkCap < 24)", module)
+        self.assertIn("m_Admission = HCInfectedAdmission.Evaluate(m_Config);", module)
 
 
     def test_policy_selftest_config_expectations_match_shipped_defaults(self):
@@ -259,5 +260,22 @@ class InfectedDefaultsTests(unittest.TestCase):
             self.assertIn(flag, defaults, flag)
             self.assertEqual(defaults[flag] == "true", negated == "", flag)
         self.assertEqual(set(defaults), {flag for _, flag in asserted})
+
+    def test_policy_selftest_checks_default_requested_versus_closed_admission(self):
+        selftest = (SOURCE / "HCInfectedSelfTests.c").read_text()
+        self.assertIn("HCInfectedAdmission.Evaluate(config)", selftest)
+        for path in ("CEAdoption", "NativePackRoutes", "Investigation", "SupplementaryChains",
+                     "MemberRecovery", "HordeStimulusRoutes"):
+            self.assertIn("!admission." + path, selftest)
+        self.assertIn("HCInfectedAdmission.Resolve(config, true, true, true, true, true, true)", selftest)
+        self.assertIn("admission.Describe()", selftest)
+
+    def test_preferences_stay_default_on_while_admission_is_closed(self):
+        # Product decision: features default ON; capability admission is honest.
+        state = (SOURCE / "HCInfectedState.c").read_text()
+        for name in ("EnableCEAdoption", "EnableNativePackRoutes", "EnableInvestigation",
+                     "EnableSupplementaryChains", "EnableMemberRecovery", "EnableHordeStimulusRoutes"):
+            self.assertIn("bool " + name + " = true;", state)
+        self.assertIn("runtime acceptance pending", (SOURCE / "HCInfectedModule.c").read_text())
 
 if __name__ == "__main__": unittest.main()
