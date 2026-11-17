@@ -1,0 +1,1486 @@
+commit 509d47b36d8a95919576bf7724f6b98a183b8d26
+Author: David Addison <73078380+d-addison@users.noreply.github.com>
+Date:   Tue Nov 17 05:26:25 2026 -0500
+
+    Taped-light fix round 3: proxy/CfgNonAIVehicles slot evidence, contradictory read-back pending, formatting-independent '+' bound, directory identity recheck at the stager boundary
+
+diff --git a/tests/unit/test_diagnostic_mission.py b/tests/unit/test_diagnostic_mission.py
+index c1fa72a..d280892 100644
+--- a/tests/unit/test_diagnostic_mission.py
++++ b/tests/unit/test_diagnostic_mission.py
+@@ -220,6 +220,63 @@ class DiagnosticMissionTests(unittest.TestCase):
+         with self.assertRaises(ValueError):
+             dm.walk_plain(self.source)
+ 
++    def test_walk_plain_refuses_a_directory_that_stopped_occupying_its_name_after_it_was_opened(self):
++        """Sol review 003 P2: a retained descriptor of a moved directory must not certify the tree."""
++        import os
++        real_child = dm._open_child_dir
++        cases = {
++            "a symlink under the old name": lambda path, moved: os.symlink(moved, path, target_is_directory=True),
++            "another directory under the old name": lambda path, moved: path.mkdir(),
++            "nothing under the old name": lambda path, moved: None,
++        }
++        for label, replace in cases.items():
++            with self.subTest(label):
++                moved = self.root / ("moved-" + label.split()[0] + "-" + str(len(label)))
++                fired = []
++
++                def child(descriptor, name):
++                    opened = real_child(descriptor, name)
++                    if name == "db" and not fired:
++                        fired.append(name)
++                        (self.source / "db").rename(moved)
++                        replace(self.source / "db", moved)
++                    return opened
++                try:
++                    with patch.object(dm, "_open_child_dir", child), self.assertRaises(ValueError):
++                        dm.walk_plain(self.source)
++                    self.assertEqual(["db"], fired)
++                finally:
++                    link = self.source / "db"
++                    if link.is_symlink():
++                        link.unlink()
++                    elif link.is_dir():
++                        link.rmdir()
++                    moved.rename(link)
++        self.assertEqual({"init.c": len(STOCK), "db/types.xml": 26}, dm.walk_plain(self.source))      # untouched tree
++
++    def test_walk_plain_checks_the_root_identity_even_when_the_tree_has_no_subdirectory(self):
++        flat = self.root / "flat"
++        flat.mkdir()
++        (flat / "only.xml").write_bytes(b"<a/>")
++        real_child, moved, fired = dm._open_child_dir, self.root / "flat-moved", []
++
++        def child(descriptor, name):
++            opened = real_child(descriptor, name)
++            if name == "flat" and not fired:
++                fired.append(name)
++                flat.rename(moved)
++                flat.mkdir()                              # a different directory now occupies the name
++                (flat / "only.xml").write_bytes(b"<a/>")      # with the same listing
++            return opened
++        with patch.object(dm, "_open_child_dir", child), self.assertRaises(ValueError):
++            dm.walk_plain(flat)
++        self.assertEqual(["flat"], fired)
++
++    def test_walk_plain_accepts_an_undisturbed_nested_tree(self):
++        (self.source / "db/deeper").mkdir()
++        (self.source / "db/deeper/a.xml").write_bytes(b"<a/>")
++        self.assertEqual({"init.c": len(STOCK), "db/types.xml": 26, "db/deeper/a.xml": 4}, dm.walk_plain(self.source))
++
+     def test_copy_uses_exclusive_creation_and_preserves_partial_output_on_failure(self):
+         native = dm._create_staged     # creation is anchored on directory descriptors (O_EXCL), not Path.open
+         def fail_create(path, data):
+diff --git a/tests/unit/test_probe_runtime.py b/tests/unit/test_probe_runtime.py
+index 3a4a89e..5ee09a5 100644
+--- a/tests/unit/test_probe_runtime.py
++++ b/tests/unit/test_probe_runtime.py
+@@ -334,6 +334,84 @@ class HookExpressionLintTests(unittest.TestCase):
+         found = self.issues('        Print("n" + count);')
+         self.assertTrue(any("bare numeric" in i for i in found), found)
+ 
++    LONG = " + ".join(['"x"'] * 28)  # 27 binary '+', the shape the native compiler refused
++
++    def layouts(self):
++        """The same over-bound statement in method layouts the old four-space regex did not recognise."""
++        row = "string row = %s;" % self.LONG
++        return {
++            "brace on the declaration line": "class HC : CustomMission\n{\n    void F() {\n        %s\n    }\n}\n" % row,
++            "eight space indent": "class HC : CustomMission\n{\n        void F()\n        {\n            %s\n        }\n}\n" % row,
++            "tab indent": "class HC : CustomMission\n{\n\tvoid F()\n\t{\n\t\t%s\n\t}\n}\n" % row,
++            "unindented": "class HC : CustomMission\n{\nvoid F()\n{\n%s\n}\n}\n" % row,
++            "one line": "class HC : CustomMission\n{\n    void F() { %s }\n}\n" % row,
++            "braces in a block": "class HC : CustomMission\n{\n    void F()\n    {\n        if (true) { %s }\n    }\n}\n" % row,
++            "modifier on an inline method": "class HC : CustomMission\n{\n    override void F(int a) {\n        %s\n    }\n}\n" % row,
++        }
++
++    def test_the_complexity_bound_holds_for_every_method_layout_not_just_the_generated_one(self):
++        for label, hook in self.layouts().items():
++            with self.subTest(layout=label):
++                self.assertEqual(27, rt.max_statement_plus(hook))
++                for explicit in (False, True):
++                    found = rt.lint_hook(hook, explicit_numbers=explicit)
++                    self.assertTrue(any("Formula too complex" in i and "27 binary '+'" in i for i in found), found)
++
++    def test_the_complexity_bound_reports_the_line_of_a_statement_outside_any_method(self):
++        found = rt.lint_hook("class HC : CustomMission\n{\n    string m_Row = %s;\n}\n" % self.LONG)
++        self.assertTrue(any(i.startswith("line 3:") and "Formula too complex" in i for i in found), found)
++
++    def test_a_statement_at_the_bound_is_accepted_in_every_layout(self):
++        at_bound = " + ".join(['"x"'] * (rt.MAX_STATEMENT_PLUS + 1))
++        for label, hook in self.layouts().items():
++            with self.subTest(layout=label):
++                self.assertEqual([], rt.lint_hook(hook.replace(self.LONG, at_bound), explicit_numbers=True))
++
++    def test_the_numeric_rule_follows_the_same_method_layouts(self):
++        for header in ("void F(int count) {", "        void F(int count)\n        {", "\tvoid F(int count)\n\t{"):
++            hook = "class HC : CustomMission\n{\n%s\n        string row = \"\";\n        row = \"n=\" + count;\n    }\n}\n" % header
++            with self.subTest(header=header):
++                found = rt.lint_hook(hook, explicit_numbers=True)
++                self.assertTrue(any("bare numeric" in i and "count" in i for i in found), found)
++                self.assertEqual([], rt.lint_hook(hook.replace("+ count", "+ count.ToString()"), explicit_numbers=True))
++
++    def test_control_flow_headers_are_not_mistaken_for_methods(self):
++        hook = self.wrap('        if (count > 0) { row = "a"; }\n        else if (count < 0) { row = "b"; }\n'
++                         '        while (count > 0) { count = count - 1; }\n        for (int i = 0; i < 3; i++) { row = "c"; }')
++        self.assertEqual([], rt.lint_hook(hook, explicit_numbers=True))
++
++    def test_compound_assignment_into_a_string_is_a_concatenation(self):
++        for body, term in (('        row += count;', "count"),
++                           ('        row += "n=" + count;', "count"),
++                           ('        row += ratio;', "ratio"),
++                           ('        row += 5;', "5"),
++                           ('        row += Total();', "Total()"),
++                           ('        name += count;', "count")):
++            with self.subTest(body=body):
++                found = self.issues(body, extra="    int Total()\n    {\n        return 1;\n    }\n")
++                self.assertTrue(any("bare numeric" in i and term in i for i in found), found)
++
++    def test_parenthesised_numeric_terms_are_normalised_before_the_check(self):
++        for body in ('        row = "n=" + (count);', '        row = "n=" + ((count));', '        row = (count) + "n=";',
++                     '        row += (count);', '        row = "n=" + (count + 1);', '        row += "n=" + (ratio * 2);'):
++            with self.subTest(body=body):
++                found = self.issues(body)
++                self.assertTrue(any("bare numeric" in i for i in found), found)
++
++    def test_explicit_strings_and_numeric_destinations_stay_accepted_with_compound_and_parentheses(self):
++        for body in ('        row += count.ToString();',
++                     '        row += "n=" + count.ToString();',
++                     '        row += (count + 1).ToString();',
++                     '        row = "n=" + (count.ToString());',
++                     '        row += name;',
++                     '        row += "a" + (name);',
++                     '        count += 1;',
++                     '        count += count + 1;',
++                     '        ratio += (ratio + 0.5);',
++                     '        row = (name);'):
++            with self.subTest(body=body):
++                self.assertEqual([], self.issues(body))
++
+ 
+ class GeneratedHookExpressionTests(unittest.TestCase):
+     def test_the_ce_probe_hook_passes_the_expression_lint_unchanged(self):
+@@ -354,6 +432,35 @@ class GeneratedHookExpressionTests(unittest.TestCase):
+         self.assertNotIn("explicit_numbers", Path(ce.__file__).read_text())
+ 
+ 
++class StagedHookComplexityTests(unittest.TestCase):
++    """A hook the stager renders is linted as text: formatting of an extra method must not bypass the bound."""
++
++    def stage_with_extra_method(self, method):
++        temp = tempfile.TemporaryDirectory()
++        self.addCleanup(temp.cleanup)
++        root = Path(temp.name)
++        source = tlt.make_source_runtime(root / "vanilla")
++        dest = root / "taped-light-test"
++        real = taped.render_hook
++
++        def render(*args, **kwargs):
++            text = real(*args, **kwargs).decode()
++            index = text.rfind("}")
++            return (text[:index] + method + text[index:]).encode()
++        with mock.patch.object(taped, "render_hook", side_effect=render):
++            with self.assertRaises(ValueError) as caught:
++                taped.stage(source, dest, tlt.classification(), battleye_sha256=tlt.SYNTH_BE_SHA, _wsl_parent=root)
++        self.assertFalse((dest / taped.PLAN_NAME).exists())
++        return str(caught.exception)
++
++    def test_the_real_stager_refuses_an_over_bound_statement_in_any_method_layout(self):
++        row = 'string row = %s;' % " + ".join(['"x"'] * 28)
++        for label, method in (("inline brace", "    void HCReviewComplexity() {\n        %s\n    }\n" % row),
++                              ("eight spaces", "        void HCReviewComplexity()\n        {\n            %s\n        }\n" % row)):
++            with self.subTest(layout=label):
++                self.assertIn("Formula too complex", self.stage_with_extra_method(method))
++
++
+ class IntegrityCase(unittest.TestCase):
+     def workspace(self, factory):
+         temp = tempfile.TemporaryDirectory()
+@@ -535,6 +642,125 @@ class LinkRaceTests(IntegrityCase):
+                 with mock.patch.object(dm, "create_exclusive", side_effect=swapping):
+                     self.assert_refused_and_clean(dest, stage, source)
+ 
++    def displace_during_final_scan(self, factory, component, replace):
++        """Stage while ``component`` is renamed away right after the final scan opened it (retained descriptor
++        keeps pointing at the moved inode), then put ``replace(path, moved)`` under the old name."""
++        root, source, dest, stage = self.workspace(factory)
++        state = {"launch": False, "walk": 0, "done": False}
++        real_launch, real_walk, real_child = rt.launcher_problems, dm.walk_plain, dm._open_child_dir
++        moved = root / "moved-away"
++
++        def launch(*args, **kwargs):
++            state["launch"] = True
++            try:
++                return real_launch(*args, **kwargs)
++            finally:
++                state["launch"] = False
++
++        def walk(*args, **kwargs):
++            state["walk"] += 1
++            try:
++                return real_walk(*args, **kwargs)
++            finally:
++                state["walk"] -= 1
++
++        def child(descriptor, name):
++            opened = real_child(descriptor, name)
++            if state["launch"] and state["walk"] and name == component and not state["done"]:
++                state["done"] = True
++                target = next(dest.rglob(component))
++                target.rename(moved)
++                replace(target, moved)
++            return opened
++        with mock.patch.object(rt, "launcher_problems", side_effect=launch), \
++                mock.patch.object(dm, "walk_plain", side_effect=walk), \
++                mock.patch.object(dm, "_open_child_dir", side_effect=child):
++            with self.assertRaises(ValueError):
++                stage(source, dest)
++        self.assertTrue(state["done"], "the displacement hook never ran")
++        plans = [p for p in root.rglob("*-probe-plan.json")]
++        self.assertEqual([], plans)
++
++    def test_a_directory_displaced_after_the_final_scan_opened_it_never_yields_a_plan(self):
++        """Sol review 003 P2: the final scan certified a retained descriptor of a directory that no longer
++        occupied its name (a symlink there). Every opened directory is rechecked against its name."""
++        replacements = {
++            "symlink to the moved tree": lambda path, moved: os.symlink(moved, path, target_is_directory=True),
++            "an empty real directory": lambda path, moved: path.mkdir(),
++            "nothing at all": lambda path, moved: None,
++        }
++        for label, factory in KINDS:
++            for component in ("db", "mpmissions", "battleye"):
++                for how, replace in replacements.items():
++                    with self.subTest(kind=label, component=component, replacement=how):
++                        self.displace_during_final_scan(factory, component, replace)
++
++    def test_the_staged_root_replaced_after_the_final_scan_opened_it_never_yields_a_plan(self):
++        for label, factory in KINDS:
++            for how in ("symlink", "empty"):
++                with self.subTest(kind=label, replacement=how):
++                    root, source, dest, stage = self.workspace(factory)
++                    state = {"launch": False, "walk": 0, "done": False}
++                    real_launch, real_walk, real_child = rt.launcher_problems, dm.walk_plain, dm._open_child_dir
++                    moved = root / "moved-root"
++
++                    def launch(*args, **kwargs):
++                        state["launch"] = True
++                        return real_launch(*args, **kwargs)
++
++                    def walk(*args, **kwargs):
++                        state["walk"] += 1
++                        try:
++                            return real_walk(*args, **kwargs)
++                        finally:
++                            state["walk"] -= 1
++
++                    def child(descriptor, name):
++                        opened = real_child(descriptor, name)
++                        if state["launch"] and state["walk"] and name == dest.name and not state["done"]:
++                            state["done"] = True
++                            dest.rename(moved)
++                            os.symlink(moved, dest, target_is_directory=True) if how == "symlink" else dest.mkdir()
++                        return opened
++                    with mock.patch.object(rt, "launcher_problems", side_effect=launch), \
++                            mock.patch.object(dm, "walk_plain", side_effect=walk), \
++                            mock.patch.object(dm, "_open_child_dir", side_effect=child):
++                        with self.assertRaises(ValueError):
++                            stage(source, dest)
++                    self.assertTrue(state["done"])
++                    self.assertEqual([], list(root.rglob("*-probe-plan.json")))
++
++    def test_a_directory_moved_after_it_was_opened_but_before_the_leaf_write_is_still_refused(self):
++        """Narrowed contract (documented in diagnostic_mission.py): a descriptor-anchored write cannot stop the
++        one leaf that lands in a directory renamed after it was opened. Staging must still end refused, with no
++        plan; where those bytes went is the residual that only a protected ancestor namespace removes."""
++        for label, factory in KINDS:
++            with self.subTest(kind=label):
++                root, source, dest, stage = self.workspace(factory)
++                real_child, moved = dm._open_child_dir, root / "moved-battleye"
++                state = {"writing": False, "done": False}
++                real_new = rt.new_file
++
++                def writing(path, data):
++                    state["writing"] = Path(path).name == "BEServer_x64.dll"
++                    try:
++                        real_new(path, data)
++                    finally:
++                        state["writing"] = False
++
++                def child(descriptor, name):
++                    opened = real_child(descriptor, name)
++                    if state["writing"] and name == "battleye" and not state["done"]:
++                        state["done"] = True
++                        (dest / "battleye").rename(moved)
++                    return opened
++                with mock.patch.object(rt, "new_file", side_effect=writing), \
++                        mock.patch.object(dm, "_open_child_dir", side_effect=child):
++                    with self.assertRaises((ValueError, OSError)):    # a refusal, never a published plan
++                        stage(source, dest)
++                self.assertTrue(state["done"])
++                self.assertEqual([], list(root.rglob("*-probe-plan.json")))
++
+     def test_staging_is_refused_where_directory_descriptor_operations_are_unavailable(self):
+         for label, factory in KINDS:
+             with self.subTest(kind=label):
+diff --git a/tests/unit/test_taped_light_probe.py b/tests/unit/test_taped_light_probe.py
+index ee80aa7..f42675b 100644
+--- a/tests/unit/test_taped_light_probe.py
++++ b/tests/unit/test_taped_light_probe.py
+@@ -208,7 +208,8 @@ class HookRenderingTests(unittest.TestCase):
+                    "IsSlotIdValid", "GetBoneNameForSlotId", "HasInventorySlot", "GetAttachmentSlotId",
+                    "GetAttachmentSlotsCount", "IsServer", "GetTime", "GetWorldName", "GetVersion", "Cast", "Replace", "Substring", "Length",
+                    "Insert", "Get", "Count", "Find", "Print", "Vector", "OnInit", "GetGame", "AsciiToString",
+-                   "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString"}
++                   "GetType", "ToLower", "IndexOf", "Clear", "Remove", "ConfigIsExisting", "ConfigGetBool", "ToString", "LastIndexOf",
++                   "ConfigGetText", "ConfigGetTextArray"}
+         called = set(re.findall(r"\b([A-Za-z_]\w*)\s*\(", re.sub(r'"[^"]*"', '""', "\n".join(syn.strip_comments(self.hook)))))
+         own = set(re.findall(r"\b(?:void|bool|int|float|string|vector|EntityAI|Object|array<[^>]+>)\s+(\w+)\s*\(", self.hook))
+         keywords = {"if", "while", "for", "return", "override", "array", "super"}
+@@ -559,6 +560,9 @@ class S(str):
+     def IndexOf(self, sample):
+         return self.find(sample)
+ 
++    def LastIndexOf(self, sample):
++        return self.rfind(sample)
++
+ 
+ class EArray(list):
+     def Count(self):
+@@ -615,6 +619,9 @@ def _simple(statement):
+     version = re.match(r"^GetGame\(\)\.(GetWorldName|GetVersion)\((\w+)\)$", statement)
+     if version:
+         return "%s = GetGame().%s()" % (version.group(2), version.group(1))
++    config_text = re.match(r"^GetGame\(\)\.ConfigGetText\((.+),\s*(\w+)\)$", statement)
++    if config_text:                   # ConfigGetText(path, out string value): the out argument is assigned
++        return "%s = GetGame().ConfigGetText(%s)" % (config_text.group(2), _expression(config_text.group(1)))
+     receiver = re.match(r"^(\w+)\.(?:ToLower|Replace)\(", statement)
+     if receiver:                      # Enforce mutates the receiver; Python strings do not
+         return "%s = %s" % (receiver.group(1), _expression(statement))
+@@ -725,9 +732,23 @@ SLOT_SELECTION = {"weaponFlashlight": "light_w", "pistolFlashlight": "light_p",
+                   "weaponHandguardAK": "hg_ak", "weaponHandguardM4": "hg_m4", "weaponHandguardMP5": "hg_mp5"}
+ 
+ 
+-def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False):
++def spec(slots=(), fits=(), selections=(), memory=(), rail=False, needs_rail=False, proxies=()):
+     return {"slots": tuple(slots), "fits": tuple(fits), "selections": tuple(selections), "memory": tuple(memory),
+-            "rail": rail, "needs_rail": needs_rail}
++            "rail": rail, "needs_rail": needs_rail, "proxies": tuple(proxies)}
++
++
++LIGHT_UNIVERSAL_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_universal.001"
++LIGHT_TLR_PROXY = "proxy:/dz/weapons/attachments/light/weaponlight_tlr.001"
++MUZZLE_PROXY = "proxy:/dz/weapons/proxies/muzzle_flash_rifle_m4.001"
++
++
++def proxy_config():
++    """Synthetic CfgNonAIVehicles entries shaped like the probe-003 observations: the config key is the class path,
++    ``model`` keeps the engine's backslashes and a leading slash, ``inventorySlot`` is an array or a single text."""
++    return {"CfgNonAIVehicles Proxyweaponlight_universal": {
++                "model": "\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d", "inventorySlot": ["weaponFlashlight"]},
++            "CfgNonAIVehicles Proxyweaponlight_tlr": {
++                "model": "\\dz\\weapons\\attachments\\light\\weaponlight_tlr.p3d", "inventorySlot": "pistolFlashlight"}}
+ 
+ 
+ def catalogue():
+@@ -772,7 +793,7 @@ class Entity:
+         return (0.0, 1.0, 2.0)
+ 
+     def GetSelectionList(self, out):
+-        out.extend(S(name) for name in self.spec["selections"])
++        out.extend(S(name) for name in self.spec["selections"] + self.spec["proxies"])
+ 
+     def ConfigIsExisting(self, key):
+         return key == "hasRailFunctionality" and self.spec["rail"]
+@@ -858,8 +879,9 @@ class Queue:
+ class World:
+     """Synthetic server: clock, object table, call queue, files. Deletion can be made to fail per type."""
+ 
+-    def __init__(self, types=None, background=0, stuck=(), spawn_ms=0):
++    def __init__(self, types=None, background=0, stuck=(), spawn_ms=0, config=None):
+         self.catalogue = types if types is not None else catalogue()
++        self.config = proxy_config() if config is None else config
+         self.entities, self.background = [], [Background() for _ in range(background)]
+         self.stuck, self.spawn_ms, self.now = set(stuck), spawn_ms, 0
+         self.queue, self.files, self.printed = [], {}, []
+@@ -886,6 +908,26 @@ class World:
+         for candidate in self.background + [e for e in self.entities if e.alive]:
+             objects.Insert(candidate)
+ 
++    def _config_entry(self, path):
++        """(class path, entry key) of a "<class path> <key>" config path, or the class path alone."""
++        text = str(path)
++        return (text, None) if text in self.config else tuple(text.rsplit(" ", 1))
++
++    def ConfigIsExisting(self, path):
++        return self._config_entry(path)[0] in self.config and (
++            self._config_entry(path)[1] is None or self._config_entry(path)[1] in self.config[self._config_entry(path)[0]])
++
++    def ConfigGetText(self, path):
++        """The text value, or "" when the entry is absent or is an array (the native call returns false)."""
++        entry, key = self._config_entry(path)
++        value = self.config.get(entry, {}).get(key, "")
++        return S(value) if isinstance(value, str) else S("")
++
++    def ConfigGetTextArray(self, path, out):
++        entry, key = self._config_entry(path)
++        value = self.config.get(entry, {}).get(key, [])
++        out.extend(S(item) for item in (value if isinstance(value, list) else []))
++
+     def GetTime(self):
+         return self.now
+ 
+@@ -959,7 +1001,15 @@ def number_text(value):
+     return S(str(value) if isinstance(value, int) else repr(value))
+ 
+ 
+-def build_model(hook_text, world):
++class _NoSelectionSlots(_Slots):
++    """The probe-003 truth: InventorySlots.GetSelectionForSlotId returned false and "" for every slot natively."""
++
++    @staticmethod
++    def GetSelectionForSlotId(slot_id, out):
++        return False, S("")
++
++
++def build_model(hook_text, world, slots=_Slots):
+     def open_file(path, mode):
+         return _Handle(str(path))
+ 
+@@ -967,7 +1017,7 @@ def build_model(hook_text, world):
+         world.files[handle.path] = "\n".join(handle.lines) + "\n"
+ 
+     namespace = {
+-        "NumberText": number_text, "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": _Slots,
++        "NumberText": number_text, "S": S, "EArray": EArray, "MissionBase": MissionBase, "GetGame": lambda: world, "InventorySlots": slots,
+         "EntityAI": _EntityAI, "Vector": lambda x, y, z: (x, y, z), "FileMode": _FileMode,
+         "Print": lambda text: world.printed.append(str(text)), "FPrintln": lambda handle, text: handle.lines.append(str(text)),
+         "OpenFile": open_file, "CloseFile": close_file,
+@@ -994,9 +1044,9 @@ def drain(world, limit=100000):
+ OUTPUT_PATH = "$profile:HCTapedLightProbe/observations.json"
+ 
+ 
+-def run_hook(world, targets=None, **render):
++def run_hook(world, targets=None, slots=_Slots, **render):
+     text = probe.render_hook(targets or probe.select_targets(classification()), **render).decode("ascii")
+-    model = build_model(text, world)
++    model = build_model(text, world, slots)
+     model.OnInit()
+     drain(world)
+     return model
+@@ -1203,8 +1253,11 @@ class HookBehaviorTests(unittest.TestCase):
+         }
+         # The variant later gained three read-back fields (handguard_found_type, handguard_slot_occupied,
+         # handguard_rail_functional); everything else must still be byte-identical, so the fields are stripped here.
++        # Fix round 3 added the per-host proxy facts (proxy_count, proxy_scan_complete, proxies); these hosts have no
++        # proxies, so the empty facts are stripped as well.
+         added = re.compile(r'"handguard_found_type":"[^"]*","handguard_slot_occupied":(?:true|false),'
+-                           r'"handguard_rail_functional":(?:true|false),')
++                           r'"handguard_rail_functional":(?:true|false),'
++                           r'|"proxy_count":0,"proxy_scan_complete":true,"proxies":\[\],')
+         for name, (size, output_sha, printed_sha, make) in golden.items():
+             with self.subTest(scenario=name):
+                 world = make()
+@@ -1262,5 +1315,118 @@ class HookBehaviorTests(unittest.TestCase):
+         self.assertIn("cannot interrupt a synchronous call", PROBE_SOURCE.read_text(encoding="utf-8"))
+ 
+ 
++def proxy_types(old_evidence=False):
++    """Probe-003 shaped hosts: the slot exists and the model carries proxies, but no slot selection, memory point or
++    bone is reported (``old_evidence`` False). Duplicate selection names appear in the list, as in probe-003."""
++    types = catalogue()
++    keep = {"selections": ("light_w", "hg_ak"), "memory": ("light_w",)} if old_evidence else {}
++    types["AK74"] = spec(("weaponFlashlight", "weaponHandguardAK"), proxies=(
++        LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY, LIGHT_UNIVERSAL_PROXY), **keep)
++    types["Glock19"] = spec(("pistolFlashlight",), proxies=(LIGHT_TLR_PROXY,),
++                            **({"selections": ("light_p",)} if old_evidence else {}))
++    return types
++
++
++class ProxyEvidenceHookTests(unittest.TestCase):
++    """Fix round 3: the hook joins each proxy selection of the host model to its CfgNonAIVehicles entry."""
++
++    def run_world(self, types=None, config=None, slots=_NoSelectionSlots):
++        world = World(types=types or proxy_types(), config=config)
++        run_hook(world, slots=slots)
++        return world, observations_of(world)
++
++    def test_each_host_lists_its_unique_proxies_with_their_config_join(self):
++        _world, observations = self.run_world()
++        row = host_row(observations, "AK74")
++        self.assertEqual((2, True), (row["proxy_count"], row["proxy_scan_complete"]))
++        self.assertEqual([LIGHT_UNIVERSAL_PROXY, MUZZLE_PROXY], [p["selection"] for p in row["proxies"]])
++        light, muzzle = row["proxies"]
++        self.assertEqual(("Proxyweaponlight_universal", True, "/dz/weapons/attachments/light/weaponlight_universal.p3d",
++                          ["weaponFlashlight"]),
++                         (light["cfg_class"], light["cfg_exists"], light["model"], light["inventory_slots"]))
++        self.assertEqual(("Proxymuzzle_flash_rifle_m4", False, "", []),
++                         (muzzle["cfg_class"], muzzle["cfg_exists"], muzzle["model"], muzzle["inventory_slots"]))
++
++    def test_a_text_inventory_slot_is_read_when_the_array_is_empty(self):
++        _world, observations = self.run_world()
++        glock = host_row(observations, "Glock19")["proxies"][0]
++        self.assertEqual((True, ["pistolFlashlight"]), (glock["cfg_exists"], glock["inventory_slots"]))
++
++    def test_a_host_without_proxies_reports_none(self):
++        _world, observations = self.run_world()
++        row = host_row(observations, "PlainBag")
++        self.assertEqual((0, True, []), (row["proxy_count"], row["proxy_scan_complete"], row["proxies"]))
++
++    def test_unrelated_selections_are_not_proxies(self):
++        types = proxy_types()
++        types["PlainBag"] = spec(selections=("light_w", "xproxy:/a/b.001", "proxyfoo", "Proxy:/dz/x/y_z.003"))
++        _world, observations = self.run_world(types)
++        row = host_row(observations, "PlainBag")
++        self.assertEqual(["Proxy:/dz/x/y_z.003"], [p["selection"] for p in row["proxies"]])
++        self.assertEqual("Proxyy_z", row["proxies"][0]["cfg_class"])
++
++    def test_the_listed_rows_and_the_scan_are_bounded(self):
++        many = tuple("proxy:/dz/x/part%03d.001" % number for number in range(40))
++        types = proxy_types()
++        types["PlainBag"] = spec(proxies=many)
++        types["PlainHat"] = spec(proxies=tuple("proxy:/dz/x/part%03d.001" % number for number in range(600)))
++        _world, observations = self.run_world(types)
++        bag, hat = host_row(observations, "PlainBag"), host_row(observations, "PlainHat")
++        self.assertEqual((40, 24, True), (bag["proxy_count"], len(bag["proxies"]), bag["proxy_scan_complete"]))
++        self.assertEqual((512, 24, False), (hat["proxy_count"], len(hat["proxies"]), hat["proxy_scan_complete"]))
++
++    def test_the_hook_cites_the_native_api_locations_it_uses(self):
++        hook = probe.render_hook(probe.select_targets(classification())).decode()
++        for cite in ("Game.c:449", "Game.c:558", "Game.c:612", "constants.c:237", "SceneEditorMenu.c:1362",
++                     "SceneEditorMenu.c:1385", "EntityAI.c:3996", "AttachmentsOutOfReach.c", "EnString.c:253"):
++            with self.subTest(cite=cite):
++                self.assertIn(cite, hook)
++
++    def test_without_selection_evidence_the_proxy_join_qualifies_through_the_report(self):
++        world, observations = self.run_world()
++        self.assertTrue(all(not slot["selection_on_model"] and not slot["memory_point"] and slot["bone_index"] == -1
++                            and slot["selection"] == "" for row in observations["hosts"] for slot in row["slots"]))
++        joined = report.build_report(classification(), observations)
++        self.assertEqual([], joined["integrity"]["issues"])
++        by_name = {h["class"]: h for h in joined["hosts"]}
++        self.assertEqual("qualified", by_name["AK74"]["verdict"])
++        self.assertEqual("qualified", by_name["Glock19"]["verdict"])
++        self.assertEqual("native_attach_with_proxy_slot_and_rail_handguard_prerequisite",
++                         by_name["AK74"]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]["reason"])
++        self.assertEqual("native_attach_with_proxy_slot",
++                         by_name["Glock19"]["lights"]["TLRLight"]["slots"]["pistolFlashlight"]["reason"])
++        self.assertEqual("PENDING", joined["acceptance"])
++        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, joined["unobserved_axes"])
++        self.assertEqual([], world.live())
++
++    def test_a_proxy_without_a_config_entry_is_never_inferred_from_its_name(self):
++        _world, observations = self.run_world(config={})
++        joined = report.build_report(classification(), observations)
++        by_name = {h["class"]: h for h in joined["hosts"]}
++        for name in ("AK74", "Glock19"):
++            self.assertEqual("pending", by_name[name]["verdict"], name)
++            self.assertIn("proxy_config_missing", by_name[name]["reasons"], name)
++        self.assertEqual(0, joined["denominators"]["qualified"])
++
++    def test_a_config_whose_slot_or_model_disagrees_does_not_qualify(self):
++        wrong_slot = proxy_config()
++        wrong_slot["CfgNonAIVehicles Proxyweaponlight_universal"]["inventorySlot"] = ["helmetFlashlight"]
++        wrong_model = proxy_config()
++        wrong_model["CfgNonAIVehicles Proxyweaponlight_universal"]["model"] = "\\dz\\weapons\\attachments\\light\\other.p3d"
++        for label, config in (("wrong slot", wrong_slot), ("wrong model", wrong_model)):
++            with self.subTest(label):
++                _world, observations = self.run_world(config=config)
++                joined = report.build_report(classification(), observations)
++                ak = next(h for h in joined["hosts"] if h["class"] == "AK74")
++                self.assertNotEqual("qualified", ak["verdict"])
++                self.assertNotIn("native_attach_with_proxy_slot_and_rail_handguard_prerequisite", ak["reasons"])
++
++    def test_the_slot_selection_evidence_is_still_reported_unchanged(self):
++        world, observations = self.run_world(proxy_types(old_evidence=True), slots=_Slots)
++        slot = next(s for s in host_row(observations, "AK74")["slots"] if s["slot"] == "weaponFlashlight")
++        self.assertEqual((True, True, "light_w"), (slot["selection_on_model"], slot["memory_point"], slot["selection"]))
++        self.assertEqual([], world.live())
++
++
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/unit/test_taped_light_report.py b/tests/unit/test_taped_light_report.py
+index e75cd25..e7f9f26 100644
+--- a/tests/unit/test_taped_light_report.py
++++ b/tests/unit/test_taped_light_report.py
+@@ -65,15 +65,35 @@ def variant_obs(slot, lights, guard="AK_RailHndgrd", guard_attached=True, found=
+             "handguard_rail_functional": guard_attached if rail is None else rail, "lights": lights}
+ 
+ 
++LIGHT_PROXY_PATH = "/dz/weapons/attachments/light/weaponlight_universal"
++
++
++def proxy(path=LIGHT_PROXY_PATH, number="001", slots=("weaponFlashlight",), exists=True, model=None, cfg_class=None):
++    """One probe-003 style proxy row: the host model's proxy selection joined to its CfgNonAIVehicles entry.
++
++    The probe lists ``proxy:/dz/.../weaponlight_universal.001`` style selections; the config entry is
++    ``Proxy<basename>`` and carries the proxy ``model`` path (backslashes, leading slash, .p3d) and the slot list."""
++    base = path.rsplit("/", 1)[-1]
++    default_model = "\\" + path.strip("/").replace("/", "\\") + ".p3d"
++    return {"selection": "proxy:" + path + "." + number, "cfg_class": "Proxy" + base if cfg_class is None else cfg_class,
++            "cfg_exists": exists, "model": ("" if not exists else default_model) if model is None else model,
++            "inventory_slots": list(slots) if exists else []}
++
++
+ def row(name, group, slots, lights, spawned=True, timed_out=False, root="CfgWeapons", index=0, prereq=None,
+-        prereq_variant=None):
++        prereq_variant=None, proxies=None, proxy_count=None):
+     if not spawned:
+         return {"i": index, "class": name, "root": root, "group": group, "spawned": False, "timed_out": False}
+-    return {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
+-            "own_slots": [], "attach_slots": [], "selection_count": 3, "selection_matches": [],
+-            "slots": slots, "prereq": prereq_obs() if prereq is None else prereq,
+-            "lights": lights, "timed_out": timed_out, "ms": 3,
+-            "prereq_variant": {"performed": False} if prereq_variant is None else prereq_variant}
++    result = {"i": index, "class": name, "root": root, "group": group, "spawned": True, "type": name,
++              "own_slots": [], "attach_slots": [], "selection_count": 3, "selection_matches": [],
++              "slots": slots, "prereq": prereq_obs() if prereq is None else prereq,
++              "lights": lights, "timed_out": timed_out, "ms": 3,
++              "prereq_variant": {"performed": False} if prereq_variant is None else prereq_variant}
++    if proxies is not None:       # absent on probe-003 (taken before the hook emitted proxies)
++        result["proxy_count"] = len(proxies) if proxy_count is None else proxy_count
++        result["proxy_scan_complete"] = True
++        result["proxies"] = proxies
++    return result
+ 
+ 
+ def no_slots():
+@@ -197,7 +217,9 @@ class JoinTests(unittest.TestCase):
+         self.assertIn("host_not_spawned", by_class(result, "Bat")["reasons"])
+ 
+     def test_attach_without_model_geometry_is_geometry_missing(self):
+-        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights())]
++        # complete proxy evidence (one unrelated, fully configured proxy) that names no flashlight slot
++        unrelated = proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",))
++        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), good_gun_lights(), proxies=[unrelated])]
+         result = report.build_report(self.cls, observations(rows))
+         slot = by_class(result, "AK74")["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
+         self.assertEqual("geometry_missing", slot["verdict"])
+@@ -593,7 +615,8 @@ class IntegrityGateTests(unittest.TestCase):
+                 "partial": lambda c, o: o.update(status="partial"),
+                 "dirty": lambda c, o: o["counters"].update(deleted=9, residual_probe_types=1),
+                 "live after release": lambda c, o: o["counters"].update(live_after_release=1),
+-                "control": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True)}.items():
++                "control": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(
++                    attach_ok=True, can_add=True, found_type="Flashlight")}.items():
+             with self.subTest(label):
+                 result, record = host_result(alter)
+                 self.assertEqual("pending", record["verdict"], label)
+@@ -631,7 +654,7 @@ class InvalidationPropagationTests(unittest.TestCase):
+         "partial status": lambda c, o: o.update(status="partial"),
+         "dirty cleanup": lambda c, o: o["counters"].update(deleted=9, residual_probe_types=1),
+         "live after release": lambda c, o: o["counters"].update(live_after_release=1),
+-        "control attached": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True),
++        "control attached": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True, found_type="Flashlight"),
+         "wrong host type": lambda c, o: o["hosts"][0].update(type="OtherHost"),
+         "config slot mismatch": lambda c, o: c["hosts"][0].update(native_light_slots=["pistolFlashlight"]),
+         "class timed out": lambda c, o: o["hosts"][0].update(timed_out=True),
+@@ -649,7 +672,7 @@ class InvalidationPropagationTests(unittest.TestCase):
+     def test_a_control_hit_also_takes_geometry_missing_out_of_the_nested_verdicts_and_pair_counts(self):
+         cls = classification([host("AK74", "slot_host")])
+         obs = observations([row("AK74", "slot_host", gun_slots(), good_gun_lights())])
+-        obs["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True)
++        obs["hosts"][0]["lights"][0]["per_slot"][2].update(attach_ok=True, can_add=True, found_type="Flashlight")
+         result = report.build_report(cls, obs)
+         self.assertNotIn("geometry_missing", nested_verdicts(result["hosts"][0]))
+         self.assertEqual(0, pair_counts(result).get("geometry_missing", 0))
+@@ -695,6 +718,11 @@ class ControlEvidenceTests(unittest.TestCase):
+         "control can_add missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][0].pop("can_add"),
+         "control found_type missing": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][0].pop("found_type"),
+         "control row duplicated": lambda c, o: o["hosts"][0]["lights"].append(dict(o["hosts"][0]["lights"][0])),
++        # Sol review 003 P2: the producer fills found_type only after a successful create and read-back.
++        "control found_type set although the create failed": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(
++            found_type="Flashlight"),
++        "control create succeeded without a read-back type": lambda c, o: o["hosts"][0]["lights"][0]["per_slot"][2].update(
++            attach_ok=True, can_add=True, found_type=""),
+     }
+ 
+     def test_every_control_defect_makes_the_host_and_its_pairs_pending(self):
+@@ -841,6 +869,243 @@ class ProbeContractTests(unittest.TestCase):
+         self.assertEqual(probe.CLASSIFICATION_KIND, report.CLASSIFICATION_KIND)
+ 
+ 
++class ReadbackContradictionTests(unittest.TestCase):
++    """Sol review 003 P2: found_type is filled only after a successful create, so the two must agree everywhere."""
++
++    def one(self, alter):
++        lights = good_gun_lights()
++        alter(lights)
++        result = report.build_report(classification([host("AK74", "slot_host")]),
++                                     observations([row("AK74", "slot_host", gun_slots(), lights)]))
++        record = result["hosts"][0]
++        return record["lights"]["UniversalLight"]["slots"].get("weaponFlashlight"), record, result
++
++    def test_a_representative_found_item_without_a_successful_attach_is_pending_not_a_refusal(self):
++        slot, record, _result = self.one(lambda lights: lights[2]["per_slot"].__setitem__(
++            2, per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False, found="UniversalLight")))
++        self.assertEqual(("pending", "slot_evidence_invalid"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("pending", record["verdict"])
++
++    def test_a_successful_attach_without_a_read_back_type_is_pending(self):
++        slot, record, _result = self.one(lambda lights: lights[2]["per_slot"].__setitem__(
++            2, per_slot("weaponFlashlight", "UniversalLight", found="")))
++        self.assertEqual(("pending", "slot_evidence_invalid"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("pending", record["verdict"])
++
++    def test_a_contradictory_read_back_on_another_slot_still_invalidates_the_pair(self):
++        slot, record, result = self.one(lambda lights: lights[2]["per_slot"][0].update(found_type="UniversalLight"))
++        self.assertEqual("pending", record["lights"]["UniversalLight"]["verdict"])
++        self.assertEqual(0, pair_counts(result).get("qualified", 0))
++
++    def test_a_variant_found_item_without_a_successful_attach_is_pending_not_a_refusal(self):
++        variant_lights = good_gun_lights()
++        variant_lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False,
++                                                    found="UniversalLight")
++        slot, record, _result = variant_report(variant_obs("weaponHandguardAK", [variant_lights[2]]))
++        self.assertEqual("pending", slot["verdict"])
++        self.assertNotEqual("native_attach_refused_with_prerequisite", slot["reason"])
++        self.assertEqual("pending", record["verdict"])
++
++    def test_a_variant_successful_attach_without_a_read_back_type_is_pending(self):
++        variant_lights = good_gun_lights()
++        variant_lights[2]["per_slot"][2]["found_type"] = ""
++        slot, record, _result = variant_report(variant_obs("weaponHandguardAK", [variant_lights[2]]))
++        self.assertEqual("pending", slot["verdict"])
++        self.assertEqual("pending", record["verdict"])
++
++    def test_the_probe_003_shape_stays_consistent(self):
++        """Every probe-003 attempt had found_type '' when attach_ok was false and the light type when true."""
++        slot, record, _result = self.one(lambda lights: None)
++        self.assertEqual("qualified", slot["verdict"])
++        self.assertEqual("qualified", record["verdict"])
++
++
++class ProxySlotEvidenceTests(unittest.TestCase):
++    """Fix round 3: probe-003 showed GetSelectionForSlotId returns nothing natively, so the model evidence for a slot
++    is a host proxy selection joined to its CfgNonAIVehicles Proxy<basename> entry (config exists, model path matches
++    the proxy path, inventorySlot lists the slot). Fixtures are probe-003 shapes written out explicitly."""
++
++    def attach(self, proxies, proxy_count=None, mutate=None, slots=None):
++        lights = good_gun_lights()
++        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False) if slots is None else slots, lights,
++                    proxies=proxies, proxy_count=proxy_count)]
++        if mutate:
++            mutate(rows[0])
++        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
++        record = result["hosts"][0]
++        return record["lights"]["UniversalLight"]["slots"]["weaponFlashlight"], record, result
++
++    def test_a_proxy_with_an_existing_config_matching_model_and_slot_qualifies(self):
++        slot, record, result = self.attach([proxy()])
++        self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("proxy_slot", slot["evidence"]["model_evidence"])
++        self.assertEqual("proxy:" + LIGHT_PROXY_PATH + ".001", slot["evidence"]["proxy_selection"])
++        self.assertEqual("qualified", record["verdict"])
++        self.assertEqual("PENDING", result["acceptance"])
++
++    def test_probe_003_selection_and_model_spellings_are_normalised(self):
++        for model in ("\\dz\\weapons\\attachments\\light\\weaponlight_universal.p3d",
++                      "dz/weapons/attachments/light/weaponlight_universal.P3D",
++                      "\\DZ\\Weapons\\Attachments\\Light\\WeaponLight_Universal.p3d",
++                      "/dz/weapons/attachments/light/weaponlight_universal"):
++            with self.subTest(model=model):
++                slot, _record, _result = self.attach([proxy(model=model)])
++                self.assertEqual("qualified", slot["verdict"])
++
++    def test_the_proxy_prefix_is_matched_case_insensitively_like_the_hook_does(self):
++        for prefix in ("Proxy:", "PROXY:", "pRoXy:"):
++            with self.subTest(prefix=prefix):
++                item = proxy()
++                item["selection"] = prefix + item["selection"][len("proxy:"):]
++                slot, _record, _result = self.attach([item])
++                self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
++
++    def test_a_selection_without_the_proxy_prefix_is_malformed_evidence_not_a_match(self):
++        item = proxy()
++        item["selection"] = "xproxy:" + item["selection"][len("proxy:"):]
++        slot, _record, _result = self.attach([item])
++        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
++
++    def test_a_qualifying_proxy_among_other_rows_and_a_truncated_list_still_qualifies(self):
++        rows = [proxy("/dz/weapons/attachments/magazine/mag_stanag", slots=("magazine",)), proxy()]
++        slot, _record, _result = self.attach(rows, proxy_count=40)
++        self.assertEqual(("qualified", "native_attach_with_proxy_slot"), (slot["verdict"], slot["reason"]))
++
++    def test_a_proxy_that_names_a_different_slot_does_not_qualify(self):
++        slot, record, _result = self.attach([proxy(slots=("pistolFlashlight",))])
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
++        self.assertNotEqual("qualified", record["verdict"])
++
++    def test_the_slot_must_be_in_the_list_not_a_substring_of_it(self):
++        slot, _record, _result = self.attach([proxy(slots=("weaponFlashlightExtra",))])
++        self.assertNotEqual("qualified", slot["verdict"])
++
++    def test_a_missing_config_entry_is_pending_never_inferred_from_the_proxy_name(self):
++        slot, record, _result = self.attach([proxy(exists=False)])
++        self.assertEqual(("pending", "proxy_config_missing"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("pending", record["verdict"])
++
++    def test_a_row_that_says_the_config_is_absent_never_qualifies_even_with_a_model_and_slots_filled_in(self):
++        item = dict(proxy(), cfg_exists=False)       # contradictory read-back: absent entry that still names data
++        slot, record, _result = self.attach([item])
++        self.assertEqual(("pending", "proxy_config_missing"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("pending", record["verdict"])
++
++    def test_a_model_path_that_differs_from_the_proxy_path_does_not_qualify(self):
++        slot, record, _result = self.attach([proxy(model="\\dz\\weapons\\attachments\\light\\weaponlight_tlr.p3d")])
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
++        self.assertNotEqual("qualified", record["verdict"])
++
++    def test_an_empty_model_with_an_existing_entry_does_not_qualify(self):
++        slot, _record, _result = self.attach([proxy(model="x")])
++        self.assertNotEqual("qualified", slot["verdict"])
++        slot, _record, _result = self.attach([dict(proxy(), model="")])
++        self.assertNotEqual("qualified", slot["verdict"])
++
++    def test_malformed_proxy_evidence_is_pending(self):
++        def entry(**changes):
++            return lambda r: r["proxies"][0].update(changes)
++
++        def drop(key):
++            return lambda r: r["proxies"][0].pop(key)
++        cases = {
++            "proxies not a list": lambda r: r.update(proxies={"selection": "x"}),
++            "proxy entry not an object": lambda r: r.update(proxies=["proxy:/a/b.001"]),
++            "selection missing": drop("selection"),
++            "selection not a string": entry(selection=7),
++            "selection without the proxy prefix": entry(selection="/dz/weapons/attachments/light/weaponlight_universal.001"),
++            "cfg_exists not a bool": entry(cfg_exists="true"),
++            "cfg_exists missing": drop("cfg_exists"),
++            "model not a string": entry(model=None),
++            "model missing": drop("model"),
++            "inventory_slots not a list": entry(inventory_slots="weaponFlashlight"),
++            "inventory_slots with a non-string": entry(inventory_slots=["weaponFlashlight", 4]),
++            "cfg_class missing": drop("cfg_class"),
++            "cfg_class disagrees with the selection": entry(cfg_class="Proxymagazine_stanag"),
++            "proxy_count missing": lambda r: r.pop("proxy_count"),
++            "proxy_count not an int": lambda r: r.update(proxy_count="1"),
++            "proxy_count a bool": lambda r: r.update(proxy_count=True),
++            "proxy_count below the listed rows": lambda r: r.update(proxy_count=0),
++            "proxy_scan_complete missing": lambda r: r.pop("proxy_scan_complete"),
++            "proxy_scan_complete not a bool": lambda r: r.update(proxy_scan_complete=1),
++        }
++        for label, mutate in cases.items():
++            with self.subTest(label):
++                slot, record, result = self.attach([proxy()], mutate=mutate)
++                self.assertEqual("pending", slot["verdict"], label)
++                self.assertEqual("proxy_evidence_malformed", slot["reason"], label)
++                self.assertEqual("pending", record["verdict"], label)
++                self.assertEqual(0, pair_counts(result).get("qualified", 0), label)
++
++    def test_a_proxy_count_without_the_list_is_malformed_not_missing(self):
++        slot, _record, _result = self.attach([proxy()], mutate=lambda r: r.pop("proxies"))
++        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
++
++    def test_a_scan_that_did_not_complete_is_pending_without_a_qualifying_row(self):
++        slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))],
++                                             mutate=lambda r: r.update(proxy_scan_complete=False))
++        self.assertEqual(("pending", "proxy_evidence_truncated"), (slot["verdict"], slot["reason"]))
++        slot, _record, _result = self.attach([proxy()], mutate=lambda r: r.update(proxy_scan_complete=False))
++        self.assertEqual("qualified", slot["verdict"])
++
++    def test_absent_proxy_evidence_is_pending_and_never_qualified(self):
++        """The probe-003 shape: neither proxy_count nor proxies, and every slot selection field empty."""
++        slot, record, result = self.attach(None)
++        self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("pending", record["verdict"])
++        self.assertEqual(0, result["denominators"]["qualified"])
++
++    def test_a_truncated_list_without_a_qualifying_row_is_pending(self):
++        slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))], proxy_count=30)
++        self.assertEqual(("pending", "proxy_evidence_truncated"), (slot["verdict"], slot["reason"]))
++
++    def test_an_empty_complete_proxy_list_is_a_negative_finding(self):
++        slot, _record, _result = self.attach([])
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
++
++    def test_the_selection_memory_and_bone_evidence_stays_an_alternative(self):
++        slot, _record, _result = self.attach(None, slots=gun_slots(weapon_model=True))
++        self.assertEqual(("qualified", "native_attach_with_model_selection"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("selection", slot["evidence"]["model_evidence"])
++        slot, _record, _result = self.attach([proxy(slots=("pistolFlashlight",))], slots=gun_slots(weapon_model=True))
++        self.assertEqual("qualified", slot["verdict"])
++
++    def test_malformed_proxy_evidence_outranks_selection_evidence(self):
++        slot, record, _result = self.attach([proxy()], mutate=lambda r: r.update(proxy_count="x"),
++                                            slots=gun_slots(weapon_model=True))
++        self.assertEqual(("pending", "proxy_evidence_malformed"), (slot["verdict"], slot["reason"]))
++        self.assertEqual("pending", record["verdict"])
++
++    def test_the_prerequisite_variant_uses_its_own_reason(self):
++        lights = good_gun_lights()
++        lights[2]["per_slot"][2] = per_slot("weaponFlashlight", "UniversalLight", can_add=False, attach_ok=False)
++        variant = variant_obs("weaponHandguardAK", [good_gun_lights()[2]])
++        rows = [row("AK74", "slot_host", gun_slots(weapon_model=False), lights, prereq=prereq_obs(has="weaponHandguardAK"),
++                    prereq_variant=variant, proxies=[proxy()])]
++        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
++        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
++        self.assertEqual(("qualified", "native_attach_with_proxy_slot_and_rail_handguard_prerequisite"),
++                         (slot["verdict"], slot["reason"]))
++        self.assertTrue(slot["evidence"]["requires_prerequisite"])
++        self.assertEqual("proxy_slot", slot["evidence"]["model_evidence"])
++        rows[0]["proxies"] = [proxy(slots=("pistolFlashlight",))]
++        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
++        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
++        self.assertEqual(("geometry_missing", "attached_without_model_selection"), (slot["verdict"], slot["reason"]))
++        del rows[0]["proxies"], rows[0]["proxy_count"], rows[0]["proxy_scan_complete"]
++        result = report.build_report(classification([host("AK74", "slot_host")]), observations(rows))
++        slot = result["hosts"][0]["lights"]["UniversalLight"]["slots"]["weaponFlashlight"]
++        self.assertEqual(("pending", "proxy_evidence_missing"), (slot["verdict"], slot["reason"]))
++
++    def test_beam_and_the_other_axes_stay_pending(self):
++        _slot, _record, result = self.attach([proxy()])
++        self.assertEqual({axis: "pending" for axis in report.UNOBSERVED_AXES}, result["unobserved_axes"])
++
++    def test_the_consumed_keys_name_the_proxy_fields(self):
++        for key in ("proxies", "proxy_count", "selection", "cfg_class", "cfg_exists", "model", "inventory_slots"):
++            self.assertIn(key, report.CONSUMED_KEYS)
++
++
+ class CliTests(unittest.TestCase):
+     def setUp(self):
+         self.tmp = tempfile.TemporaryDirectory()
+diff --git a/tools/audit/taped_light_report.py b/tools/audit/taped_light_report.py
+index 51b3ae3..91b27ce 100644
+--- a/tools/audit/taped_light_report.py
++++ b/tools/audit/taped_light_report.py
+@@ -6,7 +6,9 @@ observations JSON written by a native run of the probe staged by
+ 
+   qualified         the engine reported a native slot, the representative light attached in
+                     it through the native call, the attachment is found in that slot and the
+-                    host model carries a selection, memory point or bone for the slot.
++                    host model carries geometry for the slot: a proxy selection whose
++                    CfgNonAIVehicles entry exists, names the same model path and lists the slot
++                    in inventorySlot, or (older probes) a slot selection, memory point or bone.
+   geometry_missing  the engine reported no compatible native slot, refused the native attach
+                     for a reason the observation can attribute to the host, or the attach has
+                     no model selection to render at (no proxy is invented).
+@@ -34,6 +36,18 @@ Evidence rules (the report never fills a gap with a favourable default):
+     handles surviving release, a residual census that was complete (not truncated), the native
+     slot set resolved and no control light attached anywhere.
+ 
++Model evidence (probe-003: InventorySlots.GetSelectionForSlotId returns nothing natively, so the proxy join
++is the evidence). The hook lists the host model's ``proxy:<path>.<nnn>`` selections with their
++``CfgNonAIVehicles Proxy<basename>`` entry (exists, model, inventorySlot). A slot has proxy evidence only when
++a listed proxy has an existing entry, an entry class equal to ``Proxy<basename>``, a ``model`` that equals the
++proxy path (case-insensitive, slashes and the .p3d extension normalised) and an inventorySlot list holding the
++slot. The proxy name alone is never evidence. Missing or malformed proxy evidence is pending, never qualified;
++a truncated proxy list without a qualifying row is pending; a complete list without one is geometry_missing.
++
++Attachment read-back must be self-consistent everywhere: found_type is filled only after a successful create,
++so a non-empty found_type with attach_ok false, or attach_ok true with an empty found_type, is contradictory
++evidence and makes the attempt (base, variant or control) invalid.
++
+ Beam, switch, two-client presentation, removal by hand, tape consumption and persistence are
+ never observable from a dedicated-server probe and stay pending in every output.
+ """
+@@ -69,7 +83,8 @@ CONSUMED_KEYS = (
+     "selection_on_model", "memory_point", "bone_index", "per_slot", "light", "light_fits", "can_add",
+     "attach_ok", "found_type", "fits_native_slots", "fits", "type", "prereq", "attached_type",
+     "rail_functional", "prereq_variant", "performed", "handguard_attached", "handguard", "handguard_found_type",
+-    "handguard_slot_occupied", "handguard_rail_functional")
++    "handguard_slot_occupied", "handguard_rail_functional", "proxy_count", "proxy_scan_complete", "proxies",
++    "selection", "cfg_class", "cfg_exists", "model", "inventory_slots")
+ 
+ MISSING = object()   # absent or wrongly typed evidence
+ 
+@@ -207,6 +222,8 @@ def _light_slot(entry):
+         return None
+     if values["attach_ok"] and not values["can_add"]:
+         return None        # a create cannot succeed when the native check refused it: contradictory evidence
++    if values["attach_ok"] != bool(found):
++        return None        # the hook fills found_type only after a successful create and read-back
+     return dict(values, found_type=found)
+ 
+ 
+@@ -228,13 +245,78 @@ def _per_slot(light_entry, slot_names):
+ # --- slot, light and host verdicts -------------------------------------------------------------------
+ 
+ 
+-def _accepted(light, model_evidence, attempt):
+-    """Verdict for an attach the native call allowed (can_add true)."""
++def _path(text):
++    """Comparable model/proxy path: lower case, forward slashes, no leading slash, no .p3d extension."""
++    parts = [part for part in text.replace("\\", "/").lower().split("/") if part]
++    path = "/".join(parts)
++    return path[:-4] if path.endswith(".p3d") else path
++
++
++def _proxy_path(selection):
++    """Path of a ``proxy:<path>.<nnn>`` selection (the trailing .nnn dropped), or None for any other selection.
++
++    The prefix is matched case-insensitively, as the probe hook matches it."""
++    if selection[:len("proxy:")].lower() != "proxy:":
++        return None
++    text = selection[len("proxy:"):].replace("\\", "/")
++    stem, dot, _number = text.rpartition(".")
++    return _path(stem if dot and "/" not in _number else text)
++
++
++def _proxies(row):
++    """Typed proxy evidence of a host row: ("missing",), ("malformed",) or ("ok", rows, truncated)."""
++    if "proxies" not in row and "proxy_count" not in row and "proxy_scan_complete" not in row:
++        return ("missing",)
++    entries, count, complete = row.get("proxies"), _get(row, "proxy_count", "int"), _get(row, "proxy_scan_complete", "bool")
++    if not isinstance(entries, list) or count is MISSING or complete is MISSING or not len(entries) <= count:
++        return ("malformed",)
++    rows = []
++    for entry in entries:
++        values = {"selection": _get(entry, "selection", "str"), "cfg_class": _get(entry, "cfg_class", "str"),
++                  "cfg_exists": _get(entry, "cfg_exists", "bool"), "model": _get(entry, "model", "str"),
++                  "inventory_slots": _get(entry, "inventory_slots", "list")}
++        if MISSING in values.values() or not all(isinstance(item, str) for item in values["inventory_slots"]):
++            return ("malformed",)
++        path = _proxy_path(values["selection"])
++        if path is None or values["cfg_class"].casefold() != ("Proxy" + path.rsplit("/", 1)[-1]).casefold():
++            return ("malformed",)
++        rows.append(dict(values, path=path))
++    return ("ok", rows, count > len(entries) or not complete)
++
++
++def _model_evidence(host_slot, slot, proxies):
++    """(source, detail) for one slot: source is selection, proxy_slot, none or pending (detail names the reason).
++
++    Selection, memory point and bone are the older evidence; proxy evidence is the join of a proxy selection to its
++    config entry. Malformed proxy evidence outranks both, because the row's evidence is then not trustworthy."""
++    if proxies[0] == "malformed":
++        return "pending", "proxy_evidence_malformed"
++    if host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0:
++        return "selection", None
++    if proxies[0] == "missing":
++        return "pending", "proxy_evidence_missing"
++    for item in proxies[1]:
++        if item["cfg_exists"] and _path(item["model"]) == item["path"] \
++                and slot.casefold() in {name.casefold() for name in item["inventory_slots"]}:
++            return "proxy_slot", item["selection"]
++    if proxies[2]:
++        return "pending", "proxy_evidence_truncated"
++    if any(not item["cfg_exists"] for item in proxies[1]):
++        return "pending", "proxy_config_missing"
++    return "none", None
++
++
++def _accepted(light, model, attempt):
++    """Verdict for an attach the native call allowed (can_add true); ``model`` is a _model_evidence result."""
+     if not attempt["attach_ok"]:
+         return "pending", "attach_create_failed"
+     if attempt["found_type"] != light:
+         return "pending", "attached_item_not_found_in_slot"
+-    if model_evidence:
++    if model[0] == "pending":
++        return "pending", model[1]
++    if model[0] == "proxy_slot":
++        return "qualified", "native_attach_with_proxy_slot"
++    if model[0] == "selection":
+         return "qualified", "native_attach_with_model_selection"
+     return "geometry_missing", "attached_without_model_selection"
+ 
+@@ -255,9 +337,8 @@ def _variant_attempt(entry, slot, slot_names, preflight):
+     return _light_slot(per_slot[slot]), None
+ 
+ 
+-def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names, preflight):
++def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names, preflight, model):
+     """Return (verdict, reason, requires_prerequisite) for one compatible host/light/slot observation."""
+-    model = host_slot["selection_on_model"] or host_slot["memory_point"] or host_slot["bone_index"] >= 0
+     if attempt["can_add"]:
+         return _accepted(light, model, attempt) + (False,)
+     if light not in PREREQUISITE_LIGHTS:
+@@ -280,7 +361,8 @@ def _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot
+         return "geometry_missing", "native_attach_refused_with_prerequisite", True
+     verdict, reason = _accepted(light, model, attempt)
+     if verdict == "qualified":
+-        reason = "native_attach_with_rail_handguard_prerequisite"
++        reason = ("native_attach_with_proxy_slot_and_rail_handguard_prerequisite" if model[0] == "proxy_slot"
++                  else "native_attach_with_rail_handguard_prerequisite")
+     return verdict, reason, True
+ 
+ 
+@@ -296,7 +378,7 @@ def _pending(reason):
+     return {"verdict": "pending", "reasons": [reason], "slots": {}}
+ 
+ 
+-def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prerequisites, variant):
++def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prerequisites, variant, proxies):
+     """Verdict for one host x representative light from the host row's observations."""
+     if preflight is MISSING:
+         return _pending("preflight_missing")
+@@ -321,10 +403,12 @@ def _evaluate_light(light, light_entry, slot_names, host_slots, preflight, prere
+         elif not (host_slot["host_has_slot"] and attempt["light_fits"]):
+             continue
+         else:
++            model = _model_evidence(host_slot, slot, proxies)
+             verdict, reason, requires = _evaluate_slot(light, slot, host_slot, attempt, prerequisites, variant, slot_names,
+-                                                       preflight)
++                                                       preflight, model)
+             evidence = dict(host_slot, light_fits=attempt["light_fits"], can_add=attempt["can_add"],
+-                            attach_ok=attempt["attach_ok"], requires_prerequisite=requires)
++                            attach_ok=attempt["attach_ok"], requires_prerequisite=requires, model_evidence=model[0],
++                            proxy_selection=model[1] if model[0] == "proxy_slot" else None)
+             evidence["bone_index"] = max(host_slot["bone_index"], -1)
+         slots[slot] = {"verdict": verdict, "reason": reason, "evidence": evidence}
+         verdicts.append(verdict)
+@@ -410,9 +494,10 @@ def _evaluate_host(entry, rows, context):
+         reasons.add(_problem_reason("light", problems))
+     prerequisites = _prerequisites(row)
+     variant = _variant(row, prerequisites)
++    proxies = _proxies(row)
+     for light in context["representatives"]:
+         base["lights"][light] = _evaluate_light(light, light_entries.get(light, MISSING), slot_names, host_slots,
+-                                                context["preflights"].get(light, MISSING), prerequisites, variant)
++                                                context["preflights"].get(light, MISSING), prerequisites, variant, proxies)
+     for control in context["controls"]:       # control evidence must be complete even though it is not a verdict
+         reasons |= _control_issues(light_entries, slot_names, control, context["preflights"].get(control, MISSING))
+     invalidating = reasons - SIBLING_SCOPED_REASONS
+diff --git a/tools/setup/diagnostic_mission.py b/tools/setup/diagnostic_mission.py
+index 90efe7b..6847fba 100644
+--- a/tools/setup/diagnostic_mission.py
++++ b/tools/setup/diagnostic_mission.py
+@@ -140,8 +140,14 @@ def _identity(info):
+ #
+ # Every operation below walks its path from "/" one component at a time, opening each directory with
+ # O_DIRECTORY|O_NOFOLLOW relative to the previous descriptor, and acts on the leaf through that last
+-# descriptor (dir_fd=, follow_symlinks=False, O_NOFOLLOW). A symlink swapped in for any component, at any
+-# moment, is refused by the kernel in that very call; there is no check-then-use gap on a path string.
++# descriptor (dir_fd=, follow_symlinks=False, O_NOFOLLOW). A symlink swapped in for a component BEFORE that
++# component is opened is refused by the kernel in that very call; there is no check-then-use gap on a path
++# string. Concurrency contract (narrower than "at any moment"): a directory renamed AFTER it was opened keeps
++# being used through its descriptor, so one leaf written in that window lands in the moved directory, outside
++# the requested destination; only a protected directory/ancestor namespace could prevent that, and staging
++# only guarantees that such a run ends refused with no plan. What the final tree scan (walk_plain) does add is
++# that every directory it read, the root and its ancestors included, is reopened without following links and
++# must still be the same (st_dev, st_ino) before the scan can certify the tree.
+ # Residual on a DrvFs/9p mount (/mnt/d): O_NOFOLLOW/O_DIRECTORY and *at() calls are served by the WSL
+ # kernel, but NTFS junctions and reparse points are interpreted by the Windows side, which these calls
+ # cannot see; a Windows-side process that replaces a directory by a junction between two of our calls is
+@@ -262,11 +268,15 @@ def walk_plain(root):
+     The final lstat-walk backstop over a staged tree: every directory is opened no-follow and every entry is
+     classified through that descriptor, so a swapped-in symlink cannot be mistaken for the file it replaced.
+     """
++    root = Path(root).absolute()
+     files, pending, count = {}, [(open_dir_at(root), "")], 0
++    opened = {}   # directory prefix -> (st_dev, st_ino) of the descriptor that was scanned
+     try:
+         while pending:
+             descriptor, prefix = pending.pop()
+             try:
++                info = os.fstat(descriptor)
++                opened[prefix] = (info.st_dev, info.st_ino)
+                 with os.scandir(descriptor) as scan:
+                     names = sorted(entry.name for entry in scan)
+                 for name in names:
+@@ -286,9 +296,40 @@ def walk_plain(root):
+     finally:
+         for descriptor, _prefix in pending:
+             os.close(descriptor)
++    _require_directories_in_place(root, opened)
+     return files
+ 
+ 
++def _require_directories_in_place(root, opened):
++    """Every directory the scan read must still occupy its name; refuse a displaced or replaced one.
++
++    A scan reads through descriptors, so a directory renamed after it was opened (and a symlink or other
++    directory put under its name) would still be listed as if it were in place. After the scan, ``root`` is
++    reopened from "/" without following links and each scanned directory is reopened through its retained
++    parent, and the (st_dev, st_ino) must equal what was scanned. This covers the root and every ancestor of it
++    too, since the reopen starts at "/". It closes the window up to this call only; see the concurrency
++    contract in the comment block above.
++    """
++    held = {}
++    try:
++        for prefix in sorted(opened):               # a parent sorts before its children
++            try:
++                if prefix:
++                    parent, _, name = prefix[:-1].rpartition("/")
++                    descriptor = _open_child_dir(held[parent + "/" if parent else ""], name)
++                else:
++                    descriptor = open_dir_at(root)
++            except (OSError, ValueError) as error:
++                raise ValueError(f"staged directory was displaced during the scan: {prefix or '.'}") from error
++            held[prefix] = descriptor
++            info = os.fstat(descriptor)
++            if (info.st_dev, info.st_ino) != opened[prefix]:
++                raise ValueError(f"staged directory was replaced during the scan: {prefix or '.'}")
++    finally:
++        for descriptor in held.values():
++            os.close(descriptor)
++
++
+ def _unchanged(path, expected):
+     _safe_path(path)
+     info = lstat_at(path)
+diff --git a/tools/setup/probe_runtime.py b/tools/setup/probe_runtime.py
+index ba6e024..9b1b0c5 100644
+--- a/tools/setup/probe_runtime.py
++++ b/tools/setup/probe_runtime.py
+@@ -155,8 +155,11 @@ _MODIFIERS = r"(?:(?:ref|autoptr|static|protected|private|const|owned|notnull|ou
+ _DECLARATION = re.compile(
+     r"(?:^[ \t]*|[({;,][ \t]*)" + _MODIFIERS + r"([A-Za-z_]\w*(?:<[^;()=]*?>)?)[ \t]+([A-Za-z_]\w*)[ \t]*(?=[;=,)\[])", re.M)
+ _NOT_TYPES = frozenset({"return", "new", "class", "typename", "modded", "override", "delete", "else", "case"})
++# A method header at any indentation, with the opening brace on its own line or on the header line.
++# `else if (...) {` is the one control-flow shape that looks like `type name(...)`, so it is excluded.
+ _FUNCTION = re.compile(
+-    r"^[ \t]{4}((?:(?:override|static|protected|private)[ \t]+)*)[\w<>]+[ \t]+(\w+)[ \t]*\(([^()]*)\)[ \t]*\n[ \t]{4}\{", re.M)
++    r"^[ \t]*((?:(?:override|static|protected|private)[ \t]+)*)(?!(?:else|return|new|delete|case)\b)[\w<>]+[ \t]+"
++    r"(?!(?:if|while|for|foreach|switch)\b)(\w+)[ \t]*\(([^()]*)\)\s*\{", re.M)
+ _STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+ _EXPONENT = re.compile(r"\b\d+(?:\.\d+)?[eE][+-]?\d+\b")
+ # (callee, positions of arguments that are `out` parameters and must be declared first); the union
+@@ -181,7 +184,7 @@ _NUMERIC_LITERAL = re.compile(r"^-?\d+(?:\.\d+)?$")
+ _CALL_TERM = re.compile(r"^(\w+)\s*\(.*\)$", re.S)
+ _NUMERIC_METHOD = re.compile(r"\.(?:Count|Length|IndexOf|GetTime)\s*\([^()]*\)$", re.S)
+ _FUNCTION_RETURN = re.compile(
+-    r"^[ \t]{4}(?:(?:override|static|protected|private)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
++    r"^[ \t]*(?:(?:override|static|protected|private)[ \t]+)*([\w<>]+)[ \t]+(\w+)[ \t]*\(", re.M)
+ 
+ 
+ def _clean(text):
+@@ -302,28 +305,77 @@ def _segments(expression):
+                     yield from _segments(argument)
+ 
+ 
++def _unwrap(term):
++    """Drop parentheses that enclose the whole term: `((count))` is `count`."""
++    while term.startswith("(") and term.endswith(")"):
++        depth = 0
++        for index, char in enumerate(term):
++            depth += {"(": 1, ")": -1}.get(char, 0)
++            if depth == 0 and index < len(term) - 1:
++                return term
++        term = term[1:-1].strip()
++    return term
++
++
++def _operands(expression):
++    """Operands of an arithmetic expression, split at its top-level + - * / % operators."""
++    operands, depth, current = [], 0, []
++    for char in expression:
++        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(char, 0)
++        if depth == 0 and char in "+-*/%":
++            operands.append("".join(current).strip())
++            current = []
++        else:
++            current.append(char)
++    operands.append("".join(current).strip())
++    return [operand for operand in operands if operand]
++
++
++def _compound_destination(statement):
++    """(destination, right-hand side) of a top-level `name += expression` statement, else None."""
++    depth = 0
++    for index, char in enumerate(statement):
++        depth += {"(": 1, "[": 1, ")": -1, "]": -1}.get(char, 0)
++        if depth == 0 and statement[index:index + 2] == "+=":
++            destination = statement[:index].strip()
++            return (destination, statement[index + 2:].strip()) if re.match(r"^[A-Za-z_]\w*$", destination) else None
++    return None
++
++
+ def _concatenation_issues(line, statement, numeric, strings, string_functions, numeric_functions, vectors=()):
+     issues = []
++
++    def stringy(term):
++        term = _unwrap(term)
++        call = _CALL_TERM.match(term)
++        return (term == '""' or term in strings or term.endswith(".ToString()")
++                or bool(call and call.group(1) in string_functions))
++
++    def numeric_term(term):
++        term = _unwrap(term)
++        if term.endswith(".ToString()"):
++            return False
++        call = _CALL_TERM.match(term)
++        indexed = re.match(r"^(\w+)\[[^\]]*\]$", term)
++        if (term in numeric or bool(_NUMERIC_LITERAL.match(term)) or bool(indexed and indexed.group(1) in vectors)
++                or bool(call and call.group(1) in numeric_functions) or bool(_NUMERIC_METHOD.search(term))):
++            return True
++        operands = _operands(term)  # a parenthesised arithmetic expression such as (count + 1) or (ratio * 2)
++        return (len(operands) > 1 and not any(stringy(o) for o in operands) and any(numeric_term(o) for o in operands))
++
+     for index, segment in enumerate(_segments(statement)):
+-        terms = _top_level_terms(segment)
+-        if len(terms) < 2:
+-            continue
+-        if index == 0:
+-            terms[0] = _after_assignment(terms[0])
+-
+-        def stringy(term):
+-            call = _CALL_TERM.match(term)
+-            return (term == '""' or term in strings or term.endswith(".ToString()")
+-                    or bool(call and call.group(1) in string_functions))
+-
+-        def numeric_term(term):
+-            if term.endswith(".ToString()"):
+-                return False
+-            call = _CALL_TERM.match(term)
+-            indexed = re.match(r"^(\w+)\[[^\]]*\]$", term)
+-            return (term in numeric or bool(_NUMERIC_LITERAL.match(term)) or bool(indexed and indexed.group(1) in vectors)
+-                    or bool(call and call.group(1) in numeric_functions) or bool(_NUMERIC_METHOD.search(term)))
+-        if any(stringy(term) for term in terms):
++        into_string = False
++        if index == 0 and _compound_destination(segment):
++            destination, segment = _compound_destination(segment)
++            into_string = destination in strings
++            terms = _top_level_terms(segment)
++        else:
++            terms = _top_level_terms(segment)
++            if len(terms) < 2:
++                continue
++            if index == 0:
++                terms[0] = _after_assignment(terms[0])
++        if into_string or any(stringy(term) for term in terms):
+             for term in terms:
+                 if numeric_term(term):
+                     issues.append(f"line {line}: bare numeric '{term}' concatenated into a string "
+@@ -332,8 +384,18 @@ def _concatenation_issues(line, statement, numeric, strings, string_functions, n
+ 
+ 
+ def _expression_issues(clean, explicit_numbers=False):
+-    """Statement-size and bare-number concatenation findings for comment-free, string-blanked text."""
++    """Statement-size and bare-number concatenation findings for comment-free, string-blanked text.
++
++    The size bound needs no scope, so it covers every statement of the text whatever the layout of the
++    enclosing method (inline braces, any indentation, or no method at all). The numeric rule needs the
++    declared names of each recognised method body.
++    """
+     issues = []
++    for line, statement in _statements(clean):
++        count = _plus_count(statement)
++        if count > MAX_STATEMENT_PLUS:
++            issues.append(f"line {line}: statement has {count} binary '+' operators (limit {MAX_STATEMENT_PLUS}); "
++                          "the native compiler reports 'Formula too complex' (" + HOOK_EXPRESSION_EVIDENCE + ")")
+     bodies = list(_function_bodies(clean))
+     spans = [(start, start + len(body)) for _header, body, start in bodies]
+     members = set()
+@@ -361,15 +423,10 @@ def _expression_issues(clean, explicit_numbers=False):
+                 continue
+             (numeric if match.group(1) in _NUMERIC_TYPES else local_vectors if match.group(1) == "vector"
+              else strings).add(match.group(2))
+-        for line, statement in _statements(body):
+-            line += clean.count("\n", 0, start)
+-            count = _plus_count(statement)
+-            if count > MAX_STATEMENT_PLUS:
+-                issues.append(f"line {line}: statement has {count} binary '+' operators (limit {MAX_STATEMENT_PLUS}); "
+-                              "the native compiler reports 'Formula too complex' (" + HOOK_EXPRESSION_EVIDENCE + ")")
+-            if explicit_numbers:
+-                issues.extend(_concatenation_issues(line, statement, numeric, strings, string_functions,
+-                                                    numeric_functions, local_vectors))
++        if explicit_numbers:
++            for line, statement in _statements(body):
++                issues.extend(_concatenation_issues(line + clean.count("\n", 0, start), statement, numeric, strings,
++                                                    string_functions, numeric_functions, local_vectors))
+     return issues
+ 
+ 
+diff --git a/tools/setup/taped_light_probe.py b/tools/setup/taped_light_probe.py
+index db68338..60de645 100644
+--- a/tools/setup/taped_light_probe.py
++++ b/tools/setup/taped_light_probe.py
+@@ -444,6 +444,97 @@ class HCDisposableDiagnosticMission : CustomMission
+         return HCTLKey("selection_count") + total.ToString() + "," + HCTLKey("selection_matches") + "[" + matches + "]";
+     }
+ 
++    // Proxy join (probe-003: InventorySlots.GetSelectionForSlotId returned nothing natively, so the model evidence is a
++    // proxy selection joined to its CfgNonAIVehicles entry, the pattern 4_World/Systems/Inventory/AttachmentsOutOfReach.c
++    // :97-135 reads: inventorySlot at :105, model at :110). Native cache 1.30.164289:
++    //   3_Game/Global/Game.c:449 ConfigGetText(path, out value); 3_Game/Global/Game.c:558 ConfigGetTextArray(path,
++    //   out values); 3_Game/Global/Game.c:612 ConfigIsExisting(path); 3_Game/constants.c:237 CFG_NONAI_VEHICLES is
++    //   "CfgNonAIVehicles"; 5_Mission/GUI/SceneEditorMenu.c:1362 reads inventorySlot as an array and
++    //   5_Mission/GUI/SceneEditorMenu.c:1385 falls back to the text form, as does 3_Game/Entities/EntityAI.c:3996;
++    //   1_Core/proto/EnString.c:113 Substring, EnString.c:171 ToLower, EnString.c:240 IndexOf and EnString.c:253 LastIndexOf.
++    string HCTLProxyBase(string selectionName)
++    {
++        string text = selectionName.Substring(6, selectionName.Length() - 6);
++        int lastSlash = text.LastIndexOf("/");
++        if (lastSlash != -1)
++            text = text.Substring(lastSlash + 1, text.Length() - lastSlash - 1);
++        int lastDot = text.LastIndexOf(".");
++        if (lastDot != -1)
++            text = text.Substring(0, lastDot);
++        return text;
++    }
++
++    string HCTLProxyRow(string selectionName)
++    {
++        string cfgClass = "Proxy" + HCTLProxyBase(selectionName);
++        string cfgPath = "CfgNonAIVehicles " + cfgClass;
++        bool cfgExists = GetGame().ConfigIsExisting(cfgPath);
++        string modelPath = "";
++        string slotText = "";
++        TStringArray slotNames = new TStringArray;
++        if (cfgExists)
++        {
++            GetGame().ConfigGetText(cfgPath + " model", modelPath);
++            GetGame().ConfigGetTextArray(cfgPath + " inventorySlot", slotNames);
++            if (slotNames.Count() == 0)
++            {
++                GetGame().ConfigGetText(cfgPath + " inventorySlot", slotText);
++                if (slotText != "")
++                    slotNames.Insert(slotText);
++            }
++        }
++        string slotList = "";
++        int slotIndex = 0;
++        while (slotIndex < slotNames.Count() && slotIndex < 8)
++        {
++            if (slotIndex > 0)
++                slotList = slotList + ",";
++            slotList = slotList + HCTLStr(slotNames.Get(slotIndex));
++            slotIndex = slotIndex + 1;
++        }
++        string rowText = "{" + HCTLKey("selection") + HCTLStr(selectionName) + "," + HCTLKey("cfg_class") + HCTLStr(cfgClass) + ",";
++        rowText = rowText + HCTLKey("cfg_exists") + HCTLBool(cfgExists) + "," + HCTLKey("model") + HCTLStr(modelPath) + ",";
++        return rowText + HCTLKey("inventory_slots") + "[" + slotList + "]}";
++    }
++
++    string HCTLProxyFacts(Object subject)
++    {
++        TStringArray selectionNames = new TStringArray;
++        subject.GetSelectionList(selectionNames);
++        int total = selectionNames.Count();
++        int scanLimit = total;
++        if (scanLimit > 512)
++            scanLimit = 512;
++        bool scanComplete = true;
++        if (scanLimit < total)
++            scanComplete = false;
++        TStringArray seen = new TStringArray;
++        string rows = "";
++        string selectionName = "";
++        string lowered = "";
++        int scan = 0;
++        while (scan < scanLimit)
++        {
++            selectionName = selectionNames.Get(scan);
++            scan = scan + 1;
++            lowered = selectionName;
++            lowered.ToLower();
++            if (lowered.IndexOf("proxy:") == 0 && seen.Find(selectionName) == -1)
++            {
++                if (seen.Count() < 24)
++                {
++                    if (seen.Count() > 0)
++                        rows = rows + ",";
++                    rows = rows + HCTLProxyRow(selectionName);
++                }
++                seen.Insert(selectionName);
++            }
++        }
++        int proxyTotal = seen.Count();
++        string facts = HCTLKey("proxy_count") + proxyTotal.ToString() + "," + HCTLKey("proxy_scan_complete") + HCTLBool(scanComplete) + ",";
++        return facts + HCTLKey("proxies") + "[" + rows + "]";
++    }
++
+     string HCTLAttachSlotNames(EntityAI subject, int limit)
+     {
+         GameInventory subjectInventory = subject.GetInventory();
+@@ -824,6 +915,7 @@ class HCDisposableDiagnosticMission : CustomMission
+             return row + HCTLKey("spawned") + "false," + HCTLKey("timed_out") + "false}";
+         row = row + HCTLKey("spawned") + "true," + HCTLKey("type") + HCTLStr(hostItem.GetType()) + ",";
+         row = row + HCTLKey("own_slots") + HCTLOwnSlotNames(hostItem, 16) + "," + HCTLKey("attach_slots") + HCTLAttachSlotNames(hostItem, 24) + "," + HCTLSelectionFacts(hostItem) + ",";
++        row = row + HCTLProxyFacts(hostItem) + ",";
+         row = row + HCTLKey("slots") + "[" + HCTLHostSlots(hostItem) + "]," + HCTLKey("prereq") + "[" + HCTLHostPrereq(hostItem) + "],";
+         row = row + HCTLKey("lights") + "[" + HCTLHostLightRows(hostItem, m_HCTLLights, beginMs) + "],";
+         row = row + HCTLKey("prereq_variant") + HCTLPrereqVariant(hostItem, className, beginMs) + ",";
