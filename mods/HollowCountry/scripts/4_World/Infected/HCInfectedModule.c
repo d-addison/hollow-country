@@ -26,6 +26,8 @@ class HCInfectedModule : HCModule
 {
     static HCInfectedModule Instance;
     protected ref HCInfectedConfig m_Config;
+    // Closed until OnStart derives requested-AND-qualified capabilities.
+    protected ref HCInfectedAdmission m_Admission = new HCInfectedAdmission;
     protected ref HCInfectedSnapshot m_State;
     protected ref array<ref HCInfectedActor> m_Actors = new array<ref HCInfectedActor>;
     protected ref array<ref HCInfectedVoice> m_Voices = new array<ref HCInfectedVoice>;
@@ -92,18 +94,21 @@ class HCInfectedModule : HCModule
             Quarantine("invalid limits");
             return;
         }
+        // Preferences stay as the operator wrote them; native-affecting paths use
+        // only the admitted capability (preference AND qualification).
+        m_Admission = HCInfectedAdmission.Evaluate(m_Config);
         m_WorkCap = Math.Min(settings.MaxTickWorkItems, 32);
-        if ((settings.EnableHordes || m_Config.EnableNativePackRoutes || m_Config.EnableInvestigation) && m_WorkCap < 8)
+        if ((settings.EnableHordes || m_Admission.NativePackRoutes || m_Admission.Investigation) && m_WorkCap < 8)
         {
             Quarantine("hordes/routing require at least eight bounded work items");
             return;
         }
-        if (settings.EnableHordes && m_Config.EnableCEAdoption && !HCInfectedPolicy.AdoptionWorkReady(m_WorkCap))
+        if (settings.EnableHordes && m_Admission.CEAdoption && !HCInfectedPolicy.AdoptionWorkReady(m_WorkCap))
         {
             Quarantine("cohort adoption requires work budget at least 9");
             return;
         }
-        if (settings.EnableHordes && m_Config.EnableHordeStimulusRoutes && m_WorkCap < 24)
+        if (settings.EnableHordes && m_Admission.HordeStimulusRoutes && m_WorkCap < 24)
         {
             Quarantine("stimulus routes require hordes and at least 24 bounded work items");
             return;
@@ -115,7 +120,7 @@ class HCInfectedModule : HCModule
             Quarantine("unsupported native source build: " + runtimeBuild);
             return;
         }
-        if (m_Config.EnableNativePackRoutes || m_Config.EnableInvestigation)
+        if (m_Admission.NativePackRoutes || m_Admission.Investigation)
         {
             bool packReady = GetGame().GetWorld() && GetGame().GetWorld().GetAIWorld();
             packReady = packReady && GetGame().ConfigIsExisting("GroupBehaviourTemplates DZInfectedPackBeh");
@@ -134,6 +139,7 @@ class HCInfectedModule : HCModule
         if (m_Config.EnableContactGuard && !HCInfectedProfiles.ContactGuardQualified())
             Print("[HC Infected] contact guard pending native wall-hit qualification; native combat retained");
         Print("[HC Infected] enabled-preference template defaults; existing explicit disables preserved");
+        Print("[HC Infected] capability admission (requested vs admitted; unqualified paths fail closed, native behavior retained): " + m_Admission.Describe());
         m_GroupCap = Math.Min(settings.MaxActiveHordes, 2);
         m_MemberCap = Math.Min(settings.MaxActiveHordeMembers, 24);
         m_Hordes = settings.EnableHordes;
@@ -177,6 +183,12 @@ class HCInfectedModule : HCModule
             Instance = null;
         ReleasePacks();
         Print("[HC Infected] disabled: " + reason);
+    }
+
+    // Per-path requested vs admitted vs reason; bounded diagnostic for logs/self-tests.
+    string AdmissionStatus()
+    {
+        return m_Admission.Describe();
     }
 
     bool ContactGuardEnabled()
@@ -291,7 +303,7 @@ class HCInfectedModule : HCModule
         actor.LastEventId = soundEvent.m_iID;
         actor.LastEventAt = m_Now;
         actor.NextVoice = m_Now + m_Config.VoiceCooldownSeconds;
-        if (m_Config.EnableSupplementaryChains)
+        if (m_Admission.SupplementaryChains)
             m_AlertChain.NativeEmission(actor, soundEvent.m_iID, m_Now, m_Config.MaxVoiceQueue, m_Actors.Count());
         // super.ProcessSoundVoiceEvent already delivered the native hearing
         // signal. Supplementary local attention can only use that real origin;
@@ -314,7 +326,7 @@ class HCInfectedModule : HCModule
         if (actor.InfectedEntity && actor.InfectedEntity.IsAlive())
         {
             actor.RefreshProfile();
-            if (m_Config.EnableInvestigation && m_ObservationsRemaining > 0 && m_Now >= actor.NextVisualSample)
+            if (m_Admission.Investigation && m_ObservationsRemaining > 0 && m_Now >= actor.NextVisualSample)
             {
                 HCInfectedObservation.SampleVisual(actor, m_Now);
                 actor.NextVisualSample = m_Now + Math.Max(2, m_Actors.Count());
@@ -370,7 +382,7 @@ class HCInfectedModule : HCModule
         }
         sweep.Living++;
         sweep.Sum = sweep.Sum + position;
-        bool hearing = m_Chains && m_Config.EnableSupplementaryChains;
+        bool hearing = m_Chains && m_Admission.SupplementaryChains;
         HCInfectedClue sensed = HCHordeStimulus.ChooseClue(actor, m_Now, hearing);
         if (HCHordeStimulus.PreferClue(sensed, sweep.Stimulus, m_Now))
             sweep.Stimulus = sensed;
@@ -442,7 +454,9 @@ class HCInfectedModule : HCModule
                 }
             }
         }
-        RetargetCohorts();
+        // Cohort retargets steer native packs; never reached without admission.
+        if (m_Admission.HordeStimulusRoutes)
+            RetargetCohorts();
         ResetSweep();
     }
 
@@ -519,7 +533,7 @@ class HCInfectedModule : HCModule
     protected void TryAdopt(int nowUtc)
     {
         if (!HCInfectedPolicy.AdoptionWorkReady(m_WorkCap)) return;
-        if (!m_Hordes || !m_Config.EnableCEAdoption || m_State.Groups.Count() >= m_GroupCap)
+        if (!m_Hordes || !m_Admission.CEAdoption || m_State.Groups.Count() >= m_GroupCap)
             return;
         foreach (HCHordeRecord pending : m_State.Groups)
         {
@@ -557,13 +571,13 @@ class HCInfectedModule : HCModule
         HCInfectedClue adoptionClue;
         foreach (HCInfectedActor observer : candidates)
         {
-            HCInfectedClue observedClue = HCHordeStimulus.ChooseClue(observer, m_Now, m_Chains && m_Config.EnableSupplementaryChains);
+            HCInfectedClue observedClue = HCHordeStimulus.ChooseClue(observer, m_Now, m_Chains && m_Admission.SupplementaryChains);
             if (HCHordeStimulus.PreferClue(observedClue, adoptionClue, m_Now))
                 adoptionClue = observedClue;
         }
         // No invented migration destination: without a genuine cue, leave the
         // existing CE population in its native group and try a later interval.
-        if (m_Config.EnableNativePackRoutes && !adoptionClue)
+        if (m_Admission.NativePackRoutes && !adoptionClue)
             return;
         HCHordeRecord record = new HCHordeRecord;
         HCHordeRecovery.Capture(candidates, record);
@@ -594,7 +608,7 @@ class HCInfectedModule : HCModule
         }
         ResetSweep();
         HCNativeInfectedPack pack;
-        bool attempted = m_Config.EnableNativePackRoutes;
+        bool attempted = m_Admission.NativePackRoutes;
         bool succeeded = false;
         bool releasing = false;
         if (attempted)
@@ -634,7 +648,7 @@ class HCInfectedModule : HCModule
         HCInfectedClue clue;
         if (actor.Visual && actor.Visual.Provenance == 2 && actor.Visual.IsLive(m_Now))
             clue = actor.Visual;
-        if (m_Chains && m_Config.EnableSupplementaryChains && actor.HeardExternally && actor.Heard)
+        if (m_Chains && m_Admission.SupplementaryChains && actor.HeardExternally && actor.Heard)
         {
             if (actor.Heard.Provenance == 1 && actor.Heard.IsLive(m_Now))
             {
@@ -646,7 +660,7 @@ class HCInfectedModule : HCModule
         int mind = actor.InfectedEntity.GetMindStateSynced();
         bool engaged = mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT;
         bool grouped = actor.GroupId > 0 || actor.SearchPack != null;
-        if (!HCInfectedPolicy.MayInvestigate(m_Config.EnableInvestigation, observedClue, engaged, actor.Profile == "native_injured", grouped, actor.SearchAttempts, m_Now, actor.NextSearch))
+        if (!HCInfectedPolicy.MayInvestigate(m_Admission.Investigation, observedClue, engaged, actor.Profile == "native_injured", grouped, actor.SearchAttempts, m_Now, actor.NextSearch))
             return;
         if (m_RoutesRemaining < 1 || m_Investigators.Count() >= m_Config.MaxInvestigators)
             return;
@@ -772,10 +786,10 @@ class HCInfectedModule : HCModule
             // At most two cohort eligibility scans (six members each), plus
             // one charged bounded path. Rejections cannot starve another pack.
             int retargetReserve = 0;
-            if (m_Hordes && m_Config.EnableHordeStimulusRoutes)
+            if (m_Hordes && m_Admission.HordeStimulusRoutes)
                 retargetReserve = 16;
             int work = m_WorkCap - 2 - maintenance - retargetReserve;
-            if (m_Hordes && m_Config.EnableMemberRecovery && m_Actors.Count() > 0 && work > 1)
+            if (m_Hordes && m_Admission.MemberRecovery && m_Actors.Count() > 0 && work > 1)
             {
                 // Dedicated cursor: the first actor in a completed sweep must
                 // not monopolize the one-per-tick reconciliation allowance.
@@ -786,7 +800,7 @@ class HCInfectedModule : HCModule
                     m_Dirty = true;
                 work--;
             }
-            if (m_Chains && m_Config.EnableSupplementaryChains && work > 2)
+            if (m_Chains && m_Admission.SupplementaryChains && work > 2)
             {
                 // Leave an actor slot so a sustained voice stream cannot starve
                 // observations/recovery/expiry. One recipient costs <=2 rays.

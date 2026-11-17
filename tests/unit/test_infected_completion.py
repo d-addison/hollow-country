@@ -5,7 +5,10 @@ from functools import cmp_to_key
 from pathlib import Path
 import unittest
 
-from test_infected_contract import SOURCE, policy_functions
+if __package__:
+    from .test_infected_contract import SOURCE, policy_functions
+else:
+    from test_infected_contract import SOURCE, policy_functions
 
 
 class InfectedCompletionTests(unittest.TestCase):
@@ -162,6 +165,19 @@ class InfectedCompletionTests(unittest.TestCase):
         self.assertIn("m_AlertChain.ProcessPending", module)
         self.assertNotIn("OnSoundVoiceEvent(", source)
         self.assertNotIn("AddNoise(", source)
+
+    def test_recovery_and_relay_wiring_sit_behind_admitted_capability_not_preference(self):
+        module = (SOURCE / "HCInfectedModule.c").read_text()
+        tick = module.split("override void OnTick", 1)[1]
+        self.assertLess(tick.index("m_Admission.MemberRecovery"), tick.index("HCHordeRecovery.Reconcile"))
+        self.assertLess(tick.index("m_Admission.SupplementaryChains"), tick.index("m_AlertChain.ProcessPending"))
+        voice = module.split("void NativeVoice(", 1)[1].split("protected void ResetSweep", 1)[0]
+        self.assertLess(voice.index("m_Admission.SupplementaryChains"), voice.index("m_AlertChain.NativeEmission"))
+        investigation = module.split("protected void TryInvestigate", 1)[1].split("protected void ReleasePacks", 1)[0]
+        self.assertIn("m_Admission.SupplementaryChains && actor.HeardExternally", investigation)
+        self.assertIn("MayInvestigate(m_Admission.Investigation,", investigation)
+        for name in ("EnableMemberRecovery", "EnableSupplementaryChains", "EnableInvestigation"):
+            self.assertNotIn("m_Config." + name, module)
 
     def test_room_catalog_wired_before_native_membership_change(self):
         catalog = (SOURCE / "HCInfectedRooms.c").read_text()
