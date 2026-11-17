@@ -97,7 +97,9 @@ def stimulus_api():
     scope = dict(NS=NS, HCInfectedClue=SyntheticClue, HCInfectedPolicy=NS(**policy_functions()))
     text = (SOURCE / "HCHordeStimulus.c").read_text()
     # Enums are declarations, never an alternate implementation of decisions.
-    scope.update({name: int(value) for name, value in re.findall(r"\b(HC_STIMULUS_\w+)\s*=\s*(\d+)", text)})
+    # Enforce requires Enum.MEMBER (native compile 078), so each enum is a namespace.
+    for enum, body in re.findall(r"\benum\s+(\w+)\s*\{([^}]*)\}", text):
+        scope[enum] = NS(**{name: int(value) for name, value in re.findall(r"\b(\w+)\s*=\s*(\d+)", body)})
     api = NS()
     scope["HCHordeStimulus"] = api
     for name, parameters in (
