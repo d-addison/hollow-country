@@ -95,6 +95,8 @@ def collect_logs(root):
 
 
 def classify(text):
+    if re.search(r'\bENGINE\s*\(F\)\s*:\s*Crashed\b', text):
+        return 'engine-crash'
     if re.search(r"SCRIPT\s*\(E\)|Can't compile|Cannot compile|Core native self-test FAILED", text):
         return 'compiler-error'
     if '[HollowCountry] Invalid settings; original file preserved;' in text or '[HollowCountry] Settings rejected; original file preserved:' in text:
@@ -419,7 +421,10 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
             while time.monotonic() < deadline:
                 text, _, _ = collect_logs(profiles)
                 result = classify(text)
-                report['engine_error_observed'] = report['engine_error_observed'] or result == 'compiler-error'
+                report['engine_error_observed'] = report['engine_error_observed'] or result in {'compiler-error', 'engine-crash'}
+                if result == 'engine-crash':
+                    report['status'] = result
+                    break
                 report['settings_rejection_observed'] |= result == 'settings-rejected'
                 if report['settings_rejection_observed']:
                     report['status'] = 'settings-rejected'
@@ -519,7 +524,9 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         report['launcher_exit_code'] = process.returncode if process else None
         final_text, report['logs'], report['skipped_logs'] = collect_logs(experiment)
         final_result = classify(final_text)
-        report['engine_error_observed'] = report['engine_error_observed'] or final_result == 'compiler-error'
+        report['engine_error_observed'] = report['engine_error_observed'] or final_result in {'compiler-error', 'engine-crash'}
+        if final_result == 'engine-crash':
+            report['status'] = final_result
         report['settings_rejection_observed'] |= final_result == 'settings-rejected'
         if report['settings_rejection_observed']:
             report['status'] = 'settings-rejected'
@@ -566,7 +573,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
                     report['status'] = 'timeout'
             if report['engine_error_observed']:
                 report['infected_death_receipt'] = None
-                report['status'] = 'compiler-error'
+                if report['status'] != 'engine-crash':
+                    report['status'] = 'compiler-error'
             if deadline_expired:
                 report['infected_death_outer_outcome'] = 'timed-out'
             elif report['status'] == 'infected-death-completed':
@@ -589,7 +597,8 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
                 report['native_autotest_observation'] = final_observation.replace(
                     'PASS-marker; ', 'PASS-marker; observed during final collection; ')
         if report['engine_error_observed']:
-            report['status'] = 'compiler-error'
+            if report['status'] != 'engine-crash':
+                report['status'] = 'compiler-error'
         if settings_blob is not None:
             with (profiles / 'HollowCountry/settings.json').open('rb') as stream:
                 report['settings_original_preserved'] = stream.read(16386) == settings_blob

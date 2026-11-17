@@ -40,6 +40,17 @@ def execute_member(source, name, env, *args):
     """
     match=re.search(r'\b(?:bool|int|void|HCGroupMember) '+name+r'\(([^)]*)\)\s*\{',source)
     statements=body(source,match.end())
+    # Preserve string contents (including semicolons/braces) as literals before
+    # translating statement/block syntax. Nested authored calls use unique keys.
+    def literal(match):
+        index=len(env)
+        key='_authored_literal_'+str(index)
+        while key in env:
+            index+=1
+            key='_authored_literal_'+str(index)
+        env[key]=json.loads(match[0])
+        return key
+    statements=re.sub(r'"(?:\\.|[^"\\])*"',literal,statements)
     parameters=[a.split('=')[0].split()[-1] for a in match[1].split(',') if a.strip()]
     # Inline Enforce guards use the same block syntax as the rule translator.
     cursor=0
@@ -261,7 +272,8 @@ class GroupServerTests(unittest.TestCase):
         for field,value in [('MaxMembers',0),('MaxMembers',91),('MaxMarkers',257),('PositionIntervalSeconds',math.nan),('RequireLOS',True),('RequireRadio',True),('KeepRevisions',1)]:
             c=self.e['HCGroupSettings']();setattr(c,field,value)
             self.assertFalse(self.e['SettingsValid'](c))
-        self.assertFalse(self.e['HCGroupSettings']().Enabled)
+        self.assertTrue(self.e['HCGroupSettings']().Enabled)
+        self.assertFalse(self.e['HCGroupSnapshot']().Enabled)
 
     def test_rule_expressions_keep_small_native_compiler_complexity_budget(self):
         # Probe031 actually rejected the long SettingsValid formula. This is
@@ -393,7 +405,7 @@ class GroupServerTests(unittest.TestCase):
         source=(ROOT/'4_World/Groups/HCGroupService.c').read_text()
         writes=[]
         current=self.e['HCGroupState']();current.WorldName='chernarusplus';current.Revision=10
-        service=SimpleNamespace(m_State=current,m_Config=self.cfg,
+        service=SimpleNamespace(m_State=current,m_Config=self.cfg,m_LastUtc=1000,
             m_Store=SimpleNamespace(Save=lambda s:writes.append(s) or True))
         def serialize(value):
             return True,json.dumps(value,default=lambda v:vars(v)),''
@@ -403,6 +415,93 @@ class GroupServerTests(unittest.TestCase):
         self.assertEqual(self.code.LIMIT,execute_member(source,'Commit',env,service,self.state))
         self.assertIs(current,service.m_State)
         self.assertEqual([],writes)
+
+    def test_invite_expiry_reaches_max_and_overflow_is_rejected_before_mutation(self):
+        group=self.create()
+        for now,expected in [(2147483527,0),(2147483528,self.code.INVALID)]:
+            self.state.Invitations.Clear()
+            before=(self.state.NextId,group.Revision)
+            q=self.request(self.op.INVITE,TargetId='bob',ExpectedRevision=group.Revision)
+            result=self.e['Apply'](self.state,self.cfg,q,'alice',now)
+            self.assertEqual(expected,result)
+            if result==0:
+                self.assertEqual(2147483647,self.state.Invitations[0].ExpiresUtc)
+                self.assertTrue(self.e['StateValid'](self.state,self.cfg,'chernarusplus'))
+            else:
+                self.assertEqual(before,(self.state.NextId,group.Revision))
+                self.assertEqual([],self.state.Invitations)
+
+    def test_marker_deadline_boundary_and_forever_at_final_second(self):
+        group=self.create()
+        self.cfg.MarkerRetentionSeconds=0
+        for ttl,now,expected in [(10,2147483637,0),(10,2147483638,self.code.INVALID),
+                                 (2592000,2144891647,0),(2592000,2144891648,self.code.INVALID),
+                                 (0,2147483647,0)]:
+            group.Markers.Clear()
+            before=(self.state.NextId,group.Revision)
+            q=self.request(self.op.MARKER_CREATE,Name='Boundary',TtlSeconds=ttl,
+                           ExpectedRevision=group.Revision)
+            result=self.e['Apply'](self.state,self.cfg,q,'alice',now)
+            self.assertEqual(expected,result,(ttl,now))
+            if result==0:
+                self.assertEqual(2147483647 if ttl else 0,group.Markers[0].ExpiresUtc)
+                self.assertTrue(self.e['StateValid'](self.state,self.cfg,'chernarusplus'))
+            else:
+                self.assertEqual(before,(self.state.NextId,group.Revision))
+                self.assertEqual([],group.Markers)
+
+    def test_restart_clock_accepts_legacy_zero_but_rejects_rollback_of_commit(self):
+        allowed=self.e['ClockAllows']
+        self.assertTrue(allowed(self.state,1000))
+        self.state.LastMutationUtc=2000000001
+        for now,expected in [(0,False),(2000000000,False),(2000000001,True),
+                             (2147483647,True),(2147483648,False)]:
+            self.assertEqual(expected,allowed(self.state,now))
+        self.state.LastMutationUtc=-1
+        self.assertFalse(self.e['StateValid'](self.state,self.cfg,'chernarusplus'))
+
+    def test_commit_persists_authoritative_clock_and_refuses_rollback(self):
+        import copy
+        self.create()
+        source=(ROOT/'4_World/Groups/HCGroupService.c').read_text()
+        writes=[]
+        self.state.LastMutationUtc=2000000001
+        service=SimpleNamespace(m_State=self.state,m_Config=self.cfg,m_LastUtc=2000000002,
+            m_Store=SimpleNamespace(Save=lambda s:writes.append(copy.deepcopy(s)) or True))
+        env={**self.e,'serialize':lambda s:(True,json.dumps(s,default=vars),''),
+             'GetGame':lambda:SimpleNamespace(GetWorldName=lambda:'chernarusplus')}
+        candidate=copy.deepcopy(self.state)
+        self.assertEqual(0,execute_member(source,'Commit',env,service,candidate))
+        self.assertEqual(2000000002,writes[0].LastMutationUtc)
+        service.m_LastUtc=2000000001
+        self.assertEqual(self.code.STORAGE,execute_member(source,'Commit',env,service,copy.deepcopy(candidate)))
+        self.assertEqual(1,len(writes))
+
+    def test_request_rate_clock_rejects_rollback_nan_and_infinity_without_admission(self):
+        source=(ROOT/'4_World/Groups/HCGroupService.c').read_text()
+        for now in (99.,math.nan,math.inf,-math.inf):
+            peer=SimpleNamespace(RateWindow=100.,RateCount=0)
+            service=SimpleNamespace(m_Config=self.cfg,m_GlobalWindow=100.,m_GlobalCount=0)
+            env={**self.e,'GetGame':lambda:SimpleNamespace(GetTickTime=lambda:now)}
+            self.assertFalse(execute_member(source,'Admit',env,service,peer),now)
+            self.assertEqual(0,peer.RateCount)
+            self.assertEqual(0,service.m_GlobalCount)
+
+    def test_missing_group_preferences_and_failed_start_are_reported(self):
+        source=(ROOT/'4_World/Groups/HCGroupModule.c').read_text()
+        messages=[]
+        service=SimpleNamespace(Start=lambda c:False)
+        module=SimpleNamespace(m_Config=None,m_Service=None)
+        env={**self.e,'Print':messages.append,
+             'HCGroupStore':SimpleNamespace(LoadSettings=lambda:None),
+             'HCGroupService':lambda:service}
+        self.assertFalse(execute_member(source,'IsEnabled',env,module,
+                                       SimpleNamespace(EnableGroups=True)))
+        self.assertTrue(messages)
+        messages.clear()
+        execute_member(source,'OnStart',env,module,SimpleNamespace())
+        self.assertTrue(messages)
+        self.assertIsNone(module.m_Service)
 
     def test_mismatched_replay_cannot_replace_cached_committed_result(self):
         self.create()

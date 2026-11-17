@@ -26,8 +26,9 @@ stories, and the world should offer more to do without requiring a mission list.
 This guide covers **the whole mod vision, including Phase 2**, not just the
 current build. **Being built** means work exists but the complete feature still
 needs testing. **Planned** means implementation remains. **Feasibility testing**
-means DayZ's limits may require a different approach. The experimental gameplay
-systems currently default to disabled.
+means DayZ's limits may require a different approach. Feature preferences default
+to **enabled**. A system still needs its supported content and dependencies;
+missing prerequisites are reported rather than treated as working gameplay.
 
 ## Scavenge with purpose
 
@@ -113,7 +114,7 @@ available as a qualified gameplay package.
 
 | Planned system | Intended experience |
 | :--- | :--- |
-| **Extended stamina** | More practical travel through an original stamina model that keeps exertion, recovery and load meaningful. |
+| **Extended stamina** | Half the continuous movement drain and 25% faster recovery by default. Weight still limits capacity; jumps and melee retain their normal costs. Server owners can tune the balance. |
 | **Stamina and weight bars** | See your exertion and burden, and understand how your load affects endurance. |
 | **Groups** | Team membership with teammate icons both in the world and on the map; visibility rules configurable by the server. |
 | **Interactive map** | Press **M** to pan and zoom the map and share editable group markers and notes. The action should be rebindable. |
@@ -176,8 +177,9 @@ Experimental search and interior systems, salvage prototypes and infected clue
 and alert logic exist. Group navigation, separate weight and stamina displays,
 optional-event rules and fuel-transfer prototypes are also being built.
 Experimental taped-light mounting and recovery rules exist, with no qualified
-host and flashlight combination yet. These systems remain disabled or isolated
-for testing. Some code has compiled and
+host and flashlight combination yet. Feature preferences now default to enabled;
+several systems still require content, dependencies or native adapters before
+they can operate. Some code has compiled and
 initialized in a real DayZ server. Full inventory recovery, navigation, audio,
 multiplayer behavior, balance and performance still need qualification.
 

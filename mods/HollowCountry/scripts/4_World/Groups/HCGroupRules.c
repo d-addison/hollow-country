@@ -2,6 +2,30 @@
 // server UTC/world size and a disposable clone. Never commit a rejected clone.
 class HCGroupRules
 {
+    static bool TimestampValid(int value)
+    {
+        return value >= 1 && value <= 2147483647;
+    }
+
+    static bool ClockAllows(HCGroupState state, int now)
+    {
+        if (!state || !HCGroupRules.TimestampValid(now))
+        {
+            return false;
+        }
+        return state.LastMutationUtc >= 0 && state.LastMutationUtc <= now;
+    }
+
+    static bool DeadlineFits(int now, int seconds)
+    {
+        if (!HCGroupRules.TimestampValid(now) || seconds < 1 || seconds > 2592000)
+        {
+            return false;
+        }
+        // Check BEFORE adding. Native Enforce int is signed 32-bit.
+        return now <= 2147483647 - seconds;
+    }
+
     static bool MutationIdValid(int value)
     {
         return value >= 0 && value <= 1000000;
@@ -130,6 +154,10 @@ class HCGroupRules
         {
             return false;
         }
+        if (state.LastMutationUtc < 0 || state.LastMutationUtc > 2147483647)
+        {
+            return false;
+        }
         if (state.Revision < 0 || state.Revision > 1000000000 || state.NextId < 1 || state.NextId > 1000000000)
         {
             return false;
@@ -187,7 +215,7 @@ class HCGroupRules
                 {
                     return false;
                 }
-                if (marker.ExpiresUtc < 0 || marker.ExpiresUtc > 2000000000)
+                if (marker.ExpiresUtc < 0 || marker.ExpiresUtc > 2147483647)
                 {
                     return false;
                 }
@@ -208,7 +236,7 @@ class HCGroupRules
             {
                 return false;
             }
-            if (invite.ExpiresUtc < 1 || invite.ExpiresUtc > 2000000000)
+            if (!HCGroupRules.TimestampValid(invite.ExpiresUtc))
             {
                 return false;
             }
@@ -247,7 +275,7 @@ class HCGroupRules
         {
             return HCGroupCode.INVALID;
         }
-        if (!HCGroupRules.TextValid(actor, 128, false) || now < 1 || now > 1990000000 || state.NextId >= 1000000000)
+        if (!HCGroupRules.TextValid(actor, 128, false) || !HCGroupRules.ClockAllows(state, now) || state.NextId >= 1000000000)
         {
             return HCGroupCode.INVALID;
         }
@@ -343,6 +371,10 @@ class HCGroupRules
                 {
                     return HCGroupCode.CONFLICT;
                 }
+            }
+            if (!HCGroupRules.DeadlineFits(now, c.InviteSeconds))
+            {
+                return HCGroupCode.INVALID;
             }
             HCGroupInvitation invitation = new HCGroupInvitation;
             invitation.Id = state.NextId;
@@ -470,6 +502,10 @@ class HCGroupRules
             if (group.Markers.Count() >= c.MaxMarkers)
             {
                 return HCGroupCode.LIMIT;
+            }
+            if (ttl > 0 && !HCGroupRules.DeadlineFits(now, ttl))
+            {
+                return HCGroupCode.INVALID;
             }
             marker = new HCGroupMarker;
             marker.Id = state.NextId;

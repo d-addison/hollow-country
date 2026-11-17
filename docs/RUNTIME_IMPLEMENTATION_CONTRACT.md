@@ -42,9 +42,12 @@ Core starts modules on server mission initialization, ticks once per second,
 and stops/flushes through the verified mission finish hook. Module tick work must
 be bounded and scan intervals may be longer than core ticks.
 
-`HCSettings` in 3_Game has SchemaVersion=1 and default-false booleans:
+`HCSettings` in 3_Game has SchemaVersion=1 and default-true feature preferences:
 EnableInteriors, EnableSearch, EnableCrafting, EnableInfected, EnableHordes,
-EnableAlertChains. Additional core limits: TickIntervalMs=1000,
+EnableAlertChains, EnableGroups. Explicit disables in existing operator files
+remain authoritative. Enabled preferences never imply provider availability,
+measured geometry, native qualification or runtime success. Missing prerequisites
+must produce a clear admission diagnostic. Additional core limits: TickIntervalMs=1000,
 MaxTickWorkItems=32, MaxActiveHordes=2, MaxActiveHordeMembers=24,
 MaxActiveInteriors=12, MaxPropsPerInterior=5. Modules use their own validated
 JSON DTO/config/state types and never change shared fields. These are pilot

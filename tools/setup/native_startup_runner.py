@@ -246,8 +246,8 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
                 text,_,skipped=wine.collect_logs(profiles); budget.check()
                 classified=wine.classify(text)
                 report['initialized_observed'] |= classified=='initialized'
-                if classified in {'compiler-error','settings-rejected'}:
-                    report['status']=classified; report['engine_error_observed']=classified=='compiler-error'; break
+                if classified in {'compiler-error','engine-crash','settings-rejected'}:
+                    report['status']=classified; report['engine_error_observed']=classified in {'compiler-error','engine-crash'}; break
                 if process.poll() is not None: report['status']='process-exited'; break
                 if '[HC Startup Probe] FAIL' in text:
                     report['status']='startup-control-failed'; report['receipt_error']='native FAIL marker'; break
@@ -310,9 +310,10 @@ def run(server_root,source_pbo,experiment,prefix,scripts_root,*,mode='stock-ce',
             try:
                 text,report['logs'],report['skipped_logs']=wine.collect_logs(experiment)
                 classified=wine.classify(text)
-                report['engine_error_observed'] |= classified=='compiler-error'
+                report['engine_error_observed'] |= classified in {'compiler-error','engine-crash'}
                 report['receipt_present_final']=receipt_path.exists()
-                if report['engine_error_observed']: report['status']='compiler-error'
+                if report['engine_error_observed']:
+                    report['status']='engine-crash' if classified=='engine-crash' or report['status']=='engine-crash' else 'compiler-error'
                 elif classified=='settings-rejected': report['status']='settings-rejected'
                 elif '[HC Startup Probe] FAIL' in text and report['status']==SUCCESS: report['status']='startup-control-failed'
                 if admitted is not None and report['status']==SUCCESS:

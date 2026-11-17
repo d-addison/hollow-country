@@ -20,7 +20,7 @@ class FuelProbeRunnerTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup); self.root=Path(self.temp.name)
         self.server=self.root/'server'
         mission=self.server/'mpmissions/dayzOffline.chernarusplus'; mission.mkdir(parents=True)
-        (mission/'init.c').write_text('class CustomMission : MissionServer {}\n'
+        (mission/'init.c').write_text('void main() { Hive ce = CreateHive(); if (ce) ce.InitOffline(); }\nclass CustomMission : MissionServer {}\n'
             'Mission CreateCustomMission(string path) { return new CustomMission(); }\n')
         (self.server/'DayZServer_x64.exe').write_bytes(b'SYNTHETIC never executable')
         (self.server/'battleye').mkdir()
@@ -46,7 +46,7 @@ class FuelProbeRunnerTests(unittest.TestCase):
                cleanup_delay=1,cleanup_error=False,group_survives=False,death_at=None,
                final_complete=False,final_error=False,launch_error=None,staging_delay=0,
                final_poll_delay=0,preflight_code=1,foreign_experiment=False,
-               final_settings_error=False, final_mutation=None):
+               final_settings_error=False, final_mutation=None,engine_crash=False,final_engine_crash=False):
         original_is_file=Path.is_file; original_prepare=fuel.prepare_probe
         original_validate=fuel.validate_result; emitted=False; validated=False
         def is_file(path):
@@ -55,15 +55,19 @@ class FuelProbeRunnerTests(unittest.TestCase):
             marker=json.loads((self.experiment/'fuel.chernarusplus'/fuel.MARKER).read_text())
             row=fixtures.FuelSiphonProbeTests.receipt(NS(probe=fuel))
             row['run_id']=marker['run_id']
+            if 'mode' in marker:
+                row.update(mode=marker['mode'], ce_disabled_control=marker['ce_disabled_control'])
             if mutate: mutate(row)
             (self.experiment/'profiles'/fuel.RESULT).write_text(json.dumps(row))
         def logs(path):
             nonlocal emitted
             text='[HollowCountry] Server initialized; SYNTHETIC'
+            if engine_crash:text+='\nENGINE    (F): Crashed'
             if path==self.experiment:
                 if final_mutation: final_mutation()
                 if final_complete: receipt(); text+='\n[HC Siphon Probe] COMPLETE run=late'
                 if final_error: text+='\nSCRIPT (E): SYNTHETIC final compiler error'
+                if final_engine_crash:text+='\nENGINE    (F): Crashed'
                 if final_settings_error:
                     text+='\n[HollowCountry] Settings rejected; original file preserved: SYNTHETIC'
                 return text,{},{}
@@ -144,6 +148,17 @@ class FuelProbeRunnerTests(unittest.TestCase):
         self.assertEqual('timeout',report['status']); self.assertIsNone(report['receipt'])
         self.assertTrue(report['timed_out']); self.assertLessEqual(self.now,25)
         self.assertEqual(12,report['cleanup_reserve_seconds']); self.stop.assert_called_once()
+
+    def test_engine_crash_stops_before_timeout_and_late_crash_revokes_receipt(self):
+        for index,options in enumerate((dict(engine_crash=True,complete_at=None),dict(final_engine_crash=True))):
+            with self.subTest(options=options):
+                self.experiment=self.root/('fatal-'+str(index));self.now=0
+                report=self.mocked(**options)
+                self.assertEqual('engine-crash',report['status'])
+                self.assertTrue(report['engine_error_observed'])
+                self.assertIsNone(report['receipt'])
+                self.assertLess(self.now,10)
+                self.assertTrue(report['process_cleanup_confirmed'])
 
     @staticmethod
     def native_flags(row):
@@ -388,6 +403,75 @@ class FuelProbeRunnerTests(unittest.TestCase):
         self.assertIsNone(report['receipt'])
         with self.assertRaises((ValueError, OSError)):
             self.runner.read_report(self.experiment / self.runner.REPORT)
+
+
+    def test_explicit_ce_control_admits_only_matching_mode_receipt(self):
+        self.options['mode'] = 'ce-disabled-control'
+        report = self.mocked()
+        self.assertEqual('fuel-probe-completed', report['status'])
+        self.assertEqual('ce-disabled-control', report['mode'])
+        self.assertTrue(report['ce_disabled_control'])
+        self.assertEqual(report['mode'], report['receipt']['mode'])
+        self.assertFalse(report['gameplay_acceptance'])
+        self.assertFalse(report['ce_acceptance'])
+        self.assertTrue(report['process_cleanup_confirmed'])
+        self.assertIn('if (ce) {}',
+            (self.experiment / 'fuel.chernarusplus/init.c').read_text())
+        self.assertEqual(report, self.runner.read_report(self.experiment / self.runner.REPORT))
+
+    def test_default_stock_mode_and_control_mismatch_no_admission(self):
+        report = self.mocked()
+        self.assertEqual('stock-ce', report['mode'])
+        self.assertFalse(report['ce_disabled_control'])
+        self.assertIn('if (ce) ce.InitOffline();',
+            (self.experiment / 'fuel.chernarusplus/init.c').read_text())
+        self.experiment = self.root / 'mode-mismatch'
+        self.now = 0
+        self.process.returncode = None
+        self.options['mode'] = 'ce-disabled-control'
+        report = self.mocked(mutate=lambda row:
+            row.update(mode='stock-ce', ce_disabled_control=False))
+        self.assertEqual('fuel-probe-failed', report['status'])
+        self.assertIsNone(report['receipt'])
+
+    def test_invalid_mode_is_rejected_before_process_or_staging(self):
+        with patch.object(self.runner.subprocess, 'Popen') as launch, patch.object(
+                self.runner.subprocess, 'run') as preflight:
+            for mode in (True, None, 0, 'unknown'):
+                with self.subTest(mode=mode), self.assertRaises(ValueError):
+                    self.invoke(mode=mode)
+        launch.assert_not_called()
+        preflight.assert_not_called()
+        self.assertFalse(self.experiment.exists())
+
+    def test_control_retains_timeout_and_final_input_veto(self):
+        self.options['mode'] = 'ce-disabled-control'
+        report = self.mocked(complete_at=None)
+        self.assertEqual('timeout', report['status'])
+        self.assertIsNone(report['receipt'])
+        self.assertTrue(report['process_cleanup_confirmed'])
+        self.experiment = self.root / 'control-drift'
+        self.now = 0
+        self.process.returncode = None
+        report = self.mocked(final_mutation=lambda:
+            (self.experiment / 'fuel.chernarusplus/init.c').write_bytes(b'// drift'))
+        self.assertEqual('input-drift', report['status'])
+        self.assertIsNone(report['receipt'])
+
+    def test_report_reader_rejects_unattributed_or_inconsistent_ce_mode(self):
+        report = self.mocked()
+        path = self.experiment / self.runner.REPORT
+        for key in ('mode', 'ce_disabled_control', 'gameplay_acceptance', 'ce_acceptance'):
+            row = dict(report)
+            del row[key]
+            path.write_text(json.dumps(row))
+            with self.subTest(missing=key), self.assertRaises(ValueError):
+                self.runner.read_report(path)
+        for changes in (dict(mode='ce-disabled-control'), dict(ce_disabled_control=0),
+                        dict(gameplay_acceptance=True), dict(ce_acceptance=True)):
+            path.write_text(json.dumps(dict(report, **changes)))
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.runner.read_report(path)
 
 
 if __name__=='__main__': unittest.main()

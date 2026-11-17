@@ -2,6 +2,26 @@
 Feature: Research tooling preserves honest evidence
   Offline checks validate authored data and never claim DayZ behavior.
 
+  Scenario: Default feature preferences on while preserving explicit disables
+    Given the shipped operator settings and authored native defaults
+    When feature preferences and dependency constraints are validated
+    Then enabled defaults preserve explicit disables and do not grant native qualification
+
+  Scenario: Admit death selections only from bounded real callback observations
+    Given synthetic pinned stock missions native declarations and death selection receipts
+    When the fixed CE disabled bundle and bounded receipt checks execute
+    Then missing callbacks changed damage inputs or unconfirmed cleanup cannot establish rendered physics
+
+  Scenario: Preserve group state and clock watermark across bounded journal recovery
+    Given synthetic native storage with current legacy and torn group journals
+    When authored group store and startup methods recover state
+    Then corrupt images clock rollback and unsafe migrations cannot replace committed membership
+
+  Scenario: Keep group RPC changes authenticated ordered and durably committed
+    Given synthetic authenticated peers sessions clocks and native group storage
+    When authored RPC and commit methods receive retries changed payloads and failures
+    Then replay stale sessions and failed commits cannot create an unauthorized group mutation
+
   @ISSUE-36 @ISSUE-46
   Scenario: Respect human AI recovery policy without declaring runtime qualification
     Given synthetic provider source artifact dependency and human AI recovery declarations
@@ -166,7 +186,7 @@ Feature: Research tooling preserves honest evidence
 
   @AC-011
   Scenario: Admit bounded operator settings before native execution
-    Given authored settings with default-off features and bounded work limits
+    Given authored settings with enabled feature preferences and bounded work limits
     When the runtime settings admission tests execute
     Then malformed flags limits and feature dependencies fail admission without engine claims
 
@@ -337,3 +357,9 @@ Feature: Research tooling preserves honest evidence
     Given synthetic procfs identities counters log metadata and monotonic clocks
     When the bounded process observer samples explicit owned process and log inputs
     Then reuse missing data rollback and work limits remain explicit without readiness or deadlock claims
+
+  @offline
+  Scenario: Retain every stock placement through reviewed measurement batches
+    Given synthetic complete stock inventories reviewed poses and native acquisition receipts
+    When bounded survey planning and receipt merging preserve each placement denominator
+    Then unmeasured ambiguous replayed or failed batches cannot become fitted or eligible interiors

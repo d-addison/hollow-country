@@ -2,10 +2,14 @@
 
 run(server_root,source_pbo,experiment,prefix,scripts_root,*,x,z,car_class,
 vessel_class,rate_ml,cap_ml,fuel_liters,actor_class='SurvivorM_Mirek',seconds=90,
-execute=False). Fresh external experiment/profiles/storage/mission only. Existing
+execute=False,mode='stock-ce'). Fresh external experiment/profiles/storage/mission only. Existing
 isolated Wine prefix may be reused, with no other DayZ server running. This tool
 does not build/sign addons or enable production features. All HC settings flags
 are explicitly false; only the generated fixture receives the one-shot permit.
+
+Stock CE is the default. --mode ce-disabled-control omits only ce.InitOffline()
+from the copied stock mission. Reports, manifests and receipts pin this mode;
+neither mode grants gameplay or CE acceptance. Diagnostic settings stay false.
 
 The monotonic budget starts before staging, <=180 seconds INCLUDING startup and
 observed cleanup/log collection. Default remains 90; longer allowances require
@@ -109,6 +113,7 @@ def read_report(path):
             or type(row.get('run_id')) is not str
             or not re.fullmatch('[0-9a-f]{32}', row['run_id'])):
         raise ValueError('unverified report publication')
+    fuel._attribution(row)
     return row
 
 
@@ -161,7 +166,8 @@ def _disabled_settings():
 
 def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
         car_class, vessel_class, rate_ml, cap_ml, fuel_liters,
-        actor_class='SurvivorM_Mirek', seconds=90, execute=False):
+        actor_class='SurvivorM_Mirek', seconds=90, execute=False, mode='stock-ce'):
+    fuel._mode(mode)
     if execute is not True: raise ValueError('explicit execute=True / --execute required')
     if type(seconds) is not int or not 15<=seconds<=MAX_OUTER_SECONDS:
         raise ValueError(f'total budget must be integer 15..{MAX_OUTER_SECONDS} seconds')
@@ -181,7 +187,8 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
         raise ValueError('complete isolated normal server required')
     if not WINE.is_file() or not shutil.which('xvfb-run'): raise ValueError('Wine64 and xvfb-run required')
     # No shell, inherited command fragments, arbitrary executable or mission hook.
-    report=dict(schema=1,kind='owned-fuel-probe-run',run_id=run_id,
+    report=dict(schema=1,kind='owned-fuel-probe-run',run_id=run_id,mode=mode,
+        ce_disabled_control=mode == 'ce-disabled-control',gameplay_acceptance=False,ce_acceptance=False,
         environment='actual-DayZ-normal-server-under-Wine',runtime_acceptance='pending',
         production_acceptance=False,durable_acceptance=False,signature_verified=False,
         client_count=0,status='not-run',timed_out=False,receipt=None,receipt_error=None,
@@ -214,8 +221,9 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
         budget.check()
         manifest=fuel.prepare_probe(stock,mission,scripts,x=x,z=z,rate_ml=rate_ml,
             cap_ml=cap_ml,fuel_liters=fuel_liters,car_class=car_class,vessel_class=vessel_class,
-            actor_class=actor_class,outer_timeout_seconds=seconds,run_id=run_id)
+            actor_class=actor_class,outer_timeout_seconds=seconds,run_id=run_id,mode=mode)
         if manifest['run_id']!=run_id: raise ValueError('generated mission nonce mismatch')
+        if fuel._attribution(manifest)!=mode: raise ValueError('generated mission CE mode mismatch')
         mission_snapshot=wine.snapshot_mission(mission)
         report.update(mission=manifest,pbo_sha256=fuel._sha(blob),server_sha256=server_hash,
             settings_sha256=fuel._sha(settings),config_sha256=fuel._sha(config.read_bytes()))
@@ -244,9 +252,9 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
                 budget.check()
                 result=wine.classify(text)
                 report['initialized_observed'] |= result=='initialized'
-                if result in {'compiler-error','settings-rejected'}:
+                if result in {'compiler-error','engine-crash','settings-rejected'}:
                     report['status']=result
-                    report['engine_error_observed']=result=='compiler-error'
+                    report['engine_error_observed']=result in {'compiler-error','engine-crash'}
                     break
                 if process.poll() is not None:
                     report['status']='process-exited'; break
@@ -271,6 +279,7 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
                             admitted=fuel.validate_result(receipt_path,mission,outer_timed_out=False,
                                 outer_elapsed_seconds=budget.now()-budget.started)
                             if admitted['run_id']!=run_id: raise ValueError('receipt nonce mismatch')
+                            if fuel._attribution(admitted)!=mode: raise ValueError('receipt CE mode mismatch')
                         except (OSError,ValueError) as exc:
                             report['status']='fuel-probe-failed'; report['receipt_error']=str(exc)[:512]; break
                         budget.check()
@@ -302,10 +311,11 @@ def run(server_root, source_pbo, experiment, prefix, scripts_root, *, x, z,
             try:
                 text,report['logs'],report['skipped_logs']=wine.collect_logs(experiment)
                 final_result=wine.classify(text)
-                report['engine_error_observed'] |= final_result=='compiler-error'
+                report['engine_error_observed'] |= final_result in {'compiler-error','engine-crash'}
                 report['receipt_present_final']=receipt_path.exists()
                 report['late_complete_marker_observed']=admitted is None and '[HC Siphon Probe] COMPLETE' in text
-                if report['engine_error_observed']: report['status']='compiler-error'
+                if report['engine_error_observed']:
+                    report['status']='engine-crash' if final_result=='engine-crash' or report['status']=='engine-crash' else 'compiler-error'
                 elif final_result=='settings-rejected': report['status']='settings-rejected'
                 elif '[HC Siphon Probe] FAIL' in text and report['status']=='fuel-probe-completed':
                     report['status']='fuel-probe-failed'
@@ -356,6 +366,7 @@ def main(argv=None):
         parser.add_argument('--'+field,type=float,required=True)
     for field in ('car-class','vessel-class'): parser.add_argument('--'+field,required=True)
     parser.add_argument('--actor-class',default='SurvivorM_Mirek')
+    parser.add_argument('--mode',choices=fuel.MODES,default='stock-ce')
     parser.add_argument('--seconds',type=int,default=90)
     parser.add_argument('--execute',action='store_true',help='explicitly authorize the one fixed native experiment')
     args=vars(parser.parse_args(argv))

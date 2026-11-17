@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 import unittest
 from tools.validate.runtime import validate_settings
+from tests.unit.test_group_server import execute_member
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -24,13 +25,24 @@ class RuntimeSettingsTests(unittest.TestCase):
     def setUp(self):
         self.value = json.loads((ROOT / 'config/hollow-country-settings.json').read_text())
 
-    def test_shipped_settings_are_valid_and_all_features_default_off(self):
+    def test_shipped_settings_are_valid_and_all_feature_preferences_default_on(self):
         self.assertEqual([], validate_settings(self.value))
-        self.assertTrue(all(v is False for k, v in self.value.items() if k.startswith('Enable')))
+        flags = {k: v for k, v in self.value.items() if k.startswith('Enable')}
+        self.assertEqual(7, len(flags))
+        self.assertTrue(all(v is True for v in flags.values()), flags)
+        source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
+        native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))
+        self.assertEqual(set(flags), set(native))
+        self.assertEqual({'true'}, set(native.values()))
 
-    def test_groups_can_be_configured_independently_but_default_disabled(self):
-        self.assertIs(self.value.get('EnableGroups'), False)
-        self.assertEqual([], validate_settings(dict(self.value, EnableGroups=True)))
+    def test_explicit_disable_is_preserved_and_groups_are_independent(self):
+        disabled = dict(self.value)
+        for key in disabled:
+            if key.startswith('Enable'):
+                disabled[key] = False
+        self.assertEqual([], validate_settings(disabled))
+        self.assertEqual([], validate_settings(dict(disabled, EnableGroups=True)))
+        self.assertEqual([], validate_settings(dict(self.value, EnableGroups=False)))
         for invalid in ('true', 1, None):
             self.assertTrue(validate_settings(dict(self.value, EnableGroups=invalid)))
 
@@ -56,12 +68,31 @@ class RuntimeSettingsTests(unittest.TestCase):
                     self.assertTrue(validate_settings(dict(self.value, **{key: bad})), (key, bad))
 
     def test_search_requires_interiors_and_hordes_chains_require_infected(self):
-        for key in ('EnableSearch', 'EnableHordes', 'EnableAlertChains'):
-            self.assertTrue(validate_settings(dict(self.value, **{key: True})))
+        for child, parent in (('EnableSearch', 'EnableInteriors'),
+                              ('EnableHordes', 'EnableInfected'),
+                              ('EnableAlertChains', 'EnableInfected')):
+            self.assertTrue(validate_settings(dict(self.value, **{child: True, parent: False})))
         changed = copy.deepcopy(self.value)
         for key in changed:
             if key.startswith('Enable'): changed[key] = True
         self.assertEqual([], validate_settings(changed))
+
+    def test_native_startup_selftest_agrees_with_enabled_defaults_and_dependency_rejection(self):
+        source=(ROOT/'mods/HollowCountry/scripts/4_World/Core/HCNativeSelfTests.c').read_text()
+        defaults=dict(self.value)
+        validations=[]
+        class NativeSettings:
+            def __init__(self):vars(self).update(defaults)
+            @staticmethod
+            def AcceptDocumentLength(length):return 0 < length <= 16384
+            def Validate(self,error):
+                result=not validate_settings(vars(self))
+                validations.append((dict(vars(self)),result))
+                return result
+        source=source.replace('HCSettings settings =','HCGroupNative settings =')
+        self.assertTrue(execute_member(source,'Run',dict(HCSettings=NativeSettings,Print=lambda text:None),None))
+        self.assertTrue(any(v['EnableSearch'] and not v['EnableInteriors'] and not ok for v,ok in validations))
+        self.assertTrue(any(v['SchemaVersion']==2 and not ok for v,ok in validations))
 
 if __name__ == '__main__':
     unittest.main()

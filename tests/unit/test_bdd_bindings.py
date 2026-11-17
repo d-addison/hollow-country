@@ -19,6 +19,11 @@ def synthetic_feature(names=None):
 class BDDBindingsTests(unittest.TestCase):
     def test_completion_scenarios_cannot_be_omitted(self):
         expected = {
+            'Retain every stock placement through reviewed measurement batches': 'test_interior_survey.py',
+            'Default feature preferences on while preserving explicit disables': 'test_runtime_settings.py',
+            'Admit death selections only from bounded real callback observations': 'test_death_selection_probe.py',
+            'Preserve group state and clock watermark across bounded journal recovery': 'test_group_persistence.py',
+            'Keep group RPC changes authenticated ordered and durably committed': 'test_group_rpc.py',
             'Respect human AI recovery policy without declaring runtime qualification': 'test_optional_provider.py',
             'Retain complete utility cohorts without inferring repair compatibility': 'test_item_utility.py',
             'Prepare house measurements without inferring room fit or loot eligibility': 'test_interior_measurement_probe.py',

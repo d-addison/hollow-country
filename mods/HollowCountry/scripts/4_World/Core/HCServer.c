@@ -41,7 +41,7 @@ class HCServer
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, m_Settings.TickIntervalMs, true);
-        Print("[HollowCountry] Server initialized; experimental features require explicit settings");
+        Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
 
     void Tick()

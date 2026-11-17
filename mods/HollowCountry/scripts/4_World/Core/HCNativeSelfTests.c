@@ -9,10 +9,11 @@ class HCNativeSelfTests
         if (!HCSettings.AcceptDocumentLength(1) || !HCSettings.AcceptDocumentLength(16384)) return false;
         string error;
         if (!settings.Validate(error)) return false;
-        if (settings.EnableInteriors || settings.EnableSearch || settings.EnableCrafting || settings.EnableInfected || settings.EnableHordes || settings.EnableAlertChains || settings.EnableGroups) return false;
+        if (!settings.EnableInteriors || !settings.EnableSearch || !settings.EnableCrafting || !settings.EnableInfected || !settings.EnableHordes || !settings.EnableAlertChains || !settings.EnableGroups) return false;
         settings.MaxTickWorkItems = 0;
         if (settings.Validate(error)) return false;
         settings.MaxTickWorkItems = 32;
+        settings.EnableInteriors = false;
         settings.EnableSearch = true;
         if (settings.Validate(error)) return false;
         settings.EnableInteriors = true;

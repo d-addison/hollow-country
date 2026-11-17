@@ -96,3 +96,13 @@ class PortableCatalogTests(unittest.TestCase):
         scope = self.catalog["coverage"]["contract"].get("human_ai_recovery", "")
         self.assertIn("reviewed provider", scope)
         self.assertIn("original infected/horde criteria", scope)
+
+    def test_enabled_preferences_and_selected_stamina_balance_remain_explicit(self):
+        rows = [r for r in self.catalog['tests'] if r['origin'] == 'phase2']
+        terms = ('feature preferences', 'default to enabled', 'explicit disable',
+                 '0.5', '1.25', 'qualification')
+        self.assertTrue(any(all(term in r['criterion'].lower() for term in terms) for r in rows))
+        scope = self.catalog['coverage']['contract'].get('feature_defaults', '')
+        self.assertIn('enabled', scope)
+        self.assertIn('prerequisites', scope)
+        self.assertIn('explicit disable', scope)

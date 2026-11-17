@@ -24,6 +24,8 @@ class ConfigurationTests(unittest.TestCase):
         self.calls=[]
         self.cfg=N(m_Data=None)
         self.e=dict(HCStaminaSettings=self.settings,CfgGameplayHandler=self.cfg,
+                    HCStaminaProfile=lambda:N(SchemaVersion=0,Profile='',Experimental=False,Settings=None),
+                    Print=lambda text:self.calls.append(text),
                     IsServer=lambda:self.c.m_Server,NativeData=lambda:self.cfg.m_Data,
                     native=N(OnRPC=lambda *a:self.calls.append(a)),
                     ERPCs=N(RPC_CFG_GAMEPLAY_SYNC=77),
@@ -38,14 +40,92 @@ class ConfigurationTests(unittest.TestCase):
         s=re.sub(r'\bs_', 'm_', s)
         s=s.replace('HCStaminaConfiguration.','').replace('super.','native.')
         s=s.replace('data == previous','data is previous')
-        s=re.sub(r'static (?:HCStaminaSettings|float) (\w+)\(',r'static bool \1(',s)
+        s=re.sub(r'static (?:HCStaminaSettings|HCStaminaProfile|float) (\w+)\(',r'static bool \1(',s)
         s=re.sub(r'\b(?:HCStaminaSettings|HCStaminaProfile|ITEM_StaminaData|CfgGameplayJson|FileHandle) (?=\w+\s*=)',
                  'HCGroupNative ',s)
         s=s.replace('int count = ReadFile(handle, text, 16385)',
                     'count, text = ReadChunk(handle, 16385)')
         s=s.replace('JsonFileLoader<HCStaminaProfile>.LoadData(text, profile, error)',
                     'Decode(text, profile)')
+        s=s.replace('JsonFileLoader<HCStaminaProfile>.SaveFile(path, profile, error)',
+                    'SaveProfile(path, profile)')
         return execute_member(s,n,self.e,self.c,*args)
+
+    def profile_io(self, payload=None, *, directory_ok=True, save_ok=True):
+        import json
+        self.files={} if payload is None else {'$profile:HollowCountry/stamina.json':payload}
+        self.writes=[]
+        self.dirs=set() if payload is None else {'$profile:HollowCountry'}
+        def save(path,profile):
+            self.writes.append(path)
+            if not save_ok:return False
+            fields={k:v for k,v in vars(profile.Settings).items() if k!='Validate'}
+            self.files[path]=json.dumps(dict(SchemaVersion=profile.SchemaVersion,
+                Profile=profile.Profile,Experimental=profile.Experimental,Settings=fields))
+            return True
+        def decode(text,profile):
+            try:
+                data=json.loads(text)
+                vars(profile).update(data)
+                profile.Settings=self.settings(**data.get('Settings',{}))
+                return True
+            except (ValueError,TypeError):return False
+        def mkdir(path):
+            if directory_ok:self.dirs.add(path)
+            return directory_ok
+        self.e.update(FileExist=lambda path:path in self.files or path in self.dirs,
+            MakeDirectory=mkdir,SaveProfile=save,Decode=decode,FileMode=N(READ=0),
+            OpenFile=lambda path,mode:path if path in self.files else None,
+            ReadChunk=lambda path,limit:(min(len(self.files[path]),limit),self.files[path][:limit]),
+            CloseFile=lambda handle:None)
+
+    def test_fresh_server_creates_enabled_moderate_profile_and_transports_values(self):
+        self.profile_io()
+        self.cfg.m_Data=self.wire(HCSchemaVersion=0,HCEnabled=False,HCExperimental=False)
+        self.call('ServerLoaded')
+        self.assertEqual(['$profile:HollowCountry/stamina.json'],self.writes)
+        self.assertTrue(self.call('Enabled'))
+        self.assertEqual(.5,self.call('ExertionScale'))
+        self.assertEqual(1.25,self.call('RecoveryScale'))
+        wire=self.cfg.m_Data.PlayerData.StaminaData
+        self.assertEqual((1,True,True,.5,1.25),(wire.HCSchemaVersion,wire.HCEnabled,
+            wire.HCExperimental,wire.HCContinuousExertionScale,wire.HCRecoveryScale))
+        self.assertFalse(self.call('Qualified'))
+        self.assertFalse(self.call('LoadServer'))
+
+    def test_operator_template_matches_actual_default_profile(self):
+        import json
+        profile=self.call('DefaultProfile')
+        template=json.loads((ROOT.parents[2]/'config/hollow-country-stamina.json').read_text())
+        self.assertTrue(self.call('ProfileValid',profile))
+        self.assertEqual((template['SchemaVersion'],template['Profile'],template['Experimental']),
+                         (profile.SchemaVersion,profile.Profile,profile.Experimental))
+        for key,value in template['Settings'].items():
+            self.assertEqual(value,getattr(profile.Settings,key),key)
+
+    def test_existing_explicit_disable_or_invalid_file_is_never_overwritten(self):
+        import json
+        disabled=json.dumps(dict(SchemaVersion=1,Profile='vanilla',Experimental=False,
+            Settings=dict(SchemaVersion=1,Enabled=False,ContinuousExertionScale=1.,RecoveryScale=1.)))
+        for payload in (disabled,'{','x'*16385):
+            with self.subTest(payload=payload[:12]):
+                self.profile_io(payload)
+                self.cfg.m_Data=self.wire(HCExperimental=True)
+                self.call('ServerLoaded')
+                self.assertFalse(self.call('Enabled'))
+                self.assertEqual([],self.writes)
+                self.assertEqual(payload,self.files['$profile:HollowCountry/stamina.json'])
+                self.assertFalse(self.cfg.m_Data.PlayerData.StaminaData.HCExperimental)
+
+    def test_profile_creation_failure_does_not_activate_or_publish_defaults(self):
+        for directory_ok,save_ok in ((False,True),(True,False)):
+            with self.subTest(directory_ok=directory_ok,save_ok=save_ok):
+                self.profile_io(directory_ok=directory_ok,save_ok=save_ok)
+                self.cfg.m_Data=self.wire(HCExperimental=True)
+                self.call('ServerLoaded')
+                self.assertFalse(self.call('Enabled'))
+                self.assertEqual(0,self.cfg.m_Data.PlayerData.StaminaData.HCSchemaVersion)
+                self.assertTrue(any('stamina' in str(c).lower() for c in self.calls))
 
     def wire(self,**kw):
         x=N(HCSchemaVersion=1,HCEnabled=True,HCExperimental=False,
@@ -136,6 +216,7 @@ class ConfigurationTests(unittest.TestCase):
             return True
         self.e.update(
             HCStaminaProfile=lambda:N(SchemaVersion=0,Profile='',Experimental=False,Settings=None),
+            FileExist=lambda path:True,
             FileMode=N(READ=0),OpenFile=lambda p,m:opened.append(p) or 1,
             ReadChunk=lambda h,n:(min(len(self.payload),n),self.payload[:n]),
             CloseFile=lambda h:closed.append(h),Decode=decode)

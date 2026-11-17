@@ -76,6 +76,19 @@ class MockedWineRunTests(unittest.TestCase):
         self.assertFalse(report['engine_error_observed'])
         self.assert_cleaned_report(report)
 
+    def test_engine_fatal_during_polling_is_distinct_from_compile_or_timeout(self):
+        report=self.run_mocked(lambda now:'ENGINE    (F): Crashed')
+        self.assertEqual('engine-crash',report['status'])
+        self.assertTrue(report['engine_error_observed'])
+        self.assertLess(self.now,15)
+        self.assert_cleaned_report(report)
+
+    def test_final_engine_fatal_revokes_completed_smoke(self):
+        report=self.run_mocked(final_logs='23:42:20.007 ENGINE    (F): Crashed')
+        self.assertEqual('engine-crash',report['status'])
+        self.assertTrue(report['engine_error_observed'])
+        self.assert_cleaned_report(report)
+
     def test_final_input_drift_cannot_remain_clean_smoke(self):
         targets = (
             self.experiment / '@HollowCountry/addons/hollowcountry.pbo',
@@ -747,6 +760,13 @@ class WineCompilerProbeTests(unittest.TestCase):
     def test_compiler_errors_override_initialization_marker(self):
         text = '[HollowCountry] Server initialized;\nSCRIPT    (E): bad override\n'
         self.assertEqual(probe.classify(text), 'compiler-error')
+
+    def test_fatal_engine_crash_overrides_compiler_and_initialization(self):
+        self.assertEqual('engine-crash',probe.classify(
+            '[HollowCountry] Server initialized;\nSCRIPT (E): cascade\n23:42:20.007 ENGINE    (F): Crashed'))
+        for text in ('ENGINE (E): Cannot run crashreport process...',
+                     'ANIMATION (E): missing material', 'SCRIPT (W): Crashed variable'):
+            self.assertIsNone(probe.classify(text))
 
     def test_settings_selftest_without_lifecycle_is_incomplete(self):
         self.assertIsNone(probe.classify('[HollowCountry][SelfTest] Core settings PASS'))

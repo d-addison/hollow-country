@@ -27,13 +27,13 @@ class HCSettings
     }
 
     int SchemaVersion = 1;
-    bool EnableInteriors = false;
-    bool EnableSearch = false;
-    bool EnableCrafting = false;
-    bool EnableInfected = false;
-    bool EnableHordes = false;
-    bool EnableAlertChains = false;
-    bool EnableGroups = false;
+    bool EnableInteriors = true;
+    bool EnableSearch = true;
+    bool EnableCrafting = true;
+    bool EnableInfected = true;
+    bool EnableHordes = true;
+    bool EnableAlertChains = true;
+    bool EnableGroups = true;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
     int MaxActiveHordes = 2;

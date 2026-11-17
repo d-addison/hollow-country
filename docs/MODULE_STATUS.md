@@ -7,6 +7,11 @@ overhaul. Outstanding work is tracked in
 Source implementation does not waive runtime evidence or make gated features
 operational.
 
+All feature preferences now default enabled. Explicit operator disables are
+preserved. Missing measured content, dependencies, providers or trusted receipts
+still prevent admission and must be reported. An enabled preference alone is
+not proof that its gameplay is operational.
+
 | Area | Authored now | Still missing or gated |
 | --- | --- | --- |
 | Shared runtime | Server lifecycle, 16 KiB configuration reader, module registry, real elapsed time; actual compiler/core script-VM self-test/initialization under Wine | Final-source repeat, native Windows, diagnostic and signed loading gates |
@@ -17,9 +22,9 @@ operational.
 | Full item audit and utility extensions | Whole-source recipe census; chunked in-engine configuration exporter preserves native type variants and unresolved fields; unhooked fuel arithmetic with binary32 no-creation checks. Run 035 enumerated all 7,389 classes across four roots/15 chunks. Bounded flashlight matrix retains every class; its raw-artifact shape exercise emitted 47,888 candidate pairs | Complete item/recipe/action and usefulness audit, broad justified crafting scope, native fuel action and durable conservation, taped flashlight mounting/switching/geometry and client qualification. Candidates do not establish compatible geometry or gameplay |
 | Infected | Bounded visual-clue sampling, native voice provenance and bounded relay chains, native pack route validation, observed progress/purpose and fair retarget scheduling, durable pre-transfer cohort intent, semantic room catalog interface/order and exact storage-identity recovery; actual DayZ compilation/admission under Wine | Real measured room catalog, safe horde abstraction/activation and a complete recognizable variant roster. Native route traversal/perception, relay audibility and restart recovery remain unobserved; no periodic journal appeared during the 90-second hold |
 | Packaging | Original-source container/signing/smoke tooling; transaction-based install/upgrade/recovery/rollback. Official tools signed and positively verified the exact run 057 addon under Wine; that addon compiled and initialized | Signature-enforced server/client loading, client tests, combined load/performance and destination rollback |
-| Stamina and weight | Scalar load/exertion policy, default-off native handler, bounded server profile, opt-in native configuration fields, authenticated client receipt/session reset and separate cached weight/stamina bars. Native run 046 compiled and initialized the new wiring under Wine; 46 focused configuration/integration/transport/HUD checks | Enabled profile loading and native delivery/order, prediction/modifier compatibility, rendered layout and connected-client gameplay validation. Default-off compile does not establish synchronized custom stamina |
+| Stamina and weight | Native handler scaling, bounded server profile, authenticated client receipt/session reset and separate cached weight/stamina bars. Fresh profiles now request 50% continuous running drain and 25% faster recovery; existing profiles and explicit disables are preserved. Native weight capacity and discrete jump/melee costs are retained. Earlier run 046 compiled the previous wiring under Wine | Final-source enabled profile loading and native delivery/order, prediction/modifier compatibility, rendered layout and connected-client gameplay validation. Earlier compilation does not establish the new default profile or synchronized custom stamina |
 | Taped flashlights | Unhooked mount/removal service, consumed-tape checks, identity/condition/energy conservation, full binding replay guards, bounded intent/image journal and native inventory observations/transfers. Thirty-six synthetic checks include unresolved-operation quarantine, intent before custody acquisition and an operation-bound terminal write after confirmed release. Native run 057 compiled this service and initialized under Wine | Qualified host/slot/geometry matrix, exclusive inventory custody integration, LOS provider, native mount/removal/switching, crash recovery and two-client presentation. No actual host is qualified or automatically enabled; journal readback does not establish crash durability |
-| Groups and navigation | Default-off server rules, authenticated routing, permissions, invitations, markers/notes, immutable journals and wire-version-2 counter floors. Client recovery/retries, draft preservation and map/menu/icons compiled in normal server run 038 under Wine. All 41 opt-in synthetic policy steps completed in the native VM. Bounded UTC sampling now admits dates through the exact service ceiling; 13 clock checks and run 054 compilation passed | Wider timestamp/expiry range, native persistence/restart/RPC trials, rendered widget instantiation and controls, two-client privacy/races and load qualification. Synthetic native fixtures do not establish enabled group gameplay |
+| Groups and navigation | Enabled server preference, authenticated routing, permissions, invitations, markers/notes, immutable journals and ordered counters. Full positive signed epoch range through January 2038, checked expiry addition, durable clock watermark, rollback refusal and failed-commit handling now pass 99 focused checks with synthetic collaborators. Earlier run 038 compiled client recovery/map/menu/icons; its 41 synthetic native policy steps completed | Final-source compilation, native persistence/restart/RPC trials, additional map layers/roles, rendered controls, two-client privacy/races and load qualification. LOS/radio requirements remain unsupported and rejected; synthetic fixtures do not establish enabled group gameplay |
 | Weather and atmosphere | Native XML candidate generator with pinned source, explicit operator profiles and preserved unspecified settings; 16 synthetic regressions including early rejection of unrelated directory entries. No-op generation preserved the four inspected official mission templates byte-for-byte | Native XML/storage/map-script interaction, profile balance, visibility, accessibility, performance and rollback. Lighting and volumetric fog remain separate feasibility work; no weather profile is automatically installed |
 | Optional events | Bounded unhooked event definitions, opt-in participants, ordered server observations, revision/replay protection, expiry/cancellation and frozen definitions; 18 focused checks. Native run 042 compiled the director | Native observation/objective adapters, mission roster, AI integration, durable economy-backed rewards, persistence and client presentation. Nonzero rewards remain blocked |
 | PvE AI groups | Bounded declaration audit for a source-pinned optional provider: dependency subset, finite-ammunition/damage settings and observer retirement context; 31 focused checks. User-approved policy permits reviewed built-in human-AI stuck recovery, including visible repositioning | No provider is installed or qualified. The recovery exception does not waive exact artifact admission, permissions, finite ammunition, ordinary damage or cleanup fairness. Native-first provider implementation, combat/navigation, encounter integration and measured capacity remain outstanding |
@@ -59,6 +64,21 @@ This reproduces the bounded failure without requesting the addon; it does not
 identify the underlying engine/environment cause or prove ordinary Windows
 startup fails.
 
+CE-disabled fuel control 063 compiled and initialized, then reached one SYSTEM
+update and three ticks. Its owned car, actor and vessel spawned and the actual
+refill component was identified, but live range/LOS/eligibility validation refused
+the action. No transfer was attempted. The failed receipt observed deletion of
+all three owned entities and the outer harness confirmed process cleanup in
+81.491 seconds. This narrows the diagnostic failure without accepting fuel use.
+
+Death-selection diagnostic 065 compiled after concrete syntax fixes in failed
+runs 062/064. Its scheduled spawn callback executed, then the native engine
+crashed creating the infected in the CE-disabled control. No damage/death
+observation completed. Outer cleanup was confirmed; the historical report also
+reached its timeout. The harness now detects the engine's fatal crash marker
+directly and revokes success even if the crash appears during final collection.
+The cause of the native creation crash remains unresolved.
+
 CE-disabled measurement run 060 completed in 73.866 seconds with one balanced
 SYSTEM update and queue callback and confirmed process cleanup. It identified
 one reviewed existing `Land_House_1W01`, read collision/clipping returns and
@@ -68,6 +88,12 @@ coordinate basis remains unqualified; these observations do not establish room
 labels, furniture clearance, door/stair routes, rendered fit, replication or
 runtime loot eligibility. Earlier run 059 exposed a reserved parameter name in
 the generated mission; that compile failure was corrected before run 060.
+
+Whole-survey tooling retains all 11,679 stock placements, 436 prototypes and
+7,389 native metadata rows. Twenty-two behavioral checks cover reviewed bounded
+batches and strict acquisition merges. Admitting run 060 measures exactly one
+placement; 11,678 remain unmeasured. Model metadata and a measured pose do not
+qualify room labels, furnishing fit, navigation or CE eligibility.
 
 Raw experiment records and machine inventories are maintained locally.
 The whole-content review workbook retained all 7,389 native classes and all 234

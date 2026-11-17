@@ -13,6 +13,26 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDINGS = {
+    "Retain every stock placement through reviewed measurement batches": (
+        ("Given synthetic complete stock inventories reviewed poses and native acquisition receipts",
+         "When bounded survey planning and receipt merging preserve each placement denominator",
+         "Then unmeasured ambiguous replayed or failed batches cannot become fitted or eligible interiors"), "test_interior_survey.py"),
+    "Default feature preferences on while preserving explicit disables": (
+        ("Given the shipped operator settings and authored native defaults",
+         "When feature preferences and dependency constraints are validated",
+         "Then enabled defaults preserve explicit disables and do not grant native qualification"), "test_runtime_settings.py"),
+    "Admit death selections only from bounded real callback observations": (
+        ("Given synthetic pinned stock missions native declarations and death selection receipts",
+         "When the fixed CE disabled bundle and bounded receipt checks execute",
+         "Then missing callbacks changed damage inputs or unconfirmed cleanup cannot establish rendered physics"), "test_death_selection_probe.py"),
+    "Preserve group state and clock watermark across bounded journal recovery": (
+        ("Given synthetic native storage with current legacy and torn group journals",
+         "When authored group store and startup methods recover state",
+         "Then corrupt images clock rollback and unsafe migrations cannot replace committed membership"), "test_group_persistence.py"),
+    "Keep group RPC changes authenticated ordered and durably committed": (
+        ("Given synthetic authenticated peers sessions clocks and native group storage",
+         "When authored RPC and commit methods receive retries changed payloads and failures",
+         "Then replay stale sessions and failed commits cannot create an unauthorized group mutation"), "test_group_rpc.py"),
     "Respect human AI recovery policy without declaring runtime qualification": (
         ("Given synthetic provider source artifact dependency and human AI recovery declarations",
          "When the bounded optional provider audit checks closure fairness and retirement receipts",
@@ -222,7 +242,7 @@ BINDINGS = {
          "When the deterministic package and signing command tests execute",
          "Then unsafe paths tampering and unsupported release promotion fail admission"), "test_package.py"),
     "Admit bounded operator settings before native execution": (
-        ("Given authored settings with default-off features and bounded work limits",
+        ("Given authored settings with enabled feature preferences and bounded work limits",
          "When the runtime settings admission tests execute",
          "Then malformed flags limits and feature dependencies fail admission without engine claims"), "test_runtime_settings.py"),
     "Reject invalid CE data and report raw coverage": (

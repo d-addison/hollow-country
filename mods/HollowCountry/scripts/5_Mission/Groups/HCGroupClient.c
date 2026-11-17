@@ -309,7 +309,7 @@ class HCGroupClient
         {
             if (!member.Alive || !HCGroupRules.PositionValid(member.Position))
                 return false;
-            if (member.SampleUtc < 1 || member.SampleUtc > 2000000000)
+            if (!HCGroupRules.TimestampValid(member.SampleUtc))
                 return false;
         }
         return true;
@@ -369,7 +369,7 @@ class HCGroupClient
                 return false;
             if (marker.Icon < 0 || marker.Icon > 19)
                 return false;
-            if (marker.ExpiresUtc < 0 || marker.ExpiresUtc > 2000000000)
+            if (marker.ExpiresUtc < 0 || marker.ExpiresUtc > 2147483647)
                 return false;
         }
         array<int> inviteIds = new array<int>();
@@ -386,7 +386,7 @@ class HCGroupClient
                 return false;
             if (!HCGroupRules.TextValid(invitation.GroupName, 48, false))
                 return false;
-            if (invitation.ExpiresUtc < 1 || invitation.ExpiresUtc > 2000000000)
+            if (!HCGroupRules.TimestampValid(invitation.ExpiresUtc))
                 return false;
         }
         return true;

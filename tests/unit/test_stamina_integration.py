@@ -126,8 +126,10 @@ class StaminaIntegrationTests(unittest.TestCase):
         self.assertEqual(1.,exertion(runtime))
         self.assertFalse(install(runtime,candidate))
 
-    def test_settings_default_off_and_reject_invalid_scales(self):
-        self.assertIn("bool Enabled = false;", SETTINGS.read_text())
+    def test_settings_default_on_and_reject_invalid_scales(self):
+        self.assertIn("bool Enabled = true;", SETTINGS.read_text())
+        self.assertIn("float ContinuousExertionScale = 0.5;", SETTINGS.read_text())
+        self.assertIn("float RecoveryScale = 1.25;", SETTINGS.read_text())
         for scale in (0., 5.01, math.nan, math.inf, -math.inf):
             fields = dict(SchemaVersion=1, ContinuousExertionScale=scale, RecoveryScale=1.)
             self.assertFalse(execute_flat(str(SETTINGS), "Validate", "", fields)())

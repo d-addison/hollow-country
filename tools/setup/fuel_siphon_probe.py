@@ -2,7 +2,7 @@
 
 prepare_probe(source,destination,scripts_root,*,x,z,rate_ml,cap_ml,fuel_liters,
 car_class,vessel_class,actor_class='SurvivorM_Mirek',outer_timeout_seconds=90,
-run_id=None). Coordinates, rate, cap and fixture fuel are operator supplied.
+run_id=None,mode='stock-ce'). Coordinates, rate, cap and fixture fuel are operator supplied.
 Native factory/CustomMission chain preserved; fresh external destination only.
 Installed declaration hashes are recorded, never installed asset contents.
 
@@ -30,6 +30,11 @@ and elapsed evidence, rejects absent callbacks, partial cleanup and conservation
 mismatch. Exact serialized decimal conservation is required; lossy JSON rounding
 is unresolved evidence, never papered over by a permissive epsilon.
 
+Stock CE remains the default. Explicit ce-disabled-control omits ONLY the stock
+ce.InitOffline() call, preserving CreateHive and subsequent stock context. Both
+modes are diagnostic observations, never gameplay or CE acceptance. Receipts
+and manifests without mode attribution are rejected.
+
 Receipts are operator-supplied observations, not engine authentication. Positive
 results do not prove save/crash atomicity, clients, full family coverage, gameplay
 dispatch, production eligibility or production enablement. No engine is launched.
@@ -51,11 +56,13 @@ from tools.setup import diagnostic_mission as staging
 from tools.setup.infected_death_probe import _read, _sha, _encode, _json, _number, _decode_json, _native_bool
 from tools.setup.infected_death_probe import _safe as _base_safe
 
+MODES = ('stock-ce', 'ce-disabled-control')
 MAX_OUTER_SECONDS = 180
 MARKER = '.hc-fuel-siphon-probe.json'
 RESULT = 'hc-fuel-siphon-result.json'
 KIND = 'native-owned-fuel-siphon-observation'
 INTERFACES = {
+    '3_Game/Hive/Hive.c': ('proto native void InitOffline();', 'proto native Hive CreateHive();'),
     '3_Game/Global/Game.c': ('CreatePlayer(PlayerIdentity identity, string name, vector pos, float radius, string spec)',
         'CreateObjectEx(', 'ObjectDelete(', 'GetTickTime()', 'GetPlayerIndentities('),
     '3_Game/Entities/Object.c': ('GetActionComponentNameList(int componentIndex, TStringArray nameList, string geometry = "")',
@@ -108,9 +115,56 @@ def _options(x, z, rate_ml, cap_ml, fuel_liters, car_class, vessel_class, actor_
         raise ValueError('fresh hexadecimal run ID required')
 
 
+def _mode(mode):
+    if type(mode) is not str or mode not in MODES:
+        raise ValueError('fixed fuel CE mode required')
+    return mode
+
+
+def _attribution(row):
+    mode = _mode(row.get('mode'))
+    if (type(row.get('ce_disabled_control')) is not bool
+            or row['ce_disabled_control'] != (mode == 'ce-disabled-control')
+            or row.get('gameplay_acceptance') is not False
+            or row.get('ce_acceptance') is not False):
+        raise ValueError('explicit diagnostic CE attribution required')
+    return mode
+
+
+def _ce_control(data, mode):
+    """Remove only the inspected stock call; no arbitrary mission rewriting."""
+    if _mode(mode) == 'stock-ce':
+        return data
+    # Local import avoids startup_probe's existing import of this module's _safe.
+    from tools.setup.native_startup_probe import _mask, _block
+    text = data.decode('utf-8')
+    masked = _mask(text)
+    if '#' in masked:
+        raise ValueError('preprocessed CE control needs explicit review')
+    mains = list(re.finditer(r'\bvoid\s+main\s*\(\s*\)\s*\{', masked))
+    if len(mains) != 1:
+        raise ValueError('one stock main required')
+    opening = mains[0].end() - 1
+    end = _block(masked, opening)
+    native = re.compile(r'\bHive\s+ce\s*=\s*CreateHive\s*\(\s*\)\s*;\s*'
+        r'if\s*\(\s*ce\s*\)\s*(?P<brace>\{)?\s*'
+        r'(?P<call>ce\s*\.\s*InitOffline\s*\(\s*\)\s*;)')
+    matches = list(native.finditer(masked, opening + 1, end))
+    if (len(matches) != 1 or len(re.findall(r'\bCreateHive\s*\(', masked)) != 1
+            or len(re.findall(r'\bInitOffline\s*\(', masked)) != 1):
+        raise ValueError('exact stock Hive/CreateHive/InitOffline pair required')
+    match = matches[0]
+    start, stop = match.span('call')
+    # An unbraced if must keep an empty statement block; never capture the next
+    # stock statement or date-reset block as its new conditional body.
+    replacement = '' if match.group('brace') else '{}'
+    return (text[:start] + replacement + text[stop:]).encode('utf-8')
+
+
 def prepare_probe(source, destination, scripts_root, *, x, z, rate_ml, cap_ml, fuel_liters,
                   car_class, vessel_class, actor_class='SurvivorM_Mirek',
-                  outer_timeout_seconds=90, run_id=None):
+                  outer_timeout_seconds=90, run_id=None, mode='stock-ce'):
+    _mode(mode)
     run_id = secrets.token_hex(16) if run_id is None else run_id
     _options(x,z,rate_ml,cap_ml,fuel_liters,car_class,vessel_class,actor_class,outer_timeout_seconds,run_id)
     x,z,rate_ml,cap_ml,fuel_liters = (float(format(v,'.6f')) for v in (x,z,rate_ml,cap_ml,fuel_liters))
@@ -130,17 +184,20 @@ def prepare_probe(source, destination, scripts_root, *, x, z, rate_ml, cap_ml, f
         raise ValueError('instrumented source forbidden')
     if len(re.findall(rb'class\s+CustomMission\s*:\s*MissionServer\b',original)) != 1:
         raise ValueError('stock CustomMission chain required')
-    generated, count = staging._FACTORY.subn(rb'\g<1>HCFuelSiphonProbeMission\g<2>', original)
+    generated, count = staging._FACTORY.subn(rb'\g<1>HCFuelSiphonProbeMission\g<2>', _ce_control(original, mode))
     if count != 1 or len(re.findall(rb'\bCreateCustomMission\s*\(',original)) != 1:
         raise ValueError('exact stock factory required')
-    substitutions = dict(RUN=run_id,X=format(x,'.6f'),Z=format(z,'.6f'),
+    substitutions = dict(RUN=run_id,MODE=mode,
+        CE_DISABLED='true' if mode == 'ce-disabled-control' else 'false',X=format(x,'.6f'),Z=format(z,'.6f'),
         RATE=format(rate_ml,'.6f'),CAP=format(cap_ml,'.6f'),FUEL=format(fuel_liters,'.6f'),
         CAR=car_class,VESSEL=vessel_class,ACTOR=actor_class,
         DEADLINE=str(min(60,outer_timeout_seconds-5)))
     hook = HOOK
     for key,value in substitutions.items(): hook=hook.replace('@'+key+'@',value)
     generated += hook.encode()
-    marker = dict(schema=1,kind=KIND,run_id=run_id,spawn_xz=[x,z],rate_ml=rate_ml,
+    marker = dict(schema=1,kind=KIND,run_id=run_id,mode=mode,
+        ce_disabled_control=mode == 'ce-disabled-control',gameplay_acceptance=False,
+        ce_acceptance=False,spawn_xz=[x,z],rate_ml=rate_ml,
         cap_ml=cap_ml,fuel_liters=fuel_liters,car_class=car_class,vessel_class=vessel_class,
         actor_class=actor_class,outer_timeout_seconds=outer_timeout_seconds,
         outer_timeout_required=True,max_owned=dict(car=1,vessel=1,actor=1),
@@ -168,6 +225,7 @@ def validate_result(path, mission, *, outer_timed_out, outer_elapsed_seconds):
     mission=_safe(mission); marker=_json(mission/MARKER)
     if type(marker.get('schema')) is not int or marker['schema']!=1 or marker.get('kind')!=KIND:
         raise ValueError('prepared marker mismatch')
+    mode = _attribution(marker)
     spawn=marker.get('spawn_xz')
     if type(spawn) is not list or len(spawn)!=2: raise ValueError('spawn pair required')
     _options(*spawn,marker.get('rate_ml'),marker.get('cap_ml'),marker.get('fuel_liters'),
@@ -192,12 +250,16 @@ def validate_result(path, mission, *, outer_timed_out, outer_elapsed_seconds):
             or value.get('run_id')!=marker['run_id'] or value.get('reason')!=''
             or value.get('diagnostic_status')!='observed_exact_transfer_nondurable'):
         raise ValueError('incomplete/failed/stale native receipt')
+    if (value.get('mode') != mode or _native_bool(value.get('ce_disabled_control'))
+            != (mode == 'ce-disabled-control')):
+        raise ValueError('native receipt CE mode mismatch')
     for field in ('complete','server_context','car_spawned','actor_spawned','vessel_spawned',
             'start_valid','finish_valid','end_pair_valid','sampled','transfer_attempted',
             'lock_released','replay_refused','replay_unchanged','conservation_observed',
             'gasoline_confirmed','cleanup_requested','car_deleted','actor_deleted','vessel_deleted'):
         if not _native_bool(value.get(field)): raise ValueError('missing observed '+field)
-    for field in ('failed','actor_has_identity','production_acceptance','durable_acceptance'):
+    for field in ('failed','actor_has_identity','production_acceptance','durable_acceptance',
+                  'gameplay_acceptance','ce_acceptance'):
         if _native_bool(value.get(field)): raise ValueError('invalid claim/context '+field)
     for field in ('start_calls','finish_calls','end_calls','replay_calls','component_result'):
         if type(value.get(field)) is not int or value[field]!=1: raise ValueError('one actual callback/attempt required')
@@ -231,6 +293,8 @@ def validate_result(path, mission, *, outer_timed_out, outer_elapsed_seconds):
             or n['donor_before_liters']>Decimal(str(marker['fuel_liters']))):
         raise ValueError('nonconserving/rounded/unbounded native quantities')
     return dict(inprocess_observation_complete=True,production_acceptance=False,
+        mode=mode,ce_disabled_control=mode == 'ce-disabled-control',
+        gameplay_acceptance=False,ce_acceptance=False,
         durable_acceptance=False,client_acceptance=False,full_family_coverage=False,
         runtime_acceptance='pending',run_id=marker['run_id'],receipt_sha256=_sha(receipt_bytes))
 
@@ -243,6 +307,10 @@ class HCFuelSiphonReceipt
     int schema = 1;
     string kind = "native-owned-fuel-siphon-observation";
     string run_id = "@RUN@";
+    string mode = "@MODE@";
+    bool ce_disabled_control = @CE_DISABLED@;
+    bool gameplay_acceptance = false;
+    bool ce_acceptance = false;
     string world;
     string engine_version;
     bool server_context;
@@ -710,6 +778,7 @@ def main(argv=None):
     for field in ('x','z','rate-ml','cap-ml','fuel-liters'): prepare.add_argument('--'+field,type=float,required=True)
     for field in ('car-class','vessel-class'): prepare.add_argument('--'+field,required=True)
     prepare.add_argument('--actor-class',default='SurvivorM_Mirek')
+    prepare.add_argument('--mode',choices=MODES,default='stock-ce')
     prepare.add_argument('--outer-timeout-seconds',type=int,default=90)
     validate=commands.add_parser('validate')
     validate.add_argument('--result',type=Path,required=True)

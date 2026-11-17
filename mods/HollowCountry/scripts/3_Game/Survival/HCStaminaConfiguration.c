@@ -70,6 +70,41 @@ class HCStaminaConfiguration
         return !profile.Settings.Enabled && profile.Settings.ContinuousExertionScale == 1.0 && profile.Settings.RecoveryScale == 1.0;
     }
 
+    static HCStaminaProfile DefaultProfile()
+    {
+        HCStaminaProfile profile = new HCStaminaProfile;
+        profile.SchemaVersion = 1;
+        profile.Profile = "custom";
+        profile.Experimental = true;
+        profile.Settings = new HCStaminaSettings;
+        profile.Settings.Enabled = true;
+        profile.Settings.ContinuousExertionScale = 0.5;
+        profile.Settings.RecoveryScale = 1.25;
+        return profile;
+    }
+
+    protected static bool EnsureProfile()
+    {
+        string root = "$profile:HollowCountry";
+        string path = root + "/stamina.json";
+        if (FileExist(path))
+            return true;
+        if (!FileExist(root) && !MakeDirectory(root))
+        {
+            Print("[HollowCountry] Stamina blocked: cannot create profile directory");
+            return false;
+        }
+        HCStaminaProfile profile = DefaultProfile();
+        string error;
+        if (!JsonFileLoader<HCStaminaProfile>.SaveFile(path, profile, error))
+        {
+            Print("[HollowCountry] Stamina blocked: cannot save default profile: " + error);
+            return false;
+        }
+        Print("[HollowCountry] Created enabled stamina profile: 50% continuous drain, 125% recovery; native qualification pending");
+        return true;
+    }
+
     protected static bool Stage(HCStaminaSettings settings, bool experimental)
     {
         s_Candidate = null;
@@ -128,21 +163,35 @@ class HCStaminaConfiguration
         if (!s_Active || !s_Server || s_LoadAttempted)
             return false;
         s_LoadAttempted = true;
+        if (!EnsureProfile())
+            return false;
         FileHandle handle = OpenFile("$profile:HollowCountry/stamina.json", FileMode.READ);
         if (!handle)
+        {
+            Print("[HollowCountry] Stamina blocked: cannot read profile");
             return false;
+        }
         string text;
         int count = ReadFile(handle, text, 16385);
         CloseFile(handle);
         if (count <= 0 || count > 16384)
+        {
+            Print("[HollowCountry] Stamina blocked: profile must contain 1..16384 bytes; file preserved");
             return false;
+        }
         string error;
         HCStaminaProfile profile = new HCStaminaProfile;
         if (!JsonFileLoader<HCStaminaProfile>.LoadData(text, profile, error) || !ProfileValid(profile))
+        {
+            Print("[HollowCountry] Stamina blocked: invalid profile; file preserved: " + error);
             return false;
+        }
         CfgGameplayJson data = CfgGameplayHandler.m_Data;
         if (!data || !data.PlayerData || !data.PlayerData.StaminaData)
+        {
+            Print("[HollowCountry] Stamina blocked: native gameplay configuration unavailable");
             return false;
+        }
         HCStaminaSettings settings = Copy(profile.Settings);
         ITEM_StaminaData item = data.PlayerData.StaminaData;
         item.HCSchemaVersion = settings.SchemaVersion;

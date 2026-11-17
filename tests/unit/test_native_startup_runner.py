@@ -41,7 +41,8 @@ class StartupRunnerTests(unittest.TestCase):
                cleanup_delay=1,cleanup_error=False,survivor=False,death=False,
                final_complete=False,final_error=False,final_drift=False,final_skipped=False,
                staging_delay=0,final_poll_delay=0,preflight_code=1,foreign=False,
-               final_input_drift=None,final_extra=None,ready_at=None,publication_delay=0,**options):
+               final_input_drift=None,final_extra=None,ready_at=None,publication_delay=0,
+               engine_crash=False,final_engine_crash=False,**options):
         original_file=Path.is_file; prepare=probe.prepare_probe; validate=probe.validate_result
         publish=self.runner._publish_report
         emitted=False; validated=False
@@ -58,6 +59,7 @@ class StartupRunnerTests(unittest.TestCase):
         def logs(path):
             nonlocal emitted
             text='[HollowCountry] Server initialized; SYNTHETIC'
+            if engine_crash:text+='\nENGINE    (F): Crashed'
             if path==self.experiment:
                 if final_input_drift:
                     target = self.experiment / final_input_drift
@@ -70,6 +72,7 @@ class StartupRunnerTests(unittest.TestCase):
                         target.mkdir()
                 if final_complete: write_receipt()
                 if final_error: text+='\nSCRIPT (E): synthetic final error'
+                if final_engine_crash:text+='\nENGINE    (F): Crashed'
                 if final_drift:
                     (self.experiment/'profiles'/probe.RESULT).write_text('{}')
                 return text,{},({'synthetic':'unreadable'} if final_skipped else {})
@@ -133,6 +136,17 @@ class StartupRunnerTests(unittest.TestCase):
         self.assertEqual('startup-control-completed',result['status'])
         self.assertTrue(result['receipt_admitted_before_cleanup'])
         self.assertTrue(result['process_cleanup_confirmed']); self.assertLess(self.now,10)
+
+    def test_fatal_engine_crash_stops_polling_and_revokes_prior_admission(self):
+        for index,options in enumerate((dict(engine_crash=True,complete_at=None),dict(final_engine_crash=True))):
+            with self.subTest(options=options):
+                self.experiment=self.root/('fatal-'+str(index));self.now=0
+                result=self.mocked(**options)
+                self.assertEqual('engine-crash',result['status'])
+                self.assertTrue(result['engine_error_observed'])
+                self.assertIsNone(result['receipt'])
+                self.assertLess(self.now,10)
+                self.assertTrue(result['process_cleanup_confirmed'])
         self.assertFalse(result['gameplay_acceptance']); self.assertEqual(0,result['client_count'])
         self.assertEqual(result,json.loads((self.experiment/self.runner.REPORT).read_text()))
         self.assertTrue(self.launch.call_args.kwargs['start_new_session'])

@@ -2,7 +2,7 @@
 class HCGroupSettings
 {
     int SchemaVersion = 1;
-    bool Enabled = false;
+    bool Enabled = true;
     bool WorldIcons = true;
     bool MapIcons = true;
     bool RequireGPS = false;
@@ -114,6 +114,9 @@ class HCGroupState
     int Version = 1;
     int Revision = 0;
     int NextId = 1;
+    // Additive v1 field: old images deserialize to zero (unknown watermark).
+    // The next successful mutation establishes it without resetting any ACL.
+    int LastMutationUtc = 0;
     string WorldName;
     ref array<ref HCGroupRecord> Groups = new array<ref HCGroupRecord>();
     ref array<ref HCGroupInvitation> Invitations = new array<ref HCGroupInvitation>();

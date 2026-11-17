@@ -9,7 +9,8 @@ registration uses the shared [integration contract](RUNTIME_IMPLEMENTATION_CONTR
 
 The server creates `$profile:HollowCountry/settings.json` on first addon start.
 The reviewed operator template is [config/hollow-country-settings.json](../config/hollow-country-settings.json).
-All feature flags default false. Edit only with the server stopped, retain a
+All feature preferences default true. Existing explicit disables are preserved.
+Edit only with the server stopped, retain a
 backup, and validate the operator file before installing it:
 
 ```sh
@@ -26,31 +27,37 @@ Unknown native behavior must be tested on an isolated profile and storage copy.
 
 The separate `$profile:HollowCountry/stamina.json` file controls the experimental
 stamina handler. It is read once when native gameplay configuration loads, with a
-16 KiB limit. An absent or invalid profile retains native behavior. A neutral,
-disabled operator example is:
+16 KiB limit. A missing profile is created with the enabled moderate balance
+below, then read through the same bounded parser. An existing disabled or invalid
+file is preserved; invalid input retains native behavior and reports the reason.
+The matching operator template is
+[config/hollow-country-stamina.json](../config/hollow-country-stamina.json):
 
 ```json
 {
   "SchemaVersion": 1,
   "Profile": "custom",
-  "Experimental": false,
+  "Experimental": true,
   "Settings": {
     "SchemaVersion": 1,
-    "Enabled": false,
-    "ContinuousExertionScale": 1.0,
-    "RecoveryScale": 1.0
+    "Enabled": true,
+    "ContinuousExertionScale": 0.5,
+    "RecoveryScale": 1.25
   }
 }
 ```
 
 Both `Experimental` and `Settings.Enabled` must be true for isolated experimental
-activation. Scales must be finite within `0.05–5.0`; the example selects no new
-balance. `Profile: "vanilla"` requires disabled settings and unit scales.
+activation. Scales must be finite within `0.05–5.0`. This balance halves
+continuous movement drain and multiplies positive recovery by 1.25; native
+jump/melee depletion and weight-based capacity remain intact.
+To disable it explicitly, set both flags false and both scales to 1.0;
+`Profile: "vanilla"` requires disabled settings and unit scales.
 Restart the mission and reconnect clients after editing. The server carries the
 settings in native gameplay configuration; the client admits only the native
 server receipt during an active session. Session reset clears activation.
 
-Run 046 compiled this default-off wiring in normal DayZ Server under Wine.
+Run 046 compiled the earlier default-off wiring in normal DayZ Server under Wine.
 Enabled loading, native network delivery/order, prediction, reconnect and rendered
 HUD agreement still require qualification before production use.
 

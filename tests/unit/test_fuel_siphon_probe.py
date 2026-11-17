@@ -17,7 +17,7 @@ class FuelSiphonProbeTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.source = self.root/'stock'; self.source.mkdir()
-        self.original = (b'// SYNTHETIC, no game assets\nclass CustomMission : MissionServer {}\n'
+        self.original = (b'// SYNTHETIC, no game assets\nvoid main() { Hive ce = CreateHive(); if (ce) ce.InitOffline(); }\nclass CustomMission : MissionServer {}\n'
                          b'Mission CreateCustomMission(string path) { return new CustomMission(); }\n')
         (self.source/'init.c').write_bytes(self.original)
         (self.source/'synthetic.xml').write_text('<synthetic/>')
@@ -35,6 +35,8 @@ class FuelSiphonProbeTests(unittest.TestCase):
 
     def receipt(self):
         return dict(schema=1, kind=self.probe.KIND, run_id='a'*32, world='chernarusplus',
+                    mode='stock-ce', ce_disabled_control=False,
+                    gameplay_acceptance=False, ce_acceptance=False,
                     engine_version='synthetic-1.30', server_context=True, complete=True,
                     failed=False, reason='', ticks=10, frames=30, elapsed_seconds=3,
                     max_observed_clients=0, car_class='OffroadHatchback',
@@ -257,6 +259,96 @@ class FuelSiphonProbeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.validate(self.receipt(), outer_timed_out=True,
                           outer_elapsed_seconds=179)
+
+
+    def test_ce_control_omits_only_guarded_init_and_preserves_context(self):
+        for braced in (False, True):
+            call = 'if (ce) { ce.InitOffline(); }' if braced else 'if (ce) ce.InitOffline();'
+            text = 'void main() { Hive ce = CreateHive(); ' + call + ' int year = 2026; }'
+            expected = text.replace('ce.InitOffline();', '' if braced else '{}')
+            self.assertEqual(text.encode(), self.probe._ce_control(text.encode(), 'stock-ce'))
+            self.assertEqual(expected.encode(),
+                self.probe._ce_control(text.encode(), 'ce-disabled-control'))
+
+    def test_ce_control_rejects_ambiguous_code_not_comments_or_strings(self):
+        base = b'void main() { Hive ce = CreateHive(); if (ce) ce.InitOffline(); }'
+        decorated = base + b' // ce.InitOffline();\nstring label = "ce.InitOffline();";'
+        self.assertEqual(decorated.replace(b'if (ce) ce.InitOffline();', b'if (ce) {}'),
+            self.probe._ce_control(decorated, 'ce-disabled-control'))
+        for data in (base.replace(b'if (ce)', b'if (false)'),
+                     base + b'void extra() { ce.InitOffline(); }',
+                     base + b'void main() {}',
+                     b'#ifdef X\n' + base + b'\n#endif'):
+            with self.subTest(data=data), self.assertRaises(ValueError):
+                self.probe._ce_control(data, 'ce-disabled-control')
+
+    def test_control_manifest_hook_and_receipt_pin_mode_without_ce_acceptance(self):
+        marker = self.prepare(mode='ce-disabled-control')
+        body = (self.dest / 'init.c').read_text()
+        self.assertIn('Hive ce = CreateHive(); if (ce) {}', body)
+        self.assertEqual(self.original, (self.source / 'init.c').read_bytes())
+        self.assertEqual('ce-disabled-control', marker['mode'])
+        self.assertTrue(marker['ce_disabled_control'])
+        self.assertFalse(marker['gameplay_acceptance'])
+        self.assertFalse(marker['ce_acceptance'])
+        self.assertIn('string mode = "ce-disabled-control";', body)
+        self.assertIn('bool ce_disabled_control = true;', body)
+        receipt = dict(self.receipt(), mode='ce-disabled-control', ce_disabled_control=True)
+        result = self.validate(receipt)
+        self.assertEqual('ce-disabled-control', result['mode'])
+        self.assertTrue(result['ce_disabled_control'])
+        self.assertFalse(result['gameplay_acceptance'])
+        self.assertFalse(result['ce_acceptance'])
+        with self.assertRaises(ValueError):
+            self.validate(self.receipt())
+
+    def test_stock_default_and_unattributed_or_mismatched_receipts(self):
+        marker = self.prepare()
+        self.assertEqual('stock-ce', marker['mode'])
+        self.assertFalse(marker['ce_disabled_control'])
+        self.assertIn('if (ce) ce.InitOffline();', (self.dest / 'init.c').read_text())
+        for changes in (dict(mode='ce-disabled-control'), dict(ce_disabled_control=True),
+                        dict(mode=True), dict(ce_acceptance=True), dict(gameplay_acceptance=True)):
+            with self.subTest(changes=changes), self.assertRaises(ValueError):
+                self.validate(dict(self.receipt(), **changes))
+        for key in ('mode', 'ce_disabled_control'):
+            receipt = self.receipt()
+            del receipt[key]
+            with self.subTest(missing=key), self.assertRaises(ValueError):
+                self.validate(receipt)
+        path = self.dest / self.probe.MARKER
+        del marker['mode']
+        path.write_text(json.dumps(marker))
+        with self.assertRaises(ValueError):
+            self.validate(self.receipt())
+
+    def test_invalid_mode_refused_before_staging(self):
+        for value in (True, None, 0, 'fallback', 'stock-ce; injected'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.prepare(mode=value)
+            self.assertFalse(self.dest.exists())
+
+    def test_control_preserves_bom_crlf_and_stock_date_context(self):
+        original = (b'\xef\xbb\xbfvoid main()\r\n{\r\n Hive ce = CreateHive();\r\n'
+            b' if (ce)\r\n  ce.InitOffline();\r\n int year = 2026;\r\n}\r\n')
+        self.assertEqual(original, self.probe._ce_control(original, 'stock-ce'))
+        self.assertEqual(original.replace(b'ce.InitOffline();', b'{}'),
+            self.probe._ce_control(original, 'ce-disabled-control'))
+
+    def test_manifest_attribution_requires_exact_boolean_control_and_false_claims(self):
+        for mode in ('stock-ce', 'ce-disabled-control'):
+            marker = dict(mode=mode, ce_disabled_control=mode == 'ce-disabled-control',
+                          gameplay_acceptance=False, ce_acceptance=False)
+            self.assertEqual(mode, self.probe._attribution(marker))
+            for key in marker:
+                row = dict(marker)
+                del row[key]
+                with self.subTest(mode=mode, missing=key), self.assertRaises(ValueError):
+                    self.probe._attribution(row)
+            for key in ('ce_disabled_control', 'gameplay_acceptance', 'ce_acceptance'):
+                for bad in (0, 1, None, 'false'):
+                    with self.subTest(mode=mode, key=key, bad=bad), self.assertRaises(ValueError):
+                        self.probe._attribution(dict(marker, **{key: bad}))
 
 
 if __name__ == '__main__': unittest.main()

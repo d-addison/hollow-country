@@ -10,13 +10,19 @@ class HCGroupModule extends HCModule
     {
         if (!settings || !settings.EnableGroups) return false;
         m_Config = HCGroupStore.LoadSettings();
+        if (!m_Config) Print("[HC Groups] settings unavailable or invalid; service inactive");
         return m_Config && m_Config.Enabled;
     }
 
     override void OnStart(HCSettings settings)
     {
         m_Service = new HCGroupService;
-        if (!m_Service.Start(m_Config)) { m_Service = null; return; }
+        if (!m_Service.Start(m_Config))
+        {
+            Print("[HC Groups] start refused: check settings, UTC, world and persistence; service inactive");
+            m_Service = null;
+            return;
+        }
         DayZGame.Event_OnRPC.Insert(m_Service.OnRPC);
     }
 

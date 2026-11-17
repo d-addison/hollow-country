@@ -24,10 +24,8 @@ class HCGroupClock
 
     static int CalendarUtc(int year, int month, int day, int hour, int minute, int second)
     {
-        // Preserve the existing group service/wire epoch ceiling. Reject years
-        // before bounded arithmetic: at most 63 year and 11 month iterations.
-        // Even 2033-12-31 is 2019686399, below native int.MAX (2147483647).
-        if (year < 1970 || year > 2033) return -1;
+        // Full positive native int epoch; at most 68 year/11 month iterations.
+        if (year < 1970 || year > 2038) return -1;
         int monthDays = HCGroupClock.DaysInMonth(year, month);
         if (day < 1 || day > monthDays) return -1;
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return -1;
@@ -46,9 +44,13 @@ class HCGroupClock
             days += HCGroupClock.DaysInMonth(year, m);
             m++;
         }
-        int stamp = (days + day - 1) * 86400 + hour * 3600 + minute * 60 + second;
-        if (stamp > 1990000000) return -1;
-        return stamp;
+        days = days + day - 1;
+        int daytime = hour * 3600 + minute * 60 + second;
+        // int.MAX = 24855 full days + 11647 seconds. Reject before multiply
+        // or add so 2038-01-19 03:14:08 cannot wrap into a valid timestamp.
+        if (days > 24855) return -1;
+        if (days == 24855 && daytime > 11647) return -1;
+        return days * 86400 + daytime;
     }
 
     static int Utc()
@@ -129,6 +131,13 @@ class HCGroupService
         if (m_LastUtc < 1 || worldSize < 1 || worldSize > 50000) return false;
         m_Store = new HCGroupStore;
         if (!m_Store.Open(config, m_State)) return false;
+        if (!HCGroupRules.ClockAllows(m_State, m_LastUtc))
+        {
+            Print("[HC Groups] startup refused: UTC precedes last committed mutation; state preserved");
+            return false;
+        }
+        if (m_State.LastMutationUtc == 0)
+            Print("[HC Groups] no durable UTC watermark yet; next mutation will establish it");
         foreach (HCGroupRecord group : m_State.Groups)
         {
             foreach (HCGroupMarker marker : group.Markers)
@@ -232,7 +241,8 @@ class HCGroupService
     bool Admit(HCGroupPeer peer)
     {
         float now = GetGame().GetTickTime();
-        if (!(now >= 0.0)) return false;
+        if (!(now >= 0.0 && now <= 2147483647.0)) return false;
+        if (now < peer.RateWindow || now < m_GlobalWindow) return false;
         if (now - peer.RateWindow >= 1.0) { peer.RateWindow = now; peer.RateCount = 0; }
         if (now - m_GlobalWindow >= 1.0) { m_GlobalWindow = now; m_GlobalCount = 0; }
         if (peer.RateCount >= m_Config.MaxRequestsPerSecond || m_GlobalCount >= m_Config.MaxRequestsPerSecond * 2) return false;
@@ -284,6 +294,7 @@ class HCGroupService
         peer.LastReply = null;
         int now = HCGroupClock.Utc();
         if (now < m_LastUtc) { Stop(); return; }
+        m_LastUtc = now;
         if (request.Op == HCGroupOp.INVITE && !Live(Peer(request.TargetId)))
         { Reply(peer, request.RequestId, HCGroupCode.NOT_FOUND, true); return; }
         if ((request.Op == HCGroupOp.MARKER_CREATE || request.Op == HCGroupOp.MARKER_UPDATE) && (request.Position[0] > GetGame().GetWorld().GetWorldSize() || request.Position[2] > GetGame().GetWorld().GetWorldSize()))
@@ -308,6 +319,8 @@ class HCGroupService
 
     int Commit(HCGroupState candidate)
     {
+        if (!candidate || !HCGroupRules.ClockAllows(m_State, m_LastUtc)) return HCGroupCode.STORAGE;
+        candidate.LastMutationUtc = m_LastUtc;
         candidate.Revision = m_State.Revision + 1;
         if (!HCGroupRules.StateValid(candidate, m_Config, GetGame().GetWorldName())) return HCGroupCode.STORAGE;
         // Quota is admission control, not a damaged store. This check happens
@@ -419,7 +432,8 @@ class HCGroupService
     {
         if (!m_Healthy) return;
         int now = HCGroupClock.Utc();
-        if (now < m_LastUtc || now > 1990000000 || !(deltaTime > 0.0) || deltaTime > 300.0) { Stop(); return; }
+        if (!HCGroupRules.TimestampValid(now) || now < m_LastUtc) { Stop(); return; }
+        if (!(deltaTime > 0.0) || deltaTime > 300.0) { Stop(); return; }
         m_LastUtc = now;
         // Invitations are ephemeral; removing them needs no disk transaction.
         for (int i = m_State.Invitations.Count() - 1; i >= 0; i--)

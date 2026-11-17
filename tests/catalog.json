@@ -29,7 +29,7 @@
     {
       "id": "src-005",
       "path": "docs/PHASE2_BACKLOG.md",
-      "sha256": "d4966a4f8f590215e495e1ce644164856eaf80d7d72bc7272b50b26e53d736e2",
+      "sha256": "1cbe275f7c8b411bf736673d270dd65602ca3d5f7b56151174ffb4d5db1a9cfb",
       "required_at_runtime": false
     },
     {
@@ -2690,6 +2690,48 @@
     {
       "id": "P2-DESIGN-003",
       "origin": "phase2",
+      "scenario": "Enabled feature preferences and moderate stamina balance",
+      "criterion": "User confirmed that all feature preferences default to enabled. An existing\nexplicit disable remains authoritative. This changes operator preference defaults;\nit never fabricates missing dependencies, native capabilities, measured content,\nauthenticated session receipts or runtime qualification. Each system must report\nits actual admission result and missing prerequisites. Diagnostic isolation controls\nremain explicit and must not accidentally enable unrelated gameplay in a probe.\n\nSelected stamina balance is continuous movement drain scale **0.5** and positive\nrecovery scale **1.25**. Weight-based capacity and native jump/melee event costs\nremain meaningful. A fresh server creates and boundedly reloads the enabled\nprofile; existing disabled, custom or invalid files are preserved. Invalid profiles\nretain vanilla behavior with a diagnostic. Server transport, prediction, reconnect,\nrendered bars and workload still require native qualification.",
+      "modes": [
+        "engine",
+        "server",
+        "client-pair",
+        "measurement",
+        "human-judgment"
+      ],
+      "requires": [
+        "pinned_inputs",
+        "signed_package",
+        "qualified_scenario_driver",
+        "native_state_capture",
+        "dayzdiag",
+        "normal_server",
+        "licensed_authenticated_rendered_client_pair",
+        "synchronized_client_capture",
+        "qualified_measurement",
+        "criterion_reviewer",
+        "recorded_scope_decisions",
+        "rights_review",
+        "qualified_map_adapter",
+        "separate_six_and_ninety_player_load",
+        "validated_policy_bounds"
+      ],
+      "assertions": [
+        "UNRESOLVED: qualify a criterion-specific observable oracle and bind fresh attempt evidence before evaluating acceptance."
+      ],
+      "evidence_requirements": [
+        "fresh_attempt_identity",
+        "hashed_observations",
+        "pinned_build_and_input_identity",
+        "package_identity",
+        "native_outcomes",
+        "two_independent_simultaneous_rendered_client_observations"
+      ],
+      "related_ids": []
+    },
+    {
+      "id": "P2-DESIGN-004",
+      "origin": "phase2",
       "scenario": "Human PvE AI recovery policy",
       "criterion": "Confirmed user decision: human PvE AI may use the reviewed provider's built-in\nstuck recovery, including a visible reposition of an AI. This is a narrow\nexception for built-in stuck recovery in the reviewed human provider, not\narbitrary Hollow Country relocation. Original infected/horde movement and\nvisibility criteria remain unchanged. Retain finite ammunition, ordinary damage,\nobserver-aware cleanup, permissions, exact artifact/build compatibility and\nmeasured capacity. Source/artifact declarations do not establish native acceptance.\n\nAll 31 open original/Phase 2 issues are triaged into the\n[execution program #39](https://github.com/d-addison/hollow-country/issues/39),\nten ordered batch issues #40–49, and final consolidated user session #50.\nInternal automation/native qualification runs throughout; user connection is\nplanned once at the end, after readiness criteria are met. Missing independent\nclient/load evidence or unsupported capability decisions block relevant claims.",
       "modes": [
@@ -2730,7 +2772,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-004",
+      "id": "P2-DESIGN-005",
       "origin": "phase2",
       "scenario": "Optional AI missions and events: research brief",
       "criterion": "Requested explicitly on 2026-11-16. This is Phase 2 design intake, not a claim\nthat the mission director or combat AI exists. Track implementation through\n[issue #33](https://github.com/d-addison/hollow-country/issues/33), with AI-group\ncapabilities tracked separately in issue #36.",
@@ -2772,7 +2814,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-005",
+      "id": "P2-DESIGN-006",
       "origin": "phase2",
       "scenario": "Public baseline",
       "criterion": "Northmen's [Chernarus guide](https://thenorthmendayz.com/chernarus-guide/)\ndescribes radio-discovered survivor missions, airdrops and dynamic wreck/event\nlocations. Its [March 2026 notes](https://thenorthmendayz.com/patch-notes-march-26/)\ndescribe delivery and bear-hunt missions and adjustments to event lifetimes and\nloot frequency. These are observations of published player-facing behavior,\naccessed 2026-11-16; settings differ by map and date. They do not establish that\nNorthmen uses autonomous human AI, nor expose its implementation or grant reuse\nrights. Author independent content and verify every dependency's permissions.\n\nIndependent research against installed 1.30.164289 scripts found native group,\nagent membership, infected-pack waypoint and navigation interfaces in\n`3_Game/AI/AIWorld.c` and `AIGroupBehaviour.c`. These are prototype candidates,\nnot proof of reliable armed human squads. `SpawnDE`/`SpawnDEEx` in\n`3_Game/CE/CentralEconomy.c` are diagnostic/developer tools; force-spawning there\nmust not become the production mission contract or bypass CE limits/avoidance.\nUse genuine map surveys and supported production lifecycle interfaces instead.",
@@ -2814,7 +2856,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-006",
+      "id": "P2-DESIGN-007",
       "origin": "phase2",
       "scenario": "Candidate mission families",
       "criterion": "| Family | Example player choice | Feasibility gate before commitment |\n|---|---|---|\n| Recovery and delivery | Follow a radio clue, recover medical supplies, deliver or abandon them | Native item ownership, condition/count checks, delivery transactions and restart-safe rewards |\n| Search and rescue | Locate stranded survivors and provide supplies or extraction | Human AI navigation, following, safe destinations and disconnect recovery |\n| Patrol encounters | Avoid, observe, negotiate with or engage a faction patrol | Perception, faction policy, combat, pathing and bounded pursuit; no omniscient tracking |\n| Defend and evacuate | Volunteer to protect a temporary aid station until evacuation | Wave budgets, spawn safety, cancellation and participant departure |\n| Reconnaissance and investigation | Discover a missing patrol's trail and choose whether to recover evidence | World clues and objective validation without requiring universal GPS markers |\n| Wildlife and ecology | Investigate an unusual migration or protect a water/food site | Actual supported animal behavior, regional ecology budget and conservation rules |\n| Supply drops and salvage | Investigate a drop or wreck with optional AI presence | Native CE integration, loot budget, safe placement and lifecycle ownership |\n| Convoy operations | Recover a stranded convoy first; consider moving escorts later | Static wrecks are distinct from navigable AI vehicles; driving and replication need a separate native prototype |\n| Short branching chains | A recovered radio opens alternative aid or faction objectives | Versioned mission state, clear outcomes, bounded chain length and repeatable tests |\n\nPrioritize recovery/delivery, investigation and static salvage for a first slice.\nTreat combat patrols, rescue/escort and moving convoys as progressively higher\nuncertainty work. A diagnostic unconnected actor is not proof of production AI.",
@@ -2856,7 +2898,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-007",
+      "id": "P2-DESIGN-008",
       "origin": "phase2",
       "scenario": "Requirements for the next gameplay spec",
       "criterion": "- Participation is voluntary: discover through configurable radio, clues or\n  notices; accept, ignore or abandon without progression penalties. Define\n  ambient physical danger separately from mission enrollment; a nearby fight\n  can still affect a passerby. Interview whether this is acceptable before\n  promising that ignoring missions makes players immune to their effects.\n- Support solo and six-player sessions as well as a separately measured 90-player\n  destination. Population thresholds and concurrent encounters are configurable;\n  do not inherit Northmen's public-server thresholds for a small private group.\n- A server-authoritative director owns a bounded lifecycle: proposed, announced,\n  active, resolving, completed/failed/expired/cancelled, cleanup. Define whether\n  acceptance reserves an objective, shares it, or allows competition.\n- Store versioned mission IDs, participants, objectives, spawned-entity ownership,\n  deadlines and reward claims. Reconnects and restarts must not duplicate rewards,\n  resurrect finished encounters or delete player-owned property.\n- Use map adapters with surveyed locations, navigable routes and exclusion zones.\n  Unsupported locations or maps disable the affected content safely. Test claimed\n  map support explicitly; ChernarusPlus is the first candidate.\n- Separate factions, objectives and AI providers so combat AI can be disabled or\n  replaced without rewriting delivery and investigation missions. No base-building\n  dependency is required by this brief.\n- Budget active actors, spawned items, scheduled work, navigation retries, network\n  traffic and cleanup. Pause new encounters under load; do not silently despawn\n  visible actors or loot in a player's hands. Measure thresholds before setting\n  production defaults.\n- Protect rewards against repeated activation, simultaneous completion, disconnect\n  races, nested-container counting and restart replay. Integrate rewards with the\n  server economy rather than introducing unlimited military loot.",
@@ -2898,7 +2940,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-008",
+      "id": "P2-DESIGN-009",
       "origin": "phase2",
       "scenario": "Required TDD / SDD / BDD evidence",
       "criterion": "Write executable scenarios before each implementation slice. At minimum:\n\n1. Given a survivor ignores an announcement, ordinary survival remains playable\n   and no mission failure penalty is applied to that survivor.\n2. Given two eligible groups complete simultaneously, configured ownership and\n   sharing rules determine rewards exactly once per authorized claim.\n3. Given a restart at each lifecycle boundary, recovery preserves valid progress\n   or safely cancels it without duplicate rewards or orphaned entities.\n4. Given all participants abandon or disconnect, expiry and cleanup follow the\n   configured policy without deleting their inventory or vehicles.\n5. Given an invalid map location, blocked route or exhausted AI budget, the\n   encounter is rejected or safely cancelled with a recorded reason.\n6. Given six-player and representative 90-player workloads, measure director,\n   actor, persistence and replication cost independently; synthetic actors do\n   not stand in for licensed connected-client evidence.\n7. Given replayed objective messages, invalid item counts or unauthorized claims,\n   the server rejects them and leaves authoritative state consistent.\n\nOpen design choices for the Phase 2 interview: ambient versus strictly enrolled\nencounters; cooperative versus contested objectives; radio-only versus optional\nmap markers; consequences of death; reward style; faction hostility; persistence\nduration; and permission to depend on an external AI framework. Keep these open\nuntil their answers are needed, without interrupting current validation work.",
@@ -2940,7 +2982,7 @@
       "related_ids": []
     },
     {
-      "id": "P2-DESIGN-009",
+      "id": "P2-DESIGN-010",
       "origin": "phase2",
       "scenario": "Improvised flashlight mounts — confirmed scope",
       "criterion": "Use duct tape to mount a flashlight on suitable guns, backpacks and helmets\n(#56, batch #43). Audit all relevant native and selected dependency classes;\nrecord a complete supported combination matrix and evidence for exclusions.\nExisting proxies, model geometry, native power systems and switching come first.\n\nConfirmed removal rule: players remove the light by hand, without a knife or\nother tool. Tape is consumed and never recovered; mounting again requires fresh\ntape. Preserve the original light, battery, host identity and their condition.\nDo not introduce a duplicate light, battery or reusable tape through removal.\nDetermine tape quantity/wear through the item audit and balance tests.\n\nAcceptance includes server-authoritative assembly/removal, valid attachment\nposition and beam, battery consumption, switch controls, damage/ruin/water,\nheld/worn/dropped and stored states, interruption, concurrent requests, full\ninventory/ground fallback, reconnect/restart, replicated presentation and bounded\ncost. A working pilot is a checkpoint; the full justified scope must be covered.\nGiven repeated mount/remove cycles, the light and battery remain conserved and\nevery remount spends fresh tape. Given no knife, removal still works by hand.\nGiven cancellation or competing requests, the final state cannot duplicate\nitems or refund consumed tape. Native metadata alone does not establish geometry\nor gameplay compatibility; runtime checks and two clients remain required.\n\nSee [ADR-018](adr/ADR-018-autonomous-testing-public-destination.md) for the\ndestination/testing decision and [original task ledger](specs/001-survival-overhaul/tasks.md)\nfor current completion status.",
@@ -5150,7 +5192,7 @@
       "criteria": "verbatim table cells"
     },
     "extensions": {
-      "mapped_count": 62,
+      "mapped_count": 63,
       "status": "source intake only; executable coverage unresolved",
       "limitations": [
         "Candidates/open choices are not commitments.",
@@ -5175,7 +5217,7 @@
         },
         "56": {
           "test_ids": [
-            "P2-DESIGN-009",
+            "P2-DESIGN-010",
             "P2-PROGRAM-017",
             "P2-PROGRAM-018",
             "P2-PROGRAM-019",
@@ -5816,37 +5858,43 @@
       "P2-DESIGN-004": [
         {
           "source": "src-005",
-          "line": 93
+          "line": 92
         }
       ],
       "P2-DESIGN-005": [
         {
           "source": "src-005",
-          "line": 100
+          "line": 109
         }
       ],
       "P2-DESIGN-006": [
         {
           "source": "src-005",
-          "line": 119
+          "line": 116
         }
       ],
       "P2-DESIGN-007": [
         {
           "source": "src-005",
-          "line": 137
+          "line": 135
         }
       ],
       "P2-DESIGN-008": [
         {
           "source": "src-005",
-          "line": 167
+          "line": 153
         }
       ],
       "P2-DESIGN-009": [
         {
           "source": "src-005",
-          "line": 193
+          "line": 183
+        }
+      ],
+      "P2-DESIGN-010": [
+        {
+          "source": "src-005",
+          "line": 209
         }
       ],
       "P2-PROGRAM-001": [
@@ -6187,6 +6235,7 @@
       "client_pair": "Two independent licensed authenticated simultaneous rendered clients; installed Steam/accounts/bots do not qualify.",
       "native": "Missing qualified providers block claims; no spawn/delete/teleport workaround or CanAbstract/CanMaterialize enablement.",
       "human_ai_recovery": "Explicit user exception: built-in stuck recovery, including visible repositioning, is allowed only for the reviewed provider's human PvE AI; original infected/horde criteria and other fairness gates remain unchanged.",
+      "feature_defaults": "Feature preferences are enabled by default; existing explicit disables remain authoritative. Missing prerequisites, capabilities and runtime qualification remain explicit and never become acceptance.",
       "bounds": "Validate caller policy; no guessed production distances/times. Missing/stale inputs, NaN and clock rollback fail closed.",
       "portability": "Embedded criteria; source paths are provenance only."
     }
