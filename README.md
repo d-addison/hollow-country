@@ -61,19 +61,19 @@ additions and exclusions must make sense for survival and the economy.
 Cloth, rope, camouflage, repair materials and practical storage are among the
 uses being reviewed, alongside the tools needed to work them.
 
-**Planned · Phase 2: fuel siphoning.** Suitable cars should offer gasoline when
+**Being built · Phase 2: fuel siphoning.** Suitable cars should offer gasoline when
 you have appropriate equipment and a compatible container. Transfers must draw
 from actual finite fuel, respect capacity and stop safely when interrupted.
 Decorative wrecks will not become endless petrol stations. Supported vehicles,
 tools and any finite wreck supplies remain part of the audit.
 
-**Planned · Phase 2: improvised light mounts.** Use duct tape to attach a
-flashlight to a suitable gun, backpack or helmet, keeping your hands available.
-Peel the light off by hand when you need it elsewhere. Mounting consumes the tape;
-removing the light does not recover it, and mounting again needs fresh tape.
-Supported combinations need a useful beam direction, working battery and switch,
-and sensible attachment/removal and wear. Existing item geometry will determine
-which combinations can work properly.
+**Being built · Phase 2: improvised light mounts.** Use duct tape to fix a
+flashlight to a suitable gun, keeping your hands available. Peel the light off by
+hand when you need it elsewhere. Mounting consumes the tape; removing the light
+does not recover it, and mounting again needs fresh tape. The first release covers
+rifles and pistols whose own model already carries a light, including those that
+need a railed handguard fitted first, so the beam starts where the gun expects it.
+Backpacks, helmets and other guns are planned extensions after the first release.
 
 ## The infected remember
 
@@ -173,15 +173,19 @@ captured and verified.
 
 ## Where we are
 
-Experimental search and interior systems, salvage prototypes and infected clue
-and alert logic exist. Group navigation, separate weight and stamina displays,
-optional-event rules and fuel-transfer prototypes are also being built.
-Experimental taped-light mounting and recovery rules exist, with no qualified
-host and flashlight combination yet. Feature preferences now default to enabled;
-several systems still require content, dependencies or native adapters before
-they can operate. Some code has compiled and
-initialized in a real DayZ server. Full inventory recovery, navigation, audio,
-multiplayer behavior, balance and performance still need qualification.
+Search and interior systems, crafting recovery families, a finite search economy,
+ecology observation, optional events and fuel-transfer checks are in the
+development build. Infected now admit each complex behavior (packs, alerts,
+investigation, hordes) only after it has been qualified, and otherwise keep
+native behavior. Their stimulus selection prefers what they saw over what they
+heard over what they remember. Group navigation, separate weight and stamina
+displays and taped-light mounting are being built.
+
+The complete development build compiles and initializes on a real DayZ dedicated
+server. Every feature is accepted by playing it on a local dedicated server; until
+then it stays gated and reports what it is missing. Behavior that needs several
+players at once is checked in later group sessions. Balance and performance still
+need qualification.
 
 Every area requires a full audit of relevant existing content and behavior.
 Pilots are checkpoints: a feature finishes only when its agreed scope is
@@ -214,7 +218,8 @@ Phase 2 playtest once the candidate satisfies its required checks. Follow the
 [crafting audit](https://github.com/d-addison/hollow-country/issues/52),
 [fuel siphoning](https://github.com/d-addison/hollow-country/issues/53) and
 [whole-feature completion criteria](https://github.com/d-addison/hollow-country/issues/54)
-for those work streams.
+for those work streams. Extensions agreed for after the first release are tracked in the
+[post-v1 milestone](https://github.com/d-addison/hollow-country/milestone/12).
 
 ## License and assets
 
