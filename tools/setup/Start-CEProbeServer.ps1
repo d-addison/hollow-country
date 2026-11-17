@@ -7,7 +7,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Runtime,
-    [ValidateSet('ce-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler')]
+    [ValidateSet('ce-probe', 'taped-light-probe', 'weather-probe', 'interior-sampler', 'infected-competence-probe')]
     [string]$Kind = 'ce-probe',
     [ValidateRange(0, 120)]
     [int]$TimeoutMinutes = 0
@@ -113,6 +113,7 @@ $probes = @{
     'taped-light-probe' = @{ Plan = 'taped-light-probe-plan.json'; Directory = 'HCTapedLightProbe'; Output = 'observations.json' }
     'weather-probe' = @{ Plan = 'weather-probe-plan.json'; Directory = 'HCWeatherProbe'; Output = 'observations.json' }
     'interior-sampler' = @{ Plan = 'interior-sampler-plan.json'; Directory = 'HCInteriorSampler'; Output = 'census.json' }
+    'infected-competence-probe' = @{ Plan = 'infected-competence-probe-plan.json'; Directory = 'HCInfectedCompetence'; Output = 'observations.json' }
 }
 $probe = $probes[$Kind]
 $planPath = Join-Path $root $probe.Plan
