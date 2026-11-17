@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -66,6 +67,24 @@ BASIC_TYPES = types([
 
 
 class BuildTests(unittest.TestCase):
+    def test_unsupported_containers_stay_vanilla_and_are_counted(self):
+        pr = proto([("Land_A", [], [("lootFactory", ["tools"], [], 2),
+                                    ("lootFactory", ["tools"], [], 1),
+                                    ("loot", ["tools"], [], 1),
+                                    ("lootweapons", [], [], 1)])])
+        chunks, report = sc.build_search_groups(pr, types([("Hammer", 1, "tools", [], [])]))
+        groups = [g for c in chunks for g in json.loads(c)["Groups"]]
+        self.assertEqual([g["Container"] for g in groups], ["loot"])
+        self.assertEqual(report["UnsupportedContainersDropped"], 2)
+        self.assertTrue(all(g["Categories"] for g in groups))
+
+    def test_group_chunks_split_at_512_even_when_byte_budget_allows_more(self):
+        groups = [{"Id": "g-%04d" % i} for i in range(513)]
+        with mock.patch.object(sc, "MAX_CHUNK_BYTES", 1000000):
+            docs = [json.loads(c) for c in sc._chunk(groups)]
+        self.assertEqual([len(d["Groups"]) for d in docs], [512, 1])
+        self.assertEqual(sc._chunk([]), [])
+
     def test_groups_are_distinct_keys_with_filtered_sorted_items(self):
         chunks, report = sc.build_search_groups(BASIC_PROTO, BASIC_TYPES)
         docs = [json.loads(c) for c in chunks]

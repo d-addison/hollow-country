@@ -44,10 +44,10 @@ def frame_records(frame="rot90", count=8):
 
 
 def placement(cls, hits, index=0, doors=((4.0, 1.0, 0.0),), state="tested", entered="entered", found=True,
-              box_min=(-4.0, -1.0, -3.0), frame=None):
+              box_min=(-4.0, -1.0, -3.0), frame=None, box_max=None):
     closed = [list(h[:5]) + [0 if h[5] == 1 else h[5]] for h in hits]
     row = {"i": index, "class": cls, "found": found, "box_source": "clipping" if found else "none",
-           "box_min": list(box_min), "box_max": [box_min[0] + 8, 5.0, box_min[2] + 6],
+           "box_min": list(box_min), "box_max": list(box_max) if box_max is not None else [box_min[0] + 8, 5.0, box_min[2] + 6],
            "grid": {"step": 1.0, "rows": 6, "cols": 8},
            "reach": {"state": state, "doors": [], "entrances": []},
            "entered": {"strict": {"closed": "not-entered", "open": entered},
@@ -114,10 +114,13 @@ POS = pos_xml([(HOUSE, "1598.030273 304.510010 8970.620117", "15.04"),
                (HOUSE, "3000.0 100.0 4000.0", "90.0"),
                ("Land_Other_Farm", "10 20 30", "5")])
 CLASSES = (HOUSE,) + CALIBRATION
+TYPES = (b'<types><type name="Hammer"><nominal>5</nominal><category name="tools"/></type>'
+         b'<type name="Book"><nominal>5</nominal><category name="books"/></type></types>')
 
 
 def standard(classes=CLASSES, rows=None, proto=PROTO, pos=POS, **kwargs):
     rows = house_rows() + calibration_rows() if rows is None else rows
+    kwargs.setdefault("types_bytes", TYPES)
     return tpl.build([encode(census(rows, classes))], proto, pos, **kwargs)
 
 
@@ -159,6 +162,49 @@ class FrameAndShapeTests(unittest.TestCase):
     def setUp(self):
         self.result = standard()
         self.template = template(self.result)
+
+    def test_bounds_include_keepouts_and_sites_but_never_exceed_census_model(self):
+        pr = proto_xml([group(HOUSE, [container("lootFloor", [
+            point("2 4.5 3"), point("0 0 -20")])])])
+        built = standard(proto=pr)
+        t = template(built)
+        model = {"Min": [-4, -1, -3], "Max": [4, 5, 3]}
+        self.assertTrue(inside(model, t["Box"]))
+        self.assertEqual(t["Box"]["Max"][1], 5)
+        self.assertTrue(all(inside(t["Box"], k) for k in t["KeepOuts"]))
+        self.assertEqual([s["Center"] for s in t["SearchSites"]], [[-3, 4.5, 2]])
+        self.assertEqual(built.summary["keepouts_dropped_outside_model"], 1)
+        self.assertEqual(built.summary["sites_dropped_outside_model"], 1)
+        self.assertEqual(built.summary["search_points_dropped"], 1)
+
+    def test_symmetric_calibrator_is_ignored_and_decisive_classes_are_recorded(self):
+        rows = house_rows() + calibration_rows()
+        rows[-2]["frame"] = [[float(i), 0, 0, 1, 0, 1, 0] for i in range(8)]
+        built = standard(rows=rows)
+        verdict = built.manifest["FrameVerdict"]
+        self.assertEqual(verdict["deciding_classes"], [CALIBRATION[1]])
+        self.assertEqual(verdict["ignored_classes"], [CALIBRATION[0]])
+        self.assertEqual(verdict["verdict"], "rot90")
+
+    def test_contradictory_or_only_symmetric_calibrators_refuse(self):
+        for mode in ("contradiction", "symmetric"):
+            rows = house_rows() + calibration_rows()
+            if mode == "contradiction":
+                rows[-2]["frame"] = frame_records("as-is")
+            else:
+                for row in rows[-2:]:
+                    row["frame"] = [[float(i), 0, 0, 1, 0, 1, 0] for i in range(8)]
+            with self.subTest(mode=mode), self.assertRaises(tpl.TemplateError):
+                standard(rows=rows)
+
+    def test_generated_props_do_not_touch_keepout_faces(self):
+        from tools.package import interiors_profile as ip
+        pr = proto_xml([group(HOUSE, [container("lootFloor", [point("-2.65 0 3", "0.05", "1")])])])
+        t = template(standard(proto=pr))
+        for prop in t["PropSlots"]:
+            for keep in t["KeepOuts"]:
+                self.assertFalse(ip._template_intersects(prop["Bounds"], keep,
+                                 0.6 if keep["Kind"] == "door" else 0), (prop, keep))
 
     def test_the_house_class_gets_a_template_that_matches_the_contract_schema(self):
         t = self.template
@@ -210,12 +256,10 @@ class FrameAndShapeTests(unittest.TestCase):
         floor = [s for s in t["SearchSites"] if s["Source"] == "lootFloor"]
         self.assertEqual(sorted(s["Center"] for s in floor), [[-3.0, 0.0, 2.0], [1.0, 0.0, -1.0]])
 
-    def test_the_as_is_verdict_keeps_stock_coordinates(self):
+    def test_the_as_is_verdict_is_refused_by_the_runtime_pack_builder(self):
         rows = house_rows() + calibration_rows("as-is")
-        result = standard(rows=rows)
-        floor = [s for s in template(result)["SearchSites"] if s["Source"] == "lootFloor"]
-        self.assertEqual(sorted(s["Center"] for s in floor), [[-1.0, 0.0, -1.0], [2.0, 0.0, 3.0]])
-        self.assertEqual(result.manifest["Frame"], "as-is")
+        with self.assertRaisesRegex(tpl.TemplateError, "rot90"):
+            standard(rows=rows)
 
     def test_search_sites_follow_the_contract(self):
         sites = self.template["SearchSites"]
@@ -318,7 +362,7 @@ class ClassRowTests(unittest.TestCase):
         pos = pos_xml([(HOUSE, "1.0 2.0 3.0", "0"), (names["tight"], "100 0 0", "0"),
                        (names["nopoints"], "200 0 0", "0")])
         classes = list(CLASSES) + list(names.values())
-        result = tpl.build([encode(census(rows, classes))], proto, pos)
+        result = tpl.build([encode(census(rows, classes))], proto, pos, types_bytes=TYPES)
         table = class_rows(result)
         self.assertEqual(sorted(table), sorted(classes))
         self.assertEqual(table[names["unmeasured"]]["Rooms"], "unmeasured")
@@ -334,22 +378,35 @@ class ClassRowTests(unittest.TestCase):
         self.assertEqual(table[names["tight"]]["Rooms"], "covered")
         self.assertEqual(table[names["tight"]]["Furniture"], "clearance_failed")
         self.assertEqual(table[names["tight"]]["Search"], "covered")
-        for key in ("unmeasured", "path", "door", "blocked", "low", "capped"):
+        for key in ("unmeasured", "low", "capped"):
             row = table[names[key]]
             self.assertEqual(row["Furniture"], row["Rooms"])
             self.assertEqual(row["Search"], row["Rooms"])
+        # Measured classes whose rooms lack path/door proof are searched at their vanilla CE points only:
+        # a search-only template with no rooms, keep-outs or prop slots, never furniture or infected rooms.
+        for key in ("path", "door", "blocked"):
+            row = table[names[key]]
+            self.assertEqual(row["Furniture"], row["Rooms"])
+            self.assertEqual(row["Search"], "covered")
+            t = template(result, names[key])
+            self.assertEqual((t["Rooms"], t["KeepOuts"], t["PropSlots"]), ([], [], []))
+            self.assertTrue(t["SearchSites"])
+            self.assertTrue(all(site["Room"] == 0 for site in t["SearchSites"]))
+            self.assertTrue(all(inside(t["Box"], {"Min": s["Center"], "Max": s["Center"]}) for s in t["SearchSites"]))
+            self.assertTrue(inside({"Min": [-4, -1, -3], "Max": [4, 5, 3]}, t["Box"]))
+        self.assertEqual(result.summary["search_only_templates"], 3)
+        self.assertFalse(any(r["BuildingClass"] in {names[k] for k in ("path", "door", "blocked")}
+                             for r in furnish_rows(result)))
         covered = {n for n, r in table.items() if "covered" in (r["Rooms"], r["Furniture"], r["Search"])}
-        self.assertEqual(covered, {HOUSE, names["nopos"], names["nopoints"], names["tight"]})
+        self.assertEqual(covered, {HOUSE, names["nopos"], names["nopoints"], names["tight"],
+                                   names["path"], names["door"], names["blocked"]})
         built = sorted(load(result, n)["BuildingClass"] for n in result.files if n.startswith("t-"))
         self.assertEqual(built, sorted(covered))
 
-    def test_a_census_without_a_native_frame_verdict_excludes_measured_classes_as_frame_unverified(self):
+    def test_a_census_without_a_native_frame_verdict_refuses_the_build(self):
         rows = house_rows() + calibration_rows("none")
-        result = standard(rows=rows)
-        row = class_rows(result)[HOUSE]
-        self.assertEqual((row["Rooms"], row["Furniture"], row["Search"]), ("frame_unverified",) * 3)
-        self.assertIsNone(result.manifest["Frame"])
-        self.assertFalse([n for n in result.files if n.startswith("t-")])
+        with self.assertRaisesRegex(tpl.TemplateError, "rot90"):
+            standard(rows=rows)
 
     def test_a_class_with_stock_points_but_no_template_is_counted_as_search_only_possible(self):
         result = standard(classes=CLASSES + ("Land_Other_Farm",))
@@ -374,6 +431,24 @@ class ClassRowTests(unittest.TestCase):
         # Instance count wins the slots: the class with two instances stays covered.
         self.assertEqual(table[names[3]]["Rooms"], "covered")
         self.assertEqual(tpl.MAX_TEMPLATES, 512)
+
+    def test_the_index_byte_budget_marks_the_rest_over_budget(self):
+        # index.json is one pack file under the 32767-byte cap, so its TemplateFiles entries are budgeted.
+        names = ["Land_Many_%03d" % i for i in range(4)]
+        rows = calibration_rows()
+        for name in names:
+            rows += house_rows(name)
+        pos = pos_xml([(n, "%d 0 0" % (i * 50), "0") for i, n in enumerate(names)] + [(names[3], "999 0 0", "0")])
+        proto = proto_xml([group(n, [container("lootFloor", [point("2.0 0.0 3.0")])]) for n in names])
+        entry = len('{"File":"t-0000.json","BuildingClass":"Land_Many_000","Sha256":"%s"},' % ("0" * 64))
+        with mock.patch.object(tpl, "INDEX_TEMPLATE_BYTES", 2 * entry + entry // 2):
+            result = tpl.build([encode(census(rows, list(CALIBRATION) + names))], proto, pos)
+        table = class_rows(result)
+        over = [n for n in names if table[n]["Rooms"] == "over_budget"]
+        self.assertEqual(len(over), 2)
+        self.assertEqual(len([n for n in result.files if n.startswith("t-")]), 2)
+        self.assertEqual(table[names[3]]["Rooms"], "covered")
+        self.assertLessEqual(tpl.INDEX_TEMPLATE_BYTES + 8192, tpl.FILE_CAP + 1)
 
     def test_furnish_budget_exhaustion_marks_a_class_over_budget(self):
         result = standard(max_furnished=0)
@@ -454,12 +529,41 @@ class FurnishTests(unittest.TestCase):
 
 
 class CapTests(unittest.TestCase):
+    def test_empty_furnishing_has_no_chunk(self):
+        result = standard(max_furnished=0)
+        self.assertFalse([n for n in result.files if n.startswith("furnish-")])
+
+    def test_sites_use_only_emitted_group_ids_after_empty_and_over_budget_keys(self):
+        from tools.package import search_context as sc
+        pr = proto_xml([group(HOUSE, [
+            container("loot", [point("0 0 0")], ()),
+            container("loot", [point("0 0 0")], ("absent",)),
+            container("loot", [point("0 0 0")], ("bulk",)),
+            container("lootFactory", [point("0 0 0")]),
+            container("lootFloor", [point("0 0 0")]),
+            container("lootshelves", [point("1 1 1")], ("books",))])])
+        ty = TYPES.replace(b'</types>', b''.join(
+            ('<type name="Bulk%d"><nominal>1</nominal><category name="bulk"/></type>' % i).encode()
+            for i in range(1025)) + b'</types>')
+        result = standard(proto=pr, types_bytes=ty)
+        chunks, _ = sc.build_search_groups(pr, ty)
+        groups = {g["Id"]: g for c in chunks for g in json.loads(c)["Groups"]}
+        sites = template(result)["SearchSites"]
+        self.assertEqual({s["Source"] for s in sites}, {"lootFloor", "lootshelves"})
+        for site in sites:
+            for gid in site["Groups"]:
+                self.assertIn(gid, groups)
+                self.assertEqual(groups[gid]["Container"], site["Source"])
+
+    def test_without_types_no_unverified_search_groups_are_referenced(self):
+        self.assertEqual(template(standard(types_bytes=None))["SearchSites"], [])
+
     def test_rooms_are_capped_at_sixteen_and_anchors_stay_apart(self):
         cells = []
         for island in range(20):
             base = island * 4.0
             cells += grid([base + 0.5, base + 1.5], [0.5, 1.5])
-        rows = [placement(HOUSE, cells, index=i, doors=((-9.0, 1.0, 9.0),), box_min=(0.0, -1.0, 0.0))
+        rows = [placement(HOUSE, cells, index=i, doors=((-9.0, 1.0, 9.0),), box_min=(0.0, -1.0, 0.0), box_max=(80, 5, 3))
                 for i in range(2)] + calibration_rows()
         t = template(standard(rows=rows))
         self.assertEqual(len(t["Rooms"]), 16)
@@ -487,14 +591,15 @@ class CapTests(unittest.TestCase):
 
     def test_prop_slots_are_capped_at_five(self):
         big = [placement(HOUSE, grid([x + 0.5 for x in range(-10, 10)], [z + 0.5 for z in range(-10, 10)]),
-                         index=i, doors=((10.0, 1.0, 0.0),), box_min=(-10.0, -1.0, -10.0)) for i in range(2)]
+                         index=i, doors=((10.0, 1.0, 0.0),), box_min=(-10.0, -1.0, -10.0), box_max=(10, 5, 10)) for i in range(2)]
         self.assertEqual(len(template(standard(rows=big + calibration_rows()))["PropSlots"]), 5)
 
     def test_search_sites_are_capped_at_twenty_four_and_spheres_hold_their_points(self):
         stock = [(x * 20 - 100, z * 20 - 100) for x in range(10) for z in range(10)]
         points = [point("%d 0.5 %d" % (sz, -sx), "0.4", "1.0") for sx, sz in stock]
         proto = proto_xml([group(HOUSE, [container("lootFloor", points)])])
-        result = standard(proto=proto)
+        rows = house_rows(box_min=(-110, -1, -110), box_max=(110, 5, 110)) + calibration_rows()
+        result = standard(proto=proto, rows=rows)
         sites = template(result)["SearchSites"]
         self.assertEqual(len(sites), 24)
         for site in sites:
@@ -508,7 +613,8 @@ class CapTests(unittest.TestCase):
     def test_close_points_merge_and_the_sphere_radius_never_exceeds_eight_metres(self):
         points = [point("%.1f 0.5 0.0" % (i * 1.5), "0.4", "1.0") for i in range(14)]
         proto = proto_xml([group(HOUSE, [container("lootFloor", points)])])
-        sites = template(standard(proto=proto))["SearchSites"]
+        rows = house_rows(box_min=(-4, -1, -3), box_max=(4, 5, 25)) + calibration_rows()
+        sites = template(standard(proto=proto, rows=rows))["SearchSites"]
         self.assertLess(len(sites), 14)
         self.assertTrue(all(s["Radius"] <= 8.0 for s in sites))
         self.assertEqual(sorted(i for s in sites for i in s["Points"]), list(range(14)))
@@ -658,10 +764,12 @@ class CliTests(unittest.TestCase):
         (self.dir / "census.json").write_bytes(encode(census(house_rows() + calibration_rows(), CLASSES)))
         (self.dir / "mapgroupproto.xml").write_bytes(PROTO)
         (self.dir / "mapgrouppos.xml").write_bytes(POS)
+        (self.dir / "types.xml").write_bytes(TYPES)
 
     def run_cli(self, out, *extra):
         argv = ["build", "--census", str(self.dir / "census.json"), "--proto", str(self.dir / "mapgroupproto.xml"),
-                "--pos", str(self.dir / "mapgrouppos.xml"), "--out", str(out)] + list(extra)
+                "--pos", str(self.dir / "mapgrouppos.xml"), "--types", str(self.dir / "types.xml"),
+                "--out", str(out)] + list(extra)
         stdout, stderr = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
             code = tpl.main(argv)
@@ -727,3 +835,71 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CensusAdapterTests(unittest.TestCase):
+    """Synthetic T1-shaped placement config; no runtime observations."""
+
+    def native(self, name=HOUSE, run=RUN):
+        row = placement(name, grid(XS, ZS))
+        row['house'] = {'model': 'synthetic_model', 'door_count': 1,
+                        'doors': [[4.0, 1.0, 0.0]], 'door_selections': [['door1', 4.0, 1.0, 0.0]],
+                        'selection_total': 1}
+        doc = census([row], [], run_id=run)
+        del doc['house_classes']
+        return doc
+
+    def test_real_t1_shape_uses_canonical_house_rows(self):
+        loaded = tpl.load_census(encode(self.native()))
+        self.assertEqual(loaded['classes'], [HOUSE])
+        self.assertEqual(loaded['houses'][0]['model'], 'synthetic_model')
+
+    def test_t1_validation_and_model_frame_bound_are_enforced(self):
+        for change in (lambda r: r['house'].update(door_count=2),
+                       lambda r: r.update(box_max=[513, 5, 3]),
+                       lambda r: r['house'].update(doors=[[0, 0, -513]]),
+                       lambda r: r['house'].update(door_selections=[['door1', 0, 513, 0]]),
+                       lambda r: r.update(hits=[[513, 0, 0, 2, 1, 1]])):
+            doc = self.native()
+            change(doc['placements'][0])
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                tpl.load_census(encode(doc))
+
+    def test_missing_house_is_not_a_synthetic_fallback(self):
+        doc = self.native()
+        del doc['placements'][0]['house']
+        with self.assertRaises(ValueError):
+            tpl.load_census(encode(doc))
+
+    def test_conflicting_class_values_are_refused_within_one_run(self):
+        doc = self.native()
+        other = copy.deepcopy(doc['placements'][0])
+        other['house']['model'] = 'conflicting_model'
+        doc['placements'].append(other)
+        with self.assertRaisesRegex(ValueError, 'conflicting'):
+            tpl.load_census(encode(doc))
+
+    def test_collection_merges_batches_against_full_stock_denominator(self):
+        first = self.native()
+        second = self.native('Land_Second_House', 'b' * 32)
+        proto = proto_xml([HOUSE_GROUP, group('Land_Second_House', []), group('Land_Unmeasured', [])])
+        docs, names = tpl.load_censuses([encode(first), encode(second)], proto)
+        self.assertEqual(names, sorted([HOUSE, 'Land_Second_House', 'Land_Unmeasured']))
+        self.assertEqual(len(docs), 2)
+        empty, same_names = tpl.load_censuses([], proto)
+        self.assertEqual(empty, [])
+        self.assertEqual(names, same_names)
+
+    def test_collection_refuses_conflicting_class_values_across_runs(self):
+        first = self.native()
+        second = self.native(run='b' * 32)
+        second['placements'][0]['box_max'][1] += 1
+        with self.assertRaisesRegex(ValueError, 'conflicting'):
+            tpl.load_censuses([encode(first), encode(second)], PROTO)
+
+    def test_missing_door_phase_evidence_keeps_valid_config_for_pending_measurement(self):
+        for absent in (None, []):
+            doc = self.native()
+            doc['placements'][0]['door_run'] = absent
+            loaded = tpl.load_census(encode(doc))
+            self.assertEqual(loaded['classes'], [HOUSE])

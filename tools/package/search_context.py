@@ -19,12 +19,14 @@ from tools.audit import interior_points  # noqa: E402
 SCHEMA_VERSION = 2
 MAX_CHUNKS = 64
 MAX_CHUNK_BYTES = 32767
+MAX_GROUPS_PER_CHUNK = 512
 MAX_ITEMS_PER_GROUP = 1024           # owner decision: search in every class; matches the runtime cap
 MAX_ITEMS_LIMIT = 1024               # runtime volume class cap; larger is never accepted
 MAX_GROUPS = 9999
 REPORT_NAME = "search-context-report.json"
 ALPHABET = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-:+/=")
 MAX_NAME = 128
+CONTAINERS = ("lootshelves", "loot", "lootFloor", "lootweapons")
 
 
 class SearchContextError(ValueError):
@@ -123,12 +125,31 @@ def _dump(document):
     return json.dumps(document, separators=(",", ":"), ensure_ascii=True, sort_keys=False).encode("ascii")
 
 
+def group_ids(proto_bytes, types_bytes=None, max_items=MAX_ITEMS_PER_GROUP):
+    """Shared IDs for exactly the groups the reader can admit; no types means no sites.
+
+    Number only emitted keys, in sorted order, so templates and search chunks agree even when
+    empty, unsupported or over-budget keys precede a usable key.
+    """
+    if types_bytes is None:
+        return {}
+    types = _read_types(types_bytes)
+    keys = sorted({key for _cls, containers in _read_groups(proto_bytes)
+                   for _name_, key, _points in containers})
+    eligible = [key for key in keys if key[1] in CONTAINERS and key[2]
+                and 1 <= len(_items_for(key, types)) <= max_items]
+    if len(eligible) > MAX_GROUPS:
+        raise SearchContextError(f"more than {MAX_GROUPS} groups")
+    return {key: "g-%04d" % index for index, key in enumerate(eligible)}
+
+
 def _chunk(groups):
     """Pack groups, in order, into chunks whose serialised size stays under MAX_CHUNK_BYTES."""
     chunks, current = [], []
     for group in groups:
         trial = current + [group]
-        if len(_dump({"SchemaVersion": SCHEMA_VERSION, "Chunk": len(chunks), "Groups": trial})) <= MAX_CHUNK_BYTES:
+        if (len(trial) <= MAX_GROUPS_PER_CHUNK
+                and len(_dump({"SchemaVersion": SCHEMA_VERSION, "Chunk": len(chunks), "Groups": trial})) <= MAX_CHUNK_BYTES):
             current = trial
             continue
         if not current:
@@ -157,8 +178,12 @@ def build_search_groups(proto_bytes, types_bytes, max_items=None):
     types = _read_types(types_bytes)
     classes = _read_groups(proto_bytes)
     keys = sorted({key for _cls, containers in classes for _name_, key, _n in containers})
-    emitted, group_ids, empty, over = [], {}, [], []
+    ids = group_ids(proto_bytes, types_bytes, max_items)
+    emitted, empty, over = [], [], []
+    unsupported = sum(cname not in CONTAINERS for _cls, containers in classes for cname, _key, _n in containers)
     for key in keys:
+        if key[1] not in CONTAINERS:
+            continue
         items = _items_for(key, types)
         row = {"Usages": list(key[0]), "Container": key[1], "Categories": list(key[2]), "Tags": list(key[3])}
         if not items:
@@ -168,8 +193,7 @@ def build_search_groups(proto_bytes, types_bytes, max_items=None):
         else:
             if len(emitted) >= MAX_GROUPS:
                 raise SearchContextError(f"more than {MAX_GROUPS} groups")
-            gid = "g-%04d" % len(emitted)
-            group_ids[key] = gid
+            gid = ids[key]
             emitted.append(dict([("Id", gid)] + list(row.items()) + [("Items", items)]))
     chunks = _chunk(emitted)
     class_groups, empty_classes, over_classes = {}, [], []
@@ -177,9 +201,10 @@ def build_search_groups(proto_bytes, types_bytes, max_items=None):
     for cls, containers in sorted(classes):
         rows = []
         for cname, key, points in containers:
-            row = {"Container": cname, "Group": group_ids.get(key), "Points": points}
-            if key not in group_ids:
-                row["Refused"] = "empty" if key in empty_keys else "over_budget"
+            row = {"Container": cname, "Group": ids.get(key), "Points": points}
+            if key not in ids:
+                row["Refused"] = ("unsupported_container" if cname not in CONTAINERS
+                                  else "empty" if key in empty_keys else "over_budget")
             rows.append(row)
         class_groups[cls] = rows
         if any(r.get("Refused") == "empty" for r in rows):
@@ -196,6 +221,7 @@ def build_search_groups(proto_bytes, types_bytes, max_items=None):
                     "Sha256": hashlib.sha256(chunk).hexdigest()} for index, chunk in enumerate(chunks)],
         "MaxItemsPerGroup": max_items,
         "GroupCount": len(emitted),
+        "UnsupportedContainersDropped": unsupported,
         "EmptyGroups": empty,
         "OverBudget": over,
         "EmptyClasses": sorted(empty_classes),
@@ -232,7 +258,8 @@ def main(argv=None):
     except (OSError, ValueError) as error:
         print(f"search_context: refused: {error}", file=sys.stderr)
         return 2
-    print(f"search_context: {report['GroupCount']} groups in {len(chunks)} chunks -> {out}")
+    print(f"search_context: {report['GroupCount']} groups in {len(chunks)} chunks; "
+          f"unsupported_containers_dropped={report['UnsupportedContainersDropped']} -> {out}")
     return 0
 
 

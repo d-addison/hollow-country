@@ -737,17 +737,26 @@ def _preflight_managed(managed, receipt):
         plain_file(managed, path)
 
 
-def install(pack, target, replace=False):
+def install(pack, target, replace=False, *, _templates=False):
     pack = _pack_dir(pack)
-    report = validate(pack)
-    require(not report['errors'], 'pack invalid: ' + (report['errors'][0] if report['errors'] else ''))
+    if _templates:
+        report = templates_validate(pack)
+        manifest = {'files': report['files']}
+        pack_raw = read_plain(pack, 'templates/index.json')
+        epoch = report['index']['PackId']
+        managed_name = TEMPLATE_MANAGED
+    else:
+        report = validate(pack)
+        require(not report['errors'], 'pack invalid: ' + (report['errors'][0] if report['errors'] else ''))
+        manifest = parse((pack / 'pack.json').read_bytes(), 'pack.json', 65536)
+        config = parse((pack / 'interiors.json').read_bytes(), 'interiors.json', 65536)
+        pack_raw, epoch, managed_name = (pack / 'pack.json').read_bytes(), config['Epoch'], MANAGED
     target = _target(target, must_exist=False)
-    manifest = parse((pack / 'pack.json').read_bytes(), 'pack.json', 65536)
-    config = parse((pack / 'interiors.json').read_bytes(), 'interiors.json', 65536)
-    managed = child(target, MANAGED)
+    managed = child(target, managed_name)
     require(not os.path.lexists(managed), 'already installed or interrupted installation; inspect/rollback first')
-    journal = child(target, f'interiors_s1_e{config["Epoch"]}')
-    require(not os.path.lexists(journal), 'an interiors journal already exists for this epoch; a changed pack needs an explicit new epoch')
+    if not _templates:
+        journal = child(target, f'interiors_s1_e{epoch}')
+        require(not os.path.lexists(journal), 'an interiors journal already exists for this epoch; a changed pack needs an explicit new epoch')
     rows, created_dirs, planned = [], [], set()
     if not target.exists():
         created_dirs.append('.')
@@ -778,9 +787,9 @@ def install(pack, target, replace=False):
         rows.append(row)
     if not target.exists():
         target.mkdir()
-    managed.mkdir()
-    receipt = {'schema': 1, 'status': 'intent', 'pack_sha256': sha((pack / 'pack.json').read_bytes()),
-               'epoch': config['Epoch'], 'created_dirs': created_dirs,
+    managed.mkdir(parents=_templates)
+    receipt = {'schema': 1, 'status': 'intent', 'pack_sha256': sha(pack_raw),
+               'epoch': epoch, 'created_dirs': created_dirs,
                'files': [{k: v for k, v in row.items() if not k.startswith('_')} for row in rows]}
     # The intent receipt (it records every original digest) comes first, then the backups; both exist before
     # any profile file changes, so a kill at any point leaves rollback something it can prove. Stop the server first.
@@ -801,7 +810,7 @@ def install(pack, target, replace=False):
     return json.loads(json.dumps(receipt))
 
 
-def _recover_bootstrap(target, managed):
+def _recover_bootstrap(target, managed, *, _templates=False):
     """Clear a managed directory whose install died before its receipt was complete.
 
     The receipt is written before backups and before any profile file changes, so a receipt-less managed
@@ -826,7 +835,9 @@ def _recover_bootstrap(target, managed):
             backups.append(data)
     if backups:
         present = set()
-        for name in ALLOWED:
+        names = ALLOWED if not _templates else {
+            'templates/' + p.name for p in (target / 'templates').iterdir() if _template_name(p.name)}
+        for name in names:
             where = child(target, name)
             if os.path.lexists(where):
                 st = os.lstat(where)
@@ -835,12 +846,15 @@ def _recover_bootstrap(target, managed):
         require(all(data in present for data in backups),
                 'no valid receipt and a backup is not provably an unchanged profile file; manual reconciliation required')
     shutil.rmtree(managed)  # only our fixed directory, preflighted above
+    if _templates and not any((target / 'templates').iterdir()):
+        (target / 'templates').rmdir()
     return RECOVERED_BOOTSTRAP
 
 
-def rollback(target):
+def rollback(target, *, _templates=False):
     target = _target(target)
-    managed = child(target, MANAGED)
+    managed_name = TEMPLATE_MANAGED if _templates else MANAGED
+    managed = child(target, managed_name)
     receipt, have_receipt = None, False  # the flag, never the parsed value: a JSON null is a receipt to refuse
     if os.path.lexists(managed / 'receipt.json'):
         try:
@@ -850,17 +864,27 @@ def rollback(target):
         else:
             receipt, have_receipt = parse(read_plain(managed, 'receipt.json'), 'receipt.json', 262144), True
     if not have_receipt:
-        return _recover_bootstrap(target, managed)
+        return _recover_bootstrap(target, managed, _templates=_templates)
     require(isinstance(receipt, dict) and receipt.get('schema') == 1 and receipt.get('status') in ('intent', 'installed')
             and isinstance(receipt.get('files'), list) and isinstance(receipt.get('created_dirs'), list), 'unsupported receipt')
+    if _templates:
+        require(all(isinstance(row, dict) and isinstance(row.get('path'), str)
+                    and row['path'].startswith('templates/') and _template_name(row['path'][10:])
+                    for row in receipt['files']), 'receipt path outside managed templates')
+        require(all(d in ('.', 'templates') for d in receipt['created_dirs'])
+                and len(receipt['created_dirs']) == len(set(receipt['created_dirs'])), 'unsupported template receipt directories')
+        paths = [row['path'] for row in receipt['files']]
+        require(len(paths) == len(set(paths)), 'duplicate receipt path')
     _preflight_managed(managed, receipt)
-    removable = {MANAGED}
+    removable = {managed_name}
     actions = []
     for index, row in enumerate(receipt['files']):
         require(isinstance(row, dict) and row.get('action') in ('create', 'keep', 'replace') and hash_ok(row.get('sha256')), 'unsupported receipt row')
         dest = child(target, row['path'])
         present = os.path.lexists(dest)
         current = plain_file(target, dest).read_bytes() if present else None
+        if _templates and row['action'] == 'keep':
+            require(current is not None and sha(current) == row['sha256'], 'kept template changed since install')
         if row['action'] == 'create':
             require(current is None or sha(current) == row['sha256'], f'{row["path"]} changed since install; inspect before rollback')
             if present:
@@ -881,7 +905,7 @@ def rollback(target):
     dirs = [d for d in receipt['created_dirs'] if d != '.']
     for rel in dirs:
         removable.add(rel)
-    for rel in [*dirs, *(['.'] if '.' in receipt['created_dirs'] else [])]:
+    for rel in ([] if _templates else [*dirs, *(['.'] if '.' in receipt['created_dirs'] else [])]):
         where = target if rel == '.' else child(target, rel)
         if not where.exists():
             continue
@@ -897,11 +921,476 @@ def rollback(target):
     shutil.rmtree(managed)  # only our fixed directory, preflighted above
     for rel in sorted(dirs, key=lambda r: r.count('/'), reverse=True):
         where = child(target, rel)
-        if where.is_dir():
+        if where.is_dir() and (not _templates or not any(where.iterdir())):
             where.rmdir()
-    if '.' in receipt['created_dirs']:
+    if '.' in receipt['created_dirs'] and (not _templates or not any(target.iterdir())):
         target.rmdir()
     return ROLLED_BACK
+
+
+# ---- class template packs (contract v2; offline admission only) -------------------------------
+
+TEMPLATE_MANAGED = 'templates/' + MANAGED
+TEMPLATE_LISTS = {'ClassFiles': ('classes', 3, 16, 'Rows', 160),
+                  'TemplateFiles': ('t', 4, 512, None, None),
+                  'FurnishFiles': ('furnish', 3, 16, 'Rows', 128),
+                  'GroupFiles': ('search-groups', 3, 64, 'Groups', 512)}
+TEMPLATE_REASONS = set(DISPOSITIONS) | {'covered', 'frame_unverified', 'clearance_failed',
+                                      'no_ce_points', 'not_in_mapgrouppos', 'over_budget'}
+TEMPLATE_SOURCES = {'mapgroupproto', 'mapgrouppos', 'types', 'cfgspawnabletypes',
+                    'cfglimitsdefinition', 'generator', 'search-generator'}
+
+
+def _compact(document):
+    return (json.dumps(document, ensure_ascii=True, separators=(',', ':'), allow_nan=False) + '\n').encode('ascii')
+
+
+def _source_pin(sources):
+    return sha(json.dumps(sources, sort_keys=True, separators=(',', ':'), ensure_ascii=True).encode('ascii'))
+
+
+# Port of HCInteriorTemplatesStrict: exact object shapes, scalar types, array/depth/node
+# budgets and native token limits. Keep these independent of the builder's schema choices.
+_TEMPLATE_KEYS = {
+    'index': 'SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional Sources ClassFiles TemplateFiles FurnishFiles GroupFiles',
+    'file': 'File Sha256', 'template-file': 'File BuildingClass Sha256',
+    'classes': 'SchemaVersion Chunk Rows', 'class-row': 'BuildingClass Rooms Furniture Search',
+    'furnish': 'SchemaVersion Chunk Rows', 'furnish-row': 'Slot BuildingClass Position Yaw Props History',
+    'groups': 'SchemaVersion Chunk Groups', 'group': 'Id Usages Container Categories Tags Items',
+    'template': 'SchemaVersion BuildingClass TemplateId Box Evidence Rooms KeepOuts PropSlots SearchSites',
+    'box': 'Min Max', 'evidence': 'Kind RunId Sha256',
+    'room': 'Id Label Min Max Anchor FloorY Cells', 'keepout': 'Kind Index Min Max',
+    'prop': 'Id Room Type Position Orientation Bounds History',
+    'site': 'Id Room Center Radius Source Points Groups',
+}
+_TEMPLATE_ARRAY_CAPS = {'template-file': 512, 'file': 64, 'class-row': 160, 'furnish-row': 128,
+                        'room': 16, 'keepout': 32, 'prop': 20, 'site': 24, 'number': 3,
+                        'evidence': 512, 'group': 512}
+
+
+def _template_child(schema, key):
+    if schema == 'sources':
+        return 'text'
+    if key in ('SchemaVersion', 'Chunk', 'Index', 'Room', 'Cells', 'Slot') or (key == 'Id' and schema != 'group'):
+        return 'integer'
+    if key == 'Provisional':
+        return 'boolean'
+    children = {'Sources': 'sources', 'ClassFiles': '@file', 'FurnishFiles': '@file', 'GroupFiles': '@file',
+                'TemplateFiles': '@template-file', 'Box': 'box', 'Bounds': 'box', 'Evidence': '@evidence',
+                'KeepOuts': '@keepout', 'PropSlots': '@prop', 'SearchSites': '@site'}
+    if key in children:
+        return children[key]
+    if key == 'Rows':
+        return '@class-row' if schema == 'classes' else '@furnish-row'
+    if key == 'Groups':
+        return '@group' if schema == 'groups' else '@text'
+    if key == 'Rooms' and schema == 'template':
+        return '@room'
+    if key in ('Position', 'Orientation', 'Min', 'Max', 'Anchor', 'Center'):
+        return '@number'
+    if key in ('FloorY', 'Radius', 'Yaw'):
+        return 'number'
+    if key in ('Points', 'Props'):
+        return '@integer'
+    if key in ('Items', 'Categories', 'Tags', 'Usages') or (key == 'History' and schema == 'prop'):
+        return '@text'
+    return 'text'
+
+
+def _template_json(raw, name):
+    require(isinstance(raw, bytes) and raw.isascii(), f'{name}: ASCII JSON required')
+    # JSON decoding loses token spelling, which the native pre-parser bounds before LoadData.
+    text = raw.decode('ascii')
+    for match in re.finditer(r'"(?:[^"\\]|\\.)*"|(?<![A-Za-z0-9_])[-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?', text):
+        word = match.group()
+        if word.startswith('"'):
+            require(all(32 <= ord(ch) <= 126 for ch in word), f'{name}: invalid string token')
+            if text[match.end():].lstrip().startswith(':'):
+                require('\\' not in word, f'{name}: escaped JSON key')
+        else:
+            require(len(word) <= 32, f'{name}: number token exceeds 32 characters')
+    document = parse(raw, name, MEASURED_TEXT_LIMIT)
+    schema = ('index' if name == 'index.json' else 'template' if name.startswith('t-') else
+              'classes' if name.startswith('classes-') else 'furnish' if name.startswith('furnish-') else 'groups')
+    nodes = 0
+    def check(value, kind, depth=0):
+        nonlocal nodes
+        nodes += 1
+        require(depth <= 12 and nodes <= 16384, f'{name}: JSON depth/node cap exceeded')
+        if kind == 'text':
+            require(isinstance(value, str), f'{name}: expected text')
+        elif kind == 'boolean':
+            require(type(value) is bool, f'{name}: expected boolean')
+        elif kind == 'integer':
+            require(type(value) is int and -2147483647 <= value <= 2147483647,
+                    f'{name}: expected bounded integer token')
+        elif kind == 'number':
+            require(_is_number(value) and math.isfinite(value), f'{name}: expected finite number')
+            try:
+                value = f32(value)
+            except (OverflowError, ValueError):
+                raise ValueError(f'{name}: number exceeds native float range')
+            require(math.isfinite(value), f'{name}: nonfinite native float')
+        elif kind.startswith('@'):
+            child_kind = kind[1:]
+            require(isinstance(value, list) and len(value) <= _TEMPLATE_ARRAY_CAPS.get(child_kind, 8192),
+                    f'{name}: invalid {kind} array')
+            return [check(v, child_kind, depth + 1) for v in value]
+        else:
+            if kind == 'sources':
+                require(isinstance(value, dict) and 8 <= len(value) <= 520, f'{name}: invalid sources')
+                require(all(k in TEMPLATE_SOURCES or re.fullmatch('census-[0-9a-f]{32}', k) for k in value),
+                        f'{name}: invalid source key')
+            else:
+                exact_keys(value, _TEMPLATE_KEYS[kind].split(), name + ':' + kind)
+            return {k: check(v, _template_child(kind, k), depth + 1) for k, v in value.items()}
+        return value
+    return check(document, schema)
+
+
+def _template_text(value):
+    return isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9_.:+/=-]{1,128}', value) is not None
+
+
+def _template_texts(values, minimum, maximum, name):
+    require(isinstance(values, list) and minimum <= len(values) <= maximum
+            and all(_template_text(v) for v in values) and len(set(values)) == len(values),
+            name + ': invalid text list')
+
+
+def _template_box(box, name):
+    exact_keys(box, ('Min', 'Max'), name)
+    vec(box['Min'], 512, name, exact=False)
+    vec(box['Max'], 512, name, exact=False)
+    require(all(a < b for a, b in zip(box['Min'], box['Max'])), name + ': inverted box')
+
+
+def _template_inside(point, box):
+    return all(box['Min'][i] <= point[i] <= box['Max'][i] for i in range(3))
+
+
+def _template_contains(outer, inner):
+    return _template_inside(inner['Min'], outer) and _template_inside(inner['Max'], outer)
+
+
+def _template_intersects(a, b, margin=0):
+    # Reader includes touching faces; doors additionally require 0.6 m Euclidean floor clearance.
+    vertical = a['Max'][1] >= b['Min'][1] and a['Min'][1] <= b['Max'][1]
+    if margin:
+        gaps = [max(0, b['Min'][i] - a['Max'][i], a['Min'][i] - b['Max'][i]) for i in (0, 2)]
+        return vertical and sum(g * g for g in gaps) < margin * margin
+    return vertical and all(a['Max'][i] >= b['Min'][i] and a['Min'][i] <= b['Max'][i] for i in (0, 2))
+
+
+def _validate_template_geometry(template, class_row, sources, groups):
+    from tools.package.interior_templates import PROP_TYPES
+
+    require(_template_text(template['TemplateId']), 'invalid TemplateId')
+    box = template['Box']
+    _template_box(box, 'template Box')
+    evidence = template['Evidence']
+    require(1 <= len(evidence) <= 512, 'invalid Evidence count')
+    runs = set()
+    for row in evidence:
+        run = row['RunId']
+        require(row['Kind'] == 'native-room-survey-v1' and re.fullmatch('[0-9a-f]{32}', run)
+                and hash_ok(row['Sha256']) and sources.get('census-' + run) == row['Sha256']
+                and run not in runs, 'invalid Evidence or census pin mismatch')
+        runs.add(run)
+    rooms, anchors = {}, []
+    # Mirrors the reader: a search-only template (rooms and furniture not covered) may carry no rooms.
+    search_only = class_row['Rooms'] != 'covered' and class_row['Furniture'] != 'covered'
+    require(len(template['Rooms']) <= 16 and (search_only or template['Rooms']), 'invalid Rooms count')
+    for row in template['Rooms']:
+        room_box = {k: row[k] for k in ('Min', 'Max')}
+        _template_box(room_box, 'room Box')
+        vec(row['Anchor'], 512, 'room Anchor', exact=False)
+        require(row['Id'] >= 1 and row['Id'] not in rooms and _template_text(row['Label'])
+                and _template_contains(box, room_box) and _template_inside(row['Anchor'], room_box)
+                and row['Min'][1] <= row['FloorY'] <= row['Max'][1] and row['Cells'] >= 1,
+                'invalid room identity, containment, anchor or floor')
+        require(all(math.dist(row['Anchor'], a) >= 1 for a in anchors), 'room anchors closer than 1 m')
+        rooms[row['Id']] = row
+        anchors.append(row['Anchor'])
+    keep_keys = set()
+    require(len(template['KeepOuts']) <= 32, 'KeepOuts cap exceeded')
+    for row in template['KeepOuts']:
+        inner = {k: row[k] for k in ('Min', 'Max')}
+        _template_box(inner, 'keepout Box')
+        key = (row['Kind'], row['Index'])
+        require(row['Kind'] in ('door', 'stair', 'ce-point') and row['Index'] >= 0 and key not in keep_keys
+                and _template_contains(box, inner), 'invalid keepout identity or containment')
+        keep_keys.add(key)
+    props = set()
+    require(len(template['PropSlots']) <= 5 and (class_row['Furniture'] != 'covered' or template['PropSlots']),
+            'invalid PropSlots count')
+    for row in template['PropSlots']:
+        bounds = row['Bounds']
+        _template_box(bounds, 'prop Bounds')
+        vec(row['Position'], 512, 'prop Position', exact=False)
+        vec(row['Orientation'], 360, 'prop Orientation', exact=False)
+        require(row['Id'] >= 1 and row['Id'] not in props and row['Type'] in PROP_TYPES
+                and row['Room'] in rooms and _template_contains(rooms[row['Room']], bounds)
+                and _template_contains(box, bounds) and _template_inside(row['Position'], bounds)
+                and row['Orientation'][1:] == [0, 0], 'invalid prop identity, type, pose or containment')
+        require(not any(_template_intersects(bounds, k, 0.6 if k['Kind'] == 'door' else 0)
+                        for k in template['KeepOuts']), 'prop intersects keepout or door margin')
+        _template_texts(row['History'], 1, 2, 'prop History')
+        require(all(h in ('family', 'ransacked') for h in row['History']), 'invalid prop history')
+        props.add(row['Id'])
+    sites = set()
+    require(len(template['SearchSites']) <= 24 and (class_row['Search'] != 'covered' or template['SearchSites']),
+            'invalid SearchSites count')
+    for row in template['SearchSites']:
+        vec(row['Center'], 512, 'site Center', exact=False)
+        require(row['Id'] >= 1 and row['Id'] not in sites and (row['Room'] in rooms or (row['Room'] == 0 and not rooms))
+                and _template_inside(row['Center'], box) and 0.25 <= row['Radius'] <= 8,
+                'invalid site identity, room, radius or Box containment')
+        _template_texts(row['Groups'], 1, 8, 'site Groups')
+        require(row['Source'] in ('lootshelves', 'loot', 'lootFloor', 'lootweapons')
+                and all(g in groups and groups[g]['Container'] == row['Source'] for g in row['Groups']),
+                'site group missing or container mismatch')
+        points = row['Points']
+        require(1 <= len(points) <= 8192 and all(p >= 0 for p in points) and len(set(points)) == len(points),
+                'invalid site Points')
+        sites.add(row['Id'])
+
+
+def _template_name(name):
+    return isinstance(name, str) and (name == 'index.json' or any(
+        re.fullmatch(prefix + r'-[0-9]{' + str(width) + r'}\.json', name)
+        for prefix, width, *_rest in TEMPLATE_LISTS.values()))
+
+
+def _template_tree(pack):
+    pack = _pack_dir(pack)
+    child(pack, 'templates')
+    directory = pack / 'templates'
+    require(directory.is_dir(), 'missing templates directory')
+    files = {}
+    for path in directory.iterdir():
+        require(_template_name(path.name), f'unexpected templates member: {path.name}')
+        plain_file(pack, path)
+        require(path.stat().st_size <= MEASURED_TEXT_LIMIT, f'{path.name}: size outside limits')
+        files[path.name] = path.read_bytes()
+    return files
+
+
+def _validate_templates(files):
+    from tools.package.search_context import CONTAINERS
+
+    require(len(files) <= 610 and sum(map(len, files.values())) <= 20 * 1024 * 1024, 'template pack exceeds total cap')
+    docs = {name: _template_json(raw, name) for name, raw in files.items()}
+    index = docs.get('index.json')
+    exact_keys(index, 'SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional Sources ClassFiles TemplateFiles FurnishFiles GroupFiles'.split(), 'index')
+    require(type(index['SchemaVersion']) is int and index['SchemaVersion'] == 2
+            and index['Kind'] == 'hc-interior-templates' and index['WorldName'] == WORLD
+            and index['Build'] in EVIDENCE_BUILDS, 'unsupported templates identity')
+    require(isinstance(index['PackId'], str) and re.fullmatch('[0-9a-f]{32}', index['PackId']), 'invalid PackId')
+    require(index['Provisional'] is True, 'Provisional must be true; runtime acceptance pending')
+    require(index['Frame'] == 'rot90', 'runtime templates require census frame rot90')
+    sources = index['Sources']
+    require(isinstance(sources, dict) and 8 <= len(sources) <= 520 and TEMPLATE_SOURCES <= set(sources)
+            and all(isinstance(k, str) and (k in TEMPLATE_SOURCES
+                    or re.fullmatch('census-[0-9a-f]{32}', k)) and hash_ok(v) for k, v in sources.items()),
+            'missing or invalid source pins')
+    require(hash_ok(index['SourcePin']) and index['SourcePin'] == _source_pin(sources), 'SourcePin mismatch')
+    listed, classes, templates, furnishing, groups = {'index.json'}, {}, {}, [], {}
+    for field, (prefix, width, cap, row_key, row_cap) in TEMPLATE_LISTS.items():
+        entries = index[field]
+        require(isinstance(entries, list) and len(entries) <= cap, f'{field}: chunk cap exceeded')
+        if field == 'ClassFiles':
+            require(entries, 'ClassFiles must contain the denominator')
+        for number, entry in enumerate(entries):
+            exact_keys(entry, ('File', 'BuildingClass', 'Sha256') if field == 'TemplateFiles' else ('File', 'Sha256'), field)
+            name = f'{prefix}-{number:0{width}d}.json'
+            require(entry['File'] == name and name in docs and name not in listed, f'{field}: names must be contiguous from zero')
+            require(hash_ok(entry['Sha256']) and sha(files[name]) == entry['Sha256'], f'{name}: Sha256 mismatch')
+            listed.add(name)
+            document = docs[name]
+            require(isinstance(document, dict) and type(document.get('SchemaVersion')) is int
+                    and document['SchemaVersion'] == 2, f'{name}: invalid schema')
+            if row_key is None:
+                cls = document.get('BuildingClass')
+                require(_template_text(cls) and cls == entry['BuildingClass'] and cls not in templates, f'{name}: BuildingClass mismatch or duplicate')
+                require(index['Frame'] is not None, 'templates require a verified frame')
+                templates[cls] = document
+                continue
+            exact_keys(document, ('SchemaVersion', 'Chunk', row_key), name)
+            require(type(document['Chunk']) is int and document['Chunk'] == number, f'{name}: Chunk mismatch')
+            rows = document[row_key]
+            require(isinstance(rows, list) and 1 <= len(rows) <= row_cap, f'{name}: row count outside 1..{row_cap}')
+            for row in rows:
+                require(isinstance(row, dict), f'{name}: row must be an object')
+                if field == 'ClassFiles':
+                    exact_keys(row, ('BuildingClass', 'Rooms', 'Furniture', 'Search'), name)
+                    cls = row['BuildingClass']
+                    require(_template_text(cls) and cls not in classes, 'duplicate or invalid denominator class')
+                    require(all(row[f] in TEMPLATE_REASONS for f in ('Rooms', 'Furniture', 'Search')), 'invalid disposition')
+                    classes[cls] = row
+                elif field == 'FurnishFiles':
+                    exact_keys(row, ('Slot', 'BuildingClass', 'Position', 'Yaw', 'Props', 'History'), name)
+                    furnishing.append(row)
+                else:
+                    exact_keys(row, ('Id', 'Usages', 'Container', 'Categories', 'Tags', 'Items'), name)
+                    require(_template_text(row['Id']) and row['Id'] not in groups, 'duplicate or invalid group id')
+                    require(len(groups) < 32768, 'group total cap exceeded')
+                    for key, low, high in (('Usages', 0, 8192), ('Categories', 1, 8192),
+                                           ('Tags', 0, 8192), ('Items', 1, 1024)):
+                        _template_texts(row[key], low, high, 'group ' + key)
+                    require(row['Container'] in CONTAINERS, 'invalid group container')
+                    groups[row['Id']] = row
+    require(set(files) == listed, 'unlisted or unexpected template files')
+    require(1 <= len(classes) <= 2048, 'House denominator outside 1..2048')
+    covered = {cls for cls, row in classes.items() if 'covered' in (row['Rooms'], row['Furniture'], row['Search'])}
+    require(covered == set(templates), 'covered classes must have exactly one template')
+    for template in templates.values():
+        _validate_template_geometry(template, classes[template['BuildingClass']], sources, groups)
+    slots, instances, total = set(), set(), 0
+    for row in furnishing:
+        slot, cls, props = row['Slot'], row['BuildingClass'], row['Props']
+        require(type(slot) is int and 0 <= slot < 1500 and slot not in slots, 'duplicate or invalid furnish Slot')
+        slots.add(slot)
+        require(cls in templates and classes[cls]['Furniture'] == 'covered', 'furnish class is not covered')
+        require(isinstance(props, list) and 1 <= len(props) <= 5 and all(type(p) is int for p in props)
+                and len(set(props)) == len(props), 'invalid Props')
+        vec(row['Position'], 20000, 'furnish Position', exact=False)
+        require(_is_number(row['Yaw']) and math.isfinite(row['Yaw']) and abs(row['Yaw']) <= 360, 'invalid furnish Yaw')
+        pose = (cls, tuple(quantize(v) for v in row['Position']))
+        require(pose not in instances, 'duplicate furnished instance')
+        instances.add(pose)
+        prop_slots = {p['Id']: p for p in templates[cls].get('PropSlots', [])}
+        require(row['History'] in ('family', 'ransacked') and all(p in prop_slots and row['History'] in prop_slots[p]['History'] for p in props), 'Props/History do not match template')
+        total += len(props)
+    require(total <= 1500, 'total furnished props exceeds 1500')
+    return {'index': index, 'files': {'templates/' + n: sha(raw) for n, raw in sorted(files.items())},
+            'summary': {'classes': len(classes), 'templates': len(templates), 'groups': len(groups),
+                        'furnish_rows': len(furnishing), 'furnish_props': total,
+                        **{field.lower(): {'covered': sum(r[field] == 'covered' for r in classes.values()),
+                            'excluded': {reason: sum(r[field] == reason for r in classes.values())
+                                         for reason in sorted(TEMPLATE_REASONS - {'covered'})
+                                         if any(r[field] == reason for r in classes.values())}}
+                           for field in ('Rooms', 'Furniture', 'Search')}}}
+
+
+def templates_build(censuses, proto, pos, types_bytes=None):
+    """Validate batch configs, emitting only House classes actually observed in those runs.
+
+    Stock-only classes stay traceable in the manifest; runtime callers treat absent rows as
+    uncovered. A zero-run staging build has no runtime rows and cannot be assembled.
+    """
+    from tools.package import interior_templates as tpl
+
+    docs, names = tpl.load_censuses(censuses, proto)
+    tpl.parse_pos(pos)
+    if docs:
+        return tpl.build(censuses, proto, pos, types_bytes=types_bytes)
+    sources = {'mapgroupproto': sha(proto), 'mapgrouppos': sha(pos), 'generator': sha(Path(tpl.__file__).read_bytes())}
+    parameters = {'reach_source': 'strict', 'min_agreement': tpl.DEFAULT_MIN_AGREEMENT,
+                  'max_furnished': tpl.MAX_FURNISHED}
+    excluded = [{'BuildingClass': name, 'Reason': 'not_observed_as_house'} for name in names]
+    manifest = {'SchemaVersion': 2, 'Kind': 'hc-interior-templates-build',
+                'PackId': sha(_compact({'Sources': sources, 'Parameters': parameters}))[:32],
+                'Frame': None, 'Provisional': True, 'Sources': sources, 'Parameters': parameters,
+                'ExcludedProtoClasses': excluded, 'Files': []}
+    summary = {'classes': 0, 'templates': 0, 'frame': None, 'excluded_proto_classes': excluded,
+               'furnish_rows': 0, 'furnish_props': 0, 'chunks': {'classes': 0, 'furnish': 0},
+               'search_only_possible': 0, 'search_points_dropped': 0,
+               'keepouts_dropped_outside_model': 0, 'sites_dropped_outside_model': 0,
+               'unsupported_containers_dropped': sum(c['name'] not in tpl.SOURCES
+                    for g in tpl.parse_proto(proto).values() for c in g['containers'])}
+    for field in ('rooms', 'furniture', 'search'):
+        summary[field] = {'covered': 0, 'excluded': {}}
+    return tpl.Build({}, summary, manifest)
+
+
+def templates_validate(pack):
+    """Raise on refusal; successful offline validation leaves native acceptance pending."""
+    return _validate_templates(_template_tree(pack))
+
+
+def _read_template_input(directory, name, limit=FILE_LIMIT):
+    directory = _pack_dir(directory)
+    path = plain_file(directory, child(directory, name))
+    require(path.stat().st_size <= limit, f'{name}: input exceeds size bound')
+    return path.read_bytes()
+
+
+def templates_assemble(build, out, search_groups=None, stock=None):
+    """Copy pinned chunks byte for byte and create the contract index, then validate before writing."""
+    manifest = parse(_read_template_input(build, 'build-manifest.json'), 'build-manifest.json')
+    require(manifest.get('SchemaVersion') == 2 and manifest.get('Kind') == 'hc-interior-templates-build'
+            and manifest.get('Provisional') is True, 'unsupported T2 build manifest')
+    sources, files = dict(manifest['Sources']), {}
+    require(manifest.get('Frame') == 'rot90', 'runtime templates require census frame rot90')
+    entries = {key: [] for key in TEMPLATE_LISTS}
+    def ingest(rows, directory, group=False):
+        require(isinstance(rows, list), 'chunk list must be a list')
+        for entry in rows:
+            name = entry['File']
+            require(_template_name(name) and name != 'index.json' and name not in files, 'invalid or duplicate build chunk name')
+            field = next((key for key, spec in TEMPLATE_LISTS.items() if re.fullmatch(
+                spec[0] + r'-[0-9]{' + str(spec[1]) + r'}\.json', name)), None)
+            require((field == 'GroupFiles') == group, 'unexpected chunk kind in build/report')
+            data = _read_template_input(directory, name, MEASURED_TEXT_LIMIT)
+            require(sha(data) == entry['Sha256'] and len(data) == entry['Bytes'], f'{name}: build/report pin mismatch')
+            row = {'File': name, 'Sha256': sha(data)}
+            if field == 'TemplateFiles':
+                row['BuildingClass'] = _template_json(data, name)['BuildingClass']
+            entries[field].append(row)
+            files[name] = data
+    ingest(manifest['Files'], build)
+    expected = set(files) | {'build-manifest.json'}
+    require({p.name for p in Path(build).iterdir()} == expected, 'unexpected T2 build files')
+    if search_groups is not None:
+        report = parse(_read_template_input(search_groups, 'search-context-report.json', 16 * 1024 * 1024), 'search report', 16 * 1024 * 1024)
+        require(report.get('SchemaVersion') == 2 and report.get('Kind') == 'hc-search-context-report', 'unsupported search report')
+        require(type(report.get('MaxItemsPerGroup')) is int and report['MaxItemsPerGroup'] == 1024,
+                'search report MaxItemsPerGroup must be exactly 1024 to match template group IDs')
+        for name, digest in report['Sources'].items():
+            require(name not in sources or sources[name] == digest, f'conflicting source pin: {name}')
+            sources[name] = digest
+        ingest(report['Chunks'], search_groups, True)
+        expected = {r['File'] for r in report['Chunks']} | {'search-context-report.json'}
+        require({p.name for p in Path(search_groups).iterdir()} == expected, 'unexpected search build files')
+        require('search-generator' in sources, 'missing search-generator source pin')
+    if stock is not None:
+        stock = _pack_dir(stock)
+        for name, relative in (('mapgroupproto', 'mapgroupproto.xml'), ('mapgrouppos', 'mapgrouppos.xml'),
+                               ('types', 'db/types.xml'), ('cfgspawnabletypes', 'cfgspawnabletypes.xml'),
+                               ('cfglimitsdefinition', 'cfglimitsdefinition.xml')):
+            digest = sha(_read_template_input(stock, relative, 16 * 1024 * 1024))
+            require(name not in sources or sources[name] == digest, f'conflicting stock source pin: {name}')
+            sources[name] = digest
+    for rows in entries.values():
+        rows.sort(key=lambda row: row['File'])
+    index = {'SchemaVersion': 2, 'Kind': 'hc-interior-templates', 'WorldName': WORLD, 'Build': BUILD,
+             'PackId': manifest['PackId'], 'SourcePin': _source_pin(sources), 'Frame': manifest['Frame'],
+             'Provisional': True, 'Sources': dict(sorted(sources.items())), **entries}
+    # Groups and additional stock pins change pack identity, preserving epoch stability across restarts.
+    index['PackId'] = sha(_compact({'BuildPackId': manifest['PackId'], 'Sources': dict(sorted(sources.items())),
+                                  'Files': {n: sha(raw) for n, raw in sorted(files.items())}}))[:32]
+    files['index.json'] = _compact(index)
+    report = _validate_templates(files)
+    out = Path(out).absolute()
+    child(out.parent, out.name)
+    require(out != ROOT and ROOT not in out.parents, 'real output must be outside the checkout')
+    require(not out.exists() or (out.is_dir() and not any(out.iterdir())), 'output directory must be new or empty')
+    out.mkdir(parents=True, exist_ok=True)
+    (out / 'templates').mkdir()
+    for name, data in files.items():
+        fresh_write(out, 'templates/' + name, data)
+    return report
+
+
+def templates_install(pack, target, replace=False, server_stopped=False):
+    require(server_stopped is True, 'stop server and destination writers; --server-stopped acknowledgement required')
+    return install(pack, target, replace, _templates=True)
+
+
+def templates_rollback(target, server_stopped=False):
+    require(server_stopped is True, 'stop server and destination writers; --server-stopped acknowledgement required')
+    return rollback(target, _templates=True)
 
 
 # ---- command line -------------------------------------------------------------------------------------
@@ -943,8 +1432,55 @@ def main(argv=None):
     p.add_argument('--replace', action='store_true', help='allow replacing a different existing file (backed up)')
     p = sub.add_parser('rollback', help='restore the exact prior profile bytes')
     p.add_argument('--target', type=Path, required=True)
+    p = sub.add_parser('templates', help='assemble, validate and manage the additive class template pack')
+    commands = p.add_subparsers(dest='templates_command', required=True)
+    entry = commands.add_parser('build', help='build observed House rows and audit excluded stock classes; census is optional')
+    entry.add_argument('--census', type=Path, action='append', default=[])
+    entry.add_argument('--proto', type=Path, required=True)
+    entry.add_argument('--pos', type=Path, required=True)
+    entry.add_argument('--types', type=Path, help='stock types.xml; required to emit search sites')
+    entry.add_argument('--out', type=Path, required=True)
+    entry = commands.add_parser('assemble')
+    entry.add_argument('--build', type=Path, required=True)
+    entry.add_argument('--search-groups', type=Path)
+    entry.add_argument('--stock', type=Path, help='stock mission root to complete XML source pins')
+    entry.add_argument('--out', type=Path, required=True)
+    entry = commands.add_parser('validate')
+    entry.add_argument('directory', type=Path)
+    entry = commands.add_parser('install')
+    entry.add_argument('--pack', type=Path, required=True)
+    entry.add_argument('--target', type=Path, required=True)
+    entry.add_argument('--replace', action='store_true')
+    entry.add_argument('--server-stopped', action='store_true')
+    entry = commands.add_parser('rollback')
+    entry.add_argument('--target', type=Path, required=True)
+    entry.add_argument('--server-stopped', action='store_true')
     args = parser.parse_args(argv)
     try:
+        if args.command == 'templates':
+            if args.templates_command == 'build':
+                from tools.package import interior_templates as tpl
+                out = tpl._output_dir(args.out)
+                built = templates_build([tpl._read(p, tpl.pts.MAX_CENSUS_BYTES) for p in args.census],
+                                        tpl._read(args.proto, tpl.pts.MAX_STOCK_BYTES),
+                                        tpl._read(args.pos, tpl.pts.MAX_STOCK_BYTES),
+                                        tpl._read(args.types, tpl.pts.MAX_STOCK_BYTES) if args.types else None)
+                tpl._write(out, built)
+                print('\n'.join(tpl.summary_lines(built.summary, built.manifest['PackId'])))
+            elif args.templates_command == 'assemble':
+                report = templates_assemble(args.build, args.out, args.search_groups, args.stock)
+                print(json.dumps(report['summary'], sort_keys=True))
+            elif args.templates_command == 'validate':
+                report = templates_validate(args.directory)
+                print(json.dumps(report['summary'], sort_keys=True))
+            elif args.templates_command == 'install':
+                receipt = templates_install(args.pack, args.target, args.replace, args.server_stopped)
+                print(f'installed {len(receipt["files"])} templates files; runtime acceptance pending.')
+            else:
+                result = templates_rollback(args.target, args.server_stopped)
+                print(f'templates {result}; prior profile bytes preserved/restored.')
+            print('Offline checks only; native acceptance pending.')
+            return
         if args.command == 'validate':
             report = validate(args.pack)
             for error in report['errors']:

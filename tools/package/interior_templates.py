@@ -1,13 +1,14 @@
 """Offline builder for the class-level interior template pack (docs/INTERIOR_TEMPLATES_CONTRACT.md, T2).
 
     python3 tools/package/interior_templates.py build --census census.json [--census more.json] \
-        --proto mapgroupproto.xml --pos mapgrouppos.xml --out <empty dir outside the checkout>
+        --proto mapgroupproto.xml --pos mapgrouppos.xml [--types types.xml] --out <empty dir outside the checkout>
 
 Inputs are the native interior sampler census (one or more runs; each carries ``native_run_id`` and
 ``house_classes``, the House denominator) plus the stock ``mapgroupproto.xml`` and ``mapgrouppos.xml``,
 which are passed as paths and never committed. Output is ``classes-NNN.json`` (one row per House
 class), ``t-NNNN.json`` (one template per covered class, model frame), ``furnish-NNN.json`` (instances,
 at most 1,500 props) and ``build-manifest.json`` (pins for the assembler; the game never reads it).
+Search sites require ``types.xml`` so their group IDs bind only to emitted search groups.
 
 Everything is provisional room evidence: the census is sampled geometry, the prop boxes are
 conservative guesses and the stock frame comes from the sampler's native verdict. Nothing here shows
@@ -25,10 +26,12 @@ import sys
 try:
     from tools.audit import interior_points as pts
     from tools.package import interior_catalog
+    from tools.package.search_context import CONTAINERS, group_ids
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.audit import interior_points as pts
     from tools.package import interior_catalog
+    from tools.package.search_context import CONTAINERS, group_ids
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_VERSION = 2
@@ -37,13 +40,16 @@ MANIFEST_NAME = "build-manifest.json"
 FILE_CAP = 32767
 MAX_CLASSES = 2048
 MAX_TEMPLATES = 512
+# index.json is itself a pack file under FILE_CAP; its TemplateFiles entries get this share and the rest
+# (header, Sources, class, furnish and search-group file lists) keeps the remaining 8191 bytes.
+INDEX_TEMPLATE_BYTES = 24576
 CLASS_ROWS, CLASS_CHUNKS = 160, 16
 FURNISH_ROWS, FURNISH_CHUNKS = 128, 16
 MAX_FURNISHED = 1500
 MAX_ROOMS, MAX_KEEPOUTS, MAX_SLOTS, MAX_SITES = 16, 32, 5, 24
 SITE_RADIUS_MIN, SITE_RADIUS_MAX = 0.25, 8.0
 SITE_RADIUS_STEPS = (2.0, 3.0, 4.0, 6.0, 8.0)
-SOURCES = ("lootshelves", "loot", "lootFloor", "lootweapons")
+SOURCES = CONTAINERS
 MODEL_LIMIT = 512.0
 MIN_ROOM_CELLS = 4
 ANCHOR_SPACING = 1.0
@@ -118,15 +124,48 @@ def _class_name(value):
     return isinstance(value, str) and CLASS_NAME.fullmatch(value) is not None
 
 
+def _house_signature(row):
+    return {key: value for key, value in row.items() if key != "native_run_id"}
+
+
+def _check_house_conflicts(rows, seen):
+    for row in rows:
+        name = row["class"]
+        value = _house_signature(row)
+        if name in seen and seen[name] != value:
+            raise TemplateError("conflicting House config values for " + name)
+        seen[name] = value
+
+
 def load_census(data):
-    """Validated census plus its run id, hash and House denominator."""
+    """Validate real T1 placement House objects; legacy fixtures remain explicitly synthetic."""
+    from tools.setup.interior_sampler import house_rows
+
     document = pts.parse_census(data)
     run = document.get("native_run_id")
     if not isinstance(run, str) or not RUN_ID.fullmatch(run):
         raise TemplateError("census native_run_id must be 32 lowercase hex characters")
-    listed = document.get("house_classes")
-    if not isinstance(listed, list) or not listed:
-        raise TemplateError("census house_classes must be a non-empty list (the House config census)")
+    synthetic = document.get("Synthetic") is True and "house_classes" in document
+    houses = [] if synthetic else house_rows(document)
+    _check_house_conflicts(houses, {})
+    for row in houses:
+        vectors = [row["box_min"], row["box_max"]]
+        vectors += [d["position"] for d in row["doors"] + row["door_selections"]]
+        if (not _within_model(vectors)
+                or any(a >= b for a, b in zip(row["box_min"], row["box_max"]))):
+            raise TemplateError("House model-frame box/doors outside ±512 m or inverted")
+    for row in document["placements"]:
+        if row.get("found") is True:
+            vectors = [row[k] for k in ("box_min", "box_max") if k in row]
+            vectors += [hit[:3] for hit in row["hits"]]
+            door_run = row.get("door_run")
+            if isinstance(door_run, dict):
+                vectors += [door[:3] for door in door_run.get("doors", [])]
+            if not _within_model(vectors):
+                raise TemplateError("census model-frame coordinates outside ±512 m")
+    listed = document["house_classes"] if synthetic else sorted({row["class"] for row in houses})
+    if not isinstance(listed, list) or (synthetic and not listed):
+        raise TemplateError("census house_classes must be a non-empty list (synthetic fixture only)")
     names = []
     for item in listed:
         name = item.get("class") if isinstance(item, dict) else item
@@ -135,15 +174,26 @@ def load_census(data):
         names.append(name)
     if len(set(names)) != len(names):
         raise TemplateError("house_classes lists a class twice")
-    outside = sorted({row["class"] for row in document["placements"]} - set(names))
-    if outside:
-        raise TemplateError("census placements name classes outside house_classes: " + ", ".join(outside[:5]))
-    # PackId uses the canonical content hash, so row order and whitespace never change a PackId; the
-    # manifest and evidence still carry the plain file hash an operator can recompute.
+    if synthetic and {row["class"] for row in document["placements"]} - set(names):
+        raise TemplateError("census placements name classes outside house_classes")
     canonical = dict(document, house_classes=sorted(names),
                      placements=sorted(json.dumps(row, sort_keys=True) for row in document["placements"]))
-    return {"doc": document, "run": run, "classes": names, "sha": sha256(data),
+    return {"doc": document, "run": run, "classes": names, "houses": houses, "sha": sha256(data),
             "canon": sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode("ascii"))}
+
+
+def load_censuses(censuses, proto):
+    """Batch adapter: canonical House configs must agree; stock remains the audit denominator."""
+    docs = sorted((load_census(data) for data in censuses), key=lambda d: d["run"])
+    if len({d["run"] for d in docs}) != len(docs):
+        raise TemplateError("two censuses share one native_run_id")
+    seen = {}
+    for document in docs:
+        _check_house_conflicts(document["houses"], seen)
+    names = sorted(parse_proto(proto))
+    if not 1 <= len(names) <= MAX_CLASSES or not all(_class_name(n) for n in names):
+        raise TemplateError("stock House denominator outside supported bounds")
+    return docs, names
 
 
 def _number(text):
@@ -206,17 +256,6 @@ def parse_pos(xml):
         if len(rows) > MAX_POS_ROWS:
             raise TemplateError("mapgrouppos has too many rows")
     return rows
-
-
-def group_ids(proto):
-    """g-NNNN per distinct (class usages, container name, categories, tags), numbered in sorted key order."""
-    keys = set()
-    for entry in proto.values():
-        for item in entry["containers"]:
-            keys.add((tuple(entry["usages"]), item["name"], tuple(item["categories"]), tuple(item["tags"])))
-    if len(keys) > 9999:
-        raise TemplateError("too many distinct search groups")
-    return {key: "g-%04d" % index for index, key in enumerate(sorted(keys))}
 
 
 # ----------------------------------------------------------------------------------------------
@@ -299,7 +338,10 @@ def _measure(docs, name, frame, reach_source, min_agreement):
     for row in valid:
         for door in row["door_run"]["doors"]:
             doors.setdefault(tuple(round(v * 4) for v in door[:3]), tuple(door[:3]))
-    return None, {"run": item, "result": result, "cells": chosen, "doors": [doors[k] for k in sorted(doors)]}
+    return None, {"run": item, "result": result, "cells": chosen, "doors": [doors[k] for k in sorted(doors)],
+                   # Inward millimetre rounding keeps emitted bounds inside every observed model box.
+                   "model": {"Min": [math.ceil(max(r["box_min"][i] for r in valid) * 1000) / 1000 for i in range(3)],
+                             "Max": [math.floor(min(r["box_max"][i] for r in valid) * 1000) / 1000 for i in range(3)]}}
 
 
 def _lattice(candidates, step):
@@ -408,24 +450,29 @@ def _merge_keepouts(boxes):
     return boxes
 
 
-def _keepouts(measurement, rooms, step, box, stock_points, frame):
-    boxes = []
-    for door in measurement["doors"]:
-        raw = _box([v - DOOR_SWING for v in door], [v + DOOR_SWING for v in door])
-        low = [max(raw["Min"][i], box["Min"][i]) for i in range(3)]
-        high = [min(raw["Max"][i], box["Max"][i]) for i in range(3)]
-        if all(low[i] + 0.01 < high[i] for i in range(3)):
-            boxes.append({"Kind": "door", **_box(low, high)})
-    for stair in _stair_boxes(measurement, step):
-        if _overlap(stair, box):
-            boxes.append({"Kind": "stair", **stair})
+def _clip(box, model):
+    low = [max(box["Min"][i], model["Min"][i]) for i in range(3)]
+    high = [min(box["Max"][i], model["Max"][i]) for i in range(3)]
+    return _box(low, high) if all(low[i] < high[i] for i in range(3)) else None
+
+
+def _keepouts(measurement, rooms, step, model, stock_points, frame):
+    boxes = [{"Kind": "door", **_box([v - DOOR_SWING for v in door],
+                                     [v + DOOR_SWING for v in door])} for door in measurement["doors"]]
+    boxes += [{"Kind": "stair", **b} for b in _stair_boxes(measurement, step)]
     for x, y, z, rng, height in stock_points:
         sx, sy, sz = pts.stock_to_sampler((x, y, z), frame)
         rng, height = max(rng, 0.05), max(height, 0.05)
-        point = _box((sx - rng, sy, sz - rng), (sx + rng, sy + height, sz + rng))
-        if _overlap(point, box):
-            boxes.append({"Kind": "ce-point", **point})
-    merged = _merge_keepouts(boxes)
+        boxes.append({"Kind": "ce-point", **_box((sx - rng, sy, sz - rng),
+                                                  (sx + rng, sy + height, sz + rng))})
+    clipped, dropped = [], 0
+    for box in boxes:
+        bounded = _clip(box, model)
+        if bounded is None:
+            dropped += 1
+        else:
+            clipped.append({"Kind": box["Kind"], **bounded})
+    merged = _merge_keepouts(clipped)
     order = {"door": 0, "stair": 1, "ce-point": 2}
     merged.sort(key=lambda b: (order[b["Kind"]], b["Min"], b["Max"]))
     counters, rows = {}, []
@@ -433,7 +480,7 @@ def _keepouts(measurement, rooms, step, box, stock_points, frame):
         index = counters.get(item["Kind"], 0)
         counters[item["Kind"]] = index + 1
         rows.append({"Kind": item["Kind"], "Index": index, "Min": item["Min"], "Max": item["Max"]})
-    return rows
+    return rows, dropped
 
 
 def _connected(members, removed, neighbours):
@@ -473,9 +520,11 @@ def _place(kind, room, lattice, step, keepouts, taken):
             blocked = False
             for keep in keepouts:
                 if keep["Kind"] == "door":
-                    blocked = blocked or _overlap(bounds, keep, DOOR_FLOOR_MARGIN, (0, 2))
+                    blocked = blocked or _overlap(bounds, keep, DOOR_FLOOR_MARGIN + EPS, (0, 2))
                 else:
-                    blocked = blocked or _overlap(bounds, keep)
+                    # The reader rejects touching faces as well as positive-volume intersections.
+                    blocked = blocked or all(bounds["Max"][i] >= keep["Min"][i]
+                                              and bounds["Min"][i] <= keep["Max"][i] for i in range(3))
             if blocked or any(_overlap(bounds, other["Bounds"], SLOT_GAP) for other in taken["slots"]):
                 continue
             removed = taken["cells"].get(room["id"], set()) | footprint
@@ -485,6 +534,10 @@ def _place(kind, room, lattice, step, keepouts, taken):
             return {"Room": room["id"], "Type": kind, "Position": _vec((cx, cell["y"], cz)),
                     "Orientation": [yaw, 0, 0], "Bounds": bounds, "History": list(PROP_TYPES[kind]["History"])}
     return None
+
+
+def _point_inside(box, point):
+    return all(box["Min"][i] <= point[i] <= box["Max"][i] for i in range(3))
 
 
 def _inside(outer, inner):
@@ -536,16 +589,16 @@ def _cluster(members, limit):
         del clusters[j]
 
 
-def _sites(group, ids, frame, rooms):
+def _sites(group, ids, frame, rooms, model):
     """(sites, supported point count, dropped point count)."""
     by_source = {name: [] for name in SOURCES}
     for item in group["containers"]:
         if item["name"] not in by_source:
             continue
-        gid = ids[(tuple(group["usages"]), item["name"], tuple(item["categories"]), tuple(item["tags"]))]
+        gid = ids.get((tuple(group["usages"]), item["name"], tuple(item["categories"]), tuple(item["tags"])))
         for x, y, z, rng, _height in item["points"]:
             members = by_source[item["name"]]
-            if rng > SITE_RADIUS_MAX:
+            if gid is None or rng > SITE_RADIUS_MAX:
                 members.append(None)
                 continue
             members.append((len(members), pts.stock_to_sampler((x, y, z), frame), rng, gid))
@@ -559,17 +612,19 @@ def _sites(group, ids, frame, rooms):
                 found.append((order, name, sorted(members, key=lambda m: m[0])))
         if len(found) <= MAX_SITES:
             break
-    found = [f for f in found if _within_model([_sphere(f[2])[0]])]
+    bounded = [f for f in found if _point_inside(model, _vec(_sphere(f[2])[0]))]
+    outside = len(found) - len(bounded)
+    found = bounded
     found.sort(key=lambda f: (-len(f[2]), f[0], f[2][0][0]))
     found = sorted(found[:MAX_SITES], key=lambda f: (f[0], f[2][0][0]))
     sites = []
     for order, name, members in found:
         center, radius = _sphere(members)
         center = _vec(center)
-        sites.append({"Id": len(sites) + 1, "Room": _nearest_room(rooms, center), "Center": center,
+        sites.append({"Id": len(sites) + 1, "Room": _nearest_room(rooms, center) if rooms else 0, "Center": center,
                       "Radius": radius, "Source": name, "Points": [m[0] for m in members],
                       "Groups": sorted({m[3] for m in members})})
-    return sites, supported, supported - sum(len(s["Points"]) for s in sites)
+    return sites, supported, supported - sum(len(s["Points"]) for s in sites), outside
 
 
 def _nearest_room(rooms, point):
@@ -587,15 +642,26 @@ def _template(name, measurement, group, ids, frame):
     rooms, lattice, step = _build_rooms(measurement)
     if not rooms:
         return "unsupported_geometry", None
-    box = _union([r["box"] for r in rooms])
-    if not _within_model([box["Min"], box["Max"]]):
+    model = measurement["model"]
+    bounded = []
+    for room in rooms:
+        clipped = _clip(room["box"], model)
+        if clipped and _point_inside(clipped, room["anchor"]) and clipped["Min"][1] <= room["floor"] <= clipped["Max"][1]:
+            room["box"] = clipped
+            room["id"] = len(bounded) + 1
+            bounded.append(room)
+    rooms = bounded
+    if not rooms:
         return "unsupported_geometry", None
     stock = [p for item in (group["containers"] if group else []) for p in item["points"]]
-    keepouts = _keepouts(measurement, rooms, step, box, stock, frame)
+    keepouts, keeps_dropped = _keepouts(measurement, rooms, step, model, stock, frame)
     slots = _slots(rooms, lattice, step, keepouts)
-    sites, supported, dropped = ([], 0, 0)
+    sites, supported, dropped, sites_dropped = ([], 0, 0, 0)
     if group:
-        sites, supported, dropped = _sites(group, ids, frame, rooms)
+        sites, supported, dropped, sites_dropped = _sites(group, ids, frame, rooms, model)
+    # Box is an admission envelope only; runtime search spheres/room anchors remain authoritative.
+    box = _union([r["box"] for r in rooms] + keepouts +
+                 [{"Min": s["Center"], "Max": s["Center"]} for s in sites])
     evidence = [{"Kind": EVIDENCE_KIND, "RunId": measurement["run"]["run"], "Sha256": measurement["run"]["sha"]}]
     document = {"SchemaVersion": SCHEMA_VERSION, "BuildingClass": name, "TemplateId": name.lower() + "-v1",
                 "Box": box, "Evidence": evidence,
@@ -604,7 +670,48 @@ def _template(name, measurement, group, ids, frame):
                 "KeepOuts": keepouts, "PropSlots": slots, "SearchSites": sites}
     if len(_dump(document)) > FILE_CAP:
         raise TemplateError("template for %s exceeds %d bytes" % (name, FILE_CAP))
-    return None, {"document": document, "supported": supported, "dropped": dropped}
+    return None, {"document": document, "supported": supported, "dropped": dropped,
+                  "keepouts_dropped_outside_model": keeps_dropped, "sites_dropped_outside_model": sites_dropped}
+
+
+# Rooms not yet proven by path/door evidence; the house geometry itself was measured.
+SEARCH_ONLY_REASONS = ("path_pending", "door_pending", "not_enterable")
+
+
+def _model_box(docs, name):
+    """(run item, model bounds) from the census rows with usable geometry, or (None, None)."""
+    best = None
+    for item in docs:
+        usable = [row for row in item["doc"]["placements"] if row["class"] == name and pts._usable(row)]
+        if usable and (best is None or len(usable) > len(best[1])):
+            best = (item, usable)
+    if best is None:
+        return None, None
+    item, rows = best
+    return item, {"Min": [math.ceil(max(r["box_min"][i] for r in rows) * 1000) / 1000 for i in range(3)],
+                  "Max": [math.floor(min(r["box_max"][i] for r in rows) * 1000) / 1000 for i in range(3)]}
+
+
+def _search_template(name, docs, group, ids, frame):
+    """A search-only template: sites at the class's vanilla CE container points, no rooms, keep-outs or props."""
+    item, model = _model_box(docs, name)
+    if item is None or not group or any(model["Min"][i] >= model["Max"][i] for i in range(3)):
+        return None
+    sites, supported, dropped, sites_dropped = _sites(group, ids, frame, [], model)
+    if not sites:
+        return None
+    # Admission envelope: the site spheres, clipped to the census model box (which holds every centre).
+    box = _clip(_union([{"Min": [c - s["Radius"] for c in s["Center"]], "Max": [c + s["Radius"] for c in s["Center"]]}
+                        for s in sites]), model)
+    if not box:
+        return None
+    document = {"SchemaVersion": SCHEMA_VERSION, "BuildingClass": name, "TemplateId": name.lower() + "-search-v1",
+                "Box": box, "Evidence": [{"Kind": EVIDENCE_KIND, "RunId": item["run"], "Sha256": item["sha"]}],
+                "Rooms": [], "KeepOuts": [], "PropSlots": [], "SearchSites": sites}
+    if len(_dump(document)) > FILE_CAP:
+        raise TemplateError("template for %s exceeds %d bytes" % (name, FILE_CAP))
+    return {"document": document, "supported": supported, "dropped": dropped, "search_only": True,
+            "keepouts_dropped_outside_model": 0, "sites_dropped_outside_model": sites_dropped}
 
 
 def _instances(rows):
@@ -655,7 +762,7 @@ def _chunks(prefix, rows, per_chunk, max_chunks, label):
             current = [row]
         else:
             current = trial
-    if current or not chunks:
+    if current:
         chunks.append(current)
     if len(chunks) > max_chunks:
         raise TemplateError("%s need %d chunks; the limit is %d" % (label, len(chunks), max_chunks))
@@ -671,17 +778,17 @@ def _count(values):
 
 
 def build(censuses, proto, pos, reach_source="strict", min_agreement=DEFAULT_MIN_AGREEMENT,
-          max_furnished=MAX_FURNISHED):
+          max_furnished=MAX_FURNISHED, types_bytes=None):
     """Template pack files (name -> bytes), a summary and the manifest. Raises TemplateError on any refusal."""
     try:
-        return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished)
+        return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished, types_bytes)
     except TemplateError:
         raise
     except ValueError as error:
         raise TemplateError(str(error)) from error
 
 
-def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished):
+def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished, types_bytes):
     if reach_source not in pts.REACH_SOURCES:
         raise TemplateError("reach_source must be one of " + ", ".join(pts.REACH_SOURCES))
     if (not isinstance(min_agreement, (int, float)) or isinstance(min_agreement, bool)
@@ -698,12 +805,24 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     if len(names) > MAX_CLASSES:
         raise TemplateError("%d House classes exceed the limit of %d" % (len(names), MAX_CLASSES))
     proto, rows = parse_proto(proto_bytes), parse_pos(pos_bytes)
-    ids = group_ids(proto)
+    ids = group_ids(proto_bytes, types_bytes)
     merged = {"placements": [row for d in docs for row in d["doc"]["placements"]]}
-    frame = pts.frame_verdict(merged)["verdict"]
+    frame_evidence = pts.frame_verdict(merged)
+    deciding = {name: row["verdict"] for name, row in frame_evidence["classes"].items()
+                if row["verdict"] is not None}
+    verdicts = set(deciding.values())
+    frame = next(iter(verdicts)) if len(verdicts) == 1 else None
+    frame_evidence.update(verdict=frame, deciding_classes=sorted(deciding),
+                          ignored_classes=sorted(set(frame_evidence["classes"]) - set(deciding)),
+                          reason=("" if frame else "contradictory or no discriminating calibration classes"))
+    if frame != "rot90":
+        raise TemplateError("runtime templates require census frame rot90; got %r" % frame)
     instances = _instances(rows)
     generator = sha256(Path(__file__).read_bytes())
     sources = {"mapgroupproto": sha256(proto_bytes), "mapgrouppos": sha256(pos_bytes), "generator": generator}
+    if types_bytes is not None:
+        from tools.package import search_context
+        sources.update({"types": sha256(types_bytes), "search-generator": search_context.generator_sha256()})
     for d in docs:
         sources["census-" + d["run"]] = d["sha"]
     parameters = {"reach_source": reach_source, "min_agreement": min_agreement, "max_furnished": max_furnished}
@@ -719,15 +838,29 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
             reason, built = _template(name, measurement, group, ids, frame)
             if reason is None:
                 templates[name] = built
+        if reason in SEARCH_ONLY_REASONS and points:
+            built = _search_template(name, docs, group, ids, frame)
+            if built is not None:
+                templates[name] = built
+                reasons[name] = reason
+                continue
         if reason is not None:
             reasons[name] = reason
             if frame is not None and points:
                 search_only += 1
-    ranked = sorted(templates, key=lambda n: (-len(instances.get(n, ())), n))
-    for name in ranked[MAX_TEMPLATES:]:
+    # Templates with rooms rank first, then by placed instances; slots end at the count or index byte cap.
+    ranked = sorted(templates, key=lambda n: (bool(templates[n].get("search_only")),
+                                              -len(instances.get(n, ())), n))
+    kept, used = 0, 0
+    for name in ranked:
+        cost = len('{"File":"t-0000.json","BuildingClass":%s,"Sha256":"%s"},' % (json.dumps(name), "0" * 64))
+        if kept >= MAX_TEMPLATES or used + cost > INDEX_TEMPLATE_BYTES:
+            break
+        kept, used = kept + 1, used + cost
+    over = set(ranked[kept:])
+    for name in over:
         del templates[name]
         reasons[name] = "over_budget"
-    over = set(ranked[MAX_TEMPLATES:])
 
     furnish, total = _furnish(templates, instances, proto, pack_id, max_furnished)
     furnished = {row["BuildingClass"] for row in furnish}
@@ -743,7 +876,12 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
                 furniture = "over_budget"
             else:
                 furniture = "covered"
-            search = "covered" if entry["SearchSites"] else "no_ce_points"
+            search = ("covered" if entry["SearchSites"] else
+                      "over_budget" if templates[name]["supported"] else "no_ce_points")
+            if templates[name].get("search_only"):
+                table.append({"BuildingClass": name, "Rooms": reasons[name], "Furniture": reasons[name],
+                              "Search": search})
+                continue
             table.append({"BuildingClass": name, "Rooms": "covered", "Furniture": furniture, "Search": search})
         else:
             reason = reasons[name]
@@ -759,9 +897,16 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     for index, name in enumerate(sorted(templates)):
         files["t-%04d.json" % index] = _dump(templates[name]["document"])
     files.update(_chunks("furnish", furnish, FURNISH_ROWS, FURNISH_CHUNKS, "furnish rows"))
-    summary = {"classes": len(names), "templates": len(templates), "frame": frame,
+    excluded = [{"BuildingClass": n, "Reason": "not_observed_as_house"} for n in sorted(set(proto) - set(names))]
+    summary = {"excluded_proto_classes": excluded,
+               "keepouts_dropped_outside_model": sum(t["keepouts_dropped_outside_model"] for t in templates.values()),
+               "sites_dropped_outside_model": sum(t["sites_dropped_outside_model"] for t in templates.values()),
+               "classes": len(names), "templates": len(templates), "frame": frame,
                "furnish_rows": len(furnish), "furnish_props": total, "search_only_possible": search_only,
+               "search_only_templates": sum(1 for t in templates.values() if t.get("search_only")),
                "search_points_dropped": sum(t["dropped"] for t in templates.values()),
+               "unsupported_containers_dropped": sum(c["name"] not in SOURCES
+                    for g in proto.values() for c in g["containers"]),
                "chunks": {"classes": len([n for n in files if n.startswith("classes-")]),
                           "furnish": len([n for n in files if n.startswith("furnish-")])}}
     for field in FIELDS:
@@ -769,7 +914,8 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         summary[field.lower()] = {"covered": values.count("covered"),
                                   "excluded": _count([v for v in values if v != "covered"])}
     manifest = {"SchemaVersion": SCHEMA_VERSION, "Kind": "hc-interior-templates-build", "PackId": pack_id,
-                "Frame": frame, "Provisional": True, "Sources": dict(sorted(sources.items())),
+                "Frame": frame, "FrameVerdict": frame_evidence, "ExcludedProtoClasses": excluded,
+                "Provisional": True, "Sources": dict(sorted(sources.items())),
                 "Parameters": parameters,
                 "Files": [{"File": n, "Sha256": sha256(files[n]), "Bytes": len(files[n])} for n in sorted(files)]}
     return Build(files, summary, manifest)
@@ -786,6 +932,12 @@ def summary_lines(summary, pack_id):
                                                         summary["chunks"]["furnish"]))
     lines.append("search_only_possible=%d search_points_dropped=%d"
                  % (summary["search_only_possible"], summary["search_points_dropped"]))
+    lines.append("excluded_proto_classes=%d keepouts_dropped_outside_model=%d sites_dropped_outside_model=%d"
+                 % (len(summary.get("excluded_proto_classes", [])), summary.get("keepouts_dropped_outside_model", 0),
+                    summary.get("sites_dropped_outside_model", 0)))
+    for row in summary.get("excluded_proto_classes", []):
+        lines.append("excluded proto %s: %s" % (row["BuildingClass"], row["Reason"]))
+    lines.append("unsupported_containers_dropped=%d" % summary["unsupported_containers_dropped"])
     return lines
 
 
@@ -835,6 +987,7 @@ def main(argv=None):
     build_parser.add_argument("--census", action="append", required=True, help="sampler census (repeat per run)")
     build_parser.add_argument("--proto", required=True, help="stock mapgroupproto.xml")
     build_parser.add_argument("--pos", required=True, help="stock mapgrouppos.xml")
+    build_parser.add_argument("--types", help="stock types.xml; required to emit search sites")
     build_parser.add_argument("--out", required=True, help="empty (or new) output directory outside the checkout")
     build_parser.add_argument("--reach-source", choices=pts.REACH_SOURCES, default="strict")
     build_parser.add_argument("--min-agreement", type=float, default=DEFAULT_MIN_AGREEMENT)
@@ -845,7 +998,8 @@ def main(argv=None):
         censuses = [_read(path, pts.MAX_CENSUS_BYTES) for path in args.census]
         result = build(censuses, _read(args.proto, pts.MAX_STOCK_BYTES), _read(args.pos, pts.MAX_STOCK_BYTES),
                        reach_source=args.reach_source, min_agreement=args.min_agreement,
-                       max_furnished=args.max_furnished)
+                       max_furnished=args.max_furnished,
+                       types_bytes=_read(args.types, pts.MAX_STOCK_BYTES) if args.types else None)
         _write(out, result)
     except TemplateError as error:
         print("refused: %s" % error, file=sys.stderr)

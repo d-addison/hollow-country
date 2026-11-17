@@ -777,3 +777,600 @@ class CommandLineTests(TempCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TemplatesPackTests(TempCase):
+    """Explicit SYNTHETIC build/report inputs, never native evidence."""
+
+    def build_input(self, **kwargs):
+        from tests.unit.test_interior_templates import standard
+        built = standard(types_bytes=None, **kwargs)
+        source = self.root / 't2'
+        source.mkdir()
+        for name, data in built.files.items():
+            (source / name).write_bytes(data)
+        manifest = copy.deepcopy(built.manifest)
+        for name in ('types', 'cfgspawnabletypes', 'cfglimitsdefinition'):
+            manifest['Sources'][name] = sha(('synthetic-' + name).encode())
+        manifest['Sources']['search-generator'] = sha(b'synthetic-search')
+        (source / 'build-manifest.json').write_text(json.dumps(manifest))
+        return source
+
+    def assemble(self, search=None):
+        source = self.build_input()
+        out = self.root / 'assembled'
+        ip.templates_assemble(source, out, search)
+        return out
+
+    def repin(self, pack, name, document):
+        path = pack / 'templates' / name
+        path.write_bytes(json.dumps(document, separators=(',', ':')).encode('ascii'))
+        index_path = pack / 'templates/index.json'
+        index = json.loads(index_path.read_bytes())
+        for field in ('ClassFiles', 'TemplateFiles', 'FurnishFiles', 'GroupFiles'):
+            for row in index[field]:
+                if row['File'] == name:
+                    row['Sha256'] = sha(path.read_bytes())
+        index_path.write_bytes(json.dumps(index).encode('ascii'))
+
+    def site_pack(self):
+        pack = self.assemble()
+        name = 'search-groups-000.json'
+        raw = ip._compact({'SchemaVersion': 2, 'Chunk': 0, 'Groups': [
+            {'Id': 'g-test', 'Usages': [], 'Container': 'loot', 'Categories': ['tools'],
+             'Tags': [], 'Items': ['Hammer']}]})
+        (pack / 'templates' / name).write_bytes(raw)
+        index_path = pack / 'templates/index.json'
+        index = json.loads(index_path.read_bytes())
+        index['GroupFiles'] = [{'File': name, 'Sha256': sha(raw)}]
+        index_path.write_bytes(ip._compact(index))
+        t = json.loads((pack / 'templates/t-0000.json').read_bytes())
+        t['SearchSites'] = [{'Id': 1, 'Room': 1, 'Center': [0, 1, 0], 'Radius': 1,
+                             'Source': 'loot', 'Points': [0], 'Groups': ['g-test']}]
+        self.repin(pack, 't-0000.json', t)
+        ip.templates_validate(pack)
+        return pack
+
+    def test_templates_validate_cli_refuses_site_center_outside_box(self):
+        import contextlib
+        import io
+        pack = self.site_pack()
+        t = json.loads((pack / 'templates/t-0000.json').read_bytes())
+        t['SearchSites'][0]['Center'][0] = t['Box']['Max'][0] + 1
+        self.repin(pack, 't-0000.json', t)
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as refused:
+            ip.main(['templates', 'validate', str(pack)])
+        self.assertEqual(refused.exception.code, 1)
+        with self.assertRaises(ValueError):
+            ip.templates_install(pack, self.root / 'refused-install', server_stopped=True)
+        self.assertFalse((self.root / 'refused-install').exists())
+
+    def test_reader_template_rules_are_enforced_even_when_file_hashes_match(self):
+        pack = self.site_pack()
+        original = json.loads((pack / 'templates/t-0000.json').read_bytes())
+        changes = {
+            'unknown field': lambda t: t.update(Extra=1),
+            'template id': lambda t: t.update(TemplateId='bad text'),
+            'evidence pin': lambda t: t['Evidence'][0].update(Sha256='b' * 64),
+            'duplicate evidence': lambda t: t['Evidence'].append(copy.deepcopy(t['Evidence'][0])),
+            'room containment': lambda t: t['Rooms'][0]['Min'].__setitem__(0, -500),
+            'room anchor': lambda t: t['Rooms'][0].update(Anchor=[500, 0, 0]),
+            'floor': lambda t: t['Rooms'][0].update(FloorY=500),
+            'cells': lambda t: t['Rooms'][0].update(Cells=0),
+            'integer token': lambda t: t['Rooms'][0].update(Id=1.0),
+            'integer overflow': lambda t: t['Rooms'][0].update(Cells=2147483648),
+            'anchors spacing': lambda t: t['Rooms'].append(dict(t['Rooms'][0], Id=2)),
+            'keepout containment': lambda t: t['KeepOuts'][0]['Min'].__setitem__(0, -500),
+            'keepout identity': lambda t: t['KeepOuts'].append(copy.deepcopy(t['KeepOuts'][0])),
+            'prop type': lambda t: t['PropSlots'][0].update(Type='Unknown'),
+            'prop orientation': lambda t: t['PropSlots'][0].update(Orientation=[0, 1, 0]),
+            'prop position': lambda t: t['PropSlots'][0].update(Position=[500, 0, 0]),
+            'prop keepout': lambda t: t['KeepOuts'].append(dict(t['PropSlots'][0]['Bounds'], Kind='door', Index=999)),
+            'history': lambda t: t['PropSlots'][0].update(History=['family', 'family']),
+            'site room': lambda t: t['SearchSites'][0].update(Room=999),
+            'site radius': lambda t: t['SearchSites'][0].update(Radius=8.1),
+            'site points': lambda t: t['SearchSites'][0].update(Points=[0, 0]),
+            'site id': lambda t: t['SearchSites'][0].update(Id=0),
+        }
+        for label, change in changes.items():
+            t = copy.deepcopy(original)
+            change(t)
+            self.repin(pack, 't-0000.json', t)
+            with self.subTest(rule=label), self.assertRaises(ValueError):
+                ip.templates_validate(pack)
+
+    def test_assemble_requires_exact_search_group_item_cap(self):
+        from tools.package import search_context as sc
+        from tests.unit import test_interior_templates as f
+        source = self.build_input()
+        search = self.root / 'search'
+        chunks, report = sc.build_search_groups(f.PROTO, f.TYPES)
+        # Pins are explicit synthetic inputs shared with build_input.
+        manifest = json.loads((source / 'build-manifest.json').read_bytes())
+        report['Sources'] = {k: manifest['Sources'][k] for k in report['Sources']}
+        for value in (None, 128, 1024.0, True):
+            report['MaxItemsPerGroup'] = value
+            if search.exists():
+                shutil.rmtree(search)
+            sc.write_pack(search, chunks, report)
+            with self.subTest(cap=value), self.assertRaisesRegex(ValueError, 'MaxItemsPerGroup'):
+                ip.templates_assemble(source, self.root / 'refused', search)
+        self.assertFalse((self.root / 'refused').exists())
+
+    def test_interrupted_bootstrap_removes_empty_templates_directory(self):
+        pack = self.assemble()
+        target = self.root / 'HollowCountry'
+        target.mkdir()
+        with mock.patch.object(ip, 'fresh_write', side_effect=OSError('interrupted receipt')):
+            with self.assertRaises(OSError):
+                ip.templates_install(pack, target, server_stopped=True)
+        self.assertEqual(ip.templates_rollback(target, server_stopped=True), ip.RECOVERED_BOOTSTRAP)
+        self.assertFalse((target / 'templates').exists())
+
+    def test_runtime_rows_exclude_proto_classes_without_house_observations(self):
+        from tests.unit import test_interior_templates as f
+        raw = f.encode(f.census(f.house_rows() + f.calibration_rows(), f.CLASSES))
+        built = ip.templates_build([raw], f.PROTO, f.POS, f.TYPES)
+        rows = [r for n, data in built.files.items() if n.startswith('classes-')
+                for r in json.loads(data)['Rows']]
+        self.assertEqual({r['BuildingClass'] for r in rows}, set(f.CLASSES))
+        expected = [{'BuildingClass': 'Land_Other_Farm', 'Reason': 'not_observed_as_house'}]
+        self.assertEqual(built.manifest['ExcludedProtoClasses'], expected)
+        self.assertEqual(built.summary['excluded_proto_classes'], expected)
+
+    def test_furnish_duplicates_use_native_float32_quantization(self):
+        pack = self.assemble()
+        name = 'furnish-000.json'
+        doc = json.loads((pack / 'templates' / name).read_bytes())
+        row = doc['Rows'][0]
+        doc['Rows'] = [dict(row, Slot=0, Position=[10000.0049, 100, 100], Yaw=0),
+                       dict(row, Slot=1, Position=[10000.006, 100, 100], Yaw=90)]
+        self.repin(pack, name, doc)
+        with self.assertRaisesRegex(ValueError, 'duplicate furnished instance'):
+            ip.templates_validate(pack)
+
+    def test_strict_reader_tokens_refuse_before_semantic_validation(self):
+        from tests.unit.test_interior_templates import standard
+        raw = standard().files['t-0000.json']
+        changes = [raw.replace(b'"Id":1', b'"Id":1.0', 1),
+                   raw.replace(b'"Id":1', b'"Id":-2147483648', 1),
+                   raw.replace(b'"FloorY":0.0', b'"FloorY":0e0000000000000000000000000000000000', 1),
+                   raw.replace(b'"Cells"', b'"\\u0043ells"', 1)]
+        for changed in changes:
+            self.assertNotEqual(changed, raw)
+            with self.subTest(raw=changed[:60]), self.assertRaises(ValueError):
+                ip._template_json(changed, 't-0000.json')
+
+    def test_assemble_pins_exact_contract_index_and_copies_bytes(self):
+        pack = self.assemble()
+        index = ip.templates_validate(pack)['index']
+        self.assertEqual(set(index), set('SchemaVersion Kind WorldName Build PackId SourcePin Frame Provisional Sources ClassFiles TemplateFiles FurnishFiles GroupFiles'.split()))
+        self.assertEqual(index['SchemaVersion'], 2)
+        self.assertEqual(index['WorldName'], 'chernarusplus')
+        self.assertIs(index['Provisional'], True)
+        self.assertEqual(index['SourcePin'], sha(json.dumps(index['Sources'], sort_keys=True, separators=(',', ':')).encode('ascii')))
+        for row in index['TemplateFiles']:
+            self.assertEqual(row['BuildingClass'], json.loads((pack / 'templates' / row['File']).read_bytes())['BuildingClass'])
+        for path in (self.root / 't2').glob('*.json'):
+            if path.name != 'build-manifest.json':
+                self.assertEqual(path.read_bytes(), (pack / 'templates' / path.name).read_bytes())
+
+    def test_empty_optional_chunks_have_no_index_bindings_or_files(self):
+        from tests.unit import test_interior_templates as f
+        from tests.unit import test_interior_templates_runtime as runtime
+        source = self.build_input(max_furnished=0)
+        pack = self.root / 'empty-optionals'
+        ip.templates_assemble(source, pack)
+        docs = {p.name: json.loads(p.read_bytes()) for p in (pack / 'templates').iterdir()}
+        self.assertEqual(docs['index.json']['FurnishFiles'], [])
+        self.assertEqual(docs['index.json']['GroupFiles'], [])
+        self.assertFalse(any(n.startswith(('furnish-', 'search-groups-')) for n in docs))
+        env, _, _, logs, _, _ = runtime.fixture(docs)
+        env['EngineHouse'] = lambda cls: cls in f.CLASSES
+        env['HCInteriorCatalog'].SearchType = lambda typ: typ in f.tpl.PROP_TYPES
+        env['EnsureLoaded'](None)
+        self.assertTrue(env['Loaded'](), logs)
+
+    def test_search_report_and_chunk_pins_are_merged_and_source_conflicts_refuse(self):
+        search = self.root / 't5'
+        search.mkdir()
+        chunk = json.dumps({'SchemaVersion': 2, 'Chunk': 0, 'Groups': [
+            {'Id': 'g-0000', 'Usages': ['Town'], 'Container': 'loot',
+             'Categories': ['tools'], 'Tags': [], 'Items': ['Hammer']}]}).encode('ascii')
+        (search / 'search-groups-000.json').write_bytes(chunk)
+        source = self.build_input()
+        manifest = json.loads((source / 'build-manifest.json').read_bytes())
+        report = {'SchemaVersion': 2, 'Kind': 'hc-search-context-report', 'MaxItemsPerGroup': 1024,
+                  'Sources': {'mapgroupproto': manifest['Sources']['mapgroupproto'],
+                              'types': manifest['Sources']['types'], 'search-generator': sha(b'synthetic-search')},
+                  'Chunks': [{'File': 'search-groups-000.json', 'Bytes': len(chunk), 'Sha256': sha(chunk)}]}
+        (search / 'search-context-report.json').write_text(json.dumps(report))
+        out = self.root / 'assembled'
+        ip.templates_assemble(source, out, search)
+        self.assertEqual(ip.templates_validate(out)['index']['GroupFiles'][0]['Sha256'], sha(chunk))
+        report['Sources']['mapgroupproto'] = sha(b'conflict')
+        (search / 'search-context-report.json').write_text(json.dumps(report))
+        with self.assertRaisesRegex(ValueError, 'source'):
+            ip.templates_assemble(source, self.root / 'refused', search)
+        self.assertFalse((self.root / 'refused').exists())
+
+    def test_unknown_names_gaps_pins_provisional_and_class_binding_refuse(self):
+        pack = self.assemble()
+        before = snapshot(pack)
+        def restore():
+            shutil.rmtree(pack)
+            pack.mkdir()
+            for name, data in before.items():
+                path = pack / name
+                if data is None:
+                    path.mkdir(exist_ok=True)
+                else:
+                    path.write_bytes(data)
+        changes = [lambda: (pack / 'templates/extra.json').write_bytes(b'{}'),
+                   lambda: (pack / 'templates/classes-000.json').rename(pack / 'templates/classes-001.json'),
+                   lambda: (pack / 'templates/t-0000.json').write_bytes(b'{}')]
+        for change in changes:
+            change()
+            with self.assertRaises(ValueError):
+                ip.templates_validate(pack)
+            restore()
+        for key, value in (('Provisional', False), ('SourcePin', sha(b'bad')), ('Extra', 1)):
+            path = pack / 'templates/index.json'
+            index = json.loads(path.read_bytes())
+            index[key] = value
+            path.write_text(json.dumps(index))
+            with self.assertRaises(ValueError):
+                ip.templates_validate(pack)
+            restore()
+        path = pack / 'templates/t-0000.json'
+        doc = json.loads(path.read_bytes())
+        doc['BuildingClass'] = 'Land_Wrong'
+        self.repin(pack, path.name, doc)
+        with self.assertRaisesRegex(ValueError, 'BuildingClass'):
+            ip.templates_validate(pack)
+
+    def test_ascii_size_row_and_prop_caps_refuse_even_when_repinned(self):
+        pack = self.assemble()
+        path = pack / 'templates/classes-000.json'
+        original = path.read_bytes()
+        for raw in (b' ' * 32768, '{"x":"é"}'.encode('utf-8'), b'{"x":1,"x":2}'):
+            path.write_bytes(raw)
+            with self.assertRaises(ValueError):
+                ip.templates_validate(pack)
+        path.write_bytes(original)
+        doc = json.loads(original)
+        doc['Rows'] = doc['Rows'][:1] * 161
+        self.repin(pack, path.name, doc)
+        with self.assertRaises(ValueError):
+            ip.templates_validate(pack)
+        self.repin(pack, path.name, json.loads(original))
+        furnish = json.loads((pack / 'templates/furnish-000.json').read_bytes())
+        furnish['Rows'] = furnish['Rows'][:1] * 129
+        self.repin(pack, 'furnish-000.json', furnish)
+        with self.assertRaises(ValueError):
+            ip.templates_validate(pack)
+
+    def test_install_and_rollback_preserve_legacy_and_runtime_state(self):
+        pack = self.assemble()
+        target = self.root / 'profiles/HollowCountry'
+        (target / 'templates/state').mkdir(parents=True)
+        (target / 'templates/state/journal').write_bytes(b'runtime\r\n')
+        (target / 'interiors.json').write_bytes(b'legacy\r\n')
+        before = snapshot(target)
+        receipt = ip.templates_install(pack, target, server_stopped=True)
+        self.assertTrue(all(row['path'].startswith('templates/') for row in receipt['files']))
+        self.assertEqual(ip.templates_rollback(target, server_stopped=True), ip.ROLLED_BACK)
+        self.assertEqual(snapshot(target), before)
+
+    def test_stopped_ack_replacement_backups_and_drift_refusal(self):
+        pack = self.assemble()
+        target = self.root / 'profiles/HollowCountry'
+        (target / 'templates').mkdir(parents=True)
+        path = target / 'templates/index.json'
+        original = b'operator bytes\r\n'
+        path.write_bytes(original)
+        for kwargs in ({}, {'server_stopped': True}):
+            with self.assertRaises(ValueError):
+                ip.templates_install(pack, target, **kwargs)
+        ip.templates_install(pack, target, replace=True, server_stopped=True)
+        path.write_bytes(b'drift')
+        before = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.templates_rollback(target, server_stopped=True)
+        self.assertEqual(before, snapshot(target))
+        path.write_bytes((pack / 'templates/index.json').read_bytes())
+        ip.templates_rollback(target, server_stopped=True)
+        self.assertEqual(path.read_bytes(), original)
+
+    def test_symlink_and_hardlink_targets_refuse_before_writes(self):
+        pack = self.assemble()
+        for hard in (False, True):
+            target = self.root / ('hard' if hard else 'sym') / 'HollowCountry'
+            (target / 'templates').mkdir(parents=True)
+            outside = target.parent / 'outside'
+            outside.write_bytes(b'keep')
+            dest = target / 'templates/index.json'
+            if hard:
+                os.link(outside, dest)
+            else:
+                dest.symlink_to(outside)
+            with self.assertRaises(ValueError):
+                ip.templates_install(pack, target, replace=True, server_stopped=True)
+            self.assertEqual(outside.read_bytes(), b'keep')
+            self.assertFalse((target / 'templates' / ip.MANAGED).exists())
+
+    def test_pack_id_is_stable_when_manifest_source_order_changes(self):
+        source = self.build_input()
+        first = ip.templates_assemble(source, self.root / 'first')['index']
+        path = source / 'build-manifest.json'
+        manifest = json.loads(path.read_bytes())
+        manifest['Sources'] = dict(reversed(list(manifest['Sources'].items())))
+        path.write_text(json.dumps(manifest))
+        second = ip.templates_assemble(source, self.root / 'second')['index']
+        self.assertEqual(first['PackId'], second['PackId'])
+
+    def test_created_container_directories_are_removed_only_if_empty(self):
+        pack = self.assemble()
+        target = self.root / 'profiles/HollowCountry'
+        target.mkdir(parents=True)
+        ip.templates_install(pack, target, server_stopped=True)
+        ip.templates_rollback(target, server_stopped=True)
+        self.assertEqual(snapshot(target), {})
+        ip.templates_install(pack, target, server_stopped=True)
+        (target / 'templates/state').mkdir()
+        (target / 'templates/state/live').write_bytes(b'new runtime state')
+        ip.templates_rollback(target, server_stopped=True)
+        self.assertEqual((target / 'templates/state/live').read_bytes(), b'new runtime state')
+
+    def test_interrupted_template_install_is_recoverable_and_forged_paths_refuse(self):
+        pack = self.assemble()
+        target = self.root / 'profiles/HollowCountry'
+        (target / 'templates/state').mkdir(parents=True)
+        (target / 'templates/state/live').write_bytes(b'runtime')
+        original = b'original\r\n'
+        (target / 'templates/index.json').write_bytes(original)
+        before = snapshot(target)
+        real = ip.fresh_write
+        def fail(root, name, data):
+            if name == 'receipt.next':
+                raise OSError('synthetic crash after placement')
+            return real(root, name, data)
+        with mock.patch.object(ip, 'fresh_write', fail), self.assertRaises(OSError):
+            ip.templates_install(pack, target, replace=True, server_stopped=True)
+        receipt_path = target / ip.TEMPLATE_MANAGED / 'receipt.json'
+        receipt_raw = receipt_path.read_bytes()
+        receipt = json.loads(receipt_raw)
+        receipt['files'][0]['path'] = 'templates/state/live'
+        receipt_path.write_text(json.dumps(receipt))
+        interrupted = snapshot(target)
+        with self.assertRaises(ValueError):
+            ip.templates_rollback(target, server_stopped=True)
+        self.assertEqual(snapshot(target), interrupted)
+        receipt_path.write_bytes(receipt_raw)
+        ip.templates_rollback(target, server_stopped=True)
+        self.assertEqual(snapshot(target), before)
+
+    def test_prop_total_1500_is_allowed_and_1501_is_refused(self):
+        pack = self.assemble()
+        path = pack / 'templates/t-0000.json'
+        template = json.loads(path.read_bytes())
+        template['PropSlots'] = [dict(copy.deepcopy(template['PropSlots'][0]), Id=i, History=['family'])
+                                 for i in range(1, 6)]
+        self.repin(pack, path.name, template)
+        original = json.loads((pack / 'templates/furnish-000.json').read_bytes())['Rows'][0]
+        def populate(count):
+            rows = [dict(original, Slot=i, Position=[1000.0+i, 100.0, 2000.0],
+                         Props=list(range(1, min(5, count-i*5)+1)), History='family')
+                    for i in range((count+4)//5)]
+            index_path = pack / 'templates/index.json'
+            index = json.loads(index_path.read_bytes())
+            index['FurnishFiles'] = []
+            for number, offset in enumerate(range(0, len(rows), 100)):
+                name = 'furnish-%03d.json' % number
+                raw = json.dumps({'SchemaVersion': 2, 'Chunk': number, 'Rows': rows[offset:offset+100]}, separators=(',', ':')).encode('ascii')
+                (pack / 'templates' / name).write_bytes(raw)
+                index['FurnishFiles'].append({'File': name, 'Sha256': sha(raw)})
+            index_path.write_text(json.dumps(index))
+        populate(1500)
+        self.assertEqual(ip.templates_validate(pack)['summary']['furnish_props'], 1500)
+        populate(1501)
+        with self.assertRaisesRegex(ValueError, '1500'):
+            ip.templates_validate(pack)
+
+    def test_all_chunk_list_caps_are_enforced(self):
+        pack = self.assemble()
+        path = pack / 'templates/index.json'
+        original = path.read_bytes()
+        for field, count in (('ClassFiles', 17), ('FurnishFiles', 17), ('TemplateFiles', 513), ('GroupFiles', 65)):
+            doc = json.loads(original)
+            doc[field] = [{'File': 'fake', 'Sha256': sha(b'synthetic')}] * count
+            path.write_text(json.dumps(doc))
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                ip.templates_validate(pack)
+        path.write_bytes(original)
+
+    def test_scoped_build_records_unobserved_stock_classes_without_runtime_rows(self):
+        from tests.unit import test_interior_templates as fixtures
+        built = ip.templates_build([], fixtures.PROTO, fixtures.POS)
+        classes = [row for name, raw in built.files.items() if name.startswith('classes-')
+                   for row in json.loads(raw)['Rows']]
+        self.assertEqual(classes, [])
+        self.assertEqual({r['BuildingClass'] for r in built.manifest['ExcludedProtoClasses']},
+                         set(fixtures.tpl.parse_proto(fixtures.PROTO)))
+        self.assertEqual(built.summary['templates'], 0)
+        self.assertFalse(any(key.startswith('census-') for key in built.manifest['Sources']))
+        self.assertIsNone(built.manifest['Frame'])
+
+    def test_scoped_build_checks_cross_run_conflicts_before_t2(self):
+        from tests.unit import test_interior_templates as fixtures
+        adapter = fixtures.CensusAdapterTests()
+        first = adapter.native()
+        second = adapter.native(run='b' * 32)
+        second['placements'][0]['house']['model'] = 'conflict'
+        with self.assertRaisesRegex(ValueError, 'conflicting'):
+            ip.templates_build([fixtures.encode(first), fixtures.encode(second)], fixtures.PROTO, fixtures.POS)
+
+    def test_build_wrapper_retains_measured_templates_and_audits_excluded_stock_classes(self):
+        from tests.unit import test_interior_templates as fixtures
+        doc = fixtures.census(fixtures.house_rows() + fixtures.calibration_rows(), fixtures.CLASSES)
+        proto = fixtures.proto_xml([fixtures.HOUSE_GROUP, fixtures.OTHER_GROUP,
+                                   fixtures.group('Land_Unmeasured', [fixtures.container('loot', [fixtures.point('0 0 0')])])])
+        built = ip.templates_build([fixtures.encode(doc)], proto, fixtures.POS)
+        self.assertEqual(built.summary['rooms']['covered'], 1)
+        self.assertEqual(built.summary['rooms']['excluded']['path_pending'], 2)
+        self.assertEqual(len(built.manifest['ExcludedProtoClasses']), 2)
+        self.assertTrue(any(name.startswith('t-') for name in built.files))
+        self.assertEqual(built.manifest['Sources']['census-' + fixtures.RUN], sha(fixtures.encode(doc)))
+
+    def test_templates_cli_build_assemble_validate_install_and_rollback(self):
+        import contextlib
+        import io
+        from tests.unit import test_interior_templates as fixtures
+        from tools.package import search_context as sc
+        stock = self.root / 'stock'
+        (stock / 'db').mkdir(parents=True)
+        (stock / 'mapgroupproto.xml').write_bytes(fixtures.PROTO)
+        (stock / 'mapgrouppos.xml').write_bytes(fixtures.POS)
+        for relative in ('db/types.xml', 'cfgspawnabletypes.xml', 'cfglimitsdefinition.xml'):
+            (stock / relative).write_bytes(b'<synthetic/>')
+        (stock / 'db/types.xml').write_bytes(fixtures.TYPES)
+        census = self.root / 'census.json'
+        census.write_bytes(fixtures.encode(fixtures.census(
+            fixtures.house_rows() + fixtures.calibration_rows(), fixtures.CLASSES)))
+        build, pack = self.root / 'build', self.root / 'cli-pack'
+        search = self.root / 'search'
+        target = self.root / 'profiles/HollowCountry'
+        target.parent.mkdir()
+        with contextlib.redirect_stdout(io.StringIO()):
+            ip.main(['templates', 'build', '--proto', str(stock / 'mapgroupproto.xml'),
+                     '--pos', str(stock / 'mapgrouppos.xml'), '--census', str(census), '--out', str(build)])
+            self.assertEqual(sc.main(['--mapgroupproto', str(stock / 'mapgroupproto.xml'),
+                                      '--types', str(stock / 'db/types.xml'), '--output-dir', str(search)]), 0)
+            ip.main(['templates', 'assemble', '--build', str(build), '--out', str(pack),
+                     '--stock', str(stock), '--search-groups', str(search)])
+            ip.main(['templates', 'validate', str(pack)])
+            ip.main(['templates', 'install', '--pack', str(pack), '--target', str(target), '--server-stopped'])
+            self.assertTrue((target / 'templates/index.json').exists())
+            ip.main(['templates', 'rollback', '--target', str(target), '--server-stopped'])
+        self.assertFalse(target.exists())
+
+    def test_search_groups_refuse_containers_outside_reader_allowlist(self):
+        pack = self.assemble()
+        raw = json.dumps({'SchemaVersion': 2, 'Chunk': 0, 'Groups': [
+            {'Id': 'g-0000', 'Usages': ['Town'], 'Container': 'lootFactory',
+             'Categories': ['tools'], 'Tags': [], 'Items': ['Hammer']}]}).encode('ascii')
+        (pack / 'templates/search-groups-000.json').write_bytes(raw)
+        path = pack / 'templates/index.json'
+        index = json.loads(path.read_bytes())
+        index['GroupFiles'] = [{'File': 'search-groups-000.json', 'Sha256': sha(raw)}]
+        index['Sources']['search-generator'] = sha(b'synthetic generator')
+        index['SourcePin'] = ip._source_pin(index['Sources'])
+        path.write_text(json.dumps(index))
+        with self.assertRaisesRegex(ValueError, 'container'):
+            ip.templates_validate(pack)
+
+    def test_real_cli_pack_obeys_runtime_reader_admission_rules(self):
+        import contextlib
+        import io
+        from tests.unit import test_interior_templates as f
+        from tests.unit import test_interior_templates_runtime as runtime
+        from tools.package import search_context as sc
+        stock = self.root / 'e2e-stock'
+        (stock / 'db').mkdir(parents=True)
+        # Synthetic empty/unsupported keys sort before the emitted groups and used to shift IDs.
+        pr = f.proto_xml([f.group(f.HOUSE, [
+            f.container('loot', [f.point('0 0 0')], ()),
+            f.container('loot', [f.point('0 0 0')], ('absent',)),
+            f.container('lootFactory', [f.point('0 0 0')]),
+            f.container('lootFloor', [f.point('0 0 0')]),
+            f.container('lootshelves', [f.point('1 1 1')], ('books',))])])
+        for name, raw in {'mapgroupproto.xml': pr, 'mapgrouppos.xml': f.POS,
+                          'db/types.xml': f.TYPES, 'cfgspawnabletypes.xml': b'<spawnabletypes/>',
+                          'cfglimitsdefinition.xml': b'<lists/>'}.items():
+            (stock / name).write_bytes(raw)
+        census = self.root / 'e2e-census.json'
+        census.write_bytes(f.encode(f.census(f.house_rows() + f.calibration_rows(), f.CLASSES)))
+        build, search, pack = [self.root / ('e2e-' + n) for n in ('build', 'search', 'pack')]
+        with contextlib.redirect_stdout(io.StringIO()):
+            ip.main(['templates', 'build', '--census', str(census), '--proto', str(stock / 'mapgroupproto.xml'),
+                     '--pos', str(stock / 'mapgrouppos.xml'), '--types', str(stock / 'db/types.xml'), '--out', str(build)])
+            self.assertEqual(sc.main(['--mapgroupproto', str(stock / 'mapgroupproto.xml'),
+                                      '--types', str(stock / 'db/types.xml'), '--output-dir', str(search)]), 0)
+            ip.main(['templates', 'assemble', '--build', str(build), '--search-groups', str(search),
+                     '--stock', str(stock), '--out', str(pack)])
+        docs = {p.name: json.loads(p.read_bytes()) for p in (pack / 'templates').iterdir()}
+        index = docs['index.json']
+        self.assertEqual(index['Frame'], 'rot90')
+        required = {'mapgroupproto', 'mapgrouppos', 'types', 'cfgspawnabletypes',
+                    'cfglimitsdefinition', 'generator', 'search-generator'}
+        self.assertTrue(required <= set(index['Sources']))
+        self.assertTrue(8 <= len(index['Sources']) <= 520)
+        for pin in index['Sources'].values():
+            self.assertRegex(pin, r'^[0-9a-f]{64}$')
+        for field, key, cap in [('ClassFiles', 'Rows', 160), ('FurnishFiles', 'Rows', 128),
+                                 ('GroupFiles', 'Groups', 512)]:
+            self.assertTrue(index[field], field)
+            for number, entry in enumerate(index[field]):
+                chunk = docs[entry['File']]
+                self.assertEqual(chunk['Chunk'], number)
+                self.assertTrue(1 <= len(chunk[key]) <= cap)
+        groups = {g['Id']: g for entry in index['GroupFiles'] for g in docs[entry['File']]['Groups']}
+        allowed = {'lootshelves', 'loot', 'lootFloor', 'lootweapons'}
+        for g in groups.values():
+            self.assertIn(g['Container'], allowed)
+            self.assertGreaterEqual(len(g['Categories']), 1)
+            self.assertTrue(1 <= len(g['Items']) <= 1024)
+            self.assertEqual(len(g['Items']), len(set(g['Items'])))
+        for entry in index['TemplateFiles']:
+            self.assertTrue(docs[entry['File']]['SearchSites'])
+            for site in docs[entry['File']]['SearchSites']:
+                self.assertIn(site['Source'], allowed)
+                for gid in site['Groups']:
+                    self.assertIn(gid, groups)
+                    self.assertEqual(groups[gid]['Container'], site['Source'])
+        # Execute the authored reader control flow, with explicit synthetic engine boundaries.
+        env, _, _, logs, _, _ = runtime.fixture(docs)
+        env['EngineHouse'] = lambda cls: cls in f.CLASSES
+        env['HCInteriorCatalog'].SearchType = lambda typ: typ in f.tpl.PROP_TYPES
+        env['EnsureLoaded'](None)
+        self.assertTrue(env['Loaded'](), logs)
+
+    def test_search_only_class_passes_assemble_validation_and_the_reader(self):
+        import contextlib
+        import io
+        from tests.unit import test_interior_templates as f
+        from tests.unit import test_interior_templates_runtime as runtime
+        from tools.package import search_context as sc
+        pending = 'Land_Pending_Path'
+        stock = self.root / 'so-stock'
+        (stock / 'db').mkdir(parents=True)
+        pr = f.proto_xml([f.HOUSE_GROUP, f.group(pending, [f.container('lootFloor', [f.point('2.0 0.0 3.0')])])])
+        for name, raw in {'mapgroupproto.xml': pr, 'mapgrouppos.xml': f.POS,
+                          'db/types.xml': f.TYPES, 'cfgspawnabletypes.xml': b'<spawnabletypes/>',
+                          'cfglimitsdefinition.xml': b'<lists/>'}.items():
+            (stock / name).write_bytes(raw)
+        classes = f.CLASSES + (pending,)
+        rows = f.house_rows() + f.calibration_rows() + f.house_rows(pending, state='control-failed')
+        census = self.root / 'so-census.json'
+        census.write_bytes(f.encode(f.census(rows, classes)))
+        build, search, pack = [self.root / ('so-' + n) for n in ('build', 'search', 'pack')]
+        with contextlib.redirect_stdout(io.StringIO()):
+            ip.main(['templates', 'build', '--census', str(census), '--proto', str(stock / 'mapgroupproto.xml'),
+                     '--pos', str(stock / 'mapgrouppos.xml'), '--types', str(stock / 'db/types.xml'), '--out', str(build)])
+            self.assertEqual(sc.main(['--mapgroupproto', str(stock / 'mapgroupproto.xml'),
+                                      '--types', str(stock / 'db/types.xml'), '--output-dir', str(search)]), 0)
+            ip.main(['templates', 'assemble', '--build', str(build), '--search-groups', str(search),
+                     '--stock', str(stock), '--out', str(pack)])
+            ip.main(['templates', 'validate', str(pack)])
+        docs = {p.name: json.loads(p.read_bytes()) for p in (pack / 'templates').iterdir()}
+        rows = {r['BuildingClass']: r for n, d in docs.items() if n.startswith('classes-') for r in d['Rows']}
+        self.assertEqual(rows[pending], {'BuildingClass': pending, 'Rooms': 'path_pending',
+                                         'Furniture': 'path_pending', 'Search': 'covered'})
+        env, _, _, logs, _, _ = runtime.fixture(docs)
+        env['EngineHouse'] = lambda cls: cls in classes
+        env['HCInteriorCatalog'].SearchType = lambda typ: typ in f.tpl.PROP_TYPES
+        env['EnsureLoaded'](None)
+        self.assertTrue(env['Loaded'](), logs)
+        layout = env['Template'](pending)
+        self.assertEqual(len(layout.Rooms), 0)
+        self.assertTrue(all(site.Room == 0 for site in layout.SearchSites))
