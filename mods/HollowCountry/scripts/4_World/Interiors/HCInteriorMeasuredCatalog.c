@@ -31,6 +31,16 @@ class HCInteriorMeasuredCatalog
         return s_Requested;
     }
 
+    // No I/O: startup loads the optional legacy profile before template admission.
+    static string MeasuredClaimedClass()
+    {
+        if (!s_Binding || !s_Binding.Record)
+        {
+            return "";
+        }
+        return s_Binding.Record.BuildingClass;
+    }
+
     // Inspected ReadFile accepts string buffers and returns bytes read. Fixed
     // paths only; no directory enumeration, arbitrary artifact reads or writes.
     static string MeasuredRead(string path, int limit)
