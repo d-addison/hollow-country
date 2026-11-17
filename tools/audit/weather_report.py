@@ -8,7 +8,9 @@ observations come from a run the operator performed, runtime acceptance stays "p
 stays False in every result.
 
 Per phenomenon the status is one of:
-  within_candidate       every actual value is inside the candidate limits (small boundary tolerance)
+  within_candidate       every actual value after the initial transition is inside the candidate limits (small
+                         boundary tolerance); raw_actual_outside_limits and the pair's values_in_range count and
+                         describe every raw actual, including the excused transition
   violates_candidate     at least one actual value is outside them after the initial transition; the violating
                          sample numbers are listed
   insufficient_samples   fewer valid samples than min_samples, or the run itself is pending
@@ -20,11 +22,15 @@ run; whether the engine sets mission_weather for enable="1" is unobserved and on
 
 Initial transition. A run can start from a pre-existing weather state (the first native candidate run: overcast
 0.2877 and fog 0.0312 at weather_time 5.30 with forecasts already at the <current> targets .98 and .75). The samples
-before the actual first reaches the first sample's forecast, or before the first scheduled change (a forecast change,
-or a countdown that ran out or jumped up), whichever comes first, form the initial_transition window. Actual values
-outside the limits inside that window are reported (initial_transition.actual_outside_limits) and are not
-violations. A window that ends in neither way is not a transition and is not excused. A forecast outside the limits
-is never excused: it is counted in forecast_outside_limits and gives candidate_values_outside_limits in a pair.
+before the actual first reaches the first sample's forecast, before it first enters the candidate limits, or before the
+first scheduled change (a forecast change, or a countdown that ran out or jumped up), whichever comes first, form the
+initial_transition window. Actual values outside the limits inside that window are reported
+(initial_transition.actual_outside_limits) and are not violations; the first in-limits sample and every later one are
+assessed, so an excursion after the first entry is a violation. A window that ends in none of these ways is not a
+transition and is not excused. A forecast outside the limits is never excused: it is counted in
+forecast_outside_limits and gives candidate_values_outside_limits in a pair. That verdict, like a violating actual,
+is reported as soon as there are enough usable samples, before the countdown and cycle gates (those stay
+diagnostics in boundary_crossed and cycle_observed).
 
 next_change semantics. Installed 3_Game/Weather.c:51 describes GetNextChange as "the time in seconds when" the
 phenomenon changes next. The first native run (weather-probe-001-stock, observation only, one run) shows a
@@ -489,7 +495,7 @@ def _phenomenon_result(name, samples, parsed, min_samples):
     limits = parsed["limits"]
     result = {"status": "insufficient_samples", "candidate_limits": {"min": limits[0], "max": limits[1]},
               "actual_range": None, "actual_violations": 0, "violating_samples": [], "forecast_range": None,
-              "forecast_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
+              "forecast_outside_limits": 0, "raw_actual_outside_limits": 0, "engine_limits": None, "boundary_crossed": False,
               "cycle_observed": False, "change_observed": False,
               "xml": dict({key: list(parsed[key]) for key in _ATTRIBUTES}, current=dict(parsed["current"])),
               "live_pairs": None, "initial_transition": None, "current_readback": None, "first_forecast": None}
@@ -500,13 +506,14 @@ def _phenomenon_result(name, samples, parsed, min_samples):
     forecast = [row["forecast"] for _seq, row in rows]
     points = [(sample["weather_time"], sample["phenomena"][name]["actual"], sample["phenomena"][name]["forecast"],
                sample["phenomena"][name]["next_change"]) for sample in samples]
-    length, ended_by = _initial_transition(points)
+    length, ended_by = _initial_transition(points, limits)
     outside = [seq for seq, row in rows if _outside(row["actual"], limits)]
     window = [seq for seq, _row in rows[:length]]
     violating = [seq for seq in outside if seq not in window]
     live = [(row["limit_min"], row["limit_max"]) for _seq, row in rows]
     result.update({
         "actual_range": _range(actual), "actual_violations": len(violating), "violating_samples": violating,
+        "raw_actual_outside_limits": len(outside),
         "forecast_range": _range(forecast),
         "forecast_outside_limits": sum(1 for value in forecast if _outside(value, limits)),
         "distinct_actual_values": len({round(value, 6) for value in actual}),
@@ -537,17 +544,21 @@ def _phenomenon_result(name, samples, parsed, min_samples):
     return result
 
 
-def _initial_transition(points):
+def _initial_transition(points, limits):
     """(samples, ended_by) of the initial transition from (weather_time, actual, forecast, next_change) per sample.
 
-    The window is the run of samples before the actual first reaches the first sample's forecast or before the first
-    scheduled change (a forecast change, or a countdown that ran out or jumped up), whichever comes first. A window
-    that neither ends in either way is not a transition: it is not excused, (0, None).
+    The window is the run of samples before the actual first reaches the first sample's forecast, before the actual
+    first enters the candidate limits, or before the first scheduled change (a forecast change, or a countdown that
+    ran out or jumped up), whichever comes first. The first in-limits sample and every later one are assessed, so an
+    excursion after the first entry is a violation. A window that ends in none of these ways is not a transition: it
+    is not excused, (0, None).
     """
     target = points[0][2]
     for index, (_time, actual, forecast, left) in enumerate(points):
         if _same(actual, target):
             return index, "actual_reached_initial_forecast"
+        if not _outside(actual, limits):
+            return index, "actual_entered_limits"
         if index:
             before = points[index - 1][3]
             if not _same(forecast, target) or left > before + COUNTDOWN_TOLERANCE_S or left <= 0 < before:
@@ -795,13 +806,13 @@ def _evidence(stock, candidate, attributes):
     live = [key for key in attributes if key != "current"]
     if "insufficient_samples" in (stock["status"], candidate["status"]):
         return "pending", "a run has too few valid samples for this phenomenon", None
+    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
+        return "candidate_values_outside_limits", None, None
     if live and not candidate["boundary_crossed"]:
         return "pending", "no forecast countdown (next_change) ran out in the candidate run", None
     if live and not candidate["cycle_observed"]:
         return "pending", ("a countdown ran out in the candidate run but next_change never jumped to a fresh countdown "
                            "and the forecast never changed afterwards; interpolation alone is not a new cycle"), None
-    if candidate["status"] == "violates_candidate" or candidate["forecast_outside_limits"]:
-        return "candidate_values_outside_limits", None, None
     if live and not candidate["change_observed"]:
         return "pending", "nothing was observed changing in the candidate run", None
     labels, reasons, live_negative = {}, [], False
@@ -925,7 +936,10 @@ def compare(stock_result, candidate_result):
             "initial_transition": candidate["initial_transition"],
             "stock_initial_transition": stock["initial_transition"],
             "candidate_limits": candidate["candidate_limits"], "candidate_status": candidate["status"],
-            "values_in_range": None if not candidate["actual_range"] else candidate["status"] == "within_candidate",
+            "values_in_range": None if not candidate["actual_range"] else candidate["raw_actual_outside_limits"] == 0,
+            "values_in_range_after_initial_transition": (
+                None if not candidate["actual_range"] else candidate["status"] == "within_candidate"),
+            "raw_actual_outside_limits": candidate["raw_actual_outside_limits"],
             "stock_values_vs_candidate_limits": _stock_values_vs_candidate_limits(stock, candidate),
             "live_readback": readback,
             "candidate_forecast_outside_limits": candidate["forecast_outside_limits"],
@@ -943,7 +957,9 @@ def compare(stock_result, candidate_result):
         "progression": {"stock": stock_result["progression"], "candidate": candidate_result["progression"]},
         "mission_weather": {"stock": stock_result["mission_weather"], "candidate": candidate_result["mission_weather"]},
         "update_frozen": {"stock": stock_result["update_frozen"], "candidate": candidate_result["update_frozen"]},
-        "notes": ["Values inside the candidate's limits are reported separately (values_in_range) from the live "
+        "notes": ["values_in_range describes every raw actual of the candidate run; "
+                  "values_in_range_after_initial_transition and candidate_status describe the samples after the "
+                  "initial transition only, not whole-run compliance. Both are reported separately from the live "
                   "limit readback; world-script forecasts and engine limits can coexist.",
                   "Phenomena the candidate does not change are not_treated: reported, never gating.",
                   "Whether the engine sets mission_weather for enable=1 is read from the flags above only."],
