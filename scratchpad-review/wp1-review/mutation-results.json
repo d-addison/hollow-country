@@ -1,0 +1,98 @@
+[
+  {
+    "name": "ce_adoption",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_ce_adoption_requested_but_unadmitted_does_not_reserve_save_capture_or_transfer",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "native_pack_start",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_native_pack_routes_unadmitted_never_start_a_pack_even_with_ce_adoption_admitted",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "investigation",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_investigation_requested_but_unadmitted_routes_nothing",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "visual_sampling",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_investigation_visual_sampling_is_gated_by_admission",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "native_emission",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_supplementary_chains_requested_but_unadmitted_emit_no_relay",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "member_recovery",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_member_recovery_requested_but_unadmitted_performs_no_reconciliation",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "relay_processing",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_chain_relay_processing_requested_but_unadmitted_performs_no_relay",
+      "-v"
+    ],
+    "exit": 1
+  },
+  {
+    "name": "cohort_retarget",
+    "killed": true,
+    "command": [
+      "/usr/bin/python3",
+      "-m",
+      "unittest",
+      "tests.unit.test_infected_admission.UnqualifiedPathsPerformNoMutation.test_stimulus_routes_requested_but_unadmitted_never_reach_retarget",
+      "-v"
+    ],
+    "exit": 1
+  }
+]
