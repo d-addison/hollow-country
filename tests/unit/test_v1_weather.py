@@ -495,6 +495,64 @@ class V1WeatherAdmissionTests(unittest.TestCase):
             self.assertEqual([], calls)
             self.assertFalse(actor.m_HCNightLimited)
 
+    def stop_world(self, daytime=22., actual=.95):
+        """Queue-aware synthetic fixture: Remove drops the queued callback."""
+        state, calls, actor, apply = self.night_world(daytime, actual)
+        queue = []
+        context = {'GetGame': lambda: NS(GetDayTime=lambda: state.day, IsServer=lambda: True,
+                       GetCallQueue=lambda category: NS(Remove=lambda fn: queue.remove(fn) if fn in queue else None,
+                                                        category=category)),
+                   'CALL_CATEGORY_SYSTEM': 1,
+                   'HCAtmospherePolicy': authored_policy(), 'm_Weather': NS(GetOvercast=lambda: NS(
+                       GetActual=lambda: state.actual, SetLimits=lambda *a: calls.append(('limits',) + a),
+                       Set=lambda *a: calls.append(('set',) + a)))}
+        def callback(force):
+            return authored(WORLD, 'HCApplyNightLimits', context, actor, force)
+        queue.append(callback)
+        context['HCApplyNightLimits'] = callback
+        stop = lambda: authored(WORLD, 'HCStopAtmosphere', context, actor)
+        return state, calls, actor, queue, callback, stop, context
+
+    def test_stopped_owner_removes_the_dusk_callback_and_a_late_run_writes_nothing(self):
+        state, calls, actor, queue, callback, stop, context = self.stop_world(19.99, .95)
+        stop()
+        self.assertEqual([], queue)
+        self.assertFalse(actor.m_HCAtmosphereStarted)
+        state.day = 20.
+        callback(False)
+        callback(True)
+        self.assertEqual([], calls)
+        stop()
+        self.assertEqual([], queue)
+
+    def test_dusk_callback_does_nothing_without_a_game_instance(self):
+        state, calls, actor, queue, callback, stop, context = self.stop_world(22., .95)
+        context['GetGame'] = lambda: None
+        callback(True)
+        self.assertEqual([], calls)
+
+    def test_stop_uses_the_queue_category_that_scheduled_the_callback(self):
+        source = WORLD.read_text()
+        self.assertEqual(1, source.count('GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCApplyNightLimits'))
+        self.assertEqual(1, source.count('GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCApplyNightLimits)'))
+
+    def test_server_stop_stops_atmosphere_then_super_and_tolerates_other_worlds(self):
+        for mission_present, castable in ((True, True), (False, True), (True, False)):
+            calls = []
+            data = NS(HCStopAtmosphere=lambda: calls.append('atmosphere-stop'))
+            mission = NS(GetWorldData=lambda: data) if mission_present else None
+            game = NS(GetMission=lambda: mission)
+            context = dict(GetGame=lambda: game, base=NS(Stop=lambda: calls.append('super')),
+                           ChernarusPlusData=NS(Cast=lambda value: value if castable else None))
+            authored(WEATHER / 'HCAtmosphereLifecycle.c', 'Stop', context, NS())
+            expected = ['atmosphere-stop', 'super'] if mission_present and castable else ['super']
+            self.assertEqual(expected, calls, (mission_present, castable))
+        context = dict(GetGame=lambda: None, base=NS(Stop=lambda: calls.append('late')),
+                       ChernarusPlusData=NS(Cast=lambda value: value))
+        calls.clear()
+        authored(WEATHER / 'HCAtmosphereLifecycle.c', 'Stop', context, NS())
+        self.assertEqual(['late'], calls)
+
     def test_startup_registers_one_boundary_check_and_non_chernarus_registers_none(self):
         source = WORLD.read_text()
         self.assertEqual(1, source.count('CallLater(HCApplyNightLimits, 10000, true, false)'))

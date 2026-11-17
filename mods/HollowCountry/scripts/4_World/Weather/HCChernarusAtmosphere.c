@@ -92,9 +92,14 @@ modded class ChernarusPlusData
     // Idempotent: acts only on a day/night change or when forced at startup.
     protected void HCApplyNightLimits(bool force)
     {
+        // Stopped owner, queue entry that outlived shutdown, or no game: do nothing.
         if (!m_HCAtmosphereStarted)
             return;
+        if (!GetGame())
+            return;
         if (!GetGame().IsServer())
+            return;
+        if (!m_Weather)
             return;
         bool night = HCAtmospherePolicy.IsNight(GetGame().GetDayTime());
         if (!force && night == m_HCNightLimited)
@@ -109,6 +114,17 @@ modded class ChernarusPlusData
         m_Weather.GetOvercast().SetLimits(0, cap);
         if (m_Weather.GetOvercast().GetActual() > cap)
             m_Weather.GetOvercast().Set(cap, 60, 60);
+    }
+
+    // Owner shutdown (HCServer.Stop, also reached from OnMissionFinish): drop the
+    // queued dusk/dawn check from the same category it was queued with and reset
+    // the owner so a late callback or forecast cannot write weather. Idempotent.
+    void HCStopAtmosphere()
+    {
+        if (GetGame())
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCApplyNightLimits);
+        m_HCAtmosphereStarted = false;
+        m_HCNightLimited = false;
     }
 
     protected bool HCForecast(EWeatherPhenomenon type)
