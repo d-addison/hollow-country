@@ -120,7 +120,7 @@ class HCSalvageSources
     static int SourceCount(string seed)
     {
         if (seed == "HCRecoverLargeLeather") return 8;
-        if (seed == "HCRecoverMediumLeather") return 5;
+        if (seed == "HCRecoverMediumLeather") return 7;
         if (seed == "HCRecoverBatWood") return 2;
         if (seed == "HCRecoverNailedBat") return 1;
         if (seed == "HCRecoverBarbedBat") return 1;
@@ -149,6 +149,10 @@ class HCSalvageSources
             if (index == 2) return "LeatherPants_Brown";
             if (index == 3) return "LeatherPants_Natural";
             if (index == 4) return "LeatherShirt_Natural";
+            // V1 beige garments: exact native config material selections, not
+            // a Leather* wildcard. One recovered panel, same as pants/shirt.
+            if (index == 5) return "LeatherGloves_Beige";
+            if (index == 6) return "LeatherHat_Beige";
         }
         if (seed == "HCRecoverBatWood")
         {

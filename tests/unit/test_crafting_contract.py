@@ -52,6 +52,10 @@ def validate_graph(recipes, weights):
 class CraftingContractTests(unittest.TestCase):
     def setUp(self):
         self.fixture = json.loads(FIXTURE.read_text())
+        # Explicit synthetic panel budgets for the V1 additions. These are
+        # design accounting units, not native leatherYield or weight inference.
+        self.fixture['materials'].update(LeatherGloves_Beige={'hide': 2},
+                                         LeatherHat_Beige={'hide': 2})
         self.source = "\n".join(p.read_text() for p in sorted(CRAFTING.glob("*.c")))
         self.pilots = declarations(self.source)
 
@@ -155,7 +159,10 @@ class CraftingContractTests(unittest.TestCase):
                          "m_ResultReplacesIngredient[0] = -1;", "m_IngredientUseSoftSkills[i] = false;",
                          "m_ResultUseSoftSkills[0] = false;"):
             self.assertIn(fragment, self.source)
-        self.assertNotRegex(self.source, r'\b(AddQuantity|CreateInInventory|CreateObjectEx|ObjectDelete|RPCSingleParam)\s*\(')
+        # This mutation contract belongs to gameplay salvage. The explicitly
+        # invoked diagnostic allocates/deletes only its own disposable fixtures.
+        salvage = (CRAFTING / 'HCSalvageRecipe.c').read_text()
+        self.assertNotRegex(salvage, r'\b(AddQuantity|CreateInInventory|CreateObjectEx|ObjectDelete|RPCSingleParam)\s*\(')
 
     def test_fail_closed_conditions_and_null_spawn_does_not_consume(self):
         self.graph()

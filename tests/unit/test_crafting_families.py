@@ -6,7 +6,7 @@ from tests.unit.test_salvage_tools import authored, configured, tool_policy, Syn
 from tests.unit.test_crafting_completion import SRC
 
 LARGE = ['LeatherJacket_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherStorageVest_'+c for c in ('Beige','Black','Brown','Natural')]
-MEDIUM = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural']
+MEDIUM = ['LeatherPants_'+c for c in ('Beige','Black','Brown','Natural')] + ['LeatherShirt_Natural', 'LeatherGloves_Beige', 'LeatherHat_Beige']
 FAMILIES = {
     'HCRecoverLargeLeather':(LARGE,'KitchenKnife',[('TannedLeather',2)],5,2,False),
     'HCRecoverMediumLeather':(MEDIUM,'KitchenKnife',[('TannedLeather',1)],5,2,False),
