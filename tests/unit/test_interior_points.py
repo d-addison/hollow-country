@@ -371,6 +371,51 @@ class CandidateTests(unittest.TestCase):
         self.assertEqual(16, len(pts.eligible(got["candidates"], got["reach_mode"], min_agreement=0.75)))
 
 
+class ReachGateSurvivorTests(unittest.TestCase):
+    """Kill the mutants that dropped the per-cell reachable verdict from eligibility."""
+
+    def good_candidate(self, **overrides):
+        base = {"x": 0.5, "y": 0.0, "z": 0.5, "storey": 0, "clearance": 2.8, "clearance_ok": True,
+                "height_spread": 0.0, "height_ok": True, "walkable": True, "ny_abs": 1.0, "agreement": 1.0,
+                "placements": 4, "reachable": True, "reach": {"yes": 4, "no": 0, "nonav": 0, "unknown": 0},
+                "reach_agreement": 1.0}
+        base.update(overrides)
+        return base
+
+    def test_a_cell_the_cohort_majority_failed_to_reach_is_never_eligible_whatever_its_share(self):
+        good = self.good_candidate()
+        failed = self.good_candidate(reachable=False, reach_agreement=0.8)
+        self.assertEqual([good], pts.eligible([good, failed], "known", 0.75))
+        self.assertEqual([], pts.eligible([failed], "known", 0.75))
+        self.assertEqual([], pts.eligible([self.good_candidate(reachable=None)], "known", 0.75))
+
+    def test_an_even_split_between_reached_and_blocked_is_not_reachable_even_at_a_low_agreement_gate(self):
+        rows = [placement("Land_Tenement_Small", cells(0.0, XS0, [-3.5], reach=code), index=i)
+                for i, code in enumerate((1, 0))]
+        got = candidates_of(rows)
+        by = keyed(got["candidates"])
+        self.assertIs(False, by[(-4.5, -3.5, 0)]["reachable"])
+        self.assertAlmostEqual(0.5, by[(-4.5, -3.5, 0)]["reach_agreement"])
+        self.assertEqual([], pts.eligible(got["candidates"], got["reach_mode"], min_agreement=0.4))
+        self.assertEqual([], pts.select_points(got["candidates"], got["reach_mode"], min_agreement=0.4,
+                                               max_per_storey=8, max_total=48, spacing=2.0))
+
+    def test_a_census_row_with_the_new_diagnostic_keys_still_parses_and_aggregates(self):
+        row = placement("Land_Tenement_Small", storey_hits(), index=0)
+        row["reach"].update({"attempts": [[[0.0, 0.0, 1.0, 1.0], 11.0, 12, [-15.0, 0.0, 0.0], [-14.0, 0.0, 0.0], 2.0, 0.0]],
+                             "doors": [[0.0, -6.35, 0.0]]})
+        row["stats"].update({"step_capped_columns": 1, "floor_capped_columns": 0, "rehits": 3, "clearance_capped": 0,
+                             "other_hits": 4, "hit_relations": {"none": 1, "building": 2, "proxy": 3, "other": 4},
+                             "other_types": [["Crate", 4]]})
+        row["diag"] = {"columns": [{"x": -0.5, "z": -0.5, "steps": 3, "floors": 1, "cap": "step",
+                                    "seq": [[1, 1, 1, 2.8, 1.7, 0.0, 0.5, 4, "Land_X"]]}]}
+        rows = [dict(row, i=i) for i in range(4)]
+        got = candidates_of(rows)
+        self.assertTrue(got["candidates"])
+        self.assertEqual(4, got["usable_placements"])
+        self.assertEqual("known", got["reach_mode"])
+
+
 class CalibrationTests(unittest.TestCase):
     def setUp(self):
         self.candidates = pts.class_candidates(pts.parse_census(encode(full_census())), "Land_HouseBlock_2F1")

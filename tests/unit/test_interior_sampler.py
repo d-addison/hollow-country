@@ -78,9 +78,21 @@ def sampler_targets(per_class=4, counts=None):
 
 
 class Plane:
-    def __init__(self, owner, y, x0, x1, z0, z1, kind, dir_y=1.0):
-        self.owner, self.y, self.x0, self.x1, self.z0, self.z1, self.kind, self.dir_y = (
-            owner, y, x0, x1, z0, z1, kind, dir_y)
+    """A horizontal surface. ``owner`` None models ground (a hit with an empty result set). ``thick`` > 0
+    models a closed volume below the surface: a downward ray that STARTS inside it reports the contact at its
+    start (a pessimistic REFERENCE model of a start-inside re-hit, not observed DayZ behavior)."""
+
+    def __init__(self, owner, y, x0, x1, z0, z1, kind, dir_y=1.0, thick=0.0):
+        self.owner, self.y, self.x0, self.x1, self.z0, self.z1, self.kind, self.dir_y, self.thick = (
+            owner, y, x0, x1, z0, z1, kind, dir_y, thick)
+
+    def hit_y(self, start_y, end_y):
+        """Height of the contact for a vertical ray from start_y to end_y, or None."""
+        if end_y < start_y:
+            if self.thick and self.y - self.thick < start_y <= self.y:
+                return start_y
+            return self.y if end_y <= self.y < start_y else None
+        return self.y if start_y < self.y <= end_y else None
 
     def covers(self, x, z):
         return self.x0 <= x < self.x1 and self.z0 <= z < self.z1
@@ -105,6 +117,22 @@ class SampBuilding(cep.MockObject):
 
     def GetDoorSoundPos(self, index):
         return self.doors[index]
+
+    def GetParent(self):
+        return None
+
+
+class SceneObject:
+    """A non-building collision owner; ``parent`` models Object.GetParent() (IEntity, EnEntity.c:571)."""
+
+    def __init__(self, name, parent=None):
+        self.name, self.parent = name, parent
+
+    def GetType(self):
+        return StrictS(self.name)
+
+    def GetParent(self):
+        return self.parent
 
 
 class MockBuildingClass:
@@ -150,18 +178,18 @@ class Scene:
         lb, le = self.building.CoordToLocal(beg), self.building.CoordToLocal(end)
         if abs(lb[0] - le[0]) > 1e-6 or abs(lb[2] - le[2]) > 1e-6:
             return self.horizontal(lb, le, results)
-        x, z, down = lb[0], lb[2], le[1] < lb[1]
+        x, z = lb[0], lb[2]
         best = None
         for plane in self.planes:
-            if not plane.covers(x, z):
-                continue
-            crossed = (le[1] <= plane.y < lb[1]) if down else (lb[1] < plane.y <= le[1])
-            if crossed and (best is None or abs(plane.y - lb[1]) < abs(best.y - lb[1])):
-                best = plane
+            height = plane.hit_y(lb[1], le[1]) if plane.covers(x, z) else None
+            if height is not None and (best is None or abs(height - lb[1]) < abs(best[0] - lb[1])):
+                best = (height, plane)
         if best is None:
             return False, None, None
-        results.Insert(best.owner)
-        return True, self.building.to_world((x, best.y, z)), (0.0, best.dir_y, 0.0)
+        height, plane = best
+        if plane.owner is not None:
+            results.Insert(plane.owner)
+        return True, self.building.to_world((x, height, z)), (0.0, plane.dir_y, 0.0)
 
 
 class Zone:
@@ -173,8 +201,9 @@ class NavMesh:
     """Reference navmesh: flat zones, links between components, optional truncated paths."""
 
     def __init__(self, building, zones, links=(), partial_gap=0.0, tolerance=1.5, snap=False, offset=(0.0, 0.0, 0.0),
-                 box=None):
+                 box=None, single_waypoint=False):
         self.building, self.zones, self.partial_gap, self.tolerance = building, zones, partial_gap, tolerance
+        self.single_waypoint = single_waypoint
         self.links = {frozenset(pair) for pair in links}
         self.snap, self.offset, self.box = snap, offset, box or building.clip
         self.samples = self.paths = 0
@@ -225,7 +254,8 @@ class NavMesh:
         if self.partial_gap:
             stop = (end[0] + self.partial_gap, end[1], end[2])
         waypoints.Insert(start)
-        waypoints.Insert(stop)
+        if not self.single_waypoint:
+            waypoints.Insert(stop)
         return True
 
 
@@ -246,9 +276,16 @@ class MockQueue:
 
 
 class RunGame(cep.MockGame):
-    def __init__(self, world, nav):
+    def __init__(self, world, nav, ground_offset=0.0):
         super().__init__(world)
         self.nav, self.queue, self.clock = nav, MockQueue(), 0
+        self.ground = (world[0].pos[1] if world else 0.0) + ground_offset
+        self.surface_calls = []
+
+    def SurfaceY(self, x, z):
+        """Game.c:1176 SurfaceY(x, z): a flat REFERENCE terrain at the building's base."""
+        self.surface_calls.append((x, z))
+        return self.ground
 
     def GetWorld(self):
         return MockWorld(self.nav)
@@ -272,6 +309,9 @@ class Handle:
 class SampArray(cep.EArray):
     def Clear(self):
         del self[:]
+
+    def Set(self, index, value):
+        self[index] = value
 
 
 class MockFiles:
@@ -324,7 +364,8 @@ MODELLED = ("HCProbeKey", "HCProbeStr", "HCProbeBool", "HCProbeVector", "HCProbe
             "HCProbeEndBuilding", "HCProbeMeshAvailable", "HCProbeSampleMesh", "HCProbePath",
             "HCProbeReachSetup", "HCProbeReachHit", "HCProbeStep", "HCProbeFinish",
             "HCProbeInt", "HCProbeNum", "HCProbeOutsideBox", "HCProbeOpenSky", "HCProbeSeedOutside",
-            "HCProbeTakePath", "HCProbeBlocked")
+            "HCProbeTakePath", "HCProbeBlocked", "HCProbeClassify", "HCProbeReachAttempt", "HCProbeReachNote",
+            "HCProbeHitNote", "HCProbeTypeNote", "HCProbeTypesText", "HCProbeTraceEntry", "HCProbeDiagColumn")
 # Methods the reference transpiler deliberately does not execute: the loaders are literal data and
 # HCProbeStart only touches the engine file system and the call queue.
 UNMODELLED = frozenset({"HCProbeAdd", "HCProbeStart"})
@@ -351,12 +392,12 @@ class HookRun:
     """
 
     def __init__(self, hook_text, building, planes, nav=None, extra_world=(), ai=True, overrides=None, walls=(),
-                 strict=False):
+                 strict=False, ground_offset=0.0):
         self.text = rewrite_for_model(hook_text)
         self.building, self.scene = building, Scene(building, planes, walls)
         self.nav = nav
         self.files = MockFiles()
-        self.game = RunGame([building, *extra_world], nav if ai else None)
+        self.game = RunGame([building, *extra_world], nav if ai else None, ground_offset)
         self.prints = []
         text_type = StrictS if strict else cep.S
         namespace = {
@@ -404,9 +445,9 @@ class HookRun:
         return self.census()["placements"][0]
 
 
-TERRAIN = object()
-CRATE = object()
-LAMP = object()
+TERRAIN = None                      # ground: a contact with an empty result set
+CRATE = SceneObject("Crate")
+LAMP = SceneObject("StreetLamp")
 BOX = ((-5.0, -1.0, -4.0), (7.0, 9.0, 3.0))
 
 
@@ -580,6 +621,151 @@ def run_end_tolerance(hook_text):
                  for gap in (0.3, 0.8))
 
 
+class PartialNearTarget(NavMesh):
+    """Every path to a point inside the building stops 0.4 m past it (a truncated-path reference model)."""
+
+    def path(self, start, end, waypoints):
+        local = self.building.CoordToLocal(end)
+        if local[0] > -5:
+            self.paths += 1
+            waypoints.Insert(start)
+            waypoints.Insert(self.building.to_world((local[0] + 0.4, local[1], local[2])))
+            return True
+        return super().path(start, end, waypoints)
+
+
+def run_hidden_wall(hook_text):
+    """A non-building object stands 0.1 m in front of the building wall on the snap ray (Sol P1)."""
+    building = flat_building()
+    walls = [Wall(building, "x", -0.2, -3.0, 2.0, 0.0, 3.0), Wall(CRATE, "x", -0.3, -3.0, 2.0, 0.0, 3.0)]
+    return HookRun(hook_text, building, storey_planes(building), nav=snap_nav(building), walls=walls).run().row()
+
+
+def run_small_snap(hook_text):
+    """The mesh is 4 cm past a building wall: a snap far below the old 5 cm exemption (Sol P1)."""
+    building = flat_building()
+    return HookRun(hook_text, building, storey_planes(building), nav=snap_nav(building, east_from=-0.46),
+                   walls=[Wall(building, "x", -0.48, -3.0, 2.0, 0.0, 3.0)]).run().row()
+
+
+def run_final_gap_wall(hook_text):
+    """The final waypoint is 0.4 m from the floor across a wall (Sol P2)."""
+    building = flat_building()
+    nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
+    return HookRun(hook_text, building, storey_planes(building), nav=nav,
+                   walls=[Wall(building, "x", -3.3, -3.0, 2.0, 0.0, 3.0)]).run().row()
+
+
+def run_other_roof(hook_text):
+    """Another object's roof covers the exterior seed (Sol P2): sheltered, not open sky."""
+    building = flat_building()
+    planes = storey_planes(building) + [Plane(CRATE, 2.0, -30, -5, -30, 30, "other-roof")]
+    return HookRun(hook_text, building, planes, nav=nav_for(building)).run().row()
+
+
+# A native-shaped building: the clipping box is symmetric about the origin and far larger than the
+# building, the door sound position has an unreliable height, and every storey is cluttered with
+# collision objects that are not the building (crates and the building's own proxy children).
+NATIVE_BOX = ((-14.0, -10.0, -14.0), (14.0, 14.0, 14.0))
+STOREY = 3.4
+
+
+def native_building(yaw=0.0):
+    building = SampBuilding("Land_Tenement_Big", (3000.0, 20.0, 5000.0), yaw=yaw, clip=NATIVE_BOX)
+    building.doors = [building.to_world((-4.9, -6.35, -0.5))]
+    return building
+
+
+def native_planes(building, clutter=6):
+    proxy = SceneObject("ProxyPart", parent=building)
+    planes = [Plane(TERRAIN, -0.3, -50, 50, -50, 50, "terrain")]
+    for storey in range(3):
+        base = STOREY * storey
+        planes.append(Plane(building, base, -4, 6, -3, 2, "floor"))
+        planes.append(Plane(building, base + 2.9, -4, 6, -3, 2, "under"))
+        for item in range(clutter):
+            planes.append(Plane(proxy if item % 2 else CRATE, base + 0.4 + 0.3 * item, -4, 6, -3, 2, "other"))
+    planes.append(Plane(building, 3 * STOREY - 0.3, -4, 6, -3, 2, "roof"))
+    return planes
+
+
+def native_nav(building):
+    zones = [Zone("out", -45, -5, -45, 45, 0.0), Zone("g", -5, 7, -4, 3, 0.0)]
+    return NavMesh(building, zones, links=[("out", "g")])
+
+
+def run_native_shape(hook_text, **overrides):
+    building = native_building()
+    run = HookRun(hook_text, building, native_planes(building), nav=native_nav(building), overrides=overrides).run()
+    return run.row(), run
+
+
+def storeys_with_clearance(row):
+    return {round(h[1], 1) for h in row["hits"] if h[3] >= 1.9}
+
+
+def tiny_building():
+    return SampBuilding("Land_Tenement_Small", (3000.0, 20.0, 5000.0), clip=((-1.0, 0.0, -1.0), (1.0, 4.0, 1.0)))
+
+
+def tiny_planes(building):
+    """Per column from the top: owner underside 2.8, a proxy child 1.5, a crate 1.0, owner floor 0, ground -0.5."""
+    proxy = SceneObject("ProxyPart", parent=building)
+    return [Plane(building, 2.8, -5, 5, -5, 5, "under"), Plane(proxy, 1.5, -5, 5, -5, 5, "other"),
+            Plane(CRATE, 1.0, -5, 5, -5, 5, "other"), Plane(building, 0.0, -5, 5, -5, 5, "floor"),
+            Plane(TERRAIN, -0.5, -5, 5, -5, 5, "terrain")]
+
+
+def run_tiny(hook_text, **overrides):
+    building = tiny_building()
+    return HookRun(hook_text, building, tiny_planes(building), ai=False, overrides=overrides).run().row()
+
+
+def run_thick_clutter(hook_text, **overrides):
+    """A 0.5 m thick crate over a floor: a downward ray restarted inside it re-reports it at its start."""
+    building = tiny_building()
+    planes = [Plane(building, 0.0, -5, 5, -5, 5, "floor"), Plane(building, 2.8, -5, 5, -5, 5, "under"),
+              Plane(CRATE, 1.0, -5, 5, -5, 5, "other", thick=0.5)]
+    return HookRun(hook_text, building, planes, ai=False, overrides=overrides).run().row()
+
+
+def stage_of(row):
+    return [attempt[2] for attempt in row["reach"]["attempts"]]
+
+
+def run_no_seed_outside(hook_text):
+    building = SampBuilding("Land_Tenement_Big", (3000.0, 20.0, 5000.0), clip=((-40.0, -1.0, -40.0), (40.0, 9.0, 40.0)))
+    building.doors = [building.to_world((-4.9, 1.0, -0.5))]
+    return HookRun(hook_text, building, [Plane(building, 0.0, -5, 5, -5, 5, "floor")], nav=native_nav(building)).run().row()
+
+
+def run_sloped_ground(hook_text):
+    """The ground at the entrance is 1 m below the building origin height (the door height is not used)."""
+    building = flat_building()
+    return HookRun(hook_text, building, storey_planes(building), nav=nav_for(building), ground_offset=-1.0).run().row()
+
+
+def run_far_unmeshed(hook_text):
+    building = flat_building()
+    zones = [Zone("out", -12, -5, -30, 30, 0.0), Zone("g", -5, 7, -4, 3, 0.0)]
+    nav = NavMesh(building, zones, links=[("out", "g")])
+    return HookRun(hook_text, building, storey_planes(building), nav=nav).run().row()
+
+
+def run_single_waypoint(hook_text):
+    building = flat_building()
+    nav = nav_for(building, single_waypoint=True)
+    return HookRun(hook_text, building, storey_planes(building), nav=nav).run().row()
+
+
+def run_control_final_wall(hook_text):
+    """The control path ends 0.4 m (inside the gap tolerance) from its far point, across a wall."""
+    building = flat_building()
+    nav = nav_for(building, partial_gap=0.4)
+    walls = [Wall(building, "x", -16.64, -30.0, 30.0, 0.0, 3.0)]
+    return HookRun(hook_text, building, storey_planes(building), nav=nav, walls=walls).run().row()
+
+
 def battery(hook_text, first_failure=False):
     """Names of failed reference scenarios; an exception in the model counts as a failure.
 
@@ -661,7 +847,7 @@ def battery(hook_text, first_failure=False):
         planes = [Plane(building, 3.0 * k, -5, 5, -5, 5, "floor") for k in range(14)]
         planes += [Plane(building, 3.0 * k + 2.8, -5, 5, -5, 5, "under") for k in range(14)]
         row = HookRun(hook_text, building, planes, ai=False, overrides={"m_HCProbeHitLimit": 6}).run().row()
-        return len(row["hits"]) == 48 and row["stats"]["hit_capped_columns"] == 16
+        return len(row["hits"]) == 96 and row["stats"]["floor_capped_columns"] == 16
 
     def reach_states():
         building = storey_building()
@@ -687,7 +873,7 @@ def battery(hook_text, first_failure=False):
     def snap_wall():
         blocked, open_row, loose = run_snap_wall(hook_text)
         return (blocked["reach"]["state"] == "tested" and mesh_code(blocked, -0.5, 0.5) == 2
-                and mesh_code(open_row, -0.5, 0.5) == 1 and mesh_code(loose, -0.5, 0.5) == 1)
+                and mesh_code(open_row, -0.5, 0.5) == 1 and mesh_code(loose, -0.5, 0.5) == 2)
 
     def snap_distance():
         far, near = run_snap_distance(hook_text)
@@ -709,7 +895,7 @@ def battery(hook_text, first_failure=False):
     def seed_standoff():
         row = run_seed_standoff(hook_text)
         entrances = row["reach"]["entrances"]
-        return row["reach"]["state"] == "tested" and len(entrances) == 1 and entrances[0][0] < -7.0
+        return row["reach"]["state"] == "tested" and len(entrances) == 1 and entrances[0][0] < -6.0
 
     def overhang():
         row = run_overhang(hook_text)
@@ -732,6 +918,66 @@ def battery(hook_text, first_failure=False):
         return (small["reach"]["state"] == "tested" and mesh_code(small, -3.5, 0.5) == 1
                 and large["reach"]["state"] == "control-failed")
 
+    def hidden_wall():
+        row = run_hidden_wall(hook_text)
+        return row["reach"]["state"] == "tested" and mesh_code(row, -0.5, 0.5) == 2
+
+    def small_snap():
+        row = run_small_snap(hook_text)
+        return row["reach"]["state"] == "tested" and mesh_code(row, -0.5, 0.5) == 2
+
+    def final_gap_wall():
+        row = run_final_gap_wall(hook_text)
+        building = flat_building()
+        nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
+        open_row = HookRun(hook_text, building, storey_planes(building), nav=nav).run().row()
+        return (row["reach"]["state"] == "tested" and mesh_code(row, -3.5, 0.5) == 0
+                and mesh_code(open_row, -3.5, 0.5) == 1)
+
+    def other_roof():
+        row = run_other_roof(hook_text)
+        return (row["reach"]["state"] != "tested" and {h[5] for h in row["hits"]} == {-1}
+                and stage_of(row) == [6])
+
+    def native_shape():
+        row, _run = run_native_shape(hook_text)
+        stats = row["stats"]
+        relations = stats["hit_relations"]
+        return (storeys_with_clearance(row) == {0.0, STOREY, 2 * STOREY} and stats["step_capped_columns"] == 0
+                and stats["floor_capped_columns"] == 0 and stats["clearance_capped"] == 0
+                and relations["proxy"] > 0 and relations["other"] > 0 and relations["building"] > 0
+                and row["reach"]["state"] == "tested" and row["reach"]["attempts"][0][1] == 11.0
+                and mesh_code(row, -3.5, 0.5) == 1 and abs(row["reach"]["entrances"][0][1]) < 0.01)
+
+    def sloped_ground():
+        row = run_sloped_ground(hook_text)
+        return row["reach"]["state"] == "tested" and abs(row["reach"]["entrances"][0][1] + 1.0) < 0.01
+
+    def clutter_floor_cap():
+        row, _run = run_native_shape(hook_text, m_HCProbeHitLimit=8)
+        return storeys_with_clearance(row) == {0.0, STOREY, 2 * STOREY} and row["stats"]["floor_capped_columns"] == 0
+
+    def floor_cap():
+        row = run_tiny(hook_text, m_HCProbeHitLimit=1)
+        return row["stats"]["floor_capped_columns"] == 4 and row["hits"] == []
+
+    def step_cap():
+        row = run_tiny(hook_text, m_HCProbeStepLimit=3)
+        return row["stats"]["step_capped_columns"] == 4 and row["stats"]["rays"] == 16
+
+    def thick_clutter():
+        row = run_thick_clutter(hook_text, m_HCProbeStepLimit=8)
+        return (row["stats"]["step_capped_columns"] == 0 and row["stats"]["rehits"] == 12
+                and {round(h[1], 1) for h in row["hits"]} == {0.0} and len(row["hits"]) == 4)
+
+    def clearance_capped():
+        building = tiny_building()
+        proxy = SceneObject("ProxyPart", parent=building)
+        planes = [Plane(building, 0.0, -5, 5, -5, 5, "floor"), Plane(building, 3.5, -5, 5, -5, 5, "under")]
+        planes += [Plane(proxy, 0.3 + 0.15 * k, -5, 5, -5, 5, "other") for k in range(20)]
+        row = HookRun(hook_text, building, planes, ai=False).run().row()
+        return row["stats"]["clearance_capped"] == 4 and row["hits"] == []
+
     for name, function in (("floors", floors), ("rotation", rotation), ("grid", grid), ("reach", reach),
                            ("partial-path", partial_path), ("altitude", altitude), ("budgets", budgets),
                            ("run-budget", run_budget), ("hit-limit", hit_limit), ("reach-states", reach_states),
@@ -740,52 +986,73 @@ def battery(hook_text, first_failure=False):
                            ("isolated-mesh", isolated_mesh), ("seed-projection", seed_projection),
                            ("seed-standoff", seed_standoff), ("overhang", overhang), ("sky-cap", sky_cap),
                            ("zero-paths", zero_paths), ("disconnected-control", disconnected_control),
-                           ("end-tolerance", end_tolerance)):
+                           ("end-tolerance", end_tolerance), ("hidden-wall", hidden_wall),
+                           ("small-snap", small_snap), ("final-gap-wall", final_gap_wall),
+                           ("other-roof", other_roof), ("native-shape", native_shape),
+                           ("sloped-ground", sloped_ground), ("clutter-floor-cap", clutter_floor_cap), ("floor-cap", floor_cap),
+                           ("step-cap", step_cap), ("thick-clutter", thick_clutter),
+                           ("clearance-capped", clearance_capped)):
         check(name, function)
     return failures
 
 
 MUTATIONS = (
-    ("hits on other objects accepted as the building", "if (hitObjects.Find(m_HCProbeBuilding) == -1)", "if (false)"),
+    ("hits on other objects accepted as the building", "if (found.Find(m_HCProbeBuilding) != -1)", "if (true)"),
     ("miss treated as a hit", "        if (!hit)\n            return 0;", "        if (hit)\n            return 0;"),
-    ("same-slab spacing removed", "if (lastY - hitY < 0.25)", "if (lastY - hitY < -1.0)"),
-    ("restart goes above the hit", "startY = hitY - 0.05;", "startY = hitY + 0.05;"),
-    ("exterior hits kept", "if (clearance < 0.0)", "if (false)"),
+    ("same-slab spacing removed", "if (previousY - hitY >= 0.25)", "if (previousY - hitY >= -1.0)"),
+    ("restart goes above the hit", "startY = hitY - offset;", "startY = hitY + offset;"),
+    ("exterior hits kept", "if (clearance >= 0.0)", "if (true)"),
     ("clearance measured from the box", "return hitY - surfacePos[1];", "return hitY;"),
-    ("upward ray starts below the surface", "surfacePos[1] + 0.05", "surfacePos[1] - 0.05"),
-    ("upward range widened", "surfacePos[1] + 6.0", "surfacePos[1] + 60.0"),
+    ("upward ray starts below the surface", "float startY = surfacePos[1] + 0.05;", "float startY = surfacePos[1] - 0.05;"),
+    ("upward range widened", "float endY = surfacePos[1] + 6.0;", "float endY = surfacePos[1] + 60.0;"),
     ("upward non-building hit ends the search", "if (result == 1)\n                return hitY - surfacePos[1];",
      "if (true)\n                return hitY - surfacePos[1];"),
-    ("other-object hits become floors", "            if (result == 2)\n            {\n                m_HCProbeStatOther",
-     "            if (result == 99)\n            {\n                m_HCProbeStatOther"),
+    ("other-object hits become floors", "            if (rel == 1)\n            {\n                previousY = lastY;",
+     "            if (true)\n            {\n                previousY = lastY;"),
     ("grid step doubled", "edge = edge + m_HCProbeGridStep;", "edge = edge + 2.0;"),
     ("grid origin moved to the edge", "float edge = low + 0.5;", "float edge = low;"),
-    ("hit limit removed", "step < m_HCProbeHitLimit", "step < 99"),
+    ("hit limit removed", "if (floors >= m_HCProbeHitLimit)", "if (floors >= 99)"),
+    ("step limit removed", "step < m_HCProbeStepLimit", "step < 99999"),
+    ("floor cap counted for every hit", "            action = 0;\n            if (rel == 1)",
+     "            action = 0;\n            floors = floors + 1;\n            if (rel == 1)"),
+    ("re-hit offset never widens", "offset = usedOffset * 2.0;", "offset = 0.05;"),
+    ("re-hit never detected", "if (drop < 0.02)", "if (drop < -1.0)"),
+    ("clearance attempts cut short", "for (attempt = 0; attempt < 16; attempt++)", "for (attempt = 0; attempt < 2; attempt++)"),
+    ("clearance restart does not advance", "startY = hitY + offset;", "startY = hitY;"),
+    ("proxy children classified as the building", "if (found.Get(index).GetParent() == m_HCProbeBuilding)", "if (false)"),
     ("building ray cap removed", "m_HCProbeBuildingRays >= m_HCProbeBuildingRayLimit ||",
      "m_HCProbeBuildingRays >= 99999999 ||"),
     ("run ray cap removed", "|| m_HCProbeRunRays >= m_HCProbeRunRayLimit", "|| m_HCProbeRunRays >= 99999999"),
     ("model coordinates dropped", "m_HCProbeBuilding.CoordToLocal(floorPos)", "floorPos"),
-    ("path end gap widened", "gap <= m_HCProbeEndTolerance", "gap <= 200.0"),
-    ("final waypoint not compared with the floor", "float gap = vector.Distance(finalPoint, goalPos);",
-     "float gap = 0.0;"),
-    ("reach computed without control", 'if (m_HCProbeReachState != "tested")', "if (false)"),
-    ("control failure ignored", "if (HCProbePath(entranceSampled, farSampled, farSampled) < 1)", "if (false)"),
-    ("control path to its own start", "HCProbePath(entranceSampled, farSampled, farSampled)",
-     "HCProbePath(entranceSampled, entranceSampled, entranceSampled)"),
+    ("path end gap widened", "if (m_HCProbePathGap > m_HCProbeEndTolerance)", "if (m_HCProbePathGap > 200.0)"),
+    ("final waypoint not compared with the floor", "m_HCProbePathGap = vector.Distance(finalPoint, goalPos);",
+     "m_HCProbePathGap = 0.0;"),
+    ("final gap level ray skipped", "if (gapX * gapX + gapZ * gapZ > 0.000001)", "if (false)"),
+    ("final gap level ray never blocks", "if (HCProbeBlocked(Vector(finalPoint[0], waistY, finalPoint[2])",
+     "if (false && HCProbeBlocked(Vector(finalPoint[0], waistY, finalPoint[2])"),
+    ("reach computed without control", 'if (m_HCProbeReachState != "tested")\n            return -1;', "if (false)\n            return -1;"),
+    ("control failure ignored", "if (stage != 5)\n            return 7 + stage;", "if (false)\n            return 7 + stage;"),
+    ("control path to its own start", "int stage = HCProbePath(entranceSampled, farSampled, farSampled);",
+     "int stage = HCProbePath(entranceSampled, entranceSampled, entranceSampled);"),
     ("path budget removed", "if (m_HCProbeBuildingPaths >= m_HCProbePathLimit)", "if (false)"),
     ("comma separation removed", "if (m_HCProbeHitsEmitted > 0)", "if (false)"),
     ("outside point inside the building", "doorPos[0] + unitX * standoff", "doorPos[0] - unitX * standoff"),
     ("seed margin removed", "if (HCProbeOutsideBox(m_HCProbeSeed, m_HCProbeSeedMargin))", "if (true)"),
-    ("projected seed may land inside", "HCProbeOutsideBox(m_HCProbeBuilding.CoordToLocal(entranceSampled), m_HCProbeProjectedMargin)",
-     "true"),
+    ("seed ladder steps too far", "standoff = standoff + 1.0;", "standoff = standoff + 5.0;"),
+    ("seed height from the door", "float ground = GetGame().SurfaceY(seedWorld[0], seedWorld[2]);", "float ground = seedWorld[1];"),
+    ("projected seed may land inside", "if (!HCProbeOutsideBox(m_HCProbeSampledModel, m_HCProbeProjectedMargin))", "if (false)"),
     ("open sky not required", "if (!HCProbeOpenSky(entranceSampled))", "if (false)"),
-    ("open-sky building hit ignored", "            if (result != 2)\n                return false;", "            if (false)\n                return false;"),
+    ("open-sky ignores other objects roofs", "if (m_HCProbeSkyResult == 0)\n            return true;",
+     "if (m_HCProbeSkyResult != 1)\n            return true;"),
     ("snap displacement unbounded", "vector.Distance(candidate, floorPos) > m_HCProbeSnapLimit",
      "vector.Distance(candidate, floorPos) > 99.0"),
     ("waist wall ray skipped", "if (HCProbeBlocked(Vector(floorPos[0], waistY", "if (false && HCProbeBlocked(Vector(floorPos[0], waistY"),
-    ("waist wall ray never blocks", "            return false;\n        return true;\n    }\n\n    void HCProbeEmit",
-     "            return false;\n        return false;\n    }\n\n    void HCProbeEmit"),
-    ("small snap shifts skip the wall ray", "shiftZ * shiftZ > 0.0025", "shiftZ * shiftZ > 100.0"),
+    ("waist wall ray never blocks", "        if (result == 0)\n            return false;\n        return true;\n    }",
+     "        if (result == 0)\n            return false;\n        return false;\n    }"),
+    ("only building collisions block", "        if (result == 0)\n            return false;\n        return true;\n    }",
+     "        if (result != 1)\n            return false;\n        return true;\n    }"),
+    ("small snap shifts skip the wall ray", "if (shiftX * shiftX + shiftZ * shiftZ > 0.000001)",
+     "if (shiftX * shiftX + shiftZ * shiftZ > 0.0025)"),
 )
 
 
@@ -793,11 +1060,11 @@ class RenderTests(unittest.TestCase):
     def test_every_target_and_limit_is_inlined_as_literal_data(self):
         targets = sampler_targets()
         text = samp.render_hook(targets, sample_delay_s=75, run_ray_limit=123456, building_ray_limit=23456,
-                                hit_limit=7).decode()
+                                hit_limit=7, step_limit=11).decode()
         for target in targets:
             self.assertIn('HCProbeAdd("%s", "%s", %.6f, %.6f, %.6f);' % (target["class"], target["role"], *target["pos"]),
                           text)
-        for needle in ("= 123456;", "= 23456;", "= 7;", "CallLater(HCProbeStart, 75000, false)"):
+        for needle in ("= 123456;", "= 23456;", "= 7;", "= 11;", "CallLater(HCProbeStart, 75000, false)"):
             self.assertIn(needle, text)
         self.assertNotIn("@@", text)
 
@@ -821,7 +1088,7 @@ class RenderTests(unittest.TestCase):
         base = default_hook()
         self.assertNotEqual([], samp.lint_sampler_hook(base.replace("        vector contactPos;\n", "", 1)))
         self.assertNotEqual([], samp.lint_sampler_hook(base.replace("        int contactComponent;\n", "", 1)))
-        self.assertNotEqual([], samp.lint_sampler_hook(base.replace("return 2;\n        return 1;", "return 2;\n        else\n            return 1;", 1)))
+        self.assertNotEqual([], samp.lint_sampler_hook(base.replace("            return 1;\n        return 2;\n    }", "            return 1;\n        else\n            return 2;\n    }", 1)))
         self.assertNotEqual([], samp.lint_sampler_hook(base + "\n    void Bad()\n    {\n        int a = true ? 1 : 2;\n    }\n"))
 
     def test_the_lint_rejects_a_statement_with_more_than_eight_binary_plus_operators(self):
@@ -847,6 +1114,62 @@ class RenderTests(unittest.TestCase):
                      '"x" + HCProbeBool(true)', 'HCProbeKey("a") + HCProbeStr("b")'):
             with self.subTest(good=good):
                 self.assertEqual([], samp.lint_sampler_hook(wrap % good), good)
+
+    def test_the_plus_count_is_taken_per_cleaned_statement_whatever_the_layout(self):
+        base = default_hook()
+        nine = '"x" + "y" + "z" + "x" + "y" + "z" + "x" + "y" + "z" + "x"'
+        eight = '"x" + "y" + "z" + "x" + "y" + "z" + "x" + "y" + "z"'
+        layouts = ("        string a = %s;", "        { string a = %s; }", "string a = %s;",
+                   "        string a =\n            %s;", "        if (true) { string a = %s; }",
+                   "        string a = %s; // + + +", "        /* + + + */ string a = %s;",
+                   "        string a = \"+ + + + + + + + + +\" + %s;")
+        for layout in layouts:
+            with self.subTest(layout=layout):
+                bad = base + "\n    void Bad()\n    {\n" + (layout % nine) + "\n    }\n"
+                self.assertTrue(any("'+'" in issue for issue in samp.lint_sampler_hook(bad)), layout)
+                inline = base + "\n    void Bad() { " + (layout % nine).replace("\n", " ") + " }\n"
+                self.assertTrue(any("'+'" in issue for issue in samp.lint_sampler_hook(inline)), layout)
+        for layout in layouts[:5]:
+            with self.subTest(good=layout):
+                good = base + "\n    void Ok()\n    {\n" + (layout % eight) + "\n    }\n"
+                self.assertEqual([], samp.lint_sampler_hook(good), layout)
+
+    def test_the_public_plus_counter_reports_the_largest_statement_of_the_generated_hook(self):
+        text = default_hook()
+        counts = samp.statement_plus_counts(text)
+        self.assertTrue(counts)
+        self.assertLessEqual(max(count for _line, count in counts), samp.MAX_PLUS_PER_STATEMENT)
+        self.assertEqual([(3, 3)], samp.statement_plus_counts("a;\n\nx = 1 + 2 + 3 + 4;")[-1:])
+        self.assertEqual(3, max(count for _line, count in samp.statement_plus_counts('x = a + b + c + d;')))
+        self.assertEqual(0, max(count for _line, count in samp.statement_plus_counts('x = "+ + +"; // + + +\ny++;')))
+
+    def test_functions_are_scanned_for_joined_numbers_and_undeclared_out_arguments_in_any_brace_layout(self):
+        base = default_hook()
+        shapes = {
+            "inline": '\n    void Bad() { int c = 1; string a = "n" + c; }\n',
+            "k-and-r": '\n    void Bad() {\n        int c = 1;\n        string a = "n" + c;\n    }\n',
+            "two-space": '\n  void Bad()\n  {\n    int c = 1;\n    string a = "n" + c;\n  }\n',
+            "tab": '\n\tvoid Bad()\n\t{\n\t\tint c = 1;\n\t\tstring a = "n" + c;\n\t}\n',
+            "multi-line": '\n    void Bad()\n    {\n        int c = 1;\n        string a = "n"\n            + c;\n    }\n',
+            "inside-the-class": None,
+        }
+        for name, shape in shapes.items():
+            with self.subTest(name):
+                if shape is None:
+                    text = base.replace("    void HCProbeEmit(string text)",
+                                        '    void Bad() { int c = 1; string a = "n" + c; }\n\n    void HCProbeEmit(string text)', 1)
+                    self.assertNotEqual(base, text)
+                else:
+                    text = base + shape
+                self.assertTrue(any("number" in issue for issue in samp.lint_sampler_hook(text)), name)
+        out = ('\n    void Bad() { vector p; bool f = GetGame().GetWorld().GetAIWorld().SampleNavmeshPosition('
+               'p, 1.0, m_HCProbeFilter, undeclared); }\n')
+        self.assertTrue(any("out argument" in issue for issue in samp.lint_sampler_hook(base + out)))
+        member = base.replace("    protected int m_HCProbeCursor = 0;", "  protected   int m_HCProbeCursor = 0;", 1)
+        self.assertNotEqual(base, member)
+        self.assertTrue(any("number" in issue for issue in samp.lint_sampler_hook(
+            member + '\n    void Bad() { string a = "[" + m_HCProbeCursor + "]"; }\n')))
+        self.assertEqual([], samp.lint_sampler_hook(base + '\n    void Ok() { int c = 1; string a = "n" + HCProbeInt(c); }\n'))
 
     def test_the_generated_hook_has_at_most_eight_pluses_per_statement_and_converts_every_number(self):
         text = default_hook()
@@ -914,7 +1237,7 @@ class RenderTests(unittest.TestCase):
         good = sampler_targets()
         for kwargs in ({"sample_delay_s": 1}, {"sample_delay_s": 99999}, {"hit_limit": 0}, {"hit_limit": 65},
                        {"building_ray_limit": 10}, {"building_ray_limit": 10 ** 8}, {"run_ray_limit": 10},
-                       {"path_limit": -1}, {"output_limit": 10}):
+                       {"path_limit": -1}, {"output_limit": 10}, {"step_limit": 3}, {"step_limit": 513}):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 samp.render_hook(good, **kwargs)
         for targets in ([], [dict(good[0], **{"class": "Bad Name"})], [dict(good[0], role="UPPER")],
@@ -1072,7 +1395,7 @@ class ModelBehaviorTests(unittest.TestCase):
         self.assertEqual("tested", blocked["reach"]["state"])
         self.assertEqual(1, mesh_code(open_row, -0.5, 0.5))      # same mesh, no wall: reachable
         self.assertEqual(2, mesh_code(blocked, -0.5, 0.5))       # the snapped point is behind a building wall
-        self.assertEqual(1, mesh_code(loose, -0.5, 0.5))         # a non-building object is not a wall
+        self.assertEqual(2, mesh_code(loose, -0.5, 0.5))         # any collision between the points blocks
 
     def test_the_snap_displacement_from_the_measured_floor_is_bounded(self):
         far, near = run_snap_distance(self.hook)
@@ -1106,7 +1429,7 @@ class ModelBehaviorTests(unittest.TestCase):
     def test_a_door_near_the_box_edge_gets_a_seed_with_a_real_standoff(self):
         row = run_seed_standoff(self.hook)
         self.assertEqual("tested", row["reach"]["state"])
-        self.assertLess(row["reach"]["entrances"][0][0], BOX[0][0] - 2.0)
+        self.assertLess(row["reach"]["entrances"][0][0], BOX[0][0] - 1.0)
 
     def test_an_exterior_seed_under_a_building_overhang_is_not_open_sky(self):
         row = run_overhang(self.hook)
@@ -1191,6 +1514,289 @@ class ModelBehaviorTests(unittest.TestCase):
         self.assertEqual({100}, {call[1] for call in run.game.queue.calls})
 
 
+class SafetyRegressionTests(unittest.TestCase):
+    """Sol's re-review (hc-interior-review-002) of 68dd22f: four refusals that must hold."""
+
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_a_wall_hidden_behind_a_nearer_non_building_object_does_not_allow_a_snap(self):
+        row = run_hidden_wall(self.hook)
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertEqual(2, mesh_code(row, -0.5, 0.5))
+
+    def test_a_snap_of_a_few_centimetres_still_has_its_wall_validated(self):
+        row = run_small_snap(self.hook)
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertEqual(2, mesh_code(row, -0.5, 0.5))
+
+    def test_a_final_waypoint_near_the_floor_but_across_a_wall_is_not_reached(self):
+        row = run_final_gap_wall(self.hook)
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertEqual(0, mesh_code(row, -3.5, 0.5))
+
+    def test_a_final_waypoint_near_the_floor_without_a_wall_still_counts(self):
+        building = flat_building()
+        nav = PartialNearTarget(building, nav_for(building).zones, links=[("out", "g")])
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav).run().row()
+        self.assertEqual(1, mesh_code(row, -3.5, 0.5))
+
+    def test_an_exterior_seed_under_another_objects_roof_is_not_open_sky(self):
+        row = run_other_roof(self.hook)
+        self.assertNotEqual("tested", row["reach"]["state"])
+        self.assertEqual({-1}, {h[5] for h in row["hits"]})
+        self.assertEqual([6], stage_of(row))
+
+    def test_a_point_already_on_the_mesh_is_reached_without_any_level_wall_ray(self):
+        building = flat_building()
+        run = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building),
+                      walls=[Wall(building, "x", -0.2, -3.0, 2.0, 0.0, 3.0)]).run()
+        self.assertEqual(1, mesh_code(run.row(), -3.5, 0.5))
+        level = [call for call in run.scene.calls if abs(call[0][1] - call[1][1]) < 1e-9]
+        self.assertEqual([], level)
+
+
+class DescentTests(unittest.TestCase):
+    """The descent must reach lower floors through clutter that is not the building (native evidence)."""
+
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_every_storey_is_reached_through_native_shaped_clutter_within_the_default_budget(self):
+        row, _run = run_native_shape(self.hook)
+        self.assertEqual({0.0, STOREY, 2 * STOREY}, storeys_with_clearance(row))
+        stats = row["stats"]
+        self.assertEqual(0, stats["step_capped_columns"])
+        self.assertEqual(0, stats["floor_capped_columns"])
+        self.assertFalse(stats["ray_capped"])
+        self.assertLess(stats["rays"], 150000)
+
+    def test_clutter_that_is_not_the_building_does_not_count_against_the_floor_cap(self):
+        row, _run = run_native_shape(self.hook, m_HCProbeHitLimit=8)
+        self.assertEqual({0.0, STOREY, 2 * STOREY}, storeys_with_clearance(row))
+        self.assertEqual(0, row["stats"]["floor_capped_columns"])
+
+    def test_the_floor_cap_counts_only_the_buildings_own_surfaces_and_is_reported_separately(self):
+        row = run_tiny(self.hook, m_HCProbeHitLimit=1)
+        self.assertEqual(4, row["stats"]["floor_capped_columns"])
+        self.assertEqual(0, row["stats"]["step_capped_columns"])
+        self.assertEqual([], row["hits"])             # the one candidate it spent was the exterior 2.8 slab
+
+    def test_the_step_cap_bounds_every_column_and_is_reported_separately(self):
+        row = run_tiny(self.hook, m_HCProbeStepLimit=3)
+        self.assertEqual(4, row["stats"]["step_capped_columns"])
+        self.assertEqual(0, row["stats"]["floor_capped_columns"])
+        self.assertEqual(16, row["stats"]["rays"])    # three descent rays and one clearance ray per column
+
+    def test_an_uncapped_column_reports_neither_cap(self):
+        row = run_tiny(self.hook)
+        self.assertEqual((0, 0), (row["stats"]["step_capped_columns"], row["stats"]["floor_capped_columns"]))
+        self.assertEqual({0.0}, {round(h[1], 1) for h in row["hits"]})
+        self.assertEqual(4, len(row["hits"]))
+
+    def test_restarting_inside_a_thick_object_widens_the_restart_offset_until_the_floor_is_reached(self):
+        row = run_thick_clutter(self.hook, m_HCProbeStepLimit=8)
+        self.assertEqual(0, row["stats"]["step_capped_columns"])
+        self.assertEqual({0.0}, {round(h[1], 1) for h in row["hits"]})
+        self.assertEqual(4, len(row["hits"]))
+        self.assertEqual(12, row["stats"]["rehits"])       # three start-inside re-hits per column
+
+    def test_a_restart_that_makes_progress_keeps_the_small_offset(self):
+        row = run_tiny(self.hook)
+        self.assertEqual(0, row["stats"]["rehits"])
+
+    def test_clearance_is_found_through_clutter_that_is_not_the_building(self):
+        row, _run = run_native_shape(self.hook)
+        ground = [h for h in row["hits"] if round(h[1], 1) == 0.0 and round(h[0], 1) == -3.5 and round(h[2], 1) == 0.5]
+        self.assertEqual(1, len(ground))
+        self.assertAlmostEqual(2.9, ground[0][3], places=3)
+        self.assertEqual(0, row["stats"]["clearance_capped"])
+
+    def test_a_clearance_search_that_runs_out_of_attempts_is_counted_not_hidden(self):
+        building = tiny_building()
+        proxy = SceneObject("ProxyPart", parent=building)
+        planes = [Plane(building, 0.0, -5, 5, -5, 5, "floor"), Plane(building, 3.5, -5, 5, -5, 5, "under")]
+        planes += [Plane(proxy, 0.3 + 0.15 * k, -5, 5, -5, 5, "other") for k in range(20)]
+        row = HookRun(self.hook, building, planes, ai=False).run().row()
+        self.assertEqual(4, row["stats"]["clearance_capped"])
+        self.assertEqual([], row["hits"])
+
+
+class DiagnosticsTests(unittest.TestCase):
+    """Bounded hook diagnostics that answer why the native descent exhausted its cap."""
+
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_hit_relations_split_the_building_its_proxy_children_other_objects_and_ground(self):
+        row = run_tiny(self.hook)
+        stats = row["stats"]
+        self.assertEqual({"none": 4, "building": 8, "proxy": 4, "other": 4}, stats["hit_relations"])
+        self.assertEqual(12, stats["other_hits"])          # every descent hit that is not the building
+        self.assertEqual([["ProxyPart", 4], ["Crate", 4]], stats["other_types"])
+        self.assertEqual((4, 4), (stats["interior_hits"], stats["exterior_hits"]))
+
+    def test_the_types_histogram_is_bounded_to_sixteen_distinct_types(self):
+        building = tiny_building()
+        planes = [Plane(building, 0.0, -5, 5, -5, 5, "floor")]
+        planes += [Plane(SceneObject("Thing%d" % k), 0.5 + 0.1 * k, -5, 5, -5, 5, "other") for k in range(20)]
+        row = HookRun(self.hook, building, planes, ai=False).run().row()
+        names = [entry[0] for entry in row["stats"]["other_types"]]
+        self.assertEqual(16, len(names))
+        self.assertEqual(len(names), len(set(names)))
+        self.assertTrue(all(entry[1] == 4 for entry in row["stats"]["other_types"]))
+        self.assertEqual(80, row["stats"]["other_hits"])
+
+    def test_a_capped_column_carries_its_hit_sequence_with_type_owner_relation_height_and_restart_distance(self):
+        row = run_tiny(self.hook, m_HCProbeStepLimit=3)
+        columns = row["diag"]["columns"]
+        self.assertEqual(3, len(columns))
+        first = columns[0]
+        self.assertEqual((-0.5, -0.5, 3, 1, "step"), (first["x"], first["z"], first["steps"], first["floors"], first["cap"]))
+        sequence = first["seq"]
+        self.assertEqual([1, 2, 3], [entry[0] for entry in sequence])
+        self.assertEqual([1, 2, 3], [entry[1] for entry in sequence])        # building, proxy child, other
+        self.assertEqual([1, 1, 1], [entry[2] for entry in sequence])        # objects in the result set
+        for entry, height, drop, offset in zip(sequence, (2.8, 1.5, 1.0), (1.7, 1.25, 0.45), (0.0, 0.05, 0.05)):
+            self.assertAlmostEqual(height, entry[3], places=3)
+            self.assertAlmostEqual(drop, entry[4], places=3)
+            self.assertAlmostEqual(offset, entry[5], places=6)
+            self.assertAlmostEqual(1.0, entry[6], places=6)                  # raw dirY
+        self.assertEqual([3, 0, 0], [entry[7] for entry in sequence])        # exterior floor, other, other
+        self.assertEqual(["Land_Tenement_Small", "ProxyPart", "Crate"], [entry[8] for entry in sequence])
+
+    def test_only_the_first_three_heavy_columns_are_traced_and_a_light_column_is_not(self):
+        light = run_tiny(self.hook)
+        self.assertEqual([], light["diag"]["columns"])
+        row = run_tiny(self.hook, m_HCProbeStepLimit=2)
+        self.assertEqual(3, len(row["diag"]["columns"]))
+        self.assertEqual({"step"}, {column["cap"] for column in row["diag"]["columns"]})
+
+    def test_a_floor_capped_column_says_so_and_a_busy_uncapped_column_is_traced_too(self):
+        row = run_tiny(self.hook, m_HCProbeHitLimit=1)
+        self.assertEqual({"floor"}, {column["cap"] for column in row["diag"]["columns"]})
+        busy, _run = run_native_shape(self.hook)
+        columns = busy["diag"]["columns"]
+        self.assertEqual(3, len(columns))
+        self.assertEqual({"none"}, {column["cap"] for column in columns})
+        self.assertTrue(all(column["steps"] >= 12 for column in columns))
+
+    def test_the_trace_is_bounded_to_thirty_two_entries_per_column(self):
+        building = tiny_building()
+        planes = [Plane(building, 0.0, -5, 5, -5, 5, "floor")]
+        planes += [Plane(CRATE, 0.5 + 0.1 * k, -5, 5, -5, 5, "other") for k in range(40)]
+        row = HookRun(self.hook, building, planes, ai=False).run().row()
+        self.assertEqual(3, len(row["diag"]["columns"]))
+        self.assertTrue(all(len(c["seq"]) == 32 and c["steps"] > 32 for c in row["diag"]["columns"]))
+
+    def test_a_start_inside_object_shows_as_a_zero_drop_re_hit_with_a_growing_restart_offset(self):
+        row = run_thick_clutter(self.hook, m_HCProbeStepLimit=5)
+        sequence = row["diag"]["columns"][0]["seq"]
+        self.assertAlmostEqual(0.0, sequence[2][4], places=3)
+        self.assertEqual([0.0, 0.05, 0.05, 0.1, 0.2], [round(entry[5], 6) for entry in sequence])
+
+    def test_reach_attempts_record_stage_seed_sample_and_raw_values_for_a_passing_control(self):
+        row, run = run_native_shape(self.hook)
+        attempts = row["reach"]["attempts"]
+        self.assertEqual(1, len(attempts))
+        door, standoff, stage, seed, sampled, waypoints, gap = attempts[0]
+        self.assertEqual((0, 11.0, 12), (door, standoff, stage))
+        self.assertLess(seed[0], NATIVE_BOX[0][0] - 1.0)
+        self.assertAlmostEqual(0.0, seed[1], places=3)                       # model height of the SurfaceY ground
+        self.assertAlmostEqual(0.0, sampled[1], places=3)
+        self.assertEqual(2.0, waypoints)
+        self.assertAlmostEqual(0.0, gap, places=3)
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertGreater(len(run.game.surface_calls), 0)
+
+    def test_each_control_failure_names_its_stage_and_the_raw_values(self):
+        building = flat_building()
+        planes = storey_planes(building)
+
+        def attempt(row):
+            return row["reach"]["attempts"][0]
+
+        self.assertEqual([2], stage_of(run_no_seed_outside(self.hook)))
+        zero, _nav = run_zero_paths(self.hook)
+        self.assertEqual([3], stage_of(zero))
+        isolated, _nav = run_isolated_mesh(self.hook)
+        self.assertEqual([4], stage_of(isolated))
+        projected = run_seed_projection(self.hook)
+        self.assertEqual([5], stage_of(projected))
+        self.assertGreater(attempt(projected)[6], 0.0)                       # how far the sample moved
+        overhang = run_overhang(self.hook)
+        self.assertEqual([6], stage_of(overhang))
+        self.assertEqual(1.0, attempt(overhang)[5])                          # the sky ray's result: the building
+        self.assertAlmostEqual(2.6, attempt(overhang)[6], places=3)          # and where it hit (model height)
+        capped = run_sky_cap(self.hook)
+        self.assertEqual([6], stage_of(capped))
+        self.assertEqual(-1.0, attempt(capped)[5])
+        self.assertEqual([7], stage_of(run_far_unmeshed(self.hook)))
+        self.assertEqual([8], stage_of(run_disconnected_control(self.hook)))
+        self.assertEqual([9], stage_of(run_single_waypoint(self.hook)))
+        partial = HookRun(self.hook, building, planes, nav=nav_for(building, partial_gap=3.0)).run().row()
+        self.assertEqual([10], stage_of(partial))
+        self.assertEqual(2.0, attempt(partial)[5])
+        self.assertAlmostEqual(3.0, attempt(partial)[6], places=3)
+        self.assertEqual([11], stage_of(run_control_final_wall(self.hook)))
+        for row in (partial, projected, overhang):
+            self.assertEqual("control-failed", row["reach"]["state"])
+            self.assertEqual({-1}, {h[5] for h in row["hits"]})
+        self.assertEqual("control-failed", capped["reach"]["state"])
+        self.assertEqual([], capped["hits"])                                 # no ray budget: nothing was scanned either
+
+    def test_a_door_without_a_direction_is_recorded_as_stage_one(self):
+        building = SampBuilding("Land_Tenement_Small", (3000.0, 20.0, 5000.0), clip=BOX)
+        building.doors = [building.to_world((1.0, 1.0, -0.5))]                # exactly at the box centre
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+        self.assertEqual([1], stage_of(row))
+        self.assertEqual("control-failed", row["reach"]["state"])
+
+
+class ControlSeedTests(unittest.TestCase):
+    def setUp(self):
+        self.hook = default_hook()
+
+    def test_a_valid_exterior_seed_passes_for_a_symmetric_box_much_larger_than_the_building(self):
+        row, _run = run_native_shape(self.hook)
+        self.assertEqual("tested", row["reach"]["state"])
+        codes = {(round(h[0], 1), round(h[2], 1), round(h[1], 1)): h[5] for h in row["hits"]}
+        self.assertEqual(1, codes[(-3.5, 0.5, 0.0)])
+        self.assertEqual(2, codes[(-3.5, 0.5, STOREY)])                      # no navmesh under the upper floor
+        self.assertLess(row["reach"]["entrances"][0][0], NATIVE_BOX[0][0] - 1.0)
+
+    def test_the_seed_height_comes_from_the_ground_not_from_the_unreliable_door_height(self):
+        row, _run = run_native_shape(self.hook)
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertEqual(-6.35, round(row["reach"]["doors"][0][1], 2))
+        self.assertAlmostEqual(0.0, row["reach"]["entrances"][0][1], places=3)
+
+    def test_the_seed_is_the_nearest_one_metre_standoff_outside_the_box_margin(self):
+        row, _run = run_native_shape(self.hook)
+        self.assertEqual(11.0, row["reach"]["attempts"][0][1])
+        near = run_seed_standoff(self.hook)
+        self.assertEqual(3.0, near["reach"]["attempts"][0][1])
+        self.assertLess(near["reach"]["entrances"][0][0], BOX[0][0] - 1.0)
+
+    def test_a_failed_seed_is_not_retried_farther_out_so_it_cannot_drift_onto_an_exterior_island(self):
+        row = run_seed_projection(self.hook)
+        self.assertEqual(1, len(row["reach"]["attempts"]))
+        self.assertEqual("control-failed", row["reach"]["state"])
+
+    def test_every_door_gets_one_attempt_record_until_a_control_passes(self):
+        building = flat_building()
+        building.doors = [building.to_world((-4.9, 1.0, -0.5)), building.to_world((0.0, 1.0, 2.9))]
+        row = HookRun(self.hook, building, storey_planes(building), nav=nav_for(building)).run().row()
+        self.assertEqual("tested", row["reach"]["state"])
+        self.assertEqual([12], stage_of(row))                               # the second door is not needed
+        self.assertEqual(2, len(row["reach"]["doors"]))
+        failing = flat_building()
+        failing.doors = [failing.to_world((-4.9, 1.0, -0.5)), failing.to_world((-4.9, 1.0, 0.5))]
+        row = HookRun(self.hook, failing, storey_planes(failing), nav=nav_for(failing, partial_gap=3.0)).run().row()
+        self.assertEqual([10, 10], stage_of(row))
+        self.assertEqual("control-failed", row["reach"]["state"])
+
+
 class SamplerWorkspace(cep.Workspace):
     def setUp(self):
         super().setUp()
@@ -1225,8 +1831,8 @@ class StagerTests(SamplerWorkspace):
         self.assertEqual("profiles/HCInteriorSampler/census.json", plan["probe"]["census_relative_path"])
         self.assertEqual("profiles/HCInteriorSampler/complete.txt", plan["probe"]["sentinel_relative_path"])
         self.assertEqual("interior-sampler", plan["probe"]["tool"])
-        self.assertEqual({"grid_step": 1.0, "per_class": 4, "intersect": "geom"},
-                         {k: plan["sampler"][k] for k in ("grid_step", "per_class", "intersect")})
+        self.assertEqual({"grid_step": 1.0, "per_class": 4, "intersect": "geom", "step_limit": 64},
+                         {k: plan["sampler"][k] for k in ("grid_step", "per_class", "intersect", "step_limit")})
         self.assertEqual(plan, json.loads((self.dest / "interior-sampler-plan.json").read_text()))
         self.assertFalse((self.dest / "ce-probe-plan.json").exists())
         self.assertEqual([], self.launcher_problems(plan, "interior-sampler-plan.json"))

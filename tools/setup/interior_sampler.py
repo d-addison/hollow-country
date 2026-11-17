@@ -58,14 +58,16 @@ INTERSECTS = {"geom": "ObjIntersectGeom", "view": "ObjIntersectView", "fire": "O
 
 SAMPLE_DELAY_RANGE = (5, 3600)
 HIT_LIMIT_RANGE = (1, 64)
+STEP_LIMIT_RANGE = (4, 512)
 BUILDING_RAY_RANGE = (100, 2000000)
 RUN_RAY_RANGE = (100, 20000000)
 PATH_LIMIT_RANGE = (0, 20000)
 OUTPUT_LIMIT_RANGE = (4096, 50000000)
 DEFAULT_SAMPLE_DELAY_S = 75
 DEFAULT_HIT_LIMIT = 24
-DEFAULT_BUILDING_RAY_LIMIT = 40000
-DEFAULT_RUN_RAY_LIMIT = 400000
+DEFAULT_STEP_LIMIT = 64
+DEFAULT_BUILDING_RAY_LIMIT = 150000
+DEFAULT_RUN_RAY_LIMIT = 2500000
 DEFAULT_PATH_LIMIT = 3000
 DEFAULT_OUTPUT_LIMIT = 6000000
 DEFAULT_WAIT_MINUTES = 10
@@ -102,6 +104,7 @@ class HCDisposableDiagnosticMission : CustomMission
     protected float m_HCProbeProjectedMargin = 0.5;
     protected float m_HCProbeWaistHeight = 1.0;
     protected int m_HCProbeHitLimit = @@HIT_LIMIT@@;
+    protected int m_HCProbeStepLimit = @@STEP_LIMIT@@;
     protected int m_HCProbeBuildingRayLimit = @@BUILDING_RAY_LIMIT@@;
     protected int m_HCProbeRunRayLimit = @@RUN_RAY_LIMIT@@;
     protected int m_HCProbePathLimit = @@PATH_LIMIT@@;
@@ -122,7 +125,29 @@ class HCDisposableDiagnosticMission : CustomMission
     protected int m_HCProbeStatInterior = 0;
     protected int m_HCProbeStatExterior = 0;
     protected int m_HCProbeStatOther = 0;
-    protected int m_HCProbeStatHitCapped = 0;
+    protected int m_HCProbeStatStepCapped = 0;
+    protected int m_HCProbeStatFloorCapped = 0;
+    protected int m_HCProbeStatRehits = 0;
+    protected int m_HCProbeStatClearCapped = 0;
+    protected int m_HCProbeRelNone = 0;
+    protected int m_HCProbeRelBuilding = 0;
+    protected int m_HCProbeRelProxy = 0;
+    protected int m_HCProbeRelOther = 0;
+    protected int m_HCProbeHitCount = 0;
+    protected int m_HCProbeHitRel = 0;
+    protected int m_HCProbeSkyResult = 0;
+    protected int m_HCProbePathCount = 0;
+    protected int m_HCProbeDiagColumns = 0;
+    protected float m_HCProbePathGap = 0.0;
+    protected float m_HCProbeSkyY = 0.0;
+    protected float m_HCProbeAttemptA = 0.0;
+    protected float m_HCProbeAttemptB = 0.0;
+    protected float m_HCProbeStandoff = 0.0;
+    protected string m_HCProbeHitType = "";
+    protected string m_HCProbeReachAttempts = "";
+    protected string m_HCProbeDiag = "";
+    protected ref array<string> m_HCProbeTypeNames = new array<string>;
+    protected ref array<int> m_HCProbeTypeCounts = new array<int>;
     protected ref array<string> m_HCProbeClasses = new array<string>;
     protected ref array<string> m_HCProbeRoles = new array<string>;
     protected ref array<vector> m_HCProbePositions = new array<vector>;
@@ -135,6 +160,8 @@ class HCDisposableDiagnosticMission : CustomMission
     protected vector m_HCProbeSampled;
     protected vector m_HCProbeSeed;
     protected vector m_HCProbeEntrance;
+    protected vector m_HCProbeSeedWorld;
+    protected vector m_HCProbeSampledModel;
 
     override void OnInit()
     {
@@ -244,8 +271,36 @@ HOOK_TAIL = r"""
         return true;
     }
 
+    void HCProbeClassify(set<Object> found)
+    {
+        m_HCProbeHitCount = found.Count();
+        m_HCProbeHitRel = 0;
+        m_HCProbeHitType = "";
+        if (m_HCProbeHitCount < 1)
+            return;
+        m_HCProbeHitType = found.Get(0).GetType();
+        m_HCProbeHitRel = 3;
+        if (found.Find(m_HCProbeBuilding) != -1)
+        {
+            m_HCProbeHitRel = 1;
+            return;
+        }
+        int limit = m_HCProbeHitCount;
+        if (limit > 4)
+            limit = 4;
+        int index = 0;
+        for (index = 0; index < limit; index++)
+        {
+            if (found.Get(index).GetParent() == m_HCProbeBuilding)
+                m_HCProbeHitRel = 2;
+        }
+    }
+
     int HCProbeRay(vector rayFrom, vector rayTo)
     {
+        m_HCProbeHitCount = 0;
+        m_HCProbeHitRel = 0;
+        m_HCProbeHitType = "";
         if (m_HCProbeBuildingRays >= m_HCProbeBuildingRayLimit || m_HCProbeRunRays >= m_HCProbeRunRayLimit)
         {
             m_HCProbeRayCapped = true;
@@ -262,19 +317,22 @@ HOOK_TAIL = r"""
             return 0;
         m_HCProbeHitPos = contactPos;
         m_HCProbeHitDir = contactDir;
-        if (hitObjects.Find(m_HCProbeBuilding) == -1)
-            return 2;
-        return 1;
+        HCProbeClassify(hitObjects);
+        if (m_HCProbeHitRel == 1)
+            return 1;
+        return 2;
     }
 
     float HCProbeClearance(vector surfacePos)
     {
         float startY = surfacePos[1] + 0.05;
         float endY = surfacePos[1] + 6.0;
+        float offset = 0.05;
         float hitY = 0.0;
+        float gain = 0.0;
         int result = 0;
         int attempt = 0;
-        for (attempt = 0; attempt < 4; attempt++)
+        for (attempt = 0; attempt < 16; attempt++)
         {
             if (startY >= endY)
                 return -1.0;
@@ -284,27 +342,30 @@ HOOK_TAIL = r"""
             hitY = m_HCProbeHitPos[1];
             if (result == 1)
                 return hitY - surfacePos[1];
-            startY = hitY + 0.05;
+            gain = hitY - startY;
+            if (gain < 0.02)
+                offset = offset * 2.0;
+            if (gain >= 0.02)
+                offset = 0.05;
+            if (offset > 0.8)
+                offset = 0.8;
+            startY = hitY + offset;
         }
+        m_HCProbeStatClearCapped = m_HCProbeStatClearCapped + 1;
         return -1.0;
     }
 
     bool HCProbeOpenSky(vector pointPos)
     {
-        float startY = pointPos[1] + 0.05;
         float endY = pointPos[1] + (m_HCProbeBoxMax[1] - m_HCProbeBoxMin[1]) + 2.0;
-        int result = 0;
-        int attempt = 0;
-        for (attempt = 0; attempt < 4; attempt++)
+        m_HCProbeSkyY = 0.0;
+        m_HCProbeSkyResult = HCProbeRay(Vector(pointPos[0], pointPos[1] + 0.05, pointPos[2]), Vector(pointPos[0], endY, pointPos[2]));
+        if (m_HCProbeSkyResult == 0)
+            return true;
+        if (m_HCProbeSkyResult > 0)
         {
-            result = HCProbeRay(Vector(pointPos[0], startY, pointPos[2]), Vector(pointPos[0], endY, pointPos[2]));
-            if (result == 0)
-                return true;
-            if (result != 2)
-                return false;
-            startY = m_HCProbeHitPos[1] + 0.05;
-            if (startY >= endY)
-                return true;
+            vector skyLocal = m_HCProbeBuilding.CoordToLocal(m_HCProbeHitPos);
+            m_HCProbeSkyY = skyLocal[1];
         }
         return false;
     }
@@ -314,9 +375,89 @@ HOOK_TAIL = r"""
         int result = HCProbeRay(fromPos, toPos);
         if (result == 0)
             return false;
-        if (result == 2)
-            return false;
         return true;
+    }
+
+    void HCProbeHitNote(int rel, string typeName)
+    {
+        if (rel == 0)
+            m_HCProbeRelNone = m_HCProbeRelNone + 1;
+        if (rel == 1)
+            m_HCProbeRelBuilding = m_HCProbeRelBuilding + 1;
+        if (rel == 2)
+            m_HCProbeRelProxy = m_HCProbeRelProxy + 1;
+        if (rel == 3)
+            m_HCProbeRelOther = m_HCProbeRelOther + 1;
+        if (rel != 1)
+            m_HCProbeStatOther = m_HCProbeStatOther + 1;
+        if (rel >= 2)
+            HCProbeTypeNote(typeName);
+    }
+
+    void HCProbeTypeNote(string typeName)
+    {
+        int known = -1;
+        int index = 0;
+        int total = m_HCProbeTypeNames.Count();
+        for (index = 0; index < total; index++)
+        {
+            if (m_HCProbeTypeNames.Get(index) == typeName)
+                known = index;
+        }
+        if (known >= 0)
+        {
+            m_HCProbeTypeCounts.Set(known, m_HCProbeTypeCounts.Get(known) + 1);
+            return;
+        }
+        if (total < 16)
+        {
+            m_HCProbeTypeNames.Insert(typeName);
+            m_HCProbeTypeCounts.Insert(1);
+        }
+    }
+
+    string HCProbeTypesText()
+    {
+        string text = "";
+        int index = 0;
+        int total = m_HCProbeTypeNames.Count();
+        for (index = 0; index < total; index++)
+        {
+            if (index > 0)
+                text = text + ",";
+            text = text + "[" + HCProbeStr(m_HCProbeTypeNames.Get(index)) + "," + HCProbeInt(m_HCProbeTypeCounts.Get(index)) + "]";
+        }
+        return text;
+    }
+
+    string HCProbeTraceEntry(int step, int rel, int count, float modelY, float drop, float usedOffset, float dirY, int action, string typeName)
+    {
+        string entry = "";
+        if (step > 1)
+            entry = ",";
+        entry = entry + "[" + HCProbeInt(step) + "," + HCProbeInt(rel) + "," + HCProbeInt(count) + ",";
+        entry = entry + HCProbeNum(modelY) + "," + HCProbeNum(drop) + "," + HCProbeNum(usedOffset) + ",";
+        entry = entry + HCProbeNum(dirY) + "," + HCProbeInt(action) + "," + HCProbeStr(typeName) + "]";
+        return entry;
+    }
+
+    void HCProbeDiagColumn(float localX, float localZ, int steps, int floors, int capKind, string trace)
+    {
+        if (m_HCProbeDiagColumns >= 3)
+            return;
+        string capName = "none";
+        if (capKind == 1)
+            capName = "step";
+        if (capKind == 2)
+            capName = "floor";
+        string text = "";
+        if (m_HCProbeDiagColumns > 0)
+            text = ",";
+        m_HCProbeDiagColumns = m_HCProbeDiagColumns + 1;
+        text = text + "{" + HCProbeKey("x") + HCProbeNum(localX) + "," + HCProbeKey("z") + HCProbeNum(localZ) + ",";
+        text = text + HCProbeKey("steps") + HCProbeInt(steps) + "," + HCProbeKey("floors") + HCProbeInt(floors) + ",";
+        text = text + HCProbeKey("cap") + HCProbeStr(capName) + "," + HCProbeKey("seq") + "[" + trace + "]}";
+        m_HCProbeDiag = m_HCProbeDiag + text;
     }
 
     void HCProbeEmit(string text)
@@ -383,31 +524,105 @@ HOOK_TAIL = r"""
 
     int HCProbePath(vector startPos, vector endPos, vector goalPos)
     {
+        m_HCProbePathCount = 0;
+        m_HCProbePathGap = 0.0;
         TVectorArray waypoints = new TVectorArray;
         bool found = GetGame().GetWorld().GetAIWorld().FindPath(startPos, endPos, m_HCProbeFilter, waypoints);
         if (!found)
-            return 0;
-        if (waypoints.Count() < 2)
-            return 0;
-        vector finalPoint = waypoints.Get(waypoints.Count() - 1);
-        float gap = vector.Distance(finalPoint, goalPos);
-        if (gap <= m_HCProbeEndTolerance)
             return 1;
-        return 0;
+        m_HCProbePathCount = waypoints.Count();
+        if (waypoints.Count() < 2)
+            return 2;
+        vector finalPoint = waypoints.Get(waypoints.Count() - 1);
+        m_HCProbePathGap = vector.Distance(finalPoint, goalPos);
+        if (m_HCProbePathGap > m_HCProbeEndTolerance)
+            return 3;
+        float gapX = goalPos[0] - finalPoint[0];
+        float gapZ = goalPos[2] - finalPoint[2];
+        if (gapX * gapX + gapZ * gapZ > 0.000001)
+        {
+            float waistY = goalPos[1] + m_HCProbeWaistHeight;
+            if (HCProbeBlocked(Vector(finalPoint[0], waistY, finalPoint[2]), Vector(goalPos[0], waistY, goalPos[2])))
+                return 4;
+        }
+        return 5;
     }
 
     bool HCProbeSeedOutside(vector doorPos, float unitX, float unitZ)
     {
         float standoff = 2.0;
         int attempt = 0;
-        for (attempt = 0; attempt < 3; attempt++)
+        for (attempt = 0; attempt < 30; attempt++)
         {
-            m_HCProbeSeed = Vector(doorPos[0] + unitX * standoff, doorPos[1], doorPos[2] + unitZ * standoff);
+            m_HCProbeSeed = Vector(doorPos[0] + unitX * standoff, 0.0, doorPos[2] + unitZ * standoff);
             if (HCProbeOutsideBox(m_HCProbeSeed, m_HCProbeSeedMargin))
+            {
+                vector seedWorld = m_HCProbeBuilding.CoordToParent(m_HCProbeSeed);
+                float ground = GetGame().SurfaceY(seedWorld[0], seedWorld[2]);
+                m_HCProbeSeedWorld = Vector(seedWorld[0], ground, seedWorld[2]);
+                m_HCProbeSeed = m_HCProbeBuilding.CoordToLocal(m_HCProbeSeedWorld);
+                m_HCProbeStandoff = standoff;
                 return true;
-            standoff = standoff + 2.0;
+            }
+            standoff = standoff + 1.0;
         }
         return false;
+    }
+
+    int HCProbeReachAttempt(vector doorPos, float dirX, float dirZ)
+    {
+        m_HCProbeAttemptA = 0.0;
+        m_HCProbeAttemptB = 0.0;
+        m_HCProbeStandoff = 0.0;
+        m_HCProbeSeed = Vector(0.0, 0.0, 0.0);
+        m_HCProbeSampledModel = Vector(0.0, 0.0, 0.0);
+        float dirLength = Math.Sqrt(dirX * dirX + dirZ * dirZ);
+        if (dirLength < 0.1)
+            return 1;
+        float unitX = dirX / dirLength;
+        float unitZ = dirZ / dirLength;
+        if (!HCProbeSeedOutside(doorPos, unitX, unitZ))
+            return 2;
+        if (!HCProbeTakePath())
+            return 3;
+        if (!HCProbeSampleMesh(m_HCProbeSeedWorld, 1.5))
+            return 4;
+        vector entranceSampled = m_HCProbeSampled;
+        m_HCProbeSampledModel = m_HCProbeBuilding.CoordToLocal(entranceSampled);
+        if (!HCProbeOutsideBox(m_HCProbeSampledModel, m_HCProbeProjectedMargin))
+        {
+            m_HCProbeAttemptB = vector.Distance(entranceSampled, m_HCProbeSeedWorld);
+            return 5;
+        }
+        if (!HCProbeOpenSky(entranceSampled))
+        {
+            m_HCProbeAttemptA = m_HCProbeSkyResult;
+            m_HCProbeAttemptB = m_HCProbeSkyY;
+            return 6;
+        }
+        vector farModel = Vector(m_HCProbeSeed[0] + unitX * 10.0, m_HCProbeSeed[1], m_HCProbeSeed[2] + unitZ * 10.0);
+        vector farWorld = m_HCProbeBuilding.CoordToParent(farModel);
+        float farGround = GetGame().SurfaceY(farWorld[0], farWorld[2]);
+        if (!HCProbeSampleMesh(Vector(farWorld[0], farGround, farWorld[2]), 1.5))
+            return 7;
+        vector farSampled = m_HCProbeSampled;
+        int stage = HCProbePath(entranceSampled, farSampled, farSampled);
+        m_HCProbeAttemptA = m_HCProbePathCount;
+        m_HCProbeAttemptB = m_HCProbePathGap;
+        if (stage != 5)
+            return 7 + stage;
+        m_HCProbeEntrance = entranceSampled;
+        return 12;
+    }
+
+    void HCProbeReachNote(int door, int stage)
+    {
+        string entry = "[" + HCProbeInt(door) + "," + HCProbeNum(m_HCProbeStandoff) + "," + HCProbeInt(stage) + ",";
+        entry = entry + HCProbeVector(m_HCProbeSeed) + "," + HCProbeVector(m_HCProbeSampledModel) + ",";
+        entry = entry + HCProbeNum(m_HCProbeAttemptA) + "," + HCProbeNum(m_HCProbeAttemptB) + "]";
+        if (m_HCProbeReachAttempts.Length() > 0)
+            m_HCProbeReachAttempts = m_HCProbeReachAttempts + ",";
+        m_HCProbeReachAttempts = m_HCProbeReachAttempts + entry;
     }
 
     void HCProbeReachSetup()
@@ -415,6 +630,7 @@ HOOK_TAIL = r"""
         m_HCProbeReachState = "unavailable";
         m_HCProbeReachDoors = "";
         m_HCProbeReachEntrances = "";
+        m_HCProbeReachAttempts = "";
         if (!HCProbeMeshAvailable())
             return;
         int doorCount = m_HCProbeBuilding.GetDoorCount();
@@ -430,53 +646,26 @@ HOOK_TAIL = r"""
         float centreZ = (m_HCProbeBoxMin[2] + m_HCProbeBoxMax[2]) * 0.5;
         string doorText = "";
         int door = 0;
+        int stage = 0;
         vector doorPos;
-        vector farPoint;
-        vector entranceSampled;
-        vector farSampled;
-        float dirX = 0.0;
-        float dirZ = 0.0;
-        float dirLength = 0.0;
-        float unitX = 0.0;
-        float unitZ = 0.0;
         for (door = 0; door < doorCount; door++)
         {
             doorPos = m_HCProbeBuilding.CoordToLocal(m_HCProbeBuilding.GetDoorSoundPos(door));
             if (door > 0)
                 doorText = doorText + ",";
             doorText = doorText + HCProbeVector(doorPos);
-            if (m_HCProbeReachState == "tested")
-                continue;
-            dirX = doorPos[0] - centreX;
-            dirZ = doorPos[2] - centreZ;
-            dirLength = Math.Sqrt(dirX * dirX + dirZ * dirZ);
-            if (dirLength < 0.1)
-                continue;
-            unitX = dirX / dirLength;
-            unitZ = dirZ / dirLength;
-            if (!HCProbeSeedOutside(doorPos, unitX, unitZ))
-                continue;
-            if (!HCProbeTakePath())
+            if (m_HCProbeReachState != "tested")
             {
-                m_HCProbeReachState = "path-budget";
-                continue;
+                stage = HCProbeReachAttempt(doorPos, doorPos[0] - centreX, doorPos[2] - centreZ);
+                if (stage == 3)
+                    m_HCProbeReachState = "path-budget";
+                HCProbeReachNote(door, stage);
+                if (stage == 12)
+                {
+                    m_HCProbeReachState = "tested";
+                    m_HCProbeReachEntrances = HCProbeVector(m_HCProbeSeed);
+                }
             }
-            farPoint = Vector(doorPos[0] + unitX * 12.0, doorPos[1], doorPos[2] + unitZ * 12.0);
-            if (!HCProbeSampleMesh(m_HCProbeBuilding.CoordToParent(m_HCProbeSeed), 1.5))
-                continue;
-            entranceSampled = m_HCProbeSampled;
-            if (!HCProbeOutsideBox(m_HCProbeBuilding.CoordToLocal(entranceSampled), m_HCProbeProjectedMargin))
-                continue;
-            if (!HCProbeOpenSky(entranceSampled))
-                continue;
-            if (!HCProbeSampleMesh(m_HCProbeBuilding.CoordToParent(farPoint), 1.5))
-                continue;
-            farSampled = m_HCProbeSampled;
-            if (HCProbePath(entranceSampled, farSampled, farSampled) < 1)
-                continue;
-            m_HCProbeEntrance = entranceSampled;
-            m_HCProbeReachState = "tested";
-            m_HCProbeReachEntrances = HCProbeVector(m_HCProbeSeed);
         }
         m_HCProbeReachDoors = doorText;
     }
@@ -495,12 +684,14 @@ HOOK_TAIL = r"""
         float shiftX = candidate[0] - floorPos[0];
         float shiftZ = candidate[2] - floorPos[2];
         float waistY = floorPos[1] + m_HCProbeWaistHeight;
-        if (shiftX * shiftX + shiftZ * shiftZ > 0.0025)
+        if (shiftX * shiftX + shiftZ * shiftZ > 0.000001)
         {
             if (HCProbeBlocked(Vector(floorPos[0], waistY, floorPos[2]), Vector(candidate[0], waistY, candidate[2])))
                 return 2;
         }
-        return HCProbePath(m_HCProbeEntrance, candidate, floorPos);
+        if (HCProbePath(m_HCProbeEntrance, candidate, floorPos) == 5)
+            return 1;
+        return 0;
     }
 
     void HCProbeRecordFloor(vector floorPos, float clearance, float dirY)
@@ -529,52 +720,98 @@ HOOK_TAIL = r"""
         float bottomY = baseWorld[1] - 0.5;
         float startY = topY;
         float lastY = topY + 100.0;
+        float previousY = 0.0;
         float hitY = 0.0;
         float dirY = 0.0;
+        float drop = 0.0;
+        float offset = 0.0;
+        float usedOffset = 0.0;
         float clearance = 0.0;
         vector surfacePos;
-        bool ended = false;
+        string trace = "";
+        string typeName = "";
+        bool tracing = false;
+        if (m_HCProbeDiagColumns < 3)
+            tracing = true;
+        int capKind = 1;
+        int steps = 0;
+        int floors = 0;
+        int action = 0;
+        int rel = 0;
+        int count = 0;
         int step = 0;
         int result = 0;
-        for (step = 0; step < m_HCProbeHitLimit; step++)
+        for (step = 0; step < m_HCProbeStepLimit; step++)
         {
             if (startY <= bottomY)
             {
-                ended = true;
+                capKind = 0;
                 break;
             }
             result = HCProbeRay(Vector(baseWorld[0], startY, baseWorld[2]), Vector(baseWorld[0], bottomY, baseWorld[2]));
             if (result < 1)
             {
-                ended = true;
+                capKind = 0;
                 break;
             }
+            steps = steps + 1;
             hitY = m_HCProbeHitPos[1];
             dirY = m_HCProbeHitDir[1];
-            startY = hitY - 0.05;
-            if (result == 2)
-            {
-                m_HCProbeStatOther = m_HCProbeStatOther + 1;
-                continue;
-            }
-            if (lastY - hitY < 0.25)
-            {
-                lastY = hitY;
-                continue;
-            }
-            lastY = hitY;
+            rel = m_HCProbeHitRel;
+            count = m_HCProbeHitCount;
+            typeName = m_HCProbeHitType;
             surfacePos = m_HCProbeHitPos;
-            clearance = HCProbeClearance(surfacePos);
-            if (clearance < 0.0)
+            drop = startY - hitY;
+            usedOffset = offset;
+            offset = 0.05;
+            if (drop < 0.02)
             {
-                m_HCProbeStatExterior = m_HCProbeStatExterior + 1;
-                continue;
+                m_HCProbeStatRehits = m_HCProbeStatRehits + 1;
+                offset = usedOffset * 2.0;
+                if (offset < 0.05)
+                    offset = 0.05;
+                if (offset > 0.8)
+                    offset = 0.8;
             }
-            m_HCProbeStatInterior = m_HCProbeStatInterior + 1;
-            HCProbeRecordFloor(surfacePos, clearance, dirY);
+            startY = hitY - offset;
+            HCProbeHitNote(rel, typeName);
+            action = 0;
+            if (rel == 1)
+            {
+                previousY = lastY;
+                lastY = hitY;
+                action = 2;
+                if (previousY - hitY >= 0.25)
+                {
+                    floors = floors + 1;
+                    clearance = HCProbeClearance(surfacePos);
+                    action = 3;
+                    if (clearance >= 0.0)
+                    {
+                        action = 4;
+                        m_HCProbeStatInterior = m_HCProbeStatInterior + 1;
+                        HCProbeRecordFloor(surfacePos, clearance, dirY);
+                    }
+                    if (action == 3)
+                        m_HCProbeStatExterior = m_HCProbeStatExterior + 1;
+                }
+            }
+            if (tracing && steps <= 32)
+                trace = trace + HCProbeTraceEntry(steps, rel, count, hitY - baseWorld[1] + m_HCProbeBoxMin[1], drop, usedOffset, dirY, action, typeName);
+            if (floors >= m_HCProbeHitLimit)
+            {
+                capKind = 2;
+                break;
+            }
         }
-        if (!ended)
-            m_HCProbeStatHitCapped = m_HCProbeStatHitCapped + 1;
+        if (capKind == 1 && startY <= bottomY)
+            capKind = 0;
+        if (capKind == 1)
+            m_HCProbeStatStepCapped = m_HCProbeStatStepCapped + 1;
+        if (capKind == 2)
+            m_HCProbeStatFloorCapped = m_HCProbeStatFloorCapped + 1;
+        if (capKind > 0 || steps >= 12)
+            HCProbeDiagColumn(localX, localZ, steps, floors, capKind, trace);
     }
 
     void HCProbeScanRow()
@@ -632,7 +869,19 @@ HOOK_TAIL = r"""
         m_HCProbeStatInterior = 0;
         m_HCProbeStatExterior = 0;
         m_HCProbeStatOther = 0;
-        m_HCProbeStatHitCapped = 0;
+        m_HCProbeStatStepCapped = 0;
+        m_HCProbeStatFloorCapped = 0;
+        m_HCProbeStatRehits = 0;
+        m_HCProbeStatClearCapped = 0;
+        m_HCProbeRelNone = 0;
+        m_HCProbeRelBuilding = 0;
+        m_HCProbeRelProxy = 0;
+        m_HCProbeRelOther = 0;
+        m_HCProbeDiagColumns = 0;
+        m_HCProbeDiag = "";
+        m_HCProbeTypeNames.Clear();
+        m_HCProbeTypeCounts.Clear();
+        m_HCProbeReachAttempts = "";
         m_HCProbeRayCapped = false;
         m_HCProbeOutputCapped = false;
         m_HCProbeBoxSource = "none";
@@ -681,7 +930,8 @@ HOOK_TAIL = r"""
         text = text + HCProbeKey("grid") + "{" + HCProbeKey("step") + HCProbeNum(m_HCProbeGridStep) + "," + HCProbeKey("rows") + HCProbeInt(m_HCProbeRows) + ",";
         text = text + HCProbeKey("cols") + HCProbeInt(m_HCProbeCols) + "},";
         text = text + HCProbeKey("reach") + "{" + HCProbeKey("state") + HCProbeStr(m_HCProbeReachState) + ",";
-        text = text + HCProbeKey("doors") + "[" + m_HCProbeReachDoors + "]," + HCProbeKey("entrances") + "[" + m_HCProbeReachEntrances + "]},";
+        text = text + HCProbeKey("doors") + "[" + m_HCProbeReachDoors + "]," + HCProbeKey("entrances") + "[" + m_HCProbeReachEntrances + "],";
+        text = text + HCProbeKey("attempts") + "[" + m_HCProbeReachAttempts + "]},";
         text = text + HCProbeKey("hits") + "[";
         HCProbeEmit(text);
     }
@@ -692,7 +942,12 @@ HOOK_TAIL = r"""
         text = text + HCProbeKey("rays") + HCProbeInt(m_HCProbeBuildingRays) + "," + HCProbeKey("paths") + HCProbeInt(m_HCProbeBuildingPaths) + ",";
         text = text + HCProbeKey("ray_capped") + HCProbeBool(m_HCProbeRayCapped) + "," + HCProbeKey("output_capped") + HCProbeBool(m_HCProbeOutputCapped) + ",";
         text = text + HCProbeKey("interior_hits") + HCProbeInt(m_HCProbeStatInterior) + "," + HCProbeKey("exterior_hits") + HCProbeInt(m_HCProbeStatExterior) + ",";
-        text = text + HCProbeKey("other_hits") + HCProbeInt(m_HCProbeStatOther) + "," + HCProbeKey("hit_capped_columns") + HCProbeInt(m_HCProbeStatHitCapped) + "}}";
+        text = text + HCProbeKey("other_hits") + HCProbeInt(m_HCProbeStatOther) + "," + HCProbeKey("step_capped_columns") + HCProbeInt(m_HCProbeStatStepCapped) + ",";
+        text = text + HCProbeKey("floor_capped_columns") + HCProbeInt(m_HCProbeStatFloorCapped) + "," + HCProbeKey("rehits") + HCProbeInt(m_HCProbeStatRehits) + ",";
+        text = text + HCProbeKey("clearance_capped") + HCProbeInt(m_HCProbeStatClearCapped) + "," + HCProbeKey("hit_relations") + "{" + HCProbeKey("none") + HCProbeInt(m_HCProbeRelNone) + ",";
+        text = text + HCProbeKey("building") + HCProbeInt(m_HCProbeRelBuilding) + "," + HCProbeKey("proxy") + HCProbeInt(m_HCProbeRelProxy) + ",";
+        text = text + HCProbeKey("other") + HCProbeInt(m_HCProbeRelOther) + "}," + HCProbeKey("other_types") + "[" + HCProbeTypesText() + "]},";
+        text = text + HCProbeKey("diag") + "{" + HCProbeKey("columns") + "[" + m_HCProbeDiag + "]}}";
         HCProbeEmit(text);
         m_HCProbeCursor = m_HCProbeCursor + 1;
         m_HCProbePhase = 0;
@@ -787,7 +1042,8 @@ def _bounded(name, value, low, high):
 
 def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DEFAULT_RUN_RAY_LIMIT,
                 building_ray_limit=DEFAULT_BUILDING_RAY_LIMIT, hit_limit=DEFAULT_HIT_LIMIT,
-                path_limit=DEFAULT_PATH_LIMIT, output_limit=DEFAULT_OUTPUT_LIMIT, intersect="geom"):
+                path_limit=DEFAULT_PATH_LIMIT, output_limit=DEFAULT_OUTPUT_LIMIT, intersect="geom",
+                step_limit=DEFAULT_STEP_LIMIT):
     """Return the generated Enforce text (bytes) with every target and limit inlined as literal data."""
     if not targets or len(targets) > MAX_TARGETS:
         raise ValueError(f"1..{MAX_TARGETS} targets required")
@@ -795,6 +1051,7 @@ def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DE
     _bounded("run ray limit", run_ray_limit, *RUN_RAY_RANGE)
     _bounded("building ray limit", building_ray_limit, *BUILDING_RAY_RANGE)
     _bounded("hit limit", hit_limit, *HIT_LIMIT_RANGE)
+    _bounded("step limit", step_limit, *STEP_LIMIT_RANGE)
     _bounded("path limit", path_limit, *PATH_LIMIT_RANGE)
     _bounded("output limit", output_limit, *OUTPUT_LIMIT_RANGE)
     if intersect not in INTERSECTS:
@@ -815,7 +1072,7 @@ def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DE
               ("@@SENTINEL_NAME@@", SENTINEL_NAME))
     head = HOOK_HEAD
     for placeholder, value in (("@@LOADER_CALLS@@", calls), ("@@START_MS@@", str(sample_delay_s * 1000)),
-                               ("@@GRID_STEP@@", repr(GRID_STEP)), ("@@HIT_LIMIT@@", str(hit_limit)),
+                               ("@@GRID_STEP@@", repr(GRID_STEP)), ("@@HIT_LIMIT@@", str(hit_limit)), ("@@STEP_LIMIT@@", str(step_limit)),
                                ("@@BUILDING_RAY_LIMIT@@", str(building_ray_limit)),
                                ("@@RUN_RAY_LIMIT@@", str(run_ray_limit)), ("@@PATH_LIMIT@@", str(path_limit)),
                                ("@@OUTPUT_LIMIT@@", str(output_limit))) + shared:
@@ -837,16 +1094,16 @@ def render_hook(targets, sample_delay_s=DEFAULT_SAMPLE_DELAY_S, run_ray_limit=DE
 
 _LITERAL = re.compile(r'"(?:[^"\\]|\\.)*"')
 _PLUS = re.compile(r"(?<!\+)\+(?![+=])")
-_FUNCTION = re.compile(
-    r"^[ \t]{4}(?:(?:override|static|protected|private)[ \t]+)*[\w<>]+[ \t]+(\w+)[ \t]*\(([^()]*)\)[ \t]*\n[ \t]{4}\{",
-    re.M)
-_TYPED_NAME = re.compile(r"\b(int|float|bool|string|vector)[ \t]+(\w+)[ \t]*(?=[;=,)\[])")
-_MEMBER_NAME = re.compile(r"^[ \t]{4}protected[ \t]+(?:ref[ \t]+)?(int|float|bool|string|vector)[ \t]+(\w+)", re.M)
-_ANY_DECLARATION = re.compile(r"\b[A-Za-z_]\w*(?:<[^;()=]*?>)?[ \t]+(\w+)[ \t]*(?=[;=])")
+_FUNCTION_HEAD = re.compile(
+    r"\s*(?:(?:override|static|protected|private|proto|native|external)\s+)*[\w<>,]+\s+(\w+)\s*\(([^()]*)\)\s*")
+_NOT_FUNCTIONS = frozenset({"if", "for", "while", "switch", "foreach", "else", "return", "new"})
+_TYPED_NAME = re.compile(r"\b(int|float|bool|string|vector)\s+(\w+)\s*(?=[;=,)\[])")
+_MEMBER_NAME = re.compile(r"\b(?:protected|private)\s+(?:ref\s+)?(int|float|bool|string|vector)\s+(\w+)")
+_ANY_DECLARATION = re.compile(r"\b[A-Za-z_]\w*(?:<[^;()=]*?>)?\s+(\w+)\s*(?=[;=])")
 _STRING_HELPERS = re.compile(r"^HCProbe(?:Key|Str|Bool|Vector|Int|Num)\(")
 _NUMBER_LITERAL = re.compile(r"^-?\d+(?:\.\d+)?$")
 _NUMBER_CALL = re.compile(r"(?:\.Count\(\)|\.Length\(\)|\bGetTime\(\)|\.GetDoorCount\(\))$")
-_ASSIGNMENT_PREFIX = re.compile(r"^(?:return\b\s*|(?:[\w<>]+[ \t]+)?[\w.\[\]]+[ \t]*=(?!=)[ \t]*)")
+_ASSIGNMENT_PREFIX = re.compile(r"^(?:return\b\s*|(?:[\w<>]+\s+)?[\w.\[\]]+\s*=(?!=)\s*)")
 _SAMPLER_OUT_CALLS = (("RaycastRV", (2, 3, 4)), ("SampleNavmeshPosition", (3,)), ("FindPath", (3,)))
 
 
@@ -857,17 +1114,36 @@ def _blank(text):
 
 
 def _functions(clean):
-    """(name, parameter text, body text, body start) for every four-space-indented function."""
-    for match in _FUNCTION.finditer(clean):
-        start, depth = match.end() - 1, 0
-        for position in range(start, len(clean)):
-            if clean[position] == "{":
-                depth += 1
-            elif clean[position] == "}":
-                depth -= 1
-                if depth == 0:
-                    yield match.group(1), match.group(2), clean[start:position + 1], start
-                    break
+    """(name, parameter text, body text, body start) for every function declared at brace depth 0 or 1.
+
+    Detection follows the braces, not the layout: inline braces, K&R style, tabs and any indentation count."""
+    depth, boundary, position = 0, 0, 0
+    while position < len(clean):
+        char = clean[position]
+        if char == "{" and depth <= 1:
+            match = _FUNCTION_HEAD.fullmatch(clean[boundary:position])
+            if match and match.group(1) not in _NOT_FUNCTIONS:
+                inner = 0
+                for end in range(position, len(clean)):
+                    inner += {"{": 1, "}": -1}.get(clean[end], 0)
+                    if inner == 0:
+                        yield match.group(1), match.group(2), clean[position:end + 1], position
+                        break
+                else:
+                    return
+                position, boundary = end + 1, end + 1
+                continue
+            depth += 1
+            boundary = position + 1
+        elif char == "{":
+            depth += 1
+            boundary = position + 1
+        elif char == "}":
+            depth -= 1
+            boundary = position + 1
+        elif char == ";":
+            boundary = position + 1
+        position += 1
 
 
 def _split_top(text, separator):
@@ -930,21 +1206,36 @@ def _joined_numbers(segment, types):
     return found
 
 
+def statement_plus_counts(text):
+    """(line, binary '+' count) for every statement, counted on comment-free text with string contents blanked.
+
+    A statement is whatever lies between ';', '{' and '}', so inline braces, any indentation and line breaks
+    inside a statement cannot hide an operator. ``++`` and ``+=`` are not binary additions."""
+    clean = _blank(text)
+    counts = []
+    for found in re.finditer(r"[^;{}]+", clean):
+        chunk = found.group(0)
+        if not chunk.strip():
+            continue
+        line = clean.count("\n", 0, found.start() + len(chunk) - len(chunk.lstrip())) + 1
+        counts.append((line, len(_PLUS.findall(chunk))))
+    return counts
+
+
 def lint_sampler_hook(text, native_types=frozenset()):
     """Return a list of issues; empty means no observed-rejected shape was found.
 
     Covers probe_runtime's shared rules plus: no else (the reference transpiler models none), at most
     eight binary '+' per statement ("Formula too complex"), no bare number joined to a string
-    ("Incompatible parameter"), and every out argument declared before its call."""
+    ("Incompatible parameter"), and every out argument declared before its call. The sampler checks read
+    the text per cleaned statement and per brace-delimited function, whatever the layout."""
     issues = list(rt.lint_hook(text, native_types=native_types))
     clean = _blank(text)
     for number, line in enumerate(clean.splitlines(), 1):
         if re.search(r"\belse\b", line):
             issues.append(f"line {number}: 'else' is not allowed (the reference transpiler models none)")
-    for found in re.finditer(r"[^;{}]+", clean):
-        count = len(_PLUS.findall(found.group(0)))
+    for line, count in statement_plus_counts(text):
         if count > MAX_PLUS_PER_STATEMENT:
-            line = clean.count("\n", 0, found.start() + len(found.group(0)) - len(found.group(0).lstrip())) + 1
             issues.append(f"line {line}: {count} binary '+' operators in one statement "
                           f"(more than {MAX_PLUS_PER_STATEMENT} is 'Formula too complex' natively)")
     members = {name: kind for kind, name in _MEMBER_NAME.findall(clean)}
@@ -952,7 +1243,8 @@ def lint_sampler_hook(text, native_types=frozenset()):
         types = dict(members)
         types.update({name: kind for kind, name in _TYPED_NAME.findall(parameters + "\n" + body)})
         for found in re.finditer(r"[^;{}]+", body):
-            for operand in _joined_numbers(found.group(0), types):
+            statement = re.sub(r"\s+", " ", found.group(0)).strip()
+            for operand in _joined_numbers(statement, types):
                 line = clean.count("\n", 0, start + found.start()) + 1
                 issues.append(f"{function} (line {line}): number '{operand}' joined to a string without "
                               "ToString(), HCProbeInt or HCProbeNum")
@@ -979,6 +1271,7 @@ def lint_sampler_hook(text, native_types=frozenset()):
 
 def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minutes=DEFAULT_WAIT_MINUTES,
           intersect="geom", sample_delay_s=DEFAULT_SAMPLE_DELAY_S, hit_limit=DEFAULT_HIT_LIMIT,
+          step_limit=DEFAULT_STEP_LIMIT,
           building_ray_limit=DEFAULT_BUILDING_RAY_LIMIT, run_ray_limit=DEFAULT_RUN_RAY_LIMIT,
           path_limit=DEFAULT_PATH_LIMIT, output_limit=DEFAULT_OUTPUT_LIMIT,
           battleye_sha256=rt.BATTLEYE_SHA256, native_scripts=None, now=None, _wsl_parent=None):
@@ -1000,8 +1293,8 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
     targets = placements_tool.build_targets(placements, classes=SAMPLE_CLASSES, per_class=per_class,
                                             hard_cap=MAX_TARGETS)
     limits = {"sample_delay_s": sample_delay_s, "run_ray_limit": run_ray_limit,
-              "building_ray_limit": building_ray_limit, "hit_limit": hit_limit, "path_limit": path_limit,
-              "output_limit": output_limit, "intersect": intersect}
+              "building_ray_limit": building_ray_limit, "hit_limit": hit_limit, "step_limit": step_limit,
+              "path_limit": path_limit, "output_limit": output_limit, "intersect": intersect}
     hook = render_hook(targets, **limits)
     native = rt.native_type_names(native_scripts) if native_scripts else frozenset()
     problems = lint_sampler_hook(hook.decode("ascii"), native_types=native)
@@ -1022,7 +1315,7 @@ def stage(source_runtime, destination, *, per_class=DEFAULT_PER_CLASS, wait_minu
                   "census_relative_path": f"profiles/{PROFILE_DIRECTORY}/{OUTPUT_NAME}",
                   "sentinel_relative_path": f"profiles/{PROFILE_DIRECTORY}/{SENTINEL_NAME}"},
         "sampler": {"grid_step": GRID_STEP, "per_class": per_class, "intersect": intersect,
-                    "hit_limit": hit_limit, "building_ray_limit": building_ray_limit,
+                    "hit_limit": hit_limit, "step_limit": step_limit, "building_ray_limit": building_ray_limit,
                     "run_ray_limit": run_ray_limit, "path_limit": path_limit, "output_limit": output_limit,
                     "provisional_tolerances_m": {"snap_limit": 0.5, "path_end": 0.5, "seed_margin": 1.0,
                                                  "projected_margin": 0.5, "waist_height": 1.0}},
