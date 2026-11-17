@@ -17,6 +17,7 @@ from tools.package import workshop_publish as wp
 
 KEY = 'hollowcountry_synthetic'
 PNG = b'\x89PNG\r\n\x1a\n' + b'synthetic-preview' * 8
+MARKER = 'S3CRET-MARKER-9f2'
 META = 'protocol = 1;\npublishedid = 0;\nname = "Hollow Country";\n'
 
 
@@ -256,6 +257,19 @@ class Prepare(Base):
         self.assertNotIn('guard', written)
         self.assertNotIn('+login', written)
         self.assertEqual(text.count('+login <their_username>'), 1)
+
+    def test_secret_values_are_never_echoed_on_rejection(self):
+        for argv in (['--password', MARKER], ['--password=' + MARKER], ['--steam-pass', MARKER], ['-p', MARKER],
+                     ['--token', MARKER], ['--secret=' + MARKER], ['--bogus', MARKER], ['--guard-code=' + MARKER]):
+            with self.subTest(argv=argv):
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    with self.assertRaises(SystemExit) as caught:
+                        wp.main(['prepare', '--mod', str(self.mod), '--out', str(self.out_dir), *argv], out=out)
+                self.assertEqual(caught.exception.code, 2)
+                self.assertNotIn(MARKER, out.getvalue() + err.getvalue())
+                self.assertTrue(err.getvalue())
+        self.assertFalse(self.out_dir.exists())
 
     def test_preview_is_validated_and_referenced(self):
         code, _, _ = self.prepare('--preview', self.preview())

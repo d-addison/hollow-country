@@ -333,8 +333,29 @@ def _positive(value):
     return int(value)
 
 
+CREDENTIAL_WORDS = ('pass', 'token', 'secret', 'pwd', 'credential', 'guard')
+
+
+class QuietParser(argparse.ArgumentParser):
+    """Never echoes argument values: credential-like options and unknown arguments are refused unseen."""
+
+    def parse_args(self, args=None, namespace=None):
+        for token in (sys.argv[1:] if args is None else args):
+            name = token.split('=', 1)[0].lower() if token.startswith('-') else ''
+            if name and (name == '-p' or (not name.startswith('--') and name.startswith('-p'))
+                         or any(word in name for word in CREDENTIAL_WORDS)):
+                self.error('credential options are not supported; steamcmd asks for the password and the Steam '
+                           'Guard code itself (the offending argument is not shown)')
+        return super().parse_args(args, namespace)
+
+    def error(self, message):
+        if message.startswith('unrecognized arguments'):
+            message = 'unrecognized arguments (values are not shown)'
+        super().error(message)
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0], allow_abbrev=False)
+    parser = QuietParser(description=__doc__.split('\n')[0], allow_abbrev=False)
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('prepare', help='validate, stage and write the steamcmd VDF', allow_abbrev=False)
     p.add_argument('--mod', required=True, help='signed @HollowCountry folder')

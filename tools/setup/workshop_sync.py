@@ -199,11 +199,12 @@ def server_running():
             results.append(SERVER_EXE.lower() in (done.stdout or '').lower() if done.returncode == 0 else None)
         else:
             results.append(True if done.returncode == 0 else False if done.returncode == 1 else None)
+    # Every probe must succeed and say "not running"; a probe that failed means unknown, never stopped.
     if any(r is True for r in results):
         return True
-    if any(r is False for r in results):
-        return False
-    return None
+    if any(r is None for r in results):
+        return None
+    return False
 
 
 def require_stopped(args):
@@ -308,7 +309,7 @@ def item_files(item, source):
 
 
 # ---------------------------------------------------------------- receipt
-def load_receipt(root):
+def load_receipt(root, managed):
     path = root / RECEIPT_NAME
     if not path.exists():
         return None
@@ -329,6 +330,21 @@ def load_receipt(root):
     for rel in data['dirs']:
         if not isinstance(rel, str) or not RECEIPT_DIR.match(rel):
             raise SyncError('receipt folder %r is not one this tool creates; refusing to roll back' % (rel,))
+        if rel.startswith('@') and rel.split('/')[0] not in managed:
+            raise SyncError('receipt folder %r is not a mod folder in the manifest; refusing to roll back' % (rel,))
+    created = {rel for rel in data['dirs'] if rel.startswith('@') and '/' not in rel}
+    by_path = {e['path']: e for e in data['files']}
+    for entry in data['files']:
+        path = entry['path']
+        if path.startswith('@'):
+            if path.split('/')[0] not in created:
+                raise SyncError('receipt entry %s is in a folder install did not create; refusing to roll back' % path)
+        else:
+            # A server key is ours only if a created mod folder holds the same key we copied from it.
+            name = path.split('/')[-1]
+            if not any(by_path.get(top + '/keys/' + name, {}).get('sha256') == entry['sha256'] for top in created):
+                raise SyncError('receipt key %s has no matching copy in a folder install created; '
+                                'refusing to roll back' % path)
     return data
 
 
@@ -343,6 +359,10 @@ def resolve(args):
     items = select(manifest, groups, args.hollowcountry_id)
     dirs = content_dirs(args.workshop_content, args.steamcmd, getattr(args, 'install_dir', None))
     return groups, items, dirs
+
+
+def managed_folders(args):
+    return {m['folder'] for m in load_manifest(args.manifest)['mods']}
 
 
 def classify(item, root):
@@ -448,7 +468,7 @@ def cmd_fetch(args, say):
     return 0
 
 
-def plan_install(items, dirs, root):
+def plan_install(items, dirs, root, owned=()):
     """Resolve every file to write before writing anything. Returns (work, skipped, manual)."""
     missing, work, skipped, manual = [], [], {}, []
     for item in items:
@@ -482,9 +502,12 @@ def plan_install(items, dirs, root):
                 conflicts.append('%s exists and is not a regular file' % rel)
             elif sha256_of(target) != digest:
                 conflicts.append('%s exists and differs' % rel)
-        folder = root / rel.split('/')[0]
+        top = rel.split('/')[0]
+        folder = root / top
         if folder.exists() and not folder.is_dir():
             conflicts.append('%s exists and is not a directory' % folder.name)
+        elif top.startswith('@') and folder.is_dir() and top not in owned:
+            conflicts.append('%s exists but was not created by an earlier install' % top)
     if conflicts:
         raise SyncError('refusing to overwrite: ' + '; '.join(conflicts)
                         + '. Run rollback first if these came from an earlier install, or move them away.')
@@ -495,8 +518,8 @@ def cmd_install(args, say):
     require_stopped(args)
     root = check_root(args.server_root)
     groups, items, dirs = resolve(args)
-    targets, skipped, manual = plan_install(items, dirs, root)
-    receipt = load_receipt(root)
+    receipt = load_receipt(root, managed_folders(args))
+    targets, skipped, manual = plan_install(items, dirs, root, set(receipt['dirs']) if receipt else set())
     files = {e['path']: e for e in receipt['files']} if receipt else {}
     made_dirs = set(receipt['dirs']) if receipt else set()
     created = set()
@@ -546,7 +569,7 @@ def cmd_install(args, say):
 def cmd_rollback(args, say):
     require_stopped(args)
     root = check_root(args.server_root)
-    receipt = load_receipt(root)
+    receipt = load_receipt(root, managed_folders(args))
     if receipt is None:
         raise SyncError('no receipt (%s) in %s; nothing this tool installed can be rolled back' % (RECEIPT_NAME, root))
     for entry in receipt['files']:
@@ -583,8 +606,29 @@ def _positive_id(value):
     return value
 
 
+CREDENTIAL_WORDS = ('pass', 'token', 'secret', 'pwd', 'credential', 'guard')
+
+
+class QuietParser(argparse.ArgumentParser):
+    """Never echoes argument values: credential-like options and unknown arguments are refused unseen."""
+
+    def parse_args(self, args=None, namespace=None):
+        for token in (sys.argv[1:] if args is None else args):
+            name = token.split('=', 1)[0].lower() if token.startswith('-') else ''
+            if name and (name == '-p' or (not name.startswith('--') and name.startswith('-p'))
+                         or any(word in name for word in CREDENTIAL_WORDS)):
+                self.error('credential options are not supported; the password and Steam Guard code are typed '
+                           'into steamcmd itself (the offending argument is not shown)')
+        return super().parse_args(args, namespace)
+
+    def error(self, message):
+        if message.startswith('unrecognized arguments'):
+            message = 'unrecognized arguments (values are not shown)'
+        super().error(message)
+
+
 def build_parser():
-    parser = argparse.ArgumentParser(description=__doc__.split('\n')[0], allow_abbrev=False)
+    parser = QuietParser(description=__doc__.split('\n')[0], allow_abbrev=False)
     sub = parser.add_subparsers(dest='command', required=True)
 
     def common(p, groups=True, root_required=True):
@@ -611,6 +655,7 @@ def build_parser():
     install.set_defaults(install_dir=None)
     rollback = sub.add_parser('rollback', help='remove exactly what install added', allow_abbrev=False)
     common(rollback, groups=False)
+    rollback.add_argument('--manifest', help='alternative workshop_mods.json')
     rollback.add_argument('--assume-stopped', action='store_true', help='skip the running-server check')
     return parser
 

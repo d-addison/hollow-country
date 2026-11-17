@@ -26,6 +26,7 @@ HC_ID = '3600000001'
 FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
             '@SnafuWeapons;@TacticalFlava;@HollowCountry')
 RECEIPT = 'hollow-country-workshop-receipt.json'
+MARKER = 'S3CRET-MARKER-9f2'
 
 
 def make_item(content, item_id, key=None, extra=True, name=None):
@@ -298,6 +299,19 @@ class Fetch(Base):
                 self.assertEqual(code, 1)
                 self.run_mock.assert_not_called()
 
+    def test_secret_values_are_never_echoed_on_rejection(self):
+        for argv in (['--password', MARKER], ['--password=' + MARKER], ['--steam-pass', MARKER], ['-p', MARKER],
+                     ['--token', MARKER], ['--secret=' + MARKER], ['--bogus', MARKER], ['--guard-code=' + MARKER]):
+            with self.subTest(argv=argv):
+                out, err = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                    with self.assertRaises(SystemExit) as caught:
+                        ws.main(['fetch', *self.common('snafu'), '--steam-user', 'owner', *argv], out=out)
+                self.assertEqual(caught.exception.code, 2)
+                self.assertNotIn(MARKER, out.getvalue() + err.getvalue())
+                self.assertTrue(err.getvalue())
+                self.run_mock.assert_not_called()
+
     def test_no_password_option_exists(self):
         for flag in ('--password', '--steam-password', '--steam-pass'):
             with self.subTest(flag=flag):
@@ -560,6 +574,65 @@ class Install(Base):
         self.assertEqual(self.run_cmd('plan', 'base')[0], 0)
 
 
+class ReceiptScope(Base):
+    """Review P1: a receipt may only name what install itself created."""
+
+    def setUp(self):
+        super().setUp()
+        make_item(self.content, IDS['snafu'])
+        self.existing = self.root / '@ExistingMod' / 'addons' / 'existing.pbo'
+        self.existing.parent.mkdir(parents=True)
+        self.existing.write_bytes(b'someone elses mod')
+        self.run_cmd('install', 'snafu')
+        self.receipt = self.root / RECEIPT
+        self.data = json.loads(self.receipt.read_text())
+
+    def tamper(self, path):
+        self.data['files'].append({'path': path, 'sha256': sha(self.root / path), 'size': 1, 'item': 'x'})
+        self.receipt.write_text(json.dumps(self.data))
+
+    def test_rollback_refuses_an_entry_in_a_folder_install_did_not_create(self):
+        self.tamper('@ExistingMod/addons/existing.pbo')
+        code, _, err = self.rollback()
+        self.assertEqual(code, 1)
+        self.assertIn('@ExistingMod', err)
+        self.assertEqual(self.existing.read_bytes(), b'someone elses mod')
+        self.assertTrue((self.root / '@SnafuWeapons' / 'mod.cpp').exists())
+
+    def test_rollback_refuses_a_key_entry_with_no_matching_created_copy(self):
+        victim = self.root / 'keys' / 'preexisting.bikey'
+        victim.write_bytes(b'someone elses key')
+        self.tamper('keys/preexisting.bikey')
+        code, _, err = self.rollback()
+        self.assertEqual(code, 1)
+        self.assertEqual(victim.read_bytes(), b'someone elses key')
+        self.assertTrue((self.root / '@SnafuWeapons' / 'mod.cpp').exists())
+
+    def test_rollback_refuses_a_folder_entry_naming_a_folder_not_created(self):
+        self.data['dirs'].append('@ExistingMod')
+        self.data['dirs'].append('@ExistingMod/addons')
+        self.tamper('@ExistingMod/addons/existing.pbo')
+        # Folders must also be mod folders from the manifest, so a forged list cannot name a stranger's mod.
+        code, _, _ = self.rollback()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.existing.read_bytes(), b'someone elses mod')
+
+    def test_install_refuses_a_pre_existing_mod_folder_it_did_not_create(self):
+        self.rollback()
+        folder = self.root / '@SnafuWeapons'
+        (folder / 'addons').mkdir(parents=True)
+        (folder / 'addons' / 'user.pbo').write_bytes(b'user')
+        code, _, err = self.run_cmd('install', 'snafu')
+        self.assertEqual(code, 1)
+        self.assertIn('not created', err)
+        self.assertFalse((self.root / RECEIPT).exists())
+
+    def test_normal_install_then_rollback_still_works(self):
+        self.assertEqual(self.rollback()[0], 0)
+        self.assertEqual(tree(self.root), ['@ExistingMod', '@ExistingMod/addons', '@ExistingMod/addons/existing.pbo',
+                                           'keys'])
+
+
 class ServerDetection(unittest.TestCase):
     def test_posix_uses_pgrep(self):
         with mock.patch('subprocess.run') as run, mock.patch('os.name', 'posix'), \
@@ -574,6 +647,34 @@ class ServerDetection(unittest.TestCase):
         with mock.patch('subprocess.run', side_effect=FileNotFoundError('pgrep')), mock.patch('os.name', 'posix'), \
                 mock.patch('shutil.which', return_value=None):
             self.assertIsNone(ws.server_running())
+
+    def test_any_failed_probe_means_unknown_not_stopped(self):
+        # Review P1: pgrep says "not running" but the Windows probe errors; that must not read as stopped.
+        def run(command, **kwargs):
+            if command[0] == 'pgrep':
+                return subprocess.CompletedProcess(command, 1)
+            return subprocess.CompletedProcess(command, 1, stdout='')
+        with mock.patch('subprocess.run', side_effect=run), mock.patch('os.name', 'posix'), \
+                mock.patch('shutil.which', return_value='/mnt/c/Windows/System32/tasklist.exe'):
+            self.assertIsNone(ws.server_running())
+        with mock.patch('subprocess.run', side_effect=lambda c, **k: (_ for _ in ()).throw(OSError('x'))
+                        if c[0] != 'pgrep' else subprocess.CompletedProcess(c, 1)), \
+                mock.patch('os.name', 'posix'), mock.patch('shutil.which', return_value='tasklist.exe'):
+            self.assertIsNone(ws.server_running())
+
+    def test_all_probes_clean_is_stopped_and_one_hit_is_running(self):
+        def run(hit):
+            def inner(command, **kwargs):
+                if command[0] == 'pgrep':
+                    return subprocess.CompletedProcess(command, 1)
+                return subprocess.CompletedProcess(command, 0, stdout='DayZServer_x64.exe 1\n' if hit else
+                                                   'INFO: No tasks are running which match.\n')
+            return inner
+        with mock.patch('os.name', 'posix'), mock.patch('shutil.which', return_value='tasklist.exe'):
+            with mock.patch('subprocess.run', side_effect=run(False)):
+                self.assertFalse(ws.server_running())
+            with mock.patch('subprocess.run', side_effect=run(True)):
+                self.assertTrue(ws.server_running())
 
     def test_windows_uses_tasklist(self):
         out = 'Image Name   PID\nDayZServer_x64.exe   1234\n'
