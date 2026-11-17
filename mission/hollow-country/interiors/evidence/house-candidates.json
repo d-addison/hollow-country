@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "kind": "native-house-pose-evidence",
+  "world": "chernarusplus",
+  "build": "1.30.164289",
+  "source": {
+    "kind": "native-real-house-measurement-acquisition",
+    "run_id": "dcbc6da28e32a5b7a16ff94fcdf5021f",
+    "engine_version": "1.30.164289.70",
+    "result_sha256": "593ec54320e7f6bafd156a24dad86c9b4413e2415d20037c19dc10ccd81023c6",
+    "request_sha256": "bea0a2289a0fab9c463518e51416649d5b2468a366df7d7551b178ff6a1ffbb6",
+    "survey_complete": false,
+    "gameplay_acceptance": false
+  },
+  "houses": [
+    {
+      "id": "house-663",
+      "building_class": "Land_House_1W01",
+      "position": [1598.0286865234375, 304.5144348144531, 8970.615234375],
+      "orientation": [15.041482925415039, 0.0, 0.0],
+      "matches": 1
+    }
+  ]
+}

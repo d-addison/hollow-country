@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "world": "chernarusplus",
+  "build": "1.30.164289",
+  "epoch": 1,
+  "seed": 1,
+  "initialize_new_epoch": true,
+  "slots": [
+    {
+      "slot_id": 0,
+      "house": "house-663"
+    }
+  ]
+}
