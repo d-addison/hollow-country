@@ -95,7 +95,7 @@ STACK_STEPS = ('tactical_flava', 'snafu', 'economy')  # each rolls back on top o
 EXPANSION_DEPENDENCIES = (
     ('CF', '1559212036', ('cf', 'communityframework')),
     ('Dabs Framework', '2545327648', ('dabsframework', 'dabs')),
-    ('Expansion-Animations', None, ('expansionanimations', 'dayzexpansionanimations')),
+    ('Expansion-Animations', '2793893086', ('expansionanimations', 'dayzexpansionanimations')),
     ('Expansion-Core', '2291785308', ('expansioncore', 'dayzexpansioncore')),
     ('Expansion-AI', '2792982069', ('expansionai', 'dayzexpansionai')),
 )

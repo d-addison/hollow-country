@@ -1456,6 +1456,16 @@ class OptionalSteps(SessionCase):
         self.assertEqual(code, 0, err)
         self.assertIn(str(self.workshop / '1559212036'), out)
 
+    def test_steam_workshop_id_folders_satisfy_every_expansion_dependency(self):
+        # Steam names each subscribed folder by its Workshop id; Expansion-Animations is 2793893086.
+        for name, item_id in (('@CF', '1559212036'), ('@Dabs Framework', '2545327648'),
+                              ('@Expansion-Animations', '2793893086'), ('@DayZ-Expansion-Core', '2291785308'),
+                              ('@DayZ-Expansion-AI', '2792982069')):
+            (self.workshop / name).rename(self.workshop / item_id)
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual(code, 0, err)
+        self.assertIn(str(self.workshop / '2793893086'), out)
+
     def test_plan_prints_subscriptions_the_merge_instruction_and_the_mod_order_without_writing(self):
         before = self.tree(self.world)
         code, out, err = self.run_cli(self.ai_args('plan', '--snafu', str(self.snafu), '--tactical-flava', str(self.tf)))
