@@ -66,6 +66,7 @@ GAMEPLAY_PROFILE = MISSION_ROOT + '/gameplay-profiles/hollow-country-v1.json'
 GAMEPLAY_PRESET = MISSION_ROOT + '/gear/hardscrabble.json'
 ECONOMY_PROFILES = MISSION_ROOT + '/economy-profiles/'
 DEFAULT_ECONOMY_PROFILE = 'contextual-pilot'
+FIREARMS_ROSTER = 'tools/package/firearms_roster.json'  # the 2x-scarcity firearms roster, in the economy delta by default
 INTERIORS_PACK = MISSION_ROOT + '/interiors'
 AI_MERGE = MISSION_ROOT + '/ai/AISettings.merge.json'
 AI_SETTINGS_TARGET = 'ExpansionMod/Settings/AISettings.json'
@@ -775,6 +776,14 @@ def repo_file(repo, relative):
     return read_bytes(repo / relative, relative, limit=4 * 1024 * 1024)
 
 
+def economy_delta(economy, mission, repo, spec):
+    """Generate the economy delta for a planned spec: the profile plus the firearms roster unless --no-roster."""
+    profile = json.loads(repo_file(repo, spec['profile']))
+    if spec.get('roster'):
+        return economy.generate(mission, profile, roster=json.loads(repo_file(repo, spec['roster'])))
+    return economy.generate(mission, profile)
+
+
 DIAG_QUERY = ("Get-CimInstance Win32_Process -Filter \"Name='DayZDiag_x64.exe'\" | "
               "ForEach-Object { \"$($_.ProcessId)`t$($_.CommandLine)\" }")
 
@@ -1008,8 +1017,7 @@ def rehearse_deltas(plan, repo):
             (copy / relative).parent.mkdir(parents=True, exist_ok=True)
             (copy / relative).write_bytes(read_bytes(plan['mission'] / relative, relative, MAX_BYTES))
         try:
-            economy.write_delta(scratch / 'economy', economy.generate(
-                copy, json.loads(repo_file(repo, plan['economy']['profile']))))
+            economy.write_delta(scratch / 'economy', economy_delta(economy, copy, repo, plan['economy']))
             economy.install_delta(scratch / 'economy', copy)
         except (ValueError, OSError, KeyError, TypeError) as error:
             raise Refused('economy delta cannot be installed on a scratch copy of the mission: %s' % error) from None
@@ -1130,12 +1138,13 @@ def build_plan(args, repo=ROOT):
         regular(mission / 'cfgeconomycore.xml', 'mission cfgeconomycore.xml')
         if os.path.lexists(mission / economy.MANAGED):
             raise Refused('economy delta already installed in this mission; run rollback first')
-        profile_path = ECONOMY_PROFILES + name + '.json'
+        spec = {'profile': ECONOMY_PROFILES + name + '.json',
+                'roster': None if getattr(args, 'no_roster', False) else FIREARMS_ROSTER}
         try:
-            economy.generate(mission, json.loads(repo_file(repo, profile_path)))
+            economy_delta(economy, mission, repo, spec)
         except (ValueError, OSError, KeyError, TypeError) as error:
             raise Refused('economy delta cannot be generated for this mission: %s' % error) from None
-        plan['economy'] = {'profile': profile_path}
+        plan['economy'] = spec
     plan['snafu_delta'] = plan['tactical_flava_delta'] = None
     check_destinations(plan, mission, snafu, tf, ai, keys if args.install_key else (),
                        plan_interiors_target=getattr(args, 'interiors', False) and profiles / 'HollowCountry')
@@ -1277,7 +1286,9 @@ def render_plan(plan, args, commands, applied=False):
     out.append('     BattlEye, signature verification and passwords: untouched and never printed.')
     out.append('3. Mission deltas in %s:' % plan['mission'])
     out.append('     gameplay (cfggameplay.json + spawn kit): %s' % ('install' if plan['gameplay'] else 'skipped'))
-    out.append('     economy (CE delta, profile %s): %s' % (args.economy_profile, 'install' if plan['economy'] else 'skipped'))
+    out.append('     economy (CE delta, profile %s%s): %s' % (
+        args.economy_profile, ', firearms roster' if plan['economy'] and plan['economy'].get('roster') else '',
+        'install' if plan['economy'] else 'skipped'))
     out.append('4. Acceptance markers in %s: %s' % (plan['profiles'], plan['markers_mode'] if plan['markers_mode'] != 'names' else ','.join(plan['markers_only'])))
     for item in (plan['markers'] or {}).get('files', []):
         out.append('     %s.enable [%s]' % (item['name'], item['action']))
@@ -1451,7 +1462,7 @@ def apply_plan(plan, args):
         economy = load_tool('economy')
         receipt.step('economy', 'started')
         stage = stage_directory(state, 'economy')
-        economy.write_delta(stage, economy.generate(plan['mission'], json.loads(repo_file(repo, plan['economy']['profile']))))
+        economy.write_delta(stage, economy_delta(economy, plan['mission'], repo, plan['economy']))
         economy.install_delta(stage, plan['mission'])
         receipt.step('economy', 'done')
     # 4b. optional-subset CE deltas through their own installers, on top of the economy-patched core (SNAFU first)
@@ -1879,6 +1890,8 @@ def build_parser():
         p.add_argument('--time-accel', type=float, default=DEFAULT_TIME_ACCELERATION)
         p.add_argument('--night-accel', type=float, default=DEFAULT_NIGHT_ACCELERATION)
         p.add_argument('--economy-profile', default=DEFAULT_ECONOMY_PROFILE, help='economy profile name or none')
+        p.add_argument('--no-roster', action='store_true',
+                       help='leave the firearms roster (%s) out of the economy delta' % FIREARMS_ROSTER)
         p.add_argument('--no-gameplay', action='store_true', help='skip the cfggameplay delta')
         p.add_argument('--install-key', action='store_true',
                        help='copy the public .bikey of HC and of --tactical-flava into <server root>\\keys')

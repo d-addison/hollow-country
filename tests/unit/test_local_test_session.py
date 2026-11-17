@@ -118,12 +118,14 @@ class FakeGameplay:
 class FakeEconomy:
     MANAGED = 'hollow-country'
     INPUTS = ('cfgeconomycore.xml',)
+    rosters = []
 
     def __init__(self, log):
         self.log = log
 
-    def generate(self, source, profile):
+    def generate(self, source, profile, roster=None):
         self.log.append(('economy.generate', profile['name']))
+        self.rosters.append(roster and roster['name'])
         return {'ce/types.xml': b'<types/>'}
 
     def write_delta(self, stage, files):
@@ -300,7 +302,8 @@ class SessionCase(unittest.TestCase):
         self.repo = self.base / 'repo'
         for rel, text in ((lts.GAMEPLAY_PROFILE, '{"name": "gp"}'), (lts.GAMEPLAY_PRESET, '{"name": "kit"}'),
                           (lts.ECONOMY_PROFILES + 'contextual-pilot.json', '{"name": "contextual-pilot"}'),
-                          (lts.ECONOMY_PROFILES + 'baseline.json', '{"name": "baseline"}')):
+                          (lts.ECONOMY_PROFILES + 'baseline.json', '{"name": "baseline"}'),
+                          (lts.FIREARMS_ROSTER, '{"name": "roster"}')):
             (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.repo / rel).write_text(text)
         (self.repo / 'docs').mkdir()
@@ -872,6 +875,26 @@ class Apply(SessionCase):
         self.assertEqual(sorted(p.name for p in base.iterdir()), ['atmosphere.enable', 'events.enable', 'fuel_siphon.enable'])
         self.assertEqual(sorted(Path(p).name for p in receipt['markers']['created']),
                          ['atmosphere.enable', 'events.enable', 'fuel_siphon.enable'])
+
+    def test_the_economy_delta_includes_the_firearms_roster_by_default(self):
+        FakeEconomy.rosters = []
+        code, out, err = self.run_cli(self.args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertTrue(FakeEconomy.rosters)
+        self.assertEqual(set(FakeEconomy.rosters), {'roster'})  # plan, rehearsal and apply all use the roster
+        self.assertIn('firearms roster', out)
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+
+    def test_no_roster_drops_the_firearms_roster(self):
+        FakeEconomy.rosters = []
+        code, out, err = self.run_cli(self.args('apply', '--no-roster'))
+        self.assertEqual(code, 0, err)
+        self.assertTrue(FakeEconomy.rosters)
+        self.assertEqual(set(FakeEconomy.rosters), {None})
+
+    def test_no_roster_with_economy_profile_none_is_harmless(self):
+        code, _, err = self.run_cli(self.args('plan', '--economy-profile', 'none', '--no-roster'))
+        self.assertEqual(code, 0, err)
 
     def test_apply_markers_none_and_named_and_skipping_the_deltas(self):
         code, _, err = self.run_cli(self.args('apply', '--markers', 'fuel_siphon', '--no-gameplay',
@@ -2058,7 +2081,7 @@ class RealInstallers(unittest.TestCase):
             before = {p: p.read_bytes() for p in list(mission.rglob('*')) + list(server.rglob('*')) if p.is_file()}
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline']
+                    '--economy-profile', 'baseline', '--no-roster']
             (base / 'out').mkdir()
             out = io.StringIO()
             self.assertEqual(lts.main(['apply'] + argv, out=out), 0, out.getvalue())
@@ -2087,7 +2110,7 @@ class RealInstallers(unittest.TestCase):
             (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline', '--interiors', '--markers', 'all-local']
+                    '--economy-profile', 'baseline', '--no-roster', '--interiors', '--markers', 'all-local']
 
             def everything():
                 return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out')
@@ -2121,7 +2144,7 @@ class RealInstallers(unittest.TestCase):
             (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline', '--interiors', '--markers', 'all-local']
+                    '--economy-profile', 'baseline', '--no-roster', '--interiors', '--markers', 'all-local']
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
                 self.assertEqual(lts.main(['apply'] + argv, out=io.StringIO()), 0, err.getvalue())
@@ -2169,7 +2192,7 @@ class RealInstallers(unittest.TestCase):
             (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline', '--no-gameplay', '--snafu', str(snafu_install),
+                    '--economy-profile', 'baseline', '--no-roster', '--no-gameplay', '--snafu', str(snafu_install),
                     '--tactical-flava', str(tf_install), '--interiors', '--markers', 'all-local']
 
             def everything():
@@ -2212,7 +2235,7 @@ class RealInstallers(unittest.TestCase):
             (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline']
+                    '--economy-profile', 'baseline', '--no-roster']
             self.assertEqual(lts.main(['apply'] + argv, out=io.StringIO()), 0)
             preset = mission / 'hollow-country-gameplay' / 'gear' / 'hardscrabble.json'
             good = preset.read_bytes()
