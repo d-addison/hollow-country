@@ -5,6 +5,7 @@ rounding. Hook tests translate authored control flow, with native calls supplied
 as explicit fixtures. Neither is an Enforce compiler or replication evidence.
 """
 import ast
+from itertools import product
 import math
 from pathlib import Path
 import re
@@ -75,7 +76,16 @@ def authored(path, name, context, *args):
     text = re.sub(r'"(?:\\.|[^"\\])*"', literal, text)
     context.update(literals)
     def expression(value):
-        value = re.sub(r'\b(?:bool|float|int|string|HCSettings|HCServer|NoiseSystem|ChernarusPlusData) (\w+) =', r'\1 =', value)
+        value = re.sub(r'\b(?:bool|float|int|string|HCSettings|HCServer|NoiseSystem|ChernarusPlusData|Mission|FileHandle) (\w+) =', r'\1 =', value)
+        # Explicit native out-string and in-place string operations, without
+        # replacing any authored admission decisions.
+        value = re.sub(r'^string (\w+)$', r'\1 = ""', value)
+        value = re.sub(r'^GetGame\(\)\.(GetVersion|GetWorldName)\((\w+)\)$',
+                       r'\2 = GetGame().\1()', value)
+        value = re.sub(r'^(\w+)\.ToLower\(\)$', r'\1 = \1.lower()', value)
+        value = re.sub(r'^ReadFile\((\w+), (\w+), (\d+)\)$', r'\2 = ReadFile(\1, \3)', value)
+        value = re.sub(r'(\w+)\.Length\(\)', r'len(\1)', value)
+        value = re.sub(r'(\w+)\.IndexOf\(', r'\1.find(', value)
         value = re.sub(r'\bm_HC\w+\b', lambda m: 'self.' + m[0], value)
         value = value.replace('super.', 'base.')
         value = re.sub(r'(\w+)\.AsciiToString\(\)', r'chr(\1)', value)
@@ -122,6 +132,39 @@ class V1WeatherPolicyTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.policy = authored_policy()
+
+    def test_exact_cycle_bands_and_scalar_constants(self):
+        p = self.policy
+        for seconds, expected in ((-1, 0), (0, 0), (7199, 7199), (7200, 0),
+                                  (7201, 1), (14401, 1), (31536000, 0), (31536004, 0)):
+            self.assertEqual(expected, p.CyclePosition(seconds))
+        for phase, expected in ((0, .35), (2699, .35), (2700, .72), (3599, .72),
+                                (3600, .95), (5399, .95), (5400, .25), (7199, .25)):
+            self.assertEqual(f32(expected), p.CloudTarget(phase, 12))
+        for hour, expected in ((-1, .35), (0, .55), (4.5, .55), (5, .35), (5.5, .35),
+                               (19.5, .35), (20, .55), (23, .55), (24, .35), (math.inf, .35)):
+            self.assertEqual(f32(expected), p.CloudTarget(0, hour))
+        for cloud, rain, wind in ((-.1, 0, 4), (0, 0, 4), (.6, 0, 4), (.65, .25, 8),
+                                  (.84, .25, 8), (.85, .85, 14), (1, .85, 14), (1.1, 0, 4)):
+            self.assertEqual(f32(rain), p.RainTarget(cloud))
+            self.assertEqual(wind, p.WindTarget(cloud))
+        for phase, direction in ((0, -1.2), (3599, -1.2), (3600, .8), (5399, .8), (5400, -1.2)):
+            self.assertEqual(f32(direction), p.WindDirectionTarget(phase))
+        for hour, weight in ((4.5, 0), (5, 0), (6, .5), (7, 1), (7.5, .75),
+                              (8, .5), (9, 0), (9.5, 0)):
+            self.assertEqual(weight, p.MorningWeight(hour))
+            self.assertAlmostEqual(.04 + weight * .20, p.FogTarget(hour), places=7)
+            self.assertEqual(50 + 40 * weight, p.HeightBias(hour))
+        for cloud in (-1, 0, .5, 1, 2, math.nan):
+            for wind in (-1, 0, 8, 16, 20, math.inf, math.nan):
+                clean_cloud = cloud if 0 <= cloud <= 1 else 0
+                clean_wind = min(wind, 16) if math.isfinite(wind) and wind >= 0 else 16
+                expected = (.015 + .04 + .01 * clean_cloud) * (1 - clean_wind / 20)
+                self.assertAlmostEqual(expected, p.DistanceDensity(7, cloud, wind), places=7)
+        for request, expected in ((-1, 300), (0, 0), (300, 300), (900, 900), (1000, 900), (math.inf, 300)):
+            self.assertEqual(expected, p.TransitionTime(request))
+        for value in (math.nan, math.inf, -math.inf):
+            self.assertFalse(p.Finite(value))
 
     def test_deterministic_storm_then_dry_calm_window(self):
         p = self.policy
@@ -177,6 +220,78 @@ class V1WeatherPolicyTests(unittest.TestCase):
 
 
 class V1WeatherAdmissionTests(unittest.TestCase):
+    def native_context(self, world='chernarusplus', build='1.30.164289.70',
+                       document=None, missing=False, server=True):
+        from tools.package.atmosphere import SCRIPT_XML_PREFIX
+        events = []
+        if document is None:
+            document = SCRIPT_XML_PREFIX.decode() + '</weather>'
+        core = NS(IsStarted=lambda: True, GetSettings=lambda: NS(EnableAtmosphere=True))
+        game = NS(IsServer=lambda: server, GetWorldName=lambda: world,
+                  GetVersion=lambda: events.append(('version',)) or build)
+        context = dict(GetGame=lambda: game, HCServer=NS(Get=lambda: core),
+                       FileExist=lambda path: True, FileMode=NS(READ=1),
+                       OpenFile=lambda *args: events.append(('open', args)) or (0 if missing else 1),
+                       ReadFile=lambda handle, limit: events.append(('read', limit)) or document[:limit],
+                       CloseFile=lambda handle: events.append(('close', handle)),
+                       Print=lambda msg: events.append(('log', msg)))
+        for flag in ('Probed', 'OptIn', 'Reported', 'WeatherProbed', 'Delegated', 'WorldProbed', 'WorldSupported'):
+            context['s_' + flag] = False
+        gate = NS()
+        for name in ('Qualified', 'SupportedWorld', 'LocalOptIn', 'DelegatedWeather', 'Enabled'):
+            setattr(gate, name, lambda name=name: authored(GATE, name, context, None))
+        context['HCAtmosphereQualification'] = gate
+        return gate, context, events
+
+    def test_authored_world_and_exact_engine_build_gate_are_cached(self):
+        for world in ('chernarusplus', 'ChernarusPlus', 'enoch', 'sakhal', ''):
+            for build in ('1.30.164289', '1.30.164289.70', '', '1.30.164289.71',
+                          '1.30.164289.70extra', '1.30.1642890', '1.31.164289'):
+                with self.subTest(world=world, build=build):
+                    gate, _, events = self.native_context(world=world, build=build)
+                    expected = world.lower() == 'chernarusplus' and build in ('1.30.164289', '1.30.164289.70')
+                    for _ in range(3):
+                        self.assertEqual(expected, gate.SupportedWorld())
+                    self.assertEqual(1, events.count(('version',)))
+
+    def test_enabled_executes_delegation_and_server_guards(self):
+        from tools.package.atmosphere import SCRIPT_XML_PREFIX
+        for missing, document, expected in ((True, '', False), (False, '', False),
+                (False, '<weather enable="1" reset="0"></weather>', False),
+                (False, SCRIPT_XML_PREFIX.decode() + '</weather>', True)):
+            gate, _, events = self.native_context(document=document, missing=missing)
+            for _ in range(3):
+                self.assertEqual(expected, gate.Enabled())
+            self.assertEqual(1, sum(e[0] == 'open' for e in events))
+            self.assertEqual(0 if missing else 1, sum(e[0] == 'read' for e in events))
+        gate, _, events = self.native_context(server=False)
+        self.assertFalse(gate.LocalOptIn())
+        self.assertFalse(gate.Enabled())
+        self.assertEqual([], events)
+
+    def test_lifecycle_calls_super_first_and_starts_only_supported_world_data(self):
+        for world in ('chernarusplus', 'ChernarusPlus', 'enoch', 'sakhal', ''):
+            for enabled, mission_present, castable in ((False, True, True), (True, True, True),
+                                                       (True, False, True), (True, True, False)):
+                with self.subTest(world=world, enabled=enabled, mission=mission_present, castable=castable):
+                    calls = []
+                    data = NS(HCStartAtmosphere=lambda: calls.append('atmosphere'))
+                    mission = NS(GetWorldData=lambda: calls.append('world-data') or data) if mission_present else None
+                    game = NS(GetWorldName=lambda: world, GetMission=lambda: calls.append('mission') or mission)
+                    context = dict(GetGame=lambda: game, base=NS(Start=lambda: calls.append('super')),
+                        HCAtmosphereQualification=NS(Enabled=lambda: calls.append('enabled') or enabled),
+                        ChernarusPlusData=NS(Cast=lambda value: value if castable else None),
+                        Print=lambda msg: None)
+                    authored(WEATHER / 'HCAtmosphereLifecycle.c', 'Start', context, NS())
+                    expected = ['super', 'enabled']
+                    if enabled and world.lower() == 'chernarusplus':
+                        expected += ['mission']
+                        if mission_present:
+                            expected += ['world-data']
+                            if castable:
+                                expected += ['atmosphere']
+                    self.assertEqual(expected, calls)
+
     def context(self, enabled=True, server=True, started=True, marker=False, supported_world=True):
         events = []
         settings = NS(EnableAtmosphere=enabled)
@@ -240,7 +355,10 @@ class V1WeatherAdmissionTests(unittest.TestCase):
             calls.clear()
             self.assertTrue(authored(WORLD, 'HCForecast', context, NS(), kind))
             self.assertEqual([target, 'volfog'], [row[0] for row in calls])
-            self.assertTrue(all(0 <= x <= 600 for x in calls[0][1][1:]))
+            expected = dict(OVERCAST=(f32(.95), 300, 300), RAIN=(f32(.85), 180, 120),
+                            FOG=(f32(f32(.04) + f32(.20)), 300, 0), WIND_MAGNITUDE=(14, 180, 120),
+                            WIND_DIRECTION=(f32(.8), 300, 300), SNOWFALL=(0, 300, 300))
+            self.assertEqual(expected[kind], calls[0][1])
         calls.clear()
         self.assertFalse(authored(WORLD, 'HCForecast', context, NS(), 'unknown'))
         self.assertEqual([], calls)
@@ -255,8 +373,9 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         self.assertEqual(['FOG'], calls)
 
     def test_startup_blocks_foreign_drivers_and_uses_synced_native_lighting_once(self):
-        for mission, frozen in ((True, False), (False, True), (False, False)):
-            calls = []
+        for (mission, frozen), lighting, personal in product(
+                ((True, False), (False, True), (False, False)), (0, 2), (False, True)):
+            calls, logs = [], []
             weather = NS(GetMissionWeather=lambda: mission, GetWeatherUpdateFrozen=lambda: frozen,
                          SetWindMaximumSpeed=lambda *args: calls.append(('maxwind', args)),
                          SetStorm=lambda *args: calls.append(('storm', args)),
@@ -265,8 +384,8 @@ class V1WeatherAdmissionTests(unittest.TestCase):
             for name in ('Overcast', 'Rain', 'Fog', 'WindMagnitude', 'WindDirection', 'Snowfall'):
                 setattr(weather, 'Get' + name, lambda name=name: NS(
                     SetLimits=lambda *args: calls.append(('limits-' + name, args)), GetActual=lambda: .35))
-            data = NS(WorldsData=NS(lightingConfig=0, environmentMinTemps=[-3.]*12),
-                      PlayerData=NS(disablePersonalLight=False))
+            data = NS(WorldsData=NS(lightingConfig=lighting, environmentMinTemps=[-3.]*12),
+                      PlayerData=NS(disablePersonalLight=personal))
             context = {'m_Weather': weather,
                        'm_WeatherDefaultSettings': NS(m_StormThreshold=.85, m_RainThreshold=.65),
                        'HCAtmosphereQualification': NS(Enabled=lambda: True),
@@ -274,22 +393,45 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                        'HCForecast': lambda kind: calls.append(('forecast', kind)),
                        'CalculateVolFog': lambda *args: calls.append(('volfog', args)),
                        'CfgGameplayHandler': NS(m_Data=data), 'Print': lambda msg: None,
+                       'PrintFormat': lambda fmt, value: logs.append((fmt, value)),
                        'EWeatherPhenomenon': NS(**{name: name for name in
                            ('OVERCAST', 'RAIN', 'FOG', 'WIND_MAGNITUDE', 'WIND_DIRECTION', 'SNOWFALL')})}
+            context['HCConfigureAtmosphereDefaults'] = lambda: (calls.append(('defaults', ())),
+                authored(WORLD, 'HCConfigureAtmosphereDefaults', context, None))
             actor = NS(m_HCAtmosphereStarted=False)
             result = authored(WORLD, 'HCStartAtmosphere', context, actor)
             self.assertEqual(not (mission or frozen), result)
             if mission or frozen:
                 self.assertEqual([], calls)
-                self.assertEqual(0, data.WorldsData.lightingConfig)
-                self.assertFalse(data.PlayerData.disablePersonalLight)
+                self.assertEqual(lighting, data.WorldsData.lightingConfig)
+                self.assertEqual(personal, data.PlayerData.disablePersonalLight)
+                self.assertEqual([], logs)
             else:
-                self.assertEqual(1, data.WorldsData.lightingConfig)
+                self.assertEqual(1 if lighting == 0 else lighting, data.WorldsData.lightingConfig)
                 self.assertTrue(data.PlayerData.disablePersonalLight)
+                self.assertEqual(2, len(logs))
+                self.assertIn('previous=' if lighting == 0 else 'operator-set; retained', logs[0][0])
+                self.assertEqual(lighting, logs[0][1])
+                self.assertIn('previous=' if not personal else 'operator-set; retained', logs[1][0])
+                self.assertEqual(personal, logs[1][1])
+                self.assertEqual(dict(m_RainThreshold=.65, m_StormThreshold=.85,
+                    m_OvercastMinTime=300, m_OvercastMaxTime=300,
+                    m_OvercastMinLength=300, m_OvercastMaxLength=300,
+                    m_CalmAfterStormTimeMin=1800, m_CalmAfterStormTimeMax=1800,
+                    m_DefaultHeigthBias=50, m_GlobalSuddenChance=0, m_BadWeatherSuddenChance=0),
+                    vars(context['m_WeatherDefaultSettings']))
+                self.assertEqual([('limits-Overcast', (0, 1)), ('limits-Fog', (0, .25)),
+                    ('limits-Rain', (0, .9)), ('limits-Snowfall', (0, 0)),
+                    ('limits-WindMagnitude', (0, 16)), ('limits-WindDirection', (-3.14159, 3.14159)),
+                    ('maxwind', (16,)), ('storm', (1, .85, 90)), ('rain-thresholds', (.65, 1, 90))],
+                    [row for row in calls if row[0] not in ('defaults', 'forecast', 'volfog')])
+                self.assertEqual(['OVERCAST', 'RAIN', 'FOG', 'WIND_MAGNITUDE', 'WIND_DIRECTION', 'SNOWFALL'],
+                    [row[1] for row in calls if row[0] == 'forecast'])
                 self.assertEqual([-3.]*12, data.WorldsData.environmentMinTemps)
                 count = len(calls)
                 self.assertTrue(authored(WORLD, 'HCStartAtmosphere', context, actor))
                 self.assertEqual(count, len(calls))
+                self.assertEqual(2, len(logs))
 
     def test_new_scripts_follow_installed_native_statement_shapes(self):
         from tools.setup.probe_runtime import lint_hook, native_type_names
@@ -317,10 +459,16 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         authored(WORLD, 'CalculateVolFog', context, actor, .5, 0., 100.)
         self.assertEqual([('vanilla', (.5, 0., 100.))], calls)
         enabled[0] = True
+        actor.m_HCAtmosphereStarted = False
+        calls.clear()
+        authored(WORLD, 'CalculateVolFog', context, actor, .5, 0., 100.)
+        self.assertEqual([('vanilla', (.5, 0., 100.))], calls)
+        actor.m_HCAtmosphereStarted = True
         calls.clear()
         authored(WORLD, 'CalculateVolFog', context, actor, .5, 0., math.inf)
         self.assertEqual(['distance', 'height', 'bias'], [row[0] for row in calls])
         self.assertAlmostEqual(.06, calls[0][1][0], places=5)
+        self.assertEqual(.95, calls[1][1][0])
         self.assertEqual(90., calls[2][1][0])
         self.assertTrue(all(row[1][1] == 300 for row in calls))
         calls.clear()
@@ -372,6 +520,25 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         self.assertEqual(3.75, authored(relay, 'RangeAtSource', context, None, 7.5, origin))
         self.assertEqual([origin], calls)
 
+    def test_missing_noise_system_preserves_vanilla_and_logs_once(self):
+        logs = []
+        scope = dict(HCAtmosphereQualification=NS(Enabled=lambda: True),
+                     GetGame=lambda: NS(GetNoiseSystem=lambda: None),
+                     HCAtmospherePolicy=authored_policy(), s_NoiseReported=False,
+                     Print=logs.append)
+        relay = WEATHER / 'HCAtmosphereRelay.c'
+        for radius in (7.5, 0, 15):
+            self.assertEqual(radius, authored(relay, 'RangeAtSource', scope, None, radius, (1, 2, 3)))
+        self.assertEqual(1, len(logs))
+        self.assertIn('vanilla', logs[0])
+
+    def test_available_noise_system_keeps_relay_range_guards(self):
+        scope = dict(HCAtmosphereQualification=NS(Enabled=lambda: True),
+                     GetGame=lambda: NS(GetNoiseSystem=lambda: NS(GetEnvironmentNoiseReduction=lambda pos: 1)),
+                     HCAtmospherePolicy=authored_policy())
+        for radius in (-1, math.nan, math.inf, -math.inf):
+            self.assertEqual(0, authored(WEATHER / 'HCAtmosphereRelay.c', 'RangeAtSource', scope, None, radius, (1, 2, 3)))
+
     def test_source_wiring_limits_scope_and_uses_native_sync(self):
         settings = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         self.assertEqual(1, settings.count('bool EnableAtmosphere = true;'))
@@ -388,7 +555,7 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         self.assertIn('ReadFile(', source)
         self.assertIn('65537', source)
         self.assertIn('modded class ChernarusPlusData', source)
-        self.assertIn('override void SetupWeatherSettings()', source)
+        self.assertNotIn('override void SetupWeatherSettings()', source)
         self.assertIn('override void CalculateVolFog(float lerpValue, float windMagnitude, float changeTime)', source)
 
 

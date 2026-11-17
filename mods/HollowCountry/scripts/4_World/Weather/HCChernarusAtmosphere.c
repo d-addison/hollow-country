@@ -20,14 +20,6 @@ modded class ChernarusPlusData
 {
     protected bool m_HCAtmosphereStarted;
 
-    override void SetupWeatherSettings()
-    {
-        super.SetupWeatherSettings();
-        // World construction precedes HCServer.Start; apply again at admission.
-        if (HCAtmosphereQualification.Enabled())
-            HCConfigureAtmosphereDefaults();
-    }
-
     protected void HCConfigureAtmosphereDefaults()
     {
         m_WeatherDefaultSettings.m_RainThreshold = 0.65;
@@ -67,8 +59,22 @@ modded class ChernarusPlusData
         m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1, 90);
         // Already-loaded native DTO, before joins: native sync owns distribution.
         // Preserve the existing native/operator seasonal temperature arrays.
-        CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 1;
-        CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight = true;
+        int previousLighting = CfgGameplayHandler.m_Data.WorldsData.lightingConfig;
+        if (previousLighting == 0)
+        {
+            PrintFormat("[HollowCountry][Atmosphere] lightingConfig previous=%1; applying 1", previousLighting);
+            CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 1;
+        }
+        else
+            PrintFormat("[HollowCountry][Atmosphere] lightingConfig operator-set; retained %1", previousLighting);
+        bool previousPersonalLight = CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight;
+        if (!previousPersonalLight)
+        {
+            PrintFormat("[HollowCountry][Atmosphere] disablePersonalLight previous=%1; applying true", previousPersonalLight);
+            CfgGameplayHandler.m_Data.PlayerData.disablePersonalLight = true;
+        }
+        else
+            PrintFormat("[HollowCountry][Atmosphere] disablePersonalLight operator-set; retained %1", previousPersonalLight);
         if (!m_Weather.IsDynVolFogEnabled())
             Print("[HollowCountry][Atmosphere] PARTIAL world config lacks volumetric fog; normalized fog only; valley-fog acceptance PENDING");
         HCForecast(EWeatherPhenomenon.OVERCAST);
@@ -78,7 +84,7 @@ modded class ChernarusPlusData
         HCForecast(EWeatherPhenomenon.WIND_DIRECTION);
         HCForecast(EWeatherPhenomenon.SNOWFALL);
         CalculateVolFog(m_Weather.GetOvercast().GetActual(), m_Weather.GetWindSpeed(), 300);
-        Print("[HollowCountry][Atmosphere] EXPERIMENTAL ChernarusPlus script owner; native dark-night preset and personal-light restriction; seasonal curve retained; runtime acceptance PENDING");
+        Print("[HollowCountry][Atmosphere] EXPERIMENTAL ChernarusPlus script owner; native lighting defaults adjusted; operator settings and seasonal curve retained; runtime acceptance PENDING");
         return true;
     }
 

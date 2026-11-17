@@ -47,7 +47,8 @@ def chain(server=True, geometry=True):
         context.geometry_calls.append(args)
         return geometry
     context.ClearGeometry = clear_geometry
-    scope = dict(HCInfectedPolicy=NS(**policy_functions()),
+    scope = dict(HCAtmosphereRelay=NS(RangeAtSource=lambda radius, source: radius),
+                 HCInfectedPolicy=NS(**policy_functions()),
                  HCInfectedClue=SyntheticClue, HCAlertRoot=root,
                  HCAlertEmission=lambda: NS(Scanned=0),
                  GetGame=lambda: NS(IsServer=lambda: server),

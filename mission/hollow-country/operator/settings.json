@@ -7,6 +7,7 @@
   "EnableHordes": true,
   "EnableAlertChains": true,
   "EnableGroups": true,
+  "EnableAtmosphere": true,
   "TickIntervalMs": 1000,
   "MaxTickWorkItems": 32,
   "MaxActiveHordes": 2,

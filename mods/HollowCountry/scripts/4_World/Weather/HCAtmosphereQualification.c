@@ -2,7 +2,8 @@
 // Installed API citations (snapshot root uses ~, never committed native sources):
 // ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // 2_GameLib/gameLib.c:4 GetGame; 3_Game/Global/Game.c:1120 IsServer;
-// 3_Game/Global/Game.c:934 GetWorldName(); 1_Core/proto/EnString.c:171 ToLower;
+// 3_Game/Global/Game.c:934 GetWorldName(), :942 GetVersion(out string);
+// 1_Core/proto/EnString.c:171 ToLower;
 // 1_Core/proto/EnSystem.c:397 FileExist, :417 OpenFile, :425 ReadFile,
 // :443 CloseFile, :380 FileMode; 1_Core/proto/EnString.c:199 Length, :240 IndexOf;
 // 1_Core/proto/EnConvert.c:44 int.AsciiToString;
@@ -30,8 +31,11 @@ class HCAtmosphereQualification
             string atmosphereWorld = GetGame().GetWorldName();
             atmosphereWorld.ToLower();
             s_WorldSupported = atmosphereWorld == "chernarusplus";
+            string v;
+            GetGame().GetVersion(v);
+            s_WorldSupported = s_WorldSupported && (v == "1.30.164289" || v == "1.30.164289.70");
             if (!s_WorldSupported)
-                Print("[HollowCountry][Atmosphere] BLOCKED unsupported map; ChernarusPlus only; no atmosphere changes");
+                Print("[HollowCountry][Atmosphere] BLOCKED unsupported map/build; ChernarusPlus on 1.30.164289 or 1.30.164289.70 only; no atmosphere changes");
         }
         return s_WorldSupported;
     }

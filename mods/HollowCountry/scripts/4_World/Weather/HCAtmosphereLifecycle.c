@@ -21,7 +21,10 @@ modded class HCServer
             Print("[HollowCountry][Atmosphere] BLOCKED unsupported map; ChernarusPlus only");
             return;
         }
-        ChernarusPlusData atmosphereData = ChernarusPlusData.Cast(GetGame().GetMission().GetWorldData());
+        Mission atmosphereMission = GetGame().GetMission();
+        if (!atmosphereMission)
+            return;
+        ChernarusPlusData atmosphereData = ChernarusPlusData.Cast(atmosphereMission.GetWorldData());
         if (atmosphereData)
             atmosphereData.HCStartAtmosphere();
     }

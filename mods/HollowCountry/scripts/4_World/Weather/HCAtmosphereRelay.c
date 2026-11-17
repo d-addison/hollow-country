@@ -4,13 +4,22 @@
 // A source-position sample affects only the supplementary relay radius.
 class HCAtmosphereRelay
 {
+    protected static bool s_NoiseReported;
+
     static float RangeAtSource(float baseRadius, vector sourcePosition)
     {
         if (!HCAtmosphereQualification.Enabled())
             return baseRadius;
         NoiseSystem relayNoise = GetGame().GetNoiseSystem();
         if (!relayNoise)
-            return baseRadius * 0.35;
+        {
+            if (!s_NoiseReported)
+            {
+                s_NoiseReported = true;
+                Print("[HollowCountry][Atmosphere] noise system unavailable; vanilla relay radius retained");
+            }
+            return baseRadius;
+        }
         float reduction = relayNoise.GetEnvironmentNoiseReduction(sourcePosition);
         return HCAtmospherePolicy.RelayRange(baseRadius, reduction);
     }

@@ -44,7 +44,7 @@ be bounded and scan intervals may be longer than core ticks.
 
 `HCSettings` in 3_Game has SchemaVersion=1 and default-true feature preferences:
 EnableInteriors, EnableSearch, EnableCrafting, EnableInfected, EnableHordes,
-EnableAlertChains, EnableGroups. Explicit disables in existing operator files
+EnableAlertChains, EnableGroups, EnableAtmosphere. Explicit disables in existing operator files
 remain authoritative. Enabled preferences never imply provider availability,
 measured geometry, native qualification or runtime success. Missing prerequisites
 must produce a clear admission diagnostic. Additional core limits: TickIntervalMs=1000,
@@ -55,6 +55,13 @@ limits, not calibrated product promises. Persistence roots are under
 `$profile:HollowCountry`; create directories explicitly. Native API evidence and
 red/green regression records accompany every module. Python models/checks do
 not establish native transaction, collision, audio or replication correctness.
+
+Atmosphere uses the admitted Chernarus world-data owner and HCServer.Start hook
+instead of a module slot. Its exact local build gate accepts `1.30.164289` and
+`1.30.164289.70` only; production qualification remains false. The atmosphere
+owner alone adjusts lightingConfig and disablePersonalLight at runtime, and only
+from native defaults 0/false. Existing operator values are retained and logged.
+The separate cfgGameplay delta owner must not write those two settings.
 
 Search/crafting use native actions/recipes and server inventory authority; do
 not invent a generic client command RPC. Cross-module requests must be narrow,

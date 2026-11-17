@@ -28,7 +28,7 @@ class RuntimeSettingsTests(unittest.TestCase):
     def test_shipped_settings_are_valid_and_all_feature_preferences_default_on(self):
         self.assertEqual([], validate_settings(self.value))
         flags = {k: v for k, v in self.value.items() if k.startswith('Enable')}
-        self.assertEqual(7, len(flags))
+        self.assertEqual(8, len(flags))
         self.assertTrue(all(v is True for v in flags.values()), flags)
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))

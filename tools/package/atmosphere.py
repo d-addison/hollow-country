@@ -55,6 +55,7 @@ MAX_JSON_BYTES = 65536
 PHENOMENA = ('overcast', 'fog', 'rain', 'windMagnitude', 'windDirection', 'snowfall')
 WORLDS = ('chernarusplus', 'enoch', 'sakhal', 'nasdara')
 BUILD = '1.30.164289'
+BUILDS = (BUILD, '1.30.164289.70')
 FILES = {'cfgweather.xml', 'atmosphere-report.json', 'atmosphere-manifest.json'}
 SECTIONS = {'current': {'actual', 'time', 'duration'}, 'limits': {'min', 'max'},
             'timelimits': {'min', 'max'}, 'changelimits': {'min', 'max'}}
@@ -171,7 +172,7 @@ def _profile(profile):
         raise ValueError('unsupported profile version')
     if type(profile['name']) is not str or not re.fullmatch('[a-z0-9-]{1,64}', profile['name']):
         raise ValueError('invalid profile name')
-    if profile['world'] not in WORLDS or profile['build'] != BUILD:
+    if profile['world'] not in WORLDS or profile['build'] not in BUILDS:
         raise ValueError('world/build outside inspected baseline')
     if type(profile['source_sha256']) is not str or not re.fullmatch('[0-9a-f]{64}', profile['source_sha256']):
         raise ValueError('source SHA256 pin required')

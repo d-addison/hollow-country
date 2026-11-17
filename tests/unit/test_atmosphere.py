@@ -70,6 +70,14 @@ class AtmosphereTests(unittest.TestCase):
         self.assertEqual(self.stock, first['cfgweather.xml'])
         self.assertEqual(first, self.generate(enable=False))
 
+    def test_only_both_exact_native_build_identities_are_admitted(self):
+        for build in ('1.30.164289', '1.30.164289.70'):
+            report = json.loads(self.generate(build=build)['atmosphere-report.json'])
+            self.assertEqual(build, report['profile']['build'])
+        for build in ('', '1.30.164289.71', '1.30.164289.70extra', '1.30.1642890', '1.31.164289'):
+            with self.subTest(build=build), self.assertRaises(ValueError):
+                self.generate(build=build)
+
     def test_profile_unknown_types_nonfinite_and_pin_fail_closed(self):
         cases = [dict(schema=True), dict(schema=2), dict(name='../bad'), dict(world='unknown'),
                  dict(build='unqualified'), dict(source_sha256='0'*64), dict(enable=1),
