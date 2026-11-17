@@ -122,12 +122,17 @@ class PackageBehavior(unittest.TestCase):
                 _, entries = pbo.parse(archive.read('@HollowCountry/addons/hollowcountry.pbo'))
                 self.assertEqual(inputs, entries['inputs.xml'])
             for name in ('other.xml', 'input.xml', 'scripts/inputs.xml', 'INPUTS.xml'):
+                self.assertFalse(pbo.original_addon_name(name), name)
                 candidate = addon / name
+                if candidate.exists():
+                    # Case-insensitive filesystem (NTFS): the alias is the admitted file itself.
+                    continue
                 candidate.parent.mkdir(parents=True, exist_ok=True)
                 candidate.write_bytes(inputs)
                 with self.subTest(name=name), self.assertRaises(ValueError):
                     pbo.collect_addon(addon)
                 candidate.unlink()
+            self.assertEqual(inputs, (addon / 'inputs.xml').read_bytes())
 
     def test_custom_input_file_preserves_existing_text_and_link_guards(self):
         with tempfile.TemporaryDirectory() as temporary:
