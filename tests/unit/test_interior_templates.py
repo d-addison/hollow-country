@@ -441,14 +441,33 @@ class ClassRowTests(unittest.TestCase):
         pos = pos_xml([(n, "%d 0 0" % (i * 50), "0") for i, n in enumerate(names)] + [(names[3], "999 0 0", "0")])
         proto = proto_xml([group(n, [container("lootFloor", [point("2.0 0.0 3.0")])]) for n in names])
         entry = len('{"File":"t-0000.json","BuildingClass":"Land_Many_000","Sha256":"%s"},' % ("0" * 64))
-        with mock.patch.object(tpl, "INDEX_TEMPLATE_BYTES", 2 * entry + entry // 2):
+        with mock.patch.object(tpl, "_index_template_budget", lambda sources: 2 * entry + entry // 2):
             result = tpl.build([encode(census(rows, list(CALIBRATION) + names))], proto, pos)
         table = class_rows(result)
         over = [n for n in names if table[n]["Rooms"] == "over_budget"]
         self.assertEqual(len(over), 2)
         self.assertEqual(len([n for n in result.files if n.startswith("t-")]), 2)
         self.assertEqual(table[names[3]]["Rooms"], "covered")
-        self.assertLessEqual(tpl.INDEX_TEMPLATE_BYTES + 8192, tpl.FILE_CAP + 1)
+
+    def test_a_full_template_budget_fits_the_largest_possible_index(self):
+        # Every other list at its contract maximum (16 class, 16 furnish, 64 group chunks), every source
+        # pin present and eight census runs: the templates that fit the budget still fit one index file.
+        from tools.package import interiors_profile as ip
+        sources = {"census-run-%d" % i: "a" * 64 for i in range(8)}
+        budget = tpl._index_template_budget(sources)
+        name = "Land_" + "X" * 40
+        cost = len('{"File":"t-0000.json","BuildingClass":"%s","Sha256":"%s"},' % (name, "0" * 64))
+        pins = dict(sources, **{key: "b" * 64 for key in ip.TEMPLATE_SOURCES})
+        index = {"SchemaVersion": 2, "Kind": "hc-interior-templates", "WorldName": ip.WORLD, "Build": ip.BUILD,
+                 "PackId": "c" * 32, "SourcePin": "d" * 64, "Frame": "rot90", "Provisional": True,
+                 "Sources": dict(sorted(pins.items())),
+                 "ClassFiles": [{"File": "classes-%03d.json" % i, "Sha256": "e" * 64} for i in range(16)],
+                 "TemplateFiles": [{"File": "t-%04d.json" % i, "Sha256": "f" * 64, "BuildingClass": name}
+                                   for i in range(budget // cost)],
+                 "FurnishFiles": [{"File": "furnish-%03d.json" % i, "Sha256": "e" * 64} for i in range(16)],
+                 "GroupFiles": [{"File": "search-groups-%03d.json" % i, "Sha256": "e" * 64} for i in range(64)]}
+        self.assertLessEqual(len(ip._compact(index)), tpl.FILE_CAP)
+        self.assertGreater(budget // cost, 100)
 
     def test_furnish_budget_exhaustion_marks_a_class_over_budget(self):
         result = standard(max_furnished=0)

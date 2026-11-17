@@ -533,7 +533,10 @@ class HCInteriorTemplates
             }
             runs.Insert(evidence.RunId);
         }
-        if (!templateRow.Rooms || templateRow.Rooms.Count() < 1 || templateRow.Rooms.Count() > 16)
+        // A search-only template (rooms lack path/door proof) carries no rooms: search runs at the class's
+        // vanilla CE container points, while infected rooms and furniture need Rooms == "covered".
+        bool searchOnly = classRow.Rooms != "covered" && classRow.Furniture != "covered";
+        if (!templateRow.Rooms || templateRow.Rooms.Count() > 16 || (templateRow.Rooms.Count() < 1 && !searchOnly))
 
         {
             return false;
@@ -617,7 +620,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplateSearchSite siteRow : templateRow.SearchSites)
 
         {
-            if (!siteRow || siteRow.Id < 1 || siteIds.Find(siteRow.Id) >= 0 || !Room(templateRow, siteRow.Room) || !VectorValid(siteRow.Center, 512) || !Inside(siteRow.Center, templateRow.Box.Min, templateRow.Box.Max) || !(siteRow.Radius >= 0.25 && siteRow.Radius <= 8) || !Container(siteRow.Source) || !Texts(siteRow.Groups, 1, 8) || !siteRow.Points || siteRow.Points.Count() < 1 || siteRow.Points.Count() > 8192)
+            if (!siteRow || siteRow.Id < 1 || siteIds.Find(siteRow.Id) >= 0 || !(Room(templateRow, siteRow.Room) || (siteRow.Room == 0 && templateRow.Rooms.Count() == 0)) || !VectorValid(siteRow.Center, 512) || !Inside(siteRow.Center, templateRow.Box.Min, templateRow.Box.Max) || !(siteRow.Radius >= 0.25 && siteRow.Radius <= 8) || !Container(siteRow.Source) || !Texts(siteRow.Groups, 1, 8) || !siteRow.Points || siteRow.Points.Count() < 1 || siteRow.Points.Count() > 8192)
 
             {
                 return false;

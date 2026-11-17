@@ -238,6 +238,44 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         result=fixture(); result[0]['EngineHouse']=lambda cls:cls in {'Land_House_1W01','Land_Other','Land_Wall'}
         result[0]['EnsureLoaded'](None); self.assertTrue(result[0]['Loaded']())
 
+    @staticmethod
+    def search_only_pack(rooms_disposition='path_pending'):
+        # A class measured by the census whose rooms lack path/door proof: search runs at its vanilla
+        # CE container points only; no rooms, keep-outs or props, so infected and furniture never use it.
+        values=pack(); pin='a'*64
+        values['index.json']['TemplateFiles'].append(dict(File='t-0001.json',BuildingClass='Land_House_2W01',Sha256=pin))
+        values['classes-000.json']['Rows'].append(dict(BuildingClass='Land_House_2W01',Rooms=rooms_disposition,
+                                                       Furniture='path_pending',Search='covered'))
+        template=json.loads(json.dumps(values['t-0000.json']))
+        template.update(BuildingClass='Land_House_2W01',TemplateId='synthetic-search-v1',Rooms=[],KeepOuts=[],PropSlots=[])
+        template['SearchSites'][0]['Room']=0
+        values['t-0001.json']=template
+        return values
+
+    def load_search_only(self, values):
+        result=fixture(values); result[0]['EngineHouse']=lambda cls:cls in {'Land_House_1W01','Land_House_2W01'}
+        result[0]['EnsureLoaded'](None); return result
+
+    def test_search_only_template_without_rooms_is_admitted_for_search(self):
+        e=self.load_search_only(self.search_only_pack())[0]
+        self.assertTrue(e['Loaded']())
+        self.assertEqual('covered',e['ClassRow']('Land_House_2W01').Search)
+        self.assertEqual('path_pending',e['ClassRow']('Land_House_2W01').Rooms)
+        layout=e['Template']('Land_House_2W01')
+        self.assertEqual(0,len(layout.Rooms)); self.assertEqual(0,layout.SearchSites[0].Room)
+        self.assertEqual(1,len(e['Template']('Land_House_1W01').Rooms))
+
+    def test_rooms_covered_class_still_requires_rooms(self):
+        self.assert_refused(self.load_search_only(self.search_only_pack(rooms_disposition='covered')))
+
+    def test_room_zero_site_refuses_when_the_template_has_rooms(self):
+        values=pack(); values['t-0000.json']['SearchSites'][0]['Room']=0
+        self.assert_refused(self.load(values))
+
+    def test_search_only_template_cannot_cover_furniture(self):
+        values=self.search_only_pack(); values['classes-000.json']['Rows'][1]['Furniture']='covered'
+        self.assert_refused(self.load_search_only(values))
+
     def test_engine_house_reads_config_per_class_not_all_cfgvehicles(self):
         source=(SRC/'HCInteriorTemplates.c').read_text()
         self.assertNotIn('ConfigGetChildrenCount("CfgVehicles")', source)
