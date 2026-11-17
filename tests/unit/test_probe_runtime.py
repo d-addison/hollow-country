@@ -7,6 +7,14 @@ runtime with tools/setup/Start-CEProbeServer.ps1 (PowerShell is never parsed or 
 Actual TDD 2026-11-17 (fix round for issue 56):
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_probe_runtime -v
 RED: ImportError, cannot import name 'probe_runtime' from 'tools.setup' (unknown location).
+
+Actual TDD 2026-11-17 (launcher kinds for issues 11/35, compile-refusal early exit):
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_probe_runtime.LauncherKindTableTests \
+    tests.unit.test_probe_runtime.LauncherCompileFailureTests
+RED: Ran 10 tests, FAILED (failures=5, errors=2).
+GREEN: test_probe_runtime + test_ce_probe + test_taped_light_probe, Ran 172 tests, OK. The PS1 parses
+with no errors under Windows PowerShell 5.1, and the extracted Test-CompileRefused gave
+taped-light-probe-002 True, taped-light-probe-003 False and ce-probe-001 False on the real profiles.
 """
 import json
 import os
@@ -611,6 +619,95 @@ class DiagnosticMissionAdmissionTests(unittest.TestCase):
         (self.source / "secrets.json").unlink() if (self.source / "secrets.json").exists() else None
         result = dm.prepare_diagnostic_mission(self.source, self.root / "legacy")
         self.assertEqual("disposable-diagnostic-selftests", result["kind"])
+
+
+def launcher_kind_table(script):
+    """The launcher's fixed per-kind table, parsed from its text: kind -> (plan, directory, output)."""
+    block = re.search(r"\$probes = @\{(.*?)\n\}", script, re.S)
+    assert block, "launcher probe table not found"
+    rows = re.findall(r"'([a-z-]+)' = @\{ Plan = '([^']+)'; Directory = '([^']+)'; Output = '([^']+)' \}", block.group(1))
+    return {kind: (plan, directory, output) for kind, plan, directory, output in rows}
+
+
+def launcher_validate_set(script):
+    found = re.search(r"\[ValidateSet\(([^)]*)\)\]\s*\[string\]\$Kind", script)
+    assert found, "launcher -Kind ValidateSet not found"
+    return set(re.findall(r"'([^']+)'", found.group(1)))
+
+
+def launcher_wait_loop(script):
+    found = re.search(r"while \(\[DateTime\]::UtcNow -lt \$deadline\) \{(.*?)\n    \}", script, re.S)
+    assert found, "launcher wait loop not found"
+    return found.group(1)
+
+
+class LauncherKindTableTests(unittest.TestCase):
+    """The PS1 kind table, its ValidateSet and probe_runtime.LAUNCHER_PROBES are one table (issues 11, 35, 56)."""
+
+    def test_launcher_table_equals_the_python_table(self):
+        self.assertEqual(rt.LAUNCHER_PROBES, launcher_kind_table(SCRIPT))
+
+    def test_validate_set_admits_exactly_the_table_kinds(self):
+        self.assertEqual(set(rt.LAUNCHER_PROBES), launcher_validate_set(SCRIPT))
+
+    def test_weather_and_interior_kinds_have_fixed_paths(self):
+        self.assertEqual(("weather-probe-plan.json", "HCWeatherProbe", "observations.json"),
+                         rt.LAUNCHER_PROBES["weather-probe"])
+        self.assertEqual(("interior-sampler-plan.json", "HCInteriorSampler", "census.json"),
+                         rt.LAUNCHER_PROBES["interior-sampler"])
+
+    def test_every_kind_has_distinct_plan_and_profile_directory(self):
+        plans = [row[0] for row in rt.LAUNCHER_PROBES.values()]
+        directories = [row[1].lower() for row in rt.LAUNCHER_PROBES.values()]
+        self.assertEqual(len(plans), len(set(plans)))
+        self.assertEqual(len(directories), len(set(directories)))
+        for kind, (plan, directory, output) in rt.LAUNCHER_PROBES.items():
+            self.assertEqual(kind + "-plan.json", plan)
+            self.assertRegex(directory, r"^HC[A-Za-z]+$")
+            self.assertRegex(output, r"^[a-z]+\.json$")
+
+
+class LauncherCompileFailureTests(unittest.TestCase):
+    """A server that refuses the mission script stays alive on its error dialog (taped-light-probe-002).
+
+    The launcher must notice the compile failure inside the wait loop, end the wait early with a
+    distinct outcome, still stop only its own server in `finally`, and record the crash logs.
+    """
+
+    def setUp(self):
+        self.loop = launcher_wait_loop(SCRIPT)
+
+    def test_a_crash_log_alone_does_not_end_the_wait(self):
+        """Native evidence: completed run taped-light-probe-003 wrote crash_2026-11-17_04-53-03.log for
+        non-fatal VM exceptions (Weapon.SaveCurrentFSMState on DartGun); only the compile refusal ends early."""
+        self.assertNotIn("crash_", self.loop)
+        self.assertEqual(1, self.loop.count("'compile-failed'"))
+
+    def test_wait_loop_reads_the_script_log_for_the_native_compile_refusal(self):
+        self.assertIn("Test-CompileRefused", self.loop)
+        reader = re.search(r"function Test-CompileRefused \{(.*?)\n\}", SCRIPT, re.S)
+        self.assertIn("Can't compile", reader.group(1))
+        self.assertIn("'script_*.log'", reader.group(1))
+
+    def test_script_log_reader_shares_the_file_and_reads_a_bounded_tail(self):
+        reader = re.search(r"function Test-CompileRefused \{(.*?)\n\}", SCRIPT, re.S)
+        self.assertIsNotNone(reader)
+        body = reader.group(1)
+        self.assertIn("[System.IO.FileShare]::ReadWrite", body)
+        self.assertRegex(body, r"\$tail = \d+")
+        self.assertIn("Seek", body)
+
+    def test_compile_failure_breaks_the_loop_and_still_stops_the_server(self):
+        self.assertRegex(self.loop, r"\$outcome = 'compile-failed'; break")
+        self.assertRegex(SCRIPT, r"(?s)\} finally \{.*Stop-Process -Id \$server\.Id")
+
+    def test_sentinel_takes_precedence_over_a_later_crash_check(self):
+        sentinel = self.loop.index("'sentinel-seen'")
+        crash = self.loop.index("'compile-failed'")
+        self.assertLess(sentinel, crash)
+
+    def test_report_records_crash_logs(self):
+        self.assertRegex(SCRIPT, r"crash_logs = @\(Get-FileRecords \$profiles 'crash_\*\.log'")
 
 
 if __name__ == "__main__":
