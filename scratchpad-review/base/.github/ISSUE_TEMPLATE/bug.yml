@@ -1,0 +1,25 @@
+name: Bug or failed experiment
+description: Reproduce a defect with evidence and expected behavior.
+title: "[bug] "
+body:
+  - type: textarea
+    id: contract
+    attributes:
+      label: Requirement, task and expected behavior
+      description: Link relevant FR/NFR, handoff ID, AC and roadmap issue.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction and actual result
+      description: Include exact build/commit, enabled modules, steps and native control.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Evidence and regression
+      description: Test IDs, commands, sanitized artifact hashes, two-client/performance implications. Never attach credentials or purchased assets.
+    validations:
+      required: true

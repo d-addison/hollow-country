@@ -1,0 +1,76 @@
+name: Source and tooling validation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: static-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows-setup:
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Native Windows package install recovery and rollback behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_deploy.py -v
+      - name: Native Windows CE candidate preparation behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_coverage_patch.py -v
+      - name: Native Windows package and verified smoke dependency behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_package.py -v
+      - name: Native Windows repository hygiene behavior
+        shell: powershell
+        run: python -B -m unittest discover -s tests/unit -p test_hygiene.py -v
+      - name: Parse package and setup PowerShell helpers with the native parser
+        shell: powershell
+        run: |
+          Get-ChildItem tools/package,tools/setup -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+            $null = [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          }
+      - name: Native Windows synthetic package guards
+        shell: powershell
+        run: ./tools/package/Test-NativePackage.ps1
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: TDD behavior suites
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python3 -m unittest discover -s tests/unit -v
+      - name: Source content and documentation admission
+        run: python3 -B -m tools.validate.hygiene
+      - name: Operator runtime settings admission
+        run: python3 -B -m tools.validate.runtime
+      - name: Executable offline BDD bindings
+        run: python3 -B -m tools.validate.bdd
+      - name: Build and verify unsigned development containers
+        run: |
+          python3 -B -m tools.package.pbo pbo --addon mods/HollowCountry --out "$RUNNER_TEMP/hollowcountry-dev.pbo"
+          python3 -B -m tools.package.pbo verify "$RUNNER_TEMP/hollowcountry-dev.pbo"
+          python3 -B -m tools.package.pbo handoff --addon mods/HollowCountry --mission mission/hollow-country --out "$RUNNER_TEMP/hollow-country-private-dev.zip"
+          python3 -B -m tools.package.pbo verify "$RUNNER_TEMP/hollow-country-private-dev.zip"
+      - uses: actions/upload-artifact@v4
+        if: github.event.repository.private
+        with:
+          name: hollow-country-unsigned-development-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/hollowcountry-dev.pbo
+            ${{ runner.temp }}/hollow-country-private-dev.zip
+          if-no-files-found: error
+          retention-days: 14

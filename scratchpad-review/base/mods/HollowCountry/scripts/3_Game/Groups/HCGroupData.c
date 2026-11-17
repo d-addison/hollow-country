@@ -1,0 +1,131 @@
+// Wire DTOs and standalone validated settings. No native/Workshop asset copies.
+class HCGroupSettings
+{
+    int SchemaVersion = 1;
+    bool Enabled = true;
+    bool WorldIcons = true;
+    bool MapIcons = true;
+    bool RequireGPS = false;
+    bool RequireLOS = false;
+    bool RequireRadio = false;
+    int MaxGroups = 32;
+    int MaxMembers = 8;
+    int MaxMarkers = 64;
+    int MaxInvites = 64;
+    int MaxRequestsPerSecond = 4;
+    int MaxStoreBytes = 262144;
+    int KeepRevisions = 8;
+    int InviteSeconds = 120;
+    int MarkerRetentionSeconds = 604800;
+    float PositionIntervalSeconds = 2.0;
+    float PositionStaleSeconds = 10.0;
+    float MaxIconDistance = 1000.0;
+}
+class HCGroupRequest
+{
+    int Version = 2;
+    int RequestId = 0;
+    int Op = 0;
+    int ExpectedRevision = 0;
+    int EntityId = 0;
+    string Session;
+    string TargetId;
+    string Name;
+    string Note;
+    vector Position;
+    int Color = -1;
+    int Icon = 0;
+    int TtlSeconds = 0;
+}
+class HCGroupMember
+{
+    string Id;
+    string Name;
+    bool Online = false;
+    bool Alive = false;
+    bool HasPosition = false;
+    vector Position;
+    int SampleUtc = 0;
+}
+class HCGroupInvitation
+{
+    int Id = 0;
+    int GroupId = 0;
+    int ExpiresUtc = 0;
+    string InviterId;
+    string InviteeId;
+    string GroupName;
+}
+class HCGroupMarker
+{
+    int Id = 0;
+    int Color = -1;
+    int Icon = 0;
+    int ExpiresUtc = 0;
+    string CreatorId;
+    string Name;
+    string Note;
+    vector Position;
+}
+class HCGroupSnapshot
+{
+    int Version = 2;
+    int Kind = 0;
+    int RequestId = 0;
+    // Session counter floor, not acknowledgment of the snapshot RequestId.
+    int LastMutationId = 0;
+    int Sequence = 0;
+    int Revision = 0;
+    int Epoch = 0;
+    int GroupId = 0;
+    string Session;
+    string Name;
+    string OwnerId;
+    bool Enabled = false;
+    ref HCGroupSettings Settings;
+    ref array<ref HCGroupMember> Members = new array<ref HCGroupMember>();
+    ref array<ref HCGroupMember> Candidates = new array<ref HCGroupMember>();
+    ref array<ref HCGroupInvitation> Invitations = new array<ref HCGroupInvitation>();
+    ref array<ref HCGroupMarker> Markers = new array<ref HCGroupMarker>();
+}
+class HCGroupReply
+{
+    int Version = 2;
+    int RequestId = 0;
+    int LastMutationId = 0;
+    int Code = 0;
+    int Revision = 0;
+    string Session;
+}
+// Durable membership belongs to an account, not a character or session. Invite
+// records participate in in-memory transactions but are omitted from disk.
+class HCGroupRecord
+{
+    int Id = 0;
+    int Revision = 0;
+    int Epoch = 0;
+    string Name;
+    string OwnerId;
+    ref array<string> Members = new array<string>();
+    ref array<ref HCGroupMarker> Markers = new array<ref HCGroupMarker>();
+}
+class HCGroupState
+{
+    int Version = 1;
+    int Revision = 0;
+    int NextId = 1;
+    // Additive v1 field: old images deserialize to zero (unknown watermark).
+    // The next successful mutation establishes it without resetting any ACL.
+    int LastMutationUtc = 0;
+    string WorldName;
+    ref array<ref HCGroupRecord> Groups = new array<ref HCGroupRecord>();
+    ref array<ref HCGroupInvitation> Invitations = new array<ref HCGroupInvitation>();
+}
+class HCGroupReceipt
+{
+    int Version = 1;
+    int Revision = 0;
+    int Length = 0;
+    int Hash = 0;
+    string WorldName;
+}
