@@ -46,6 +46,7 @@ class HCInfectedModule : HCModule
     protected int m_RetargetCursor;
     protected int m_VoiceAttempts;
     protected int m_RegistrationAttempts;
+    protected int m_RegistrationRound;
     protected int m_LastUtc;
     protected int m_StartedUtc;
     protected int m_ObservationsRemaining;
@@ -83,7 +84,7 @@ class HCInfectedModule : HCModule
         }
         else if (!JsonFileLoader<HCInfectedConfig>.SaveFile(path, m_Config, error))
         {
-            Quarantine("cannot create default-off config");
+            Quarantine("cannot create enabled-preference template");
             return;
         }
         if (!m_Config || !m_Config.IsValid() || settings.MaxTickWorkItems < 4 || settings.MaxActiveHordes < 1 || settings.MaxActiveHordeMembers < 1)
@@ -102,11 +103,36 @@ class HCInfectedModule : HCModule
             Quarantine("cohort adoption requires work budget at least 9");
             return;
         }
-        if (m_Config.EnableHordeStimulusRoutes && (!settings.EnableHordes || m_WorkCap < 24))
+        if (settings.EnableHordes && m_Config.EnableHordeStimulusRoutes && m_WorkCap < 24)
         {
             Quarantine("stimulus routes require hordes and at least 24 bounded work items");
             return;
         }
+        string runtimeBuild;
+        GetGame().GetVersion(runtimeBuild);
+        if (!HCInfectedProfiles.NativeBuildSupported(runtimeBuild))
+        {
+            Quarantine("unsupported native source build: " + runtimeBuild);
+            return;
+        }
+        if (m_Config.EnableNativePackRoutes || m_Config.EnableInvestigation)
+        {
+            if (!GetGame().GetWorld() || !GetGame().GetWorld().GetAIWorld()
+                || !GetGame().ConfigIsExisting("GroupBehaviourTemplates DZInfectedPackBeh"))
+            {
+                Quarantine("native pack routing prerequisites unavailable");
+                return;
+            }
+        }
+        if (m_Config.EnableVariantPolicies
+            && (!HCInfectedProfiles.ValidateMap(m_Config.CivilianVariants, true)
+            || !HCInfectedProfiles.ValidateMap(m_Config.MilitaryVariants, true)))
+        {
+            Print("[HC Infected] variant preference enabled; explicit stance maps missing; native profiles retained");
+        }
+        if (m_Config.EnableContactGuard && !HCInfectedProfiles.ContactGuardQualified())
+            Print("[HC Infected] contact guard pending native wall-hit qualification; native combat retained");
+        Print("[HC Infected] enabled-preference template defaults; existing explicit disables preserved");
         m_GroupCap = Math.Min(settings.MaxActiveHordes, 2);
         m_MemberCap = Math.Min(settings.MaxActiveHordeMembers, 24);
         m_Hordes = settings.EnableHordes;
@@ -154,7 +180,7 @@ class HCInfectedModule : HCModule
 
     bool ContactGuardEnabled()
     {
-        return m_Healthy && m_Config.EnableContactGuard && GetGame().IsServer();
+        return m_Healthy && m_Config.EnableContactGuard && HCInfectedProfiles.ContactGuardQualified() && GetGame().IsServer();
     }
 
     protected HCInfectedActor FindActor(ZombieBase entity)
@@ -177,13 +203,22 @@ class HCInfectedModule : HCModule
         return m_State.Groups[actor.GroupId - 1].State == 5;
     }
 
-    void Track(ZombieBase entity)
+    bool Track(ZombieBase entity)
     {
         if (!m_Healthy || !GetGame().IsServer() || !entity || !entity.IsAlive())
-            return;
+        {
+            return false;
+        }
+        // Check before increment: rejected callbacks cannot wrap a native int.
+        if (m_RegistrationAttempts >= m_WorkCap)
+        {
+            return false;
+        }
         m_RegistrationAttempts++;
-        if (m_RegistrationAttempts > m_WorkCap || FindActor(entity))
-            return;
+        if (FindActor(entity))
+        {
+            return true;
+        }
         int slot = -1;
         for (int i = 0; i < m_Actors.Count(); i++)
         {
@@ -194,7 +229,7 @@ class HCInfectedModule : HCModule
             }
         }
         if (slot < 0 && m_Actors.Count() >= Math.Min(m_Config.MaxTracked, m_MemberCap))
-            return;
+            return false;
         HCInfectedActor actor = new HCInfectedActor;
         actor.InfectedEntity = entity;
         actor.InitializeProfile(m_Config);
@@ -211,6 +246,12 @@ class HCInfectedModule : HCModule
         }
         // A changed registry invalidates an unfinished aggregate.
         ResetSweep();
+        return true;
+    }
+
+    int RegistrationRound()
+    {
+        return m_RegistrationRound;
     }
 
     void NativeVoice(ZombieBase entity, AnimSoundVoiceEvent soundEvent)
@@ -227,7 +268,7 @@ class HCInfectedModule : HCModule
             return;
         }
         m_Now = nowUtc - m_StartedUtc;
-        Track(entity);
+        entity.HCRegisterActive();
         HCInfectedActor actor = FindActor(entity);
         if (!actor)
             return;
@@ -665,6 +706,12 @@ class HCInfectedModule : HCModule
             Quarantine("clock rollback or invalid tick");
             return;
         }
+        if (m_RegistrationRound >= 2000000000)
+        {
+            Quarantine("registration round exhausted");
+            return;
+        }
+        m_RegistrationRound++;
         m_LastUtc = nowUtc;
         m_Now = nowUtc - m_StartedUtc;
         m_VoiceAttempts = 0;

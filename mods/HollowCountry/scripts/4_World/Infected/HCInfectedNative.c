@@ -1,6 +1,40 @@
 modded class ZombieBase
 {
     protected bool m_HCLoadedFromStorage;
+    protected HCInfectedModule m_HCRegistrationOwner;
+    protected bool m_HCRegistered;
+    protected int m_HCRegistrationRound = -1;
+
+    void HCRegisterActive()
+    {
+        HCInfectedModule current = HCInfectedModule.Instance;
+        if (current != m_HCRegistrationOwner)
+        {
+            m_HCRegistrationOwner = current;
+            m_HCRegistered = false;
+            m_HCRegistrationRound = -1;
+        }
+        if (!current || m_HCRegistered || !GetGame().IsServer() || !IsAlive())
+        {
+            return;
+        }
+        int round = current.RegistrationRound();
+        if (round == m_HCRegistrationRound)
+        {
+            return;
+        }
+        m_HCRegistrationRound = round;
+        // One retry per core round; Track owns the shared bounded scan budget.
+        // No retained startup queue or world/population scan.
+        m_HCRegistered = current.Track(this);
+    }
+
+    override bool ModCommandHandlerBefore(float dt, int command, bool finished)
+    {
+        bool consumed = super.ModCommandHandlerBefore(dt, command, finished);
+        HCRegisterActive();
+        return consumed;
+    }
 
     bool HCLoadedFromStorage()
     {
@@ -11,8 +45,7 @@ modded class ZombieBase
     {
         super.AfterStoreLoad();
         m_HCLoadedFromStorage = true;
-        if (GetGame().IsServer() && HCInfectedModule.Instance)
-            HCInfectedModule.Instance.Track(this);
+        HCRegisterActive();
     }
 
     int HCIndividualStance()
@@ -23,8 +56,7 @@ modded class ZombieBase
     override void EOnInit(IEntity other, int extra)
     {
         super.EOnInit(other, extra);
-        if (GetGame().IsServer() && HCInfectedModule.Instance)
-            HCInfectedModule.Instance.Track(this);
+        HCRegisterActive();
     }
 
     override protected void ProcessSoundVoiceEvent(AnimSoundVoiceEvent sound_event, out AbstractWave aw)
@@ -40,7 +72,7 @@ modded class ZombieBase
     {
         if (GetGame().IsServer() && HCInfectedModule.Instance && HCInfectedModule.Instance.ContactGuardEnabled())
         {
-            // Experimental invocation filter, default off. The source damage
+            // Experimental invocation filter; qualification remains unresolved. The source damage
             // calls live in super.FightLogic's WasHit branch, but early return
             // neither cancels COMMANDID_ATTACK nor proves a hit cannot be queued
             // for a later frame. A dedicated wall-hit trial is still required.

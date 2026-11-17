@@ -3,16 +3,16 @@
 class HCInfectedConfig
 {
     int SchemaVersion = 1;
-    bool EnableCEAdoption = false;
-    bool EnableContactGuard = false;
-    bool EnableNativePackRoutes = false;
-    bool EnableInvestigation = false;
-    bool EnableSupplementaryChains = false;
-    bool EnableMemberRecovery = false;
-    bool EnableVariantPolicies = false;
-    bool EnableHordeStimulusRoutes = false;
-    // Explicit stance-indexed mappings only. Empty by default: no guessed
-    // class/location weights or automatically enabled variant distribution.
+    bool EnableCEAdoption = true;
+    bool EnableContactGuard = true;
+    bool EnableNativePackRoutes = true;
+    bool EnableInvestigation = true;
+    bool EnableSupplementaryChains = true;
+    bool EnableMemberRecovery = true;
+    bool EnableVariantPolicies = true;
+    bool EnableHordeStimulusRoutes = true;
+    // Enabled preference; empty maps are an unqualified template, not a roster.
+    // Explicit stance maps are required before variant policy selection.
     ref array<int> CivilianVariants = new array<int>;
     ref array<int> MilitaryVariants = new array<int>;
     bool RunPolicySelfTests = false;
@@ -25,9 +25,9 @@ class HCInfectedConfig
 
     bool IsValid()
     {
-        if (!HCInfectedProfiles.ValidateMap(CivilianVariants, EnableVariantPolicies))
+        if (!HCInfectedProfiles.ValidateMap(CivilianVariants, false))
             return false;
-        if (!HCInfectedProfiles.ValidateMap(MilitaryVariants, EnableVariantPolicies))
+        if (!HCInfectedProfiles.ValidateMap(MilitaryVariants, false))
             return false;
         if (EnableHordeStimulusRoutes && !EnableNativePackRoutes)
             return false;

@@ -45,7 +45,7 @@ class InfectedWaveTests(unittest.TestCase):
     def test_profiles_use_explicit_maps_and_keep_base_stable_across_injury(self):
         state = (SOURCE / "HCInfectedState.c").read_text()
         profiles = (SOURCE / "HCInfectedProfiles.c").read_text()
-        self.assertIn("bool EnableVariantPolicies = false", state)
+        self.assertIn("bool EnableVariantPolicies = true", state)
         self.assertIn("CivilianVariants = new array<int>", state)
         self.assertIn("MilitaryVariants = new array<int>", state)
         self.assertIn("count != 4", profiles)
@@ -109,7 +109,7 @@ class InfectedWaveTests(unittest.TestCase):
         self.assertIn(".Retarget(sweep.Stimulus, m_Now)", module)
         self.assertIn("m_RoutesRemaining--", module)
         self.assertIn("retargetReserve", module)
-        self.assertIn("bool EnableHordeStimulusRoutes = false", (SOURCE / "HCInfectedState.c").read_text())
+        self.assertIn("bool EnableHordeStimulusRoutes = true", (SOURCE / "HCInfectedState.c").read_text())
 
     def test_missing_member_never_counts_as_confirmed_death(self):
         p = policy_functions()["CompleteMembership"]
@@ -129,7 +129,7 @@ class InfectedWaveTests(unittest.TestCase):
         self.assertNotIn("record.Reserved =", finish)
         self.assertNotIn("m_State.Reserved -=", module)
         self.assertIn("ConfirmedDead", module)
-        tracking = module.split("void Track(", 1)[1].split("void NativeVoice", 1)[0]
+        tracking = module.split("bool Track(", 1)[1].split("void NativeVoice", 1)[0]
         self.assertIn("CanRecycleActor", tracking)
 
 
