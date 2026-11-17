@@ -1,11 +1,11 @@
-// #53 scalar foundation only: no registered action, native calls or mutations.
-// Vehicle fluid units are liters; container quantity units are milliliters,
-// following installed CAContinuousFillFuel's quantity * 0.001 conversion.
-// Rates, elapsed-step bounds and caps are explicit caller policy, not balance.
-// Caller must independently establish server authority, supported live car,
-// exact held eligible vessel, gasoline compatibility, reach and exclusive use.
-// Leak/FillContainer are separate operations, not an atomic transaction.
-// These calculations prove neither debit attribution nor crash consistency.
+// #53 fuel transfer scalars. Vehicle fluid units are liters; container
+// quantity units are milliliters, following installed CAContinuousFillFuel's
+// quantity * 0.001 conversion. The Siphon* functions serve the registered
+// HCActionSiphonFuelFromCar; the exact-arithmetic functions serve the
+// unregistered diagnostic. Callers establish server authority, live car,
+// held vessel, gasoline compatibility and reach. Leak/FillContainer are
+// separate operations: credit is capped by the observed tank loss, so a
+// rounding gap can only lose fuel, never create it.
 // DayZDiag, normal PBO/server and multiplayer/recovery gates remain pending.
 class HCFuelTransferPolicy
 {
@@ -134,5 +134,49 @@ class HCFuelTransferPolicy
         if (!FiniteNonNegative(removedMl) || !FiniteNonNegative(addedMl))
             return false;
         return addedMl > 0 && addedMl <= removedMl && addedMl <= creditCapMl;
+    }
+
+    // Session total in ml: the real tank's fuel and the vessel's free space.
+    static float SiphonSessionMl(float fuelLiters, float vesselMl, float vesselMaxMl)
+    {
+        if (!FiniteNonNegative(fuelLiters) || !FiniteNonNegative(vesselMl) || !FiniteNonNegative(vesselMaxMl))
+            return 0;
+        if (!(fuelLiters > 0 && vesselMaxMl > vesselMl))
+            return 0;
+        float availableMl = fuelLiters * 1000.0;
+        float freeMl = vesselMaxMl - vesselMl;
+        if (!FiniteNonNegative(availableMl))
+            return 0;
+        if (availableMl > freeMl)
+            return freeMl;
+        return availableMl;
+    }
+
+    // One server step from fresh readback; zero means stop without mutation.
+    static float SiphonStepMl(float fuelLiters, float vesselMl, float vesselMaxMl, float pendingMl, float remainingMl)
+    {
+        if (!FiniteNonNegative(pendingMl) || !FiniteNonNegative(remainingMl))
+            return 0;
+        float stepMl = SiphonSessionMl(fuelLiters, vesselMl, vesselMaxMl);
+        if (stepMl > pendingMl)
+            stepMl = pendingMl;
+        if (stepMl > remainingMl)
+            stepMl = remainingMl;
+        return stepMl;
+    }
+
+    // Credit only what the tank was observed to lose, never more than the step.
+    static float SiphonCreditMl(float stepMl, float fuelBeforeLiters, float fuelAfterLiters)
+    {
+        if (!FiniteNonNegative(stepMl) || !FiniteNonNegative(fuelBeforeLiters) || !FiniteNonNegative(fuelAfterLiters))
+            return 0;
+        if (!(stepMl > 0 && fuelAfterLiters < fuelBeforeLiters))
+            return 0;
+        float removedMl = (fuelBeforeLiters - fuelAfterLiters) * 1000.0;
+        if (!FiniteNonNegative(removedMl))
+            return 0;
+        if (removedMl > stepMl)
+            return stepMl;
+        return removedMl;
     }
 }
