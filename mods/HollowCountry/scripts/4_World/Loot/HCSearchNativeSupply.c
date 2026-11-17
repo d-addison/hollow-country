@@ -9,13 +9,16 @@ class HCSearchOwnedSupply
     ref InventoryLocation OriginalLocation;
 }
 
-// Explicit server-owned world-spawner handle registry. There is no radius/world
-// discovery, entity creation or inference of CE origin from a type/profile.
-// The actual world-spawner must call RegisterOwned with its provenance record.
-// Stock CE/proxy acquisition and external SHA validation are NOT supplied here.
+// Explicit server-owned handle registry. This class does no radius/world discovery,
+// entity creation or inference of CE origin from a type/profile: its caller
+// (HCSearchSupplyProvider, over reviewed volumes only) calls RegisterOwned with a
+// provenance record. External SHA validation is NOT supplied here.
 class HCSearchSupplyRegistry
 {
     protected static ref array<EntityAI> s_Registered = new array<EntityAI>;
+    // Registries whose handles are still owned. At most one is live: opening a new
+    // lifecycle retires the previous one (see RetirePrevious).
+    protected static ref array<HCSearchSupplyRegistry> s_Registries = new array<HCSearchSupplyRegistry>;
     protected ref array<ref HCSearchOwnedSupply> m_Entries = new array<ref HCSearchOwnedSupply>;
     protected string m_SourceId;
     protected string m_SourcePin;
@@ -45,11 +48,15 @@ class HCSearchSupplyRegistry
 
     bool BindSource(string sourceId, string sourcePin, string worldName, string build)
     {
-        if (m_Opened || !GetGame().IsServer() || !GetCEApi()) return false;
+        if (m_Opened || m_Sealed || !GetGame().IsServer() || !GetCEApi()) return false;
         if (!HCSearchRules.TextValid(sourceId, 128) || !HCSearchRules.PinValid(sourcePin)) return false;
         string actualBuild;
         GetGame().GetVersion(actualBuild);
         if (GetGame().GetWorldName() != worldName || actualBuild != build) return false;
+        // A completed shutdown leaves its sealed registry owning handles in this
+        // process-wide static set. Retire it so untouched supplies can be rebound by
+        // this lifecycle; depletion lives in the journal, never in this registry.
+        if (!HCSearchSupplyRegistry.RetirePrevious(this)) return false;
         m_SourceId = sourceId;
         m_SourcePin = sourcePin;
         m_WorldName = worldName;
@@ -77,9 +84,40 @@ class HCSearchSupplyRegistry
         return null;
     }
 
+    // Retire every other registry before this one opens. Refuses (and changes
+    // nothing further) while a previous registry is mid-transfer.
+    static bool RetirePrevious(HCSearchSupplyRegistry opening)
+    {
+        int index;
+        while (index < s_Registries.Count())
+        {
+            HCSearchSupplyRegistry previous = s_Registries[index];
+            if (previous != opening && !previous.Retire()) return false;
+            index++;
+        }
+        s_Registries.Clear();
+        s_Registries.Insert(opening);
+        return true;
+    }
+
     bool RegisterOwned(EntityAI item, string sourceRecordId)
     {
         if (!m_Opened || m_Sealed || m_Transferring || !CandidateValid(item)) return false;
+        // Forget handles of deleted entities (the engine nulls script references to
+        // them) so they stop counting toward the bounds. A pruned supply is simply
+        // unavailable: Find() no longer returns it and nothing is ever recreated.
+        int position = s_Registered.Count() - 1;
+        while (position >= 0)
+        {
+            if (!s_Registered[position]) s_Registered.Remove(position);
+            position = position - 1;
+        }
+        position = m_Entries.Count() - 1;
+        while (position >= 0)
+        {
+            if (!m_Entries[position].ItemHandle) m_Entries.Remove(position);
+            position = position - 1;
+        }
         if (m_Entries.Count() >= 4096 || s_Registered.Count() >= 4096) return false;
         if (!HCSearchRules.TextValid(sourceRecordId, 128) || item.GetHierarchyRootPlayer()) return false;
         string supplyId = HCSearchSupplyRegistry.PersistentId(item);
@@ -92,7 +130,10 @@ class HCSearchSupplyRegistry
         if (!(quantity >= 0.0 && quantity <= 1000000000.0)) return false;
         InventoryLocation original = new InventoryLocation;
         if (!item.GetInventory().GetCurrentInventoryLocation(original) || !original.IsValid()) return false;
-        if (original.GetType() != InventoryLocationType.GROUND && original.GetType() != InventoryLocationType.CARGO) return false;
+        // PROXYCARGO is native building (proxy) cargo, where stock CE static loot may
+        // sit. Installed InventoryLocation.c declares it; the real move from it is
+        // still unobserved. Attachments/hands/vehicle/unknown stay refused.
+        if (original.GetType() != InventoryLocationType.GROUND && original.GetType() != InventoryLocationType.CARGO && original.GetType() != InventoryLocationType.PROXYCARGO) return false;
         HCSearchOwnedSupply supply = new HCSearchOwnedSupply;
         supply.ItemHandle = item;
         supply.SupplyId = supplyId;
@@ -103,6 +144,37 @@ class HCSearchSupplyRegistry
         m_Entries.Insert(supply);
         s_Registered.Insert(item);
         return true;
+    }
+
+    // Provider-refusal cleanup only: forget handles of a registry that was never
+    // sealed into an economy. Touches no entity, inventory or journal.
+    void Release()
+    {
+        if (m_Sealed || m_Transferring) return;
+        ForgetHandles();
+    }
+
+    // Shutdown cleanup: relinquish ownership and disable this registry for good
+    // (ReadyFor/CanTransfer/Transfer/RegisterOwned/BindSource all refuse afterwards). Touches no
+    // entity, inventory or journal; refused while a transfer is in flight.
+    bool Retire()
+    {
+        if (m_Transferring) return false;
+        ForgetHandles();
+        m_Opened = false;
+        m_Sealed = true;
+        return true;
+    }
+
+    protected void ForgetHandles()
+    {
+        foreach (HCSearchOwnedSupply released : m_Entries)
+        {
+            if (!released.ItemHandle) continue;
+            int position = s_Registered.Find(released.ItemHandle);
+            if (position >= 0) s_Registered.Remove(position);
+        }
+        m_Entries.Clear();
     }
 
     bool Unchanged(HCSearchOwnedSupply supply)
