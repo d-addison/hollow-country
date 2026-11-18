@@ -37,3 +37,9 @@ Local installed source evidence, read in memory from Workshop item 1564026768
 These paths describe the inspected installed build. Recheck its generated example
 after a COT update. No join, permission grant or role persistence was exercised by
 this source change; native Windows compilation and joined-client checks are pending.
+
+## Seeing Expansion AI
+
+COT's map has no AI and its ESP "Player AI" view only covers a radius around the admin.
+Use the Hollow Country admin map (Pause key, layer `ai-units`); steps in
+[FRIEND_SERVER_AI_RUNBOOK.md](FRIEND_SERVER_AI_RUNBOOK.md#seeing-the-ai-admin-map-snapshot-file-log).

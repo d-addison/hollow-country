@@ -98,6 +98,7 @@ bounded final serialize/write; there is no full-map spatial scan:
 | Dead drops | <=8 public Cache handles; unbound/dormant caches omitted; no inventory enumeration |
 | Shelters | Current catalog <=6 rows (hard loop cap 64); explicit catalog/not-placed or catalog-reports-placed detail |
 | Events | One existing runtime clone (store ceiling 4 MiB, default 1 MiB), <=32 run rows and <=64 points; closed runs omitted; <=8 delivery objective lines |
+| Live AI (`ai-units`, addon) | Every live eAI unit, <=128 per capture over two 64-point pages with a cursor across captures; faction, group id/size, source `expansion` or `hc-site`, state, weapon class; layer `ai` keeps HC-site patrols and routes |
 | Received leads | <=8 cached players with a cursor; deduplicated authoritative group/solo keys; <=8×64 ledger checks, <=64 result rows; only online recipients represented |
 | Materializer candidates | <=36 existing MaterializerRow reads; named-place ledger candidates explicitly marked as neither queued proposals nor live bodies |
 
