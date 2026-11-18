@@ -113,6 +113,9 @@ class ScriptIdentifierBehavior(unittest.TestCase):
 KEYWORD_VARIABLE = re.compile(r'\b[A-Za-z_]\w*(?:<[^;()=]*?>)?\s+owned\s*[;=,):]')
 TEMPORARY_INCREMENT = re.compile(r'\]\s*(?:\+\+|--)')
 UNBRACED_ONE_LINE_RETURN = re.compile(r'\)\s*\{\s*if\s*\([^{};]*\)\s*return\b[^{};]*;\s*return\b')
+# Native Windows compile 009: an extra field in a vanilla entity's OnStoreSave/OnStoreLoad corrupted every
+# Paper saved before it existed ("Scripted variables corrupted upon Paper") and would break saves on mod removal.
+STORAGE_OVERRIDE = re.compile(r'\boverride\s+(?:void|bool)\s+OnStore(?:Save|Load)\s*\(')
 CLASS_DEFINITION = re.compile(r'^\s*(modded\s+)?class\s+(\w+)', re.M)
 
 
@@ -121,7 +124,8 @@ def compile_traps(path):
     for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')).splitlines(), 1):
         for label, pattern in (('keyword variable owned', KEYWORD_VARIABLE),
                                ('++/-- on array element', TEMPORARY_INCREMENT),
-                               ('unbraced one-line return', UNBRACED_ONE_LINE_RETURN)):
+                               ('unbraced one-line return', UNBRACED_ONE_LINE_RETURN),
+                               ('entity storage override', STORAGE_OVERRIDE)):
             if pattern.search(line):
                 found.append(f'{number}: {label}')
     return found
@@ -156,12 +160,14 @@ class NativeCompileTraps(unittest.TestCase):
         sample = '\n'.join(['void A() { Object owned = null; }', 'void B() { m_Slots[i]++; }',
                             'int C() { if (!m_State) return 0; return 1; }',
                             'int D() { if (!m_State) { return 0; } return 1; }', 'owned string E;',
-                            'void F() { foreach (HCSceneLease owned : m_Leases) {} }'])
+                            'void F() { foreach (HCSceneLease owned : m_Leases) {} }',
+                            'override void OnStoreSave(ParamsWriteContext ctx) {}'])
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / 'sample.c'
             path.write_text(sample, encoding='utf-8')
             self.assertEqual(['1: keyword variable owned', '2: ++/-- on array element',
-                              '3: unbraced one-line return', '6: keyword variable owned'], compile_traps(path))
+                              '3: unbraced one-line return', '6: keyword variable owned',
+                              '7: entity storage override'], compile_traps(path))
 
     def test_authored_sources_avoid_native_compile_traps(self):
         found = [f'{source.relative_to(ROOT)}:{trap}' for source in authored_sources() for trap in compile_traps(source)]

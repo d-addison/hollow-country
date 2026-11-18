@@ -13,7 +13,10 @@
 // 4_World/Classes/UserActionsComponent/ActionBase.c:1391 (OnStartServer),
 // 4_World/Classes/UserActionsComponent/ActionConstructor.c:27 (RegisterActions),
 // 5_Mission/mission/missionBase.c:257 (native note menu remains registered).
-// 1_Core/proto/Serializer.c:57,58 (context Write/Read),
+// 3_Game/Entities/EntityAI.c:1419 and 4_World/Entities/ItemBase.c:3222
+// (AfterStoreLoad). No HC field is added to Paper storage: the vanilla note text
+// persists and identifies an HC note after a restart (native compile 009 showed
+// an extra stored field corrupting every Paper saved before it existed).
 // 1_Core/proto/EnScript.c:94,852 (Class.Cast / map Count),
 // 3_Game/Entities/EntityAI.c:946 (EEDelete),
 // 1_Core/proto/EnScript.c:470,502 (ordered removal / RemoveItem).
@@ -42,6 +45,25 @@ class HCNoteEntities
     static void Forget(Paper paper)
     {
         if (paper && s_Entities && Find(paper.HCNoteId()) == paper) { s_Entities.Remove(paper.HCNoteId()); }
+    }
+
+    // Papers restored from storage with written text wait here until the
+    // ledger matches them by text. Bounded; blank Papers are never queued.
+    protected static ref array<Paper> s_Loaded;
+
+    static void Loaded(Paper paper)
+    {
+        if (!paper || !paper.GetWrittenNoteData() || paper.GetWrittenNoteData().GetNoteText() == "") { return; }
+        if (!s_Loaded) { s_Loaded = new array<Paper>(); }
+        if (s_Loaded.Count() >= 32) { return; }
+        s_Loaded.Insert(paper);
+    }
+
+    static array<Paper> TakeLoaded()
+    {
+        array<Paper> loaded = s_Loaded;
+        s_Loaded = null;
+        return loaded;
     }
 }
 
@@ -72,7 +94,27 @@ class HCNoteLedger : HCModule
         m_Store = HCLeadStore.Get();
         if (!m_Store || !m_Store.Healthy()) { return; }
         s_Instance = this;
+        ResolveLoaded();
         LogCount();
+    }
+
+    // Re-identify restored HC notes by their exact vanilla note text.
+    protected void ResolveLoaded()
+    {
+        array<Paper> loaded = HCNoteEntities.TakeLoaded();
+        if (!loaded) { return; }
+        foreach (Paper paper : loaded)
+        {
+            if (!paper || paper.HCNoteId() != "" || !paper.GetWrittenNoteData()) { continue; }
+            string noteText = paper.GetWrittenNoteData().GetNoteText();
+            foreach (HCLeadNote entry : m_Store.Data.Notes)
+            {
+                if (!entry || HCNoteEntities.Find(entry.Row.Id)) { continue; }
+                if (HCLeadPolicy.Text(entry.Lead) != noteText) { continue; }
+                paper.HCAssignNote(entry.Row.Id);
+                break;
+            }
+        }
     }
 
     void LogCount()
@@ -164,6 +206,7 @@ class HCNoteLedger : HCModule
         m_Elapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
         m_Elapsed = 0;
+        ResolveLoaded();
         bool changed;
         for (int entryIndex = m_Store.Data.Notes.Count() - 1; entryIndex >= 0; entryIndex--)
         {
@@ -206,19 +249,10 @@ modded class Paper
         HCNoteEntities.Track(this);
     }
 
-    override void OnStoreSave(ParamsWriteContext ctx)
+    override void AfterStoreLoad()
     {
-        super.OnStoreSave(ctx);
-        ctx.Write(m_HCNoteId);
-    }
-
-    override bool OnStoreLoad(ParamsReadContext ctx, int version)
-    {
-        if (!super.OnStoreLoad(ctx, version)) { return false; }
-        // Existing vanilla notes predate this optional extension.
-        if (!ctx.Read(m_HCNoteId)) { m_HCNoteId = ""; }
-        HCNoteEntities.Track(this);
-        return true;
+        super.AfterStoreLoad();
+        HCNoteEntities.Loaded(this);
     }
 
     override void EEDelete(EntityAI parent)

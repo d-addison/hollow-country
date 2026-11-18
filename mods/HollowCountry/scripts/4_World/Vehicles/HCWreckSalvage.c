@@ -112,7 +112,7 @@ class HCWreckSalvage
         return name == "Wrench" || name == "Screwdriver" || name == "Pliers";
     }
 
-    protected static bool Ray(PlayerBase player, Object wreck, vector origin, vector endpoint, int geometry)
+    protected static bool HCWreckRay(PlayerBase player, Object wreck, vector origin, vector endpoint, int geometry)
     {
         vector contact;
         vector normal;
@@ -136,7 +136,7 @@ class HCWreckSalvage
         vector origin = MiscGameplayFunctions.GetPlayerHeadPosition(player);
         if (!PositionValid(endpoint) || !PositionValid(origin)) return false;
         if (vector.DistanceSq(player.GetPosition(), endpoint) > 4 || vector.DistanceSq(origin, endpoint) > 6.25 || vector.DistanceSq(wreck.GetPosition(), endpoint) > 36) return false;
-        return Ray(player, wreck, origin, endpoint, ObjIntersectView) && Ray(player, wreck, origin, endpoint, ObjIntersectFire);
+        return HCWreckRay(player, wreck, origin, endpoint, ObjIntersectView) && HCWreckRay(player, wreck, origin, endpoint, ObjIntersectFire);
     }
 }
 
