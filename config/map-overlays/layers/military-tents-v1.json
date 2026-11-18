@@ -1,0 +1,98 @@
+{
+  "kind": "hollow-country-map-overlay",
+  "id": "military-tents-v1",
+  "version": 1,
+  "status": "runtime-unverified",
+  "purpose": "Extra military tents in tent-poor vanilla military clusters (barracks areas with no vanilla tents).",
+  "basis": {
+    "rule": "    Rule: group the military-style rows (Land_Mil_*, Land_Tisy_*, Land_Medical_Tent*) into clusters by single     linkage at 250 m; keep clusters with at least 6 rows and fewer than 25 percent tents; around each     non-tent row try 8 compass bearings at 20 m and 28 m; a site must be within 100 m of the cluster centre,     at least 12 m from every vanilla row, have at least 3 vanilla rows within 60 m whose heights span at most     1.2 m (flat ground assumption; y is their median); choose the sites nearest the centre, pairs at least     15 m apart. Class cycles through the Big1 tent family, yaw alternates 0 and 180 (the only yaws that do     not depend on the unverified sign convention).",
+    "inventory": {
+      "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4",
+      "groups": 11679
+    },
+    "note": "Sites are derived from the stock mapgrouppos.xml (hash below); the inventory itself is not committed. y is the median height of flat neighbouring vanilla rows, not a heightmap value; verify no floating or sinking in game. Yaw is 0 or 180 because the spawner yaw sign convention is unverified."
+  },
+  "objects": [
+    {
+      "id": "t01",
+      "class": "Land_Mil_Tent_Big1_1",
+      "pos": [
+        4044.935303,
+        376.888794,
+        11865.339844
+      ],
+      "yaw": 0.0,
+      "loot": "proto",
+      "area": "cluster@4026,11775",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.1 m"
+    },
+    {
+      "id": "t02",
+      "class": "Land_Mil_Tent_Big1_2",
+      "pos": [
+        4537.820639,
+        319.369537,
+        8346.936685
+      ],
+      "yaw": 180.0,
+      "loot": "proto",
+      "area": "cluster@4525,8295",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.9 m"
+    },
+    {
+      "id": "t03",
+      "class": "Land_Mil_Tent_Big1_3",
+      "pos": [
+        4511.184897,
+        319.199219,
+        8351.945474
+      ],
+      "yaw": 0.0,
+      "loot": "proto",
+      "area": "cluster@4525,8295",
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "id": "t04",
+      "class": "Land_Mil_Tent_Big1_4",
+      "pos": [
+        2095.537109,
+        110.957024,
+        3477.254883
+      ],
+      "yaw": 180.0,
+      "loot": "proto",
+      "area": "cluster@2076,3397",
+      "y_basis": "median of 8 vanilla rows within 60 m, spread 0.6 m"
+    },
+    {
+      "id": "t05",
+      "class": "Land_Mil_Tent_Big1_5",
+      "pos": [
+        2115.336099,
+        110.809235,
+        3485.455893
+      ],
+      "yaw": 0.0,
+      "loot": "proto",
+      "area": "cluster@2076,3397",
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.3 m"
+    },
+    {
+      "id": "t06",
+      "class": "Land_Mil_Tent_Big1_1",
+      "pos": [
+        2547.164749,
+        23.355591,
+        1279.469314
+      ],
+      "yaw": 180.0,
+      "loot": "proto",
+      "area": "cluster@2630,1284",
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 0.4 m"
+    }
+  ],
+  "limits": {
+    "max_objects": 12
+  }
+}

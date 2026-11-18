@@ -1,0 +1,56 @@
+{
+  "classes": {
+    "Land_Medical_Tent_Big": {
+      "pbo": "structures_residential.pbo"
+    },
+    "Land_Medical_Tent_Shower": {
+      "pbo": "structures_residential.pbo"
+    },
+    "Land_Mil_Tent_Big1_1": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big1_2": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big1_3": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big1_4": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big1_5": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big2_1": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big2_2": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big2_3": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big2_4": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big2_5": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big3": {
+      "pbo": "structures_military.pbo"
+    },
+    "Land_Mil_Tent_Big4": {
+      "pbo": "structures_military.pbo"
+    }
+  },
+  "kind": "hollow-country-overlay-classes",
+  "provenance": {
+    "addons": [
+      "structures_military.pbo",
+      "structures_residential.pbo"
+    ],
+    "method": "tools/package/map_overlay.py validate --server-root: each name was found as a byte string in the addon PBO named per class in the installed DayZ server 1.30 (name presence only).",
+    "source": "Class names of vanilla tents that already appear as rows in the stock Chernarus+ mapgrouppos.xml and as groups in mapgroupproto.xml.",
+    "verified": "name-in-pbo and mapgroupproto group only; scope and CreateObjectEx spawnability are NOT verified until a native run"
+  }
+}
