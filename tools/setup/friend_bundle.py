@@ -38,12 +38,17 @@ from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
-from tools.package import loot_boost
+from tools.package import loot_boost, map_overlay
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
+SETUP_TOOLS = ('friend_install.py', 'server_report.py', 'workshop_sync.py', 'workshop_mods.json')
+SETUP_BATS = ('install-hollow-country.bat', 'server-report.bat')
 BUNDLE_TOOLS = ('optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
-                'datamined_items.py', 'datamined_items.json', 'loot_boost.py', 'firearms_roster.json')
+                'datamined_items.py', 'datamined_items.json', 'loot_boost.py', 'firearms_roster.json',
+                'map_overlay.py')
+# The map overlay layer set the friend's installer validates and installs (map_overlay.py reads it from here).
+MAP_OVERLAY_CONFIG = 'config/map-overlays'
 
 # Mission files that are local state or tool rollback data, never configuration.
 MISSION_EXCLUDE_DIRS = ('storage_*',)
@@ -231,6 +236,11 @@ def server_settings(cfg_text, mission_name):
     return '\n'.join(lines), template
 
 
+def crlf(data):
+    """Windows batch files must use CRLF line endings."""
+    return data.replace(b'\r\n', b'\n').replace(b'\n', b'\r\n')
+
+
 def launcher(items):
     args = ' '.join('"%s"' % line for line in ws.launch_lines(items))
     lines = ['@echo off', 'rem Hollow Country dedicated server. Run from the DayZServer folder.',
@@ -245,6 +255,14 @@ def readme(items, template, addon):
     lines = [
         'Hollow Country - friend server bundle',
         '=====================================',
+        '',
+        'Easiest way: double-click install-hollow-country.bat (or run it from a terminal). It walks the steps',
+        'below one by one, shows what it will change first, makes backups, never deletes saves, and can be run',
+        'again safely. It asks for the Steam login name you want steamcmd to use; steamcmd asks for the password',
+        'itself, nothing here sees it. Check an existing install any time with: install-hollow-country.bat --check',
+        'After a play session, run server-report.bat and upload the file it writes (see the end of this file).',
+        '',
+        'The manual steps, if you prefer them:',
         '',
         '1. Install DayZ Server (Steam app 223350) with steamcmd, and stop it if it is running.',
         '2. Download the Workshop mods with your own steamcmd login (type your password yourself):',
@@ -287,6 +305,12 @@ def readme(items, template, addon):
     lines += ['     ' + line for line in ws.launch_lines(items) if line.startswith('-mod=')]
     lines += [
         '',
+        'After a play session: run server-report.bat. It writes hollow-country-report-<date-time>.md (a redacted',
+        'summary of the server log: no player names, ids, IP addresses, passwords or home folders; at most 512 KB).',
+        'Read it once, then upload that file only: open a new issue titled "Server report <date>" on the',
+        'Hollow Country GitHub repository with the "Server report" template and drag the file in, or add it under',
+        'reports/friend-server/ in a pull request. Never upload the raw .RPT, .ADM or .mdmp files.',
+        '',
         'bundle-manifest.json lists the SHA-256 of every file in this bundle.',
         '',
     ]
@@ -310,6 +334,8 @@ def build(args):
             raise ValueError('unknown optional overlay policy')
         for name in BUNDLE_TOOLS:
             overlays.read(lts.ROOT / 'tools/package' / name)
+        for name in SETUP_TOOLS + SETUP_BATS:
+            overlays.read(lts.ROOT / 'tools/setup' / name)
     except (OSError, ValueError) as error:
         raise Refused('optional overlay source missing or invalid: %s' % error) from error
     m_keep, m_drop = mission_files(mission)
@@ -322,8 +348,10 @@ def build(args):
     for rel, data in clean.items():
         top = PurePosixPath(rel).parts[0]
         # Weapon-pack deltas are generated from the installed third-party Workshop items: never export them.
+        # The owner's own map overlay install (hollow-country-overlays) is local state: the friend installs the layers.
         own = top.startswith('hollow-country') and top not in (travel.MANAGED, ce_coverage.MANAGED, loot_boost.MANAGED,
-                                                                snafu_optional.MANAGED, tactical_flava_optional.MANAGED)
+                                                                snafu_optional.MANAGED, tactical_flava_optional.MANAGED,
+                                                                map_overlay.MANAGED)
         if own or rel == 'expansion/settings/AIPatrolSettings.json':
             if PurePosixPath(rel).name not in ('delta-manifest.json', 'economy-report.json', 'gameplay-report.json'):
                 authored[rel] = data
@@ -369,6 +397,9 @@ def build(args):
     if gameplay_backup.exists():
         before = json.loads(overlays.read(gameplay_backup))
         after = json.loads(clean['cfggameplay.json'])
+        arr = after.get('WorldsData', {}).get('objectSpawnersArr') if isinstance(after, dict) else None
+        if isinstance(arr, list):
+            arr[:] = [p for p in arr if not (isinstance(p, str) and p.startswith(map_overlay.MANAGED + '/'))]
 
         def changed_leaves(old, new, path):
             if isinstance(new, dict):
@@ -387,6 +418,20 @@ def build(args):
     for name in BUNDLE_TOOLS:
         path = lts.ROOT / 'tools/package' / name
         plan.append(('tools/package/' + name, overlays.read(path)))
+    config_root = lts.ROOT / MAP_OVERLAY_CONFIG
+    try:
+        config_files = sorted(p for p in config_root.rglob('*.json') if p.is_file())
+        if not config_files:
+            raise OSError('no layer files')
+        for path in config_files:
+            plan.append((path.relative_to(lts.ROOT).as_posix(), overlays.read(path)))
+        map_overlay.load_source(config_root)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise Refused('map overlay layer set missing or invalid: %s' % error) from error
+    for name in SETUP_TOOLS:
+        plan.append(('tools/setup/' + name, overlays.read(lts.ROOT / 'tools/setup' / name)))
+    for name in SETUP_BATS:
+        plan.append((name, crlf(overlays.read(lts.ROOT / 'tools/setup' / name))))
     plan.append(('docs/COT_PERMISSIONS.md', overlays.read(lts.ROOT / 'docs/COT_PERMISSIONS.md')))
     for path in sorted(SOURCE.rglob('*')):
         if path.is_file():

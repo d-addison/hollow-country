@@ -1,0 +1,30 @@
+name: Server report
+description: Upload a redacted Hollow Country server report made by server-report.bat.
+title: "Server report <date>"
+labels: ["server-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Drag the hollow-country-report-<date-time>.md file into the box below. Upload that file only, never the raw
+        server log, a minidump or anything from the profiles folder. This issue is public: read the file once first.
+  - type: textarea
+    id: report
+    attributes:
+      label: Report file
+      description: Drag the .md file here.
+    validations:
+      required: true
+  - type: textarea
+    id: session
+    attributes:
+      label: What you did in this session
+      description: A line or two, for example how long you played and which features you tried.
+    validations:
+      required: false
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What looked wrong, if anything
+    validations:
+      required: false

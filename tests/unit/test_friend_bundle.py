@@ -342,6 +342,84 @@ class FriendBundleTests(unittest.TestCase):
         rows = fb.overlays.friend_bundle_plan(self.mission, [('README.txt', original)])
         self.assertEqual(dict(rows)['README.txt'], original)
 
+    def test_the_guided_installer_and_report_tool_ship_with_crlf_batch_files(self):
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        got = self.files()
+        for rel in ['install-hollow-country.bat', 'server-report.bat', 'tools/setup/friend_install.py',
+                    'tools/setup/server_report.py', 'tools/setup/workshop_sync.py', 'tools/setup/workshop_mods.json']:
+            self.assertIn(rel, got)
+        for name, module in (('install-hollow-country.bat', 'tools.setup.friend_install'),
+                             ('server-report.bat', 'tools.setup.server_report')):
+            data = (self.out / name).read_bytes()
+            self.assertIn(module.encode(), data)
+            self.assertNotIn(b'\n', data.replace(b'\r\n', b''), name + ' must be CRLF only')
+
+    def test_the_bundled_installer_modules_import_from_the_bundle_alone(self):
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        import subprocess
+        import sys
+        result = subprocess.run(
+            [sys.executable, '-I', '-c',
+             'import sys; sys.path.insert(0, %r); import tools.setup.friend_install as f, tools.setup.server_report as r; '
+             'print(f.__file__)' % str(self.out)],
+            capture_output=True, text=True, cwd=str(self.tmp))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.strip().startswith(str(self.out)), result.stdout)
+
+    def test_readme_first_steps_are_the_guided_installer_and_the_report(self):
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        readme = (self.out / 'README.txt').read_text()
+        self.assertIn('install-hollow-country.bat', readme.split('3. Copy', 1)[0])
+        self.assertLess(readme.index('install-hollow-country.bat'), readme.index('1. Install DayZ Server'))
+        self.assertIn('after a play session, run server-report.bat and upload the file', readme.lower())
+
+    def test_the_map_overlay_tool_and_its_layer_config_ship_and_run_from_the_bundle_alone(self):
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        got = self.files()
+        source = fb.lts.ROOT / 'config/map-overlays'
+        wanted = sorted(p.relative_to(fb.lts.ROOT).as_posix() for p in source.rglob('*.json'))
+        self.assertIn('config/map-overlays/profile.json', wanted)
+        self.assertTrue(any(w.startswith('config/map-overlays/layers/') for w in wanted))
+        for rel in wanted + ['tools/package/map_overlay.py']:
+            self.assertIn(rel, got)
+            self.assertEqual((self.out / rel).read_bytes(), (fb.lts.ROOT / rel).read_bytes())
+        manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
+        listed = {row['path'] for row in manifest['files']}
+        self.assertIn('tools/package/map_overlay.py', listed)
+        self.assertTrue(set(wanted) <= listed)
+        import subprocess
+        import sys
+        result = subprocess.run(
+            [sys.executable, '-I', '-c',
+             'import sys; sys.path.insert(0, %r); from tools.package import map_overlay as m; '
+             'sys.exit(m.main(["validate"]))' % str(self.out)],
+            capture_output=True, text=True, cwd=str(self.tmp))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Overlay layers valid', result.stdout)
+
+    def test_a_locally_installed_map_overlay_never_reaches_the_export(self):
+        # SYNTHETIC rows: the friend installs the map overlay layers themselves; the owner's local copy of it
+        # (its spawner files and its entries in cfggameplay.json) must not be exported as authored overlay bytes.
+        managed = 'hollow-country-overlays'
+        put(self.mission, managed + '/receipt.json', '{}')
+        put(self.mission, managed + '/gameplay.backup', '{}')
+        put(self.mission, managed + '/mapgrouppos.backup', '<map/>')
+        put(self.mission, managed + '/objects/military-tents-v1.json', '{"Objects": []}')
+        put(self.mission, managed + '/mapgrouppos.additions.xml', '<group/>')
+        spawners = ['hollow-country-gear/own.json', managed + '/objects/military-tents-v1.json']
+        put(self.mission, 'cfggameplay.json', json.dumps({'WorldsData': {'objectSpawnersArr': spawners}}))
+        put(self.mission, 'hollow-country-gameplay/cfggameplay.backup',
+            json.dumps({'WorldsData': {'objectSpawnersArr': spawners[:1]}}))
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        self.assertEqual([f for f in self.files() if managed in f], [])
+        patches = (self.out / 'mission-patches.json').read_text()
+        self.assertNotIn(managed, patches)
+
     def test_manifest_hashes_every_bundled_file(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)

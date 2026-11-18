@@ -29,6 +29,44 @@ a log line appeared.
 - When a command refuses, read its message and fix the cause. Do not retry with
   force flags, do not hand-edit receipts, and do not copy files around the tool.
 
+## Easy path (try this first)
+
+The bundle ships a guided installer. From the extracted `BUNDLE` folder:
+
+```powershell
+cd "$BUNDLE"
+.\install-hollow-country.bat                 # dry run: shows the ten steps, changes nothing
+.\install-hollow-country.bat --apply         # after reading the dry run, with the server stopped
+.\install-hollow-country.bat --check         # any time: verifies mod folders, keys, meta.cpp ids, -mod order
+```
+
+It checks the server folder and that the server is stopped (read only; it never stops anything), downloads the
+Workshop dependencies through steamcmd, copies the mod folders and keys, applies the mission overlay with
+`bundle-plan` then `bundle-apply`, installs the map overlay layers (step 6, `map_overlay validate` then `install`,
+server stopped), copies the profiles, merges only the Hollow Country lines into `serverDZ.cfg` (backup first) and
+writes `start-server.bat`.
+
+steamcmd: the installer uses `--steamcmd <path>`, then the path it remembered from an earlier run
+(`hollow-country-steamcmd.txt`), then `steamcmd` on PATH, and otherwise asks the operator for the path to
+`steamcmd.exe` (or its folder). It always passes `--steamcmd` and an install folder to steamcmd, so downloads land
+beside steamcmd and not in whatever folder it was started from. The operator types the Steam login name only
+(no spaces); steamcmd asks for the password and the Steam Guard code itself, and you never see them. A name with
+spaces or other characters is refused (`steam_user_invalid`) and is never echoed.
+
+Only files that `bundle-manifest.json` lists are installed. Useful options: `--skip overlays-map` leaves the map
+overlay layers out (`--skip` also takes `workshop`, `mods`, `overlay`, `profiles`, `cfg`, `launcher`); `--check`
+also reports whether the map overlay receipt is present and intact (`missing_map_overlay`,
+`damaged_map_overlay`, `outdated_map_overlay`). An intact receipt for the same layer set is already installed; for a
+different layer set the installer asks the operator, rolls the old one back, then installs the new one.
+
+**Never upload or share `hollow-country-install-backups\`.** It holds a copy of `serverDZ.cfg` with its passwords
+(`password`, `passwordAdmin`, RCON). Keep it on the server machine only; the server report tool never reads it.
+If `serverDZ.cfg` changes while the installer waits at a prompt, it refuses with `drift` and writes nothing: run
+it again. Backups go to `hollow-country-install-backups\<UTC time>\` and a receipt to
+`hollow-country-install-receipt.json`; a second run changes nothing. If it refuses, read the `refused: <code>` line
+and fix the cause (a changed file is drift, an existing differing file needs the operator's yes). It never deletes
+saves or `storage_*`. Use the numbered steps below only when the guided installer cannot do what is needed.
+
 ## Placeholders
 
 Pick real paths with the operator and set them once per PowerShell session; every
@@ -427,11 +465,13 @@ and restores its predecessor's exact bytes; keep receipts until it succeeds.
 cd "$SRC"
 py -3 -m tools.package.tactical_flava_optional rollback --target "$MISSION"
 py -3 -m tools.package.snafu_optional rollback --target "$MISSION"
+cd "$BUNDLE"; py -3 tools/package/map_overlay.py rollback --target "$MISSION"
 cd "$BUNDLE"; py -3 -m tools.package.optional_overlays bundle-rollback --mission "$MISSION"
 cd "$SRC";    py -3 -m tools.setup.workshop_sync rollback --server-root "$SERVER"
 ```
 
-Then restore `serverDZ.cfg`, `profiles`, `keys` and `start-server.bat` from
+Roll the map overlay back before the bundle: it patched the same `cfggameplay.json`, and the mission rollback refuses
+while it is in place. Both rollbacks are byte-exact. Then restore `serverDZ.cfg`, `profiles`, `keys` and `start-server.bat` from
 `BACKUP`. Remove `SERVER\@HollowCountry` and `SERVER\@HollowCountryExpansionAI`.
 Rollback never wipes the hive; persisted bikes and animals stay.
 
@@ -446,6 +486,25 @@ clients must run the same version.
 Report: bundle version, the `bad:` result of step 1, the admission line count,
 any `SCRIPT (E)` blocks, and what players saw. Never include passwords, Steam
 IDs, IP addresses of players or the operator's home paths.
+
+### Server report
+
+After a play session, from `BUNDLE` run `.\server-report.bat` (or
+`py -3 -m tools.setup.server_report --profiles "$SERVER\profiles"`). It reads the newest server `.RPT` and the
+Hollow Country profile state (counts only) and writes `hollow-country-report-<UTC date-time>.md`: summary on top,
+build and version, the `-mod` list, deduplicated `[HC ...]` lines, every `SCRIPT (E)` error with context,
+`[HC Search Houses] refused` reason counts, AI lines, whether `Player connect enabled` was logged, crash and
+minidump presence and Central Economy lines. It removes Steam64 ids, BattlEye GUIDs, IP addresses and ports, player
+names on connect and disconnect lines, Windows user paths and any line that mentions a password, an admin
+remote-console setting or a key, and it never writes more than 512 KB. Read the file once, then upload that file
+only, in one of two ways:
+
+1. Open a GitHub issue titled `Server report <date>` on `d-addison/hollow-country` using the "Server report"
+   template (it adds the `server-report` label) and drag the `.md` file onto it.
+2. Add the file under `reports/friend-server/` on a branch and open a pull request.
+
+Never upload the raw `.RPT`, `.ADM` or `.mdmp` files or anything from the profiles folder. A report shows what the
+server logged; it does not show that a feature works for players.
 
 ## #162: police event refusal and unsupported AI weapons
 
