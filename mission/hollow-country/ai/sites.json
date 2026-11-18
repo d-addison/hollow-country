@@ -869,6 +869,90 @@
           "Quantity": 1
         }
       ]
+    },
+    {
+      "Id": "checkpoint-komarovo-east",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 86400,
+      "Checkpoint": true,
+      "Reviewed": true,
+      "CheckpointProp": [
+        3925,
+        0,
+        2435
+      ],
+      "Waypoints": [
+        [
+          3890,
+          0,
+          2450
+        ],
+        [
+          3930,
+          0,
+          2460
+        ],
+        [
+          3940,
+          0,
+          2500
+        ],
+        [
+          3900,
+          0,
+          2490
+        ]
+      ]
+    },
+    {
+      "Id": "checkpoint-novaya-south",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 86400,
+      "Checkpoint": true,
+      "Reviewed": true,
+      "CheckpointProp": [
+        3455,
+        0,
+        12760
+      ],
+      "Waypoints": [
+        [
+          3420,
+          0,
+          12780
+        ],
+        [
+          3460,
+          0,
+          12795
+        ],
+        [
+          3470,
+          0,
+          12835
+        ],
+        [
+          3430,
+          0,
+          12825
+        ]
+      ]
     }
   ]
 }

@@ -71,6 +71,9 @@ class HCXAIAdapter extends HCModule
         if (!GetGame() || !GetGame().IsServer()) { return; }
         // HC sites (patrols, scavengers, holdouts) admit themselves from engine
         // observations; they do not depend on the lease profile below.
+        // Seed the V2 encounters flag from the preference before the director binds
+        // sites, so checkpoint sites are kept even though HCXLivingModule starts later.
+        HCXAIQualification.SetEncountersEnabled(settings && settings.EnableEncounters);
         m_Sites = new HCXAISiteDirector();
         m_Sites.Start();
         // AI_ENCOUNTER readiness comes from the director's live state. The lease

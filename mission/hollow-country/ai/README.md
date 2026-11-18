@@ -1,11 +1,108 @@
 # Optional PvE AI data
 
+## V2 living people (LC-T401 HCX, T403–T406, T410)
+
+The owner decision of 2026-11-17 admits these features when `EnableEncounters`
+is true. `HCXLivingModule` self-registers without a core hook and prints one
+`HCV2Admission` line each for Factions / EXP-L2, Stance / EXP-L3, AskForNews /
+EXP-L6 and Checkpoints / EXP-L1. Experiment verdicts are diagnostic; an
+`admitted unverified` line does not establish native acceptance. This preference
+also admits the existing site director without its older acceptance marker.
+With the preference false, the old marker still controls the older site path;
+the new checkpoint sites, stance and news service stay off.
+
+**Client packaging requirement:** load `@HollowCountryExpansionAI` with `-mod`
+on both server and clients, after its Expansion dependencies and HollowCountry.
+The existing friend-bundle/server launcher places it in `-serverMod`; the lead
+must change that placement before client testing. Both peers need the faction
+registrations and optional news target binding. The base action has no Expansion
+dependency and offers no target without that binding.
+
+`HCXFactions.c` registers original classes using the installed
+`ai_scripts.pbo` extension attribute (`1_Core/DayZExpansion_AI/eAIRegisterFaction.c:6–21`;
+World-layer precedent `4_World/DayZExpansion_AI/Factions/eAIFactionInfected.c:1–2`).
+The reconciliation IDs are strings only: Locals (Zimovniki), Volunteers
+(Dobrovoltsy), Scavengers (Sborshchiki), Raiders (Volki), Travellers. Each faction
+is friendly to itself; Locals and Volunteers are allied; Raiders oppose the
+other four; all remaining pairs are neutral. Site patrols map to Volunteers,
+scavenger parties to Scavengers and holdouts to Locals. Raider and Traveller
+classes are available to later materialization; this change adds no raider spawn.
+
+Admission refuses and logs unlimited reload, recruiting, provider patrols,
+looting other than NONE, or a provider route differing from the qualified static
+route. No player coordinates are injected into the provider. The existing lower
+accuracy, reduced awareness, melee variants and finite loadouts are retained.
+V2 additionally caps site activity at eight actors / two active sites; these are
+provisional ceilings, not measured budgets. The module checks one owned actor
+per tick and stops its player aggression if admission drifts.
+
+Stance consumes only weapon raised/lowered, distance, nearby delivered gunfire
+and static faction relation. Native provider perception must establish LOS and
+a fresh native ray must agree. A raised weapon inside the caution range gets
+the AD-04 hold emote plus text, followed by aim after two seconds and possible
+hostility after eight seconds of continued observation. Lowering clears the
+warning and active aggression. Lost LOS or a stale observation restarts the
+warning. If the emote or notification slot is unavailable, escalation waits.
+One shared limiter allows at most one warning/news notification per player per
+30 seconds; identity is used only for that delivery quota, never stance.
+
+The native **Ask for news** action revalidates a living, non-hostile AI and a
+nearby living player on the server. It greets and invokes
+`HCAskForNews.Rumour(vector pos)`, currently returning `""`; the honest fallback
+is “Nothing new to tell you.” The world-ledger wave fills the hook with a real
+recent event. There is no fabricated rumour or location feed today. A receipt
+limits each stable site/member slot and server-owned group (solo players get a
+solo quota) to one response per 86,400 real UTC seconds, including restarts.
+The existing Groups service must be healthy to resolve that quota; unavailable
+group state refuses talk rather than assuming a new solo group.
+`$profile:HollowCountry/ask-for-news.json` has a bounded 256-row journal. Save
+uses a verified pending file, backup and verified copy, following the installed
+native file APIs; no native rename exists in the inspected dump. A pending file,
+corruption or clock rollback refuses talk. Preserve the pending file and recover
+the journal deliberately; publication is guarded, not an atomic rename.
+
+Two additional source-reviewed **candidate** road-entry checkpoints are
+`checkpoint-komarovo-east` and `checkpoint-novaya-south`, each with 2–3 Volunteer
+guards. Their `Reviewed` flag records source review only. They reuse the existing
+build/world, observer, route/navmesh, spawn and member admission. Coordinates
+are authored proposals, not surveyed road or navmesh evidence. An empty native
+`Land_Roadblock_Table` is placed independently of guard availability, only when
+unobserved beyond 200 m for five seconds and clear of buildings within 25 m.
+The fallback refuses unsafe/overfull surroundings and does not add loot,
+barriers or door blockers. Existing nearby tables are adopted on restart.
+
+Server grep strings (these are expected logs, not observations):
+
+```text
+[HollowCountry] V2 admission feature=Factions preference=on gate=EXP-L2
+[HollowCountry] V2 admission feature=Stance preference=on gate=EXP-L3
+[HollowCountry] V2 admission feature=AskForNews preference=on gate=EXP-L6
+[HollowCountry] V2 admission feature=Checkpoints preference=on gate=EXP-L1
+[HollowCountry] Living AI admission refused:
+[HollowCountry] Stance warning: emote + text; lower weapon to de-escalate
+[HollowCountry] Stance de-escalated: weapon lowered or outside caution range
+[HollowCountry] Stance hostile: raised weapon persisted after 8s warning
+[HollowCountry] AskForNews ready: server validation; one per NPC/group/86400s; rumour hook empty
+[HollowCountry] AskForNews answered: npc=
+[HollowCountry] AskForNews refused:
+[HollowCountry] Checkpoints props present:
+[HollowCountry] Checkpoints prop refused:
+```
+
+Client: `[HollowCountry] V2 client AskForNews action registered; optional HCX target binding required`.
+The new synthetic smoke verifies the authored policy signature and lowering;
+it never establishes DayZ behaviour. Native compile, DayZDiag, normal PBO/server
+testing, faction synchronization, warning timing/aim and two-client visibility,
+emote/notification and action checks remain pending. So do target-load budgets,
+checkpoint surveys, ledger integration and a true warning-shot experiment.
+
 ## HC AI sites (shipped, the default when the addon runs)
 
 `sites.json` is our own site policy: 9 patrols (4 town police stations, the 2
 village police stations that anchor the event sites, 3 military sites), 5 scavenger parties of 2–3 that roam qualified routes between loot
 buildings, and 5 holdouts of 2–3 survivors who keep to one house with one
-`WoodenCrate` or `SeaChest` cache. Its coordinates were chosen once from the
+`WoodenCrate` or `SeaChest` cache, plus the two V2 checkpoints above. The older
+nineteen sites' coordinates were chosen once from the
 stock `mapgrouppos.xml`/`mapgroupproto.xml` (read only; no dump is committed) by
 `python3 -m tools.package.ai_patrols sites --mapgrouppos ... --mapgroupproto ... --out ...`.
 `loadouts/HollowCountry_{Patrol,Scavenger,Holdout}.json` are Expansion loadout
@@ -25,14 +122,16 @@ At start `HCXAISiteDirector` admits the sites only when the engine build and
 world match the policy, the addon and its dependencies are in `CfgPatches`,
 Expansion AI and AIPatrol settings are loaded with recruiting off and no
 unlimited reload, every loadout file exists, the observer is native eAI
-perception and no `pve_patrols.disable` opt-out marker is present (the patrols are on by default). It then binds holdouts to their
+perception and either V2 `EnableEncounters` admits the director or no
+`pve_patrols.disable` opt-out marker is present (the patrols are on by default).
+It then binds holdouts to their
 house (nearest object of `HouseClass`), qualifies each route by navmesh
 sampling and `FindPath` (at most 4 work items per tick), and caches the result
 by SHA-256 of route plus build in `$profile:HollowCountry/expansion-ai-routes.json`.
 Each qualified site becomes an `eAIDynamicPatrol` that Expansion's own trigger
 spawns when a player is inside `ActivationRadius`; HC refuses the spawn within
 `MinPlayerDistance` (200 m) of a player, in a player's line of sight, or past the
-24-AI / 8-site budgets, checks each later group member at the formation point
+24-AI / 8-site legacy budgets (V2 further limits these to 8 AI / 2 sites), checks each later group member at the formation point
 Expansion is about to use (same distance and sight rules; a refused member ends the
 group at the members already placed), refuses despawn while the group is in combat, and forces
 fair actors (finite reload, multipliers 1). Owned groups are journaled in
@@ -138,7 +237,8 @@ is our configuration, not an Expansion file, installed at
 `<mission>/expansion/settings/AIPatrolSettings.json` (the launcher backs up any existing file).
 It sets `m_Version` to the pinned `VERSION` (32), so Expansion loads it without
 converting or saving, and `Enabled: 0` with no `Patrols`, so `eAIDynamicPatrol`
-spawns nothing. `AILocationSettings.json` only holds roaming waypoints and no-go
+creates no provider-owned patrols. HC still creates its own qualified native
+patrols directly. `AILocationSettings.json` only holds roaming waypoints and no-go
 areas and needs no change. `tools/setup/wine_compile_probe.py --expansion-patrol-settings` stages
 it into a disposable mission copy; any rewrite by Expansion is reported as drift.
 

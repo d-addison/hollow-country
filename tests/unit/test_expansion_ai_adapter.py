@@ -139,7 +139,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         for name in re.findall(r"static \w+ (\w+)\(", self.rule_source):
             setattr(self.rule_api, name, lambda *a,n=name: self.rules.call(n,None,*a))
         self.env["HCXAIRules"] = self.rule_api
-        self.env["HCXAIQualification"] = N(Admitted=lambda:self.marker)
+        self.env["HCXAIQualification"] = N(Admitted=lambda:self.marker, SetEncountersEnabled=lambda enabled:None)
         self.env["HCXAIJournal"] = N(Open=lambda *a:N(PrepareBegin=lambda *a:True,
                                                        Begin=lambda *a:self.journal_ok,
                                                        End=lambda *a:self.journal_ok) if self.reconciled else None)

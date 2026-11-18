@@ -144,5 +144,6 @@ class SiteGeneratorTests(unittest.TestCase):
         shipped = json.loads((ROOT / 'mission/hollow-country/ai/sites.json').read_text())
         self.assertEqual(set(shipped), set(ai_patrols.generate_sites(self.pos, self.proto, self.spec)))
         self.assertLessEqual(len((ROOT / 'mission/hollow-country/ai/sites.json').read_bytes()), 65536)
-        self.assertTrue(all(s['Id'] in {x['Id'] for k in ai_patrols.SITE_SPEC.values() for x in k}
+        authored_checkpoints = {'checkpoint-komarovo-east', 'checkpoint-novaya-south'}
+        self.assertTrue(all(s['Id'] in {x['Id'] for k in ai_patrols.SITE_SPEC.values() for x in k} | authored_checkpoints
                             for s in shipped['Sites']))

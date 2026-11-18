@@ -160,6 +160,9 @@ class HCXAISite
     int DespawnSeconds = 600;
     int RespawnSeconds = 3600;
     ref array<vector> Waypoints = new array<vector>();
+    bool Checkpoint = false;
+    bool Reviewed = false; // source review only, never runtime acceptance
+    vector CheckpointProp;
     string HouseClass;
     vector HousePosition;
     ref array<vector> LocalPoints = new array<vector>();
