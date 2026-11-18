@@ -48,15 +48,24 @@ class HCSearchNoise
         HCSearchNoise.Emit(action_data.m_Player);
     }
 
+    // LC-T407: installed 3_Game/Noise.c:7 AddNoisePos accepts EntityAI;
+    // :25 LoadFromPath; Global/Game.c:738 GetNoiseSystem, :1120 IsServer.
+    // Position searches use their real source container for an ordinary one-shot
+    // noise, never a timed target, virtual player or persistent alert.
+    static void EmitAt(EntityAI actor, vector position)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !actor) return;
+        NoiseSystem worldNoise = GetGame().GetNoiseSystem();
+        if (!worldNoise) return;
+        NoiseParams searchParams = new NoiseParams();
+        searchParams.LoadFromPath(NOISE_PATH);
+        worldNoise.AddNoisePos(actor, position, searchParams);
+    }
+
     static void Emit(PlayerBase player)
     {
         if (!GetGame() || !GetGame().IsServer() || !player || !player.IsAlive())
             return;
-        NoiseSystem noiseSystem = GetGame().GetNoiseSystem();
-        if (!noiseSystem)
-            return;
-        NoiseParams noiseParams = new NoiseParams();
-        noiseParams.LoadFromPath(NOISE_PATH);
-        noiseSystem.AddNoisePos(player, player.GetPosition(), noiseParams);
+        HCSearchNoise.EmitAt(player, player.GetPosition());
     }
 }

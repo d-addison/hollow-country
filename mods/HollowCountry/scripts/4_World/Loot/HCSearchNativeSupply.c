@@ -1,3 +1,10 @@
+// LC-T407 non-player overload evidence, installed scripts-1.30.164289:
+// 3_Game/Systems/Inventory/Inventory.c:138 GetCargo, :276 FindFreeLocationFor, :1057 TakeToDst;
+// InventoryLocation.c:52 GetParent, :210 CompareLocationOnly;
+// 3_Game/Entities/EntityAI.c:879 GetHierarchyRoot, :882 GetHierarchyRootPlayer,
+// :885 GetHierarchyParent, :1884 GetInventory, :3374 GetPersistentID;
+// 3_Game/Entities/Object.c:1219 IsRuined. Callers journal before Transfer;
+// World/HCPickers.c CommitMove supplies the immutable 0->1->2/3/4 protocol.
 class HCSearchOwnedSupply
 {
     EntityAI ItemHandle;
@@ -335,6 +342,54 @@ class HCSearchSupplyRegistry
         // Never move loot back out of a player's inventory, create compensation,
         // or reset Attempted based on a failed/ambiguous native return value.
         Print("[HC Search Economy] native transfer uncertain; allocation held, no refund/replay");
+        return 3;
+    }
+
+    // Server-owned ground containers only. No player identity is manufactured.
+    // Abstract parties move inventory through this seam; no actor is relocated.
+    bool ContainerReady(EntityAI destination, string actorId)
+    {
+        if (!m_Opened || !GetGame().IsServer() || !GetCEApi()) return false;
+        if (!destination || destination.IsMan() || destination.IsAnimal() || destination.IsZombie()) return false;
+        if (destination.IsRuined() || destination.GetHierarchyParent() || destination.GetHierarchyRootPlayer()) return false;
+        if (!destination.GetInventory() || !destination.GetInventory().GetCargo()) return false;
+        return HCSearchRules.TextValid(actorId, 128) && HCSearchSupplyRegistry.PersistentId(destination) != "";
+    }
+
+    int Transfer(HCSearchEntry entry, EntityAI destination, string actorId)
+    {
+        if (m_Transferring || m_RetirePending) return 4;
+        m_Transferring = true;
+        int result = MoveToContainer(entry, destination, actorId);
+        m_Transferring = false;
+        if (m_RetirePending) Retire();
+        return result;
+    }
+
+    protected int MoveToContainer(HCSearchEntry entry, EntityAI destination, string actorId)
+    {
+        if (!entry || !ContainerReady(destination, actorId)) return 4;
+        HCSearchOwnedSupply supply = Find(entry.SupplyId);
+        if (!supply || supply.Attempted || supply.ItemClass != entry.ItemClass || !Unchanged(supply)) return 4;
+        EntityAI item = supply.ItemHandle;
+        if (item == destination || item.GetHierarchyRoot() == destination || !item.IsTakeable()) return 4;
+        string destinationId = HCSearchSupplyRegistry.PersistentId(destination);
+        InventoryLocation sourceLocation = new InventoryLocation;
+        InventoryLocation targetLocation = new InventoryLocation;
+        if (!item.GetInventory().GetCurrentInventoryLocation(sourceLocation)) return 4;
+        if (!destination.GetInventory().FindFreeLocationFor(item, FindInventoryLocationType.CARGO, targetLocation)) return 4;
+        // Container callbacks may invalidate source, destination or ownership.
+        // Require direct cargo; never let FindFreeLocationFor target a player bag.
+        if (!ContainerReady(destination, actorId) || HCSearchSupplyRegistry.PersistentId(destination) != destinationId) return 4;
+        if (targetLocation.GetParent() != destination || !sourceLocation.CompareLocationOnly(supply.OriginalLocation)) return 4;
+        if (m_RetirePending || Find(entry.SupplyId) != supply || s_Registered.Find(item) < 0 || !Unchanged(supply)) return 4;
+        supply.Attempted = true;
+        bool moved = destination.GetInventory().TakeToDst(InventoryMode.SERVER, sourceLocation, targetLocation);
+        if (!item || !destination || HCSearchSupplyRegistry.PersistentId(item) != supply.SupplyId) return 3;
+        if (item.GetType() != supply.ItemClass || item.GetQuantity() != supply.Quantity) return 3;
+        InventoryLocation readback = new InventoryLocation;
+        if (moved && item.GetHierarchyParent() == destination && !item.GetHierarchyRootPlayer() && item.GetInventory().GetCurrentInventoryLocation(readback) && readback.CompareLocationOnly(targetLocation)) return 2;
+        if (!moved && Unchanged(supply)) return 4;
         return 3;
     }
 }
