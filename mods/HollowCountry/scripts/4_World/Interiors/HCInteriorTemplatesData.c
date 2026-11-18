@@ -156,3 +156,11 @@ class HCInteriorTemplateFurnish
     int Chunk;
     ref array<ref HCInteriorFurnishRow> Rows = new array<ref HCInteriorFurnishRow>;
 }
+
+// Transient native query snapshot, never serialized or published as template data.
+class HCInteriorResolveEntry
+{
+    vector Position;
+    int QuerySize;
+    ref array<Object> Objects = new array<Object>;
+}

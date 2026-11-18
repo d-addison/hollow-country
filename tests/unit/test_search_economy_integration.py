@@ -2,6 +2,12 @@
 
 These are transaction/admission regressions, not Enforce, native I/O, geometry,
 CE provenance, rendering, or multiplayer acceptance.
+
+#138 stop TDD (2026-11-18), after removing the combined test's expectedFailure:
+RED: "Second list contains 2 additional elements." (queued pathgraph callbacks).
+RED/GREEN command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest
+tests.unit.test_v1_combined_flags.CombinedWorkTests.test_stop_removes_queued_interior_updates_as_well_as_core_tick -v
+Both native pilot and timed template callback targets now cancel before prop deletion.
 """
 import copy
 import re
@@ -116,7 +122,11 @@ class SearchIntegrationTests(unittest.TestCase):
                    m_Sites=EArray([self.site]), m_SearchSessions=EArray([self.lease]),
                    m_SearchBound=False, m_Objects=EArray([]), s_Instance=None)
         self.env = {'HCBuildIdentity':build_identity(),
-                    'GetGame':lambda:N(IsServer=lambda:self.server, GetTickTime=lambda:self.now),
+                    'GetGame':lambda:N(IsServer=lambda:self.server, GetTickTime=lambda:self.now,
+                        GetCallQueue=lambda category:N(Remove=lambda callback:None),
+                        UpdatePathgraphRegionByObject=lambda obj:None),
+                    'CALL_CATEGORY_SYSTEM':0,
+                    'HCInteriorTemplatePlacement':N(HCTimedPathgraph=lambda obj:None),
                     'HCServer':N(Get=lambda:N(GetSettings=lambda:self.settings)),
                     'HCInteriorRules':N(MaySearch=lambda *a:all(a)),
                     'HCInteriorCatalog':N(ItemAllowed=lambda s:s in ('','Rag','Battery9V')),
@@ -140,6 +150,42 @@ class SearchIntegrationTests(unittest.TestCase):
 
     def call(self,name,*args):
         return invoke(name,self.env,self.t,*args)
+
+    def test_stop_cancels_pilot_and_timed_template_updates_before_deleting_props(self):
+        # Explicit synthetic call queue: execute authored scheduling and stop,
+        # leaving an unrelated function queued. No native queue semantics claimed.
+        from tests.unit.test_event_runtime import translate
+        queued = []
+        queue = N(CallLater=lambda fn, delay, repeat, obj:queued.append((fn, obj)),
+                  Remove=lambda fn:queued.__setitem__(slice(None),
+                      [call for call in queued if call[0] != fn]))
+        game = N(IsServer=lambda:True, GetCallQueue=lambda category:queue,
+                 UpdatePathgraphRegionByObject=lambda obj:None)
+        timed = self.env['HCInteriorTemplatePlacement'].HCTimedPathgraph
+        unrelated = lambda obj:None
+        queued.append((unrelated, None))
+        self.env['GetGame'] = lambda:game
+        props = EArray([object(), object()])
+        self.t.m_Objects = EArray(props)
+        env = dict(self.env, Math=N(Min=min), Print=lambda text:None,
+                   DELAY_MS=100, MAX_OBJECTS=8)
+        pilot = SOURCE.with_name('HCInteriorPathgraph.c').read_text()
+        pilot = re.sub(r'\b(\w+)\+\+;', r'\1 += 1;', pilot)
+        pilot = pilot.replace('placed.Count().ToString()', 'str(placed.Count())')
+        translate(pilot, 'Schedule', env)(props)
+        template = SOURCE.with_name('HCInteriorTemplatePlacement.c').read_text()
+        translate(template, 'Schedule', env)(props)
+        self.assertEqual(5, len(queued))
+        self.assertEqual(2, sum(fn == timed for fn, obj in queued))
+        deleted = []
+        def delete(obj):
+            self.assertEqual([(unrelated, None)], queued)
+            deleted.append(obj)
+        game.ObjectDelete = delete
+        self.call('OnStop')
+        self.call('OnStop')
+        self.assertEqual(list(props), deleted)
+        self.assertEqual([(unrelated, None)], queued)
 
     def grant(self,site,actor):
         self.events.append(('grant',site,actor))
