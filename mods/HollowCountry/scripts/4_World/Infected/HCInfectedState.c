@@ -366,6 +366,11 @@ class HCInfectedActor
     int RequestedVariant = -1;
     int SearchAnchorLimit;
     bool ConfirmedDead;
+    // #135 shared LOD sample written only by the infected LOD cursor
+    // (Infected/LOD/HCInfectedLOD.c). Tier -1 and distance -1 mean unknown.
+    int LODTier = -1;
+    float LODDistance = -1;
+    float LODAt = -1;
 
     void InitializeProfile(HCInfectedConfig config)
     {

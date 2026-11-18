@@ -17,6 +17,10 @@
 // Off returns before allocations. Existing v1 admissions/caps remain in force.
 // Missing report + shared spawn lease: fresh dormant creation and wreck/road
 // placement are SKIPPED. Existing native crawlers near tracked corpses only.
+// #135: reads the shared infected LOD sample (Infected/LOD/HCInfectedLOD.c)
+// instead of re-scanning players when it proves nobody can be within 6 m, and
+// takes the posed budget (cap and full/idle sub-budgets) from lod.json; the
+// ship default 12/12/12 reproduces the fixed cap exactly. Runtime pending.
 class HCInfectedVarietyModule : HCModule
 {
     protected static HCInfectedVarietyModule s_Instance;
@@ -197,8 +201,11 @@ modded class HCInfectedModule
         return total;
     }
 
-    protected bool HCVarietyNearStanding(array<Man> players, ZombieBase candidate, bool checkGeometry)
+    protected bool HCVarietyNearStanding(array<Man> players, HCInfectedActor actor, ZombieBase candidate, bool checkGeometry)
     {
+        // Shared LOD sample: nobody can be within 6 m, so no standing player
+        // can be either (same result as the scan below, without it).
+        if (actor && HCLODPolicy.SafelyFar(actor.LODDistance, GetGame().GetTickTime() - actor.LODAt, 6)) { return false; }
         int count = Math.Min(32, players.Count());
         int first = candidate.HCVarietyObserverOffset(players.Count());
         for (int playerIndex = 0; playerIndex < count; playerIndex++)
@@ -231,7 +238,9 @@ modded class HCInfectedModule
             living++;
         }
         int runnerCap = HCInfectedVarietyPolicy.RunnerLimit(living, nightness);
-        int dormantCap = HCInfectedVarietyPolicy.DormantLimit(scale);
+        int dormantCap = HCInfectedVarietyPolicy.DormantLimitAt(scale, HCInfectedLOD.PosedBudget());
+        int dormantFull = 0;
+        int dormantIdle = 0;
         foreach (HCInfectedActor bounded : m_Actors)
         {
             ZombieBase boundedEntity = bounded.InfectedEntity;
@@ -250,7 +259,12 @@ modded class HCInfectedModule
                 {
                     if (boundedEntity.HCVarietyWake()) { woken++; }
                 }
-                else { dormant++; }
+                else
+                {
+                    dormant++;
+                    if (bounded.LODTier < 0 || bounded.LODTier == HCLODPolicy.TIER_FULL) { dormantFull++; }
+                    else { dormantIdle++; }
+                }
             }
         }
         int work = Math.Min(4, m_Actors.Count());
@@ -270,9 +284,15 @@ modded class HCInfectedModule
             }
             if (entity.HCVarietyDormant())
             {
-                if (HCVarietyNearStanding(players, entity, true))
+                if (HCVarietyNearStanding(players, actor, entity, true))
                 {
-                    if (entity.HCVarietyWake()) { woken++; dormant--; }
+                    if (entity.HCVarietyWake())
+                    {
+                        woken++;
+                        dormant--;
+                        if (actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL) { dormantFull--; }
+                        else { dormantIdle--; }
+                    }
                 }
                 continue;
             }
@@ -283,10 +303,17 @@ modded class HCInfectedModule
             // sleep location before applying the three-per-place cap.
             entity.HCVarietyAssign(entity.HCVarietyRole(), HCVarietyPlaceAt(entity.GetPosition()));
             if (dormant >= dormantCap || HCVarietyInPlace(entity.HCVarietyPlace()) >= 3) { continue; }
-            if (players.Count() > 32 || HCVarietyNearStanding(players, entity, false)) { continue; }
+            bool nearPlayers = actor.LODTier < 0 || actor.LODTier == HCLODPolicy.TIER_FULL;
+            if (!HCInfectedVarietyPolicy.PosedRoom(nearPlayers, dormantFull, dormantIdle, HCInfectedLOD.PosedFullBudget(), HCInfectedLOD.PosedIdleBudget())) { continue; }
+            if (players.Count() > 32 || HCVarietyNearStanding(players, actor, entity, false)) { continue; }
             if (!HCVarietyNearCorpse(entity)) { continue; }
             bool permitted = Math.RandomFloat01() < HCInfectedVarietyPolicy.DormantChance(nightness, rain);
-            if (entity.HCVarietySleep(now, permitted)) { dormant++; }
+            if (entity.HCVarietySleep(now, permitted))
+            {
+                dormant++;
+                if (nearPlayers) { dormantFull++; }
+                else { dormantIdle++; }
+            }
         }
         return woken;
     }

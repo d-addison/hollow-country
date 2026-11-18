@@ -384,7 +384,8 @@ class ChecklistTraceabilityTests(unittest.TestCase):
 
     def test_the_eighteen_features_are_opt_out_and_only_the_diagnostic_is_opt_in(self):
         self.assertEqual(sorted(self.OPT_OUTS), markers.opt_out_names(self.result))
-        self.assertEqual(["xai_diagnostic_spawn"], markers.creatable_names(self.result))
+        # Opt-ins: the Expansion AI diagnostic and the #135 infected LOD experiment 1.
+        self.assertEqual(["infected_lod_experiment", "xai_diagnostic_spawn"], markers.creatable_names(self.result))
 
     def test_every_marker_in_current_source_is_in_the_checklist(self):
         self.assertTrue(self.text, "docs/LOCAL_ACCEPTANCE_V1.md is missing")

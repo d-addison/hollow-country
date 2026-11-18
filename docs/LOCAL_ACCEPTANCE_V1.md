@@ -14,8 +14,9 @@ Rules for this session (owner decisions):
   row's gate is closed, the correct observation on this build is the logged refusal reason, and the row
   can only be accepted after a local acceptance build flips that gate (a source change the owner decides on).
 - Every V1 and V2 feature is on by default. Creating an empty `HollowCountry/acceptance/<name>.disable` file
-  in the server profile turns that one feature off (see Markers). The only opt-in left is the
-  `xai_diagnostic_spawn.enable` diagnostic, which stays off until you create it.
+  in the server profile turns that one feature off (see Markers). The only opt-ins left are the
+  `xai_diagnostic_spawn.enable` and `infected_lod_experiment.enable` (#135) diagnostics, which stay off until
+  you create them.
 - Never commit game assets, keys, profiles or logs. Source stays private; nothing here authorizes
   public or Workshop publishing.
 
@@ -63,7 +64,7 @@ Flags the launcher accepts, beyond the required `--server-root --mission --profi
 - `--install-key`: copy the public `.bikey` of HollowCountry (and of `--tactical-flava`) into
   `<server root>\keys`. Only public keys; it refuses when there is nothing to copy.
 - `--markers all|none|<name,name>`: which opt-in `.enable` markers to create (default `all`, which writes
-  every `.enable` marker the scan finds; today only `xai_diagnostic_spawn`). The features are on by default,
+  every `.enable` marker the scan finds; today `infected_lod_experiment` and `xai_diagnostic_spawn`). The features are on by default,
   so the launcher never writes a `.disable` marker; add one by hand to turn a feature off (section 4).
 - `--economy-profile <name|none>` (default `contextual-pilot`; `baseline`, `diagnostic`), `--no-gameplay`,
   `--time-accel` (default 4), `--night-accel` (default 8, multiplies the day value), `--client-root`,
@@ -171,20 +172,23 @@ on. Each marker is probed once at server start, so restart after changing one. N
 python3 -B tools/audit/acceptance_markers.py --opt-outs ~/dayz-profiles
 ```
 
-The only opt-in marker is the diagnostic `HollowCountry\acceptance\xai_diagnostic_spawn.enable`, which stays
-off until you create it. Preview first (dry run, creates nothing), then apply. `--apply` refuses a
+The only opt-in markers are the diagnostics `HollowCountry\acceptance\xai_diagnostic_spawn.enable` and
+`HollowCountry\acceptance\infected_lod_experiment.enable` (#135 native experiment 1), which stay off until you
+create them. Preview first (dry run, creates nothing), then apply. `--apply` refuses a
 destination inside any git checkout:
 
 ```sh
 python3 -B tools/audit/acceptance_markers.py --write-profile-plan ~/dayz-profiles --only xai_diagnostic_spawn
 python3 -B tools/audit/acceptance_markers.py --write-profile-plan ~/dayz-profiles --only xai_diagnostic_spawn --apply
+python3 -B tools/audit/acceptance_markers.py --write-profile-plan ~/dayz-profiles --only infected_lod_experiment --apply
 ```
 
 On the Windows host, run the same commands with the profiles directory path you pass to the server
-`-profiles` option. The opt-in marker on this checkout:
+`-profiles` option. The opt-in markers on this checkout:
 
 | Marker | File and class | Source |
 | :--- | :--- | :--- |
+| `$profile:HollowCountry/acceptance/infected_lod_experiment.enable` | `HCInfectedLODExperiment.HCArm` | `mods/HollowCountry/scripts/4_World/Infected/LOD/HCInfectedLODExperiment.c` |
 | `$profile:HollowCountry/acceptance/xai_diagnostic_spawn.enable` | `HCXAISiteDirector.DIAGNOSTIC` (optional `HollowCountryExpansionAI` addon) | `mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c` |
 
 The opt-out markers on this checkout (create the `.disable` file to turn the feature off):
@@ -286,7 +290,7 @@ Stop the server first and keep the failed candidate's logs.
   `-mod=` argument from the server and the client.
 - Route B install: `python tools/package/deploy.py rollback --destination D:\HollowCountryPrivate --transaction <id> --server-stopped`.
   An interrupted install: `recover --destination ... --action abort` (or `resume`).
-- Markers: delete the files under `<profiles>\HollowCountry\acceptance\`. No profile file means every feature on (except the `xai_diagnostic_spawn` diagnostic, which stays off).
+- Markers: delete the files under `<profiles>\HollowCountry\acceptance\`. No profile file means every feature on (except the `xai_diagnostic_spawn` and `infected_lod_experiment` diagnostics, which stay off).
 - Settings and state: restore the matching `settings.json` and storage backup from step 2. Never wipe a
   live save as a shortcut.
 - CE changes you made by hand, in the reverse of the order you installed them (last in, first out):
@@ -401,6 +405,24 @@ The 3 to 6 player budgets (tick cost, work items, active hordes and members, int
 provisional until measured on the target load. This single-client session does not measure them. Do not
 read any "bounded pilot limit" in the settings as a promise.
 
+#135 infected LOD procedure (native experiment 2: network range and client frame time). Logs and
+observations only; do not change the shipped serverDZ.cfg defaults, and record what you measured instead:
+
+1. Note the server's `serverDZ.cfg` network range values as shipped (`networkRangeClose`, `networkRangeNear`,
+   `networkRangeFar`, `networkRangeDistantEffect`; an absent key means the engine default). Write them down;
+   `VisibilityRange` in `$profile:HollowCountry/Infected/lod.json` (default 1000) must not be below the far
+   range you find, because the fold and spawn sight tests only look that far.
+2. Start the server with the infected LOD on (shipped default) and the client joined. Grep the RPT for
+   `[HC InfectedLOD] started` and then, once a minute, `[HC InfectedLOD] stats tracked=`; note `full=`, `idle=`
+   and `virtual=` while you walk from open country into a town.
+3. In a town with many infected in view, stand still for one minute and note the client frame time (the
+   in-game FPS readout or the client RPT), then repeat at the town edge. Record the stats line of the same minute.
+4. Only with `EnableVirtualHerds` true and one herd seeded near the test area: approach to about 300 m, then
+   leave beyond 450 m. Note `materialized_per_min=`, `folded_per_min=` and `refused_sight=`, and that no
+   infected appeared or vanished while you looked.
+5. Record the values in the Notes column of the #135 row. The ranges and caps stay provisional until
+   measured with 3 to 6 players; runtime acceptance pending.
+
 ## README v1 items with no testable observation on this build
 
 These cannot give a "pass" this session, only a recorded refusal or a "not testable": taped light on hosts
@@ -436,6 +458,7 @@ never recorded as accepted. Every engine experiment is still PENDING.
 | Issue | Feature | Marker | Player steps (one client) | Expected observation | RPT line to grep | Pass | Fail | Notes |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | #69 | V2 preferences summary | none (settings only) | Start the server with the shipped settings, then set one V2 preference to false and restart. | One summary line per start, after module start and before "Server initialized"; the changed preference reads off. | `[HollowCountry] V2 preferences ` | [ ] | [ ] | Each registered V2 module adds one admission line. |
+| #135 | Infected LOD and virtual herds | none for the LOD (`Infected/lod.json` `EnableLOD` on, `EnableVirtualHerds` off); experiment 1 opt-in marker `$profile:HollowCountry/acceptance/infected_lod_experiment.enable` (`HCInfectedLODExperiment`) | Start with the shipped lod.json and walk from open country into a town. For experiment 1 create the marker, restart, stand within 40 m of a calm standing infected (the admin sitter is picked first) and watch it for about two minutes: during the first phase (keepidle, 60 s) fire one shot within 60 m, and during the second (nosim, after a 10 s gap) hit it once with a melee weapon; a shot or hit ends its phase 5 s later. A second boot with the order swapped covers the other two cells. Delete the marker and restart afterwards. | Pass if the start and stats lines appear, posed crawler counts stay as before (budget 12/12/12) and no infected appears or vanishes in view; experiment 1 logs one result line per phase and the subject is moving normally afterwards. Note what the client saw (pose held, frozen, snapping) in Notes. Fail for a stuck or frozen infected after the result line. | `[HollowCountry] V2 admission feature=InfectedLOD preference=on gate=W7-135`; `[HC InfectedLOD] started`; `[HC InfectedLOD] stats tracked=`; `[HC InfectedLOD] experiment result phase=keepidle`; `[HC InfectedLOD] experiment result phase=nosim` | [ ] | [ ] | Virtual herds stay off until seeded and checked; experiment 2 is the #135 procedure under Performance. Gate W7-135; runtime acceptance pending. |
 | #69 | V2 experiment register | none (offline register) | Run `python3 -m tools.validate.experiments` before and after recording a native verdict. | Pass if the register reports 28 entries, EXP-D1 subscription-only FALLBACK and the remaining gameplay experiments pending; fail if an evidence-free verdict is admitted. | (offline tool output, not an RPT line) | [ ] | [ ] | EXP-D1 is dependency/terms evidence, not gameplay acceptance; runtime acceptance pending. |
 | #79 | Hollow grade and client intensity | none (preference EnableGrade) | In daylight, bind Hollow Country grade in Controls; cycle intensity to 0%, 60% and 100%; wear glasses, then compare dusk and night. | Pass if 0% restores vanilla, native effects take priority and night stays at the bright baseline; fail for stuck effects or a visibility advantage. | `[HollowCountry] V2 admission feature=Grade preference=on gate=EXP-A1 qualified=0 result=admitted unverified: EXP-A1 has no recorded native verdict`; `[HollowCountry] V2 client grade intensity=<n>% requester=<state>` | [ ] | [ ] | LC-T101..103. Server preference admits its diagnostic only; client-local, default 60%. Compare slider fairness with two clients. Gate EXP-A1; runtime acceptance pending. |
 | #80 | Dusk and storm lighting | none (preference EnableGrade) | Wait through dusk, overcast and rain outdoors, then night; enter and leave a native underground area if available. | Pass if authored blends fade with weather and release at night/underground; fail for darker nights, flashes or a stuck lighting slot. | `[HollowCountry] V2 admission feature=Lighting preference=on gate=EXP-A2 qualified=0 result=admitted unverified: EXP-A2 has no recorded native verdict`; `[HollowCountry] V2 client lighting blend=<name> weight=<weight>` | [ ] | [ ] | LC-T104. Client-local default on; server flag controls admission diagnostic. EXP-A3 sky work remains separate. Gate EXP-A2; runtime acceptance pending. |

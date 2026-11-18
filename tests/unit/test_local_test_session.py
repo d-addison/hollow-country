@@ -228,7 +228,7 @@ class FakeOptional:
 
 
 class FakeMarkers:
-    # SYNTHETIC opt-in (.enable) marker names. The real source has only the xai_diagnostic_spawn opt-in; the 18
+    # SYNTHETIC opt-in (.enable) marker names. The real source has the xai_diagnostic_spawn and infected_lod_experiment opt-ins; the 18
     # V1/V2 features are on by default and opt out with a .disable file the launcher never writes.
     class RefusedDestination(ValueError):
         pass
@@ -1833,9 +1833,10 @@ class OptionalSteps(SessionCase):
     def test_real_acceptance_table_in_this_checkout_lists_only_names_the_code_scan_knows(self):
         from tools.audit import acceptance_markers
         # The 18 V1/V2 features are on by default and listed in the doc as `.disable` opt-outs, which the launcher
-        # never reads as something to create. The only `.enable` row is the opt-in xai_diagnostic_spawn diagnostic.
+        # never reads as something to create. The only `.enable` rows are the opt-in infected_lod_experiment (#135)
+        # and xai_diagnostic_spawn diagnostics, in table order.
         names = lts.local_marker_names(ROOT)
-        self.assertEqual(['xai_diagnostic_spawn'], names)
+        self.assertEqual(['infected_lod_experiment', 'xai_diagnostic_spawn'], names)
         self.assertFalse(set(names) - set(acceptance_markers.creatable_names(acceptance_markers.scan_tree(ROOT))))
         self.assertFalse(set(names) & set(acceptance_markers.opt_out_names(acceptance_markers.scan_tree(ROOT))))
 

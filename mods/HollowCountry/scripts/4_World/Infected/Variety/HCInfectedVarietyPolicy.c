@@ -13,7 +13,22 @@ class HCInfectedVarietyPolicy
 
     static int DormantLimit(float scale)
     {
-        return Math.Min(12, Math.Max(0, Math.Round(8 * scale)));
+        return DormantLimitAt(scale, 12);
+    }
+
+    // #135 tiered posed budget (lod.json PosedBudget, ship default 12 until
+    // measured). Budget 12 gives exactly the shipped Min(12, Round(8 * scale)).
+    static int DormantLimitAt(float scale, int budget)
+    {
+        if (budget < 1) { return 0; }
+        return Math.Min(budget, Math.Max(0, Math.Round(scale * budget * 2.0 / 3.0)));
+    }
+
+    // Per-tier posed sub-budgets: near players (full AI tier) or middle range.
+    static bool PosedRoom(bool nearPlayers, int fullPosed, int idlePosed, int fullBudget, int idleBudget)
+    {
+        if (nearPlayers) { return fullPosed < fullBudget; }
+        return idlePosed < idleBudget;
     }
 
     // Existing native-pack journal requires at least three members. Never
