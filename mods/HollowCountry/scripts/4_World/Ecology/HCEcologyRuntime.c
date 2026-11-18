@@ -24,7 +24,9 @@ class HCEcologyRuntime
 	// Collect initial EEInit callbacks before Start; Stop/admission failure closes
 	// this window until another successful Start. Late teardown hooks cannot refill it.
 	protected bool m_Collecting = true;
-	protected bool m_Overflow;
+	// Per registry, so a full resource cohort never hides an actor overflow.
+	protected bool m_ActorOverflow;
+	protected bool m_ResourceOverflow;
 	protected bool m_Dirty;
 	protected int m_NextSerial = 1;
 	protected int m_LastTick;
@@ -32,6 +34,9 @@ class HCEcologyRuntime
 	protected int m_LastSave;
 	protected int m_ActorCursor;
 	protected int m_ResourceCursor;
+	// Rotating sample windows over the registries; independent of the pairing cursors.
+	protected int m_ActorSample;
+	protected int m_ResourceSample;
 	protected string m_Session;
 
 	static HCEcologyRuntime Instance()
@@ -83,8 +88,21 @@ class HCEcologyRuntime
 		// EEInit hot path: full cohorts never inspect resources or scan duplicates.
 		if (entries.Count() >= limit || m_NextSerial >= 2147483647)
 		{
-			if (!m_Overflow) { Print("[HC Ecology] registration overflow; coverage partial, no population census"); }
-			m_Overflow = true;
+			// One line per registry and session: name, cap and the count this entry would make.
+			string registry = "resources";
+			bool reported = m_ResourceOverflow;
+			if (actor)
+			{
+				registry = "actors";
+				reported = m_ActorOverflow;
+			}
+			if (!reported)
+			{
+				int attempted = entries.Count() + 1;
+				Print("[HC Ecology] registration overflow; registry=" + registry + "; cap=" + limit.ToString() + "; attempted=" + attempted.ToString() + "; coverage partial, no population census");
+				if (actor) { m_ActorOverflow = true; }
+				else { m_ResourceOverflow = true; }
+			}
 			return;
 		}
 		if (!actor)
@@ -207,6 +225,8 @@ class HCEcologyRuntime
 		m_LastSave = m_LastTick;
 		m_ActorCursor = 0;
 		m_ResourceCursor = 0;
+		m_ActorSample = 0;
+		m_ResourceSample = 0;
 		m_Dirty = false;
 		m_Intents.Clear();
 		m_Collecting = true;
@@ -249,10 +269,16 @@ class HCEcologyRuntime
 		batch.WorldName = m_Policy.WorldName;
 		batch.SessionId = m_Session;
 		batch.ObservedAtMs = nowMs;
+		// Each tick samples at most SampleSlice actors and SampleSlice resources, starting
+		// at a cursor that advances by the window, so every entry is reached in turn and
+		// the batch (and its quadratic validation) stays small however full the cohorts are.
+		int actorTotal = m_Actors.Count();
+		int actorTake = Math.Min(actorTotal, m_Settings.SampleSlice);
+		if (actorTotal > 0) { m_ActorSample = m_ActorSample % actorTotal; }
 		i = 0;
-		while (i < m_Actors.Count())
+		while (i < actorTake)
 		{
-			HCEcologyLiveBinding actorBinding = m_Actors.Get(i);
+			HCEcologyLiveBinding actorBinding = m_Actors.Get((m_ActorSample + i) % actorTotal);
 			HCEcologyActorObservation observed = HCEcologyNative.SampleActor(actorBinding.Live, actorBinding.LocalId, nowMs);
 			if (observed) { batch.Actors.Insert(observed); }
 			// Native pond presence is observed at this live position only; no
@@ -269,10 +295,14 @@ class HCEcologyRuntime
 			}
 			i++;
 		}
+		if (actorTotal > 0) { m_ActorSample = (m_ActorSample + actorTake) % actorTotal; }
+		int resourceTotal = m_Resources.Count();
+		int resourceTake = Math.Min(resourceTotal, m_Settings.SampleSlice);
+		if (resourceTotal > 0) { m_ResourceSample = m_ResourceSample % resourceTotal; }
 		i = 0;
-		while (i < m_Resources.Count() && batch.Zones.Count() < m_Settings.MaxResources)
+		while (i < resourceTake && batch.Zones.Count() < m_Settings.MaxResources)
 		{
-			HCEcologyLiveBinding resourceBinding = m_Resources.Get(i);
+			HCEcologyLiveBinding resourceBinding = m_Resources.Get((m_ResourceSample + i) % resourceTotal);
 			int kind = HCEcologyNative.SampleResource(resourceBinding.Live);
 			if (kind != 0)
 			{
@@ -281,6 +311,7 @@ class HCEcologyRuntime
 			}
 			i++;
 		}
+		if (resourceTotal > 0) { m_ResourceSample = (m_ResourceSample + resourceTake) % resourceTotal; }
 		// Consume the existing policy with genuine observations and explicit
 		// absent movement capability. No eligibility lists are fabricated:
 		// resource presence is not sensory eligibility.
@@ -374,8 +405,12 @@ class HCEcologyRuntime
 			if (!actor || !resource || !actor.Live || !resource.Live) { continue; }
 			vector actorPoint = actor.Live.GetPosition();
 			vector to = resource.Live.GetPosition();
-			if (!HCEcologyRuntimeRules.PositionValid(actorPoint) || !HCEcologyRuntimeRules.PositionValid(to)) { continue; }
-			if (vector.DistanceSq(actorPoint, to) > m_Settings.Radius * m_Settings.Radius) { continue; }
+			// Pairs are rejected by one comparison. A non-finite coordinate gives a NaN
+			// distance, which is never within the radius, so no per-axis validation runs
+			// for the many distant pairs.
+			float gapSq = vector.DistanceSq(actorPoint, to);
+			bool within = gapSq <= m_Settings.Radius * m_Settings.Radius;
+			if (!within) { continue; }
 			string actorId = actor.LocalId;
 			string resourceId = resource.LocalId;
 			int kind = HCEcologyNative.SampleResource(resource.Live);

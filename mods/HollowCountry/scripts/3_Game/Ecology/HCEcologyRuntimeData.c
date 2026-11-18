@@ -7,6 +7,8 @@ class HCEcologyRuntimeSettings
 	int MaxActors = 32;
 	int MaxResources = 32;
 	int MaxPathQueries = 4;
+	// Entries of each registry sampled per tick; a cursor rotates through the rest.
+	int SampleSlice = 8;
 	int TickMs = 5000;
 	int FreshMs = 10000;
 	int IntentMs = 10000;

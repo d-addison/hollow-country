@@ -69,6 +69,14 @@ class EcologyRuntimeTests(unittest.TestCase):
             old=getattr(self.cfg,field); setattr(self.cfg,field,value)
             self.assertFalse(self.r.SettingsValid(self.cfg),(field,value))
             setattr(self.cfg,field,old)
+    def test_sample_slice_defaults_to_eight_and_is_bounded_by_the_registry_caps(self):
+        self.assertEqual(8,self.cfg.SampleSlice)
+        for value in (0,-1,33):
+            self.cfg.SampleSlice=value
+            self.assertFalse(self.r.SettingsValid(self.cfg),value)
+        for value in (1,32):
+            self.cfg.SampleSlice=value
+            self.assertTrue(self.r.SettingsValid(self.cfg),value)
     def test_explicit_disable_is_valid(self):
         self.cfg.Enabled=False
         self.assertTrue(self.r.SettingsValid(self.cfg))
@@ -348,6 +356,7 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.e["HCEcologyNative"].SampleResource = forbidden
         self.e["HCEcologyRuntimeRules"].Capacity = forbidden
         self.e["HCEcologyRuntimeRules"].Token = forbidden
+        self.e["HCEcologyRuntimeRules"].PositionValid = forbidden
         self.assertEqual(0, self.probe(self.runtime, 100))
 
     def test_near_pairs_use_cached_ids_without_token_validation(self):
@@ -393,7 +402,7 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.runtime=SimpleNamespace(m_Running=True,m_Collecting=True,m_LastTick=100,m_LastNow=100,m_LastSave=100,m_Intents=EArray(),
             m_Actors=EArray(),m_Resources=EArray(),m_Session="session-a",m_Settings=self.e["HCEcologyRuntimeSettings"](),
             m_Policy=SimpleNamespace(WorldName="synthetic-world"),m_State=SimpleNamespace(),
-            m_Checkpoint=self.e["HCEcologyCheckpoint"](),m_Dirty=False)
+            m_Checkpoint=self.e["HCEcologyCheckpoint"](),m_Dirty=False,m_ActorSample=0,m_ResourceSample=0)
         self.runtime.m_Checkpoint.Version=1
         self.runtime.m_Checkpoint.Samples=self.runtime.m_Checkpoint.PathQueries=0
         self.authority=True;self.world="synthetic-world"
@@ -462,6 +471,66 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.assertEqual([],self.runtime.m_Intents)
         self.assertEqual([],self.runtime.m_Actors)
         self.assertEqual([],self.runtime.m_Resources)
+    def fill(self, actors, resources):
+        for serial in range(1, actors + 1):
+            self.runtime.m_Actors.Insert(SimpleNamespace(Live=object(), Serial=serial, LocalId="session-a:%d" % serial))
+        for serial in range(1, resources + 1):
+            self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(), Serial=100 + serial, LocalId="session-a:%d" % (100 + serial)))
+        self.sampled_actors = []
+        self.sampled_resources = []
+        self.e["HCEcologyNative"].SampleActor = lambda live, ident, now: self.sampled_actors.append(ident)
+        self.e["HCEcologyNative"].SampleResource = lambda live: self.sampled_resources.append(live) or 0
+        self.pump = translated((ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text(), "Pump", self.e, "HCEcologyRuntime", True)
+
+    def test_each_tick_samples_a_bounded_window_and_the_cursor_covers_every_entry(self):
+        # Observed 2026-11-17: Ecology was the slowest module with a full cohort of 32 actors
+        # and 32 resources sampled and validated on every 5 s tick.
+        self.fill(20, 20)
+        window = self.runtime.m_Settings.SampleSlice
+        self.assertEqual(8, window)
+        ids = ["session-a:%d" % n for n in range(1, 21)]
+        self.pump(self.runtime, 5100)
+        self.assertEqual(ids[0:8], self.sampled_actors)
+        self.assertEqual(8, len(self.sampled_resources))
+        self.pump(self.runtime, 10200)
+        self.assertEqual(ids[0:16], self.sampled_actors)
+        self.assertEqual(16, len(self.sampled_resources))
+        self.pump(self.runtime, 15300)
+        self.assertEqual(ids[0:20] + ids[0:4], self.sampled_actors)
+        self.assertEqual(24, len(self.sampled_resources))
+        self.assertEqual(20, len({id(live) for live in self.sampled_resources}), "every resource is reached")
+
+    def test_a_cohort_smaller_than_the_window_is_sampled_whole_every_tick(self):
+        self.fill(3, 2)
+        self.pump(self.runtime, 5100)
+        self.pump(self.runtime, 10200)
+        self.assertEqual(["session-a:1", "session-a:2", "session-a:3"] * 2, self.sampled_actors)
+        self.assertEqual(4, len(self.sampled_resources))
+
+    def test_window_follows_a_configured_slice_and_a_shrunk_registry(self):
+        self.fill(6, 6)
+        self.runtime.m_Settings.SampleSlice = 2
+        self.pump(self.runtime, 5100)
+        self.pump(self.runtime, 10200)
+        self.runtime.m_Actors.Clear()
+        for serial in (1, 2, 3):
+            self.runtime.m_Actors.Insert(SimpleNamespace(Live=object(), Serial=serial, LocalId="session-a:%d" % serial))
+        self.sampled_actors.clear()
+        self.pump(self.runtime, 15300)
+        # The cursor stood at 4 and wraps onto the three remaining entries.
+        self.assertEqual(["session-a:2", "session-a:3"], self.sampled_actors)
+
+    def test_scheduler_batch_never_exceeds_the_window(self):
+        self.fill(20, 20)
+        self.e["HCEcologyNative"].SampleActor = lambda live, ident, now: SimpleNamespace(Id=ident)
+        self.e["GetGame"] = lambda: SimpleNamespace(GetWorldName=lambda: self.world, SurfaceIsPond=lambda x, z: False)
+        for binding in self.runtime.m_Actors:
+            binding.Live = SimpleNamespace(GetPosition=lambda: [0., 0., 0.])
+        self.pump = translated((ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text(), "Pump", self.e, "HCEcologyRuntime", True)
+        self.pump(self.runtime, 5100)
+        batch = self.schedules[0][2]
+        self.assertEqual(8, len(batch.Actors))
+
     def test_mixed_case_native_world_does_not_stop_live_observation(self):
         self.world = "SYNTHETIC-WORLD"
         self.pump(self.runtime,5100)
@@ -501,10 +570,12 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
 class EcologyRegistryBehaviorTests(unittest.TestCase):
     def setUp(self):
         self.e=environment()
+        self.logs=[]
+        self.e["Print"]=self.logs.append
         self.e["HCEcologyNative"]=SimpleNamespace(Authority=lambda:True)
         self.e["HCEcologyLiveBinding"]=lambda:SimpleNamespace(Live=None,Serial=0)
         self.runtime=SimpleNamespace(m_Collecting=True,m_Actors=EArray(),m_Resources=EArray(),m_Intents=EArray(),
-            m_Settings=self.e["HCEcologyRuntimeSettings"](),m_Overflow=False,m_NextSerial=1,m_Session="session-a")
+            m_Settings=self.e["HCEcologyRuntimeSettings"](),m_ActorOverflow=False,m_ResourceOverflow=False,m_NextSerial=1,m_Session="session-a")
         source=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
         self.add=translated(source,"Add",self.e,"HCEcologyRuntime",True)
         self.remove=translated(source,"RemoveFrom",self.e,"HCEcologyRuntime",True)
@@ -567,13 +638,44 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         self.add(self.runtime, self.actor, False)
         self.assertEqual(1, len(self.runtime.m_Resources))
 
+    OVERFLOW = "[HC Ecology] registration overflow; registry=%s; cap=%d; attempted=%d; coverage partial, no population census"
+
+    def test_resource_overflow_names_the_registry_cap_and_attempt_once(self):
+        # Observed 2026-11-17: the line carried no counts and a later actor overflow was silent.
+        self.runtime.m_Settings.MaxResources = 2
+        for serial in (1, 2):
+            self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(), Serial=serial, LocalId="session-a:%d" % serial))
+        for _ in range(5):
+            self.add(self.runtime, self.actor, False)
+        self.assertEqual([self.OVERFLOW % ("resources", 2, 3)], self.logs)
+        self.assertTrue(self.runtime.m_ResourceOverflow)
+        self.assertFalse(self.runtime.m_ActorOverflow)
+
+    def test_actor_overflow_after_resource_overflow_is_still_reported_once(self):
+        self.runtime.m_Settings.MaxActors = 1
+        self.runtime.m_Settings.MaxResources = 1
+        self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(), Serial=1, LocalId="session-a:1"))
+        self.add(self.runtime, self.actor, False)
+        self.add(self.runtime, self.actor, True)
+        self.assertEqual([self.OVERFLOW % ("resources", 1, 2)], self.logs)
+        for _ in range(3):
+            self.add(self.runtime, SimpleNamespace(IsPendingDeletion=lambda: False), True)
+        self.assertEqual([self.OVERFLOW % ("resources", 1, 2), self.OVERFLOW % ("actors", 1, 2)], self.logs)
+        self.add(self.runtime, self.actor, False)
+        self.assertEqual(2, len(self.logs))
+
+    def test_within_cap_registration_logs_nothing(self):
+        self.add(self.runtime, self.actor, True)
+        self.assertEqual([], self.logs)
+
     def test_duplicates_budgets_and_retirement_never_reuse_identity(self):
         self.runtime.m_Settings.MaxActors=1
         self.add(self.runtime,self.actor,True)
         self.add(self.runtime,self.actor,True)
         self.add(self.runtime,SimpleNamespace(IsPendingDeletion=lambda:False),True)
         self.assertEqual([1],[b.Serial for b in self.runtime.m_Actors])
-        self.assertTrue(self.runtime.m_Overflow)
+        self.assertTrue(self.runtime.m_ActorOverflow)
+        self.assertFalse(self.runtime.m_ResourceOverflow)
         self.remove(self.runtime,self.runtime.m_Actors,self.actor)
         self.add(self.runtime,self.actor,True)
         self.assertEqual([2],[b.Serial for b in self.runtime.m_Actors])

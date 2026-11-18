@@ -32,6 +32,7 @@ class HCEcologyRuntimeRules
 		if (settings.MaxActors < 1 || settings.MaxActors > 32) { return false; }
 		if (settings.MaxResources < 1 || settings.MaxResources > 32) { return false; }
 		if (settings.MaxPathQueries < 1 || settings.MaxPathQueries > 8) { return false; }
+		if (settings.SampleSlice < 1 || settings.SampleSlice > 32) { return false; }
 		if (settings.TickMs < 1000 || settings.TickMs > 60000) { return false; }
 		if (settings.FreshMs < settings.TickMs || settings.FreshMs > 60000) { return false; }
 		if (settings.IntentMs < settings.TickMs || settings.IntentMs > 60000) { return false; }

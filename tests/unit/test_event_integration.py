@@ -232,6 +232,13 @@ class EventIntegrationTests(unittest.TestCase):
         self.assertEqual(["[HC Events] mission admitted later; synthetic-mission"],
                          [text for text in self.logs if "admitted later" in text])
 
+    def test_not_admitted_line_names_the_mission_and_the_code(self):
+        # Observed 2026-11-17: "roster mission not admitted; code 7" gave no mission id.
+        self.announce_code = 7
+        self.start()
+        self.assertEqual(["[HC Events] roster mission not admitted; synthetic-mission; code 7"],
+                         [text for text in self.logs if "not admitted" in text])
+
     def test_start_admission_is_not_reported_as_late(self):
         self.start()
         self.module.RefreshRoster(self.module.Context())

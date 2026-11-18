@@ -143,7 +143,7 @@ class HCEventModule : HCModule
                     }
                     else
                     {
-                        Print("[HC Events] roster mission not admitted; code " + result.ToString());
+                        Print("[HC Events] roster mission not admitted; " + mission.Id + "; code " + result.ToString());
                     }
                 }
             }

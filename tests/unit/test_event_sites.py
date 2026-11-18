@@ -614,7 +614,7 @@ class BindDiagnosticTests(unittest.TestCase):
         self.logs = []
         self.e["Print"] = lambda text: self.logs.append(text)
         self.objects = []
-        self.e["GetGame"] = lambda: N(IsServer=lambda: True,
+        self.e["GetGame"] = lambda: N(IsServer=lambda: True, SurfaceY=lambda x, z: 0.0,
             GetObjectsAtPosition3D=lambda anchor, radius, objects, proxies: objects.extend(self.objects))
         self.e["ItemBase"] = N(Cast=lambda value: value)
         self.e["ZombieBase"] = N(Cast=lambda value: value)

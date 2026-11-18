@@ -288,6 +288,57 @@ class PoliceBinding(sites.Fixture):
             self.assertIs(tied, self.observer.Target(mission.Id).Infected)
         self.assertFalse(any('ambiguous' in s for s in self.logs))
 
+    def spherical_scan(self):
+        """Synthetic stand-in for the engine sphere: keeps objects within radius of the anchor."""
+        def query(anchor, radius, objects, proxies):
+            self.scans.append((list(anchor), radius))
+            for obj in self.objects:
+                if self.e['vector'].DistanceSq(obj.position, anchor) <= radius * radius:
+                    objects.append(obj)
+        self.game.GetObjectsAtPosition3D = query
+
+    def ground_infected(self, east, entity_id=5):
+        source = self.missions[7].Source
+        actor = runtime.Handle(kind='SyntheticZombie', position=[
+            source[0] + east, self.game.height, source[2]])
+        actor.HCEventEconomyCandidate = lambda: True
+        actor.GetID = lambda: entity_id
+        return actor
+
+    def test_infected_clear_searches_the_ground_below_the_source_out_to_25_m(self):
+        # Observed 2026-11-17: the station source stands about 7 m above ground, so a 15 m
+        # sphere around it reached only about 13 m on the ground and bound nothing.
+        mission = self.missions[7]
+        self.spherical_scan()
+        far = self.ground_infected(20)
+        self.objects = [far]
+        self.assertTrue(self.binder.Bind(self.observer, mission))
+        self.assertIs(far, self.observer.Target(mission.Id).Infected)
+        self.assertEqual([([mission.Source[0], self.game.height, mission.Source[2]], 25)], self.scans)
+
+    def test_infected_clear_still_refuses_beyond_25_m_and_logs_no_candidate_once(self):
+        mission = self.missions[7]
+        self.spherical_scan()
+        self.objects = [self.ground_infected(27)]
+        for _ in range(3):
+            self.assertFalse(self.binder.Bind(self.observer, mission))
+        self.assertEqual(1, len([s for s in self.logs if 'reason=no_candidate' in s]))
+
+    def test_infected_clear_keeps_query_overflow_refusal(self):
+        mission = self.missions[7]
+        self.spherical_scan()
+        self.objects = [self.ground_infected(1, i) for i in range(129)]
+        self.assertFalse(self.binder.Bind(self.observer, mission))
+        self.assertEqual(1, len([s for s in self.logs if 'reason=query_overflow' in s]))
+
+    def test_infected_clear_with_unreadable_ground_refuses_with_a_reason_before_any_scan(self):
+        mission = self.missions[7]
+        self.spherical_scan()
+        self.game.height = float('nan')
+        self.assertFalse(self.binder.Bind(self.observer, mission))
+        self.assertEqual([], self.scans)
+        self.assertEqual(1, len([s for s in self.logs if 'reason=ground_unavailable' in s]))
+
 
 class RetryContract(unittest.TestCase):
     def test_blocked_announcement_is_not_a_permanent_session_record(self):

@@ -139,12 +139,29 @@ class HCEventWorldBinding
         if (HCEventSites.PoliceSupplies(mission)) { return BindPolice(observer, mission); }
         if (!observer.ResetUnleasedTarget(mission.Id)) { return true; }
         s_FailReason = "";
-        array<Object> nearby = Query(mission.Source, 15);
+        vector origin = mission.Source;
+        float radius = 15;
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
+        {
+            // Native: 3_Game/Global/Game.c:1176 SurfaceY(x, z). A police source is a model
+            // origin standing about 7 m above its ground, so a sphere centred on it reaches
+            // only about 13 m on the ground. Centre the sphere on the ground below it and
+            // widen to 25 m (Query caps at 30); infected stand on the ground.
+            float groundY = GetGame().SurfaceY(mission.Source[0], mission.Source[2]);
+            if (groundY != groundY)
+            {
+                s_FailReason = "ground_unavailable";
+                return BindFailed(mission);
+            }
+            origin = Vector(mission.Source[0], groundY, mission.Source[2]);
+            radius = 25;
+        }
+        array<Object> nearby = Query(origin, radius);
         if (!nearby) { return BindFailed(mission); }
         if (mission.Family == HCEventFamily.INFECTED_CLEAR)
         {
             // Native: EnConvert.c:210 DistanceSq; EnEntity.c:518 unique GetID.
-            // Query order is unspecified: nearest first, native entity id breaks ties.
+            // Query order is unspecified: nearest to the ground centre first, native entity id breaks ties.
             ZombieBase selected;
             float nearest = 0;
             foreach (Object candidate : nearby)
@@ -152,7 +169,7 @@ class HCEventWorldBinding
                 ZombieBase infected = ZombieBase.Cast(candidate);
                 if (infected && infected.HCEventEconomyCandidate() && infected.IsAlive() && !infected.IsPendingDeletion())
                 {
-                    float distance = vector.DistanceSq(infected.GetPosition(), mission.Source);
+                    float distance = vector.DistanceSq(infected.GetPosition(), origin);
                     if (!selected || distance < nearest || (distance == nearest && infected.GetID() < selected.GetID()))
                     {
                         selected = infected;
