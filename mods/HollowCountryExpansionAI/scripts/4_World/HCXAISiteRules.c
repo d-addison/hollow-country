@@ -1,8 +1,24 @@
 // Pure HC site decisions (no engine calls): policy and site validation, spawn
 // budget and distance, despawn, holdout cache lifecycle and route legs. Each
 // returns the first unmet requirement, or "" when it is met.
+// W5 #125: constant work, no allocations. Native scripts-1.30.164289/
+// 1_Core/proto/EnMath.c:413 Math.Round(float). Limits remain in director ledger.
 class HCXAISiteRules
 {
+    static float HCGroupFactor(int players)
+    {
+        if (players <= 1) { return 0.6; }
+        if (players < 3) { return 0.6 + (players - 1) * 0.2; }
+        if (players < 6) { return 1.0 + (players - 3) * 0.1; }
+        return 1.3;
+    }
+    static int HCGroupMembers(int authored, float factor)
+    {
+        int members = Math.Round(authored * factor);
+        if (members < 1) { return 1; }
+        if (members > 8) { return 8; }
+        return members;
+    }
     static bool Among(string value, string list)
     {
         if (value == "") { return false; }

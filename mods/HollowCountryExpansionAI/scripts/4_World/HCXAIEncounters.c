@@ -15,6 +15,8 @@
 // eAIDynamicPatrol.m_Group (public field)
 // ai_scripts/4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:45.
 // Native: Game.GetWorldName 3_Game/Global/Game.c:934.
+// W5 review (b): one request scans at most 66 states x 128 qualified points;
+// no new tick work, actors or route qualification. Refuse beyond 600 m.
 class HCXAIEncounters : Managed
 {
     static const int MAX_OPEN = 8;
@@ -126,7 +128,8 @@ class HCXAIEncounters : Managed
     }
 
     // World-level: the event context carries only the world name. The anchor
-    // bound (ActivationRadius) is enforced by StartEncounter.
+    // bound (600 m) is enforced by StartEncounter; authored trigger configs
+    // reach at least 600 m so the event anchor can activate the patrol.
     bool Ready(string world)
     {
         if (!m_Armed || !m_Journal) { return false; }
@@ -153,8 +156,8 @@ class HCXAIEncounters : Managed
     }
 
     // Binds the nearest eligible patrol: qualified, native patrol present, not
-    // bound to another open encounter, some qualified point within the site's
-    // ActivationRadius of the anchor. The intent is journaled before binding.
+    // bound to another open encounter, some qualified point within 600 m of
+    // the anchor. Intent is journaled first. No transient actor path is needed.
     bool StartEncounter(string lease, string session, string missionId, vector anchor, int actorCap)
     {
         if (!m_Armed || !m_Journal || actorCap < 1) { return false; }
@@ -182,7 +185,7 @@ class HCXAIEncounters : Managed
             if (state.Site.Checkpoint) { continue; }
             float gap = HCXAISiteRules.RouteGap(state.PatrolPoints, anchor);
             bool patrolled = state.Patrol != null;
-            string problem = HCXAISiteRules.EncounterProblem(state.Qualified, patrolled, this.SiteBound(state.Site.Id), gap, state.Site.ActivationRadius);
+            string problem = HCXAISiteRules.EncounterProblem(state.Qualified, patrolled, this.SiteBound(state.Site.Id), gap, 600);
             if (nearestId == "none" || gap < nearestGap)
             {
                 nearestId = state.Site.Id;

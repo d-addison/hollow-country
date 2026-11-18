@@ -4,7 +4,16 @@
 // scripts-1.30.164289/3_Game/AI/AIWorld.c:65 SetFlags, :98 FindPath, :122
 // SampleNavmeshPosition; 3_Game/Global/Game.c:1176 SurfaceY, :1535 GetTime,
 // :945 GetPlayers; Global/DayZPhysics.c:199 RaycastRV; Entities/Object.c:287
-// GetPosition; 1_Core/proto/EnScript.c:380 Count, :407 Insert, :470 RemoveOrdered;
+// GetPosition; 1_Core/proto/EnScript.c:380 Count, :385 Clear, :407 Insert,
+// :470 RemoveOrdered;
+// W5 #125/#122: Object.c:517 IsAlive; Entities/Man.c:21 GetIdentity;
+// 1_Core/proto/EnConvert.c:210 vector.DistanceSq, :115 float.ToString;
+// 1_Core/proto/EnMath.c:413 Math.Round. Expansion eAIDynamicPatrol.c:13
+// m_Config, :592-597 reads NumberOfAI/NumberOfAIMax on each native Spawn.
+// New work: one cached player list/second, one O(players) identity count;
+// constant scaling per spawn check. Existing cursor does 4 qualification
+// items/tick plus <=2 transient steps. Debug: <=66 states, <=64 member slots,
+// <=2 qualified routes (<=128 points each), only when snapshot requested.
 // EnConvert.c:3 bool.ToString, :30 int.ToString; EnDebug.c:96 Print;
 // EnString.c:113 Substring, :199 Length; EnSystem.c:397 FileExist.
 // Raid persistence: 3_Game/tools/JsonFileLoader.c:42 SaveFile, :69 LoadData;
@@ -43,6 +52,8 @@ class HCXAISitePatrol : eAIDynamicPatrol
     string m_HCSiteId;
     string m_HCKind;
     int m_HCGroupMax;
+    int m_HCAuthoredMin;
+    int m_HCAuthoredMax;
     bool m_HCLive;
     bool m_HCTransient;
     bool m_HCFinished;
@@ -233,6 +244,13 @@ class HCXAISiteDirector : Managed
     protected bool m_Diagnostic;
     protected bool m_WaitLogged;
     protected bool m_OwnedSaved = true;
+    protected bool m_GroupScaling;
+    protected float m_GroupFactor = 1.0;
+    protected int m_OnlinePlayers;
+    protected int m_ScalePlayers = -1;
+    protected int m_PlayersAt = -1;
+    protected ref array<Man> m_Players = new array<Man>();
+    protected ref HCXAIPatrolDebug m_Debug;
 
     static HCXAISiteDirector Active() { return s_Active; }
     string Phase() { return m_Phase; }
@@ -259,7 +277,7 @@ class HCXAISiteDirector : Managed
             reservedSites++;
             reservedActors += reservation.Site.NumberOfAIMax;
         }
-        if (HCXAIQualification.EncountersEnabled() && (reservedSites >= 2 || reservedActors + actorCap > 8)) { return "V2 global body/site budget (8/2) reached"; }
+        if (reservedSites >= 2 || reservedActors + actorCap > 8) { return "V2 global body/site budget (8/2) reached"; }
         if (reservedSites >= m_Policy.MaxActiveSites) { return "site budget reached"; }
         if (reservedActors + actorCap > m_Policy.MaxActiveAI) { return "AI budget reached"; }
         return "";
@@ -388,6 +406,14 @@ class HCXAISiteDirector : Managed
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
         s_Active = this;
+        HCSettings preferences = HCServer.Get().GetSettings();
+        m_GroupScaling = preferences && preferences.EnableGroupScaling;
+        if (preferences && preferences.EnableDebugSnapshot)
+        {
+            m_Debug = new HCXAIPatrolDebug();
+            HCDebugSnapshot.HCRegister(m_Debug);
+            Print("[HC Expansion AI] patrol debug contributor registered");
+        }
         m_Build = HCXAIStore.NativeBuild();
         m_Diagnostic = FileExist(HCXAISiteDirector.DIAGNOSTIC);
         m_Policy = HCXAISiteDirector.LoadPolicy();
@@ -420,6 +446,12 @@ class HCXAISiteDirector : Managed
     }
     void Stop()
     {
+        if (m_Debug)
+        {
+            HCDebugSnapshot.HCUnregister(m_Debug);
+            m_Debug = null;
+            Print("[HC Expansion AI] patrol debug contributor unregistered");
+        }
         foreach (HCXAISiteState stopping : m_States)
         {
             if (stopping.Patrol) { stopping.Patrol.Stop(); }
@@ -1029,7 +1061,10 @@ class HCXAISiteDirector : Managed
         config.CanSpawnInContaminatedArea = false;
         config.MinDistRadius = m_Policy.MinPlayerDistance;
         config.MaxDistRadius = site.ActivationRadius;
-        config.DespawnRadius = site.ActivationRadius + 100;
+        // Event bindings allow 600 m; the provider trigger must reach the same
+        // anchor. This only widens activation, never awareness or perception.
+        if (!state.Transient && config.MaxDistRadius < 600) { config.MaxDistRadius = 600; }
+        config.DespawnRadius = config.MaxDistRadius + 100;
         config.DespawnTime = site.DespawnSeconds;
         config.RespawnTime = HCXAISiteDirector.RaidCooldown(site);
         if (state.Transient) { config.RespawnTime = -1; }
@@ -1074,12 +1109,15 @@ class HCXAISiteDirector : Managed
         patrol.m_HCSiteId = site.Id;
         patrol.m_HCKind = site.Kind;
         patrol.m_HCGroupMax = site.NumberOfAIMax;
+        patrol.m_HCAuthoredMin = site.NumberOfAI;
+        patrol.m_HCAuthoredMax = site.NumberOfAIMax;
         patrol.m_HCTransient = state.Transient;
         state.Patrol = patrol;
         if (!state.Transient) { Print("[HC Expansion AI] site " + site.Id + " configured respawn=" + config.RespawnTime.ToString() + "s; raid timestamps persist in expansion-ai-owned.json"); }
     }
     protected void StepRun()
     {
+        if (m_GroupScaling) { this.HCRefreshGroupFactor(); }
         if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.SaveOwned(); }
         this.StepTransients();
         this.StepCache();
@@ -1124,6 +1162,23 @@ class HCXAISiteDirector : Managed
         {
             if (raidState.Patrol != patrol || raidState.Transient) { continue; }
             if (this.RaidLocked(raidState.Site, ExpansionStatic.GetTimestamp(true))) { return "raided site lockout"; }
+            // Only idle triggers change size. Deferred/live members retain the
+            // reservation taken at Spawn; joining/leaving never adds live loot.
+            if (m_GroupScaling && !patrol.m_Group)
+            {
+                this.HCRefreshGroupFactor();
+                int scaledMin = HCXAISiteRules.HCGroupMembers(patrol.m_HCAuthoredMin, m_GroupFactor);
+                int scaledMax = HCXAISiteRules.HCGroupMembers(patrol.m_HCAuthoredMax, m_GroupFactor);
+                patrol.m_Config.NumberOfAI = scaledMin;
+                patrol.m_Config.NumberOfAIMax = scaledMax;
+                patrol.m_HCGroupMax = scaledMax;
+                // Site is runtime-only after policy validation; mirror effective
+                // counts into the existing shared reservation ledger. Originals
+                // stay on patrol, so repeat scaling never compounds. No save of
+                // the policy and no separate budget or spawning path is added.
+                raidState.Site.NumberOfAI = scaledMin;
+                raidState.Site.NumberOfAIMax = scaledMax;
+            }
         }
         string providerIssue = HCXAIQualification.ProviderProblem();
         if (providerIssue != "") { return providerIssue; }
@@ -1137,7 +1192,7 @@ class HCXAISiteDirector : Managed
             activeSites++;
             activeAI = activeAI + state.Patrol.m_NumberOfAI;
         }
-        if (HCXAIQualification.EncountersEnabled() && (activeSites >= 2 || activeAI + patrol.m_HCGroupMax > 8)) { return "V2 global body/site budget (8/2) reached"; }
+        if (activeSites >= 2 || activeAI + patrol.m_HCGroupMax > 8) { return "V2 global body/site budget (8/2) reached"; }
         return HCXAISiteRules.SpawnProblem(m_Policy, activeAI, activeSites, patrol.m_HCGroupMax, this.NearestPlayer(patrol.m_Position), this.SeenByPlayer(patrol.m_Position));
     }
     string MemberProblemFor(vector pos)
@@ -1147,12 +1202,39 @@ class HCXAISiteDirector : Managed
         if (memberIssue != "") { return memberIssue; }
         return HCXAISiteRules.MemberSpawnProblem(m_Policy, this.NearestPlayer(pos), this.SeenByPlayer(pos));
     }
+    // Reuse the same population list for scaling, spawn safety and caches.
+    // Provider callbacks may run between director ticks; refresh at most once
+    // per second, including rollback. The intended server load is 3..6 players.
+    protected void HCRefreshPlayers()
+    {
+        int now = GetGame().GetTime();
+        if (m_PlayersAt >= 0 && now >= m_PlayersAt && now - m_PlayersAt < 1000) { return; }
+        m_PlayersAt = now;
+        m_Players.Clear();
+        GetGame().GetPlayers(m_Players);
+        if (!m_GroupScaling) { return; }
+        m_OnlinePlayers = 0;
+        foreach (Man connected : m_Players)
+        {
+            // Connected dead/unconscious players still count; provider actors
+            // have no identity and must never amplify their own group sizes.
+            if (connected && connected.GetIdentity()) { m_OnlinePlayers++; }
+        }
+    }
+    protected void HCRefreshGroupFactor()
+    {
+        if (!m_GroupScaling) { return; }
+        this.HCRefreshPlayers();
+        if (m_ScalePlayers == m_OnlinePlayers) { return; }
+        m_ScalePlayers = m_OnlinePlayers;
+        m_GroupFactor = HCXAISiteRules.HCGroupFactor(m_OnlinePlayers);
+        Print("[HC Expansion AI] group scale players=" + m_OnlinePlayers.ToString() + " factor=" + m_GroupFactor.ToString());
+    }
     float NearestPlayer(vector pos)
     {
-        array<Man> players = new array<Man>();
-        GetGame().GetPlayers(players);
+        this.HCRefreshPlayers();
         float nearest = 100000;
-        foreach (Man player : players)
+        foreach (Man player : m_Players)
         {
             if (!player || !player.GetIdentity() || !player.IsAlive()) { continue; }
             float gap = vector.Distance(player.GetPosition(), pos);
@@ -1163,13 +1245,12 @@ class HCXAISiteDirector : Managed
     // Native ray from each live player's eye to a standing chest height at pos.
     bool SeenByPlayer(vector pos)
     {
-        array<Man> players = new array<Man>();
-        GetGame().GetPlayers(players);
+        this.HCRefreshPlayers();
         vector aim = pos + Vector(0, 1.2, 0);
-        foreach (Man player : players)
+        foreach (Man player : m_Players)
         {
             if (!player || !player.GetIdentity() || !player.IsAlive()) { continue; }
-            if (vector.Distance(player.GetPosition(), pos) > m_Policy.LineOfSightRange) { continue; }
+            if (vector.DistanceSq(player.GetPosition(), pos) > m_Policy.LineOfSightRange * m_Policy.LineOfSightRange) { continue; }
             vector eye = player.GetPosition() + Vector(0, 1.6, 0);
             vector contact;
             vector contactDir;
@@ -1276,11 +1357,11 @@ class HCXAISiteDirector : Managed
         int items = 0;
         if (crate && crate.GetInventory() && crate.GetInventory().GetCargo()) { items = crate.GetInventory().GetCargo().GetItemCount(); }
         bool playerNear = false;
-        array<Man> players = new array<Man>();
-        GetGame().GetPlayers(players);
-        foreach (Man player : players)
+        this.HCRefreshPlayers();
+        foreach (Man player : m_Players)
         {
-            if (player && player.GetIdentity() && vector.Distance(player.GetPosition(), state.CacheWorld) < m_Policy.CacheClearRadius) { playerNear = true; }
+            if (!player || !player.GetIdentity()) { continue; }
+            if (vector.DistanceSq(player.GetPosition(), state.CacheWorld) < m_Policy.CacheClearRadius * m_Policy.CacheClearRadius) { playerNear = true; break; }
         }
         HCXAICacheRow row = this.CacheRow(site.Id);
         int now = ExpansionStatic.GetTimestamp(true);

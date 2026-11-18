@@ -1,5 +1,18 @@
 """HC site rules (patrols, scavenger parties, holdouts with a cache) on Expansion AI.
 
+W5 #125/#122/review (2026-11-18): spec = scale authored counts by online
+identity players, retain shared 8-body/2-site reservations, expose bounded live
+debug state, zero unseen threat, bind nearest qualified route within 600 m.
+Plan/tasks = inspect installed native/provider interfaces; one scaling smoke
+RED; update native spawn config and existing ledger, snapshot lifecycle and
+stance/event glue; smoke GREEN plus all existing source readers. Native Windows
+compile, normal PBO/server and two-client perception/debug checks remain pending.
+Smoke command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest
+tests.unit.test_expansion_ai_sites.SiteRulesTests.test_w5_group_scaling_rounds_and_caps_authored_counts -v
+RED: AttributeError: 'types.SimpleNamespace' object has no attribute 'HCGroupFactor'
+Ran 1 test in 0.010s; FAILED (errors=1).
+GREEN: Ran 1 test in 0.011s; OK.
+
 The authored Enforce bodies run through the syntax adapter with explicit synthetic inputs; nothing here
 establishes DayZ behavior. Spawning, line of sight, despawn and cache persistence stay pending native
 observation with a client.
@@ -208,6 +221,20 @@ class SiteRulesTests(unittest.TestCase):
 
     def site(self, kind):
         return next(s for s in self.policy.Sites if s.Kind == kind)
+
+    def test_w5_group_scaling_rounds_and_caps_authored_counts(self):
+        # Synthetic player counts only; no native spawning or runtime evidence.
+        self.env['Math'].Round = lambda value: math.floor(value + 0.5)
+        for players, factor, expected in ((1, .6, [1, 2, 2]),
+                                           (3, 1., [2, 3, 4]),
+                                           (6, 1.3, [3, 4, 5])):
+            self.assertAlmostEqual(factor, self.rules.HCGroupFactor(players))
+            self.assertEqual(expected, [self.rules.HCGroupMembers(n, factor)
+                                        for n in (2, 3, 4)])
+        self.assertEqual(1, self.rules.HCGroupMembers(1, .6))
+        self.assertEqual(8, self.rules.HCGroupMembers(20, 1.3))
+        self.assertEqual(.6, self.rules.HCGroupFactor(0))
+        self.assertEqual(1.3, self.rules.HCGroupFactor(90))
 
     # Expansion's stock AI aims at 35-95%, notices threats to 1000 m, investigates noise to 500 m and
     # flanks up to 200 m (ExpansionAISettings.Defaults). The owner asked for worse aim and less smarts.

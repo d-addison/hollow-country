@@ -112,22 +112,22 @@ modded class eAIPlayerTargetInformation
         // native perception has established LOS and a fresh ray agrees.
         bool observed = state && state.m_LOS && player.IsAlive() && !player.IsUnconscious() && HCXStance.Visible(ai, player);
         string admissionProblem = HCXAIQualification.ProviderProblem();
-        bool recentShot = ai.HCXLastGunfire >= 0 && nowMs >= ai.HCXLastGunfire && nowMs - ai.HCXLastGunfire <= 10000;
         if (!observed || nowMs < 0 || ai.HCXLivingRefused || admissionProblem != "")
         {
             warning.Started = -1;
+            warning.LastSeen = -1;
             warning.Hostile = false;
-            float unseenStance = 0.05;
-            bool hearingAdmitted = nowMs >= 0 && !ai.HCXLivingRefused && admissionProblem == "";
-            if (hearingAdmitted && recentShot) { unseenStance = 0.2; }
-            if (state) { state.m_ThreatLevelActive = unseenStance; state.m_AggressionTimeout = 0; }
+            if (state)
+            {
+                state.m_ThreatLevel = 0;
+                state.m_ThreatLevelActive = 0;
+                state.m_AggressionTimeout = 0;
+            }
             if (currentPlayer) { ai.RaiseWeapon(false); }
-            // Keep an inert candidate above ShouldRemove's 0.02 threshold so
-            // native perception can establish its first LOS. No observable
-            // stance fact is read or acted on until that happens.
-            // Only a scalar caution from the already delivered <=80m noise;
-            // never forward its source/position or install a target.
-            return unseenStance;
+            // W5 review (a): delivered noise cannot identify this unseen target.
+            // Native perception owns discovery; never retain a threat floor to
+            // manufacture LOS. Both provider threat caches are cleared above.
+            return 0;
         }
         // A lost observation or server stall starts a new warning, never accrues
         // unseen time toward hostility.
