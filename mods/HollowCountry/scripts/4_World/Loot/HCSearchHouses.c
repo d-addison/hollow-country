@@ -478,7 +478,7 @@ class HCSearchHouses
     // First valid start: one bounded scan, then register and journal what CE already placed.
     bool Bind(HCSearchHouseSlot slot, HCSearchHouseHit hit)
     {
-        if (m_Journal.SiteCount() >= m_Settings.MaxBoundSearchSites)
+        if (!m_Journal.SiteBound(hit.SiteId) && m_Journal.SiteCount() >= m_Settings.MaxBoundSearchSites)
         {
             Print("[HC Search Houses] site cap reached: " + m_Journal.SiteCount().ToString());
             return false;
