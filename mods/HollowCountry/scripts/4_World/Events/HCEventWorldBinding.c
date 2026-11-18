@@ -1,15 +1,22 @@
 // Native: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D; EntityAI.c:882/885 hierarchy.
 // Native: 3_Game/Entities/Object.c:215/287/467/517/1219 deletion/pose/type/life/ruin.
+// Native 1.30.164289: 1_Core/proto/EnScript.c:380/394/407 Count/Find/Insert;
+// array index writes use Set (EnScript.c:389).
+// 3_Game/gameplay.c:636 GetGame; Global/Game.c:1120/1176 IsServer/SurfaceY;
+// 1_Core/proto/EnString.c:171 ToLower; EnConvert.c:210 DistanceSq;
+// 1_Core/proto/EnEntity.c:518 GetID. HCEventEconomyCandidate is an HC hook.
+// 1_Core/proto/EnMath3D.c:18 Vector; EnDebug.c:96 Print.
 // Query is local, never GetPlayers/world traversal. The native API allocates its
 // result before our 128-entry refusal; this is not an engine-side query cap.
 // No create/move/delete/CE replenishment call is used by this adapter; the reward
 // cache is created by HCEventCacheSpawner (4_World/Events/HCEventRewardCache.c).
 class HCEventWorldBinding
 {
-    // Bind diagnostics: why the last Select/Query refused, and the bounded set of
-    // (mission, reason) pairs already logged, so a retrying roster never spams.
+    // Bind diagnostics: the last Select/Query refusal and the last reported
+    // reason per mission (at most 64), so retries log only state changes.
     protected static string s_FailReason;
     protected static ref array<string> s_BindReported;
+    protected static ref array<string> s_BindReasons;
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
     {
         if (!observer || !settings || !HCEventRuntimePolicy.SettingsValid(settings)) { return; }
@@ -28,7 +35,13 @@ class HCEventWorldBinding
     }
     static array<Object> Query(vector anchor, float radius)
     {
-        if (!HCEventQualification.Admitted() || !GetGame() || !GetGame().IsServer() || radius != radius || radius < 1 || radius > 30 || !HCEventRuntimePolicy.PositionValid(anchor)) { return null; }
+        // Ordinary item/presence lookups keep their existing local query cap.
+        if (radius > 30) { return null; }
+        return QueryBounded(anchor, radius);
+    }
+    static array<Object> QueryBounded(vector anchor, float radius)
+    {
+        if (!HCEventQualification.Admitted() || !GetGame() || !GetGame().IsServer() || radius != radius || radius < 1 || radius > 60 || !HCEventRuntimePolicy.PositionValid(anchor)) { return null; }
         array<Object> objects = new array<Object>();
         array<CargoBase> proxies = new array<CargoBase>();
         GetGame().GetObjectsAtPosition3D(anchor, radius, objects, proxies);
@@ -75,16 +88,29 @@ class HCEventWorldBinding
         if (!found) { s_FailReason = "no_candidate"; }
         return found;
     }
-    // Logs once per (mission, reason), at most 64 pairs; always returns false.
+    // Logs once per reason change, retaining at most 64 mission entries.
     static bool BindFailed(HCEventMission mission)
     {
         string reason = s_FailReason;
         s_FailReason = "";
         if (reason == "") { return false; }
-        if (!s_BindReported) { s_BindReported = new array<string>(); }
-        string key = mission.Id + "|" + reason;
-        if (s_BindReported.Count() >= 64 || s_BindReported.Find(key) >= 0) { return false; }
-        s_BindReported.Insert(key);
+        if (!s_BindReported)
+        {
+            s_BindReported = new array<string>();
+            s_BindReasons = new array<string>();
+        }
+        int index = s_BindReported.Find(mission.Id);
+        if (index >= 0)
+        {
+            if (s_BindReasons[index] == reason) { return false; }
+            s_BindReasons[index] = reason;
+        }
+        else
+        {
+            if (s_BindReported.Count() >= 64) { return false; }
+            s_BindReported.Insert(mission.Id);
+            s_BindReasons.Insert(reason);
+        }
         Print("[HC Events] bind failed; " + mission.Id + "; reason=" + reason);
         return false;
     }
@@ -132,6 +158,20 @@ class HCEventWorldBinding
     }
     static bool Bind(HCEventNativeObserver observer, HCEventMission mission)
     {
+        bool bound = BindCandidate(observer, mission);
+        if (bound && s_BindReported)
+        {
+            int index = s_BindReported.Find(mission.Id);
+            if (index >= 0 && s_BindReasons[index] != "")
+            {
+                s_BindReasons[index] = "";
+                Print("[HC Events] bind recovered; " + mission.Id);
+            }
+        }
+        return bound;
+    }
+    static bool BindCandidate(HCEventNativeObserver observer, HCEventMission mission)
+    {
         if (!observer || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName) || !HCEventQualification.Admitted()) { return false; }
         if (mission.Family == HCEventFamily.INVESTIGATION) { return true; }
         if (mission.Family == HCEventFamily.AI_ENCOUNTER) { return false; }
@@ -145,8 +185,8 @@ class HCEventWorldBinding
         {
             // Native: 3_Game/Global/Game.c:1176 SurfaceY(x, z). A police source is a model
             // origin standing about 7 m above its ground, so a sphere centred on it reaches
-            // only about 13 m on the ground. Centre the sphere on the ground below it and
-            // widen to 25 m (Query caps at 30); infected stand on the ground.
+            // only about 13 m on the ground. Centre on the ground and search 60 m;
+            // the 128-object overflow refusal remains authoritative.
             float groundY = GetGame().SurfaceY(mission.Source[0], mission.Source[2]);
             if (groundY != groundY)
             {
@@ -154,9 +194,17 @@ class HCEventWorldBinding
                 return BindFailed(mission);
             }
             origin = Vector(mission.Source[0], groundY, mission.Source[2]);
-            radius = 25;
+            radius = 60;
         }
-        array<Object> nearby = Query(origin, radius);
+        array<Object> nearby = null;
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
+        {
+            nearby = QueryBounded(origin, radius);
+        }
+        else
+        {
+            nearby = Query(origin, radius);
+        }
         if (!nearby) { return BindFailed(mission); }
         if (mission.Family == HCEventFamily.INFECTED_CLEAR)
         {
@@ -182,7 +230,12 @@ class HCEventWorldBinding
                 s_FailReason = "no_candidate";
                 return BindFailed(mission);
             }
-            return observer.RegisterInfected(mission.Id, selected);
+            if (!observer.RegisterInfected(mission.Id, selected))
+            {
+                s_FailReason = "registration_refused";
+                return BindFailed(mission);
+            }
+            return true;
         }
         string wanted = mission.ItemClass;
         bool economy = true;

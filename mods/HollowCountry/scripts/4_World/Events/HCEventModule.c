@@ -1,5 +1,10 @@
 // Core owns the sole registry insertion; this module owns server RPC lifetime.
 // Transport calls Runtime().Join/Leave with the actual sender PlayerBase.
+// Native 1.30.164289: 3_Game/Global/Game.c:914/932/1120 clock/world/server;
+// 1_Core/proto/EnScript.c:380/394/407 array Count/Find/Insert.
+// 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnMath.c:54/427 random/floor;
+// 1_Core/proto/EnString.c:171 ToLower; EnConvert.c:30 int.ToString.
+// Native logging: 1_Core/proto/EnDebug.c:96 Print.
 class HCEventModule : HCModule
 {
     protected static HCEventModule s_Instance;
@@ -226,7 +231,8 @@ class HCEventModule : HCModule
     {
         if (!m_Runtime || !m_NativeObserver || m_Config.Sites.Count() == 0) { return; }
         // One site's one family per five seconds; late CE population can admit
-        // missions without restart. Current-session terminal missions never repeat.
+        // missions without restart. Runtime owns terminal cleanup and the two-hour
+        // cooldown; remembering an admission only suppresses early retry work/logs.
         int siteIndex = Math.Floor(m_RosterCursor / 7);
         int family = (m_RosterCursor % 7) + 1;
         m_RosterCursor = (m_RosterCursor + 1) % (m_Config.Sites.Count() * 7);
@@ -238,9 +244,10 @@ class HCEventModule : HCModule
         array<ref HCEventMission> roster = HCEventRoster.Build(site, AIReady(context));
         foreach (HCEventMission mission : roster)
         {
-            // HasMission cannot see pruned records, so this session list is the
-            // authority that a terminal mission never announces again.
-            if (mission.Family == family && m_AnnouncedMissions.Find(mission.Id) < 0 && !m_Runtime.HasMission(mission.Id))
+            bool remembered = m_AnnouncedMissions.Find(mission.Id) >= 0;
+            bool offerDue = !remembered || context.Now >= 7200;
+            bool matchingFamily = mission.Family == family && offerDue;
+            if (matchingFamily && !m_Runtime.HasMission(mission.Id))
             {
                 HCEventWorldBinding.Bind(m_NativeObserver, mission);
                 if (m_Runtime.Announce(mission, context) == HCEventCode.OK)

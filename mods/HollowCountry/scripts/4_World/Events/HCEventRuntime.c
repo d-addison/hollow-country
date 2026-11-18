@@ -1,5 +1,10 @@
 // Durable orchestrator. The caller owns a fresh trusted session and invokes
 // Tick/Disconnect from server lifecycle hooks. No rewards or network ingress.
+// Native 1.30.164289: 1_Core/proto/EnScript.c:380/385/394/407/463/470
+// array Count/Clear/Find/Insert/Remove/RemoveOrdered; EnConvert.c:30 int.ToString;
+// 3_Game/gameplay.c:636 GetGame; Global/Game.c:1120 IsServer;
+// Entities/Object.c:517 IsAlive. Provider/store/director calls are HC adapters.
+// Native logging: 1_Core/proto/EnDebug.c:96 Print.
 class HCEventRuntime
 {
     protected ref HCEventSettings m_Settings;
@@ -14,6 +19,9 @@ class HCEventRuntime
     protected int m_LastNow = 0;
     protected int m_Cursor = 0;
     protected ref array<string> m_BlockedLogged = new array<string>();
+    // At most one cooldown per retained current-session record (32).
+    protected ref array<int> m_ReofferIds = new array<int>();
+    protected ref array<int> m_ReofferAfter = new array<int>();
 
     bool Start(HCEventSettings settings, HCEventContext context, HCEventPersistence store, HCEventObjectiveProvider observer, HCEventAIProvider ai)
     {
@@ -22,6 +30,8 @@ class HCEventRuntime
         m_StopRequested = false;
         m_Subscriptions = new array<ref HCEventSubscription>();
         m_BlockedLogged = new array<string>();
+        m_ReofferIds = new array<int>();
+        m_ReofferAfter = new array<int>();
         m_Cursor = 0;
         if (!HCEventRuntimePolicy.SettingsValid(settings) || !settings.Enabled || !context || !context.Server)
         {
@@ -82,6 +92,26 @@ class HCEventRuntime
                 return false;
             }
         }
+        // Complete durable restart cleanup before the caller's first roster pass.
+        // Unconfirmed provider cleanup stays pending and cannot be pruned.
+        HCEventRuntimeState restored = m_State;
+        int closed = 0;
+        foreach (HCEventRun restoredRun : restored.Runs)
+        {
+            if (restoredRun.Phase == HCEventRunPhase.CLEANUP)
+            {
+                if (!Cleanup(restoredRun.EventId)) { return false; }
+                if (m_State.Runs[restoredRun.EventId - m_State.Director.PrunedThrough - 1].Phase == HCEventRunPhase.CLOSED)
+                {
+                    closed = closed + 1;
+                }
+                else
+                {
+                    Print("[HC Events] startup cleanup pending; " + restoredRun.Lease);
+                }
+            }
+        }
+        if (closed > 0) { Print("[HC Events] startup cleanup closed " + closed.ToString() + " retained runs before roster"); }
         m_LastNow = context.Now;
         m_Ready = true;
         return true;
@@ -123,7 +153,10 @@ class HCEventRuntime
             {
                 if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
                 {
-                    m_AI.Stop(run.Lease);
+                    HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+                    int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
+                    string aiLease = run.Lease + ":" + aiGeneration.ToString();
+                    m_AI.Stop(aiLease);
                 }
                 else
                 {
@@ -197,6 +230,15 @@ class HCEventRuntime
         {
             return HCEventCode.INVALID;
         }
+        int repeatId = 0;
+        foreach (HCEventRecord existingRecord : m_State.Director.Records)
+        {
+            if (existingRecord.Session == context.Session && existingRecord.Definition.Id == mission.Id)
+            {
+                if (!CanReoffer(existingRecord, context.Now)) { return HCEventCode.CONFLICT; }
+                repeatId = existingRecord.Id;
+            }
+        }
         int reservedActors = mission.ActorBudget;
         foreach (HCEventRun existing : m_State.Runs)
         {
@@ -235,21 +277,38 @@ class HCEventRuntime
         {
             return HCEventCode.BLOCKED;
         }
-        if (!Retain(candidate))
+        HCEventRun run;
+        if (repeatId > 0)
         {
-            return HCEventCode.LIMIT;
+            // Reuse the stable wire slot, rather than pruning current-session
+            // tombstones or changing the director's duplicate proposal policy.
+            if (context.Now > 1000000000 - mission.LifetimeSeconds) { return HCEventCode.LIMIT; }
+            PurgeTerminal();
+            HCEventRecord repeated = HCEventDirector.FindRecord(candidate.Director, repeatId);
+            repeated.Definition = HCEventRuntimePolicy.Definition(mission);
+            repeated.Revision = repeated.Revision + 1;
+            repeated.Status = HCEventStatus.PROPOSED;
+            repeated.Expires = context.Now + mission.LifetimeSeconds;
+            repeated.Progress = 0;
+            repeated.LastObservation = 0;
+            repeated.Participants.Clear();
+            run = candidate.Runs[repeatId - candidate.Director.PrunedThrough - 1];
+            run.Objective = mission;
+            run.Phase = HCEventRunPhase.PREPARED;
+            run.Tokens.Clear();
         }
-        int result = HCEventDirector.Propose(candidate.Director, context, HCEventRuntimePolicy.Definition(mission));
-        if (result != HCEventCode.OK)
+        else
         {
-            return result;
+            if (!Retain(candidate)) { return HCEventCode.LIMIT; }
+            int result = HCEventDirector.Propose(candidate.Director, context, HCEventRuntimePolicy.Definition(mission));
+            if (result != HCEventCode.OK) { return result; }
+            run = new HCEventRun;
+            run.EventId = candidate.Director.NextId - 1;
+            run.Lease = context.Session + ":" + run.EventId.ToString();
+            run.Objective = mission;
+            run.ProviderIntent = true;
+            candidate.Runs.Insert(run);
         }
-        HCEventRun run = new HCEventRun;
-        run.EventId = candidate.Director.NextId - 1;
-        run.Lease = context.Session + ":" + run.EventId.ToString();
-        run.Objective = mission;
-        run.ProviderIntent = true;
-        candidate.Runs.Insert(run);
         if (Operation(candidate, run.EventId, HCEventOp.ANNOUNCE, "", context) != HCEventCode.OK)
         {
             return HCEventCode.BLOCKED;
@@ -260,13 +319,24 @@ class HCEventRuntime
         {
             return HCEventCode.BLOCKED;
         }
+        if (repeatId > 0)
+        {
+            int cooldownIndex = m_ReofferIds.Find(repeatId);
+            m_ReofferIds.Remove(cooldownIndex);
+            m_ReofferAfter.Remove(cooldownIndex);
+        }
         m_LastNow = context.Now;
         run = m_State.Runs[run.EventId - m_State.Director.PrunedThrough - 1];
         m_Busy = true;
         bool started = false;
         if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            started = m_AI.Start(run.Lease, context.Session, run.Objective.Id, run.Objective.Source, run.Objective.ActorBudget);
+            // The stable event slot can repeat, but the AI journal consumes lease
+            // IDs. The persisted proposal time increases on every re-offer.
+            HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+            int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
+            string aiLease = run.Lease + ":" + aiGeneration.ToString();
+            started = m_AI.Start(aiLease, context.Session, run.Objective.Id, run.Objective.Source, run.Objective.ActorBudget);
         }
         else
         {
@@ -284,13 +354,35 @@ class HCEventRuntime
         {
             return HCEventCode.BLOCKED;
         }
+        if (repeatId > 0) { Print("[HC Events] mission re-announced after cooldown; " + mission.Id); }
         return HCEventCode.OK;
+    }
+    void RememberCooldown(HCEventRecord record, int now)
+    {
+        if (!record || record.Session != m_State.Director.Session) { return; }
+        bool repeatable = record.Status == HCEventStatus.COMPLETED || record.Status == HCEventStatus.EXPIRED;
+        if (!repeatable || m_ReofferIds.Find(record.Id) >= 0 || m_ReofferIds.Count() >= 32) { return; }
+        m_ReofferIds.Insert(record.Id);
+        m_ReofferAfter.Insert(now + 7200);
+    }
+    bool CanReoffer(HCEventRecord record, int now)
+    {
+        bool repeatable = record.Status == HCEventStatus.COMPLETED || record.Status == HCEventStatus.EXPIRED;
+        if (!repeatable || record.Revision >= 999998) { return false; }
+        HCEventRun run = m_State.Runs[record.Id - m_State.Director.PrunedThrough - 1];
+        if (run.Phase != HCEventRunPhase.CLOSED) { return false; }
+        int cooldownIndex = m_ReofferIds.Find(record.Id);
+        if (cooldownIndex < 0) { return false; }
+        return now >= m_ReofferAfter[cooldownIndex];
     }
     bool HasMission(string missionId)
     {
         foreach (HCEventRecord record : m_State.Director.Records)
         {
-            if (record.Session == m_State.Director.Session && record.Definition.Id == missionId) { return true; }
+            if (record.Session == m_State.Director.Session && record.Definition.Id == missionId)
+            {
+                return !CanReoffer(record, m_LastNow);
+            }
         }
         return false;
     }
@@ -445,19 +537,22 @@ class HCEventRuntime
         Cleanup(id);
         return HCEventCode.OK;
     }
-    void Cleanup(int id)
+    bool Cleanup(int id)
     {
         HCEventRun run = m_State.Runs[id - m_State.Director.PrunedThrough - 1];
         if (run.Phase != HCEventRunPhase.CLEANUP)
         {
-            return;
+            return true;
         }
         m_Busy = true;
         bool gone = false;
         if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            m_AI.Stop(run.Lease);
-            gone = m_AI.Gone(run.Lease);
+            HCEventRecord aiRecord = HCEventDirector.FindRecord(m_State.Director, run.EventId);
+            int aiGeneration = aiRecord.Expires - aiRecord.Definition.LifetimeSeconds;
+            string aiLease = run.Lease + ":" + aiGeneration.ToString();
+            m_AI.Stop(aiLease);
+            gone = m_AI.Gone(aiLease);
         }
         else
         {
@@ -468,8 +563,9 @@ class HCEventRuntime
         {
             HCEventRuntimeState candidate = m_Store.Clone(m_State);
             candidate.Runs[id - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLOSED;
-            Publish(candidate);
+            return Publish(candidate);
         }
+        return true;
     }
     void Observe(HCEventSubscription sub, HCEventContext context)
     {
@@ -486,16 +582,19 @@ class HCEventRuntime
         }
         m_Busy = true;
         HCEventObjectiveEvidence evidence;
+        string expectedLease = run.Lease;
         if (run.Objective.Family == HCEventFamily.AI_ENCOUNTER)
         {
-            evidence = m_AI.Observe(run.Lease, sub.Player);
+            int aiGeneration = record.Expires - record.Definition.LifetimeSeconds;
+            expectedLease = run.Lease + ":" + aiGeneration.ToString();
+            evidence = m_AI.Observe(expectedLease, sub.Player);
         }
         else
         {
             evidence = m_Observer.Observe(m_Store.Clone(m_State).Runs[sub.EventId - m_State.Director.PrunedThrough - 1], sub.Player, context.Now);
         }
         m_Busy = false;
-        if (!evidence || !evidence.Observed || evidence.Lease != run.Lease || evidence.Session != record.Session)
+        if (!evidence || !evidence.Observed || evidence.Lease != expectedLease || evidence.Session != record.Session)
         {
             return;
         }
@@ -527,7 +626,10 @@ class HCEventRuntime
             return;
         }
         candidate.Runs[sub.EventId - candidate.Director.PrunedThrough - 1].Phase = HCEventRunPhase.CLEANUP;
-        Publish(candidate);
+        if (Publish(candidate))
+        {
+            RememberCooldown(HCEventDirector.FindRecord(m_State.Director, sub.EventId), context.Now);
+        }
     }
     void Tick(HCEventContext context)
     {
@@ -558,6 +660,7 @@ class HCEventRuntime
             }
             if (m_Ready)
             {
+                RememberCooldown(HCEventDirector.FindRecord(m_State.Director, run.EventId), context.Now);
                 Cleanup(run.EventId);
             }
         }

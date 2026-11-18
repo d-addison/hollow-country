@@ -2,6 +2,8 @@
 // optional provider encounter. No coordinates, loot balance or AI are invented.
 // A RewardCache site (on unless events_sites.disable) offers only reach-the-site (INVESTIGATION)
 // and recover-the-cache (RECOVERY); the cache is created at bind time, never here.
+// Native 1.30.164289: 1_Core/proto/EnScript.c:407 array Insert;
+// 1_Core/proto/EnString.c:171 ToLower; EnConvert.c:30 int.ToString.
 class HCEventRoster
 {
     static array<ref HCEventMission> Build(HCEventSite site, bool includeAI)
@@ -45,6 +47,12 @@ class HCEventRoster
             if (family == HCEventFamily.AI_ENCOUNTER)
             {
                 mission.ActorBudget = 2;
+            }
+            if (family == HCEventFamily.INFECTED_CLEAR)
+            {
+                // Bind searches a 60 m ground-centred sphere; include a small
+                // station model-origin height margin in native Ready/Observe.
+                mission.Radius = 65;
             }
             if (offered && (family != HCEventFamily.AI_ENCOUNTER || includeAI) && HCEventRuntimePolicy.MissionValid(mission, world))
             {

@@ -353,6 +353,24 @@ class EventRuntimeTests(unittest.TestCase):
         self.assertEqual(0, r.Cancel(last_id, self.ctx))
         self.assertNotEqual(0, r.Join(1, self.player, self.ctx))
 
+    def test_restart_closes_full_retention_before_first_announcement(self):
+        # Explicit synthetic journal/provider; no Tick between restart and Announce.
+        r = self.runtime()
+        for index in range(32):
+            self.mission.Id = "synthetic-retained-" + str(index)
+            self.assertEqual(self.code.OK, r.Announce(self.mission, self.ctx))
+        release = self.observer.Release
+        self.observer.Release = lambda lease: False
+        self.assertEqual(self.code.OK, r.Cancel(1, self.ctx))
+        self.assertEqual(self.e["HCEventRunPhase"].CLEANUP, self.store.image.Runs[0].Phase)
+        self.observer.Release = release
+        self.ctx.Session = "synthetic-restart"; self.ctx.Now = 0
+        self.assertTrue(r.Start(self.cfg, self.ctx, self.store, self.observer, self.ai))
+        self.mission.Id = "synthetic-first-roster-mission"
+        self.assertEqual(self.code.OK, r.Announce(self.mission, self.ctx))
+        self.assertEqual(33, r.m_State.Runs[-1].EventId)
+        self.assertEqual(32, len(r.m_State.Runs))
+
     def test_retention_never_discards_unclosed_native_intent(self):
         self.cfg.MaxRuns = 1
         r = self.runtime(); self.ai.ready = True

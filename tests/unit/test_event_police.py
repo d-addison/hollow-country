@@ -305,21 +305,21 @@ class PoliceBinding(sites.Fixture):
         actor.GetID = lambda: entity_id
         return actor
 
-    def test_infected_clear_searches_the_ground_below_the_source_out_to_25_m(self):
-        # Observed 2026-11-17: the station source stands about 7 m above ground, so a 15 m
-        # sphere around it reached only about 13 m on the ground and bound nothing.
+    def test_infected_clear_searches_the_ground_below_the_source_out_to_60_m(self):
+        # Synthetic station source stands 7 m above ground; the deliberate 60 m
+        # bind sphere is centred on ground and includes its outer boundary.
         mission = self.missions[7]
         self.spherical_scan()
-        far = self.ground_infected(20)
+        far = self.ground_infected(60)
         self.objects = [far]
         self.assertTrue(self.binder.Bind(self.observer, mission))
         self.assertIs(far, self.observer.Target(mission.Id).Infected)
-        self.assertEqual([([mission.Source[0], self.game.height, mission.Source[2]], 25)], self.scans)
+        self.assertEqual([([mission.Source[0], self.game.height, mission.Source[2]], 60)], self.scans)
 
-    def test_infected_clear_still_refuses_beyond_25_m_and_logs_no_candidate_once(self):
+    def test_infected_clear_still_refuses_beyond_60_m_and_logs_no_candidate_once(self):
         mission = self.missions[7]
         self.spherical_scan()
-        self.objects = [self.ground_infected(27)]
+        self.objects = [self.ground_infected(61)]
         for _ in range(3):
             self.assertFalse(self.binder.Bind(self.observer, mission))
         self.assertEqual(1, len([s for s in self.logs if 'reason=no_candidate' in s]))
