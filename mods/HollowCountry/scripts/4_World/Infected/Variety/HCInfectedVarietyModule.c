@@ -1,0 +1,371 @@
+// W5 #121 / #125; source implementation, runtime acceptance PENDING.
+// Native evidence, installed scripts-1.30.164289: 3_Game/Global/Game.c:440
+// GetDayTime, :945 GetPlayers, :1120 IsServer, :1371 GetWeather;
+// 3_Game/Weather.c:189 GetRain, :38 GetActual; 3_Game/dayzplayer.c:633-636
+// erect stance masks, :1346 IsPlayerInStance; Entities/Object.c:287 GetPosition,
+// :517 IsAlive; 1_Core/proto/EnMath.c:126 RandomFloat01, :427 Floor;
+// 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
+// EnConvert.c:210 DistanceSq, :30 int.ToString, :115 float.ToString;
+// EnScript.c:380 Count, :385 Clear; EnDebug.c:96 Print. Geometry uses the
+// already inspected HCAlertChain.ClearGeometry (DayZPhysics.c:199 RaycastRV).
+// Tick bound: one GetPlayers; at most 32 proximity candidates per sampled
+// actor; two passes over <=24 entries for counts/cap repair, four cursor-selected
+// actors, at most 8*24 corpse/place checks, at most eight proximity rays; a single
+// shot visits 24 actors, admits at most three cues in ONE place, <=6 more rays.
+// Role/dormant place naming uses <=8*64 existing HCWorld place comparisons.
+// No map/object scans, persistence, entities, inventories, doors or new noise.
+// Off returns before allocations. Existing v1 admissions/caps remain in force.
+// Missing report + shared spawn lease: fresh dormant creation and wreck/road
+// placement are SKIPPED. Existing native crawlers near tracked corpses only.
+class HCInfectedVarietyModule : HCModule
+{
+    protected static HCInfectedVarietyModule s_Instance;
+    protected bool m_Running;
+    protected bool m_Variety;
+    protected bool m_Scaling;
+    protected bool m_Printed;
+    protected ref array<Man> m_Players;
+    protected ref HCInfectedVarietyContributor m_Debug;
+    protected float m_Clock;
+    protected float m_LogAt = 600;
+    protected float m_Scale = 1;
+    protected bool m_Shot;
+    protected vector m_ShotOrigin;
+    protected float m_ShotAt;
+    protected int m_Woken;
+
+    override string GetName() { return "InfectedVariety"; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        if (!settings || !settings.EnableInfected) { return false; }
+        return settings.EnableInfectedVariety || settings.EnableGroupScaling;
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
+        m_Variety = settings.EnableInfectedVariety;
+        m_Scaling = settings.EnableGroupScaling;
+        if (!m_Printed)
+        {
+            Print(HCV2Admission.Line("InfectedVariety", m_Variety, "W5-121", false));
+            m_Printed = true;
+        }
+        m_Players = new array<Man>;
+        m_Running = true;
+        s_Instance = this;
+        if (settings.EnableDebugSnapshot)
+        {
+            m_Debug = new HCInfectedVarietyContributor;
+            HCDebugSnapshot.HCRegister(m_Debug);
+        }
+        Print("[HC Infected] variety source preference=" + HCV2Admission.OnOff(m_Variety) + " scaling=" + HCV2Admission.OnOff(m_Scaling) + "; CE crawlers only; fresh dormant spawn/road placement skipped: shared body lease unavailable; runtime acceptance pending");
+    }
+
+    static bool VarietyActive()
+    {
+        if (!s_Instance || !s_Instance.m_Running || !s_Instance.m_Variety) { return false; }
+        return HCInfectedModule.Instance != null;
+    }
+
+    static void HCRecordDamageWake()
+    {
+        if (!VarietyActive()) { return; }
+        s_Instance.m_Woken++;
+    }
+
+    static int HCScaledCohort(int requested, int available)
+    {
+        if (!s_Instance || !s_Instance.m_Running || !s_Instance.m_Scaling) { return requested; }
+        return HCInfectedVarietyPolicy.CohortLimit(requested, available, s_Instance.m_Scale);
+    }
+
+    // One pending real unsuppressed shot per core tick, no retained shooter,
+    // no synthetic noise. Dropped overload never builds an alert queue.
+    static void HCRecordShot(vector origin)
+    {
+        if (!VarietyActive() || s_Instance.m_Shot) { return; }
+        if (!HCInfectedStore.ValidPosition(origin)) { return; }
+        s_Instance.m_Shot = true;
+        s_Instance.m_ShotOrigin = origin;
+        s_Instance.m_ShotAt = s_Instance.m_Clock;
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        if (!m_Running || !(deltaTime > 0) || deltaTime > 300) { return; }
+        m_Clock += deltaTime;
+        m_Players.Clear();
+        GetGame().GetPlayers(m_Players);
+        m_Scale = 1;
+        if (m_Scaling) { m_Scale = HCInfectedVarietyPolicy.GroupScale(m_Players.Count()); }
+        HCInfectedModule infected = HCInfectedModule.Instance;
+        if (infected && m_Variety)
+        {
+            float nightness = HCInfectedVisionPolicy.Nightness(GetGame().GetDayTime());
+            float rain = 0;
+            Weather weather = GetGame().GetWeather();
+            if (weather) { rain = weather.GetRain().GetActual(); }
+            m_Woken += infected.HCVarietyTick(m_Players, m_Clock, nightness, rain, m_Scale);
+            if (m_Shot && m_Clock - m_ShotAt <= 2)
+            {
+                m_Woken += infected.HCVarietyShot(m_ShotOrigin, nightness, rain);
+            }
+        }
+        m_Shot = false;
+        m_Players.Clear();
+        if (m_Clock >= m_LogAt)
+        {
+            m_LogAt = m_Clock + 600;
+            int dormant = 0;
+            int runners = 0;
+            if (infected) { infected.HCVarietyCounts(dormant, runners); }
+            Print("[HC Infected] variety dormant=" + dormant.ToString() + " woken=" + m_Woken.ToString() + " runners=" + runners.ToString() + " scale=" + m_Scale.ToString() + " runtime-unverified");
+            m_Woken = 0;
+        }
+    }
+
+    override void OnStop()
+    {
+        m_Running = false;
+        HCInfectedModule infected = HCInfectedModule.Instance;
+        if (infected) { infected.HCVarietyReleaseAll(); }
+        if (m_Debug) { HCDebugSnapshot.HCUnregister(m_Debug); }
+        m_Debug = null;
+        m_Players = null;
+        if (s_Instance == this) { s_Instance = null; }
+    }
+}
+
+class HCInfectedVarietyContributor : HCDebugContributor
+{
+    // At most 12 dormant + 2 horde points. No sampling or geometry here.
+    override void HCDescribe(HCDebugSnapshot snapshot)
+    {
+        HCInfectedModule infected = HCInfectedModule.Instance;
+        if (infected) { infected.HCVarietyDescribe(snapshot); }
+    }
+}
+
+modded class HCInfectedModule
+{
+    protected int m_HCVarietyCursor;
+
+    void HCVarietyCounts(out int dormant, out int runners)
+    {
+        dormant = 0;
+        runners = 0;
+        foreach (HCInfectedActor counted : m_Actors)
+        {
+            ZombieBase entity = counted.InfectedEntity;
+            if (!entity || !entity.IsAlive()) { continue; }
+            if (entity.HCVarietyDormant()) { dormant++; }
+            if (entity.HCVarietyRole() == 2) { runners++; }
+        }
+    }
+
+    protected string HCVarietyPlaceAt(vector pos)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        string place;
+        if (world) { place = world.NearestPlace(pos); }
+        if (place != "") { return place; }
+        int cellX = Math.Floor(pos[0] / 500);
+        int cellZ = Math.Floor(pos[2] / 500);
+        return "wild:" + cellX.ToString() + ":" + cellZ.ToString();
+    }
+
+    protected bool HCVarietyNearCorpse(ZombieBase candidate)
+    {
+        foreach (HCInfectedActor corpse : m_Actors)
+        {
+            if (!corpse.InfectedEntity || corpse.InfectedEntity.IsAlive()) { continue; }
+            if (vector.DistanceSq(candidate.GetPosition(), corpse.InfectedEntity.GetPosition()) <= 100) { return true; }
+        }
+        return false;
+    }
+
+    protected int HCVarietyInPlace(string place)
+    {
+        int total = 0;
+        foreach (HCInfectedActor resident : m_Actors)
+        {
+            ZombieBase entity = resident.InfectedEntity;
+            if (!entity || !entity.IsAlive() || !entity.HCVarietyDormant()) { continue; }
+            if (entity.HCVarietyPlace() == place) { total++; }
+        }
+        return total;
+    }
+
+    protected bool HCVarietyNearStanding(array<Man> players, ZombieBase candidate, bool checkGeometry)
+    {
+        int count = Math.Min(32, players.Count());
+        int first = candidate.HCVarietyObserverOffset(players.Count());
+        for (int playerIndex = 0; playerIndex < count; playerIndex++)
+        {
+            int rosterIndex = (first + playerIndex) % players.Count();
+            PlayerBase player = PlayerBase.Cast(players[rosterIndex]);
+            if (!player || !player.IsAlive()) { continue; }
+            if (vector.DistanceSq(player.GetPosition(), candidate.GetPosition()) > 36) { continue; }
+            int erect = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_RAISEDERECT;
+            if (!player.IsPlayerInStance(erect)) { continue; }
+            if (!checkGeometry) { return true; }
+            // One geometry candidate per actor/tick. Rotating the first
+            // observer prevents an occluded player starving another candidate.
+            return m_AlertChain.HCVarietyClear(player.GetPosition(), candidate);
+        }
+        return false;
+    }
+
+    int HCVarietyTick(array<Man> players, float now, float nightness, float rain, float scale)
+    {
+        if (!m_Healthy || !HCInfectedVarietyModule.VarietyActive()) { return 0; }
+        int woken = 0;
+        int living = 0;
+        int runners = 0;
+        int dormant = 0;
+        foreach (HCInfectedActor counted : m_Actors)
+        {
+            ZombieBase countedEntity = counted.InfectedEntity;
+            if (!countedEntity || !countedEntity.IsAlive()) { continue; }
+            living++;
+        }
+        int runnerCap = HCInfectedVarietyPolicy.RunnerLimit(living, nightness);
+        int dormantCap = HCInfectedVarietyPolicy.DormantLimit(scale);
+        foreach (HCInfectedActor bounded : m_Actors)
+        {
+            ZombieBase boundedEntity = bounded.InfectedEntity;
+            if (!boundedEntity) { continue; }
+            if (!boundedEntity.IsAlive()) { boundedEntity.HCVarietyRelease(); continue; }
+            if (boundedEntity.HCVarietyRole() == 2)
+            {
+                if (runners >= runnerCap) { boundedEntity.HCVarietyAssign(1, boundedEntity.HCVarietyPlace()); }
+                else { runners++; }
+            }
+            if (boundedEntity.HCVarietyDormant())
+            {
+                bool expired = now >= boundedEntity.HCVarietySleepUntil();
+                bool overCap = dormant >= dormantCap;
+                if (expired || overCap)
+                {
+                    if (boundedEntity.HCVarietyWake()) { woken++; }
+                }
+                else { dormant++; }
+            }
+        }
+        int work = Math.Min(4, m_Actors.Count());
+        for (int sampleIndex = 0; sampleIndex < work; sampleIndex++)
+        {
+            if (m_HCVarietyCursor >= m_Actors.Count()) { m_HCVarietyCursor = 0; }
+            HCInfectedActor actor = m_Actors[m_HCVarietyCursor];
+            m_HCVarietyCursor++;
+            ZombieBase entity = actor.InfectedEntity;
+            if (!entity || !entity.IsAlive()) { continue; }
+            if (entity.HCVarietyRole() < 0)
+            {
+                int role = 1;
+                if (Math.RandomFloat01() < 0.5) { role = 0; }
+                if (runners < runnerCap && !entity.IsCrawling()) { role = 2; runners++; }
+                entity.HCVarietyAssign(role, HCVarietyPlaceAt(entity.GetPosition()));
+            }
+            if (entity.HCVarietyDormant())
+            {
+                if (HCVarietyNearStanding(players, entity, true))
+                {
+                    if (entity.HCVarietyWake()) { woken++; dormant--; }
+                }
+                continue;
+            }
+            if (entity.HCVarietyTriedDormant() || !entity.IsCrawling()) { continue; }
+            if (actor.GroupId != 0 || actor.SearchPack || actor.EverAssigned) { continue; }
+            if (entity.GetMindStateSynced() != DayZInfectedConstants.MINDSTATE_CALM) { continue; }
+            // A crawler may have moved since first registration; name the real
+            // sleep location before applying the three-per-place cap.
+            entity.HCVarietyAssign(entity.HCVarietyRole(), HCVarietyPlaceAt(entity.GetPosition()));
+            if (dormant >= dormantCap || HCVarietyInPlace(entity.HCVarietyPlace()) >= 3) { continue; }
+            if (players.Count() > 32 || HCVarietyNearStanding(players, entity, false)) { continue; }
+            if (!HCVarietyNearCorpse(entity)) { continue; }
+            bool permitted = Math.RandomFloat01() < HCInfectedVarietyPolicy.DormantChance(nightness, rain);
+            if (entity.HCVarietySleep(now, permitted)) { dormant++; }
+        }
+        return woken;
+    }
+
+    int HCVarietyShot(vector origin, float nightness, float rain)
+    {
+        if (!m_Healthy || !HCInfectedVarietyModule.VarietyActive()) { return 0; }
+        if (Math.RandomFloat01() > HCInfectedVarietyPolicy.NoiseWakeChance(nightness, rain)) { return 0; }
+        string place;
+        int recipients = 0;
+        int checks = 0;
+        int woken = 0;
+        foreach (HCInfectedActor actor : m_Actors)
+        {
+            ZombieBase entity = actor.InfectedEntity;
+            if (!entity || !entity.IsAlive() || !entity.HCVarietyDormant()) { continue; }
+            if (recipients >= 3) { break; }
+            if (place != "" && entity.HCVarietyPlace() != place) { continue; }
+            if (vector.DistanceSq(origin, entity.GetPosition()) > 6400) { continue; }
+            if (checks >= 3) { break; }
+            checks++;
+            if (!m_AlertChain.HCVarietyClear(origin, entity)) { continue; }
+            place = entity.HCVarietyPlace();
+            if (entity.HCVarietyWake()) { woken++; }
+            recipients++;
+            // Frozen genuine event; no live shooter position, refresh or relay.
+            actor.Heard = HCHordeStimulus.HCVarietyGunshot(origin, m_Now);
+            actor.HeardExternally = true;
+        }
+        return woken;
+    }
+
+    void HCVarietyReleaseAll()
+    {
+        foreach (HCInfectedActor actor : m_Actors)
+        {
+            if (actor.InfectedEntity) { actor.InfectedEntity.HCVarietyRelease(); }
+        }
+    }
+
+    override void OnStop()
+    {
+        HCVarietyReleaseAll();
+        super.OnStop();
+    }
+
+    override protected void Quarantine(string reason)
+    {
+        HCVarietyReleaseAll();
+        super.Quarantine(reason);
+    }
+
+    void HCVarietyDescribe(HCDebugSnapshot snapshot)
+    {
+        int shown = 0;
+        foreach (HCInfectedActor actor : m_Actors)
+        {
+            ZombieBase entity = actor.InfectedEntity;
+            if (!entity || !entity.IsAlive() || !entity.HCVarietyDormant()) { continue; }
+            if (shown >= 12) { break; }
+            snapshot.AddPoint("infected", "dormant:" + shown.ToString(), entity.GetPosition(), "Dormant crawler", entity.HCVarietyPlace());
+            shown++;
+        }
+        if (!m_State) { return; }
+        int hordeCount = Math.Min(2, m_State.Groups.Count());
+        for (int hordeIndex = 0; hordeIndex < hordeCount; hordeIndex++)
+        {
+            HCHordeRecord group = m_State.Groups[hordeIndex];
+            if (group.State == 5 || group.State == 6) { continue; }
+            snapshot.AddPoint("infected", "horde:" + group.Id.ToString(), group.Anchor, "Horde", "journal living=" + group.Living.ToString());
+        }
+    }
+}
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCInfectedVarietyModule);
+    }
+}

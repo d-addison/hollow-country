@@ -80,10 +80,18 @@ class HCInfectedMemory
     // cue, route, observer and distance checks remain in the original caller.
     static int CohortSize(vector pos, int available)
     {
-        if (!s_Instance || !s_Instance.m_Healthy) return available;
-        float heat = Heat(pos);
-        if (!s_Instance || !s_Instance.m_Healthy) return available;
-        return CohortSizeAtHeat(heat, available);
+        int requested = available;
+        if (s_Instance && s_Instance.m_Healthy)
+        {
+            float heat = Heat(pos);
+            if (s_Instance && s_Instance.m_Healthy)
+            {
+                requested = CohortSizeAtHeat(heat, available);
+            }
+        }
+        // W5 #125 affects future CE adoption only, using the once-per-tick
+        // online roster. Six/member/global journal caps remain authoritative.
+        return HCInfectedVarietyModule.HCScaledCohort(requested, available);
     }
 
     protected void Fail()
@@ -328,6 +336,7 @@ modded class Weapon_Base
         ItemBase suppressor = GetAttachedSuppressor();
         if (suppressor && !suppressor.IsDamageDestroyed()) loudness = 0.15;
         HCInfectedMemory.Record(GetPosition(), loudness);
+        if (loudness >= 1) { HCInfectedVarietyModule.HCRecordShot(GetPosition()); }
     }
 }
 

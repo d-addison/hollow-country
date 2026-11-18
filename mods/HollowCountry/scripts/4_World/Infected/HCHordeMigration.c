@@ -151,6 +151,9 @@ modded class HCNativeInfectedPack
         m_V2Segment = false;
         m_V2Paused = false;
         m_V2Drift = true;
+        // W5 #121: the same capped native roster becomes a walker herd while
+        // variety is enabled. Its command adapter only caps requested speed.
+        HCVarietyWalkerHerd();
     }
 
     // Actual production segment commit is exercised by the one synthetic smoke.
@@ -215,8 +218,8 @@ modded class HCNativeInfectedPack
             {
                 BehaviourGroupInfectedPack behaviour = BehaviourGroupInfectedPack.Cast(Group.GetBehaviour());
                 if (!behaviour) { return V2End(now, 6); }
-                // Cancel authored drift. Native combat/locomotion is never
-                // suppressed; no forced pose, speed or position is applied.
+                // Cancel authored drift. Native combat stays authoritative;
+                // W5 variety independently caps requested movement speed.
                 array<ref BehaviourGroupInfectedPackWaypointParams> hold = new array<ref BehaviourGroupInfectedPackWaypointParams>;
                 hold.Insert(new BehaviourGroupInfectedPackWaypointParams(centroid, 4));
                 behaviour.SetWaypoints(hold, 0, true, false);

@@ -3,6 +3,7 @@
 These execute restricted translations of the shipped helpers, not DayZ AI.
 """
 from types import SimpleNamespace as NS
+import math
 import unittest
 
 if __package__:
@@ -20,6 +21,32 @@ class Array(list):
 
 
 class InfectedVariantTests(unittest.TestCase):
+    def test_w5_variety_caps_and_group_scaling_smoke(self):
+        # Explicit synthetic scalar inputs; no engine/animation evidence.
+        policy = policy_functions("Variety/HCInfectedVarietyPolicy.c", Math=NS(
+            Min=min, Max=max, Floor=math.floor, Round=lambda v: math.floor(v + .5),
+            Clamp=lambda v, lo, hi: max(lo, min(hi, v))))
+        for players, scale, dormant, cohort in ((1, .6, 5, 3), (3, 1., 8, 4),
+                                               (6, 1.3, 10, 5), (99, 1.3, 10, 5)):
+            self.assertAlmostEqual(scale, policy['GroupScale'](players))
+            self.assertEqual(dormant, policy['DormantLimit'](scale))
+            self.assertEqual(cohort, policy['CohortLimit'](4, 6, scale))
+        self.assertEqual(3, policy['CohortLimit'](3, 6, .6))  # v1 minimum stays three
+        self.assertEqual(6, policy['CohortLimit'](6, 6, 1.3))
+        self.assertEqual(2, policy['CohortLimit'](6, 2, 1.3))
+        self.assertEqual(12, policy['DormantLimit'](100))
+        for population in range(25):
+            for nightness in (0., 1.):
+                runners = policy['RunnerLimit'](population, nightness)
+                self.assertLessEqual(runners, population * .15)
+                if not nightness:
+                    self.assertLessEqual(runners, population * .08)
+        self.assertGreater(policy['DormantChance'](0., 0.), policy['DormantChance'](1., 1.))
+        for role, expected in ((0, 1), (1, 2), (2, 3)):
+            self.assertEqual(expected, policy['MovementLimit'](role, 3))
+            self.assertEqual(0, policy['MovementLimit'](role, 0))
+            self.assertEqual(.5, policy['MovementLimit'](role, .5))
+
     def setUp(self):
         self.logs = []
         self.policy = policy_functions()

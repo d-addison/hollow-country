@@ -16,10 +16,12 @@
 // bounded observation ticket must expire or be invalidated when unsupported;
 // selection never refreshes it. Native perception qualification remains pending.
 //
-// Supported heard category is actual local native infected voice only. The seed
-// is not external hearing; every relay preserves root expiry and decays strength.
-// Other native noises keep native handling until a measured gap justifies an
-// adapter. No gunshot/rummage adapter or duplicate noise emission is added here.
+// Heard clues use actual local native voice or W5's bounded real-shot adapter.
+// Self-voice is not external hearing; every relay preserves root expiry and
+// decays strength.
+// W5 adds a bounded experimental real-shot cue after the existing geometry
+// checks. It preserves the existing heard/route admission; no rummage adapter
+// or duplicate noise emission is added here. Audibility remains unobserved.
 // Only authored DTO/policy calls below; no native perception/coordinate API.
 enum HCStimulusCategory
 {
@@ -138,6 +140,21 @@ class HCHordeStimulus
 // frozen sound locations, but never manufactures hearing or a live player fix.
 modded class HCHordeStimulus
 {
+    // W5: only called after a real EEFired event, <=80 m and the existing
+    // relay's two geometry tests. Experimental cue, not measured audibility.
+    // Never renew, relay or substitute the shooter's current location.
+    static HCInfectedClue HCVarietyGunshot(vector origin, float now)
+    {
+        HCInfectedClue clue = new HCInfectedClue;
+        clue.Origin = origin;
+        clue.Observed = now;
+        clue.Expires = now + 20;
+        clue.Strength = 1;
+        clue.Provenance = 1;
+        clue.Hops = 0;
+        return clue;
+    }
+
     static HCInfectedClue MigrationClue(HCInfectedActor actor, float now)
     {
         if (!actor || !actor.HeardExternally || !actor.Heard) { return null; }
