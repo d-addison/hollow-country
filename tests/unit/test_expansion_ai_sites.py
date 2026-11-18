@@ -88,6 +88,52 @@ eAIDynamicPatrol.c:111,653-655 (config to group); Classes/PathFinding/
 ExpansionPathFilters.c:58-68 (matching flags), ExpansionPathPoint.c:93-136
 (native call and partial-end handling). No exposed native node/length limit was
 found. Source inspection and these synthetic tests do not prove server routes.
+
+Round 3 / chain-v4 (#36): four routes were still refused on the local server
+(police-chernogorsk, police-elektrozavodsk, police-berezino, scav-novodmitrovsk).
+Each logged route minimum kept=1 or 2: a kept group was isolated from every
+later point. The cause is sampling with the Expansion FindPath filter, which
+admits INSIDE/DOOR/LADDER polygons, at building model origins. The restart only
+handled Kept == 1, and the early refusal fired whenever Kept > 1. Fix: restart
+whenever Kept < minimum while enough later points remain. Then, once, retry a
+refused outdoor route on outdoor-ground samples: WALK only, INSIDE/DOOR/LADDER
+excluded, within 2 m of SurfaceY, the centre at radius 16 and then four 12 m
+probes at radius 8. FindPath keeps the Expansion filter and the shared 96-call
+budget. Holdouts never sample outdoors. The navmesh fixtures below
+(isolated_navmesh) are EXPLICIT SYNTHETIC islands. The from/to/closest values on
+the refused legs are the server's logged coordinates; everything else is fake.
+RED command (old HCXAISites.c/HCXAISiteRules.c, new tests):
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_ai_sites
+Actual observed-case failures (verbatim; they reproduce the server's refusal text):
+FAIL: test_observed_police_berezino_isolated_kept_pair_requalifies_on_outdoor_ground
+AssertionError: False is not true : route minimum: kept=2 required=3; leg 3: path chain stalled; from=|11994.5,54.1155,9023.1; to=|11995.8,54.0662,9109.17; closest=|11995.9,54.0451,9026.3; gap=82.87006302163726; steps=2
+FAIL: test_observed_police_chernogorsk_isolated_kept_pair_requalifies_on_outdoor_ground
+AssertionError: False is not true : route minimum: kept=2 required=3; leg 3: path chain stalled; from=|6571.17,6.41307,2533.65; to=|6708.72,3.06291,2555.77; closest=|6571.7,6.45731,2533.3; gap=138.89169612097086; steps=2
+FAIL: test_observed_police_elektrozavodsk_isolated_kept_pair_requalifies_on_outdoor_ground
+AssertionError: False is not true : route minimum: kept=2 required=3; leg 3: path chain stalled; from=|10517.8,6.09771,2327.14; to=|10457.1,6.0694,2355.9; closest=|10516.6,6.09771,2327.6; gap=65.8873341504732; steps=2
+FAIL: test_observed_scav_novodmitrovsk_isolated_kept_pair_requalifies_on_outdoor_ground
+AssertionError: False is not true : route minimum: kept=2 required=3; leg 2: path chain stalled; from=|11589.8,43.1465,14453.1; to=|11559.1,33.297,14272.0; closest=|11588.1,43.0328,14450.1; gap=180.70804022411434; steps=2
+FAIL: test_isolated_kept_pair_restarts_from_a_later_point_before_any_outdoor_retry
+AssertionError: False is not true : route minimum: kept=2 required=3; leg 3: path chain stalled; from=|140.0,0.0,100.0; to=|260.0,0.0,100.0; closest=|140.6,0.0,100.0; gap=119.4; steps=2
+Ran 81 tests in 0.676s
+FAILED (failures=21, errors=2)
+The other RED failures and errors cover the outdoor sampler (missing authored
+OutdoorSample), the zero-ground refusal, mixed samples, a single retry, the
+shared budget, holdouts, the filter source, and chain-v4 in the route key and logs.
+GREEN command:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_ai_sites tests.unit.test_expansion_ai_adapter tests.unit.test_expansion_ai_lifecycle -v
+Ran 141 tests in 1.836s
+OK
+Exact synthetic fixture logs (not predictions of native server results):
+[HC Expansion AI] site police-chernogorsk route retry with outdoor ground samples (outdoor=5/5) after: route minimum: kept=1 required=3; leg 3: path chain stalled; from=|6631.42,6.30214,2504.04; to=|6708.72,3.06291,2555.77; closest=|6632.02,6.30214,2504.04; gap=92.57092151962664; steps=2
+[HC Expansion AI] site police-chernogorsk route qualified: chain-v4 legs=5 FindPath=22 continuations=8 patrol waypoints=5 skipped=0 snapped=0 behaviour=LOOP sampling=outdoor outdoor=5/5 skipped-points=
+[HC Expansion AI] site scav-novodmitrovsk route qualified: chain-v4 legs=4 FindPath=13 continuations=4 patrol waypoints=4 skipped=0 snapped=0 behaviour=LOOP sampling=outdoor outdoor=4/4 skipped-points=
+Round 3 API evidence (read-only): scripts-1.30.164289/3_Game/AI/AIWorld.c:1-26
+PGPolyFlags, :65 PGFilter.SetFlags, :98 FindPath, :122 SampleNavmeshPosition;
+3_Game/Global/Game.c:1176 SurfaceY; 1_Core/proto/EnMath.c:225 Math.AbsFloat.
+The outdoor flag set matches HCEventPoliceNav (HCEventRewardCache.c:27-40), with
+DOOR added. PGPolyFlags bit values, the 2 m ground tolerance and the radii are
+unobserved in DayZ.
 """
 import json
 import math
@@ -304,7 +350,7 @@ class SiteRulesTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 site = self.site(kind)
                 text = self.rules.RouteText(site, '1.30.164289')
-                self.assertTrue(text.startswith('chain-v3|1.30.164289|'), text)
+                self.assertTrue(text.startswith('chain-v4|1.30.164289|'), text)
 
     def test_no_kind_can_reuse_success_without_regenerating_snaps_and_skips(self):
         self.assertFalse(self.rules.ReuseQualifiedRoute('holdout'))
@@ -363,29 +409,49 @@ class SiteChainGlueTests(unittest.TestCase):
         self.path_fake = None
         self.rows = []
         self.cached = None
+        self.samples = []
+        self.terrain = lambda x, z: 0.
         self.env = dict(A=A, Print=self.logs.append, HCXAITestArray=A,
                         HCXAIRouteRow=lambda: N(),
                         vector=N(Distance=math.dist, Zero=(0., 0., 0.)),
+                        Vector=lambda x, y, z: (float(x), float(y), float(z)),
+                        Math=N(AbsFloat=abs),
                         eAIWaypointBehavior=N(HALT=0))
         rules_source = (SCRIPTS / 'HCXAISiteRules.c').read_text()
         self.rules = api(rules_source, self.env)
         self.env['HCXAISiteRules'] = self.rules
         self.world = N(FindPath=self.find_path, SampleNavmeshPosition=lambda *args: True)
-        self.env['GetGame'] = lambda: N(GetWorld=lambda: N(GetAIWorld=lambda: self.world))
+        self.env['GetGame'] = lambda: N(GetWorld=lambda: N(GetAIWorld=lambda: self.world),
+                                        SurfaceY=lambda x, z: self.terrain(x, z))
         # Authored's existing type adapter handles HCXAI* names and constructors.
         source = (SCRIPTS / 'HCXAISites.c').read_text().replace('TVectorArray', 'HCXAITestArray').replace('AIWorld world', 'HCXAITestWorld world')
         source = re.sub(r'([\w.]+\.Count\(\))\.ToString\(\)', r'str(\1)', source)
         self.authored = Authored(source, self.env)
-        self.owner = N(m_Filter=object(), RouteRow=lambda key: self.cached,
-                       Remember=self.rows.append)
-        self.owner.Refuse = lambda *args: self.authored.call('Refuse', self.owner, *args)
+        # Two distinct synthetic filter identities: the Expansion-matching navmesh
+        # filter (INSIDE allowed) and the outdoor-ground filter (INSIDE excluded).
+        self.navmesh_filter = object()
+        self.outdoor_filter = object()
+        self.owner = N(m_Filter=self.navmesh_filter, m_OutdoorFilter=self.outdoor_filter,
+                       RouteRow=lambda key: self.cached, Remember=self.rows.append,
+                       NavSample=self.nav_sample)
+        for method in ('Refuse', 'RefuseOrRetry', 'OutdoorSample', 'GroundSample'):
+            setattr(self.owner, method, lambda *args, m=method: self.authored.call(m, self.owner, *args))
+        # Default synthetic sampler: the navmesh filter keeps the wanted point,
+        # the outdoor filter finds nothing (so no outdoor retry geometry exists).
+        self.sample_fake = lambda wanted, radius, used: wanted if used is self.navmesh_filter else (0., 0., 0.)
         self.state = N(Site=N(Id='synthetic-town', Kind='patrol', Behaviour='ALTERNATE'),
-                       Key='synthetic-key', Points=A(), Sampled=A([(100., 0., 100.), (220., 0., 100.)]),
+                       Key='synthetic-key', Points=A([(100., 0., 100.), (220., 0., 100.)]),
+                       Sampled=A([(100., 0., 100.), (220., 0., 100.)]),
                        PatrolPoints=A([(100., 0., 100.)]), Leg=0, Qualified=False, Cached=False,
                        Failed=False, Reason='', ChainSteps=0, ChainLength=0.,
                        ChainFrom=(0., 0., 0.), ClosestEnd=(0., 0., 0.), ClosestGap=0.,
                        PathCalls=0, Continuations=0, AttemptPoints=A(), StartIndex=0, Kept=1,
-                       Skipped=0, Snapped=0, SkippedPoints='', Closed=False, OpenRoute=False)
+                       Skipped=0, Snapped=0, SkippedPoints='', Closed=False, OpenRoute=False,
+                       OutdoorPass=False, Outdoor=0)
+
+    def nav_sample(self, wanted, radius, used):
+        self.samples.append((wanted, radius, used))
+        return self.sample_fake(wanted, radius, used)
 
     def find_path(self, start, goal, filter_used, output):
         self.calls.append((start, goal, filter_used))
@@ -420,6 +486,7 @@ class SiteChainGlueTests(unittest.TestCase):
             points = [tuple(p) for p in data['Waypoints']]
             points[leg], points[leg + 1] = start, target
         self.state.Sampled = A(points)
+        self.state.Points = A(points)
         self.state.PatrolPoints = A([points[0]])
         def fake(origin, goal):
             if goal == target:
@@ -439,7 +506,8 @@ class SiteChainGlueTests(unittest.TestCase):
             self.assertIn(closest, self.state.PatrolPoints)
         self.assertEqual(len(self.logs), 1)
         self.assertIn('skipped=%d snapped=%d' % (int(not snap), int(snap)), self.logs[0])
-        self.assertIn('chain-v3', self.logs[0])
+        self.assertIn('chain-v4', self.logs[0])
+        self.assertIn('sampling=navmesh outdoor=0/%d' % len(points), self.logs[0])
 
     def test_observed_police_chernogorsk_stall_skips_target_two(self):
         self.observed('police-chernogorsk', 1, (6571.17, 6.41307, 2533.65),
@@ -469,10 +537,250 @@ class SiteChainGlueTests(unittest.TestCase):
         self.observed('holdout-mogilevka', 0, (7556.67, 214.573, 5148.83),
                       (7559.6, 214., 5142.52), (7562.5, 215., 5143.2), snap=True)
 
+    def isolated_navmesh(self, site_id, legacy, islands, closest, outdoor):
+        """Round 3 fixture: explicit SYNTHETIC navmesh, not DayZ evidence.
+
+        legacy: the navmesh-filter (INSIDE allowed) samples; observed refusal
+        coordinates where the server logged them, synthetic otherwise.
+        islands: index groups that connect to each other; every other leg ends
+        at a dead end next to its start (closest given where observed) and
+        then stalls, which is the shape of all four observed refusals.
+        outdoor: per index, the outdoor-ground sample (INSIDE excluded) or None;
+        all outdoor samples connect (explicit synthetic success)."""
+        data = next(s for s in json.loads((AI / 'sites.json').read_text())['Sites']
+                    if s['Id'] == site_id)
+        self.assertEqual(len(data['Waypoints']), len(legacy))
+        for authored, sampled in zip(data['Waypoints'], legacy):
+            self.assertLess(math.dist((authored[0], authored[2]), (sampled[0], sampled[2])), 12.)
+        self.state.Site = N(Id=site_id, Kind=data['Kind'], Behaviour=data['Behaviour'])
+        self.state.Points = A(legacy)
+        self.state.Sampled = A()
+        self.state.PatrolPoints = A()
+        island_of = {legacy[i]: k for k, group in enumerate(islands) for i in group}
+        index_of = {point: i for i, point in enumerate(legacy)}
+        ground = set(o for o in outdoor if o)
+        heights = {(o[0], o[2]): o[1] for o in ground}
+        dead = set()
+        def sample(wanted, radius, used):
+            if used is self.navmesh_filter:
+                return wanted
+            if wanted in index_of and outdoor[index_of[wanted]]:
+                return outdoor[index_of[wanted]]
+            return (0., 0., 0.)
+        self.sample_fake = sample
+        self.terrain = lambda x, z: heights.get((x, z), 0.)
+        def path(origin, goal):
+            if origin in ground and goal in ground:
+                return True, [origin, goal]
+            if origin in dead:
+                return True, [origin, origin]
+            if origin in island_of and island_of.get(goal) == island_of[origin]:
+                return True, [origin, goal]
+            end = closest.get((index_of.get(origin), index_of.get(goal)), (origin[0] + .6, origin[1], origin[2]))
+            dead.add(end)
+            return True, [origin, end]
+        self.path_fake = path
+        self.finish()
+
+    def assert_outdoor_rescue(self, outdoor):
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertTrue(self.state.OutdoorPass)
+        count = len(outdoor)
+        self.assertEqual(self.state.Outdoor, count)
+        # The patrol walks only reached outdoor points, in order.
+        self.assertEqual(self.state.PatrolPoints, outdoor)
+        self.assertEqual(self.state.Kept, count)
+        self.assertEqual(len(self.calls), self.state.PathCalls)
+        self.assertLessEqual(self.state.PathCalls, 96)
+        self.assertEqual(len(self.logs), 2, self.logs)
+        self.assertIn('route retry with outdoor ground samples (outdoor=%d/%d) after: route minimum' % (count, count),
+                      self.logs[0])
+        self.assertIn('chain-v4', self.logs[1])
+        self.assertIn('sampling=outdoor outdoor=%d/%d' % (count, count), self.logs[1])
+        self.assertIn('behaviour=LOOP', self.logs[1])
+        # Every FindPath after the retry runs between outdoor samples on the
+        # unchanged Expansion-matching filter.
+        retry_calls = self.calls[-count:]
+        self.assertEqual([c[1] for c in retry_calls], outdoor[1:] + outdoor[:1])
+        self.assertTrue(all(c[2] is self.navmesh_filter for c in self.calls))
+
+    def shifted(self, legacy):
+        # Explicit synthetic outdoor ground points 9 m east and 9 m north.
+        return [(p[0] + 9., p[1], p[2] + 9.) for p in legacy]
+
+    # Observed refusal (release with chain-v3, verbatim): leg 3: path chain stalled;
+    # from=|6571.17,6.41307,2533.65; to=|6708.72,3.06291,2555.77; closest=|6571.7,6.45731,2533.3; gap=138.892; steps=2
+    def test_observed_police_chernogorsk_isolated_kept_pair_requalifies_on_outdoor_ground(self):
+        legacy = [(6564.47, 6.4, 2551.96), (6571.17, 6.41307, 2533.65), (6631.42, 6.30214, 2504.04),
+                  (6652.29, 5.0, 2508.92), (6708.72, 3.06291, 2555.77)]
+        closest = {(1, 2): (6571.7, 6.45731, 2533.3), (1, 4): (6571.7, 6.45731, 2533.3)}
+        outdoor = self.shifted(legacy)
+        self.isolated_navmesh('police-chernogorsk', legacy, [{0, 1}, {2}, {3}, {4}], closest, outdoor)
+        self.assert_outdoor_rescue(outdoor)
+
+    # Observed: leg 3: path chain stalled; from=|10517.8,6.09771,2327.14; to=|10457.1,6.0694,2355.9;
+    # closest=|10516.6,6.09771,2327.6; gap=65.8873; steps=2 (earlier: point 0 stalled at 10405.0,5.97355,2210.3).
+    def test_observed_police_elektrozavodsk_isolated_kept_pair_requalifies_on_outdoor_ground(self):
+        legacy = [(10403.4, 5.97355, 2209.93), (10538.6, 6.23878, 2271.77), (10517.8, 6.09771, 2327.14),
+                  (10494.88, 6.1, 2346.99), (10457.1, 6.0694, 2355.9)]
+        closest = {(0, 1): (10405., 5.97355, 2210.3), (2, 4): (10516.6, 6.09771, 2327.6)}
+        outdoor = self.shifted(legacy)
+        self.isolated_navmesh('police-elektrozavodsk', legacy, [{0}, {1, 2}, {3}, {4}], closest, outdoor)
+        self.assert_outdoor_rescue(outdoor)
+
+    # Observed: leg 3: path chain stalled; from=|11994.5,54.1155,9023.1; to=|11995.8,54.0662,9109.17;
+    # closest=|11995.9,54.0451,9026.3; gap=82.8702; steps=2
+    def test_observed_police_berezino_isolated_kept_pair_requalifies_on_outdoor_ground(self):
+        legacy = [(11983.84, 54.2, 9040.77), (11994.5, 54.1155, 9023.1), (12067.3, 54.01, 9145.8),
+                  (12039.64, 54.0, 9132.38), (11995.8, 54.0662, 9109.17)]
+        closest = {(1, 2): (11995.9, 54.0451, 9026.3), (1, 4): (11995.9, 54.0451, 9026.3)}
+        outdoor = self.shifted(legacy)
+        self.isolated_navmesh('police-berezino', legacy, [{0, 1}, {2}, {3}, {4}], closest, outdoor)
+        self.assert_outdoor_rescue(outdoor)
+
+    # Observed: leg 2: path chain stalled; from=|11589.8,43.1465,14453.1; to=|11559.1,33.297,14272;
+    # closest=|11588.1,43.0328,14450.1; gap=180.664; steps=2
+    def test_observed_scav_novodmitrovsk_isolated_kept_pair_requalifies_on_outdoor_ground(self):
+        legacy = [(11579.02, 50., 14599.06), (11589.8, 43.1465, 14453.1), (11702.5, 36.733, 14356.1),
+                  (11559.1, 33.297, 14272.)]
+        closest = {(1, 2): (11592.7, 43.2328, 14453.4), (1, 3): (11588.1, 43.0328, 14450.1)}
+        outdoor = self.shifted(legacy)
+        self.isolated_navmesh('scav-novodmitrovsk', legacy, [{0, 1}, {2}, {3}], closest, outdoor)
+        self.assert_outdoor_rescue(outdoor)
+
+    def test_isolated_kept_pair_restarts_from_a_later_point_before_any_outdoor_retry(self):
+        # Synthetic: points 0 and 1 share an island, 2..4 connect. A kept pair
+        # that cannot reach the minimum no longer ends the first pass.
+        legacy = [(100. + i * 40., 0., 100.) for i in range(5)]
+        self.state.Site = N(Id='synthetic-town', Kind='patrol', Behaviour='LOOP')
+        self.state.Points = A(legacy)
+        self.state.Sampled = A()
+        self.state.PatrolPoints = A()
+        group = {legacy[0]: 0, legacy[1]: 0, legacy[2]: 1, legacy[3]: 1, legacy[4]: 1}
+        dead = set()
+        def path(a, b):
+            if a in dead: return True, [a, a]
+            if a in group and group.get(b) == group[a]: return True, [a, b]
+            end = (a[0] + .6, a[1], a[2])
+            dead.add(end)
+            return True, [a, end]
+        self.path_fake = path
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertFalse(self.state.OutdoorPass)
+        self.assertEqual((self.state.Kept, self.state.Skipped, self.state.StartIndex), (3, 2, 2))
+        self.assertEqual(self.state.PatrolPoints, legacy[2:])
+        self.assertTrue(self.state.Closed)
+        self.assertEqual(len(self.logs), 1)
+        self.assertIn('sampling=navmesh outdoor=0/5', self.logs[0])
+        self.assertIn('skipped-points= 0|100.0,0.0,100.0 1|140.0,0.0,100.0', self.logs[0])
+        self.assertFalse([s for s in self.samples if s[2] is self.outdoor_filter])
+
+    def test_outdoor_sample_takes_ground_at_the_terrain_point_first(self):
+        wanted = (500., 10., 500.)
+        ground = (506., 10.4, 503.)
+        self.terrain = lambda x, z: 10.
+        self.sample_fake = lambda w, r, f: ground if f is self.outdoor_filter else w
+        self.assertEqual(self.owner.OutdoorSample(wanted), ground)
+        self.assertEqual(self.samples, [(wanted, 16, self.outdoor_filter)])
+
+    def test_outdoor_sample_refuses_roofs_and_takes_the_nearest_ground_probe(self):
+        wanted = (500., 10., 500.)
+        roof = (501., 17., 501.)  # synthetic flat roof 7 m above the terrain
+        near = (510., 10., 501.)
+        far = (500., 10.5, 486.)
+        def sample(w, r, f):
+            if w == wanted: return roof
+            if w == (512., 10., 500.): return near
+            if w == (500., 10., 488.): return far
+            return (0., 0., 0.)
+        self.terrain = lambda x, z: 10.
+        self.sample_fake = sample
+        self.assertEqual(self.owner.OutdoorSample(wanted), near)
+        self.assertEqual([(s[0], s[1]) for s in self.samples],
+                         [(wanted, 16), ((512., 10., 500.), 8), ((488., 10., 500.), 8),
+                          ((500., 10., 512.), 8), ((500., 10., 488.), 8)])
+        self.assertTrue(all(s[2] is self.outdoor_filter for s in self.samples))
+        self.sample_fake = lambda w, r, f: roof
+        self.assertEqual(self.owner.OutdoorSample(wanted), (0., 0., 0.))
+
+    def test_no_outdoor_ground_refuses_at_once_without_a_retry_chain(self):
+        self.isolated_navmesh('scav-novodmitrovsk', [(11579.02, 50., 14599.06), (11589.8, 43.1465, 14453.1),
+                                                     (11702.5, 36.733, 14356.1), (11559.1, 33.297, 14272.)],
+                              [{0}, {1}, {2}, {3}], {}, [None, None, None, None])
+        self.assertTrue(self.state.Failed)
+        self.assertTrue(self.state.Reason.startswith('outdoor=0/4; route minimum'), self.state.Reason)
+        self.assertEqual(len(self.logs), 1)
+        self.assertIn('route refused: outdoor=0/4; route minimum', self.logs[0])
+        self.assertFalse(self.state.Qualified)
+
+    def test_points_without_outdoor_ground_keep_their_navmesh_sample_in_the_retry(self):
+        legacy = [(100. + i * 40., 0., 100.) for i in range(4)]
+        outdoor = [(110., 0., 110.), None, (190., 0., 110.), (230., 0., 110.)]
+        self.state.Site = N(Id='synthetic-town', Kind='scavenger', Behaviour='LOOP')
+        self.state.Points = A(legacy)
+        self.state.Sampled = A()
+        self.state.PatrolPoints = A()
+        good = set(o for o in outdoor if o)
+        def sample(w, r, f):
+            if f is self.navmesh_filter: return w
+            if w in legacy and outdoor[legacy.index(w)]: return outdoor[legacy.index(w)]
+            return (0., 0., 0.)
+        self.sample_fake = sample
+        self.path_fake = lambda a, b: (True, [a, b if (a in good and b in good) else a])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual(self.state.Outdoor, 3)
+        self.assertEqual(self.state.PatrolPoints, [outdoor[0], outdoor[2], outdoor[3]])
+        self.assertEqual(self.state.Skipped, 1)
+        self.assertIn('sampling=outdoor outdoor=3/4', self.logs[-1])
+        self.assertIn(' 1|140.0,0.0,100.0', self.logs[-1])
+
+    def test_outdoor_retry_happens_once_and_its_refusal_is_final(self):
+        self.synthetic_route(4)
+        self.state.Sampled = A()
+        self.state.PatrolPoints = A()
+        self.sample_fake = lambda w, r, f: w if f is self.navmesh_filter else (w[0], w[1], w[2] + 9.)
+        self.path_fake = lambda a, b: (True, [a, a])  # synthetic: nothing connects
+        self.finish()
+        self.assertTrue(self.state.Failed)
+        self.assertTrue(self.state.Reason.startswith('outdoor=4/4; route minimum'), self.state.Reason)
+        self.assertEqual(sum('route retry' in line for line in self.logs), 1)
+        self.assertIn('route refused: outdoor=4/4; route minimum', self.logs[-1])
+        self.assertFalse(self.rows[-1].Qualified)
+        self.assertEqual(len(self.calls), self.state.PathCalls)
+        self.assertLessEqual(self.state.PathCalls, 96)
+
+    def test_outdoor_retry_shares_the_site_budget(self):
+        self.synthetic_route(3)
+        self.state.PathCalls = 94  # explicit synthetic previously consumed work
+        self.sample_fake = lambda w, r, f: w if f is self.navmesh_filter else (w[0], w[1], w[2] + 9.)
+        self.path_fake = lambda a, b: (True, [a, a])
+        self.finish()
+        self.assertTrue(self.state.Failed)
+        self.assertEqual(self.state.PathCalls, 96)
+        self.assertTrue(self.state.Reason.startswith('route minimum'), self.state.Reason)
+        self.assertFalse(self.state.OutdoorPass)
+        self.assertFalse([s for s in self.samples if s[2] is self.outdoor_filter])
+
+    def test_holdout_refusal_never_samples_outdoors(self):
+        self.synthetic_route(3, 'holdout', 'ALTERNATE')
+        self.state.Sampled = A()
+        self.state.PatrolPoints = A()
+        self.sample_fake = lambda w, r, f: w if f is self.navmesh_filter else (w[0], w[1], w[2] + 9.)
+        self.path_fake = lambda a, b: (True, [a, a])
+        self.finish()
+        self.assertTrue(self.state.Failed)
+        self.assertTrue(self.state.Reason.startswith('route minimum'), self.state.Reason)
+        self.assertFalse(self.state.OutdoorPass)
+        self.assertEqual({(s[1], s[2]) for s in self.samples}, {(2, self.navmesh_filter)})
+        self.assertFalse([line for line in self.logs if 'retry' in line])
+
     def synthetic_route(self, count=4, kind='patrol', behaviour='LOOP'):
         self.state.Site.Kind = kind
         self.state.Site.Behaviour = behaviour
         self.state.Sampled = A((100. + i * 30., 0., 100.) for i in range(count))
+        self.state.Points = A(self.state.Sampled)
         self.state.PatrolPoints = A([self.state.Sampled[0]])
 
     def test_unreachable_first_point_is_dropped_and_later_points_are_retried(self):
@@ -842,10 +1150,26 @@ class SiteSourceTests(unittest.TestCase):
         code = self.code(self.sites)
         create = code[code.index('protected void Create('):]
         self.assertIn('foreach (vector point : state.PatrolPoints)', create)
-        qualify = code[code.index('protected void QualifyStep('):code.index('protected void Refuse(')]
+        qualify = code[code.index('protected void QualifyStep('):code.index('protected vector NavSample(')]
         self.assertEqual(qualify.count('world.FindPath('), 1)
         self.assertIn('HCXAISiteRules.ReuseQualifiedRoute(state.Site.Kind)', qualify)
         self.assertIn('if (state.Site.Kind == "") { radius = 2; }', qualify)
+
+    def test_outdoor_ground_filter_excludes_interiors_and_findpath_keeps_the_expansion_filter(self):
+        code = self.code(self.sites)
+        wait = code[code.index('protected void StepWait()'):code.index('protected HCXAISiteAdmission Observe()')]
+        flags = wait[wait.index('m_OutdoorFilter.SetFlags('):]
+        flags = flags[:flags.index(';')]
+        include, exclude, exclusive = [part.strip() for part in flags[len('m_OutdoorFilter.SetFlags('):-1].split(',')]
+        self.assertEqual(include, 'PGPolyFlags.WALK')
+        self.assertEqual(exclusive, 'PGPolyFlags.NONE')
+        for flag in ('INSIDE', 'DOOR', 'LADDER', 'DISABLED', 'UNREACHABLE', 'SWIM', 'SWIM_SEA',
+                     'JUMP', 'CLIMB', 'CRAWL', 'CROUCH'):
+            self.assertIn('PGPolyFlags.' + flag + ' ', exclude + ' ')
+        qualify = code[code.index('protected void QualifyStep('):code.index('protected vector NavSample(')]
+        self.assertIn('world.FindPath(state.ChainFrom, legTo, m_Filter, path)', qualify)
+        self.assertEqual(code.count('SampleNavmeshPosition('), 1)
+        self.assertNotIn('m_OutdoorFilter', qualify)
 
     def test_create_uses_qualified_config_override_to_preserve_engine_path_endpoints(self):
         code = self.code(self.sites)

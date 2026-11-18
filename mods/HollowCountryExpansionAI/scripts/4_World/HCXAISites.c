@@ -141,6 +141,10 @@ class HCXAISiteState : Managed
     string SkippedPoints;
     bool Closed;
     bool OpenRoute;
+    // chain-v4: one bounded retry of a refused outdoor route on outdoor-ground
+    // samples (INSIDE excluded); Outdoor counts the points that found ground.
+    bool OutdoorPass;
+    int Outdoor;
     Object HouseObject;
     vector CacheWorld;
     vector CacheOrientation;
@@ -163,6 +167,8 @@ class HCXAISiteDirector : Managed
     protected ref HCXAIOwnership m_Owned;
     protected ref array<ref HCXAISiteState> m_States = new array<ref HCXAISiteState>();
     protected ref PGFilter m_Filter;
+    // Sampling only: never passed to FindPath, never used for holdouts.
+    protected ref PGFilter m_OutdoorFilter;
     protected string m_Build;
     protected string m_Phase = "wait";
     protected int m_Cursor;
@@ -247,6 +253,10 @@ class HCXAISiteDirector : Managed
         if (eAIBase.AI_HANDLEVAULTING) { include = include | PGPolyFlags.SPECIAL; }
         else { exclude = exclude | PGPolyFlags.SPECIAL; }
         m_Filter.SetFlags(include, exclude, PGPolyFlags.NONE);
+        // Native: 3_Game/AI/AIWorld.c:1-26 PGPolyFlags, :65 PGFilter.SetFlags. Walkable
+        // outdoor polygons only, as HCEventPoliceNav samples police barrel ground.
+        m_OutdoorFilter = new PGFilter();
+        m_OutdoorFilter.SetFlags(PGPolyFlags.WALK, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.INSIDE | PGPolyFlags.DOOR | PGPolyFlags.LADDER | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
         foreach (HCXAISite site : m_Policy.Sites)
         {
             HCXAISiteState state = new HCXAISiteState();
@@ -414,7 +424,7 @@ class HCXAISiteDirector : Managed
             if (counted.Qualified) { qualified++; }
         }
         this.SaveRoutes();
-        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v3; navmesh sample + bounded FindPath chains; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
+        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v4; navmesh sample + bounded FindPath chains, one outdoor-ground retry; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
         m_Phase = "create";
         m_Cursor = 0;
     }
@@ -442,8 +452,8 @@ class HCXAISiteDirector : Managed
             }
             foreach (vector wanted : state.Points)
             {
-                vector found = wanted;
-                if (!world || !world.SampleNavmeshPosition(wanted, radius, m_Filter, found))
+                vector found = this.NavSample(wanted, radius, m_Filter);
+                if (found == vector.Zero)
                 {
                     this.Refuse(state, HCXAISiteRules.LegProblem(false, false, 0, 0, 0, 0));
                     return;
@@ -472,11 +482,13 @@ class HCXAISiteDirector : Managed
         }
         int minimum = HCXAISiteRules.RouteMinimum(state.Site.Kind);
         bool closing = state.Leg >= authoredCount - 1;
-        if (closing && state.Kept == 1 && authoredCount - state.StartIndex - 1 >= minimum)
+        if (closing && state.Kept < minimum && authoredCount - state.StartIndex - 1 >= minimum)
         {
-            // No later target was reachable. Drop the isolated first point,
-            // retry all later points, and keep the site's consumed-call budget.
+            // Too few later targets were reachable (an isolated first point, or
+            // an isolated kept group). Drop the first point, retry all later
+            // points, and keep the site's consumed-call budget.
             state.StartIndex++;
+            state.Kept = 1;
             state.Leg = state.StartIndex;
             state.Skipped = state.StartIndex;
             state.Snapped = 0;
@@ -495,7 +507,7 @@ class HCXAISiteDirector : Managed
         }
         if (closing && state.Kept < minimum)
         {
-            this.Refuse(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
+            this.RefuseOrRetry(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
             return;
         }
         if (closing && (state.Site.Behaviour != "LOOP" || state.Closed || state.OpenRoute))
@@ -509,7 +521,9 @@ class HCXAISiteDirector : Managed
             this.Remember(passed);
             int legs = state.Kept - 1;
             if (state.Closed) { legs++; }
-            Print("[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v3 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString() + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute) + " skipped-points=" + state.SkippedPoints);
+            string sampling = "navmesh";
+            if (state.OutdoorPass) { sampling = "outdoor"; }
+            Print("[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v4 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString() + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute) + " sampling=" + sampling + " outdoor=" + state.Outdoor.ToString() + "/" + authoredCount.ToString() + " skipped-points=" + state.SkippedPoints);
             return;
         }
         if (state.PathCalls >= 96)
@@ -586,9 +600,9 @@ class HCXAISiteDirector : Managed
             state.Leg++;
             // Refuse immediately when no remaining/restarted route can meet
             // the minimum; keep the final leg diagnostic for data correction.
-            if (state.Leg >= authoredCount - 1 && state.Kept < minimum && (state.Kept > 1 || authoredCount - state.StartIndex - 1 < minimum))
+            if (state.Leg >= authoredCount - 1 && state.Kept < minimum && authoredCount - state.StartIndex - 1 < minimum)
             {
-                this.Refuse(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
+                this.RefuseOrRetry(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
             }
             return;
         }
@@ -611,17 +625,124 @@ class HCXAISiteDirector : Managed
         }
         state.ChainSteps = 0;
     }
+    // Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition (false leaves the
+    // output untouched). vector.Zero means no sample, as in HCEventPoliceNav.
+    protected vector NavSample(vector wanted, float radius, PGFilter filter)
+    {
+        AIWorld world = GetGame().GetWorld().GetAIWorld();
+        if (!world) { return vector.Zero; }
+        vector found = wanted;
+        if (!world.SampleNavmeshPosition(wanted, radius, filter, found)) { return vector.Zero; }
+        return found;
+    }
+    // Outdoor walkable ground near the terrain (Game.c:1176 SurfaceY); a sample
+    // more than 2 m off the terrain is a roof, deck or ramp and is refused.
+    protected vector GroundSample(vector probe, float radius)
+    {
+        vector found = this.NavSample(probe, radius, m_OutdoorFilter);
+        if (found == vector.Zero) { return vector.Zero; }
+        if (Math.AbsFloat(found[1] - GetGame().SurfaceY(found[0], found[2])) > 2) { return vector.Zero; }
+        return found;
+    }
+    // At most five bounded samples: the terrain-projected authored point, then
+    // four probes 12 m east, west, north and south; the horizontally nearest
+    // ground wins. vector.Zero when no outdoor ground is found.
+    protected vector OutdoorSample(vector wanted)
+    {
+        vector centre = this.GroundSample(wanted, 16);
+        if (centre != vector.Zero) { return centre; }
+        vector best = vector.Zero;
+        float bestGap = 1000;
+        int probe = 0;
+        while (probe < 4)
+        {
+            float dx = 0;
+            float dz = 0;
+            if (probe == 0) { dx = 12; }
+            if (probe == 1) { dx = -12; }
+            if (probe == 2) { dz = 12; }
+            if (probe == 3) { dz = -12; }
+            float px = wanted[0] + dx;
+            float pz = wanted[2] + dz;
+            vector candidate = this.GroundSample(Vector(px, GetGame().SurfaceY(px, pz), pz), 8);
+            if (candidate != vector.Zero)
+            {
+                float gap = vector.Distance(Vector(candidate[0], 0, candidate[2]), Vector(wanted[0], 0, wanted[2]));
+                if (gap < bestGap)
+                {
+                    bestGap = gap;
+                    best = candidate;
+                }
+            }
+            probe++;
+        }
+        return best;
+    }
+    // A refused outdoor route gets one retry with outdoor-ground samples. The
+    // first pass is unchanged, so routes that qualify keep their FindPath
+    // sequence. PathCalls and Continuations stay cumulative: one 96-call budget.
+    protected void RefuseOrRetry(HCXAISiteState state, string reason)
+    {
+        int count = state.Sampled.Count();
+        if (state.Site.Kind == "holdout" || state.OutdoorPass || state.PathCalls >= 96 || count < HCXAISiteRules.RouteMinimum(state.Site.Kind) || state.Points.Count() != count)
+        {
+            this.Refuse(state, reason);
+            return;
+        }
+        TVectorArray ground = new TVectorArray();
+        int outdoor = 0;
+        int index = 0;
+        while (index < count)
+        {
+            vector found = this.OutdoorSample(state.Points[index]);
+            if (found == vector.Zero) { ground.Insert(state.Sampled[index]); }
+            else
+            {
+                ground.Insert(found);
+                outdoor++;
+            }
+            index++;
+        }
+        state.OutdoorPass = true;
+        state.Outdoor = outdoor;
+        if (outdoor == 0)
+        {
+            this.Refuse(state, reason);
+            return;
+        }
+        Print("[HC Expansion AI] site " + state.Site.Id + " route retry with outdoor ground samples (outdoor=" + outdoor.ToString() + "/" + count.ToString() + ") after: " + reason);
+        state.Sampled.Clear();
+        foreach (vector point : ground)
+        {
+            state.Sampled.Insert(point);
+        }
+        state.PatrolPoints.Clear();
+        state.PatrolPoints.Insert(state.Sampled[0]);
+        state.AttemptPoints.Clear();
+        state.Leg = 0;
+        state.StartIndex = 0;
+        state.Kept = 1;
+        state.Skipped = 0;
+        state.Snapped = 0;
+        state.SkippedPoints = "";
+        state.ChainSteps = 0;
+        state.Closed = false;
+        state.OpenRoute = false;
+        state.Reason = "";
+    }
     protected void Refuse(HCXAISiteState state, string reason)
     {
+        string text = reason;
+        if (state.OutdoorPass) { text = "outdoor=" + state.Outdoor.ToString() + "/" + state.Sampled.Count().ToString() + "; " + reason; }
         state.Failed = true;
-        state.Reason = reason;
+        state.Reason = text;
         HCXAIRouteRow failed = new HCXAIRouteRow();
         failed.Key = state.Key;
         failed.SiteId = state.Site.Id;
         failed.Qualified = false;
-        failed.Reason = reason;
+        failed.Reason = text;
         this.Remember(failed);
-        Print("[HC Expansion AI] site " + state.Site.Id + " route refused: " + reason);
+        Print("[HC Expansion AI] site " + state.Site.Id + " route refused: " + text);
     }
     protected void Remember(HCXAIRouteRow row)
     {
