@@ -126,6 +126,7 @@ def environment():
         env[name] = SimpleNamespace()
         for method in re.findall(r"static (?:void|bool|int|float|string|HCEvent\w+|array<[^>]+>) (\w+)\(", text):
             setattr(env[name], method, translate(text, method, env, name))
+    env['HCMenuInput'] = SimpleNamespace(Lock=lambda: None, Unlock=lambda: None, BackPressed=lambda: False)
     return env
 
 

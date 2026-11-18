@@ -129,6 +129,7 @@ class HCGroupMapMenu extends UIScriptedMenu
     override void Update(float timeslice)
     {
         super.Update(timeslice);
+        if (HCMenuInput.BackPressed()) { Close(); return; }
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
         if (!viewer)
         {
@@ -423,11 +424,13 @@ class HCGroupMapMenu extends UIScriptedMenu
     override void OnShow()
     {
         super.OnShow();
+        HCMenuInput.Lock();
         HCEventClient.Get().SetBrowsing(true);
     }
 
     override void OnHide()
     {
+        HCMenuInput.Unlock();
         HCEventClient.Get().SetBrowsing(false);
         if (mHCLayers) mHCLayers.Clear();
         if (mHCMap)

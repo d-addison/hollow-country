@@ -173,6 +173,7 @@ def translated_rules():
             token = re.sub(r'([\w.]+)\.Trim\(\)', r'\1.strip()', token)
             lines.append('    '*indent + token)
         exec(compile('\n'.join(lines), str(ROOT/'4_World/Groups/HCGroupRules.c'), 'exec'), env)
+    env['HCMenuInput'] = SimpleNamespace(Lock=lambda: None, Unlock=lambda: None, BackPressed=lambda: False)
     return env
 
 

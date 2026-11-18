@@ -24,11 +24,14 @@ command cannot run for a real reason it refuses with a specific `reason`.
    file is created on first start with `EnableAdminMap` on. Only listed admins may
    send commands. Never commit or paste ids (see `docs/ACCEPTANCE_CHECKLIST.md`).
 2. Open the HC admin menu with the `UAHollowCountryAdmin` key binding (set it under
-   the game's key binding options). The existing native notification says
-   "Asking the server for admin access...". The window opens only after an
-   authorized server reply. A silent server times out after ten seconds and the
-   notification names `admins.json` and `EnableAdminMap`; silence does not prove
-   that the user is not an admin.
+   the game's key binding options; the default is Pause). The window opens only
+   after an authorized server reply. If that reply is late the client says
+   "Still waiting for the server's admin reply..." once after 2.5 s; a silent
+   server times out after ten seconds and the notification names `admins.json`
+   and `EnableAdminMap`; silence does not prove that the user is not an admin.
+   While the window is open, player movement and look are locked like other
+   menus; Escape or the X button closes it. A session with no server reply for
+   60 s closes the window and says so.
 3. The centred dark window has a title, admin/request state, X close button,
    section tabs, scrolling command cards and a result console. Closing uses the
    existing scripted-menu focus/cursor/input lifecycle. Closing cancels any

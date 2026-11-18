@@ -176,7 +176,10 @@ class HCAdminModule : HCModule
         {
             PlayerBase player = PlayerBase.Cast(m_Players[playerIndex]);
             if (!player || !player.IsAlive()) { continue; }
-            if (player.GetIdentity() == sender) { return player; }
+            // Match by identity id: the RPC sender and the player's identity are not
+            // guaranteed to be the same script reference (playtest: kit/list refused).
+            PlayerIdentity identity = player.GetIdentity();
+            if (identity && sender && identity.GetId() == sender.GetId()) { return player; }
         }
         return null;
     }

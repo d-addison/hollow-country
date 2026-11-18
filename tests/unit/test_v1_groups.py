@@ -330,7 +330,8 @@ class V1GroupsReviewRound3Behavior(unittest.TestCase):
         env=dict(GetGame=lambda:NS(GetPlayer=lambda:viewer,GetInput=lambda:NS(LocalPress_ID=lambda *a:False)),
             PlayerBase=NS(Cast=lambda p:p),HCGroupClient=NS(Get=lambda:client),
             HCGroupEquipment=NS(Read=lambda p:NS(HasMap=has_map)),super=NS(Update=lambda t:None),
-            Close=lambda:closed.append(1),EditBoxWidget=NS(Cast=lambda w:None),GetFocus=lambda:None,UAMapToggle=1)
+            Close=lambda:closed.append(1),EditBoxWidget=NS(Cast=lambda w:None),GetFocus=lambda:None,UAMapToggle=1,
+            HCMenuInput=NS(Lock=lambda:None,Unlock=lambda:None,BackPressed=lambda:False))
         state=NS(mHCMap=object(),mHCBound=frame,mHCRenderTime=0.,mHCLayers=NS(Draw=lambda *a:None),
             mHCStatus=None,mHCOpening=False,mHCMessage='')
         ui_member(text,'Update',state,env,0.3)

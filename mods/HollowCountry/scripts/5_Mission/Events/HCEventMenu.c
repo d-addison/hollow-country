@@ -37,6 +37,7 @@ class HCEventMenu : UIScriptedMenu
     override void OnShow()
     {
         super.OnShow();
+        HCMenuInput.Lock();
         m_Opening = true;
         HCEventClient.Get().SetBrowsing(true);
     }
@@ -109,6 +110,7 @@ class HCEventMenu : UIScriptedMenu
     override void Update(float timeslice)
     {
         super.Update(timeslice);
+        if (HCMenuInput.BackPressed()) { Close(); return; }
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
         if (!viewer || !viewer.IsAlive() || viewer.IsUnconscious()) { Close(); return; }
         m_Elapsed = m_Elapsed + timeslice;
@@ -138,6 +140,7 @@ class HCEventMenu : UIScriptedMenu
     }
     override void OnHide()
     {
+        HCMenuInput.Unlock();
         HCEventClient.Get().SetBrowsing(false);
         if (m_List) { m_List.ClearItems(); }
         if (m_Status) { m_Status.SetText(""); }

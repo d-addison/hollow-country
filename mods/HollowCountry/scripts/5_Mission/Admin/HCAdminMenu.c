@@ -344,7 +344,13 @@ class HCAdminMenu : UIScriptedMenu
     override void Update(float timeslice)
     {
         super.Update(timeslice);
-        if (!m_Client.HCValid()) { Close(); return; }
+        if (HCMenuInput.BackPressed()) { Close(); return; }
+        if (!m_Client.HCValid())
+        {
+            m_Client.HCNotify("Admin session ended (no server reply for 60 s). Press the admin key again.", 5);
+            Close();
+            return;
+        }
         if (m_WasBusy != m_Client.HCBusy()) { HCApplyBusy(); }
     }
 
@@ -433,8 +439,15 @@ class HCAdminMenu : UIScriptedMenu
         m_ConsoleRows.Clear();
     }
 
+    override void OnShow()
+    {
+        super.OnShow();
+        HCMenuInput.Lock();
+    }
+
     override void OnHide()
     {
+        HCMenuInput.Unlock();
         if (m_Listening) { m_Client.Changed.Remove(HCRefresh); m_Listening = false; }
         m_Client.HCCancelChecks();
         if (m_Map) { m_Map.ClearUserMarks(); }
