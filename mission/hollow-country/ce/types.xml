@@ -105,4 +105,22 @@
     <value name="Tier3" />
     <value name="Tier4" />
   </type>
+  <!-- W6 #129 forage-only persistence registration: Cannabis is scope=2 in
+       installed addons/gear_food.pbo/config.bin/CfgVehicles/Cannabis but absent
+       from stock Chernarus db/types.xml. Budget/flags follow the stock forage
+       BoletusMushroom row (db/types.xml:3823-3832); no CE restock or loot route.
+       This existing file ships through the default-on travel CE installer.
+       If that overlay is disabled, register this zero-nominal row separately
+       before enabling forage; pickup/restart persistence still needs native proof. -->
+  <type name="Cannabis">
+    <nominal>0</nominal>
+    <lifetime>900</lifetime>
+    <restock>0</restock>
+    <min>0</min>
+    <quantmin>-1</quantmin>
+    <quantmax>-1</quantmax>
+    <cost>100</cost>
+    <flags count_in_cargo="0" count_in_hoarder="0" count_in_map="1" count_in_player="0" crafted="1" deloot="0" />
+    <category name="food" />
+  </type>
 </types>
