@@ -8,6 +8,8 @@ from tools.validate.runtime import validate_settings
 from tests.unit.test_group_server import execute_member
 
 ROOT = Path(__file__).resolve().parents[2]
+V2_FLAGS = ('EnableGrade', 'EnableAmbientLife', 'EnableSignsOfLife', 'EnableTravel', 'EnableWorld', 'EnableLeads',
+            'EnableCamps', 'EnableEncounters')
 
 class RuntimeSettingsTests(unittest.TestCase):
     def test_native_settings_reader_is_bounded_before_json_parsing(self):
@@ -28,7 +30,7 @@ class RuntimeSettingsTests(unittest.TestCase):
     def test_shipped_settings_are_valid_and_all_feature_preferences_default_on(self):
         self.assertEqual([], validate_settings(self.value))
         flags = {k: v for k, v in self.value.items() if k.startswith('Enable')}
-        self.assertEqual(8, len(flags))
+        self.assertEqual(16, len(flags))
         self.assertTrue(all(v is True for v in flags.values()), flags)
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))
@@ -51,9 +53,26 @@ class RuntimeSettingsTests(unittest.TestCase):
             changed = dict(self.value, **{name: value})
             self.assertTrue(validate_settings(changed))
         for key in self.value:
+            if key in V2_FLAGS:
+                continue
             changed = dict(self.value)
             del changed[key]
             self.assertTrue(validate_settings(changed), key)
+
+    def test_v1_settings_file_without_v2_preferences_loads_with_v2_defaults_on(self):
+        # LC-T001 / SA-15: an operator's existing V1 settings.json stays valid and gets every V2 feature on.
+        v1 = {k: v for k, v in self.value.items() if k not in V2_FLAGS}
+        self.assertEqual([], validate_settings(v1))
+        source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
+        native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))
+        for key in V2_FLAGS:
+            self.assertEqual('true', native.get(key), key)
+            self.assertIs(True, self.value.get(key), key)
+            for bad in (1, 'true', None):
+                self.assertTrue(validate_settings(dict(v1, **{key: bad})), (key, bad))
+            self.assertEqual([], validate_settings(dict(v1, **{key: False})), key)
+        # The native loader fills a default-constructed object, so a missing member keeps its default.
+        self.assertRegex(source, r'HCSettings settings = new HCSettings\(\);[\s\S]*LoadBounded\(path, settings, error\)')
 
     def test_feature_flags_are_booleans_not_truthy_strings_or_numbers(self):
         for key in self.value:

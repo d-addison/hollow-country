@@ -35,6 +35,16 @@ class HCSettings
     bool EnableAlertChains = true;
     bool EnableGroups = true;
     bool EnableAtmosphere = true;
+    // V2 feature preferences (LC-T001). Additive: a V1 settings.json without them keeps these defaults, because
+    // LoadBounded fills a default-constructed object. Each feature is still gated by its own qualification.
+    bool EnableGrade = true;
+    bool EnableAmbientLife = true;
+    bool EnableSignsOfLife = true;
+    bool EnableTravel = true;
+    bool EnableWorld = true;
+    bool EnableLeads = true;
+    bool EnableCamps = true;
+    bool EnableEncounters = true;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
     int MaxActiveHordes = 2;

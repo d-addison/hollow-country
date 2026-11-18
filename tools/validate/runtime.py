@@ -6,6 +6,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 FLAGS = {'EnableInteriors', 'EnableSearch', 'EnableCrafting', 'EnableInfected',
          'EnableHordes', 'EnableAlertChains', 'EnableGroups', 'EnableAtmosphere'}
+# V2 preferences are optional so an existing V1 settings file stays valid; when present they must be booleans.
+V2_FLAGS = {'EnableGrade', 'EnableAmbientLife', 'EnableSignsOfLife', 'EnableTravel', 'EnableWorld', 'EnableLeads',
+            'EnableCamps', 'EnableEncounters'}
 LIMITS = {'TickIntervalMs': (500, 10000), 'MaxTickWorkItems': (1, 256),
           'MaxActiveHordes': (1, 8), 'MaxActiveHordeMembers': (1, 64),
           'MaxActiveInteriors': (1, 32), 'MaxPropsPerInterior': (1, 20),
@@ -17,11 +20,14 @@ def validate_settings(value):
         return ['Settings must be a JSON object']
     expected = FLAGS | LIMITS.keys() | {'SchemaVersion'}
     errors = [f'Missing field {key}' for key in sorted(expected - value.keys())]
-    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected)]
+    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS)]
     if type(value.get('SchemaVersion')) is not int or value.get('SchemaVersion') != 1:
         errors.append('Unsupported SchemaVersion')
     for key in sorted(FLAGS):
         if type(value.get(key)) is not bool:
+            errors.append(f'{key} must be boolean')
+    for key in sorted(V2_FLAGS & value.keys()):
+        if type(value[key]) is not bool:
             errors.append(f'{key} must be boolean')
     for key, (low, high) in LIMITS.items():
         if type(value.get(key)) is not int or not low <= value[key] <= high:

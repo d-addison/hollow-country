@@ -27,11 +27,15 @@ from tests.unit import test_v1_weather as weather
 from tests.unit import test_infected_admission as infected
 from tests.unit import test_ecology_module as ecology
 from tests.unit.test_group_server import EArray
+from tools.validate.runtime import V2_FLAGS
 
 ROOT = event.ROOT
 SETTINGS = ROOT / '3_Game/HCSettings.c'
 DEFAULTS = json.loads((ROOT.parents[2] / 'config/hollow-country-settings.json').read_text())
-FLAGS = tuple(k for k in DEFAULTS if k.startswith('Enable'))
+# V2 preferences (LC-T001) gate no module yet; the 256-combination product stays
+# over the v1 module flags, while reload preservation covers every flag.
+ALL_FLAGS = tuple(k for k in DEFAULTS if k.startswith('Enable'))
+FLAGS = tuple(k for k in ALL_FLAGS if k not in V2_FLAGS)
 MODULE_PATHS = {
     'Groups': 'Groups/HCGroupModule.c', 'Events': 'Events/HCEventModule.c',
     'Interiors': 'Interiors/HCInteriorModule.c', 'Infected': 'Infected/HCInfectedModule.c',
@@ -167,6 +171,7 @@ class CoreFixture:
 
 class CombinedFlagsTests(unittest.TestCase):
     def test_all_256_combinations_reject_dependencies_or_start_exact_registry(self):
+        self.assertEqual(8, len(FLAGS))  # a new flag must not silently multiply the product
         for bits in itertools.product((False, True), repeat=len(FLAGS)):
             values = dict(DEFAULTS, **dict(zip(FLAGS, bits)))
             valid = (not values['EnableSearch'] or values['EnableInteriors']) and (
@@ -369,7 +374,7 @@ def reload_case(flag):
     return test
 
 
-for _flag in FLAGS:
+for _flag in ALL_FLAGS:
     setattr(CombinedFlagsTests, 'test_reload_preserves_' + _flag, reload_case(_flag))
 
 
