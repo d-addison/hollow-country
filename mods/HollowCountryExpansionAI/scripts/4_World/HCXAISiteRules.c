@@ -194,6 +194,25 @@ class HCXAISiteRules
         if (pathLength > straight * 3 + 50) { return "detour too long"; }
         return "";
     }
+    // "continue" is only for an outdoor partial path. Each call must move at
+    // least 0.5 m; the original leg's detour budget and 16-call cap bound even
+    // cyclic/disconnected paths. A holdout retains the single-call rules.
+    static string ChainAction(string kind, int steps, int points, float endGap, float advance, float totalLength, float straight)
+    {
+        if (kind == "holdout") { return HCXAISiteRules.LegProblem(true, true, points, endGap, totalLength, straight); }
+        if (points < 2) { return "no path"; }
+        if (totalLength > straight * 3 + 50) { return "detour too long"; }
+        if (endGap <= 2.5) { return ""; }
+        if (advance < 0.5) { return "path chain stalled"; }
+        if (steps >= 16) { return "path chain step limit"; }
+        return "continue";
+    }
+    // The cache schema has no generated patrol points. Rebuild outdoor chains
+    // on every start rather than reusing success with an unqualified shortcut.
+    static bool ReuseQualifiedRoute(string kind)
+    {
+        return kind == "holdout";
+    }
     static string PointText(vector point)
     {
         float x = point[0];
@@ -205,7 +224,7 @@ class HCXAISiteRules
     // holdout the house class, its position, the house-local points and cache.
     static string RouteText(HCXAISite site, string build)
     {
-        string text = build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
+        string text = "chain-v2|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
         foreach (vector point : site.Waypoints)
         {
             text = text + HCXAISiteRules.PointText(point);

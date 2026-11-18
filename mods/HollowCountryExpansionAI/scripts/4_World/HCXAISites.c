@@ -3,6 +3,21 @@
 // HC adds the budget, the 200 m and line-of-sight rules, a refusal to despawn
 // in combat, finite fair actors, navmesh-qualified routes and journals.
 // Nothing here moves an actor: Expansion places each one once when it spawns.
+// Outdoor endpoints already came from the navmesh. The provider's default
+// GetWaypoints applies placement rays, which could move them onto another
+// surface. Preserve exactly the qualified list; holdouts keep the default.
+class HCXAISiteSpawnConfig : ExpansionAIDynamicSpawnBase
+{
+    override TVectorArray GetWaypoints(vector position = vector.Zero, int beh = eAIWaypointBehavior.HALT)
+    {
+        TVectorArray qualified = new TVectorArray();
+        foreach (vector waypoint : this.Waypoints)
+        {
+            qualified.Insert(waypoint);
+        }
+        return qualified;
+    }
+}
 class HCXAISitePatrol : eAIDynamicPatrol
 {
     string m_HCSiteId;
@@ -102,6 +117,7 @@ class HCXAISiteState : Managed
     HCXAISitePatrol Patrol;
     ref array<vector> Points = new array<vector>();
     ref array<vector> Sampled = new array<vector>();
+    ref array<vector> PatrolPoints = new array<vector>();
     string Key;
     bool Bound;
     bool Qualified;
@@ -109,6 +125,13 @@ class HCXAISiteState : Managed
     bool Cached;
     string Reason;
     int Leg;
+    int ChainSteps;
+    float ChainLength;
+    vector ChainFrom;
+    vector ClosestEnd;
+    float ClosestGap;
+    int PathCalls;
+    int Continuations;
     Object HouseObject;
     vector CacheWorld;
     vector CacheOrientation;
@@ -382,11 +405,12 @@ class HCXAISiteDirector : Managed
             if (counted.Qualified) { qualified++; }
         }
         this.SaveRoutes();
-        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (navmesh sample + FindPath per leg; cache " + HCXAISiteDirector.ROUTES + " keyed by route and build)");
+        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v2; navmesh sample + bounded FindPath chains; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
         m_Phase = "create";
         m_Cursor = 0;
     }
-    // One unit of work: sample every point (first call), then one leg per call.
+    // One unit of work: sample the bounded authored points (first call), then
+    // at most one FindPath. Outdoor partial paths resume from their actual end.
     protected void QualifyStep(HCXAISiteState state)
     {
         AIWorld world = GetGame().GetWorld().GetAIWorld();
@@ -412,8 +436,15 @@ class HCXAISiteDirector : Managed
                 }
                 state.Sampled.Insert(found);
             }
-            if (cached)
+            state.PatrolPoints.Insert(state.Sampled[0]);
+            if (cached && HCXAISiteRules.ReuseQualifiedRoute(state.Site.Kind))
             {
+                int cachedIndex = 1;
+                while (cachedIndex < state.Sampled.Count())
+                {
+                    state.PatrolPoints.Insert(state.Sampled[cachedIndex]);
+                    cachedIndex++;
+                }
                 state.Qualified = true;
                 state.Cached = true;
             }
@@ -429,12 +460,22 @@ class HCXAISiteDirector : Managed
             passed.SiteId = state.Site.Id;
             passed.Qualified = true;
             this.Remember(passed);
+            Print("[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v2 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString() + " patrol waypoints=" + state.PatrolPoints.Count().ToString());
             return;
         }
         vector legFrom = state.Sampled[state.Leg];
         vector legTo = state.Sampled[(state.Leg + 1) % state.Sampled.Count()];
+        if (state.ChainSteps == 0)
+        {
+            state.ChainFrom = legFrom;
+            state.ChainLength = 0;
+            state.ClosestEnd = legFrom;
+            state.ClosestGap = vector.Distance(legFrom, legTo);
+        }
         TVectorArray path = new TVectorArray();
-        bool pathFound = world.FindPath(legFrom, legTo, m_Filter, path);
+        bool pathFound = world.FindPath(state.ChainFrom, legTo, m_Filter, path);
+        state.PathCalls++;
+        state.ChainSteps++;
         float length = 0;
         float endGap = 1000;
         int pathPoints = 0;
@@ -445,13 +486,37 @@ class HCXAISiteDirector : Managed
             length = length + vector.Distance(path[index - 1], path[index]);
             index++;
         }
-        if (pathPoints > 0) { endGap = vector.Distance(path[pathPoints - 1], legTo); }
-        string problem = HCXAISiteRules.LegProblem(true, true, pathPoints, endGap, length, vector.Distance(legFrom, legTo));
-        if (problem != "")
+        vector pathEnd = state.ChainFrom;
+        float advance = 0;
+        if (pathPoints > 0)
         {
-            this.Refuse(state, "leg " + state.Leg.ToString() + ": " + problem);
+            pathEnd = path[pathPoints - 1];
+            endGap = vector.Distance(pathEnd, legTo);
+            advance = vector.Distance(state.ChainFrom, pathEnd);
+            if (state.ChainSteps == 1 || endGap < state.ClosestGap)
+            {
+                state.ClosestGap = endGap;
+                state.ClosestEnd = pathEnd;
+            }
+        }
+        state.ChainLength = state.ChainLength + length;
+        string problem = HCXAISiteRules.ChainAction(state.Site.Kind, state.ChainSteps, pathPoints, endGap, advance, state.ChainLength, vector.Distance(legFrom, legTo));
+        if (problem == "continue")
+        {
+            state.PatrolPoints.Insert(pathEnd);
+            state.ChainFrom = pathEnd;
+            state.Continuations++;
             return;
         }
+        if (problem != "")
+        {
+            this.Refuse(state, "leg " + state.Leg.ToString() + ": " + problem + "; from=" + HCXAISiteRules.PointText(legFrom) + "; to=" + HCXAISiteRules.PointText(legTo) + "; closest=" + HCXAISiteRules.PointText(state.ClosestEnd) + "; gap=" + state.ClosestGap.ToString() + "; steps=" + state.ChainSteps.ToString());
+            return;
+        }
+        // LOOP's final path targets the first patrol point. Do not duplicate
+        // it at the end; Expansion will close the same qualified leg itself.
+        if (state.Leg < state.Sampled.Count() - 1) { state.PatrolPoints.Insert(legTo); }
+        state.ChainSteps = 0;
         state.Leg++;
     }
     protected void Refuse(HCXAISiteState state, string reason)
@@ -504,9 +569,15 @@ class HCXAISiteDirector : Managed
     {
         HCXAISite site = state.Site;
         ExpansionAIDynamicSpawnBase config = new ExpansionAIDynamicSpawnBase(site.NumberOfAI, site.Speed, "SPRINT", site.Behaviour, site.Faction, site.Loadout, true, 0, 1.0, m_Policy.MinPlayerDistance, site.ActivationRadius);
+        if (site.Kind != "holdout") { config = new HCXAISiteSpawnConfig(); }
         config.Name = "HC:" + site.Id;
         config.NumberOfAI = site.NumberOfAI;
         config.NumberOfAIMax = site.NumberOfAIMax;
+        config.Speed = site.Speed;
+        config.UnderThreatSpeed = "SPRINT";
+        config.Behaviour = site.Behaviour;
+        config.Faction = site.Faction;
+        config.Loadout = site.Loadout;
         config.Persist = false;
         config.CanBeLooted = true;
         config.UnlimitedReload = 0;
@@ -539,7 +610,7 @@ class HCXAISiteDirector : Managed
             config.FormationScale = 1.0;
         }
         config.Waypoints = new TVectorArray();
-        foreach (vector point : state.Sampled)
+        foreach (vector point : state.PatrolPoints)
         {
             config.Waypoints.Insert(point);
         }
