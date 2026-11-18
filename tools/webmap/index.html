@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hollow Country · Local debug map</title>
+<style>
+  :root { color-scheme: dark; font: 15px system-ui,sans-serif; background:#111a1c; color:#e2e9df; }
+  body { margin:0; } header { padding:16px 22px; border-bottom:1px solid #384443; }
+  h1 { margin:0 0 7px; font-size:21px; } p { margin:5px 0; color:#bcc9c2; }
+  main { display:flex; gap:18px; padding:18px; align-items:flex-start; }
+  aside { width:255px; flex-shrink:0; } #layers label { display:block; margin:9px 0; }
+  button { background:#304240; color:#eff5e7; border:1px solid #718078; padding:7px 12px; border-radius:4px; cursor:pointer; }
+  #view { flex:1; min-width:0; } canvas { display:block; width:100%; aspect-ratio:1; background:#1b2929; border:1px solid #53625c; }
+  #hover { min-height:95px; white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; background:#182325; }
+  .muted { font-size:13px; color:#a6b8af; } #status { overflow-wrap:anywhere; }
+  @media(max-width:720px) { main { flex-direction:column; } aside { width:100%; } #view { width:100%; } #layers { display:flex; flex-wrap:wrap; gap:8px 15px; } }
+</style>
+<header><h1>Hollow Country · Local debug map</h1><p>Server snapshot · ChernarusPlus · 15,360 × 15,360 m · north up</p></header>
+<main>
+  <aside>
+    <button id="refresh" type="button">Refresh now</button>
+    <p id="status" role="status">Waiting for snapshot…</p>
+    <p class="muted">Refreshes every 15 seconds. Hover a point or route for details. Grid coordinates are metres.</p>
+    <div id="layers" aria-label="Visible layers"></div>
+    <p id="background" class="muted">Grid background · approximate authored town centres</p>
+    <p class="muted">Captures span several server ticks. Catalog sites and eligible candidates are labelled separately from live state.</p>
+    <div id="hover" aria-live="polite">Hover a marker or route.</div>
+  </aside>
+  <div id="view"><canvas id="map" width="1000" height="1000" aria-label="Chernarus world debug snapshot"></canvas></div>
+</main>
+<script>
+'use strict';
+const canvas = document.getElementById('map'), ctx = canvas.getContext('2d');
+const status = document.getElementById('status'), hover = document.getElementById('hover');
+const layerBox = document.getElementById('layers'), worldSize = 15360;
+const palette = ['#ffc16e','#75d9d0','#ff8989','#c7b1ff','#bde775','#8ac7ff','#ffaedc','#f2e3a2'];
+// Existing authored approximate town centres: 3_Game/World/HCWorldData.c Fresh().
+const towns = [['Chernogorsk',6700,2600],['Elektrozavodsk',10400,2200],['Berezino',12100,9600],
+ ['Svetloyarsk',13900,13300],['Novodmitrovsk',11500,14500],['Severograd',7900,12700],
+ ['Novaya-Petrovka',3400,12900],['Vybor',3800,8900],['NW Airfield',4600,10400],
+ ['Stary Sobor',6100,7700],['Novy Sobor',7100,7700],['Gorka',9600,8800],
+ ['Zelenogorsk',2800,5300],['Pavlovo',1700,3800],['Balota',4500,2500],
+ ['Green Mountain',3700,6000],['Devils Castle',6900,11400],['Tisy',1700,14200]];
+let snapshot = null, received = 0, busy = false, imageReady = false;
+let pointsOnCanvas = [], routesOnCanvas = [];
+const enabled = new Map(), colors = new Map(), image = new Image();
+image.onload = () => { imageReady = true; document.getElementById('background').textContent = 'Operator map image · full world extent'; draw(); };
+image.onerror = () => { imageReady = false; draw(); };
+image.src = '/map-image';
+function xy(x,z) { return [x/worldSize*canvas.width,(1-z/worldSize)*canvas.height]; }
+function syncLayers() {
+  const names = new Set([...Object.keys(snapshot.layers), ...snapshot.routes.map(route => route.layer)]);
+  layerBox.replaceChildren();
+  for (const name of [...names].sort()) {
+    if (!enabled.has(name)) enabled.set(name,true);
+    if (!colors.has(name)) colors.set(name,palette[colors.size%palette.length]);
+    const label = document.createElement('label'), input = document.createElement('input');
+    input.type = 'checkbox'; input.checked = enabled.get(name);
+    input.addEventListener('change',() => { enabled.set(name,input.checked); draw(); });
+    label.style.color = colors.get(name); label.append(input,document.createTextNode(' '+name));
+    layerBox.append(label);
+  }
+}
+function draw() {
+  const size = Math.max(320,Math.round(canvas.getBoundingClientRect().width * Math.min(devicePixelRatio || 1,2)));
+  if (canvas.width !== size) { canvas.width = size; canvas.height = size; }
+  const w = canvas.width;
+  ctx.clearRect(0,0,w,w); pointsOnCanvas = []; routesOnCanvas = [];
+  if (imageReady) { ctx.globalAlpha = 0.8; ctx.drawImage(image,0,0,w,w); ctx.globalAlpha = 1; }
+  ctx.strokeStyle = imageReady ? '#c3cdb64a' : '#5f777752'; ctx.lineWidth = 1;
+  ctx.font = Math.max(10,w/85)+'px system-ui'; ctx.fillStyle = '#a9bbb0';
+  for (let metres=0; metres<=15000; metres+=1000) {
+    const [x,y] = xy(metres,metres);
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,w); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    if (metres%2000===0) { ctx.fillText(metres/1000+'k',x+3,w-7); ctx.fillText(metres/1000+'k',3,y-3); }
+  }
+  ctx.fillStyle = '#c0cec1';
+  for (const [name,x,z] of towns) { const [px,py] = xy(x,z); ctx.fillText(name,px+3,py-4); }
+  if (!snapshot) return;
+  for (const route of snapshot.routes) {
+    if (!enabled.get(route.layer)) continue;
+    const vertices = route.points.map(p => xy(p[0],p[1]));
+    ctx.strokeStyle = colors.get(route.layer); ctx.lineWidth = Math.max(2,w/600); ctx.beginPath();
+    vertices.forEach((p,i) => { if(i===0) ctx.moveTo(...p); else ctx.lineTo(...p); }); ctx.stroke();
+    routesOnCanvas.push({route,vertices});
+  }
+  for (const [layer,points] of Object.entries(snapshot.layers)) {
+    if (!enabled.get(layer)) continue;
+    ctx.fillStyle = colors.get(layer);
+    for (const point of points) {
+      const [px,py] = xy(point.x,point.z);
+      ctx.beginPath(); ctx.arc(px,py,Math.max(4,w/210),0,2*Math.PI); ctx.fill();
+      ctx.strokeStyle = '#0d171a'; ctx.lineWidth = 1.5; ctx.stroke();
+      pointsOnCanvas.push({point,layer,px,py});
+    }
+  }
+}
+function segmentDistance(x,y,a,b) {
+  const dx=b[0]-a[0], dy=b[1]-a[1], square=dx*dx+dy*dy;
+  const t = square ? Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/square)) : 0;
+  return Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);
+}
+canvas.addEventListener('mousemove',event => {
+  const rect = canvas.getBoundingClientRect(), x = (event.clientX-rect.left)*canvas.width/rect.width;
+  const y = (event.clientY-rect.top)*canvas.height/rect.height, tolerance = 10*canvas.width/rect.width;
+  const nearby = pointsOnCanvas.filter(p => Math.hypot(x-p.px,y-p.py)<tolerance);
+  if (nearby.length) {
+    hover.textContent = nearby.slice(0,8).map(({point:p,layer}) => `${layer} · ${p.label}\n${p.id} · x=${p.x.toFixed(1)} z=${p.z.toFixed(1)}\n${p.detail}`).join('\n\n');
+    return;
+  }
+  const found = routesOnCanvas.find(({vertices}) => vertices.some((p,i) => i>0 && segmentDistance(x,y,vertices[i-1],p)<tolerance));
+  if (found) { hover.textContent = `${found.route.layer} · ${found.route.label}\n${found.route.id} · ${found.route.points.length} route vertices`; return; }
+  hover.textContent = `x=${(x/canvas.width*worldSize).toFixed(0)} z=${((1-y/canvas.height)*worldSize).toFixed(0)}`;
+});
+canvas.addEventListener('mouseleave',() => { hover.textContent = 'Hover a marker or route.'; });
+async function refresh() {
+  if (busy) return;
+  busy = true;
+  try {
+    const response = await fetch('/snapshot.json',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+    if (!response.ok) throw new Error('export unavailable or write/recovery pending');
+    const incoming = await response.json();
+    if (incoming.version!==1 || incoming.map!=='chernarusplus') throw new Error('unsupported snapshot');
+    snapshot = incoming; received = Date.now(); syncLayers(); draw();
+    const count = Object.values(snapshot.layers).reduce((n,points) => n+points.length,0);
+    status.textContent = `${count} points · ${snapshot.routes.length} routes\nWorld date ${new Date(snapshot.time*1000).toISOString().slice(0,16).replace('T',' ')}\nRead ${new Date(received).toLocaleTimeString()}`;
+  } catch (error) {
+    const previous = received ? ` Last valid read ${new Date(received).toLocaleTimeString()}.` : '';
+    status.textContent = `Waiting: ${error.message}.${previous}`;
+  } finally { busy = false; }
+}
+document.getElementById('refresh').addEventListener('click',refresh);
+window.addEventListener('resize',draw);
+draw(); refresh(); setInterval(refresh,15000);
+</script>
+</html>
