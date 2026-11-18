@@ -14,13 +14,14 @@ import re
 import unittest
 from pathlib import Path
 
+from tools.validate import enforce_source as es
+
 ROOT = Path(__file__).resolve().parents[2]
 LEADING_OPERATOR = re.compile(r'^\s*(\|\||&&)')
+PROTOTYPE_END = re.compile(r'\s*(?:\{|$)', re.M)
 CACHE = Path(os.environ.get(
     'HC_NATIVE_SCRIPTS',
     Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289'))
-METHOD = re.compile(r'\b([A-Za-z_]\w*)\s*\(([^()]*)\)\s*(?:\{|$)', re.M)
-OVERRIDE = re.compile(r'\boverride\b[^(;{}]*?\b([A-Za-z_]\w*)\s*\(([^()]*)\)')
 
 
 def parameter_names(text):
@@ -36,69 +37,88 @@ def parameter_names(text):
 
 def native_prototypes(*roots):
     prototypes = {}
-    for source in (s for root in roots for s in root.rglob('*.c')):
-        text = '\n'.join(strip_comments(source.read_text(encoding='utf-8', errors='replace')))
-        for match in METHOD.finditer(text):
-            name, parameters = match.groups()
-            if re.search(r'\boverride\b[^;{}]*$', text[text.rfind('\n', 0, match.start()) + 1:match.start()]):
+    for path in (s for root in roots for s in root.rglob('*.c')):
+        source = es.read_source(path)
+        for method in source.signatures:
+            if 'override' in method.modifiers:
                 continue
-            names = parameter_names(parameters)
+            # Preserve the old candidate policy: a body or line break after ')',
+            # and a flat parameter list. Header discovery belongs to Source.
+            if '(' in method.params or ')' in method.params or not PROTOTYPE_END.match(source.code, method.end):
+                continue
+            names = parameter_names(method.params)
             if names is not None:
-                prototypes.setdefault(name, set()).add(names)
+                prototypes.setdefault(method.name, set()).add(names)
     return prototypes
 
 
 def mismatched_overrides(paths, prototypes):
     found = []
     for path in paths:
-        text = '\n'.join(strip_comments(path.read_text(encoding='utf-8')))
-        for match in OVERRIDE.finditer(text):
-            name, names = match.group(1), parameter_names(match.group(2))
+        source = es.read_source(path)
+        for method in source.signatures:
+            if 'override' not in method.modifiers:
+                continue
+            name, names = method.name, parameter_names(method.params)
             candidates = {p for p in prototypes.get(name, ()) if names is not None and len(p) == len(names)}
             if candidates and names not in candidates:
-                line = text.count('\n', 0, match.start()) + 1
-                found.append(f'{path.relative_to(ROOT)}:{line}: {name}{names} vs {sorted(candidates)}')
+                start = source.header_start(method)
+                override = re.search(r'\boverride\b', source.code[start:method.offset])
+                line = source.line_of(start + override.start())
+                found.append(f'{source.path.relative_to(ROOT)}:{line}: {name}{names} vs {sorted(candidates)}')
     return found
 
 
 def strip_comments(text):
-    text = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), text, flags=re.S)
-    return [line.split('//')[0] for line in text.splitlines()]
+    # Compatibility for probe suites importing this helper; lexing belongs to Source.
+    return es.clean(text).splitlines()
 
 
 def leading_operator_lines(paths):
     found = []
     for path in paths:
-        for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')), 1):
+        source = es.read_source(path)
+        for number, line in enumerate(source.code.splitlines(), 1):
             if LEADING_OPERATOR.match(line):
-                found.append(f'{path.relative_to(ROOT)}:{number}')
+                found.append(f'{source.path.relative_to(ROOT)}:{number}')
     return found
 
 
-ENUM_BLOCK = re.compile(r'\benum\s+(\w+)\s*\{([^}]*)\}', re.S)
+def exponent_literals(paths):
+    exponent = re.compile(r'\b\d+(?:\.\d+)?[eE][+-]?\d+\b')
+    found = []
+    for path in paths:
+        source = es.read_source(path)
+        for number, line in enumerate(source.code.splitlines(), 1):
+            if exponent.search(line):
+                found.append(f'{source.path.relative_to(ROOT)}:{number}')
+    return found
 
 
 def bare_enum_members(paths):
-    # Native compile 078: Enforce rejected `return HC_STIMULUS_NONE;` with
-    # "Can't find variable"; members must be referenced as Enum.MEMBER.
-    texts = {path: '\n'.join(strip_comments(path.read_text(encoding='utf-8'))) for path in paths}
+    # Native compile 078 rejected unqualified members; use Enum.MEMBER.
+    sources = [es.read_source(path) for path in paths]
     members = {}
-    for text in texts.values():
-        for match in ENUM_BLOCK.finditer(text):
-            for entry in match.group(2).split(','):
+    for source in sources:
+        for enum in source.enum_blocks:
+            for entry in source.code[enum.body_start + 1:enum.body_end].split(','):
                 name = entry.split('=')[0].strip()
                 if name:
-                    members[name] = match.group(1)
+                    members[name] = enum.name
     found = []
-    for path, text in texts.items():
-        body = ENUM_BLOCK.sub(lambda m: '\n' * m.group(0).count('\n'), text)
-        body = re.sub(r'"[^"\n]*"', '""', body)
-        # A class constant or local of the same name (HCEcologyCode.OK) shadows the enum member.
+    for source in sources:
+        body = list(source.code)
+        for enum in source.enum_blocks:
+            for offset in range(enum.offset, min(enum.body_end + 1, len(body))):
+                if body[offset] != '\n':
+                    body[offset] = ' '
+        body = ''.join(body)
+        # Preserve the legacy file-wide shadow rule for class constants and locals.
         declared = set(re.findall(r'\b(?:int|float|bool|string)\s+(\w+)', body))
         for number, line in enumerate(body.splitlines(), 1):
             for match in re.finditer(r'(?<![\w.])(\w+)\b', line):
                 if match.group(1) in members and match.group(1) not in declared:
-                    found.append(f'{path.relative_to(ROOT)}:{number}: {match.group(1)} (use {members[match.group(1)]}.{match.group(1)})')
+                    found.append(f'{source.path.relative_to(ROOT)}:{number}: {match.group(1)} (use {members[match.group(1)]}.{match.group(1)})')
     return found
 
 
@@ -142,13 +162,7 @@ class ScriptSyntaxBehavior(unittest.TestCase):
     def test_authored_float_limits_use_native_constants_not_exponent_literals(self):
         # Compile 072 accepted 3.402823e38 but its parsed value is unobserved;
         # an ecology Finite() bound read as 3.402823 would reject world positions.
-        exponent = re.compile(r'\b\d+(?:\.\d+)?[eE][+-]?\d+\b')
-        found = []
-        for path in sorted((ROOT / 'mods').rglob('*.c')):
-            for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')), 1):
-                if exponent.search(re.sub(r'"[^"]*"', '""', line)):
-                    found.append(f'{path.relative_to(ROOT)}:{number}')
-        self.assertEqual([], found)
+        self.assertEqual([], exponent_literals(sorted((ROOT / 'mods').rglob('*.c'))))
 
 
     def test_detector_flags_the_observed_unqualified_enum_member(self):

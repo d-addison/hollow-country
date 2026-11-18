@@ -157,6 +157,23 @@ class ClassDef:
     methods: list = field(default_factory=list)
 
 
+@dataclass
+class EnumDef:
+    name: str
+    offset: int
+    body_start: int
+    body_end: int
+
+
+@dataclass
+class MethodSignature:
+    name: str
+    params: str
+    modifiers: frozenset
+    offset: int
+    end: int             # offset immediately after the closing ')'
+
+
 class Source:
     """One authored .c file: raw text, cleaned text and its top-level structure."""
 
@@ -251,6 +268,58 @@ class Source:
 
     def body(self, method):
         return self.code[method.body_start:method.body_end + 1]
+
+    @property
+    def methods(self):
+        """Class methods and file functions in source order (definitions only)."""
+        return sorted(self.functions + [m for c in self.classes for m in c.methods],
+                      key=lambda m: m.offset)
+
+    @property
+    def signatures(self):
+        """Method headers, including bodyless declarations, in source order.
+
+        Keep prototypes separate from methods: body-based lint rules must never
+        treat a declaration's semicolon as an executable body.
+        """
+        methods = list(self.methods)
+        regions = [(0, len(self.code))] + [(c.body_start + 1, c.body_end) for c in self.classes]
+        for position, stop in regions:
+            while position < stop:
+                brace = self.code.find('{', position, stop)
+                semi = self.code.find(';', position, stop)
+                if brace >= 0 and (semi < 0 or brace < semi):
+                    position = matching_brace(self.code, brace) + 1
+                elif semi >= 0:
+                    header = self.code[position:semi]
+                    method = self._method(position, semi, semi)
+                    if method and '=' not in header.split('(', 1)[0]:
+                        methods.append(method)
+                    position = semi + 1
+                else:
+                    break
+        return [MethodSignature(m.name, m.params, m.modifiers, m.offset,
+                                self.code.find('(', m.offset) + len(m.params) + 2)
+                for m in sorted(methods, key=lambda m: m.offset)]
+
+    def header_start(self, method):
+        """Start of the declaration containing method, including its modifiers."""
+        return max(self.code.rfind(ch, 0, method.offset) for ch in ';{}') + 1
+
+    @property
+    def enum_blocks(self):
+        """Enum names and brace offsets, using the same cleaned source as classes."""
+        return [EnumDef(m.group(1), m.start(), m.end() - 1,
+                        matching_brace(self.code, m.end() - 1))
+                for m in _ENUM.finditer(self.code)]
+
+
+def read_source(path, root=None):
+    """Read a source once, or reuse an already parsed Source supplied by a check."""
+    if isinstance(path, Source):
+        return path
+    path = Path(path)
+    return Source(path, path.read_text(encoding='utf-8', errors='replace'), root)
 
 
 def mod_sources(root, mods=('HollowCountry', 'HollowCountryAnims', 'HollowCountryExpansionAI')):

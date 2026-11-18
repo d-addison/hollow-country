@@ -8,30 +8,24 @@ from pathlib import Path
 import re
 import unittest
 
+from tools.validate import enforce_source as es
+
 ROOT = Path(__file__).resolve().parents[2]
 DECL = re.compile(r'(?:^|[;{(]\s*|\bfor\s*\(\s*)(?:ref\s+|autoptr\s+)?'
                   r'(?:int|float|bool|string|vector|auto|[A-Z]\w*(?:<[\w<>, @]*>)?)\s+([a-z_]\w*)\s*(?==|;|:)')
 
 
 def duplicate_locals(text):
-    text = re.sub(r'//[^\n]*', '', text)
-    text = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
-    found, depth, names = [], 0, None
-    for line in text.split('\n'):
-        for match in DECL.finditer(line.strip()):
-            if depth >= 2 and names is not None:
+    source = text if isinstance(text, es.Source) else es.Source(Path('<text>'), text)
+    found = []
+    for method in source.methods:
+        names = set()
+        # DECL is the legacy declaration policy, not a second lexer or scope scanner.
+        for line in source.body(method).splitlines():
+            for match in DECL.finditer(line.strip()):
                 if match.group(1) in names:
                     found.append(match.group(1))
                 names.add(match.group(1))
-        for ch in line:
-            if ch == '{':
-                depth += 1
-                if depth == 2:
-                    names = set()
-            elif ch == '}':
-                depth -= 1
-                if depth == 1:
-                    names = None
     return found
 
 
@@ -43,11 +37,10 @@ class EnforceLocalsTests(unittest.TestCase):
 
     def test_no_function_in_our_mods_declares_a_local_twice(self):
         bad = {}
-        for mod in ('HollowCountry', 'HollowCountryExpansionAI'):
-            for path in sorted((ROOT / 'mods' / mod / 'scripts').rglob('*.c')):
-                names = duplicate_locals(path.read_text(encoding='utf-8'))
-                if names:
-                    bad[path.relative_to(ROOT).as_posix()] = names
+        for source in es.mod_sources(ROOT, mods=('HollowCountry', 'HollowCountryExpansionAI')):
+            names = duplicate_locals(source)
+            if names:
+                bad[source.rel] = names
         self.assertEqual(bad, {})
 
 

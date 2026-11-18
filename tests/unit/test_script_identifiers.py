@@ -10,9 +10,11 @@ import re
 import unittest
 from pathlib import Path
 
+from tools.validate import enforce_source as es
+
 ROOT = Path(__file__).resolve().parents[2]
 MODS = ROOT / 'mods'
-LAYERS = ['1_Core', '2_GameLib', '3_Game', '4_World', '5_Mission']
+LAYERS = es.LAYERS
 # Top-level classes defined in installed 1.30.164289 1_Core/2_GameLib/3_Game
 # (verified in the extracted interface cache); visible to every authored layer.
 PINNED_ENGINE_TYPES = {
@@ -30,20 +32,14 @@ DECLARATION = re.compile(
 KEYWORDS = {'return', 'new', 'class', 'typename', 'modded', 'override', 'delete', 'else', 'case'}
 
 
-def strip_comments(text):
-    text = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), text, flags=re.S)
-    return '\n'.join(line.split('//')[0] for line in text.splitlines())
-
-
 def layer_of(path):
-    for part in path.parts:
-        if part in LAYERS:
-            return LAYERS.index(part)
-    return None
+    return next((LAYERS.index(part) for part in path.parts if part in LAYERS), None)
 
 
 def declarations(path):
-    for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')).splitlines(), 1):
+    source = es.read_source(path)
+    # Keep the legacy declaration policy, including parameters and inline locals.
+    for number, line in enumerate(source.code.splitlines(), 1):
         for match in DECLARATION.finditer(line):
             kind, name = match.groups()
             if kind not in KEYWORDS:
@@ -51,14 +47,7 @@ def declarations(path):
 
 
 def native_types_by_layer(cache):
-    visible = {}
-    for index, layer in enumerate(LAYERS):
-        names = set()
-        for source in (cache / layer).rglob('*.c'):
-            text = source.read_text(encoding='utf-8', errors='replace')
-            names.update(re.findall(r'^(?:modded\s+|sealed\s+)?(?:class|enum)\s+(\w+)', text, re.M))
-        visible[index] = names
-    return visible
+    return es.native_types_by_layer(cache)
 
 
 def authored_sources():
@@ -116,12 +105,12 @@ UNBRACED_ONE_LINE_RETURN = re.compile(r'\)\s*\{\s*if\s*\([^{};]*\)\s*return\b[^{
 # Native Windows compile 009: an extra field in a vanilla entity's OnStoreSave/OnStoreLoad corrupted every
 # Paper saved before it existed ("Scripted variables corrupted upon Paper") and would break saves on mod removal.
 STORAGE_OVERRIDE = re.compile(r'\boverride\s+(?:void|bool)\s+OnStore(?:Save|Load)\s*\(')
-CLASS_DEFINITION = re.compile(r'^\s*(modded\s+)?class\s+(\w+)', re.M)
 
 
 def compile_traps(path):
     found = []
-    for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')).splitlines(), 1):
+    source = es.read_source(path)
+    for number, line in enumerate(source.code.splitlines(), 1):
         for label, pattern in (('keyword variable owned', KEYWORD_VARIABLE),
                                ('++/-- on array element', TEMPORARY_INCREMENT),
                                ('unbraced one-line return', UNBRACED_ONE_LINE_RETURN),
@@ -134,12 +123,12 @@ def compile_traps(path):
 def class_layers(paths):
     defined, modded = {}, []
     for path in paths:
-        layer = layer_of(path)
-        for match in CLASS_DEFINITION.finditer(strip_comments(path.read_text(encoding='utf-8', errors='replace'))):
-            if match.group(1):
-                modded.append((path, layer, match.group(2)))
+        source = es.read_source(path)
+        for definition in source.classes:
+            if definition.modded:
+                modded.append((source.path, source.layer, definition.name))
             else:
-                defined.setdefault(match.group(2), set()).add(layer)
+                defined.setdefault(definition.name, set()).add(source.layer)
     return defined, modded
 
 
