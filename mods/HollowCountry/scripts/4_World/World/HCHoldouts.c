@@ -647,6 +647,8 @@ class HCHoldouts : HCModule
 
     override void OnStop()
     {
+        // Flush changes marked by native callbacks since the last tick; a faulted store stays unwritten.
+        if (m_Ready && m_State) SaveChanged();
         if (s_Lights && m_State)
         {
             foreach (HCHoldoutRow row : m_State.Rows) s_Lights.ForceLit(row.Ledger.Id, row.Ledger.HousePos, false);

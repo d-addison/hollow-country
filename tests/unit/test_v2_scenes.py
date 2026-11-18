@@ -77,5 +77,31 @@ class SceneSmoke(unittest.TestCase):
         self.assertTrue(available(lease_owner, [3, 0, 4]))
 
 
+    def test_kit_layouts_turn_and_mirror_about_the_anchor(self):
+        # Windows release 011: every stage-0 kit was refused on steep ground at its
+        # anchor. The same kit may be turned/mirrored, keeping its shape and distance.
+        source = (SCENES / 'HCSceneKits.c').read_text()
+        env = {'Vector': lambda x, y, z: [x, y, z]}
+        offset = translate(source, 'LayoutOffset', env)
+        yaw = translate(source, 'LayoutYaw', env)
+        self.assertEqual([3, 0, 8], offset([3, 0, 8], 0))
+        self.assertEqual(30, yaw(30, 0))
+        layouts = [offset([3, 0, 8], v) for v in range(8)]
+        self.assertEqual(8, len({tuple(p) for p in layouts}))
+        for point in layouts:
+            self.assertEqual(73, point[0] ** 2 + point[2] ** 2)
+        for variant in range(8):
+            self.assertTrue(0 <= yaw(30, variant) < 360)
+        # Release 013 review: the world east/west access strip z=-4..4 must stay
+        # clear in every layout, so the corridor test uses the turned offset.
+        strip = translate(source, 'InAccessStrip', env)
+        self.assertFalse(strip(offset([3, 0, 8], 0), 2.5))
+        self.assertFalse(strip(offset([3, 0, 8], 2), 2.5))
+        self.assertTrue(strip(offset([3, 0, 8], 1), 2.5))
+        self.assertTrue(strip(offset([3, 0, 8], 3), 2.5))
+        self.assertTrue(strip([0, 0, -5], 1.5))
+        self.assertIn('InAccessStrip(offset, prop.Radius)', source)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -17,6 +17,8 @@ class HCScenesModule : HCModule
     protected int m_Cursor;
     protected int m_Placed;
     protected int m_Refused;
+    // Last preflight refusal reason printed per chain id; bounded by the 4 reviewed chains.
+    protected ref map<string, string> m_PreflightReasons = new map<string, string>();
     protected int m_LastNow;
     protected float m_WorkElapsed;
     protected float m_LogElapsed;
@@ -140,6 +142,16 @@ class HCScenesModule : HCModule
         return true;
     }
 
+    // One line whenever a chain's refusal reason changes, never once per retry.
+    void PreflightRefused(string chainId, string reason)
+    {
+        string previous;
+        if (m_PreflightReasons.Find(chainId, previous) && previous == reason) { return; }
+        if (m_PreflightReasons.Count() >= 16 && !m_PreflightReasons.Contains(chainId)) { return; }
+        m_PreflightReasons.Set(chainId, reason);
+        Print("[HollowCountry] V2 scene preflight refused id=" + chainId + " reason=" + reason);
+    }
+
     void Fail(HCSceneChain chain, int now, string reason)
     {
         HCSceneChains.Cancel(chain, now);
@@ -201,7 +213,13 @@ class HCScenesModule : HCModule
             if (!SiteAvailable(site.Position)) { m_Refused = m_Refused + 1; return; }
             HCSceneKit kit = HCSceneKits.Find(stage.Kit);
             array<vector> positions;
-            if (!HCSceneKits.Preflight(kit, site, positions)) { m_Refused = m_Refused + 1; return; }
+            int variant;
+            if (!HCSceneKits.Preflight(kit, site, positions, variant))
+            {
+                m_Refused = m_Refused + 1;
+                PreflightRefused(chain.Id, HCSceneKits.Refusal());
+                return;
+            }
             if (chain.EventId == 0)
             {
                 if (!HCSceneChains.Begin(chain, stage, now)) { Fail(chain, now, "director-refused"); return; }
@@ -214,12 +232,13 @@ class HCScenesModule : HCModule
             lease.Stage = chain.Stage;
             lease.Anchor = site.Position;
             m_Leases.Insert(lease);
-            bool placed = HCSceneKits.Place(lease, kit, positions);
+            bool placed = HCSceneKits.Place(lease, kit, positions, variant);
             m_Placed = m_Placed + lease.Objects.Count();
             if (!placed) { Fail(chain, now, "placement-failed"); return; }
             int remaining = stage.HoldSeconds - (now - chain.BeganAt);
             Advertise(lease, stage, site, remaining);
-            Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit);
+            Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + variant.ToString());
+            m_PreflightReasons.Remove(chain.Id);
         }
         if (!HCSceneKits.Healthy(lease)) { Fail(chain, now, "partial-or-missing-lease"); return; }
         if (now - chain.BeganAt >= stage.HoldSeconds)

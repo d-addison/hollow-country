@@ -84,7 +84,7 @@ Server log patterns:
 ```text
 [HollowCountry] V2 admission feature=Scenes preference=on gate=EXP-S3 qualified=0 result=admitted unverified: EXP-S3 has no recorded native verdict
 [HollowCountry] V2 scenes active=<n> chains=<n> placed=<n> refused=<n>
-[HollowCountry] V2 scene placed id=<chain> stage=<index> kit=<kind>
+[HollowCountry] V2 scene placed id=<chain> stage=<index> kit=<kind> layout=<0-7>
 [HollowCountry] V2 scene stage complete id=<chain> stage=<index>
 [HollowCountry] V2 scene chain cancelled id=<chain> stage=<index> reason=<reason>
 [HollowCountry] V2 scenes persistence refused; preserve scene-chains.json/.tmp/.bak for recovery

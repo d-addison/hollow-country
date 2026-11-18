@@ -76,9 +76,9 @@ class EncounterTests(unittest.TestCase):
         self.opened.append((token, limit, reconciled))
         return self.journal
 
-    def state(self, site_id, points, radius=650., qualified=True, patrol=True):
+    def state(self, site_id, points, radius=650., qualified=True, patrol=True, transient=False):
         group = N(name='HC:' + site_id)
-        return N(Site=N(Id=site_id, ActivationRadius=radius), Qualified=qualified,
+        return N(Site=N(Id=site_id, ActivationRadius=radius), Qualified=qualified, Transient=transient,
                  PatrolPoints=A(points), Patrol=N(m_Group=group) if patrol else None)
 
     def player(self, pid='p1', alive=True):
@@ -138,6 +138,8 @@ class EncounterTests(unittest.TestCase):
         self.armed()
         anchor = (1000., 0., 1000.)
         self.states.Insert(self.state('near-unqualified', [(1010., 0., 1000.)], qualified=False))
+        # A materializer (transient) patrol keeps its own lifecycle and is never bound, however near.
+        self.states.Insert(self.state('near-transient', [(1005., 0., 1000.)], transient=True))
         self.states.Insert(self.state('far', [(1600., 0., 1000.)]))
         self.states.Insert(self.state('near', [(5000., 0., 5000.), (1300., 0., 1000.)]))
         self.assertTrue(self.svc.StartEncounter('ev:1', 'ev', 'coastal-police-source-5', anchor, 2))
@@ -189,7 +191,7 @@ class EncounterTests(unittest.TestCase):
         sites = dto(self.env, 'HCXAISitePolicy', json.loads((AI / 'sites.json').read_text())).Sites
         for site in sites:
             if len(site.Waypoints) > 0:
-                self.states.Insert(N(Site=site, Qualified=True, PatrolPoints=A(site.Waypoints),
+                self.states.Insert(N(Site=site, Qualified=True, Transient=False, PatrolPoints=A(site.Waypoints),
                                      Patrol=N(m_Group=N())))
         self.armed()
         self.assertTrue(self.svc.Ready('chernarusplus'))

@@ -164,15 +164,29 @@ class HCSceneKits
         return false;
     }
 
-    static bool Preflight(HCSceneKit kit, HCEventSite site, out array<vector> positions)
+    // Last Preflight refusal, for one bounded diagnostic line per chain and reason.
+    protected static string s_Refusal;
+    static string Refusal() { return s_Refusal; }
+    protected static bool HCSceneRefuse(string reason)
+    {
+        s_Refusal = reason;
+        return false;
+    }
+
+    static bool Preflight(HCSceneKit kit, HCEventSite site, out array<vector> positions, out int variant)
     {
         positions = new array<vector>();
-        if (!GetGame() || !GetGame().IsServer() || !Reviewed(site) || !kit || kit.Props.Count() < 1 || kit.Props.Count() > 8) { return false; }
-        if (!HCObserverTransitionGate.CanTransition(site.Position, 500)) { return false; }
+        variant = 0;
+        s_Refusal = "";
+        if (!GetGame() || !GetGame().IsServer()) { return HCSceneRefuse("not-server"); }
+        if (!Reviewed(site)) { return HCSceneRefuse("site-not-reviewed"); }
+        if (!kit) { return HCSceneRefuse("kit-missing"); }
+        if (kit.Props.Count() < 1 || kit.Props.Count() > 8) { return HCSceneRefuse("kit-size"); }
+        if (!HCObserverTransitionGate.CanTransition(site.Position, 500)) { return HCSceneRefuse("observed-site"); }
         array<Object> nearby = new array<Object>();
         array<CargoBase> proxies = new array<CargoBase>();
         GetGame().GetObjectsAtPosition3D(site.Position, 40, nearby, proxies);
-        if (nearby.Count() > 128 || proxies.Count() > 128) { return false; }
+        if (nearby.Count() > 256 || proxies.Count() > 256) { return HCSceneRefuse("query-cap objects=" + nearby.Count().ToString()); }
         array<vector> doors = new array<vector>();
         array<vector> occupied = new array<vector>();
         array<float> footprints = new array<float>();
@@ -181,7 +195,7 @@ class HCSceneKits
             Building building = Building.Cast(candidate);
             if (!building || building.IsPendingDeletion()) { continue; }
             int count = building.GetDoorCount();
-            if (count < 0 || count > 32 || doors.Count() + count > 64) { return false; }
+            if (count < 0 || count > 32 || doors.Count() + count > 64) { return HCSceneRefuse("door-cap " + building.GetType()); }
             for (int doorIndex = 0; doorIndex < count; doorIndex++)
             {
                 doors.Insert(building.GetDoorSoundPos(doorIndex));
@@ -190,26 +204,82 @@ class HCSceneKits
             // bounding radius rather than rejecting the entire reviewed site.
             // Preserve stairs/doorless structures as well as named doors.
             vector bounds[2];
-            if (!building.GetCollisionBox(bounds)) { return false; }
-            if (!HCEventRuntimePolicy.PositionValid(bounds[0]) || !HCEventRuntimePolicy.PositionValid(bounds[1])) { return false; }
+            if (!building.GetCollisionBox(bounds)) { return HCSceneRefuse("no-collision-box " + building.GetType()); }
+            if (!HCEventRuntimePolicy.PositionValid(bounds[0]) || !HCEventRuntimePolicy.PositionValid(bounds[1])) { return HCSceneRefuse("bounds-invalid " + building.GetType()); }
             float extentX = Math.Max(Math.AbsFloat(bounds[0][0]), Math.AbsFloat(bounds[1][0]));
             float extentZ = Math.Max(Math.AbsFloat(bounds[0][2]), Math.AbsFloat(bounds[1][2]));
-            if (extentX == 0 && extentZ == 0) { return false; }
+            if (extentX == 0 && extentZ == 0) { return HCSceneRefuse("zero-extent " + building.GetType()); }
             occupied.Insert(building.GetPosition());
             footprints.Insert(Math.Sqrt(extentX * extentX + extentZ * extentZ) + 2);
         }
+        // Kit offsets are world-axis aligned, not tied to a site heading: try the
+        // authored layout first, then the same kit rotated in quarter turns about
+        // the anchor and mirrored. Every check applies to every variant.
+        if (Layout(kit, site, doors, occupied, footprints, 0, positions)) { return true; }
+        string authored = s_Refusal;
+        for (int layoutIndex = 1; layoutIndex < 8; layoutIndex++)
+        {
+            if (Layout(kit, site, doors, occupied, footprints, layoutIndex, positions))
+            {
+                variant = layoutIndex;
+                s_Refusal = "";
+                return true;
+            }
+        }
+        s_Refusal = authored + "; 7 rotated/mirrored layouts refused, last " + s_Refusal;
+        return false;
+    }
+
+    // Variant 0..3: quarter turns clockwise seen from above; 4..7 the same, mirrored in x first.
+    static vector LayoutOffset(vector offset, int variant)
+    {
+        float x = offset[0];
+        float z = offset[2];
+        if (variant >= 4) { x = -x; }
+        int quarter = variant;
+        if (quarter >= 4) { quarter = quarter - 4; }
+        float turnedX = x;
+        float turnedZ = z;
+        if (quarter == 1) { turnedX = z; turnedZ = -x; }
+        if (quarter == 2) { turnedX = -x; turnedZ = -z; }
+        if (quarter == 3) { turnedX = -z; turnedZ = x; }
+        return Vector(turnedX, offset[1], turnedZ);
+    }
+
+    static float LayoutYaw(float yaw, int variant)
+    {
+        float turned = yaw;
+        if (variant >= 4) { turned = 360 - yaw; }
+        int quarter = variant;
+        if (quarter >= 4) { quarter = quarter - 4; }
+        turned = turned + 90 * quarter;
+        while (turned >= 360) { turned = turned - 360; }
+        return turned;
+    }
+
+    // No prop footprint may overlap the east/west access strip z=-4..4, whichever side it is on.
+    static bool InAccessStrip(vector offset, float radius)
+    {
+        if (offset[2] - radius > 4) { return false; }
+        return offset[2] + radius >= -4;
+    }
+
+    protected static bool Layout(HCSceneKit kit, HCEventSite site, array<vector> doors, array<vector> occupied, array<float> footprints, int variant, out array<vector> positions)
+    {
+        positions = new array<vector>();
         foreach (HCSceneProp prop : kit.Props)
         {
             string configPath = "CfgVehicles " + prop.Type;
-            if (!GetGame().ConfigIsExisting(configPath)) { return false; }
-            vector position = site.Position + prop.Offset;
+            if (!GetGame().ConfigIsExisting(configPath)) { return HCSceneRefuse("class-missing " + prop.Type); }
+            vector offset = LayoutOffset(prop.Offset, variant);
+            vector position = site.Position + offset;
             position[1] = GetGame().SurfaceY(position[0], position[2]);
-            if (!HCEventRuntimePolicy.PositionValid(position) || GetGame().SurfaceIsSea(position[0], position[2])) { return false; }
-            // The authored access corridor remains clear even for the largest footprint.
-            if (prop.Offset[2] - prop.Radius <= 4) { return false; }
+            if (!HCEventRuntimePolicy.PositionValid(position) || GetGame().SurfaceIsSea(position[0], position[2])) { return HCSceneRefuse("position-or-sea " + prop.Type); }
+            // The world east/west access strip stays clear in every layout: test the turned offset, not the authored one.
+            if (InAccessStrip(offset, prop.Radius)) { return HCSceneRefuse("corridor " + prop.Type); }
             foreach (vector door : doors)
             {
-                if (!OutsideDoor(position, door, prop.Radius)) { return false; }
+                if (!OutsideDoor(position, door, prop.Radius)) { return HCSceneRefuse("door " + prop.Type); }
             }
             for (int footprintIndex = 0; footprintIndex < occupied.Count(); footprintIndex++)
             {
@@ -217,23 +287,31 @@ class HCSceneKits
                 float dx = position[0] - obstacle[0];
                 float dz = position[2] - obstacle[2];
                 float keepout = prop.Radius + footprints[footprintIndex];
-                if (dx * dx + dz * dz <= keepout * keepout) { return false; }
+                if (dx * dx + dz * dz <= keepout * keepout) { return HCSceneRefuse("building-footprint " + prop.Type); }
             }
             // Refuse steep/uneven ground instead of making stairs or floating props.
             float east = GetGame().SurfaceY(position[0] + prop.Radius, position[2]);
             float west = GetGame().SurfaceY(position[0] - prop.Radius, position[2]);
             float north = GetGame().SurfaceY(position[0], position[2] + prop.Radius);
             float south = GetGame().SurfaceY(position[0], position[2] - prop.Radius);
-            if (east != east || west != west || north != north || south != south) { return false; }
-            if (Math.AbsFloat(east - position[1]) > 0.8 || Math.AbsFloat(west - position[1]) > 0.8 || Math.AbsFloat(north - position[1]) > 0.8 || Math.AbsFloat(south - position[1]) > 0.8) { return false; }
-            if (!HCObserverTransitionGate.CanTransition(position, 500)) { return false; }
+            if (east != east || west != west || north != north || south != south) { return HCSceneRefuse("surface-nan " + prop.Type); }
+            float ground = position[1];
+            float rise = Math.AbsFloat(east - ground);
+            float riseWest = Math.AbsFloat(west - ground);
+            float riseNorth = Math.AbsFloat(north - ground);
+            float riseSouth = Math.AbsFloat(south - ground);
+            if (riseWest > rise) { rise = riseWest; }
+            if (riseNorth > rise) { rise = riseNorth; }
+            if (riseSouth > rise) { rise = riseSouth; }
+            if (rise > 0.8) { return HCSceneRefuse("slope " + prop.Type + " rise=" + rise.ToString()); }
+            if (!HCObserverTransitionGate.CanTransition(position, 500)) { return HCSceneRefuse("observed-prop " + prop.Type); }
             positions.Insert(position);
         }
         return true;
     }
 
     // Caller retains the lease BEFORE calling: partial creation is never orphaned.
-    static bool Place(HCSceneLease lease, HCSceneKit kit, array<vector> positions)
+    static bool Place(HCSceneLease lease, HCSceneKit kit, array<vector> positions, int variant = 0)
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
         if (!lease || !kit || !positions || positions.Count() != kit.Props.Count() || lease.Objects.Count() != 0) { return false; }
@@ -242,7 +320,7 @@ class HCSceneKits
             HCSceneProp prop = kit.Props[index];
             vector position = positions[index];
             if (!HCObserverTransitionGate.CanTransition(position, 500)) { lease.Closing = true; return false; }
-            vector orientation = Vector(prop.Yaw, 0, 0);
+            vector orientation = Vector(LayoutYaw(prop.Yaw, variant), 0, 0);
             Object object;
             if (prop.StaticModel)
             {

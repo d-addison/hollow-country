@@ -260,6 +260,8 @@ class HCDeadDrops : HCModule
 
     override void OnStop()
     {
+        // Flush deposits/removals marked by EECargoIn/Out since the last tick; a faulted store stays unwritten.
+        if (m_Ready && m_State) SaveChanged();
         m_Ready = false;
         if (m_Moves) m_Moves.Stop();
         if (s_Instance == this) s_Instance = null;
