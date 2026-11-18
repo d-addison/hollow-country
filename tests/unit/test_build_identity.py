@@ -108,6 +108,52 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual({CANONICAL, NATIVE}, set(re.findall(r'"(1\.30\.164289[^"]*)"', text)))
 
 
+class IdentityLogTests(unittest.TestCase):
+    """Execute authored comparisons/logging with explicit synthetic game/Print adapters."""
+
+    def setUp(self):
+        self.identity = build_identity()
+        self.lines = []
+        self.game = NS(GetWorldName=lambda: "ChernarusPlus", GetVersion=lambda: NATIVE)
+        self.identity.Matches.__globals__.update(Print=self.lines.append, GetGame=lambda: self.game)
+
+    def test_accepted_build_forms_and_world_case_do_not_consume_the_mismatch_log(self):
+        self.assertTrue(self.identity.Matches(CANONICAL))
+        self.assertTrue(self.identity.Matches(NATIVE))
+        self.assertTrue(self.identity.SameWorld("ChernarusPlus", "chernarusplus"))
+        self.assertEqual([], self.lines)
+        self.assertFalse(self.identity.Matches("1.30.164290"))
+        self.assertEqual(["[HC Identity] build=1.30.164290 world=ChernarusPlus accepted=0 reason=build_mismatch"],
+                         self.lines)
+
+    def test_build_refusal_logs_exactly_once_across_repeated_and_different_mismatches(self):
+        for build in ("1.30.164290", "1.30.164290", "", "1.31.164289"):
+            self.assertFalse(self.identity.Matches(build))
+        self.assertFalse(self.identity.SameWorld("enoch", "ChernarusPlus"))
+        self.assertEqual(["[HC Identity] build=1.30.164290 world=ChernarusPlus accepted=0 reason=build_mismatch"],
+                         self.lines)
+        self.assertTrue(self.identity.Matches(NATIVE))
+
+    def test_world_refusal_uses_the_same_process_latch_and_seen_engine_values(self):
+        self.assertFalse(self.identity.SameWorld("chernarusplus", "Enoch"))
+        self.assertFalse(self.identity.Matches("foreign"))
+        self.assertEqual(["[HC Identity] build=1.30.164289.70 world=Enoch accepted=0 reason=world_mismatch"],
+                         self.lines)
+
+    def test_missing_game_does_not_crash_or_prevent_the_one_refusal_diagnostic(self):
+        self.game = None
+        self.assertFalse(self.identity.Matches("foreign"))
+        self.assertFalse(self.identity.Matches("foreign"))
+        self.assertEqual(["[HC Identity] build=foreign world= accepted=0 reason=build_mismatch"], self.lines)
+
+    def test_separate_process_state_can_report_again(self):
+        self.assertFalse(self.identity.Matches("foreign"))
+        second = build_identity()
+        second.Matches.__globals__.update(Print=self.lines.append, GetGame=lambda: self.game)
+        self.assertFalse(second.Matches("foreign"))
+        self.assertEqual(2, len(self.lines))
+
+
 class ProfilesDelegationTests(unittest.TestCase):
     def test_infected_native_build_gate_uses_the_shared_matcher(self):
         from tests.unit.test_infected_defaults import authored

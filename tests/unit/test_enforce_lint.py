@@ -128,6 +128,91 @@ class LogLines(unittest.TestCase):
         found = run(files, 'HC-L001')
         self.assertEqual([('L.c', 6, 'HCL.Log'), ('L.c', 9, 'HCL.Log')], where(found))
 
+class IdentityGates(unittest.TestCase):
+    """Synthetic engine/build comparisons; no fixture is native runtime evidence."""
+
+    def test_silent_literal_build_comparisons_are_flagged_in_both_directions(self):
+        files = {W + 'Identity.c': '''class HCIdentity
+{
+    bool Engine()
+    {
+        string seen;
+        GetGame().GetVersion(seen);
+        return seen == "1.30.164289.70";
+    }
+    bool Reversed(string build)
+    {
+        return "1.30." != build;
+    }
+    bool Profile(HCProfile profile)
+    {
+        return profile.BuildVersion == "build 1.30.164289";
+    }
+    void Admit()
+    {
+        string seen;
+        GetGame().GetVersion(seen);
+        string alias = seen;
+        if (alias != "1.30.164289") return;
+    }
+    bool Direct()
+    {
+        return GetVersion() == "1.30.164289";
+    }
+}
+'''}
+        self.assertEqual([('Identity.c', 7, 'HCIdentity.Engine'),
+                          ('Identity.c', 11, 'HCIdentity.Reversed'),
+                          ('Identity.c', 15, 'HCIdentity.Profile'),
+                          ('Identity.c', 22, 'HCIdentity.Admit'),
+                          ('Identity.c', 26, 'HCIdentity.Direct')],
+                         where(run(files, 'HC-S004')))
+
+    def test_print_or_log_must_be_code_in_the_same_method(self):
+        for emitter in ('Print("[HC] mismatch");', 'PrintFormat("%1", build);',
+                        'HCIdentityLog.Mismatch(build);', 'LogMismatch(build);'):
+            with self.subTest(emitter=emitter):
+                text = ('class HCI { bool Gate(string build) { ' + emitter
+                        + ' return build == "1.30.164289"; } }')
+                self.assertEqual([], run({W + 'I.c': text}, 'HC-S004'))
+        text = '''class HCI {
+    void Other() { Print("logged elsewhere"); }
+    bool Gate(string build) {
+        // Print("not a log");
+        string text = "Print(build)";
+        return build != "1.30.164289";
+    }
+}'''
+        self.assertEqual([('I.c', 6, 'HCI.Gate')], where(run({W + 'I.c': text}, 'HC-S004')))
+
+    def test_only_literal_engine_or_build_comparisons_are_identity_findings(self):
+        text = '''class HCI {
+    bool Shared(string build) { return HCBuildIdentity.Matches(build); }
+    bool Values(string build, string other) { return build == other; }
+    bool Label(string label) { return label == "release 1.30."; }
+    bool Dependency(HCProfile p) { return p.ProviderVersion == "1.9.84"; }
+    bool Empty(string build) { return build == ""; }
+    bool Unrelated() {
+        string observed;
+        GetGame().GetVersion(observed);
+        return label == "1.30.164289";
+    }
+    string Documentation() { return "build == \\\"1.30.164289\\\""; }
+    // bool Comment(string build) { return build == "1.30.164289"; }
+}'''
+        self.assertEqual([], run({W + 'I.c': text}, 'HC-S004'))
+
+    def test_build_aliases_two_component_versions_and_non_logger_names(self):
+        text = '''class HCI {
+    bool Gate(string build) {
+        Catalog();
+        string pin = build;
+        return pin == "1.30";
+    }
+}'''
+        self.assertEqual([('I.c', 5, 'HCI.Gate')], where(run({W + 'I.c': text}, 'HC-S004')))
+
+
 class SilentRefusals(unittest.TestCase):
     # Shaped after HCSearchHouses.Begin: the client predicted the search, the server returned
     # silently, the progress ring spun and stopped with no message and no log line.
