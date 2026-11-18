@@ -47,6 +47,7 @@ class HCServer
             m_Perf.RegisterModule(perfModule.GetName());
         }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, m_Settings.TickIntervalMs, true);
+        Print(HCV2Admission.Summary(m_Settings));
         Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
 

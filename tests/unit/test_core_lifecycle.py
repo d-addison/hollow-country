@@ -128,7 +128,9 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                "HCNativeSelfTests": SimpleNamespace(Run=lambda: self_test),
                "HCSettings": SimpleNamespace(LoadFromProfile=lambda: settings if loaded else None),
                "HCModuleRegistry": lambda: registry, "Print": lambda text: None,
-               "CALL_CATEGORY_SYSTEM": 0, "TickCount": lambda prior: 0}
+               "CALL_CATEGORY_SYSTEM": 0, "TickCount": lambda prior: 0,
+               # The V2 summary is a passive print; its own tests live in test_v2_admission.
+               "HCV2Admission": SimpleNamespace(Summary=lambda settings: "[HollowCountry] V2 preferences")}
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
                             m_Registry=None, m_LastTick=0, Tick=lambda: None,
                             # The perf sampler is a passive observer; its own tests live in test_perf_capture.

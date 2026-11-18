@@ -152,7 +152,8 @@ class CoreFixture:
                        HCNativeSelfTests=N(Run=lambda: True),
                        HCSettings=N(LoadFromProfile=self.profile.load),
                        HCModuleRegistry=lambda: self.registry, CALL_CATEGORY_SYSTEM=0,
-                       TickCount=lambda prior:0)
+                       TickCount=lambda prior:0,
+                       HCV2Admission=N(Summary=lambda settings: '[HollowCountry] V2 preferences'))
         for name in ('Start', 'Tick', 'Stop'):
             if name == 'Tick':
                 source = core.SOURCE.read_text().replace(
