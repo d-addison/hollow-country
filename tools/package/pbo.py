@@ -24,6 +24,8 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'ce/events.xml', 'ce/travel-spawnabletypes.xml',
                  # V2 optional-pack overlay policy (the packs themselves are never shipped or copied).
                  'optional/overlay-policy.json',
+                 # W6 #60 authored survey inputs only; generated trigger instances never ship.
+                 'cellars/classes.json', 'cellars/README.md',
                  # V2 scene chains catalog, its native/class provenance and the operator handoff.
                  'events/README.md', 'events/scene-chains.json', 'events/scene-provenance.json',
                  'economy-profiles/baseline.json', 'economy-profiles/contextual-pilot.json',
