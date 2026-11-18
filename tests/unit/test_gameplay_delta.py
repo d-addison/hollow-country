@@ -769,12 +769,27 @@ class InfectedLegZones(unittest.TestCase):
     def squashed(self):
         return re.sub(r'\s+', '', self.CONFIG)
 
+    def hand_written(self):
+        # The generated inventory-size block (tools/package/inventory_sizes.py) holds item class
+        # names such as Headtorch; the leg-zone rules apply to the hand-written config only.
+        begin = self.CONFIG.index('// BEGIN HC inventory sizes')
+        end = self.CONFIG.index('// END HC inventory sizes')
+        return re.sub(r'\s+', '', self.CONFIG[:begin] + self.CONFIG[end:])
+
     def test_config_cpp_has_only_the_minimal_leg_zone_override(self):
         text = self.squashed()
         self.assertIn('classCfgVehicles{classDayZInfected;classZombieBase:DayZInfected{classDamageSystem{'
-                      'classDamageZones{classLeftLeg{classHealth{hitpoints=' + str(gameplay.LEG_HITPOINTS) + ';};};};};};};', text)
-        for untouched in ('RightLeg', 'LeftFoot', 'RightFoot', 'GlobalHealth', 'Head', 'Torso', 'Mummy'):
-            self.assertNotIn(untouched, text)  # RightLeg inherits LeftLeg; bosses/other zones stay vanilla
+                      'classDamageZones{classLeftLeg{classHealth{hitpoints=' + str(gameplay.LEG_HITPOINTS) + ';};};};};};', text)
+        self.assertEqual(1, text.count('classZombieBase:'))
+        hand = self.hand_written()
+        start = hand.index('classZombieBase:DayZInfected{')
+        zombie = hand[start:hand.index('};};};};};', start)]
+        for untouched in ('RightLeg', 'LeftFoot', 'RightFoot', 'GlobalHealth', 'Head', 'Torso'):
+            self.assertNotIn(untouched, zombie)  # RightLeg inherits LeftLeg; other zones stay vanilla
+        self.assertNotIn('Mummy', self.squashed())  # bosses that set their own zones stay vanilla
+        generated = self.CONFIG[self.CONFIG.index('// BEGIN HC inventory sizes'):self.CONFIG.index('// END HC inventory sizes')]
+        self.assertNotIn('DamageSystem', generated)
+        self.assertNotIn('Zombie', generated)
         self.assertIn('"DZ_Characters_Zombies"', text)  # load after the addon that defines the class
         self.assertIn('classCfgPatches', text)
         self.assertIn('classCfgMods', text)

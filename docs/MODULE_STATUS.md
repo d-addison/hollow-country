@@ -161,3 +161,62 @@ Diagnostic 017 emitted a native plugin error and is a failed smoke. See the
 issue tracker for validation summaries and outstanding gates. These observations
 do not establish native Windows or multiplayer acceptance.
 Tasks requiring unobserved gameplay remain open.
+
+## Inventory sizes — owner playtest 2026-11-18
+
+Spec: owner's scoped request on base `915aef1`; the named legacy spec files and
+shared brief were absent. Plan/tasks: behavioral RED → vanilla declarations →
+JSON rules/inheritance → merged config → check/package/regressions. Source tasks
+are implemented; runtime acceptance and the existing-test scope decision remain open.
+
+Final counts: **76 backpacks, 20 one-slot medical, 474 general** (570 overrides,
+24 verified defining addons). `config/inventory-sizes.json` records each actual
+parent, defining CfgPatches addon/member and vanilla/new dimensions. The unchanged
+`tools/audit/pbo_config.py` reads installed vanilla addons only. The cached workbook
+has no sizes; all 570 parents match it. All requiredAddons names were verified in
+vanilla PBOs, including existing DZ_Scripts in `dta/scripts.pbo`. No Workshop
+content or vanilla dumps are generation inputs or shipped assets.
+
+Backpack width/shell stays unchanged; rows become ceil(rows × 1.5), including
+bases/variants without compounded scaling. General 2×2 becomes 1×2 by shrinking
+width. Area-two tools must weigh strictly below 500g; categories/includes are
+explicit in JSON. Excluded: 413 cargo holders, 113 firearms/weapon attachments,
+751 definitions outside area rules, 72 area-two category/weight exclusions and
+868 hidden/non-inventory definitions. Already-one-slot items need no override.
+Only backpacks change itemsCargoSize; an excluded descendant cannot inherit a
+changed shell/cargo. Public diagnostic variants follow their family.
+
+One-slot medical changes: AntiChemInjector, BandageDressing, BloodBagEmpty,
+BloodSyringe, CharcoalTablets, ChelatingTablets, ClearSyringe, DisinfectantAlcohol,
+Epinephrine, IodineTincture, Morphine, PainkillerTablets, PurificationTablets, Rag,
+SewingKit, StartKitIV, Syringe, TetracyclineAntibiotics, Thermometer, VitaminBottle.
+InjectionVial/BloodTestKit were already one slot; larger bags/spray use the general
+rule; splints/defibrillators stay unchanged.
+
+RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_inventory_sizes.py -k medical_explicit -v`
+→ `Ran 1 test`; `FAILED (failures=1)` (Rag/SewingKit/SyntheticMedicine missing).
+GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -p test_inventory_sizes.py -v`
+→ final `Ran 22 tests in 0.112s`; `OK`. The final extra RED caught a cargo-only
+child override permitting inherited shell shrink; the property-specific guard
+fixed it and leaves the actual vanilla block unchanged.
+`PYTHONDONTWRITEBYTECODE=1 python3 -m tools.package.inventory_sizes --addons /mnt/d/HollowCountryLocal/runtime-v1/addons --check`
+→ exit 0: native manifest, deterministic block and addon coverage agree. A stale
+temporary config returned exit 1 without writing. `--review-only --check` checks
+authored consistency only and never verifies vanilla.
+
+Package/config selection (`rg -l 'config.cpp' tests/unit` plus package/sign/PBO)
+ran 749 tests in 183.854s: one failure, one skip. Full command
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v`
+ran 5,878 tests in 390.830s: the same failure, one skip, three expected failures.
+It included 21 inventory tests; the final extra regression/guard then passed the
+22-test focused run and native check. The full suite is **not green**: unowned
+`test_gameplay_delta.py:774` requires CfgVehicles to contain ZombieBase alone.
+Approval for `/tmp/hc-inventory-existing-test.patch` is pending; its three
+infected-leg tests pass in memory without changing that file.
+
+Final unsigned PBO build/verify passed (255 entries). config.cpp remains text,
+verified byte-for-byte after packing; signing operates on the unchanged opaque
+PBO and its existing flow is retained. Git metadata was not written; the writer
+commit message is set. DayZDiag, normal PBO/server/client loading, inventory fit,
+persistence/reconnect, nesting safety and balance at 3–6 players remain **pending**.
+Offline checks do not grant production acceptance.
