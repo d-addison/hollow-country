@@ -20,10 +20,10 @@ class HCModuleRegistry
     void Register(HCModule module)
     {
         if (!module) return;
-        // Matches HC_PERF_MAX_MODULES (16) so every registered module can be sampled.
-        if (m_Modules.Count() >= 16)
+        // Matches HC_PERF_MAX_MODULES (32) so every registered module can be sampled.
+        if (m_Modules.Count() >= 32)
         {
-            Print("[HollowCountry] Module registration refused (cap 16): " + module.GetName());
+            Print("[HollowCountry] Module registration refused (cap 32): " + module.GetName());
             return;
         }
         foreach (HCModule existing : m_Modules)

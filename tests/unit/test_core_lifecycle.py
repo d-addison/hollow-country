@@ -285,13 +285,13 @@ class ModuleRegistryCapTests(unittest.TestCase):
 
     def test_cap_matches_perf_sampler_and_refusal_is_logged(self):
         registry = self.registry()
-        for index in range(16):
+        for index in range(32):
             registry.Register(SimpleNamespace(GetName=lambda i=index: "module-" + str(i)))
-        self.assertEqual(16, len(registry.GetModules()))
+        self.assertEqual(32, len(registry.GetModules()))
         self.assertEqual([], self.lines)
-        registry.Register(SimpleNamespace(GetName=lambda: "module-16"))
-        self.assertEqual(16, len(registry.GetModules()))
-        self.assertTrue(any("module-16" in line and "cap 16" in line for line in self.lines), self.lines)
+        registry.Register(SimpleNamespace(GetName=lambda: "module-32"))
+        self.assertEqual(32, len(registry.GetModules()))
+        self.assertTrue(any("module-32" in line and "cap 32" in line for line in self.lines), self.lines)
 
 
 if __name__ == "__main__":
