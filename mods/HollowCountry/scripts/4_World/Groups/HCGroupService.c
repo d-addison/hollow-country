@@ -73,7 +73,9 @@ class HCGroupClock
         return days * 86400 + daytime;
     }
 
-    static int Utc()
+    // Validated sample without a watermark. Callers own their clock policy.
+    // Native UTC ports: 1_Core/proto/EnSystem.c:76,100 (1.30.164289).
+    static int SampleUtc()
     {
         // Native UTC date and time are separate calls, not an atomic snapshot.
         // At most two attempts/six native calls; never sleep or mix dates.
@@ -96,13 +98,18 @@ class HCGroupClock
                 attempt++;
                 continue;
             }
-            // Equal seconds are valid. Rejected snapshots never rewind the
-            // watermark; service policy still owns its stop/clear behavior.
-            if (candidate < s_LastUtc) return -1;
-            s_LastUtc = candidate;
             return candidate;
         }
         return -1;
+    }
+
+    static int Utc()
+    {
+        int candidate = HCGroupClock.SampleUtc();
+        // Preserve group callers' monotonic clock and stop/clear policy.
+        if (candidate < 1 || candidate < s_LastUtc) return -1;
+        s_LastUtc = candidate;
+        return candidate;
     }
 }
 
@@ -311,7 +318,7 @@ class HCGroupService
         if (!Live(peer) || peer.Identity != sender) return;
         if (!Admit(peer)) { Reply(peer, 0, HCGroupCode.RATE); return; }
         HCGroupRequest request;
-        if (!ctx.Read(request) || !request) { Reply(peer, 0, HCGroupCode.INVALID); return; }
+        if (!ctx || !ctx.Read(request) || !request) { Reply(peer, 0, HCGroupCode.INVALID); return; }
         if (request.Version != HCGroupProtocol.VERSION || request.Session.Length() > 80 || request.Name.Length() > 64 || request.Note.Length() > 512 || request.TargetId.Length() > 128 || !HCGroupRules.MutationIdValid(request.RequestId))
         { Reply(peer, request.RequestId, HCGroupCode.INVALID); return; }
         if (request.Op == HCGroupOp.SYNC)

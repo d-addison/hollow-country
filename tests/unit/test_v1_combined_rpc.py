@@ -94,9 +94,6 @@ class RpcFixture:
 
 
 class CombinedRpcTests(unittest.TestCase):
-    # HARDENING GAP (reviewed: engine always passes a non-null ctx; optional guard) mods/HollowCountry/scripts/4_World/Groups/HCGroupService.c:298:
-    # authenticated live sender, correct RPC_REQUEST, target=null, ctx=null.
-    @unittest.expectedFailure
     def test_groups_null_context(self):
         null_context_case('groups')(self)
 
