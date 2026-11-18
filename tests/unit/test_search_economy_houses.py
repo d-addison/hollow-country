@@ -29,6 +29,26 @@ DECL = re.compile(r'^(?:(?:ref|const|static|protected|private|autoptr)\s+)*(?P<t
 DEFAULTS = {'int': '0', 'float': '0.0', 'bool': 'False', 'string': "''", 'vector': '[0.0, 0.0, 0.0]'}
 
 
+class W5RetirementSmoke(unittest.TestCase):
+    def test_oldest_eviction_keeps_replay_barrier_after_snapshot_roundtrip(self):
+        import json
+        env = dict(EArray=EArray)
+        for code in Translator((LOOT / 'HCSearchRefresh.c').read_text(), only=(
+                'HCSearchRetirementEntry', 'HCSearchRetirementState', 'HCSearchRetirementPolicy')).classes():
+            exec(code, env)
+        self.assertIn('HCSearchRetirementPolicy', env, 'bounded retirement policy missing')
+        policy = env['HCSearchRetirementPolicy']
+        policy.MAX_RECENT = 2  # Explicit small synthetic FIFO; production cap is 2048.
+        state = env['HCSearchRetirementState']()
+        state.Archive = EArray([0] * 2048)
+        for supply, fingerprint in (('synthetic_oldest', 3), ('synthetic_next', 4), ('synthetic_new', 5)):
+            policy.Retain(state, supply, fingerprint)
+        self.assertEqual(['synthetic_next', 'synthetic_new'], [r.SupplyId for r in state.Recent])
+        state.Archive = EArray(json.loads(json.dumps(list(state.Archive))))
+        self.assertTrue(policy.Contains(state, 'synthetic_oldest', 3))
+        self.assertFalse(policy.Contains(state, 'synthetic_unseen', 6))
+
+
 class HMap(dict):
     def Contains(self, key): return key in self
     def Set(self, key, value): self[key] = value

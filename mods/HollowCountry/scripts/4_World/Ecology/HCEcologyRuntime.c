@@ -7,6 +7,10 @@
 // 3_Game/Global/Game.c:1535 GetTime, :1197 SurfaceIsPond;
 // 3_Game/Entities/Object.c:287 GetPosition. Dirty state tracks only the
 // persisted Samples/PathQueries counters; native acceptance remains pending.
+// Runtime cohort ceiling: HCEcologyLimits.ACTORS (32), shared for actors and
+// resources; settings defaults are preferences, never additional ceilings.
+// Per 5s default tick: <=8+8 samples, <=64 pairs, <=4 path queries (config max8),
+// cleanup <=32+32 bindings and <=8 intents. No global population/player scan.
 class HCEcologyLiveBinding
 {
 	EntityAI Live;
@@ -83,7 +87,7 @@ class HCEcologyRuntime
 	{
 		if (!m_Collecting || !entity || !HCEcologyNative.Authority() || entity.IsPendingDeletion()) { return; }
 		array<ref HCEcologyLiveBinding> entries = m_Resources;
-		int limit = 32;
+		int limit = HCEcologyLimits.ACTORS;
 		if (actor) { entries = m_Actors; }
 		if (m_Settings)
 		{

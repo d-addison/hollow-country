@@ -29,10 +29,10 @@ class HCEcologyRuntimeRules
 	static bool SettingsValid(HCEcologyRuntimeSettings settings)
 	{
 		if (!settings || settings.Version != 1) { return false; }
-		if (settings.MaxActors < 1 || settings.MaxActors > 32) { return false; }
-		if (settings.MaxResources < 1 || settings.MaxResources > 32) { return false; }
+		if (settings.MaxActors < 1 || settings.MaxActors > HCEcologyLimits.ACTORS) { return false; }
+		if (settings.MaxResources < 1 || settings.MaxResources > HCEcologyLimits.ACTORS) { return false; }
 		if (settings.MaxPathQueries < 1 || settings.MaxPathQueries > 8) { return false; }
-		if (settings.SampleSlice < 1 || settings.SampleSlice > 32) { return false; }
+		if (settings.SampleSlice < 1 || settings.SampleSlice > HCEcologyLimits.ACTORS) { return false; }
 		if (settings.TickMs < 1000 || settings.TickMs > 60000) { return false; }
 		if (settings.FreshMs < settings.TickMs || settings.FreshMs > 60000) { return false; }
 		if (settings.IntentMs < settings.TickMs || settings.IntentMs > 60000) { return false; }
@@ -93,7 +93,7 @@ class HCEcologyRuntimeRules
 
 	static bool CountersFit(HCEcologyCheckpoint state, int samples, int queries)
 	{
-		if (!state || samples < 0 || samples > 32 || queries < 0 || queries > 8) { return false; }
+		if (!state || samples < 0 || samples > HCEcologyLimits.ACTORS || queries < 0 || queries > 8) { return false; }
 		if (!CounterValid(state.Samples) || !CounterValid(state.PathQueries)) { return false; }
 		if (state.Revision >= 1000000000) { return false; }
 		if (samples > 1000000000 - state.Samples) { return false; }

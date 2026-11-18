@@ -22,6 +22,189 @@
 // Provisional caps: 32 records/minute, 4096 timers, existing 4096 supply journal rows.
 // Native compile, persistence, real CE replacement and two-client acceptance PENDING.
 
+// W5 retirement: <=2048 recent identities plus 2048 monotone bit buckets.
+// Oldest exact identity is archived BEFORE eviction. Collisions refuse fresh
+// supplies; they never grant an old supply again. No inventory is created here.
+// Store delegates to HCV2ThreatStore (verified temp/backup/readback barrier).
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :407 Insert,
+// :463 Remove; EnString.c:199 Length, :240 IndexOf, :448 Get;
+// EnScript.c:902 map.Set, :906 map.Remove, :917 map.Contains;
+// EnSystem.c:520 FindFile, :521 FindNextFile, :522 CloseFindFile, :528 DeleteFile.
+// Migration examines <=32 legacy files per minute; no directory scan per tick.
+class HCSearchRetirementEntry
+{
+    string SupplyId;
+    int Fingerprint;
+}
+
+class HCSearchRetirementState
+{
+    // Required sentinels prevent missing JSON fields from silently losing recent
+    // replay barriers after their immutable transfer files have been removed.
+    int Version;
+    int RecentCount = -1;
+    ref array<ref HCSearchRetirementEntry> Recent = new array<ref HCSearchRetirementEntry>;
+    ref array<int> Archive = new array<int>;
+}
+
+class HCSearchRetirementPolicy
+{
+    static const int MAX_RECENT = 2048;
+    static const int BUCKETS = 2048;
+
+    static int Fingerprint(string supplyId)
+    {
+        string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+        int hash = 0;
+        int characterIndex = 0;
+        while (characterIndex < supplyId.Length())
+        {
+            hash = (hash * 31 + alphabet.IndexOf(supplyId.Get(characterIndex)) + 1) % 59392;
+            characterIndex++;
+        }
+        return hash;
+    }
+
+    static bool ArchiveContains(HCSearchRetirementState state, int fingerprint)
+    {
+        int bucket = fingerprint % BUCKETS;
+        int mask = 1 << (fingerprint % 29);
+        return (state.Archive[bucket] & mask) != 0;
+    }
+
+    static bool Contains(HCSearchRetirementState state, string supplyId, int fingerprint)
+    {
+        if (ArchiveContains(state, fingerprint)) { return true; }
+        foreach (HCSearchRetirementEntry recent : state.Recent)
+        {
+            if (recent.SupplyId == supplyId) { return true; }
+        }
+        return false;
+    }
+
+    static void Retain(HCSearchRetirementState state, string supplyId, int fingerprint)
+    {
+        if (Contains(state, supplyId, fingerprint)) { return; }
+        if (state.Recent.Count() >= MAX_RECENT)
+        {
+            HCSearchRetirementEntry oldest = state.Recent[0];
+            int bucket = oldest.Fingerprint % BUCKETS;
+            int mask = 1 << (oldest.Fingerprint % 29);
+            int archived = state.Archive[bucket] | mask;
+            state.Archive[bucket] = archived;
+            state.Recent.Remove(0);
+        }
+        HCSearchRetirementEntry entry = new HCSearchRetirementEntry;
+        entry.SupplyId = supplyId;
+        entry.Fingerprint = fingerprint;
+        state.Recent.Insert(entry);
+    }
+}
+
+class HCSearchRetirementStore
+{
+    static const int MAX_BYTES = 524288;
+    protected string m_Path;
+    protected string m_Root;
+    protected ref HCSearchRetirementState m_Data;
+    // Hot supply admission uses a bounded hash-map lookup, not a FIFO scan.
+    protected ref map<string, bool> m_RecentIds = new map<string, bool>;
+    protected bool m_EvictionLogged;
+
+    bool Open(string root)
+    {
+        m_Root = root;
+        m_Path = root + "/retired.json";
+        if (!HCV2ThreatStore<HCSearchRetirementState>.CanOpen(m_Path)) { return false; }
+        if (FileExist(m_Path))
+        {
+            if (!HCV2ThreatStore<HCSearchRetirementState>.Load(m_Path, MAX_BYTES, m_Data)) { return false; }
+        }
+        else
+        {
+            m_Data = new HCSearchRetirementState;
+            m_Data.Version = 1;
+            m_Data.RecentCount = 0;
+            while (m_Data.Archive.Count() < HCSearchRetirementPolicy.BUCKETS) { m_Data.Archive.Insert(0); }
+            if (!HCV2ThreatStore<HCSearchRetirementState>.Save(m_Path, m_Data, MAX_BYTES)) { return false; }
+        }
+        if (!m_Data || m_Data.Version != 1 || !m_Data.Recent || !m_Data.Archive) { return false; }
+        if (m_Data.Recent.Count() > HCSearchRetirementPolicy.MAX_RECENT) { return false; }
+        if (m_Data.RecentCount != m_Data.Recent.Count()) { return false; }
+        if (m_Data.Archive.Count() != HCSearchRetirementPolicy.BUCKETS) { return false; }
+        foreach (int archived : m_Data.Archive)
+        {
+            if (archived < 0 || archived > 536870911) { return false; }
+        }
+        foreach (HCSearchRetirementEntry entry : m_Data.Recent)
+        {
+            if (!entry || !HCSearchRules.TextValid(entry.SupplyId, 64)) { return false; }
+            if (entry.Fingerprint != HCSearchRetirementPolicy.Fingerprint(entry.SupplyId)) { return false; }
+            if (m_RecentIds.Contains(entry.SupplyId)) { return false; }
+            m_RecentIds.Set(entry.SupplyId, true);
+        }
+        return true;
+    }
+
+    bool Contains(string supplyId)
+    {
+        if (m_RecentIds.Contains(supplyId)) { return true; }
+        return HCSearchRetirementPolicy.ArchiveContains(m_Data, HCSearchRetirementPolicy.Fingerprint(supplyId));
+    }
+
+    bool Retire(string supplyId)
+    {
+        if (Contains(supplyId)) { return true; }
+        bool evicted = m_Data.Recent.Count() == HCSearchRetirementPolicy.MAX_RECENT;
+        string oldestId;
+        if (evicted) { oldestId = m_Data.Recent[0].SupplyId; }
+        HCSearchRetirementPolicy.Retain(m_Data, supplyId, HCSearchRetirementPolicy.Fingerprint(supplyId));
+        m_Data.RecentCount = m_Data.Recent.Count();
+        if (!HCV2ThreatStore<HCSearchRetirementState>.Save(m_Path, m_Data, MAX_BYTES)) { return false; }
+        if (evicted) { m_RecentIds.Remove(oldestId); }
+        m_RecentIds.Set(supplyId, true);
+        if (evicted && !m_EvictionLogged)
+        {
+            Print("[HC Search Houses] tombstone FIFO cap=2048 oldest archived; conservative replay barrier retained");
+            m_EvictionLogged = true;
+        }
+        return true;
+    }
+
+    // The find handle is a local opened and closed within each call (vanilla
+    // 5_Mission/GUI/NewUI/VideoPlayer.c:81 pattern): every pruned file is retired and
+    // deleted before the next one, so each call re-enumerates only what remains.
+    bool PruneLegacy(HCSearchHouseJournal journal, int limit)
+    {
+        string legacyName;
+        FileAttr legacyAttributes;
+        FindFileHandle handle = FindFile(m_Root + "/spent_*.json", legacyName, legacyAttributes, FindFileFlags.DIRECTORIES);
+        bool more = legacyName != "";
+        bool ok = true;
+        int examined = 0;
+        while (more && examined < limit)
+        {
+            examined++;
+            string legacyPath = m_Root + "/" + legacyName;
+            HCSearchRecord legacy;
+            if (!HCSearchJson<HCSearchRecord>.Load(legacyPath, 8192, legacy)) { ok = false; break; }
+            HCSearchHouseRow row = new HCSearchHouseRow;
+            row.SiteId = legacy.SiteId;
+            row.SupplyId = legacy.SupplyId;
+            row.ItemClass = legacy.ItemClass;
+            if (!journal.Matches(legacy, row) || legacy.ActorId != "retired") { ok = false; break; }
+            if (legacy.Phase < 2 || legacy.Phase > 4) { ok = false; break; }
+            if (journal.TombstonePath(legacy.SupplyId) != legacyPath) { ok = false; break; }
+            // Archive readback precedes deletion. An interruption retains both
+            // barriers, or a poisoned .tmp that rejects the next journal open.
+            if (!Retire(legacy.SupplyId) || !DeleteFile(legacyPath)) { ok = false; break; }
+            more = FindNextFile(handle, legacyName, legacyAttributes);
+        }
+        CloseFindFile(handle);
+        return ok;
+    }
+}
+
 class HCSearchRefreshPolicy
 {
     // Bounded polynomial hash of the stable site id, independent of process RNG,
@@ -399,6 +582,7 @@ modded class HCSearchHouses
         if (m_Busy || m_Sessions.Count() > 0 || !m_Journal || !m_Journal.Healthy()) { return; }
         int examined = 0;
         int limit = Math.Min(m_Settings.MaxTickWorkItems, 32);
+        if (!m_Journal.PruneLegacyTombstones(limit)) { return; }
         if (limit > m_Journal.Count()) { limit = m_Journal.Count(); }
         while (examined < limit)
         {

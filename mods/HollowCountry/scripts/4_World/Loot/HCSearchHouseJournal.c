@@ -1,7 +1,11 @@
 // Native 1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist, :528 DeleteFile;
 // 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove.
 // 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :448 Get. Existing HCSearchJson owns JSON I/O.
-// Sparse active slots retain indices; immutable supply tombstones prevent regrant.
+// Sparse active slots retain indices; bounded FIFO/archive tombstones prevent regrant.
+// HCSearchRetirementStore in HCSearchRefresh.c owns a maximum of 2048 exact
+// tombstones and a fixed monotone archive. Legacy spent files migrate <=32/min.
+// Per compaction: <=4096 row reindex, <=2048 recent-id checks, one bounded JSON
+// commit; the caller permits <=32 compactions/minute, never per-frame work.
 // A compact_<slot> intent survives interruption and finishes cleanup before restore.
 // Lazy per-house search journal (contract section 8). Same immutable, bounded record
 // discipline as HCSearchEconomyStore (HCSearchJson.WriteNew, no overwrite or replay of transfer records), but the row set grows as sites bind instead of being fixed by a manifest.
@@ -36,6 +40,7 @@ class HCSearchHouseJournal
     protected ref map<string, int> m_Supplies = new map<string, int>;
     protected ref map<string, int> m_Sites = new map<string, int>;
     protected ref array<string> m_ReleasedSites = new array<string>;
+    protected ref HCSearchRetirementStore m_Retired;
 
     bool Fail(string reason)
     {
@@ -58,6 +63,7 @@ class HCSearchHouseJournal
     bool SupplyKnown(string supplyId)
     {
         if (m_Supplies.Contains(supplyId)) { return true; }
+        if (m_Retired && m_Retired.Contains(supplyId)) { return true; }
         // Only existence is read here; the stricter TombstonePath validates every write.
         return FileExist(m_Root + "/spent_" + supplyId + ".json");
     }
@@ -120,6 +126,14 @@ class HCSearchHouseJournal
         m_Root = parent + "/pin_" + sourcePin.Substring(0, 16);
         if (!FileExist(m_Root) && !MakeDirectory(m_Root)) return Fail("journal directory unavailable");
         m_Open = true;
+        // Never ignore a partial retirement commit, even if its primary is missing.
+        bool retiredExists = FileExist(m_Root + "/retired.json");
+        bool retiredIntent = FileExist(m_Root + "/retired.json.tmp");
+        bool retiredBackup = FileExist(m_Root + "/retired.json.bak");
+        if (retiredExists || retiredIntent || retiredBackup)
+        {
+            if (!EnsureRetirement()) { return false; }
+        }
         if (!Restore()) return false;
         return true;
     }
@@ -221,20 +235,31 @@ class HCSearchHouseJournal
         retiredRow.ItemClass = retired.ItemClass;
         if (!Matches(retired, retiredRow) || retired.ActorId != "retired") { return Fail("compact identity changed"); }
         if (retired.Phase < 2 || retired.Phase > 4) { return Fail("nonterminal compact intent"); }
-        string spentPath = TombstonePath(retired.SupplyId);
-        HCSearchRecord spent;
-        if (spentPath == "") { return Fail("unsafe retired supply identity"); }
-        if (!FileExist(spentPath))
-        {
-            if (!HCSearchJson<HCSearchRecord>.WriteNew(spentPath, retired, 8192)) { return Fail("tombstone write/readback failed"); }
-        }
-        if (!HCSearchJson<HCSearchRecord>.Load(spentPath, 8192, spent)) { return Fail("retired supply tombstone unreadable"); }
-        if (!Matches(spent, retiredRow) || spent.Phase != retired.Phase || spent.ActorId != "retired") { return Fail("retired supply tombstone changed"); }
+        if (TombstonePath(retired.SupplyId) == "") { return Fail("unsafe retired supply identity"); }
+        if (!EnsureRetirement()) { return false; }
+        // Durable conservative identity barrier BEFORE destroying any transfer row.
+        if (!m_Retired.Retire(retired.SupplyId)) { return Fail("retirement commit failed; preserve journal"); }
         if (!DeleteIfPresent(PathFor(index, "claim"))) { return Fail("compact claim cleanup failed"); }
         if (!DeleteIfPresent(PathFor(index, "attempt"))) { return Fail("compact attempt cleanup failed"); }
         if (!DeleteIfPresent(PathFor(index, "result"))) { return Fail("compact result cleanup failed"); }
         if (!DeleteIfPresent(PathFor(index, "entry"))) { return Fail("compact entry cleanup failed"); }
         if (!DeleteIfPresent(PathFor(index, "compact"))) { return Fail("compact intent cleanup failed"); }
+        return true;
+    }
+
+    bool EnsureRetirement()
+    {
+        if (m_Retired) { return true; }
+        m_Retired = new HCSearchRetirementStore;
+        if (!m_Retired.Open(m_Root)) { return Fail("retirement archive unavailable; preserve journal"); }
+        return true;
+    }
+
+    bool PruneLegacyTombstones(int limit)
+    {
+        if (!Healthy() || limit < 1 || limit > 32) { return false; }
+        if (!EnsureRetirement()) { return false; }
+        if (!m_Retired.PruneLegacy(this, limit)) { return Fail("legacy tombstone migration failed; preserve journal"); }
         return true;
     }
 

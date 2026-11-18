@@ -36,7 +36,7 @@ class HCCampTheft
     static bool Candidate(ItemBase container, HCCampRecord camp, int now, bool unattended, bool observerClear)
     {
         if (!container || !camp || !unattended || !observerClear || !Due(now, camp.LastTheft)) return false;
-        if (!Unlocked(container) || container.IsRuined()) return false;
+        if (!HCLockTable.CampUnlocked(container) || container.IsRuined()) { return false; }
         if (container.GetHierarchyParent() || container.GetHierarchyRootPlayer()) return false;
         vector containerPosition = container.GetPosition();
         return vector.DistanceSq(containerPosition, camp.Position) <= 144;
@@ -61,7 +61,7 @@ class HCCampTheft
                 vector dropCachePosition = dropCache.GetPosition();
                 if (vector.DistanceSq(dropCachePosition, position) <= 144) continue;
                 if (!HCObserverTransitionGate.CanTransition(dropCachePosition, 500)) continue;
-                if (!Unlocked(ItemBase.Cast(dropCache))) continue;
+                if (!HCLockTable.CampUnlocked(ItemBase.Cast(dropCache))) { continue; }
                 cacheId = drops.CacheId(dropIndex);
                 return dropCache;
             }
@@ -75,7 +75,7 @@ class HCCampTheft
             vector homeCachePosition = homeCache.GetPosition();
             if (vector.DistanceSq(homeCachePosition, position) <= 144) continue;
             if (!HCObserverTransitionGate.CanTransition(homeCachePosition, 500)) continue;
-            if (!Unlocked(ItemBase.Cast(homeCache))) continue;
+            if (!HCLockTable.CampUnlocked(ItemBase.Cast(homeCache))) { continue; }
             cacheId = holdouts.CacheId(homeIndex);
             return homeCache;
         }
@@ -109,7 +109,7 @@ class HCCampTheft
             if (!Candidate(crate, camp, now, true, true) && !charged) continue;
             // After the persisted cooldown reservation, recheck storage safety.
             // Split checks: long mixed ||-chains crashed the native server (shelters, compile 152).
-            if (!Unlocked(crate) || crate.IsRuined()) continue;
+            if (!HCLockTable.CampUnlocked(crate) || crate.IsRuined()) { continue; }
             if (crate.GetHierarchyParent() || crate.GetHierarchyRootPlayer()) continue;
             vector crateNow = crate.GetPosition();
             if (vector.DistanceSq(crateNow, camp.Position) > 144) continue;
@@ -132,7 +132,7 @@ class HCCampTheft
                 if (!module.Commit(now)) return;
                 charged = true;
             }
-            while (attempts < 2 && Unlocked(crate))
+            while (attempts < 2 && HCLockTable.CampUnlocked(crate))
             {
                 int phase = mover.TakeOne(crate, destination, actorId, allowed);
                 attempts++;

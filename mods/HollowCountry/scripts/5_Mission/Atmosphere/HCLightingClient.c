@@ -70,6 +70,14 @@ class HCLightingClient
         m_HCLogSeconds = m_HCLogSeconds + 3;
         if (m_HCLogSeconds > 60) m_HCLogSeconds = 60;
         PlayerBase viewer = PlayerBase.Cast(GetGame().GetPlayer());
+        if (HCCellarsClient.HCVisualActive())
+        {
+            m_HCOwnsSlot = false;
+            m_HCLoaded = "";
+            m_HCWeight = 0;
+            LogChange("cellar_fallback", 0);
+            return;
+        }
         if (!viewer || !GetGame().GetWeather())
         {
             Restore();

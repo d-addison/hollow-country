@@ -31,6 +31,9 @@ def environment():
     from tests.unit.build_identity_support import translate as build_identity
     env["HCBuildIdentity"] = build_identity()
     env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max)
+    # Count-only fixture pin: runtime reuses the existing 3_Game cohort ceiling.
+    limits = (ROOT / "3_Game/Ecology/HCEcologyData.c").read_text()
+    env["HCEcologyLimits"] = SimpleNamespace(ACTORS=int(re.search(r'ACTORS = (\d+);', limits)[1]))
     env["FLT_MAX"] = 3.4028234663852886e38  # native float max (1_Core EnScript.c)
     env["vector"] = SimpleNamespace(DistanceSq=lambda a, b: sum((x-y)**2 for x,y in zip(a,b)))
     for m in re.finditer(r"class (\w+)\s*\{", data):
