@@ -403,7 +403,9 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
         shutil.copyfile(preview, staged_preview)
         fields.append(('previewfile', _vdf_path(staged_preview, path_style)))
     fields += [('visibility', VISIBILITIES[visibility]), ('title', spec['title']), ('description', spec['description']),
-               ('changenote', note), ('publishedfileid', str(item_id))]
+               ('changenote', note), ('publishedfileid', str(item_id)),
+               # The DayZ launcher lists only items tagged "Mod" (untagged uploads never showed up).
+               ('tags', 'Mod')]
     text = '"workshopitem"\n{\n' + ''.join('\t"%s"\t\t"%s"\n' % pair for pair in fields) + '}\n'
     vdf = out / VDF_NAME
     vdf.write_text(text, encoding='utf-8')

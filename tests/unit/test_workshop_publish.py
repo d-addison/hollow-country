@@ -221,7 +221,12 @@ class Prepare(Base):
     def test_vdf_keys_are_exactly_these(self):
         self.prepare('--preview', self.preview())
         self.assertEqual(sorted(self.vdf()), ['appid', 'changenote', 'contentfolder', 'description',
-                                              'previewfile', 'publishedfileid', 'title', 'visibility'])
+                                              'previewfile', 'publishedfileid', 'tags', 'title', 'visibility'])
+
+    def test_vdf_tags_the_item_as_a_mod_so_the_dayz_launcher_lists_it(self):
+        # Owner report 2026-11-18: the DayZ launcher skipped both untagged items; every listed mod has "Mod".
+        self.prepare()
+        self.assertEqual(self.vdf()['tags'], 'Mod')
 
     def test_content_folder_is_a_clean_staged_copy_with_only_allowlisted_files(self):
         self.prepare()
