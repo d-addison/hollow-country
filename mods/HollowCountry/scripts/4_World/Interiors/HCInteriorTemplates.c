@@ -440,7 +440,7 @@ class HCInteriorTemplates
     static bool PropType(string type)
 
     {
-        return HCInteriorCatalog.SearchType(type) || type == "StaticObj_Furniture_kitchen_chair_a" || type == "StaticObj_Furniture_PaperBox_01_small_closed" || type == "StaticObj_Furniture_PaperBox_01_small_ransacked";
+        return HCInteriorCatalog.SearchType(type) || type == "StaticObj_Furniture_PaperBox_01_small_closed" || type == "StaticObj_Furniture_PaperBox_01_small_ransacked" || type == "StaticObj_Furniture_kitchen_chair_a" || type == "StaticObj_Furniture_matress_white" || type == "StaticObj_Furniture_postel_panelak1" || type == "StaticObj_Furniture_kitchen_table_a" || type == "StaticObj_Furniture_Kitchen_desk_A" || type == "StaticObj_Furniture_case_sink_a" || type == "StaticObj_Furniture_Dkamna_bila" || type == "StaticObj_Furniture_Kitchenstove_Elec" || type == "StaticObj_Furniture_sofa_leather_old" || type == "StaticObj_Furniture_PaperBox_01_small_destroyed" || type == "StaticObj_Furniture_debris_small_house" || type == "StaticObj_Furniture_dirtpile_small_house";
     }
 
     static bool SlotClear(HCInteriorTemplate templateRow, HCInteriorTemplatePropSlot propRow)
@@ -607,7 +607,7 @@ class HCInteriorTemplates
         foreach (HCInteriorTemplatePropSlot propRow : templateRow.PropSlots)
 
         {
-            if (!propRow || propRow.Id < 1 || propIds.Find(propRow.Id) >= 0 || !HCSearchRules.TextValid(propRow.Type, 128) || !PropType(propRow.Type) || !GetGame().ConfigIsExisting("CfgVehicles " + propRow.Type) || !SlotClear(templateRow, propRow) || !Texts(propRow.History, 1, 2))
+            if (!propRow || propRow.Id < 1 || propIds.Find(propRow.Id) >= 0 || !HCSearchRules.TextValid(propRow.Type, 128) || !PropType(propRow.Type) || !GetGame().ConfigIsExisting("CfgVehicles " + propRow.Type) || !SlotClear(templateRow, propRow) || !Texts(propRow.History, 1, 3))
 
             {
                 return false;
@@ -615,7 +615,7 @@ class HCInteriorTemplates
             foreach (string history : propRow.History)
 
             {
-                if (history != "family" && history != "ransacked")
+                if (history != "family" && history != "ransacked" && history != "abandoned")
 
                 {
                     return false;
@@ -674,7 +674,7 @@ class HCInteriorTemplates
         {
             HCInteriorTemplate templateRow = FindTemplate(row.BuildingClass);
             HCInteriorTemplateClassRow classRow = FindClass(row.BuildingClass);
-            if (!templateRow || !classRow || classRow.Furniture != "covered" || row.SlotId < 0 || row.SlotId >= 1500 || slots.Find(row.SlotId) >= 0 || !VectorValid(row.Position, 20000) || !(row.Yaw >= -360 && row.Yaw <= 360) || !row.Props || row.Props.Count() < 1 || row.Props.Count() > 5 || (row.History != "family" && row.History != "ransacked"))
+            if (!templateRow || !classRow || classRow.Furniture != "covered" || row.SlotId < 0 || row.SlotId >= 1500 || slots.Find(row.SlotId) >= 0 || !VectorValid(row.Position, 20000) || !(row.Yaw >= -360 && row.Yaw <= 360) || !row.Props || row.Props.Count() < 1 || row.Props.Count() > 5 || (row.History != "family" && row.History != "ransacked" && row.History != "abandoned"))
 
             {
                 return false;

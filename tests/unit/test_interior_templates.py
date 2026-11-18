@@ -297,7 +297,7 @@ class FrameAndShapeTests(unittest.TestCase):
         for slot in t["PropSlots"]:
             self.assertEqual(list(slot), ["Id", "Room", "Type", "Position", "Orientation", "Bounds", "History"])
             self.assertIn(slot["Type"], tpl.PROP_TYPES)
-            self.assertTrue(set(slot["History"]) <= {"family", "ransacked"} and slot["History"])
+            self.assertTrue(set(slot["History"]) <= set(tpl.HISTORIES) and slot["History"])
             self.assertTrue(inside(rooms[slot["Room"]], slot["Bounds"]))
             for keep in t["KeepOuts"]:
                 if keep["Kind"] == "door":
@@ -312,10 +312,89 @@ class FrameAndShapeTests(unittest.TestCase):
 
     def test_prop_types_come_from_the_reviewed_catalog(self):
         from tools.package import interior_catalog
-        pilot_types = {t for layout in interior_catalog.PILOT for t in layout[2:]}
-        self.assertEqual(set(tpl.PROP_TYPES), pilot_types)
+        self.assertEqual(set(tpl.PROP_TYPES), set(interior_catalog.PROPS))
+        self.assertTrue(15 <= len(tpl.PROP_TYPES) <= 25)
         for name, spec in tpl.PROP_TYPES.items():
-            self.assertTrue(set(spec["History"]) <= {"family", "ransacked"})
+            self.assertTrue(set(spec["History"]) <= set(tpl.HISTORIES))
+
+
+class CatalogGrowthTests(unittest.TestCase):
+    def test_house_histories_have_distinct_bounded_looks_and_class_variety(self):
+        self.assertEqual(("family", "ransacked", "abandoned"), tpl.HISTORIES)
+        result = standard(pos=pos_xml([(HOUSE, "%d 0 100" % (100+i*10), "0") for i in range(90)]))
+        rows = furnish_rows(result)
+        looks = {h: {tuple(r["Props"]) for r in rows if r["History"] == h} for h in tpl.HISTORIES}
+        self.assertTrue(all(looks.values()))
+        self.assertEqual(3, len({next(iter(v)) for v in looks.values()}))
+        self.assertTrue(all(len(r["Props"]) <= (2 if r["History"] == "abandoned" else 5) for r in rows))
+        observed = set()
+        for i in range(40):
+            cls = "Land_Synthetic_%02d" % i
+            built = standard(classes=(cls,) + CALIBRATION, rows=house_rows(cls) + calibration_rows(),
+                             proto=proto_xml([group(cls, [])]), pos=pos_xml([(cls, "100 0 100", "0")]))
+            observed.update(s["Type"] for s in template(built, cls)["PropSlots"])
+        self.assertGreaterEqual(len(observed), 15)
+
+    def test_reviewed_boxes_preferred_offsets_preserved_and_all_inputs_pinned(self):
+        raw = b'SYNTHETIC fixture only\n[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<1 -0.2 -0.3> max=<2 1.8 0.3>\n'
+        boxes = tpl.ingest_boxes(raw)
+        entry = boxes["Props"]["StaticObj_Furniture_case_a"]
+        self.assertEqual((1, .6, 2), (entry["Width"], entry["Depth"], entry["Height"]))
+        self.assertEqual(tpl.sha256(raw), entry["SourceLogSha256"])
+        specs = tpl.prop_specs(tpl._dump(boxes))
+        self.assertEqual("measured", specs["StaticObj_Furniture_case_a"]["BoxSource"])
+        self.assertEqual("conservative guess (NOT measured)", specs["StaticObj_Furniture_case_a_open"]["BoxSource"])
+        built = standard(boxes_bytes=tpl._dump(boxes))
+        self.assertNotEqual(standard().manifest["PackId"], built.manifest["PackId"])
+        self.assertIn("NOT measured", "\n".join(tpl.summary_lines(built.summary, built.manifest["PackId"])))
+        original = tpl.generator_sha256(tpl._dump(boxes))
+        with mock.patch.object(tpl.interior_catalog, "__file__", __file__):
+            self.assertNotEqual(original, tpl.generator_sha256(tpl._dump(boxes)))
+
+    def test_measured_model_origin_and_yaw_keep_native_corners_inside_slot(self):
+        # Explicit synthetic off-centre model, including a nonzero floor offset.
+        raw = b'SYNTHETIC\n[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<0.2 -0.2 -0.3> max=<1.2 1.8 0.3>\n'
+        specs = tpl.prop_specs(tpl._dump(tpl.ingest_boxes(raw)))
+        cells = [dict(x=x, z=z, y=0, clearance=3) for x in (-2.5,-1.5,-.5,.5,1.5,2.5)
+                 for z in (-2.5,-1.5,-.5,.5,1.5,2.5)]
+        members = [(round(c['x']+2.5),round(c['z']+2.5),0) for c in cells]
+        room = dict(id=1,members=members,cells=dict(zip(members,cells)),
+                    box=dict(Min=[-3,0,-3],Max=[3,3,3]))
+        for dx,dz,yaw in tpl.WALLS:
+            with self.subTest(yaw=yaw), mock.patch.object(tpl, 'WALLS', ((dx,dz,yaw),)):
+                slot=tpl._place('StaticObj_Furniture_case_a',room,(-2.5,-2.5),1,[],
+                                {'slots':[],'cells':{}},specs)
+                self.assertIsNotNone(slot)
+                for x in (.2,1.2):
+                    for z in (-.3,.3):
+                        rx,rz={0:(x,z),90:(z,-x),180:(-x,-z),270:(-z,x)}[yaw]
+                        for y in (-.2,1.8):
+                            corner=[slot['Position'][0]+rx,slot['Position'][1]+y,slot['Position'][2]+rz]
+                            self.assertTrue(tpl._point_inside(slot['Bounds'],corner), (slot,corner))
+                self.assertTrue(tpl._point_inside(slot['Bounds'],slot['Position']))
+
+    def test_ingestion_refuses_malformed_unknown_conflicting_or_empty_measurements(self):
+        good = '[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<-0.5 0 -0.3> max=<0.5 2 0.3>'
+        for text in ("no measurements", good.replace('case_a', 'invented'), good.replace('0.5 2', 'nan 2'),
+                     good.replace('0.5 2', '-2 2'), good+'\n'+good.replace('0.5 2', '0.6 2')):
+            with self.subTest(text=text), self.assertRaises(tpl.TemplateError):
+                tpl.ingest_boxes(text.encode())
+        self.assertEqual(1, len(tpl.ingest_boxes((good+'\n'+good).encode())["Props"]))
+
+    def test_ingestion_cli_merges_without_losing_unseen_types_and_bad_input_is_atomic(self):
+        with tempfile.TemporaryDirectory() as folder:
+            log, out = Path(folder)/'script.log', Path(folder)/'boxes.json'
+            log.write_text('SYNTHETIC\n[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<-0.5 0 -0.3> max=<0.5 2 0.3>\n')
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(0, tpl.main(['ingest-boxes', '--log', str(log), '--out', str(out)]))
+                log.write_text(log.read_text().replace('case_a', 'case_a_open'))
+                self.assertEqual(0, tpl.main(['ingest-boxes', '--log', str(log), '--out', str(out)]))
+            before = out.read_bytes()
+            self.assertEqual(2, len(json.loads(before)["Props"]))
+            log.write_text('SYNTHETIC invalid')
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(2, tpl.main(['ingest-boxes', '--log', str(log), '--out', str(out)]))
+            self.assertEqual(before, out.read_bytes())
 
 
 class ClassRowTests(unittest.TestCase):
@@ -490,7 +569,7 @@ class FurnishTests(unittest.TestCase):
         for row in rows:
             self.assertEqual(list(row), ["Slot", "BuildingClass", "Position", "Yaw", "Props", "History"])
             self.assertEqual(row["BuildingClass"], HOUSE)
-            self.assertIn(row["History"], ("family", "ransacked"))
+            self.assertIn(row["History"], tpl.HISTORIES)
             self.assertTrue(row["Props"] and len(row["Props"]) <= 5)
             for prop in row["Props"]:
                 self.assertIn(row["History"], slots[prop]["History"])

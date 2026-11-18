@@ -1135,8 +1135,8 @@ def _validate_template_geometry(template, class_row, sources, groups):
                 and row['Orientation'][1:] == [0, 0], 'invalid prop identity, type, pose or containment')
         require(not any(_template_intersects(bounds, k, 0.6 if k['Kind'] == 'door' else 0)
                         for k in template['KeepOuts']), 'prop intersects keepout or door margin')
-        _template_texts(row['History'], 1, 2, 'prop History')
-        require(all(h in ('family', 'ransacked') for h in row['History']), 'invalid prop history')
+        _template_texts(row['History'], 1, 3, 'prop History')
+        require(all(h in ('family', 'ransacked', 'abandoned') for h in row['History']), 'invalid prop history')
         props.add(row['Id'])
     sites = set()
     require(len(template['SearchSites']) <= 24 and (class_row['Search'] != 'covered' or template['SearchSites']),
@@ -1260,7 +1260,7 @@ def _validate_templates(files):
         require(pose not in instances, 'duplicate furnished instance')
         instances.add(pose)
         prop_slots = {p['Id']: p for p in templates[cls].get('PropSlots', [])}
-        require(row['History'] in ('family', 'ransacked') and all(p in prop_slots and row['History'] in prop_slots[p]['History'] for p in props), 'Props/History do not match template')
+        require(row['History'] in ('family', 'ransacked', 'abandoned') and all(p in prop_slots and row['History'] in prop_slots[p]['History'] for p in props), 'Props/History do not match template')
         total += len(props)
     require(total <= 1500, 'total furnished props exceeds 1500')
     return {'index': index, 'files': {'templates/' + n: sha(raw) for n, raw in sorted(files.items())},
@@ -1285,7 +1285,7 @@ def templates_build(censuses, proto, pos, types_bytes=None):
     tpl.parse_pos(pos)
     if docs:
         return tpl.build(censuses, proto, pos, types_bytes=types_bytes)
-    sources = {'mapgroupproto': sha(proto), 'mapgrouppos': sha(pos), 'generator': sha(Path(tpl.__file__).read_bytes())}
+    sources = {'mapgroupproto': sha(proto), 'mapgrouppos': sha(pos), 'generator': tpl.generator_sha256()}
     parameters = {'reach_source': 'strict', 'min_agreement': tpl.DEFAULT_MIN_AGREEMENT,
                   'max_furnished': tpl.MAX_FURNISHED}
     excluded = [{'BuildingClass': name, 'Reason': 'not_observed_as_house'} for name in names]
