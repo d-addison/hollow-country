@@ -40,8 +40,8 @@
 //
 // Per-tick bound: <=24 classified actors x <=64 players DistanceSq; herds on:
 // <=24 lease polls, then ONE fold or ONE materialize attempt (alternating),
-// three spatial samples x two geometries, capped at MaxObservers(<=8) x 2
-// casts total, one HCClear (128 objects, 64 doors), at most one CreateObjectEx;
+// three spatial samples x two geometries, capped at MaxObservers(<=8) x
+// RAYS_PER_OBSERVER (6) casts total, so a full party can be proven occluded, one HCClear (128 objects, 64 doors), at most one CreateObjectEx;
 // regrow <=16 herds per minute; stats once a minute.
 // Off: OnTick returns at the first check, no allocations.
 class HCLODSightBudget
@@ -80,6 +80,8 @@ class HCLODStopLeases
 class HCInfectedLOD
 {
     static const int MAX_TOMBSTONES = 24;
+    // Occluded() casts 3 samples x 2 geometries per observer.
+    static const int RAYS_PER_OBSERVER = 6;
     protected static ref HCInfectedLODConfig s_Config;
 
     static void HCSet(HCInfectedLODConfig config) { s_Config = config; }
@@ -480,7 +482,7 @@ class HCInfectedLODModule : HCModule
         infected.HCLODClassify(players, now, m_Config.ClassifyPerTick, m_Config.FullRange, m_Config.IdleRange);
         if (m_Herds && m_Store.Healthy())
         {
-            m_Sight.HCReset(m_Config.MaxObservers * 2);
+            m_Sight.HCReset(m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER);
             HCLODPollLeases(infected, now);
             if (m_FoldTurn) { HCLODFoldStep(infected, players, now); }
             else { HCLODMaterializeStep(infected, players, now); }
@@ -689,7 +691,7 @@ class HCInfectedLODModule : HCModule
         line = line + " herds=" + herds.ToString() + " herd_alive=" + herdAlive.ToString() + " leased=" + m_Leases.Count().ToString();
         line = line + " materialized_per_min=" + m_Materialized.ToString() + " folded_per_min=" + m_Folded.ToString() + " released_per_min=" + m_Released.ToString() + " deaths_per_min=" + m_Deaths.ToString() + " vanished_per_min=" + m_Vanished.ToString();
         line = line + " refused_sight=" + m_RefusedSight.ToString() + " refused_place=" + m_RefusedPlace.ToString() + " players=" + playerCount.ToString() + " runtime=PENDING";
-        line = line + " rays_per_min=" + m_Rays.ToString() + " ray_peak=" + m_RayPeak.ToString() + " ray_budget=" + (m_Config.MaxObservers * 2).ToString();
+        line = line + " rays_per_min=" + m_Rays.ToString() + " ray_peak=" + m_RayPeak.ToString() + " ray_budget=" + (m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER).ToString();
         Print("" + line);
         m_Rays = 0;
         m_RayPeak = 0;
