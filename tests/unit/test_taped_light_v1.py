@@ -85,7 +85,10 @@ class V1CatalogTests(unittest.TestCase):
         self.assertEqual('PENDING', data['acceptance'])
         self.assertEqual(26, len(data['pairs']))
         rows = re.findall(r'Add\(rows, "([^"]+)", "([^"]+)", "([^"]+)", "([^"]*)", "([^"]*)"\);', CATALOG.read_text())
-        self.assertEqual([(r['host'], r['light'], r['slot'], r['prerequisite_slot'], r['prerequisite_class']) for r in data['pairs']], rows)
+        baseline_rows = rows[:len(data['pairs'])]
+        self.assertEqual([(r['host'], r['light'], r['slot'], r['prerequisite_slot'], r['prerequisite_class']) for r in data['pairs']], baseline_rows)
+        self.assertEqual([(host, 'UniversalLight', 'weaponFlashlight', '', '')
+                          for host in ('Scout', 'Scout_Chernarus', 'Scout_Livonia')], rows[len(data['pairs']):])
         cache = Path.home()/'.cache/hollow-country/experiments'
         classification = cache/'taped-light-probe-004/classification.json'
         observation = cache/'taped-light-probe-006/observations.json'
@@ -103,7 +106,7 @@ class V1CatalogTests(unittest.TestCase):
                     if host['root'] == 'CfgWeapons' and slot in ('weaponFlashlight', 'pistolFlashlight') and entry['verdict'] == 'server_qualified':
                         prerequisite = entry['evidence']['prerequisite'] or {}
                         expected.append((host['class'], light, slot, prerequisite.get('slot', ''), prerequisite.get('handguard', '')))
-        self.assertEqual(expected, rows)
+        self.assertEqual(expected, baseline_rows)
         self.assertNotIn('R12', [r[0] for r in rows])
 
 

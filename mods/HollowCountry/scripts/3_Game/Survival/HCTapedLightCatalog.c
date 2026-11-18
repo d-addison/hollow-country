@@ -64,6 +64,12 @@ class HCTapedLightCatalog
         Add(rows, "SCARL", "UniversalLight", "weaponFlashlight", "", "");
         Add(rows, "SCARL_Black", "UniversalLight", "weaponFlashlight", "", "");
         Add(rows, "UMP45", "UniversalLight", "weaponFlashlight", "", "");
+        // #58 item 1: proxy-backed config extensions; patched attachment and client checks PENDING.
+        // Client/server weapons_firearms.pbo:scout/scout.p3d, native light proxy at byte 8586/8457.
+        // See config.cpp evidence and LOCAL_ACCEPTANCE_V1.md; these are not probe-qualified pairs.
+        Add(rows, "Scout", "UniversalLight", "weaponFlashlight", "", "");
+        Add(rows, "Scout_Chernarus", "UniversalLight", "weaponFlashlight", "", "");
+        Add(rows, "Scout_Livonia", "UniversalLight", "weaponFlashlight", "", "");
         s_Rows = rows;
         return s_Rows;
     }
