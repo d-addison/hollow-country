@@ -679,9 +679,10 @@ def plan_mod(source, destination, repo=ROOT, pbo_name=PBO_NAME, check=None):
                     files['addons/' + signature] = regular(addons / signature, 'signature ' + signature)
             for path in keys:
                 files['keys/' + path.name] = regular(path, 'public key ' + path.name)
-        meta = _optional(source / 'mod.cpp', 'mod.cpp')
-        if meta:
-            files['mod.cpp'] = meta
+        for launcher_file in ('mod.cpp', 'meta.cpp'):  # meta.cpp carries the Workshop publishedid
+            meta = _optional(source / launcher_file, launcher_file)
+            if meta:
+                files[launcher_file] = meta
     else:
         raise Refused('built mod must be a .pbo file or an @HollowCountry directory: %s' % source)
     blobs = {name: read_bytes(path, name) for name, path in files.items()}

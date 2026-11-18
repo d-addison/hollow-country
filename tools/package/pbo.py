@@ -211,9 +211,9 @@ def collect_addon(root, prefix=PREFIX):
             if path.read_text().strip() != prefix:
                 raise ValueError('prefix file differs from contract')
             continue  # property header is canonical; marker is build metadata
-        if name == 'mod.cpp':
+        if name in ('mod.cpp', 'meta.cpp'):
             _text(path.read_bytes())
-            continue  # launcher metadata belongs at @HollowCountry/mod.cpp
+            continue  # launcher metadata belongs at @HollowCountry/mod.cpp and meta.cpp
         if not original_addon_name(name):
             raise ValueError(f'addon file outside allowlist: {name}')
         data = path.read_bytes()
