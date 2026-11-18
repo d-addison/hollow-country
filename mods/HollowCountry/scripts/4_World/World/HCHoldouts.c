@@ -11,7 +11,7 @@
 // 3_Game/Entities/EntityAI.c:1884 GetInventory; Inventory/Inventory.c:138 GetCargo;
 // Inventory/Cargo.c:28 GetItemCount, :32 GetItem; 1_Core/proto/EnScript.c:380
 // Count, :385 Clear, :394 Find, :407 Insert, :463 Remove, :902 map.Set,
-// :917 map.Contains; EnString.c:199 Length, :240 IndexOf;
+// :917 map.Contains, :866 map.Get; EnString.c:199 Length, :240 IndexOf;
 // EnConvert.c:30 int.ToString, :210 vector.DistanceSq; EnDebug.c:96 Print.
 // 3_Game/Entities/EntityAI.c:1104 EEKilled(Object killer), :1248 EECargoOut(EntityAI item);
 // 3_Game/Entities/Man.c:21 GetIdentity; 4_World/Entities/ItemBase/Gear/Camping/camping.c:17 WoodenCrate.
@@ -156,13 +156,6 @@ class HCHoldoutState
     ref array<ref HCHoldoutRow> Rows = new array<ref HCHoldoutRow>;
 }
 
-// Optional signs owner supplies a sink whose ForceLit delegates to its real
-// HCSignsOfLife.ForceLit API. This keeps builds valid when that module is absent.
-class HCHoldoutLightSink
-{
-    void ForceLit(string id, vector position, bool lit) {}
-}
-
 class HCHoldoutBody
 {
     string HoldoutId;
@@ -172,7 +165,6 @@ class HCHoldoutBody
 class HCHoldouts : HCModule
 {
     protected static HCHoldouts s_Instance;
-    protected static ref HCHoldoutLightSink s_Lights;
     protected ref HCEncounterStore<HCHoldoutState> m_Store;
     protected ref HCHoldoutState m_State;
     protected ref array<ref HCEncounterCacheIO> m_Caches = new array<ref HCEncounterCacheIO>;
@@ -183,9 +175,10 @@ class HCHoldouts : HCModule
     protected bool m_Dirty;
     protected int m_Reports;
     protected bool m_WaitReported;
+    // Runtime diagnostics only, bounded by the 24 admitted holdout IDs.
+    protected ref map<string, string> m_PublishRefusals = new map<string, string>;
 
     static HCHoldouts Get() { if (s_Instance && s_Instance.m_Ready) { return s_Instance; } return null; }
-    static void BindSignsOfLife(HCHoldoutLightSink sink) { s_Lights = sink; }
 
     static void CargoRemoved(EntityAI container)
     {
@@ -228,34 +221,40 @@ class HCHoldouts : HCModule
         Print(HCV2Admission.Line("Holdouts", true, "EXP-L4", HCV2Gates.Qualified("EXP-L4")));
         m_Store = new HCEncounterStore<HCHoldoutState>("holdouts");
         m_State = m_Store.Load(new HCHoldoutState, "Rows");
-        if (!m_State || m_State.Version != 1 || !m_State.Rows || m_State.Rows.Count() > 24) return;
+        if (!m_State || m_State.Version != 1 || !m_State.Rows || m_State.Rows.Count() > 24) { HCRefuseState(); return; }
         map<string, bool> ids = new map<string, bool>;
         int occupied = 0;
         foreach (HCHoldoutRow row : m_State.Rows)
         {
-            if (!row || !row.Ledger || !HCEncounterCacheIO.Valid(row.Cache) || ids.Contains(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.HouseClass) || !HCWorldLimits.Position(row.Ledger.HousePos)) return;
-            if (row.Ledger.State != "DORMANT" && row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT" && row.Ledger.State != "RAIDED" && row.Ledger.State != "ABANDONED") return;
-            if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > 3 || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) return;
-            if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 604800) return;
+            if (!row || !row.Ledger || !HCEncounterCacheIO.Valid(row.Cache) || ids.Contains(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.HouseClass) || !HCWorldLimits.Position(row.Ledger.HousePos)) { HCRefuseState(); return; }
+            if (row.Ledger.State != "DORMANT" && row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT" && row.Ledger.State != "RAIDED" && row.Ledger.State != "ABANDONED") { HCRefuseState(); return; }
+            if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > 3 || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) { HCRefuseState(); return; }
+            if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 604800) { HCRefuseState(); return; }
             ids.Set(row.Ledger.Id, true);
             if (row.Ledger.Occupants > 0)
             {
-                if (!SiteAvailable(row)) return;
+                if (!SiteAvailable(row)) { HCRefuseState(); return; }
                 occupied++;
             }
+            row.Published = false;
             m_Caches.Insert(new HCEncounterCacheIO);
         }
-        if (occupied > 6) { m_Store.Fault(); return; }
+        if (occupied > 6) { HCRefuseState(); return; }
         s_Instance = this;
         m_Ready = true;
         Print("[HollowCountry] V2 holdouts ready catalog_cap=24 occupied_cap=6 raid_lockout=604800s; bodies require materializer");
-        if (!s_Lights) Print("[HollowCountry] V2 holdouts lit-window bridge pending HCSignsOfLife.ForceLit");
+        HCSyncLights();
+    }
+
+    protected void HCRefuseState()
+    {
+        Print("[HollowCountry] V2 holdouts refused: invalid holdouts.json state; preserve file, .tmp and .bak");
     }
 
     bool SaveChanged()
     {
-        if (!m_Dirty) return true;
-        if (!m_Store.Save(m_State)) { m_Ready = false; return false; }
+        if (!m_Dirty) { return true; }
+        if (!m_Store.Save(m_State)) { m_Ready = false; HCSyncLights(); return false; }
         m_Dirty = false;
         return true;
     }
@@ -271,35 +270,75 @@ class HCHoldouts : HCModule
         return true;
     }
 
-    // AddHoldout is insert-only; the world owner has no general upsert seam.
-    // Publish a bounded fact for every transition until that seam is available.
+    // Every durable transition refreshes the detached world copy, including
+    // ALERT, ABANDONED and the first occupancy after the raid lockout.
     void PublishState(HCHoldoutRow row)
     {
         HCWorldModule world = HCWorldModule.Get();
-        if (!world) return;
-        if (row.Ledger.CacheRef != row.Cache.EntityRef)
+        string reason = "world unavailable";
+        if (world)
         {
             row.Ledger.CacheRef = row.Cache.EntityRef;
-            m_Dirty = true;
+            bool wasPublished = row.Published;
+            row.Published = world.UpsertHoldout(row.Ledger);
+            if (row.Published)
+            {
+                if (!wasPublished) { m_Dirty = true; }
+                m_PublishRefusals.Set(row.Ledger.Id, "");
+                world.AddHoldoutFact(row.Ledger);
+                HCSyncLights();
+                return;
+            }
+            reason = world.HoldoutRefusal();
         }
-        if (!row.Published && row.Cache.Phase == 2)
+        if (m_PublishRefusals.Get(row.Ledger.Id) != reason)
         {
-            row.Published = world.AddHoldout(row.Ledger);
-            if (row.Published) m_Dirty = true;
+            m_PublishRefusals.Set(row.Ledger.Id, reason);
+            Print("[HollowCountry] V2 holdout publish refused id=" + row.Ledger.Id + " reason=" + reason);
         }
-        if (row.Ledger.State == "RAIDED")
+    }
+
+    bool HCAdvanceOccupancy(int index, int now)
+    {
+        HCHoldoutRow row = m_State.Rows[index];
+        string before = row.Ledger.State;
+        if (row.Ledger.State == "RAIDED" && now >= row.Ledger.ReoccupyAfter)
         {
-            if (!world.MarkHoldoutRaided(row.Ledger.Id)) world.AddFact("RAIDED", row.Ledger.PlaceId, 2);
-            return;
+            row.Ledger.State = "DORMANT";
+            row.Ledger.Since = now;
+            row.Ledger.Routine = "AWAITING_OCCUPANTS";
         }
-        if (row.Ledger.State == "ABANDONED")
+        bool dormant = row.Ledger.State == "DORMANT";
+        bool capacity = Occupied() < 6;
+        bool available = SiteAvailable(row) && Cache(index);
+        if (dormant && capacity && available)
         {
-            world.AddFact("ABANDONED", row.Ledger.PlaceId, 1);
-            return;
+            row.Ledger.State = "OCCUPIED";
+            row.Ledger.Occupants = 1;
+            row.Ledger.Since = now;
+            row.Ledger.Routine = "SHELTER";
         }
-        string stateKind = row.Ledger.State;
-        stateKind.ToLower();
-        world.AddFact("holdout_" + stateKind, row.Ledger.PlaceId, 1);
+        if (row.Ledger.State == "ALERT" && now - row.Ledger.Since >= 3600)
+        {
+            row.Ledger.State = "OCCUPIED";
+            row.Ledger.Since = now;
+        }
+        return row.Ledger.State != before;
+    }
+
+    void HCSyncLights()
+    {
+        array<vector> positions = new array<vector>;
+        if (m_Ready && m_State)
+        {
+            foreach (HCHoldoutRow litRow : m_State.Rows)
+            {
+                if (positions.Count() >= 24) { break; }
+                bool inhabited = litRow.Ledger.State == "OCCUPIED" || litRow.Ledger.State == "ALERT";
+                if (inhabited) { positions.Insert(litRow.Ledger.HousePos); }
+            }
+        }
+        HCSignsHoldoutRPC.Publish(positions);
     }
 
     // Catalog comes from authored template-pack world rows, never a world scan.
@@ -330,6 +369,7 @@ class HCHoldouts : HCModule
             row.Ledger.HouseClass = site.BuildingClass;
             row.Ledger.HousePos = position;
             row.Ledger.PlaceId = world.NearestPlace(position);
+            if (row.Ledger.PlaceId == "") { continue; }
             row.Ledger.PlaceId.ToLower();
             row.Ledger.FactionId = "locals";
             row.Ledger.Since = HCWorldClock.UTC();
@@ -344,7 +384,7 @@ class HCHoldouts : HCModule
         {
             m_State.TemplatePin = HCInteriorTemplates.SourcePin();
             m_Dirty = true;
-            if (!SaveChanged()) return;
+            if (!SaveChanged()) { return; }
             else Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/24");
         }
     }
@@ -520,7 +560,7 @@ class HCHoldouts : HCModule
     void Raid(int index)
     {
         HCHoldoutRow row = m_State.Rows[index];
-        if (row.Ledger.State == "RAIDED") return;
+        if (row.Ledger.State == "RAIDED") { return; }
         row.Ledger.State = "RAIDED";
         row.Ledger.Occupants = 0;
         row.Ledger.Since = HCWorldClock.UTC();
@@ -528,9 +568,9 @@ class HCHoldouts : HCModule
         row.Ledger.Routine = "LOCKOUT";
         row.Contents.Clear();
         m_Dirty = true;
-        if (!SaveChanged()) return;
+        if (!SaveChanged()) { return; }
         PublishState(row);
-        if (!SaveChanged()) return;
+        if (!SaveChanged()) { return; }
         Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=604800s");
     }
 
@@ -546,22 +586,29 @@ class HCHoldouts : HCModule
             m_WaitReported = true;
             return;
         }
-        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
+        if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
         FillCatalog();
-        if (!m_Ready || Count() == 0 || HCEscalationClock.Day() < 1) return;
+        if (!m_Ready || Count() == 0) { return; }
         if (m_Next >= Count()) m_Next = 0;
         int index = m_Next;
         m_Next++;
         HCHoldoutRow row = m_State.Rows[index];
         int now = HCWorldClock.UTC();
-        if (now < row.Ledger.Since || now < 1) { m_Ready = false; return; }
+        if (now < row.Ledger.Since || now < 1) { m_Ready = false; HCSyncLights(); return; }
+        // Repair a cross-store interrupted publish even when a house/cache
+        // cannot currently resolve. Local durable state is authoritative.
+        if (!row.Published)
+        {
+            PublishState(row);
+            if (!SaveChanged()) { return; }
+        }
         Object structure = Structure(index);
         if (!structure) return;
         if (row.Cache.Phase == 0 && HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500) && CacheSpot(structure, row) && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
         {
             row.Cache.Phase = 1;
             m_Dirty = true;
-            if (!SaveChanged()) return;
+            if (!SaveChanged()) { return; }
             m_Caches[index].Create(row.Cache);
             m_Dirty = true;
         }
@@ -573,19 +620,7 @@ class HCHoldouts : HCModule
         if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) Raid(index);
         if (!m_Ready) return;
         string previousState = row.Ledger.State;
-        if (row.Ledger.State == "RAIDED" && now >= row.Ledger.ReoccupyAfter)
-        {
-            row.Ledger.State = "DORMANT";
-            row.Ledger.Since = now;
-        }
-        if (row.Ledger.State == "DORMANT" && Occupied() < 6 && SiteAvailable(row) && Cache(index))
-        {
-            row.Ledger.State = "OCCUPIED";
-            row.Ledger.Occupants = 1;
-            row.Ledger.Since = now;
-            row.Ledger.Routine = "SHELTER";
-        }
-        if (row.Ledger.State == "ALERT" && now - row.Ledger.Since >= 3600) row.Ledger.State = "OCCUPIED";
+        HCAdvanceOccupancy(index, now);
         for (int bodyIndex = m_Bodies.Count() - 1; bodyIndex >= 0; bodyIndex--)
         {
             HCHoldoutBody binding = m_Bodies[bodyIndex];
@@ -607,19 +642,20 @@ class HCHoldouts : HCModule
         if (row.Ledger.State != previousState)
         {
             m_Dirty = true;
+            if (!SaveChanged()) { return; }
             PublishState(row);
         }
         if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")
         {
             HCSearchHouses houses = HCSearchBinding.Houses();
             // Three lifetime attempts, one per real day. No replenishment on raid.
-            if (houses && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() > 0 && HCEscalationClock.Day() >= row.StockDay && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
+            if (houses && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() >= row.StockDay && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
             {
                 int siteNumber = row.StockAttempts;
                 row.StockAttempts++;
                 row.StockDay = HCEscalationClock.Day() + 1;
                 m_Dirty = true;
-                if (!SaveChanged()) return;
+                if (!SaveChanged()) { return; }
                 int phase = houses.V2Visit(structure, Cache(index), row.Ledger.Id, siteNumber);
                 if (phase == 3) { row.StockAttempts = 3; m_Dirty = true; }
                 if (m_Reports < 12)
@@ -633,15 +669,15 @@ class HCHoldouts : HCModule
         if (row.Ledger.CacheRef != row.Cache.EntityRef)
         {
             row.Ledger.CacheRef = row.Cache.EntityRef;
+            row.Published = false;
             m_Dirty = true;
         }
         HCWorldModule world = HCWorldModule.Get();
-        if (world && !row.Published && row.Cache.Phase == 2)
+        if (world && !row.Published)
         {
-            row.Published = world.AddHoldout(row.Ledger);
+            PublishState(row);
             if (row.Published) m_Dirty = true;
         }
-        if (s_Lights) s_Lights.ForceLit(row.Ledger.Id, row.Ledger.HousePos, row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT");
         SaveChanged();
     }
 
@@ -649,11 +685,8 @@ class HCHoldouts : HCModule
     {
         // Flush changes marked by native callbacks since the last tick; a faulted store stays unwritten.
         if (m_Ready && m_State) SaveChanged();
-        if (s_Lights && m_State)
-        {
-            foreach (HCHoldoutRow row : m_State.Rows) s_Lights.ForceLit(row.Ledger.Id, row.Ledger.HousePos, false);
-        }
         m_Ready = false;
+        HCSyncLights();
         m_Bodies.Clear();
         if (s_Instance == this) s_Instance = null;
     }

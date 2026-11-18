@@ -16,7 +16,12 @@
 // "Flies_SoundSet" loop. Edible_Base.c:587 IsFoodRotten (under Entities/ItemBase).
 // Creatures/{Animals/AnimalBase,Infected/ZombieBase}.c define corpse classes.
 // 5_Mission/mission/missionGameplay.c:102/287/266 OnInit/OnUpdate/OnMissionFinish.
-// Default-on, client-local preference by task contract: no server settings/RPC.
+// Default-on local effects; occupied holdout positions arrive server-to-client.
+// Native scripts-1.30.164289: 3_Game/DayZGame.c:991 Event_OnRPC;
+// 2_GameLib/tools.c:120/122 ScriptInvoker.Insert/Remove;
+// 1_Core/proto/Serializer.c:58 Read; connection callbacks in
+// 5_Mission/mission/missionServer.c:549 OnClientNewEvent, :599
+// OnClientReadyEvent, :633 OnClientReconnectEvent. Two-client test pending.
 // Caps count HC-owned sources; vanilla corpse effects remain engine-owned.
 // Geometry, perceptibility, engine cleanup and two-client acceptance pending.
 class HCSignsOfLifeEffect
@@ -53,6 +58,44 @@ class HCSignsOfLifeClient
     protected int m_LastSmoke = -1;
     protected int m_LastFlies = -1;
 
+    protected bool m_HoldoutSnapshot;
+
+    void HCSignsOfLifeClient()
+    {
+        HCSignsOfLife.ForceLit = new array<vector>;
+        DayZGame.Event_OnRPC.Insert(HCReceiveHoldouts);
+    }
+
+    void HCReceiveHoldouts(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
+    {
+        if (GetGame().IsServer() || sender || target || !ctx) { return; }
+        if (rpcType != HCSignsHoldoutRPC.RPC_HOLDOUTS) { return; }
+        int count;
+        if (!ctx.Read(count) || count < 0 || count > 24) { return; }
+        array<vector> positions = new array<vector>;
+        vector position;
+        for (int readIndex = 0; readIndex < count; readIndex++)
+        {
+            if (!ctx.Read(position) || !HCWorldLimits.Position(position)) { return; }
+            if (positions.Find(position) >= 0) { return; }
+            positions.Insert(position);
+        }
+        bool changed = !m_HoldoutSnapshot;
+        if (HCSignsOfLife.ForceLit.Count() != count) { changed = true; }
+        for (int compareIndex = 0; compareIndex < count; compareIndex++)
+        {
+            if (!changed)
+            {
+                if (positions[compareIndex] != HCSignsOfLife.ForceLit[compareIndex]) { changed = true; }
+            }
+        }
+        if (!changed) { return; }
+        m_HoldoutSnapshot = true;
+        HCSignsOfLife.ForceLit = positions;
+        m_ScanClock = HCSignsOfLife.SCAN_SECONDS;
+        Print("[HollowCountry] V2 client signs of life holdouts=" + count.ToString());
+    }
+
     static bool FlySource(Object source)
     {
         if (!source) return false;
@@ -64,7 +107,7 @@ class HCSignsOfLifeClient
         return false;
     }
 
-    void Update(float timeslice)
+    void HCTickEffects(float timeslice)
     {
         if (!GetGame() || GetGame().IsDedicatedServer()) return;
         m_ScanClock += timeslice;
@@ -220,7 +263,8 @@ class HCSignsOfLifeClient
     void Stop()
     {
         Clear();
-        HCSignsOfLife.ForceLit.Clear();
+        DayZGame.Event_OnRPC.Remove(HCReceiveHoldouts);
+        HCSignsOfLife.ForceLit = null;
         m_LogClock = HCSignsOfLife.SCAN_SECONDS;
         Report();
     }
@@ -239,7 +283,7 @@ modded class MissionGameplay
     override void OnUpdate(float timeslice)
     {
         super.OnUpdate(timeslice);
-        if (m_HCSignsOfLife) m_HCSignsOfLife.Update(timeslice);
+        if (m_HCSignsOfLife) m_HCSignsOfLife.HCTickEffects(timeslice);
     }
 
     override void OnMissionFinish()
@@ -247,5 +291,28 @@ modded class MissionGameplay
         if (m_HCSignsOfLife) m_HCSignsOfLife.Stop();
         m_HCSignsOfLife = null;
         super.OnMissionFinish();
+    }
+}
+
+// Follow the existing group connection pattern without editing core mission code.
+modded class MissionServer
+{
+    override PlayerBase OnClientNewEvent(PlayerIdentity identity, vector pos, ParamsReadContext ctx)
+    {
+        PlayerBase player = super.OnClientNewEvent(identity, pos, ctx);
+        HCSignsHoldoutRPC.SendTo(identity, player);
+        return player;
+    }
+
+    override void OnClientReadyEvent(PlayerIdentity identity, PlayerBase player)
+    {
+        super.OnClientReadyEvent(identity, player);
+        HCSignsHoldoutRPC.SendTo(identity, player);
+    }
+
+    override void OnClientReconnectEvent(PlayerIdentity identity, PlayerBase player)
+    {
+        super.OnClientReconnectEvent(identity, player);
+        HCSignsHoldoutRPC.SendTo(identity, player);
     }
 }

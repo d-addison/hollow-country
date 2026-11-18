@@ -157,9 +157,8 @@ class HCWorldMaterializer : HCModule
         return !claimed && age >= HCWorldMaterializer.PROVIDER_TIMEOUT;
     }
 
-    // No Strength setter exists. Preserve exact survivors as a faction-tagged
-    // ledger fact instead of mutating a detached GetFaction() copy. A false
-    // result means nothing spawned; survivor counts then must be zero.
+    // Only confirmed materialized casualties debit finite faction strength.
+    // Refusals/timeouts preserve strength and leave a bounded place trace.
     static bool FoldBack(HCWorldModule world, HCWorldProposal proposal, bool materialized, int survivors)
     {
         if (!world || !proposal || survivors < 0 || survivors > proposal.ActorCap) { return false; }
@@ -175,8 +174,16 @@ class HCWorldMaterializer : HCModule
     protected void Resolve(int leaseIndex, bool materialized, int survivors)
     {
         HCWorldProposalLease lease = m_Active[leaseIndex];
-        if (!FoldBack(HCWorldModule.Get(), lease.Proposal, materialized, survivors)) { return; }
-        if (materialized) { m_Materialized++; }
+        HCWorldModule world = HCWorldModule.Get();
+        if (!world || !world.GetFaction(lease.Proposal.FactionId)) { return; }
+        if (!FoldBack(world, lease.Proposal, materialized, survivors)) { return; }
+        // Same synchronous result consumes its reservation only after both
+        // ledger mutations. No spawned body means no strength debit.
+        if (materialized)
+        {
+            if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { return; }
+            m_Materialized++;
+        }
         else { m_Traces++; }
         m_Active.RemoveOrdered(leaseIndex);
     }

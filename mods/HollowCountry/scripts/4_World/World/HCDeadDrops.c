@@ -128,26 +128,26 @@ class HCDeadDrops : HCModule
         Print(HCV2Admission.Line("DeadDrops", true, "EXP-L4", HCV2Gates.Qualified("EXP-L4")));
         m_Store = new HCEncounterStore<HCDeadDropState>("dead-drops");
         m_State = m_Store.Load(new HCDeadDropState, "Rows");
-        if (!m_State || m_State.Version != 1 || !m_State.Rows) return;
+        if (!m_State || m_State.Version != 1 || !m_State.Rows) { HCRefuseState(); return; }
         if (m_State.Rows.Count() == 0)
         {
             int day = HCEscalationClock.Day();
             Spot("hc-drop-balota", "4086 0 3005", day);
-            Spot("hc-drop-pavlovo", "2008 0 4230", day + 1);
+            Spot("hc-drop-pavlovo", "2008 0 4230", day);
             Spot("hc-drop-zeleno", "2470 0 5795", day);
-            Spot("hc-drop-vybor", "3405 0 9380", day + 1);
+            Spot("hc-drop-vybor", "3405 0 9380", day);
             Spot("hc-drop-stary", "5675 0 7990", day);
-            Spot("hc-drop-gorka", "9065 0 9115", day + 1);
+            Spot("hc-drop-gorka", "9065 0 9115", day);
             Spot("hc-drop-severo", "7450 0 13040", day);
-            Spot("hc-drop-berezino", "11710 0 10285", day + 1);
-            if (!SaveChanged()) return;
+            Spot("hc-drop-berezino", "11710 0 10285", day);
+            if (!SaveChanged()) { HCRefuseState(); return; }
         }
-        if (Count() < 6 || Count() > 10) return;
+        if (Count() < 6 || Count() > 10) { HCRefuseState(); return; }
         map<string, bool> ids = new map<string, bool>;
         foreach (HCDeadDropRow row : m_State.Rows)
         {
-            if (!row || !HCWorldLimits.Token(row.Id) || ids.Contains(row.Id) || !HCEncounterCacheIO.Valid(row.Cache) || row.Deposits < 0 || row.Deposits > 4 || row.NextDay < 0 || !row.SurvivorDeposits || row.SurvivorDeposits.Count() > 32) return;
-            if (!HCWorldLimits.Strings(row.SurvivorDeposits, 32)) return;
+            if (!row || !HCWorldLimits.Token(row.Id) || ids.Contains(row.Id) || !HCEncounterCacheIO.Valid(row.Cache) || row.Deposits < 0 || row.Deposits > 4 || row.NextDay < 0 || !row.SurvivorDeposits || row.SurvivorDeposits.Count() > 32) { HCRefuseState(); return; }
+            if (!HCWorldLimits.Strings(row.SurvivorDeposits, 32)) { HCRefuseState(); return; }
             ids.Set(row.Id, true);
             m_Caches.Insert(new HCEncounterCacheIO);
         }
@@ -155,6 +155,11 @@ class HCDeadDrops : HCModule
         s_Instance = this;
         m_Ready = true;
         Print("[HollowCountry] V2 dead drops ready spots=8 finite_deposits=4/spot interval=1/day");
+    }
+
+    protected void HCRefuseState()
+    {
+        Print("[HollowCountry] V2 dead drops refused: invalid dead-drops.json state or save failure; preserve file, .tmp and .bak");
     }
 
     string CacheId(int index)
@@ -175,7 +180,6 @@ class HCDeadDrops : HCModule
     // Players use ordinary vanilla inventory; no RPC or client-owned state.
     int TakeOne(int index, EntityAI destination, string actorId)
     {
-        if (HCEscalationClock.Day() < 1) return 0;
         EntityAI source = Cache(index);
         if (!source || !destination || m_State.Rows[index].Quarantined) return 0;
         if (!HCObserverTransitionGate.CanTransition(source.GetPosition(), 500) || !HCObserverTransitionGate.CanTransition(destination.GetPosition(), 500)) return 0;
@@ -202,7 +206,6 @@ class HCDeadDrops : HCModule
         HCDeadDropRow row = m_State.Rows[index];
         if (row.Quarantined) return;
         int today = HCEscalationClock.Day();
-        if (today < 1) return;
         if (row.Cache.Phase == 0)
         {
             vector anchor = row.Cache.Position;

@@ -100,8 +100,11 @@ class HCWorldStore
 
     static bool Migrate(HCWorldData data)
     {
-        // Current schema is deliberately a no-op; unknown schemas fail closed.
-        return data && data.Meta && data.Meta.SchemaVersion == HCWorldLimits.SCHEMA;
+        // Schema remains compatible: existing place IDs/indices never change.
+        if (!data || !data.Meta || data.Meta.SchemaVersion != HCWorldLimits.SCHEMA) { return false; }
+        if (!HCWorldData.Valid(data)) { return false; }
+        HCWorldData.ExtendPlaces(data);
+        return true;
     }
 
     static HCWorldData Decode(string text)

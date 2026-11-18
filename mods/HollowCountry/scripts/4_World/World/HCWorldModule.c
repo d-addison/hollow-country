@@ -3,7 +3,7 @@
 // 1_Core/proto/EnSystem.c:76,100 (UTC via HCWorldClock),
 // 3_Game/tools/JsonFileLoader.c:69,85 (snapshot cloning).
 // 1_Core/proto/EnConvert.c:30 (int.ToString),
-// 1_Core/proto/EnDebug.c:96 (Print).
+// 1_Core/proto/EnDebug.c:96 (Print); EnScript.c:389 array.Set.
 // HCModule/HCModuleRegistry lifecycle is the project's runtime contract.
 // No provider bodies, entities, inventories, RPCs or player state here.
 class HCWorldModule : HCModule
@@ -18,6 +18,7 @@ class HCWorldModule : HCModule
     protected float m_SaveSeconds;
     protected int m_Cursor;
     protected int m_StepsSinceSave;
+    protected string m_HoldoutRefusal;
 
     static HCWorldModule Get()
     {
@@ -84,7 +85,7 @@ class HCWorldModule : HCModule
         if (m_StepSeconds >= 60)
         {
             m_StepSeconds = 0;
-            Step(HCWorldClock.UTC());
+            HCWorldStep(HCWorldClock.UTC());
         }
         if (m_Dirty && m_SaveSeconds >= 60)
         {
@@ -103,7 +104,7 @@ class HCWorldModule : HCModule
 
     // A row means one faction, hold-out or abstract party. Store serialization
     // is a separate, bounded whole-image operation, at most once per minute.
-    protected void Step(int now)
+    protected void HCWorldStep(int now)
     {
         if (now < 1) { return; }
         int factionRows = m_Data.Factions.Count();
@@ -151,7 +152,7 @@ class HCWorldModule : HCModule
         faction.Alert -= decay;
         if (faction.Alert < 0) { faction.Alert = 0; }
         faction.LastAlertDecay += decay * 3600;
-        // Finite strength is untouched: conflict/regrowth belongs to LC-T411.
+        // Conflict and materializer outcomes adjust finite strength through AdjustStrength.
     }
 
     protected void StepHoldout(HCWorldHoldout holdout, int now)
@@ -230,12 +231,49 @@ class HCWorldModule : HCModule
         if (!anchor || !HCWorldLimits.Token(kind) || severity < 0 || severity > 3) { return false; }
         int now = HCWorldClock.UTC();
         if (now < m_Data.Meta.Epoch) { return false; }
+        if (kind == "party_passed")
+        {
+            foreach (HCWorldFact priorPass : m_Data.Facts)
+            {
+                bool samePlace = priorPass.Kind == kind && priorPass.PlaceId == anchor.Id;
+                bool recentPass = priorPass.At <= now && now - priorPass.At < 21600;
+                if (samePlace && recentPass && priorPass.Expires > now) { return true; }
+            }
+        }
         HCWorldFact fact = new HCWorldFact;
         fact.Kind = kind;
         fact.PlaceId = anchor.Id;
         fact.Severity = severity;
         fact.At = now;
         fact.Expires = now + HCWorldLimits.FACT_LIFETIME;
+        if (!m_Data.AppendFact(fact)) { return false; }
+        m_Dirty = true;
+        return true;
+    }
+
+    // Re-publication repairs an interrupted world write using the durable
+    // transition time. It never grants a restart another full fact lifetime.
+    bool AddHoldoutFact(HCWorldHoldout row)
+    {
+        if (!m_Running || !m_Data.HoldoutValid(row)) { return false; }
+        if (row.State != "RAIDED" && row.State != "ABANDONED") { return true; }
+        HCWorldPlace anchor = m_Data.Place(row.PlaceId);
+        int now = HCWorldClock.UTC();
+        if (row.Since < m_Data.Meta.Epoch || row.Since > now) { return false; }
+        if (now - row.Since >= HCWorldLimits.FACT_LIFETIME) { return true; }
+        foreach (HCWorldFact priorTransition : m_Data.Facts)
+        {
+            // Legacy publishes stamped At with publication time (>= Since).
+            // Keep that existing fact and expiry as well as exact-time rows.
+            if (priorTransition.Kind == row.State && priorTransition.PlaceId == anchor.Id && priorTransition.At >= row.Since && priorTransition.At <= now) { return true; }
+        }
+        HCWorldFact fact = new HCWorldFact;
+        fact.Kind = row.State;
+        fact.PlaceId = anchor.Id;
+        fact.Severity = 1;
+        if (row.State == "RAIDED") { fact.Severity = 2; }
+        fact.At = row.Since;
+        fact.Expires = row.Since + HCWorldLimits.FACT_LIFETIME;
         if (!m_Data.AppendFact(fact)) { return false; }
         m_Dirty = true;
         return true;
@@ -270,13 +308,13 @@ class HCWorldModule : HCModule
     {
         if (!m_Running || !HCWorldLimits.Position(pos)) { return ""; }
         string nearest;
-        float best = 500000000;
+        float best = 2250000; // 1500 m horizontal naming cap.
         foreach (HCWorldPlace candidate : m_Data.Places)
         {
             float dx = pos[0] - candidate.Position[0];
             float dz = pos[2] - candidate.Position[2];
             float distance = dx * dx + dz * dz;
-            if (distance < best)
+            if (distance <= best)
             {
                 best = distance;
                 nearest = candidate.Name;
@@ -313,6 +351,80 @@ class HCWorldModule : HCModule
         string error;
         if (!JsonFileLoader<HCWorldHoldout>.MakeData(row, text, error) || !JsonFileLoader<HCWorldHoldout>.LoadData(text, copy, error) || !m_Data.InsertHoldout(copy)) { return false; }
         m_Dirty = true;
+        return true;
+    }
+
+    // Validated copy-on-input refresh; replacing a row never changes its index.
+    // Synchronous refusal detail for the immediately preceding upsert only.
+    string HoldoutRefusal() { return m_HoldoutRefusal; }
+
+    bool UpsertHoldout(HCWorldHoldout row)
+    {
+        m_HoldoutRefusal = "world inactive";
+        if (!m_Running) { return false; }
+        m_HoldoutRefusal = "invalid holdout";
+        if (!m_Data.HoldoutValid(row)) { return false; }
+        int rowIndex = -1;
+        int occupiedOthers = 0;
+        for (int holdoutIndex = 0; holdoutIndex < m_Data.Holdouts.Count(); holdoutIndex++)
+        {
+            HCWorldHoldout stored = m_Data.Holdouts[holdoutIndex];
+            if (stored.Id == row.Id) { rowIndex = holdoutIndex; }
+            if (stored.Id != row.Id && stored.Occupants > 0) { occupiedOthers++; }
+        }
+        m_HoldoutRefusal = "occupied cap";
+        if (row.Occupants > 0 && occupiedOthers >= HCWorldLimits.OCCUPIED) { return false; }
+        HCWorldHoldout copy = new HCWorldHoldout;
+        copy.Id = row.Id;
+        copy.PlaceId = row.PlaceId;
+        copy.FactionId = row.FactionId;
+        copy.HouseClass = row.HouseClass;
+        copy.HousePos = row.HousePos;
+        copy.CacheRef = row.CacheRef;
+        copy.Occupants = row.Occupants;
+        copy.State = row.State;
+        copy.Since = row.Since;
+        copy.ReoccupyAfter = row.ReoccupyAfter;
+        copy.Routine = row.Routine;
+        if (rowIndex >= 0) { m_Data.Holdouts.Set(rowIndex, copy); }
+        else
+        {
+            // Refuse before InsertHoldout's generic cap log: the publisher
+            // reports this reason once per holdout instead of once per tick.
+            m_HoldoutRefusal = "catalog cap";
+            if (m_Data.Holdouts.Count() >= HCWorldLimits.HOLDOUTS) { return false; }
+            m_HoldoutRefusal = "catalog admission";
+            if (!m_Data.InsertHoldout(copy)) { return false; }
+        }
+        m_HoldoutRefusal = "";
+        m_Dirty = true;
+        Print("[HollowCountry] V2 world holdout id=" + row.Id + " state=" + row.State);
+        return true;
+    }
+
+    bool AdjustStrength(string faction, int delta)
+    {
+        if (!m_Running) { return false; }
+        HCWorldFaction targetFaction = m_Data.Faction(faction);
+        if (!targetFaction) { return false; }
+        // Clamp before adding, including extreme caller deltas, without overflow.
+        int strength = targetFaction.Strength;
+        int room = HCWorldLimits.STRENGTH - strength;
+        if (delta > 0)
+        {
+            if (delta >= room) { strength = HCWorldLimits.STRENGTH; }
+            else { strength = strength + delta; }
+        }
+        if (delta < 0)
+        {
+            if (delta <= -strength) { strength = 0; }
+            else { strength = strength + delta; }
+        }
+        if (strength == targetFaction.Strength) { return true; }
+        targetFaction.Strength = strength;
+        if (strength == 0) { targetFaction.Territory.Clear(); }
+        m_Dirty = true;
+        Print("[HollowCountry] V2 world strength faction=" + faction + " strength=" + strength.ToString());
         return true;
     }
 

@@ -1,7 +1,7 @@
 // LC-T411 / #104 abstract only. scripts-1.30.164289 native references:
 // 1_Core/proto/EnMath.c:427 Floor, :553 Min; EnConvert.c:30 int.ToString;
 // EnScript.c:380,385,394,407,463 arrays; EnDebug.c:96 Print.
-// HCWorldModule.Step passes its owned ledger before updating Meta.LastTick;
+// HCWorldModule.HCWorldStep passes its owned ledger before updating Meta.LastTick;
 // the existing world store persists strength/territory and the daily watermark
 // in ONE image. No second-store replay window, body, item, sound or RPC.
 class HCFactionConflict : HCModule
@@ -43,6 +43,19 @@ class HCFactionConflict : HCModule
         }
     }
 
+    // A recently fought-over place rests for seven real days. Bounded ring
+    // contents, expiry and future timestamps are checked without player data.
+    static bool HCRecentlyContested(HCWorldData data, string placeId, int now)
+    {
+        foreach (HCWorldSiteMemory memory : data.SiteMemory)
+        {
+            bool sameSite = memory.PlaceId == placeId && memory.Event == "RAIDED";
+            bool current = memory.At <= now && memory.Expires > now;
+            if (sameSite && current) { return true; }
+        }
+        return false;
+    }
+
     static void Tick(HCWorldModule world, HCWorldData data, int now)
     {
         if (!s_Active || !world || !data || now < data.Meta.Epoch) { return; }
@@ -53,7 +66,7 @@ class HCFactionConflict : HCModule
             Seed(data, growing, now);
             if (now - growing.LastRegrowth >= 2 * HCWorldLimits.DAY)
             {
-                if (growing.Strength > 0 && growing.Strength < HCWorldLimits.STRENGTH) { growing.Strength++; }
+                if (growing.Strength > 0 && growing.Strength < HCWorldLimits.STRENGTH) { world.AdjustStrength(growing.Id, 1); }
                 growing.LastRegrowth = now;
             }
         }
@@ -68,6 +81,7 @@ class HCFactionConflict : HCModule
         {
             int placeIndex = (start + offset) % data.Places.Count();
             HCWorldPlace place = data.Places[placeIndex];
+            if (HCRecentlyContested(data, place.Id, now)) { continue; }
             string cell = Cell(place.Position);
             for (int first = 0; first < data.Factions.Count(); first++)
             {
@@ -82,8 +96,8 @@ class HCFactionConflict : HCModule
                     HCWorldFaction loser = right;
                     if (right.Strength + roll > left.Strength + 6) { winner = right; loser = left; }
                     // Losses consume finite strength; combat never creates it.
-                    loser.Strength--;
-                    if (roll % 3 == 0 && winner.Strength > 1) { winner.Strength--; }
+                    world.AdjustStrength(loser.Id, -1);
+                    if (roll % 3 == 0 && winner.Strength > 1) { world.AdjustStrength(winner.Id, -1); }
                     int claimIndex = loser.Territory.Find(cell);
                     if (claimIndex >= 0) { loser.Territory.Remove(claimIndex); }
                     // Finite strength zero removes all remaining abstract claims.

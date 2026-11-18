@@ -61,7 +61,7 @@ modded class HCSearchHouses
     int V2Visit(Object structure, EntityAI destination, string actorId, int siteNumber)
     {
         if (!m_Started || m_Fault || m_Busy || !m_Settings || !GetGame().IsServer()) return 0;
-        if (!structure || !destination || !HCInteriorTemplates.Loaded() || HCEscalationClock.Day() < 1) return 0;
+        if (!structure || !destination || !HCInteriorTemplates.Loaded()) { return 0; }
         if (!HCObserverTransitionGate.CanTransition(structure.GetPosition(), 500) || !HCObserverTransitionGate.CanTransition(destination.GetPosition(), 500)) return 0;
         HCInteriorTemplateClassRow classRow = HCInteriorTemplates.ClassRow(structure.GetType());
         HCInteriorTemplate layout = HCInteriorTemplates.Template(structure.GetType());
@@ -166,7 +166,6 @@ class HCCacheMoves
 
     int TakeOne(EntityAI source, EntityAI destination, string actorId, array<string> allowed)
     {
-        if (HCEscalationClock.Day() < 1) return 0;
         if (m_Fault || (m_Journal && !m_Journal.Healthy())) return 3;
         if (!source || !destination || source == destination || source.GetHierarchyParent() || source.GetHierarchyRootPlayer()) return 4;
         if (!m_Journal)
@@ -274,7 +273,7 @@ class HCPickers : HCModule
         if (!holdouts || !drops || !houses || !world || holdouts.Count() < 1) return;
         int now = HCWorldClock.UTC();
         int today = HCEscalationClock.Day();
-        if (today < 1 || now < 1 || today < m_State.Party.TransferDay || now < m_State.Party.LastMoved) return;
+        if (now < 1 || today < m_State.Party.TransferDay || now < m_State.Party.LastMoved) { return; }
         if (now < m_State.NextVisit) return;
         if (today > m_State.Party.TransferDay)
         {
@@ -332,7 +331,6 @@ class HCPickers : HCModule
 
     void Quarantine()
     {
-        if (HCEscalationClock.Day() < 1) return;
         m_State.Quarantined = true;
         if (!m_Store.Save(m_State)) m_Ready = false;
         Print("[HollowCountry] V2 pickers quarantined; no replay or replacement supply");

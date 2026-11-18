@@ -1,3 +1,7 @@
+// Fix-round RPC native evidence, installed scripts-1.30.164289:
+// 3_Game/gameplay.c:104-117 ScriptRPC/Send; 1_Core/proto/Serializer.c:57/58
+// Write/Read; 3_Game/Global/Game.c:945 GetPlayers, :1120 IsServer;
+// 3_Game/Entities/Man.c:21 GetIdentity. No client gameplay-state requests.
 // LC-T107 / EXP-A5. Source authored against installed scripts-1.30.164289:
 // 1_Core/proto/EnSystem.c:100 GetYearMonthDayUTC; EnMath.c:413 Round.
 // 3_Game/Global/Game.c:930 GetObjectsAtPosition3D, :931 GetWorld, :945 GetPlayers,
@@ -13,7 +17,7 @@
 // EnString.c:240 IndexOf; EnDebug.c:96 Print; gameplay.c:636 GetGame.
 // Repo helper HCGroupClock.CalendarUtc supplies checked calendar conversion.
 // Preferences admit source by owner decision; EXP-A5 is logged, never qualified
-// by this module. No entities, persistence, loot, RPCs or inventory changes.
+// by this module. No persistence, loot or inventory changes.
 // Client-only entity class declared in 4_World so native CreateLight can resolve
 // it. Native: Entities/ScriptedLightBase/PointLightBase.c:1; ScriptedLightBase.c:
 // 258/303 brightness/radius; PointLightBase/FireplaceLight.c:8-16 light setters.
@@ -40,16 +44,15 @@ class HCSignsOfLife extends HCModule
     static const int MAX_SMOKE = 2;
     static const int MAX_FLIES = 6;
     static const int MAX_OBJECTS = 512;
-    static const int MAX_FORCE_LIT = 64;
+    static const int MAX_FORCE_LIT = 24;
     static const float HOUSE_RADIUS = 125.0;
     static const float FLY_RADIUS = 25.0;
     static const float SCAN_SECONDS = 10.0;
     static const float COLD_C = 10.0;
 
-    // Shared-process registry for future hold-outs. Populate identically on each
-    // peer to retain the no-RPC contract; server-only inserts cannot replicate.
-    // Use SetForceLit to enforce its cap; IsForced also bounds direct inserts.
-    static ref array<vector> ForceLit = new array<vector>;
+    // Client-only received snapshot. No server ForceLit allocation or sink.
+    // HCSignsHoldoutRPC owns the authoritative server snapshot separately.
+    static ref array<vector> ForceLit;
 
     protected int m_Day = -1;
     protected int m_Area;
@@ -95,6 +98,7 @@ class HCSignsOfLife extends HCModule
 
     static bool IsForced(vector housePos)
     {
+        if (!HCSignsOfLife.ForceLit) { return false; }
         int examined = 0;
         foreach (vector forced : HCSignsOfLife.ForceLit)
         {
@@ -103,17 +107,6 @@ class HCSignsOfLife extends HCModule
             if (vector.DistanceSq(forced, housePos) < 0.01) return true;
         }
         return false;
-    }
-
-    static void SetForceLit(vector housePos, bool enabled)
-    {
-        int index = ForceLit.Find(housePos);
-        if (!enabled)
-        {
-            if (index >= 0) ForceLit.RemoveOrdered(index);
-            return;
-        }
-        if (index < 0 && CanAdd(ForceLit.Count(), MAX_FORCE_LIT)) ForceLit.Insert(housePos);
     }
 
     // Eligibility is independent of observer and query order. Local selection
@@ -252,7 +245,9 @@ class HCSignsOfLife extends HCModule
             m_Area++;
             return;
         }
-        Print("[HollowCountry] V2 signs of life day=" + m_Day.ToString() + " lit=" + m_LitCount.ToString() + " smoke=" + m_SmokeCount.ToString() + " cap=" + MAX_LIT.ToString());
+        string litSummary = "n/a day";
+        if (DuskOrNight()) { litSummary = m_LitCount.ToString(); }
+        Print("[HollowCountry] V2 signs of life day=" + m_Day.ToString() + " lit=" + litSummary + " smoke=" + m_SmokeCount.ToString() + " cap=" + MAX_LIT.ToString());
         m_Summarized = true;
         m_Clock = 0;
         m_Viewers.Clear();
@@ -261,7 +256,6 @@ class HCSignsOfLife extends HCModule
     override void OnStop()
     {
         m_Viewers.Clear();
-        ForceLit.Clear();
     }
 }
 
@@ -271,5 +265,54 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCSignsOfLife);
+    }
+}
+
+// One-way server snapshot; no client requests, inventory or entity creation.
+// Native scripts-1.30.164289: 3_Game/gameplay.c:104-117 ScriptRPC.Send;
+// 1_Core/proto/Serializer.c:57 Write, :58 Read; 3_Game/Global/Game.c:945
+// GetPlayers, :1120 IsServer; Entities/Man.c:21 GetIdentity;
+// 1_Core/proto/EnScript.c:380/385/407 Count/Clear/Insert.
+// 4853903 was unused in mods/ when assigned. Two-client acceptance pending.
+class HCSignsHoldoutRPC
+{
+    static const int RPC_HOLDOUTS = 4853903;
+    protected static ref array<vector> s_Occupied = new array<vector>;
+
+    static void SendTo(PlayerIdentity identity, PlayerBase player)
+    {
+        if (!GetGame().IsServer() || !identity || !player) { return; }
+        if (player.GetIdentity() != identity || s_Occupied.Count() > 24) { return; }
+        ScriptRPC rpc = new ScriptRPC;
+        rpc.Write(s_Occupied.Count());
+        foreach (vector position : s_Occupied) { rpc.Write(position); }
+        // Null target avoids waiting for the player entity to replicate.
+        rpc.Send(null, RPC_HOLDOUTS, true, identity);
+    }
+
+    static void Publish(array<vector> positions)
+    {
+        if (!GetGame().IsServer() || !positions || positions.Count() > 24) { return; }
+        bool changed = positions.Count() != s_Occupied.Count();
+        for (int compareIndex = 0; compareIndex < positions.Count(); compareIndex++)
+        {
+            if (!HCWorldLimits.Position(positions[compareIndex])) { return; }
+            if (!changed)
+            {
+                if (positions[compareIndex] != s_Occupied[compareIndex]) { changed = true; }
+            }
+        }
+        if (!changed) { return; }
+        s_Occupied.Clear();
+        foreach (vector position : positions) { s_Occupied.Insert(position); }
+        array<Man> players = new array<Man>;
+        GetGame().GetPlayers(players);
+        int playerCount = Math.Min(players.Count(), 90);
+        for (int playerIndex = 0; playerIndex < playerCount; playerIndex++)
+        {
+            PlayerBase player = PlayerBase.Cast(players[playerIndex]);
+            if (player) { SendTo(player.GetIdentity(), player); }
+        }
+        Print("[HollowCountry] V2 signs of life holdout snapshot=" + s_Occupied.Count().ToString());
     }
 }

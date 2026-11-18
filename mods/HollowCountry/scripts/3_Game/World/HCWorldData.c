@@ -650,11 +650,30 @@ class HCWorldData
 
     static void Town(HCWorldData data, string id, string name, vector position)
     {
+        if (data.Place(id)) { return; }
         HCWorldPlace town = new HCWorldPlace;
         town.Id = id;
         town.Name = name;
         town.Position = position;
         data.InsertPlace(town);
+    }
+
+    // Append-only additions verified against our existing authored mission data.
+    // These are locality anchors, not newly surveyed village centres or geometry.
+    // ai/sites.json: police-komarovo Waypoints[0]; holdout-* HousePosition;
+    // events/scene-chains.json: scene-kamenka/scene-staroye Stages[0].Objective.Source.
+    // Only seven additional named localities have coordinate provenance here;
+    // remaining requested village expansion awaits local coordinate evidence.
+    static void ExtendPlaces(HCWorldData data)
+    {
+        if (!data || !data.Places) { return; }
+        Town(data, "komarovo", "Komarovo", "3588.9 0 2191.5");
+        Town(data, "mogilevka", "Mogilevka", "7562.9 0 5149.57");
+        Town(data, "nadezhdino", "Nadezhdino", "5853.87 0 4722.04");
+        Town(data, "pogorevka", "Pogorevka", "4446.81 0 6376.18");
+        Town(data, "polana", "Polana", "10719.43 0 8035.76");
+        Town(data, "kamenka", "Kamenka", "2512.352 0 2054.215");
+        Town(data, "staroye", "Staroye", "10676.524 0 4579.396");
     }
 
     static HCWorldData Fresh(int now)
@@ -683,6 +702,7 @@ class HCWorldData
         Town(fresh, "green-mountain", "Green-Mountain", "3700 0 6000");
         Town(fresh, "devils-castle", "Devils-Castle", "6900 0 11400");
         Town(fresh, "tisy", "Tisy", "1700 0 14200");
+        ExtendPlaces(fresh);
         HCWorldFactionCatalog.Populate(fresh);
         // No invented house catalog, caches, loot or world observations.
         return fresh;

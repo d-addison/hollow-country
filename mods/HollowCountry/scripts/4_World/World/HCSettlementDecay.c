@@ -4,7 +4,7 @@
 // :1180 SurfaceGetType, :1196/1197 water veto, :934 GetWorldName;
 // 3_Game/Entities/Object.c:287 GetPosition, :358 ClippingInfo;
 // 3_Game/CE/CentralEconomy.c:9,28,30,31 setup/height/lifetime/no-persistence.
-// 1_Core/proto/EnScript.c:380,385,407 arrays; EnMath.c:225,553,566
+// 1_Core/proto/EnScript.c:380,385,394,407 arrays; EnMath.c:225,553,566
 // AbsFloat/Min/Max; EnConvert.c:30,210 int.ToString/vector.DistanceSq;
 // EnString.c:171,240 ToLower/IndexOf; EnDebug.c:96 Print.
 // Persistence reuses HCV2ThreatStore: EnSystem.c:397,417,425,443,462,525,
@@ -42,16 +42,23 @@ class HCSettlementDecayStore
 // This is an additional distance-only gate for authored waypoint/prop changes,
 // NOT a resolution of the diagnostic gate's unknown entity lifecycle provider.
 // It never marks spectator/optics/CE ownership evidence known. A full kilometre
-// veto around both endpoints is conservative; camera qualification stays pending.
+// veto remains the default for horde callers; decay scenery uses 300 m.
+// Camera qualification stays pending.
 modded class HCObserverTransitionGate
 {
-    static bool V2Quiet(vector from, vector toward, float now, float quiet, out float clearSince)
+    static bool V2Quiet(vector from, vector toward, float now, float quiet, out float clearSince, float farDistance = 1200)
     {
         if (!Finite(now) || now < 0 || !HCInfectedStore.ValidPosition(from) || !HCInfectedStore.ValidPosition(toward))
         {
             clearSince = -1;
             return false;
         }
+        if (!Finite(farDistance) || farDistance < 300 || farDistance > 1200)
+        {
+            clearSince = -1;
+            return false;
+        }
+        float distanceSquared = farDistance * farDistance;
         array<Man> players = new array<Man>;
         GetGame().GetPlayers(players);
         if (players.Count() > 16) { clearSince = -1; return false; }
@@ -59,7 +66,7 @@ modded class HCObserverTransitionGate
         {
             if (!observer) { clearSince = -1; return false; }
             vector position = observer.GetPosition();
-            if (!HCInfectedStore.ValidPosition(position) || vector.DistanceSq(position, from) <= 1440000 || vector.DistanceSq(position, toward) <= 1440000)
+            if (!HCInfectedStore.ValidPosition(position) || vector.DistanceSq(position, from) <= distanceSquared || vector.DistanceSq(position, toward) <= distanceSquared)
             {
                 clearSince = -1;
                 return false;
@@ -72,7 +79,6 @@ modded class HCObserverTransitionGate
 
 class HCSettlementDecay : HCModule
 {
-    protected static HCSettlementDecay s_Instance;
     protected ref HCSettlementState m_State;
     protected ref HCSettlementDecayStore m_Store;
     protected ref HCWorldData m_Catalog;
@@ -83,6 +89,7 @@ class HCSettlementDecay : HCModule
     protected bool m_Fault;
     protected int m_Cursor;
     protected float m_Elapsed;
+    protected ref array<string> m_RefusalReasons = new array<string>;
 
     override string GetName() { return "SettlementDecay"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
@@ -96,41 +103,9 @@ class HCSettlementDecay : HCModule
         return Math.Min(3, Math.Max(prior, Math.Max(age, severity)));
     }
 
-    // Read-only integration hooks: consumers call only BEFORE furnishing or
-    // before adding a signs-of-life site. Already furnished houses stay intact.
-    static string HistoryFor(vector position, string fallback)
-    {
-        HCSettlementTown town = At(position);
-        if (!town || town.Ransack < 1) { return fallback; }
-        if (town.Ransack >= 2) { return "ransacked"; }
-        return "abandoned";
-    }
-
-    static bool AllowLitWindow(vector position)
-    {
-        HCSettlementTown town = At(position);
-        return !town || town.Ransack < 2;
-    }
-
-    static HCSettlementTown At(vector position)
-    {
-        if (!s_Instance || s_Instance.m_Fault || !s_Instance.m_State) { return null; }
-        HCWorldModule world = HCWorldModule.Get();
-        if (!world) { return null; }
-        string nearest = world.NearestPlace(position);
-        HCWorldPlace place = s_Instance.m_Catalog.Place(nearest);
-        if (!place) { return null; }
-        foreach (HCSettlementTown row : s_Instance.m_State.Towns)
-        {
-            if (row.Id == place.Id) { return row; }
-        }
-        return null;
-    }
-
     protected void Fail()
     {
         m_Fault = true;
-        if (s_Instance == this) { s_Instance = null; }
         Print("[HollowCountry] V2 settlement decay disabled: persistence/clock/schema fault; preserve settlement-decay.json, .tmp and .bak");
     }
 
@@ -144,7 +119,7 @@ class HCSettlementDecay : HCModule
     protected bool Valid(HCWorldModule world, int now)
     {
         if (!m_State || m_State.Version != 1 || m_State.Epoch != world.Epoch() || m_State.WorldName != GetGame().GetWorldName()) { return false; }
-        if (m_State.SavedUtc < m_State.Epoch || m_State.SavedUtc > now || !m_State.Towns || m_State.Towns.Count() != m_Catalog.Places.Count()) { return false; }
+        if (m_State.SavedUtc < m_State.Epoch || m_State.SavedUtc > now || !m_State.Towns || m_State.Towns.Count() < 1 || m_State.Towns.Count() > m_Catalog.Places.Count()) { return false; }
         for (int townIndex = 0; townIndex < m_State.Towns.Count(); townIndex++)
         {
             HCSettlementTown town = m_State.Towns[townIndex];
@@ -181,12 +156,25 @@ class HCSettlementDecay : HCModule
             }
             if (!Persist()) { return false; }
         }
+        // Old stores retain their ordered prefix; only new catalog towns append.
+        bool appended = false;
+        while (m_State.Towns.Count() < m_Catalog.Places.Count())
+        {
+            HCSettlementTown appendedTown = new HCSettlementTown;
+            appendedTown.Id = m_Catalog.Places[m_State.Towns.Count()].Id;
+            appendedTown.Ransack = 0;
+            appendedTown.Barricades = 0;
+            appendedTown.Remains = 0;
+            appendedTown.Notices = 0;
+            m_State.Towns.Insert(appendedTown);
+            appended = true;
+        }
+        if (appended && !Persist()) { return false; }
         foreach (HCSettlementTown initialized : m_State.Towns)
         {
             m_Clear.Insert(-1);
             m_PropSlots.Insert(0);
         }
-        s_Instance = this;
         return true;
     }
 
@@ -203,10 +191,20 @@ class HCSettlementDecay : HCModule
         {
             // Only damaging events change history; a courier/peaceful visit
             // must not ransack a town merely because it has a severity number.
-            bool damage = fact.Kind == "holdout_raided" || fact.Kind == "settlement_raided" || fact.Kind == "faction_clash" || fact.Kind.IndexOf("pushed_") >= 0;
+            bool directDamage = fact.Kind == "RAIDED" || fact.Kind == "STOLEN";
+            bool conflictDamage = fact.Kind == "faction_clash" || fact.Kind.IndexOf("pushed_") >= 0;
+            bool damage = directDamage || conflictDamage || fact.Kind == "holdout_raided";
             if (fact.PlaceId == id && damage && fact.Severity > severity) { severity = fact.Severity; }
         }
         return severity;
+    }
+
+    // At most one line per reason, at most sixteen reasons per boot.
+    protected void HCVisualRefused(int index, string reason)
+    {
+        if (m_RefusalReasons.Count() >= 16 || m_RefusalReasons.Find(reason) >= 0) { return; }
+        m_RefusalReasons.Insert(reason);
+        Print("[HollowCountry] V2 settlement visual refused town=" + m_State.Towns[index].Id + " reason=" + reason);
     }
 
     protected void Visual(int index, int now)
@@ -230,41 +228,42 @@ class HCSettlementDecay : HCModule
         // Seconds within the UTC day keep float precision (a raw UTC stamp has 128 s steps);
         // a midnight wrap only restarts the quiet wait.
         int dayNow = now - (now / 86400) * 86400;
-        bool quiet = HCObserverTransitionGate.V2Quiet(point, point, dayNow, 60, clearSince);
+        bool quiet = HCObserverTransitionGate.V2Quiet(point, point, dayNow, 60, clearSince, 300);
         m_Clear[index] = clearSince;
-        if (!quiet) { return; }
+        if (!quiet) { HCVisualRefused(index, "quiet_300m_60s"); return; }
         // Each slot is attempted only once per boot. Failed geometry is never
         // retried every tick; neither an orphan nor a foreign prop is adopted.
         m_PropSlots[index] = m_PropSlots[index] + 1;
         m_Clear[index] = -1;
-        if (!HCWorldLimits.Position(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { return; }
+        if (!HCWorldLimits.Position(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { HCVisualRefused(index, "position_or_water"); return; }
         string surface;
         GetGame().SurfaceGetType(point[0], point[2], surface);
         surface.ToLower();
-        if (surface.IndexOf("grass") < 0) { return; }
+        if (surface.IndexOf("grass") < 0) { HCVisualRefused(index, "surface"); return; }
         float sx = GetGame().SurfaceY(point[0] + 3, point[2]);
         float sz = GetGame().SurfaceY(point[0], point[2] + 3);
-        if (Math.AbsFloat(sx - point[1]) > 0.2 || Math.AbsFloat(sz - point[1]) > 0.2) { return; }
+        if (Math.AbsFloat(sx - point[1]) > 0.2 || Math.AbsFloat(sz - point[1]) > 0.2) { HCVisualRefused(index, "slope"); return; }
         array<Object> nearby = new array<Object>;
         array<CargoBase> cargo = new array<CargoBase>;
-        GetGame().GetObjectsAtPosition3D(point, 40, nearby, cargo);
-        if (nearby.Count() > 0 || cargo.Count() > 0) { return; }
+        GetGame().GetObjectsAtPosition3D(point, 15, nearby, cargo);
+        if (nearby.Count() > 0 || cargo.Count() > 0) { HCVisualRefused(index, "occupied_15m"); return; }
         string type = "StaticObj_Garbage_GroundSq_3m_NoLC";
         if (slot == 1) { type = "StaticObj_Furniture_fireplace_grill"; }
         if (slot == 2) { type = "StaticObj_Misc_NoticeBoard1"; }
         if (slot == 3) { type = "StaticObj_Misc_Barricade"; }
-        if (!GetGame().ConfigIsExisting("CfgVehicles " + type)) { return; }
+        if (!GetGame().ConfigIsExisting("CfgVehicles " + type)) { HCVisualRefused(index, "class_missing"); return; }
         // Decorative static-only classes from the installed vanilla catalog.
         // No ECE_CREATEPHYSICS/UPDATEPATHGRAPH, inventory or CE persistence.
         int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
         Object prop = GetGame().CreateObjectEx(type, point, flags);
-        if (!prop) { return; }
+        if (!prop) { HCVisualRefused(index, "create_failed"); return; }
         vector box[2];
         prop.ClippingInfo(box);
         vector size = box[1] - box[0];
         if (!(size[0] > 0 && size[0] <= 6 && size[1] >= 0 && size[1] <= 3 && size[2] > 0 && size[2] <= 6))
         {
             GetGame().ObjectDelete(prop);
+            HCVisualRefused(index, "bounds");
             return;
         }
         m_Props.Insert(prop);
@@ -305,7 +304,6 @@ class HCSettlementDecay : HCModule
 
     override void OnStop()
     {
-        if (s_Instance == this) { s_Instance = null; }
         // Native nonpersistent scenery is cleaned with the mission; do not
         // delete visible props during an ordinary observer's session.
         m_State = null;
