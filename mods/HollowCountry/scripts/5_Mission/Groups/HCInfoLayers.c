@@ -1,10 +1,46 @@
-// Client-side information layers for the group map. Server data is unchanged
-// and authoritative: these classes only choose what the client draws from
+// Client-side information layers for the group map. Server data remains
+// authoritative: these classes only choose what the client draws from
 // payloads it was already sent (the validated group frame and the public event
 // view). Nothing here reads other characters, items, infected or world state.
 // Native: 1_Core/proto/EnString.c IndexOf/IndexOfFrom/Substring/Length/Trim/
 // Get/ToFloat; 1_Core/proto/EnWidgets.c CreateWidgets/FindAnyWidget/GetName/
 // ButtonWidget.SetText.
+// V2 pins: scripts-1.30.164289/1_Core/proto/EnString.c:240 (IndexOf),
+// 3_Game/Global/Game.c:914 (GetTickTime), 1_Core/proto/EnConvert.c:30
+// (int.ToString), 1_Core/proto/EnDebug.c:96 (Print). Only validated frame data.
+
+class HCInfoMapPins
+{
+    protected static float s_HCLastLog = -60;
+
+    static string Label(HCGroupPlace place, int utc)
+    {
+        if (place.Id.IndexOf("hc-found:") == 0) { return "found: " + place.Name; }
+        if (place.Id.IndexOf("hc-lead:") == 0)
+        {
+            if (utc < 1 || place.HCPinExpiresUtc <= utc) { return ""; }
+            return "lead: " + place.Name;
+        }
+        return "[Visited] " + place.Name;
+    }
+
+    // Static cadence survives closing/reopening the map and counts received,
+    // unexpired pins, including ones currently outside the map viewport.
+    static void Log(HCGroupSnapshot frame, int utc)
+    {
+        float now = GetGame().GetTickTime();
+        if (now >= s_HCLastLog && now - s_HCLastLog < 60) { return; }
+        s_HCLastLog = now;
+        int trailCount = 0;
+        int leadCount = 0;
+        foreach (HCGroupPlace pin : frame.Places)
+        {
+            if (pin.Id.IndexOf("hc-found:") == 0) { trailCount++; }
+            if (pin.Id.IndexOf("hc-lead:") == 0 && Label(pin, utc) != "") { leadCount++; }
+        }
+        Print("[HollowCountry] V2 client map pins trail=" + trailCount.ToString() + " leads=" + leadCount.ToString());
+    }
+}
 
 // One drawable known-event site: a label, a position and the joined flag.
 class HCInfoPin

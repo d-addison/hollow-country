@@ -1,5 +1,9 @@
 // Original overlays over the native pannable/zoomable MapWidget. The Events
 // public view has no location: render known titles, never infer mission pins.
+// V2 pins reuse Pin() and validated frame.Places; native evidence in
+// HCInfoLayers.c (labels/logging); scripts-1.30.164289/3_Game/gameplay.c:324,332
+// (ClearUserMarks/MapToScreen), 1_Core/proto/EnWidgets.c:125,140,144,153,154,
+// 169,173,181,195,257,267 (existing widget pooling/drawing path).
 class HCGroupMapLayers
 {
     protected Widget mHCOverlay;
@@ -167,6 +171,7 @@ class HCGroupMapLayers
         else HideMissions();
         string texture = "\\dz\\gear\\navigation\\data\\map_tree_ca.paa";
         int utc = HCGroupClock.Utc();
+        HCInfoMapPins.Log(frame, utc);
         // The bound is validated by HCGroupClient; hidden entries never enter
         // this cache. Text prefixes make the palette usable without colour.
         if (flags.ShowMarkers)
@@ -190,7 +195,14 @@ class HCGroupMapLayers
         if (flags.ShowVisited && frame.Settings.DiscoveryLayer)
         {
             foreach (HCGroupPlace place : frame.Places)
-                Pin(mapWidget, place.Position, "[Visited] " + place.Name, ARGB(255,240,228,66), texture, frame.Settings);
+            {
+                string placeLabel = HCInfoMapPins.Label(place, utc);
+                if (placeLabel == "") continue;
+                int placeColor = ARGB(255,240,228,66);
+                if (place.Id.IndexOf("hc-lead:") == 0) placeColor = ARGB(255,204,121,167);
+                if (place.Id.IndexOf("hc-found:") == 0) placeColor = ARGB(255,0,158,115);
+                Pin(mapWidget, place.Position, placeLabel, placeColor, texture, frame.Settings);
+            }
         }
         if (flags.ShowTeam && frame.Settings.MapIcons)
         {
