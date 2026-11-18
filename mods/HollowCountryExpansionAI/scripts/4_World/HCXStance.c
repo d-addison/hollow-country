@@ -1,3 +1,6 @@
+// HC-5/#148/#139: observed gestures and durable betrayal, no dialogue.
+// Existing provider calls below retain their prior citations. New provider
+// emote/cease-fire calls go through the installed native HCXSignalProvider.
 // LC-T403..406 / EXP-L1/L2/L3/L6. Installed Expansion addons/ai_scripts.pbo:
 // 4_World/DayZExpansion_AI/Classes/Targets/eAIPlayerTargetInformation.c:58 CalculateThreat;
 // Classes/Targets/eAIEntityTargetInformation.c:24 GetEntity; eAITargetInformationState.c:7-21
@@ -17,7 +20,8 @@
 // 4_World/Classes/EmoteManager.c:1026 CanPlayEmote;
 // 3_Game/constants.c:368,393 greeting/hold; Global/Game.c:1535 GetTime.
 // Raid death hook: native 4_World/Entities/ManBase/PlayerBase.c:1214
-// EEKilled(Object killer); Expansion GetGroup reference is listed above.
+// EEKilled(Object killer); :1255 EEHitBy (exact parameters retained below);
+// Expansion GetGroup reference is listed above.
 class HCXStance
 {
     static bool Owns(eAIBase ai)
@@ -33,6 +37,13 @@ class HCXStance
             if (mapped != "") { theirs = mapped; }
         }
         return HCXFactions.Relation(HCXFactions.Id(ai.GetGroup().GetFaction()), theirs);
+    }
+    // A previously hostile player may kill in legitimate self-defence. Preserve
+    // betrayal only for recorded aggression or a previously non-hostile relation.
+    static bool HCRememberKill(eAIBase actor, PlayerBase player)
+    {
+        if (!actor || !player) { return false; }
+        return HCXDefence.HCHitRecorded(actor, player) || HCXStance.Relation(actor, player) >= 0;
     }
     static bool RaisedWeapon(PlayerBase player)
     {
@@ -57,17 +68,42 @@ class HCXWarning
     int Started = -1;
     int LastSeen = -1;
     bool Hostile;
+    int LastWaveSerial;
+    int NextWarning;
+}
+// Extend the existing HC defence record, not a second hit classifier. This
+// accessor is declared before the hook that calls it; rescue policy stays owned
+// by HCXDefence.OnHit. The later eAIBase link calls super before reading it.
+modded class HCXDefence
+{
+    static bool HCHitRecorded(eAIBase actor, PlayerBase player)
+    {
+        if (!s_Running || !actor || !player) { return false; }
+        HCXGrudge grudge = HCXDefence.Find(actor.GetGroup(), player);
+        if (!grudge || grudge.Until <= GetGame().GetTime()) { return false; }
+        return grudge.Kind == HCXDefencePolicy.KIND_HIT || grudge.Kind == HCXDefencePolicy.KIND_KILL;
+    }
 }
 modded class eAIBase
 {
     int HCXLastGunfire = -1;
     bool HCXLivingRefused;
+    override void EEHitBy(TotalDamageResult damageResult, int damageType, EntityAI source, int component, string dmgZone, string ammo, vector modelPos, float speedCoef)
+    {
+        super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+        if (!GetGame() || !GetGame().IsServer() || !HCXStance.Owns(this)) { return; }
+        PlayerBase attacker = HCXDefence.AttackerOf(source);
+        if (HCXDefence.HCHitRecorded(this, attacker)) { HCXEmoteObservation.Remember(this, attacker); }
+    }
     override void EEKilled(Object killer)
     {
         if (GetGame() && GetGame().IsServer())
         {
             HCXAISiteDirector raidDirector = HCXAISiteDirector.Active();
             if (raidDirector) { raidDirector.RecordDeath(GetGroup()); }
+            // Read prior aggression BEFORE super.OnKill can create a new record.
+            PlayerBase attacker = HCXDefence.AttackerOf(EntityAI.Cast(killer));
+            if (HCXStance.Owns(this) && HCXStance.HCRememberKill(this, attacker)) { HCXEmoteObservation.Remember(this, attacker); }
         }
         super.EEKilled(killer);
     }
@@ -91,15 +127,37 @@ modded class eAIPlayerTargetInformation
     {
         PlayerBase player = PlayerBase.Cast(GetEntity());
         if (!HCXStance.Owns(ai) || !player || !player.GetIdentity()) { return super.CalculateThreat(ai, state); }
-        // Self-defence (HCXDefence.c, owner bug 2026-11-18): a player who hit,
-        // killed a member of or fired close to this actor's group stays an enemy
-        // for a bounded time. Read before unseen threat is cleared below, only for
-        // an actor that perceived the player (LOS, recent LOS, or its own hit seed).
-        if (!ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXDefence.Hostile(ai, player, state))
+        if (!GetGame() || !GetGame().IsServer()) { return super.CalculateThreat(ai, state); }
+        // Hit/kill hooks persist accepted aggression before this evaluation.
+        // Keep the native rescue/near-miss record when hands go up.
+        bool defenceHostile = !ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXDefence.Hostile(ai, player, state);
+        bool observed = state && state.m_LOS && player.IsAlive() && !player.IsUnconscious() && HCXStance.Visible(ai, player);
+        if (!ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXEmoteObservation.Surrender(ai, player, observed))
+        {
+            state.m_ThreatLevel = 0;
+            state.m_ThreatLevelActive = 0;
+            state.m_AggressionTimeout = 0;
+            HCXWarning surrenderedWarning;
+            if (m_HCWarnings.Find(ai, surrenderedWarning))
+            {
+                surrenderedWarning.Started = -1;
+                surrenderedWarning.LastSeen = -1;
+                surrenderedWarning.Hostile = false;
+            }
+            return 0;
+        }
+        if (defenceHostile)
         {
             float defence = HCXDefencePolicy.Threat(super.CalculateThreat(ai, state), true);
             if (state && defence > state.m_ThreatLevelActive) { state.m_ThreatLevelActive = defence; }
             return defence;
+        }
+        // Grudges are consulted only after real perception. Persisted identity
+        // is never used to discover a player or supply a target position.
+        if (observed && !ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXEmoteObservation.Grudge(ai, player))
+        {
+            state.m_ThreatLevelActive = HCXDefencePolicy.Threat(state.m_ThreatLevelActive, true);
+            return state.m_ThreatLevelActive;
         }
         int nowMs = GetGame().GetTime();
         eAITarget current = ai.GetTarget();
@@ -120,7 +178,6 @@ modded class eAIPlayerTargetInformation
         }
         // Refuse unseen, stale or invalid evidence. Facts are read only after
         // native perception has established LOS and a fresh ray agrees.
-        bool observed = state && state.m_LOS && player.IsAlive() && !player.IsUnconscious() && HCXStance.Visible(ai, player);
         string admissionProblem = HCXAIQualification.ProviderProblem();
         if (!observed || nowMs < 0 || ai.HCXLivingRefused || admissionProblem != "")
         {
@@ -139,6 +196,7 @@ modded class eAIPlayerTargetInformation
             // manufacture LOS. Both provider threat caches are cleared above.
             return 0;
         }
+        warning.LastWaveSerial = HCXEmoteObservation.Wave(ai, player, observed, warning.LastWaveSerial);
         // A lost observation or server stall starts a new warning, never accrues
         // unseen time toward hostility.
         if (warning.LastSeen < 0 || nowMs < warning.LastSeen || nowMs - warning.LastSeen > 2000)
@@ -163,17 +221,15 @@ modded class eAIPlayerTargetInformation
         }
         if (warning.Started < 0)
         {
-            // Warning is emote + text (AD-04), never a scripted warning shot.
-            // If an emote or rate slot is unavailable, do not advance to fire.
-            if (!currentPlayer || !HCAskForNews.NoticeAllowed(player)) { state.m_ThreatLevelActive = 0.15; return 0.15; }
+            // Finite gesture warning, no NPC text and no scripted warning shot.
+            // Unsupported control refuses without progressing toward fire.
+            if (!currentPlayer || !HCStancePolicy.WarningDue(nowMs, warning.NextWarning)) { state.m_ThreatLevelActive = 0.15; return 0.15; }
             ai.RaiseWeapon(false);
-            if (!ai.GetEmoteManager().CanPlayEmote(EmoteConstants.ID_EMOTE_HOLD)) { return 0.15; }
-            ai.Expansion_SetEmote(EmoteConstants.ID_EMOTE_HOLD, true, 1500);
-            ai.Expansion_PlayEmote();
-            if (!HCAskForNews.Notify(player, "Warning", "Lower your weapon. We do not want trouble.")) { return 0.15; }
+            if (!HCXEmoteObservation.Warn(ai, player)) { state.m_ThreatLevelActive = 0.15; return 0.15; }
+            warning.NextWarning = nowMs + 30000;
             warning.Started = nowMs;
             state.m_ThreatLevelActive = 0.15;
-            Print("[HollowCountry] Stance warning: emote + text; lower weapon to de-escalate");
+            Print("[HollowCountry] Stance warning: gesture; lower weapon to de-escalate; runtime=PENDING");
             return 0.15;
         }
         // Let the warning animation finish, then aim using the provider's
@@ -188,33 +244,6 @@ modded class eAIPlayerTargetInformation
         return 0.6;
     }
 }
-modded class HCAskForNewsTarget
-{
-    override bool Eligible(PlayerBase player, Object target)
-    {
-        eAIBase npc = eAIBase.Cast(target);
-        if (!npc || !npc.IsAlive() || !npc.GetGroup() || npc.IsUnconscious() || npc.HCXLivingRefused) { return false; }
-        if (!HCXFactions.Known(HCXFactions.Id(npc.GetGroup().GetFaction()))) { return false; }
-        if (HCXStance.Relation(npc, player) < 0 || HCXStance.RaisedWeapon(player) || npc.IsRaised() || npc.GetGroup().IsInCombat()) { return false; }
-        if (GetGame().IsServer() && (!HCXStance.Owns(npc) || HCXAIQualification.ProviderProblem() != "" || !HCXStance.Visible(npc, player))) { return false; }
-        return true;
-    }
-    override string NPCKey(Object target)
-    {
-        eAIBase npc = eAIBase.Cast(target);
-        if (!npc || !npc.GetGroup() || npc.m_eAI_GroupMemberID < 0) { return ""; }
-        // Group name includes the stable authored site ID. Conservatively keep
-        // the same slot quota when a patrol respawns during a real day.
-        return npc.GetGroup().GetName() + ":" + npc.m_eAI_GroupMemberID.ToString();
-    }
-    override void Greet(Object target)
-    {
-        eAIBase npc = eAIBase.Cast(target);
-        if (!npc) { return; }
-        npc.Expansion_SetEmote(EmoteConstants.ID_EMOTE_GREETING, true, 1500);
-        npc.Expansion_PlayEmote();
-    }
-}
 class HCXLivingModule : HCModule
 {
     protected ref HCXCheckpointProps m_Checkpoints;
@@ -226,10 +255,12 @@ class HCXLivingModule : HCModule
     {
         Print(HCV2Admission.Line("Factions", true, "EXP-L2", HCV2Gates.Qualified("EXP-L2")));
         Print(HCV2Admission.Line("Stance", true, "EXP-L3", HCV2Gates.Qualified("EXP-L3")));
-        Print(HCV2Admission.Line("AskForNews", true, "EXP-L6", HCV2Gates.Qualified("EXP-L6")));
+        Print(HCV2Admission.Line("AskForNews", false, "EXP-L6", false));
         Print(HCV2Admission.Line("Checkpoints", true, "EXP-L1", HCV2Gates.Qualified("EXP-L1")));
         HCXAIQualification.SetEncountersEnabled(true);
-        HCAskForNews.Configure(true);
+        HCAskForNews.Configure(false);
+        HCXEmoteObservation.Start();
+        HCXEmoteObservation.Install(new HCXNativeSignalProvider());
         m_Checkpoints = new HCXCheckpointProps();
         m_Checkpoints.Start();
     }
@@ -243,6 +274,7 @@ class HCXLivingModule : HCModule
         eAIBase actor = actors[m_ActorCursor];
         m_ActorCursor++;
         if (!HCXStance.Owns(actor)) { return; }
+        HCXEmoteObservation.Tick(actor);
         string problem = HCXAIQualification.ProviderProblem();
         if (problem == "" && (!actor.HCXAI_Fair() || actor.m_eAI_LootingBehavior != 0)) { problem = "actor finite-ammo/fairness/looting NONE assertion"; }
         if (problem != m_Refusal)
@@ -265,6 +297,7 @@ class HCXLivingModule : HCModule
     override void OnStop()
     {
         HCAskForNews.Configure(false);
+        HCXEmoteObservation.Stop();
         HCXAIQualification.SetEncountersEnabled(false);
     }
 }
