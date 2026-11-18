@@ -13,6 +13,10 @@ SETTINGS=ROOT/'3_Game/Survival/HCStaminaSettings.c'
 class ConfigurationTests(unittest.TestCase):
     def settings(self,**kw):
         x=N(SchemaVersion=1,Enabled=False,ContinuousExertionScale=1.,RecoveryScale=1.)
+        # Synthetic JSON adapter: initialize the DTO's authored float defaults
+        # before overlaying supplied keys. This does not execute DayZ JSON code.
+        match=re.search(r'float WeightPenaltyScale = ([\d.]+);',SETTINGS.read_text())
+        if match:x.WeightPenaltyScale=float(match[1])
         vars(x).update(kw)
         x.Validate=lambda:execute_flat(str(SETTINGS),'Validate','',vars(x))()
         return x
@@ -145,9 +149,97 @@ class ConfigurationTests(unittest.TestCase):
 
     def wire(self,**kw):
         x=N(HCSchemaVersion=1,HCEnabled=True,HCExperimental=False,
-            HCContinuousExertionScale=.499992,HCRecoveryScale=1.75)
+            HCContinuousExertionScale=.499992,HCRecoveryScale=1.75,HCWeightPenaltyScale=.5)
         vars(x).update(kw)
         return N(PlayerData=N(StaminaData=x))
+
+    def test_schema_one_profile_missing_weight_scale_uses_half_without_rewrite(self):
+        import json
+        payload=json.dumps(dict(SchemaVersion=1,Profile='custom',Experimental=True,
+            Settings=dict(SchemaVersion=1,Enabled=True,ContinuousExertionScale=.25,RecoveryScale=2.5)))
+        self.profile_io(payload)
+        self.cfg.m_Data=self.wire()
+        self.call('ServerLoaded')
+        self.assertTrue(self.call('Enabled'))
+        snapshot=self.call('Snapshot')
+        self.assertEqual(1,snapshot.SchemaVersion)
+        self.assertEqual(.5,getattr(snapshot,'WeightPenaltyScale',None))
+        self.assertEqual([],self.writes)
+        self.assertEqual(payload,self.files['$profile:HollowCountry/stamina.json'])
+
+    def test_weight_scale_transport_round_trip_and_trusted_match(self):
+        import json
+        from tests.unit.test_stamina_integration import hook
+        for scale in (0.,.375,.5,1.):
+            with self.subTest(scale=scale):
+                payload=json.dumps(dict(SchemaVersion=1,Profile='custom',Experimental=True,
+                    Settings=dict(SchemaVersion=1,Enabled=True,ContinuousExertionScale=.25,
+                                  RecoveryScale=2.5,WeightPenaltyScale=scale)))
+                self.profile_io(payload)
+                self.cfg.m_Data=self.wire()
+                self.call('ServerLoaded')
+                wire=self.cfg.m_Data.PlayerData.StaminaData
+                self.assertEqual(scale,wire.HCWeightPenaltyScale)
+                configuration=N(**{n:self.e[n] for n in ('Enabled','WeightPenaltyScale')})
+                gate=N(Enabled=lambda: self.call('Enabled'),
+                       WeightPenaltyScale=lambda: hook('WeightPenaltyScale','',None,configuration)(N()))
+                cap=hook('RecalculateStaminaCap','',gate,maximum=100.)
+                server=N(m_PlayerLoad=40000.)
+                cap(server)
+                # Standard-library JSON stand-in for wire serialization; native
+                # CFG context delivery/order still needs two-client acceptance.
+                received=N(PlayerData=N(StaminaData=N(**json.loads(json.dumps(vars(wire))))))
+                self.call('Reset',True,False)
+                self.assertTrue(self.call('NativeReceipt',received,None))
+                client=N(m_PlayerLoad=40000.)
+                cap(client)
+                self.assertEqual(server.m_StaminaCap,client.m_StaminaCap)
+                self.assertEqual(100.-34.*1.75*scale,client.m_StaminaCap)
+                snapshot=self.call('Snapshot')
+                self.assertEqual(scale,snapshot.WeightPenaltyScale)
+                self.assertTrue(self.call('InstallTrusted',snapshot))
+                snapshot.WeightPenaltyScale=1.-scale
+                if snapshot.WeightPenaltyScale==scale:snapshot.WeightPenaltyScale=.25
+                self.assertFalse(self.call('InstallTrusted',snapshot))
+
+    def test_invalid_weight_scale_refuses_profile_logs_and_falls_back_to_native(self):
+        import json
+        from tests.unit.test_stamina_integration import hook
+        for scale in (1.5,-.1,float('nan'),float('inf'),-float('inf')):
+            with self.subTest(scale=scale):
+                payload=json.dumps(dict(SchemaVersion=1,Profile='custom',Experimental=True,
+                    Settings=dict(SchemaVersion=1,Enabled=True,ContinuousExertionScale=.25,
+                                  RecoveryScale=2.5,WeightPenaltyScale=scale)))
+                self.profile_io(payload)
+                self.cfg.m_Data=self.wire()
+                self.calls.clear()
+                self.call('ServerLoaded')
+                self.assertFalse(self.call('Enabled'))
+                self.assertIsNone(self.call('Snapshot'))
+                self.assertEqual([],self.writes)
+                self.assertEqual(payload,self.files['$profile:HollowCountry/stamina.json'])
+                self.assertTrue(any('Stamina blocked: invalid profile; file preserved' in c for c in self.calls))
+                self.assertFalse(self.cfg.m_Data.PlayerData.StaminaData.HCExperimental)
+                self.assertEqual(1.,self.cfg.m_Data.PlayerData.StaminaData.HCWeightPenaltyScale)
+                native_calls=[]
+                h=N(m_PlayerLoad=40000.,native=N(RecalculateStaminaCap=lambda: native_calls.append(True)))
+                hook('RecalculateStaminaCap','',N(Enabled=lambda:self.call('Enabled')),maximum=100.)(h)
+                self.assertEqual([True],native_calls)
+
+    def test_invalid_weight_receipt_clears_active_client_and_logs_refusal(self):
+        for scale in (1.5,-.1,float('nan'),float('inf'),-float('inf')):
+            self.assertTrue(self.call('NativeReceipt',self.wire(HCExperimental=True),None))
+            self.assertFalse(self.call('NativeReceipt',self.wire(HCExperimental=True,HCWeightPenaltyScale=scale),None))
+            self.assertFalse(self.call('Enabled'))
+            self.assertIsNone(self.call('Snapshot'))
+            self.assertIn('staged=0',self.calls[-1])
+
+    def test_weight_scale_accessor_uses_native_when_disabled_or_suspended(self):
+        self.assertEqual(1.,self.call('WeightPenaltyScale'))
+        self.call('NativeReceipt',self.wire(HCExperimental=True,HCWeightPenaltyScale=.375),None)
+        self.assertEqual(.375,self.call('WeightPenaltyScale'))
+        self.call('ConnectionState',0)
+        self.assertEqual(1.,self.call('WeightPenaltyScale'))
 
     def test_private_default_off_snapshot(self):
         x=self.settings(Enabled=True,ContinuousExertionScale=2.)

@@ -62,7 +62,7 @@ class StaminaHUDTests(unittest.TestCase):
             "PlayerBase": NS(Cast=lambda value: value),
             "IngameHud": NS(Cast=lambda value: value),
             "IngameHudVisibility": NS(HUD_HIDE_FLAGS=1 | 2 | 32 | 2048),
-            "HCStaminaIntegration": NS(Enabled=lambda: self.enabled),
+            "HCStaminaIntegration": NS(Enabled=lambda: self.enabled, WeightPenaltyScale=lambda: 1.),
             "Math": NS(Clamp=lambda v, a, b: max(a, min(b, v)),
                        Round=round, Floor=math.floor),
             "string": NS(Format=format_text),
@@ -96,6 +96,19 @@ class StaminaHUDTests(unittest.TestCase):
         self.assertAlmostEqual(self.weight_bars[0], 2500 / 60.285714285714285)
         self.assertIn("minimum stamina capacity", self.labels["WeightScale"])
         self.assertNotIn("cached", self.labels["Load"])
+
+    def test_half_weight_penalty_text_and_floor_reference_use_effective_loss(self):
+        self.env["HCStaminaIntegration"].WeightPenaltyScale = lambda: .5
+        self.state.Update(0)
+        self.assertIn("0.875 units/kg", self.labels["Penalty"])
+        self.assertIn("114.6 kg at minimum", self.labels["WeightScale"])
+        self.assertAlmostEqual(self.weight_bars[-1], 2500 / (6 + 95 / .875))
+
+    def test_zero_weight_scale_displays_disabled_penalty(self):
+        self.env["HCStaminaIntegration"].WeightPenaltyScale = lambda: 0.
+        self.state.Update(0)
+        self.assertIn("0.0 units/kg", self.labels["Penalty"])
+        self.assertIn("disabled", self.labels["WeightScale"])
 
     def test_zero_penalty_has_explicit_display_scale(self):
         cfg = self.env["CfgGameplayHandler"]
