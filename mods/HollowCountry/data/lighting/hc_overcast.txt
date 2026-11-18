@@ -1,0 +1,37 @@
+// HC authored single-entry user lighting. No vanilla table copied.
+// LC-T104 / EXP-A2: low direct/ambient contrast and near-neutral grey daylight.
+// Night weight is always zero. Provisional artistic values.
+class LightingNew
+{
+    class overcast
+    {
+        height = 0;
+        overcast = 0.87;
+        sunAngle = 32;
+        sunOrMoon = 1;
+        diffuse[] = {0.67, 0.68, 0.71};
+        diffuseCloud[] = {0.58, 0.60, 0.63};
+        bidirect[] = {0.21, 0.22, 0.24};
+        bidirectCloud[] = {0.22, 0.23, 0.25};
+        ambient[] = {0.52, 0.53, 0.56};
+        ambientCloud[] = {0.49, 0.51, 0.54};
+        groundReflection[] = {0.15, 0.16, 0.17};
+        groundReflectionCloud[] = {0.14, 0.15, 0.16};
+        sky[] = {0.45, 0.47, 0.51};
+        skyAroundSun[] = {0.56, 0.56, 0.57};
+        desiredLuminanceCoef = 0.27;
+        desiredLuminanceCoefCloud = 0.25;
+        EVMin = -1.95;
+        EVMax = 0.45;
+        filmGrainIntensity = 0;
+        luminanceRectCoef = 0;
+        luminanceRectCoefCloud = 0;
+        rayleigh[] = {0, 0, 0};
+        mie[] = {0, 0, 0};
+        cloudsColor[] = {0, 0, 0};
+        swBrightness = 0;
+        spaceIntensity = 0;
+        atmosphereIntensity = 1;
+        starsIntensity = 0;
+    };
+};

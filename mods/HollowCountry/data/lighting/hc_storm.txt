@@ -1,0 +1,37 @@
+// HC authored single-entry user lighting. No vanilla table copied.
+// LC-T104 / EXP-A2: darker daytime with a restrained green-grey cast.
+// Weight capped at 0.50; night weight zero. Provisional artistic values.
+class LightingNew
+{
+    class storm
+    {
+        height = 0;
+        overcast = 0.96;
+        sunAngle = 32;
+        sunOrMoon = 1;
+        diffuse[] = {0.40, 0.46, 0.42};
+        diffuseCloud[] = {0.34, 0.41, 0.37};
+        bidirect[] = {0.13, 0.17, 0.15};
+        bidirectCloud[] = {0.14, 0.18, 0.16};
+        ambient[] = {0.34, 0.40, 0.37};
+        ambientCloud[] = {0.31, 0.37, 0.34};
+        groundReflection[] = {0.09, 0.12, 0.10};
+        groundReflectionCloud[] = {0.08, 0.11, 0.09};
+        sky[] = {0.27, 0.34, 0.31};
+        skyAroundSun[] = {0.39, 0.44, 0.40};
+        desiredLuminanceCoef = 0.21;
+        desiredLuminanceCoefCloud = 0.19;
+        EVMin = -1.95;
+        EVMax = 0.45;
+        filmGrainIntensity = 0;
+        luminanceRectCoef = 0;
+        luminanceRectCoefCloud = 0;
+        rayleigh[] = {0, 0, 0};
+        mie[] = {0, 0, 0};
+        cloudsColor[] = {0, 0, 0};
+        swBrightness = 0;
+        spaceIntensity = 0;
+        atmosphereIntensity = 1;
+        starsIntensity = 0;
+    };
+};

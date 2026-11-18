@@ -148,9 +148,18 @@ class PackageBehavior(unittest.TestCase):
             (layouts / 'hc_synthetic.layout').write_bytes(layout)
             _, entries = pbo.parse(pbo.pack(pbo.collect_addon(root)))
             self.assertEqual(entries['gui/layouts/hc_synthetic.layout'], layout)
+            lighting = root / 'data/lighting'
+            lighting.mkdir(parents=True)
+            table = b'class LightingNew { class synthetic { ambient[] = {0.2,0.3,0.4}; }; };\n'
+            (lighting / 'hc_synthetic.txt').write_bytes(table)
+            _, entries = pbo.parse(pbo.pack(pbo.collect_addon(root)))
+            self.assertEqual(entries['data/lighting/hc_synthetic.txt'], table)
             for name, data in [('gui/image.edds', b'asset'),
                                ('gui/layouts/binary.layout', b'\x00binary'),
-                               ('gui/other.layout', layout)]:
+                               ('gui/other.layout', layout),
+                               ('data/lighting/binary.txt', b'\x00binary'),
+                               ('data/lighting/model.p3d', b'asset'),
+                               ('data/other.txt', table)]:
                 path = root / name
                 path.write_bytes(data)
                 with self.subTest(name=name), self.assertRaises(ValueError):

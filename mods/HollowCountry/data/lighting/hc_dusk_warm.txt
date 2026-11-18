@@ -1,0 +1,37 @@
+// HC authored single-entry user lighting. No vanilla table copied.
+// LC-T104 / EXP-A2: warm stage of the 16:00..20:00 dusk envelope.
+// Never applied during night; provisional artistic values, not measured tuning.
+class LightingNew
+{
+    class dusk_warm
+    {
+        height = 0;
+        overcast = 0.28;
+        sunAngle = 8;
+        sunOrMoon = 1;
+        diffuse[] = {1.12, 0.73, 0.46};
+        diffuseCloud[] = {0.76, 0.64, 0.55};
+        bidirect[] = {0.10, 0.12, 0.16};
+        bidirectCloud[] = {0.12, 0.13, 0.15};
+        ambient[] = {0.44, 0.46, 0.53};
+        ambientCloud[] = {0.43, 0.44, 0.48};
+        groundReflection[] = {0.14, 0.11, 0.09};
+        groundReflectionCloud[] = {0.12, 0.11, 0.10};
+        sky[] = {0.29, 0.34, 0.48};
+        skyAroundSun[] = {0.77, 0.43, 0.29};
+        desiredLuminanceCoef = 0.24;
+        desiredLuminanceCoefCloud = 0.23;
+        EVMin = -1.95;
+        EVMax = 0.45;
+        filmGrainIntensity = 0;
+        luminanceRectCoef = 0;
+        luminanceRectCoefCloud = 0;
+        rayleigh[] = {0, 0, 0};
+        mie[] = {0, 0, 0};
+        cloudsColor[] = {0, 0, 0};
+        swBrightness = 0;
+        spaceIntensity = 0;
+        atmosphereIntensity = 1;
+        starsIntensity = 0;
+    };
+};

@@ -170,7 +170,7 @@ def _text(data):
 
 def original_addon_name(name):
     return name in {'config.cpp', 'inputs.xml'} or bool(re.fullmatch(
-        r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout)', name))
+        r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout|data/lighting/[A-Za-z0-9_-]+\.txt)', name))
 
 
 def addon_prefix(root):
