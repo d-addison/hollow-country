@@ -254,6 +254,11 @@ class Source:
                         depth -= 1
                     header_start += 1
                 if depth:
+                    # A { } array argument such as [Attr({"a"})] puts the scan's
+                    # brace inside the attribute call: that is not unbalanced.
+                    attribute = self.code[attribute_start:brace]
+                    if attribute.count('(') > attribute.count(')'):
+                        return None
                     issue = ParseIssue(attribute_start, 'unbalanced method attribute: missing closing ]')
                     if issue not in self.parse_issues:
                         self.parse_issues.append(issue)

@@ -50,6 +50,13 @@ class SourceModel(unittest.TestCase):
                 self.assertIn('unbalanced', findings[0].message.lower())
                 self.assertIn('attribute', findings[0].message.lower())
 
+    def test_brace_array_attribute_argument_is_not_an_unbalanced_attribute(self):
+        # Review P2: a { } array inside an attribute call is an argument, not a body.
+        for wrapper in ('{}', 'class A {{\n{}\n}}'):
+            with self.subTest(wrapper=wrapper):
+                text = wrapper.format('[Attr({"a", "b"})]\nvoid Tagged() {}\nvoid Following() {}')
+                self.assertEqual([], run({W + 'A.c': text}, 'HC-E008'))
+
     def test_comments_strings_and_preprocessor_lines_are_blanked_but_offsets_kept(self):
         text = 'int a; // x ? y\n/* { */ string s = "a ? { b";\n#ifdef DIAG\nint c;\n#endif\n'
         code = es.clean(text)
