@@ -7,6 +7,9 @@
 // GetPosition; 1_Core/proto/EnScript.c:380 Count, :407 Insert, :470 RemoveOrdered;
 // EnConvert.c:3 bool.ToString, :30 int.ToString; EnDebug.c:96 Print;
 // EnString.c:113 Substring, :199 Length; EnSystem.c:397 FileExist.
+// Raid persistence: 3_Game/tools/JsonFileLoader.c:42 SaveFile, :69 LoadData;
+// installed core_scripts.pbo/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748
+// GetTimestamp(bool useUTC). Raid times are UTC seconds in our own JSON only.
 // Read-only installed Expansion
 // ai_scripts.pbo: 4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:
 // 68 CreateEx, 427 WasGroupDestroyed, 673 SpawnAI_Deferred, 691-725 Despawn;
@@ -19,6 +22,10 @@
 // Qualified endpoints already came from the navmesh. The provider's default
 // GetWaypoints applies placement rays, which could move them onto another
 // surface. Preserve exactly the qualified list, including snapped holdouts.
+modded class HCXAIOwnedRow
+{
+    int ClearedAt = 0;
+}
 class HCXAISiteSpawnConfig : ExpansionAIDynamicSpawnBase
 {
     override TVectorArray GetWaypoints(vector position = vector.Zero, int beh = eAIWaypointBehavior.HALT)
@@ -120,10 +127,13 @@ class HCXAISitePatrol : eAIDynamicPatrol
         m_HCSurvivors = 0;
         if (m_Group) { m_HCSurvivors = m_Group.Count(); }
         bool wasLive = m_HCLive;
+        // Only a group that lost members locks its site (RecordDeath already
+        // recorded each kill); an intact group that only lost its audience may
+        // return when a player comes back, so its gear is never duplicated.
+        bool raided = wasLive && !intact;
+        if (raided && director) { director.RecordCleared(this); }
         super.Despawn(false);
         m_HCLive = false;
-        // An intact group that only lost its audience may return when a player
-        // comes back; a group that lost members waits the full RespawnSeconds.
         if (intact) { m_TimeSinceLastSpawn = m_RespawnTime; }
         if (wasLive && director) { director.Despawned(this, intact); }
     }
@@ -222,6 +232,7 @@ class HCXAISiteDirector : Managed
     protected int m_LastActiveAI = -1;
     protected bool m_Diagnostic;
     protected bool m_WaitLogged;
+    protected bool m_OwnedSaved = true;
 
     static HCXAISiteDirector Active() { return s_Active; }
     string Phase() { return m_Phase; }
@@ -531,8 +542,11 @@ class HCXAISiteDirector : Managed
         }
         int rows = previous.Rows.Count();
         Print("[HC Expansion AI] sites ownership: previous session " + previous.Session.ToString() + " listed " + rows.ToString() + " live sites; removed " + removed.ToString() + " orphan actors");
-        m_Owned = new HCXAIOwnership();
+        m_Owned = previous;
         m_Owned.Session = previous.Session + 1;
+        // Kills were recorded (and saved) as they happened, so ClearedAt already
+        // locks raided sites across the restart; an intact live group is not
+        // looted gear and is not locked out.
         return this.SaveOwned();
     }
     protected void StepBind()
@@ -1017,7 +1031,7 @@ class HCXAISiteDirector : Managed
         config.MaxDistRadius = site.ActivationRadius;
         config.DespawnRadius = site.ActivationRadius + 100;
         config.DespawnTime = site.DespawnSeconds;
-        config.RespawnTime = site.RespawnSeconds;
+        config.RespawnTime = HCXAISiteDirector.RaidCooldown(site);
         if (state.Transient) { config.RespawnTime = -1; }
         config.MinSpreadRadius = 0;
         config.MaxSpreadRadius = 0;
@@ -1062,9 +1076,11 @@ class HCXAISiteDirector : Managed
         patrol.m_HCGroupMax = site.NumberOfAIMax;
         patrol.m_HCTransient = state.Transient;
         state.Patrol = patrol;
+        if (!state.Transient) { Print("[HC Expansion AI] site " + site.Id + " configured respawn=" + config.RespawnTime.ToString() + "s; raid timestamps persist in expansion-ai-owned.json"); }
     }
     protected void StepRun()
     {
+        if (!m_OwnedSaved && m_Ticks % 60 == 0) { this.SaveOwned(); }
         this.StepTransients();
         this.StepCache();
         if (m_Diagnostic) { this.StepDiagnostic(); }
@@ -1103,6 +1119,12 @@ class HCXAISiteDirector : Managed
     {
         if (!m_Policy || m_Phase != "run") { return "sites not running"; }
         if (patrol.m_HCFinished) { return "transient site completed"; }
+        if (!m_OwnedSaved) { return "raid ownership save pending"; }
+        foreach (HCXAISiteState raidState : m_States)
+        {
+            if (raidState.Patrol != patrol || raidState.Transient) { continue; }
+            if (this.RaidLocked(raidState.Site, ExpansionStatic.GetTimestamp(true))) { return "raided site lockout"; }
+        }
         string providerIssue = HCXAIQualification.ProviderProblem();
         if (providerIssue != "") { return providerIssue; }
         string sharedBudget = this.BudgetProblem(patrol.m_HCGroupMax, patrol);
@@ -1177,6 +1199,60 @@ class HCXAISiteDirector : Managed
         Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " despawned (intact=" + intact.ToString() + ")");
         this.SaveOwned();
     }
+    static int RaidCooldown(HCXAISite site)
+    {
+        // Legacy policy validation caps RespawnSeconds at one day. Enforce the
+        // six-hour/seven-day floors here, both for the provider and raid store,
+        // so old profiles cannot reintroduce short geared-body cooldowns.
+        int minimum = 21600;
+        bool military = site.Id.Length() >= 4 && site.Id.Substring(0, 4) == "mil-";
+        if (site.Kind == "holdout" || military) { minimum = 604800; }
+        if (site.RespawnSeconds > minimum) { return site.RespawnSeconds; }
+        return minimum;
+    }
+    bool RaidLocked(HCXAISite site, int now)
+    {
+        if (!m_Owned || now <= 0) { return true; }
+        foreach (HCXAIOwnedRow raidRow : m_Owned.Rows)
+        {
+            if (raidRow.SiteId != site.Id || raidRow.ClearedAt == 0) { continue; }
+            if (now < raidRow.ClearedAt) { return true; }
+            return now - raidRow.ClearedAt < HCXAISiteDirector.RaidCooldown(site);
+        }
+        return false;
+    }
+    protected HCXAIOwnedRow OwnershipRow(string siteId)
+    {
+        foreach (HCXAIOwnedRow candidateRow : m_Owned.Rows)
+        {
+            if (candidateRow.SiteId == siteId) { return candidateRow; }
+        }
+        if (m_Owned.Rows.Count() >= 64) { return null; }
+        HCXAIOwnedRow createdRow = new HCXAIOwnedRow();
+        createdRow.SiteId = siteId;
+        m_Owned.Rows.Insert(createdRow);
+        return createdRow;
+    }
+    // Called before native death cleanup, while the killed actor still has its
+    // group. Partial raids also lock out replacement bodies across a restart.
+    void RecordDeath(eAIGroup killedGroup)
+    {
+        if (!killedGroup) { return; }
+        foreach (HCXAISiteState killedState : m_States)
+        {
+            if (killedState.Transient || !killedState.Patrol) { continue; }
+            if (killedState.Patrol.m_Group == killedGroup) { this.RecordCleared(killedState.Patrol); return; }
+        }
+    }
+    void RecordCleared(HCXAISitePatrol patrol)
+    {
+        if (!m_Owned || patrol.m_HCTransient) { return; }
+        HCXAIOwnedRow clearedRow = this.OwnershipRow(patrol.m_HCSiteId);
+        if (!clearedRow) { m_OwnedSaved = false; return; }
+        clearedRow.ClearedAt = ExpansionStatic.GetTimestamp(true);
+        this.SaveOwned();
+        Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " cleared-at=" + clearedRow.ClearedAt.ToString() + " saved=" + m_OwnedSaved.ToString());
+    }
     // One holdout cache per tick: seed once per lifecycle, adopt after a crash,
     // mark looted when empty or gone, refill only after the cooldown.
     protected void StepCache()
@@ -1213,6 +1289,9 @@ class HCXAISiteDirector : Managed
         string action = HCXAISiteRules.CacheAction(row, present, items, now, playerNear);
         if (action == "seed" || action == "refill")
         {
+            if (!m_OwnedSaved || this.RaidLocked(site, now)) { return; }
+            // Migrate old four-hour cooldown rows as well as new policy files.
+            if (row && row.LootedAt > 0 && now - row.LootedAt < 604800) { return; }
             this.SeedCache(state, row, now, crate);
             return;
         }
@@ -1227,7 +1306,9 @@ class HCXAISiteDirector : Managed
         {
             row.State = "looted";
             row.LootedAt = now;
-            row.NextRefillAt = HCXAISiteRules.RefillAt(now, site.CacheCooldownSeconds);
+            int cacheCooldown = site.CacheCooldownSeconds;
+            if (cacheCooldown < 604800) { cacheCooldown = 604800; }
+            row.NextRefillAt = HCXAISiteRules.RefillAt(now, cacheCooldown);
             this.SaveCaches();
             Print("[HC Expansion AI] site " + site.Id + " cache looted or gone; refill not before " + row.NextRefillAt.ToString());
             return;
@@ -1323,19 +1404,23 @@ class HCXAISiteDirector : Managed
     bool SaveOwned()
     {
         if (!m_Owned) { return false; }
-        m_Owned.Rows.Clear();
+        foreach (HCXAIOwnedRow resetRow : m_Owned.Rows)
+        {
+            resetRow.Members = 0;
+        }
         foreach (HCXAISiteState state : m_States)
         {
             if (state.Transient) { continue; }
             if (!state.Patrol || !state.Patrol.m_Group) { continue; }
-            HCXAIOwnedRow ownedRow = new HCXAIOwnedRow();
-            ownedRow.SiteId = state.Site.Id;
+            HCXAIOwnedRow ownedRow = this.OwnershipRow(state.Site.Id);
+            if (!ownedRow) { m_OwnedSaved = false; return false; }
             ownedRow.Members = state.Patrol.m_Group.Count();
-            m_Owned.Rows.Insert(ownedRow);
         }
         string error;
         MakeDirectory("$profile:HollowCountry");
-        return JsonFileLoader<HCXAIOwnership>.SaveFile(HCXAISiteDirector.OWNED, m_Owned, error);
+        m_OwnedSaved = JsonFileLoader<HCXAIOwnership>.SaveFile(HCXAISiteDirector.OWNED, m_Owned, error);
+        if (!m_OwnedSaved) { Print("[HC Expansion AI] ownership save refused: " + error + "; new spawns and cache seeds held"); }
+        return m_OwnedSaved;
     }
     static string ReadBounded(string path)
     {
@@ -1385,6 +1470,10 @@ class HCXAISiteDirector : Managed
         string error;
         HCXAIOwnership journal;
         if (!JsonFileLoader<HCXAIOwnership>.LoadData(data, journal, error) || !journal.Rows || journal.Rows.Count() > 64) { return null; }
+        foreach (HCXAIOwnedRow checkedRow : journal.Rows)
+        {
+            if (!checkedRow || checkedRow.ClearedAt < 0 || checkedRow.Members < 0) { return null; }
+        }
         return journal;
     }
 }
@@ -1435,7 +1524,12 @@ class HCXCheckpointProps
         array<Object> objects = new array<Object>();
         array<CargoBase> cargos = new array<CargoBase>();
         GetGame().GetObjectsAtPosition(at, 25, objects, cargos);
-        if (objects.Count() > 64) { row.Finished = true; return; }
+        if (objects.Count() > 128)
+        {
+            row.Finished = true;
+            Print("[HollowCountry] Checkpoints prop refused: " + row.Site.Id + "; nearby objects=" + objects.Count().ToString() + " cap=128 radius=25m");
+            return;
+        }
         foreach (Object candidate : objects)
         {
             // Adopt an existing table; never duplicate scenery on a restart.

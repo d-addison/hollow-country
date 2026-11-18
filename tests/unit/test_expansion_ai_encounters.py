@@ -78,7 +78,7 @@ class EncounterTests(unittest.TestCase):
 
     def state(self, site_id, points, radius=650., qualified=True, patrol=True, transient=False):
         group = N(name='HC:' + site_id)
-        return N(Site=N(Id=site_id, ActivationRadius=radius), Qualified=qualified, Transient=transient,
+        return N(Site=N(Id=site_id, ActivationRadius=radius, Checkpoint=False), Qualified=qualified, Transient=transient,
                  PatrolPoints=A(points), Patrol=N(m_Group=group) if patrol else None)
 
     def player(self, pid='p1', alive=True):

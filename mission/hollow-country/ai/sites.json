@@ -21,7 +21,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           6564.47,
@@ -61,7 +61,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           10403.43,
@@ -101,7 +101,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           11983.84,
@@ -141,7 +141,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           2700.11,
@@ -181,7 +181,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           3588.9,
@@ -226,7 +226,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           3689.6,
@@ -276,7 +276,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 86400,
       "Waypoints": [
         [
           4621.01,
@@ -316,7 +316,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 86400,
       "Waypoints": [
         [
           1684.98,
@@ -356,7 +356,7 @@
       "Speed": "WALK",
       "ActivationRadius": 650.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 2700,
+      "RespawnSeconds": 86400,
       "Waypoints": [
         [
           4485.2,
@@ -396,7 +396,7 @@
       "Speed": "WALK",
       "ActivationRadius": 600.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 1800,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           6790.94,
@@ -431,7 +431,7 @@
       "Speed": "WALK",
       "ActivationRadius": 600.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 1800,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           10501.5,
@@ -466,7 +466,7 @@
       "Speed": "WALK",
       "ActivationRadius": 600.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 1800,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           12057.41,
@@ -501,7 +501,7 @@
       "Speed": "WALK",
       "ActivationRadius": 600.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 1800,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           3799.58,
@@ -536,7 +536,7 @@
       "Speed": "WALK",
       "ActivationRadius": 600.0,
       "DespawnSeconds": 600,
-      "RespawnSeconds": 1800,
+      "RespawnSeconds": 21600,
       "Waypoints": [
         [
           11579.02,
@@ -571,8 +571,8 @@
       "Speed": "WALK",
       "ActivationRadius": 500.0,
       "DespawnSeconds": 900,
-      "RespawnSeconds": 5400,
-      "CacheCooldownSeconds": 14400,
+      "RespawnSeconds": 86400,
+      "CacheCooldownSeconds": 604800,
       "Waypoints": [],
       "HouseClass": "Land_House_1W04",
       "HousePosition": [
@@ -633,8 +633,8 @@
       "Speed": "WALK",
       "ActivationRadius": 500.0,
       "DespawnSeconds": 900,
-      "RespawnSeconds": 5400,
-      "CacheCooldownSeconds": 14400,
+      "RespawnSeconds": 86400,
+      "CacheCooldownSeconds": 604800,
       "Waypoints": [],
       "HouseClass": "Land_House_2B02",
       "HousePosition": [
@@ -695,8 +695,8 @@
       "Speed": "WALK",
       "ActivationRadius": 500.0,
       "DespawnSeconds": 900,
-      "RespawnSeconds": 5400,
-      "CacheCooldownSeconds": 14400,
+      "RespawnSeconds": 86400,
+      "CacheCooldownSeconds": 604800,
       "Waypoints": [],
       "HouseClass": "Land_House_1W06",
       "HousePosition": [
@@ -757,8 +757,8 @@
       "Speed": "WALK",
       "ActivationRadius": 500.0,
       "DespawnSeconds": 900,
-      "RespawnSeconds": 5400,
-      "CacheCooldownSeconds": 14400,
+      "RespawnSeconds": 86400,
+      "CacheCooldownSeconds": 604800,
       "Waypoints": [],
       "HouseClass": "Land_House_1W06",
       "HousePosition": [
@@ -819,8 +819,8 @@
       "Speed": "WALK",
       "ActivationRadius": 500.0,
       "DespawnSeconds": 900,
-      "RespawnSeconds": 5400,
-      "CacheCooldownSeconds": 14400,
+      "RespawnSeconds": 86400,
+      "CacheCooldownSeconds": 604800,
       "Waypoints": [],
       "HouseClass": "Land_House_1B01_Pub",
       "HousePosition": [

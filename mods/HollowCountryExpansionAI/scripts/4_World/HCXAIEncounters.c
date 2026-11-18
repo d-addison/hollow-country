@@ -100,6 +100,7 @@ class HCXAIEncounters : Managed
         foreach (HCXAISiteState state : director.States())
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
+            if (state.Site.Checkpoint) { continue; }
             if (state.Qualified && state.Patrol) { count++; }
         }
         return count;
@@ -136,6 +137,7 @@ class HCXAIEncounters : Managed
         foreach (HCXAISiteState state : director.States())
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
+            if (state.Site.Checkpoint) { continue; }
             if (state.Qualified && state.Patrol && !this.SiteBound(state.Site.Id)) { return true; }
         }
         return false;
@@ -177,6 +179,7 @@ class HCXAIEncounters : Managed
         foreach (HCXAISiteState state : director.States())
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
+            if (state.Site.Checkpoint) { continue; }
             float gap = HCXAISiteRules.RouteGap(state.PatrolPoints, anchor);
             bool patrolled = state.Patrol != null;
             string problem = HCXAISiteRules.EncounterProblem(state.Qualified, patrolled, this.SiteBound(state.Site.Id), gap, state.Site.ActivationRadius);

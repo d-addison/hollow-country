@@ -1573,17 +1573,28 @@ class OptionalSteps(SessionCase):
         self.assertEqual((code, err), (0, ''), out)
         self.assertEqual(before, self.tree(self.world))
 
-    def test_an_operator_file_at_a_shipped_target_refuses_and_an_identical_one_is_kept(self):
+    def test_stale_sites_refresh_keeps_timestamped_backup_and_identical_sites_are_kept(self):
         sites = self.profiles / 'HollowCountry' / 'expansion-ai-sites.json'
         sites.parent.mkdir()
-        sites.write_text('{"Sites": ["operator"]}')
+        stale = b'{"Sites": ["synthetic stale deployment"]}'
+        sites.write_bytes(stale)
         before = self.tree(self.world)
-        for command in ('plan', 'apply'):
-            code, out, err = self.run_cli(self.ai_args(command))
-            self.assertEqual(code, 2, out)
-            self.assertIn('expansion-ai-sites.json', err)
-            self.assertEqual(before, self.tree(self.world))
-        sites.write_bytes((self.repo / 'mission' / 'hollow-country' / 'ai' / 'sites.json').read_bytes())
+        code, out, err = self.run_cli(self.ai_args('plan'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(before, self.tree(self.world))
+        code, out, err = self.run_cli(self.ai_args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(sites.read_bytes(), (self.repo / 'mission/hollow-country/ai/sites.json').read_bytes())
+        backups = list(sites.parent.glob('expansion-ai-sites.json.*.bak'))
+        self.assertEqual(len(backups), 1)
+        self.assertRegex(backups[0].name, r'\.\d{8}T\d{6}\d{6}Z\.bak$')
+        self.assertEqual(backups[0].read_bytes(), stale)
+        self.assertIn('sites refresh', out)
+        self.assertIn(lts.sha(stale), out)
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertEqual(sites.read_bytes(), stale)
+        self.assertEqual(backups[0].read_bytes(), stale)  # operator recovery copy survives rollback
+        sites.write_bytes((self.repo / 'mission/hollow-country/ai/sites.json').read_bytes())
         before = self.tree(self.world)
         self.assertEqual(self.run_cli(self.ai_args('apply'))[0], 0)
         self.assertNotIn(str(sites), [row['path'] for row in self.receipt()['expansion_ai_config']['created']])

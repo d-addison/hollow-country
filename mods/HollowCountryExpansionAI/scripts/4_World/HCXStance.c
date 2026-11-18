@@ -16,6 +16,8 @@
 // 4_World/Entities/ManBase/PlayerBase.c:1892 GetEmoteManager, :3925 IsUnconscious;
 // 4_World/Classes/EmoteManager.c:1026 CanPlayEmote;
 // 3_Game/constants.c:368,393 greeting/hold; Global/Game.c:1535 GetTime.
+// Raid death hook: native 4_World/Entities/ManBase/PlayerBase.c:1214
+// EEKilled(Object killer); Expansion GetGroup reference is listed above.
 class HCXStance
 {
     static bool Owns(eAIBase ai)
@@ -60,6 +62,15 @@ modded class eAIBase
 {
     int HCXLastGunfire = -1;
     bool HCXLivingRefused;
+    override void EEKilled(Object killer)
+    {
+        if (GetGame() && GetGame().IsServer())
+        {
+            HCXAISiteDirector raidDirector = HCXAISiteDirector.Active();
+            if (raidDirector) { raidDirector.RecordDeath(GetGroup()); }
+        }
+        super.EEKilled(killer);
+    }
     override void eAI_OnNoiseEvent(EntityAI source, vector position, float lifetime, eAINoiseParams params, float strengthMultiplier)
     {
         super.eAI_OnNoiseEvent(source, position, lifetime, params, strengthMultiplier);
@@ -101,16 +112,22 @@ modded class eAIPlayerTargetInformation
         // native perception has established LOS and a fresh ray agrees.
         bool observed = state && state.m_LOS && player.IsAlive() && !player.IsUnconscious() && HCXStance.Visible(ai, player);
         string admissionProblem = HCXAIQualification.ProviderProblem();
+        bool recentShot = ai.HCXLastGunfire >= 0 && nowMs >= ai.HCXLastGunfire && nowMs - ai.HCXLastGunfire <= 10000;
         if (!observed || nowMs < 0 || ai.HCXLivingRefused || admissionProblem != "")
         {
             warning.Started = -1;
             warning.Hostile = false;
-            if (state) { state.m_ThreatLevelActive = 0; }
+            float unseenStance = 0.05;
+            bool hearingAdmitted = nowMs >= 0 && !ai.HCXLivingRefused && admissionProblem == "";
+            if (hearingAdmitted && recentShot) { unseenStance = 0.2; }
+            if (state) { state.m_ThreatLevelActive = unseenStance; state.m_AggressionTimeout = 0; }
             if (currentPlayer) { ai.RaiseWeapon(false); }
             // Keep an inert candidate above ShouldRemove's 0.02 threshold so
             // native perception can establish its first LOS. No observable
             // stance fact is read or acted on until that happens.
-            return 0.05;
+            // Only a scalar caution from the already delivered <=80m noise;
+            // never forward its source/position or install a target.
+            return unseenStance;
         }
         // A lost observation or server stall starts a new warning, never accrues
         // unseen time toward hostility.
@@ -229,6 +246,10 @@ class HCXLivingModule : HCModule
             actor.RaiseWeapon(false);
             // Safety stop for provider setting drift, never an inventory move.
             actor.eAI_SetLootingBehavior(0);
+        }
+        else
+        {
+            actor.HCXLivingRefused = false;
         }
     }
     override void OnStop()

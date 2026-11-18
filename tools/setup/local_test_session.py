@@ -1079,12 +1079,23 @@ def ai_target(path, base, what, repo):
     return path
 
 
+def plan_ai_sites_refresh(target, before, after, profiles, repo):
+    """Plan a byte-exact recovery copy next to the stale HC policy; never write during planning."""
+    from datetime import datetime, timezone
+    stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
+    backup = ai_target(target.with_name(target.name + '.' + stamp + '.bak'), profiles,
+                       'Expansion AI sites backup', repo)
+    if os.path.lexists(backup):
+        raise Refused('--expansion-ai: sites backup already exists: %s' % backup)
+    return {'path': target, 'before': before, 'after': after, 'sites_backup': backup}
+
+
 def plan_ai_config(profiles, mission, repo):
     """The shipped HC AI files and the two Expansion settings changes, decided before any write.
 
-    create: the sites policy, the loadouts and (when Expansion has not written one yet) the patrol override, each
-    a fresh file. replace: an existing AIPatrolSettings.json that differs from the override, and the field merge
-    into Expansion's own AISettings.json, which must already exist; both keep a byte-exact backup. A target that
+    create: absent sites policy, loadouts and patrol override. replace: stale HC sites (with a timestamped .bak),
+    an existing AIPatrolSettings.json that differs from the override, and the field merge into Expansion's own
+    AISettings.json, which must already exist; all keep a byte-exact backup. A target that
     already holds the same bytes is left alone and never removed by rollback."""
     sources = [(profiles / AI_SITES_TARGET, AI_SITES)]
     try:
@@ -1101,7 +1112,11 @@ def plan_ai_config(profiles, mission, repo):
         ai_json(data, relative)
         target = ai_target(target, profiles, 'Expansion AI target ' + target.name, repo)
         if os.path.lexists(target):
-            if read_bytes(target, target.name) != data:
+            deployed = read_bytes(target, target.name)
+            if sha(deployed) != sha(data):
+                if relative == AI_SITES:
+                    replace.append(plan_ai_sites_refresh(target, deployed, data, profiles, repo))
+                    continue
                 raise Refused('--expansion-ai: %s exists with different content; refusing to replace it (move it '
                               'away or make it identical to %s)' % (target, relative))
             present.append(target)
@@ -1500,6 +1515,11 @@ def expansion_lines(ai, profiles, mission, markers=None, markers_mode='all', app
     for item in config['create']:
         out.append('       %s %s' % (verb, item['path']))
     for item in config['replace']:
+        if item.get('sites_backup'):
+            out.append('       %s %s (sites refresh sha256 %s -> %s; byte-exact backup %s)' %
+                       ('replaced' if applied else 'replace', item['path'], sha(item['before']),
+                        sha(item['after']), item['sites_backup']))
+            continue
         what = 'field merge of %s' % ai['merge'] if item['path'].name == 'AISettings.json' else ai['patrol_override']
         out.append('       %s %s (%s; byte-exact backup)' % ('replaced' if applied else 'replace', item['path'], what))
     for path in config['present']:
@@ -1814,6 +1834,8 @@ def apply_ai_config(config, receipt, state):
         write_new(backup, item['before'], mode_of(item['path']))
         entry = {'path': str(item['path']), 'before_sha256': sha(item['before']),
                  'after_sha256': sha(item['after']), 'backup': backup.name, 'state': 'intent'}
+        if item.get('sites_backup'):
+            entry['sites_backup'] = str(item['sites_backup'])
         record['replaced'].append(entry)
         receipt.save()  # intent first: a run killed after this line may or may not have switched the file
         if read_bytes(item['path'], item['path'].name) != item['before']:
@@ -1821,6 +1843,13 @@ def apply_ai_config(config, receipt, state):
             entry['state'] = 'skipped'
             receipt.save()
             raise Refused('%s changed since the plan was made; run rollback, then plan again' % item['path'])
+        if item.get('sites_backup'):
+            # Keep this recovery copy outside the disposable session state, including after rollback.
+            write_new(item['sites_backup'], item['before'], mode_of(item['path']), stage=state)
+            if read_bytes(item['path'], item['path'].name) != item['before']:
+                entry['state'] = 'skipped'
+                receipt.save()
+                raise Refused('%s changed since the plan was made; run rollback, then plan again' % item['path'])
         replace_with(item['path'], item['after'], mode_of(item['path']), temp=state / ('expansion-ai-next-%d' % index))
         entry['state'] = 'replaced'
         receipt.save()
@@ -1846,7 +1875,7 @@ def ai_config_rollback(record, state, profiles, mission):
     restores, files, notes, staged = [], [], [], []
     for item in record['replaced']:
         path = absolute(item['path'])
-        if path not in (settings, patrols):
+        if path not in (settings, patrols, profiles / AI_SITES_TARGET):
             raise Refused('receipt lists an Expansion AI settings file outside its known place')
         if item.get('state') == 'skipped':
             continue  # apply refused before the switch: the file was never ours to restore
