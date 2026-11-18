@@ -9,7 +9,8 @@ from tests.unit.test_group_server import execute_member
 
 ROOT = Path(__file__).resolve().parents[2]
 V2_FLAGS = ('EnableGrade', 'EnableAmbientLife', 'EnableSignsOfLife', 'EnableTravel', 'EnableWorld', 'EnableLeads',
-            'EnableCamps', 'EnableEncounters')
+            'EnableCamps', 'EnableEncounters',
+            'EnableInfectedVariety', 'EnableDebugSnapshot', 'EnableAdminMap', 'EnableCampRespawn', 'EnableTeamPing', 'EnableVehicleFlip', 'EnableMealBuffs', 'EnableForage', 'EnableProgression', 'EnableGroupScaling')
 
 class RuntimeSettingsTests(unittest.TestCase):
     def test_native_settings_reader_is_bounded_before_json_parsing(self):
@@ -30,7 +31,7 @@ class RuntimeSettingsTests(unittest.TestCase):
     def test_shipped_settings_are_valid_and_all_feature_preferences_default_on(self):
         self.assertEqual([], validate_settings(self.value))
         flags = {k: v for k, v in self.value.items() if k.startswith('Enable')}
-        self.assertEqual(16, len(flags))
+        self.assertEqual(26, len(flags))
         self.assertTrue(all(v is True for v in flags.values()), flags)
         source = (ROOT / 'mods/HollowCountry/scripts/3_Game/HCSettings.c').read_text()
         native = dict(re.findall(r'bool (Enable\w+) = (true|false);', source))

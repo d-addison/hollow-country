@@ -45,6 +45,17 @@ class HCSettings
     bool EnableLeads = true;
     bool EnableCamps = true;
     bool EnableEncounters = true;
+    // W5 preferences (#121-#131): additive and default on; each module still gates itself.
+    bool EnableInfectedVariety = true;
+    bool EnableDebugSnapshot = true;
+    bool EnableAdminMap = true;
+    bool EnableCampRespawn = true;
+    bool EnableTeamPing = true;
+    bool EnableVehicleFlip = true;
+    bool EnableMealBuffs = true;
+    bool EnableForage = true;
+    bool EnableProgression = true;
+    bool EnableGroupScaling = true;
     int TickIntervalMs = 1000;
     int MaxTickWorkItems = 32;
     int MaxActiveHordes = 2;

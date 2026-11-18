@@ -4,6 +4,9 @@
         <actions>
             <input name="UAHollowCountryEvents" loc="Hollow Country Events" />
             <input name="UAHollowCountryGrade" loc="Hollow Country Grade Intensity (+10%)" />
+            <input name="UAHollowCountryPingOK" loc="Hollow Country Ping: OK" />
+            <input name="UAHollowCountryPingHurt" loc="Hollow Country Ping: Hurt" />
+            <input name="UAHollowCountryPingHelp" loc="Hollow Country Ping: Need Help" />
         </actions>
     </inputs>
     <preset>
@@ -14,6 +17,17 @@
         </input>
         <input name="UAHollowCountryEvents">
             <btn name="kO" />
+        </input>
+        <!-- kNumpad3/5/7/9 are absent from all four vanilla MouseKey presets and from every
+             installed Workshop stack PBO (scanned 2026-11-18); players can rebind in Controls. -->
+        <input name="UAHollowCountryPingOK">
+            <btn name="kNumpad7" />
+        </input>
+        <input name="UAHollowCountryPingHurt">
+            <btn name="kNumpad3" />
+        </input>
+        <input name="UAHollowCountryPingHelp">
+            <btn name="kNumpad9" />
         </input>
     </preset>
 </modded_inputs>

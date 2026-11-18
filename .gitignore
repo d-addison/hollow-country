@@ -71,6 +71,9 @@ Thumbs.db
 !/docs/PROVENANCE_AND_LICENSES.md
 !/docs/RUNTIME_IMPLEMENTATION_CONTRACT.md
 !/docs/SOURCES.md
+!/docs/COT_PERMISSIONS.md
+!/docs/DEBUG_MAP.md
+!/docs/ACCEPTANCE_CHECKLIST.md
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py

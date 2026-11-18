@@ -8,7 +8,8 @@ FLAGS = {'EnableInteriors', 'EnableSearch', 'EnableCrafting', 'EnableInfected',
          'EnableHordes', 'EnableAlertChains', 'EnableGroups', 'EnableAtmosphere'}
 # V2 preferences are optional so an existing V1 settings file stays valid; when present they must be booleans.
 V2_FLAGS = {'EnableGrade', 'EnableAmbientLife', 'EnableSignsOfLife', 'EnableTravel', 'EnableWorld', 'EnableLeads',
-            'EnableCamps', 'EnableEncounters'}
+            'EnableCamps', 'EnableEncounters',
+            'EnableInfectedVariety', 'EnableDebugSnapshot', 'EnableAdminMap', 'EnableCampRespawn', 'EnableTeamPing', 'EnableVehicleFlip', 'EnableMealBuffs', 'EnableForage', 'EnableProgression', 'EnableGroupScaling'}
 LIMITS = {'TickIntervalMs': (500, 10000), 'MaxTickWorkItems': (1, 256),
           'MaxActiveHordes': (1, 8), 'MaxActiveHordeMembers': (1, 64),
           'MaxActiveInteriors': (1, 32), 'MaxPropsPerInterior': (1, 20),
