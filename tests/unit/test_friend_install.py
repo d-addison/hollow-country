@@ -307,10 +307,12 @@ class DryRunTests(InstallerCase):
         for word in ('taskkill', 'terminate(', '.kill(', 'Stop-Process', 'os.kill', 'psutil'):
             self.assertNotIn(word, source)
 
-    def test_it_never_deletes_files(self):
-        source = (ROOT / 'tools/setup/friend_install.py').read_text(encoding='utf-8')
-        for word in ('rmtree', '.unlink(', 'os.remove(', 'os.rmdir', 'shutil.rmtree'):
-            self.assertNotIn(word, source)
+    def test_dry_run_keeps_unrelated_files_and_empty_directories(self):
+        put(self.server, 'unrelated/keep.txt', 'KEEP')
+        (self.server / 'empty').mkdir()
+        before = snapshot(self.server)
+        self.run_cli()
+        self.assertEqual(snapshot(self.server), before)
 
     def test_a_missing_server_folder_refuses_and_names_the_exe(self):
         code, out, err = self.run_cli(server=self.tmp / 'nope')
@@ -542,7 +544,8 @@ class ApplyTests(InstallerCase):
         code, out, err = self.run_cli('--plan-only', answers=lambda prompt: self.fail('prompted: ' + prompt))
         self.assertEqual(code, 0, out + err)
 
-    def test_the_overlay_failure_stops_the_run_and_keeps_earlier_work(self):
+    def test_the_overlay_failure_rolls_back_earlier_work(self):
+        before = live_snapshot(self.server)
         def failing(argv):
             if argv[0] == 'bundle-apply':
                 print('refused: mission core merge conflict: x', file=__import__('sys').stderr)
@@ -553,8 +556,8 @@ class ApplyTests(InstallerCase):
         self.assertEqual(code, 2)
         self.assertIn('overlay', err)
         self.assertIn('mission core merge conflict', err)
-        self.assertTrue((self.server / '@HollowCountry/addons/hollowcountry.pbo').is_file())
-        self.assertEqual((self.server / 'start-server.bat').exists(), False, 'later steps must not have run')
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertIn('rolled back: the server is as it was before this run', err)
 
     def test_a_changed_bundle_rolls_the_old_overlay_back_first_when_confirmed(self):
         self.apply()
@@ -939,10 +942,11 @@ class MapOverlayStepTests(InstallerCase):
         self.assertIn('closer than 8 m', err)
         self.assertFalse(self.managed().exists())
 
-    def test_the_installer_source_still_never_deletes(self):
-        source = (ROOT / 'tools/setup/friend_install.py').read_text(encoding='utf-8')
-        for word in ('rmtree', '.unlink(', 'os.remove(', 'os.rmdir'):
-            self.assertNotIn(word, source)
+    def test_map_failure_keeps_storage_and_unrelated_files(self):
+        before = live_snapshot(self.server)
+        fi.map_overlay.main.side_effect = lambda argv: 1
+        self.assertEqual(self.apply()[0], 2)
+        self.assertEqual(live_snapshot(self.server), before)
 
 
 class ManifestAndConfigDriftTests(InstallerCase):
@@ -962,6 +966,7 @@ class ManifestAndConfigDriftTests(InstallerCase):
     def test_a_server_cfg_edited_while_the_prompt_waits_is_drift_and_is_not_overwritten(self):
         edited = SERVER_CFG.replace('hostname = "Local";', 'hostname = "Edited while waiting";')
         seen = []
+        before = live_snapshot(self.server)
 
         def answer(prompt):
             if prompt.startswith('serverDZ.cfg settings'):
@@ -976,6 +981,9 @@ class ManifestAndConfigDriftTests(InstallerCase):
         self.assertEqual((self.server / 'serverDZ.cfg').read_text(), edited)
         self.assertEqual(list((self.server / fi.BACKUP_DIR).rglob('serverDZ.cfg')), [])
         self.assertFalse((self.server / '.serverDZ.cfg.hc-new').exists())
+        before['serverDZ.cfg'] = sha(edited.encode())
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertIn('rolled back: the server is as it was before this run', err)
 
 
 class CheckTests(InstallerCase):
@@ -1182,6 +1190,216 @@ class LauncherFilesTests(unittest.TestCase):
         self.assertEqual(fi.REMEMBER_FILE, 'hollow-country-server-root.txt')
         self.assertEqual(fi.STEPS[0], 'server')
         self.assertEqual(len(fi.STEPS), 10)
+
+
+def live_snapshot(root):
+    """Compare every live file and directory; retained installer audit backups are separate."""
+    return {rel: value for rel, value in snapshot(root).items()
+            if rel != fi.BACKUP_DIR and not rel.startswith(fi.BACKUP_DIR + '/')}
+
+
+class RunRollbackTests(InstallerCase):
+    JOURNAL = 'run-journal.json'
+    WRITING = ('workshop', 'mods', 'overlay', 'overlays-map', 'profiles', 'cfg', 'launcher')
+
+    def inject_after(self, step, error):
+        planner = fi.PLANNERS[step]
+
+        def wrapped(ctx, analysis):
+            status, lines, action = planner(ctx, analysis)
+            def fail_after():
+                action()
+                raise error
+            return status, lines, fail_after if action else None
+        return mock.patch.dict(fi.PLANNERS, {step: wrapped})
+
+    def test_refusal_after_every_writing_step_restores_the_pre_run_tree(self):
+        for step in self.WRITING:
+            with self.subTest(step=step):
+                self.server = self.tmp / ('server-' + step)
+                self.mission = self.make_server(self.server)
+                put(self.server, 'start-server.bat', 'OLD LAUNCHER')
+                put(self.server, 'profiles/HollowCountry/settings.json', 'OLD SETTINGS')
+                put(self.server, '@HollowCountry/mod.cpp', 'OLD MOD')
+                put(self.server, '@HollowCountry/addons/retired.pbo', 'OLD SIGNED NAME')
+                put(self.server, 'unrelated/keep.txt', 'KEEP')
+                (self.server / 'empty').mkdir()
+                before = live_snapshot(self.server)
+                with self.inject_after(step, fi.Refused('injected', 'after ' + step)):
+                    code, out, err = self.apply()
+                self.assertEqual(code, 2, out + err)
+                self.assertEqual(live_snapshot(self.server), before)
+                self.assertIn('rolled back: the server is as it was before this run', err)
+                self.assertEqual(self.apply()[0], 0)
+                self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_late_refusal_restores_the_previous_install_including_both_overlays(self):
+        self.assertEqual(self.apply()[0], 0)
+        before = live_snapshot(self.server)
+        newer = make_bundle(self.tmp / 'newer')
+        put(newer, '@HollowCountry/mod.cpp', 'NEW MOD')
+        put(newer, 'profiles/HollowCountry/settings.json', 'NEW SETTINGS')
+        put(newer, 'start-server.bat', (newer / 'start-server.bat').read_text() + '\nrem new\n')
+        put(newer, 'mission-overlay/hollow-country/events/scene-chains.json', '{"new": true}')
+        profile_path = newer / 'config/map-overlays/profile.json'
+        profile = json.loads(profile_path.read_text())
+        profile['enabled'] = profile['enabled'][:-1]
+        profile_path.write_text(json.dumps(profile))
+        write_manifest(newer)
+        with self.inject_after('launcher', fi.Refused('injected', 'late upgrade refusal')):
+            code, out, err = self.apply(bundle=newer)
+        self.assertEqual(code, 2, out + err)
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertIn('rolled back: the server is as it was before this run', err)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_a_crash_is_named_read_only_and_a_rerun_recovers_then_installs(self):
+        class Crash(BaseException):
+            pass
+        with self.inject_after('overlays-map', Crash()):
+            with self.assertRaises(Crash):
+                self.apply()
+        journals = list((self.server / fi.BACKUP_DIR).rglob(self.JOURNAL))
+        self.assertEqual(len(journals), 1)
+        self.assertEqual(json.loads(journals[0].read_text())['state'], 'active')
+        before_check = snapshot(self.tmp)
+        code, out, err = self.run_cli('--check')
+        self.assertEqual(code, 1, out + err)
+        self.assertIn('install_interrupted', out + err)
+        self.assertIn('pending:', out + err)
+        self.assertEqual(snapshot(self.tmp), before_check)
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertIn('Recovered interrupted install', out)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_a_failed_rollback_stops_lists_remaining_changes_and_a_rerun_finishes(self):
+        original = Path.unlink
+        def refuse_launcher(path, *args, **kwargs):
+            if path == self.server / 'start-server.bat':
+                raise PermissionError('synthetic locked launcher')
+            return original(path, *args, **kwargs)
+        with self.inject_after('launcher', fi.Refused('injected', 'late refusal')), \
+                mock.patch.object(Path, 'unlink', refuse_launcher):
+            code, out, err = self.apply()
+        self.assertEqual(code, 2)
+        self.assertIn('rollback_pending', err)
+        self.assertIn('pending: remove start-server.bat', err)
+        self.assertNotIn('rolled back: the server is as it was before this run', err)
+        # The first reverse-order undo failed: no earlier undo may have run.
+        self.assertTrue((self.server / '@HollowCountry/mod.cpp').is_file())
+        self.assertTrue((self.mission / fi.map_overlay.MANAGED).is_dir())
+        code, checked, check_err = self.run_cli('--check')
+        self.assertEqual(code, 1, checked + check_err)
+        self.assertIn('rollback_pending', checked)
+        self.assertEqual([line.strip() for line in err.splitlines() if 'pending:' in line],
+                         [line.strip() for line in checked.splitlines() if 'pending:' in line])
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_journal_is_replaced_atomically_before_a_live_write_even_if_the_write_crashes(self):
+        original_replace, original_copy = os.replace, ws.copy_atomic
+        replacements = []
+        def observe_replace(source, target):
+            if Path(target).name == self.JOURNAL:
+                self.assertNotEqual(Path(source), Path(target))
+                self.assertEqual(Path(source).parent, Path(target).parent)
+                replacements.append(json.loads(Path(source).read_text()))
+            return original_replace(source, target)
+        class Crash(BaseException):
+            pass
+        def crash_after_copy(source, target):
+            target = Path(target)
+            if target.is_relative_to(self.server) and fi.BACKUP_DIR not in target.relative_to(self.server).parts:
+                rel = target.relative_to(self.server).as_posix()
+                self.assertTrue(replacements, 'journal must precede the live copy')
+                self.assertTrue(any(row['path'] == rel for row in replacements[-1]['entries']), rel)
+            original_copy(source, target)
+            if target == self.server / '@HollowCountry/mod.cpp':
+                raise Crash()
+        with mock.patch.object(os, 'replace', observe_replace), \
+                mock.patch.object(ws, 'copy_atomic', crash_after_copy):
+            with self.assertRaises(Crash):
+                self.apply()
+        self.assertTrue(replacements, 'an atomic journal must precede live writes')
+        self.assertIn('install_interrupted', ''.join(self.run_cli('--check')[1:]))
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(self.run_cli('--check')[0], 0)
+
+    def test_crashes_inside_atomic_writers_remove_only_new_scratch_files_on_recovery(self):
+        class Crash(BaseException):
+            pass
+        for writer in ('mod', 'key', 'receipt'):
+            with self.subTest(writer=writer):
+                self.server = self.tmp / ('scratch-' + writer)
+                self.mission = self.make_server(self.server)
+                put(self.server, '@HollowCountry/mod.cpp', 'OLD MOD')
+                put(self.server, 'keys/.sync-preexisting.tmp', 'KEEP THIS OLD TEMP')
+                before = live_snapshot(self.server)
+                original_copy, original_json = ws.copy_atomic, ws.write_json_atomic
+                def crash_copy(source, target):
+                    target = Path(target)
+                    if ((writer == 'mod' and target == self.server / '@HollowCountry/mod.cpp')
+                            or (writer == 'key' and target.parent == self.server / 'keys')):
+                        put(target.parent, '.sync-synthetic.tmp', 'PARTIAL COPY')
+                        raise Crash()
+                    return original_copy(source, target)
+                def crash_json(target, data):
+                    if writer == 'receipt' and target == self.server / ws.RECEIPT_NAME:
+                        put(target.parent, '.receipt-synthetic.tmp', '{"partial":')
+                        raise Crash()
+                    return original_json(target, data)
+                with mock.patch.object(ws, 'copy_atomic', crash_copy), \
+                        mock.patch.object(ws, 'write_json_atomic', crash_json):
+                    with self.assertRaises(Crash):
+                        self.apply()
+                self.assertIn('install_interrupted', ''.join(self.run_cli('--check')[1:]))
+                # Recover, then refuse this fresh run too: the live tree must equal the original.
+                with self.inject_after('workshop', fi.Refused('injected', 'refuse fresh run')):
+                    code, out, err = self.apply()
+                self.assertEqual(code, 2, out + err)
+                self.assertIn('Recovered interrupted install', out)
+                self.assertEqual(live_snapshot(self.server), before)
+
+    def test_a_partial_mission_apply_is_restored_without_copying_storage(self):
+        before = live_snapshot(self.server)
+        regular = fi.overlays.main.side_effect
+        def partial(argv):
+            if argv[0] == 'bundle-apply':
+                put(self.mission, 'cfgeconomycore.xml', '<partial/>')
+                put(self.mission, 'hollow-country/new/deep/file.json', '{}')
+                put(self.mission, 'hollow-country-bundle/receipt.json', '{"partial":true}')
+                print('refused: synthetic partial apply', file=sys.stderr)
+                return 2
+            return regular(argv)
+        with mock.patch.object(fi.overlays, 'main', side_effect=partial):
+            code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rolled back: the server is as it was before this run', err)
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertFalse(list((self.server / fi.BACKUP_DIR).rglob('players.db')))
+        self.assertEqual(self.apply()[0], 0)
+
+    def test_a_crash_during_rollback_resumes_the_remaining_work(self):
+        class Crash(BaseException):
+            pass
+        original = fi.restore_change
+        calls = []
+        def crash_after_undo(ctx, change):
+            original(ctx, change)
+            calls.append(change)
+            if len(calls) == 2:
+                raise Crash()
+        with self.inject_after('launcher', fi.Refused('injected', 'late refusal')), \
+                mock.patch.object(fi, 'restore_change', crash_after_undo):
+            with self.assertRaises(Crash):
+                self.apply()
+        code, out, err = self.run_cli('--check')
+        self.assertEqual(code, 1, out + err)
+        self.assertIn('rollback_pending', out)
+        self.assertNotIn('pending: remove start-server.bat', out)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual(self.run_cli('--check')[0], 0)
 
 
 if __name__ == '__main__':

@@ -16,8 +16,8 @@ own when it is already done:
 Safety rules:
 
 * Dry run by default. Nothing changes until --apply (or a typed yes at the end of a terminal dry run).
-* Every file that is replaced is copied to hollow-country-install-backups/<UTC time>/ first, and a receipt
-  (hollow-country-install-receipt.json) records what was installed. Nothing is ever deleted: a stale signed
+* Every file that is replaced is copied to hollow-country-install-backups/<run>/ first, and a receipt
+  (hollow-country-install-receipt.json) records what was installed. A stale signed
   PBO in our own mod folder is moved into the backup folder. Saves and storage_* are never touched.
 * A second run changes nothing. A file this installer wrote and that was changed afterwards is drift: for mod
   files, keys and start-server.bat the run refuses; a profile file the server or Expansion rewrote is kept.
@@ -78,7 +78,7 @@ SCHEMA = 1
 
 
 class Refused(Exception):
-    """A rule or precondition failed; nothing further was written."""
+    """A rule or precondition failed; run-owned changes must be undone."""
 
     def __init__(self, code, message):
         super().__init__(message)
@@ -372,6 +372,7 @@ class Ctx:
         self.skip = set()
         self.receipt = None
         self.backup_root = None
+        self.journal = None
         self.steam_user = args.steam_user
         self.notes = []
         self.steamcmd = None
@@ -502,34 +503,230 @@ def stamp():
     return datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ')
 
 
-def backup_target(ctx, rel):
-    if ctx.backup_root is None:
-        ctx.backup_root = ctx.server / BACKUP_DIR / stamp()
-    target = ctx.backup_root / rel
-    counter = 1
-    while target.exists():
-        target = ctx.backup_root / ('%s.%d' % (rel, counter))
-        counter += 1
-    target.parent.mkdir(parents=True, exist_ok=True)
-    return target
+# A write-ahead journal owns only this run's targets. Backups are published before
+# the journal entry, and the entry is atomically published before the live write.
+JOURNAL = 'run-journal.json'
+ROLLBACK_OK = 'rolled back: the server is as it was before this run'
 
 
-def backup_copy(ctx, rel):
-    source = ctx.server / rel
-    if source.is_file():
-        target = backup_target(ctx, rel)
-        target.write_bytes(source.read_bytes())
+def journal_path(root):
+    return root / JOURNAL
+
+
+def safe_relative(rel):
+    path = Path(rel)
+    if (not rel or path.is_absolute() or path.as_posix() != rel or '\\' in rel
+            or any(p in ('.', '..', BACKUP_DIR) or ':' in p or p.startswith('storage_') for p in path.parts)):
+        raise ValueError('unsafe install journal target')
+    return path
+
+
+def tree_inventory(root):
+    """Local backup inventory, excluding persistence at every depth; never follow links."""
+    rows = {}
+    def visit(path, rel):
+        if path.is_symlink():
+            raise ValueError('linked rollback target: ' + rel)
+        if path.is_dir():
+            rows[rel] = 'dir'
+            for child in sorted(path.iterdir()):
+                if not child.name.startswith('storage_'):
+                    visit(child, child.name if not rel else rel + '/' + child.name)
+        elif path.is_file():
+            rows[rel] = sha256_file(path)
+        elif path.exists():
+            raise ValueError('non-regular rollback target: ' + rel)
+    visit(root, '')
+    return rows
+
+
+def inventory_digest(rows):
+    return sha256_bytes(json.dumps(rows, sort_keys=True).encode())
+
+
+def ensure_journal(ctx):
+    if ctx.journal is not None:
+        return
+    ws.check_no_symlink_below(ctx.server, BACKUP_DIR)
+    parent = ctx.server / BACKUP_DIR
+    parent.mkdir(exist_ok=True)
+    ctx.backup_root = Path(tempfile.mkdtemp(prefix=stamp() + '-', dir=parent))
+    data = {'schema': 1, 'state': 'active', 'entries': [], 'temporaries': {}}
+    ws.write_json_atomic(journal_path(ctx.backup_root), data)
+    ctx.journal = data
+
+
+def scratch_names(directory):
+    return sorted(p.name for pattern in ('.sync-*.tmp', '.receipt-*.tmp')
+                  for p in directory.glob(pattern))
+
+
+def track_target(ctx, rel, tree=False):
+    """Capture once per run, including absent parents, immediately before a writer."""
+    safe_relative(rel)
+    ws.check_no_symlink_below(ctx.server, rel)
+    ensure_journal(ctx)
+    for row in ctx.journal['entries']:
+        if rel == row['path'] or (row['kind'] == 'tree' and rel.startswith(row['path'] + '/')):
+            return
+    target = ctx.server / rel
+    parent = Path(rel).parent
+    if parent != Path('.') and not (ctx.server / parent).exists():
+        track_target(ctx, parent.as_posix())
+    backup = ctx.backup_root / rel
+    row = {'path': rel, 'kind': 'absent'}
+    if target.is_dir() and tree:
+        before = tree_inventory(target)
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(target, backup, ignore=shutil.ignore_patterns('storage_*'))
+        if tree_inventory(backup) != before:
+            raise ValueError('mission changed during backup')
+        row.update(kind='tree', sha256=inventory_digest(before))
+    elif target.is_file():
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        ws.copy_atomic(target, backup)
+        row.update(kind='file', sha256=sha256_file(backup))
+    elif target.exists():
+        raise ValueError('non-file install target: ' + rel)
+    temporaries = dict(ctx.journal['temporaries'])
+    parent_rel = Path(rel).parent.as_posix()
+    if parent_rel == '.':
+        parent_rel = ''
+    temporaries.setdefault(parent_rel, scratch_names(target.parent))
+    data = dict(ctx.journal, entries=ctx.journal['entries'] + [row], temporaries=temporaries)
+    ws.write_json_atomic(journal_path(ctx.backup_root), data)
+    ctx.journal = data
+
+
+def pending_runs(ctx):
+    parent = ctx.server / BACKUP_DIR
+    ws.check_no_symlink_below(ctx.server, BACKUP_DIR)
+    runs = []
+    if not parent.exists():
+        return runs
+    for path in sorted(parent.glob('*/' + JOURNAL), reverse=True):
+        ws.check_no_symlink_below(ctx.server, path.relative_to(ctx.server).as_posix())
+        data = json.loads(path.read_text(encoding='utf-8'))
+        if (not isinstance(data, dict) or data.get('schema') != 1
+                or data.get('state') not in ('active', 'rolling-back', 'complete', 'rolled-back')
+                or not isinstance(data.get('entries'), list)
+                or not isinstance(data.get('temporaries'), dict)):
+            raise Refused('journal_invalid', 'cannot recover ' + shown(path))
+        for rel, names in data['temporaries'].items():
+            if rel:
+                safe_relative(rel)
+            if not isinstance(names, list) or not all(isinstance(n, str) and Path(n).name == n for n in names):
+                raise Refused('journal_invalid', 'unknown temporary entry in ' + shown(path))
+        for row in data['entries']:
+            if (not isinstance(row, dict) or not isinstance(row.get('path'), str)
+                    or row.get('kind') not in ('file', 'tree', 'absent')):
+                raise Refused('journal_invalid', 'unknown entry in ' + shown(path))
+            safe_relative(row['path'])
+        if data['state'] in ('active', 'rolling-back'):
+            runs.append((path.parent, data))
+    return runs
+
+
+def rollback_changes(ctx, root, data):
+    """Recompute remaining work from bytes, so interrupted undo is idempotent."""
+    changes = []
+    for rel, before_names in data['temporaries'].items():
+        if rel:
+            ws.check_no_symlink_below(ctx.server, rel)
+        for name in scratch_names(ctx.server / rel):
+            if name not in before_names:
+                changes.append(('remove', rel + '/' + name if rel else name, None))
+    for row in reversed(data['entries']):
+        rel = row['path']
+        ws.check_no_symlink_below(ctx.server, rel)
+        backup = root / rel
+        ws.check_no_symlink_below(root, rel)
+        target = ctx.server / rel
+        if row['kind'] == 'absent':
+            if target.exists():
+                changes.append(('rmdir' if target.is_dir() else 'remove', rel, None))
+        elif row['kind'] == 'file':
+            if not backup.is_file() or sha256_file(backup) != row.get('sha256'):
+                raise ValueError('backup missing or changed: ' + rel)
+            if not target.is_file() or sha256_file(target) != row['sha256']:
+                changes.append(('restore', rel, backup))
+        else:
+            before = tree_inventory(backup)
+            if inventory_digest(before) != row.get('sha256'):
+                raise ValueError('backup missing or changed: ' + rel)
+            current = tree_inventory(target)
+            # Remove newly created files/directories before restoring the baseline.
+            for name in sorted(current, key=lambda n: (n.count('/'), n), reverse=True):
+                if name not in before:
+                    changes.append(('rmdir' if current[name] == 'dir' else 'remove',
+                                    rel + '/' + name if name else rel, None))
+            for name in sorted(before, key=lambda n: (n.count('/'), n)):
+                if before[name] != current.get(name):
+                    changes.append(('mkdir' if before[name] == 'dir' else 'restore',
+                                    rel + '/' + name if name else rel, backup / name))
+    # A mission tree inventory may also contain one of the writer's scratch files.
+    unique = {}
+    for change in changes:
+        unique.setdefault(change[:2], change)
+    return list(unique.values())
+
+
+def restore_change(ctx, change):
+    action, rel, source = change
+    ws.check_no_symlink_below(ctx.server, rel)
+    target = ctx.server / rel
+    if action == 'remove':
+        target.unlink()
+    elif action == 'rmdir':
+        target.rmdir()  # Only empty directories; never recursively remove a live tree.
+    elif action == 'mkdir':
+        target.mkdir()
+    else:
+        ws.copy_atomic(source, target)
+
+
+def describe_pending(ctx, root, data):
+    state = 'install_interrupted' if data['state'] == 'active' else 'rollback_pending'
+    lines = ['%s: %s; rerun with --apply with the server stopped to recover before installing'
+             % (state, shown(journal_path(root)))]
+    try:
+        changes = rollback_changes(ctx, root, data)
+        lines += ['  pending: %s %s' % (action, rel) for action, rel, _source in changes]
+        if not changes:
+            lines.append('  pending: finalize rollback journal')
+    except (OSError, ValueError, ws.SyncError) as error:
+        lines.append('  pending: inspect journal targets: ' + shown(error))
+    return '\n'.join(lines)
+
+
+def rollback_run(ctx, root, data):
+    ws.write_json_atomic(journal_path(root), dict(data, state='rolling-back'))
+    data['state'] = 'rolling-back'
+    for change in rollback_changes(ctx, root, data):
+        restore_change(ctx, change)  # Stop at the first failed undo; keep all backups.
+    ws.write_json_atomic(journal_path(root), dict(data, state='rolled-back'))
+    data['state'] = 'rolled-back'
+
+
+def recover_runs(ctx, runs):
+    require_stopped(ctx, ws.server_running())
+    for root, data in runs:
+        try:
+            rollback_run(ctx, root, data)
+        except (OSError, ValueError, ws.SyncError) as error:
+            raise Refused('rollback_pending', '%s\n%s' % (shown(error), describe_pending(ctx, root, data)))
+        ctx.say('Recovered interrupted install; ' + ROLLBACK_OK)
 
 
 def write_file(ctx, rel, source, action):
     target = ctx.server / rel
+    track_target(ctx, rel)
     target.parent.mkdir(parents=True, exist_ok=True)
-    if action in ('upgrade', 'confirm'):
-        backup_copy(ctx, rel)
     ws.copy_atomic(source, target)
 
 
 def save_receipt(ctx):
+    track_target(ctx, RECEIPT)
     ws.write_json_atomic(ctx.server / RECEIPT, ctx.receipt)
 
 
@@ -651,8 +848,8 @@ def do_mods(ctx, a):
     for rel in a.stale:
         target = ctx.server / rel
         ws.check_no_symlink_below(ctx.server, rel)
-        moved = backup_target(ctx, rel)
-        os.replace(target, moved)
+        track_target(ctx, rel)
+        os.replace(target, ctx.backup_root / rel)
         ctx.receipt['files'].pop(rel, None)
     save_receipt(ctx)
     return 'done'
@@ -667,6 +864,11 @@ def install_dependencies(ctx, a):
     if missing:
         raise Refused('workshop_missing', 'these dependencies are not downloaded yet: %s; run step 3 (do not skip it) '
                       'or point --workshop-content at the steamapps/workshop/content/221100 folder' % ', '.join(missing))
+    items = [t['item'] for t in a.pending]
+    targets, _skipped, _manual = ws.plan_install(items, ctx.dirs, ctx.server, ctx.owned)
+    for rel in sorted(targets):
+        track_target(ctx, rel)
+    track_target(ctx, ws.RECEIPT_NAME)
     with tempfile.TemporaryDirectory(prefix='hc-friend-install-') as temp:
         manifest = ws.load_manifest()
         wanted = {t['item']['folder'] for t in a.pending}
@@ -747,6 +949,7 @@ def plan_overlay(ctx, a):
 
 
 def do_overlay(ctx, a, mission, installed, want):
+    track_target(ctx, mission.relative_to(ctx.server).as_posix(), tree=True)
     if installed and os.path.lexists(mission / map_overlay.MANAGED):
         # the map overlay patched the same cfggameplay.json; the mission rollback refuses while it is in place
         code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
@@ -886,6 +1089,7 @@ def plan_overlays_map(ctx, a):
 
 
 def do_overlays_map(ctx, mission, source, state):
+    track_target(ctx, mission.relative_to(ctx.server).as_posix(), tree=True)
     if state == 'different':
         code, text, err = run_map(ctx, ['rollback', '--target', str(mission)])
         if code != 0:
@@ -957,8 +1161,8 @@ def do_cfg(ctx, a):
     if current != cfg['raw']:
         raise Refused('drift', 'serverDZ.cfg changed while this run was waiting; nothing was written to it. Run the '
                       'installer again so it merges into the file as it is now')
-    target = backup_target(ctx, 'serverDZ.cfg')
-    target.write_bytes(cfg['raw'])
+    track_target(ctx, 'serverDZ.cfg')
+    track_target(ctx, '.serverDZ.cfg.hc-new')
     temp = cfg['path'].with_name('.serverDZ.cfg.hc-new')
     temp.write_bytes(cfg['new'].encode('utf-8'))
     os.replace(temp, cfg['path'])
@@ -1141,17 +1345,22 @@ def resolve_steamcmd(ctx):
     ctx.dirs = content_dirs(ctx, ctx.server)
 
 
-def pre_apply(ctx, a):
-    """Every refusal that can be known before the first write."""
+def require_stopped(ctx, running):
     args = ctx.args
-    if a.running:
+    if running:
         raise Refused('server_running', 'a DayZ server process is running; stop it yourself first (this tool never '
                       'stops anything)')
-    if a.running is None and not args.assume_stopped:
+    if running is None and not args.assume_stopped:
         answer = ctx.ask('The process list cannot be read. Type yes only if the DayZ server is stopped: ')
         if (answer or '').strip().lower() != 'yes':
             raise Refused('server_state_unknown', 'cannot tell whether the DayZ server is running; stop it and pass '
                           '--assume-stopped')
+
+
+def pre_apply(ctx, a):
+    """Every refusal that can be known before the first write."""
+    args = ctx.args
+    require_stopped(ctx, a.running)
     if 'workshop' not in ctx.skip and a.fetch:
         resolve_steamcmd(ctx)
         if not ctx.steam_user:
@@ -1208,7 +1417,6 @@ def run_steps(ctx, apply):
     ctx.say()
     if apply:
         pre_apply(ctx, a)
-        remember(ctx)
     blocked = False
     stopped = False
     ctx.statuses = {}
@@ -1239,6 +1447,12 @@ def run_steps(ctx, apply):
         for line in lines:
             ctx.say('  ' + line)
         ctx.say()
+    if apply:
+        if ctx.journal is not None:
+            data = dict(ctx.journal, state='complete')
+            ws.write_json_atomic(journal_path(ctx.backup_root), data)
+            ctx.journal = data
+        remember(ctx)
     return blocked
 
 
@@ -1273,6 +1487,18 @@ def main(argv=None, out=None, input_fn=None):
         ctx.skip = skip
         ctx.manifest = load_bundle(ctx.bundle)
         ctx.server = resolve_server(ctx)
+        runs = pending_runs(ctx)
+        if runs:
+            if args.check:
+                for root, data in runs:
+                    ctx.say(describe_pending(ctx, root, data))
+                ctx.say('check result: fail')
+                return 1
+            if args.apply:
+                recover_runs(ctx, runs)
+            else:
+                raise Refused('install_interrupted', '\n'.join(describe_pending(ctx, root, data)
+                                                           for root, data in runs))
         ctx.receipt = load_receipt(ctx.server)
         if args.check:
             analyze_items(ctx)
@@ -1290,11 +1516,16 @@ def main(argv=None, out=None, input_fn=None):
         else:
             ctx.say('Install finished. Nothing here was observed in DayZ; run --check any time.')
         return 0
-    except Refused as error:
-        print('refused: %s: %s' % (error.code, shown(error)), file=sys.stderr)
-        return 2
-    except (ws.SyncError, OSError, ValueError) as error:
-        print('refused: error: %s' % shown(error), file=sys.stderr)
+    except (Refused, ws.SyncError, OSError, ValueError) as error:
+        print('refused: %s: %s' % (getattr(error, 'code', 'error'), shown(error)), file=sys.stderr)
+        if ctx.journal is not None and ctx.journal['state'] in ('active', 'rolling-back'):
+            try:
+                rollback_run(ctx, ctx.backup_root, ctx.journal)
+            except (OSError, ValueError, ws.SyncError) as undo_error:
+                print('rollback stopped: %s\n%s' %
+                      (shown(undo_error), describe_pending(ctx, ctx.backup_root, ctx.journal)), file=sys.stderr)
+            else:
+                print(ROLLBACK_OK, file=sys.stderr)
         return 2
 
 
