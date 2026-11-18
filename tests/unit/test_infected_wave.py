@@ -17,7 +17,7 @@ class InfectedWaveTests(unittest.TestCase):
     def test_terminal_cohort_retains_last_observed_population_count(self):
         module = (SOURCE / "HCInfectedModule.c").read_text()
         finish = module.split("protected void FinishSweep", 1)[1].split("protected void TryAdopt", 1)[0]
-        self.assertIn("if (record.State == 5)\n                continue;", finish)
+        self.assertRegex(finish, r"if \(record.State == 5\)\s*\{\s*RefundRetired\(record, nowUtc\);\s*continue;\s*\}")
 
     def test_all_seven_descriptors_and_explicit_unsupported_fallback(self):
         p = policy_functions()["ResolveVariant"]
@@ -134,10 +134,78 @@ class InfectedWaveTests(unittest.TestCase):
         self.assertIn("record.RecoveryConflicted = true", finish)
         self.assertIn("record.State = 6", finish)
         self.assertNotIn("record.Reserved =", finish)
-        self.assertNotIn("m_State.Reserved -=", module)
+        refund = module.split("protected void RefundRetired", 1)[1].split("protected void TryAdopt", 1)[0]
+        self.assertIn("record.State != 5 || record.BudgetReleased", refund)
+        self.assertEqual(1, module.count("m_State.Reserved -= record.Reserved;"))
+        self.assertIn("m_State.Reserved -= record.Reserved;", refund)
         self.assertIn("ConfirmedDead", module)
         tracking = module.split("bool Track(", 1)[1].split("void NativeVoice", 1)[0]
         self.assertIn("CanRecycleActor", tracking)
+
+    def test_ambiguous_membership_cannot_expire_or_refund_even_with_recovery_admitted(self):
+        from tests.unit.test_infected_admission import StartedModule, hypothetical, prepared_record
+        for living in (0, 3):
+            record = prepared_record(1, created=10000)
+            record.Living = living
+            started = StartedModule(journal=(record,), flags=hypothetical("MemberRecovery")).start()
+            for age in (3599, 3600, 20000):
+                started.tick(10000 + age)
+                retained = started.ctx.m_State.Groups[0]
+                self.assertEqual(6, retained.State)
+                self.assertFalse(retained.BudgetReleased)
+                self.assertEqual(3, started.ctx.m_State.Reserved)
+
+    def test_v2_drift_never_reaches_ecology_v1_submission(self):
+        from tests.unit.test_infected_admission import Array, admission, module_call, requested_config
+        from types import SimpleNamespace as NS
+        for drift, complete, expected in ((True, True, []), (True, False, []),
+                                          (False, True, ["ecology", "retarget"]), (False, False, [])):
+            with self.subTest(drift=drift, complete=complete):
+                calls = []
+                pack = NS(IsV2Drifting=lambda: drift, Retarget=lambda *a: calls.append("retarget") or 2)
+                ctx = NS(m_Sweeps=Array([NS(Engaged=False, Clue=True, Stimulus=NS(IsLive=lambda now: True),
+                            Living=3, ConfirmedDead=0, Accounted=3 if complete else 2, Ambiguous=False)]),
+                    m_State=NS(Groups=Array([NS(Id=1, State=1, Reserved=3)])), m_Packs=Array([pack]),
+                    m_Config=requested_config(), m_RoutesRemaining=1, m_RetargetCursor=0, m_Now=100,
+                    m_Actors=Array(), SnapshotRoute=lambda *a: None,
+                    m_Admission=admission(Investigation=True, SupplementaryChains=True))
+                module_call("protected void RetargetCohorts(", ctx,
+                    HCInfectedPolicy=NS(**policy_functions()),
+                    HCEcologyMigrationQualification=NS(Admitted=lambda: True),
+                    HCEcologyMigration=NS(SubmitCohort=lambda *a: calls.append("ecology") or 0))
+                self.assertEqual(expected, calls)
+                self.assertEqual(0 if expected else 1, ctx.m_RoutesRemaining)
+        migration = (SOURCE / "HCHordeMigration.c").read_text()
+        self.assertRegex(migration, r"override bool IsV2Drifting\(\)\s*\{\s*return m_V2Drift;\s*\}")
+
+    def test_confirmed_retirement_waits_for_release_then_refunds_only_once(self):
+        from tests.unit.test_infected_admission import StartedModule, hypothetical, committed_record
+        from types import SimpleNamespace as NS
+        record = committed_record()
+        record.State = 5
+        started = StartedModule(journal=(record,), flags=hypothetical("MemberRecovery")).start()
+        released = [False]
+        started.ctx.m_Packs[0] = NS(Release=lambda: released[0], RoutePlanned=0)
+        for ready in (False, True, True):
+            released[0] = ready
+            started.ctx.FinishSweep(20000)
+            retained = started.ctx.m_State.Groups[0]
+            self.assertEqual(3, retained.Living)
+            self.assertEqual(ready, retained.BudgetReleased)
+            self.assertEqual(0 if ready else 3, started.ctx.m_State.Reserved)
+        self.assertEqual(1, sum("infected horde budget used=" in e for e in started.events if isinstance(e, str)))
+
+    def test_releasing_an_ambiguous_pack_does_not_resolve_its_membership(self):
+        from tests.unit.test_infected_admission import StartedModule, hypothetical, prepared_record
+        from types import SimpleNamespace as NS
+        started = StartedModule(journal=(prepared_record(1),), flags=hypothetical("MemberRecovery")).start()
+        started.ctx.m_Packs[0] = NS(Tick=lambda now: False, RoutePlanned=0)
+        started.tick(20000)
+        retained = started.ctx.m_State.Groups[0]
+        self.assertIsNone(started.ctx.m_Packs[0])
+        self.assertEqual(6, retained.State)
+        self.assertFalse(retained.BudgetReleased)
+        self.assertEqual(3, started.ctx.m_State.Reserved)
 
 
 if __name__ == "__main__":

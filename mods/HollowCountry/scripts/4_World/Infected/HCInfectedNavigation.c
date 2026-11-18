@@ -1,4 +1,11 @@
-// Installed 1.30 native surfaces: 3_Game/AI/{AIWorld,AIGroup,AIGroupBehaviour}.
+// Installed scripts-1.30.164289 native surfaces:
+// 3_Game/AI/AIWorld.c:98 FindPath, :122 SampleNavmeshPosition;
+// 3_Game/AI/AIGroupBehaviour.c:9 waypoint DTO, :27 SetWaypoints;
+// AIGroup.c:14 GetBehaviour; AIAgent.c:7 GetGroup;
+// 3_Game/Entities/DayZAnimal.c:193 GetAIAgent; Object.c:287 GetPosition;
+// 4_World/Entities/Creatures/Infected/ZombieBase.c:182 GetMindStateSynced;
+// 1_Core/proto/EnScript.c:380 Count; EnMath.c:553 Min;
+// 3_Game/Entities/DayZInfectedInputController.c:9-10 mind/retained target.
 // No manual steering, script command or generated noise target is used.
 class HCNativeInfectedPack
 {
@@ -273,12 +280,22 @@ class HCNativeInfectedPack
                 return 0;
             if (!leader) leader = member;
         }
+        // Two attempts per cooldown window, with a new observed clue still
+        // required. Re-arming never extends the original pack/root lifetime.
+        if (m_RetargetAttempts >= 2 && now >= m_NextRetarget)
+        {
+            m_RetargetAttempts = 0;
+        }
         if (!HCInfectedPolicy.RetargetAllowed(now, m_NextRetarget, clue.Observed, m_LastRetargetObserved, clue.Expires, m_RetargetAttempts, leader != null, false))
             return 0;
         // Failed geometry still spends an attempt/cooldown. A repeated blocked
         // clue cannot repeatedly consume native pathfinding work.
         m_RetargetAttempts++;
         m_NextRetarget = now + 10;
+        if (m_RetargetAttempts >= 2)
+        {
+            m_NextRetarget = now + HCInfectedPolicy.HordeCooldownSeconds();
+        }
         m_LastRetargetObserved = clue.Observed;
         vector end;
         if (!Reachable(leader.GetPosition(), clue.Origin, 120, end))
@@ -385,6 +402,12 @@ class HCNativeInfectedPack
         if (RouteResult != 1)
             return !Release();
         return true;
+    }
+
+    // Authored ownership hook; the optional V2 extension overrides it.
+    bool IsV2Drifting()
+    {
+        return false;
     }
 
     bool IsReleasing()
@@ -519,8 +542,11 @@ class HCInfectedObservation
     {
         // 1.30.164289 3_Game/Entities/DayZInfectedInputController.c:9-10
         // exposes mind state and retained target, not a fresh visual receipt.
-        // No observed lighting-aware source exists here. Leave native pursuit
-        // alone; unknown sight must not read hidden coordinates or refresh clues.
+        // ZombieBase.c:556 OnSoundVoiceEvent reports an animation sound, while
+        // :981 EEHitBy reports damage/source, not sight. Neither establishes a
+        // fresh visual receipt; the base DayZCreatureAIInputController likewise
+        // exposes no sight event. Keep disabled; do not relabel damage/hearing
+        // as vision or sample hidden coordinates from a retained target.
         return false;
     }
 

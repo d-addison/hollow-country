@@ -434,7 +434,9 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.pump(self.runtime,5100)
         self.assertEqual([5100],self.queries)
         self.assertEqual(1,len(self.schedules));self.assertEqual([],self.commits)
-        self.assertTrue(self.runtime.m_Dirty)
+        self.assertFalse(self.runtime.m_Dirty)
+        self.assertEqual(0, self.runtime.m_Checkpoint.Samples)
+        self.assertEqual(0, self.runtime.m_Checkpoint.PathQueries)
         self.assertEqual([],self.writes)
     def test_periodic_failed_checkpoint_stops_future_work(self):
         self.runtime.Checkpoint=lambda:False

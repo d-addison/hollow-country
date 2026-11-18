@@ -119,7 +119,7 @@ def translate(filename, signature, bound, fields=(), statics=(), **namespace):
 
 MODULE_METHODS = ("FindActor", "CanRecycleActor", "ResetSweep", "SampleActor", "SampleMembership",
     "FinishSweep", "SnapshotRoute", "RetargetCohorts", "SaveAdoptionBoundary", "TryAdopt",
-    "TryInvestigate", "ReleasePacks", "Quarantine", "HeardAdmitted")
+    "TryInvestigate", "ReleasePacks", "Quarantine", "HeardAdmitted", "RefundRetired")
 
 
 def bind_heard_admitted(context):
@@ -368,7 +368,7 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
     # -- CE adoption + native pack routes (TryAdopt) --
     def adopt_context(self, rec, admitted, requested=True):
         state = NS(Groups=Array(), Reserved=0)
-        ctx = NS(m_Hordes=True, m_WorkCap=24, m_GroupCap=2, m_MemberCap=24, m_Now=10, m_Chains=True,
+        ctx = NS(m_FailedCohorts=Array(), m_Hordes=True, m_WorkCap=24, m_GroupCap=2, m_MemberCap=24, m_Now=10, m_Chains=True,
             m_Config=requested_config(EnableCEAdoption=requested, EnableNativePackRoutes=requested),
             m_Admission=admission(**admitted), m_State=state, m_Actors=Array([self.candidate(i) for i in range(3)]),
             m_AdoptionCursor=0, m_Sweeps=Array(), m_Packs=Array(), m_Dirty=False, m_StartedUtc=0)
@@ -381,10 +381,11 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
     def run_adopt(self, ctx, rec):
         policy = dict(policy_functions())
         namespace = dict(
-            HCInfectedPolicy=NS(**policy),
+            HCInfectedPolicy=NS(**policy), Print=lambda message: None,
             HCInfectedStore=NS(ValidPosition=lambda v: True),
             HCInfectedClock=NS(UtcSeconds=lambda: 10),
-            HCHordeStimulus=NS(ChooseClue=lambda actor, now, hearing: self.clue(), PreferClue=lambda a, b, now: a is not None and b is None),
+            HCHordeStimulus=NS(ChooseClue=lambda actor, now, hearing: self.clue(), PreferClue=lambda a, b, now: a is not None and b is None,
+                                   PreferHotClue=lambda a, b, now: a is not None and b is None),
             HCHordeRecovery=NS(Capture=lambda candidates, record: rec.events.append("capture")),
             HCHordeRecord=lambda: NS(RecoveryConflicted=False),
             HCNativeInfectedPack=pack_factory(rec), HCHordeSweep=lambda: NS(),
@@ -562,7 +563,8 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
                     m_Chains=True, m_Config=requested_config(), m_Admission=admission(SupplementaryChains=admitted), m_Now=1)
                 module_call("protected void SampleMembership(", ctx, actor,
                     HCInfectedStore=NS(ValidPosition=lambda v: True),
-                    HCHordeStimulus=NS(ChooseClue=lambda a, now, hearing: seen.append(hearing), PreferClue=lambda a, b, now: False),
+                    HCHordeStimulus=NS(ChooseClue=lambda a, now, hearing: seen.append(hearing), PreferClue=lambda a, b, now: False,
+                                       PreferHotClue=lambda a, b, now: False),
                     DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4),
                     vector=NS(Zero=(0.0, 0.0, 0.0)))
                 self.assertEqual([admitted], seen)
@@ -571,7 +573,7 @@ class UnqualifiedPathsPerformNoMutation(unittest.TestCase):
     def tick_context(self, rec, **admitted):
         actor = self.candidate(0)
         actor.Clue = None; actor.Visual = None
-        ctx = NS(m_Healthy=True, m_Hordes=True, m_Chains=True, m_RegistrationRound=0, m_LastUtc=0, m_StartedUtc=0,
+        ctx = NS(m_FailedCohorts=Array(), m_Healthy=True, m_Hordes=True, m_Chains=True, m_RegistrationRound=0, m_LastUtc=0, m_StartedUtc=0,
             m_Now=0, m_VoiceAttempts=0, m_RegistrationAttempts=0, m_ObservationsRemaining=0, m_RoutesRemaining=0,
             m_Investigators=Array(), m_Packs=Array(), m_Voices=Array(), m_Actors=Array([actor]), m_Cursor=0,
             m_NextAdopt=10 ** 6, m_NextSave=10 ** 6, m_Dirty=False, m_WorkCap=32, m_RecoveryCursor=0,
@@ -646,14 +648,14 @@ def hypothetical(*paths):
 
 def committed_record(record_id=1, created=1):
     return NS(Id=record_id, State=0, CreatedUtc=created, LastSignalUtc=90, Living=3, Reserved=3,
-        AdoptionStage=2, HasRoute=True, RecoveryConflicted=False, Anchor=(1.0, 0.0, 1.0),
+        AdoptionStage=2, HasRoute=True, RecoveryConflicted=False, Anchor=(1.0, 0.0, 1.0), BudgetReleased=False, RetiredUtc=0,
         PreviousAnchor=(1.0, 0.0, 1.0), RoutePurpose=1, RouteResult=1, RoutePlanned=2,
         RouteCompleted=1, RouteEnd=(2.0, 0.0, 2.0), MemberIds=Array())
 
 
 def prepared_record(record_id=2, created=1):
     return NS(Id=record_id, State=6, CreatedUtc=created, LastSignalUtc=90, Living=3, Reserved=3,
-        AdoptionStage=1, HasRoute=False, RecoveryConflicted=False, Anchor=(5.0, 0.0, 5.0),
+        AdoptionStage=1, HasRoute=False, RecoveryConflicted=False, Anchor=(5.0, 0.0, 5.0), BudgetReleased=False, RetiredUtc=0,
         PreviousAnchor=(5.0, 0.0, 5.0), RoutePurpose=0, RouteResult=0, RoutePlanned=0,
         RouteCompleted=0, RouteEnd=(0.0, 0.0, 0.0), MemberIds=Array())
 
@@ -698,7 +700,7 @@ class StartedModule:
         is_valid = translate("HCInfectedState.c", "bool IsValid(", (), fields=tuple(vars(self.config)),
             HCInfectedProfiles=self.profiles)
         self.config.IsValid = lambda: is_valid(self.config)
-        self.ctx = NS(Instance=None, m_State=None, m_Healthy=False, m_Dirty=False, m_Admission=admission(),
+        self.ctx = NS(Instance=None, m_FailedCohorts=Array(), m_State=None, m_Healthy=False, m_Dirty=False, m_Admission=admission(),
             m_Sweeps=Array(), m_Packs=Array(), m_Actors=Array(), m_Voices=Array(), m_Investigators=Array(),
             m_RegistrationRound=0, m_Cursor=0, m_RecoveryCursor=0, m_AdoptionCursor=0, m_RetargetCursor=0,
             m_Now=0, m_AlertChain=NS(ProcessPending=lambda *a: 0))
@@ -771,7 +773,7 @@ class StartedModule:
     def bind_real_methods(self):
         for signature in ("protected void FinishSweep(", "protected void ReleasePacks(", "protected void ResetSweep(",
                           "protected void TryAdopt(", "protected void SnapshotRoute(", "protected void SampleMembership(",
-                          "protected bool HeardAdmitted("):
+                          "protected bool HeardAdmitted(", "protected void RefundRetired("):
             name = signature.split()[-1].rstrip("(")
             function = self.module_function(signature)
             setattr(self.ctx, name, lambda *args, function=function: function(self.ctx, *args))
@@ -949,14 +951,16 @@ class DormantJournalTests(unittest.TestCase):
         self.assertEqual(before, [vars(record) for record in started.ctx.m_State.Groups])
         self.assertEqual([], started.saves)
 
-    def test_admitted_recovery_keeps_the_existing_restart_retire_and_save_lifecycle(self):
+    def test_admitted_recovery_keeps_unresolved_restart_reservation_past_lifetime(self):
         journal = (prepared_record(1),)
         started = StartedModule(journal=journal, flags=hypothetical("MemberRecovery")).start()
         self.assertEqual(["load"], started.store_calls)
         self.assertIs(True, started.ctx.m_Dirty)
         for utc in (20000, 20001, 20002):
             started.tick(utc)
-        self.assertEqual(5, started.ctx.m_State.Groups[0].State)
+        self.assertEqual(6, started.ctx.m_State.Groups[0].State)
+        self.assertFalse(started.ctx.m_State.Groups[0].BudgetReleased)
+        self.assertEqual(3, started.ctx.m_State.Reserved)
         self.assertGreaterEqual(len(started.saves), 1)
 
     def test_admitted_adoption_alone_never_retires_a_state_six_journal(self):
@@ -1056,7 +1060,9 @@ class CommittedRecordRestartThroughAuthoredLoadTests(unittest.TestCase):
                     if expiry:
                         started.tick(expiry)
                         started.tick(expiry + 1)
-                        self.assertEqual(5, started.ctx.m_State.Groups[0].State)
+                        self.assertEqual(6, started.ctx.m_State.Groups[0].State)
+                        self.assertFalse(started.ctx.m_State.Groups[0].BudgetReleased)
+                        self.assertEqual(3, started.ctx.m_State.Reserved)
                         self.assertEqual(3, started.ctx.m_State.Groups[0].Reserved)
                     else:
                         started.tick(20000)

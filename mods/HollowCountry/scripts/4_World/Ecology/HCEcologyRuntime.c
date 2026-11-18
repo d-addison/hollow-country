@@ -2,6 +2,11 @@
 // Tick(GetGame().GetTime()) and Stop(). No module registration/core edits here.
 // Bounded registrations are a partial observed cohort, never a world census.
 // No entities are spawned, consumed, fed, moved, deleted or re-grouped.
+// Installed scripts-1.30.164289 native references for checkpoint work:
+// 1_Core/proto/EnScript.c:380 Count; EnDebug.c:96 Print;
+// 3_Game/Global/Game.c:1535 GetTime, :1197 SurfaceIsPond;
+// 3_Game/Entities/Object.c:287 GetPosition. Dirty state tracks only the
+// persisted Samples/PathQueries counters; native acceptance remains pending.
 class HCEcologyLiveBinding
 {
 	EntityAI Live;
@@ -341,7 +346,9 @@ class HCEcologyRuntime
 		}
 		m_Checkpoint.Samples += batch.Actors.Count();
 		m_Checkpoint.PathQueries += queries;
-		m_Dirty = true;
+		// Only persisted counters changed here. An empty sample/path pass is
+		// not a new checkpoint and must not rewrite the journal every minute.
+		if (batch.Actors.Count() > 0 || queries > 0) { m_Dirty = true; }
 		if (nowMs - m_LastSave >= 60000)
 		{
 			if (!Checkpoint())

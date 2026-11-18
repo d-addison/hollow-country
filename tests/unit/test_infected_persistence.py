@@ -1,5 +1,6 @@
 """Actual authored reservation-policy execution; synthetic crash boundaries only."""
 import unittest
+from types import SimpleNamespace as NS
 if __package__:
     from .test_infected_contract import SOURCE, policy_functions
     from .test_infected_admission import UnqualifiedPathsPerformNoMutation as Admission
@@ -9,6 +10,34 @@ else:
 
 
 class InfectedPersistenceTests(unittest.TestCase):
+    def test_retiring_a_horde_refunds_capacity_for_a_third_admission(self):
+        from tests.unit.test_infected_admission import Array, admission, module_call, translate
+        # Explicit synthetic journal: two committed three-member hordes; the
+        # first has three confirmed deaths. No native engine is simulated.
+        records = Array(NS(Id=i, State=1, Reserved=3, Living=3, CreatedUtc=100,
+            LastSignalUtc=100, BudgetReleased=False, RetiredUtc=0, HasRoute=False, Anchor=0)
+            for i in (1, 2))
+        sweeps = Array(NS(Living=n, ConfirmedDead=3-n, Accounted=3,
+            Ambiguous=False, Stimulus=None, Engaged=False, Sum=0) for n in (0, 3))
+        records[0].State = 5  # Retirement/wipe has been recorded by the lifecycle.
+        ctx = NS(m_State=NS(Groups=records, Reserved=6), m_Sweeps=sweeps,
+            m_Packs=Array([None, None]), m_Actors=Array(), m_Dirty=False,
+            m_GroupCap=2, m_Admission=admission(CEAdoption=True), m_Now=10,
+            SnapshotRoute=lambda *a: None, ResetSweep=lambda: None)
+        policy = NS(**policy_functions())
+        logs = []
+        namespace = dict(HCInfectedPolicy=policy, Print=logs.append,
+            vector=NS(DistanceSq=lambda *a: 0))
+        # Bind only an authored lifecycle helper if present; no harness changes.
+        if "protected void RefundRetired(" in (SOURCE / "HCInfectedModule.c").read_text():
+            refund = translate("HCInfectedModule.c", "protected void RefundRetired(", (), **namespace)
+            namespace["RefundRetired"] = lambda record, utc: refund(ctx, record, utc)
+            ctx.RefundRetired = namespace["RefundRetired"]
+        module_call("protected void FinishSweep(", ctx, 110, **namespace)
+        self.assertEqual(3, ctx.m_State.Reserved, "retirement must refund the horde ledger")
+        active = sum(record.State != 5 for record in records)
+        self.assertTrue(policy.CanReserve(active, 2, ctx.m_State.Reserved, 6, 3))
+
     def test_prepared_reservation_can_only_commit_once_with_exact_ledger(self):
         p = policy_functions()["CommitAdoptionRecord"]
         valid = [1, 1, 6, 6, 6, 6, 6, 0, 100, 100, 1, 2]

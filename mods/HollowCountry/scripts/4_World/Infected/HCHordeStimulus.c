@@ -105,6 +105,33 @@ class HCHordeStimulus
         if (!chosen) return null;
         return FreezeClue(chosen);
     }
+
+    // Rank only genuine, live clues of the same category by local noise heat.
+    // Visual priority, root expiry and the frozen origin remain authoritative.
+    // A hot cell never supplies a destination without observed evidence there.
+    static bool PreferHotClue(HCInfectedClue candidate, HCInfectedClue previousClue, float now)
+    {
+        if (!candidate)
+        {
+            return false;
+        }
+        int category = Category(candidate, now);
+        int previousCategory = Category(previousClue, now);
+        if (category == previousCategory && category == HCStimulusCategory.HC_STIMULUS_HEARD)
+        {
+            float candidateHeat = HCInfectedMemory.Heat(candidate.Origin);
+            float previousHeat = HCInfectedMemory.Heat(previousClue.Origin);
+            if (candidateHeat > previousHeat)
+            {
+                return true;
+            }
+            if (candidateHeat < previousHeat)
+            {
+                return false;
+            }
+        }
+        return PreferClue(candidate, previousClue, now);
+    }
 }
 
 // V2 migration accepts only a real externally-heard clue. Heat may rank these

@@ -178,6 +178,8 @@ class InfectedRouteTests(unittest.TestCase):
                 self.idx = idx; self.next = 20 if idx == 0 else 0
                 self.last = 9 if idx == 0 else -1
                 self.spent = 1 if idx == 0 else 0
+            def IsV2Drifting(self):
+                return False
             def Retarget(self, clue, instant):
                 i = self.idx; calls[i] += 1
                 if not policy(instant, self.next, clue.Observed, self.last, clue.Expires, self.spent, True, False):

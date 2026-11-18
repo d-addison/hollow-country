@@ -91,9 +91,9 @@ modded class HCInfectedModule
 
     override protected void RetargetCohorts()
     {
-        // One route owner while V2 is on; otherwise the original v1/ecology
-        // path and all of its preference/admission behaviour are preserved.
-        if (!HCHordeMigration.Active()) { super.RetargetCohorts(); }
+        // V2 owns only a pack with a remembered, in-range drift destination.
+        // Empty/out-of-range/rejected packs retain the v1/ecology route path.
+        super.RetargetCohorts();
     }
 }
 
@@ -114,6 +114,20 @@ modded class HCNativeInfectedPack
     protected int m_V2Attempts;
     protected int m_V2MemberCount;
     protected int m_V2Id;
+
+    override bool IsV2Drifting()
+    {
+        return m_V2Drift;
+    }
+
+    override int Retarget(HCInfectedClue clue, float now)
+    {
+        if (HCHordeMigration.Active() && m_V2Drift)
+        {
+            return 0;
+        }
+        return super.Retarget(clue, now);
+    }
 
     void V2Remember(int id, HCInfectedClue clue, float now)
     {

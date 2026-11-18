@@ -1,3 +1,7 @@
+// Native evidence, installed scripts-1.30.164289: 1_Core/proto/EnScript.c:380
+// Count, :394 Find, :407 Insert; EnDebug.c:96 Print; EnConvert.c:30 int.ToString.
+// Native membership release uses HCInfectedNavigation.c's inspected AI APIs;
+// refund requires its verified Release() result, never an assumed deletion.
 class HCHordeSweep
 {
     int Living;
@@ -34,6 +38,9 @@ class HCInfectedModule : HCModule
     protected ref array<ref HCHordeSweep> m_Sweeps = new array<ref HCHordeSweep>;
     protected ref array<ref HCNativeInfectedPack> m_Packs = new array<ref HCNativeInfectedPack>;
     protected ref array<ref HCInfectedActor> m_Investigators = new array<ref HCInfectedActor>;
+    // Runtime-only: a restarted aborted intent is still unknown membership.
+    // Only a failed transfer seen by this process may leave other slots open.
+    protected ref array<int> m_FailedCohorts = new array<int>;
     protected ref HCAlertChain m_AlertChain = new HCAlertChain;
     protected bool m_Healthy;
     protected bool m_Hordes;
@@ -408,8 +415,10 @@ class HCInfectedModule : HCModule
         sweep.Living++;
         sweep.Sum = sweep.Sum + position;
         HCInfectedClue sensed = HCHordeStimulus.ChooseClue(actor, m_Now, HeardAdmitted());
-        if (HCHordeStimulus.PreferClue(sensed, sweep.Stimulus, m_Now))
+        if (HCHordeStimulus.PreferHotClue(sensed, sweep.Stimulus, m_Now))
+        {
             sweep.Stimulus = sensed;
+        }
         int mind = actor.InfectedEntity.GetMindStateSynced();
         if (mind == DayZInfectedConstants.MINDSTATE_CHASE || mind == DayZInfectedConstants.MINDSTATE_FIGHT)
             sweep.Engaged = true;
@@ -427,7 +436,10 @@ class HCInfectedModule : HCModule
             HCHordeRecord record = m_State.Groups[i];
             HCHordeSweep sweep = m_Sweeps[i];
             if (record.State == 5)
+            {
+                RefundRetired(record, nowUtc);
                 continue;
+            }
             if (record.State == 6 && !m_Admission.MemberRecovery && !m_Packs[i])
                 continue;
             if (record.State != 5 && record.State != 6)
@@ -439,9 +451,12 @@ class HCInfectedModule : HCModule
                     record.HasRoute = false;
                     if (m_Packs[i])
                     {
-                        m_Packs[i].Release();
+                        bool releaseCompleted = m_Packs[i].Release();
                         SnapshotRoute(record, m_Packs[i]);
-                        m_Packs[i] = null;
+                        if (releaseCompleted)
+                        {
+                            m_Packs[i] = null;
+                        }
                     }
                     m_Dirty = true;
                     Print("[HC Infected] ambiguous membership; reservation retained for horde " + record.Id);
@@ -450,7 +465,11 @@ class HCInfectedModule : HCModule
             sweep.Clue = sweep.Stimulus && sweep.Stimulus.IsLive(m_Now);
             int living = sweep.Living;
             if (record.State == 6)
-                living = record.Living; // Unresolved is not evidence of death.
+            {
+                // Age, an empty partial sweep, and native pack release cannot
+                // resolve journal membership. Only recovery may leave state 6.
+                continue;
+            }
             if (sweep.Engaged || sweep.Clue)
                 record.LastSignalUtc = nowUtc;
             int next = HCInfectedPolicy.NextHordeState(record.State, living, sweep.Clue, sweep.Engaged, nowUtc - record.LastSignalUtc, nowUtc - record.CreatedUtc);
@@ -460,13 +479,9 @@ class HCInfectedModule : HCModule
                 record.State = next;
                 m_Dirty = true;
             }
-            if (record.State == 5 && m_Packs[i])
+            if (record.State == 5)
             {
-                m_Packs[i].Release();
-                SnapshotRoute(record, m_Packs[i]);
-                m_Packs[i] = null;
-                record.HasRoute = false;
-                m_Dirty = true;
+                RefundRetired(record, nowUtc);
             }
             if (record.State != 6)
             {
@@ -527,21 +542,28 @@ class HCInfectedModule : HCModule
             {
                 continue;
             }
+            if (pack.IsV2Drifting())
+            {
+                // V2 owns this pack, including ecology's alternate entry path.
+                continue;
+            }
             if (!sweep.Clue || !sweep.Stimulus.IsLive(m_Now))
             {
                 continue;
             }
-            // An admitted migration replaces the ordinary route; a refused or incomplete
-            // cohort gets no fallback route. Without the marker the ordinary route is unchanged.
+            // A migration that actually spends a path owns this attempt. A
+            // pre-path refusal leaves the ordinary noise retarget available.
             int result = 0;
+            bool fallbackReady = true;
             if (HCEcologyMigrationQualification.Admitted())
             {
-                if (HCInfectedPolicy.CompleteMembership(record.Reserved, sweep.Living, sweep.ConfirmedDead, sweep.Accounted, sweep.Ambiguous))
+                fallbackReady = HCInfectedPolicy.CompleteMembership(record.Reserved, sweep.Living, sweep.ConfirmedDead, sweep.Accounted, sweep.Ambiguous);
+                if (fallbackReady)
                 {
                     result = HCEcologyMigration.SubmitCohort(record.Id, pack, m_Actors, sweep.Living, m_Now, m_Admission.Investigation, m_Admission.SupplementaryChains);
                 }
             }
-            else
+            if (result == 0 && fallbackReady)
             {
                 result = pack.Retarget(sweep.Stimulus, m_Now);
             }
@@ -574,17 +596,92 @@ class HCInfectedModule : HCModule
         return true;
     }
 
+    protected void RefundRetired(HCHordeRecord record, int nowUtc)
+    {
+        if (record.State != 5 || record.BudgetReleased)
+        {
+            return;
+        }
+        int index = record.Id - 1;
+        HCNativeInfectedPack retiringPack = m_Packs[index];
+        if (retiringPack)
+        {
+            bool released = retiringPack.Release();
+            SnapshotRoute(record, retiringPack);
+            if (!released)
+            {
+                return;
+            }
+            m_Packs[index] = null;
+        }
+        record.HasRoute = false;
+        record.BudgetReleased = true;
+        record.RetiredUtc = nowUtc;
+        m_State.Reserved -= record.Reserved;
+        m_Dirty = true;
+        int used = 0;
+        foreach (HCHordeRecord budgetRecord : m_State.Groups)
+        {
+            if (!budgetRecord.BudgetReleased)
+            {
+                used++;
+            }
+        }
+        Print("[HollowCountry] infected horde budget used=" + used.ToString() + "/" + m_GroupCap.ToString());
+    }
+
     protected void TryAdopt(int nowUtc)
     {
         if (!HCInfectedPolicy.AdoptionWorkReady(m_WorkCap)) return;
-        if (!m_Hordes || !m_Admission.CEAdoption || m_State.Groups.Count() >= m_GroupCap)
-            return;
-        foreach (HCHordeRecord pending : m_State.Groups)
+        if (!m_Hordes || !m_Admission.CEAdoption)
         {
-            // Restored members must never be adopted as a fresh population while
-            // a prior reservation is unresolved. Retirement never refunds it.
-            if (pending.State == 6)
+            return;
+        }
+        int activeGroups = 0;
+        int reusableSlot = -1;
+        for (int slot = 0; slot < m_State.Groups.Count(); slot++)
+        {
+            HCHordeRecord pending = m_State.Groups[slot];
+            if (!pending.BudgetReleased)
+            {
+                activeGroups++;
+                // A persisted stage-3 abort may also be a crashed PREPARE.
+                // Never infer safe membership from that journal value alone.
+                if (pending.State == 6)
+                {
+                    if (m_FailedCohorts.Find(pending.Id) < 0)
+                    {
+                        return;
+                    }
+                }
+            }
+            if (HCInfectedPolicy.MayReuseHorde(pending.State, pending.BudgetReleased, pending.RetiredUtc, nowUtc))
+            {
+                if (!m_Packs[slot] && reusableSlot < 0)
+                {
+                    reusableSlot = slot;
+                }
+            }
+        }
+        if (activeGroups >= m_GroupCap)
+        {
+            return;
+        }
+        if (reusableSlot < 0 && m_State.Groups.Count() >= m_GroupCap)
+        {
+            return;
+        }
+        if (reusableSlot >= 0 && m_State.Groups[reusableSlot].RetiredUtc > m_State.SavedUtc)
+        {
+            // Land terminal refund in the preceding generation before reuse.
+            if (!SaveAdoptionBoundary("retire"))
+            {
                 return;
+            }
+        }
+        if (reusableSlot >= 0 && nowUtc <= m_State.SavedUtc)
+        {
+            return;
         }
         ref array<HCInfectedActor> candidates = new array<HCInfectedActor>;
         vector anchor;
@@ -612,14 +709,16 @@ class HCInfectedModule : HCModule
         int requested = candidates.Count();
         if (requested > 3) requested = HCInfectedMemory.CohortSize(anchor, requested);
         while (candidates.Count() > requested) { candidates.Remove(candidates.Count() - 1); }
-        if (requested < 3 || !HCInfectedPolicy.CanReserve(m_State.Groups.Count(), m_GroupCap, m_State.Reserved, m_MemberCap, requested))
+        if (requested < 3 || !HCInfectedPolicy.CanReserve(activeGroups, m_GroupCap, m_State.Reserved, m_MemberCap, requested))
             return;
         HCInfectedClue adoptionClue;
         foreach (HCInfectedActor observer : candidates)
         {
             HCInfectedClue observedClue = HCHordeStimulus.ChooseClue(observer, m_Now, HeardAdmitted());
-            if (HCHordeStimulus.PreferClue(observedClue, adoptionClue, m_Now))
+            if (HCHordeStimulus.PreferHotClue(observedClue, adoptionClue, m_Now))
+            {
                 adoptionClue = observedClue;
+            }
         }
         // No invented migration destination: without a genuine cue, leave the
         // existing CE population in its native group and try a later interval.
@@ -634,6 +733,10 @@ class HCInfectedModule : HCModule
         record.State = 6;
         record.AdoptionStage = 1;
         record.Id = m_State.Groups.Count() + 1;
+        if (reusableSlot >= 0)
+        {
+            record.Id = reusableSlot + 1;
+        }
         record.Reserved = requested;
         record.Living = requested;
         record.CreatedUtc = nowUtc;
@@ -641,12 +744,32 @@ class HCInfectedModule : HCModule
         record.Anchor = anchor;
         record.PreviousAnchor = anchor;
         m_State.Reserved += requested;
-        m_State.Groups.Insert(record);
-        m_Sweeps.Insert(new HCHordeSweep);
-        m_Packs.Insert(null);
+        if (reusableSlot < 0)
+        {
+            m_State.Groups.Insert(record);
+            m_Sweeps.Insert(new HCHordeSweep);
+            m_Packs.Insert(null);
+        }
+        else
+        {
+            // Old living members remain native and permanently ineligible for
+            // fresh adoption. Clear slot identity before assigning the new roster.
+            foreach (HCInfectedActor retiredActor : m_Actors)
+            {
+                if (retiredActor.GroupId == record.Id)
+                {
+                    retiredActor.GroupId = 0;
+                }
+            }
+            m_State.Groups[reusableSlot] = record;
+            m_Sweeps[reusableSlot] = new HCHordeSweep;
+            m_Packs[reusableSlot] = null;
+        }
         m_Dirty = true;
         if (!SaveAdoptionBoundary("prepare"))
             return;
+        int used = activeGroups + 1;
+        Print("[HollowCountry] infected horde budget used=" + used.ToString() + "/" + m_GroupCap.ToString());
         foreach (HCInfectedActor candidate : candidates)
         {
             candidate.GroupId = record.Id;
@@ -680,12 +803,18 @@ class HCInfectedModule : HCModule
             record.State = 6;
             record.RecoveryConflicted = true;
             record.HasRoute = false;
+            if (m_FailedCohorts.Find(record.Id) < 0)
+            {
+                m_FailedCohorts.Insert(record.Id);
+            }
         }
         m_Dirty = true;
         if (!SaveAdoptionBoundary("outcome"))
             return;
         if (record.AdoptionStage != 2)
-            Quarantine("adoption transfer failed or ambiguous; durable reservation retained");
+        {
+            Print("[HollowCountry] infected cohort quarantined id=" + record.Id.ToString() + " reason=adoption_transfer_failed_or_ambiguous reservation=retained");
+        }
         // Native entities are never spawned, deleted or moved by script.
     }
 
@@ -802,23 +931,31 @@ class HCInfectedModule : HCModule
             maintenance++;
             // Absolute lifetime cannot depend on finishing an actor sweep:
             // continuous CE registration can reset a partial aggregate.
-            if (record.State != 5 && (record.State != 6 || m_Admission.MemberRecovery) && nowUtc - record.CreatedUtc >= 3600)
+            if (record.State != 5 && record.State != 6 && nowUtc - record.CreatedUtc >= 3600)
             {
                 record.State = 5;
                 m_Dirty = true;
-                if (m_Packs[p])
-                {
-                    m_Packs[p].Release();
-                    SnapshotRoute(record, m_Packs[p]);
-                    m_Packs[p] = null;
-                }
+            }
+            if (record.State == 5)
+            {
+                RefundRetired(record, nowUtc);
+                continue;
             }
             if (m_Packs[p])
             {
                 bool routeAlive = m_Packs[p].Tick(m_Now);
                 SnapshotRoute(record, m_Packs[p]);
                 if (!routeAlive)
+                {
                     m_Packs[p] = null;
+                    // A released/despawned/wiped cohort no longer owns a
+                    // runtime route. Retire and refund rather than leak escrow.
+                    if (record.State != 6)
+                    {
+                        record.State = 5;
+                        RefundRetired(record, nowUtc);
+                    }
+                }
             }
             if (record.HasRoute && (!m_Packs[p] || m_Packs[p].IsReleasing()))
             {
@@ -926,6 +1063,7 @@ class HCInfectedModule : HCModule
         m_Actors.Clear();
         m_Sweeps.Clear();
         m_Packs.Clear();
+        m_FailedCohorts.Clear();
         HCInfectedRoomCatalog.Clear();
         m_AlertChain = new HCAlertChain;
     }

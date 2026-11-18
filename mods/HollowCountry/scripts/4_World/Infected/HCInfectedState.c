@@ -1,5 +1,7 @@
 // Authored DTOs only. No entity pointers, target identities or player positions
 // enter persistence. Schema/build/world mismatches quarantine instead of wiping.
+// Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380 Count, :407 Insert;
+// the new retirement fields belong only to our JSON DTO, never vanilla storage.
 class HCInfectedConfig
 {
     int SchemaVersion = 1;
@@ -343,7 +345,7 @@ class HCInfectedActor
 {
     ZombieBase InfectedEntity;
     int GroupId = 0;
-    bool EverAssigned = false; // No same-session recycling of finite reservations.
+    bool EverAssigned = false; // A retired member is never adopted again this session.
     bool RecoveredMember = false;
     float NextVoice = 0;
     int LastEventId = -1;
@@ -434,6 +436,10 @@ class HCHordeRecord
     ref array<ref HCHordeMemberId> MemberIds = new array<ref HCHordeMemberId>;
     // Durable ambiguity latch. It is never silently cleared on restart.
     bool RecoveryConflicted;
+    // Optional schema-2 extension: absent legacy fields retain their spent
+    // reservation until a real terminal lifecycle refunds it. No store wipe.
+    bool BudgetReleased = false;
+    int RetiredUtc;
 }
 
 class HCInfectedSnapshot
@@ -526,6 +532,17 @@ class HCInfectedStore
                 return false;
             if (!HCInfectedPolicy.ValidAdoptionRecord(group.AdoptionStage, group.State, group.RecoveryConflicted))
                 return false;
+            if (group.BudgetReleased)
+            {
+                if (group.State != 5 || group.HasRoute || group.RetiredUtc < group.CreatedUtc || group.RetiredUtc > snapshot.SavedUtc)
+                {
+                    return false;
+                }
+            }
+            else if (group.RetiredUtc != 0)
+            {
+                return false;
+            }
             if (!ValidPosition(group.Anchor) || !ValidPosition(group.PreviousAnchor))
                 return false;
             if (!HCHordeRecovery.ValidateRoster(group))
@@ -545,7 +562,10 @@ class HCInfectedStore
                 return false;
             if (group.RoutePlanned > 0 && !ValidPosition(group.RouteEnd))
                 return false;
-            total += group.Reserved;
+            if (!group.BudgetReleased)
+            {
+                total += group.Reserved;
+            }
         }
         return total == snapshot.Reserved;
     }
@@ -591,12 +611,44 @@ class HCInfectedStore
             HCInfectedSnapshot older = a;
             if (snapshot == a)
                 older = b;
-            if (!HCInfectedPolicy.ValidGenerationPair(snapshot.Generation, older.Generation, snapshot.Epoch, older.Epoch, snapshot.SavedUtc, older.SavedUtc, snapshot.Reserved, older.Reserved, snapshot.Groups.Count(), older.Groups.Count()))
+            bool ordinaryPair = HCInfectedPolicy.ValidGenerationPair(snapshot.Generation, older.Generation, snapshot.Epoch, older.Epoch, snapshot.SavedUtc, older.SavedUtc, snapshot.Reserved, older.Reserved, snapshot.Groups.Count(), older.Groups.Count());
+            bool refundPair = HCInfectedPolicy.RefundedGenerationPair(snapshot.Generation, older.Generation, snapshot.Epoch, older.Epoch, snapshot.SavedUtc, older.SavedUtc, snapshot.Reserved, older.Reserved, snapshot.Groups.Count(), older.Groups.Count());
+            if (!ordinaryPair && !refundPair)
+            {
                 return false;
+            }
+            int newlyRefunded = 0;
             for (int i = 0; i < older.Groups.Count(); i++)
             {
                 HCHordeRecord previous = older.Groups[i];
                 HCHordeRecord current = snapshot.Groups[i];
+                // A new intent can replace only a durably refunded terminal
+                // record, after cooldown; Id remains the bounded slot number.
+                bool reused = previous.CreatedUtc != current.CreatedUtc;
+                if (reused)
+                {
+                    if (!HCInfectedPolicy.MayReuseHorde(previous.State, previous.BudgetReleased, previous.RetiredUtc, current.CreatedUtc))
+                    {
+                        return false;
+                    }
+                    if (current.Id != previous.Id || current.AdoptionStage != 1 || current.BudgetReleased || current.CreatedUtc <= older.SavedUtc)
+                    {
+                        return false;
+                    }
+                    continue;
+                }
+                if (previous.BudgetReleased && !current.BudgetReleased)
+                {
+                    return false;
+                }
+                if (previous.BudgetReleased && previous.RetiredUtc != current.RetiredUtc)
+                {
+                    return false;
+                }
+                if (!previous.BudgetReleased && current.BudgetReleased)
+                {
+                    newlyRefunded += previous.Reserved;
+                }
                 if (!HCInfectedPolicy.ValidAdoptionStagePair(previous.AdoptionStage, current.AdoptionStage))
                     return false;
                 bool normalAdvance = HCInfectedPolicy.CanAdvanceRecord(previous.Id, current.Id, previous.Reserved, current.Reserved, previous.Living, current.Living, previous.State, current.State, previous.CreatedUtc, current.CreatedUtc);
@@ -605,6 +657,10 @@ class HCInfectedStore
                     return false;
                 if (!HCHordeRecovery.SameRoster(previous, current))
                     return false;
+            }
+            if (refundPair && older.Reserved - snapshot.Reserved > newlyRefunded)
+            {
+                return false;
             }
         }
         return true;

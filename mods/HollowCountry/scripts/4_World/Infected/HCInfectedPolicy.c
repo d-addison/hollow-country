@@ -1,6 +1,21 @@
 // Scalar policy seam; synthetic unit tests execute these bodies, never native AI.
 class HCInfectedPolicy
 {
+    // Reuse a released journal slot only after a bounded quiet interval.
+    static int HordeCooldownSeconds()
+    {
+        return 180;
+    }
+
+    static bool MayReuseHorde(int state, bool refunded, int retired, int now)
+    {
+        if (state != 5 || !refunded || retired <= 0 || now < retired)
+        {
+            return false;
+        }
+        return now - retired >= HordeCooldownSeconds();
+    }
+
     static bool AcceptClue(float now, float observed, float expires, int provenance, float strength, int hops)
     {
         if (!(now == now && observed == observed && expires == expires))
@@ -409,6 +424,15 @@ class HCInfectedPolicy
     static bool ValidGenerationPair(int newer, int older, int epoch, int oldEpoch, int saved, int oldSaved, int reserved, int oldReserved, int groups, int oldGroups)
     {
         return newer == older + 1 && epoch == oldEpoch && saved >= oldSaved && reserved >= oldReserved && groups >= oldGroups;
+    }
+
+    static bool RefundedGenerationPair(int newer, int older, int epoch, int oldEpoch, int saved, int oldSaved, int reserved, int oldReserved, int groups, int oldGroups)
+    {
+        bool sequence = newer == older + 1 && epoch == oldEpoch && saved >= oldSaved;
+        bool refunded = reserved >= 0 && reserved < oldReserved && groups >= oldGroups;
+        // LoadVerbatim verifies an actual new BudgetReleased transition before
+        // this exception to the legacy monotonic ledger is authorized.
+        return sequence && refunded;
     }
 
     static float ProfileLifetime(bool military, bool injured, int stance)
