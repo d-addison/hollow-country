@@ -6,6 +6,8 @@ import re
 from types import SimpleNamespace as N
 import unittest
 
+from tests.unit.build_identity_support import translate as build_identity
+
 ROOT = Path(__file__).resolve().parents[2]
 ADDON = ROOT / "mods/HollowCountryExpansionAI"
 SCRIPTS = ADDON / "scripts"
@@ -159,9 +161,13 @@ class ExpansionAdapterTests(unittest.TestCase):
                        IsPassive=lambda:False,HasUnlimitedStamina=lambda:False,
                        GetMeleeDamageMultiplier=lambda:1.,GetMeleeYeetForce=lambda:0.)
         self.game=N(IsServer=lambda:True,GetTime=lambda:self.now,
+                    GetVersion=lambda:"1.30.164289.70",
                     GetWorldName=lambda:"chernarusplus",
                     CreateObjectEx=self.factory,ConfigIsExisting=lambda p:True)
         self.env["GetGame"]=lambda:self.game
+        self.identity = build_identity()
+        self.identity.Matches.__globals__.update(Print=self.env["Print"], GetGame=lambda:self.game)
+        self.env["HCBuildIdentity"] = self.identity
         self.global_ai.Cast=lambda x:x if getattr(x,"native_ai",False) else None
         self.env["EntityAI"]=N(Cast=lambda x:x)
         self.env["PlayerBase"]=N(Cast=lambda x:x)
@@ -691,6 +697,46 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertFalse(self.mod.Install(p, self.hooks))
         self.assertIn("invalid or missing operator policy", self.mod.m_Status)
         self.assertIn("SurveySha256", self.mod.m_Status)
+
+    def native_build(self):
+        source = (SCRIPTS / "4_World/HCXAIStore.c").read_text()
+        # Only adapt the installed out-string signature, retaining authored decisions.
+        source = source.replace("GetGame().GetVersion(version);", "version = GetGame().GetVersion();")
+        return Authored(source, self.env).call("NativeBuild", None)
+
+    def identity_lines(self):
+        return [text for kind, text in self.calls if kind == "diagnostic" and text.startswith("[HC Identity]")]
+
+    def test_profile_build_accepts_only_shared_aliases_and_logs_unknown_once(self):
+        for build in ("1.30.164289", "1.30.164289.70"):
+            self.profile.BuildVersion = build
+            self.assertEqual("", self.rule_api.ProfileProblem(self.profile))
+        self.assertEqual([], self.identity_lines())
+        for build in ("foreign", "", "1.30.164289.71", " 1.30.164289"):
+            self.profile.BuildVersion = build
+            self.assertEqual("BuildVersion pin mismatch", self.rule_api.ProfileProblem(self.profile))
+        self.assertEqual(["[HC Identity] build=foreign world=chernarusplus accepted=0 reason=build_mismatch"],
+                         self.identity_lines())
+
+    def test_native_build_normalizes_shared_aliases_and_preserves_logged_unknown(self):
+        for build in ("1.30.164289", "1.30.164289.70"):
+            self.game.GetVersion = lambda: build
+            self.assertEqual("1.30.164289", self.native_build())
+        self.assertEqual([], self.identity_lines())
+        for build in ("foreign", "", "1.30.164289.71", " 1.30.164289"):
+            self.game.GetVersion = lambda: build
+            self.assertEqual(build, self.native_build())
+        self.assertEqual(["[HC Identity] build=foreign world=chernarusplus accepted=0 reason=build_mismatch"],
+                         self.identity_lines())
+
+    def test_addon_and_core_share_the_same_mismatch_latch(self):
+        self.profile.BuildVersion = "foreign-profile"
+        self.assertEqual("BuildVersion pin mismatch", self.rule_api.ProfileProblem(self.profile))
+        self.game.GetVersion = lambda: "foreign-engine"
+        self.assertEqual("foreign-engine", self.native_build())
+        self.assertFalse(self.identity.SameWorld("chernarusplus", "Enoch"))
+        self.assertEqual(["[HC Identity] build=foreign-profile world=chernarusplus accepted=0 reason=build_mismatch"],
+                         self.identity_lines())
 
     def encounters_stub(self):
         self.encounter_state = N(settled=False, armed=False, ready=False, worlds=[])
