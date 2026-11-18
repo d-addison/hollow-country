@@ -1,3 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Default no-op fragment. Never replace the stock core with this file. -->
-<economycore />
+<!-- Append the ce child inside the existing mission economycore; never replace the stock core. Installed only when EnableTravel preference is true (default). EXP-T1/T2/T4 verdicts remain pending. -->
+<economycore>
+  <ce folder="hollow-country-travel/ce">
+    <file name="types.xml" type="types" />
+    <file name="events.xml" type="events" />
+    <file name="travel-spawnabletypes.xml" type="spawnabletypes" />
+  </ce>
+</economycore>

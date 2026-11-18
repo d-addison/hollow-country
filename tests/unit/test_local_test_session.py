@@ -19,6 +19,7 @@ test that skips when those sibling tools are absent. Offline tests never establi
 """
 import contextlib
 import io
+import types
 import json
 import os
 from pathlib import Path
@@ -396,6 +397,8 @@ class SessionCase(unittest.TestCase):
         extra = list(extra)
         if self.auto_vanilla and '--tactical-flava' in extra and '--vanilla-addons' not in extra:
             extra += ['--vanilla-addons', str(self.vanilla)]
+        if command in ('plan', 'apply') and '--travel' not in extra and '--no-travel' not in extra:
+            extra.append('--no-travel')  # travel CE is on by default; these fakes model the other steps
         return [command, '--server-root', str(self.server), '--mission', str(self.mission),
                 '--profiles', str(self.profiles), '--mod', str(self.built), '--mod-dest', str(self.dest), *extra]
 
@@ -921,6 +924,20 @@ class Apply(SessionCase):
     def test_no_roster_with_economy_profile_none_is_harmless(self):
         code, _, err = self.run_cli(self.args('plan', '--economy-profile', 'none', '--no-roster'))
         self.assertEqual(code, 0, err)
+
+    def test_travel_is_on_by_default_and_skips_with_an_advisory_unless_explicit(self):
+        # Owner decision 2026-11-17: all features on by default. Synthetic travel port only.
+        base = lts.load_tool
+        travel = types.SimpleNamespace(preference=lambda profiles: True, validate=lambda mission: None,
+                                       MANAGED='hollow-country-travel-synthetic')
+        with mock.patch.object(lts, 'load_tool', lambda name: travel if name == 'travel' else base(name)):
+            default = [a for a in self.args('plan', '--economy-profile', 'none') if a != '--no-travel']
+            code, out, err = self.run_cli(default)
+            self.assertEqual(code, 0, err)
+            self.assertIn('travel CE skipped: it needs the economy delta', out)
+            code, _, err = self.run_cli(self.args('plan', '--economy-profile', 'none', '--travel'))
+            self.assertNotEqual(code, 0)
+            self.assertIn('--travel requires the economy delta', err)
 
     def test_apply_markers_none_and_named_and_skipping_the_deltas(self):
         code, _, err = self.run_cli(self.args('apply', '--markers', 'fuel_siphon', '--no-gameplay',

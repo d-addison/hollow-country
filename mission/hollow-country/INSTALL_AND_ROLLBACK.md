@@ -17,8 +17,9 @@ python tools/package/pbo.py verify D:\HollowCountryLocal\hollow-country-private-
 
 Choose a fresh output file. Verification checks safe archive paths, every file's
 SHA-256, PBO contents/prefix/checksum and the source manifest. These checks detect
-corruption; they do not authenticate an untrusted sender. The committed CE files are empty no-ops; enable a candidate only through a freshly
-generated, reviewed complete-entry delta. The deterministic PBO
+corruption; they do not authenticate an untrusted sender. The committed CE files
+contain the V2 travel overlay described below; the generated contextual economy
+keeps its separate registration and receipt. The deterministic PBO
 contains only config.cpp and original scripts with prefix `HollowCountry`.
 `mod.cpp` is at `@HollowCountry/mod.cpp` outside the PBO. The package is explicitly
 unsigned-development and `--release` is rejected. Do not publish it.
@@ -136,6 +137,115 @@ Core comments/unknown settings survive. A local `hollow-country` directory store
 the delta, byte-exact core backup and receipt before the atomic core switch.
 Never copy that backup/receipt into a distributable package. Do not reset the hive
 to make a candidate appear successful. No player-owned inventory is generated.
+
+## V2 travel CE (LC-T201, LC-T202, LC-T205)
+
+Install this authored overlay **after** the generated economy and optional loot
+extensions, and before CE building coverage. The local-session launcher installs
+it by default (`--no-travel` leaves it out; without a flag a problem such as
+`--economy-profile none` skips it with an advisory, and an explicit `--travel`
+turns that skip into a refusal), rehearses it on a scratch mission,
+records it in the session receipt, and rolls it back in reverse order. Its
+`EnableTravel` preference defaults true; an explicit false skips the install.
+No experiment verdict blocks source installation under the 2026-11-17 owner
+instruction. EXP-T2 (damage/variants), EXP-T1 (fluids), EXP-T4 (boats) remain pending.
+
+From the checkout or extracted private handoff root, with the server stopped:
+
+```powershell
+python tools/package/travel.py validate
+python tools/package/travel.py install --target "<private mission copy>" --profiles "<server profiles>"
+python tools/package/travel.py rollback --target "<private mission copy>"
+```
+
+`install` copies `ce/types.xml`, `ce/events.xml` and
+`ce/travel-spawnabletypes.xml` into `<mission>/hollow-country-travel/ce/` and
+appends the single CE block from `cfgeconomycore.append.xml` inside the existing
+core. It preserves existing declarations/comments and refuses duplicate travel
+registrations or competing loot-class ownership. A separate receipt and exact
+core backup support rollback; changed installed bytes cause refusal. Stock
+`db/events.xml`, `cfgspawnabletypes.xml`, `cfgeventspawns.xml` and `db/types.xml`
+are never rewritten. Friend bundles already include installed mission XML
+recursively; rollback backups and receipts remain excluded. The private source
+handoff and deploy allowlists include all three authored CE files and installer.
+
+CE loads before server scripts and cannot read HCSettings on each boot.
+`EnableTravel` is therefore an **installation-time** preference: changing it
+requires a stopped rollback/reinstall (or removing this one CE registration).
+The addon cannot disable an already installed overlay by changing a script flag.
+Missing settings default true; malformed settings refuse installation. `--travel`
+and `--no-travel` are the launcher's mission-deployment choice, not an experiment opt-in.
+No HCModule or shared-core hook is needed. This data-only feature emits no new
+`[HollowCountry]` server/client log line. The installer prints
+`Travel CE installed; EXP-T1/T2/T4 pending`; the lead should inspect native CE
+warnings and event counts, not infer admission from unrelated HC startup logs.
+
+Authored provisional targets for 3–6 players:
+
+| Event family | Installed nominal | Travel nominal |
+| --- | ---: | ---: |
+| Olga, Gunter, Ada, Sarka (each family, all colours together) | 8 | 9 |
+| M1025 (both installed colours together) | 3 | 3 |
+| Motorbikes (seven installed colours across two models) | 25 | 28 |
+| Boats (four installed colours) | 17 | 6 |
+
+SA-07 says roughly vanilla counts and provides no numeric car interval. The four
+common families rise 12.5 percent each, keeping their stock event maximum 11;
+total cars rise 35 to 39 (11.4 percent). M1025 stays at its stock cap. Children
+share the event budget; their colour rows never get separate vehicle nominals.
+All vehicle entries in stock types stay event-owned (nominal zero), avoiding a
+second loot spawn source. Trucks are unchanged. Car battery/plug/radiator
+attachments have 25 percent presence, where the native model has that slot.
+M1025 uses a glow plug and no radiator. Wheels have 65 percent ordinary, damaged
+parts, 20 percent ruined-class alternatives and 15 percent absent; panels are
+65 percent present with damage 0.55–0.90. These are authored CE fractions, not
+measured frequencies. Global part damage rows also affect loose parts of those
+classes. Native repair/replacement actions and inventory remain authoritative.
+Motorbikes have 95 percent wheel and 65 percent spark-plug presence, no added
+battery/radiator, and four replacement wheel classes at nominal 8 each.
+
+EngineOil nominal 12 and BrakeFluid nominal 10 use Industrial/Town/Village and
+Tier1–Tier4. The installed map prototype uses Industrial for garages, and
+Town/Village for Chernarus fuel-station buildings; these broad native usage flags
+also allow other matching buildings. There are no Garage/Fuel usage names.
+CanisterGasoline exists and stays at stock nominal 50. No oil drain, brake loss,
+new refill action or other scripted maintenance consequence is added: EXP-T1
+must establish native functionality first. Loot presence does not prove utility.
+
+Boats retain only the 72 stock coastal `VehicleBoat` points. There are no stock
+lake points in this mission; lake placement is deferred until measured. This is
+the EXP-T4 coast-only fallback, with no authored river route or guessed water
+height. Motorbikes retain all 97 stock `VehicleMotorbike` points. No bicycle data
+or third-party assets are included.
+
+Read-only evidence from installed DayZ 1.30.164289 (never bundled):
+`DayZServer/mpmissions/dayzOffline.chernarusplus/db/events.xml:1080` (boats),
+`:1100` (cars), `:1138` (motorbikes); `cfgeventspawns.xml:1174` (motorbike points),
+`:1386` (coastal boat points); `cfgeconomycore.xml:15`–`:17` (native vehicle roots),
+`:28` (`log_ce_vehicle` diagnostic); `cfgspawnabletypes.xml:56` (damage syntax)
+and its selected vehicle attachment rows; `db/types.xml:4701` (CanisterGasoline),
+`:16314` (motorbike wheels). Installed `vehicles_singletrack.pbo` config declares
+all seven motorbike colours; `vehicles_water.pbo` declares four Boat_01 colours;
+`vehicles_parts.pbo` declares scope-2 EngineOil, BrakeFluid and CanisterGasoline.
+The external native script snapshot confirms
+`4_World/Entities/Core/Inherited/InventoryItem.c:897` (BrakeFluid), `:899`
+(EngineOil), `4_World/Entities/Vehicles/InheritedMotorbikes/Motorbike_01.c:166`
+and `Motorbike_02.c:139` (concrete bikes),
+`4_World/Entities/Vehicles/InheritedBoats/Boat_01.c:90` (concrete boats).
+No new Enforce/native API is called by this CE data.
+
+The stock core contains classes/defaults, but no extension example or evidence
+of loader merge semantics. `type="events"` and `type="spawnabletypes"` are
+shipped as CE registrations; native loading/override semantics remain an
+EXP-T2 check. If the native server rejects either registration, stop, roll back
+this overlay, and operator-apply only the named `<event>` / `<type>` rows to
+backed-up mission `db/events.xml` / `cfgspawnabletypes.xml`, replacing matching
+names once. Never concatenate duplicate names or replace whole stock files.
+Do not install both forms together. To roll back that operator fallback, restore
+those exact backed-up files and the core. Do not reset storage to force respawns;
+existing saved vehicles are not deleted or retroactively repaired. DayZDiag,
+normal PBO/server load, native CE warnings, newly spawned attachment condition,
+fluid usability, persistence and boat navigation remain unobserved.
 
 ## Gameplay settings (cfggameplay delta and spawn kit)
 

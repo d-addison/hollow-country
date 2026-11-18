@@ -15,13 +15,14 @@ reimplements it:
   optional mods   --snafu and --tactical-flava dirs are read-only (never copied); load order SNAFU, TF, HC
   opt-in steps    --interiors [templates] --interiors-pack <assembled pack outside the checkout>
                   (interiors_profile templates install into <profiles>/HollowCountry/templates),
-                  --interiors legacy (the old data pack), --ce-coverage [--ce-coverage-result <external result>],
+                  --interiors legacy (the old data pack), --[no-]travel (authored V2 CE, on by default, EnableTravel preference),
+                  --ce-coverage [--ce-coverage-result <external result>],
                   --expansion-ai (stage @HollowCountryExpansionAI after Expansion's own Workshop folders, which
                   are only checked and never copied; then expansion_ai_config installs ai/sites.json and the
                   HollowCountry_* loadouts, the patrol override and the field merge into Expansion's existing
                   AISettings.json, with byte-exact backups) and
                   --markers all-local / NAME,... (names parsed from docs/LOCAL_ACCEPTANCE_V1.md at run time).
-                  Apply order: mod, keys, cfg, gameplay, economy, snafu, tactical_flava, ce_coverage,
+                  Apply order: mod, keys, cfg, gameplay, economy, snafu, tactical_flava, travel, ce_coverage,
                   interiors, expansion_ai, expansion_ai_config,
                   markers; rollback reverses.
 
@@ -97,8 +98,8 @@ MARKER_ROW = re.compile(r'^\|\s*`\$profile:HollowCountry/acceptance/(?P<name>[A-
 OPTIONAL_DELTAS = (('snafu', 'snafu_optional', 'SNAFU'),
                    ('tactical_flava', 'tactical_flava_optional', 'Tactical Flava'))
 STEP_TOOLS = {'tactical_flava': 'tactical_flava_optional', 'snafu': 'snafu_optional',
-              'economy': 'economy', 'gameplay': 'gameplay', 'ce_coverage': 'ce_coverage'}
-STACK_STEPS = ('ce_coverage', 'tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
+              'economy': 'economy', 'gameplay': 'gameplay', 'ce_coverage': 'ce_coverage', 'travel': 'travel'}
+STACK_STEPS = ('ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
 
 EXPANSION_DEPENDENCIES = (
     ('CF', '1559212036', ('cf', 'communityframework')),
@@ -321,6 +322,7 @@ def load_tool(name):
               'acceptance_markers': 'tools.audit.acceptance_markers',
               'interiors_profile': 'tools.package.interiors_profile',
               'ce_coverage': 'tools.package.ce_coverage',
+              'travel': 'tools.package.travel',
               'snafu_optional': 'tools.package.snafu_optional',
               'tactical_flava_optional': 'tools.package.tactical_flava_optional'}[name]
     try:
@@ -1208,6 +1210,12 @@ def rehearse_deltas(plan, repo):
             except (ValueError, OSError, KeyError, TypeError) as error:
                 raise Refused('%s delta cannot be generated for this mission (nothing was changed): %s' %
                               (label, error)) from None
+        if plan.get('travel'):
+            travel = load_tool('travel')
+            try:
+                travel.install(repo / 'mission/hollow-country', copy)
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                raise Refused('travel CE cannot be installed (nothing was changed): %s' % error) from None
         if plan.get('ce_coverage'):
             coverage = load_tool('ce_coverage')
             coverage.write_delta(scratch / 'ce-coverage', coverage.generate(plan['ce_coverage']['data'], copy))
@@ -1228,6 +1236,8 @@ def check_destinations(plan, mission, snafu, tf, ai, keys, plan_interiors_target
         managed.append(('economy', 'economy'))
     if plan.get('ce_coverage'):
         managed.append(('CE coverage', 'ce_coverage'))
+    if plan.get('travel'):
+        managed.append(('travel CE', 'travel'))
     if snafu:
         managed.append(('SNAFU delta', 'snafu_optional'))
     if tf:
@@ -1358,7 +1368,37 @@ def build_plan(args, repo=ROOT):
             plan['tactical_flava_delta'] = verify_optional('tactical_flava_optional', 'Tactical Flava', tf['dir'], vanilla)
     if plan.get('ce_coverage') and not plan['economy']:
         raise Refused('--ce-coverage requires the economy delta; do not combine it with --economy-profile none')
-    if snafu or tf or plan.get('ce_coverage'):
+    plan['travel'] = False
+    plan['travel_skipped'] = None
+    # Owner decision 2026-11-17: every feature is on by default, so travel CE installs unless
+    # --no-travel is given. Only an explicit --travel refuses on a problem; the default skips with an advisory.
+    travel_choice = getattr(args, 'travel', None)
+    if travel_choice is not False:
+        explicit = travel_choice is True
+        travel = load_tool('travel')
+        try:
+            plan['travel'] = travel.preference(profiles)
+            if plan['travel']:
+                travel.validate(repo / 'mission/hollow-country')
+                if os.path.lexists(mission / travel.MANAGED):
+                    raise ValueError('travel already installed; roll back first')
+        except (ValueError, OSError, KeyError, TypeError) as error:
+            if explicit:
+                raise Refused('travel CE cannot be installed: %s' % error) from None
+            plan['travel'], plan['travel_skipped'] = False, 'travel CE skipped: %s' % error
+        if plan['travel'] and not plan['economy']:
+            if explicit:
+                raise Refused('--travel requires the economy delta for the combined rehearsal')
+            plan['travel'], plan['travel_skipped'] = False, 'travel CE skipped: it needs the economy delta (economy profile none)'
+        if plan['travel']:
+            try:
+                check_destinations(plan, mission, snafu, tf, ai, keys if args.install_key else (),
+                                   plan_interiors_target=getattr(args, 'interiors', False) and profiles / 'HollowCountry')
+            except Refused as error:
+                if explicit:
+                    raise
+                plan['travel'], plan['travel_skipped'] = False, 'travel CE skipped: %s' % error
+    if snafu or tf or plan.get('ce_coverage') or plan.get('travel'):
         rehearse_deltas(plan, repo)
     if ai:
         ai['config'] = plan_ai_config(profiles, mission, repo)
@@ -1414,6 +1454,8 @@ def launch_commands(plan, args):
 
 def advisories(plan):
     facts, rows = plan['cfg_facts'], []
+    if plan.get('travel_skipped'):
+        rows.append(plan['travel_skipped'] + '; pass --travel to make this a refusal, or --no-travel to silence it.')
     if not plan['mod']['signed']:
         rows.append('Unsigned mod: the server and the client need signature verification relaxed by you; '
                     'this tool does not change verifySignatures (currently %s).' % facts.get('verifySignatures', 'not set'))
@@ -1494,6 +1536,8 @@ def render_plan(plan, args, commands, applied=False):
     out.append('     economy (CE delta, profile %s%s): %s' % (
         args.economy_profile, ', firearms roster' if plan['economy'] and plan['economy'].get('roster') else '',
         'install' if plan['economy'] else 'skipped'))
+    out.append('     travel CE (EnableTravel, on by default, EXP-T1/T2/T4 pending): %s' % (
+        'install' if plan.get('travel') else 'skipped (--no-travel, EnableTravel false, or see advisories)'))
     out.append('4. Acceptance markers in %s: %s' % (plan['profiles'], plan['markers_mode'] if plan['markers_mode'] != 'names' else ','.join(plan['markers_only'])))
     for item in (plan['markers'] or {}).get('files', []):
         out.append('     %s.enable [%s]' % (item['name'], item['action']))
@@ -1615,7 +1659,7 @@ def apply_plan(plan, args):
                             'signed': plan['mod']['signed']},
                     'server_keys': [], 'server_keys_dir': None, 'mission': str(plan['mission']),
                     'profiles': str(plan['profiles']), 'markers': {'created': [], 'dirs': []},
-                    'interiors': interiors_record, 'ce_coverage': coverage_record,
+                    'interiors': interiors_record, 'ce_coverage': coverage_record, 'travel': plan.get('travel', False),
                     'snafu_delta': optional_receipt(plan.get('snafu_delta')),
                     'tactical_flava_delta': optional_receipt(plan.get('tactical_flava_delta')),
                     'expansion_ai': {'dest': str(plan['expansion_ai']['mod']['dest']),
@@ -1698,6 +1742,11 @@ def apply_plan(plan, args):
             tool.write_delta(stage, tool.generate(plan['mission'], spec['allowlist'], spec['report']))
             tool.install(stage, plan['mission'])
             receipt.step(step, 'done')
+    if plan.get('travel'):
+        travel = load_tool('travel')
+        receipt.step('travel', 'started')
+        travel.install(repo / 'mission/hollow-country', plan['mission'])
+        receipt.step('travel', 'done')
     if plan.get('ce_coverage'):
         coverage = load_tool('ce_coverage')
         receipt.step('ce_coverage', 'started')
@@ -2088,7 +2137,7 @@ def plan_rollback(server_root, repo=ROOT):
     rollback_inputs = set(getattr(load_tool('economy'), 'INPUTS', ()))
     rollback_inputs.add('mapgroupproto.xml')
     above = []  # CE-stack installers that roll back before the next one (their trial runs on top of them)
-    for name in ('ce_coverage', 'tactical_flava', 'snafu', 'economy', 'gameplay'):
+    for name in ('ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy', 'gameplay'):
         if not steps.get(name) or progress.get(name) == 'done':
             continue
         tool = load_tool(STEP_TOOLS[name])
@@ -2230,6 +2279,9 @@ def build_parser():
                        help='install validated apartment CE building coverage after economy; refuse PENDING results')
         p.add_argument('--ce-coverage-result', type=Path,
                        help='external sampler result for ce_coverage validate/generate (requires --ce-coverage)')
+        p.add_argument('--travel', action=argparse.BooleanOptionalAction, default=None,
+                       help='authored travel CE after economy; on by default (skipped with an advisory if it cannot '
+                       'install), --travel refuses instead of skipping, --no-travel leaves it out')
         p.add_argument('--expansion-ai', action='store_true',
                        help='stage the optional @HollowCountryExpansionAI addon after the Expansion Workshop mods '
                        '(needs --workshop-dir, --expansion-ai-mod, --expansion-ai-dest)')

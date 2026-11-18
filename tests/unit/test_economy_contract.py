@@ -166,10 +166,11 @@ class EconomyBehavior(unittest.TestCase):
             with self.assertRaises(ValueError):
                 economy.install(stage, Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/mpmissions/dayzOffline.chernarusplus'))
 
-    def test_committed_ce_defaults_are_noop(self):
+    def test_committed_travel_ce_has_its_own_registration(self):
         root = Path('mission/hollow-country')
-        self.assertEqual(len(ET.parse(root / 'ce/types.xml').getroot()), 0)
-        self.assertEqual(len(ET.parse(root / 'cfgeconomycore.append.xml').getroot()), 0)
+        self.assertEqual(len(ET.parse(root / 'ce/types.xml').getroot()), 6)
+        self.assertEqual(ET.parse(root / 'cfgeconomycore.append.xml').getroot()[0].get('folder'),
+                         'hollow-country-travel/ce')
 
     def test_targeted_type_must_have_valid_native_budget_and_complete_flags(self):
         with tempfile.TemporaryDirectory() as t:
