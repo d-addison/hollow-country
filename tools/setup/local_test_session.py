@@ -2316,19 +2316,10 @@ def main(argv=None, repo=ROOT, out=None):
     try:
         if args.command == 'apply' or (args.command == 'rollback' and not args.dry_run):
             refuse_if_running()
-        if args.command == 'rollback':
-            for line in rollback(args.server_root, repo, args.dry_run):
-                print(('would ' if args.dry_run else 'done: ') + line, file=out)
-            print('Rollback %s.' % ('previewed' if args.dry_run else 'complete'), file=out)
-            return 0
-        if not 1024 <= args.game_port <= 65533 or not 1024 <= args.query_port <= 65535:
-            raise Refused('ports out of range')
-        plan = build_plan(args, repo)
-        commands = launch_commands(plan, args)
-        if args.command == 'apply':
-            apply_plan(plan, args)
-        print(render_plan(plan, args, commands, applied=args.command == 'apply'), file=out)
-        return 0
+        # Optional dependency data is generated only in the operator's mission;
+        # the adapter preserves these installers and reverses its overlay first.
+        from tools.package import optional_overlays
+        return optional_overlays.launcher_run(args, repo, out, sys.modules[__name__])
     except (Refused, ValueError, OSError, KeyError, TypeError) as error:
         print('refused: %s' % redact_home(error), file=sys.stderr)
         if args.command == 'apply':

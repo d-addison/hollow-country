@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "bicycle": {
+    "count_multiplier": 2,
+    "nominal_cap": 80,
+    "placement_radius": 180,
+    "preferred_group_fragments": ["shed", "barn", "farm", "house", "village"],
+    "preferred_fraction": 0.8
+  },
+  "ambient": {
+    "per_species_cap": 8,
+    "total_cap": 48,
+    "snake_cap": 2,
+    "native_zone_limit": 12,
+    "native_density_cap": 3,
+    "native_density_multiplier": 1.5,
+    "near_water_or_farm_radius": 250
+  }
+}

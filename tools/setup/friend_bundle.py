@@ -296,6 +296,10 @@ def build(args):
     plan += [('serverDZ-hollow-country.txt', snippet.encode()),
              ('start-server.bat', launcher(items).encode()),
              ('README.txt', readme(items, template, bool(args.addon)).encode())]
+    # Export authored tooling/policy only; restore mission bytes affected by
+    # operator-generated optional pack overlays before adding install notes.
+    from tools.package import optional_overlays
+    plan = optional_overlays.friend_bundle_plan(mission, plan)
     seen = set()
     for dest, _ in plan:
         if dest.lower() in seen:

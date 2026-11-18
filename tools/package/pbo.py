@@ -22,6 +22,10 @@ MAX_ENTRIES = 8192
 RESERVED = {'CON', 'PRN', 'AUX', 'NUL'} | {f'{p}{i}' for p in ('COM', 'LPT') for i in range(1, 10)}
 MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json', 'ce/types.xml', 'cfgeconomycore.append.xml',
                  'ce/events.xml', 'ce/travel-spawnabletypes.xml',
+                 # V2 optional-pack overlay policy (the packs themselves are never shipped or copied).
+                 'optional/overlay-policy.json',
+                 # V2 scene chains catalog, its native/class provenance and the operator handoff.
+                 'events/README.md', 'events/scene-chains.json', 'events/scene-provenance.json',
                  'economy-profiles/baseline.json', 'economy-profiles/contextual-pilot.json',
                  'economy-profiles/diagnostic.json', 'gameplay-profiles/hollow-country-v1.json',
                  'gear/hardscrabble.json',
@@ -281,7 +285,7 @@ def verify_handoff(blob):
                 raise ValueError('unsupported handoff manifest')
             if set(names) != set(manifest['files']) | {'manifest.json'}:
                 raise ValueError('manifest file set mismatch')
-            helper_names = {'travel.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
+            helper_names = {'travel.py', 'optional_overlays.py', 'datamined_items.py', 'economy.py', 'gameplay.py', 'coverage.py', 'ce_coverage.py', 'interior_catalog.py', 'atmosphere.py', 'deploy.py', 'pbo.py', 'sign.py', 'Build-Sign-Verify.ps1',
                             'Invoke-NativeSmoke.ps1', 'Test-NativePackage.ps1', 'interiors_profile.py', 'ai_patrols.py', 'README.md'}
             for name, expected in manifest['files'].items():
                 if not (name in {'@HollowCountry/addons/hollowcountry.pbo', '@HollowCountry/mod.cpp', 'docs/INSTALL_ROLLBACK.md', 'LICENSE.md', 'docs/PROVENANCE_AND_LICENSES.md'}
