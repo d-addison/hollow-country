@@ -162,7 +162,22 @@ class HCShelterModule : HCModule
         vector propMax = clip[1];
         // Use actual native bounds, never a guessed furniture footprint. Both
         // objects share orientation, so their model axes agree (including tilt).
-        if (!HCInteriorTemplates.BoxValid(Coordinates(propMin), Coordinates(propMax)) || propMin[0] < -1.2 || propMax[0] > 1.2 || propMin[2] < -1.2 || propMax[2] > 1.2 || propMin[1] < -2 || propMax[1] > 2 || propMax[1] - propMin[1] > 2)
+        // Simple statements with named locals: the single nine-term condition
+        // crashed the native server (Wine compile 152) right at this check.
+        array<float> propMinCoordinates = Coordinates(propMin);
+        array<float> propMaxCoordinates = Coordinates(propMax);
+        bool boundsOk = HCInteriorTemplates.BoxValid(propMinCoordinates, propMaxCoordinates);
+        float minX = propMin[0];
+        float maxX = propMax[0];
+        float minY = propMin[1];
+        float maxY = propMax[1];
+        float minZ = propMin[2];
+        float maxZ = propMax[2];
+        if (minX < -1.2 || maxX > 1.2) boundsOk = false;
+        if (minZ < -1.2 || maxZ > 1.2) boundsOk = false;
+        if (minY < -2 || maxY > 2) boundsOk = false;
+        if (maxY - minY > 2) boundsOk = false;
+        if (!boundsOk)
         {
             DeleteProp(prop);
             return RefuseProp("prop_bounds");
