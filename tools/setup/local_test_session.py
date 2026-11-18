@@ -5,7 +5,7 @@ launch commands, and can undo everything it did. It reuses the existing tooling 
 reimplements it:
 
   mod folder      tools/package/pbo.py (structural PBO check) plus a hash-recorded copy of the built
-                  addons/ (and keys/ only when signed) into a fresh @HollowCountry folder
+                  addons/ (every addons/*.pbo with its .bisign; keys/ only when signed) into a fresh @HollowCountry folder
   serverDZ.cfg    byte-exact backup plus receipt, then only the keys listed in MANAGED_KEYS change
   mission deltas  tools/package/gameplay.py and tools/package/economy.py generate/install/rollback
   markers         tools/audit/acceptance_markers.py scan_tree/plan_profile/apply_plan. Only opt-in `.enable`
@@ -638,25 +638,47 @@ def structure_ai_pbo(blob):
         raise ValueError('the Expansion AI addon config.cpp or config.bin must declare the CfgPatches class %s' % AI_PREFIX)
 
 
+EXTRA_PBO = re.compile(r'^[A-Za-z0-9_.-]+\.pbo$', re.IGNORECASE)
+
+
 def plan_mod(source, destination, repo=ROOT, pbo_name=PBO_NAME, check=None):
-    """Collect (relative name -> source path) for the new mod folder; verify the PBO structurally."""
+    """Collect (relative name -> source path) for the new mod folder; verify every PBO structurally.
+
+    A folder source stages every addons/*.pbo (the signed @HollowCountry holds hollowcountry.pbo and
+    hollowcountryanims.pbo) with its own .bisign. When the folder is signed (a .bisign and a keys/*.bikey exist)
+    each PBO needs a .bisign named for one of those keys; an unsigned PBO beside signed ones is refused."""
     source = no_links(source, 'built mod')
-    files, signed = {}, False
+    files, signed, extras = {}, False, []
     if source.is_file():
         files['addons/' + pbo_name] = regular(source, 'built PBO')
     elif source.is_dir():
         addons = source / 'addons'
         files['addons/' + pbo_name] = regular(addons / pbo_name, 'built addons/' + pbo_name)
-        signatures = sorted(p for p in addons.iterdir() if re.fullmatch(re.escape(pbo_name) + r'\.[A-Za-z0-9_-]+\.bisign', p.name))
+        names = sorted(p.name for p in addons.iterdir())
+        for name in names:
+            if name.lower().endswith('.pbo') and name != pbo_name:
+                if not EXTRA_PBO.match(name):
+                    raise Refused('built addons/%s has an unsupported file name' % name)
+                files['addons/' + name] = regular(addons / name, 'built addons/' + name)
+                extras.append(name)
+        pbos = [pbo_name] + extras
+        signatures = {name: sorted(n for n in names if re.fullmatch(re.escape(name) + r'\.[A-Za-z0-9_-]+\.bisign', n))
+                      for name in pbos}
         keys = sorted(p for p in (source / 'keys').iterdir() if p.suffix == '.bikey') if (source / 'keys').is_dir() else []
-        for path in signatures:
-            files['addons/' + path.name] = regular(path, 'signature ' + path.name)
-        for path in keys:
-            files['keys/' + path.name] = regular(path, 'public key ' + path.name)
-        signed = bool(signatures) and bool(keys)
-        if not signed:  # an unsigned artifact must not carry half a signature set
-            for name in [n for n in files if n.endswith(('.bisign', '.bikey'))]:
-                del files[name]
+        signed = any(signatures.values()) and bool(keys)
+        if signed:
+            key_names = {key.stem.lower() for key in keys}
+            for name in pbos:
+                matching = [n for n in signatures[name] if n[len(name) + 1:-len('.bisign')].lower() in key_names]
+                if not matching:
+                    raise Refused('addons/%s is not signed by a key in keys/ (%s); expected addons/%s.<key>.bisign '
+                                  'for one of: %s' % (name, 'no .bisign' if not signatures[name] else 'its .bisign names '
+                                                      'another key', name, ', '.join(sorted(k.name for k in keys))))
+            for name in pbos:
+                for signature in signatures[name]:
+                    files['addons/' + signature] = regular(addons / signature, 'signature ' + signature)
+            for path in keys:
+                files['keys/' + path.name] = regular(path, 'public key ' + path.name)
         meta = _optional(source / 'mod.cpp', 'mod.cpp')
         if meta:
             files['mod.cpp'] = meta
@@ -667,6 +689,11 @@ def plan_mod(source, destination, repo=ROOT, pbo_name=PBO_NAME, check=None):
         (check or pbo.parse)(blobs['addons/' + pbo_name])
     except ValueError as error:
         raise Refused('built PBO failed the existing structural check: %s' % error) from None
+    for name in extras:
+        try:
+            pbo.parse(blobs['addons/' + name], prefixes=pbo.PREFIXES)
+        except ValueError as error:
+            raise Refused('built addons/%s failed the existing structural check: %s' % (name, error)) from None
     destination = absolute(destination)
     if destination.name.lower() in ('', '.', '..'):
         raise Refused('mod destination needs a folder name such as @HollowCountry')

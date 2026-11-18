@@ -250,6 +250,24 @@ class FriendBundleTests(unittest.TestCase):
                     '@HollowCountryExpansionAI/addons/hollowcountryexpansionai.pbo', 'keys/hollowcountry.bikey']:
             self.assertIn(rel, got)
 
+    def test_a_second_signed_pbo_in_the_mod_is_copied_with_its_bisign(self):
+        put(self.mod, 'addons/hollowcountryanims.pbo', b'PBO3')
+        put(self.mod, 'addons/hollowcountryanims.pbo.hollowcountry.bisign', b'SIG3')
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        got = self.files()
+        for rel in ['@HollowCountry/addons/hollowcountryanims.pbo',
+                    '@HollowCountry/addons/hollowcountryanims.pbo.hollowcountry.bisign']:
+            self.assertIn(rel, got)
+
+    def test_a_second_unsigned_pbo_in_the_mod_refuses(self):
+        put(self.mod, 'addons/hollowcountryanims.pbo', b'PBO3')
+        code, text = self.run_cli()
+        self.assertNotEqual(code, 0)
+        self.assertIn('hollowcountryanims.pbo', text)
+        self.assertIn('bisign', text)
+        self.assertFalse(self.out.exists())
+
     def test_without_addon_the_launcher_has_no_server_mod(self):
         code, text = self.run_cli(addon=False)
         self.assertEqual(code, 0, text)

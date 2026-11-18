@@ -868,6 +868,102 @@ class Safety(SessionCase):
         self.assertIn('run rollback first', err)
 
 
+class MultiPbo(SessionCase):
+    """A signed @HollowCountry folder holds hollowcountry.pbo and hollowcountryanims.pbo, each with its own .bisign."""
+    ANIMS = 'hollowcountryanims.pbo'
+
+    def setUp(self):
+        super().setUp()
+        self.anims_blob = pbo.pack({'config.cpp': b'synthetic anims'}, prefix='HollowCountryAnims')
+
+    def add_anims(self, signature='synthetic'):
+        (self.built / 'addons' / self.ANIMS).write_bytes(self.anims_blob)
+        if signature:
+            (self.built / 'addons' / (self.ANIMS + '.' + signature + '.bisign')).write_bytes(b'synthetic anims signature')
+
+    def test_apply_stages_every_signed_pbo_with_its_bisign_and_rollback_removes_them(self):
+        self.add_anims()
+        code, out, err = self.run_cli(self.args('plan'))
+        self.assertEqual(code, 0, err)
+        for name in ('addons/hollowcountry.pbo', 'addons/' + self.ANIMS,
+                     'addons/hollowcountry.pbo.synthetic.bisign', 'addons/' + self.ANIMS + '.synthetic.bisign'):
+            digest = lts.sha(self.built.joinpath(*name.split('/')).read_bytes())[:16]
+            self.assertIn(name + '  sha256 ' + digest, out)
+        code, out, err = self.run_cli(self.args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual((self.dest / 'addons' / self.ANIMS).read_bytes(), self.anims_blob)
+        self.assertEqual((self.dest / 'addons' / (self.ANIMS + '.synthetic.bisign')).read_bytes(), b'synthetic anims signature')
+        self.assertEqual(sorted(p.name for p in (self.dest / 'addons').iterdir()),
+                         ['hollowcountry.pbo', 'hollowcountry.pbo.synthetic.bisign', self.ANIMS,
+                          self.ANIMS + '.synthetic.bisign'])
+        files = json.loads((self.state / lts.RECEIPT_NAME).read_text())['mod']['files']
+        self.assertEqual(files['addons/' + self.ANIMS], lts.sha(self.anims_blob))
+        self.assertIn('addons/' + self.ANIMS + '.synthetic.bisign', files)
+        self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
+        self.assertFalse(self.dest.exists())
+
+    def test_rollback_keeps_an_edited_anims_pbo_like_any_staged_file(self):
+        self.add_anims()
+        self.assertEqual(self.run_cli(self.args('apply'))[0], 0)
+        (self.dest / 'addons' / self.ANIMS).write_bytes(b'edited by someone')
+        self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual((self.dest / 'addons' / self.ANIMS).read_bytes(), b'edited by someone')
+
+    def test_an_unsigned_extra_pbo_in_a_signed_folder_is_refused_and_nothing_is_written(self):
+        self.add_anims(signature=None)
+        code, out, err = self.run_cli(self.args('apply'))
+        self.assertEqual(code, 2)
+        self.assertIn(self.ANIMS, err)
+        self.assertIn('bisign', err)
+        self.assertFalse(self.dest.exists())
+
+    def test_an_extra_pbo_signed_by_another_key_is_refused(self):
+        self.add_anims(signature='someoneelse')
+        code, out, err = self.run_cli(self.args('plan'))
+        self.assertEqual(code, 2)
+        self.assertIn(self.ANIMS, err)
+        self.assertIn('synthetic', err)
+
+    def test_an_extra_pbo_that_is_not_a_hollow_country_addon_is_refused(self):
+        (self.built / 'addons' / self.ANIMS).write_bytes(b'not a pbo at all' * 8)
+        (self.built / 'addons' / (self.ANIMS + '.synthetic.bisign')).write_bytes(b'sig')
+        code, out, err = self.run_cli(self.args('plan'))
+        self.assertEqual(code, 2)
+        self.assertIn(self.ANIMS, err)
+
+    def test_an_unsigned_folder_with_two_pbos_stages_both_without_signatures(self):
+        self.make_built(signed=False)
+        self.add_anims(signature=None)
+        code, out, err = self.run_cli(self.args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(sorted(p.name for p in (self.dest / 'addons').iterdir()), ['hollowcountry.pbo', self.ANIMS])
+        self.assertIn('unsigned', out)
+
+    def test_the_bare_pbo_form_still_stages_only_that_pbo(self):
+        bare = self.world / 'hollowcountry.pbo'
+        bare.write_bytes(self.pbo_blob)
+        code, out, err = self.run_cli(self.args('apply')[:7] + ['--mod', str(bare)] + self.args('apply')[9:])
+        self.assertEqual(code, 0, err)
+        self.assertEqual([p.name for p in (self.dest / 'addons').iterdir()], ['hollowcountry.pbo'])
+
+    def test_the_expansion_ai_folder_stages_every_signed_pbo_too(self):
+        built = self.world / 'built' / '@HollowCountryExpansionAI'
+        (built / 'addons').mkdir(parents=True)
+        (built / 'keys').mkdir()
+        (built / 'keys' / 'synthetic.bikey').write_bytes(b'k')
+        (built / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(ai_pbo_blob())
+        (built / 'addons' / 'hollowcountryexpansionai.pbo.synthetic.bisign').write_bytes(b's')
+        (built / 'addons' / 'second.pbo').write_bytes(self.anims_blob)
+        destination = self.world / 'session' / '@HollowCountryExpansionAI'
+        with self.assertRaises(lts.Refused):  # the second PBO has no signature
+            lts.plan_mod(built, destination, self.repo, lts.AI_PBO_NAME, check=lts.check_ai_pbo)
+        (built / 'addons' / 'second.pbo.synthetic.bisign').write_bytes(b's2')
+        plan = lts.plan_mod(built, destination, self.repo, lts.AI_PBO_NAME, check=lts.check_ai_pbo)
+        self.assertEqual(sorted(plan['blobs']),
+                         ['addons/hollowcountryexpansionai.pbo', 'addons/hollowcountryexpansionai.pbo.synthetic.bisign',
+                          'addons/second.pbo', 'addons/second.pbo.synthetic.bisign', 'keys/synthetic.bikey'])
+
+
 class Apply(SessionCase):
     def test_apply_does_all_five_steps_with_backup_and_receipt_first(self):
         original = self.cfg.read_bytes()

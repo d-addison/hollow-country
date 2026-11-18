@@ -48,7 +48,8 @@ detail. Nothing in this flow launches DayZ or opens a network connection, and no
    ```
 
 3. Run the same arguments with `apply`. It writes the receipt first, then a byte-exact `serverDZ.cfg` backup
-   and only the managed keys, the fresh `@HollowCountry` copy, the `cfggameplay.json` delta with the spawn
+   and only the managed keys, the fresh `@HollowCountry` copy (every signed `addons/*.pbo` with its `.bisign`,
+   so both `hollowcountry.pbo` and `hollowcountryanims.pbo`; a PBO without a `.bisign` from a `keys/*.bikey` key is refused), the `cfggameplay.json` delta with the spawn
    kit, the economy delta and the markers. Start the server and the client with the printed commands.
 4. Play the per-feature rows below. Every feature is already on; create a `.disable` marker to test the off case (section 4).
 5. Run `rollback --server-root <same server root>` (section 7). It undoes what the receipt records, last in,
@@ -113,9 +114,10 @@ checkout and never copy it to the server.
 ```
 
 Drop `-WhatIf` to run it. The script writes `<OutputRoot>\@HollowCountry\addons\hollowcountry.pbo` and
-copies `mod.cpp` beside it. Signing uses the official DSSignFile and DSCheckSignatures through
-`tools/package/sign.py`; the signature file (`.bisign`) is written beside the PBO and the public
-`.bikey` goes under `<OutputRoot>\keys`. Record the SHA-256 of the PBO for the session notes.
+`hollowcountryanims.pbo` (the HollowCountryAnims addon) and copies `mod.cpp` beside them. Signing uses the
+official DSSignFile and DSCheckSignatures through `tools/package/sign.py`; each PBO gets its own signature file
+(`.bisign`) beside it and the public `.bikey` goes under `<OutputRoot>\keys`. Record the SHA-256 of each PBO
+for the session notes.
 
 Install it on the local server:
 
