@@ -42,6 +42,7 @@ RULES = {
     'HC-E005': 'modded link calls a method that only another modded link of the class declares',
     'HC-E006': 'Substring on a receiver whose Length() the method never consults (Wrong parameter value)',
     'HC-E007': 'method named like a visible type (unqualified calls resolve to the type)',
+    'HC-E008': 'unbalanced method attribute (the source model cannot inspect the declaration)',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -178,6 +179,13 @@ def _locals(body):
 
 
 # ---------------------------------------------------------------- compile traps
+
+def rule_parse_issues(project, source):
+    # Also inspect bodyless declarations; signature reads keep diagnostics unique.
+    _ = source.signatures
+    for issue in source.parse_issues:
+        yield _finding('HC-E008', source, issue.offset, '<parse>', issue.message)
+
 
 def rule_ternary(project, source):
     for match in re.finditer(r'\?', source.code):
@@ -564,7 +572,7 @@ def rule_predicted_actions(project, source):
                        key=f'{definition.name} predicted without server refusal message')
 
 
-ALL_RULES = (rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+ALL_RULES = (rule_parse_issues, rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions)
 

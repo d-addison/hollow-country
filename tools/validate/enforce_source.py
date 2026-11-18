@@ -23,11 +23,12 @@ _FIELD = re.compile(r'^((?:(?:ref|autoptr|static|protected|private|const|owned|n
                     r'([A-Za-z_]\w*(?:\s*<.*>)?)\s+([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*(?:=\s*(.*))?$', re.S)
 
 
-def clean(text):
+def clean(text, directives=None):
     """Return text with comments and string-literal contents replaced by spaces.
 
     Length and newlines are preserved, so offsets and line numbers still match
-    the original. String quotes are kept ("" stays a string token)."""
+    the original. String quotes are kept ("" stays a string token). If supplied,
+    directives receives (offset, keyword) for real preprocessor directives."""
     out = list(text)
     i, n = 0, len(text)
     while i < n:
@@ -44,6 +45,10 @@ def clean(text):
                     out[j] = ' '
             i = end
         elif ch == '#' and not text[text.rfind('\n', 0, i) + 1:i].strip():
+            if directives is not None:
+                directive = re.match(r'#\s*(\w+)', text[i:])
+                if directive:
+                    directives.append((i, directive.group(1)))
             while i < n and text[i] != '\n':   # preprocessor line (#ifdef/#endif/#define)
                 out[i] = ' '
                 i += 1
@@ -174,6 +179,12 @@ class MethodSignature:
     end: int             # offset immediately after the closing ')'
 
 
+@dataclass(frozen=True)
+class ParseIssue:
+    offset: int
+    message: str
+
+
 class Source:
     """One authored .c file: raw text, cleaned text and its top-level structure."""
 
@@ -182,10 +193,12 @@ class Source:
         self.rel = self.path.relative_to(root).as_posix() if root else self.path.as_posix()
         self.mod = mod
         self.text = text
-        self.code = clean(text)
+        self.directives = []
+        self.code = clean(text, self.directives)
         self._lines = [m.start() for m in re.finditer('\n', self.code)]
         self.layer = next((LAYERS.index(p) for p in self.path.parts if p in LAYERS), None)
         self.classes, self.functions, self.enums, self.typedefs = [], [], [], {}
+        self.parse_issues = []
         self._parse()
 
     def line_of(self, offset):
@@ -223,13 +236,14 @@ class Source:
                     self.functions.append(method)
             position = end + 1
 
-    def _method(self, header_start, brace, end, owner=None):
+    def _method(self, header_start, brace, end, owner=None, prefix=False):
         # clean() has blanked comments and string contents, so literal brackets
         # (including escaped quotes) cannot affect this attribute nesting count.
         while header_start < brace:
             if self.code[header_start].isspace():
                 header_start += 1
             elif self.code[header_start] == '[':
+                attribute_start = header_start
                 depth = 1
                 header_start += 1
                 while header_start < brace and depth:
@@ -240,6 +254,9 @@ class Source:
                         depth -= 1
                     header_start += 1
                 if depth:
+                    issue = ParseIssue(attribute_start, 'unbalanced method attribute: missing closing ]')
+                    if issue not in self.parse_issues:
+                        self.parse_issues.append(issue)
                     return None
             else:
                 break
@@ -248,7 +265,7 @@ class Source:
         if paren < 0:
             return None
         close = matching_paren(header, paren)
-        if header[close + 1:].strip():
+        if close == len(header):
             return None
         before = header[:paren]
         name = re.search(r'(~?[A-Za-z_]\w*)\s*$', before)
@@ -257,10 +274,27 @@ class Source:
         words = before[:name.start()].split()
         modifiers = frozenset(w for w in words if w in MODIFIERS)
         return_type = ' '.join(w for w in words if w not in MODIFIERS)
+        trailing_start = header_start + close + 1
+        if not prefix and header[close + 1:].strip():
+            # Native prototypes may end at a newline without a semicolon. They
+            # are signatures, never the owner of a later declaration's body.
+            if modifiers & {'proto', 'native'} and self._line_terminated(trailing_start, brace):
+                return self._method(trailing_start, brace, end, owner)
+            # The preprocessor has no selected branch in this source model.
+            # Retain the first complete alternative and register its body once.
+            alternative = next((offset for offset, directive in self.directives
+                                if trailing_start <= offset < brace and directive in {'else', 'elif'}), None)
+            if alternative is None or self.code[trailing_start:alternative].strip():
+                return None
         if name.group(1) in {'if', 'while', 'for', 'foreach', 'switch', 'return', 'else'}:
             return None
         return Method(name.group(1), return_type, modifiers, header[paren + 1:close],
                       header_start + name.start(1), brace, end, owner)
+
+    def _line_terminated(self, start, stop):
+        """Whether a completed native header ends before the next code line."""
+        whitespace = re.match(r'\s*', self.code[start:stop]).group()
+        return '\n' in whitespace
 
     def _members(self, definition):
         code, position, stop = self.code, definition.body_start + 1, definition.body_end
@@ -307,6 +341,15 @@ class Source:
             while position < stop:
                 brace = self.code.find('{', position, stop)
                 semi = self.code.find(';', position, stop)
+                boundary = min(p for p in (brace, semi, stop) if p >= 0)
+                candidate = self._method(position, boundary, boundary, prefix=True)
+                if candidate and candidate.modifiers & {'proto', 'native'}:
+                    close = self.code.find('(', candidate.offset) + len(candidate.params) + 2
+                    has_body = boundary == brace and not self.code[close:brace].strip()
+                    if not has_body and (self._line_terminated(close, boundary) or close == stop):
+                        methods.append(candidate)
+                        position = close
+                        continue
                 if brace >= 0 and (semi < 0 or brace < semi):
                     position = matching_brace(self.code, brace) + 1
                 elif semi >= 0:
