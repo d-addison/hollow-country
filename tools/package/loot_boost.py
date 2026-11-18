@@ -65,6 +65,9 @@ MAX_FLOOR_POINTS = 12
 MAX_SURFACE_POINTS = 8
 MAX_TOTAL_POINTS = 3000
 MAX_COORDINATE = 200.0
+# A point may sit below its building's lowest stock loot point only by a basement's depth. The committed overlay
+# had one Land_Tower_TC2_Base point 20 m under the stock floor (a shaft or terrain hit, not a floor).
+MAX_BELOW_STOCK_FLOOR = 8.0
 # Floor selection tolerances on the sampler's 1 m lattice (provisional, offline).
 MIN_CLEARANCE = 1.9
 WALK_STEP = 0.3
@@ -320,6 +323,17 @@ def family_of(name, policy):
     return None
 
 
+def stock_floor(group):
+    """Lowest y over a stock group's own loot points (its floor plane), or None when it has none."""
+    ys = []
+    for point in group.iter('point'):
+        try:
+            ys.append(float(point.get('pos').split()[1]))
+        except (AttributeError, IndexError, ValueError):
+            continue
+    return min(ys) if ys else None
+
+
 def group_pin(group):
     """Canonical digest of a stock group: every element, attribute and point, whitespace-insensitive."""
     shape = [(e.tag, sorted(e.attrib.items())) for e in group.iter()]
@@ -352,8 +366,10 @@ def build_overlay(selection, stock_proto, policy_bytes, sources, skip=()):
         if len(found) != 1 or family is None or name in skip or found[0].get('lootmax') == '0':
             continue
         containers = {}
+        floor = stock_floor(found[0])
         for kind, limit in (('floor', MAX_FLOOR_POINTS), ('surface', MAX_SURFACE_POINTS)):
-            points = [_point(list(p)) for p in selection[name].get(kind, [])][:limit]
+            points = [_point(list(p)) for p in selection[name].get(kind, [])]
+            points = [p for p in points if floor is None or p[1] >= floor - MAX_BELOW_STOCK_FLOOR][:limit]
             if points and kind in family:
                 if total + len(points) > MAX_TOTAL_POINTS:
                     points = points[:MAX_TOTAL_POINTS - total]
@@ -433,9 +449,10 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
                 defaults[name] = int(value)
                 start = block.start() + d.start()
                 edits.append((start, start + len(tag), _with_lootmax(tag, scaled(int(value), multiplier))))
-    pins = {}
+    pins, floors = {}, {}
     for group in root.iter('group'):
         pins.setdefault(group.get('name'), []).append(group_pin(group))
+        floors.setdefault(group.get('name'), []).append(stock_floor(group))
     wanted = (overlay or {}).get('groups', {})
     report = {'groups_scaled': 0, 'containers_kept': 0, 'groups_added': 0, 'points_added': 0,
               'stale': [], 'families': {}}
@@ -486,6 +503,12 @@ def scale_proto(data, multiplier, overlay=None, limits=None):
             if pins.get(name) != [spec['stock_sha256']]:
                 report['stale'].append(name)
             else:
+                floor = floors[name][0]
+                for c in spec['containers'].values():
+                    for p in c['points']:
+                        if floor is not None and p[1] < floor - MAX_BELOW_STOCK_FLOOR:
+                            raise ValueError(f'overlay point {p} of {name} is more than {MAX_BELOW_STOCK_FLOOR} m '
+                                             f'below the stock floor plane {floor:.2f}')
                 line_start = text.rfind('\n', 0, close) + 1
                 if text[line_start:close].strip():
                     raise ValueError(f'group {name} end tag is not on its own line')
@@ -619,20 +642,67 @@ def install(mission, multiplier=None, points=None):
                'points_sha256': result['points_sha256'], 'files': rows, 'counts': result['counts'],
                'sources': {PROTO: result['proto_before']}, 'runtime_acceptance': PENDING}
     managed.mkdir()
-    economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
-    for row, (_, before, _) in zip(rows, result['files']):
-        economy.fresh_write(managed, row['backup'], before)
-    for path in managed.iterdir():
-        _sync_file(path)  # barrier: recovery data is durable before any switch
-    _sync_dir(managed)
-    _sync_dir(mission)
-    for row, (name, _, after) in zip(rows, result['files']):
-        _switch(mission, managed, name, after, row['backup'].replace('.backup', '.next'))
+    started = set()  # rows whose swap began; only these can hold this run's bytes
+    try:
+        economy.fresh_write(managed, 'receipt.json', economy.encode(receipt))
+        for row, (_, before, _) in zip(rows, result['files']):
+            economy.fresh_write(managed, row['backup'], before)
+        for path in managed.iterdir():
+            _sync_file(path)  # barrier: recovery data is durable before any switch
+        _sync_dir(managed)
+        _sync_dir(mission)
+        _check_unchanged(mission, rows)  # barrier: nothing moved between planning and the first swap
+        for row, (name, _, after) in zip(rows, result['files']):
+            _check_unchanged(mission, [row])  # re-hash right before this file's swap
+            started.add(row['name'])
+            _switch(mission, managed, name, after, row['backup'].replace('.backup', '.next'))
+    except BaseException as error:
+        _undo_install(mission, managed, rows, error, started)
+        raise
     return receipt
 
 
+def _check_unchanged(mission, rows):
+    for row in rows:
+        if _sha(economy.read_plain(mission, row['name'])) != row['before']:
+            raise ValueError(f'{row["name"]} changed since planning; refusing to overwrite it')
+
+
+def _undo_install(mission, managed, rows, error, started=None):
+    """Put back the files this install switched (verified against their pre-boost hashes), then drop the managed dir.
+
+    Files that are not in the state this install left them (an operator edit) are never overwritten; in that case
+    the recovery data stays in place and the failure names it.
+    """
+    try:
+        drifted = []
+        for row in rows:  # a swap that raised after os.replace must be undone too
+            current = _sha(economy.read_plain(mission, row['name']))
+            if row['after'] == row['before'] or current == row['before']:
+                continue  # never switched by this run
+            if started is not None and row['name'] not in started:
+                continue  # edited before this run reached it: not ours, never overwritten
+            if current != row['after']:
+                drifted.append(row['name'])  # an edit that is not ours: never overwritten
+                continue
+            backup = economy.read_plain(managed, row['backup'])
+            if _sha(backup) != row['before']:
+                raise ValueError(f'backup of {row["name"]} drifted')
+            _switch(mission, managed, row['name'], backup, row['backup'].replace('.backup', '.next'))
+            if _sha(economy.read_plain(mission, row['name'])) != row['before']:
+                raise ValueError(f'{row["name"]} did not verify after restore')
+        if drifted:
+            raise ValueError('changed since this install switched them: ' + ', '.join(drifted))
+        shutil.rmtree(managed)
+    except (OSError, ValueError) as undo_error:
+        error.add_note('loot boost automatic undo failed (%s); recovery data kept in %s, run rollback after '
+                       'reconciling' % (undo_error, MANAGED))
+
+
 def _sync_file(path):
-    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+    """fsync a file. Windows maps fsync to _commit, which needs a writable handle (#142)."""
+    mode = os.O_RDWR if os.name == 'nt' else os.O_RDONLY
+    fd = os.open(path, mode | getattr(os, 'O_NOFOLLOW', 0))
     try:
         os.fsync(fd)
     finally:

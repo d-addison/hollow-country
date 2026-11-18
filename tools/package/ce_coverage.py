@@ -493,7 +493,9 @@ def checked_delta(data, manifest):
 
 
 def _sync_file(path):
-    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NOFOLLOW', 0))
+    """fsync a file. Windows maps fsync to _commit, which needs a writable handle (#142)."""
+    mode = os.O_RDWR if os.name == 'nt' else os.O_RDONLY
+    fd = os.open(path, mode | getattr(os, 'O_NOFOLLOW', 0))
     try:
         os.fsync(fd)
     finally:

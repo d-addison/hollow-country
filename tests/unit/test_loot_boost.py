@@ -290,5 +290,153 @@ class FirearmScarcityStrict(unittest.TestCase):
         self.assertTrue(files)
 
 
+class InstallIsAtomicAndVerified(unittest.TestCase):
+    """#141: a failed or raced install leaves the mission exactly as it was found, verified."""
+
+    def setUp(self):
+        from tools.package import loot_boost
+        self.lb = loot_boost
+        self.temp = tempfile.TemporaryDirectory()
+        self.mission = Path(self.temp.name) / 'mission'
+        self.before = mission(self.mission)
+        selection = {'Land_House_Synthetic': {'floor': [[-2.0, -1.0, 3.0]], 'surface': []}}
+        self.overlay = self.lb.build_overlay(selection, PROTO.encode(), json.dumps(POLICY).encode(),
+                                             {'synthetic': True})
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def assert_untouched(self, except_names=()):
+        for name, data in self.before.items():
+            if name not in except_names:
+                self.assertEqual((self.mission / name).read_bytes(), data, name)
+        self.assertFalse((self.mission / self.lb.MANAGED).exists(), 'no managed leftovers')
+
+    def test_failure_after_some_files_were_switched_restores_every_file_verified(self):
+        real, calls = self.lb._switch, []
+
+        def failing(mission, managed, name, data, staged_name):
+            calls.append(name)
+            if len(calls) == 3:
+                raise OSError('injected failure after two files were switched')
+            return real(mission, managed, name, data, staged_name)
+        self.lb._switch = failing
+        try:
+            with self.assertRaises(OSError):
+                self.lb.install(self.mission, multiplier=2.0, points=self.overlay)
+        finally:
+            self.lb._switch = real
+        self.assertGreaterEqual(len(calls), 3, "the injected failure happened mid-install")
+        self.assert_untouched()
+
+    def test_mission_file_changed_after_planning_is_refused_without_any_write(self):
+        real_sync, state = self.lb._sync_dir, {'done': False}
+
+        def racing(path):
+            if not state['done']:
+                state['done'] = True
+                (self.mission / 'db/types.xml').write_bytes(TYPES.encode() + b'<!-- raced edit -->\n')
+            return real_sync(path)
+        self.lb._sync_dir = racing
+        try:
+            with self.assertRaises(ValueError) as caught:
+                self.lb.install(self.mission, multiplier=2.0, points=self.overlay)
+        finally:
+            self.lb._sync_dir = real_sync
+        self.assertIn('changed since planning', str(caught.exception))
+        self.assertEqual((self.mission / 'db/types.xml').read_bytes(), TYPES.encode() + b'<!-- raced edit -->\n',
+                         'the operator edit is never overwritten')
+        self.assert_untouched(except_names=('db/types.xml',))
+
+    def test_file_changed_between_two_swaps_undoes_the_swapped_files_and_keeps_the_edit(self):
+        real, calls = self.lb._switch, []
+
+        def racing(mission, managed, name, data, staged_name):
+            calls.append(name)
+            result = real(mission, managed, name, data, staged_name)
+            if len(calls) == 1:
+                (self.mission / 'db/globals.xml').write_bytes(GLOBALS.encode() + b'<!-- raced edit -->\n')
+            return result
+        self.lb._switch = racing
+        try:
+            with self.assertRaises(ValueError) as caught:
+                self.lb.install(self.mission, multiplier=2.0, points=self.overlay)
+        finally:
+            self.lb._switch = real
+        self.assertIn('changed since planning', str(caught.exception))
+        self.assertEqual((self.mission / 'db/globals.xml').read_bytes(), GLOBALS.encode() + b'<!-- raced edit -->\n')
+        self.assert_untouched(except_names=('db/globals.xml',))
+
+    def test_combined_install_failure_after_the_boost_undoes_what_this_run_applied(self):
+        from tools.package import optional_overlays as overlays
+        applied = []
+
+        def boost():
+            self.lb.install(self.mission, multiplier=2.0, points=self.overlay)
+            applied.append('boost')
+
+        def failing_next_step():
+            raise RuntimeError('injected failure after the real loot boost merge')
+        with self.assertRaises(RuntimeError):
+            overlays.apply_stack(self.mission, [boost, failing_next_step])
+        self.assertEqual(applied, ['boost'])
+        self.assert_untouched()
+
+    def test_combined_install_reports_when_the_automatic_undo_itself_is_refused(self):
+        from tools.package import optional_overlays as overlays
+
+        def boost_then_operator_edit():
+            self.lb.install(self.mission, multiplier=2.0, points=self.overlay)
+            (self.mission / 'db/globals.xml').write_bytes(b'<variables/>')
+            raise RuntimeError('injected')
+        with self.assertRaises(ValueError) as caught:
+            overlays.apply_stack(self.mission, [boost_then_operator_edit])
+        self.assertIn('automatic undo failed', str(caught.exception))
+        self.assertTrue((self.mission / self.lb.MANAGED / 'receipt.json').is_file(), 'recovery data kept')
+
+
+class FloorBound(unittest.TestCase):
+    """#141: points far below their building's own stock floor are refused (offline guard, in-game check pending)."""
+
+    def setUp(self):
+        from tools.package import loot_boost
+        self.lb = loot_boost
+
+    def test_generation_drops_and_install_refuses_a_point_far_below_the_stock_floor(self):
+        below = [0.0, -1.0 - self.lb.MAX_BELOW_STOCK_FLOOR - 0.5, 0.0]  # SYNTHETIC outlier
+        selection = {'Land_House_Synthetic': {'floor': [[-2.0, -1.0, 3.0], below], 'surface': []}}
+        data = self.lb.build_overlay(selection, PROTO.encode(), json.dumps(POLICY).encode(), {'synthetic': True})
+        doc = json.loads(data)
+        points = doc['groups']['Land_House_Synthetic']['containers']['lootHCFloor']['points']
+        self.assertEqual(points, [[-2.0, -1.0, 3.0]], 'the outlier is dropped at generation')
+        forged = json.loads(data)
+        forged['groups']['Land_House_Synthetic']['containers']['lootHCFloor']['points'].append(below)
+        with self.assertRaises(ValueError) as caught:
+            self.lb.scale_proto(PROTO.encode(), 2.0, self.lb.parse_overlay(json.dumps(forged).encode()),
+                                ({'tools', 'containers', 'clothes'}, {'floor'}))
+        self.assertIn('below', str(caught.exception))
+
+    def test_a_basement_within_the_bound_is_accepted(self):
+        deep = [0.0, -1.0 - self.lb.MAX_BELOW_STOCK_FLOOR + 0.5, 0.0]
+        selection = {'Land_House_Synthetic': {'floor': [deep], 'surface': []}}
+        data = self.lb.build_overlay(selection, PROTO.encode(), json.dumps(POLICY).encode(), {'synthetic': True})
+        self.lb.scale_proto(PROTO.encode(), 2.0, self.lb.parse_overlay(data), ({'tools', 'containers', 'clothes'}, {'floor'}))
+
+    def test_committed_overlay_has_no_point_below_the_stock_floor_when_the_stock_mission_is_present(self):
+        stock = Path('/mnt/d/SteamLibrary/steamapps/common/DayZServer/mpmissions/dayzOffline.chernarusplus/mapgroupproto.xml')
+        if not stock.is_file():
+            self.skipTest('stock mission not on this machine')
+        floors = {}
+        for group in ET.parse(stock).getroot().iter('group'):
+            ys = [float(p.get('pos').split()[1]) for p in group.iter('point')]
+            if ys:
+                floors[group.get('name')] = min(ys)
+        doc = self.lb.parse_overlay(self.lb.ADDITIONS.read_bytes())
+        for name, spec in doc['groups'].items():
+            for cname, c in spec['containers'].items():
+                for p in c['points']:
+                    self.assertGreaterEqual(p[1], floors[name] - self.lb.MAX_BELOW_STOCK_FLOOR, (name, cname, p))
+
+
 if __name__ == '__main__':
     unittest.main()

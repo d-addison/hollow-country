@@ -6,7 +6,9 @@ stopped, private mission copy, never the Steam installation. No placement edits.
 import argparse
 import contextlib
 import copy
+import csv
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -255,6 +257,209 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         'firearms_classes': firearms_classes or [],
         'new_type_classes': sorted(n.get('name') for n in out if n.get('name') not in types)})
     return files
+
+
+# ------------------------------------------------------------------------------------------------ essential routes
+# AC-004 / CE-006 (T012): every essential has at least two distinct credible routes. A route is one civilian usage
+# flag whose buildings (placed in mapgrouppos) hold a container that accepts the item. This is an OFFLINE count of
+# eligible opportunities: it is not an observed spawn, and the CE tag/usage semantics assumed below are unobserved.
+# Cargo presets (cfgspawnabletypes holders) are listed as `carried` evidence only and never count as a route.
+
+ROUTE_POLICY = Path(__file__).with_name('essential_routes.json')
+ROUTE_POLICY_KIND = 'hollow-country-essential-routes'
+ROUTE_COLUMNS = ('role', 'item', 'required', 'verdict', 'route_count', 'routes', 'weak_routes', 'row_source',
+                 'carried', 'categories', 'usage', 'usage_semantics', 'tags', 'tag_rule', 'nominal_stock', 'nominal_effective',
+                 'min_buildings', 'types_sha256', 'proto_sha256', 'layers', 'runtime_acceptance')
+TAG_RULE = 'tags-must-match-when-both-sides-declare(assumed)'
+ANY_USAGE = 'empty-usage-any-assumed'
+
+
+def parse_route_policy(data):
+    try:
+        doc = json.loads(data)
+    except ValueError as error:
+        raise ValueError('essential route policy is not JSON') from error
+    if (not isinstance(doc, dict) or doc.get('schema') != 1 or doc.get('kind') != ROUTE_POLICY_KIND
+            or type(doc.get('min_buildings')) is not int or doc['min_buildings'] < 1
+            or not isinstance(doc.get('excluded_usages'), list)
+            or not all(isinstance(u, str) for u in doc['excluded_usages'])
+            or not isinstance(doc.get('roles'), list) or not doc['roles']):
+        raise ValueError('unsupported essential route policy')
+    seen = set()
+    for role in doc['roles']:
+        if (not isinstance(role, dict) or not re.fullmatch(r'[a-z_]{1,32}', str(role.get('role', '')))
+                or not isinstance(role.get('items'), list) or not role['items']):
+            raise ValueError('essential role needs a label and items')
+        for item in role['items']:
+            name = item.get('class') if isinstance(item, dict) else None
+            if (not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9_]{1,80}', name)
+                    or not isinstance(item.get('required'), bool) or name in seen):
+                raise ValueError('essential item needs a unique class and a required flag')
+            seen.add(name)
+    return doc
+
+
+def _row_fields(row):
+    return {'categories': sorted(c.get('name') for c in row.findall('category')),
+            'usage': sorted(u.get('name') for u in row.findall('usage')),
+            'tags': sorted(t.get('name') for t in row.findall('tag')),
+            'nominal': int(row.findtext('nominal') or 0)}
+
+
+def _route_groups(proto_bytes, pos_bytes, overlay):
+    """[(group name, usages, placed buildings, [(categories, tags, points)])] for every lootable stock group."""
+    from tools.package import loot_boost
+    placed = {}
+    for group in xml(pos_bytes, 'map').findall('group'):
+        placed[group.get('name')] = placed.get(group.get('name'), 0) + 1
+    out = []
+    wanted = (overlay or {}).get('groups', {})
+    for group in xml(proto_bytes, 'prototype').iter('group'):
+        name = group.get('name')
+        if group.get('lootmax') == '0':
+            continue
+        containers = [(frozenset(c.get('name') for c in cont.findall('category')),
+                       frozenset(t.get('name') for t in cont.findall('tag')), len(cont.findall('point')))
+                      for cont in group.findall('container')]
+        spec = wanted.get(name)
+        if spec is not None and spec['stock_sha256'] == loot_boost.group_pin(group):
+            containers += [(frozenset(c['categories']), frozenset(c['tags']), len(c['points']))
+                           for c in spec['containers'].values()]
+        out.append((name, frozenset(u.get('name') for u in group.findall('usage')), placed.get(name, 0), containers))
+    return out
+
+
+def _carried_routes(spawnable_bytes, presets_bytes):
+    """{item: (sorted preset names, holder class count)}: cargo/attachment presets and inline items on spawnable holders."""
+    if spawnable_bytes is None:
+        return {}
+    presets = {}
+    if presets_bytes is not None:
+        for preset in xml(presets_bytes, 'randompresets'):
+            presets[preset.get('name')] = [i.get('name') for i in preset.iter('item')]
+    holders, names = {}, {}
+    for holder in xml(spawnable_bytes, 'spawnabletypes').findall('type'):
+        for part in holder:
+            ref = part.get('preset')
+            items = presets.get(ref, []) if ref else [i.get('name') for i in part.iter('item')]
+            for item in items:
+                holders.setdefault(item, set()).add(holder.get('name'))
+                if ref:
+                    names.setdefault(item, set()).add(ref)
+    return {item: (sorted(names.get(item, ())), len(found)) for item, found in holders.items()}
+
+
+def _count_routes(row, groups, vocabulary, excluded):
+    fields = _row_fields(row)
+    wanted_usage = fields['usage'] or sorted(vocabulary)
+    cats, tags = set(fields['categories']), set(fields['tags'])
+    counts = {}
+    for usage in wanted_usage:
+        if usage in excluded:
+            continue
+        total = 0
+        for _name, usages, placed, containers in groups:
+            if usage not in usages:
+                continue
+            if any(cats & c_cats and (not tags or not c_tags or tags & c_tags) for c_cats, c_tags, _p in containers):
+                total += placed
+        counts[usage] = total
+    return fields, counts
+
+
+def route_report(layers, proto_bytes, pos_bytes, limits_bytes, policy_bytes, overlay=None, multiplier=None,
+                 spawnable_bytes=None, presets_bytes=None):
+    """Route rows for the essential list. `layers` is [(label, types bytes)]; a later layer replaces a row by name."""
+    policy = parse_route_policy(policy_bytes)
+    vocabulary = {u.get('name') for u in xml(limits_bytes, 'lists').iter('usage')}
+    rows_by_name = {}
+    for label, data in layers:
+        for row in xml(data, 'types').findall('type'):
+            rows_by_name[row.get('name')] = (label, row)
+    stock_rows = {row.get('name'): row for row in xml(layers[0][1], 'types').findall('type')}
+    groups = _route_groups(proto_bytes, pos_bytes, overlay)
+    carried = _carried_routes(spawnable_bytes, presets_bytes)
+    excluded, minimum = set(policy['excluded_usages']), policy['min_buildings']
+    boost = None
+    if multiplier is not None:
+        from tools.package import loot_boost
+        boost = (loot_boost, loot_boost._roster_names())
+    out, failing, unresolved = [], [], []
+    for role in policy['roles']:
+        for item in role['items']:
+            name = item['class']
+            row = {'role': role['role'], 'item': name, 'required': item['required'], 'min_buildings': minimum,
+                   'types_sha256': sha(layers[0][1])[:12], 'proto_sha256': sha(proto_bytes)[:12],
+                   'layers': '+'.join(label for label, _ in layers), 'tag_rule': TAG_RULE,
+                   'runtime_acceptance': 'pending', 'routes': '', 'weak_routes': '', 'route_count': 0,
+                   'row_source': '', 'carried': '', 'categories': '', 'usage': '', 'usage_semantics': '', 'tags': '',
+                   'nominal_stock': '', 'nominal_effective': ''}
+            if name not in rows_by_name:
+                row['verdict'] = 'absent'
+            else:
+                label, element = rows_by_name[name]
+                fields, counts = _count_routes(element, groups, vocabulary, excluded)
+                credible = sorted((u, n) for u, n in counts.items() if n >= minimum)
+                presets, holders = carried.get(name, ([], 0))
+                weak = sorted((u, n) for u, n in counts.items() if 0 < n < minimum)
+                row.update({'row_source': label, 'categories': ';'.join(fields['categories']),
+                            'usage': ';'.join(fields['usage']), 'tags': ';'.join(fields['tags']),
+                            'usage_semantics': 'explicit' if fields['usage'] else ANY_USAGE,
+                            'routes': ';'.join('%s:%d' % r for r in credible),
+                            'weak_routes': ';'.join('%s:%d' % r for r in weak),
+                            'route_count': len(credible),
+                            'carried': ('%s:%d' % ('+'.join(presets) or 'inline', holders)) if holders else '',
+                            'nominal_effective': fields['nominal']})
+                if name in stock_rows:
+                    row['nominal_stock'] = _row_fields(stock_rows[name])['nominal']
+                if boost and boost[0]._scales(fields['categories'], name, boost[1]):
+                    row['nominal_effective'] = boost[0].scaled(fields['nominal'], multiplier)
+                if not fields['categories']:
+                    row['verdict'] = 'no-building-route'
+                elif row['route_count'] >= 2:
+                    row['verdict'] = 'pass'
+                else:
+                    row['verdict'] = 'fail-routes'
+            if row['verdict'] != 'pass' and item['required']:
+                failing.append(name)
+            if row['verdict'] == 'no-building-route' and item['required']:
+                unresolved.append(name)
+            out.append(row)
+    return {'rows': out, 'failing': sorted(failing), 'unresolved': sorted(unresolved), 'policy': policy}
+
+
+def route_csv(report):
+    buffer = io.StringIO(newline='')
+    writer = csv.DictWriter(buffer, fieldnames=ROUTE_COLUMNS, lineterminator='\n')
+    writer.writeheader()
+    for row in report['rows']:
+        writer.writerow({k: ('true' if row[k] is True else 'false' if row[k] is False else row[k])
+                         for k in ROUTE_COLUMNS})
+    return buffer.getvalue().encode()
+
+
+def routes_for_mission(mission, repo, profile_name='contextual-pilot'):
+    """Route report for a stock mission (read only) with the committed economy delta, authored CE rows and boost."""
+    from tools.package import loot_boost
+    repo = Path(repo)
+    data = snapshot(mission)
+    profile = json.loads((repo / 'mission/hollow-country/economy-profiles' / (profile_name + '.json')).read_bytes())
+    roster = json.loads((repo / 'tools/package/firearms_roster.json').read_bytes())
+    delta = generate(mission, profile, roster=roster)['ce/types.xml']
+    carried = {n: _read_optional(Path(mission), n) for n in ('cfgspawnabletypes.xml', 'cfgrandompresets.xml')}
+    authored = (repo / 'mission/hollow-country/ce/types.xml').read_bytes()
+    overlay = loot_boost.parse_overlay((repo / loot_boost.ADDITIONS).read_bytes())
+    return route_report(
+        [('stock', data['db/types.xml']), (profile_name, delta), ('authored-ce', authored)],
+        data['mapgroupproto.xml'], data['mapgrouppos.xml'], data['cfglimitsdefinition.xml'],
+        (repo / 'tools/package/essential_routes.json').read_bytes(), overlay=overlay,
+        multiplier=loot_boost.default_multiplier(repo), spawnable_bytes=carried['cfgspawnabletypes.xml'],
+        presets_bytes=carried['cfgrandompresets.xml'])
+
+
+def _read_optional(mission, name):
+    path = child(mission, name)
+    return path.read_bytes() if path.is_file() else None
 
 
 def write_delta(stage, files):
@@ -734,6 +939,10 @@ def main():
     p.add_argument('--no-roster-datamined', action='store_true',
                    help='leave the roster\'s datamined weapon/magazine rows (pending-local) out of the delta')
     p.add_argument('--out', type=Path, required=True)
+    p = sub.add_parser('routes', help='essential two-route check (AC-004); reads the mission, never writes it')
+    p.add_argument('--source', type=Path, required=True, help='stock mission directory (read only)')
+    p.add_argument('--profile', default='contextual-pilot', help='economy profile name under economy-profiles/')
+    p.add_argument('--out', type=Path, default=None, help='write the CSV here (default: print the summary only)')
     p = sub.add_parser('install')
     p.add_argument('--delta', type=Path, required=True)
     p.add_argument('--target', type=Path, required=True)
@@ -746,6 +955,15 @@ def main():
                 args.source, json.loads(args.profile.read_bytes()), include_datamined=not args.no_datamined,
                 roster=json.loads(args.roster.read_bytes()) if args.roster else None,
                 include_roster_datamined=not args.no_roster_datamined))
+        elif args.command == 'routes':
+            report = routes_for_mission(args.source, Path(__file__).resolve().parents[2], args.profile)
+            if args.out:
+                args.out.write_bytes(route_csv(report))
+            for row in report['rows']:
+                print('%-8s %-24s %-17s routes=%s' % (row['role'], row['item'], row['verdict'], row['routes']))
+            print('essentials failing=%s unresolved=%s; offline eligibility only, runtime acceptance pending'
+                  % (report['failing'], report['unresolved']))
+            return
         elif args.command == 'install':
             install_delta(args.delta, args.target)
         else:

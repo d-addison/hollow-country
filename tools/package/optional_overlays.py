@@ -12,7 +12,7 @@ import hashlib
 import json
 import math
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import stat
@@ -38,6 +38,20 @@ BASE_TARGETS = {'cfgeconomycore.xml', 'cfgenvironment.xml', 'cfgeventspawns.xml'
 GENERATED = {'events.xml', 'types.xml', 'spawnabletypes.xml'} | {
     species + '_territories.xml' for species in (*AMBIENT_SPECIES, 'snake')}
 
+
+
+def _ce_relative(folder, name):
+    """Mission-relative path of a cfgeconomycore <ce folder><file name> pair, always '/'-separated.
+
+    Built with PurePosixPath so Windows never rewrites the tool's own forward slashes into the
+    backslashes the guard refuses (#142); a real backslash, drive, absolute or '..' entry is refused.
+    """
+    if '\\' in folder or '\\' in name or ':' in folder or ':' in name:
+        raise ValueError('unsafe existing CE declaration')
+    relative = PurePosixPath(folder) / name
+    if relative.is_absolute() or '..' in relative.parts:
+        raise ValueError('unsafe existing CE declaration')
+    return relative.as_posix()
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -310,10 +324,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         for ce in core.findall('ce'):
             for entry in ce.findall('file'):
                 if entry.get('type') == kind:
-                    relative = str(Path(ce.get('folder', '')) / entry.get('name', ''))
-                    if Path(relative).is_absolute() or '..' in Path(relative).parts or '\\' in relative:
-                        raise ValueError('unsafe existing CE declaration')
-                    existing_files.append(relative)
+                    existing_files.append(_ce_relative(ce.get('folder', ''), entry.get('name', '')))
         for relative in existing_files:
             existing = xml(source(mission / relative), kind)
             if names & {node.get('name') for node in existing}:
@@ -562,10 +573,45 @@ def bundle_apply(bundle, mission, workshop, loaded):
             raise ValueError('bundle requires all default optional overlays to be loaded')
         install(optional, scratch)
         loot_boost.install(scratch, multiplier, points)
-    install(candidate, mission, managed_name=BUNDLE_MANAGED)
-    travel.install(source, mission)
-    install(plan(workshop, mission, loaded, source / 'optional/overlay-policy.json'), mission)
-    loot_boost.install(mission, multiplier, points)
+    apply_stack(mission, [
+        lambda: install(candidate, mission, managed_name=BUNDLE_MANAGED),
+        lambda: travel.install(source, mission),
+        lambda: install(plan(workshop, mission, loaded, source / 'optional/overlay-policy.json'), mission),
+        lambda: loot_boost.install(mission, multiplier, points)])
+
+
+def _undo_layers(target):
+    """Roll back every layer present, newest first; each rollback verifies its own files before restoring."""
+    from tools.package import loot_boost, travel
+    if os.path.lexists(target / loot_boost.MANAGED):
+        loot_boost.rollback(target)  # installed last, so it is undone first
+    rollback(target)
+    if (target / travel.MANAGED).exists():
+        travel.rollback(target)
+    rollback(target, managed_name=BUNDLE_MANAGED)
+
+
+def apply_stack(mission, steps):
+    """Run install steps in order; when one fails, undo what this run applied (verified) and re-raise the failure.
+
+    A refused undo (an operator edit in the way) keeps all recovery data and says so, so bundle-rollback can finish.
+    """
+    mission = mission_target(mission)
+    try:
+        for step in steps:
+            step()
+    except Exception as error:
+        try:
+            _undo_layers(mission)
+            from tools.package import loot_boost, travel
+            left = [n for n in (loot_boost.MANAGED, MANAGED, travel.MANAGED, BUNDLE_MANAGED)
+                    if os.path.lexists(mission / n)]
+            if left:
+                raise ValueError('managed folders remain after undo: ' + ', '.join(left))
+        except (OSError, ValueError) as undo_error:
+            raise ValueError('install failed (%s) and the automatic undo failed (%s); recovery data is kept, '
+                             'run bundle-rollback after reconciling' % (error, undo_error)) from error
+        raise
 
 
 def bundle_rollback(mission):
@@ -578,12 +624,7 @@ def bundle_rollback(mission):
         scratch = Path(directory) / 'mission'
         shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
         for target in (scratch, Path(mission)):
-            if os.path.lexists(target / loot_boost.MANAGED):
-                loot_boost.rollback(target)  # installed last, so it is undone first
-            rollback(target)
-            if (target / travel.MANAGED).exists():
-                travel.rollback(target)
-            rollback(target, managed_name=BUNDLE_MANAGED)
+            _undo_layers(target)
 
 
 def friend_bundle_plan(mission, rows):

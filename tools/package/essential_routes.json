@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-essential-routes",
+  "min_buildings": 25,
+  "excluded_usages": ["Military", "Prison", "ContaminatedArea", "SeasonalEvent", "Lunapark", "Historical"],
+  "roles": [
+    {"role": "water", "items": [
+      {"class": "WaterBottle", "required": true},
+      {"class": "SodaCan_Cola", "required": true},
+      {"class": "Canteen", "required": false}]},
+    {"role": "food", "items": [
+      {"class": "BakedBeansCan", "required": true},
+      {"class": "SardinesCan", "required": true},
+      {"class": "TunaCan", "required": true},
+      {"class": "PeachesCan", "required": true},
+      {"class": "SpaghettiCan", "required": true},
+      {"class": "UnknownFoodCan", "required": true},
+      {"class": "Rice", "required": false}]},
+    {"role": "cutting_and_opening", "items": [
+      {"class": "CanOpener", "required": true},
+      {"class": "KitchenKnife", "required": true},
+      {"class": "Cleaver", "required": true},
+      {"class": "SteakKnife", "required": false},
+      {"class": "HuntingKnife", "required": false}]},
+    {"role": "medical", "items": [
+      {"class": "BandageDressing", "required": true},
+      {"class": "DisinfectantSpray", "required": true},
+      {"class": "IodineTincture", "required": true},
+      {"class": "PainkillerTablets", "required": false},
+      {"class": "TetracyclineAntibiotics", "required": false}]},
+    {"role": "fire", "items": [
+      {"class": "Matchbox", "required": true},
+      {"class": "Hatchet", "required": false}]},
+    {"role": "clothing", "items": [
+      {"class": "TShirt_Beige", "required": true},
+      {"class": "Jeans_Blue", "required": true},
+      {"class": "Hoodie_Blue", "required": true},
+      {"class": "Sneakers_Gray", "required": true},
+      {"class": "Raincoat_Orange", "required": true},
+      {"class": "BaseballCap_Black", "required": false}]},
+    {"role": "utility", "items": [
+      {"class": "DuctTape", "required": true},
+      {"class": "SewingKit", "required": true},
+      {"class": "Flashlight", "required": true},
+      {"class": "Battery9V", "required": false}]}
+  ]
+}

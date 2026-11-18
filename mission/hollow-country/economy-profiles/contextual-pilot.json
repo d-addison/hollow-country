@@ -6,7 +6,10 @@
     "Battery9V": ["Town", "Military"],
     "CanOpener": ["Hunting"],
     "DuctTape": ["Military"],
-    "SewingKit": ["Military"]
+    "Jeans_Blue": ["Village"],
+    "KitchenKnife": ["Village"],
+    "SewingKit": ["Military"],
+    "TShirt_Beige": ["Town"]
   },
   "diagnostics": []
 }
