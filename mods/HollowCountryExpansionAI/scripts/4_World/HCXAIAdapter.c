@@ -113,8 +113,8 @@ class HCXAIAdapter extends HCModule
     void LogAddonChecks()
     {
         bool provider = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts");
-        bool animations = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_Animations_AI");
-        Print("[HC Expansion AI] installed CfgPatches DayZExpansion_AI_Scripts=" + provider.ToString() + " DayZExpansion_Animations_AI=" + animations.ToString() + "; names alone do not verify artifact/version pin");
+        bool animations = GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Animations");
+        Print("[HC Expansion AI] installed CfgPatches DayZExpansion_AI_Scripts=" + provider.ToString() + " DayZExpansion_AI_Animations=" + animations.ToString() + "; names alone do not verify artifact/version pin");
         // Exercise the base late-bound selection (HCEventAISelection) once, so startup logs
         // whether HC Events resolves this addon's provider; it only constructs a script object.
         HCEventAIProvider selected = HCEventAISelection.Create();
@@ -175,7 +175,7 @@ class HCXAIAdapter extends HCModule
         int now = GetGame().GetTime();
         if (now < 0 || now < m_LastNow || m_Profile.BuildVersion != m_Build) { return false; }
         if (!HCXAIQualification.Admitted()) { return false; }
-        if (!GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts") || !GetGame().ConfigIsExisting("CfgPatches DayZExpansion_Animations_AI")) { return false; }
+        if (!GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Scripts") || !GetGame().ConfigIsExisting("CfgPatches DayZExpansion_AI_Animations")) { return false; }
         if (GetGame().GetWorldName() != m_Profile.WorldName || !this.NativeGlobalsFair()) { return false; }
         HCXAIAdmission receipt = m_Hooks.Admission(m_Profile.WorldSession);
         if (!HCXAIRules.ReceiptValid(m_Profile, receipt, now)) { return false; }

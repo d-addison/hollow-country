@@ -478,7 +478,7 @@ class HCXAISiteDirector : Managed
         string world = GetGame().GetWorldName();
         world.ToLower();
         a.WorldName = world;
-        array<string> addons = {"HollowCountryExpansionAI", "DayZExpansion_AI_Scripts", "DayZExpansion_Core_Scripts", "DayZExpansion_Animations_AI", "JM_CF_Scripts"};
+        array<string> addons = {"HollowCountryExpansionAI", "DayZExpansion_AI_Scripts", "DayZExpansion_Core_Scripts", "DayZExpansion_AI_Animations", "JM_CF_Scripts"};
         foreach (string addon : addons)
         {
             if (!GetGame().ConfigIsExisting("CfgPatches " + addon)) { a.MissingAddons = a.MissingAddons + addon + " "; }

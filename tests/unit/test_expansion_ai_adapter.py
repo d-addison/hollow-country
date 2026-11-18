@@ -950,8 +950,10 @@ class ExpansionAdapterTests(unittest.TestCase):
         config=(ADDON/"config.cpp").read_text()
         for name in ("HollowCountry","DayZExpansion_AI_Scripts","DayZExpansion_Core_Scripts",
                      "DayZExpansion_ModStorage_Scripts","JM_CF_Scripts","DF_Scripts","DF_GUI",
-                     "DayZExpansion_Animations_AI","DayZExpansion_Sounds_AI"):
+                     "DayZExpansion_AI_Animations","DayZExpansion_Sounds_AI"):
             self.assertIn('"'+name+'"',config)
+        # Expansion-Animations is optional: it conflicts with Survivor Animations (needed by DayZ-Bicycle).
+        self.assertNotIn("DayZExpansion_Animations_AI",config)
         self.assertNotIn("HollowCountryExpansionAI",(ROOT/"mods/HollowCountry/config.cpp").read_text())
         self.assertIn("extends HCEventAIProvider",self.runtime_source)
         for hook in ("super.EEKilled(killer)","super.EEDelete(parent)"):
