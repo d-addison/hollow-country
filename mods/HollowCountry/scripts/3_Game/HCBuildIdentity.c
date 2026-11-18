@@ -11,6 +11,32 @@ class HCBuildIdentity
 {
     static const string CANONICAL_BUILD = "1.30.164289";
     static const string NATIVE_FULL_BUILD = "1.30.164289.70";
+    // Shared across all consumers and mission restarts; successes do not use it.
+    static bool s_MismatchLogged = false;
+
+    // Installed 3_Game/Global/Game.c:934,942 and 1_Core/proto/EnDebug.c:96.
+    // These reads supply diagnostics only; missing game state cannot admit a gate.
+    static string SeenWorld()
+    {
+        if (!GetGame()) return "";
+        return GetGame().GetWorldName();
+    }
+
+    static string SeenBuild()
+    {
+        string build;
+        if (!GetGame()) return "";
+        GetGame().GetVersion(build);
+        return build;
+    }
+
+    static bool Refuse(string build, string world, string reason)
+    {
+        if (s_MismatchLogged) return false;
+        s_MismatchLogged = true;
+        Print("[HC Identity] build=" + build + " world=" + world + " accepted=0 reason=" + reason);
+        return false;
+    }
 
     // The only build string Hollow Country writes into journals and manifests.
     static string Canonical()
@@ -23,7 +49,7 @@ class HCBuildIdentity
     {
         if (engineBuild == CANONICAL_BUILD) return true;
         if (engineBuild == NATIVE_FULL_BUILD) return true;
-        return false;
+        return Refuse(engineBuild, SeenWorld(), "build_mismatch");
     }
 
     // Canonical text for an admitted build; any other text is returned untouched
@@ -37,7 +63,9 @@ class HCBuildIdentity
     // Equal once normalised. Empty text is never the same build.
     static bool SameBuild(string left, string right)
     {
-        if (left == "") return false;
+        if (left == "") return Refuse(left, SeenWorld(), "build_mismatch");
+        // Equality of nonempty foreign stamps is retained; it is not build admission.
+        if (left == right) return true;
         return Normalize(left) == Normalize(right);
     }
 
@@ -52,7 +80,7 @@ class HCBuildIdentity
     // Case-normalised world equality; an empty world is never a match.
     static bool SameWorld(string left, string right)
     {
-        if (left == "") return false;
-        return CanonicalWorld(left) == CanonicalWorld(right);
+        if (left != "" && CanonicalWorld(left) == CanonicalWorld(right)) return true;
+        return Refuse(SeenBuild(), right, "world_mismatch");
     }
 }

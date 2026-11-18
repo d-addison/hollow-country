@@ -5,8 +5,7 @@ class HCXAIStore
     {
         string version;
         GetGame().GetVersion(version);
-        if (version == "1.30.164289.70") { return "1.30.164289"; }
-        return version;
+        return HCBuildIdentity.Normalize(version);
     }
     static HCXAIProfile Freeze(HCXAIProfile profile)
     {
