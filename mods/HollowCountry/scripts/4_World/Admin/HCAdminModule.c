@@ -198,7 +198,7 @@ class HCAdminModule : HCModule
         string result = "refused";
         if (ok) { result = "ok"; }
         string line = "[HC Admin] cmd=" + command + " result=" + result + " reason=" + reason;
-        Print(line);
+        Print("" + line);
         HCAdminReply reply = new HCAdminReply;
         reply.Ticket = ticket;
         reply.Notice = line;

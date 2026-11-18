@@ -23,6 +23,8 @@ class HCInteriorTemplatePlacement
     static const int STEP_MAINT = 7;     // module search maintenance phases
     protected static ref HCStepTimer s_Steps;
     protected static string s_LastType;
+    // Objects the last house resolve query returned; the step line shows it as heaviest=<type>#q<n>.
+    protected static int s_LastQuery;
     protected static bool s_Started;
     protected static int s_Placed;
     protected static int s_Capped;
@@ -45,6 +47,7 @@ class HCInteriorTemplatePlacement
         s_Refused.Clear();
         s_BoxLogged.Clear();
         s_LastType = "";
+        s_LastQuery = 0;
     }
 
     // Shared sub-timer of the Interiors module tick; the step order matches the STEP_* indices.
@@ -117,6 +120,7 @@ class HCInteriorTemplatePlacement
         array<CargoBase> cargos = new array<CargoBase>();
         vector position = HCInteriorTemplates.AsVector(row.Position);
         GetGame().GetObjectsAtPosition3D(position, 0.75, objects, cargos);
+        s_LastQuery = objects.Count();
         if (objects.Count() > 256)
 
         {
@@ -224,6 +228,7 @@ class HCInteriorTemplatePlacement
         int mark = TickCount(0);
         Object house = Resolve(row);
         steps.HCAdd(STEP_RESOLVE, TickCount(mark));
+        s_LastType = row.BuildingClass + "#q" + s_LastQuery.ToString();
         if (!house)
 
         {
@@ -282,7 +287,7 @@ class HCInteriorTemplatePlacement
             vector position = house.ModelToWorld(HCInteriorTemplates.AsVector(slot.Position));
             vector orientation = HCInteriorTemplates.AsVector(slot.Orientation);
             orientation[0] = orientation[0] + house.GetOrientation()[0];
-            s_LastType = row.BuildingClass + ":" + slot.Type;
+            s_LastType = row.BuildingClass + ":" + slot.Type + "#q" + s_LastQuery.ToString();
             steps.HCAdd(STEP_LOOKUP, TickCount(mark));
             mark = TickCount(0);
             bool available = Available(module, position, orientation, slot.Type);

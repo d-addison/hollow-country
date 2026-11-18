@@ -447,7 +447,7 @@ class HCXAISiteDirector : Managed
         int shippedCount = count;
         if (!shippedPolicy) { shippedCount = HCXAIDefaults.ShippedSiteCount(); }
         string drift = HCXAIDefaults.PolicyDrift(shippedPolicy, count, shippedCount);
-        if (drift != "") { Print(drift); }
+        if (drift != "") { Print("" + drift); }
         if (m_Diagnostic) { Print("[HC Expansion AI] DIAGNOSTIC marker present: one site of each kind spawns once with no player (Wine observation only)"); }
     }
     void Stop()

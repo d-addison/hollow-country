@@ -131,6 +131,6 @@ class HCInfectedProfiles
         string message = "[HC Infected] variant requested=" + requested.ToString() + " name=" + RequestedDescriptorName(requested);
         message = message + " disposition=" + HCInfectedPolicy.VariantDisposition(requested) + " reason=" + HCInfectedPolicy.VariantReason(requested);
         message = message + " resolved=" + resolved.ToString() + " actual=" + DescriptorName(resolved) + " count=" + count.ToString();
-        Print(message);
+        Print("" + message);
     }
 }

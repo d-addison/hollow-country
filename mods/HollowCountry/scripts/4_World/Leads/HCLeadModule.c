@@ -279,7 +279,7 @@ class HCLeadModule : HCModule
         string summary = "[HollowCountry] V2 leads active=" + m_Store.Data.Leads.Count().ToString() + " groups=" + groups.Count().ToString();
         if (summary != m_LastSummary || m_LogElapsed >= 600)
         {
-            Print(summary);
+            Print("" + summary);
             m_LastSummary = summary;
             m_LogElapsed = 0;
         }

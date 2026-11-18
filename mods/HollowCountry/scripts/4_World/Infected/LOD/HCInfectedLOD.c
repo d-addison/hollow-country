@@ -578,7 +578,7 @@ class HCInfectedLODModule : HCModule
         line = line + " herds=" + herds.ToString() + " herd_alive=" + herdAlive.ToString() + " leased=" + m_Leases.Count().ToString();
         line = line + " materialized_per_min=" + m_Materialized.ToString() + " folded_per_min=" + m_Folded.ToString() + " released_per_min=" + m_Released.ToString() + " deaths_per_min=" + m_Deaths.ToString() + " vanished_per_min=" + m_Vanished.ToString();
         line = line + " refused_sight=" + m_RefusedSight.ToString() + " refused_place=" + m_RefusedPlace.ToString() + " players=" + playerCount.ToString() + " runtime=PENDING";
-        Print(line);
+        Print("" + line);
         m_Materialized = 0;
         m_Folded = 0;
         m_Released = 0;

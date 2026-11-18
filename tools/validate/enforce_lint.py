@@ -42,6 +42,7 @@ RULES = {
     'HC-E005': 'modded link calls a method that only another modded link of the class declares',
     'HC-E006': 'Substring on a receiver whose Length() the method never consults (Wrong parameter value)',
     'HC-E007': 'method named like a visible type (unqualified calls resolve to the type)',
+    'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
@@ -358,6 +359,21 @@ def rule_type_named_methods(project, source):
                            native=not authored and name not in PINNED_TYPES)
 
 
+
+# ---------------------------------------------------------------- log lines
+
+_BARE_PRINT = re.compile(r'(?<![\w.])Print\s*\(\s*(?!(?:true|false|null)\s*\))([A-Za-z_]\w*)\s*\)')
+
+
+def rule_bare_print(project, source):
+    """Boot 032 RPT: Print(line) logged "string line = '[HC XAI] live ...'" (EnDebug.c proto Print(void var)
+    describes a variable argument), so tagged RPT lines lost their prefix. Print an expression: "" + line."""
+    for method in _all_methods(source):
+        body = source.body(method)
+        for match in _BARE_PRINT.finditer(body):
+            yield _finding('HC-L001', source, method.body_start + match.start(), _symbol(method),
+                           f'Print({match.group(1)}) logs the declaration, not the text; use Print("" + {match.group(1)})')
+
 # ---------------------------------------------------------------- silent refusals
 
 def _branch(body, position):
@@ -499,7 +515,7 @@ def rule_predicted_actions(project, source):
 
 
 ALL_RULES = (rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
-             rule_substring, rule_type_named_methods, rule_silent_commit, rule_silent_gate,
+             rule_substring, rule_type_named_methods, rule_bare_print, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions)
 
 

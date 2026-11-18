@@ -6,7 +6,8 @@
 // 3_Game/tools/UIManager.c:4 EnterScriptedMenu, :59 GetMenu;
 // 1_Core/proto/EnScript.c:94 Class.Cast;
 // 1_Core/proto/Serializer.c:57-58 Write/Read; EnScript.c:380,385,394,407
-// arrays; EnString.c:199 Length; EnDebug.c:96 Print.
+// arrays; EnString.c:199 Length; EnDebug.c:96 Print;
+// 3_Game/Client/Notifications/NotificationSystem.c:215 AddNotificationExtended.
 // Lazy key-only construction. Per frame: O(1) player/expiry checks; no polling.
 // Reply validation <=512 vertices, <=64 lines; server-only auth controls UI.
 class HCAdminClient
@@ -87,6 +88,16 @@ class HCAdminClient
         HCListen();
         m_OpenRequested = HCSend("status");
         m_OpenUntil = GetGame().GetTickTime() + 10;
+        // The server answers admins only, so say the key worked and wait visibly.
+        if (m_OpenRequested) { HCNotify("Asking the server for admin access...", 4); }
+        else { HCNotify("Admin request not sent: wait a second, and be alive and conscious.", 5); }
+    }
+
+    // Client-only native notification; no server state, no network.
+    void HCNotify(string text, float seconds)
+    {
+        if (GetGame().IsServer()) { return; }
+        NotificationSystem.AddNotificationExtended(seconds, "Hollow Country admin", text);
     }
 
     void HCReceive(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
@@ -137,7 +148,12 @@ class HCAdminClient
                 m_OpenRequested = false;
                 if (!GetGame().GetUIManager().GetMenu()) { GetGame().GetUIManager().EnterScriptedMenu(HCAdminWire.MENU, null); }
             }
-            else if (now >= m_OpenUntil) { HCStop(); return; }
+            else if (now >= m_OpenUntil)
+            {
+                HCNotify("No admin reply from the server. Your Steam64 ID must be in the server's profiles/HollowCountry/admins.json (restart after editing) and EnableAdminMap must be true.", 12);
+                HCStop();
+                return;
+            }
         }
         if (View && View.Marks.Count() > 0 && now >= m_SnapshotUntil)
         {

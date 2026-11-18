@@ -116,6 +116,18 @@ class CompileTraps(unittest.TestCase):
         self.assertEqual([('HCXDefence.c', 3, 'HCXGrudge.Slot')], where(found))
 
 
+class LogLines(unittest.TestCase):
+    def test_print_of_a_bare_variable_is_flagged(self):
+        # Boot 032 RPT: Print(line) logged "string line = '[HC XAI] live ...'", so the RPT line no longer
+        # starts with its tag; Print("" + line) prints the text itself (see HCPerfSampler).
+        files = {W + 'L.c': 'class HCL\n{\n    string m_Last;\n    void Log(string line)\n    {\n'
+                            '        Print(line);\n        Print("" + line);\n        Print("[HC] plain");\n'
+                            '        Print( m_Last );\n        Print(Describe());\n        // Print(line);\n'
+                            '        PrintFormat("%1", line);\n        GetGame().Print(line);\n        Print(true);\n    }\n'
+                            '    string Describe() { return "x"; }\n}\n'}
+        found = run(files, 'HC-L001')
+        self.assertEqual([('L.c', 6, 'HCL.Log'), ('L.c', 9, 'HCL.Log')], where(found))
+
 class SilentRefusals(unittest.TestCase):
     # Shaped after HCSearchHouses.Begin: the client predicted the search, the server returned
     # silently, the progress ring spun and stopped with no message and no log line.
@@ -233,7 +245,8 @@ class CurrentTree(unittest.TestCase):
     def test_the_compile_trap_rules_have_no_baselined_exceptions(self):
         # Compile traps stop a native boot outright; they are fixed, never baselined.
         self.assertEqual([], [e for e in self.baseline['entries'] if e['rule'] in ('HC-E001', 'HC-E002', 'HC-E003',
-                                                                                   'HC-E004', 'HC-E005', 'HC-E007')])
+                                                                                   'HC-E004', 'HC-E005', 'HC-E007',
+                                                                                   'HC-L001')])
 
 
 if __name__ == '__main__':

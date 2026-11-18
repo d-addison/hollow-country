@@ -177,3 +177,20 @@ class ManagedCEComposition(unittest.TestCase):
         put(mission, 'cfgeconomycore.xml', core)
         overlays.bundle_rollback(mission)
         self.assertEqual(files_of(mission), before)
+
+
+class StaleRegistration(unittest.TestCase):
+    """Review P2 on #161: a pack folder deleted by hand leaves its <ce> row; install must not add a second."""
+
+    def core(self, folder, files):
+        rows = ''.join(f'<file name="{n}" type="{t}"/>' for n, t in files)
+        return f'<?xml version="1.0"?>\n<economycore>\n<ce folder="{folder}/ce">{rows}</ce>\n</economycore>\n'.encode()
+
+    def test_each_optional_pack_refuses_a_core_that_already_registers_its_folder(self):
+        cases = ((snafu, [('types.xml', 'types')]),
+                 (tactical, [('types.xml', 'types'), ('cfgspawnabletypes.xml', 'spawnabletypes')]))
+        for module, files in cases:
+            with self.subTest(pack=module.MANAGED):
+                core = self.core(module.MANAGED, files)
+                with self.assertRaisesRegex(ValueError, 'CE folder already registered: ' + module.MANAGED + '/ce'):
+                    module._patched_core(core, core, {})

@@ -367,7 +367,16 @@ class HCEventWorldBinding
         if (mission.Family == HCEventFamily.DELIVERY)
         {
             destination = Select(Query(mission.Destination, 15), mission.ContainerClass, true);
-            if (!destination || destination.Item == target.Item) { return BindFailed(mission); }
+            if (!destination || destination.Item == target.Item)
+            {
+                // Name the container that failed; a refused query leaves no Select reason.
+                string destinationReason = s_FailReason;
+                if (destinationReason == "") { destinationReason = "query_unavailable"; }
+                if (destination) { destinationReason = "same_item"; }
+                s_FailReason = "destination_" + destinationReason;
+                s_FailDetails = "; wanted=" + mission.ContainerClass + "; radius_m=15";
+                return BindFailed(mission);
+            }
         }
         if (!observer.RegisterTarget(mission.Id, target.Item)) { return false; }
         if (destination) { return observer.RegisterContainer(mission.Id, destination.Item); }

@@ -692,6 +692,19 @@ class BindDiagnosticTests(unittest.TestCase):
         self.assertFalse(self.binder.Bind(self.f.o, self.mission))
         self.assertEqual(2, len(self.bind_lines()))
 
+    def test_delivery_destination_failures_name_the_container_not_the_item(self):
+        # Review P2 (f0e12b5): a missing container logged wanted=<item>, and a destination that
+        # resolved to the item itself failed with no line at all.
+        self.mission.Family = 2
+        self.mission.ContainerClass = "SyntheticContainer"
+        self.objects = [self.candidate()]
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.mission.ContainerClass = "SyntheticSupply"
+        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(["[HC Events] bind failed; %s; reason=destination_no_candidate; wanted=SyntheticContainer; radius_m=15" % self.mission.Id,
+                          "[HC Events] bind failed; %s; reason=destination_same_item; wanted=SyntheticSupply; radius_m=15" % self.mission.Id],
+                         self.bind_lines())
+
     def test_success_and_unrelated_refusals_log_nothing(self):
         self.objects = [self.candidate()]
         self.assertTrue(self.binder.Bind(self.f.o, self.mission))

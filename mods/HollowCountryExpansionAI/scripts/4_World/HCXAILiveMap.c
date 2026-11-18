@@ -204,7 +204,7 @@ class HCXAILiveModule : HCModule
     {
         if (!m_Live) { return; }
         string line = m_Live.Report(deltaTime);
-        if (line != "") { Print(line); }
+        if (line != "") { Print("" + line); }
     }
 
     override void OnStop()

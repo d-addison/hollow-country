@@ -441,6 +441,8 @@ def _patched_core(original, fragment, patches):
             or len(frag[0]) != 1 or frag[0][0].tag != 'file'
             or frag[0][0].attrib != {'name': 'types.xml', 'type': 'types'}):
         raise ValueError('unsupported CE registration')
+    if any(ce.get('folder') == MANAGED + '/ce' for ce in core.findall('ce')):
+        raise ValueError('CE folder already registered: ' + MANAGED + '/ce')
     closing = list(re.finditer(rb'</economycore\s*>', original))
     if len(closing) != 1 or core.tag != 'economycore':
         raise ValueError('ambiguous core closing tag')

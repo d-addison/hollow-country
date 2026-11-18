@@ -55,7 +55,7 @@ def authored(include_read=False):
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
         lines = [f'def {name}({", ".join(args)}):',
-                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType']
+                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery']
         indent = 1
         for token in statements(body(sources, match.end())):
             token = token.strip()
@@ -191,7 +191,7 @@ def fixture(values=None):
         s_BoxLogged=Array(), s_Deferred=Array(), s_DeferredNext=0,
         # SYNTHETIC sub-timer sink (the authored HCStepTimer is exercised in test_hc_unit_budget).
         # This translator renders 'new HCStepTimer("Interiors")' as 'HCStepTimer()("Interiors")'.
-        s_Steps=None, s_LastType='', HCStepTimer=lambda *args:lambda *owner:NS(HCDefine=lambda name:0,
+        s_Steps=None, s_LastType='', s_LastQuery=0, HCStepTimer=lambda *args:lambda *owner:NS(HCDefine=lambda name:0,
             HCAdd=lambda step,ticks:None, HCItem=lambda kind,ticks:None, HCDeferred=lambda ticks:None,
             HCEndTick=lambda ticks:None),
         Available=lambda module,point,orientation,typ:True,
@@ -395,6 +395,14 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         module.PlaceCandidate=lambda row,cfg:e['PlaceRow'](module,row,cfg,created)
         e['Place'](module,settings,created)
         return e,created
+
+    def test_heaviest_item_name_carries_the_resolve_query_size(self):
+        # Boot 032: one 0.75 m house resolve cost 30-1600 ms; the step line must say how many
+        # objects the query returned so the next boot separates query cost from result size.
+        result=self.load(); e=result[0]
+        result[4].append(SyntheticHouse(position=(500,0,500)))
+        self.place(result)
+        self.assertTrue(e['HCLastType']().endswith('#q2'),e['HCLastType']())
 
     def test_props_cap_holds_and_never_reads_during_placement(self):
         result=self.load(); reads=list(result[2]); e,created=self.place(result,overall=0)
