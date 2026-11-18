@@ -91,6 +91,16 @@ modded class eAIPlayerTargetInformation
     {
         PlayerBase player = PlayerBase.Cast(GetEntity());
         if (!HCXStance.Owns(ai) || !player || !player.GetIdentity()) { return super.CalculateThreat(ai, state); }
+        // Self-defence (HCXDefence.c, owner bug 2026-11-18): a player who hit,
+        // killed a member of or fired close to this actor's group stays an enemy
+        // for a bounded time. Read before unseen threat is cleared below, only for
+        // an actor that perceived the player (LOS, recent LOS, or its own hit seed).
+        if (!ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXDefence.Hostile(ai, player, state))
+        {
+            float defence = HCXDefencePolicy.Threat(super.CalculateThreat(ai, state), true);
+            if (state && defence > state.m_ThreatLevelActive) { state.m_ThreatLevelActive = defence; }
+            return defence;
+        }
         int nowMs = GetGame().GetTime();
         eAITarget current = ai.GetTarget();
         bool currentPlayer = current && current.GetEntity() == player;
