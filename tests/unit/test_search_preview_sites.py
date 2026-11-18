@@ -231,6 +231,39 @@ class SearchPreviewSitesTests(unittest.TestCase):
         h.receive(houses.SYNTH, 0)
         self.assertFalse(h.preview())
 
+    def test_empty_reply_expires_sixty_seconds_after_receipt_and_recovers(self):
+        h = Harness(self)
+        h.preview()
+        h.game.now += 2.  # Expiry is measured from receipt, not request time.
+        h.receive(houses.SYNTH, 0)
+        h.game.now += 59.9
+        for _ in range(20): self.assertFalse(h.preview())
+        self.assertEqual(1, len(h.sent))
+        h.game.now += .1
+        for _ in range(20): self.assertFalse(h.preview())
+        self.assertEqual(2, len(h.sent))
+        h.receive(houses.SYNTH, 1, [0., 1., 0.], 1.)
+        self.assertTrue(h.preview())
+        h.game.now += 120.
+        self.assertTrue(h.preview())
+        self.assertEqual(2, len(h.sent))  # Positive entries still last the mission.
+
+    def test_expired_empty_entries_keep_global_request_bound(self):
+        h = Harness(self)
+        h.client.EntryFor('SyntheticA')
+        h.receive('SyntheticA', 0)
+        h.game.now += .5
+        h.client.EntryFor('SyntheticB')
+        h.receive('SyntheticB', 0)
+        h.game.now += 60.
+        for _ in range(20):
+            h.client.EntryFor('SyntheticA')
+            h.client.EntryFor('SyntheticB')
+        self.assertEqual(3, len(h.sent))
+        h.game.now += .5
+        h.client.EntryFor('SyntheticB')
+        self.assertEqual(4, len(h.sent))
+
     def test_rpc_registration_lifecycle_ids_and_enforce_locals(self):
         self.assertTrue(SOURCE.exists(), 'missing RPC/cache source')
         self.assertTrue(LIFECYCLE.exists(), 'missing mission-owned RPC lifetime')

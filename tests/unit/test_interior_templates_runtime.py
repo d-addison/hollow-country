@@ -415,7 +415,9 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         source=source.replace('s_Instance', 'self.s_Instance').replace('this', 'self')
         source=source.replace('!IsEnabled(settings)', '!self.IsEnabled(settings)')
         e=dict(GetGame=lambda:NS(IsServer=lambda:True),Math=NS(Min=min),
-            Print=lambda text:None,HCInteriorMeasuredCatalog=NS(MeasuredEnsureLoaded=lambda:None),
+            Print=lambda text:None,FileExist=lambda path:False,
+            HCSearchBinding=NS(TemplatesComplete=lambda owner:None),
+            HCInteriorMeasuredCatalog=NS(MeasuredEnsureLoaded=lambda:None),
             HCInteriorTemplates=NS(EnsureLoaded=lambda legacy,cap:events.append(('load',legacy,cap)),Loaded=lambda:True),
             HCInteriorTemplatePlacement=NS(Place=lambda *args:events.append(('place',))))
         if name=='OnStart': return execute_member(source,name,e,module,settings)

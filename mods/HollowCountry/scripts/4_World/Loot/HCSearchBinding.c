@@ -150,6 +150,24 @@ class HCSearchBinding : HCModule
         return s_Instance.m_Houses;
     }
 
+    // Template startup is independent of the pilot PlacementComplete/Begin path.
+    // Report once without making the legacy manifest a House-search prerequisite.
+    static void TemplatesComplete(HCInteriorsModule owner)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !owner) return;
+        HCSearchHouses houses = Houses();
+        if (houses)
+        {
+            houses.ReportReadiness();
+            return;
+        }
+        int templatesLoaded;
+        int markerPresent;
+        if (HCInteriorTemplates.Loaded()) templatesLoaded = 1;
+        if (HCInteriorRules.SearchOptIn()) markerPresent = 1;
+        Print("[HC Search Houses] armed=0 templates_loaded=" + templatesLoaded.ToString() + " service_started=0 journal_healthy=0 marker_present=" + markerPresent.ToString() + "; supply=lazy stock CE; runtime acceptance PENDING");
+    }
+
     // Called once by interiors after its synchronous placement pass and readiness.
     // DiagnosticSearchTrial cannot bypass the independent SearchAdmitted marker.
     static void PlacementComplete(HCInteriorsModule owner, HCInteriorConfig config, HCInteriorManifest manifest, array<ref HCInteriorSite> sites)

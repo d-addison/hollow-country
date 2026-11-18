@@ -12,7 +12,12 @@ modded class HCInteriorsModule
         HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
         HCInteriorTemplates.EnsureLoaded(m_Config, settings.MaxPropsPerInterior);
         HCInteriorTemplatePlacement.Place(this, settings, m_Objects);
-        if (HCInteriorTemplates.Loaded()) s_Instance = this;
+        if (HCInteriorTemplates.Loaded())
+        {
+            s_Instance = this;
+            if (!FileExist("$profile:HollowCountry/interiors.json")) Print("[HC Interiors] legacy pilot absent; template path in use");
+        }
+        HCSearchBinding.TemplatesComplete(this);
     }
 
     override void PlaceCandidate(int index)

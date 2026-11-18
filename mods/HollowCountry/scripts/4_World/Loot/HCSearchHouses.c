@@ -64,6 +64,7 @@ class HCSearchHouses
     protected bool m_Started;
     protected bool m_Fault;
     protected bool m_Busy;
+    protected bool m_ReadinessReported;
     protected float m_WindowStart;
     protected int m_Queries;
     protected ref HCSearchHouseJournal m_Journal;
@@ -83,6 +84,30 @@ class HCSearchHouses
     bool Started() { return m_Started; }
     int ActiveCount() { return m_Slots.Count(); }
     int SessionCount() { return m_Sessions.Count(); }
+
+    // Called once after template admission. Open/recover only the bounded journal;
+    // CE/Hive may not exist yet. Supply registry and entity discovery stay lazy.
+    void ReportReadiness()
+    {
+        if (m_ReadinessReported) return;
+        m_ReadinessReported = true;
+        int templatesLoaded;
+        int serviceStarted;
+        int journalHealthy;
+        int markerPresent;
+        int armed;
+        if (HCInteriorTemplates.Loaded()) templatesLoaded = 1;
+        if (m_Started) serviceStarted = 1;
+        if (HCInteriorRules.SearchOptIn()) markerPresent = 1;
+        if (templatesLoaded && m_Started && !m_Fault && m_Settings && m_Settings.EnableInteriors && m_Settings.EnableSearch && HCInteriorRules.SearchAdmitted())
+        {
+            if (OpenJournal()) journalHealthy = 1;
+            if (journalHealthy && markerPresent) armed = 1;
+        }
+        string report = "[HC Search Houses] armed=" + armed.ToString() + " templates_loaded=" + templatesLoaded.ToString() + " service_started=" + serviceStarted.ToString() + " journal_healthy=" + journalHealthy.ToString();
+        report = report + " marker_present=" + markerPresent.ToString() + "; supply=lazy stock CE; runtime acceptance PENDING";
+        Print("" + report);
+    }
 
     // No journal or entity is touched here beyond forgetting handles; consumed supplies stay
     // consumed in the journal.
@@ -208,36 +233,32 @@ class HCSearchHouses
         return m_Started && data && SessionOf(data) != null;
     }
 
-    int OpenRow(string siteId)
+    int OpenRow(string siteId, PlayerBase player)
     {
         if (!m_Journal || !m_Journal.Healthy()) return -1;
         int index;
-        while (index < m_Journal.Count())
+        int fallback = -1;
+        while (m_Journal && m_Registry && index < m_Journal.Count())
         {
             HCSearchHouseRow row = m_Journal.Row(index);
-            if (row.SiteId == siteId && row.Phase == 0 && (!m_Registry || m_Registry.Find(row.SupplyId))) return index;
+            if (row.SiteId == siteId && row.Phase == 0 && m_Registry && m_Registry.Find(row.SupplyId))
+            {
+                if (fallback < 0) fallback = index;
+                // A changed/out-of-range/full-size first item must not hide a usable
+                // later row. Never rebind, replace or consume the skipped supply.
+                if (m_Registry.CanTransfer(EntryOf(row), player)) return index;
+            }
             index++;
         }
-        return -1;
+        // Preserve the distinct supply/inventory-unavailable response when rows exist.
+        return fallback;
     }
 
     bool CanStart(PlayerBase player, ActionTarget target)
     {
         HCSearchHouseHit hit = Resolve(player, target);
         if (!hit || SessionOfSite(hit.SiteId) || m_Sessions.Count() >= MAX_SESSIONS) return false;
-        // A bound site whose supplies are all spent refuses before any action starts.
-        if (m_Journal && m_Journal.Healthy() && m_Journal.SiteBound(hit.SiteId))
-        {
-            int open;
-            int scan;
-            while (scan < m_Journal.Count())
-            {
-                HCSearchHouseRow row = m_Journal.Row(scan);
-                if (row.SiteId == hit.SiteId && row.Phase == 0) open++;
-                scan++;
-            }
-            if (open < 1) return false;
-        }
+        // Let Begin report a depleted site as empty. The journal still forbids refill.
         return true;
     }
 
@@ -315,9 +336,27 @@ class HCSearchHouses
         return budget;
     }
 
+    bool OpenJournal()
+    {
+        if (m_Journal) return m_Journal.Healthy();
+        if (m_Fault) return false;
+        string pin = HCInteriorTemplates.SourcePin();
+        string worldName = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName());
+        string build = HCBuildIdentity.Canonical();
+        HCSearchHouseJournal journal = new HCSearchHouseJournal;
+        if (!journal.Open(SOURCE_ID, pin, worldName, build))
+        {
+            m_Fault = true;
+            return false;
+        }
+        m_Journal = journal;
+        return true;
+    }
+
     bool EnsureJournal()
     {
-        if (m_Journal && m_Registry) return m_Journal.Healthy();
+        if (!OpenJournal()) return false;
+        if (m_Registry) return true;
         if (m_Fault) return false;
         string pin = HCInteriorTemplates.SourcePin();
         string worldName = HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName());
@@ -329,15 +368,7 @@ class HCSearchHouses
             Print("[HC Search Houses] lazy registry refused; house search stays refused");
             return false;
         }
-        HCSearchHouseJournal journal = new HCSearchHouseJournal;
-        if (!journal.Open(SOURCE_ID, pin, worldName, build))
-        {
-            registry.Retire();
-            m_Fault = true;
-            return false;
-        }
         m_Registry = registry;
-        m_Journal = journal;
         return true;
     }
 
@@ -418,9 +449,11 @@ class HCSearchHouses
     // A site that already has journal rows: re-register the stored persistent ids.
     bool Activate(HCSearchHouseSlot slot, HCSearchHouseHit hit)
     {
+        if (Remembered(hit.SiteId)) return true;
         HCSearchSiteVolume volume = BuildVolume(hit);
         if (!volume) return false;
         int index;
+        bool complete = true;
         while (index < m_Journal.Count())
         {
             HCSearchHouseRow row = m_Journal.Row(index);
@@ -433,8 +466,12 @@ class HCSearchHouses
             // Overflow means absence cannot be proven: refuse, never "absent".
             if (budget.Overflow) return false;
             if (found.Count() > 0 && m_Registry.RegisterOwned(found[0], m_Provider.RecordId(row.SupplyId))) slot.Supplies.Insert(row.SupplyId);
+            else complete = false;
         }
-        slot.Sites.Insert(hit.SiteId);
+        // A temporarily absent stored handle is retryable, never a permanent empty
+        // activation. Already rebound rows remain usable during this retry window.
+        if (complete) slot.Sites.Insert(hit.SiteId);
+        else Remember(hit.SiteId);
         return true;
     }
 
@@ -489,7 +526,7 @@ class HCSearchHouses
         return true;
     }
 
-    int Prepare(HCSearchHouseSlot slot, HCSearchHouseHit hit)
+    int Prepare(HCSearchHouseSlot slot, HCSearchHouseHit hit, PlayerBase player)
     {
         if (slot.Sites.Find(hit.SiteId) < 0)
         {
@@ -498,7 +535,7 @@ class HCSearchHouses
             else ready = Bind(slot, hit);
             if (!ready) return -1;
         }
-        return OpenRow(hit.SiteId);
+        return OpenRow(hit.SiteId, player);
     }
 
     HCSearchEntry EntryOf(HCSearchHouseRow row)
@@ -537,7 +574,13 @@ class HCSearchHouses
             Tell(data.m_Player, "Too many buildings are being searched; try again shortly.");
             return;
         }
-        int row = Prepare(slot, hit);
+        int row = Prepare(slot, hit, data.m_Player);
+        // Candidate preflight invokes native inventory callbacks, including Stop.
+        if (!Gate(data.m_Player) || !m_Journal || !m_Registry)
+        {
+            Tell(data.m_Player, "Search unavailable: supply or inventory room changed.");
+            return;
+        }
         if (row < 0)
         {
             Tell(data.m_Player, "Nothing here to search.");

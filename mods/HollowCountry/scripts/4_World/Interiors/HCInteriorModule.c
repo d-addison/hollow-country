@@ -208,7 +208,6 @@ class HCInteriorsModule : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || s_Instance) return;
-        Print("[HC Interiors] search unavailable until a trusted native supply/context manifest is bound; no supplementary grant fallback");
         #ifdef DIAG_DEVELOPER
         if (!HCInteriorSelfTests.Run())
         {
@@ -216,11 +215,14 @@ class HCInteriorsModule : HCModule
             return;
         }
         #endif
+        // Optional legacy pilot. The template override reports its own admission.
+        if (!FileExist("$profile:HollowCountry/interiors.json")) return;
         if (!HCInteriorJson<HCInteriorConfig>.Load("$profile:HollowCountry/interiors.json", m_Config) || !ValidateConfig(settings))
         {
-            Print("[HC Interiors] missing/invalid manifest configuration; disabled");
+            Print("[HC Interiors] invalid legacy pilot configuration; pilot disabled");
             return;
         }
+        Print("[HC Interiors] legacy pilot search awaits trusted native supply/context binding; no supplementary grant fallback");
         HCInteriorMeasuredCatalog.MeasuredEnsureLoaded();
         m_PlacementProof = HCInteriorRules.PlacementAdmitted();
         m_SearchProof = HCInteriorRules.SearchAdmitted();

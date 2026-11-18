@@ -313,12 +313,13 @@ class InfectedProductionRoomTests(unittest.TestCase):
             ns, calls, _, _ = production_fixture(**options)
             for _ in range(3): ns["EnsureProductionLoaded"]()
             self.assertEqual(reason, ns["ProductionReason"]())
-            self.assertEqual(1, len(calls["logs"]))
+            expected = int(reason != "rooms_missing")
+            self.assertEqual(expected, len(calls["logs"]))
             self.assertLessEqual(len(calls["reads"]), 1)
             self.assertEqual([], ns["s_ProductionBindings"])
             ns["ClearProduction"]()
             ns["EnsureProductionLoaded"]()
-            self.assertEqual(2, len(calls["logs"]))
+            self.assertEqual(2 * expected, len(calls["logs"]))
 
     def test_strict_production_json_rejects_unknown_duplicate_missing_types_shapes_and_escapes(self):
         ns, _, doc, _ = production_fixture()

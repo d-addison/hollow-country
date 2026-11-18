@@ -3,8 +3,8 @@
 // 3_Game/Entities/Object.c:287 GetPosition, :305 GetOrientation, :873 ModelToWorld, :874 WorldToModel
 // 3_Game/gameplay.c:104-117 ScriptRPC/Send; 1_Core/proto/Serializer.c:57-58 Write/Read
 // 3_Game/DayZGame.c:991 Event_OnRPC; 3_Game/Global/Game.c:914 GetTickTime
-// CAP-09 and two-client/normal PBO acceptance remain unobserved. Cache lasts one mission;
-// template pack replacement requires reconnect/restart, as does server pack loading.
+// CAP-09 and two-client/normal PBO acceptance remain unobserved. Positive cache lasts
+// one mission; empty replies expire so a later server pack load can be discovered.
 class HCSearchPreviewSite
 {
     vector Center;
@@ -16,6 +16,7 @@ class HCSearchPreviewEntry
     bool Ready;
     bool Requested;
     float SentAt;
+    float ReceivedAt;
     ref array<ref HCSearchPreviewSite> Sites = new array<ref HCSearchPreviewSite>;
 }
 
@@ -26,6 +27,7 @@ class HCSearchPreviewSites
     static const int CACHE_LIMIT = 256;
     static const float REQUEST_INTERVAL = 0.5;
     static const float RETRY_AFTER = 3.0;
+    static const float EMPTY_RETRY_AFTER = 60.0;
     protected static ref HCSearchPreviewSites s_Instance;
     protected ref map<string, ref HCSearchPreviewEntry> m_Cache = new map<string, ref HCSearchPreviewEntry>;
     protected bool m_Listening;
@@ -87,8 +89,13 @@ class HCSearchPreviewSites
             entry = new HCSearchPreviewEntry;
             m_Cache.Set(cls, entry);
         }
-        if (entry.Ready) return entry;
         float now = GetGame().GetTickTime();
+        if (entry.Ready)
+        {
+            if (entry.Sites.Count() > 0 || now - entry.ReceivedAt < EMPTY_RETRY_AFTER) return entry;
+            entry.Ready = false;
+            entry.Requested = false;
+        }
         if (now < m_NextRequest) return null;
         if (entry.Requested && now - entry.SentAt < RETRY_AFTER) return null;
         entry.Requested = true;
@@ -146,6 +153,7 @@ class HCSearchPreviewSites
             index++;
         }
         entry.Sites = sites;
+        entry.ReceivedAt = GetGame().GetTickTime();
         entry.Ready = true;
     }
 }

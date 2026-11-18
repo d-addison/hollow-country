@@ -1096,7 +1096,7 @@ class HCInfectedRoomCatalog
         }
         // Single bounded log per lifecycle, even for a missing/rejected file.
         // Complete copied class/exclusion rows are available via ProductionCoverage.
-        Print("[HollowCountry] " + s_ProductionReason + s_ProductionContext + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
+        if (s_ProductionReason != "rooms_missing") Print("[HollowCountry] " + s_ProductionReason + s_ProductionContext + "; room classes=" + s_ProductionClasses.Count().ToString() + "; instances=" + s_ProductionBindings.Count().ToString());
         // The template reader may already be loaded; otherwise the first bind logs it.
         LogTemplateAdmission();
     }
