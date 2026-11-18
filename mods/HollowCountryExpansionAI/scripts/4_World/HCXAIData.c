@@ -152,8 +152,8 @@ class HCXAISite
     string Kind;
     string Faction;
     string Loadout;
-    int NumberOfAI = 2;
-    int NumberOfAIMax = 3;
+    int NumberOfAI = HCAILimits.Get().PatrolMin;
+    int NumberOfAIMax = HCAILimits.Get().PatrolMax;
     string Behaviour = "LOOP";
     string Speed = "WALK";
     float ActivationRadius = 600;
@@ -177,8 +177,8 @@ class HCXAISitePolicy
     string WorldName = "chernarusplus";
     string BuildVersion = "1.30.164289";
     string ObserverPolicy = "native-eai";
-    int MaxActiveAI = 24;
-    int MaxActiveSites = 8;
+    int MaxActiveAI = HCAILimits.Get().MaxActiveAI;
+    int MaxActiveSites = HCAILimits.Get().MaxActiveSites;
     float MinPlayerDistance = 200;
     float LineOfSightRange = 1000;
     float MaxLegLength = 400;

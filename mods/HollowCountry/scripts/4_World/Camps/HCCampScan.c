@@ -70,7 +70,7 @@ class HCCampScan
             if (item.IsKindOf("Megaphone") && Powered(item)) { scan.CallingMegaphone = true; }
             if (item.GetHierarchyRootPlayer()) { continue; }
             string itemRef = RefOf(item);
-            if (itemRef != "" && scan.Items.Count() < HCWorldLimits.CAMP_MEMBERS && scan.Items.Find(itemRef) < 0) { scan.Items.Insert(itemRef); }
+            if (itemRef != "" && scan.Items.Count() < HCAILimits.Get().MaxCampItems && scan.Items.Find(itemRef) < 0) { scan.Items.Insert(itemRef); }
             TentBase tent = TentBase.Cast(item);
             if (tent && tent.GetState() == TentBase.PITCHED)
             {

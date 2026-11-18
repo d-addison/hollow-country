@@ -154,7 +154,7 @@ class HCCampModule : HCModule
             }
             if (selected != "" && known.GroupId == selected) { return; }
         }
-        if (selected == "" || m_Data.Camps.Count() >= 32) { return; }
+        if (selected == "" || m_Data.Camps.Count() >= HCAILimits.Get().MaxCamps) { return; }
         HCCampRecord camp = new HCCampRecord;
         camp.GroupId = selected;
         camp.Id = "camp-" + selected;

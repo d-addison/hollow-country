@@ -7,16 +7,14 @@
 // never player identities, player positions, reputation or provider entities.
 class HCWorldLimits
 {
+    // Compatibility for the existing debug contributor (configured at settings load).
+    static int HOLDOUTS;
+    static int PARTIES;
     static const int SCHEMA = 1;
     static const int PLACES = 64;
     static const int FACTS = 256;
     static const int FACTIONS = 5;
-    static const int STRENGTH = 12;
     static const int TERRITORY = 64;
-    static const int HOLDOUTS = 24;
-    static const int OCCUPIED = 6;
-    static const int PARTIES = 12;
-    static const int MATERIALIZED = 2;
     static const int ROUTE = 16;
     static const int CARRY = 24;
     static const int MEMORIES = 256;
@@ -24,8 +22,6 @@ class HCWorldLimits
     static const int GROUP_LEADS = 5;
     static const int SCENES = 8;
     static const int NOTES = 10;
-    static const int CAMPS = 32;
-    static const int CAMP_MEMBERS = 64;
     static const int THEFT_PER_CAMP = 32;
     static const int THEFT = 1024;
     static const int SALVAGE = 64;
@@ -268,7 +264,7 @@ class HCWorldFactionCatalog
         faction.Id = id;
         faction.Name = name;
         faction.Ethos = ethos;
-        faction.Strength = HCWorldLimits.STRENGTH;
+        faction.Strength = HCAILimits.Get().FactionStrengthMax;
         // ProviderFaction intentionally empty until optional provider ownership.
         array<string> ids = {"locals", "volunteers", "scavengers", "raiders", "travellers"};
         foreach (string other : ids)
@@ -332,7 +328,7 @@ class HCWorldData
         int occupied = 0;
         foreach (HCWorldHoldout occupiedRow : Holdouts)
         {
-            if (occupiedRow.Occupants > 0) { occupied++; }
+            if (occupiedRow && occupiedRow.Occupants > 0) { occupied++; }
         }
         return occupied;
     }
@@ -350,7 +346,7 @@ class HCWorldData
     bool FactionValid(HCWorldFaction row)
     {
         if (!row || !HCWorldFactionCatalog.Known(row.Id) || row.Name.Length() < 1 || row.Name.Length() > 64 || row.Ethos.Length() > 160 || row.ProviderFaction.Length() > 96) { return false; }
-        if (row.Strength < 0 || row.Strength > HCWorldLimits.STRENGTH || row.Alert < 0 || row.Alert > 3 || row.LastAlertDecay < 0 || row.LastRegrowth < 0) { return false; }
+        if (row.Strength < 0 || row.Strength > HCAILimits.Get().FactionStrengthMax || row.Alert < 0 || row.Alert > 3 || row.LastAlertDecay < 0 || row.LastRegrowth < 0) { return false; }
         if (!HCWorldLimits.Strings(row.Territory, HCWorldLimits.TERRITORY) || !HCWorldLimits.Strings(row.Hostile, HCWorldLimits.FACTIONS) || !HCWorldLimits.Strings(row.Neutral, HCWorldLimits.FACTIONS)) { return false; }
         foreach (string hostileId : row.Hostile)
         {
@@ -366,7 +362,7 @@ class HCWorldData
     bool HoldoutValid(HCWorldHoldout row)
     {
         if (!row || !HCWorldLimits.Token(row.Id) || !Faction(row.FactionId) || !Place(row.PlaceId) || !HCWorldLimits.Token(row.HouseClass) || !HCWorldLimits.Position(row.HousePos)) { return false; }
-        if (row.Occupants < 0 || row.Occupants > 3 || row.CacheRef.Length() > 96 || row.Routine.Length() > 96 || row.Since < 0 || row.ReoccupyAfter < 0) { return false; }
+        if (row.Occupants < 0 || row.Occupants > HCAILimits.SIZE_CEILING || row.CacheRef.Length() > 96 || row.Routine.Length() > 96 || row.Since < 0 || row.ReoccupyAfter < 0) { return false; }
         if (row.State != "DORMANT" && row.State != "OCCUPIED" && row.State != "ALERT" && row.State != "RAIDED" && row.State != "ABANDONED") { return false; }
         if ((row.State == "RAIDED" || row.State == "ABANDONED" || row.State == "DORMANT") && row.Occupants != 0) { return false; }
         if ((row.State == "OCCUPIED" || row.State == "ALERT") && row.Occupants == 0) { return false; }
@@ -376,7 +372,7 @@ class HCWorldData
 
     bool PartyValid(HCWorldParty row)
     {
-        if (!row || !HCWorldLimits.Token(row.Id) || !Faction(row.FactionId) || row.Size < 1 || row.Size > 4 || !Place(row.Home)) { return false; }
+        if (!row || !HCWorldLimits.Token(row.Id) || !Faction(row.FactionId) || row.Size < 1 || row.Size > HCAILimits.SIZE_CEILING || !Place(row.Home)) { return false; }
         if (row.Kind != "PICKER" && row.Kind != "PATROL" && row.Kind != "COURIER" && row.Kind != "VISITOR" && row.Kind != "RAIDER") { return false; }
         if (!HCWorldLimits.Strings(row.Route, HCWorldLimits.ROUTE) || row.Route.Count() < 2 || !HCWorldLimits.Strings(row.Carry, HCWorldLimits.CARRY)) { return false; }
         if (row.Edge < 0 || row.Edge >= row.Route.Count() || !(row.Progress >= 0 && row.Progress < 1) || row.DailyTransfers < 0 || row.DailyTransfers > 6 || row.LastMoved < 0 || row.TransferDay < 0) { return false; }
@@ -411,7 +407,7 @@ class HCWorldData
 
     bool CampValid(HCWorldCamp row)
     {
-        return row && HCWorldLimits.Token(row.Id) && HCWorldLimits.Token(row.GroupId) && HCWorldLimits.Token(row.FireRef) && row.Tier >= 0 && row.Tier <= 3 && HCWorldLimits.Strings(row.Members, HCWorldLimits.CAMP_MEMBERS) && row.Flag.Length() <= 96 && row.LastLit >= 0 && row.LastVisit >= 0 && row.LastProbe >= 0 && row.LastTheft >= 0;
+        return row && HCWorldLimits.Token(row.Id) && HCWorldLimits.Token(row.GroupId) && HCWorldLimits.Token(row.FireRef) && row.Tier >= 0 && row.Tier <= 3 && HCWorldLimits.Strings(row.Members, HCAILimits.Get().MaxCampItems) && row.Flag.Length() <= 96 && row.LastLit >= 0 && row.LastVisit >= 0 && row.LastProbe >= 0 && row.LastTheft >= 0;
     }
 
     bool TheftValid(HCWorldTheftRow row)
@@ -462,26 +458,26 @@ class HCWorldData
 
     bool InsertHoldout(HCWorldHoldout row)
     {
-        if (!HoldoutValid(row) || !HCWorldLimits.Admit(Holdouts.Count(), HCWorldLimits.HOLDOUTS, "Holdouts")) { return false; }
+        if (!HoldoutValid(row) || !HCWorldLimits.Admit(Holdouts.Count(), HCAILimits.Get().MaxHoldouts, "Holdouts")) { return false; }
         foreach (HCWorldHoldout priorHoldout : Holdouts)
         {
             if (priorHoldout.Id == row.Id) { return false; }
         }
-        if (row.Occupants > 0 && !HCWorldLimits.Admit(OccupiedCount(), HCWorldLimits.OCCUPIED, "OccupiedHoldouts")) { return false; }
+        if (row.Occupants > 0 && !HCWorldLimits.Admit(OccupiedCount(), HCAILimits.Get().MaxOccupiedPlaces, "OccupiedHoldouts")) { return false; }
         Holdouts.Insert(row);
         return true;
     }
 
     bool InsertParty(HCWorldParty row)
     {
-        if (!PartyValid(row) || !HCWorldLimits.Admit(Parties.Count(), HCWorldLimits.PARTIES, "Parties")) { return false; }
+        if (!PartyValid(row) || !HCWorldLimits.Admit(Parties.Count(), HCAILimits.Get().MaxParties, "Parties")) { return false; }
         int materialized = 0;
         foreach (HCWorldParty priorParty : Parties)
         {
             if (priorParty.Id == row.Id) { return false; }
             if (priorParty.Materialized) { materialized++; }
         }
-        if (row.Materialized && !HCWorldLimits.Admit(materialized, HCWorldLimits.MATERIALIZED, "MaterializedParties")) { return false; }
+        if (row.Materialized && !HCWorldLimits.Admit(materialized, HCAILimits.Get().MaxMaterialized, "MaterializedParties")) { return false; }
         Parties.Insert(row);
         return true;
     }
@@ -544,7 +540,7 @@ class HCWorldData
 
     bool InsertCamp(HCWorldCamp row)
     {
-        if (!CampValid(row) || !HCWorldLimits.Admit(Camps.Count(), HCWorldLimits.CAMPS, "Camps")) { return false; }
+        if (!CampValid(row) || !HCWorldLimits.Admit(Camps.Count(), HCAILimits.Get().MaxCamps, "Camps")) { return false; }
         foreach (HCWorldCamp priorCamp : Camps)
         {
             if (priorCamp.Id == row.Id || priorCamp.GroupId == row.GroupId)
@@ -628,7 +624,12 @@ class HCWorldData
     {
         if (!data || !data.Meta || data.Meta.SchemaVersion != HCWorldLimits.SCHEMA || data.Meta.Epoch < 1 || data.Meta.LastTick < data.Meta.Epoch || data.Meta.BuildId.Length() > 64) { return false; }
         if (!data.Places || !data.Facts || !data.Factions || !data.Holdouts || !data.Parties || !data.SiteMemory || !data.Leads || !data.Scenes || !data.Notes || !data.Camps || !data.TheftRows || !data.Salvage || !data.Escalation || !data.Escalation.PressureCaps) { return false; }
-        if (data.Places.Count() > HCWorldLimits.PLACES || data.Factions.Count() != HCWorldLimits.FACTIONS || data.Facts.Count() > HCWorldLimits.FACTS || data.Holdouts.Count() > HCWorldLimits.HOLDOUTS || data.Parties.Count() > HCWorldLimits.PARTIES || data.SiteMemory.Count() > HCWorldLimits.MEMORIES || data.Leads.Count() > HCWorldLimits.LEADS || data.Scenes.Count() > HCWorldLimits.SCENES || data.Notes.Count() > HCWorldLimits.NOTES || data.Camps.Count() > HCWorldLimits.CAMPS || data.TheftRows.Count() > HCWorldLimits.THEFT || data.Salvage.Count() > HCWorldLimits.SALVAGE || data.Escalation.PressureCaps.Count() > HCWorldLimits.PRESSURE_CAPS) { return false; }
+        if (data.Holdouts.Count() > HCAILimits.Get().MaxHoldouts || data.Parties.Count() > HCAILimits.Get().MaxParties || data.Camps.Count() > HCAILimits.Get().MaxCamps || data.OccupiedCount() > HCAILimits.Get().MaxOccupiedPlaces)
+        {
+            Print("[HC AI] saved world exceeds AILimits; load refused; original preserved");
+            return false;
+        }
+        if (data.Places.Count() > HCWorldLimits.PLACES || data.Factions.Count() != HCWorldLimits.FACTIONS || data.Facts.Count() > HCWorldLimits.FACTS || data.Holdouts.Count() > HCAILimits.Get().MaxHoldouts || data.Parties.Count() > HCAILimits.Get().MaxParties || data.SiteMemory.Count() > HCWorldLimits.MEMORIES || data.Leads.Count() > HCWorldLimits.LEADS || data.Scenes.Count() > HCWorldLimits.SCENES || data.Notes.Count() > HCWorldLimits.NOTES || data.Camps.Count() > HCAILimits.Get().MaxCamps || data.TheftRows.Count() > HCWorldLimits.THEFT || data.Salvage.Count() > HCWorldLimits.SALVAGE || data.Escalation.PressureCaps.Count() > HCWorldLimits.PRESSURE_CAPS) { return false; }
         if (data.FactHead < 0 || data.FactHead >= HCWorldLimits.FACTS || (data.Facts.Count() < HCWorldLimits.FACTS && data.FactHead != 0) || data.MemoryHead < 0 || data.MemoryHead >= HCWorldLimits.MEMORIES || (data.SiteMemory.Count() < HCWorldLimits.MEMORIES && data.MemoryHead != 0)) { return false; }
         HCWorldData check = new HCWorldData;
         check.Meta = data.Meta;

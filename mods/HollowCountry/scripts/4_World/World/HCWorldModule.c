@@ -441,7 +441,7 @@ class HCWorldModule : HCModule
             if (stored.Id != row.Id && stored.Occupants > 0) { occupiedOthers++; }
         }
         m_HoldoutRefusal = "occupied cap";
-        if (row.Occupants > 0 && occupiedOthers >= HCWorldLimits.OCCUPIED) { return false; }
+        if (row.Occupants > 0 && occupiedOthers >= HCAILimits.Get().MaxOccupiedPlaces) { return false; }
         HCWorldHoldout copy = new HCWorldHoldout;
         copy.Id = row.Id;
         copy.PlaceId = row.PlaceId;
@@ -460,7 +460,7 @@ class HCWorldModule : HCModule
             // Refuse before InsertHoldout's generic cap log: the publisher
             // reports this reason once per holdout instead of once per tick.
             m_HoldoutRefusal = "catalog cap";
-            if (m_Data.Holdouts.Count() >= HCWorldLimits.HOLDOUTS) { return false; }
+            if (m_Data.Holdouts.Count() >= HCAILimits.Get().MaxHoldouts) { return false; }
             m_HoldoutRefusal = "catalog admission";
             if (!m_Data.InsertHoldout(copy)) { return false; }
         }
@@ -477,10 +477,10 @@ class HCWorldModule : HCModule
         if (!targetFaction) { return false; }
         // Clamp before adding, including extreme caller deltas, without overflow.
         int strength = targetFaction.Strength;
-        int room = HCWorldLimits.STRENGTH - strength;
+        int room = HCAILimits.Get().FactionStrengthMax - strength;
         if (delta > 0)
         {
-            if (delta >= room) { strength = HCWorldLimits.STRENGTH; }
+            if (delta >= room) { strength = HCAILimits.Get().FactionStrengthMax; }
             else { strength = strength + delta; }
         }
         if (delta < 0)

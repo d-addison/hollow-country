@@ -54,7 +54,7 @@ class RuntimeSettingsTests(unittest.TestCase):
             changed = dict(self.value, **{name: value})
             self.assertTrue(validate_settings(changed))
         for key in self.value:
-            if key in V2_FLAGS:
+            if key in V2_FLAGS or key == 'AILimits':
                 continue
             changed = dict(self.value)
             del changed[key]

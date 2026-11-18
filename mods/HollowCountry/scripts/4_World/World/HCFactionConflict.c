@@ -85,7 +85,7 @@ class HCFactionConflict : HCModule
             Seed(data, growing, now);
             if (now - growing.LastRegrowth >= 2 * HCWorldLimits.DAY)
             {
-                if (growing.Strength > 0 && growing.Strength < HCWorldLimits.STRENGTH) { world.AdjustStrength(growing.Id, 1); }
+                if (growing.Strength > 0 && growing.Strength < HCAILimits.Get().FactionStrengthMax) { world.AdjustStrength(growing.Id, 1); }
                 growing.LastRegrowth = now;
             }
             s_WorkBudget.HCDeferred("FactionConflict", data.Factions.Count() - s_GrowthNext);

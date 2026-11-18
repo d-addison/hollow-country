@@ -12,7 +12,7 @@
 // m_Config, :592-597 reads NumberOfAI/NumberOfAIMax on each native Spawn.
 // New work: one cached player list/second, one O(players) identity count;
 // constant scaling per spawn check. Existing cursor does 4 qualification
-// items/tick plus <=2 transient steps. Debug: <=66 states, <=64 member slots,
+// items/tick plus configured bounded transients. Debug: <=66 states, <=64 member slots,
 // <=2 qualified routes (<=128 points each), only when snapshot requested.
 // EnConvert.c:3 bool.ToString, :30 int.ToString; EnDebug.c:96 Print;
 // EnString.c:113 Substring, :199 Length; EnSystem.c:397 FileExist.
@@ -85,8 +85,12 @@ class HCXAISitePatrol : eAIDynamicPatrol
             Print("[HC Expansion AI] site " + m_HCSiteId + " spawn refused: " + problem);
             return;
         }
+        // Transients reuse the already reserved durable materializer lease.
+        string budgetId = "site:" + m_HCSiteId;
+        if (m_HCTransient) { budgetId = m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10); }
+        if (!HCAIBudget.TryReserve(budgetId, m_HCGroupMax)) { Print("[HC AI] site shared population reservation refused id=" + m_HCSiteId); return; }
         super.Spawn();
-        if (!m_Group) { return; }
+        if (!m_Group) { if (!m_HCTransient) { HCAIBudget.Release(budgetId); } return; }
         m_HCLive = true;
         director.Spawned(this);
     }
@@ -145,6 +149,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
         if (raided && director) { director.RecordCleared(this); }
         super.Despawn(false);
         m_HCLive = false;
+        if (!m_HCTransient && !m_Group) { HCAIBudget.Release("site:" + m_HCSiteId); }
         if (intact) { m_TimeSinceLastSpawn = m_RespawnTime; }
         if (wasLive && director) { director.Despawned(this, intact); }
     }
@@ -277,9 +282,9 @@ class HCXAISiteDirector : Managed
             reservedSites++;
             reservedActors += reservation.Site.NumberOfAIMax;
         }
-        if (reservedSites >= 2 || reservedActors + actorCap > 8) { return "V2 global body/site budget (8/2) reached"; }
-        if (reservedSites >= m_Policy.MaxActiveSites) { return "site budget reached"; }
-        if (reservedActors + actorCap > m_Policy.MaxActiveAI) { return "AI budget reached"; }
+        if (reservedSites >= HCAILimits.Get().MaxLiveGroups || reservedActors + actorCap > HCAILimits.Get().MaxLiveAI) { return "global AI budget reached"; }
+        if (reservedSites >= HCAILimits.Get().MaxActiveSites) { return "site budget reached"; }
+        if (reservedActors + actorCap > HCAILimits.Get().MaxActiveAI) { return "AI budget reached"; }
         return "";
     }
 
@@ -289,8 +294,8 @@ class HCXAISiteDirector : Managed
     {
         reason = "sites not running";
         if (m_Phase != "run" || !m_Policy || !HCXAIQualification.EncountersEnabled()) { return false; }
-        reason = "transient actor cap must be 1..4";
-        if (actorCap < 1 || actorCap > 4) { return false; }
+        reason = "transient actor cap outside group safety ceiling";
+        if (actorCap < 1 || actorCap > HCAILimits.SIZE_CEILING) { Print("[HC AI] transient refused group safety ceiling"); return false; }
         reason = this.BudgetProblem(actorCap, null);
         if (reason != "") { return false; }
         reason = HCXAIQualification.ProviderProblem();
@@ -340,7 +345,7 @@ class HCXAISiteDirector : Managed
         return true;
     }
 
-    // At most two reserved states, one qualification step each/tick. An idle
+    // Configured bounded reserved states, one qualification step each/tick. An idle
     // trigger/blocked route gets five minutes, then traces; live groups retain
     // their reservation until death or the observed native despawn callback.
     protected void StepTransients()
@@ -1052,8 +1057,15 @@ class HCXAISiteDirector : Managed
         HCXAISite site = state.Site;
         ExpansionAIDynamicSpawnBase config = new HCXAISiteSpawnConfig();
         config.Name = "HC:" + site.Id;
-        config.NumberOfAI = site.NumberOfAI;
-        config.NumberOfAIMax = site.NumberOfAIMax;
+        string populationKind = site.Kind;
+        if (site.Kind == "holdout") { populationKind = "occupation"; }
+        if (site.Kind == "scavenger") { populationKind = "party"; }
+        int population = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, site.Id, populationKind);
+        if (state.Transient) { population = site.NumberOfAIMax; }
+        site.NumberOfAI = population;
+        site.NumberOfAIMax = population;
+        config.NumberOfAI = population;
+        config.NumberOfAIMax = population;
         config.Speed = site.Speed;
         config.UnderThreatSpeed = "SPRINT";
         config.Behaviour = HCXAISiteRules.PatrolBehaviour(site.Behaviour, state.OpenRoute);
@@ -1170,23 +1182,7 @@ class HCXAISiteDirector : Managed
         {
             if (raidState.Patrol != patrol || raidState.Transient) { continue; }
             if (this.RaidLocked(raidState.Site, ExpansionStatic.GetTimestamp(true))) { return "raided site lockout"; }
-            // Only idle triggers change size. Deferred/live members retain the
-            // reservation taken at Spawn; joining/leaving never adds live loot.
-            if (m_GroupScaling && !patrol.m_Group)
-            {
-                this.HCRefreshGroupFactor();
-                int scaledMin = HCXAISiteRules.HCGroupMembers(patrol.m_HCAuthoredMin, m_GroupFactor);
-                int scaledMax = HCXAISiteRules.HCGroupMembers(patrol.m_HCAuthoredMax, m_GroupFactor);
-                patrol.m_Config.NumberOfAI = scaledMin;
-                patrol.m_Config.NumberOfAIMax = scaledMax;
-                patrol.m_HCGroupMax = scaledMax;
-                // Site is runtime-only after policy validation; mirror effective
-                // counts into the existing shared reservation ledger. Originals
-                // stay on patrol, so repeat scaling never compounds. No save of
-                // the policy and no separate budget or spawning path is added.
-                raidState.Site.NumberOfAI = scaledMin;
-                raidState.Site.NumberOfAIMax = scaledMax;
-            }
+            // Population is fixed from AILimits.WorldSeed + site ID at Create.
         }
         string providerIssue = HCXAIQualification.ProviderProblem();
         if (providerIssue != "") { return providerIssue; }
@@ -1200,7 +1196,7 @@ class HCXAISiteDirector : Managed
             activeSites++;
             activeAI = activeAI + state.Patrol.m_NumberOfAI;
         }
-        if (activeSites >= 2 || activeAI + patrol.m_HCGroupMax > 8) { return "V2 global body/site budget (8/2) reached"; }
+        if (activeSites >= HCAILimits.Get().MaxLiveGroups || activeAI + patrol.m_HCGroupMax > HCAILimits.Get().MaxLiveAI) { return "global AI budget reached"; }
         return HCXAISiteRules.SpawnProblem(m_Policy, activeAI, activeSites, patrol.m_HCGroupMax, this.NearestPlayer(patrol.m_Position), this.SeenByPlayer(patrol.m_Position));
     }
     string MemberProblemFor(vector pos)
@@ -1528,7 +1524,10 @@ class HCXAISiteDirector : Managed
         if (data == "") { return null; }
         string error;
         HCXAISitePolicy policy;
-        if (!JsonFileLoader<HCXAISitePolicy>.LoadData(data, policy, error)) { return null; }
+        if (!JsonFileLoader<HCXAISitePolicy>.LoadData(data, policy, error) || !policy) { return null; }
+        // Legacy JSON fields are retained for old profiles, with one authority.
+        policy.MaxActiveAI = HCAILimits.Get().MaxActiveAI;
+        policy.MaxActiveSites = HCAILimits.Get().MaxActiveSites;
         return policy;
     }
     static HCXAIRouteCache LoadRoutes()

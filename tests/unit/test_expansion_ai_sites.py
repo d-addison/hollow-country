@@ -232,7 +232,7 @@ class SiteRulesTests(unittest.TestCase):
             self.assertEqual(expected, [self.rules.HCGroupMembers(n, factor)
                                         for n in (2, 3, 4)])
         self.assertEqual(1, self.rules.HCGroupMembers(1, .6))
-        self.assertEqual(8, self.rules.HCGroupMembers(20, 1.3))
+        self.assertEqual(12, self.rules.HCGroupMembers(20, 1.3))
         self.assertEqual(.6, self.rules.HCGroupFactor(0))
         self.assertEqual(1.3, self.rules.HCGroupFactor(90))
 
@@ -253,13 +253,13 @@ class SiteRulesTests(unittest.TestCase):
         self.assertEqual(self.rules.PolicyProblem(self.policy), '')
         kinds = {s.Kind for s in self.policy.Sites}
         self.assertEqual(kinds, {'patrol', 'scavenger', 'holdout'})
-        self.assertLessEqual(self.policy.MaxActiveAI, 24)
+        self.assertEqual(self.policy.MaxActiveAI, 72)
         self.assertEqual(self.policy.ObserverPolicy, 'native-eai')
 
     def test_policy_refuses_budgets_above_the_ceiling_and_a_non_native_observer(self):
-        self.policy.MaxActiveAI = 25
+        self.policy.MaxActiveAI = 129
         self.assertIn('MaxActiveAI', self.rules.PolicyProblem(self.policy))
-        self.policy.MaxActiveAI = 24
+        self.policy.MaxActiveAI = 72
         self.policy.MinPlayerDistance = 150
         self.assertIn('MinPlayerDistance', self.rules.PolicyProblem(self.policy))
         self.policy.MinPlayerDistance = 200
@@ -274,9 +274,9 @@ class SiteRulesTests(unittest.TestCase):
         site.Faction = 'InvincibleGuards'
         self.assertIn('faction', self.rules.SiteProblem(self.policy, site))
         site.Faction = 'Raiders'
-        site.NumberOfAIMax = 4
+        site.NumberOfAIMax = 13
         self.assertIn('size', self.rules.SiteProblem(self.policy, site))
-        site.NumberOfAIMax = 3
+        site.NumberOfAIMax = 6
         site.Loadout = 'BanditLoadout'
         self.assertIn('loadout', self.rules.SiteProblem(self.policy, site))
 
@@ -313,7 +313,7 @@ class SiteRulesTests(unittest.TestCase):
         self.assertEqual(self.rules.SpawnProblem(p, 0, 0, 3, 250., False), '')
         self.assertIn('player within', self.rules.SpawnProblem(p, 0, 0, 3, 199.9, False))
         self.assertIn('line of sight', self.rules.SpawnProblem(p, 0, 0, 3, 600., True))
-        self.assertIn('AI budget', self.rules.SpawnProblem(p, 22, 1, 3, 600., False))
+        self.assertIn('AI budget', self.rules.SpawnProblem(p, 70, 1, 3, 600., False))
         self.assertEqual(self.rules.SpawnProblem(p, 21, 1, 3, 600., False), '')
         self.assertIn('site budget', self.rules.SpawnProblem(p, 0, p.MaxActiveSites, 2, 600., False))
 

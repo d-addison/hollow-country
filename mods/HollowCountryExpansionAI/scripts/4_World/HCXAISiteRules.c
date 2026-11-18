@@ -16,7 +16,7 @@ class HCXAISiteRules
     {
         int members = Math.Round(authored * factor);
         if (members < 1) { return 1; }
-        if (members > 8) { return 8; }
+        if (members > HCAILimits.SIZE_CEILING) { return HCAILimits.SIZE_CEILING; }
         return members;
     }
     static bool Among(string value, string list)
@@ -67,8 +67,8 @@ class HCXAISiteRules
         if (p.SchemaVersion != 1) { return "SchemaVersion must be 1"; }
         if (!HCXAIRules.Token(p.WorldName) || !HCXAIRules.Token(p.BuildVersion)) { return "WorldName and BuildVersion are required"; }
         if (p.ObserverPolicy != "native-eai") { return "observer policy must be native-eai (native eAI perception only)"; }
-        if (p.MaxActiveAI < 1 || p.MaxActiveAI > 24) { return "MaxActiveAI must be 1..24"; }
-        if (p.MaxActiveSites < 1 || p.MaxActiveSites > 8) { return "MaxActiveSites must be 1..8"; }
+        if (p.MaxActiveAI < 1 || p.MaxActiveAI > HCAILimits.AI_CEILING) { return "MaxActiveAI must be within AI safety ceiling"; }
+        if (p.MaxActiveSites < 1 || p.MaxActiveSites > HCAILimits.GROUP_CEILING) { return "MaxActiveSites must be within group safety ceiling"; }
         if (!HCXAIRules.Finite(p.MinPlayerDistance) || p.MinPlayerDistance < 200 || p.MinPlayerDistance > 500) { return "MinPlayerDistance must be 200..500"; }
         if (!HCXAIRules.Finite(p.LineOfSightRange) || p.LineOfSightRange < 200 || p.LineOfSightRange > 1500) { return "LineOfSightRange must be 200..1500"; }
         if (!HCXAIRules.Finite(p.MaxLegLength) || p.MaxLegLength < 50 || p.MaxLegLength > 600) { return "MaxLegLength must be 50..600"; }
@@ -100,9 +100,8 @@ class HCXAISiteRules
         if (s.Kind == "holdout") { factions = "|Guards|"; }
         if (!HCXAISiteRules.Among(s.Faction, factions)) { return "faction " + s.Faction + " not allowed for " + s.Kind; }
         if (!HCXAIRules.Token(s.Loadout) || s.Loadout.Length() < 15 || s.Loadout.Substring(0, 14) != "HollowCountry_") { return "loadout must be one of our HollowCountry_* files"; }
-        int most = 3;
-        if (s.Kind == "patrol") { most = 4; }
-        if (s.NumberOfAI < 2 || s.NumberOfAIMax < s.NumberOfAI || s.NumberOfAIMax > most) { return "group size must be 2.." + most.ToString(); }
+        int most = HCAILimits.SIZE_CEILING;
+        if (s.NumberOfAI < 1 || s.NumberOfAIMax < s.NumberOfAI || s.NumberOfAIMax > most) { return "group size must be 1.." + most.ToString(); }
         if (!HCXAISiteRules.Among(s.Behaviour, "|LOOP|ALTERNATE|")) { return "Behaviour must be LOOP or ALTERNATE"; }
         if (!HCXAISiteRules.Among(s.Speed, "|WALK|JOG|")) { return "Speed must be WALK or JOG"; }
         if (!HCXAIRules.Finite(s.ActivationRadius) || s.ActivationRadius < p.MinPlayerDistance + 50 || s.ActivationRadius > 1200) { return "ActivationRadius must be MinPlayerDistance + 50 .. 1200"; }
@@ -155,8 +154,8 @@ class HCXAISiteRules
     // this site's largest group; nearest is the closest identity player.
     static string SpawnProblem(HCXAISitePolicy p, int activeAI, int activeSites, int groupMax, float nearest, bool seen)
     {
-        if (activeSites >= p.MaxActiveSites) { return "site budget reached"; }
-        if (activeAI + groupMax > p.MaxActiveAI) { return "AI budget reached"; }
+        if (activeSites >= HCAILimits.Get().MaxActiveSites) { return "site budget reached"; }
+        if (activeAI + groupMax > HCAILimits.Get().MaxActiveAI) { return "AI budget reached"; }
         if (nearest < p.MinPlayerDistance) { return "player within MinPlayerDistance"; }
         if (seen) { return "spawn point in a player's line of sight"; }
         return "";

@@ -262,20 +262,23 @@ class HCXAIAdapter extends HCModule
         {
             return !prior.Retiring && !prior.Failed && !prior.Released && prior.IntentConfirmed && prior.Session == session && prior.MissionId == missionId && prior.Anchor == anchor && prior.RequestedCap == actorCap;
         }
-        if (actorCap < 1 || actorCap > m_Profile.MaxActors) { return false; }
+        if (actorCap < 1 || actorCap > HCAILimits.Get().MaxLiveAI) { Print("[HC AI] adapter refused AILimits.MaxLiveAI"); return false; }
         HCXAIMission mission = this.FindMission(missionId);
-        if (!mission || anchor != mission.Anchor || mission.Spawns.Count() > actorCap) { return false; }
+        if (!mission || anchor != mission.Anchor) { Print("[HC AI] adapter mission or surveyed anchor unavailable"); return false; }
         if (!m_Hooks.RouteQualified(mission.SurveySha256, mission.LoadoutSha256)) { return false; }
-        int actors = mission.Spawns.Count();
+        int actors = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, mission.SiteId, "patrol");
+        // Select a surveyed prefix, never manufacture extra spawn coordinates.
+        if (actors > mission.Spawns.Count() || actors > actorCap) { Print("[HC AI] adapter configured group exceeds surveyed positions or requested cap"); return false; }
         int items = actors * mission.Equipment.Count();
-        if (m_ReservedGroups >= m_Profile.MaxGroups || m_ReservedActors + actors > m_Profile.MaxActors || m_ReservedItems + items > m_Profile.MaxItems) { return false; }
+        if (m_ReservedGroups >= HCAILimits.Get().MaxLiveGroups || m_ReservedActors + actors > HCAILimits.Get().MaxLiveAI || m_ReservedItems + items > m_Profile.MaxItems) { Print("[HC AI] adapter population/item reservation refused"); return false; }
         eAIFaction faction = eAIFaction.Create(mission.FactionName);
         if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return false; }
         if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return false; }
         if (!this.PruneHistory()) { return false; }
         // Capacity/duplicate refusals and clean-row pruning create no intent.
         // Resolve them before publishing a reservation that needs End to close.
-        if (!m_Journal.PrepareBegin(id, session, missionId)) { return false; }
+        if (!HCAIBudget.TryReserve("adapter:" + id, actors)) { Print("[HC AI] adapter shared population reservation refused"); return false; }
+        if (!m_Journal.PrepareBegin(id, session, missionId)) { HCAIBudget.Release("adapter:" + id); return false; }
         HCXAILease lease = new HCXAILease();
         lease.Id = id;
         lease.Session = session;
@@ -401,6 +404,7 @@ class HCXAIAdapter extends HCModule
             {
                 if (lease.Group && lease.Group.Count() == 0) { lease.Group.Delete(); }
                 lease.Released = true;
+                HCAIBudget.Release("adapter:" + lease.Id);
                 m_ReservedGroups--;
                 m_ReservedActors -= lease.ActorReservation;
                 m_ReservedItems -= lease.ItemReservation;

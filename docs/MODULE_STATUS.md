@@ -161,3 +161,22 @@ Diagnostic 017 emitted a native plugin error and is a failed smoke. See the
 issue tracker for validation summaries and outstanding gates. These observations
 do not establish native Windows or multiplayer acceptance.
 Tasks requiring unobserved gameplay remain open.
+
+### Human AI limits — 2026-11-18 source update
+
+Owner defaults are now one `AILimits` settings section: 15 combined groups / 72
+actors, occupation 3–8, holdout 3–6, travelling 2–6 and patrol 2–5. A shared
+reservation ledger covers materializer proposals, transient/authored Expansion
+sites and the legacy adapter, including full deferred groups and restored HC-10
+custody. Event encounters bind existing patrols under the configured encounter
+cap. Camps remain abstract; ecology MaxActors is an animal/infected observation
+batch and Groups MaxGroups is a player-team setting, not a human AI allowance.
+
+[Operator keys](../mission/hollow-country/ai/README.md) and
+[cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
+save compatibility, invalid-key fallback logs, deterministic world-seed sizing
+and all deferred checks. HC-10 custody persistence was applied as a separate
+prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
+is source/policy verification only; DayZDiag, normal PBO/server, two-client
+visibility/audio/replication and load testing at 3–6 players remain pending.
+Budgets are provisional until measured; production enablement is not established.
