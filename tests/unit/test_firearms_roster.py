@@ -499,7 +499,8 @@ class ReviewedNewTypes(unittest.TestCase):
         self.assertEqual(original, economy.snapshot(self.root))
 
     def test_install_refuses_rehashed_new_type_mutations_before_writing(self):
-        mutations = ('unknown class', 'nominal', 'min', 'flags', 'usage', 'value', 'tag', 'category', 'missing permission')
+        mutations = ('unknown class', 'nominal', 'min', 'flags', 'usage', 'value', 'tag', 'category', 'missing permission',
+                     'case duplicate')
         for mutation in mutations:
             with self.subTest(mutation=mutation):
                 files = firearms.generate(self.root, self.roster)
@@ -512,6 +513,11 @@ class ReviewedNewTypes(unittest.TestCase):
                     manifest['firearms_classes'].append('UnreviewedNewWeapon')
                 elif mutation == 'missing permission':
                     manifest['new_type_classes'].remove('CZ527_Camo')
+                elif mutation == 'case duplicate':
+                    # CE class names are case-insensitive: a second spelling of a candidate row is a duplicate.
+                    twin = ET.fromstring(ET.tostring(output.find("type[@name='AKM']")))
+                    twin.set('name', 'akm')
+                    output.append(twin)
                 elif mutation in ('nominal', 'min'):
                     candidate.find(mutation).text = '26'
                 else:
