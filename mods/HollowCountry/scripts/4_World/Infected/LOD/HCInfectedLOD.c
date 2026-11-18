@@ -22,8 +22,9 @@
 // view and fire geometry, and on clear ground (HCAdminPlacement.HCClear).
 // A body folds back to data only when it is alive, calm, unclaimed, not hit
 // for FOLD_HIT_QUIET seconds, beyond FoldRange from every player and unseen
-// by the same two-ray test. Death debits the herd; a horde claim releases the
-// body to the horde system and debits the herd, so no head exists twice.
+// by the same bounded multi-point test. Death debits the herd; a horde claim
+// releases the body to the horde system and debits the herd, so no head
+// exists twice.
 // Never moves a body: no teleports, no silent movement fixes.
 //
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx, :705
@@ -39,9 +40,17 @@
 //
 // Per-tick bound: <=24 classified actors x <=64 players DistanceSq; herds on:
 // <=24 lease polls, then ONE fold or ONE materialize attempt (alternating),
-// each <=MaxObservers(<=8) x 2 rays, one HCClear (128 objects, 64 doors), at
-// most one CreateObjectEx; regrow <=16 herds per minute; stats once a minute.
+// three spatial samples x two geometries, capped at MaxObservers(<=8) x 2
+// casts total, one HCClear (128 objects, 64 doors), at most one CreateObjectEx;
+// regrow <=16 herds per minute; stats once a minute.
 // Off: OnTick returns at the first check, no allocations.
+class HCLODSightBudget
+{
+    int Limit;
+    int Used;
+    void HCReset(int limit) { Limit = limit; Used = 0; }
+}
+
 class HCLODLease
 {
     ZombieBase Body;
@@ -49,8 +58,28 @@ class HCLODLease
     float SpawnedAt;
 }
 
+// Alive includes leased bodies. Retain their weak native handles across a
+// module stop/start; never delete a visible body or debit a living head just
+// because the module stops. A process restart clears native handles; the
+// journal already contains the complete living count (native restart pending).
+class HCLODStopLeases
+{
+    protected static ref array<ref HCLODLease> s_Leases;
+
+    static void HCHold(array<ref HCLODLease> leases) { s_Leases = leases; }
+
+    static array<ref HCLODLease> HCTake()
+    {
+        ref array<ref HCLODLease> leases = s_Leases;
+        s_Leases = null;
+        if (!leases) { leases = new array<ref HCLODLease>; }
+        return leases;
+    }
+}
+
 class HCInfectedLOD
 {
+    static const int MAX_TOMBSTONES = 24;
     protected static ref HCInfectedLODConfig s_Config;
 
     static void HCSet(HCInfectedLODConfig config) { s_Config = config; }
@@ -103,29 +132,57 @@ class HCInfectedLOD
         return toContact < vector.Distance(eye, aim) - 1.5;
     }
 
-    // Conservative: occluded only when BOTH view and fire geometry stop short
-    // of the target. A player in a vehicle (unknown eye point) is never
-    // occluded. Foliage that blocks neither counts as clear sight.
-    static bool Occluded(Man player, vector target, Object body)
+    // Three spatial samples, each checked against view AND fire geometry.
+    // Every actual cast spends the shared tick budget; unknown sight is clear.
+    protected static bool RayBlocked(Man player, vector eye, vector aim, Object body, int geometry, HCLODSightBudget budget)
     {
-        if (!player || player.GetParent()) { return false; }
-        vector eye = player.GetPosition() + "0 1.7 0";
-        vector aim = target + "0 1.2 0";
+        if (!budget || budget.Used >= budget.Limit) { return false; }
         if (vector.Distance(eye, aim) < 4) { return false; }
+        budget.Used++;
         vector contact;
         vector normal;
         int component;
         set<Object> hits = new set<Object>;
-        bool hit = DayZPhysics.RaycastRV(eye, aim, contact, normal, component, hits, null, player, true, false, ObjIntersectView);
-        if (!HCInfectedLOD.Blocked(hit, hits, body, eye, aim, contact)) { return false; }
-        hits.Clear();
-        hit = DayZPhysics.RaycastRV(eye, aim, contact, normal, component, hits, null, player, true, false, ObjIntersectFire);
+        bool hit = DayZPhysics.RaycastRV(eye, aim, contact, normal, component, hits, null, player, true, false, geometry);
         return HCInfectedLOD.Blocked(hit, hits, body, eye, aim, contact);
+    }
+
+    protected static vector SightAim(vector target, vector eye, int sample)
+    {
+        if (sample == 0) { return target + "0 1.7 0"; }
+        if (sample == 1) { return target + "0 1.1 0"; }
+        vector delta = target - eye;
+        float length = Math.Sqrt(delta[0] * delta[0] + delta[2] * delta[2]);
+        if (length < 1) { return target + "0 1.1 0"; }
+        vector side = Vector(delta[2], 0, -delta[0]) * (0.4 / length);
+        return target + "0 1.1 0" + side;
+    }
+
+    // A partial view at any point vetoes the transition. Vehicle/unknown eye
+    // observers also veto it. Native PlayerBase.c:7136-7137 uses the head bone;
+    // Object.c:238 GetBonePositionWS, DayZAnimal.c:53 GetBoneIndexByName.
+    static bool Occluded(Man player, vector target, Object body, HCLODSightBudget budget)
+    {
+        if (!player || player.GetParent()) { return false; }
+        PlayerBase observer = PlayerBase.Cast(player);
+        if (!observer) { return false; }
+        int head = observer.GetBoneIndexByName("head");
+        if (head < 0) { return false; }
+        vector eye = observer.GetBonePositionWS(head);
+        int sample = 0;
+        while (sample < 3)
+        {
+            vector aim = HCInfectedLOD.SightAim(target, eye, sample);
+            if (!HCInfectedLOD.RayBlocked(player, eye, aim, body, ObjIntersectView, budget)) { return false; }
+            if (!HCInfectedLOD.RayBlocked(player, eye, aim, body, ObjIntersectFire, budget)) { return false; }
+            sample++;
+        }
+        return true;
     }
 
     // Counts players within range and how many of them are occluded. Stops
     // (with observers > maxObservers) instead of casting unbounded rays.
-    static void Observers(array<Man> players, vector target, Object body, float range, int maxObservers, out int observers, out int occluded)
+    static void Observers(array<Man> players, vector target, Object body, float range, int maxObservers, out int observers, out int occluded, HCLODSightBudget budget)
     {
         observers = 0;
         occluded = 0;
@@ -139,7 +196,7 @@ class HCInfectedLOD
             if (vector.DistanceSq(player.GetPosition(), target) > rangeSq) { continue; }
             observers++;
             if (observers > maxObservers) { return; }
-            if (HCInfectedLOD.Occluded(player, target, body)) { occluded++; }
+            if (HCInfectedLOD.Occluded(player, target, body, budget)) { occluded++; }
         }
     }
 }
@@ -162,6 +219,43 @@ modded class ZombieBase
 modded class HCInfectedModule
 {
     protected int m_HCLODCursor;
+    // Recyclable history has its own FIFO cap; never consumes live slots.
+    // Assigned, unresolved evidence remains with the recovery owner.
+    protected ref array<ref HCInfectedActor> m_HCLODTombstones = new array<ref HCInfectedActor>;
+
+    protected void HCLODArchive(int index)
+    {
+        HCInfectedActor actor = m_Actors[index];
+        if (actor.SearchPack) { actor.SearchPack.Release(); actor.SearchPack = null; }
+        if (m_HCLODTombstones.Count() >= HCInfectedLOD.MAX_TOMBSTONES) { m_HCLODTombstones.RemoveOrdered(0); }
+        m_HCLODTombstones.Insert(actor);
+        m_Actors.RemoveOrdered(index);
+        m_HCLODCursor = 0;
+        m_Cursor = 0;
+        m_AdoptionCursor = 0;
+        m_RecoveryCursor = 0;
+        ResetSweep();
+    }
+
+    protected void HCLODPrune()
+    {
+        int index = 0;
+        while (index < m_Actors.Count())
+        {
+            HCInfectedActor actor = m_Actors[index];
+            if ((!actor.InfectedEntity || !actor.InfectedEntity.IsAlive()) && CanRecycleActor(actor)) { HCLODArchive(index); continue; }
+            index++;
+        }
+    }
+
+    void HCLODRetire(ZombieBase body)
+    {
+        for (int index = m_Actors.Count() - 1; index >= 0; index--)
+        {
+            HCInfectedActor actor = m_Actors[index];
+            if (actor.InfectedEntity == body && CanRecycleActor(actor)) { HCLODArchive(index); return; }
+        }
+    }
 
     // The shared LOD cursor: <=work tracked actors per call.
     int HCLODClassify(array<Man> players, float now, int work, float fullRange, float idleRange)
@@ -211,6 +305,7 @@ modded class HCInfectedModule
     int HCLODTracked()
     {
         if (!m_Healthy) { return 0; }
+        HCLODPrune();
         return m_Actors.Count();
     }
 
@@ -226,6 +321,7 @@ modded class HCInfectedModule
     ZombieBase HCLODMaterialize(string type, vector pos)
     {
         if (!m_Healthy || !m_Config || !m_State) { return null; }
+        HCLODPrune();
         if (m_Actors.Count() >= Math.Min(m_Config.MaxTracked, m_MemberCap) || m_RegistrationAttempts >= m_WorkCap) { return null; }
         Object body = GetGame().CreateObjectEx(type, pos, ECE_INITAI | ECE_PLACE_ON_SURFACE);
         ZombieBase infected = ZombieBase.Cast(body);
@@ -307,6 +403,9 @@ class HCInfectedLODModule : HCModule
     protected int m_Vanished;
     protected int m_RefusedSight;
     protected int m_RefusedPlace;
+    protected ref HCLODSightBudget m_Sight;
+    protected int m_Rays;
+    protected int m_RayPeak;
 
     static HCInfectedLODModule Get() { return s_Instance; }
 
@@ -338,6 +437,7 @@ class HCInfectedLODModule : HCModule
         }
         HCInfectedLOD.HCSet(m_Config);
         m_Leases = new array<ref HCLODLease>;
+        m_Sight = new HCLODSightBudget;
         string herdNote = "off";
         if (HCV2Admission.Admitted(herdPreference))
         {
@@ -354,6 +454,7 @@ class HCInfectedLODModule : HCModule
                 }
             }
         }
+        if (m_Herds) { HCLODResume(); }
         m_Experiment = new HCInfectedLODExperiment;
         bool experiment = m_Experiment.HCArm();
         if (settings.EnableDebugSnapshot)
@@ -366,7 +467,7 @@ class HCInfectedLODModule : HCModule
         m_Running = true;
         s_Instance = this;
         string budget = m_Config.PosedBudget.ToString() + "/" + m_Config.PosedFullBudget.ToString() + "/" + m_Config.PosedIdleBudget.ToString();
-        Print("[HC InfectedLOD] started tiers full<=" + m_Config.FullRange.ToString() + " idle<=" + m_Config.IdleRange.ToString() + " classify=" + m_Config.ClassifyPerTick.ToString() + " herds=" + herdNote + " seeds=" + m_Config.Herds.Count().ToString() + " posed_budget=" + budget + " experiment=" + HCV2Admission.OnOff(experiment) + " runtime=PENDING");
+        Print("[HC InfectedLOD] started tiers full<=" + m_Config.FullRange.ToString() + " idle<=" + m_Config.IdleRange.ToString() + " materialize<=" + m_Config.MaterializeRange.ToString() + " fold>" + m_Config.FoldRange.ToString() + " sight<=" + m_Config.VisibilityRange.ToString() + " classify=" + m_Config.ClassifyPerTick.ToString() + " herds=" + herdNote + " seeds=" + m_Config.Herds.Count().ToString() + " posed_budget=" + budget + " experiment=" + HCV2Admission.OnOff(experiment) + " runtime=PENDING");
     }
 
     override void OnTick(float deltaTime)
@@ -379,9 +480,12 @@ class HCInfectedLODModule : HCModule
         infected.HCLODClassify(players, now, m_Config.ClassifyPerTick, m_Config.FullRange, m_Config.IdleRange);
         if (m_Herds && m_Store.Healthy())
         {
+            m_Sight.HCReset(m_Config.MaxObservers * 2);
             HCLODPollLeases(infected, now);
             if (m_FoldTurn) { HCLODFoldStep(infected, players, now); }
             else { HCLODMaterializeStep(infected, players, now); }
+            m_Rays += m_Sight.Used;
+            m_RayPeak = Math.Max(m_RayPeak, m_Sight.Used);
             m_FoldTurn = !m_FoldTurn;
             if (now >= m_RegrowAt)
             {
@@ -395,6 +499,12 @@ class HCInfectedLODModule : HCModule
             m_StatsAt = now + 60;
             HCLODStats(infected, players);
         }
+    }
+
+    protected void HCLODResume()
+    {
+        m_Leases = HCLODStopLeases.HCTake();
+        m_LeaseCursor = 0;
     }
 
     protected HCInfectedLODHerd Herd(string id)
@@ -440,7 +550,7 @@ class HCInfectedLODModule : HCModule
                 RemoveLease(index);
                 continue;
             }
-            if (infected.HCLODClaimed(lease.Body))
+            if (infected && infected.HCLODClaimed(lease.Body))
             {
                 m_Released++;
                 Debit(lease.HerdId);
@@ -460,12 +570,12 @@ class HCInfectedLODModule : HCModule
     }
 
     // The only fold deletion: proven unseen, calm and far by the caller.
-    protected void HCLODFold(int index)
+    protected void HCLODFold(int index, HCInfectedModule infected)
     {
         HCLODLease lease = m_Leases[index];
         ZombieBase body = lease.Body;
         RemoveLease(index);
-        if (body) { GetGame().ObjectDelete(body); }
+        if (body) { infected.HCLODRetire(body); GetGame().ObjectDelete(body); }
         m_Folded++;
     }
 
@@ -474,6 +584,7 @@ class HCInfectedLODModule : HCModule
     protected int HCLODFoldDecision(HCInfectedModule infected, array<Man> players, ZombieBase body, float now)
     {
         if (!body) { return HCLODPolicy.FOLD_KEEP; }
+        if (body.IsCrawling()) { return HCLODPolicy.FOLD_KEEP; }
         vector pos = body.GetPosition();
         float nearest = HCInfectedLOD.NearestDistance(players, pos);
         bool calm = body.GetMindStateSynced() == DayZInfectedConstants.MINDSTATE_CALM;
@@ -485,7 +596,7 @@ class HCInfectedLODModule : HCModule
         if (!HCObserverTransitionGate.CanTransition(pos, m_Config.FoldRange)) { return HCLODPolicy.FOLD_KEEP; }
         int observers;
         int occluded;
-        HCInfectedLOD.Observers(players, pos, body, m_Config.VisibilityRange, m_Config.MaxObservers, observers, occluded);
+        HCInfectedLOD.Observers(players, pos, body, m_Config.VisibilityRange, m_Config.MaxObservers, observers, occluded, m_Sight);
         return HCLODPolicy.FoldDecision(body.IsAlive(), calm, sinceHit, claimed, nearest, m_Config.FoldRange, observers, occluded, m_Config.MaxObservers);
     }
 
@@ -498,7 +609,7 @@ class HCInfectedLODModule : HCModule
         m_LeaseCursor++;
         HCLODLease lease = m_Leases[index];
         int decision = HCLODFoldDecision(infected, players, lease.Body, now);
-        if (decision == HCLODPolicy.FOLD_NOW) { HCLODFold(index); return; }
+        if (decision == HCLODPolicy.FOLD_NOW) { HCLODFold(index, infected); return; }
         bool far = lease.Body && HCInfectedLOD.NearestDistance(players, lease.Body.GetPosition()) > m_Config.FoldRange;
         if (decision == HCLODPolicy.FOLD_KEEP && far) { m_RefusedSight++; }
     }
@@ -527,7 +638,7 @@ class HCInfectedLODModule : HCModule
         if (!HCObserverTransitionGate.CanTransition(pos, m_Config.MinSpawnDistance)) { m_RefusedSight++; return; }
         int observers = 0;
         int occluded = 0;
-        if (pointNearest > m_Config.MinSpawnDistance) { HCInfectedLOD.Observers(players, pos, null, m_Config.VisibilityRange, m_Config.MaxObservers, observers, occluded); }
+        if (pointNearest > m_Config.MinSpawnDistance) { HCInfectedLOD.Observers(players, pos, null, m_Config.VisibilityRange, m_Config.MaxObservers, observers, occluded, m_Sight); }
         if (!HCLODPolicy.SpawnHidden(pointNearest, m_Config.MinSpawnDistance, observers, occluded, m_Config.MaxObservers)) { m_RefusedSight++; return; }
         if (!HCAdminPlacement.HCClear(pos)) { m_RefusedPlace++; return; }
         string type = m_Config.MemberType(Math.RandomInt(0, m_Config.MemberTypeCount()));
@@ -578,7 +689,10 @@ class HCInfectedLODModule : HCModule
         line = line + " herds=" + herds.ToString() + " herd_alive=" + herdAlive.ToString() + " leased=" + m_Leases.Count().ToString();
         line = line + " materialized_per_min=" + m_Materialized.ToString() + " folded_per_min=" + m_Folded.ToString() + " released_per_min=" + m_Released.ToString() + " deaths_per_min=" + m_Deaths.ToString() + " vanished_per_min=" + m_Vanished.ToString();
         line = line + " refused_sight=" + m_RefusedSight.ToString() + " refused_place=" + m_RefusedPlace.ToString() + " players=" + playerCount.ToString() + " runtime=PENDING";
+        line = line + " rays_per_min=" + m_Rays.ToString() + " ray_peak=" + m_RayPeak.ToString() + " ray_budget=" + (m_Config.MaxObservers * 2).ToString();
         Print("" + line);
+        m_Rays = 0;
+        m_RayPeak = 0;
         m_Materialized = 0;
         m_Folded = 0;
         m_Released = 0;
@@ -609,32 +723,24 @@ class HCInfectedLODModule : HCModule
         }
     }
 
-    // Shutdown: fold each lease that is provably unseen; release the rest
-    // (debit) so a body the engine might keep can never return as a duplicate.
+    // Shutdown has no geometry or deletes. Reconcile terminal leases before
+    // flushing; living leases stay in Alive and reserve bodies on module resume.
     override void OnStop()
     {
         if (!m_Running) { return; }
         if (m_Experiment) { m_Experiment.HCRestore(); }
         HCInfectedModule infected = HCInfectedModule.Instance;
-        array<Man> players = HCPerfPlayers.HCGet();
-        float now = GetGame().GetTickTime();
-        if (m_Herds && infected)
+        if (m_Herds)
         {
-            for (int index = m_Leases.Count() - 1; index >= 0; index--)
-            {
-                HCLODLease lease = m_Leases[index];
-                if (!lease.Body) { RemoveLease(index); continue; }
-                int decision = HCLODFoldDecision(infected, players, lease.Body, now);
-                if (decision == HCLODPolicy.FOLD_NOW) { HCLODFold(index); continue; }
-                Debit(lease.HerdId);
-                RemoveLease(index);
-            }
+            HCLODPollLeases(infected, GetGame().GetTickTime());
+            HCLODStopLeases.HCHold(m_Leases);
         }
         if (m_Store) { m_Store.Stop(); }
         if (m_Debug) { HCDebugSnapshot.HCUnregister(m_Debug); }
         m_Debug = null;
         m_Store = null;
         m_Leases = null;
+        m_Sight = null;
         m_Experiment = null;
         m_Herds = false;
         m_Running = false;

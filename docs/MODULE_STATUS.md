@@ -31,6 +31,39 @@ not proof that its gameplay is operational.
 | Ecology and migration | Unhooked resource-attraction scheduler separates animals/infected, accepts fresh resource/path capabilities, bounds work and rejects replay/overflow/null input. Thirty-three policy checks cover session-bound receipts, partial acceptance, capacity and explicit retirement; independent boundary review passed. Native run 054 compiled and initialized the integrated policy under Wine | Native resource observation, movement provider, population capacity, route surveys, persistence and combined performance qualification. No feeding/drinking or migration is activated |
 | Firearms roster, datamine census and optional SNAFU subset (#30) | Offline tools and data: `tools/package/firearms.py`, `firearms_roster.json`, `snafu_optional.py`, `snafu_allowlist.json`, `tools/audit/firearm_census.py`. Owner decisions of 2026-11-17 are applied: 2x scarcity (vanilla weapon nominal 342, max 28 per gun); datamined rows spawn at rare counts, marked `acceptance: pending-local`, with one switch (`--no-datamined`); SNAFU conservative 7 plus WW2 SMGs plus 5 modern military-tier arms. Install and rollback are hard-link and outside-path safe | Not observed in DayZ: spawns, firing, ammo, CE totals, the SNAFU load and signed packaging are all pending local acceptance. The Tactical Flava optics subset is pending. Nine stock-absent variants are deferred. Not production-enabled |
 
+#135 infected LOD review follow-ups (source only): `Infected/lod.json` now
+ships full AI through 300 m, idle through 1000 m, materialize through 900 m,
+fold beyond 1000 m and visibility checks through 1500 m. These are provisional
+design defaults derived from the 1 km gunshot/network planning scale in
+`docs/OUTSTANDING.md` and the 1000 m visibility baseline in
+`docs/LOCAL_ACCEPTANCE_V1.md`. The 300 m near-threat setting in
+`mission/hollow-country/ai/README.md` supplies a near-action precedent; using
+it for infected is a design assumption. The 100 m materialize/fold hysteresis
+and 500 m observer margin are provisional design choices. No measured gunshot cutoff
+is documented. All bands remain validated operator settings: full < idle,
+materialize >= full, fold >= idle, min-spawn < materialize < fold <= visibility,
+idle <= 2000 m and visibility <= 3000 m. Existing explicit settings are retained;
+older inconsistent profiles are refused with the existing invalid-ranges line.
+Virtual herds stay **OFF** by default and posed budgets stay 12/12/12. Startup
+prints all bands. Recyclable dead/folded actor entries move to a separate
+24-entry FIFO with oldest-entry eviction; unresolved horde recovery evidence
+stays reserved. Head, chest and lateral sight samples start at each observer's
+head bone; each sample checks view/fire geometry, so at most six actual casts
+are needed per observer. Any clear sample or incomplete budget refuses the
+transition. The existing total tick budget stays `MaxObservers * 2` (default 12,
+hard maximum 16), shared by all samples/observers; the default fits two
+fully occluded observers, and incomplete checks refuse. Stats print `rays_per_min`,
+`ray_peak` and `ray_budget`. Shutdown performs no fold/delete: living members
+remain included in persisted `Alive`, and session-held leases reserve surviving
+bodies across module stop/start; deaths and external claims debit once, while
+missing bodies return to virtual capacity. Reuses the LOD cursor, player roster,
+observer gate, admission and shared save scheduler/journal. Tests execute authored
+control flow with synthetic engine ports. DayZDiag, normal PBO/server restart,
+two-client partial-cover/foliage/vehicle/optics checks and load at 3–6 players
+remain **runtime acceptance pending**; stop/start handles are session-only and
+cross-process body persistence must be checked natively. No shared HCSettings,
+serverDZ network defaults or global settings JSON edits are required.
+
 ## Living Country — V2
 
 V2 preferences admit their modules by default; experiment verdicts are logged
