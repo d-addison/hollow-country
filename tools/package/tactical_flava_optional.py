@@ -35,6 +35,8 @@ except ImportError:  # run as a script
     from tools.audit import pbo_config
     from tools.package import economy, firearms
 
+from tools.package import ce_extensions
+
 ALLOWLIST_PATH = Path(__file__).with_name('tactical_flava_allowlist.json')
 WORKSHOP_ID = '2646817942'
 MANAGED = 'hollow-country-tactical-flava'
@@ -61,7 +63,6 @@ MAX_PBOS = 64
 MAX_VANILLA_PBOS = 1024
 MAX_TERMS_BYTES = 8 * 1024 * 1024
 MAX_META_BYTES = 4096
-ALLOWED_CE = (economy.MANAGED + '/ce', SNAFU_MANAGED + '/ce')
 PENDING = ['normal PBO/server load with TF installed on server and clients, signed bikey on a signed server',
            'DayZDiag/local spawn, firing, magazine and ammo-acceptance trials per class',
            'M4A1 BUIS/carry handle, vanilla Mosin and AK attachments, keybinds and stacked ZombieBase.EEKilled / '
@@ -465,30 +466,7 @@ def _check_report(allowlist, report):
             raise ValueError('verification report lacks compatible magazine evidence; reverify the installed copy')
 
 
-def _managed_types(source, managed):
-    """Type names an earlier managed folder registered (hard-link and symlink safe read)."""
-    path = economy.child(source, managed + '/ce/types.xml')
-    if not os.path.lexists(path):
-        return set()
-    return set(economy._unique(economy.xml(economy.plain_file(source, path).read_bytes(), 'types').findall('type')))
-
-
-def _taken(source):
-    return _managed_types(source, economy.MANAGED) | _managed_types(source, SNAFU_MANAGED)
-
-
-def _checked_core(data):
-    core = economy.xml(data, 'economycore')
-    folders = []
-    for ce in core.findall('ce'):
-        files = ce.findall('file')
-        if (ce.get('folder') not in ALLOWED_CE or ce.attrib != {'folder': ce.get('folder')} or len(files) != 1
-                or files[0].attrib != {'name': 'types.xml', 'type': 'types'}):
-            raise ValueError('existing CE extensions need explicit operator reconciliation')
-        folders.append(ce.get('folder'))
-    if len(set(folders)) != len(folders):
-        raise ValueError('existing CE extensions need explicit operator reconciliation')
-    return core
+_checked_core = ce_extensions.checked_core
 
 
 def _new_type(entry):
@@ -531,9 +509,9 @@ def generate(source, allowlist, report):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
     data = economy.snapshot(source)
-    _checked_core(data['cfgeconomycore.xml'])
+    core = _checked_core(data['cfgeconomycore.xml'])
     stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
-    taken = set(stock) | _taken(source)
+    taken = set(stock) | set(ce_extensions.registered_types(source, core))
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
@@ -541,8 +519,7 @@ def generate(source, allowlist, report):
     rows, totals = [], {'weapon_nominal': 0}
     for entry in allowlist['entries']:
         name = entry['class']
-        if name in taken:
-            raise ValueError(f'class already defined by stock, the roster or SNAFU: {name}')
+        ce_extensions.refuse_collisions([name], taken)
         if any(u not in usage_vocab for u in entry['usage']) or any(v not in value_vocab for v in entry['value']):
             raise ValueError(f'unknown usage/value tag: {name}')
         item = _new_type(entry)
@@ -665,9 +642,8 @@ def install(stage, target):
             or any(not isinstance(r, dict) or r.get('status') != 'verified' for r in rows.values())):
         raise ValueError('delta types must equal the individually verified classes')
     stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
-    taken = set(stock) | _taken(target)
-    if names & taken:
-        raise ValueError('delta redefines classes already defined by stock, the roster or SNAFU')
+    taken = set(stock) | set(ce_extensions.registered_types(target, _checked_core(original)))
+    ce_extensions.refuse_collisions(names, taken)
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))

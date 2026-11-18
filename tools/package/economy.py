@@ -19,10 +19,10 @@ import sys
 import xml.etree.ElementTree as ET
 
 try:
-    from tools.package import datamined_items
+    from tools.package import ce_extensions, datamined_items
 except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-    from tools.package import datamined_items
+    from tools.package import ce_extensions, datamined_items
 
 INPUTS = ('cfgeconomycore.xml', 'db/types.xml', 'cfglimitsdefinition.xml',
           'mapgroupproto.xml', 'mapgrouppos.xml')
@@ -156,10 +156,8 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
     item_rows = datamined_items.load_rows() if include_datamined else []
     _refuse_collisions(profile['add_usage'], roster_names, [r['class'] for r in item_rows])
     data = snapshot(source)
-    core = xml(data['cfgeconomycore.xml'], 'economycore')
-    # Stock-only generator refuses to silently merge another operator's overrides.
-    if core.findall('ce'):
-        raise ValueError('existing CE extensions need explicit operator reconciliation')
+    core = ce_extensions.checked_core(data['cfgeconomycore.xml'])
+    registered = ce_extensions.registered_types(source, core)
     types = _unique(xml(data['db/types.xml'], 'types').findall('type'))
     limits = xml(data['cfglimitsdefinition.xml'], 'lists')
     vocabulary = _unique(limits.findall('./usageflags/usage'))
@@ -222,6 +220,7 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
                                       'stock_nominal': int(types[n].findtext('nominal'))}
                                      for n in sorted(emitted)],
                             'note': 'budgets are proposals; CE spawn of unused vanilla rows is unobserved'}
+    ce_extensions.refuse_collisions((n.get('name') for n in out), registered)
     fragment = ET.Element('economycore')
     if len(out):
         ce = ET.SubElement(fragment, 'ce', {'folder': MANAGED + '/ce'})
@@ -508,14 +507,14 @@ def _load_delta(stage):
 
 
 def _patched_core(original, fragment, patches):
-    core = xml(original, 'economycore')
-    if core.findall('ce'):
-        raise ValueError('existing CE extensions require reconciliation')
+    core = ce_extensions.checked_core(original)
     frag = xml(fragment, 'economycore')
     if any(x.tag != 'ce' or x.attrib != {'folder': MANAGED + '/ce'}
            or len(x) != 1 or x[0].tag != 'file'
            or x[0].attrib != {'name': 'types.xml', 'type': 'types'} for x in frag) or len(frag) > 1:
         raise ValueError('unsupported CE registration')
+    if len(frag) and any(ce.get('folder') == MANAGED + '/ce' for ce in core.findall('ce')):
+        raise ValueError('CE folder already registered: ' + MANAGED + '/ce')
     defaults = _unique(core.findall('./defaults/default'))
     result = original
     for name, patch in patches.items():
@@ -784,6 +783,9 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     original = data['cfgeconomycore.xml']
     patched = _patched_core(original, files['cfgeconomycore.append.xml'], json.loads(files['core-defaults.patch.json']))
     types = xml(files['ce/types.xml'], 'types')
+    ce_extensions.refuse_collisions(
+        _unique(types.findall('type')),
+        ce_extensions.registered_types(target, ce_extensions.checked_core(original)))
     stock = _unique(xml(data['db/types.xml'], 'types').findall('type'))
     vocabulary = _unique(xml(data['cfglimitsdefinition.xml'], 'lists').findall('./usageflags/usage'))
     _unique(types.findall('type'))

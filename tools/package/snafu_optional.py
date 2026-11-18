@@ -31,6 +31,8 @@ except ImportError:  # run as a script
     from tools.audit import pbo_config
     from tools.package import economy, firearms
 
+from tools.package import ce_extensions
+
 ALLOWLIST_PATH = Path(__file__).with_name('snafu_allowlist.json')
 WORKSHOP_ID = '2443122116'
 MANAGED = 'hollow-country-snafu'
@@ -52,7 +54,6 @@ MAX_PBOS = 64
 MAX_TERMS_BYTES = 8 * 1024 * 1024
 MAX_VENDOR_BYTES = 8 * 1024 * 1024
 MAX_META_BYTES = 4096
-EXPECTED_ROOT_CE = economy.MANAGED + '/ce'
 PENDING = ['normal PBO/server load with SNAFU installed on server and clients',
            'DayZDiag/local spawn, firing and ammo-acceptance trials per class',
            'CE spawn/error trials and 3-6-player budget measurement',
@@ -356,24 +357,7 @@ def _check_report(allowlist, report):
             raise ValueError('verification report lacks compatible magazine evidence; reverify the installed copy')
 
 
-def _roster_types(source):
-    """Type names already registered by the vanilla roster managed folder (if installed)."""
-    path = economy.child(source, economy.MANAGED + '/ce/types.xml')
-    if not path.is_file():
-        return set()
-    return set(economy._unique(economy.xml(path.read_bytes(), 'types').findall('type')))
-
-
-def _checked_core(data):
-    core = economy.xml(data, 'economycore')
-    for ce in core.findall('ce'):
-        files = ce.findall('file')
-        if (ce.attrib != {'folder': EXPECTED_ROOT_CE} or len(files) != 1
-                or files[0].attrib != {'name': 'types.xml', 'type': 'types'}):
-            raise ValueError('existing CE extensions need explicit operator reconciliation')
-    if len(core.findall('ce')) > 1:
-        raise ValueError('existing CE extensions need explicit operator reconciliation')
-    return core
+_checked_core = ce_extensions.checked_core
 
 
 def _new_type(entry):
@@ -398,9 +382,9 @@ def generate(source, allowlist, report):
     validate_allowlist(allowlist)
     _check_report(allowlist, report)
     data = economy.snapshot(source)
-    _checked_core(data['cfgeconomycore.xml'])
+    core = _checked_core(data['cfgeconomycore.xml'])
     stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
-    taken = set(stock) | _roster_types(source)
+    taken = set(stock) | set(ce_extensions.registered_types(source, core))
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))
@@ -408,8 +392,7 @@ def generate(source, allowlist, report):
     rows, totals = [], {'weapon_nominal': 0}
     for entry in allowlist['entries']:
         name = entry['class']
-        if name in taken:
-            raise ValueError(f'class already defined by stock or the vanilla roster: {name}')
+        ce_extensions.refuse_collisions([name], taken)
         if any(u not in usage_vocab for u in entry['usage']) or any(v not in value_vocab for v in entry['value']):
             raise ValueError(f'unknown usage/value tag: {name}')
         item = _new_type(entry)
@@ -493,9 +476,8 @@ def install(stage, target):
             or any(not isinstance(r, dict) or r.get('status') != 'verified' for r in rows.values())):
         raise ValueError('delta types must equal the individually verified classes')
     stock = economy._unique(economy.xml(data['db/types.xml'], 'types').findall('type'))
-    taken = set(stock) | _roster_types(target)
-    if names & taken:
-        raise ValueError('delta redefines classes already defined by stock or the roster')
+    taken = set(stock) | set(ce_extensions.registered_types(target, _checked_core(original)))
+    ce_extensions.refuse_collisions(names, taken)
     limits = economy.xml(data['cfglimitsdefinition.xml'], 'lists')
     usage_vocab = set(economy._unique(limits.findall('./usageflags/usage')))
     value_vocab = set(economy._unique(limits.findall('./valueflags/value')))

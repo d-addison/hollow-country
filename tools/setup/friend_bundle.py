@@ -42,7 +42,7 @@ from tools.package import loot_boost
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
-BUNDLE_TOOLS = ('optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py',
+BUNDLE_TOOLS = ('optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py', 'ce_extensions.py',
                 'datamined_items.py', 'datamined_items.json', 'loot_boost.py', 'firearms_roster.json')
 
 # Mission files that are local state or tool rollback data, never configuration.

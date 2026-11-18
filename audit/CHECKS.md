@@ -215,3 +215,88 @@ A deliberate difference is recorded in the registry with a reason.
 - The modded-link order assumption is mod load order, then case-insensitive
   path. It matches the observed boot 021 failure and the compiling
   Weather/Atmosphere pair. A native compile remains the authority.
+
+## 10. GitHub #161: optional CE composition (offline)
+
+Spec: admit the bundle's own registered CE folders for optional weapon generation
+and installation; name and refuse unknown folders (including unknown
+`hollow-country*` names). Stock and every registered types file retain class
+ownership, including case aliases. Pack installation is sequential and rollback
+is last installed first, restoring exact bytes before bundle rollback.
+
+Plan/tasks: add explicit synthetic behavioral fixtures, record RED, share the
+registration/class checks, update the friend runbook, then run focused tests,
+hygiene and full discovery. Local Banso spec/plan/tasks are under
+`.banso/specs/161-optional-ce/`. The two specification paths referenced by
+AGENTS.md are absent in this checkout. `banso status --output json` could not
+resolve its configured read-only layout; no acceptance gate was advanced.
+
+Actual RED, before implementation:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_optional_ce_composition -v
+ValueError: existing CE extensions need explicit operator reconciliation
+Ran 4 tests in 1.056s
+FAILED (errors=23)
+```
+
+The synthetic fixture installs base, travel, living-pack and loot-boost layers
+through real receipted installers. It exercises each pack alone and both orders,
+all stock/base/travel/living types collision locations, unknown-folder errors at
+both generate and install, and byte-exact pack then bundle rollback. It uses
+invented mod PBOs/classes and tiny XML, never an installed DayZ mission.
+
+Additional packaging RED, before adding the shared helper to the bundle allowlist:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle.FriendBundleTests.test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools -v
+AssertionError: 'tools/package/ce_extensions.py' not found in [exported files]
+Ran 1 test in 0.071s
+FAILED (failures=1)
+```
+
+The assertion above abbreviates only the exported file list. The isolated
+subprocess check now passes without access to the private tools checkout.
+Folder names come from the writers' constants, with strict file-declaration
+validation; no prefix wildcard admits arbitrary folders. Every registered types
+file is read with the existing path/regular-file checks, and collisions are
+rechecked immediately before installation writes.
+
+GREEN:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_optional_ce_composition -v
+Ran 4 tests in 1.621s
+OK
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle.FriendBundleTests.test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools -v
+Ran 1 test in 0.192s
+OK
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_snafu_optional tests.unit.test_tactical_flava_optional tests.unit.test_economy_contract tests.unit.test_v2_optional_overlays tests.unit.test_optional_ce_composition tests.unit.test_friend_bundle -v
+Ran 190 tests in 26.097s
+OK
+python3 -B -m tools.validate.hygiene
+"valid": true
+```
+
+These are offline packaging results. DayZDiag, normal PBO/server testing,
+two-client behavior and 3–6-player budget measurements remain pending. No
+network, Windows or DayZ commands, commits, staging or pushes were performed.
+
+Full discovery GREEN:
+
+```text
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit
+Ran 5605 tests in 535.713s
+OK (skipped=1, expected failures=3)
+```
+
+The suite's one skipped check and three expected failures remain gaps; this fix
+makes no runtime claim from them. The explicit banned-text scan found no pack
+names or IDs in `mods/`, `mission/` or `config/`. `git diff --check` passed.
+
+Discovery metadata identifies the skip as
+`test_package.PackageBehavior.test_native_smoke_verified_copy_rejects_drift_and_overwrite`
+(Windows-only helper execution). The existing expected failures are
+`test_v1_combined_flags.CombinedWorkTests.test_all_modules_tick_within_shared_work_budget`,
+`test_v1_combined_flags.CombinedWorkTests.test_stop_removes_queued_interior_updates_as_well_as_core_tick`,
+and `test_v1_combined_rpc.CombinedRpcTests.test_groups_null_context`.

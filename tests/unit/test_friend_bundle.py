@@ -165,6 +165,21 @@ class FriendBundleTests(unittest.TestCase):
         self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), original)
         self.assertFalse((target / 'hollow-country/events/scene-chains.json').exists())
 
+    def test_bundle_ships_shared_ce_guard_without_requiring_optional_weapon_tools(self):
+        """SYNTHETIC exported tools must import without the private checkout on sys.path."""
+        import subprocess
+        import sys
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        self.assertIn('tools/package/ce_extensions.py', self.files())
+        result = subprocess.run([sys.executable, '-B', '-I', '-c',
+            "import sys; sys.path.insert(0, sys.argv[1]); "
+            "from tools.package import ce_extensions; "
+            "ce_extensions.checked_core(b'<economycore><ce folder=\"hollow-country/ce\">"
+            "<file name=\"types.xml\" type=\"types\"/></ce></economycore>')", str(self.out)],
+            cwd=self.out, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_mission_copy_keeps_config_and_drops_storage_rollback_and_logs(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
