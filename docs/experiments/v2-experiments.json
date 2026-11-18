@@ -31,11 +31,13 @@
       "Method": "LC-T006: read dependency terms and versions; diff cited APIs against the installed build",
       "Required": "Recorded terms, versions, API presence log",
       "Fallback": "Drop the dependency feature",
-      "Verdict": "PENDING",
-      "Build": "",
-      "Date": "",
-      "Evidence": "",
-      "Artifacts": []
+      "Verdict": "FALLBACK",
+      "Build": "1.30.164289",
+      "Date": "2026-11-17",
+      "Evidence": "Expansion AI installed 1.9.84 equals the pinned source commit d84d3c7 (GO for the optional AI addon). DayZ-Bicycle 2971190303 and Ambient Animals Pack 3114410963 (Hunterz) are installed from the Workshop and state no repacks, so both ship only as overlays generated from the operator-installed copy when loaded (accepted FALLBACK: subscription-only, never repacked). Workshop wording re-check hit HTTP 429 and is pending; the Expansion-Animations conflict is an unverified report.",
+      "Artifacts": [
+        "docs/PROVENANCE_AND_LICENSES.md (Optional V2 dependencies)"
+      ]
     },
     {
       "Id": "EXP-A1",

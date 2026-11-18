@@ -50,14 +50,15 @@ class RegisterTests(unittest.TestCase):
         ids = [e['Id'] for e in data['Experiments']]
         self.assertEqual(28, len(ids))
         self.assertEqual(EXPECTED, set(ids))
-        # No native experiment has run: nothing may be recorded as accepted.
-        self.assertEqual({'PENDING'}, {e['Verdict'] for e in data['Experiments']})
+        # No native experiment has run: only EXP-D1, a terms and version review
+        # rather than an engine run, may carry a verdict.
+        self.assertEqual({'PENDING'}, {e['Verdict'] for e in data['Experiments'] if e['Id'] != 'EXP-D1'})
         for entry in data['Experiments']:
             with self.subTest(id=entry['Id']):
                 self.assertTrue(entry['Question'].strip())
                 self.assertTrue(entry['Method'].strip())
                 self.assertTrue(entry['Fallback'].strip())
-                self.assertFalse(ex.qualified(data, entry['Id']))
+                self.assertEqual(entry['Id'] == 'EXP-D1', ex.qualified(data, entry['Id']))
 
     def test_a_verdict_without_build_date_evidence_or_artifacts_is_refused(self):
         for field, bad in (('Build', ''), ('Date', ''), ('Evidence', ''), ('Artifacts', []),
@@ -114,7 +115,7 @@ class RegisterTests(unittest.TestCase):
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(0, ex.main([]))
-        self.assertIn('experiments=28 pending=28 go=0 fallback=0 no-go=0', out.getvalue())
+        self.assertIn('experiments=28 pending=27 go=0 fallback=1 no-go=0', out.getvalue())
         with tempfile.TemporaryDirectory() as folder:
             bad = Path(folder) / 'bad.json'
             data = shipped()

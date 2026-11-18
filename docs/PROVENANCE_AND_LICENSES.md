@@ -47,3 +47,20 @@ remote URLs, heading fragments and complex Markdown need separate review. A hash
 binds scanned bytes; it does not certify authorship, asset rights or an external
 file's provenance. Keep the checkout immutable during validation, particularly on
 hosts without POSIX descriptor-relative no-follow reads.
+
+## Optional V2 dependencies (EXP-D1, 2026-11-17, DayZ 1.30.164289)
+
+Hollow Country never repacks, modifies or redistributes these. Operators subscribe to them on
+the Workshop, and our overlays are generated from the operator's own installed copy at install
+time. Our addons never ship their files.
+
+| Dependency | Workshop id | Author | Installed metadata | Terms as recorded | Use in Hollow Country |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| DayZ Expansion AI | (pinned in the AI addon README) | DayZ Expansion team | 1.9.84, matching the pinned source commit `d84d3c7` | CC BY-NC-ND: no repack, no modification, no copying of sources | Optional AI addon only calls APIs it cites; GO |
+| DayZ-Bicycle | 2971190303 | Hunterz | `meta.cpp` name "DayZ-Bicycle"; ships `Bicycle.pbo` and `0_DayzBicycleDefines.pbo`, signed by its author, plus its own `events.xml` and `cfgeventspawns_Chernarus.xml` | "no repacks"; needs Survivor Animations 2918418331; reportedly conflicts with Expansion-Animations | Optional overlay generated from the installed copy only when loaded; FALLBACK |
+| Ambient Animals Pack | 3114410963 | Hunterz | `meta.cpp` name "Ambient Animals Pack"; ships `AmbientAnimalsPack.pbo` and per-species pbos, signed by its author, with its own territory files | "no repacks"; needs territory and event edits by the operator | Optional overlay generated from the installed copy only when loaded; FALLBACK |
+| Survivor Animations | 2918418331 | Hunterz | `meta.cpp` name "Survivor Animations" | Dependency of DayZ-Bicycle; not used directly | Listed only as the bicycle's dependency |
+
+The terms wording was read from the Workshop pages earlier in the session. A later re-check returned
+HTTP 429, so the wording should be re-read before the friend bundle lists these dependencies. The
+Expansion-Animations conflict is an unverified community report. Nothing here is observed in DayZ.

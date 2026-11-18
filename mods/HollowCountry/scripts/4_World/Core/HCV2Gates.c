@@ -7,7 +7,7 @@
 class HCV2Gates
 {
     // Space-separated ids with a leading and trailing space, for example " EXP-A1 EXP-T3 ".
-    static const string QUALIFIED = " ";
+    static const string QUALIFIED = " EXP-D1 ";
 
     static bool Qualified(string id)
     {
