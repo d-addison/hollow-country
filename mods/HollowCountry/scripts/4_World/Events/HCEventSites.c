@@ -2,9 +2,30 @@
 // Bounded DATA REVIEW, 2026-11-17, of two stock ChernarusPlus placements.
 // Source: dayzOffline.chernarusplus/mapgrouppos.xml, SHA-256 below.
 // No field survey, clearance, destination-container or loot guarantee exists.
-// These candidates require events.enable and in-world validation. No spawning.
+// Police supply barrels additionally require events_sites.enable. Their placement is
+// derived only: (+8 east, +8 north), terrain projected by the existing cache spawner.
+// No field clearance/door/path acceptance is implied; Surveyed stays false.
 class HCEventSites
 {
+    // Reuse only the two exact source-reviewed defaults. Operator coordinates/classes
+    // remain authoritative; an edited site does not silently acquire an unreviewed spawn.
+    static bool PoliceSupplies(HCEventMission mission)
+    {
+        if (!mission || mission.RewardCache) { return false; }
+        if (mission.Family != HCEventFamily.RECOVERY && mission.Family != HCEventFamily.DELIVERY && mission.Family != HCEventFamily.STATIC_SALVAGE) { return false; }
+        array<ref HCEventSite> defaults = ChernarusPlus();
+        foreach (HCEventSite site : defaults)
+        {
+            string wanted = site.ItemClass;
+            if (mission.Family == HCEventFamily.DELIVERY) { wanted = site.DeliveryClass; }
+            if (mission.Family == HCEventFamily.STATIC_SALVAGE) { wanted = site.SalvageClass; }
+            if (mission.SiteId == site.Id && mission.Id == site.Id + "-" + mission.Family.ToString() && mission.WorldName == site.WorldName && mission.Source == site.Position && mission.Destination == site.Destination && mission.ItemClass == wanted && mission.ContainerClass == site.ContainerClass && mission.AnchorClass == site.AnchorClass)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     static array<ref HCEventSite> ChernarusPlus()
     {
         array<ref HCEventSite> sites = new array<ref HCEventSite>();

@@ -101,12 +101,15 @@ class FakeGame:
             return None
         cache = Handle(identity="", position=list(position), kind=kind)
         cache.flags = flags
+        cache.Open = lambda: None
+        cache.SetSynchDirty = lambda: None
         game = self
 
         def cargo(name):
             if not game.cargo_ok:
                 return None
-            item = Handle(identity="", kind=name)
+            item = Handle(identity="", position=list(position), kind=name)
+            item.parent = cache
             cache.contents.append(name)
             return item
         cache.contents = []
@@ -647,18 +650,18 @@ class BindDiagnosticTests(unittest.TestCase):
             self.assertFalse(self.binder.Bind(self.f.o, self.mission))
         self.assertEqual(["[HC Events] bind failed; %s; reason=ambiguous" % self.mission.Id], self.bind_lines())
 
-    def test_infected_clear_reports_zero_and_multiple_candidates(self):
+    def test_infected_clear_retries_zero_then_accepts_multiple_candidates(self):
         self.mission.Family = 7
         self.assertFalse(self.binder.Bind(self.f.o, self.mission))
         def zombie():
             actor = Handle(identity="", kind="SyntheticZombie")
             actor.HCEventEconomyCandidate = lambda: True
+            actor.GetID = lambda: id(actor)  # Explicit synthetic stable entity id.
             return actor
         self.objects = [zombie(), zombie()]
-        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
-        self.assertFalse(self.binder.Bind(self.f.o, self.mission))
-        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate" % self.mission.Id,
-                          "[HC Events] bind failed; %s; reason=ambiguous" % self.mission.Id], self.bind_lines())
+        self.assertTrue(self.binder.Bind(self.f.o, self.mission))
+        self.assertTrue(self.binder.Bind(self.f.o, self.mission))
+        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate" % self.mission.Id], self.bind_lines())
 
     def test_a_new_reason_for_the_same_mission_is_reported_again(self):
         self.assertFalse(self.binder.Bind(self.f.o, self.mission))

@@ -104,30 +104,60 @@ class HCEventWorldBinding
         }
         return true;
     }
+    // Stable native references survive retries, pickup/drop and existing leases.
+    // Shared barrel cargo is never discarded or replenished after registration failure.
+    static bool BindPolice(HCEventNativeObserver observer, HCEventMission mission)
+    {
+        if (!HCEventSitesGate.Admitted()) { return false; }
+        HCEventTarget current = observer.Target(mission.Id);
+        if (current)
+        {
+            if (mission.Family == HCEventFamily.DELIVERY && !current.DeliveryContainer)
+            {
+                HCEventTarget pending = HCEventCacheSpawner.PoliceTarget(mission.Id);
+                return pending && observer.RegisterContainer(mission.Id, pending.DeliveryContainer);
+            }
+            return true;
+        }
+        HCEventTarget supply = HCEventCacheSpawner.CreatePolice(mission);
+        if (!supply)
+        {
+            s_FailReason = "police_supply_unavailable";
+            return BindFailed(mission);
+        }
+        if (!observer.RegisterTarget(mission.Id, supply.Item)) { return false; }
+        if (mission.Family == HCEventFamily.DELIVERY && !observer.RegisterContainer(mission.Id, supply.DeliveryContainer)) { return false; }
+        Print("[HC Events] police supply bound; " + mission.Id);
+        return true;
+    }
     static bool Bind(HCEventNativeObserver observer, HCEventMission mission)
     {
         if (!observer || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName) || !HCEventQualification.Admitted()) { return false; }
         if (mission.Family == HCEventFamily.INVESTIGATION) { return true; }
         if (mission.Family == HCEventFamily.AI_ENCOUNTER) { return false; }
         if (mission.RewardCache) { return BindCache(observer, mission); }
+        if (HCEventSites.PoliceSupplies(mission)) { return BindPolice(observer, mission); }
         if (!observer.ResetUnleasedTarget(mission.Id)) { return true; }
         s_FailReason = "";
         array<Object> nearby = Query(mission.Source, 15);
         if (!nearby) { return BindFailed(mission); }
         if (mission.Family == HCEventFamily.INFECTED_CLEAR)
         {
+            // Native: EnConvert.c:210 DistanceSq; EnEntity.c:518 unique GetID.
+            // Query order is unspecified: nearest first, native entity id breaks ties.
             ZombieBase selected;
+            float nearest = 0;
             foreach (Object candidate : nearby)
             {
                 ZombieBase infected = ZombieBase.Cast(candidate);
                 if (infected && infected.HCEventEconomyCandidate() && infected.IsAlive() && !infected.IsPendingDeletion())
                 {
-                    if (selected)
+                    float distance = vector.DistanceSq(infected.GetPosition(), mission.Source);
+                    if (!selected || distance < nearest || (distance == nearest && infected.GetID() < selected.GetID()))
                     {
-                        s_FailReason = "ambiguous";
-                        return BindFailed(mission);
+                        selected = infected;
+                        nearest = distance;
                     }
-                    selected = infected;
                 }
             }
             if (!selected)
