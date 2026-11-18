@@ -28,14 +28,21 @@ class HCInfectedLODConfig
     bool EnableLOD = true;
     // New bodies change visible infected counts near herds: off by default.
     bool EnableVirtualHerds = false;
-    float FullRange = 150;
-    float IdleRange = 450;
+    // Provisional design bands, not measured hearing cutoffs. The repo's
+    // LOCAL_ACCEPTANCE_V1.md:413 documents the 1000 m visibility/network
+    // baseline; OUTSTANDING.md:78 calls for the same gunshot/network scale.
+    // mission/hollow-country/ai/README.md:221-222 uses a 300 m near-threat
+    // setting; transferring that to full infected AI is a design assumption.
+    // Idle extends through the provisional 1000 m bubble.
+    float FullRange = 300;
+    float IdleRange = 1000;
     float MinSpawnDistance = 120;
-    float MaterializeRange = 350;
-    float FoldRange = 450;
-    // Provisional: matches the stock serverDZ.cfg far network range; see the
-    // #135 procedure in docs/LOCAL_ACCEPTANCE_V1.md before changing it.
-    float VisibilityRange = 1000;
+    float MaterializeRange = 900;
+    float FoldRange = 1000;
+    // Materialize 100 m inside the bubble; fold beyond its edge. Check sight
+    // 500 m farther as a provisional observer margin, never alter serverDZ.
+    // Operators must extend these if measured network/hearing ranges demand it.
+    float VisibilityRange = 1500;
     int ClassifyPerTick = 12;
     int MaxMaterialized = 12;
     int MaxPerHerd = 6;
@@ -65,6 +72,7 @@ class HCInfectedLODConfig
     {
         if (SchemaVersion != 1 || !MemberTypes || !Herds) { return false; }
         if (!HCLODPolicy.ValidRanges(FullRange, IdleRange, MinSpawnDistance, MaterializeRange, FoldRange, VisibilityRange)) { return false; }
+        if (IdleRange > VisibilityRange || MaterializeRange < FullRange || FoldRange < IdleRange) { return false; }
         if (!HCLODPolicy.ValidCaps(ClassifyPerTick, MaxMaterialized, MaxPerHerd, PosedBudget, PosedFullBudget, PosedIdleBudget, Herds.Count())) { return false; }
         if (MaxObservers < 1 || MaxObservers > 8 || RegrowSeconds < 0 || RegrowSeconds > 86400) { return false; }
         if (MemberTypes.Count() > 16 || HerdWorld.Length() > 64) { return false; }
