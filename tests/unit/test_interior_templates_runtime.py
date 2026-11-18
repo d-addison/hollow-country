@@ -177,7 +177,7 @@ def fixture(values=None):
                          PinValid=lambda v:isinstance(v,str) and bool(re.fullmatch('[0-9a-f]{64}',v))),
         HCInteriorRules=NS(**vars(tilt_rules()), TransformKey=lambda p,o:"_".join(str(round(v*100)) for v in p+o),SaneVector=lambda v,n:all(-n<=x<=n for x in v),PlacementAdmitted=lambda:True),
         Vector=lambda x,y,z:[x,y,z], vector=NS(DistanceSq=lambda a,b:sum((x-y)**2 for x,y in zip(a,b))),
-        Math=NS(Min=min,Max=max), Print=logs.append,
+        Math=NS(Min=min,Max=max), Print=logs.append, TickCount=lambda previous:12345,  # SYNTHETIC raw tick delta
         ROOT_PATH='$profile:HollowCountry/templates/',
         HCProfileDefaults=NS(PBO_ROOT='HollowCountry/data/defaults/',
             Resolve=lambda relative, root:'$profile:HollowCountry/'+relative),

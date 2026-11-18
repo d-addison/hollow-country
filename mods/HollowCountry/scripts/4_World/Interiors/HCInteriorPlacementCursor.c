@@ -1,4 +1,5 @@
-// W5-PERF-1. <=1 slot per HCTick call (the module runs <=16 calls/4 ms per tick); cursor advances only after an attempted slot or
+// W5-PERF-1. <=1 slot per HCTick call (the module runs HCTick calls until its shared HCUnitBudget
+// is spent, issue #138: HCLastCost() reports SLOT_UNITS after a creation attempt, else CHEAP_UNITS); cursor advances only after an attempted slot or
 // deliberate refusal. Deferred rows retain catalog references (<=1500), never
 // re-resolve/claim a completed house. No new inventory or persistence state.
 // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:380/389/407
@@ -7,6 +8,11 @@
 // World/HCWorkBudget.c, with their installed signatures cited there.
 class HCInteriorPlacementCursor
 {
+    // Work units charged to the module's HCUnitBudget per HCTick call (issue #138). A slot that
+    // reaches the creation path (Resolve + spawn + collision checks) is the measured burst source.
+    static const int CHEAP_UNITS = 1;
+    static const int SLOT_UNITS = 8;
+    protected int m_LastCost = 1;
     protected int m_Next;
     protected int m_Slot;
     protected int m_HousePlaced;
@@ -20,9 +26,11 @@ class HCInteriorPlacementCursor
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
 
     bool HCComplete() { return m_Complete; }
+    int HCLastCost() { return m_LastCost; }
 
     void HCTick(HCInteriorsModule module, HCSettings settings, array<Object> placed)
     {
+        m_LastCost = CHEAP_UNITS;
         if (m_Complete || !HCInteriorTemplates.Loaded()) { return; }
         m_Budget.HCReset(1);
         if (!m_Budget.HCContinue()) { m_Budget.HCDeferred("Interiors", 1); return; }
@@ -82,6 +90,7 @@ class HCInteriorPlacementCursor
         }
         if (HCInteriorRules.PlacementAdmitted())
         {
+            m_LastCost = SLOT_UNITS;
             int beforeCount = placed.Count();
             if (!HCInteriorTemplatePlacement.HCPlaceRowSlice(module, m_Current, settings, placed, m_Slot, 1, m_Slot, m_HousePlaced))
             {

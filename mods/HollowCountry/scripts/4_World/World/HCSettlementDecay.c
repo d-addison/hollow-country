@@ -333,6 +333,7 @@ class HCSettlementDecay : HCModule
 
 class HCSettlementSaveJob : HCSaveJob
 {
+    override string HCName() { return "SettlementDecay"; }
     HCSettlementDecay Owner;
     override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }

@@ -795,6 +795,9 @@ class HCInteriorTemplates
             return;
         }
         s_Attempted = true;
+        // Issue #138: the load runs once in OnStart, before the HC Perf sampler starts, so it is timed
+        // here (raw EnSystem.c:106 TickCount units, compare with ticks_per_ms in the first [HC Perf] line).
+        int loadStart = TickCount(0);
         if (maxProps < 1 || maxProps > 20)
 
         {
@@ -950,6 +953,7 @@ class HCInteriorTemplates
             return;
         }
         s_Loaded = true;
-        Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Files.ToString() + " bytes=" + s_Bytes.ToString());
+        int loadTicks = TickCount(loadStart);
+        Print("[HC Interiors] templates provisional; native clearance/path/audio/replication acceptance pending; files=" + s_Files.ToString() + " bytes=" + s_Bytes.ToString() + " load_ticks=" + loadTicks.ToString());
     }
 }

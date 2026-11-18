@@ -8,10 +8,22 @@ class HCEcologyRuntimeRules
 {
 	static const int REGISTRY_ACTORS = 256;
 	static const int REGISTRY_RESOURCES = 2048;
-	// Per observation tick: distance-only pair checks and native path probes,
-	// both also stopped by the shared HCWorkBudget 4 ms cooperative guard.
+	// Per observation CYCLE: distance-only pair checks and native path probes. The cycle is spread
+	// over module ticks (issue #138): one stage per tick, and the PROBE stage spends at most
+	// PROBE_UNITS_PER_TICK shared HCUnitBudget units per tick (1 per pair, PROBE_PATH_UNITS per probe).
 	static const int PAIRS_PER_TICK = 512;
 	static const int PROBES_PER_TICK = 2;
+	static const int PROBE_UNITS_PER_TICK = 256;
+	static const int PROBE_PAIR_UNITS = 1;
+	// A native path probe cannot be preempted and its cost is unmeasured, so it is charged a whole
+	// slice: at most one probe per module tick, never two chained in one tick.
+	static const int PROBE_PATH_UNITS = 256;
+	// Cycle stage machine; HCEcologyRuntime runs exactly one stage per module tick.
+	static const int STAGE_IDLE = 0;
+	static const int STAGE_PRUNE = 1;
+	static const int STAGE_SAMPLE = 2;
+	static const int STAGE_PROBE = 3;
+	static const int STAGE_SAVE = 4;
 
 	static bool Finite(float value)
 	{

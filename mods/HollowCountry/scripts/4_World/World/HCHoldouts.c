@@ -744,6 +744,7 @@ modded class PlayerBase
 
 class HCHoldoutSaveJob : HCSaveJob
 {
+    override string HCName() { return "Holdouts"; }
     HCHoldouts Owner;
     override bool HCWrite() { return Owner && Owner.HCFlushCatalog(); }
 }

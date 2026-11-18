@@ -66,21 +66,41 @@ class HCPerfPlayers
 // Only routine checkpoints belong here. Creation, spend, inventory/provenance
 // and claim/result durability barriers MUST remain synchronous until their
 // callers have durable continuation state. Shutdown bypasses staggering.
+// Issue #138: a routine save may span several module ticks. HCStep() runs ONE bounded stage and
+// reports whether more stages follow; the default is the unchanged single whole write.
 class HCSaveJob
 {
+    static const int STEP_DONE = 0;
+    static const int STEP_MORE = 1;
+    static const int STEP_FAILED = 2;
     bool HCDirty;
     float HCDue;
+    bool HCInFlight;
+    int HCPeakTicks;   // slowest stage logged so far; the [HC Save] line prints only on a new peak
+    string HCName() { return "job"; }
     bool HCWrite() { return false; }
+    int HCStep()
+    {
+        if (HCWrite()) { return STEP_DONE; }
+        return STEP_FAILED;
+    }
 }
 
-// Bound: <=32 registered stores examined, ONE whole-store callback per tick.
-// Existing verified intent/backup/copy writers remain authoritative. Native
+// Bound: <=32 registered stores examined, ONE save STAGE per tick (a single-step job is one whole
+// store; a staged job such as WorldSaves spans several ticks and is never interleaved with another
+// job's stage). Existing verified intent/backup/copy writers remain authoritative. Native
 // copy/JSON calls have no cancellation API; this does not promise a 5 ms save.
+// Per-job new-peak save timing is logged as '[HC Save] job=.. stages=.. max_stage_ticks=.. total_ticks=..'
+// in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line).
 class HCSaveScheduler : HCModule
 {
     protected static ref array<ref HCSaveJob> s_Jobs = new array<ref HCSaveJob>;
     protected int m_Next;
     protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+    protected HCSaveJob m_Active;
+    protected int m_Stages;
+    protected int m_StageMax;
+    protected int m_TotalTicks;
 
     override string GetName() { return "WorldSaves"; }
     override bool IsEnabled(HCSettings settings) { return settings != null; }
@@ -93,10 +113,20 @@ class HCSaveScheduler : HCModule
         s_Jobs.Insert(job);
     }
 
+    // Synchronous path (shutdown, barriers): finishes every remaining stage in this call. A job
+    // that never reports completion is abandoned after 16 stages and reported as failed.
     static bool HCFlush(HCSaveJob job)
     {
-        if (!job || !job.HCDirty) { return true; }
-        if (!job.HCWrite()) { return false; }
+        if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
+        int result = HCSaveJob.STEP_MORE;
+        int guard = 0;
+        while (result == HCSaveJob.STEP_MORE && guard < 16)
+        {
+            result = job.HCStep();
+            guard = guard + 1;
+        }
+        job.HCInFlight = false;
+        if (result != HCSaveJob.STEP_DONE) { return false; }
         job.HCDirty = false;
         job.HCDue = GetGame().GetTickTime() + 60;
         return true;
@@ -108,10 +138,53 @@ class HCSaveScheduler : HCModule
         if (index >= 0) { s_Jobs.Remove(index); }
     }
 
+    // Runs ONE stage of a job and keeps it as the active job until it reports completion.
+    protected void HCRunStep(HCSaveJob job, float now)
+    {
+        int started = TickCount(0);
+        int result = job.HCStep();
+        int ticks = TickCount(started);
+        m_Stages = m_Stages + 1;
+        m_TotalTicks = m_TotalTicks + ticks;
+        if (ticks > m_StageMax) { m_StageMax = ticks; }
+        if (result == HCSaveJob.STEP_MORE)
+        {
+            job.HCInFlight = true;
+            m_Active = job;
+            return;
+        }
+        job.HCInFlight = false;
+        m_Active = null;
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            job.HCDirty = false;
+            job.HCDue = now + 60;
+            if (m_StageMax > job.HCPeakTicks)
+            {
+                job.HCPeakTicks = m_StageMax;
+                Print("[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString() + "; runtime acceptance pending");
+            }
+        }
+        else
+        {
+            // Faulted writer preserves its intent; no every-tick retry.
+            HCUnregister(job);
+        }
+        m_Stages = 0;
+        m_StageMax = 0;
+        m_TotalTicks = 0;
+    }
+
     override void OnTick(float deltaTime)
     {
         if (s_Jobs.Count() == 0) { return; }
         float now = GetGame().GetTickTime();
+        if (m_Active && (!m_Active.HCInFlight || s_Jobs.Find(m_Active) < 0)) { m_Active = null; }
+        if (m_Active)
+        {
+            HCRunStep(m_Active, now);
+            return;
+        }
         m_Budget.HCReset(32);
         int examined = 0;
         while (examined < s_Jobs.Count() && m_Budget.HCContinue())
@@ -121,11 +194,7 @@ class HCSaveScheduler : HCModule
             m_Next = m_Next + 1;
             examined = examined + 1;
             if (!job.HCDirty || now < job.HCDue) { continue; }
-            if (!HCFlush(job))
-            {
-                // Faulted writer preserves its intent; no every-tick retry.
-                HCUnregister(job);
-            }
+            HCRunStep(job, now);
             return;
         }
         m_Budget.HCDeferred(GetName(), s_Jobs.Count() - examined);

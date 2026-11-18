@@ -10,11 +10,14 @@
 // Registry ceilings: HCEcologyRuntimeRules.REGISTRY_ACTORS (256) and
 // REGISTRY_RESOURCES (2048), fixed, sized for the shipped vanilla CE cohort;
 // settings MaxActors/MaxResources bound only the per-tick batch/policy (<=32).
-// Per 5s default tick: <=8+8 samples, <=PAIRS_PER_TICK (512) distance checks
-// and <=min(MaxPathQueries, PROBES_PER_TICK=2) native path probes, all behind
-// the shared World/HCWorkBudget guard (4 ms cooperative; native FindPath is not
-// preemptible) with cursors retained before yielding; cleanup <=256+2048
-// bindings and <=8 intents. Hooks flag bound entities, so EEInit never scans for
+// Issue #138: one observation CYCLE (every TickMs) is split into stages and the module tick runs
+// exactly ONE stage per call, so no HC tick does a full pass: PRUNE (cleanup <=256+2048 bindings and
+// <=8 intents), SAMPLE (<=SampleSlice actors + resources, policy), PROBE x2 (<=PROBE_UNITS_PER_TICK
+// work units per tick from the shared core HCUnitBudget: 1 per distance-only pair, PROBE_PATH_UNITS
+// per native path probe; a cycle still examines <=PAIRS_PER_TICK (512) pairs and issues <=
+// min(MaxPathQueries, PROBES_PER_TICK=2) probes, the cursors resume where the last slice stopped) and
+// SAVE (the checkpoint, only once per minute). The cycle period is max(TickMs, stage ticks).
+// Hooks flag bound entities, so EEInit never scans for
 // duplicates and EEDelete of unbound items never scans. No population/player scan.
 class HCEcologyLiveBinding
 {
@@ -52,7 +55,13 @@ class HCEcologyRuntime
 	protected int m_ActorSample;
 	protected int m_ResourceSample;
 	protected string m_Session;
-	protected ref HCWorkBudget m_Budget = new HCWorkBudget;
+	// Cycle stage machine (HCEcologyRuntimeRules.STAGE_*) and the totals one cycle carries between stages.
+	protected int m_Stage;
+	protected int m_CycleSamples;
+	protected int m_CycleExamined;
+	protected int m_CycleQueries;
+	protected bool m_ProbeDone;
+	protected ref HCUnitBudget m_Units = new HCUnitBudget;
 
 	static HCEcologyRuntime Instance()
 	{
@@ -240,6 +249,11 @@ class HCEcologyRuntime
 		m_ActorSample = 0;
 		m_ResourceSample = 0;
 		m_Dirty = false;
+		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
+		m_CycleSamples = 0;
+		m_CycleExamined = 0;
+		m_CycleQueries = 0;
+		m_ProbeDone = false;
 		m_Intents.Clear();
 		m_Collecting = true;
 		m_Running = true;
@@ -267,8 +281,25 @@ class HCEcologyRuntime
 			return;
 		}
 		m_LastNow = nowMs;
-		if (!HCEcologyRuntimeRules.TickDue(nowMs, m_LastTick, m_Settings.TickMs)) { return; }
-		m_LastTick = nowMs;
+		if (m_Stage == HCEcologyRuntimeRules.STAGE_IDLE)
+		{
+			if (!HCEcologyRuntimeRules.TickDue(nowMs, m_LastTick, m_Settings.TickMs)) { return; }
+			m_LastTick = nowMs;
+			m_Stage = HCEcologyRuntimeRules.STAGE_PRUNE;
+			m_CycleSamples = 0;
+			m_CycleExamined = 0;
+			m_CycleQueries = 0;
+			m_ProbeDone = false;
+		}
+		// Exactly one stage per module tick; each stage is bounded on its own.
+		if (m_Stage == HCEcologyRuntimeRules.STAGE_PRUNE) { StagePrune(nowMs); return; }
+		if (m_Stage == HCEcologyRuntimeRules.STAGE_SAMPLE) { StageSample(nowMs); return; }
+		if (m_Stage == HCEcologyRuntimeRules.STAGE_PROBE) { StageProbe(nowMs); return; }
+		if (m_Stage == HCEcologyRuntimeRules.STAGE_SAVE) { StageSave(nowMs); }
+	}
+
+	void StagePrune(int nowMs)
+	{
 		RemoveFrom(m_Actors, null);
 		RemoveFrom(m_Resources, null);
 		int i = m_Intents.Count() - 1;
@@ -277,6 +308,12 @@ class HCEcologyRuntime
 			if (!HCEcologyRuntimeRules.IntentValid(m_Intents.Get(i), m_Policy.WorldName, m_Session, nowMs, m_Settings.Radius)) { m_Intents.Remove(i); }
 			i--;
 		}
+		m_Stage = HCEcologyRuntimeRules.STAGE_SAMPLE;
+	}
+
+	void StageSample(int nowMs)
+	{
+		int i;
 		HCEcologyObservationBatch batch = new HCEcologyObservationBatch;
 		batch.WorldName = m_Policy.WorldName;
 		batch.SessionId = m_Session;
@@ -344,28 +381,40 @@ class HCEcologyRuntime
 		{
 			code = HCEcologyRules.Commit(m_State, m_Policy, directives, receipts, nowMs, capabilities);
 		}
-		int queries = ProbeCohort(nowMs);
-		if (!HCEcologyRuntimeRules.CountersFit(m_Checkpoint, batch.Actors.Count(), queries))
+		m_CycleSamples = batch.Actors.Count();
+		m_Stage = HCEcologyRuntimeRules.STAGE_PROBE;
+	}
+
+	void StageProbe(int nowMs)
+	{
+		ProbeCohort(nowMs);
+		if (!m_ProbeDone) { return; }
+		if (!HCEcologyRuntimeRules.CountersFit(m_Checkpoint, m_CycleSamples, m_CycleQueries))
 		{
 			Print("[HC Ecology] bounded diagnostic counters exhausted");
 			Finish();
 			return;
 		}
-		m_Checkpoint.Samples += batch.Actors.Count();
-		m_Checkpoint.PathQueries += queries;
+		m_Checkpoint.Samples += m_CycleSamples;
+		m_Checkpoint.PathQueries += m_CycleQueries;
 		// Only persisted counters changed here. An empty sample/path pass is
 		// not a new checkpoint and must not rewrite the journal every minute.
-		if (batch.Actors.Count() > 0 || queries > 0) { m_Dirty = true; }
-		if (nowMs - m_LastSave >= 60000)
+		if (m_CycleSamples > 0 || m_CycleQueries > 0) { m_Dirty = true; }
+		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
+		if (nowMs - m_LastSave >= 60000) { m_Stage = HCEcologyRuntimeRules.STAGE_SAVE; }
+	}
+
+	// The checkpoint write gets a module tick of its own.
+	void StageSave(int nowMs)
+	{
+		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
+		if (!Checkpoint())
 		{
-			if (!Checkpoint())
-			{
-				// The failed store is poisoned; release handles without retrying it.
-				m_Running = false;
-				Finish();
-			}
-			m_LastSave = nowMs;
+			// The failed store is poisoned; release handles without retrying it.
+			m_Running = false;
+			Finish();
 		}
+		m_LastSave = nowMs;
 	}
 
 	HCEcologyZoneObservation Zone(string id, int kind, int nowMs)
@@ -393,34 +442,37 @@ class HCEcologyRuntime
 		}
 	}
 
+	// One bounded SLICE of the cycle's pair/probe pass (the PROBE stage calls it once per module tick
+	// until m_ProbeDone). Returns the probes issued by this slice; m_CycleExamined / m_CycleQueries
+	// carry the cycle totals, so a cycle still examines <=PAIRS_PER_TICK pairs and issues <=queryLimit
+	// probes. Work units come from the shared core HCUnitBudget (no clock): a pair costs
+	// PROBE_PAIR_UNITS, a native path probe PROBE_PATH_UNITS, a slice has PROBE_UNITS_PER_TICK.
 	int ProbeCohort(int nowMs)
 	{
+		m_ProbeDone = true;
 		int actorCount = m_Actors.Count();
 		int resourceCount = m_Resources.Count();
 		if (actorCount == 0 || resourceCount == 0) { return 0; }
 		int queries = 0;
-		int examined = 0;
 		// <=256*2048 pairs, so the product cannot overflow int.
 		int totalPairs = actorCount * resourceCount;
 		int pairLimit = Math.Min(totalPairs, HCEcologyRuntimeRules.PAIRS_PER_TICK);
 		int queryLimit = Math.Min(m_Settings.MaxPathQueries, HCEcologyRuntimeRules.PROBES_PER_TICK);
 		m_ActorCursor = m_ActorCursor % actorCount;
 		m_ResourceCursor = m_ResourceCursor % resourceCount;
-		// Pair examinations and native path queries have independent budgets; the
-		// shared guard is consulted BEFORE each pair, so the cursors always name the
-		// NEXT unexamined pair when this tick yields, and the next tick resumes there.
-		m_Budget.HCReset(HCEcologyRuntimeRules.PAIRS_PER_TICK);
-		bool yielded = false;
-		while (examined < pairLimit && queries < queryLimit)
+		// The unit budget is consulted BEFORE each pair, so the cursors always name the NEXT
+		// unexamined pair when this slice yields, and the next module tick resumes there.
+		m_Units.HCReset(HCEcologyRuntimeRules.PROBE_UNITS_PER_TICK);
+		while (m_CycleExamined < pairLimit && m_CycleQueries + queries < queryLimit)
 		{
-			if (!m_Budget.HCContinue())
+			if (!m_Units.HCTake(HCEcologyRuntimeRules.PROBE_PAIR_UNITS))
 			{
-				yielded = true;
+				m_ProbeDone = false;
 				break;
 			}
 			HCEcologyLiveBinding actor = m_Actors.Get(m_ActorCursor);
 			HCEcologyLiveBinding resource = m_Resources.Get(m_ResourceCursor);
-			examined++;
+			m_CycleExamined++;
 			m_ResourceCursor++;
 			if (m_ResourceCursor >= resourceCount)
 			{
@@ -442,10 +494,12 @@ class HCEcologyRuntime
 			bool room = HCEcologyRuntimeRules.Capacity(m_Intents, actorId, resourceId, nowMs, 8);
 			if (kind == 0 || !actor.Live.IsAlive() || !room) { continue; }
 			queries++;
+			m_Units.HCCharge(HCEcologyRuntimeRules.PROBE_PATH_UNITS);
 			HCEcologyRouteIntent intent = HCEcologyNative.ProbePath(actor.Live, resource.Live, actorId, resourceId, kind, m_Settings, m_Policy.WorldName, m_Session, nowMs);
 			if (intent) { m_Intents.Insert(intent); }
 		}
-		if (yielded) { m_Budget.HCDeferred("Ecology", pairLimit - examined); }
+		m_CycleQueries = m_CycleQueries + queries;
+		if (m_CycleExamined >= pairLimit || m_CycleQueries >= queryLimit) { m_ProbeDone = true; }
 		return queries;
 	}
 
@@ -479,6 +533,7 @@ class HCEcologyRuntime
 		bool wasRunning = m_Running;
 		m_Running = false;
 		m_Collecting = false;
+		m_Stage = HCEcologyRuntimeRules.STAGE_IDLE;
 		if (wasRunning) { Checkpoint(); }
 		m_Dirty = false;
 		m_Intents.Clear();

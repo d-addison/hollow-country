@@ -1,4 +1,5 @@
-// W5-PERF bound: one furnishing prop attempt per module tick; maintenance
+// W5-PERF bound: furnishing attempts per module tick are limited by a deterministic work-unit
+// budget (HCUnitBudget, FURNISH_UNITS_PER_TICK, issue #138); maintenance
 // alternates house/pilot recycle/compaction over four ticks each minute.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:1120 IsServer;
 // 1_Core/proto/EnMath.c:553 Min; EnSystem.c:397 FileExist; EnDebug.c:96 Print.
@@ -7,7 +8,10 @@ modded class HCInteriorsModule
 {
     protected int m_FurnishedLimit;
     protected ref HCInteriorPlacementCursor m_FurnishWork = new HCInteriorPlacementCursor;
-    protected ref HCWorkBudget m_FurnishBudget = new HCWorkBudget;
+    // Units per module tick: 3 creation attempts (SLOT_UNITS=8) or 24 cheap deferrals/refusals.
+    // The previous 16-slot count with a 4 ms clock guard measured 80-135 ms ticks.
+    static const int FURNISH_UNITS_PER_TICK = 24;
+    protected ref HCUnitBudget m_FurnishUnits = new HCUnitBudget;
     protected int m_MaintenancePhase;
     protected float m_SearchRecycleElapsed;
 
@@ -41,14 +45,16 @@ modded class HCInteriorsModule
         bool maintenanceDue = m_MaintenancePhase > 0 || m_SearchRecycleElapsed >= 60.0;
         if (!maintenanceDue)
         {
-            // Review P1: one slot per module tick took ~7500 ticks for the
-            // 1500-row catalog. Run up to 16 slots per tick within a 4 ms slice.
+            // Review P1: one slot per module tick took ~7500 ticks for the 1500-row catalog, so
+            // several slots run per tick, bounded by work units (no clock): the first slot is always
+            // admitted, a creation attempt charges SLOT_UNITS, a cheap deferral CHEAP_UNITS.
             if (HCInteriorTemplates.Loaded() && !m_FurnishWork.HCComplete())
             {
-                m_FurnishBudget.HCReset(16);
-                while (!m_FurnishWork.HCComplete() && m_FurnishBudget.HCContinue())
+                m_FurnishUnits.HCReset(FURNISH_UNITS_PER_TICK);
+                while (!m_FurnishWork.HCComplete() && m_FurnishUnits.HCTake(HCInteriorPlacementCursor.CHEAP_UNITS))
                 {
                     m_FurnishWork.HCTick(this, settings, m_Objects);
+                    m_FurnishUnits.HCCharge(m_FurnishWork.HCLastCost() - HCInteriorPlacementCursor.CHEAP_UNITS);
                 }
             }
             return;

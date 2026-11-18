@@ -110,6 +110,9 @@ class HCWorldModule : HCModule
         if (!m_Running) { return; }
         s_Instance = null;
         m_Running = false;
+        // A staged checkpoint already in flight finishes first (its snapshot is valid); changes made
+        // after that snapshot re-set m_Dirty and are written by the second, whole flush.
+        if (m_SaveJob.HCInFlight) { HCSaveScheduler.HCFlush(m_SaveJob); }
         if (m_Dirty) { m_SaveJob.HCDirty = true; }
         HCSaveScheduler.HCFlush(m_SaveJob);
         HCSaveScheduler.HCUnregister(m_SaveJob);
@@ -121,6 +124,22 @@ class HCWorldModule : HCModule
         m_Dirty = false;
         m_StepsSinceSave = 0;
         return true;
+    }
+
+    // Issue #138: one stage of the routine checkpoint per scheduler tick (serialize | verify prior |
+    // commit). The serialized snapshot is taken by the first stage, so the dirty flag is cleared there:
+    // a change made while the later stages run sets m_Dirty again and is saved by the next checkpoint.
+    int HCStepRoutine()
+    {
+        bool starting = !m_Store.SaveInFlight();
+        int result = m_Store.SaveStep(m_Data);
+        if (starting && result == HCSaveJob.STEP_MORE)
+        {
+            m_Dirty = false;
+            m_StepsSinceSave = 0;
+        }
+        if (result == HCSaveJob.STEP_FAILED) { m_Dirty = true; }
+        return result;
     }
 
     // A row means one faction, hold-out or abstract party. Store serialization
@@ -514,7 +533,13 @@ class HCWorldModule : HCModule
 class HCWorldSaveJob : HCSaveJob
 {
     HCWorldModule Owner;
+    override string HCName() { return "World"; }
     override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
+    override int HCStep()
+    {
+        if (!Owner) { return HCSaveJob.STEP_FAILED; }
+        return Owner.HCStepRoutine();
+    }
 }
 
 modded class HCModuleRegistry

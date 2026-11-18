@@ -207,6 +207,7 @@ class HCEscalationClock : HCModule
 
 class HCEscalationSaveJob : HCSaveJob
 {
+    override string HCName() { return "EscalationClock"; }
     HCEscalationClock Owner;
     override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }

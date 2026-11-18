@@ -37,6 +37,9 @@ class HCWorldStore
     protected bool m_Fresh;
     protected bool m_Fault;
     protected string m_VerifiedText;
+    protected int m_SaveStage;
+    protected string m_PendText;
+    protected string m_PendPrior;
 
     bool Prepare()
     {
@@ -183,37 +186,99 @@ class HCWorldStore
         return false;
     }
 
-    bool Save(HCWorldData data)
+    // JSON serialization of the validated ledger; "" when the serializer or the size cap refuses.
+    static string Encode(HCWorldData data)
     {
-        if (m_Fault) { return false; }
-        if (!HCWorldData.Valid(data)) { return Fault(); }
         string text;
         string error;
-        if (!JsonFileLoader<HCWorldData>.MakeData(data, text, error) || text.Length() > MAX_BYTES) { return Fault(); }
-        // Load marks corrupt/interrupted state fresh. Never copy that primary
-        // over a good backup, and never automatically restore a prior world.
-        string prior;
-        if (!m_Fresh && !m_KeepBackup && FileExist(m_Path))
+        if (!JsonFileLoader<HCWorldData>.MakeData(data, text, error) || text.Length() > MAX_BYTES) { return ""; }
+        return text;
+    }
+
+    bool SaveInFlight() { return m_SaveStage != 0; }
+
+    protected int SaveFailed()
+    {
+        m_SaveStage = 0;
+        m_PendText = "";
+        m_PendPrior = "";
+        Fault();
+        return HCSaveJob.STEP_FAILED;
+    }
+
+    // Issue #138: one bounded stage of a checkpoint per call (HCSaveScheduler runs one stage per tick).
+    //   stage 0: validate + serialize the SNAPSHOT (no file I/O).
+    //   stage 1: read the primary image and compare it with the exact verified image (no write).
+    //   stage 2: the unchanged commit sequence, in ONE call, because the temp image is the durability
+    //            intent: a crash with it present is rejected on the next load, so it is never left
+    //            standing across ticks.
+    // Same files, same order, same fault handling as the former whole-store Save.
+    int SaveStep(HCWorldData data)
+    {
+        if (m_Fault)
         {
-            prior = Read(m_Path);
-            // Compare with the exact image validated on load/last write. This
-            // preserves external-edit refusal without reparsing every old key
-            // and every DTO during each checkpoint (W5-PERF-2).
-            if (prior == "" || prior != m_VerifiedText) { return Fault(); }
+            m_SaveStage = 0;
+            m_PendText = "";
+            m_PendPrior = "";
+            return HCSaveJob.STEP_FAILED;
         }
-        if (!Write(m_Temp, text)) { return Fault(); }
+        if (m_SaveStage == 0)
+        {
+            if (!HCWorldData.Valid(data)) { return SaveFailed(); }
+            m_PendText = Encode(data);
+            if (m_PendText == "") { return SaveFailed(); }
+            m_PendPrior = "";
+            m_SaveStage = 1;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_SaveStage == 1)
+        {
+            // Load marks corrupt/interrupted state fresh. Never copy that primary
+            // over a good backup, and never automatically restore a prior world.
+            if (!m_Fresh && !m_KeepBackup && FileExist(m_Path))
+            {
+                m_PendPrior = Read(m_Path);
+                // Compare with the exact image validated on load/last write. This
+                // preserves external-edit refusal without reparsing every old key
+                // and every DTO during each checkpoint (W5-PERF-2).
+                if (m_PendPrior == "" || m_PendPrior != m_VerifiedText) { return SaveFailed(); }
+            }
+            m_SaveStage = 2;
+            return HCSaveJob.STEP_MORE;
+        }
+        string text = m_PendText;
+        string prior = m_PendPrior;
+        m_SaveStage = 0;
+        m_PendText = "";
+        m_PendPrior = "";
+        if (!Write(m_Temp, text)) { return SaveFailed(); }
         if (prior != "")
         {
-            if (FileExist(m_Backup) && !DeleteFile(m_Backup)) { return Fault(); }
-            if (!CopyFile(m_Path, m_Backup) || Read(m_Backup) != prior) { return Fault(); }
+            if (FileExist(m_Backup) && !DeleteFile(m_Backup)) { return SaveFailed(); }
+            if (!CopyFile(m_Path, m_Backup) || Read(m_Backup) != prior) { return SaveFailed(); }
         }
         // No guessed rename call: intent remains until copy and readback pass.
         // A crash at any point below makes the next load reject the image.
-        if (FileExist(m_Path) && !DeleteFile(m_Path)) { return Fault(); }
-        if (!CopyFile(m_Temp, m_Path) || Read(m_Path) != text) { return Fault(); }
-        if (!DeleteFile(m_Temp)) { return Fault(); }
+        if (FileExist(m_Path) && !DeleteFile(m_Path)) { return SaveFailed(); }
+        if (!CopyFile(m_Temp, m_Path) || Read(m_Path) != text) { return SaveFailed(); }
+        if (!DeleteFile(m_Temp)) { return SaveFailed(); }
         m_Fresh = false;
         m_VerifiedText = text;
-        return true;
+        return HCSaveJob.STEP_DONE;
+    }
+
+    // Synchronous whole save: the same stages back to back (shutdown and barrier callers).
+    bool Save(HCWorldData data)
+    {
+        if (m_Fault) { return false; }
+        m_SaveStage = 0;
+        int result = HCSaveJob.STEP_MORE;
+        int guard = 0;
+        while (result == HCSaveJob.STEP_MORE && guard < 4)
+        {
+            result = SaveStep(data);
+            guard = guard + 1;
+        }
+        return result == HCSaveJob.STEP_DONE;
     }
 }

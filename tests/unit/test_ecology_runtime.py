@@ -57,6 +57,16 @@ def environment():
     return env
 
 
+def unit_budget():
+    """The real core HCUnitBudget methods, translated from source and bound to one instance."""
+    import functools
+    text = (ROOT / "4_World/Core/HCUnitBudget.c").read_text()
+    budget = SimpleNamespace(m_Limit=0, m_Used=0, m_Items=0)
+    for name in ("HCReset", "HCTake", "HCCharge", "HCExhausted", "HCUsed", "HCLimit", "HCItems"):
+        setattr(budget, name, functools.partial(translated(text, name, {}, "HCUnitBudget", True), budget))
+    return budget
+
+
 class EcologyRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.e=environment(); self.r=self.e["HCEcologyRuntimeRules"]
@@ -317,8 +327,7 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.runtime=SimpleNamespace(m_Actors=EArray(),m_Resources=EArray(),m_Intents=EArray(),
               m_ActorCursor=0,m_ResourceCursor=0,m_Session="session-a",m_Settings=self.cfg,
               m_Policy=SimpleNamespace(WorldName="synthetic-world"),
-              m_Budget=SimpleNamespace(HCReset=lambda *a:None,HCContinue=lambda:True,
-                  HCDeferred=lambda *a:self.fail("unbudgeted pass reported deferral")))
+              m_Units=unit_budget(),m_CycleExamined=0,m_CycleQueries=0,m_ProbeDone=False)
         class Handle:
             def __init__(self,point,kind):self.point=point;self.kind=kind;self.alive=True
             def GetPosition(self):return self.point
@@ -334,7 +343,17 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
             return result
         self.e["HCEcologyNative"]=SimpleNamespace(SampleResource=lambda r:r.kind,ProbePath=probe)
         text=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
-        self.probe=translated(text,"ProbeCohort",self.e,"HCEcologyRuntime",True)
+        self.raw_probe=translated(text,"ProbeCohort",self.e,"HCEcologyRuntime",True)
+        self.slices=[]
+        def cycle(runtime,now):
+            # One observation cycle = PROBE-stage slices until the cycle reports done.
+            runtime.m_CycleExamined=0;runtime.m_CycleQueries=0;total=0
+            for _ in range(64):
+                total+=self.raw_probe(runtime,now)
+                self.slices.append(runtime.m_Units.HCUsed())
+                if runtime.m_ProbeDone:return total
+            self.fail("probe cycle never completed")
+        self.probe=cycle
     def test_queries_bounded_and_zones_reserved_across_ticks(self):
         self.assertEqual(2,self.probe(self.runtime,100))
         self.assertEqual(2,len(self.calls))
@@ -376,6 +395,7 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
     def test_pair_budget_resumes_exactly_and_covers_full_scattered_cohort(self):
         # SYNTHETIC: 32 actors x 32 distant resources; trace actual distance calls.
         per_tick = self.e["HCEcologyRuntimeRules"].PAIRS_PER_TICK
+        units = self.e["HCEcologyRuntimeRules"].PROBE_UNITS_PER_TICK
         self.assertEqual(0, 1024 % per_tick)
         actor_type = type(self.runtime.m_Actors[0].Live)
         self.runtime.m_Actors = EArray(SimpleNamespace(Live=actor_type([float(i),0.,0.],0),
@@ -391,7 +411,36 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.assertEqual([(float(a),1000.+r) for a in range(32) for r in range(32)], pairs)
         self.probe(self.runtime, 200)
         self.assertEqual(pairs[:per_tick], pairs[1024:])
-
+        # Every slice (one module tick) stayed inside the unit budget, so a cycle took several ticks.
+        self.assertTrue(all(used <= units for used in self.slices), self.slices)
+        self.assertGreaterEqual(len([u for u in self.slices if u]), per_tick // units)
+    def test_one_slice_never_examines_more_pairs_than_the_unit_budget(self):
+        actor_type = type(self.runtime.m_Actors[0].Live)
+        self.runtime.m_Actors = EArray(SimpleNamespace(Live=actor_type([float(i),0.,0.],0),
+            Serial=i+1, LocalId="session-a:"+str(i+1)) for i in range(32))
+        self.runtime.m_Resources = EArray(SimpleNamespace(Live=actor_type([1000.+i,0.,0.],1),
+            Serial=i+33, LocalId="session-a:"+str(i+33)) for i in range(32))
+        pairs = []
+        self.e["vector"].DistanceSq = lambda a,b: pairs.append(1) or 1000000.
+        self.runtime.m_CycleExamined = 0; self.runtime.m_CycleQueries = 0
+        self.raw_probe(self.runtime, 100)
+        self.assertEqual(self.e["HCEcologyRuntimeRules"].PROBE_UNITS_PER_TICK, len(pairs))
+        self.assertFalse(self.runtime.m_ProbeDone)
+        self.assertEqual(len(pairs), self.runtime.m_CycleExamined)
+    def test_a_native_path_probe_is_charged_so_a_slice_cannot_chain_probes(self):
+        # SYNTHETIC: every pair is near and valid; two probes are allowed per cycle but the
+        # first probe consumes the whole slice, so the second waits for the next module tick.
+        rules = self.e["HCEcologyRuntimeRules"]
+        self.cfg.MaxPathQueries = 2
+        self.runtime.m_CycleExamined = 0; self.runtime.m_CycleQueries = 0
+        self.assertGreaterEqual(rules.PROBE_PATH_UNITS, rules.PROBE_UNITS_PER_TICK)
+        issued = self.raw_probe(self.runtime, 100)
+        self.assertEqual(1, issued)
+        self.assertFalse(self.runtime.m_ProbeDone)
+        issued = self.raw_probe(self.runtime, 101)
+        self.assertEqual(1, issued)
+        self.assertTrue(self.runtime.m_ProbeDone)
+        self.assertEqual(2, self.runtime.m_CycleQueries)
     def test_cursor_normalizes_after_removal_and_empty_cohorts(self):
         self.runtime.m_ActorCursor = 31; self.runtime.m_ResourceCursor = 31
         self.runtime.m_Actors.Clear()
@@ -411,13 +460,17 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.runtime=SimpleNamespace(m_Running=True,m_Collecting=True,m_LastTick=100,m_LastNow=100,m_LastSave=100,m_Intents=EArray(),
             m_Actors=EArray(),m_Resources=EArray(),m_Session="session-a",m_Settings=self.e["HCEcologyRuntimeSettings"](),
             m_Policy=SimpleNamespace(WorldName="synthetic-world"),m_State=SimpleNamespace(),
-            m_Checkpoint=self.e["HCEcologyCheckpoint"](),m_Dirty=False,m_ActorSample=0,m_ResourceSample=0)
+            m_Checkpoint=self.e["HCEcologyCheckpoint"](),m_Dirty=False,m_ActorSample=0,m_ResourceSample=0,
+            m_Stage=0,m_CycleSamples=0,m_CycleExamined=0,m_CycleQueries=0,m_ProbeDone=False)
         self.runtime.m_Checkpoint.Version=1
         self.runtime.m_Checkpoint.Samples=self.runtime.m_Checkpoint.PathQueries=0
         self.authority=True;self.world="synthetic-world"
         self.runtime.Finish=lambda:self.stops.append("stop")
         self.runtime.RemoveFrom=lambda *args:None
-        self.runtime.ProbeCohort=lambda now:self.queries.append(now) or 0
+        self.calls=[]
+        def probe_slice(now):
+            self.queries.append(now);self.runtime.m_ProbeDone=True;return 0
+        self.runtime.ProbeCohort=probe_slice
         self.runtime.Checkpoint=lambda:self.writes.append("save") or True
         self.e["HCEcologyNative"]=SimpleNamespace(Authority=lambda:self.authority,Capabilities=lambda:SimpleNamespace(ProviderAvailable=False))
         self.e["GetGame"]=lambda:SimpleNamespace(GetWorldName=lambda:self.world)
@@ -426,8 +479,61 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
             self.schedules.append(args);return 0
         self.e["HCEcologyRules"]=SimpleNamespace(Schedule=schedule,Commit=lambda *args:self.commits.append(args) or 0)
         source=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
-        self.pump=translated(source,"Pump",self.e,"HCEcologyRuntime",True)
         self.finish=translated(source,"Finish",self.e,"HCEcologyRuntime",True)
+        self.bind_pump()
+    def bind_pump(self):
+        """(Re)translate Pump and the four stage methods against the current environment and
+        expose self.pump as one whole cycle (module ticks at the same clock until the stage returns
+        to idle or stops advancing); self.pump_once is exactly one module tick."""
+        import functools
+        source=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
+        for name in ("StagePrune","StageSample","StageProbe","StageSave"):
+            setattr(self.runtime,name,functools.partial(translated(source,name,self.e,"HCEcologyRuntime",True),self.runtime))
+        raw=translated(source,"Pump",self.e,"HCEcologyRuntime",True)
+        self.pump_once=raw
+        self.ticks=[]
+        def cycle(runtime,now):
+            calls=0
+            while calls<12:
+                before=runtime.m_Stage
+                raw(runtime,now);calls+=1
+                if runtime.m_Stage==self.e["HCEcologyRuntimeRules"].STAGE_IDLE or runtime.m_Stage==before:break
+            self.ticks.append(calls)
+        self.pump=cycle
+    def test_one_stage_per_module_tick_never_a_full_pass(self):
+        rules=self.e["HCEcologyRuntimeRules"]
+        self.runtime.m_Dirty=True
+        self.pump_once(self.runtime,60100)
+        self.assertEqual((rules.STAGE_SAMPLE,[],[]),(self.runtime.m_Stage,self.schedules,self.queries))
+        self.pump_once(self.runtime,61100)
+        self.assertEqual((rules.STAGE_PROBE,1,[]),(self.runtime.m_Stage,len(self.schedules),self.queries))
+        self.pump_once(self.runtime,62100)
+        self.assertEqual((rules.STAGE_SAVE,[62100],[]),(self.runtime.m_Stage,self.queries,self.writes))
+        self.pump_once(self.runtime,63100)
+        self.assertEqual((rules.STAGE_IDLE,["save"]),(self.runtime.m_Stage,self.writes))
+        self.assertEqual(63100,self.runtime.m_LastSave)
+        # Not due yet: an idle service does no work at all between cycles.
+        self.pump_once(self.runtime,64100)
+        self.assertEqual((rules.STAGE_IDLE,1,[62100]),(self.runtime.m_Stage,len(self.schedules),self.queries))
+    def test_cycle_without_a_due_checkpoint_never_spends_a_save_tick(self):
+        self.pump(self.runtime,5100)
+        self.assertEqual([3],self.ticks)
+        self.assertEqual([],self.writes)
+    def test_probe_stage_spans_ticks_until_the_slices_finish_and_only_then_counts(self):
+        rules=self.e["HCEcologyRuntimeRules"]
+        remaining=[3]
+        def probe_slice(now):
+            self.queries.append(now);remaining[0]-=1
+            self.runtime.m_CycleQueries+=1
+            self.runtime.m_ProbeDone=remaining[0]==0;return 1
+        self.runtime.ProbeCohort=probe_slice
+        self.bind_pump()
+        for now in (5100,6100,7100):
+            self.pump_once(self.runtime,now)
+        self.assertEqual((rules.STAGE_PROBE,0),(self.runtime.m_Stage,self.runtime.m_Checkpoint.PathQueries))
+        self.pump_once(self.runtime,8100);self.pump_once(self.runtime,9100)
+        self.assertEqual((rules.STAGE_IDLE,3),(self.runtime.m_Stage,self.runtime.m_Checkpoint.PathQueries))
+        self.assertTrue(self.runtime.m_Dirty)
     def test_stopped_service_never_probes_or_saves(self):
         self.runtime.m_Running=False
         self.pump(self.runtime,10000)
@@ -491,7 +597,7 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.sampled_resources = []
         self.e["HCEcologyNative"].SampleActor = lambda live, ident, now: self.sampled_actors.append(ident)
         self.e["HCEcologyNative"].SampleResource = lambda live: self.sampled_resources.append(live) or 0
-        self.pump = translated((ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text(), "Pump", self.e, "HCEcologyRuntime", True)
+        self.bind_pump()
 
     def test_each_tick_samples_a_bounded_window_and_the_cursor_covers_every_entry(self):
         # Observed 2026-11-17: Ecology was the slowest module with a full cohort of 32 actors
@@ -537,7 +643,7 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
         self.e["GetGame"] = lambda: SimpleNamespace(GetWorldName=lambda: self.world, SurfaceIsPond=lambda x, z: False)
         for binding in self.runtime.m_Actors:
             binding.Live = SimpleNamespace(GetPosition=lambda: [0., 0., 0.])
-        self.pump = translated((ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text(), "Pump", self.e, "HCEcologyRuntime", True)
+        self.bind_pump()
         self.pump(self.runtime, 5100)
         batch = self.schedules[0][2]
         self.assertEqual(8, len(batch.Actors))
@@ -729,39 +835,47 @@ class EcologyScaleSmoke(unittest.TestCase):
         line = "[HC Ecology] registration overflow; registry=%s; cap=%d; attempted=%d; coverage partial, no population census"
         self.assertEqual([line % ("resources", resources, resources + 1), line % ("actors", actors, actors + 1)], self.logs)
 
-    def test_probe_yields_to_shared_budget_and_resumes_at_retained_cursor(self):
+    def test_probe_yields_to_unit_budget_and_resumes_at_retained_cursor(self):
         cfg = self.e["HCEcologyRuntimeSettings"](); cfg.MaxPathQueries = 8
-        class Budget:
-            def __init__(self): self.allow = 5; self.resets = []; self.deferred = []; self.used = 0
-            def HCReset(self, limit, ms=4): self.resets.append(limit); self.used = 0
-            def HCContinue(self):
-                self.used += 1
-                return self.used <= self.allow
-            def HCDeferred(self, module, count): self.deferred.append((module, count))
-        budget = Budget()
         point = lambda x: SimpleNamespace(GetPosition=lambda: [x, 0., 0.], IsAlive=lambda: True, kind=1)
         runtime = SimpleNamespace(m_Actors=EArray(SimpleNamespace(Live=point(0.), Serial=i, LocalId="session-a:%d" % i) for i in range(1, 5)),
             m_Resources=EArray(SimpleNamespace(Live=point(1000.), Serial=i, LocalId="session-a:%d" % i) for i in range(5, 9)),
             m_Intents=EArray(), m_ActorCursor=0, m_ResourceCursor=0, m_Session="session-a", m_Settings=cfg,
-            m_Policy=SimpleNamespace(WorldName="synthetic-world"), m_Budget=budget)
+            m_Policy=SimpleNamespace(WorldName="synthetic-world"), m_Units=unit_budget(),
+            m_CycleExamined=0, m_CycleQueries=0, m_ProbeDone=False)
         pairs = []
         self.e["vector"].DistanceSq = lambda a, b: pairs.append((a[0], b[0])) or 1000000.
         self.e["HCEcologyNative"] = SimpleNamespace(SampleResource=lambda r: 1, ProbePath=lambda *a: None)
+        # Shrink the slice to 5 units so the 16-pair cohort needs several slices (synthetic).
+        self.e["HCEcologyRuntimeRules"] = SimpleNamespace(PAIRS_PER_TICK=512, PROBES_PER_TICK=2,
+            PROBE_UNITS_PER_TICK=5, PROBE_PAIR_UNITS=1, PROBE_PATH_UNITS=256, Capacity=self.rules.Capacity)
         probe = translated(self.source, "ProbeCohort", self.e, "HCEcologyRuntime", True)
         self.assertEqual(0, probe(runtime, 100))
         self.assertEqual(5, len(pairs))
         self.assertEqual((1, 1), (runtime.m_ActorCursor, runtime.m_ResourceCursor))
-        self.assertEqual([("Ecology", 11)], budget.deferred)
-        self.assertEqual([self.rules.PAIRS_PER_TICK], budget.resets)
-        budget.allow = 100
+        self.assertFalse(runtime.m_ProbeDone)
         probe(runtime, 101)
-        self.assertEqual(16 + 5, len(pairs))
-        self.assertEqual(pairs[:5], pairs[16:])
-        # Near pairs: native probes stop at the per-tick ceiling despite MaxPathQueries=8.
+        self.assertEqual(10, len(pairs))
+        self.assertEqual((2, 2), (runtime.m_ActorCursor, runtime.m_ResourceCursor))
+        probe(runtime, 102); probe(runtime, 103)
+        # 16 pairs examined, cursors wrapped back to the start, the cycle reports done.
+        self.assertEqual(16, len(pairs))
+        self.assertTrue(runtime.m_ProbeDone)
+        self.assertEqual((0, 0), (runtime.m_ActorCursor, runtime.m_ResourceCursor))
+        # The next cycle resumes at the retained cursor and revisits the cohort from the start.
+        runtime.m_CycleExamined = 0; runtime.m_CycleQueries = 0
+        probe(runtime, 103)
+        self.assertEqual(pairs[:5], pairs[16:21])
+        # Near pairs: native probes stop at the per-cycle ceiling despite MaxPathQueries=8,
+        # one probe per slice.
+        runtime.m_CycleExamined = 0; runtime.m_CycleQueries = 0; runtime.m_ProbeDone = False
         calls = []
         self.e["vector"].DistanceSq = lambda a, b: 1.
         self.e["HCEcologyNative"].ProbePath = lambda *a: calls.append(a) or None
         probe = translated(self.source, "ProbeCohort", self.e, "HCEcologyRuntime", True)
-        self.assertEqual(self.rules.PROBES_PER_TICK, probe(runtime, 102))
+        self.assertEqual(1, probe(runtime, 104))
+        self.assertFalse(runtime.m_ProbeDone)
+        self.assertEqual(1, probe(runtime, 105))
+        self.assertTrue(runtime.m_ProbeDone)
         self.assertEqual(self.rules.PROBES_PER_TICK, len(calls))
         self.assertLess(self.rules.PROBES_PER_TICK, 4)

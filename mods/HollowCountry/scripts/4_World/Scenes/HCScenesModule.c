@@ -453,6 +453,7 @@ class HCScenesModule : HCModule
 
 class HCSceneSaveJob : HCSaveJob
 {
+    override string HCName() { return "Scenes"; }
     HCScenesModule Owner;
     override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }
