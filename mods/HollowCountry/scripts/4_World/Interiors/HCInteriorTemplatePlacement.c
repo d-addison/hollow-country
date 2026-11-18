@@ -1,5 +1,5 @@
-// W5-PERF: production lifecycle uses HCInteriorPlacementCursor: <=1 prop
-// attempt/tick, <=2 tiny spatial queries; 4 ms guard before the next attempt.
+// W5-PERF: production lifecycle uses HCInteriorPlacementCursor: <=1 prop attempt per
+// cursor step, <=2 tiny spatial queries; the module's HCUnitBudget bounds steps per tick.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D;
 // Object.c:287/305/311/873 position/orientation/set/model transform;
 // 1_Core/proto/EnScript.c:380/394/407 Count/Find/Insert;
@@ -8,8 +8,21 @@
 // Native 1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx;
 // 3_Game/CE/CentralEconomy.c:30-33 NOLIFETIME/NOPERSISTENCY_WORLD flags.
 // One deterministic startup pass, advanced in bounded batches by module ticks.
+// Issue #138 round 2: every native step of a creation attempt is sub-timed with EnSystem.c:106
+// TickCount into the shared Core/HCStepTimer (owner=Interiors, one '[HC Step]' line per window).
+// Placement decisions, flags, order and results are unchanged; only measurements are added.
 class HCInteriorTemplatePlacement
 {
+    static const int STEP_RESOLVE = 0;   // Resolve: Game.c:930 GetObjectsAtPosition3D at the house
+    static const int STEP_LOOKUP = 1;    // template/slot lookup, Object.c:873 ModelToWorld, :305 GetOrientation
+    static const int STEP_INSPECT = 2;   // Available -> InspectProp: a second GetObjectsAtPosition3D
+    static const int STEP_CREATE = 3;    // Game.c:703 CreateObjectEx (CREATEPHYSICS|UPDATEPATHGRAPH)
+    static const int STEP_ORIENT = 4;    // Object.c:311 SetOrientation
+    static const int STEP_LOG = 5;       // LogPropBox: Object.c:358 ClippingInfo + Print (<=25 types)
+    static const int STEP_SCHEDULE = 6;  // CallLater queueing of the deferred pathgraph update
+    static const int STEP_MAINT = 7;     // module search maintenance phases
+    protected static ref HCStepTimer s_Steps;
+    protected static string s_LastType;
     protected static bool s_Started;
     protected static int s_Placed;
     protected static int s_Capped;
@@ -31,6 +44,37 @@ class HCInteriorTemplatePlacement
         s_Houses.Clear();
         s_Refused.Clear();
         s_BoxLogged.Clear();
+        s_LastType = "";
+    }
+
+    // Shared sub-timer of the Interiors module tick; the step order matches the STEP_* indices.
+    static HCStepTimer HCSteps()
+    {
+        if (s_Steps) { return s_Steps; }
+        s_Steps = new HCStepTimer("Interiors");
+        s_Steps.HCDefine("resolve");
+        s_Steps.HCDefine("lookup");
+        s_Steps.HCDefine("inspect");
+        s_Steps.HCDefine("create");
+        s_Steps.HCDefine("orient");
+        s_Steps.HCDefine("log");
+        s_Steps.HCDefine("schedule");
+        s_Steps.HCDefine("maint");
+        return s_Steps;
+    }
+
+    // House class, plus ':' and the prop type once a slot reached the creation path.
+    static string HCLastType() { return s_LastType; }
+
+    // The deferred pathgraph update, timed: the same Game.c:1293 UpdatePathgraphRegionByObject call
+    // the CallLater formerly targeted directly (it null-checks and rebuilds the ClippingInfo-radius
+    // region through Game.c:1206 UpdatePathgraphRegion). Runs outside the module timer.
+    static void HCTimedPathgraph(Object placedObject)
+    {
+        if (!GetGame()) { return; }
+        int mark = TickCount(0);
+        GetGame().UpdatePathgraphRegionByObject(placedObject);
+        if (placedObject) { HCSteps().HCDeferred(TickCount(mark)); }
     }
 
     static void LogPropBox(Object prop)
@@ -125,11 +169,16 @@ class HCInteriorTemplatePlacement
 
     {
         int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
+        HCStepTimer steps = HCSteps();
+        int mark = TickCount(0);
         Object object = GetGame().CreateObjectEx(type, position, flags, RF_IGNORE);
+        steps.HCAdd(STEP_CREATE, TickCount(mark));
         if (object)
 
         {
+            mark = TickCount(0);
             object.SetOrientation(orientation);
+            steps.HCAdd(STEP_ORIENT, TickCount(mark));
         }
         return object;
     }
@@ -148,7 +197,7 @@ class HCInteriorTemplatePlacement
             if (placedObject)
 
             {
-                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, 100, false, placedObject);
+                GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, 100, false, placedObject);
             }
             index = index + 1;
         }
@@ -164,13 +213,17 @@ class HCInteriorTemplatePlacement
     {
         int limit = Math.Min(settings.MaxFurnishedProps, 1500);
         int houseLimit = Math.Min(settings.MaxPropsPerInterior, 5);
+        s_LastType = row.BuildingClass;
         if (placed.Count() >= limit)
 
         {
             s_Capped = s_Capped + row.Props.Count();
             return false;
         }
+        HCStepTimer steps = HCSteps();
+        int mark = TickCount(0);
         Object house = Resolve(row);
+        steps.HCAdd(STEP_RESOLVE, TickCount(mark));
         if (!house)
 
         {
@@ -184,7 +237,9 @@ class HCInteriorTemplatePlacement
             return false;
         }
         if (resume == 0) { s_Houses.Insert(house); }
+        mark = TickCount(0);
         HCInteriorTemplate templateRow = HCInteriorTemplates.Template(row.BuildingClass);
+        steps.HCAdd(STEP_LOOKUP, TickCount(mark));
         if (!templateRow)
 
         {
@@ -215,17 +270,24 @@ class HCInteriorTemplatePlacement
                 s_Capped = s_Capped + 1;
                 continue;
             }
+            mark = TickCount(0);
             HCInteriorTemplatePropSlot slot = HCInteriorTemplates.Prop(templateRow, slotId);
             if (!slot || slot.History.Find(row.History) < 0 || !HCInteriorTemplates.SlotClear(templateRow, slot))
 
             {
+                steps.HCAdd(STEP_LOOKUP, TickCount(mark));
                 CountRefusal("clearance", 1);
                 continue;
             }
             vector position = house.ModelToWorld(HCInteriorTemplates.AsVector(slot.Position));
             vector orientation = HCInteriorTemplates.AsVector(slot.Orientation);
             orientation[0] = orientation[0] + house.GetOrientation()[0];
-            if (!Available(module, position, orientation, slot.Type))
+            s_LastType = row.BuildingClass + ":" + slot.Type;
+            steps.HCAdd(STEP_LOOKUP, TickCount(mark));
+            mark = TickCount(0);
+            bool available = Available(module, position, orientation, slot.Type);
+            steps.HCAdd(STEP_INSPECT, TickCount(mark));
+            if (!available)
 
             {
                 CountRefusal("foreign_or_ambiguous_prop", 1);
@@ -238,13 +300,17 @@ class HCInteriorTemplatePlacement
                 CountRefusal("create_failed", 1);
                 continue;
             }
+            mark = TickCount(0);
             LogPropBox(object);
+            steps.HCAdd(STEP_LOG, TickCount(mark));
             placed.Insert(object);
             created.Insert(object);
             houseCount = houseCount + 1;
             s_Placed = s_Placed + 1;
         }
+        mark = TickCount(0);
         Schedule(created);
+        steps.HCAdd(STEP_SCHEDULE, TickCount(mark));
         return true;
     }
 

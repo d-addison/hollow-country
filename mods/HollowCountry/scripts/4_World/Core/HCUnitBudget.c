@@ -41,6 +41,21 @@ class HCUnitBudget
         if (cost > 0) { m_Used = m_Used + cost; }
     }
 
+    // Issue #138 round 2: charge an item by the larger of its declared units and its MEASURED cost.
+    // The caller measures (raw EnSystem.c:106 TickCount units) and passes ticksPerUnit; this class
+    // still reads no clock. `taken` is what HCTake already charged for the item. A non-positive
+    // measurement or divisor charges only the declared units (never a refund).
+    void HCChargeMeasured(int declared, int measuredTicks, int ticksPerUnit, int taken)
+    {
+        int units = declared;
+        if (ticksPerUnit > 0 && measuredTicks > 0)
+        {
+            int measured = measuredTicks / ticksPerUnit;
+            if (measured > units) { units = measured; }
+        }
+        HCCharge(units - taken);
+    }
+
     bool HCExhausted() { return m_Items > 0 && m_Used >= m_Limit; }
     int HCUsed() { return m_Used; }
     int HCLimit() { return m_Limit; }

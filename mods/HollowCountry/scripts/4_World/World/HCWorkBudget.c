@@ -90,8 +90,9 @@ class HCSaveJob
 // store; a staged job such as WorldSaves spans several ticks and is never interleaved with another
 // job's stage). Existing verified intent/backup/copy writers remain authoritative. Native
 // copy/JSON calls have no cancellation API; this does not promise a 5 ms save.
-// Per-job new-peak save timing is logged as '[HC Save] job=.. stages=.. max_stage_ticks=.. total_ticks=..'
-// in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line).
+// Per-job new-peak save timing is logged as '[HC Save] job=.. stages=.. max_stage_ticks=.. total_ticks=..
+// slowest_stage=..' in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line);
+// slowest_stage is the 1-based stage that took max_stage_ticks (issue #138 round 2).
 class HCSaveScheduler : HCModule
 {
     protected static ref array<ref HCSaveJob> s_Jobs = new array<ref HCSaveJob>;
@@ -100,6 +101,7 @@ class HCSaveScheduler : HCModule
     protected HCSaveJob m_Active;
     protected int m_Stages;
     protected int m_StageMax;
+    protected int m_StageMaxIndex;
     protected int m_TotalTicks;
 
     override string GetName() { return "WorldSaves"; }
@@ -146,7 +148,11 @@ class HCSaveScheduler : HCModule
         int ticks = TickCount(started);
         m_Stages = m_Stages + 1;
         m_TotalTicks = m_TotalTicks + ticks;
-        if (ticks > m_StageMax) { m_StageMax = ticks; }
+        if (ticks > m_StageMax)
+        {
+            m_StageMax = ticks;
+            m_StageMaxIndex = m_Stages;
+        }
         if (result == HCSaveJob.STEP_MORE)
         {
             job.HCInFlight = true;
@@ -162,7 +168,7 @@ class HCSaveScheduler : HCModule
             if (m_StageMax > job.HCPeakTicks)
             {
                 job.HCPeakTicks = m_StageMax;
-                Print("[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString() + "; runtime acceptance pending");
+                Print("[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString() + " slowest_stage=" + m_StageMaxIndex.ToString() + "; runtime acceptance pending");
             }
         }
         else
@@ -172,6 +178,7 @@ class HCSaveScheduler : HCModule
         }
         m_Stages = 0;
         m_StageMax = 0;
+        m_StageMaxIndex = 0;
         m_TotalTicks = 0;
     }
 
@@ -179,7 +186,16 @@ class HCSaveScheduler : HCModule
     {
         if (s_Jobs.Count() == 0) { return; }
         float now = GetGame().GetTickTime();
-        if (m_Active && (!m_Active.HCInFlight || s_Jobs.Find(m_Active) < 0)) { m_Active = null; }
+        if (m_Active && (!m_Active.HCInFlight || s_Jobs.Find(m_Active) < 0))
+        {
+            // Completed or abandoned outside the scheduler (barrier write, stop): its partial stage
+            // counts must not be reported as part of the next job's save.
+            m_Active = null;
+            m_Stages = 0;
+            m_StageMax = 0;
+            m_StageMaxIndex = 0;
+            m_TotalTicks = 0;
+        }
         if (m_Active)
         {
             HCRunStep(m_Active, now);

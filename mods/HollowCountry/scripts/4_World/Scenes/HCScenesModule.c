@@ -90,7 +90,9 @@ class HCScenesModule : HCModule
         {
             if (m_SaveJob)
             {
+                // The barrier wrote the whole current state; a staged heartbeat in flight is done.
                 m_SaveJob.HCDirty = false;
+                m_SaveJob.HCInFlight = false;
                 m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
             }
             return true;
@@ -393,15 +395,20 @@ class HCScenesModule : HCModule
         }
     }
 
-    bool HCFlushRoutine()
+    // Issue #138 round 2: one stage of the heartbeat save per scheduler tick (serialize | verify current
+    // | refresh backup | commit). The snapshot (with LastNow) is taken by the first stage.
+    int HCStepRoutine()
     {
-        if (!m_Running || !m_State) { return false; }
-        m_State.LastNow = m_LastNow;
-        if (m_Store.Save(m_State)) { return true; }
+        if (!m_Running || !m_State) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Store.SaveInFlight()) { m_State.LastNow = m_LastNow; }
+        int result = m_Store.SaveStep(m_State);
+        if (result != HCSaveJob.STEP_FAILED) { return result; }
+        // Clear the job BEFORE OnStop: its HCFlush must not step a faulted save again.
         m_SaveJob.HCDirty = false;
+        m_SaveJob.HCInFlight = false;
         OnStop();
         Print("[HollowCountry] V2 scenes heartbeat save failed; preserve store; cleanup pending");
-        return false;
+        return HCSaveJob.STEP_FAILED;
     }
 
     void Summary()
@@ -440,6 +447,13 @@ class HCScenesModule : HCModule
     {
         if (m_SaveJob)
         {
+            // A staged heartbeat holds an older snapshot: drop it and flush the current state whole.
+            if (m_SaveJob.HCInFlight && m_Store)
+            {
+                m_Store.SaveAbandon();
+                m_SaveJob.HCInFlight = false;
+                m_SaveJob.HCDirty = true;
+            }
             HCSaveScheduler.HCFlush(m_SaveJob);
             HCSaveScheduler.HCUnregister(m_SaveJob);
         }
@@ -455,7 +469,11 @@ class HCSceneSaveJob : HCSaveJob
 {
     override string HCName() { return "Scenes"; }
     HCScenesModule Owner;
-    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
+    override int HCStep()
+    {
+        if (!Owner) { return HCSaveJob.STEP_FAILED; }
+        return Owner.HCStepRoutine();
+    }
 }
 
 modded class HCModuleRegistry

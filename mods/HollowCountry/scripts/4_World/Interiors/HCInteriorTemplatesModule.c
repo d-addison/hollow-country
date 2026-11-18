@@ -11,6 +11,10 @@ modded class HCInteriorsModule
     // Units per module tick: 3 creation attempts (SLOT_UNITS=8) or 24 cheap deferrals/refusals.
     // The previous 16-slot count with a 4 ms clock guard measured 80-135 ms ticks.
     static const int FURNISH_UNITS_PER_TICK = 24;
+    // Issue #138 round 2: an attempt is charged the larger of its declared units and its measured
+    // cost at 4000 raw ticks per unit (0.4 ms at the boot 028 ticks_per_ms=10000), so a further
+    // attempt starts only while the tick has spent < ~9.6 ms; a heavy attempt ends the tick.
+    static const int FURNISH_TICKS_PER_UNIT = 4000;
     protected ref HCUnitBudget m_FurnishUnits = new HCUnitBudget;
     protected int m_MaintenancePhase;
     protected float m_SearchRecycleElapsed;
@@ -33,32 +37,27 @@ modded class HCInteriorsModule
     }
 
 
-    // Native 1.30.164289: 3_Game/Global/Game.c:945 GetPlayers(out array<Man>).
-    // The shared module tick owns both placement progress and bounded maintenance.
+    // Native 1.30.164289: 3_Game/Global/Game.c:945 GetPlayers(out array<Man>);
+    // 1_Core/proto/EnSystem.c:106 TickCount (raw ticks since the given start).
+    // The shared module tick owns both placement progress and bounded maintenance. Every tick is
+    // sub-timed into HCInteriorTemplatePlacement.HCSteps() ('[HC Step] owner=Interiors', one line per window).
     override void OnTick(float deltaTime)
     {
         super.OnTick(deltaTime);
         if (s_Instance != this || !GetGame().IsServer()) { return; }
         HCSettings settings = HCServer.Get().GetSettings();
         if (!IsEnabled(settings)) { OnStop(); return; }
+        int tickStart = TickCount(0);
+        HCStepTimer steps = HCInteriorTemplatePlacement.HCSteps();
         m_SearchRecycleElapsed += deltaTime;
         bool maintenanceDue = m_MaintenancePhase > 0 || m_SearchRecycleElapsed >= 60.0;
         if (!maintenanceDue)
         {
-            // Review P1: one slot per module tick took ~7500 ticks for the 1500-row catalog, so
-            // several slots run per tick, bounded by work units (no clock): the first slot is always
-            // admitted, a creation attempt charges SLOT_UNITS, a cheap deferral CHEAP_UNITS.
-            if (HCInteriorTemplates.Loaded() && !m_FurnishWork.HCComplete())
-            {
-                m_FurnishUnits.HCReset(FURNISH_UNITS_PER_TICK);
-                while (!m_FurnishWork.HCComplete() && m_FurnishUnits.HCTake(HCInteriorPlacementCursor.CHEAP_UNITS))
-                {
-                    m_FurnishWork.HCTick(this, settings, m_Objects);
-                    m_FurnishUnits.HCCharge(m_FurnishWork.HCLastCost() - HCInteriorPlacementCursor.CHEAP_UNITS);
-                }
-            }
+            if (HCInteriorTemplates.Loaded() && !m_FurnishWork.HCComplete()) { HCFurnish(settings, steps); }
+            steps.HCEndTick(TickCount(tickStart));
             return;
         }
+        int maintStart = TickCount(0);
         // Maintenance gets its own ticks even when an occupied house keeps a
         // partial furnishing row deferred. Neither work queue starves the other.
         if (m_MaintenancePhase == 0) { m_SearchRecycleElapsed = 0.0; }
@@ -70,6 +69,26 @@ modded class HCInteriorsModule
         if (m_MaintenancePhase == 2 && pilot) { pilot.RecycleSpentBindings(players); }
         if (m_MaintenancePhase == 3 && pilot) { pilot.CompactSettled(); }
         m_MaintenancePhase = (m_MaintenancePhase + 1) % 4;
+        steps.HCAdd(HCInteriorTemplatePlacement.STEP_MAINT, TickCount(maintStart));
+        steps.HCEndTick(TickCount(tickStart));
+    }
+
+    // Review P1: one slot per module tick took ~7500 ticks for the 1500-row catalog, so several
+    // slots run per tick, bounded by work units: the first slot is always admitted, a creation
+    // attempt charges at least SLOT_UNITS (more when its measured cost is higher), a cheap deferral
+    // CHEAP_UNITS. The cursor keeps its position before yielding.
+    protected void HCFurnish(HCSettings settings, HCStepTimer steps)
+    {
+        m_FurnishUnits.HCReset(FURNISH_UNITS_PER_TICK);
+        while (!m_FurnishWork.HCComplete() && m_FurnishUnits.HCTake(HCInteriorPlacementCursor.CHEAP_UNITS))
+        {
+            int itemStart = TickCount(0);
+            m_FurnishWork.HCTick(this, settings, m_Objects);
+            int itemTicks = TickCount(itemStart);
+            int declared = m_FurnishWork.HCLastCost();
+            if (declared >= HCInteriorPlacementCursor.SLOT_UNITS) { steps.HCItem(HCInteriorTemplatePlacement.HCLastType(), itemTicks); }
+            m_FurnishUnits.HCChargeMeasured(declared, itemTicks, FURNISH_TICKS_PER_UNIT, HCInteriorPlacementCursor.CHEAP_UNITS);
+        }
     }
 
     override void OnStop()

@@ -55,7 +55,7 @@ def authored(include_read=False):
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
         lines = [f'def {name}({", ".join(args)}):',
-                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source']
+                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType']
         indent = 1
         for token in statements(body(sources, match.end())):
             token = token.strip()
@@ -102,6 +102,8 @@ def authored(include_read=False):
             for index, literal in enumerate(literals): token = token.replace(f'__LITERAL_{index}__', literal)
             lines.append('    '*indent + token)
         exec(compile('\n'.join(lines), 'authored-templates:'+name, 'exec'), env)
+    # Issue #138 sub-timer step indices are plain static int constants of the placement class.
+    env.update({m[1]: int(m[2]) for m in re.finditer(r'static const int (\w+) = (\d+);', sources)})
     env.update(HCInteriorTemplates=NS(**env), HCInteriorTemplatesStrict=NS(**env))
     # Proxies need live globals, never copies of published pack state.
     return env
@@ -187,6 +189,11 @@ def fixture(values=None):
         s_Classes=EArray(),s_Templates=EArray(),s_Groups=EArray(),s_Furnish=EArray(),
         s_Placed=0,s_Capped=0,s_Refused=EMap(),s_Houses=EArray(),s_Started=False,s_ResolveReason='',s_MaxProps=5,
         s_BoxLogged=Array(), s_Deferred=Array(), s_DeferredNext=0,
+        # SYNTHETIC sub-timer sink (the authored HCStepTimer is exercised in test_hc_unit_budget).
+        # This translator renders 'new HCStepTimer("Interiors")' as 'HCStepTimer()("Interiors")'.
+        s_Steps=None, s_LastType='', HCStepTimer=lambda *args:lambda *owner:NS(HCDefine=lambda name:0,
+            HCAdd=lambda step,ticks:None, HCItem=lambda kind,ticks:None, HCDeferred=lambda ticks:None,
+            HCEndTick=lambda ticks:None),
         Available=lambda module,point,orientation,typ:True,
         Spawn=synthetic_spawn,
         Schedule=lambda props:None,

@@ -303,6 +303,9 @@ class HCSceneChainStore
     protected bool m_Fault;
     protected string m_Image;
     protected int m_Revision;
+    protected int m_SaveStage;
+    protected string m_PendText;
+    protected int m_PendRevision;
 
     bool Fault()
     {
@@ -331,31 +334,124 @@ class HCSceneChainStore
         return state;
     }
 
-    bool Save(HCSceneChainState state)
+    bool SaveInFlight() { return m_SaveStage != 0; }
+
+    // Drop a partially staged routine save; the files are consistent after every stage boundary
+    // (no intent stands across ticks), so the next save simply starts again from stage 0.
+    void SaveAbandon()
     {
-        if (m_Fault || !HCSceneChains.StateValid(state) || state.Revision != m_Revision || m_Revision >= 999999998) { return Fault(); }
-        string actual;
-        if (FileExist(m_Path) && (!HCGroupIO.Read(m_Path, 65536, actual) || actual != m_Image)) { return Fault(); }
-        state.Revision = m_Revision + 1;
+        m_SaveStage = 0;
+        m_PendText = "";
+    }
+
+    static string Encode(HCSceneChainState state)
+    {
         string text;
         string error;
-        if (!JsonFileLoader<HCSceneChainState>.MakeData(state, text, error) || text.Length() > 65536) { return Fault(); }
-        m_Fault = true;
-        if (!HCGroupIO.WriteNew(m_Path + ".tmp", text, 65536)) { return Fault(); }
-        if (FileExist(m_Path))
+        if (!JsonFileLoader<HCSceneChainState>.MakeData(state, text, error) || text.Length() > 65536) { return ""; }
+        return text;
+    }
+
+    protected string ReadImage(string path)
+    {
+        string text;
+        if (!HCGroupIO.Read(path, 65536, text)) { return ""; }
+        return text;
+    }
+
+    protected int SaveFailed()
+    {
+        m_SaveStage = 0;
+        m_PendText = "";
+        Fault();
+        return HCSaveJob.STEP_FAILED;
+    }
+
+    // Issue #138 round 2: one bounded stage per call (HCSaveScheduler runs one stage per tick; boot 028
+    // measured the former single-call save at 1314540 raw ticks, about 131 ms).
+    //   stage 0: validate + serialize (no file I/O). The live state keeps the stored revision between
+    //            stages, so a synchronous barrier Save in between still validates and simply restarts.
+    //   stage 1: read the current image and compare it with the exact verified image (no write).
+    //   stage 2: refresh the backup from that verified image (afterwards current == backup, no intent).
+    //   stage 3: the commit in ONE call: .tmp intent, replace, readback, clear intent. The intent never
+    //            stands across ticks; a crash with it present is refused by Open().
+    // Same files, same checks and the same Fault() refusal as the former whole Save. Difference: the
+    // backup is refreshed one stage BEFORE the intent is written, so a failed intent write leaves
+    // backup == current image (formerly the backup still held the image before it).
+    int SaveStep(HCSceneChainState state)
+    {
+        if (m_Fault)
         {
-            if (FileExist(m_Path + ".bak") && !DeleteFile(m_Path + ".bak")) { return Fault(); }
-            if (!CopyFile(m_Path, m_Path + ".bak")) { return Fault(); }
-            string backup;
-            if (!HCGroupIO.Read(m_Path + ".bak", 65536, backup) || backup != m_Image) { return Fault(); }
-            if (!DeleteFile(m_Path)) { return Fault(); }
+            m_SaveStage = 0;
+            m_PendText = "";
+            return HCSaveJob.STEP_FAILED;
         }
-        if (!CopyFile(m_Path + ".tmp", m_Path)) { return Fault(); }
-        string installed;
-        if (!HCGroupIO.Read(m_Path, 65536, installed) || installed != text || !DeleteFile(m_Path + ".tmp")) { return Fault(); }
-        m_Revision = state.Revision;
+        if (m_SaveStage == 0)
+        {
+            if (!HCSceneChains.StateValid(state) || state.Revision != m_Revision || m_Revision >= 999999998) { return SaveFailed(); }
+            state.Revision = m_Revision + 1;
+            string encoded = Encode(state);
+            state.Revision = m_Revision;
+            if (encoded == "") { return SaveFailed(); }
+            m_PendText = encoded;
+            m_PendRevision = m_Revision + 1;
+            m_SaveStage = 1;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_SaveStage == 1)
+        {
+            if (FileExist(m_Path))
+            {
+                string actual = ReadImage(m_Path);
+                if (actual == "" || actual != m_Image) { return SaveFailed(); }
+            }
+            m_SaveStage = 2;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (m_SaveStage == 2)
+        {
+            if (FileExist(m_Path))
+            {
+                m_Fault = true;
+                if (FileExist(m_Path + ".bak") && !DeleteFile(m_Path + ".bak")) { return SaveFailed(); }
+                if (!CopyFile(m_Path, m_Path + ".bak")) { return SaveFailed(); }
+                string backup = ReadImage(m_Path + ".bak");
+                if (backup == "" || backup != m_Image) { return SaveFailed(); }
+                m_Fault = false;
+            }
+            m_SaveStage = 3;
+            return HCSaveJob.STEP_MORE;
+        }
+        string text = m_PendText;
+        int revision = m_PendRevision;
+        m_SaveStage = 0;
+        m_PendText = "";
+        m_Fault = true;
+        if (!HCGroupIO.WriteNew(m_Path + ".tmp", text, 65536)) { return SaveFailed(); }
+        if (FileExist(m_Path) && !DeleteFile(m_Path)) { return SaveFailed(); }
+        if (!CopyFile(m_Path + ".tmp", m_Path)) { return SaveFailed(); }
+        string installed = ReadImage(m_Path);
+        if (installed != text || !DeleteFile(m_Path + ".tmp")) { return SaveFailed(); }
+        state.Revision = revision;
+        m_Revision = revision;
         m_Image = text;
         m_Fault = false;
-        return true;
+        return HCSaveJob.STEP_DONE;
+    }
+
+    // Synchronous whole save (Open, transition barriers, shutdown): the same stages back to back.
+    bool Save(HCSceneChainState state)
+    {
+        if (m_Fault) { return Fault(); }
+        m_SaveStage = 0;
+        m_PendText = "";
+        int result = HCSaveJob.STEP_MORE;
+        int guard = 0;
+        while (result == HCSaveJob.STEP_MORE && guard < 5)
+        {
+            result = SaveStep(state);
+            guard = guard + 1;
+        }
+        return result == HCSaveJob.STEP_DONE;
     }
 }

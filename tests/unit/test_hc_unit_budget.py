@@ -11,6 +11,14 @@ RED (2026-11-18, before the WorldSaves/Interiors changes; HCUnitBudget already e
   -> Ran 29 tests, FAILED (failures=12, errors=8): scheduler had no HCStep/HCInFlight/stages, the
      store had no SaveStep/Encode/SaveInFlight, the world module no HCStepRoutine.
 GREEN: the same command, Ran 29 tests, OK.
+
+Round 2 (2026-11-18, boot 028 evidence: Interiors 63-140 ms ticks, Scenes save one 1314540-tick stage):
+RED  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_unit_budget
+  -> Ran 52 tests, FAILED (failures=22, errors=5): no HCUnitBudget.HCChargeMeasured, no
+     Core/HCStepTimer.c, no HCSceneChainStore.SaveStep, no slowest_stage= in the [HC Save] line, the
+     Interiors module had no HCFurnish/measured charge and the scene job no HCStep.
+GREEN the same command, Ran 52 tests, OK. The sub-timer and measured charge use SYNTHETIC tick
+values; real per-step costs come only from the '[HC Step] owner=Interiors' line of a native boot.
 """
 import re
 from pathlib import Path
@@ -28,14 +36,22 @@ WORLD_MODULE = SCRIPTS / "4_World/World/HCWorldModule.c"
 INTERIOR_MODULE = SCRIPTS / "4_World/Interiors/HCInteriorTemplatesModule.c"
 INTERIOR_CURSOR = SCRIPTS / "4_World/Interiors/HCInteriorPlacementCursor.c"
 INTERIOR_TEMPLATES = SCRIPTS / "4_World/Interiors/HCInteriorTemplates.c"
+INTERIOR_PLACEMENT = SCRIPTS / "4_World/Interiors/HCInteriorTemplatePlacement.c"
+STEP_TIMER = SCRIPTS / "4_World/Core/HCStepTimer.c"
+SCENE_CHAINS = SCRIPTS / "4_World/Scenes/HCSceneChains.c"
+SCENES_MODULE = SCRIPTS / "4_World/Scenes/HCScenesModule.c"
 
-RENAMES = ("HCSaveJob", "HCWorldData", "HCUnitBudget")
+RENAMES = ("HCSaveJob", "HCWorldData", "HCUnitBudget", "HCStepTimer", "HCSceneChainState")
 
 
-def translated(text, name, env, owner, member=True):
+def translated(text, name, env, owner, member=True, integer_division=False):
     """Syntax-only translation of one authored method (types that the translator does not know
-    about are renamed to the HCEvent prefix it strips)."""
+    about are renamed to the HCEvent prefix it strips). integer_division maps Enforce int '/' (truncating)."""
     renamed = text
+    if integer_division:
+        # The translator strips '//' as a comment, so Enforce int division becomes a helper call.
+        renamed = re.sub(r"(\w+) / (\w+)", r"int_div(\1, \2)", renamed)
+        env = dict(env, int_div=lambda a, b: int(a / b))
     for cls in RENAMES:
         renamed = re.sub(r"\b" + cls + r"\b", "HCEvent" + cls[2:], renamed)
     renamed = re.sub(r"\bthis\b", "self", renamed)
@@ -58,8 +74,10 @@ def unit_budget():
     text = BUDGET.read_text()
     budget = N(m_Limit=0, m_Used=0, m_Items=0)
     import functools
-    for name in ("HCReset", "HCTake", "HCCharge", "HCExhausted", "HCUsed", "HCLimit", "HCItems"):
-        setattr(budget, name, functools.partial(translated(text, name, {}, "HCUnitBudget"), budget))
+    for name in ("HCReset", "HCTake", "HCCharge", "HCExhausted", "HCUsed", "HCLimit", "HCItems", "HCChargeMeasured"):
+        if name == "HCChargeMeasured" and "HCChargeMeasured(" not in text:
+            raise AssertionError("Missing authored method HCChargeMeasured")
+        setattr(budget, name, functools.partial(translated(text, name, {}, "HCUnitBudget", integer_division=True), budget))
     return budget
 
 
@@ -101,6 +119,23 @@ class UnitBudgetTests(unittest.TestCase):
         budget.HCCharge(9)
         self.assertTrue(budget.HCExhausted())
         self.assertFalse(budget.HCTake(1))
+
+    def test_measured_charge_takes_the_larger_of_declared_and_measured_units(self):
+        # SYNTHETIC: 4000 raw ticks per unit. The caller measured the item; the budget stays clock free.
+        budget = unit_budget()
+        budget.HCReset(24)
+        self.assertTrue(budget.HCTake(1))
+        budget.HCChargeMeasured(8, 20000, 4000, 1)   # 5 measured units < 8 declared
+        self.assertEqual(8, budget.HCUsed())
+        self.assertTrue(budget.HCTake(1))
+        budget.HCChargeMeasured(8, 450000, 4000, 1)  # 112 measured units > 8 declared
+        self.assertEqual(8 + 112, budget.HCUsed())
+        self.assertFalse(budget.HCTake(1))
+        budget.HCReset(24)
+        self.assertTrue(budget.HCTake(1))
+        budget.HCChargeMeasured(1, -5, 4000, 1)       # bad clock or zero divisor never refunds units
+        budget.HCChargeMeasured(1, 9000, 0, 1)
+        self.assertEqual(1, budget.HCUsed())
 
     def test_budget_has_no_engine_clock_or_allocation(self):
         text = BUDGET.read_text()
@@ -145,7 +180,7 @@ class SchedulerHarness(unittest.TestCase):
             TickCount=self.tick_count,
             Math=N(Max=max, Min=min),
         )
-        self.sched = N(m_Next=0, m_Active=None, m_StageTicks=0, m_StageMax=0, m_Stages=0, m_TotalTicks=0)
+        self.sched = N(m_Next=0, m_Active=None, m_StageTicks=0, m_StageMax=0, m_StageMaxIndex=0, m_Stages=0, m_TotalTicks=0)
         # Static and instance methods of the scheduler resolve to self.<name>.
         for name in ("HCUnregister", "HCFlush", "HCRunStep", "HCRecordStage", "HCFinishSave"):
             if re.search(r"\b" + name + r"\(", text):
@@ -240,7 +275,26 @@ class SaveSchedulerStagedTests(SchedulerHarness):
         self.assertIn("stages=3", line[0])
         self.assertIn("max_stage_ticks=900", line[0])
         self.assertIn("total_ticks=1500", line[0])
+        self.assertIn("slowest_stage=2", line[0])
         self.assertNotIn("[HC Perf]", line[0])
+
+    def test_a_job_dropped_mid_save_does_not_leak_its_stage_counts_into_the_next_save(self):
+        # SYNTHETIC: a synchronous barrier write completes job A outside the scheduler (HCInFlight
+        # cleared), so the next tick drops A; job B's line must report only its own stage.
+        done, more = self.consts["STEP_DONE"], self.consts["STEP_MORE"]
+        a = FakeJob("Scenes", [more, more, more, done], self.env)
+        b = FakeJob("World", [done], self.env)
+        self.env["s_Jobs"].Insert(a)
+        self.env["s_Jobs"].Insert(b)
+        self.clock[0] = 700
+        self.on_tick()
+        a.HCInFlight = False
+        a.HCDirty = False
+        self.clock[0] = 50
+        self.on_tick()
+        line = [entry for entry in self.logs if entry.startswith("[HC Save]")]
+        self.assertEqual(1, len(line), self.logs)
+        self.assertIn("job=World stages=1 max_stage_ticks=50 total_ticks=50 slowest_stage=1", line[0])
 
     def test_save_line_prints_only_for_a_new_slowest_stage_per_job(self):
         done = self.consts["STEP_DONE"]
@@ -422,6 +476,280 @@ class WorldStoreStagedSaveTests(unittest.TestCase):
         self.assertFalse(self.save_fn(self.store, self.data))
 
 
+class StepTimerTests(unittest.TestCase):
+    """SYNTHETIC raw tick values supplied by the test: the timer never reads a clock itself."""
+
+    METHODS = ("HCDefine", "HCAdd", "HCItem", "HCDeferred", "HCEndTick", "HCCloseWindow", "HCLine")
+
+    def setUp(self):
+        self.logs = []
+        text = STEP_TIMER.read_text()
+        self.consts = constants(text)
+        env = dict(EArray=EArray, len=len, str=str, Print=self.logs.append, **self.consts)
+        self.timer = N(m_Owner="Interiors", m_Names=EArray(), m_Current=EArray(), m_Worst=EArray(),
+                       m_CurrentItems=0, m_WorstTotal=0, m_WorstItems=0, m_ItemMax=0, m_ItemType="",
+                       m_DeferredCount=0, m_DeferredMax=0, m_Ticks=0, m_Window=0, m_Peak=0, m_Work=False)
+        import functools
+        for name in self.METHODS:
+            setattr(self.timer, name, functools.partial(translated(text, name, env, "HCStepTimer"), self.timer))
+        self.steps = [self.timer.HCDefine(name) for name in ("resolve", "inspect", "create")]
+
+    def lines(self):
+        return [line for line in self.logs if line.startswith("[HC Step]")]
+
+    def test_one_line_per_window_reports_the_worst_tick_split_by_step(self):
+        resolve, inspect, create = self.steps
+        self.assertEqual([0, 1, 2], self.steps)
+        window = self.consts["WINDOW_TICKS"]
+        for tick in range(window):
+            if tick == 7:
+                self.timer.HCAdd(resolve, 3000)
+                self.timer.HCAdd(inspect, 2000)
+                self.timer.HCAdd(create, 400000)
+                self.timer.HCItem("Land_House_1W01:case_a", 405000)
+                self.timer.HCEndTick(410000)
+            elif tick == 9:
+                self.timer.HCAdd(create, 20000)
+                self.timer.HCItem("Land_House_1W02:chair", 21000)
+                self.timer.HCEndTick(22000)
+            else:
+                self.timer.HCEndTick(100)
+            if tick < window - 1:
+                self.assertEqual([], self.lines())
+        # A deferred callback after the window closed belongs to the next window.
+        self.timer.HCDeferred(250000)
+        lines = self.lines()
+        self.assertEqual(1, len(self.logs), self.logs)
+        line = self.logs[0]
+        for part in ("[HC Step] owner=Interiors window=1 ticks=60 worst_tick_ticks=410000 worst_tick_items=1",
+                     " resolve=3000 inspect=2000 create=400000 other=5000",
+                     " heaviest_item_ticks=405000 heaviest=Land_House_1W01:case_a",
+                     " deferred_n=0 deferred_max_ticks=0", "; raw TickCount units; runtime acceptance pending"):
+            self.assertIn(part, line)
+        self.assertEqual([], lines[1:])
+
+    def test_idle_windows_stay_silent_unless_the_worst_tick_is_a_new_peak(self):
+        resolve = self.steps[0]
+        window = self.consts["WINDOW_TICKS"]
+        for _ in range(window):
+            self.timer.HCEndTick(100)
+        self.assertEqual(1, len(self.lines()), "the first window sets the peak")
+        for _ in range(window):
+            self.timer.HCEndTick(90)
+        self.assertEqual(1, len(self.lines()), "an idle window below the peak prints nothing")
+        for tick in range(window):
+            if tick == 3:
+                self.timer.HCAdd(resolve, 900)
+            self.timer.HCEndTick(1000 if tick == 3 else 10)
+        self.assertEqual(2, len(self.lines()), "maintenance-only peak is reported")
+        self.assertIn("window=3", self.lines()[1])
+        self.assertIn("worst_tick_items=0", self.lines()[1])
+
+    def test_out_of_tick_work_counts_as_window_work_and_reports_count_and_max(self):
+        window = self.consts["WINDOW_TICKS"]
+        for _ in range(window):
+            self.timer.HCEndTick(500)
+        self.timer.HCDeferred(30000)
+        self.timer.HCDeferred(90000)
+        self.timer.HCDeferred(-4)
+        for _ in range(window):
+            self.timer.HCEndTick(10)
+        self.assertEqual(2, len(self.lines()), self.logs)
+        self.assertIn(" deferred_n=2 deferred_max_ticks=90000", self.lines()[1])
+
+    def test_steps_are_bounded_and_out_of_range_indices_are_ignored(self):
+        for index in range(20):
+            self.timer.HCDefine("s" + str(index))
+        self.assertEqual(self.consts["MAX_STEPS"], self.timer.m_Names.Count())
+        self.assertEqual(-1, self.timer.HCDefine("late"))
+        self.timer.HCAdd(-1, 5)
+        self.timer.HCAdd(99, 5)
+        self.assertEqual([0] * self.consts["MAX_STEPS"], list(self.timer.m_Current))
+
+    def test_timer_reads_no_clock_and_allocates_only_at_construction(self):
+        text = re.sub(r"//[^\n]*", "", STEP_TIMER.read_text())
+        for forbidden in ("GetGame", "GetTickTime", "TickCount("):
+            self.assertNotIn(forbidden, text, forbidden)
+        self.assertEqual(3, text.count("new array<"), "only the three step arrays are allocated")
+        self.assertLessEqual(self.consts["MAX_STEPS"], 8)
+
+
+class FurnishMeasuredChargeTests(unittest.TestCase):
+    """SYNTHETIC cursor items with scripted raw tick costs drive the module's furnish loop."""
+
+    def run_tick(self, costs, slot=True):
+        text = INTERIOR_MODULE.read_text()
+        module_consts = constants(text)
+        cursor_consts = constants(INTERIOR_CURSOR.read_text())
+        clock = [0]
+        items = []
+        steps = N(HCItem=lambda kind, ticks: items.append((kind, ticks)))
+        queue = list(costs)
+
+        class Cursor:
+            def HCComplete(self):
+                return not queue
+
+            def HCTick(self, module, settings, placed):
+                clock[0] = queue.pop(0)
+
+            def HCLastCost(self):
+                return cursor_consts["SLOT_UNITS"] if slot else cursor_consts["CHEAP_UNITS"]
+
+        owner = N(m_FurnishWork=Cursor(), m_FurnishUnits=unit_budget(), m_Objects=EArray())
+        env = dict(module_consts, len=len, str=str, TickCount=lambda prev: clock[0],
+                   HCInteriorPlacementCursor=N(**cursor_consts),
+                   HCInteriorTemplatePlacement=N(HCLastType=lambda: "Land_House_1W01:case_a"),
+                   HCInteriorTemplates=N(Loaded=lambda: True))
+        translated(text, "HCFurnish", env, "HCInteriorsModule", integer_division=True)(owner, N(), steps)
+        return len(costs) - len(queue), items, module_consts
+
+    def test_heavy_creation_attempt_ends_the_tick_after_one_item(self):
+        # 45 ms per attempt at the measured 10000 ticks/ms (boot 028 ticks_per_ms=10000).
+        ran, items, _ = self.run_tick([450000, 450000, 450000])
+        self.assertEqual(1, ran)
+        self.assertEqual([("Land_House_1W01:case_a", 450000)], items)
+
+    def test_cheap_creation_attempts_keep_the_declared_three_per_tick(self):
+        ran, items, _ = self.run_tick([20000] * 6)
+        self.assertEqual(3, ran)
+        self.assertEqual(3, len(items))
+
+    def test_mid_cost_attempts_stop_once_the_measured_units_are_spent(self):
+        ran, _, consts = self.run_tick([60000] * 6)   # 15 units each against 24
+        self.assertEqual(2, ran)
+
+    def test_cheap_deferrals_are_not_reported_as_items_and_keep_their_count(self):
+        ran, items, consts = self.run_tick([10] * 40, slot=False)
+        self.assertEqual(consts["FURNISH_UNITS_PER_TICK"], ran)
+        self.assertEqual([], items)
+
+
+class SceneStoreStagedSaveTests(unittest.TestCase):
+    PATH = "$profile:HollowCountry/scene-chains.json"
+    TEMP = PATH + ".tmp"
+    BACKUP = PATH + ".bak"
+
+    def setUp(self):
+        self.consts = constants(WORKBUDGET.read_text())
+        self.disk = FakeDisk({self.PATH: "image-r4"})
+        self.faults = []
+        text = SCENE_CHAINS.read_text()
+        self.state = N(Revision=4, valid=True)
+
+        def write_new(path, data, limit):
+            if path in self.disk.files or not (0 < len(data) <= limit):
+                return False
+            self.disk.write(path, data)
+            self.disk.read(path)
+            return True
+        self.env = dict(
+            len=len, str=str, Print=lambda s: None,
+            HCSaveJob=N(**self.consts), FileExist=self.disk.exist, DeleteFile=self.disk.delete,
+            CopyFile=self.disk.copy, HCGroupIO=N(WriteNew=write_new),
+            HCSceneChains=N(StateValid=lambda s: s is not None and s.valid),
+        )
+        self.store = N(m_Path=self.PATH, m_Fault=False, m_Image="image-r4", m_Revision=4,
+                       m_SaveStage=0, m_PendText="", m_PendRevision=0)
+        self.store.ReadImage = self.disk.read
+        self.store.Encode = lambda s: "image-r%d" % s.Revision
+
+        def fault():
+            self.faults.append(1)
+            self.store.m_Fault = True
+            return False
+        self.store.Fault = fault
+        self.step_fn = translated(text, "SaveStep", self.env, "HCSceneChainStore")
+        self.save_fn = translated(text, "Save", self.env, "HCSceneChainStore")
+        failed = translated(text, "SaveFailed", self.env, "HCSceneChainStore")
+        in_flight = translated(text, "SaveInFlight", self.env, "HCSceneChainStore")
+        self.store.SaveFailed = lambda: failed(self.store)
+        self.store.SaveStep = lambda s: self.step_fn(self.store, s)
+        self.store.SaveInFlight = lambda: in_flight(self.store)
+        self.step = lambda: self.store.SaveStep(self.state)
+
+    def test_serialize_and_prior_compare_stages_never_write(self):
+        more = self.consts["STEP_MORE"]
+        self.assertEqual(more, self.step())
+        self.assertEqual([], self.disk.ops)
+        self.assertTrue(self.store.SaveInFlight())
+        self.assertEqual(4, self.state.Revision, "the live state keeps the stored revision between stages")
+        self.assertEqual(more, self.step())
+        self.assertEqual([("read", self.PATH)], self.disk.ops)
+        self.assertEqual({self.PATH: "image-r4"}, self.disk.files)
+
+    def test_backup_refresh_is_its_own_stage_and_leaves_no_intent(self):
+        self.step()
+        self.step()
+        self.disk.ops.clear()
+        self.assertEqual(self.consts["STEP_MORE"], self.step())
+        self.assertEqual([("copy", self.PATH + ">" + self.BACKUP), ("read", self.BACKUP)], self.disk.ops)
+        self.assertEqual({self.PATH: "image-r4", self.BACKUP: "image-r4"}, self.disk.files)
+        self.assertNotIn(self.TEMP, self.disk.files)
+        self.assertFalse(self.store.m_Fault)
+
+    def test_commit_writes_intent_replaces_reads_back_and_clears_the_intent_in_one_stage(self):
+        for _ in range(3):
+            self.step()
+        self.disk.ops.clear()
+        self.assertEqual(self.consts["STEP_DONE"], self.step())
+        self.assertEqual(
+            [("write", self.TEMP), ("read", self.TEMP), ("delete", self.PATH), ("copy", self.TEMP + ">" + self.PATH),
+             ("read", self.PATH), ("delete", self.TEMP)], self.disk.ops)
+        self.assertEqual({self.PATH: "image-r5", self.BACKUP: "image-r4"}, self.disk.files)
+        self.assertEqual((5, 5, "image-r5", False), (self.state.Revision, self.store.m_Revision, self.store.m_Image, self.store.m_Fault))
+        self.assertFalse(self.store.SaveInFlight())
+
+    def test_synchronous_save_runs_the_same_stages_and_ends_with_the_original_files(self):
+        self.assertTrue(self.save_fn(self.store, self.state))
+        self.assertEqual({self.PATH: "image-r5", self.BACKUP: "image-r4"}, self.disk.files)
+        self.assertTrue(self.save_fn(self.store, self.state))
+        self.assertEqual({self.PATH: "image-r6", self.BACKUP: "image-r5"}, self.disk.files)
+        self.assertEqual([], self.faults)
+
+    def test_a_synchronous_barrier_save_mid_flight_restarts_from_a_fresh_snapshot(self):
+        self.step()
+        self.step()
+        self.assertTrue(self.save_fn(self.store, self.state))
+        self.assertFalse(self.store.SaveInFlight())
+        self.assertEqual({self.PATH: "image-r5", self.BACKUP: "image-r4"}, self.disk.files)
+
+    def test_fresh_store_without_a_current_image_skips_prior_and_backup(self):
+        self.disk.files.clear()
+        self.store.m_Image = ""
+        self.assertEqual(self.consts["STEP_MORE"], self.step())
+        self.assertEqual(self.consts["STEP_MORE"], self.step())
+        self.assertEqual(self.consts["STEP_MORE"], self.step())
+        self.assertEqual([], self.disk.ops)
+        self.assertEqual(self.consts["STEP_DONE"], self.step())
+        self.assertEqual({self.PATH: "image-r5"}, self.disk.files)
+
+    def test_external_edit_faults_before_any_write_and_preserves_the_files(self):
+        self.disk.files[self.PATH] = "edited-by-hand"
+        self.step()
+        self.assertEqual(self.consts["STEP_FAILED"], self.step())
+        self.assertEqual(([1], True), (self.faults, self.store.m_Fault))
+        self.assertFalse(self.store.SaveInFlight())
+        self.assertEqual({self.PATH: "edited-by-hand"}, self.disk.files)
+        self.assertEqual(self.consts["STEP_FAILED"], self.step(), "a faulted store refuses every stage")
+
+    def test_a_surviving_intent_faults_the_commit_and_keeps_recovery_files(self):
+        for _ in range(3):
+            self.step()
+        self.disk.files[self.TEMP] = "stale-intent"
+        self.assertEqual(self.consts["STEP_FAILED"], self.step())
+        self.assertTrue(self.store.m_Fault)
+        self.assertEqual({self.PATH: "image-r4", self.BACKUP: "image-r4", self.TEMP: "stale-intent"}, self.disk.files)
+        self.assertEqual((4, "image-r4"), (self.store.m_Revision, self.store.m_Image))
+
+    def test_invalid_state_revision_mismatch_and_faulted_store_refuse_without_io(self):
+        self.state.Revision = 3
+        self.assertEqual(self.consts["STEP_FAILED"], self.step())
+        self.assertEqual([], self.disk.ops)
+        self.assertFalse(self.save_fn(self.store, self.state))
+        self.assertEqual(2, len(self.faults), "a faulted synchronous save still prints the refusal")
+
+
 class SourceContractTests(unittest.TestCase):
     def source(self, path):
         return re.sub(r"//[^\n]*", "", path.read_text())
@@ -468,6 +796,37 @@ class SourceContractTests(unittest.TestCase):
         self.assertEqual(1, text.count("load_ticks="))
         self.assertIn("TickCount(loadStart)", text)
         self.assertIn("load_ticks=\" + loadTicks.ToString()", text)
+
+    def test_scene_save_job_is_staged_and_clears_in_flight_before_stopping(self):
+        module = self.source(SCENES_MODULE)
+        job = module.split("class HCSceneSaveJob")[1]
+        self.assertIn("override int HCStep()", job)
+        self.assertIn("HCStepRoutine()", job)
+        routine = module.split("int HCStepRoutine()")[1].split("\n    }\n")[0]
+        self.assertIn("m_Store.SaveStep(m_State)", routine)
+        self.assertLess(routine.index("HCInFlight = false"), routine.index("OnStop()"))
+        commit = module.split("bool Commit(int now)")[1].split("\n    }\n")[0]
+        self.assertIn("m_SaveJob.HCInFlight = false", commit)
+        stop = module.split("override void OnStop()")[1].split("\n    }\n")[0]
+        self.assertIn("SaveAbandon()", stop)
+        self.assertLess(stop.index("SaveAbandon()"), stop.index("HCFlush(m_SaveJob)"))
+        store = self.source(SCENE_CHAINS)
+        commit_stage = store.split("string text = m_PendText;")[1].split("return HCSaveJob.STEP_DONE")[0]
+        for call in ("WriteNew(m_Path + \".tmp\"", "DeleteFile(m_Path)", "CopyFile(m_Path + \".tmp\", m_Path)", "DeleteFile(m_Path + \".tmp\")"):
+            self.assertIn(call, commit_stage)
+        early = store.split("string text = m_PendText;")[0].split("int SaveStep(")[1]
+        self.assertNotIn(".tmp", early, "the durability intent must not be written before the commit stage")
+
+    def test_interiors_tick_is_sub_timed_and_measured_charge_is_used(self):
+        module = self.source(INTERIOR_MODULE)
+        self.assertIn("HCChargeMeasured(", module)
+        self.assertIn("FURNISH_TICKS_PER_UNIT", module)
+        self.assertIn("HCEndTick(TickCount(", module)
+        placement = self.source(INTERIOR_PLACEMENT)
+        self.assertIn("CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, 100, false, placedObject)", placement)
+        timed = placement.split("static void HCTimedPathgraph(Object")[1].split("\n    }\n")[0]
+        self.assertIn("GetGame().UpdatePathgraphRegionByObject(", timed)
+        self.assertIn("[HC Step]", self.source(STEP_TIMER))
 
     def test_core_helper_is_the_only_new_budget_type_and_is_reused_three_times(self):
         for path in (SCRIPTS / "4_World/Ecology/HCEcologyRuntime.c", INTERIOR_MODULE):
