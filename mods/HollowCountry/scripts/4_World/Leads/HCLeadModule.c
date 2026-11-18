@@ -87,6 +87,7 @@ class HCLeadModule : HCModule
     protected ref array<ref HCWorldFact> m_Facts = new array<ref HCWorldFact>();
     protected int m_Cursor;
     protected int m_SelectionCursor;
+    protected int m_ShelterCursor;
     protected float m_Elapsed = 60;
     protected bool m_AdmissionPrinted;
 
@@ -153,6 +154,15 @@ class HCLeadModule : HCModule
                 }
                 if (!duplicate && m_Catalog.Count() < 64) { m_Catalog.Insert(candidate); }
             }
+        }
+        // LC-T306: refresh one shelter lead slot per minute from the lead catalog.
+        int shelters = HCShelterCatalog.Count();
+        if (shelters > 0)
+        {
+            if (m_ShelterCursor >= shelters) { m_ShelterCursor = 0; }
+            HCWorldLead slotLead = Select();
+            if (slotLead) { HCShelterCatalog.SetLeadSlot(m_ShelterCursor, HCLeadPolicy.Text(slotLead)); }
+            m_ShelterCursor++;
         }
         if (changed && !m_Store.Save()) { return; }
         array<string> groups = new array<string>();

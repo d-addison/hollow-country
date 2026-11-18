@@ -47,7 +47,14 @@ class HCAskForNews
     static const string PENDING = "$profile:HollowCountry/ask-for-news.pending.json";
 
     // Ledger-wave port. Never synthesize an event or disclose a live position.
-    static string Rumour(vector pos) { return ""; }
+    static string Rumour(vector pos)
+    {
+        // V2 leads (EnableLeads) supply place-level text built from facts at least
+        // 30 minutes old; with no leads module the NPC keeps its honest no-news reply.
+        HCLeadModule leads = HCLeadModule.Get();
+        if (!leads) { return ""; }
+        return leads.Rumour(pos);
+    }
 
     static void Configure(bool enabled)
     {
