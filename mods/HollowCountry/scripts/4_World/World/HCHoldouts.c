@@ -180,6 +180,7 @@ class HCHoldouts : HCModule
     protected int m_Next;
     protected float m_Elapsed;
     protected bool m_Ready;
+    protected bool m_Dirty;
     protected int m_Reports;
     protected bool m_WaitReported;
 
@@ -237,7 +238,11 @@ class HCHoldouts : HCModule
             if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > 3 || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) return;
             if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 604800) return;
             ids.Set(row.Ledger.Id, true);
-            if (row.Ledger.Occupants > 0) occupied++;
+            if (row.Ledger.Occupants > 0)
+            {
+                if (!SiteAvailable(row)) return;
+                occupied++;
+            }
             m_Caches.Insert(new HCEncounterCacheIO);
         }
         if (occupied > 6) { m_Store.Fault(); return; }
@@ -245,6 +250,56 @@ class HCHoldouts : HCModule
         m_Ready = true;
         Print("[HollowCountry] V2 holdouts ready catalog_cap=24 occupied_cap=6 raid_lockout=604800s; bodies require materializer");
         if (!s_Lights) Print("[HollowCountry] V2 holdouts lit-window bridge pending HCSignsOfLife.ForceLit");
+    }
+
+    bool SaveChanged()
+    {
+        if (!m_Dirty) return true;
+        if (!m_Store.Save(m_State)) { m_Ready = false; return false; }
+        m_Dirty = false;
+        return true;
+    }
+
+    bool SiteAvailable(HCHoldoutRow candidate)
+    {
+        foreach (HCHoldoutRow occupiedSite : m_State.Rows)
+        {
+            if (!occupiedSite || !occupiedSite.Ledger) return false;
+            if (occupiedSite == candidate || occupiedSite.Ledger.Occupants == 0) continue;
+            if (occupiedSite.Ledger.Id == candidate.Ledger.Id || vector.DistanceSq(occupiedSite.Ledger.HousePos, candidate.Ledger.HousePos) <= 1) return false;
+        }
+        return true;
+    }
+
+    // AddHoldout is insert-only; the world owner has no general upsert seam.
+    // Publish a bounded fact for every transition until that seam is available.
+    void PublishState(HCHoldoutRow row)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!world) return;
+        if (row.Ledger.CacheRef != row.Cache.EntityRef)
+        {
+            row.Ledger.CacheRef = row.Cache.EntityRef;
+            m_Dirty = true;
+        }
+        if (!row.Published && row.Cache.Phase == 2)
+        {
+            row.Published = world.AddHoldout(row.Ledger);
+            if (row.Published) m_Dirty = true;
+        }
+        if (row.Ledger.State == "RAIDED")
+        {
+            if (!world.MarkHoldoutRaided(row.Ledger.Id)) world.AddFact("RAIDED", row.Ledger.PlaceId, 2);
+            return;
+        }
+        if (row.Ledger.State == "ABANDONED")
+        {
+            world.AddFact("ABANDONED", row.Ledger.PlaceId, 1);
+            return;
+        }
+        string stateKind = row.Ledger.State;
+        stateKind.ToLower();
+        world.AddFact("holdout_" + stateKind, row.Ledger.PlaceId, 1);
     }
 
     // Catalog comes from authored template-pack world rows, never a world scan.
@@ -275,6 +330,7 @@ class HCHoldouts : HCModule
             row.Ledger.HouseClass = site.BuildingClass;
             row.Ledger.HousePos = position;
             row.Ledger.PlaceId = world.NearestPlace(position);
+            row.Ledger.PlaceId.ToLower();
             row.Ledger.FactionId = "locals";
             row.Ledger.Since = HCWorldClock.UTC();
             row.StockDay = HCEscalationClock.Day();
@@ -287,7 +343,8 @@ class HCHoldouts : HCModule
         if (changed)
         {
             m_State.TemplatePin = HCInteriorTemplates.SourcePin();
-            if (!m_Store.Save(m_State)) m_Ready = false;
+            m_Dirty = true;
+            if (!SaveChanged()) return;
             else Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/24");
         }
     }
@@ -319,6 +376,12 @@ class HCHoldouts : HCModule
         vector position = m_State.Rows[index].Ledger.HousePos;
         pose.Position.Insert(position[0]); pose.Position.Insert(position[1]); pose.Position.Insert(position[2]);
         return HCInteriorTemplatePlacement.Resolve(pose);
+    }
+
+    string CacheId(int index)
+    {
+        if (index < 0 || index >= Count()) return "";
+        return m_State.Rows[index].Ledger.Id;
     }
 
     EntityAI Cache(int index)
@@ -420,12 +483,21 @@ class HCHoldouts : HCModule
         if (!cache || !cache.GetInventory() || !cache.GetInventory().GetCargo()) return;
         CargoBase cargo = cache.GetInventory().GetCargo();
         if (cargo.GetItemCount() > 32) return;
-        m_State.Rows[index].Contents.Clear();
+        array<string> contents = new array<string>;
         for (int itemIndex = 0; itemIndex < cargo.GetItemCount(); itemIndex++)
         {
             string id = HCSearchSupplyRegistry.PersistentId(cargo.GetItem(itemIndex));
-            if (id != "") m_State.Rows[index].Contents.Insert(id);
+            if (id != "") contents.Insert(id);
         }
+        bool changed = contents.Count() != m_State.Rows[index].Contents.Count();
+        if (!changed)
+        {
+            for (int compareIndex = 0; compareIndex < contents.Count(); compareIndex++)
+                if (contents[compareIndex] != m_State.Rows[index].Contents[compareIndex]) changed = true;
+        }
+        if (!changed) return;
+        m_State.Rows[index].Contents = contents;
+        m_Dirty = true;
     }
 
     // Called by the encounter/stance owner only for a local observed threat.
@@ -437,8 +509,10 @@ class HCHoldouts : HCModule
             if (row.Ledger.Id != id || row.Ledger.State != "OCCUPIED") continue;
             row.Ledger.State = "ALERT";
             row.Ledger.Since = HCWorldClock.UTC();
-            if (!m_Store.Save(m_State)) { m_Ready = false; return false; }
-            return true;
+            m_Dirty = true;
+            if (!SaveChanged()) return false;
+            PublishState(row);
+            return SaveChanged();
         }
         return false;
     }
@@ -453,12 +527,10 @@ class HCHoldouts : HCModule
         row.Ledger.ReoccupyAfter = row.Ledger.Since + 604800;
         row.Ledger.Routine = "LOCKOUT";
         row.Contents.Clear();
-        if (!m_Store.Save(m_State)) { m_Ready = false; return; }
-        HCWorldModule world = HCWorldModule.Get();
-        if (world)
-        {
-            if (!world.MarkHoldoutRaided(row.Ledger.Id)) world.AddFact("holdout_raided", row.Ledger.PlaceId, 2);
-        }
+        m_Dirty = true;
+        if (!SaveChanged()) return;
+        PublishState(row);
+        if (!SaveChanged()) return;
         Print("[HollowCountry] V2 holdout raided id=" + row.Ledger.Id + " lockout=604800s");
     }
 
@@ -476,7 +548,7 @@ class HCHoldouts : HCModule
         }
         if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
         FillCatalog();
-        if (!m_Ready || Count() == 0) return;
+        if (!m_Ready || Count() == 0 || HCEscalationClock.Day() < 1) return;
         if (m_Next >= Count()) m_Next = 0;
         int index = m_Next;
         m_Next++;
@@ -485,21 +557,28 @@ class HCHoldouts : HCModule
         if (now < row.Ledger.Since || now < 1) { m_Ready = false; return; }
         Object structure = Structure(index);
         if (!structure) return;
-        if (row.Cache.Phase == 0 && CacheSpot(structure, row))
+        if (row.Cache.Phase == 0 && HCObserverTransitionGate.CanTransition(row.Ledger.HousePos, 500) && CacheSpot(structure, row) && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
         {
             row.Cache.Phase = 1;
-            if (!m_Store.Save(m_State)) { m_Ready = false; return; }
+            m_Dirty = true;
+            if (!SaveChanged()) return;
             m_Caches[index].Create(row.Cache);
+            m_Dirty = true;
         }
+        int cachePhase = row.Cache.Phase;
+        string cacheRef = row.Cache.EntityRef;
         if (row.Cache.Phase != 0) m_Caches[index].LinkCache(row.Cache);
+        if (cachePhase != row.Cache.Phase || cacheRef != row.Cache.EntityRef) m_Dirty = true;
         if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) Raid(index);
         if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) Raid(index);
+        if (!m_Ready) return;
+        string previousState = row.Ledger.State;
         if (row.Ledger.State == "RAIDED" && now >= row.Ledger.ReoccupyAfter)
         {
             row.Ledger.State = "DORMANT";
             row.Ledger.Since = now;
         }
-        if (row.Ledger.State == "DORMANT" && Occupied() < 6 && Cache(index))
+        if (row.Ledger.State == "DORMANT" && Occupied() < 6 && SiteAvailable(row) && Cache(index))
         {
             row.Ledger.State = "OCCUPIED";
             row.Ledger.Occupants = 1;
@@ -515,26 +594,34 @@ class HCHoldouts : HCModule
             if (binding.Body.IsAlive()) continue;
             m_Bodies.Remove(bodyIndex);
             Raid(index);
+            if (!m_Ready) return;
+            previousState = row.Ledger.State;
         }
         if (row.Ledger.State == "OCCUPIED" && HCEscalationClock.Day() >= 14 && HCEscalationClock.Pressure("raiders") >= 0.9)
         {
             row.Ledger.State = "ABANDONED";
             row.Ledger.Occupants = 0;
             row.Ledger.Since = now;
-            HCWorldModule.Get().AddFact("holdout_abandoned", row.Ledger.PlaceId, 1);
+        }
+        if (!m_Ready) return;
+        if (row.Ledger.State != previousState)
+        {
+            m_Dirty = true;
+            PublishState(row);
         }
         if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")
         {
             HCSearchHouses houses = HCSearchBinding.Houses();
             // Three lifetime attempts, one per real day. No replenishment on raid.
-            if (houses && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() >= row.StockDay)
+            if (houses && Cache(index) && row.StockAttempts < 3 && HCEscalationClock.Day() > 0 && HCEscalationClock.Day() >= row.StockDay && HCObserverTransitionGate.CanTransition(row.Cache.Position, 500))
             {
                 int siteNumber = row.StockAttempts;
                 row.StockAttempts++;
                 row.StockDay = HCEscalationClock.Day() + 1;
-                if (!m_Store.Save(m_State)) { m_Ready = false; return; }
+                m_Dirty = true;
+                if (!SaveChanged()) return;
                 int phase = houses.V2Visit(structure, Cache(index), row.Ledger.Id, siteNumber);
-                if (phase == 3 || phase == 4) row.StockAttempts = 3;
+                if (phase == 3) { row.StockAttempts = 3; m_Dirty = true; }
                 if (m_Reports < 12)
                 {
                     m_Reports++;
@@ -543,11 +630,19 @@ class HCHoldouts : HCModule
             }
         }
         if (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") SnapshotContents(index);
-        row.Ledger.CacheRef = row.Cache.EntityRef;
+        if (row.Ledger.CacheRef != row.Cache.EntityRef)
+        {
+            row.Ledger.CacheRef = row.Cache.EntityRef;
+            m_Dirty = true;
+        }
         HCWorldModule world = HCWorldModule.Get();
-        if (world && !row.Published && row.Cache.Phase == 2) row.Published = world.AddHoldout(row.Ledger);
+        if (world && !row.Published && row.Cache.Phase == 2)
+        {
+            row.Published = world.AddHoldout(row.Ledger);
+            if (row.Published) m_Dirty = true;
+        }
         if (s_Lights) s_Lights.ForceLit(row.Ledger.Id, row.Ledger.HousePos, row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT");
-        if (!m_Store.Save(m_State)) m_Ready = false;
+        SaveChanged();
     }
 
     override void OnStop()
@@ -570,6 +665,7 @@ modded class WoodenCrate
     override void EECargoOut(EntityAI item)
     {
         super.EECargoOut(item);
+        HCDeadDrops.CargoRemoved(this, item);
         HCHoldouts.CargoRemoved(this);
     }
 }

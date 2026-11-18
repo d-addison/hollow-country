@@ -10,6 +10,12 @@
 // Admission is preference-only; native inventory/noise/restart acceptance PENDING.
 class HCPickerPolicy
 {
+    static int ChargeAfterVisit(int used, int phase)
+    {
+        if (phase == 2) return used + 1;
+        return used;
+    }
+
     static bool MayVisit(int used, int recordedDay, int today, bool visited)
     {
         return used >= 0 && used < 6 && recordedDay == today && !visited;
@@ -55,7 +61,8 @@ modded class HCSearchHouses
     int V2Visit(Object structure, EntityAI destination, string actorId, int siteNumber)
     {
         if (!m_Started || m_Fault || m_Busy || !m_Settings || !GetGame().IsServer()) return 0;
-        if (!structure || !destination || !HCInteriorTemplates.Loaded()) return 0;
+        if (!structure || !destination || !HCInteriorTemplates.Loaded() || HCEscalationClock.Day() < 1) return 0;
+        if (!HCObserverTransitionGate.CanTransition(structure.GetPosition(), 500) || !HCObserverTransitionGate.CanTransition(destination.GetPosition(), 500)) return 0;
         HCInteriorTemplateClassRow classRow = HCInteriorTemplates.ClassRow(structure.GetType());
         HCInteriorTemplate layout = HCInteriorTemplates.Template(structure.GetType());
         if (!classRow || classRow.Search != "covered" || !layout || layout.SearchSites.Count() < 1) return 0;
@@ -77,19 +84,24 @@ modded class HCSearchHouses
         if (!slot) return 0;
         string scope = m_Journal.RefreshScope();
         if (m_Journal.RefreshHasHistory(hit.SiteId)) HCSearchRefreshModule.Mark(scope, hit.SiteId, true);
-        if (!m_Journal.SiteBound(hit.SiteId) || HCSearchRefreshModule.Ready(scope, hit.SiteId))
+        // Match native Prepare: bind/activate a site once per occupied slot.
+        // Repeated visits must never append duplicate site ids or rebind supply.
+        if (slot.Sites.Find(hit.SiteId) < 0)
         {
-            if (!Bind(slot, hit))
+            if (!m_Journal.SiteBound(hit.SiteId) || HCSearchRefreshModule.Ready(scope, hit.SiteId))
+            {
+                if (!Bind(slot, hit))
+                {
+                    if (!m_Journal.Healthy()) return 3;
+                    return 0;
+                }
+                if (HCSearchRefreshModule.Ready(scope, hit.SiteId)) HCSearchRefreshModule.Mark(scope, hit.SiteId);
+            }
+            else if (!Activate(slot, hit))
             {
                 if (!m_Journal.Healthy()) return 3;
                 return 0;
             }
-            if (HCSearchRefreshModule.Ready(scope, hit.SiteId)) HCSearchRefreshModule.Mark(scope, hit.SiteId);
-        }
-        else if (!Activate(slot, hit))
-        {
-            if (!m_Journal.Healthy()) return 3;
-            return 0;
         }
         // Only 32 journal rows examined on one visit, carrying the cursor on.
         int examined = 0;
@@ -110,6 +122,7 @@ modded class HCSearchHouses
             // Release a terminal handle so later cache-to-cache moves can bind
             // it independently. The spent house row stays immutable forever.
             if (m_Registry) m_Registry.Forget(row.SupplyId);
+            if (result == 2 && !HCDeadDrops.RecordHouseDeposit(destination, row.SupplyId)) return 3;
             if (result == 2 && m_Started) HCSearchNoise.EmitAt(destination, hit.Center);
             return result;
         }
@@ -138,14 +151,24 @@ class HCCacheMoveJournal : HCSearchHouseJournal
 
 class HCCacheMoves
 {
+    protected static ref HCCacheMoves s_Shared;
+
+    static HCCacheMoves Shared()
+    {
+        if (!s_Shared) s_Shared = new HCCacheMoves;
+        return s_Shared;
+    }
+
     protected ref HCSearchHouseJournal m_Journal;
     protected ref HCSearchSupplyRegistry m_Registry;
     protected bool m_Fault;
     static const string PIN = "cace000100000000000000000000000000000000000000000000000000000000";
 
-    int TakeOne(EntityAI source, EntityAI destination, string actorId)
+    int TakeOne(EntityAI source, EntityAI destination, string actorId, array<string> allowed)
     {
-        if (m_Fault || !source || !destination || source == destination || source.GetHierarchyParent() || source.GetHierarchyRootPlayer()) return 4;
+        if (HCEscalationClock.Day() < 1) return 0;
+        if (m_Fault || (m_Journal && !m_Journal.Healthy())) return 3;
+        if (!source || !destination || source == destination || source.GetHierarchyParent() || source.GetHierarchyRootPlayer()) return 4;
         if (!m_Journal)
         {
             m_Journal = new HCCacheMoveJournal;
@@ -156,7 +179,7 @@ class HCCacheMoves
                 return 3;
             }
         }
-        if (!source.GetInventory() || !source.GetInventory().GetCargo()) return 4;
+        if (HCSearchSupplyRegistry.PersistentId(source) == "" || !source.GetInventory() || !source.GetInventory().GetCargo()) return 4;
         CargoBase cargo = source.GetInventory().GetCargo();
         int count = cargo.GetItemCount();
         if (count > 32) count = 32;
@@ -164,7 +187,7 @@ class HCCacheMoves
         {
             EntityAI item = cargo.GetItem(slotIndex);
             string supplyId = HCSearchSupplyRegistry.PersistentId(item);
-            if (!item || supplyId == "" || m_Journal.SupplyKnown(supplyId)) continue;
+            if (!item || !HCDeadDrops.MayWithdraw(allowed, supplyId) || m_Journal.SupplyKnown(supplyId)) continue;
             if (!m_Registry.RegisterOwned(item, "cache_" + supplyId)) continue;
             int index = m_Journal.Count();
             string siteId = "cache_" + HCSearchSupplyRegistry.PersistentId(source);
@@ -189,7 +212,12 @@ class HCCacheMoves
         return 0;
     }
 
-    void Stop() { if (m_Registry) m_Registry.Retire(); }
+    void Stop()
+    {
+        if (m_Registry) m_Registry.Retire();
+        if (s_Shared == this) s_Shared = null;
+        m_Fault = true;
+    }
 }
 
 class HCPickerState
@@ -246,7 +274,7 @@ class HCPickers : HCModule
         if (!holdouts || !drops || !houses || !world || holdouts.Count() < 1) return;
         int now = HCWorldClock.UTC();
         int today = HCEscalationClock.Day();
-        if (now < 1 || today < m_State.Party.TransferDay || now < m_State.Party.LastMoved) { Quarantine(); return; }
+        if (today < 1 || now < 1 || today < m_State.Party.TransferDay || now < m_State.Party.LastMoved) return;
         if (now < m_State.NextVisit) return;
         if (today > m_State.Party.TransferDay)
         {
@@ -272,9 +300,11 @@ class HCPickers : HCModule
         Object house = holdouts.Structure(houseIndex);
         EntityAI destination = drops.Cache(houseIndex % drops.Count());
         if (!house || !destination) return;
-        // Charge and advance BEFORE any inventory callback, durably. Failures
-        // spend the visit too. Downtime never causes a catch-up burst.
-        m_State.Party.DailyTransfers++;
+        EntityAI home = holdouts.Cache(houseIndex);
+        if (!HCObserverTransitionGate.CanTransition(house.GetPosition(), 500) || !HCObserverTransitionGate.CanTransition(destination.GetPosition(), 500)) return;
+        if (home && !HCObserverTransitionGate.CanTransition(home.GetPosition(), 500)) return;
+        // Persist route progress before callbacks; charge only a confirmed move.
+        // Immutable item intents prevent replay after an interrupted visit.
         m_State.NextHouse = (houseIndex + 1) % holdouts.Count();
         m_State.Party.Edge = (m_State.Party.Edge + 1) % m_State.Party.Route.Count();
         m_State.Party.LastMoved = now;
@@ -283,13 +313,16 @@ class HCPickers : HCModule
         int phase;
         // Every fourth visit can withdraw a drop into a recoverable hold-out
         // cache; all other visits empty an actual template search site.
-        EntityAI home = holdouts.Cache(houseIndex);
-        if (m_State.Party.DailyTransfers % 4 == 0 && home)
+        if ((m_State.Party.DailyTransfers + 1) % 4 == 0 && home)
             phase = drops.TakeOne(houseIndex % drops.Count(), home, m_State.Party.Id);
         else
-            phase = houses.V2Visit(house, destination, m_State.Party.Id, m_State.Party.DailyTransfers - 1);
-        if (phase == 3 || phase == 4) Quarantine();
-        if (phase == 2) world.AddFact("picker_searched", world.NearestPlace(house.GetPosition()), 0);
+            phase = houses.V2Visit(house, destination, m_State.Party.Id, m_State.Party.DailyTransfers);
+        m_State.Party.DailyTransfers = HCPickerPolicy.ChargeAfterVisit(m_State.Party.DailyTransfers, phase);
+        if (phase == 3) Quarantine();
+        else if (!m_Store.Save(m_State)) { m_Ready = false; return; }
+        string place = world.NearestPlace(house.GetPosition());
+        place.ToLower();
+        if (phase == 2) world.AddFact("picker_searched", place, 0);
         if (m_Reports < 12)
         {
             m_Reports++;
@@ -299,8 +332,9 @@ class HCPickers : HCModule
 
     void Quarantine()
     {
+        if (HCEscalationClock.Day() < 1) return;
         m_State.Quarantined = true;
-        m_Store.Save(m_State);
+        if (!m_Store.Save(m_State)) m_Ready = false;
         Print("[HollowCountry] V2 pickers quarantined; no replay or replacement supply");
     }
 

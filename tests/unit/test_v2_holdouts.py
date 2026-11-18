@@ -3,13 +3,40 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace as N
 
-from tests.unit.test_group_server import execute_member
+from tests.unit.test_group_server import EArray, execute_member
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCPickers.c'
 
 
 class HoldoutsSmoke(unittest.TestCase):
+    def test_zero_move_charge_locked_crate_and_player_deposit(self):
+        # Explicit synthetic inventory/config adapters; never engine evidence.
+        source = SOURCE.read_text()
+        for phase in (0, 3, 4):
+            self.assertEqual(2, execute_member(source, 'ChargeAfterVisit', {}, N(), 2, phase))
+        self.assertEqual(3, execute_member(source, 'ChargeAfterVisit', {}, N(), 2, 2))
+        theft = (SOURCE.parent.parent / 'Camps/HCCampTheft.c').read_text()
+        # Native string-array declaration uses the existing DTO/array scaffolding.
+        theft = theft.replace('TStringArray slots =', 'HCGroupArray slots =')
+        attachments = [0]
+        slots = EArray()
+        game = N(ConfigIsExisting=lambda path: True, ConfigGetType=lambda path: 3,
+                 ConfigGetTextArray=lambda path, output: output.extend(slots))
+        inventory = N(AttachmentCount=lambda: attachments[0])
+        crate = N(GetType=lambda: 'WoodenCrate', GetInventory=lambda: inventory)
+        env = {'GetGame': lambda: game, 'TStringArray': EArray, 'CT_ARRAY': 3}
+        self.assertTrue(execute_member(theft, 'Unlocked', env.copy(), N(), crate))
+        attachments[0] = 1  # Unknown/lock attachment always refuses.
+        self.assertFalse(execute_member(theft, 'Unlocked', env.copy(), N(), crate))
+        attachments[0] = 0
+        slots.Insert('CombinationLock')  # Modified config cannot be classified.
+        self.assertFalse(execute_member(theft, 'Unlocked', env.copy(), N(), crate))
+        drops = (SOURCE.parent / 'HCDeadDrops.c').read_text()
+        recorded = EArray(['synthetic-house-item'])
+        self.assertTrue(execute_member(drops, 'MayWithdraw', {}, N(), recorded, 'synthetic-house-item'))
+        self.assertFalse(execute_member(drops, 'MayWithdraw', {}, N(), recorded, 'synthetic-player-item'))
+
     def test_picker_moves_only_through_journal_and_six_daily_attempts(self):
         self.assertTrue(SOURCE.is_file(), 'missing authored picker journal implementation')
         source = SOURCE.read_text()

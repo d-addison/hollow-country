@@ -70,7 +70,7 @@ class HCCampModule : HCModule
         m_LastSaved = m_LastUtc;
         m_Running = true;
         s_Instance = this;
-        HCCampTheft.Admission();
+        Print(HCV2Admission.Line("CampTheft", true, "EXP-L9", HCV2Gates.Qualified("EXP-L9")));
         Print("[HollowCountry] V2 camps started camps=" + m_Data.Camps.Count().ToString() + " visitors=abstract probes=abstract mailbox=notification; native acceptance pending");
     }
 
@@ -208,7 +208,8 @@ class HCCampModule : HCModule
         HCCampMailbox.Step(this, camp, scan, now);
         if (!m_Running) { return; }
         HCCampProbes.Step(this, camp, scan, burning, now);
-        // Theft has no native journal destination overload: no work is queued.
+        if (!m_Running) { return; }
+        HCCampTheft.Step(this, camp, scan, now);
     }
 
     override void OnTick(float deltaTime)
