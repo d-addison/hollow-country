@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
+from tests.unit.test_tilt_rule import tilt_rules
 
 if __package__:
     from .test_room_catalog_completion import Array, Vec, Text, House, Survey, Anchor, Record, PATH, authored, fixture
@@ -110,6 +111,7 @@ def production_fixture(document=None, houses=None, *, server=True, diagnostic=Fa
               TEMPLATE_EVIDENCE_KIND="native-room-survey-v1",
               TEMPLATE_READY="rooms_templates_provisional_path_audio_doors_pending",
               Math=SimpleNamespace(Min=min, AbsFloat=abs),
+              HCInteriorRules=tilt_rules(),
               HCInteriorTemplates=SimpleNamespace(Loaded=lambda: False),  # synthetic reader stub: no pack
               LogTemplateAdmission=lambda: None, BindTemplateHouses=lambda clue: None,
               ResolveLegacyConflicts=lambda: None)
@@ -698,6 +700,18 @@ def order(ns, house_or_point, budget=2, advance=True):
 
 
 class TemplateAnchorBindingTests(unittest.TestCase):
+    def test_template_rooms_accept_nearly_level_and_refuse_excessive_or_nan_tilt(self):
+        for axis in (1, 2):
+            for tilt, expected in ((.3, True), (-.3, True), (-0., True), (.5, True),
+                                   (-.5, True), (.6, False), (-.6, False), (float('nan'), False)):
+                with self.subTest(axis=axis, tilt=tilt):
+                    pose = [30., 0., 0.]; pose[axis] = tilt
+                    house = House(orientation=pose)
+                    ns, calls = template_fixture([house])
+                    self.assertEqual(expected, ns['TemplateBinding'](house, synthetic_template()) is not None)
+                    if not expected and math.isfinite(tilt):
+                        self.assertIn('[HollowCountry] tilted; class=Synthetic_House_1', calls['logs'])
+
     def test_fixture_is_explicitly_synthetic_and_never_a_pack(self):
         self.assertTrue(TEMPLATE_FIXTURE["Synthetic"])
         self.assertNotIn('"Synthetic":', json.dumps(synthetic_template(), default=lambda o: o.__dict__))

@@ -9,6 +9,7 @@ import unittest
 from tests.unit.test_group_server import EArray, body
 from tests.unit.test_interior_measured_catalog import EMap as BaseMap, statements
 from tests.unit.build_identity_support import translate as build_identity
+from tests.unit.test_tilt_rule import tilt_rules
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / 'mods/HollowCountry/scripts/4_World/Interiors'
@@ -166,7 +167,7 @@ def fixture(values=None):
         HCInteriorMeasuredCatalog=NS(MeasuredClaimedClass=lambda:''),
         HCSearchRules=NS(TextValid=lambda v,n:isinstance(v,str) and 0<len(v)<=n and bool(re.fullmatch('[a-zA-Z0-9_.:+/=-]+',v)),
                          PinValid=lambda v:isinstance(v,str) and bool(re.fullmatch('[0-9a-f]{64}',v))),
-        HCInteriorRules=NS(TransformKey=lambda p,o:"_".join(str(round(v*100)) for v in p+o),SaneVector=lambda v,n:all(-n<=x<=n for x in v),PlacementAdmitted=lambda:True),
+        HCInteriorRules=NS(**vars(tilt_rules()), TransformKey=lambda p,o:"_".join(str(round(v*100)) for v in p+o),SaneVector=lambda v,n:all(-n<=x<=n for x in v),PlacementAdmitted=lambda:True),
         Vector=lambda x,y,z:[x,y,z], vector=NS(DistanceSq=lambda a,b:sum((x-y)**2 for x,y in zip(a,b))),
         Math=NS(Min=min,Max=max), Print=logs.append,
         ROOT_PATH='$profile:HollowCountry/templates/',
@@ -312,10 +313,34 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         self.assertEqual([98,0,98],created[0].Position)
 
     def test_tilted_and_ambiguous_live_houses_refuse(self):
-        for objects,reason in [([SyntheticHouse(orientation=(15,.01,0))],'tilted'),
+        for objects,reason in [([SyntheticHouse(orientation=(15,.6,0))],'tilted'),
                                ([SyntheticHouse(),SyntheticHouse(position=(100.5,0,100))],'ambiguous')]:
             result=self.load(); result[4][:]=objects; e,created=self.place(result)
             self.assertEqual(0,len(created)); self.assertEqual(1,e['s_Refused'][reason])
+
+    def test_nearly_level_house_places_at_full_model_transform(self):
+        for pitch, roll in ((.3, -.3), (-0., -0.), (.5, -.5)):
+            with self.subTest(pitch=pitch, roll=roll):
+                result = self.load()
+                house = SyntheticHouse(orientation=(15, pitch, roll))
+                # Explicit synthetic native boundary: a tilted transform changes height.
+                house.ModelToWorld = lambda local: [98., 7.25, 98.]
+                result[4][:] = [house]
+                env, created = self.place(result)
+                self.assertEqual(1, len(created))
+                self.assertEqual([98., 7.25, 98.], created[0].Position)
+                self.assertEqual(0, env['s_Refused']['tilted'])
+
+    def test_nonfinite_or_over_limit_house_counts_tilt_refusal(self):
+        for axis in (1, 2):
+            for value in (.6, -.6, float('nan')):
+                with self.subTest(axis=axis, value=value):
+                    result = self.load()
+                    pose = [15., 0., 0.]; pose[axis] = value
+                    result[4][:] = [SyntheticHouse(orientation=pose)]
+                    env, created = self.place(result)
+                    self.assertEqual([], created)
+                    self.assertEqual(1, env['s_Refused']['tilted'])
 
     def test_door_keepout_and_clearance_block_slot(self):
         for minimum,maximum in [([-2.1,0,-2.1],[-1.9,2,-1.9]),
@@ -461,6 +486,48 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         e=self.load(self.with_items(['Hammer','Axe']))[0]
         self.assertTrue(e['Loaded']())
         self.assertEqual(['Hammer','Axe'],list(e['Group']('g-0000').Items))
+
+    def test_text_lists_preserve_validation_and_input_order(self):
+        env = fixture()[0]
+        for values, minimum, maximum, expected in (
+                (None, 0, 2, False), ([], 0, 2, True), ([], 1, 2, False),
+                (['B', 'A'], 1, 2, True), (['A', 'B', 'C'], 0, 2, False),
+                (['B', 'A', 'B'], 1, 3, False), (['A', 'a'], 1, 2, True),
+                (['_.-:+/=09aZ'], 1, 2, True), (['A' * 128], 1, 2, True),
+                (['A' * 129], 1, 2, False), ([''], 1, 2, False),
+                (['A B'], 1, 2, False), (['é'], 1, 2, False)):
+            with self.subTest(values=values, minimum=minimum, maximum=maximum):
+                source = None if values is None else Array(values)
+                self.assertEqual(expected, env['Texts'](source, minimum, maximum))
+                self.assertEqual(values, source)
+
+    def test_text_list_duplicate_detection_uses_one_sort_without_linear_searches(self):
+        calls = []
+        class CountedArray(Array):
+            def Find(self, value):
+                calls.append('find')
+                return super().Find(value)
+            def Sort(self):
+                calls.append('sort')
+                super().Sort()
+        env = fixture()[0]; env['EArray'] = CountedArray
+        values = Array('Item%04d' % n for n in reversed(range(1024)))
+        self.assertTrue(env['Texts'](values, 1, 1024))
+        self.assertEqual(['sort'], calls)
+
+    def test_group_loader_sorts_items_only_once_and_refuses_duplicates_in_every_list(self):
+        for field in ('Usages', 'Categories', 'Tags', 'Items'):
+            values = pack(); values['search-groups-000.json']['Groups'][0][field] = ['B', 'A', 'B']
+            self.assert_refused(self.load(values))
+        calls = []
+        class CountedArray(Array):
+            def Sort(self):
+                calls.append(list(self)); super().Sort()
+        result = fixture(self.with_items(['Hammer', 'Axe']))
+        result[0]['EArray'] = CountedArray
+        result[0]['EnsureLoaded'](None)
+        self.assertTrue(result[0]['Loaded'](), result[3])
+        self.assertEqual(1, calls.count(['Hammer', 'Axe']))
 
     def test_duplicate_group_items_refuse(self):
         self.assert_refused(self.load(self.with_items(['Hammer','Axe','Hammer'])))

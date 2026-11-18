@@ -51,7 +51,7 @@ class HCInteriorTemplatePlacement
             return null;
         }
         vector orientation = found.GetOrientation();
-        if (!HCInteriorRules.SaneVector(orientation, 360) || orientation[1] != 0 || orientation[2] != 0)
+        if (!HCInteriorRules.SaneVector(orientation, 360) || !HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES))
 
         {
             s_ResolveReason = "tilted";
