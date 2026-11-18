@@ -31,6 +31,38 @@ not proof that its gameplay is operational.
 | Ecology and migration | Unhooked resource-attraction scheduler separates animals/infected, accepts fresh resource/path capabilities, bounds work and rejects replay/overflow/null input. Thirty-three policy checks cover session-bound receipts, partial acceptance, capacity and explicit retirement; independent boundary review passed. Native run 054 compiled and initialized the integrated policy under Wine | Native resource observation, movement provider, population capacity, route surveys, persistence and combined performance qualification. No feeding/drinking or migration is activated |
 | Firearms roster, datamine census and optional SNAFU subset (#30) | Offline tools and data: `tools/package/firearms.py`, `firearms_roster.json`, `snafu_optional.py`, `snafu_allowlist.json`, `tools/audit/firearm_census.py`. Owner decisions of 2026-11-17 are applied: 2x scarcity (vanilla weapon nominal 342, max 28 per gun); datamined rows spawn at rare counts, marked `acceptance: pending-local`, with one switch (`--no-datamined`); SNAFU conservative 7 plus WW2 SMGs plus 5 modern military-tier arms. Install and rollback are hard-link and outside-path safe | Not observed in DayZ: spawns, firing, ammo, CE totals, the SNAFU load and signed packaging are all pending local acceptance. The Tactical Flava optics subset is pending. Nine stock-absent variants are deferred. Not production-enabled |
 
+## Living Country — V2
+
+V2 preferences admit their modules by default; experiment verdicts are logged
+without blocking startup. Dependencies, content and persistence checks still
+apply. Compilation and dedicated-server initialization do not establish gameplay
+acceptance. Server flags below do not control client-local visuals or undo
+installed mission overlays.
+
+| Module | Flag | State |
+| --- | --- | --- |
+| Grade, Lighting, WeatherDays | `EnableGrade` (weather also respects `EnableAtmosphere`) | being built / runtime acceptance pending |
+| OptionalPacks (AmbientAnimals, Bicycles), Polish (Hints, EnvSound) | `EnableAmbientLife` | being built / runtime acceptance pending |
+| SignsOfLife | `EnableSignsOfLife` | being built / runtime acceptance pending |
+| Shelters, WreckSalvage | `EnableTravel` | being built / runtime acceptance pending |
+| MapPins | `EnableTravel` or `EnableLeads`, with each pin kind filtered | being built / runtime acceptance pending |
+| World, Escalation | `EnableWorld` | being built / runtime acceptance pending |
+| SettlementDecay, InfectedMemory, HordeMigration, LootRefresh | `EnableWorld` | being built / runtime acceptance pending |
+| Leads, Radio, Morse, Notes, BodyStories | `EnableLeads` | being built / runtime acceptance pending |
+| Camps (tiers, visitors, mailbox, theft eligibility, probes) | `EnableCamps` | being built / runtime acceptance pending |
+| Materializer, FactionConflict | `EnableEncounters` | being built / runtime acceptance pending |
+| Holdouts, Pickers, DeadDrops | `EnableEncounters` | being built / runtime acceptance pending |
+| Scenes and scene chains | `EnableEncounters` | being built / runtime acceptance pending |
+| Optional Expansion living-world addon (Factions, Stance, AskForNews, Checkpoints) | `EnableEncounters`, plus optional provider dependencies | being built / runtime acceptance pending |
+| Client grade, lighting, signs of life, hints, environmental sound, map pins and Morse presentation | Client-local defaults; server flags apply to corresponding server modules only | being built / runtime acceptance pending |
+| Travel CE content and optional animal/bicycle mission overlays | Installed content; flags alone do not roll it back | being built / runtime acceptance pending |
+
+The [V2 acceptance checklist](LOCAL_ACCEPTANCE_V1.md#v2-living-country-scaffolding)
+retains feature steps, missing observations and two-client checks. Operator
+settings, profile files and dependency loading are in the [handbook](README.md#living-country--v2-operations).
+
+## Earlier native diagnostics
+
 Native run 042 also compiled the unregistered fuel diagnostic action: live
 server authority, actor/car/vessel leases, one-shot debit/readback/credit and
 mismatch refusal. Its 26 focused checks use synthetic native collaborators.

@@ -163,6 +163,29 @@ Ecology, migration and visual changes need feasibility testing. This is not a
 promise of a new renderer or unrestricted wildlife simulation. Base-building
 expansion and futuristic equipment are outside the mod's direction.
 
+## Living Country — V2
+
+You should be able to read the country through its weather, abandoned places
+and the traces of other survivors. These systems are in the development build
+and await play-testing; the descriptions below are the experience being built.
+
+| System | What it means for your next run | State |
+| :--- | :--- | :--- |
+| **Hollow grade and atmosphere** | Set your own colour-grade intensity from 0–100% in 10% steps; 0 restores vanilla. Bind the grade control in DayZ's Controls to cycle it. Dusk, overcast and storm lighting and changing weather days should give each journey a mood while nights stay bright. | **Being built** |
+| **Ambient life and signs of life** | Watch for small animals around water and farms, lit windows, chimney smoke and flies around carcasses. These are clues to read as you travel. | **Being built** |
+| **Travel and repair projects** | Discover shared trail shelters and group map pins. Look for many bikes, a few boats and common cars that need real parts and repairs. DayZ-Bicycle and Ambient Animals Pack are optional subscriptions; you can play without them. | **Being built** |
+| **Survivor factions and hold-outs** | Meet the traces of local families, volunteers, scavengers, raiders and travellers. Hold-out survivors are intended to be killable and lootable, with real caches and a seven-day lockout before anyone moves back in. There is no reputation ladder, trading or recruiting. | **Being built** |
+| **Pickers and dead drops** | Other scavengers should move real supplies through houses and caches. A dead drop gives you a place to investigate, with finite contents that someone else may already have taken. | **Being built** |
+| **Radio, leads and body stories** | Carry a powered PersonalRadio to receive faction chatter and Morse clues on the right frequency. Follow rumours, notes and the stories around bodies, then share received leads with your group. Paper notes stay rare: at most one per scene and ten world-wide. | **Being built** |
+| **Camps and neighbours** | Build around your fire, shelter and storage to have your camp recognised, then grow through three tiers. Visitors and a mailbox should bring news. Theft is limited to unlocked crates at unattended camps; locked storage stays safe. Tier-3 camps may attract warned raider probes from day 14. | **Being built** |
+| **Scripted scenes and chains** | Read a last stand, quarantine or evacuation scene, then decide whether to follow its next clue. Stages can expire, so you can pass a story by without taking on a mission list. | **Being built** |
+| **The world changing** | Expect capped escalation, settlement decay, infected memory and horde migration to change familiar routes. Revisited houses should refresh searches against finite supplies, and wreck salvage should offer a limited stock of parts. | **Being built** |
+| **Optional Expansion AI addon** | With the server's optional AI dependencies, encounter patrols and checkpoints, read faction stance and use “Ask for news”. Encounters draw on the world's remembered events rather than knowledge of your live position. | **Being built** |
+
+The seven-day hold-out lockout and day-14 camp pressure use real days, including
+server downtime. Shelters, visitors and scenes must leave doors and routes usable;
+loot remains finite wherever you find it.
+
 ## A day in Hollow Country
 
 ```mermaid
@@ -181,6 +204,10 @@ captured and verified.
 
 ## Where we are
 
+V2 systems are in the development build, on by default, and compile and start on
+a dedicated server. They await play-testing; no V2 feature has been accepted by
+playing it yet. Behaviour needing several players is checked in group sessions.
+
 Search and interior systems, crafting recovery families, a finite search economy,
 ecology observation, optional events and fuel-transfer checks are in the
 development build. Infected now admit each complex behavior (packs, alerts,
@@ -191,7 +218,7 @@ displays and taped-light mounting are being built.
 
 The complete development build compiles and initializes on a real DayZ dedicated
 server. Every feature is accepted by playing it on a local dedicated server; until
-then it stays gated and reports what it is missing. Behavior that needs several
+then V1 stays gated and reports what it is missing. Behavior that needs several
 players at once is checked in later group sessions. Balance and performance still
 need qualification.
 

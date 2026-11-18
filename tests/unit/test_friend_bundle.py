@@ -212,6 +212,11 @@ class FriendBundleTests(unittest.TestCase):
         self.assertIn('2302', readme)
         self.assertIn('27016', readme)
         self.assertIn('Players subscribe to @HollowCountryExpansionAI when this server uses it', readme)
+        self.assertIn('Optional dependencies are subscribed from the Workshop, never repacked or included as third-party files.', readme)
+        for optional_name in ['Community Framework (CF)', 'Dabs Framework', 'Expansion-Core',
+                              'Expansion-Animations', 'Expansion-AI', 'DayZ-Bicycle',
+                              'Ambient Animals Pack', 'Survivor Animations']:
+            self.assertIn(optional_name, readme)
         mod_line = next(line for line in fb.ws.launch_lines(fb.ws.select(fb.ws.load_manifest(), fb.ws.GROUPS))
                         if line.startswith('-mod='))
         self.assertIn(mod_line, readme)

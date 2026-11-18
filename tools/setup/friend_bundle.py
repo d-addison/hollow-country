@@ -254,6 +254,18 @@ def readme(items, template, addon):
     if addon:
         lines.append('   Players subscribe to @HollowCountryExpansionAI when this server uses it; load it after @HollowCountry.')
     lines += [
+        '',
+        'Optional dependencies are subscribed from the Workshop, never repacked or included as third-party files.',
+        '  @HollowCountryExpansionAI needs Community Framework (CF), Dabs Framework, Expansion-Core,',
+        '  Expansion-Animations and Expansion-AI. Load these before @HollowCountry, then the addon after it',
+        '  in -mod on the server and every client, using the same ordered list.',
+        '  The optional overlay plan supports DayZ-Bicycle and Ambient Animals Pack;',
+        '  DayZ-Bicycle additionally needs Survivor Animations. Leave them out for the base mission.',
+        '  Those pack IDs are absent from the Workshop manifest; this listing adds no download IDs.',
+        '  Review current Workshop terms and the optional-overlay instructions below before installing.',
+        '',
+    ]
+    lines += [
         '3. Copy from this bundle into the server folder:',
         '     @HollowCountry/' + ('  and  @HollowCountryExpansionAI/' if addon else ''),
         '     keys/*.bikey            -> keys/',
