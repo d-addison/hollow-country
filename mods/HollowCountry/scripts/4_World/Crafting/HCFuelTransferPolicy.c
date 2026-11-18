@@ -9,6 +9,22 @@
 // DayZDiag, normal PBO/server and multiplayer/recovery gates remain pending.
 class HCFuelTransferPolicy
 {
+    // Live tank bounds used before any debit. Credit's binary32 error proof
+    // below covers at most 4096 liters; refuse larger/unreadable donors early.
+    static bool SiphonDonorValid(float capacityLiters, float fuelFraction)
+    {
+        if (!FiniteNonNegative(capacityLiters) || !FiniteNonNegative(fuelFraction))
+            return false;
+        return capacityLiters > 0 && capacityLiters <= 4096.0 && fuelFraction > 0 && fuelFraction <= 1;
+    }
+
+    static bool SiphonVesselValid(float vesselMl, float vesselMaxMl)
+    {
+        if (!FiniteNonNegative(vesselMl) || !FiniteNonNegative(vesselMaxMl))
+            return false;
+        return vesselMl < vesselMaxMl && vesselMaxMl <= 1048576.0;
+    }
+
     static bool FiniteNonNegative(float value)
     {
         return value >= 0 && value <= float.MAX;

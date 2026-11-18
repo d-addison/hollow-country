@@ -1,16 +1,26 @@
 // #53 production fuel siphon: native ActionFillFuel in reverse.
-// Source is only a live car's real tank (Transport); static wrecks are not
-// Transport and never offer fuel. The held vessel is the equipment: an open,
+// Source is only a live CarScript tank; boats and static wrecks are refused.
+// The held vessel is the equipment: an open,
 // non-ruined liquid container that accepts gasoline and has free space.
 // Server steps read the tank, Leak, read it again and credit only the
 // observed loss (HCFuelTransferPolicy.SiphonCreditMl). Interruption flushes
 // the pending partial step exactly as CAContinuousFillFuel.Cancel does.
-// Offline tests prove neither compilation nor native behavior. Execution is
-// closed by HCFuelSiphonQualification until local-server acceptance.
-// Fuel admission defaults closed until local-server acceptance is recorded;
-// flipping Qualified() is a source change, never an operator setting.
-// A server operator may create the marker file below for a local acceptance
-// run only; it is probed once per server process and logged as EXPERIMENTAL.
+// Offline tests prove neither compilation nor native behavior. Qualification
+// remains false. Existing experimental admission is on unless the operator
+// creates fuel_siphon.disable; the marker is probed once per server process.
+// HC-3 native evidence (snapshot paths relative to scripts-1.30.164289):
+// 3_Game/Vehicles/Car.c:355,363,366 tank capacity/fraction/Leak in liters;
+// 3_Game/Vehicles/Transport.c:462,467,472 fuel selection/reach/refill point;
+// 4_World/Static/Liquid.c:160,235 fill/readiness; ItemBase.c:3439,3490 quantities in ml;
+// 4_World/Classes/UserActionsComponent/ActionComponents/CAContinuousFillFuel.c:22,50,86,121
+// Setup/Execute/Cancel/ml-to-liter conversion; Actions/ActionContinuousBase.c:110 cancellation;
+// 4_World/Classes/UserActionsComponent/ActionComponents/CAContinuousBase.c:8 completion hook.
+// 4_World/Classes/UserActionsComponent/ActionBase.c:240,1409 action data/end lifecycle.
+// 3_Game/Entities/EntityAI.c:4019 and 4_World/Entities/Vehicles/CarScript.c:385 throughput.
+// 4_World/Entities/Vehicles/CarScript.c:2221 IsMoving (not a stationary check).
+// 4_World/Entities/ManBase/PlayerBase.c:2131 native use of GetItemInHands.
+// 4_World/Classes/UserActionsComponent/ActionTargets.c:142,147,159 object/parent/component.
+// 1_Core/proto/EnSystem.c:397 FileExist; 1_Core/proto/EnDebug.c:96,108 Print/PrintFormat.
 class HCFuelSiphonQualification
 {
     protected static bool s_Checked;
@@ -64,6 +74,8 @@ class HCFuelSiphon
 
     static bool Allowed(PlayerBase player, ActionTarget target, ItemBase item)
     {
+        if (!HCActionSiphonFuel.ProductionRecipientReady(player, target, item))
+            return false;
         if (!player || !target || !item || player.IsInVehicle())
             return false;
         if (player.GetItemInHands() != item)
@@ -71,7 +83,9 @@ class HCFuelSiphon
         CarScript car = CarScript.Cast(target.GetObject());
         if (!car || car.IsDamageDestroyed() || car.EngineIsOn() || car.IsMoving())
             return false;
-        if (car.GetFluidFraction(CarFluid.FUEL) <= 0)
+        float capacity = car.GetFluidCapacity(CarFluid.FUEL);
+        float fraction = car.GetFluidFraction(CarFluid.FUEL);
+        if (!HCFuelTransferPolicy.SiphonDonorValid(capacity, fraction))
             return false;
         if (!item.IsLiquidContainer() || item.IsDamageDestroyed())
             return false;
@@ -88,7 +102,7 @@ class HCFuelSiphon
         car.GetActionComponentNameList(target.GetComponentIndex(), selections);
         int count = selections.Count();
         if (count > 32)
-            count = 32;
+            return false;
         for (int i = 0; i < count; i++)
         {
             if (selections.Get(i) == car.GetActionCompNameFuel())
@@ -124,28 +138,57 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         m_AdjustedRate = 0;
         m_Stopped = false;
         if (!action_data.m_Target)
+        {
+            HCRefuse(action_data);
             return;
+        }
         CarScript car = CarScript.Cast(action_data.m_Target.GetObject());
         ItemBase vessel = action_data.m_MainItem;
         if (!car || !vessel)
+        {
+            HCRefuse(action_data);
             return;
+        }
         m_AdjustedRate = m_RatePerSecond * Math.Min(vessel.GetLiquidThroughputCoef(), car.GetLiquidThroughputCoef());
         m_SessionMl = HCFuelTransferPolicy.SiphonSessionMl(HCFuelSiphon.TankLiters(car), vessel.GetQuantity(), vessel.GetQuantityMax());
+        if (GetGame().IsServer() && !HCActionSiphonFuel.ProductionBegin(action_data))
+            HCRefuse(action_data);
     }
 
     override int Execute(ActionData action_data)
     {
         if (!action_data.m_Player)
+        {
+            HCRefuse(action_data);
             return UA_ERROR;
-        if (m_Stopped || m_SessionMl <= 0 || m_AdjustedRate <= 0)
+        }
+        if (m_Stopped)
             return UA_FINISHED;
+        if (m_SessionMl <= 0 || m_AdjustedRate <= 0)
+        {
+            HCRefuse(action_data);
+            return UA_FINISHED;
+        }
+        if (GetGame().IsServer() && (!HCFuelSiphon.ServerEnabled() || !HCActionSiphonFuel.ProductionOwns(action_data)))
+        {
+            HCRefuse(action_data);
+            return UA_FINISHED;
+        }
         if (m_MovedMl + m_PendingMl >= m_SessionMl)
         {
             CalcAndSetQuantity(action_data);
+            HCStop(action_data);
             OnCompletePogress(action_data);
             return UA_FINISHED;
         }
         float delta = action_data.m_Player.GetDeltaT();
+        if (!HCFuelTransferPolicy.FiniteNonNegative(delta) || !HCFuelTransferPolicy.FiniteNonNegative(m_AdjustedRate))
+        {
+            HCRefuse(action_data);
+            return UA_ERROR;
+        }
+        if (delta > m_StepSeconds)
+            delta = m_StepSeconds;
         m_PendingMl += m_AdjustedRate * delta;
         m_Elapsed += delta;
         if (m_Elapsed >= m_StepSeconds)
@@ -159,9 +202,27 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
     override int Cancel(ActionData action_data)
     {
         if (!action_data.m_Player)
+        {
+            HCRefuse(action_data);
             return UA_ERROR;
+        }
         CalcAndSetQuantity(action_data);
+        HCStop(action_data);
         return UA_CANCEL;
+    }
+
+    void HCRefuse(ActionData action_data)
+    {
+        HCStop(action_data);
+        HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+    }
+
+    void HCStop(ActionData action_data)
+    {
+        m_Stopped = true;
+        m_PendingMl = 0;
+        if (GetGame() && GetGame().IsServer())
+            HCActionSiphonFuel.ProductionEnd(action_data);
     }
 
     override float GetProgress()
@@ -173,6 +234,8 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
 
     void CalcAndSetQuantity(ActionData action_data)
     {
+        if (m_Stopped)
+            return;
         float requestMl = m_PendingMl;
         m_PendingMl = 0;
         float remainingMl = m_SessionMl - m_MovedMl;
@@ -188,40 +251,61 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         // Revalidate on every debit, including the Cancel flush after an
         // interruption: an invalid state drops the pending step, never debits.
         ItemBase vessel = action_data.m_MainItem;
-        if (!HCFuelSiphon.ServerEnabled() || !HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, vessel))
+        if (!HCFuelSiphon.ServerEnabled() || !HCActionSiphonFuel.ProductionOwns(action_data) || !HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, vessel))
         {
-            m_Stopped = true;
-            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+            HCRefuse(action_data);
             return;
         }
         CarScript car = CarScript.Cast(action_data.m_Target.GetObject());
+        float capacity = car.GetFluidCapacity(CarFluid.FUEL);
         float beforeLiters = HCFuelSiphon.TankLiters(car);
         float vesselBeforeMl = vessel.GetQuantity();
         float stepMl = HCFuelTransferPolicy.SiphonStepMl(beforeLiters, vesselBeforeMl, vessel.GetQuantityMax(), requestMl, remainingMl);
         if (stepMl <= 0)
         {
-            m_Stopped = true;
-            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+            HCRefuse(action_data);
             return;
         }
+        // Consume the step BEFORE native writes. A VM abort or reentrant cancel
+        // leaves this component stopped; never replay/refund an uncertain write.
+        m_Stopped = true;
         car.Leak(CarFluid.FUEL, stepMl * 0.001);
+        if (!car || !vessel || !HCActionSiphonFuel.ProductionOwns(action_data) || !HCFuelSiphon.ServerEnabled())
+        {
+            Print("[HollowCountry] Fuel siphon endpoint/admission/lease lost after debit; no credit/replay/refund; runtime=PENDING");
+            HCRefuse(action_data);
+            return;
+        }
         float afterLiters = HCFuelSiphon.TankLiters(car);
+        if (car.GetFluidCapacity(CarFluid.FUEL) != capacity || vessel.GetQuantity() != vesselBeforeMl || !HCActionSiphonFuel.ProductionRecipientReady(action_data.m_Player, action_data.m_Target, vessel))
+        {
+            Print("[HollowCountry] Fuel siphon recipient changed after debit; no credit/replay/refund; runtime=PENDING");
+            HCRefuse(action_data);
+            return;
+        }
         float creditMl = HCFuelTransferPolicy.SiphonCreditMl(stepMl, beforeLiters, afterLiters, vesselBeforeMl, vessel.GetQuantityMax());
         if (creditMl <= 0)
         {
-            m_Stopped = true;
-            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+            Print("[HollowCountry] Fuel siphon debit readback refused; no credit/replay/refund; runtime=PENDING");
+            HCRefuse(action_data);
             return;
         }
         Liquid.FillContainer(vessel, LIQUID_GASOLINE, creditMl);
-        if (!HCFuelTransferPolicy.SiphonReceiptOk(creditMl, vesselBeforeMl, vessel.GetQuantity()))
+        if (!car || !vessel || !HCActionSiphonFuel.ProductionOwns(action_data))
+        {
+            Print("[HollowCountry] Fuel siphon endpoint/lease lost after credit; no replay/refund; runtime=PENDING");
+            HCRefuse(action_data);
+            return;
+        }
+        if (car.GetFluidCapacity(CarFluid.FUEL) != capacity || HCFuelSiphon.TankLiters(car) != afterLiters || vessel.GetLiquidType() != LIQUID_GASOLINE || !HCFuelTransferPolicy.SiphonReceiptOk(creditMl, vesselBeforeMl, vessel.GetQuantity()))
         {
             // Ambiguous native receipt: no retry or refund.
-            m_Stopped = true;
+            HCStop(action_data);
             HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_RECEIPT, "Fuel siphon receipt mismatch; stopped without retry or refund.");
             return;
         }
         m_MovedMl += creditMl;
+        m_Stopped = false;
     }
 }
 
@@ -237,6 +321,17 @@ class HCActionSiphonFuelFromCarCB : ActionContinuousBaseCB
 
 class HCActionSiphonFuelFromCar extends ActionContinuousBase
 {
+    override ActionData CreateActionData()
+    {
+        return new HCSiphonDiagnosticData;
+    }
+
+    override void OnEndServer(ActionData action_data)
+    {
+        HCActionSiphonFuel.ProductionEnd(action_data);
+        super.OnEndServer(action_data);
+    }
+
     void HCActionSiphonFuelFromCar()
     {
         m_CallbackClass = HCActionSiphonFuelFromCarCB;
@@ -256,7 +351,9 @@ class HCActionSiphonFuelFromCar extends ActionContinuousBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        bool allowed = HCFuelSiphon.Allowed(player, target, item);
+        bool allowed = false;
+        if (!GetGame().IsServer() || HCFuelSiphon.ServerEnabled())
+            allowed = HCFuelSiphon.Allowed(player, target, item);
         if (!GetGame().IsServer()) return allowed;
         if (allowed && HCFuelSiphon.ServerEnabled()) return true;
         HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.SIPHON, "Cannot siphon fuel now; check the car, container and server availability.");
@@ -276,7 +373,12 @@ class HCActionSiphonFuelFromCar extends ActionContinuousBase
     override bool ActionConditionContinue(ActionData action_data)
     {
         if (!action_data) return false;
-        return ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem);
+        if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
+            return false;
+        if (!GetGame().IsServer() || HCActionSiphonFuel.ProductionOwns(action_data))
+            return true;
+        HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
+        return false;
     }
 }
 
