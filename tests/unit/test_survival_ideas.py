@@ -17,9 +17,10 @@ class SurvivalIdeasSmoke(unittest.TestCase):
         for name in ('MealExpiry', 'MealHeat', 'CanRefill', 'DecayedFamiliarity', 'ForageDelay'):
             setattr(policy, name, translate(text, name, env, 'HCSurvivalPolicy'))
         # Explicit synthetic stages/temperatures/quantities, in simulation seconds.
-        self.assertEqual(700, policy.MealExpiry(True, 2, 40., 5., 100))
-        self.assertEqual(750, policy.MealExpiry(True, 3, 40., 5., 150))
-        self.assertEqual(.05, policy.MealHeat(749, 750))
+        # HC-2 retired the warm-meal bonus: the policy is a tombstone that grants no heat.
+        self.assertEqual(0, policy.MealExpiry(True, 2, 40., 5., 100))
+        self.assertEqual(0, policy.MealExpiry(True, 3, 40., 5., 150))
+        self.assertEqual(0., policy.MealHeat(749, 750))
         self.assertEqual(0., policy.MealHeat(750, 750))
         for enabled, stage, temp, amount in ((False, 2, 40., 5.), (True, 1, 40., 5.),
                                              (True, 2, 20., 5.), (True, 2, 40., 0.)):

@@ -62,7 +62,11 @@ class HCInfectedDoorPolicy
     static const int DOORS_PER_TICK = 4;
     static const int MAX_BUILDINGS_PER_PLAYER = 4;
     static const int MAX_DOORS_PER_PLAYER = 6;
-    static const int MAX_DOORS_PER_BUILDING = 32;
+    // HC-8 (#121/#151): this is a scan slice, never a building-size cutoff.
+    static const int DOOR_INDICES_PER_BUILDING = 8;
+    static const int MAX_DOOR_INDICES_PER_TICK = 64;
+    static const int MAX_BUILDING_CURSORS = 64;
+    static const int MAX_LOCK_SLOTS = 8;
     static const int MAX_OBJECTS_PER_QUERY = 128;
     static const int MAX_INFECTED_PER_DOOR = 8;
     static const int MAX_NOISE_PER_TICK = 1;
@@ -110,6 +114,16 @@ class HCInfectedDoorPolicy
     }
 }
 
+// Retained index for a nearby building, separate from per-door pressure and
+// cooldown. Only MAX_BUILDING_CURSORS rows; expires after WATCH_SECONDS away.
+// A large building is revisited in slices until every native index is checked.
+class HCInfectedDoorScan
+{
+    Building m_Building;
+    int m_NextIndex;
+    float m_WatchUntil;
+}
+
 // One watched closed door. Raw entity references become null when deleted.
 // No persistence; the table holding these is capped at MAX_DOORS.
 class HCInfectedDoorPressure
@@ -141,17 +155,19 @@ class HCInfectedDoorPressure
             step = 0;
         }
         if (kind == HCInfectedDoorPolicy.KIND_NONE) { return HCInfectedDoorPolicy.ACTION_NONE; }
+        // Refused locks cannot refresh the hot-priority timestamp forever and
+        // starve other watched doors (HC-8). Claims do not alter lockState.
+        if (lockState == HCInfectedDoorPolicy.LOCK_PROTECTED) { return HCInfectedDoorPolicy.ACTION_NONE; }
+        if (kind == HCInfectedDoorPolicy.KIND_COMMON && lockState != HCInfectedDoorPolicy.LOCK_NONE) { return HCInfectedDoorPolicy.ACTION_NONE; }
         m_LastHot = now;
         m_Pressure = m_Pressure + Math.Min(step, HCInfectedDoorPolicy.MAX_STEP);
         if (kind == HCInfectedDoorPolicy.KIND_COMMON)
         {
-            if (lockState != HCInfectedDoorPolicy.LOCK_NONE) { return HCInfectedDoorPolicy.ACTION_NONE; }
             if (m_Pressure < m_OpenNeeded) { return HCInfectedDoorPolicy.ACTION_NONE; }
             m_CooldownUntil = now + HCInfectedDoorPolicy.COOLDOWN;
             m_Pressure = 0;
             return HCInfectedDoorPolicy.ACTION_OPEN;
         }
-        if (lockState == HCInfectedDoorPolicy.LOCK_PROTECTED) { return HCInfectedDoorPolicy.ACTION_NONE; }
         if (now < m_NextHit) { return HCInfectedDoorPolicy.ACTION_NONE; }
         m_Hits = m_Hits + 1;
         m_NextHit = now + HCInfectedDoorPolicy.HIT_INTERVAL;

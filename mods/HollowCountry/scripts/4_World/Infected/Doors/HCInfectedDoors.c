@@ -10,6 +10,11 @@
 //    GetDoorInfoHolder; 3_Game/Entities/AdditionalDoorsInfo.c:11
 //    m_LockCompatibilityBitMask (lockpick by default, :32), :82
 //    GetSingleDoorInfo; 3_Game/Enums/EBuildingLockTypes.c:7-10 LOCKPICK.
+//  HC-8 external-lock refusal mirrors native ActionUnlockDoors.c:39-51:
+//    AdditionalDoorInfo.m_RelatedInventorySlotNames (AdditionalDoorsInfo.c:12),
+//    EntityAI.FindAttachmentBySlotName (3_Game/Entities/EntityAI.c:1897),
+//    ItemBase.IsExternalLockType (4_World/Entities/ItemBase.c:4852).
+//    Man.GetIdentity (3_Game/Entities/Man.c:21) refuses unproven NPC targets.
 //  4_World/Entities/Building/Bunker.c:1 Bunker (its CanDoorBeOpened :47 casts
 //    the caller to PlayerBase) and 4_World/Entities/ItemBase/ContainerLocked.c:1
 //    ContainerLockedBase are excluded outright.
@@ -30,15 +35,17 @@
 // Driven from players, never from a map-wide infected scan. Per core tick
 // (1 s default): <=2 players from the shared snapshot (cursor, <=32 roster),
 // each ONE 8 m GetObjectsAtPosition3D, <=128 results inspected, <=4 buildings,
-// <=32 doors each, <=6 watched doors per player; then <=4 watched doors (hot
+// <=8 door indices each (retained building cursor; <=64 total indices/tick,
+// HCUnitBudget), <=6 watched doors per player; then <=4 watched doors (hot
 // pressure first, then a cursor), each ONE 2 m GetObjectsAtPosition3D at the
 // door sound point, <=128 results inspected, <=8 infected qualified. Script-only
-// expiry pass over <=64 table rows. <=1 native noise per tick. Every native
+// expiry passes over <=64 pressure rows and <=64 building cursors.
+// <=1 native noise per tick. Every native
 // query consumes one HCWorkBudget unit (limit 6, 4 ms cooperative slice).
 //
 // Not omniscient: an infected counts only when alive, not crawling, natively
 // ALERTED/CHASE/FIGHT, within 2 m of the door, and its native target is a
-// living player (or, with no target, the watching player) within 8 m of the
+// living identity-bearing player (or, with no target, the watching player) within 8 m of the
 // door who is either within 2.5 m of it or on the opposite side.
 //
 // Rules held: no teleport/forced movement of anyone, never closes, locks or
@@ -63,9 +70,11 @@ class HCInfectedDoorsModule : HCModule
     protected int m_Refused;
     protected int m_Full;
     protected ref array<ref HCInfectedDoorPressure> m_Doors;
+    protected ref array<ref HCInfectedDoorScan> m_Scans;
     protected ref array<Object> m_Objects;
     protected ref array<CargoBase> m_Proxies;
     protected ref HCWorkBudget m_Budget;
+    protected ref HCUnitBudget m_IndexBudget;
 
     override string GetName() { return "InfectedDoors"; }
 
@@ -84,15 +93,27 @@ class HCInfectedDoorsModule : HCModule
             m_Printed = true;
         }
         m_Doors = new array<ref HCInfectedDoorPressure>;
+        m_Scans = new array<ref HCInfectedDoorScan>;
         m_Objects = new array<Object>;
         m_Proxies = new array<CargoBase>;
         m_Budget = new HCWorkBudget;
+        m_IndexBudget = new HCUnitBudget;
+        m_PlayerCursor = 0;
+        m_DoorCursor = 0;
+        m_Hits = 0;
+        m_Opened = 0;
+        m_Broken = 0;
+        m_Refused = 0;
+        m_Full = 0;
         m_Clock = 0;
         m_LogAt = 600;
         m_Running = true;
         int maxDoors = HCInfectedDoorPolicy.MAX_DOORS;
         int playersPerTick = HCInfectedDoorPolicy.PLAYERS_PER_TICK;
         int doorsPerTick = HCInfectedDoorPolicy.DOORS_PER_TICK;
+        int maxIndices = HCInfectedDoorPolicy.MAX_DOOR_INDICES_PER_TICK;
+        int maxCursors = HCInfectedDoorPolicy.MAX_BUILDING_CURSORS;
+        Print("[HC Plan] HC-8 door_cursor=bounded max_indices=" + maxIndices.ToString() + " state=on max_cursors=" + maxCursors.ToString() + " npc_targets=refused runtime=PENDING");
         Print("[HC Doors] ready players_per_tick=" + playersPerTick.ToString() + " doors_per_tick=" + doorsPerTick.ToString() + " max_doors=" + maxDoors.ToString() + " watch_m=8 door_m=2 common_s=6-10 heavy_hits=4-6 cooldown_s=45; door replication/sound acceptance pending");
     }
 
@@ -102,6 +123,8 @@ class HCInfectedDoorsModule : HCModule
         m_Clock = m_Clock + deltaTime;
         m_NoiseThisTick = 0;
         m_Budget.HCReset(HCInfectedDoorPolicy.PLAYERS_PER_TICK + HCInfectedDoorPolicy.DOORS_PER_TICK);
+        m_IndexBudget.HCReset(HCInfectedDoorPolicy.MAX_DOOR_INDICES_PER_TICK);
+        ExpireScans();
         WatchPlayers();
         ExpireDoors();
         VisitDoors();
@@ -122,12 +145,15 @@ class HCInfectedDoorsModule : HCModule
     {
         m_Running = false;
         if (m_Doors) { m_Doors.Clear(); }
+        if (m_Scans) { m_Scans.Clear(); }
         if (m_Objects) { m_Objects.Clear(); }
         if (m_Proxies) { m_Proxies.Clear(); }
         m_Doors = null;
+        m_Scans = null;
         m_Objects = null;
         m_Proxies = null;
         m_Budget = null;
+        m_IndexBudget = null;
     }
 
     protected void WatchPlayers()
@@ -175,11 +201,24 @@ class HCInfectedDoorsModule : HCModule
             Building building = Building.Cast(m_Objects[objectIndex]);
             if (!Eligible(building)) { continue; }
             int doorCount = building.GetDoorCount();
-            if (doorCount < 1 || doorCount > HCInfectedDoorPolicy.MAX_DOORS_PER_BUILDING) { continue; }
+            if (doorCount < 1) { continue; }
             buildings = buildings + 1;
-            for (int doorIndex = 0; doorIndex < doorCount; doorIndex++)
+            HCInfectedDoorScan scan = HCScanFor(building);
+            if (!scan) { continue; }
+            int indices = Math.Min(doorCount, HCInfectedDoorPolicy.DOOR_INDICES_PER_BUILDING);
+            for (int offset = 0; offset < indices; offset++)
             {
                 if (watched >= HCInfectedDoorPolicy.MAX_DOORS_PER_PLAYER) { break; }
+                // Advance only after admission; resume this index on a yield.
+                if (!m_IndexBudget.HCTake(1))
+                {
+                    m_Objects.Clear();
+                    m_Proxies.Clear();
+                    return;
+                }
+                if (scan.m_NextIndex >= doorCount) { scan.m_NextIndex = 0; }
+                int doorIndex = scan.m_NextIndex;
+                scan.m_NextIndex = scan.m_NextIndex + 1;
                 if (!building.IsDoorClosed(doorIndex)) { continue; }
                 if (vector.DistanceSq(building.GetDoorSoundPos(doorIndex), origin) > radiusSq) { continue; }
                 if (Watch(building, doorIndex, player)) { watched = watched + 1; }
@@ -187,6 +226,40 @@ class HCInfectedDoorsModule : HCModule
         }
         m_Objects.Clear();
         m_Proxies.Clear();
+    }
+
+    // Bounded lookup; a claimed building gains no immunity. HC-17 will bind
+    // read-only claim facts here serially; native lock rules stay authoritative.
+    protected HCInfectedDoorScan HCScanFor(Building building)
+    {
+        foreach (HCInfectedDoorScan existing : m_Scans)
+        {
+            if (existing.m_Building != building) { continue; }
+            existing.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+            return existing;
+        }
+        if (m_Scans.Count() >= HCInfectedDoorPolicy.MAX_BUILDING_CURSORS)
+        {
+            m_Full = m_Full + 1;
+            return null;
+        }
+        HCInfectedDoorScan created = new HCInfectedDoorScan;
+        created.m_Building = building;
+        created.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+        m_Scans.Insert(created);
+        return created;
+    }
+
+    protected void ExpireScans()
+    {
+        for (int row = m_Scans.Count() - 1; row >= 0; row--)
+        {
+            HCInfectedDoorScan scan = m_Scans[row];
+            if (!scan.m_Building || scan.m_Building.IsPendingDeletion() || m_Clock > scan.m_WatchUntil)
+            {
+                m_Scans.Remove(row);
+            }
+        }
     }
 
     // <=64 script comparisons; refuses (counted) when the table is full.
@@ -221,7 +294,7 @@ class HCInfectedDoorsModule : HCModule
         for (int row = m_Doors.Count() - 1; row >= 0; row--)
         {
             HCInfectedDoorPressure entry = m_Doors[row];
-            if (!entry.m_Building || HCInfectedDoorPolicy.Expired(m_Clock, entry.m_WatchUntil, entry.m_CooldownUntil))
+            if (!entry.m_Building || entry.m_Building.IsPendingDeletion() || HCInfectedDoorPolicy.Expired(m_Clock, entry.m_WatchUntil, entry.m_CooldownUntil))
             {
                 m_Doors.Remove(row);
             }
@@ -277,6 +350,16 @@ class HCInfectedDoorsModule : HCModule
         if (!holder) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
         AdditionalDoorInfo info = holder.GetSingleDoorInfo(doorIndex);
         if (!info) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
+        if (info.m_RelatedInventorySlotNames)
+        {
+            int slots = info.m_RelatedInventorySlotNames.Count();
+            if (slots > HCInfectedDoorPolicy.MAX_LOCK_SLOTS) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
+            for (int slotIndex = 0; slotIndex < slots; slotIndex++)
+            {
+                ItemBase attachment = ItemBase.Cast(building.FindAttachmentBySlotName(info.m_RelatedInventorySlotNames[slotIndex]));
+                if (attachment && attachment.IsExternalLockType()) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
+            }
+        }
         int lockpick = 1 << EBuildingLockType.LOCKPICK;
         if ((info.m_LockCompatibilityBitMask & lockpick) == 0) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
         return HCInfectedDoorPolicy.LOCK_BREAKABLE;
@@ -294,7 +377,9 @@ class HCInfectedDoorsModule : HCModule
         // Chasing something else (animal, decoy): not this door's business.
         if (targetEntity && !quarry) { return HCInfectedDoorPolicy.KIND_NONE; }
         if (!quarry) { quarry = PlayerBase.Cast(entry.m_Player); }
-        if (!quarry || !quarry.IsAlive()) { return HCInfectedDoorPolicy.KIND_NONE; }
+        // PlayerBase also covers provider human AI. Their observation path is
+        // unqualified; never admit NPC-target pressure from that cast alone.
+        if (!quarry || !quarry.IsAlive() || !quarry.GetIdentity()) { return HCInfectedDoorPolicy.KIND_NONE; }
         float distanceSq = vector.DistanceSq(quarry.GetPosition(), doorPos);
         vector toPlayer = quarry.GetPosition() - doorPos;
         vector toInfected = infected.GetPosition() - doorPos;

@@ -33,7 +33,8 @@ modded class ActionDeCraftDrysackBag
         string outputType = "WaterproofBag_" + source.ConfigGetString("color");
         EntityAI bagResult = action_data.m_Player.SpawnEntityOnGroundRaycastDispersed(outputType);
         EntityAI ropeResult = action_data.m_Player.SpawnEntityOnGroundRaycastDispersed("Rope");
-        if (!bagResult || !ropeResult)
+        // N2 3_Game/Entities/EntityAI.c:812: refuse deferred-deleting results.
+        if (!bagResult || !ropeResult || bagResult.IsSetForDeletion() || ropeResult.IsSetForDeletion())
         {
             if (bagResult)
                 bagResult.Delete();
@@ -42,9 +43,16 @@ modded class ActionDeCraftDrysackBag
             m_HCFinishing = false;
             return;
         }
-        // Preserve native properties/colors and delete only after both exist.
-        MiscGameplayFunctions.TransferItemProperties(source, bagResult);
-        MiscGameplayFunctions.TransferItemProperties(source, ropeResult);
+        // N3 4_World/Static/MiscGameplayFunctions.c:271,296,319:
+        // select agents + health, exclude generic variables (quantity/energy).
+        // N3 4_World/Classes/UserActionsComponent/Actions/Continuous/
+        // ActionDeCraftDrysackBag.c:44,50,53 (spawn, properties, delete).
+        // Wetness: N2 4_World/Entities/ItemBase.c:3692,3721.
+        // Keep each fresh result's native quantity and the native bag colour.
+        MiscGameplayFunctions.TransferItemProperties(source, bagResult, true, false, true);
+        MiscGameplayFunctions.TransferItemProperties(source, ropeResult, true, false, true);
+        bagResult.SetWet(source.GetWet());
+        ropeResult.SetWet(source.GetWet());
         source.Delete();
         m_HCFinishing = false;
     }

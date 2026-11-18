@@ -5,6 +5,8 @@ class HCModule
     void OnStart(HCSettings settings) {}
     void OnTick(float deltaTime) {}
     void OnStop() {}
+    // HC-1: a module may return its cached admission status; null means unknown.
+    HCOperationalStatus HCGetOperationalStatus() { return null; }
 }
 
 class HCModuleRegistry

@@ -54,6 +54,8 @@ class HCTapedLightStartup : HCModule
         m_Printed = true;
         bool admitted = HCTapedLightAdmission.Admitted();
         Print(HCV2Admission.Line("TapedLight", admitted, "TAPED-LIGHT-V1", HCTapedLightAdmission.Qualified()));
+        int weaponPairs = HCTapedLightCatalog.Rows().Count();
+        Print("[HC Plan] HC-7 weapon_pairs=" + weaponPairs.ToString() + " client_accepted=0 state=" + HCV2Admission.OnOff(admitted) + " r12=pending_proxy_client runtime=PENDING");
     }
 }
 
@@ -182,13 +184,29 @@ class HCTapedLightV1Custody extends HCTapedLightCustody
         // Reserve the actual destination plus every item whose state the
         // transaction preserves. Run is synchronous; it never yields custody
         // across callbacks. A failed acquisition is journaled nonterminal.
-        if (!Reserve(light, mHCDestination) || !Reserve(host, null)) { return false; }
+        // Native 3_Game/Systems/Inventory/Inventory.c:717/763/787:
+        // release only reservations we acquired.
+        // No inventory has moved and no tape has been debited at this point.
+        // Failed cleanup still leaves the journal intent quarantined by Run.
+        if (!Reserve(light, mHCDestination) || !Reserve(host, null))
+        {
+            Release();
+            return false;
+        }
         if (mounting)
         {
-            if (!tape || tape.GetHierarchyRootPlayer() != actor || !Reserve(tape, null)) { return false; }
+            if (!tape || tape.GetHierarchyRootPlayer() != actor || !Reserve(tape, null))
+            {
+                Release();
+                return false;
+            }
         }
         EntityAI battery = light.FindAttachmentBySlotName(mHCBinding.BatterySlotName);
-        if (battery && !Reserve(battery, null)) { return false; }
+        if (battery && !Reserve(battery, null))
+        {
+            Release();
+            return false;
+        }
         return true;
     }
 
