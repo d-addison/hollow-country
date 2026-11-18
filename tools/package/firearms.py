@@ -1,9 +1,11 @@
 """Curated vanilla firearms roster as a minimal Hollow Country CE delta.
 
 Reuses the economy delta model: generate reads installed stock and never writes it; the delta is a
-complete-entry ``types.xml`` override (stock fields copied, only the roster's budget/tier fields
-changed) in the managed ``hollow-country/ce`` folder; install/rollback target an explicit stopped,
-private mission copy (never Steam) and restore bytes exactly. No placement edits.
+complete-entry ``types.xml`` delta in the managed ``hollow-country/ce`` folder. Ordinary entries
+copy their stock row and change only roster budget/tier fields. Reviewed #48/#30 variants copy
+their stock parent's entire row with nominal/min halved (floor); stock case aliases are reused.
+Optics are superseded by the optional pack's mod-side config. Install/rollback target an explicit
+stopped, private mission copy (never Steam) and restore bytes exactly. No placement edits.
 
 Offline generation establishes nothing about DayZ behaviour. Effective CE merging, world totals and
 the 3-6 player feel are unobserved; runtime acceptance stays pending.
@@ -30,10 +32,11 @@ KINDS = {'weapon': {'wood', 'modern'}, 'magazine': {'support'}, 'ammo': {'suppor
 TIERS = {'common', 'uncommon', 'rare'}
 TOP = {'schema', 'name', 'players', 'entries', 'deferred_datamined'}
 TOP_OPTIONAL = {'optics'}
-# Optics are a later owner decision: the extension point accepts no optic entry yet.
-OPTICS_PLACEHOLDER = {'status': 'deferred-pending-owner-decision', 'entries': []}
+# Optics are supplied by the separately accepted optional pack's mod-side config (#30).
+OPTICS_SUPERSEDED = {'status': 'superseded', 'entries': []}
 REQUIRED = {'class', 'kind', 'role', 'tier', 'set', 'justification'}
-OPTIONAL = {'add_usage', 'set_value', 'ammo', 'magazines', 'datamined', 'acceptance'}
+OPTIONAL = {'add_usage', 'set_value', 'ammo', 'magazines', 'datamined', 'acceptance',
+            'new_type_parent', 'runtime_acceptance', 'status'}
 PENDING_LOCAL = 'pending-local'
 CLASS = re.compile(r'[A-Za-z0-9_]{1,80}')
 MAX_ENTRIES = 400
@@ -47,8 +50,8 @@ def validate_roster(roster):
     if not isinstance(roster, dict) or not TOP <= set(roster) <= TOP | TOP_OPTIONAL or roster['schema'] != 1 \
             or type(roster['schema']) is not int:
         raise ValueError('unsupported roster schema/fields')
-    if 'optics' in roster and roster['optics'] != OPTICS_PLACEHOLDER:
-        raise ValueError('optics are deferred to a later owner decision; the extension point must stay empty')
+    if 'optics' in roster and roster['optics'] != OPTICS_SUPERSEDED:
+        raise ValueError('rostered optics are superseded by the optional pack; entries must stay empty')
     if not isinstance(roster['name'], str) or not re.fullmatch(r'[a-z0-9-]{1,64}', roster['name']):
         raise ValueError('invalid roster name')
     if roster['players'] != '3-6':
@@ -68,6 +71,13 @@ def validate_roster(roster):
         if ('datamined' in e) != ('acceptance' in e) or ('datamined' in e and (
                 e['datamined'] is not True or e['acceptance'] != PENDING_LOCAL)):
             raise ValueError(f'datamined rows need datamined: true with acceptance: {PENDING_LOCAL}: {name}')
+        if {'new_type_parent', 'runtime_acceptance', 'status'} & set(e):
+            if (e.get('new_type_parent') != economy.datamined_items.NEW_TYPE_PARENTS.get(name)
+                    or name not in economy.datamined_items.NEW_TYPE_PARENTS
+                    or e.get('runtime_acceptance') != 'pending'
+                    or e.get('status') != 'requires-local-acceptance' or not e.get('datamined')
+                    or set(e['set']) != {'nominal', 'min'} or 'add_usage' in e or 'set_value' in e):
+                raise ValueError(f'new type needs reviewed parent, unchanged placement and pending acceptance: {name}')
         if kind not in KINDS or e['role'] not in KINDS[kind] or e['tier'] not in TIERS:
             raise ValueError(f'invalid kind/role/tier: {name}')
         if any(name in names for names in by_kind.values()):
@@ -175,11 +185,19 @@ def check_support(entries, nominal, ammo_fields=('ammo',)):
             raise ValueError(f'spawning weapon has no spawning compatible magazine: {name}')
 
 
+def _nominal(types, name):
+    item = types.get(name.lower())
+    if item is None:
+        return 0
+    return int(item.findtext('nominal') or 0)
+
+
 def check_effective_support(source, stock, entries, generated, managed_folders=(),
                             ammo_fields=('ammo',), verification=None):
     """Recheck source plus managed/generated rows at generation and immediately before install."""
     effective = effective_types(source, stock, managed_folders)
     effective.update({item.get('name'): item for item in generated})
+    effective_lower = {class_name.lower(): type_item for class_name, type_item in effective.items()}
     support_entries = []
     for entry in entries:
         if entry['kind'] == 'weapon':
@@ -192,7 +210,7 @@ def check_effective_support(source, stock, entries, generated, managed_folders=(
                 entry = dict(entry, magazines=entry['magazines'] or compatible)
         support_entries.append(entry)
     check_support(support_entries,
-                  lambda name: int(effective[name].findtext('nominal') or 0) if name in effective else 0,
+                  lambda name: _nominal(effective_lower, name),
                   ammo_fields=ammo_fields)
 
 
@@ -204,32 +222,54 @@ def roster_items(stock, usage_vocab, value_vocab, roster, include_datamined=True
     validate_roster(roster)
     changed_elements = []
     rows, totals = [], {'weapon_nominal_stock': 0, 'weapon_nominal_candidate': 0}
+    stock_lower = {class_name.lower(): type_item for class_name, type_item in stock.items()}
+    if len(stock_lower) != len(stock):
+        raise ValueError('case-insensitive duplicate stock class')
     for entry in roster['entries']:
         name = entry['class']
         if entry.get('datamined') and not include_datamined:
             continue
-        if name not in stock:
+        stock_row = None
+        if 'new_type_parent' in entry:
+            original = stock_lower.get(name.lower())
+            item = economy.datamined_items.reviewed_new_type(name, stock)
+            if original is not None:
+                stock_row = _row(original)
+            if any(node.get('name') not in usage_vocab for node in item.findall('usage')):
+                raise ValueError(f'unknown parent usage: {name}')
+            if any(node.get('name') not in value_vocab for node in item.findall('value')):
+                raise ValueError(f'unknown parent value tier: {name}')
+            changed = True
+        elif name in stock:
+            economy._validate_budget(stock[name])
+            item = copy.deepcopy(stock[name])
+            _apply(item, entry, usage_vocab, value_vocab)
+            stock_row = _row(stock[name])
+            changed = ET.tostring(item) != ET.tostring(stock[name])
+        else:
             raise ValueError(f'class absent from stock types.xml: {name}')
-        economy._validate_budget(stock[name])
-        item = copy.deepcopy(stock[name])
-        _apply(item, entry, usage_vocab, value_vocab)
         economy._validate_budget(item)
-        changed = ET.tostring(item) != ET.tostring(stock[name])
         if changed:
             changed_elements.append(item)
         rows.append({'class': name, 'kind': entry['kind'], 'role': entry['role'], 'tier': entry['tier'],
-                     'stock': _row(stock[name]), 'candidate': _row(item), 'changed': changed,
+                     'stock': stock_row, 'candidate': _row(item), 'changed': changed,
                      'ammo': entry.get('ammo', []), 'magazines': entry.get('magazines', []),
                      'justification': entry['justification']})
         if 'acceptance' in entry:
             rows[-1]['acceptance'] = entry['acceptance']
+        if 'new_type_parent' in entry:
+            rows[-1].update(new_type_parent=entry['new_type_parent'], runtime_acceptance='pending',
+                            status='requires-local-acceptance', new_type=stock_row is None,
+                            emitted_class=item.get('name'))
         if entry['kind'] == 'weapon':
-            totals['weapon_nominal_stock'] += rows[-1]['stock']['nominal']
+            if stock_row is not None:
+                totals['weapon_nominal_stock'] += stock_row['nominal']
             totals['weapon_nominal_candidate'] += rows[-1]['candidate']['nominal']
     effective = dict(stock)
     effective.update({item.get('name'): item for item in changed_elements})
+    effective_lower = {class_name.lower(): type_item for class_name, type_item in effective.items()}
     check_support([e for e in roster['entries'] if include_datamined or not e.get('datamined')],
-                  lambda name: int(effective[name].findtext('nominal') or 0))
+                  lambda name: _nominal(effective_lower, name))
     return changed_elements, rows, totals
 
 
@@ -266,7 +306,8 @@ def generate(source, roster, include_datamined=True):
         'schema': 1, 'kind': 'firearms-roster', 'profile': roster['name'],
         'sources': {n: economy.sha(d) for n, d in data.items()},
         'files': {n: economy.sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending',
-        'firearms_classes': sorted(n.get('name') for n in out), 'datamined_classes': []})
+        'firearms_classes': sorted(n.get('name') for n in out), 'datamined_classes': [],
+        'new_type_classes': sorted(r['class'] for r in rows if r.get('new_type'))})
     return files
 
 

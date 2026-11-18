@@ -1,4 +1,4 @@
-"""Chernarus CE rows for datamined, unused-but-finished vanilla NON-weapon items.
+"""Chernarus CE rows for datamined vanilla non-weapon items and reviewed weapon parent clones.
 
 The census (static config parsing, never CE behaviour) found finished vanilla items that
 Chernarus's stock types.xml sets to nominal 0 or omits. This module holds the owner-approved
@@ -8,6 +8,8 @@ shape ``economy.py`` already consumes (stock ``type`` elements: the same child t
 retained fields). Every row stays ``acceptance: pending-local``: nothing here is runtime proof.
 
 Standard library only. This module never imports ``economy`` so economy can import it.
+The separate NEW_TYPE_PARENTS allowlist supports the firearms roster; these classes do not
+belong to datamined_items.json and never enter the non-weapon item switch or permission list.
 """
 import copy
 import json
@@ -46,6 +48,44 @@ MAX_BODY_ENTRIES = 100_000
 MAX_CLASSES = 400_000
 MAX_ARRAY_ITEMS = 100_000
 CONFIG_ROOTS = ('cfgvehicles', 'cfgweapons', 'cfgmagazines')
+# Reviewed #48/#30 additions only. This is independent of editable manifest permissions.
+NEW_TYPE_PARENTS = {
+    'MakarovPB': 'MakarovIJ70', 'Mag_MakarovPB_8Rnd': 'Mag_IJ70_8Rnd',
+    'Winchester70_Black': 'Winchester70', 'Winchester70_Green': 'Winchester70',
+    'B95_Black': 'B95', 'B95_Green': 'B95', 'CZ527_Camo': 'CZ527',
+    'CZ527_Green': 'CZ527', 'CZ527_desert': 'CZ527', 'CZ527_winter': 'CZ527'}
+
+
+def reviewed_new_type(name, stock):
+    """Full stock-parent clone at floor(nominal/2), floor(min/2); no other additions admitted.
+
+    Reuse an existing stock spelling case-insensitively, including CZ527_Desert/_Winter.
+    Those are overrides; callers grant new-entry permissions only where stock truly lacks a row.
+
+    Static installed evidence: weapons_firearms.pbo {winchester70,B95,cz527}/config.bin,
+    weapons_pistols.pbo pb6p9/config.bin and weapon_magazines.pbo config.bin (1.30.164289).
+    Native script declaration: 4_World/Entities/ItemBase/Magazine/Magazines.c:50.
+    This authorizes candidate XML only; CE spawning and weapon usability remain unobserved.
+    """
+    if name not in NEW_TYPE_PARENTS:
+        _fail(f'new class is not on the reviewed allowlist: {name}')
+    stock_lower = _lower(stock)
+    if len(stock_lower) != len(stock):
+        _fail('case-insensitive duplicate stock class')
+    parent = stock_lower.get(NEW_TYPE_PARENTS[name].lower())
+    if parent is None:
+        _fail(f'new class parent is absent from stock: {name}')
+    element = copy.deepcopy(parent)
+    element.set('name', name)
+    existing = stock_lower.get(name.lower())
+    if existing is not None:
+        element.set('name', existing.get('name'))
+    for field in ('nominal', 'min'):
+        nodes = element.findall(field)
+        if len(nodes) != 1 or not re.fullmatch(r'[0-9]+', nodes[0].text or ''):
+            _fail(f'new class parent has invalid {field}: {name}')
+        nodes[0].text = str(int(nodes[0].text) // 2)
+    return element
 
 
 def _int(value):
@@ -322,8 +362,9 @@ def type_rows(stock, vocabulary=None, include_new=False, rows=None):
 
     stock: ``{name: <type>}`` (economy's ``types`` mapping). Stock-present rows keep every stock
     field except nominal/min/lifetime/restock/usage/value (and category only where stock has none).
-    Stock-absent rows are new types; they are returned only with ``include_new`` because
-    ``economy.install`` currently refuses types that stock lacks. Pure: never mutates ``stock``.
+    Stock-absent item rows are returned only with ``include_new`` for inspection; the installer
+    admits only NEW_TYPE_PARENTS additions, built separately by reviewed_new_type for the roster.
+    Pure: never mutates ``stock``.
     """
     rows = load_rows() if rows is None else rows
     stock_lower = _lower(stock)
@@ -509,25 +550,26 @@ def load_catalog(addons_dir):
     """Resolve scope/lootCategory/displayName (with inheritance) and source PBO of every class.
 
     Returns ``{lower class: {'scope', 'lootCategory', 'displayName', 'source'}}`` from the
-    ``config.bin`` of each ``*.pbo`` in addons_dir. Static file evidence only.
+    root and nested ``config.bin`` members of each ``*.pbo`` in addons_dir. Static file evidence only.
     """
     addons = Path(addons_dir)
     if not addons.is_dir() or addons.is_symlink():
         _fail('addons directory is missing or a symlink')
     own = {}
+    from tools.audit import pbo_config
     for path in sorted(addons.glob('*.pbo')):
         if path.is_symlink() or not path.is_file():
             continue
-        data = _pbo_member(path, 'config.bin')
-        if data is None:
-            continue
-        for name, values in _scan_config(data).items():
-            slot = own.setdefault(name.lower(), {'name': name, 'source': path.name, 'parent': ''})
-            if values['parent']:
-                slot['parent'] = values['parent']
-            for key in ('scope', 'lootcategory', 'displayname'):
-                if key in values:
-                    slot[key] = values[key]
+        index = pbo_config.read_pbo_index(path)
+        for member in pbo_config.config_member_names(index):
+            data = pbo_config.read_member(path, index, member)
+            for name, values in _scan_config(data).items():
+                slot = own.setdefault(name.lower(), {'name': name, 'source': path.name, 'parent': ''})
+                if values['parent']:
+                    slot['parent'] = values['parent']
+                for key in ('scope', 'lootcategory', 'displayname'):
+                    if key in values:
+                        slot[key] = values[key]
 
     def resolve(slot, key):
         seen = set()

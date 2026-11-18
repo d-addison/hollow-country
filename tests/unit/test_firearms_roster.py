@@ -11,10 +11,17 @@ import xml.etree.ElementTree as ET
 
 from tools.package import economy, firearms
 
+# Explicit synthetic parent budgets; installed config evidence is checked separately.
+NEW_PARENTS = {
+    'MakarovPB': 'MakarovIJ70', 'Mag_MakarovPB_8Rnd': 'Mag_IJ70_8Rnd',
+    'Winchester70_Black': 'Winchester70', 'Winchester70_Green': 'Winchester70',
+    'B95_Black': 'B95', 'B95_Green': 'B95', 'CZ527_Camo': 'CZ527',
+    'CZ527_Green': 'CZ527', 'CZ527_desert': 'CZ527', 'CZ527_winter': 'CZ527'}
+
 ROSTER_PATH = Path(__file__).resolve().parents[2] / 'tools/package/firearms_roster.json'
 DATAMINED_WEAPONS = {'LeeEnfield', 'MP18', 'Luger', 'SKS_Black', 'SKS_Desert', 'SKS_Green', 'SKS_Winter',
-                     'Mosin9130_Black', 'Mosin9130_Winter', 'SVD_Wooden'}
-DATAMINED_MAGAZINES = {'Mag_LeeEnfield_10Rnd', 'Mag_MP18_Drum32Rnd', 'Mag_Luger_8Rnd'}
+                     'Mosin9130_Black', 'Mosin9130_Winter', 'SVD_Wooden'} | (set(NEW_PARENTS) - {'Mag_MakarovPB_8Rnd'})
+DATAMINED_MAGAZINES = {'Mag_LeeEnfield_10Rnd', 'Mag_MP18_Drum32Rnd', 'Mag_Luger_8Rnd', 'Mag_MakarovPB_8Rnd'}
 # The first v1 proposal (nominal, min) per original weapon, before the owner's 2x decision.
 V1_FIRST_PROPOSAL = {
     'Mosin9130': (12, 9), 'Mosin9130_Woodland': (5, 3), 'SKS': (6, 4), 'SKS_Woodland': (3, 2),
@@ -406,6 +413,120 @@ class EconomyMutableFields(unittest.TestCase):
                     economy.install(stage, source, mutable=bad)
 
 
+class ReviewedNewTypes(unittest.TestCase):
+    """SYNTHETIC stock parents with odd budgets and retained tags; no engine claims."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'mission'
+        synthetic(self.root)
+        self.roster = json.loads(ROSTER_PATH.read_bytes())
+        self.stock = {}
+        for roster_entry in self.roster['entries']:
+            class_name = roster_entry['class']
+            if class_name not in NEW_PARENTS:
+                self.stock[class_name] = ET.fromstring(entry(
+                    class_name, 51, 39, 28800, 0, ['Town'], ['Tier2'], '<tag name="shelves"/>'))
+        stock_root = ET.Element('types')
+        stock_root.extend(self.stock.values())
+        (self.root / 'db/types.xml').write_bytes(ET.tostring(stock_root))
+        self.before = economy.snapshot(self.root)
+
+    def test_nine_variants_and_pb_magazine_are_reviewed_and_pending(self):
+        enabled = {e['class']: e for e in self.roster['entries']}
+        self.assertTrue(set(NEW_PARENTS) <= set(enabled))
+        self.assertFalse(set(NEW_PARENTS) & {d['class'] for d in self.roster['deferred_datamined']})
+        for class_name, parent in NEW_PARENTS.items():
+            self.assertEqual(enabled[class_name]['new_type_parent'], parent)
+            self.assertEqual(enabled[class_name]['runtime_acceptance'], 'pending')
+            self.assertEqual(enabled[class_name]['status'], 'requires-local-acceptance')
+
+    def test_generate_both_paths_install_and_rollback_preserve_exact_bytes(self):
+        for combined in (False, True):
+            with self.subTest(combined=combined):
+                if combined:
+                    files = firearms.generate_combined(self.root, self.roster, include_items=False)
+                else:
+                    files = firearms.generate(self.root, self.roster)
+                output = economy._unique(ET.fromstring(files['ce/types.xml']))
+                self.assertTrue(set(NEW_PARENTS) <= set(output))
+                for class_name, parent in NEW_PARENTS.items():
+                    expected = copy.deepcopy(self.stock[parent])
+                    expected.set('name', class_name)
+                    expected.find('nominal').text = '25'
+                    expected.find('min').text = '19'
+                    self.assertEqual(economy._full(output[class_name]), economy._full(expected))
+                report = json.loads(files['economy-report.json'])
+                report_rows = report.get('entries')
+                if report_rows is None:
+                    report_rows = report['firearms']['entries']
+                for row in report_rows:
+                    if row['class'] in NEW_PARENTS:
+                        self.assertIsNone(row['stock'])
+                        self.assertEqual(row['status'], 'requires-local-acceptance')
+                        self.assertEqual(row['runtime_acceptance'], 'pending')
+                self.assertEqual(set(json.loads(files['delta-manifest.json'])['new_type_classes']), set(NEW_PARENTS))
+                stage = Path(self.tmp.name) / str(combined)
+                economy.write_delta(stage, files)
+                economy.install_delta(stage, self.root)
+                self.assertEqual((self.root / 'db/types.xml').read_bytes(), self.before['db/types.xml'])
+                economy.rollback(self.root)
+                self.assertEqual(self.before, economy.snapshot(self.root))
+                self.assertFalse((self.root / economy.MANAGED).exists())
+
+    def test_switch_disables_new_rows_and_their_install_permissions(self):
+        files = firearms.generate(self.root, self.roster, include_datamined=False)
+        output = economy._unique(ET.fromstring(files['ce/types.xml']))
+        self.assertFalse(set(NEW_PARENTS) & set(output))
+        self.assertEqual(json.loads(files['delta-manifest.json'])['new_type_classes'], [])
+
+    def test_existing_case_alias_is_reused_with_parent_fields_without_duplicate(self):
+        stock_root = ET.parse(self.root / 'db/types.xml').getroot()
+        stock_root.append(ET.fromstring(entry('CZ527_Desert', 0, 0, 14400, 0, [], [])))
+        (self.root / 'db/types.xml').write_bytes(ET.tostring(stock_root))
+        original = economy.snapshot(self.root)
+        files = firearms.generate(self.root, self.roster)
+        output = economy._unique(ET.fromstring(files['ce/types.xml']))
+        self.assertNotIn('CZ527_desert', output)
+        self.assertEqual(output['CZ527_Desert'].findtext('nominal'), '25')
+        self.assertEqual(output['CZ527_Desert'].find('tag').get('name'), 'shelves')
+        self.assertNotIn('CZ527_Desert', json.loads(files['delta-manifest.json'])['new_type_classes'])
+        stage = Path(self.tmp.name) / 'case-alias'
+        economy.write_delta(stage, files)
+        economy.install_delta(stage, self.root)
+        economy.rollback(self.root)
+        self.assertEqual(original, economy.snapshot(self.root))
+
+    def test_install_refuses_rehashed_new_type_mutations_before_writing(self):
+        mutations = ('unknown class', 'nominal', 'min', 'flags', 'usage', 'value', 'tag', 'category', 'missing permission')
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                files = firearms.generate(self.root, self.roster)
+                output = ET.fromstring(files['ce/types.xml'])
+                candidate = output.find("type[@name='CZ527_Camo']")
+                manifest = json.loads(files['delta-manifest.json'])
+                if mutation == 'unknown class':
+                    candidate.set('name', 'UnreviewedNewWeapon')
+                    manifest['new_type_classes'].append('UnreviewedNewWeapon')
+                    manifest['firearms_classes'].append('UnreviewedNewWeapon')
+                elif mutation == 'missing permission':
+                    manifest['new_type_classes'].remove('CZ527_Camo')
+                elif mutation in ('nominal', 'min'):
+                    candidate.find(mutation).text = '26'
+                else:
+                    candidate.find(mutation).set('name', 'Invented')
+                files['ce/types.xml'] = ET.tostring(output)
+                manifest['files']['ce/types.xml'] = economy.sha(files['ce/types.xml'])
+                files['delta-manifest.json'] = economy.encode(manifest)
+                stage = Path(self.tmp.name) / mutation
+                economy.write_delta(stage, files)
+                with self.assertRaises(ValueError):
+                    economy.install_delta(stage, self.root)
+                self.assertEqual(self.before, economy.snapshot(self.root))
+                self.assertFalse((self.root / economy.MANAGED).exists())
+
+
 class CommittedRoster(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -418,9 +539,10 @@ class CommittedRoster(unittest.TestCase):
         weapons = [e for e in self.data['entries'] if e['kind'] == 'weapon']
         self.assertGreaterEqual(len(weapons), 30)
         for e in weapons:
-            self.assertLessEqual(e['set']['nominal'], 28, e['class'])
+            if e['class'] not in NEW_PARENTS:
+                self.assertLessEqual(e['set']['nominal'], 28, e['class'])
         total = sum(e['set']['nominal'] for e in weapons)
-        self.assertTrue(328 <= total <= 360, total)
+        self.assertEqual(total, 449)
         # Owner decision 2026-11-17: 2x the first proposal (164 -> 328) with min/nominal ratios kept.
         by_class = {e['class']: e['set'] for e in weapons}
         for name, (nominal, minimum) in V1_FIRST_PROPOSAL.items():
@@ -437,7 +559,7 @@ class CommittedRoster(unittest.TestCase):
         for name, e in marked.items():
             self.assertEqual(e['acceptance'], 'pending-local', name)
             self.assertTrue(e['justification'].strip(), name)
-        for name in DATAMINED_WEAPONS - {'LeeEnfield', 'MP18', 'Luger'}:
+        for name in DATAMINED_WEAPONS - {'LeeEnfield', 'MP18', 'Luger'} - set(NEW_PARENTS):
             self.assertLessEqual(marked[name]['set']['nominal'], 2, name)
         self.assertEqual({e['class'] for e in self.data['entries'] if 'acceptance' in e}, set(marked))
 
@@ -446,7 +568,8 @@ class CommittedRoster(unittest.TestCase):
         with tempfile.TemporaryDirectory() as t:
             root = Path(t) / 'mission'
             synthetic(root)
-            rows = ''.join(entry(n, 0, 0, 14400, 0, ['Town'], []) for n in sorted(names))
+            rows = ''.join(entry(n, 51, 39, 14400, 0, ['Town'], [])
+                           for n in sorted(names - set(NEW_PARENTS)))
             (root / 'db/types.xml').write_text('<types>' + rows + '</types>')
             usages = {u for e in self.data['entries'] for u in e.get('add_usage', [])} | {'Town'}
             values = {v for e in self.data['entries'] for v in e.get('set_value', [])} | {'Tier1'}
@@ -479,12 +602,11 @@ class CommittedRoster(unittest.TestCase):
 
     def test_deferred_datamined_are_all_pending_local_acceptance(self):
         deferred = self.data['deferred_datamined']
-        self.assertTrue(deferred)
-        self.assertEqual({d['status'] for d in deferred}, {'requires-local-acceptance'})
+        self.assertEqual(deferred, [])
         self.assertFalse({d['class'] for d in deferred} & {e['class'] for e in self.data['entries']})
 
-    def test_optics_are_a_documented_empty_extension_point(self):
-        self.assertEqual(self.data['optics'], {'status': 'deferred-pending-owner-decision', 'entries': []})
+    def test_optics_placeholder_is_superseded_by_the_optional_pack(self):
+        self.assertEqual(self.data['optics'], {'status': 'superseded', 'entries': []})
         for bad in ({'status': 'accepted', 'entries': []},
                     {'status': 'deferred-pending-owner-decision', 'entries': [{'class': 'PSO1Optic'}]}):
             with self.subTest(bad), self.assertRaises(ValueError):

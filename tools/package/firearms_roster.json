@@ -986,57 +986,217 @@
     "min": 18
    },
    "justification": "AK-74. Vanilla pool scaled to 3-6 players."
-  }
- ],
- "optics": {
-  "status": "deferred-pending-owner-decision",
-  "entries": []
- },
- "deferred_datamined": [
+  },
   {
    "class": "MakarovPB",
+   "kind": "weapon",
+   "role": "modern",
+   "tier": "rare",
+   "set": {
+    "nominal": 35,
+    "min": 30
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock MakarovIJ70 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "MakarovIJ70",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "census missing-from-types; a spawn needs a new type entry (not a stock override) plus Mag_MakarovPB_8Rnd"
+   "ammo": [
+    "Ammo_380"
+   ],
+   "magazines": [
+    "Mag_MakarovPB_8Rnd"
+   ]
+  },
+  {
+   "class": "Mag_MakarovPB_8Rnd",
+   "kind": "magazine",
+   "role": "support",
+   "tier": "rare",
+   "set": {
+    "nominal": 30,
+    "min": 25
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock Mag_IJ70_8Rnd row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "Mag_IJ70_8Rnd",
+   "runtime_acceptance": "pending",
+   "status": "requires-local-acceptance"
   },
   {
    "class": "Winchester70_Black",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock Winchester70 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "Winchester70",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "Winchester skin variant; census missing-from-types, needs a new type entry"
+   "ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": []
   },
   {
    "class": "Winchester70_Green",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 3,
+    "min": 2
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock Winchester70 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "Winchester70",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "Winchester skin variant; census missing-from-types, needs a new type entry"
+   "ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": []
   },
   {
    "class": "B95_Black",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 9,
+    "min": 7
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock B95 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "B95",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "B95 skin variant; census missing-from-types, needs a new type entry"
+   "ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": []
   },
   {
    "class": "B95_Green",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 9,
+    "min": 7
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock B95 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "B95",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "B95 skin variant; census missing-from-types, needs a new type entry"
+   "ammo": [
+    "Ammo_308Win"
+   ],
+   "magazines": []
   },
   {
    "class": "CZ527_Camo",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 12,
+    "min": 11
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "CZ527",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_CZ527_5rnd"
+   ]
   },
   {
    "class": "CZ527_Green",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 12,
+    "min": 11
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "CZ527",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_CZ527_5rnd"
+   ]
   },
   {
    "class": "CZ527_desert",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 12,
+    "min": 11
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "CZ527",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_CZ527_5rnd"
+   ]
   },
   {
    "class": "CZ527_winter",
+   "kind": "weapon",
+   "role": "wood",
+   "tier": "rare",
+   "set": {
+    "nominal": 12,
+    "min": 11
+   },
+   "justification": "Reviewed #48/#30 new CE type; full stock CZ527 row at floor(nominal/2), floor(min/2); native CE spawning and usability require local acceptance.",
+   "datamined": true,
+   "acceptance": "pending-local",
+   "new_type_parent": "CZ527",
+   "runtime_acceptance": "pending",
    "status": "requires-local-acceptance",
-   "note": "CZ 527 skin variant; census missing-from-types, needs a new type entry, magazine already spawns"
+   "ammo": [
+    "Ammo_762x39"
+   ],
+   "magazines": [
+    "Mag_CZ527_5rnd"
+   ]
   }
- ]
+ ],
+ "optics": {
+  "status": "superseded",
+  "entries": []
+ },
+ "deferred_datamined": []
 }

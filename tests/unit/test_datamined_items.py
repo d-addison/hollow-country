@@ -441,6 +441,16 @@ def pbo(path, config, prefix='x'):
 
 
 class InstalledConfigReader(unittest.TestCase):
+    def test_catalog_reads_nested_weapon_config_members(self):
+        """SYNTHETIC nested config.bin models the installed firearms PBO layout."""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'weapons_firearms.pbo'
+            pbo(path, config_bin({'CfgWeapons': {
+                'CZ527': {'__parent__': '', 'scope': 2},
+                'CZ527_Camo': {'__parent__': 'CZ527'}}}))
+            path.write_bytes(path.read_bytes().replace(b'config.bin\0', b'cz527\\config.bin\0', 1))
+            self.assertEqual(dm.load_catalog(directory)['cz527_camo']['scope'], 2)
+
     def test_catalog_resolves_inherited_scope_loot_category_and_source(self):
         with tempfile.TemporaryDirectory() as t:
             tops = {'CfgVehicles': {
@@ -501,6 +511,18 @@ class AgainstInstalledVanilla(unittest.TestCase):
         dm.validate_rows(self.rows, self.catalog, stock=self.stock, vocabulary=self.vocab,
                          other_maps={m: v for m, v in self.other.items() if m != 'nasdara'},
                          equivalents=equivalents)
+
+    def test_reviewed_new_classes_exist_in_installed_config(self):
+        from tests.unit.test_firearms_roster import NEW_PARENTS
+        for class_name in NEW_PARENTS:
+            with self.subTest(class_name=class_name):
+                self.assertIn(class_name.lower(), self.catalog)
+                self.assertEqual(self.catalog[class_name.lower()]['scope'], 2)
+                if class_name in ('CZ527_desert', 'CZ527_winter'):
+                    stock_name = next(name for name in self.stock if name.lower() == class_name.lower())
+                    self.assertEqual(self.stock[stock_name].findtext('nominal'), '0')
+                else:
+                    self.assertNotIn(class_name.lower(), {name.lower() for name in self.stock})
 
     def test_installed_config_marks_the_excluded_and_crafted_classes(self):
         for name in CRAFT:

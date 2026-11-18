@@ -252,7 +252,8 @@ def generate(source, profile, include_datamined=True, roster=None, include_roste
         'sources': {n: sha(d) for n, d in data.items()},
         'files': {n: sha(d) for n, d in files.items()}, 'runtime_acceptance': 'pending',
         'datamined_classes': datamined_report['classes'] if datamined_report else [],
-        'firearms_classes': firearms_classes or []})
+        'firearms_classes': firearms_classes or [],
+        'new_type_classes': sorted(n.get('name') for n in out if n.get('name') not in types)})
     return files
 
 
@@ -547,16 +548,24 @@ def _retained(item, allowed, skip_category=False):
             tuple(_full(n) for n in item if n.tag not in allowed and not (skip_category and n.tag == 'category')))
 
 
-def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamined=frozenset()):
+def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamined=frozenset(),
+            new_types=frozenset()):
     """Install a staged delta.
 
     ``mutable`` is the field set every row may change (default usage only). ``widened`` names the classes
     that may change MUTABLE_ALLOWED (firearms and datamined rows); ``datamined`` names the classes that may
     additionally ADD the one category CATEGORY_ADDED declares for them. Profile rows stay at ``mutable``.
+    ``new_types`` explicitly admits only NEW_TYPE_PARENTS additions. Their full row must equal the
+    reviewed stock-parent clone at half nominal/min, including all flags, tags and placement fields.
+    Reviewed variants already in stock (including case aliases) use that same strict parent comparison
+    when widened by the roster; unrelated stock classes retain the original per-field rules.
     """
     mutable = frozenset(mutable)
     widened = frozenset(widened) | frozenset(datamined)
     datamined = frozenset(datamined)
+    new_types = frozenset(new_types)
+    if not new_types <= set(datamined_items.NEW_TYPE_PARENTS):
+        raise ValueError('new class is not on the reviewed allowlist')
     if 'usage' not in mutable or not mutable <= MUTABLE_ALLOWED:
         raise ValueError('unsupported mutable field set')
     target = _target(target)
@@ -573,10 +582,28 @@ def install(stage, target, mutable=MUTABLE_DEFAULT, widened=frozenset(), datamin
     stock = _unique(xml(data['db/types.xml'], 'types').findall('type'))
     vocabulary = _unique(xml(data['cfglimitsdefinition.xml'], 'lists').findall('./usageflags/usage'))
     _unique(types.findall('type'))
+    if len({name.lower() for name in stock}) != len(stock):
+        raise ValueError('case-insensitive duplicate stock class')
     for item in types:
         name = item.get('name')
-        if item.tag != 'type' or name not in stock:
+        if item.tag != 'type':
             raise ValueError('candidate must retain every stock field except the mutable set')
+        reviewed_name = next((policy_name for policy_name in datamined_items.NEW_TYPE_PARENTS
+                              if policy_name.lower() == name.lower()), None)
+        if reviewed_name is not None and (name in new_types or name in widened):
+            if name not in stock and name not in new_types:
+                raise ValueError('new class needs explicit reviewed new-type permission')
+            expected_new = datamined_items.reviewed_new_type(reviewed_name, stock)
+            _validate_budget(expected_new)
+            if _full(item) != _full(expected_new):
+                raise ValueError(f'new class must exactly clone its reviewed parent at 2x scarcity: {name}')
+            new_usages = item.findall('usage')
+            _unique(new_usages)
+            if not new_usages or any(node.get('name') not in vocabulary for node in new_usages):
+                raise ValueError('invalid new-type usage')
+            continue
+        if name not in stock:
+            raise ValueError('new class needs explicit reviewed new-type permission')
         allowed = mutable | MUTABLE_ALLOWED if name in widened else mutable
         # A category may only be added, once, as the declared category, where stock has none.
         add_category = name in datamined and name in CATEGORY_ADDED and stock[name].find('category') is None
@@ -627,10 +654,11 @@ def install_delta(stage, target):
 
     datamined_classes must be shipped datamined rows (they may also add the declared category);
     firearms_classes are roster rows (budget fields only); every other row is usage-only.
+    new_type_classes must be both rostered and in the separate reviewed parent allowlist.
     """
     _files, manifest = _load_delta(stage)
     lists = {}
-    for key in ('datamined_classes', 'firearms_classes'):
+    for key in ('datamined_classes', 'firearms_classes', 'new_type_classes'):
         listed = manifest.get(key, [])
         if (not isinstance(listed, list) or any(not isinstance(n, str) or not re.fullmatch(r'[A-Za-z0-9_]{1,80}', n)
                                                 for n in listed) or len(set(listed)) != len(listed)):
@@ -639,8 +667,13 @@ def install_delta(stage, target):
     from tools.package import firearms
     roster = json.loads(firearms.ROSTER_PATH.read_bytes())
     firearms.validate_roster(roster)
-    if not lists['firearms_classes'] <= {r['class'] for r in roster['entries']}:
+    if not {name.lower() for name in lists['firearms_classes']} <= {r['class'].lower() for r in roster['entries']}:
         raise ValueError('delta manifest names a class that is not in the shipped firearms roster')
+    reviewed = {r['class'] for r in roster['entries'] if 'new_type_parent' in r}
+    if (not lists['new_type_classes'] <= reviewed
+            or not lists['new_type_classes'] <= set(datamined_items.NEW_TYPE_PARENTS)
+            or not lists['new_type_classes'] <= lists['firearms_classes']):
+        raise ValueError('delta new classes must be reviewed roster additions')
     shipped = {r['class'] for r in datamined_items.load_rows()}
     if not lists['datamined_classes'] <= shipped:
         raise ValueError('delta manifest names a class that is not a shipped datamined row')
@@ -650,7 +683,8 @@ def install_delta(stage, target):
         stock = _unique(xml(read_plain(_target(target), 'db/types.xml'), 'types').findall('type'))
         candidates = xml(_files['ce/types.xml'], 'types')
         firearms.check_effective_support(target, stock, roster['entries'], candidates)
-    return install(stage, target, widened=lists['firearms_classes'], datamined=lists['datamined_classes'])
+    return install(stage, target, widened=lists['firearms_classes'], datamined=lists['datamined_classes'],
+                   new_types=lists['new_type_classes'])
 
 
 def rollback(target):
