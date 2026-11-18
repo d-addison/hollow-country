@@ -4,16 +4,17 @@
 // scripts-1.30.164289/3_Game/Global/Game.c:945 GetPlayers;
 // 3_Game/Entities/Man.c:21 GetIdentity; Entities/Object.c:287 GetPosition,
 // :517 IsAlive; 1_Core/proto/EnConvert.c:30 int.ToString;
-// EnScript.c:380,385,407,470 array Count/Clear/Insert/
+// EnScript.c:380,385,394,407,470 array Count/Clear/Find/Insert/
 // RemoveOrdered; EnDebug.c:96 Print. All other calls are project interfaces.
 // Queue/cooldowns are process-local, never body persistence. Durable outcomes
 // use HCWorldModule.AddFact and its existing verified temp/backup/copy store.
-// HC-10 / #143-147, #139: a claimed party/cargo is never offered again.
+// HC-10 / #143-147, #139: no concurrent live copy of a party/cargo.
 // Native persistence evidence: scripts-1.30.164289/1_Core/proto/EnSystem.c:
 // 397 FileExist, 525 MakeDirectory, 528 DeleteFile, 531 CopyFile;
 // 3_Game/tools/JsonFileLoader.c:69,85 LoadData/MakeData. Bounded Read/Write
 // reuse HCWorldStore (same inspected native file APIs, verified readback).
-// A claimed reservation is NEVER timed out: only Result confirms body absence.
+// In process only Result confirms absence. On restart Persist=false provider
+// bodies cannot survive; unresolved claims finish unknown, without cargo replay.
 // HC has no dependency on the optional provider. No entities or inventory here.
 class HCWorldProposal
 {
@@ -30,6 +31,7 @@ class HCWorldProposalLease
 {
     ref HCWorldProposal Proposal;
     string RowId;
+    int RowIndex = -1;
     float Created;
     bool Claimed;
     bool Finished;
@@ -103,6 +105,7 @@ class HCWorldMaterializer : HCModule
     protected ref HCAIPartyCustodyData m_Custody;
     protected bool m_CustodyReady;
     protected string m_CustodyText;
+    protected bool m_CustodyFailurePrinted;
     protected string m_CustodyPath = "$profile:HollowCountry/ai-custody.json";
     protected int m_DuplicateRefused;
     protected int m_Proposals;
@@ -110,6 +113,7 @@ class HCWorldMaterializer : HCModule
     protected int m_Traces;
     protected bool m_Running;
     protected bool m_AdmissionPrinted;
+    protected bool m_StartedOnce;
 
     override string GetName() { return "Materializer"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
@@ -130,13 +134,17 @@ class HCWorldMaterializer : HCModule
         m_LogSeconds = 0;
         m_CustodyReady = this.HCLoadCustody();
         if (!m_CustodyReady) { HCAIBudget.Block(); }
+        else if (!m_StartedOnce) { this.HCRestoreCustody(); }
         else
         {
-            foreach (HCAIPartyCustodyRow restored : m_Custody.Rows)
+            // A module off/on transition is not a process restart. Provider
+            // bodies may still exist; retain their claims until Result.
+            foreach (HCAIPartyCustodyRow sameProcess : m_Custody.Rows)
             {
-                if (restored.Outcome != "FINISHED") { HCAIBudget.Restore(restored.LeaseId, restored.ActorCap); }
+                if (sameProcess.Outcome == "CLAIMED" || sameProcess.Outcome == "QUARANTINED") { HCAIBudget.Restore(sameProcess.LeaseId, sameProcess.ActorCap); }
             }
         }
+        m_StartedOnce = true;
         m_Running = true;
         s_Instance = this;
         this.HCPlanLine("on");
@@ -195,22 +203,53 @@ class HCWorldMaterializer : HCModule
         string error;
         if (text == "" || !JsonFileLoader<HCAIPartyCustodyData>.LoadData(text, loaded, error) || !this.HCValidCustody(loaded)) { return false; }
         string canonical;
-        if (!JsonFileLoader<HCAIPartyCustodyData>.MakeData(loaded, canonical, error) || canonical != text) { return false; }
+        if (loaded.SchemaVersion == 1)
+        {
+            HCAIPartyCustodyLegacyData legacy;
+            if (!JsonFileLoader<HCAIPartyCustodyLegacyData>.LoadData(text, legacy, error) || !JsonFileLoader<HCAIPartyCustodyLegacyData>.MakeData(legacy, canonical, error) || canonical != text) { return false; }
+        }
+        else if (!JsonFileLoader<HCAIPartyCustodyData>.MakeData(loaded, canonical, error) || canonical != text) { return false; }
         m_Custody = loaded;
         m_CustodyText = text;
         return true;
     }
 
+    // Expansion transient groups use Persist=false. There is no surviving body
+    // after a process restart, and no trustworthy casualty observation either.
+    // Cargo never left its owner store here: release custody without spawning,
+    // refunding, copying inventory or applying a guessed world outcome.
+    protected void HCRestoreCustody()
+    {
+        int recovered = 0;
+        foreach (HCAIPartyCustodyRow restored : m_Custody.Rows)
+        {
+            if (restored.Outcome == "CLAIMED")
+            {
+                restored.Outcome = "FINISHED_UNKNOWN";
+                HCAIBudget.Release(restored.LeaseId);
+                recovered++;
+            }
+            else if (restored.Outcome == "QUARANTINED") { HCAIBudget.Restore(restored.LeaseId, restored.ActorCap); }
+            else { HCAIBudget.Release(restored.LeaseId); }
+        }
+        if (recovered > 0 || m_Custody.SchemaVersion == 1)
+        {
+            m_Custody.SchemaVersion = 2;
+            this.HCSaveCustody();
+        }
+        Print("[HC AI] custody restore finished_unknown=" + recovered.ToString() + " runtime=PENDING");
+    }
+
     protected bool HCValidCustody(HCAIPartyCustodyData data)
     {
-        if (!data || data.SchemaVersion != 1 || !data.Rows || data.Rows.Count() > HCAIPartyCustody.MAX_ROWS) { return false; }
+        if (!data || (data.SchemaVersion != 1 && data.SchemaVersion != 2) || data.NextLease < 1 || !data.Rows || data.Rows.Count() > HCAIPartyCustody.MAX_ROWS) { return false; }
         foreach (HCAIPartyCustodyRow row : data.Rows)
         {
             if (!row || row.ActorCap < 1 || row.ActorCap > HCAILimits.SIZE_CEILING || !HCWorldLimits.Token(row.LeaseId)) { return false; }
             if (!HCAIPartyIdentity.HCCreate(row.PartyId, row.CampId, row.HomeId, row.RouteId, row.CargoId, row.Generation)) { return false; }
-            if (row.Outcome != "CLAIMED" && row.Outcome != "FINISHED" && row.Outcome != "QUARANTINED") { return false; }
+            if (row.Outcome != "CLAIMED" && row.Outcome != "FINISHED" && row.Outcome != "FINISHED_UNKNOWN" && row.Outcome != "QUARANTINED") { return false; }
             if (row.Survivors < 0 || row.Survivors > row.ActorCap || (!row.Materialized && row.Survivors != 0)) { return false; }
-            if (row.Outcome == "CLAIMED" && (row.Materialized || row.Survivors != 0)) { return false; }
+            if ((row.Outcome == "CLAIMED" || row.Outcome == "FINISHED_UNKNOWN") && (row.Materialized || row.Survivors != 0)) { return false; }
             foreach (HCAIPartyCustodyRow other : data.Rows)
             {
                 if (other == row) { break; }
@@ -224,6 +263,19 @@ class HCWorldMaterializer : HCModule
     // Verified intent -> prior backup -> copy/readback -> delete intent, using
     // the existing store ports. Any failure latches off; never refund/replay.
     protected bool HCSaveCustody()
+    {
+        if (this.HCWriteCustody()) { return true; }
+        m_CustodyReady = false;
+        HCAIBudget.Block();
+        if (!m_CustodyFailurePrinted)
+        {
+            m_CustodyFailurePrinted = true;
+            Print("[HC AI] CUSTODY SAVE FAILED; ALL NEW AI BLOCKED; inspect ai-custody.json and intent before restart runtime=PENDING");
+        }
+        return false;
+    }
+
+    protected bool HCWriteCustody()
     {
         if (!m_CustodyReady || !this.HCValidCustody(m_Custody)) { m_CustodyReady = false; return false; }
         string text;
@@ -251,28 +303,28 @@ class HCWorldMaterializer : HCModule
     protected bool HCCustodyAllows(HCAIPartyIdentity identity)
     {
         if (!m_CustodyReady || !m_Custody || !m_Custody.Rows || !identity) { return false; }
-        if (m_Custody.Rows.Count() >= HCAIPartyCustody.MAX_ROWS) { return false; }
+        bool evictable = false;
         foreach (HCAIPartyCustodyRow reservedRow : m_Custody.Rows)
         {
+            if (reservedRow.Outcome == "FINISHED" || reservedRow.Outcome == "FINISHED_UNKNOWN") { evictable = true; continue; }
             if (reservedRow.PartyId == identity.HCPartyId() || reservedRow.CargoId == identity.HCCargoId())
             {
                 if (m_DuplicateRefused < 2147483647) { m_DuplicateRefused++; }
                 return false;
             }
         }
-        return true;
+        return evictable || m_Custody.Rows.Count() < HCAIPartyCustody.MAX_ROWS;
     }
 
-    // Unknown body absence survives off/restart and consumes the SAME global
-    // configured reservation. Do not double-charge a row still held in Active.
-    // Confirmed FINISHED results release bodies, never their identity/cargo.
+    // Only unresolved in-process custody and quarantines charge debt. Completed
+    // history is bounded and evictable; active leases are already charged below.
     protected int HCCustodyDebt(bool actorUnits)
     {
         int debt = 0;
         if (!m_Custody || !m_Custody.Rows) { return 0; }
         foreach (HCAIPartyCustodyRow debtRow : m_Custody.Rows)
         {
-            if (debtRow.Outcome == "FINISHED") { continue; }
+            if (debtRow.Outcome == "FINISHED" || debtRow.Outcome == "FINISHED_UNKNOWN") { continue; }
             bool held = false;
             foreach (HCWorldProposalLease activeLease : m_Active)
             {
@@ -313,6 +365,21 @@ class HCWorldMaterializer : HCModule
         if (!this.HCClaimFits()) { return false; }
         HCAIPartyCustodyRow row = HCAIPartyCustody.HCReservation(candidate.Proposal.Identity, candidate.Proposal.Id, candidate.Proposal.ActorCap);
         if (!row) { return false; }
+        int priorIndex = m_Custody.Rows.Count() - 1;
+        while (priorIndex >= 0)
+        {
+            HCAIPartyCustodyRow prior = m_Custody.Rows[priorIndex];
+            if ((prior.Outcome == "FINISHED" || prior.Outcome == "FINISHED_UNKNOWN") && (prior.PartyId == row.PartyId || prior.CargoId == row.CargoId)) { m_Custody.Rows.RemoveOrdered(priorIndex); }
+            priorIndex -= 1;
+        }
+        int evictIndex = 0;
+        while (m_Custody.Rows.Count() >= HCAIPartyCustody.MAX_ROWS && evictIndex < m_Custody.Rows.Count())
+        {
+            HCAIPartyCustodyRow old = m_Custody.Rows[evictIndex];
+            if (old.Outcome == "FINISHED" || old.Outcome == "FINISHED_UNKNOWN") { m_Custody.Rows.RemoveOrdered(evictIndex); }
+            else { evictIndex++; }
+        }
+        if (m_Custody.Rows.Count() >= HCAIPartyCustody.MAX_ROWS) { return false; }
         m_Custody.Rows.Insert(row);
         if (!this.HCSaveCustody()) { return false; }
         candidate.Claimed = true;
@@ -359,23 +426,21 @@ class HCWorldMaterializer : HCModule
     {
         HCWorldProposalLease lease = m_Active[leaseIndex];
         HCWorldModule world = HCWorldModule.Get();
-        // First result was durably sealed before this call. A partial ledger
-        // failure retains the slot and is never retried/debited twice. Startup
-        // never reapplies sealed outcomes; reconciliation remains pending.
+        // The provider has confirmed body absence. Even if a world write fails,
+        // release the body budget exactly once; never retry a partial debit.
         if (lease.OutcomeApplied) { return; }
         lease.OutcomeApplied = true;
-        if (!world || !world.GetFaction(lease.Proposal.FactionId)) { return; }
-        if (!HCWorldMaterializer.FoldBack(world, lease.Proposal, materialized, survivors)) { return; }
-        // No spawned body means no strength debit. The durable identity/cargo
-        // tombstone survives removal of this process-local actor reservation.
+        HCAIBudget.Release(lease.Proposal.Id);
+        if (lease.RowIndex >= 0 && lease.RowIndex < m_Cooldowns.Count()) { m_Cooldowns[lease.RowIndex] = m_Clock + ROW_COOLDOWN; }
+        m_Active.RemoveOrdered(leaseIndex);
+        if (!world || !world.GetFaction(lease.Proposal.FactionId)) { Print("[HC AI] custody fold-back unavailable world/faction runtime=PENDING"); return; }
+        if (!HCWorldMaterializer.FoldBack(world, lease.Proposal, materialized, survivors)) { Print("[HC AI] custody fold-back fact failed runtime=PENDING"); return; }
         if (materialized)
         {
-            if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { return; }
+            if (!world.AdjustStrength(lease.Proposal.FactionId, survivors - lease.Proposal.ActorCap)) { Print("[HC AI] custody fold-back strength failed runtime=PENDING"); return; }
             m_Materialized++;
         }
         else { m_Traces++; }
-        HCAIBudget.Release(lease.Proposal.Id);
-        m_Active.RemoveOrdered(leaseIndex);
     }
 
     protected void Expire()
@@ -436,10 +501,17 @@ class HCWorldMaterializer : HCModule
         {
             if (journalRow.LeaseId == id) { resultRow = journalRow; break; }
         }
-        if (!resultRow || resultRow.Outcome == "QUARANTINED") { return; }
+        if (!resultRow) { HCAIBudget.Release(id); return; }
+        if (resultRow.Outcome == "FINISHED_UNKNOWN") { HCAIBudget.Release(id); return; }
+        if (resultRow.Outcome == "QUARANTINED") { return; }
         int disposition = HCAIPartyCustody.HCFinish(resultRow, materialized, survivors);
-        if (disposition == 2) { return; }
+        if (disposition == 2) { HCAIBudget.Release(id); return; }
         if (disposition == 0) { HCAIBudget.Restore(id, resultRow.ActorCap); }
+        if (disposition == 1 && !materialized)
+        {
+            // A clean refusal never owned a body or cargo; release its claim.
+            m_Custody.Rows.RemoveOrdered(m_Custody.Rows.Find(resultRow));
+        }
         if (!this.HCSaveCustody()) { return; }
         if (disposition == 0)
         {
@@ -459,6 +531,7 @@ class HCWorldMaterializer : HCModule
             this.Expire();
             return;
         }
+        HCAIBudget.Release(id);
     }
 
     static void HCTypedResult(HCAIPartyResult result)
@@ -485,6 +558,9 @@ class HCWorldMaterializer : HCModule
             this.HCRecordResult(result.HCLeaseId(), result.HCMaterialized(), result.HCSurvivors());
             return;
         }
+        // Finished history may already have been evicted. Unique lease IDs
+        // make this release harmless to a newer offer of the same party.
+        HCAIBudget.Release(result.HCLeaseId());
     }
 
     protected void InterestRing()
@@ -544,7 +620,12 @@ class HCWorldMaterializer : HCModule
             if (!faction || duplicate || row.ActorCap + factionActors > faction.Strength || !CanPropose(m_Active.Count() + unresolvedLeases, reservedActors, row.ActorCap)) { continue; }
             HCWorldProposalLease lease = new HCWorldProposalLease;
             lease.RowId = row.Id;
-            row.Id = "lease:" + row.Identity.HCPartyId() + ":" + row.Identity.HCGeneration().ToString();
+            lease.RowIndex = rowIndex;
+            // Persisted sequence makes callbacks unique across retries/restarts,
+            // independent of the (up to 96-character) stable party identity.
+            if (m_Custody.NextLease >= 2147483647) { return; }
+            row.Id = "lease:" + m_Custody.NextLease.ToString();
+            m_Custody.NextLease++;
             if (!HCAIBudget.TryReserve(row.Id, row.ActorCap)) { continue; }
             lease.Proposal = row;
             lease.Created = m_Clock;

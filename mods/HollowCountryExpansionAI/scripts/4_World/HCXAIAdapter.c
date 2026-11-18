@@ -268,7 +268,8 @@ class HCXAIAdapter extends HCModule
         if (!m_Hooks.RouteQualified(mission.SurveySha256, mission.LoadoutSha256)) { return false; }
         int actors = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, mission.SiteId, "patrol");
         // Select a surveyed prefix, never manufacture extra spawn coordinates.
-        if (actors > mission.Spawns.Count() || actors > actorCap) { Print("[HC AI] adapter configured group exceeds surveyed positions or requested cap"); return false; }
+        if (actors > mission.Spawns.Count()) { actors = mission.Spawns.Count(); }
+        if (actors < 1 || actors > actorCap) { Print("[HC AI] adapter group empty or exceeds requested cap"); return false; }
         int items = actors * mission.Equipment.Count();
         if (m_ReservedGroups >= HCAILimits.Get().MaxLiveGroups || m_ReservedActors + actors > HCAILimits.Get().MaxLiveAI || m_ReservedItems + items > m_Profile.MaxItems) { Print("[HC AI] adapter population/item reservation refused"); return false; }
         eAIFaction faction = eAIFaction.Create(mission.FactionName);

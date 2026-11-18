@@ -8,6 +8,38 @@ RED: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody
 AssertionError: missing authored method HCCustodyAllows; FAILED (failures=1).
 Restart-cap RED (same command): missing authored method HCCustodyDebt; FAILED (failures=1).
 GREEN: same command; Ran 1 test; OK. Runtime acceptance pending.
+
+Review fix-round spec/plan/task evidence (synthetic source tests only):
+Actual RED (before each corresponding implementation):
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody.CustodyLifecycleRegression tests.unit.test_ai_limits.SharedSpawnPaths.test_surveyed_adapter_uses_configured_stable_size_without_inventing_positions -v
+Ran 8 tests; FAILED (failures=11)
+# Refusal retained FINISHED row; claim 65: unexpectedly None : 64;
+# startup custody debt: AssertionError: 0 != 4;
+# fold-back failures retained active lease; save latch: True is not false;
+# long identity could not claim; short survey: False is not true.
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.ReviewAdmissionRegression -v
+Ran 1 test; FAILED (failures=1)
+AssertionError: 1 != 50
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody.CustodyLifecycleRegression.test_module_stop_start_does_not_assume_process_body_absence -v
+Ran 1 test; FAILED (failures=1)
+# A same-process off/on incorrectly admitted lease:2 alongside an unresolved claim.
+
+Additional late typed-callback RED:
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody.CustodyLifecycleRegression.test_late_typed_result_after_finished_eviction_releases_only_old_budget -v
+Ran 1 test; FAILED (failures=1)
+AssertionError: Tuples differ: (1, 4) != (2, 8)
+
+GREEN focused command (also covers canonical legacy migration, corrupt/intent/
+backup-only restore, bounded eviction preserving live/quarantined rows, and actual
+materializer + site Spawn + adapter combined admission):
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody tests.unit.test_ai_limits -v
+Ran 28 tests; OK
+
 """
 import copy
 from pathlib import Path
@@ -46,7 +78,7 @@ class CustodyBehavior(unittest.TestCase):
                                HCCargoId=lambda: 'cargo:synthetic-caravan')
         self.assertTrue(runtime.HCCustodyAllows(synthetic_identity))
         runtime.m_Custody.Rows.Insert(N(PartyId='party:synthetic-caravan',
-                                       CargoId='cargo:synthetic-caravan'))
+                                       CargoId='cargo:synthetic-caravan', Outcome='CLAIMED'))
         self.assertFalse(runtime.HCCustodyAllows(synthetic_identity))
         self.assertEqual(1, runtime.m_DuplicateRefused)
 
@@ -114,11 +146,12 @@ class CustodyBehavior(unittest.TestCase):
                             ActorCap=4, FactionId='synthetic-faction',
                             PlaceId='synthetic-home', Kind='CARAVAN'),
                   Claimed=False, Finished=False, OutcomeApplied=False,
-                  Materialized=False, Survivors=0, Created=0)
+                  Materialized=False, Survivors=0, Created=0, RowIndex=-1)
         runtime.m_Custody.Rows.Clear()
         runtime.m_Active = A([lease])
         runtime.m_Clock = 0
         runtime.m_Materialized = runtime.m_Traces = 0
+        runtime.m_Cooldowns = A()
         runtime.HCSaveCustody = lambda: saves.append(copy.deepcopy(
             runtime.m_Custody)) or True
         runtime.HCCustodyDebt = lambda *args: methods.call('HCCustodyDebt', runtime, *args)
@@ -189,6 +222,195 @@ class CustodyBehavior(unittest.TestCase):
         bridge.call('SiteSpawned', None, 'lease:synthetic')
         bridge.call('SiteSpawned', None, 'lease:synthetic')
         self.assertEqual(1, bridge_runtime.m_Spawned)
+
+
+class CustodyLifecycleRegression(unittest.TestCase):
+    def setUp(self):
+        from tests.unit.custody_fixture import CustodyFixture
+        self.f = CustodyFixture()
+        self.r, self.b = self.f.runtime, self.f.budget
+
+    def test_refusal_releases_claim_and_reoffers_only_after_cooldown(self):
+        first = self.f.offer()
+        self.assertIsNotNone(first)
+        self.r.HCRecordResult(first.Proposal.Id, False, 0)
+        self.assertEqual([], self.r.m_Custody.Rows)
+        self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+        self.assertIsNone(self.f.offer())
+        self.r.m_Clock += 21600
+        second = self.f.offer()
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first.Proposal.Id, second.Proposal.Id)
+        self.r.HCRecordResult(first.Proposal.Id, True, 4)  # stale refusal callback
+        self.assertEqual(1, self.b.Groups())
+        self.assertEqual(1, len(self.r.m_Active))
+
+    def test_finished_outcome_cools_then_recycles_without_two_live_copies(self):
+        first = self.f.offer()
+        self.r.m_Clock = 21600
+        self.assertIsNone(self.f.offer())  # no second live identity
+        self.assertEqual(1, len(self.r.m_Active))
+        self.r.HCRecordResult(first.Proposal.Id, True, 3)
+        self.assertIsNone(self.f.offer())  # cooldown begins at outcome
+        self.r.m_Clock += 21600
+        second = self.f.offer()
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first.Proposal.Id, second.Proposal.Id)
+        self.r.HCRecordResult(first.Proposal.Id, True, 0)
+        self.assertEqual((1, 4), (self.b.Groups(), self.b.Actors()))
+        self.assertEqual([('synthetic-faction', -1)], self.f.debits)
+
+    def test_more_than_64_claims_and_bounded_finished_eviction(self):
+        for index in range(300):
+            self.f.world.MaterializerRow = lambda row, i=index: self.f.proposal(str(i)) if row == 0 else None
+            lease = self.f.offer()
+            self.assertIsNotNone(lease, index)
+            self.r.HCRecordResult(lease.Proposal.Id, True, 4)
+            self.r.m_Clock += 21600
+        self.assertLessEqual(len(self.r.m_Custody.Rows), self.f.env['HCAIPartyCustody'].MAX_ROWS)
+        self.assertGreaterEqual(self.f.env['HCAIPartyCustody'].MAX_ROWS,
+                                self.f.limits.MaxHoldouts + self.f.limits.MaxParties)
+
+    def test_on_start_load_resolves_claims_and_late_result_releases_budget(self):
+        first = self.f.offer()
+        path = self.r.m_CustodyPath
+        self.assertIn(path, self.f.disk)  # real authored save path ran
+        self.r = self.f.runtime = self.f.new_runtime()
+        self.r.OnStart(N(EnableEncounters=True))  # real authored load/restore path
+        self.assertTrue(self.r.m_CustodyReady)
+        self.assertEqual(0, self.r.HCCustodyDebt(True))
+        self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+        self.assertEqual('FINISHED_UNKNOWN', self.r.m_Custody.Rows[0].Outcome)
+        self.assertTrue(self.b.TryReserve('site:after-restart', 4))
+        self.assertTrue(self.b.TryReserve('adapter:after-restart', 4))
+        self.assertEqual(1, sum('custody restore finished_unknown=1' in line for line in self.f.logs))
+        self.b.Restore(first.Proposal.Id, 4)  # explicit stray pre-restore budget row
+        self.r.HCRecordResult(first.Proposal.Id, True, 2)
+        self.assertEqual((2, 8), (self.b.Groups(), self.b.Actors()))
+        self.assertEqual([], self.f.debits)  # no invented restart casualties/cargo
+        second = self.f.offer()
+        self.assertIsNotNone(second)
+        self.assertNotEqual(first.Proposal.Id, second.Proposal.Id)
+        self.assertEqual(1, len(self.r.m_Active))
+        self.r.HCRecordResult(first.Proposal.Id, False, 0)
+        self.assertEqual(1, len(self.r.m_Active))
+
+    def test_save_failure_latches_budget_and_logs_once(self):
+        self.assertTrue(self.b.TryReserve('existing-site', 1))
+        self.f.fail_write = True
+        self.assertFalse(self.r.HCSaveCustody())
+        self.assertFalse(self.r.m_CustodyReady)
+        self.assertFalse(self.b.TryReserve('site:must-fail-closed', 1))
+        self.assertFalse(self.b.TryReserve('existing-site', 1))
+        self.assertFalse(self.r.HCSaveCustody())
+        self.assertEqual(1, sum('CUSTODY SAVE FAILED' in line for line in self.f.logs))
+
+    def test_each_foldback_failure_releases_finished_lease_once(self):
+        for failure in ('world', 'faction', 'fact', 'strength'):
+            with self.subTest(failure=failure):
+                self.setUp()
+                lease = self.f.offer()
+                if failure == 'world': self.f.world = None
+                if failure == 'faction': self.f.world.GetFaction = lambda key: None
+                if failure == 'fact': self.f.world.AddFact = lambda *args: False
+                if failure == 'strength': self.f.world.AdjustStrength = lambda *args: False
+                self.r.HCRecordResult(lease.Proposal.Id, True, 2)
+                self.assertEqual([], self.r.m_Active)
+                self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+                self.r.HCRecordResult(lease.Proposal.Id, True, 2)
+                self.assertLessEqual(len(self.f.debits), 1)
+
+    def test_long_party_id_has_bounded_distinct_leases(self):
+        self.f.world.MaterializerRow = lambda index: self.f.proposal('x' * 90) if index == 0 else None
+        first = self.f.offer()
+        self.assertIsNotNone(first)
+        self.assertLessEqual(len(first.Proposal.Id), 96)
+
+    def test_module_stop_start_does_not_assume_process_body_absence(self):
+        first = self.f.offer()
+        self.r.m_StartedOnce = True
+        self.r.OnStop()
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertIsNone(self.f.offer())
+        self.assertEqual((1, 4), (self.b.Groups(), self.b.Actors()))
+        self.r.HCRecordResult(first.Proposal.Id, True, 4)
+        self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+
+    def test_legacy_canonical_image_migrates_without_replaying_cargo_or_casualties(self):
+        first = self.f.offer()
+        data = copy.deepcopy(self.r.m_Custody)
+        data.SchemaVersion = 1
+        del data.NextLease
+        data.Rows[0].LeaseId = 'lease:party:synthetic-party:42'
+        self.f.disk[self.r.m_CustodyPath] = self.f.encode(data)
+        self.b.Release(first.Proposal.Id)
+        self.r = self.f.runtime = self.f.new_runtime()
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertTrue(self.r.m_CustodyReady)
+        self.assertEqual((2, 1), (self.r.m_Custody.SchemaVersion, self.r.m_Custody.NextLease))
+        self.assertEqual('FINISHED_UNKNOWN', self.r.m_Custody.Rows[0].Outcome)
+        self.assertEqual('cargo:synthetic-party', self.r.m_Custody.Rows[0].CargoId)
+        saved = self.f.decode(self.f.disk[self.r.m_CustodyPath])
+        self.assertEqual(2, saved.SchemaVersion)
+        self.assertEqual([], self.f.debits)
+        self.assertEqual([], self.f.facts)
+        self.assertIsNotNone(self.f.offer())
+
+    def test_unreadable_or_interrupted_restore_blocks_all_spawn_owners(self):
+        for state in ('corrupt', 'intent', 'backup-only', 'noncanonical'):
+            with self.subTest(state=state):
+                self.setUp()
+                path = self.r.m_CustodyPath
+                if state == 'corrupt': self.f.disk[path] = '{'
+                if state == 'intent': self.f.disk[path + '.tmp'] = 'interrupted'
+                if state == 'backup-only': self.f.disk[path + '.bak'] = 'backup'
+                if state == 'noncanonical': self.f.disk[path] = self.f.encode(self.r.m_Custody) + '\n'
+                self.r.OnStart(N(EnableEncounters=True))
+                self.assertFalse(self.r.m_CustodyReady)
+                self.assertFalse(self.b.TryReserve('site:blocked', 1))
+                self.assertFalse(self.b.TryReserve('adapter:blocked', 1))
+
+    def test_late_claim_result_with_no_active_lease_releases_budget(self):
+        first = self.f.offer()
+        self.r.m_Active.Clear()  # explicit in-process detached provider result
+        self.r.HCRecordResult(first.Proposal.Id, True, 2)
+        self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+        self.assertEqual([], self.f.debits)  # no reconstructed world proposal
+
+    def test_no_finished_eviction_can_remove_live_or_quarantined_identity(self):
+        first = self.f.offer()
+        first_row = self.r.m_Custody.Rows[0]
+        second = self.f.data_policy.call('HCReservation', None, self.f.identity('quarantine'), 'quarantine', 4)
+        second.Outcome = 'QUARANTINED'
+        self.r.m_Custody.Rows.Insert(second)
+        cap = self.f.env['HCAIPartyCustody'].MAX_ROWS
+        for index in range(cap - 2):
+            finished = self.f.data_policy.call('HCReservation', None, self.f.identity(str(index)), 'history:' + str(index), 4)
+            finished.Outcome = 'FINISHED_UNKNOWN'
+            self.r.m_Custody.Rows.Insert(finished)
+        self.assertFalse(self.r.HCCustodyAllows(first.Proposal.Identity))
+        self.assertFalse(self.r.HCCustodyAllows(self.f.identity('quarantine')))
+        self.f.world.MaterializerRow = lambda index: self.f.proposal('next') if index == 0 else None
+        self.r.m_Cooldowns[0] = 0
+        self.assertIsNotNone(self.f.offer())
+        self.assertIn(first_row, self.r.m_Custody.Rows)
+        self.assertIn(second, self.r.m_Custody.Rows)
+        self.assertEqual(cap, len(self.r.m_Custody.Rows))
+
+    def test_late_typed_result_after_finished_eviction_releases_only_old_budget(self):
+        first = self.f.offer()
+        self.r.HCRecordResult(first.Proposal.Id, True, 4)
+        self.r.m_Clock += 21600
+        second = self.f.offer()
+        self.assertIsNotNone(second)
+        self.b.Restore(first.Proposal.Id, 4)
+        result = N(HCIdentity=lambda: first.Proposal.Identity,
+                   HCLeaseId=lambda: first.Proposal.Id,
+                   HCMaterialized=lambda: True, HCSurvivors=lambda: 4)
+        self.r.HCRecordTypedResult(result)
+        self.assertEqual((1, 4), (self.b.Groups(), self.b.Actors()))
+        self.assertEqual([second], self.r.m_Active)
+        self.assertEqual(1, len(self.f.debits))
 
 
 if __name__ == '__main__':

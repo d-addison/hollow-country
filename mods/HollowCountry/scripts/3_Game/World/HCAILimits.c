@@ -170,6 +170,7 @@ class HCAIBudget
     }
     static bool TryReserve(string id, int actors)
     {
+        if (s_Blocked) { return false; }
         foreach (HCAIReservation prior : s_Rows)
         {
             if (prior.Id == id) { return prior.Actors == actors; }

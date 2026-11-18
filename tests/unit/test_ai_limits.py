@@ -129,18 +129,6 @@ class AILimitsBehavior(unittest.TestCase):
         self.assertIsNotNone(env['HCCreateResult'](N(), 'synthetic-lease', True, 8))
         self.assertIsNone(env['HCCreateResult'](N(), 'synthetic-lease', True, 13))
 
-    def test_all_spawn_paths_share_budget_and_caps(self):
-        paths = {'materializer': 'mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c',
-                 'sites': 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c',
-                 'adapter': 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c'}
-        for key, path in paths.items():
-            text = (ROOT/path).read_text()
-            self.assertIn('HCAIBudget.TryReserve', text, key)
-            self.assertIn('HCAIBudget.Release', text, key)
-        text = (ROOT/paths['sites']).read_text()
-        self.assertNotIn('reservedSites >= 2', text)
-        self.assertNotIn('activeSites >= 2', text)
-
     def test_scan_no_numeric_human_ai_population_caps(self):
         # Semantic scan: population variables only. Distances, route work, item
         # quotas, journal history, player teams and animal/infected CE are distinct.
@@ -254,8 +242,10 @@ class SharedSpawnPaths(unittest.TestCase):
         self.assertEqual(3, len(lease.Slots))
         adapter.ai_limits.PatrolMin = 5
         adapter.ai_limits.PatrolMax = 5
-        # Config needs more surveyed positions: refuse rather than fabricate any.
-        self.assertFalse(adapter.start(lease='insufficient-survey'))
+        adapter.ai_limits.MaxLiveAI = 8
+        self.assertTrue(adapter.start(lease='short-survey'))
+        self.assertEqual(4, adapter.mod.m_Leases[-1].ActorReservation)
+        self.assertEqual(4, len(adapter.mod.m_Leases[-1].Slots))
 
     def test_actual_site_and_adapter_admission_share_materializer_reservation(self):
         from tests.unit.test_expansion_ai_adapter import ExpansionAdapterTests, Authored
@@ -264,7 +254,15 @@ class SharedSpawnPaths(unittest.TestCase):
         adapter.ai_limits.MaxLiveAI = 15
         adapter.ai_limits.MaxLiveGroups = 3
         budget = adapter.env['HCAIBudget']
-        self.assertTrue(budget.TryReserve('lease:synthetic-materializer', 6))
+        from tests.unit.custody_fixture import CustodyFixture
+        materializer = CustodyFixture()
+        materializer.env.update(HCAIBudget=budget, HCAILimits=adapter.env['HCAILimits'])
+        proposal = materializer.proposal()
+        proposal.ActorCap = 6
+        materializer.world.MaterializerRow = lambda index: proposal if index == 0 else None
+        lease = materializer.offer()
+        self.assertIsNotNone(lease)
+        self.assertEqual((1, 6), (budget.Groups(), budget.Actors()))
         self.assertTrue(adapter.install())
         self.assertTrue(adapter.start())  # exact surveyed adapter route reserves two
         self.assertEqual((2, 8), (budget.Groups(), budget.Actors()))
@@ -284,10 +282,12 @@ class SharedSpawnPaths(unittest.TestCase):
         policy = Authored(source, env)
         def attempt(key, size, transient=False):
             patrol = N(m_Group=None, m_HCFinished=False, m_HCLive=False,
-                       m_HCSiteId=key, m_HCTransient=transient, m_HCGroupMax=size)
+                       m_HCSiteId=key, m_HCTransient=transient, m_HCGroupMax=size,
+                       m_HCNextBudgetLogMs=0)
+            patrol.HCRefuseBudget = lambda: policy.call('HCRefuseBudget', patrol)
             policy.call('Spawn', patrol)
             return patrol
-        transient = attempt('transient:lease:synthetic-materializer', 6, True)
+        transient = attempt('transient:' + lease.Proposal.Id, 6, True)
         self.assertIsNotNone(transient.m_Group)
         self.assertEqual((2, 8), (budget.Groups(), budget.Actors()))
         occupation = attempt('synthetic-occupation', 7)
@@ -297,3 +297,30 @@ class SharedSpawnPaths(unittest.TestCase):
         self.assertFalse(adapter.start(lease='over-budget'))
         self.assertEqual(2, len(spawned))
         self.assertEqual((3, 15), (budget.Groups(), budget.Actors()))
+
+
+class ReviewAdmissionRegression(unittest.TestCase):
+    def test_shared_site_budget_refusal_logs_once_per_minute(self):
+        from tests.unit.test_expansion_ai_adapter import A, Authored
+        from tests.unit.ai_limits_fixture import install
+        now, logs = [1000], []
+        env = dict(A=A, Print=logs.append, GetGame=lambda: N(GetTime=lambda: now[0]),
+                   HCXAISiteDirector=N(Active=lambda: N(SpawnProblemFor=lambda patrol: '')))
+        install(env, MaxLiveGroups=1)
+        self.assertTrue(env['HCAIBudget'].TryReserve('synthetic-full', 1))
+        source = (ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c').read_text()
+        source = source.replace('super.Spawn();', 'synthetic_spawn(this);')
+        source = source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)',
+                                'synthetic_suffix(m_HCSiteId)')
+        policy = Authored(source, env)
+        patrol = N(m_Group=None, m_HCFinished=False, m_HCSiteId='synthetic-site',
+                   m_HCTransient=False, m_HCGroupMax=2, m_HCNextBudgetLogMs=0)
+        patrol.HCRefuseBudget = lambda: policy.call('HCRefuseBudget', patrol)
+        for _ in range(50): policy.call('Spawn', patrol)
+        self.assertEqual(1, len(logs))
+        now[0] = 60999
+        policy.call('Spawn', patrol)
+        self.assertEqual(1, len(logs))
+        now[0] = 61000
+        policy.call('Spawn', patrol)
+        self.assertEqual(2, len(logs))
