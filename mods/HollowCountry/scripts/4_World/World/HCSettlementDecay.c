@@ -229,12 +229,13 @@ class HCSettlementDecay : HCModule
         float clearSince = m_Clear[index];
         // Seconds within the UTC day keep float precision (a raw UTC stamp has 128 s steps);
         // a midnight wrap only restarts the quiet wait.
-        bool quiet = HCObserverTransitionGate.V2Quiet(point, point, now % 86400, 60, clearSince);
+        int dayNow = now - (now / 86400) * 86400;
+        bool quiet = HCObserverTransitionGate.V2Quiet(point, point, dayNow, 60, clearSince);
         m_Clear[index] = clearSince;
         if (!quiet) { return; }
         // Each slot is attempted only once per boot. Failed geometry is never
         // retried every tick; neither an orphan nor a foreign prop is adopted.
-        m_PropSlots[index]++;
+        m_PropSlots[index] = m_PropSlots[index] + 1;
         m_Clear[index] = -1;
         if (!HCWorldLimits.Position(point) || GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) { return; }
         string surface;

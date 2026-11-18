@@ -62,7 +62,9 @@ class HCWreckSalvage
 {
     static bool Reviewed(string name)
     {
-        return name == "Land_Wreck_hb01_aban1_blue" || name == "Land_Wreck_hb01_aban1_green" || name == "Land_Wreck_hb01_aban1_white" || name == "Land_Wreck_hb01_aban2_blue" || name == "Land_Wreck_hb01_aban2_green" || name == "Land_Wreck_hb01_aban2_white" || name == "Land_Wreck_hb02_aban1_black" || name == "Land_Wreck_hb02_aban1_blue" || name == "Land_Wreck_hb02_aban1_red" || name == "Land_Wreck_hb02_aban2_black" || name == "Land_Wreck_hb02_aban2_blue" || name == "Land_Wreck_hb02_aban2_red" || name == "Land_Wreck_sed01_aban1_black" || name == "Land_Wreck_sed01_aban1_white" || name == "Land_Wreck_sed01_aban1_wine" || name == "Land_Wreck_sed01_aban2_black" || name == "Land_Wreck_sed01_aban2_white" || name == "Land_Wreck_sed01_aban2_wine" || name == "Land_Wreck_sed02_aban1_grey" || name == "Land_Wreck_sed02_aban1_red" || name == "Land_Wreck_sed02_aban1_yellow" || name == "Land_Wreck_sed02_aban2_grey" || name == "Land_Wreck_sed02_aban2_red" || name == "Land_Wreck_sed02_aban2_yellow";
+        // Array lookup: a single 24-term || chain fails natively with "Formula too complex".
+        array<string> reviewed = {"Land_Wreck_hb01_aban1_blue", "Land_Wreck_hb01_aban1_green", "Land_Wreck_hb01_aban1_white", "Land_Wreck_hb01_aban2_blue", "Land_Wreck_hb01_aban2_green", "Land_Wreck_hb01_aban2_white", "Land_Wreck_hb02_aban1_black", "Land_Wreck_hb02_aban1_blue", "Land_Wreck_hb02_aban1_red", "Land_Wreck_hb02_aban2_black", "Land_Wreck_hb02_aban2_blue", "Land_Wreck_hb02_aban2_red", "Land_Wreck_sed01_aban1_black", "Land_Wreck_sed01_aban1_white", "Land_Wreck_sed01_aban1_wine", "Land_Wreck_sed01_aban2_black", "Land_Wreck_sed01_aban2_white", "Land_Wreck_sed01_aban2_wine", "Land_Wreck_sed02_aban1_grey", "Land_Wreck_sed02_aban1_red", "Land_Wreck_sed02_aban1_yellow", "Land_Wreck_sed02_aban2_grey", "Land_Wreck_sed02_aban2_red", "Land_Wreck_sed02_aban2_yellow"};
+        return reviewed.Find(name) >= 0;
     }
 
     static bool PositionValid(vector position)

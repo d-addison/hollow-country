@@ -17,19 +17,8 @@
 // lighting/lighting_underground.txt, LightingNew/<name>. All HC values authored.
 // No sky preset, view distance, weather mutation or personal-light changes.
 // Native load returns void: a call is NOT evidence that a table parsed/rendered.
-modded class WorldLighting
-{
-    void HCLoadLightingTable(string name)
-    {
-        // Closed authored set; never use a profile-supplied arbitrary path.
-        string path = "";
-        if (name == "dusk_warm") path = "HollowCountry\\data\\lighting\\hc_dusk_warm.txt";
-        if (name == "dusk_cold") path = "HollowCountry\\data\\lighting\\hc_dusk_cold.txt";
-        if (name == "overcast") path = "HollowCountry\\data\\lighting\\hc_overcast.txt";
-        if (name == "storm") path = "HollowCountry\\data\\lighting\\hc_storm.txt";
-        if (path != "") GetGame().GetWorld().LoadUserLightingCfg(path, name);
-    }
-}
+// The authored-table loader HCLoadLightingTable is a modded WorldLighting in
+// 3_Game/Atmosphere/HCWorldLighting.c: Enforce cannot mod a 3_Game class here.
 
 class HCLightingClient
 {

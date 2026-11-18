@@ -180,7 +180,7 @@ class HCCampModule : HCModule
         return null;
     }
 
-    protected void Step(HCCampRecord camp, int now)
+    protected void StepCamp(HCCampRecord camp, int now)
     {
         int interval = 600;
         if (camp.ProbePhase > 0) { interval = 30; }
@@ -234,7 +234,7 @@ class HCCampModule : HCModule
         if (m_Data.Camps.Count() > 0)
         {
             if (m_CampCursor >= m_Data.Camps.Count()) { m_CampCursor = 0; }
-            Step(m_Data.Camps[m_CampCursor], now);
+            StepCamp(m_Data.Camps[m_CampCursor], now);
             m_CampCursor++;
         }
         if (m_Running && now - m_LastSaved >= 600) { Commit(now); }

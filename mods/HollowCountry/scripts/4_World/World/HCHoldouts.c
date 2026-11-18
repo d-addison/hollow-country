@@ -98,10 +98,10 @@ class HCEncounterCacheIO
         Handle.SetOrientation(row.Orientation);
         Handle.SetLifetimeMax(3888000);
         Handle.SetLifetime(3888000);
-        Link(row);
+        LinkCache(row);
     }
 
-    bool Link(HCEncounterCache row)
+    bool LinkCache(HCEncounterCache row)
     {
         if (row.Phase == 0 || row.Phase == 3) return false;
         if (!Handle && row.Phase == 2)
@@ -183,7 +183,7 @@ class HCHoldouts : HCModule
     protected int m_Reports;
     protected bool m_WaitReported;
 
-    static HCHoldouts Get() { if (s_Instance && s_Instance.m_Ready) return s_Instance; return null; }
+    static HCHoldouts Get() { if (s_Instance && s_Instance.m_Ready) { return s_Instance; } return null; }
     static void BindSignsOfLife(HCHoldoutLightSink sink) { s_Lights = sink; }
 
     static void CargoRemoved(EntityAI container)
@@ -220,7 +220,7 @@ class HCHoldouts : HCModule
     }
     override string GetName() { return "Holdouts"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
-    int Count() { if (!m_State) return 0; return m_State.Rows.Count(); }
+    int Count() { if (!m_State) { return 0; } return m_State.Rows.Count(); }
 
     override void OnStart(HCSettings settings)
     {
@@ -491,7 +491,7 @@ class HCHoldouts : HCModule
             if (!m_Store.Save(m_State)) { m_Ready = false; return; }
             m_Caches[index].Create(row.Cache);
         }
-        if (row.Cache.Phase != 0) m_Caches[index].Link(row.Cache);
+        if (row.Cache.Phase != 0) m_Caches[index].LinkCache(row.Cache);
         if ((row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT") && LootRemoved(index)) Raid(index);
         if (row.Cache.Phase == 3 && (row.Ledger.State == "OCCUPIED" || row.Ledger.State == "ALERT")) Raid(index);
         if (row.Ledger.State == "RAIDED" && now >= row.Ledger.ReoccupyAfter)

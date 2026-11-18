@@ -72,20 +72,8 @@ class HCGroupPlaces
     }
 }
 
-// Additive server-owned group places, serialized by the existing group store.
-// Old journals keep the empty initializer; dissolving a group removes its pins.
-modded class HCGroupRecord
-{
-    ref array<string> HCTrailPlaceIds = new array<string>();
-}
-
-// The same World-layer DTO extension compiles on server and client. Expiry is
-// for lead display between FULL frames; it never holds an actor's position.
-modded class HCGroupPlace
-{
-    int HCPinExpiresUtc = 0;
-}
-
+// HCGroupRecord.HCTrailPlaceIds and HCGroupPlace.HCPinExpiresUtc live in
+// 3_Game/Groups/HCGroupData.c: Enforce cannot mod a 3_Game class from 4_World.
 modded class HCGroupRules
 {
     override static bool StateValid(HCGroupState state, HCGroupSettings c, string world)

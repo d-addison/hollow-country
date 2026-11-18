@@ -149,9 +149,9 @@ modded class ChernarusPlusData
         }
         int utc = HCGroupClock.Utc();
         if (utc < 1) return;
-        // Remove sub-day seconds BEFORE float conversion: epoch-sized binary32
-        // samples can otherwise round into tomorrow just before UTC midnight.
-        int day = Math.Floor((utc - utc % 86400) / 86400.0);
+        // Integer division keeps the day exact (no binary32 rounding into
+        // tomorrow near UTC midnight); '%' inside a float expression does not compile natively.
+        int day = utc / 86400;
         float hour = GetGame().GetDayTime();
         float gameHours = hour - m_HCWeatherLastHour;
         if (gameHours < 0) gameHours += 24;

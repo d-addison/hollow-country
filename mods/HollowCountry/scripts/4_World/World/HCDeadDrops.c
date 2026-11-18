@@ -36,10 +36,10 @@ class HCDeadDrops : HCModule
     protected float m_Elapsed;
     protected int m_Reports;
 
-    static HCDeadDrops Get() { if (s_Instance && s_Instance.m_Ready) return s_Instance; return null; }
+    static HCDeadDrops Get() { if (s_Instance && s_Instance.m_Ready) { return s_Instance; } return null; }
     override string GetName() { return "DeadDrops"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
-    int Count() { if (!m_State) return 0; return m_State.Rows.Count(); }
+    int Count() { if (!m_State) { return 0; } return m_State.Rows.Count(); }
 
     void Spot(string id, vector position, int day)
     {
@@ -126,7 +126,7 @@ class HCDeadDrops : HCModule
             if (!m_Store.Save(m_State)) { m_Ready = false; return; }
             m_Caches[index].Create(row.Cache);
         }
-        m_Caches[index].Link(row.Cache);
+        m_Caches[index].LinkCache(row.Cache);
         if (!m_Store.Save(m_State)) { m_Ready = false; return; }
         if (!Cache(index) || row.Deposits >= 4 || today < row.NextDay) return;
         HCHoldouts holdouts = HCHoldouts.Get();

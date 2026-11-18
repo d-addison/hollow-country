@@ -124,6 +124,9 @@ class HCGroupRecord
     // other existing members remain ordinary members. No ACL is inferred.
     ref array<string> Officers = new array<string>();
     ref array<ref HCGroupMarker> Markers = new array<ref HCGroupMarker>();
+    // V2 LC-T207 trail pins (server-owned, at most 48, "hc-found:" ids). Old
+    // journals keep the empty initializer; dissolving a group removes its pins.
+    ref array<string> HCTrailPlaceIds = new array<string>();
 }
 class HCGroupState
 {
@@ -154,6 +157,8 @@ class HCGroupPlace
     string Name;
     vector Position;
     float Radius = 100.0;
+    // V2 LC-T305 lead pin display expiry between FULL frames; never an actor position.
+    int HCPinExpiresUtc = 0;
 }
 class HCGroupExplorer
 {
