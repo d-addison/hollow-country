@@ -46,38 +46,40 @@ class HCAILimits
         HCWorldLimits.PARTIES = limits.MaxParties;
         limits.Log();
     }
-    static int Value(string key, int value, int low, int high, int fallback)
+    static int Value(string key, int value, int low, int high)
     {
         if (value >= low && value <= high) { return value; }
-        Print("[HC AI] invalid AILimits." + key + " value=" + value.ToString() + " default=" + fallback.ToString());
-        return fallback;
+        int clamped = low;
+        if (value > high) { clamped = high; }
+        Print("[HC AI] invalid AILimits." + key + " value=" + value.ToString() + " clamped=" + clamped.ToString());
+        return clamped;
     }
     void Validate()
     {
-        MaxLiveGroups = HCAILimits.Value("MaxLiveGroups", MaxLiveGroups, 1, 24, 15);
-        MaxLiveAI = HCAILimits.Value("MaxLiveAI", MaxLiveAI, 1, 128, 72);
-        OccupationMin = HCAILimits.Value("OccupationMin", OccupationMin, 1, 12, 3);
-        OccupationMax = HCAILimits.Value("OccupationMax", OccupationMax, 1, 12, 8);
-        HoldoutMin = HCAILimits.Value("HoldoutMin", HoldoutMin, 1, 12, 3);
-        HoldoutMax = HCAILimits.Value("HoldoutMax", HoldoutMax, 1, 12, 6);
-        PartyMin = HCAILimits.Value("PartyMin", PartyMin, 1, 12, 2);
-        PartyMax = HCAILimits.Value("PartyMax", PartyMax, 1, 12, 6);
-        PatrolMin = HCAILimits.Value("PatrolMin", PatrolMin, 1, 12, 2);
-        PatrolMax = HCAILimits.Value("PatrolMax", PatrolMax, 1, 12, 5);
-        CampMin = HCAILimits.Value("CampMin", CampMin, 1, 12, 2);
-        CampMax = HCAILimits.Value("CampMax", CampMax, 1, 12, 6);
-        MaxOccupiedPlaces = HCAILimits.Value("MaxOccupiedPlaces", MaxOccupiedPlaces, 1, 64, 15);
-        MaxParties = HCAILimits.Value("MaxParties", MaxParties, 1, 128, 24);
-        MaxMaterialized = HCAILimits.Value("MaxMaterialized", MaxMaterialized, 1, 24, 15);
-        FactionStrengthMax = HCAILimits.Value("FactionStrengthMax", FactionStrengthMax, 1, 128, 24);
-        MaxActiveSites = HCAILimits.Value("MaxActiveSites", MaxActiveSites, 1, 24, 15);
-        MaxActiveAI = HCAILimits.Value("MaxActiveAI", MaxActiveAI, 1, 128, 72);
-        MaxEncounters = HCAILimits.Value("MaxEncounters", MaxEncounters, 1, 24, 15);
-        MaxObservedAI = HCAILimits.Value("MaxObservedAI", MaxObservedAI, 1, 8192, 1024);
-        MaxHoldouts = HCAILimits.Value("MaxHoldouts", MaxHoldouts, 24, 128, 48);
-        MaxCamps = HCAILimits.Value("MaxCamps", MaxCamps, 1, 128, 32);
-        MaxCampItems = HCAILimits.Value("MaxCampItems", MaxCampItems, 1, 128, 64);
-        WorldSeed = HCAILimits.Value("WorldSeed", WorldSeed, 0, 1000003, 18473);
+        MaxLiveGroups = HCAILimits.Value("MaxLiveGroups", MaxLiveGroups, 1, 24);
+        MaxLiveAI = HCAILimits.Value("MaxLiveAI", MaxLiveAI, 1, 128);
+        OccupationMin = HCAILimits.Value("OccupationMin", OccupationMin, 1, 12);
+        OccupationMax = HCAILimits.Value("OccupationMax", OccupationMax, 1, 12);
+        HoldoutMin = HCAILimits.Value("HoldoutMin", HoldoutMin, 1, 12);
+        HoldoutMax = HCAILimits.Value("HoldoutMax", HoldoutMax, 1, 12);
+        PartyMin = HCAILimits.Value("PartyMin", PartyMin, 1, 12);
+        PartyMax = HCAILimits.Value("PartyMax", PartyMax, 1, 12);
+        PatrolMin = HCAILimits.Value("PatrolMin", PatrolMin, 1, 12);
+        PatrolMax = HCAILimits.Value("PatrolMax", PatrolMax, 1, 12);
+        CampMin = HCAILimits.Value("CampMin", CampMin, 1, 12);
+        CampMax = HCAILimits.Value("CampMax", CampMax, 1, 12);
+        MaxOccupiedPlaces = HCAILimits.Value("MaxOccupiedPlaces", MaxOccupiedPlaces, 1, 64);
+        MaxParties = HCAILimits.Value("MaxParties", MaxParties, 1, 128);
+        MaxMaterialized = HCAILimits.Value("MaxMaterialized", MaxMaterialized, 1, 24);
+        FactionStrengthMax = HCAILimits.Value("FactionStrengthMax", FactionStrengthMax, 1, 128);
+        MaxActiveSites = HCAILimits.Value("MaxActiveSites", MaxActiveSites, 1, 24);
+        MaxActiveAI = HCAILimits.Value("MaxActiveAI", MaxActiveAI, 1, 128);
+        MaxEncounters = HCAILimits.Value("MaxEncounters", MaxEncounters, 1, 24);
+        MaxObservedAI = HCAILimits.Value("MaxObservedAI", MaxObservedAI, 1, 8192);
+        MaxHoldouts = HCAILimits.Value("MaxHoldouts", MaxHoldouts, 24, 128);
+        MaxCamps = HCAILimits.Value("MaxCamps", MaxCamps, 1, 128);
+        MaxCampItems = HCAILimits.Value("MaxCampItems", MaxCampItems, 1, 128);
+        WorldSeed = HCAILimits.Value("WorldSeed", WorldSeed, 0, 1000003);
         if (OccupationMin > OccupationMax)
         {
             Print("[HC AI] invalid AILimits.OccupationMin / AILimits.OccupationMax reversed; defaults restored");

@@ -40,6 +40,22 @@ materializer + site Spawn + adapter combined admission):
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody tests.unit.test_ai_limits -v
 Ran 28 tests; OK
 
+Round 2 spec/plan/tasks: release unclaimed leases on stop; finish process-restart
+quarantines unknown (normalize observations, release budget, bounded per-row log,
+evict history); keep FINISHED terminal; latch first start only after load/migrate.
+Tests execute authored methods through explicit synthetic ports, then implement
+those four custody changes. No native runtime or production acceptance claimed.
+
+Actual pre-implementation RED, combined seven-test run (full command and output
+retained in .banso-writer/round2-report.md and round2-red.log):
+  stop: AssertionError: Tuples differ: (0, 0) != (1, 4)
+  restart quarantine: AssertionError: Tuples differ: (0, 0) != (256, 1024)
+  late finished mismatch: AssertionError: Tuples differ: (0, 0) != (1, 4)
+  repaired first load / failed migration: AssertionError: True is not false
+  Ran 7 tests; FAILED (failures=56), including limits/site subtests.
+GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody tests.unit.test_ai_limits -v
+Ran 37 tests; OK. Engine/PBO/server validation remains pending.
+
 """
 import copy
 from pathlib import Path
@@ -110,9 +126,13 @@ class CustodyBehavior(unittest.TestCase):
         first = copy.deepcopy(vars(row))
         self.assertEqual(2, policy.call('HCFinish', None, row, True, 2))
         self.assertEqual(first, vars(row))  # duplicate death/retirement callback
-        self.assertEqual(0, policy.call('HCFinish', None, row, True, 4))
-        self.assertEqual('QUARANTINED', row.Outcome)  # refilled/contradictory return
+        self.assertEqual(2, policy.call('HCFinish', None, row, True, 4))
+        self.assertEqual('FINISHED', row.Outcome)  # late callbacks cannot undo absence
         self.assertEqual(2, row.Survivors)  # never overwrite first observation
+        self.assertEqual(first, vars(row))
+        row = policy.call('HCReservation', None, identity, 'lease:quarantined', 4)
+        self.assertEqual(0, policy.call('HCFinish', None, row, True, 5))
+        self.assertEqual('QUARANTINED', row.Outcome)  # invalid first result still latches
         self.assertEqual(0, policy.call('HCFinish', None, row, True, 2))
         runtime.m_Custody.Rows = A([row])
         restarted = copy.deepcopy(runtime.m_Custody)  # synthetic durable readback
@@ -178,12 +198,12 @@ class CustodyBehavior(unittest.TestCase):
         result.HCSurvivors = lambda: 4
         methods.call('HCRecordTypedResult', runtime, result)
         methods.call('HCRecordTypedResult', runtime, result)
-        self.assertEqual(3, len(saves))  # no quarantine save loop
-        self.assertEqual('QUARANTINED', runtime.m_Custody.Rows[0].Outcome)
+        self.assertEqual(2, len(saves))  # finished callbacks never rewrite history
+        self.assertEqual('FINISHED', runtime.m_Custody.Rows[0].Outcome)
         self.assertEqual(1, len(debits))
-        self.assertFalse(runtime.HCCustodyAllows(identity))
-        self.assertEqual(4, methods.call('HCCustodyDebt', runtime, True))
-        self.assertEqual(1, methods.call('HCCustodyDebt', runtime, False))
+        self.assertTrue(runtime.HCCustodyAllows(identity))
+        self.assertEqual(0, methods.call('HCCustodyDebt', runtime, True))
+        self.assertEqual(0, methods.call('HCCustodyDebt', runtime, False))
         # A restart/off transition must reserve unknown surviving actors against
         # the same 8/2 global cap; a new identity cannot bypass the old lease.
         runtime.m_Custody.Rows[0].Outcome = 'CLAIMED'
@@ -229,6 +249,103 @@ class CustodyLifecycleRegression(unittest.TestCase):
         from tests.unit.custody_fixture import CustodyFixture
         self.f = CustodyFixture()
         self.r, self.b = self.f.runtime, self.f.budget
+
+    def test_stop_releases_unclaimed_reservation_before_same_process_start(self):
+        self.r.OnStart(N(EnableEncounters=True))
+        self.r.InterestRing()  # reserve only; the provider has not claimed it
+        self.assertEqual(1, len(self.r.m_Active))
+        self.assertFalse(self.r.m_Active[0].Claimed)
+        self.assertEqual([], self.r.m_Custody.Rows)
+        self.assertEqual((1, 4), (self.b.Groups(), self.b.Actors()))
+        self.r.OnStop()
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+        self.f.limits.MaxLiveGroups = 2
+        self.f.limits.MaxLiveAI = 8
+        self.assertTrue(self.b.TryReserve('synthetic-site', 4))
+        self.assertTrue(self.b.TryReserve('synthetic-adapter', 4))
+
+    def test_restart_releases_quarantines_and_full_history_stays_evictable(self):
+        cap = self.f.env['HCAIPartyCustody'].MAX_ROWS
+        for index in range(cap):
+            row = self.f.data_policy.call('HCReservation', None,
+                self.f.identity(str(index)), 'quarantine:' + str(index), 4)
+            row.Outcome, row.Materialized, row.Survivors = 'QUARANTINED', True, 2
+            self.r.m_Custody.Rows.Insert(row)
+            self.b.Restore(row.LeaseId, row.ActorCap)
+        self.assertTrue(self.r.HCSaveCustody())
+        self.r = self.f.runtime = self.f.new_runtime()  # synthetic process restart
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+        self.assertEqual(0, self.r.HCCustodyDebt(True))
+        self.assertTrue(self.r.m_CustodyReady)
+        self.assertTrue(all(row.Outcome == 'FINISHED_UNKNOWN' and not row.Materialized
+                            and row.Survivors == 0 for row in self.r.m_Custody.Rows))
+        row_logs = [line for line in self.f.logs if 'custody restore lease=' in line]
+        self.assertEqual(cap, len(row_logs))
+        self.assertTrue(all(sum('lease=quarantine:' + str(i) + ' ' in line
+                                for line in row_logs) == 1 for i in range(cap)))
+        self.assertIsNotNone(self.f.offer())  # full history allows bounded eviction
+        self.assertEqual(cap, len(self.r.m_Custody.Rows))
+        self.assertEqual([], self.f.facts)
+        self.assertEqual([], self.f.debits)
+        self.r = self.f.runtime = self.f.new_runtime()
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertTrue(self.r.m_CustodyReady)  # converted rows are valid on disk
+        self.assertEqual(cap + 1, sum('custody restore lease=' in line for line in self.f.logs))
+
+    def test_finished_callbacks_never_restore_budget_or_unfinish_history(self):
+        for callback in ('duplicate', 'different-count', 'invalid-count', 'identity'):
+            with self.subTest(callback=callback):
+                self.setUp()
+                lease = self.f.offer()
+                self.r.HCRecordResult(lease.Proposal.Id, True, 2)
+                row = self.r.m_Custody.Rows[0]
+                before = copy.deepcopy(vars(row))
+                for _ in range(2):
+                    if callback == 'identity':
+                        result = N(HCIdentity=lambda: self.f.identity('mismatch'),
+                                   HCLeaseId=lambda: lease.Proposal.Id,
+                                   HCMaterialized=lambda: True, HCSurvivors=lambda: 2)
+                        self.r.HCRecordTypedResult(result)
+                    else:
+                        survivors = dict(duplicate=2, **{'different-count': 4, 'invalid-count': -1})[callback]
+                        self.r.HCRecordResult(lease.Proposal.Id, True, survivors)
+                self.assertEqual((0, 0), (self.b.Groups(), self.b.Actors()))
+                self.assertEqual(before, vars(row))
+                self.assertEqual(0, self.r.HCCustodyDebt(True))
+                self.assertEqual([('synthetic-faction', -2)], self.f.debits)
+
+    def test_failed_first_load_then_repaired_legacy_file_still_migrates(self):
+        path = self.r.m_CustodyPath
+        self.f.disk[path] = '{'
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertFalse(self.r.m_CustodyReady)
+        self.assertFalse(self.r.m_StartedOnce)
+        self.r.OnStop()
+        row = self.f.data_policy.call('HCReservation', None,
+            self.f.identity(), 'legacy:synthetic', 4)
+        self.f.disk[path] = self.f.encode(N(SchemaVersion=1, Rows=A([row])))
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertTrue(self.r.m_CustodyReady)
+        self.assertTrue(self.r.m_StartedOnce)
+        self.assertEqual(2, self.f.decode(self.f.disk[path]).SchemaVersion)
+        self.assertEqual('FINISHED_UNKNOWN', self.r.m_Custody.Rows[0].Outcome)
+
+    def test_failed_first_migration_does_not_mark_start_successful(self):
+        path = self.r.m_CustodyPath
+        legacy = self.f.encode(N(SchemaVersion=1, Rows=A()))
+        self.f.disk[path] = legacy
+        self.f.fail_write = True
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertFalse(self.r.m_CustodyReady)
+        self.assertFalse(self.r.m_StartedOnce)
+        self.r.OnStop()
+        self.f.fail_write = False
+        self.f.disk[path] = legacy  # explicit operator repair of canonical files
+        self.r.OnStart(N(EnableEncounters=True))
+        self.assertTrue(self.r.m_StartedOnce)
+        self.assertEqual(2, self.f.decode(self.f.disk[path]).SchemaVersion)
 
     def test_refusal_releases_claim_and_reoffers_only_after_cooldown(self):
         first = self.f.offer()

@@ -1,4 +1,21 @@
-"""Owner AI limits: authored decisions with explicit synthetic fixtures only."""
+"""Owner AI limits: authored decisions with explicit synthetic fixtures only.
+
+Round 2 spec/plan/tasks: restore the three-path budget/numeric-cap text guard;
+clamp each configured key to its hard bounds, logging given/clamped values once;
+share one 60-second per-patrol limiter between problem and budget refusals.
+Tests precede the changes; actual RED from the combined seven-test run:
+  clamp: AssertionError: 1 != 15 : MaxLiveGroups (given=0)
+  site problem: AssertionError: 1 != 50
+  Ran 7 tests; FAILED (failures=56), including custody/bounds subtests.
+The restored guard already passes current production source. Its actual RED
+uses an explicit synthetic Path.read_text mutation adding reservedSites >= 2:
+  Ran 1 test; FAILED (failures=1); Regex matched: 'reservedSites >= 2'.
+No production regression was introduced to manufacture this test-only RED.
+The permanent mutation test checks both numeric caps and missing TryReserve or
+Release on each path. Full exact commands/output: .banso-writer/round2-report.md.
+GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody tests.unit.test_ai_limits -v
+Ran 37 tests; OK. These tests do not establish engine/provider behavior.
+"""
 import json
 from pathlib import Path
 import re
@@ -47,13 +64,41 @@ class AILimitsBehavior(unittest.TestCase):
         self.assertIn('AILimits.Validate()', settings)
         self.assertIn('HCAILimits.Use(AILimits)', settings)
 
-    def test_invalid_key_falls_back_and_names_key_once(self):
-        for key, default in DEFAULTS.items():
-            cfg, api, env, logs = authored()
-            setattr(cfg, key, 99999999)
-            env['Validate'](cfg)
-            self.assertEqual(default, getattr(cfg, key), key)
-            self.assertEqual(1, sum('AILimits.' + key + ' ' in line for line in logs), logs)
+    def test_out_of_range_keys_clamp_to_bounds_and_log_given_and_clamped_once(self):
+        # Bounds are the authored validation contract, not synthesized defaults.
+        bounds = {
+            'MaxLiveGroups': (1, 24), 'MaxLiveAI': (1, 128),
+            **{kind + end: (1, 12) for kind in ('Occupation', 'Holdout', 'Party', 'Patrol', 'Camp')
+               for end in ('Min', 'Max')},
+            'MaxOccupiedPlaces': (1, 64), 'MaxParties': (1, 128),
+            'MaxMaterialized': (1, 24), 'FactionStrengthMax': (1, 128),
+            'MaxActiveSites': (1, 24), 'MaxActiveAI': (1, 128),
+            'MaxEncounters': (1, 24), 'MaxObservedAI': (1, 8192),
+            'MaxHoldouts': (24, 128), 'MaxCamps': (1, 128),
+            'MaxCampItems': (1, 128), 'WorldSeed': (0, 1000003),
+        }
+        self.assertEqual(set(DEFAULTS), set(bounds))
+        for key, (low, high) in bounds.items():
+            for given, expected in ((low - 1, low), (high + 1, high),
+                                    (low, low), (high, high)):
+                with self.subTest(key=key, given=given):
+                    cfg, api, env, logs = authored()
+                    # Keep the paired range ordered so Validate isolates clamping.
+                    if key.endswith('Min'): setattr(cfg, key[:-3] + 'Max', high)
+                    if key.endswith('Max') and key[:-3] + 'Min' in bounds:
+                        setattr(cfg, key[:-3] + 'Min', low)
+                    setattr(cfg, key, given)
+                    env['Validate'](cfg)
+                    self.assertEqual(expected, getattr(cfg, key), key)
+                    messages = [line for line in logs if 'AILimits.' + key + ' ' in line]
+                    if low <= given <= high:
+                        self.assertEqual([], messages)
+                    else:
+                        self.assertEqual(1, len(messages), logs)
+                        self.assertIn('value=' + str(given) + ' ', messages[0])
+                        self.assertIn('clamped=' + str(expected), messages[0])
+
+    def test_reversed_ranges_keep_existing_validation_policy(self):
         cfg, api, env, logs = authored()
         cfg.OccupationMin = 9
         cfg.OccupationMax = 4
@@ -226,6 +271,40 @@ class OldWorldCompatibility(unittest.TestCase):
 
 
 class SharedSpawnPaths(unittest.TestCase):
+    def test_all_spawn_paths_share_budget_and_caps(self):
+        sources = {
+            'materializer': ROOT/'mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c',
+            'sites': ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c',
+            'adapter': ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c',
+        }
+        for name, path in sources.items():
+            with self.subTest(path=name):
+                text = path.read_text()
+                self.assertNotRegex(text, r'\b(?:reservedSites|activeSites)\s*>=\s*2\b')
+                self.assertIn('HCAIBudget.TryReserve(', text)
+                self.assertIn('HCAIBudget.Release(', text)
+
+    def test_spawn_path_guard_rejects_explicit_synthetic_regressions(self):
+        from unittest.mock import patch
+        paths = [ROOT/'mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c',
+                 ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c',
+                 ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c']
+        read = Path.read_text
+        for path in paths:
+            for mutation in ('reservedSites >= 2', 'activeSites >= 2', 'TryReserve', 'Release'):
+                with self.subTest(path=path.name, mutation=mutation):
+                    text = read(path)
+                    if '>=' in mutation: text += '\nif (' + mutation + ') { return; }\n'
+                    else: text = text.replace('HCAIBudget.' + mutation + '(', 'SyntheticRemoved(')
+                    def synthetic_read(candidate, *args, **kwargs):
+                        return text if candidate == path else read(candidate, *args, **kwargs)
+                    # A separate unittest result captures every guard subtest.
+                    result = unittest.TestResult()
+                    with patch.object(Path, 'read_text', synthetic_read):
+                        SharedSpawnPaths('test_all_spawn_paths_share_budget_and_caps').run(result)
+                    self.assertEqual(1, len(result.failures))
+                    self.assertEqual([], result.errors)
+
     def test_surveyed_adapter_uses_configured_stable_size_without_inventing_positions(self):
         from tests.unit.test_expansion_ai_adapter import ExpansionAdapterTests
         adapter = ExpansionAdapterTests()
@@ -300,6 +379,48 @@ class SharedSpawnPaths(unittest.TestCase):
 
 
 class ReviewAdmissionRegression(unittest.TestCase):
+    def test_site_problem_and_budget_refusals_share_per_patrol_minute_limiter(self):
+        from tests.unit.test_expansion_ai_adapter import A, Authored
+        from tests.unit.ai_limits_fixture import install
+        now, logs, problem = [1000], [], ['synthetic occupied place']
+        env = dict(A=A, Print=logs.append, GetGame=lambda: N(GetTime=lambda: now[0]),
+                   HCXAISiteDirector=N(Active=lambda: N(SpawnProblemFor=lambda patrol: problem[0])))
+        install(env, MaxLiveGroups=1)
+        self.assertTrue(env['HCAIBudget'].TryReserve('synthetic-full', 1))
+        source = (ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c').read_text()
+        source = source.replace('super.Spawn();', 'synthetic_spawn(this);')
+        source = source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)',
+                                'synthetic_suffix(m_HCSiteId)')
+        policy = Authored(source, env)
+        def patrol(key):
+            owner = N(m_Group=None, m_HCFinished=False, m_HCSiteId=key,
+                      m_HCTransient=False, m_HCGroupMax=2, m_HCNextBudgetLogMs=0)
+            owner.HCRefuseBudget = lambda *args: policy.call('HCRefuseBudget', owner, *args)
+            return owner
+        first, second = patrol('synthetic-one'), patrol('synthetic-two')
+        for _ in range(50): policy.call('Spawn', first)
+        self.assertEqual(1, len(logs))
+        self.assertIn('spawn refused: synthetic occupied place', logs[0])
+        policy.call('Spawn', second)
+        self.assertEqual(2, len(logs))  # each patrol has its own limiter
+        problem[0] = ''  # budget refusal must share the same window
+        policy.call('Spawn', first)
+        self.assertEqual(2, len(logs))
+        now[0] = 60999
+        policy.call('Spawn', first)
+        self.assertEqual(2, len(logs))
+        now[0] = 61000
+        policy.call('Spawn', first)
+        self.assertEqual(3, len(logs))
+        self.assertIn('shared population reservation refused', logs[-1])
+        problem[0] = 'synthetic new problem'
+        policy.call('Spawn', first)
+        self.assertEqual(3, len(logs))
+        now[0] = 121000
+        policy.call('Spawn', first)
+        self.assertEqual(4, len(logs))
+        self.assertIn('spawn refused: synthetic new problem', logs[-1])
+
     def test_shared_site_budget_refusal_logs_once_per_minute(self):
         from tests.unit.test_expansion_ai_adapter import A, Authored
         from tests.unit.ai_limits_fixture import install

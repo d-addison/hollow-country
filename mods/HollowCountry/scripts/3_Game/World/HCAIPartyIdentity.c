@@ -119,19 +119,15 @@ class HCAIPartyCustody
         return row;
     }
 
-    // 1 = first valid result, 2 = identical duplicate, 0 = quarantined/refused.
-    // Preserve the first observation even if a later callback claims a refill.
+    // 1 = first valid result, 2 = already finished, 0 = quarantined/refused.
+    // Finished means body absence was confirmed. A late callback cannot undo
+    // that confirmation, restore debt or overwrite the first observation.
     static int HCFinish(HCAIPartyCustodyRow row, bool materialized, int survivors)
     {
         if (!row || row.Outcome == "QUARANTINED") { return 0; }
+        if (row.Outcome == "FINISHED") { return 2; }
         if (survivors < 0 || survivors > row.ActorCap || (!materialized && survivors != 0))
         {
-            row.Outcome = "QUARANTINED";
-            return 0;
-        }
-        if (row.Outcome == "FINISHED")
-        {
-            if (row.Materialized == materialized && row.Survivors == survivors) { return 2; }
             row.Outcome = "QUARANTINED";
             return 0;
         }

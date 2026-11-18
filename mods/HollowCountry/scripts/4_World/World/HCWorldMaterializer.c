@@ -144,7 +144,8 @@ class HCWorldMaterializer : HCModule
                 if (sameProcess.Outcome == "CLAIMED" || sameProcess.Outcome == "QUARANTINED") { HCAIBudget.Restore(sameProcess.LeaseId, sameProcess.ActorCap); }
             }
         }
-        m_StartedOnce = true;
+        // A failed load or migration is still the first start on the next toggle.
+        if (m_CustodyReady) { m_StartedOnce = true; }
         m_Running = true;
         s_Instance = this;
         this.HCPlanLine("on");
@@ -177,6 +178,11 @@ class HCWorldMaterializer : HCModule
         m_Running = false;
         this.HCPlanLine("off");
         if (s_Instance == this) { s_Instance = null; }
+        foreach (HCWorldProposalLease stopped : m_Active)
+        {
+            // Unclaimed leases have never been handed to a provider.
+            if (!stopped.Claimed) { HCAIBudget.Release(stopped.Proposal.Id); }
+        }
         m_Active.Clear();
     }
 
@@ -223,13 +229,15 @@ class HCWorldMaterializer : HCModule
         int recovered = 0;
         foreach (HCAIPartyCustodyRow restored : m_Custody.Rows)
         {
-            if (restored.Outcome == "CLAIMED")
+            if (restored.Outcome == "CLAIMED" || restored.Outcome == "QUARANTINED")
             {
                 restored.Outcome = "FINISHED_UNKNOWN";
+                restored.Materialized = false;
+                restored.Survivors = 0;
                 HCAIBudget.Release(restored.LeaseId);
                 recovered++;
+                Print("[HC AI] custody restore lease=" + restored.LeaseId + " outcome=FINISHED_UNKNOWN runtime=PENDING");
             }
-            else if (restored.Outcome == "QUARANTINED") { HCAIBudget.Restore(restored.LeaseId, restored.ActorCap); }
             else { HCAIBudget.Release(restored.LeaseId); }
         }
         if (recovered > 0 || m_Custody.SchemaVersion == 1)
