@@ -1,0 +1,409 @@
+// #136 infected open / break down closed building doors (variant-specific).
+// Server only, gated on the existing EnableInfected setting; source
+// implementation, runtime acceptance PENDING (nothing observed in DayZ yet).
+//
+// Native evidence, installed scripts-1.30.164289:
+//  3_Game/Entities/Building.c:5-10 DoorManipulationParams, :31 GetDoorCount,
+//    :52 IsDoorClosed, :55 IsDoorLocked, :58 PlayDoorSound, :61 OpenDoor,
+//    :70 UnlockDoor(index, animate), :73 GetDoorSoundPos (world space),
+//    :141-158 CanDoorBeOpened(params) (m_CheckIfLocked semantics), :317
+//    GetDoorInfoHolder; 3_Game/Entities/AdditionalDoorsInfo.c:11
+//    m_LockCompatibilityBitMask (lockpick by default, :32), :82
+//    GetSingleDoorInfo; 3_Game/Enums/EBuildingLockTypes.c:7-10 LOCKPICK.
+//  4_World/Entities/Building/Bunker.c:1 Bunker (its CanDoorBeOpened :47 casts
+//    the caller to PlayerBase) and 4_World/Entities/ItemBase/ContainerLocked.c:1
+//    ContainerLockedBase are excluded outright.
+//  3_Game/Entities/DayZInfected.c:13-18 mind states, :107 GetInputController;
+//    3_Game/Entities/DayZInfectedInputController.c:9 GetMindState, :10
+//    GetTargetEntity (the same native target ZombieBase.ChaseAttackLogic reads,
+//    4_World/Entities/Creatures/Infected/ZombieBase.c:685/:726); ZombieBase.c:1090
+//    IsCrawling; 3_Game/Entities/EntityAI.c:744 IsZombieMilitary.
+//  3_Game/Global/Game.c:930 GetObjectsAtPosition3D, :1120 IsServer;
+//    3_Game/Entities/Object.c:215 IsPendingDeletion, :287 GetPosition, :467
+//    GetType, :517 IsAlive; 1_Core/proto/EnConvert.c:210 DistanceSq, :284 Dot,
+//    :30 int.ToString; EnMath.c:54 RandomIntInclusive, :553 Min;
+//    EnScript.c:380/385/407/463 Count/Clear/Insert/Remove; EnDebug.c:96 Print.
+//  Shared repo services: HCPerfPlayers / HCWorkBudget (World/HCWorkBudget.c)
+//    and HCSearchNoise.EmitAt (Loot/HCSearchNoise.c; native NoiseSystem
+//    AddNoisePos 3_Game/Noise.c:7, LoadFromPath :25, Game.c:738).
+//
+// Driven from players, never from a map-wide infected scan. Per core tick
+// (1 s default): <=2 players from the shared snapshot (cursor, <=32 roster),
+// each ONE 8 m GetObjectsAtPosition3D, <=128 results inspected, <=4 buildings,
+// <=32 doors each, <=6 watched doors per player; then <=4 watched doors (hot
+// pressure first, then a cursor), each ONE 2 m GetObjectsAtPosition3D at the
+// door sound point, <=128 results inspected, <=8 infected qualified. Script-only
+// expiry pass over <=64 table rows. <=1 native noise per tick. Every native
+// query consumes one HCWorkBudget unit (limit 6, 4 ms cooperative slice).
+//
+// Not omniscient: an infected counts only when alive, not crawling, natively
+// ALERTED/CHASE/FIGHT, within 2 m of the door, and its native target is a
+// living player (or, with no target, the watching player) within 8 m of the
+// door who is either within 2.5 m of it or on the opposite side.
+//
+// Rules held: no teleport/forced movement of anyone, never closes, locks or
+// blocks a door, only server-side OpenDoor/UnlockDoor (doors replicate
+// natively), no persistence, no new RPC/settings/config. No infected attack
+// animation is started: StartCommand_Attack (DayZInfected.c:112) is consumed
+// inside the native command handler, whose FightLogic (ZombieBase.c:629-660)
+// would apply melee damage to m_ActualTarget (the player) rather than the door,
+// so visuals rely on PlayDoorSound only.
+class HCInfectedDoorsModule : HCModule
+{
+    protected bool m_Running;
+    protected bool m_Printed;
+    protected float m_Clock;
+    protected float m_LogAt = 600;
+    protected int m_PlayerCursor;
+    protected int m_DoorCursor;
+    protected int m_NoiseThisTick;
+    protected int m_Hits;
+    protected int m_Opened;
+    protected int m_Broken;
+    protected int m_Refused;
+    protected int m_Full;
+    protected ref array<ref HCInfectedDoorPressure> m_Doors;
+    protected ref array<Object> m_Objects;
+    protected ref array<CargoBase> m_Proxies;
+    protected ref HCWorkBudget m_Budget;
+
+    override string GetName() { return "InfectedDoors"; }
+
+    override bool IsEnabled(HCSettings settings)
+    {
+        if (!settings) { return false; }
+        return settings.EnableInfected;
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        if (!GetGame() || !GetGame().IsServer() || m_Running || !IsEnabled(settings)) { return; }
+        if (!m_Printed)
+        {
+            Print(HCV2Admission.Line("InfectedDoors", true, "W6-136", false));
+            m_Printed = true;
+        }
+        m_Doors = new array<ref HCInfectedDoorPressure>;
+        m_Objects = new array<Object>;
+        m_Proxies = new array<CargoBase>;
+        m_Budget = new HCWorkBudget;
+        m_Clock = 0;
+        m_LogAt = 600;
+        m_Running = true;
+        int maxDoors = HCInfectedDoorPolicy.MAX_DOORS;
+        int playersPerTick = HCInfectedDoorPolicy.PLAYERS_PER_TICK;
+        int doorsPerTick = HCInfectedDoorPolicy.DOORS_PER_TICK;
+        Print("[HC Doors] ready players_per_tick=" + playersPerTick.ToString() + " doors_per_tick=" + doorsPerTick.ToString() + " max_doors=" + maxDoors.ToString() + " watch_m=8 door_m=2 common_s=6-10 heavy_hits=4-6 cooldown_s=45; door replication/sound acceptance pending");
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        if (!m_Running || !(deltaTime > 0) || deltaTime > 300) { return; }
+        m_Clock = m_Clock + deltaTime;
+        m_NoiseThisTick = 0;
+        m_Budget.HCReset(HCInfectedDoorPolicy.PLAYERS_PER_TICK + HCInfectedDoorPolicy.DOORS_PER_TICK);
+        WatchPlayers();
+        ExpireDoors();
+        VisitDoors();
+        if (m_Clock >= m_LogAt)
+        {
+            m_LogAt = m_Clock + 600;
+            int watched = m_Doors.Count();
+            Print("[HC Doors] summary watched=" + watched.ToString() + " hits=" + m_Hits.ToString() + " opened=" + m_Opened.ToString() + " broken=" + m_Broken.ToString() + " refused=" + m_Refused.ToString() + " table_full=" + m_Full.ToString() + " runtime-unverified");
+            m_Hits = 0;
+            m_Opened = 0;
+            m_Broken = 0;
+            m_Refused = 0;
+            m_Full = 0;
+        }
+    }
+
+    override void OnStop()
+    {
+        m_Running = false;
+        if (m_Doors) { m_Doors.Clear(); }
+        if (m_Objects) { m_Objects.Clear(); }
+        if (m_Proxies) { m_Proxies.Clear(); }
+        m_Doors = null;
+        m_Objects = null;
+        m_Proxies = null;
+        m_Budget = null;
+    }
+
+    protected void WatchPlayers()
+    {
+        array<Man> players = HCPerfPlayers.HCGet();
+        int count = Math.Min(HCInfectedDoorPolicy.MAX_PLAYERS, players.Count());
+        if (count < 1) { return; }
+        int visits = Math.Min(HCInfectedDoorPolicy.PLAYERS_PER_TICK, count);
+        for (int visit = 0; visit < visits; visit++)
+        {
+            if (!m_Budget.HCContinue())
+            {
+                m_Budget.HCDeferred(GetName(), visits - visit);
+                return;
+            }
+            if (m_PlayerCursor >= count) { m_PlayerCursor = 0; }
+            PlayerBase player = PlayerBase.Cast(players[m_PlayerCursor]);
+            m_PlayerCursor = m_PlayerCursor + 1;
+            if (!player || !player.IsAlive()) { continue; }
+            WatchAround(player);
+        }
+    }
+
+    protected bool Eligible(Building building)
+    {
+        if (!building || building.IsPendingDeletion()) { return false; }
+        if (Bunker.Cast(building)) { return false; }
+        if (ContainerLockedBase.Cast(building)) { return false; }
+        return true;
+    }
+
+    protected void WatchAround(PlayerBase player)
+    {
+        vector origin = player.GetPosition();
+        float radiusSq = HCInfectedDoorPolicy.WATCH_RADIUS * HCInfectedDoorPolicy.WATCH_RADIUS;
+        m_Objects.Clear();
+        m_Proxies.Clear();
+        GetGame().GetObjectsAtPosition3D(origin, HCInfectedDoorPolicy.WATCH_RADIUS, m_Objects, m_Proxies);
+        int inspected = Math.Min(m_Objects.Count(), HCInfectedDoorPolicy.MAX_OBJECTS_PER_QUERY);
+        int buildings = 0;
+        int watched = 0;
+        for (int objectIndex = 0; objectIndex < inspected; objectIndex++)
+        {
+            if (watched >= HCInfectedDoorPolicy.MAX_DOORS_PER_PLAYER || buildings >= HCInfectedDoorPolicy.MAX_BUILDINGS_PER_PLAYER) { break; }
+            Building building = Building.Cast(m_Objects[objectIndex]);
+            if (!Eligible(building)) { continue; }
+            int doorCount = building.GetDoorCount();
+            if (doorCount < 1 || doorCount > HCInfectedDoorPolicy.MAX_DOORS_PER_BUILDING) { continue; }
+            buildings = buildings + 1;
+            for (int doorIndex = 0; doorIndex < doorCount; doorIndex++)
+            {
+                if (watched >= HCInfectedDoorPolicy.MAX_DOORS_PER_PLAYER) { break; }
+                if (!building.IsDoorClosed(doorIndex)) { continue; }
+                if (vector.DistanceSq(building.GetDoorSoundPos(doorIndex), origin) > radiusSq) { continue; }
+                if (Watch(building, doorIndex, player)) { watched = watched + 1; }
+            }
+        }
+        m_Objects.Clear();
+        m_Proxies.Clear();
+    }
+
+    // <=64 script comparisons; refuses (counted) when the table is full.
+    protected bool Watch(Building building, int doorIndex, PlayerBase player)
+    {
+        foreach (HCInfectedDoorPressure existing : m_Doors)
+        {
+            if (existing.m_Building != building || existing.m_Index != doorIndex) { continue; }
+            existing.m_Player = player;
+            existing.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+            return true;
+        }
+        if (m_Doors.Count() >= HCInfectedDoorPolicy.MAX_DOORS)
+        {
+            m_Full = m_Full + 1;
+            return false;
+        }
+        HCInfectedDoorPressure created = new HCInfectedDoorPressure;
+        created.m_Building = building;
+        created.m_Index = doorIndex;
+        created.m_Player = player;
+        created.m_WatchUntil = m_Clock + HCInfectedDoorPolicy.WATCH_SECONDS;
+        created.m_OpenNeeded = Math.RandomIntInclusive(HCInfectedDoorPolicy.OPEN_MIN_SECONDS, HCInfectedDoorPolicy.OPEN_MAX_SECONDS);
+        created.m_HitsNeeded = Math.RandomIntInclusive(HCInfectedDoorPolicy.HITS_MIN, HCInfectedDoorPolicy.HITS_MAX);
+        m_Doors.Insert(created);
+        return true;
+    }
+
+    // Script-only pass over <=64 rows; deleted buildings and expired rows go.
+    protected void ExpireDoors()
+    {
+        for (int row = m_Doors.Count() - 1; row >= 0; row--)
+        {
+            HCInfectedDoorPressure entry = m_Doors[row];
+            if (!entry.m_Building || HCInfectedDoorPolicy.Expired(m_Clock, entry.m_WatchUntil, entry.m_CooldownUntil))
+            {
+                m_Doors.Remove(row);
+            }
+        }
+    }
+
+    protected void VisitDoors()
+    {
+        int visited = 0;
+        float hotSince = m_Clock - HCInfectedDoorPolicy.GRACE;
+        // Hot pressure first so a sustained push is not starved by the cursor.
+        for (int hotIndex = 0; hotIndex < m_Doors.Count(); hotIndex++)
+        {
+            if (visited >= HCInfectedDoorPolicy.DOORS_PER_TICK) { break; }
+            HCInfectedDoorPressure hot = m_Doors[hotIndex];
+            if (hot.m_LastHot < hotSince || m_Clock < hot.m_CooldownUntil) { continue; }
+            if (!m_Budget.HCContinue())
+            {
+                m_Budget.HCDeferred(GetName(), m_Doors.Count() - hotIndex);
+                return;
+            }
+            Visit(hot);
+            visited = visited + 1;
+        }
+        int total = m_Doors.Count();
+        int examined = 0;
+        while (visited < HCInfectedDoorPolicy.DOORS_PER_TICK && examined < total)
+        {
+            if (m_DoorCursor >= total) { m_DoorCursor = 0; }
+            HCInfectedDoorPressure cold = m_Doors[m_DoorCursor];
+            examined = examined + 1;
+            if (cold.m_VisitedAt == m_Clock || m_Clock < cold.m_CooldownUntil)
+            {
+                m_DoorCursor = m_DoorCursor + 1;
+                continue;
+            }
+            // Cursor is retained on this row when the budget yields.
+            if (!m_Budget.HCContinue())
+            {
+                m_Budget.HCDeferred(GetName(), total - examined + 1);
+                return;
+            }
+            m_DoorCursor = m_DoorCursor + 1;
+            Visit(cold);
+            visited = visited + 1;
+        }
+    }
+
+    protected int LockState(Building building, int doorIndex)
+    {
+        if (!building.IsDoorLocked(doorIndex)) { return HCInfectedDoorPolicy.LOCK_NONE; }
+        AdditionalDoorInfosHolder holder = building.GetDoorInfoHolder();
+        if (!holder) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
+        AdditionalDoorInfo info = holder.GetSingleDoorInfo(doorIndex);
+        if (!info) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
+        int lockpick = 1 << EBuildingLockType.LOCKPICK;
+        if ((info.m_LockCompatibilityBitMask & lockpick) == 0) { return HCInfectedDoorPolicy.LOCK_PROTECTED; }
+        return HCInfectedDoorPolicy.LOCK_BREAKABLE;
+    }
+
+    protected int Qualify(ZombieBase infected, HCInfectedDoorPressure entry, vector doorPos)
+    {
+        int kind = HCInfectedDoorPolicy.Kind(infected.IsAlive(), infected.IsCrawling(), infected.IsZombieMilitary(), infected.GetType());
+        if (kind == HCInfectedDoorPolicy.KIND_NONE) { return kind; }
+        DayZInfectedInputController controller = infected.GetInputController();
+        if (!controller) { return HCInfectedDoorPolicy.KIND_NONE; }
+        if (!HCInfectedDoorPolicy.Pursuing(controller.GetMindState())) { return HCInfectedDoorPolicy.KIND_NONE; }
+        EntityAI targetEntity = controller.GetTargetEntity();
+        PlayerBase quarry = PlayerBase.Cast(targetEntity);
+        // Chasing something else (animal, decoy): not this door's business.
+        if (targetEntity && !quarry) { return HCInfectedDoorPolicy.KIND_NONE; }
+        if (!quarry) { quarry = PlayerBase.Cast(entry.m_Player); }
+        if (!quarry || !quarry.IsAlive()) { return HCInfectedDoorPolicy.KIND_NONE; }
+        float distanceSq = vector.DistanceSq(quarry.GetPosition(), doorPos);
+        vector toPlayer = quarry.GetPosition() - doorPos;
+        vector toInfected = infected.GetPosition() - doorPos;
+        toPlayer[1] = 0;
+        toInfected[1] = 0;
+        if (!HCInfectedDoorPolicy.PlayerQualifies(distanceSq, vector.Dot(toPlayer, toInfected))) { return HCInfectedDoorPolicy.KIND_NONE; }
+        return kind;
+    }
+
+    protected void Visit(HCInfectedDoorPressure entry)
+    {
+        entry.m_VisitedAt = m_Clock;
+        Building building = entry.m_Building;
+        int doorIndex = entry.m_Index;
+        if (!Eligible(building) || doorIndex < 0 || doorIndex >= building.GetDoorCount())
+        {
+            entry.m_WatchUntil = -1;
+            return;
+        }
+        if (!building.IsDoorClosed(doorIndex))
+        {
+            entry.HCAdvance(HCInfectedDoorPolicy.KIND_NONE, HCInfectedDoorPolicy.LOCK_NONE, m_Clock);
+            return;
+        }
+        vector doorPos = building.GetDoorSoundPos(doorIndex);
+        m_Objects.Clear();
+        m_Proxies.Clear();
+        GetGame().GetObjectsAtPosition3D(doorPos, HCInfectedDoorPolicy.DOOR_RADIUS, m_Objects, m_Proxies);
+        int inspected = Math.Min(m_Objects.Count(), HCInfectedDoorPolicy.MAX_OBJECTS_PER_QUERY);
+        int candidates = 0;
+        int kind = HCInfectedDoorPolicy.KIND_NONE;
+        ZombieBase chosen;
+        for (int objectIndex = 0; objectIndex < inspected; objectIndex++)
+        {
+            ZombieBase infected = ZombieBase.Cast(m_Objects[objectIndex]);
+            if (!infected) { continue; }
+            candidates = candidates + 1;
+            if (candidates > HCInfectedDoorPolicy.MAX_INFECTED_PER_DOOR) { break; }
+            int candidateKind = Qualify(infected, entry, doorPos);
+            if (candidateKind > kind)
+            {
+                kind = candidateKind;
+                chosen = infected;
+            }
+        }
+        m_Objects.Clear();
+        m_Proxies.Clear();
+        int lockState = HCInfectedDoorPolicy.LOCK_NONE;
+        if (kind != HCInfectedDoorPolicy.KIND_NONE) { lockState = LockState(building, doorIndex); }
+        int action = entry.HCAdvance(kind, lockState, m_Clock);
+        if (action == HCInfectedDoorPolicy.ACTION_NONE || !chosen) { return; }
+        Apply(entry, action, chosen, doorPos);
+    }
+
+    protected void Apply(HCInfectedDoorPressure entry, int action, ZombieBase chosen, vector doorPos)
+    {
+        Building building = entry.m_Building;
+        int doorIndex = entry.m_Index;
+        if (action == HCInfectedDoorPolicy.ACTION_HIT)
+        {
+            building.PlayDoorSound(doorIndex);
+            Noise(chosen, doorPos);
+            m_Hits = m_Hits + 1;
+            return;
+        }
+        DoorManipulationParams request = new DoorManipulationParams;
+        request.m_DoorIndex = doorIndex;
+        request.m_Caller = chosen;
+        // Vanilla semantics: true = must be unlocked; false = must be locked.
+        request.m_CheckIfLocked = action != HCInfectedDoorPolicy.ACTION_BREAK;
+        // Respect the building's own (possibly modded) opening rules.
+        if (!building.CanDoorBeOpened(request))
+        {
+            m_Refused = m_Refused + 1;
+            return;
+        }
+        string verb = "opened";
+        if (action == HCInfectedDoorPolicy.ACTION_BREAK)
+        {
+            building.UnlockDoor(doorIndex, false);
+            verb = "broke-lock";
+            m_Broken = m_Broken + 1;
+        }
+        else
+        {
+            m_Opened = m_Opened + 1;
+        }
+        building.PlayDoorSound(doorIndex);
+        building.OpenDoor(doorIndex);
+        Noise(chosen, doorPos);
+        string kindName = "common";
+        if (HCInfectedDoorPolicy.Kind(true, false, chosen.IsZombieMilitary(), chosen.GetType()) == HCInfectedDoorPolicy.KIND_HEAVY) { kindName = "heavy"; }
+        // At most once per door per COOLDOWN seconds.
+        Print("[HC Doors] " + verb + " kind=" + kindName + " infected=" + chosen.GetType() + " building=" + building.GetType() + " door=" + doorIndex.ToString());
+    }
+
+    protected void Noise(ZombieBase source, vector position)
+    {
+        if (m_NoiseThisTick >= HCInfectedDoorPolicy.MAX_NOISE_PER_TICK) { return; }
+        m_NoiseThisTick = m_NoiseThisTick + 1;
+        HCSearchNoise.EmitAt(source, position);
+    }
+}
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCInfectedDoorsModule);
+    }
+}

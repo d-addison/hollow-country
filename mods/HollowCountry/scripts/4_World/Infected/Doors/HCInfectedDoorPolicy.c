@@ -1,0 +1,165 @@
+// #136 infected door pressure: scalar policy and per-door state only.
+// No engine calls here except Math (1_Core/proto/EnMath.c:553 Min) and
+// string IndexOf (1_Core/proto/EnString.c:240). Native mind-state values are
+// the enum at 3_Game/Entities/DayZInfected.c:13-18; military flag is
+// EntityAI.IsZombieMilitary (3_Game/Entities/EntityAI.c:744), overridden true
+// for soldier/patrol/NBC grey+white classes in 4_World/Entities/Creatures/
+// Infected/ZombieMaleBase.c. Crawling is ZombieBase.IsCrawling (ZombieBase.c:1090).
+// All parameters are plain constants; provisional until observed in DayZ.
+//
+// Variant mapping:
+//  - weak (KIND_NONE): crawlers and dead infected; never pressure a door.
+//  - common (KIND_COMMON): every other infected; opens an UNLOCKED door after
+//    a per-door rolled 6..10 s of sustained pressure. Cannot defeat a lock.
+//  - heavy (KIND_HEAVY): IsZombieMilitary() plus firefighters, heavy
+//    industry/construction/offshore/oil-rig workers and special-forces
+//    policemen (vanilla class prefixes below); 4..6 rolled hits paced at
+//    HIT_INTERVAL (about 6..10 s at the 1 s core tick); final hit opens an
+//    unlocked door or breaks a lockpick-class lock (UnlockDoor then OpenDoor).
+//    Non-lockpick locks (shipping containers, script-only/code locks) refuse.
+class HCInfectedDoorPolicy
+{
+    static const int KIND_NONE = 0;
+    static const int KIND_COMMON = 1;
+    static const int KIND_HEAVY = 2;
+
+    static const int ACTION_NONE = 0;
+    static const int ACTION_HIT = 1;
+    static const int ACTION_OPEN = 2;
+    static const int ACTION_BREAK = 3;
+
+    // lockState passed to HCAdvance: 0 unlocked, 1 lockpick-class (breakable),
+    // 2 any other lock (never defeated).
+    static const int LOCK_NONE = 0;
+    static const int LOCK_BREAKABLE = 1;
+    static const int LOCK_PROTECTED = 2;
+
+    // Common: rolled seconds of sustained pressure before opening.
+    static const int OPEN_MIN_SECONDS = 6;
+    static const int OPEN_MAX_SECONDS = 10;
+    // Heavy: rolled hit count, minimum seconds between hits.
+    static const int HITS_MIN = 4;
+    static const int HITS_MAX = 6;
+    static const float HIT_INTERVAL = 1.5;
+    // Pressure is "sustained": a gap longer than GRACE seconds resets it, and
+    // one visit never adds more than MAX_STEP seconds.
+    static const float GRACE = 3.0;
+    static const float MAX_STEP = 2.0;
+    // Seconds a door is left alone after an infected opened/broke it.
+    static const float COOLDOWN = 45.0;
+    // Seconds a door stays watched after a player was last seen near it.
+    static const float WATCH_SECONDS = 10.0;
+
+    // Geometry (metres).
+    static const float WATCH_RADIUS = 8.0;
+    static const float NEAR_RADIUS = 2.5;
+    static const float DOOR_RADIUS = 2.0;
+
+    // Bounds.
+    static const int MAX_DOORS = 64;
+    static const int MAX_PLAYERS = 32;
+    static const int PLAYERS_PER_TICK = 2;
+    static const int DOORS_PER_TICK = 4;
+    static const int MAX_BUILDINGS_PER_PLAYER = 4;
+    static const int MAX_DOORS_PER_PLAYER = 6;
+    static const int MAX_DOORS_PER_BUILDING = 32;
+    static const int MAX_OBJECTS_PER_QUERY = 128;
+    static const int MAX_INFECTED_PER_DOOR = 8;
+    static const int MAX_NOISE_PER_TICK = 1;
+
+    static bool HeavyClass(string className)
+    {
+        if (className.IndexOf("ZmbM_FirefighterNormal") == 0) { return true; }
+        if (className.IndexOf("ZmbM_HeavyIndustryWorker") == 0) { return true; }
+        if (className.IndexOf("ZmbM_ConstrWorkerNormal") == 0) { return true; }
+        if (className.IndexOf("ZmbM_PolicemanSpecForce") == 0) { return true; }
+        if (className.IndexOf("ZmbM_OffshoreWorker") == 0) { return true; }
+        if (className.IndexOf("ZmbM_takiOilRigWorker") == 0) { return true; }
+        return false;
+    }
+
+    static int Kind(bool alive, bool crawling, bool military, string className)
+    {
+        if (!alive || crawling) { return HCInfectedDoorPolicy.KIND_NONE; }
+        if (military || HeavyClass(className)) { return HCInfectedDoorPolicy.KIND_HEAVY; }
+        return HCInfectedDoorPolicy.KIND_COMMON;
+    }
+
+    // Already engaged infected only; calm or merely disturbed ones never count.
+    static bool Pursuing(int mind)
+    {
+        if (mind == DayZInfectedConstants.MINDSTATE_ALERTED) { return true; }
+        if (mind == DayZInfectedConstants.MINDSTATE_CHASE) { return true; }
+        return mind == DayZInfectedConstants.MINDSTATE_FIGHT;
+    }
+
+    // distanceSq: player to door; facing: horizontal dot of (player - door)
+    // and (infected - door). Negative means opposite sides of the door point.
+    static bool PlayerQualifies(float distanceSq, float facing)
+    {
+        float watchSq = HCInfectedDoorPolicy.WATCH_RADIUS * HCInfectedDoorPolicy.WATCH_RADIUS;
+        if (!(distanceSq <= watchSq)) { return false; }
+        float nearSq = HCInfectedDoorPolicy.NEAR_RADIUS * HCInfectedDoorPolicy.NEAR_RADIUS;
+        if (distanceSq <= nearSq) { return true; }
+        return facing < 0;
+    }
+
+    static bool Expired(float now, float watchUntil, float cooldownUntil)
+    {
+        return now > watchUntil && now >= cooldownUntil;
+    }
+}
+
+// One watched closed door. Raw entity references become null when deleted.
+// No persistence; the table holding these is capped at MAX_DOORS.
+class HCInfectedDoorPressure
+{
+    Building m_Building;
+    int m_Index;
+    Man m_Player;
+    float m_WatchUntil;
+    float m_LastHot = -1000;
+    float m_Pressure;
+    int m_Hits;
+    float m_NextHit;
+    int m_OpenNeeded = 8;
+    int m_HitsNeeded = 5;
+    float m_CooldownUntil;
+    float m_VisitedAt = -1;
+
+    // kind: strongest qualifying infected at the door this visit (KIND_NONE
+    // when none). Returns one ACTION_*; the caller performs native calls.
+    int HCAdvance(int kind, int lockState, float now)
+    {
+        if (now < m_CooldownUntil) { return HCInfectedDoorPolicy.ACTION_NONE; }
+        float step = now - m_LastHot;
+        if (step > HCInfectedDoorPolicy.GRACE)
+        {
+            m_Pressure = 0;
+            m_Hits = 0;
+            m_NextHit = now;
+            step = 0;
+        }
+        if (kind == HCInfectedDoorPolicy.KIND_NONE) { return HCInfectedDoorPolicy.ACTION_NONE; }
+        m_LastHot = now;
+        m_Pressure = m_Pressure + Math.Min(step, HCInfectedDoorPolicy.MAX_STEP);
+        if (kind == HCInfectedDoorPolicy.KIND_COMMON)
+        {
+            if (lockState != HCInfectedDoorPolicy.LOCK_NONE) { return HCInfectedDoorPolicy.ACTION_NONE; }
+            if (m_Pressure < m_OpenNeeded) { return HCInfectedDoorPolicy.ACTION_NONE; }
+            m_CooldownUntil = now + HCInfectedDoorPolicy.COOLDOWN;
+            m_Pressure = 0;
+            return HCInfectedDoorPolicy.ACTION_OPEN;
+        }
+        if (lockState == HCInfectedDoorPolicy.LOCK_PROTECTED) { return HCInfectedDoorPolicy.ACTION_NONE; }
+        if (now < m_NextHit) { return HCInfectedDoorPolicy.ACTION_NONE; }
+        m_Hits = m_Hits + 1;
+        m_NextHit = now + HCInfectedDoorPolicy.HIT_INTERVAL;
+        if (m_Hits < m_HitsNeeded) { return HCInfectedDoorPolicy.ACTION_HIT; }
+        m_CooldownUntil = now + HCInfectedDoorPolicy.COOLDOWN;
+        m_Hits = 0;
+        m_Pressure = 0;
+        if (lockState == HCInfectedDoorPolicy.LOCK_BREAKABLE) { return HCInfectedDoorPolicy.ACTION_BREAK; }
+        return HCInfectedDoorPolicy.ACTION_OPEN;
+    }
+}
