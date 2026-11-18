@@ -746,7 +746,9 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         self.assertEqual(1, settings.count('bool EnableAtmosphere = true;'))
         alert = (ROOT / 'mods/HollowCountry/scripts/4_World/Infected/HCAlertChain.c').read_text()
         self.assertIn('radius = HCAtmosphereRelay.RangeAtSource(radius, emission.Clue.Origin);', alert)
-        source = '\n'.join(p.read_text() for p in WEATHER.glob('*.c'))
+        # #61 adds a separately admitted V2 module; keep this v1 ownership pin.
+        source = '\n'.join(p.read_text() for p in WEATHER.glob('*.c')
+                           if not p.name.startswith('HCWeatherDays'))
         for unwanted in ('extends HCModule', 'RegisterModules', 'SetBrightness(', 'LoadNewLightingCfg(', 'AddNoiseTarget('):
             self.assertNotIn(unwanted, source)
         self.assertIn('CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 0;', source)
