@@ -346,7 +346,8 @@ class CombinedWorkTests(unittest.TestCase):
         source = re.sub(r'\b(\w+)\+\+;', r'\1 += 1;', source).replace(
             'placed.Count().ToString()', 'str(placed.Count())')
         env = dict(GetGame=lambda: f.game, Math=N(Min=min), Print=lambda text: None,
-                   CALL_CATEGORY_SYSTEM=0, str=str)
+                   CALL_CATEGORY_SYSTEM=0, str=str,
+                   HCInteriorTemplatePlacement=interior.env['HCInteriorTemplatePlacement'])
         env.update({k: int(v) for k, v in re.findall(r'static const int (\w+) = (\d+);', source)})
         schedule = event.translate(source, 'Schedule', env)
         self.assertEqual(2, schedule(interior.t.m_Objects))

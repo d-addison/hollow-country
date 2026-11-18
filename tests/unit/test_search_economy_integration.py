@@ -162,7 +162,8 @@ class SearchIntegrationTests(unittest.TestCase):
         game = N(IsServer=lambda:True, GetCallQueue=lambda category:queue,
                  UpdatePathgraphRegionByObject=lambda obj:None)
         timed = self.env['HCInteriorTemplatePlacement'].HCTimedPathgraph
-        unrelated = lambda obj:None
+        # A vanilla tent/fireplace update queued on the same target must survive stop.
+        unrelated = game.UpdatePathgraphRegionByObject
         queued.append((unrelated, None))
         self.env['GetGame'] = lambda:game
         props = EArray([object(), object()])
@@ -176,7 +177,7 @@ class SearchIntegrationTests(unittest.TestCase):
         template = SOURCE.with_name('HCInteriorTemplatePlacement.c').read_text()
         translate(template, 'Schedule', env)(props)
         self.assertEqual(5, len(queued))
-        self.assertEqual(2, sum(fn == timed for fn, obj in queued))
+        self.assertEqual(4, sum(fn == timed for fn, obj in queued))
         deleted = []
         def delete(obj):
             self.assertEqual([(unrelated, None)], queued)

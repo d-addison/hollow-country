@@ -5,7 +5,9 @@
 // (CGame.UpdatePathgraphRegionByObject, 3_Game/Global/Game.c:1293, null-checks the
 // object and updates the region of its clipping radius). The spawn flag
 // ECE_UPDATEPATHGRAPH alone is not observed to rebuild the region, so the same
-// short deferred call is made once per prop this module created. No queue is
+// short deferred call is made once per prop this module created, through the
+// HC-owned HCInteriorTemplatePlacement.HCTimedPathgraph target so a stop can
+// remove HC calls without cancelling vanilla's own queued updates. No queue is
 // retained and no world scan is made. Offline tests prove neither the rebuild
 // nor the infected routing around props; that needs a local DayZDiag run.
 class HCInteriorPathgraph
@@ -27,7 +29,7 @@ class HCInteriorPathgraph
             Object placedObject = placed[index];
             index++;
             if (!placedObject) continue;
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, DELAY_MS, false, placedObject);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, DELAY_MS, false, placedObject);
             scheduled++;
         }
         Print("[HC Interiors] pathgraph update queued for " + scheduled.ToString() + " of " + placed.Count().ToString() + " placed prop(s)");
