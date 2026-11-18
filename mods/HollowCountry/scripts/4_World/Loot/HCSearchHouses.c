@@ -61,6 +61,9 @@ class HCSearchHouses
     static const int MAX_SITES = 24;
     static const int MAX_EMPTY = 256;
     static const string SOURCE_ID = "stock-ce-template-houses-v2";
+    // A server refusal is told to the player and logged at most once per window, never silent.
+    static const float REFUSAL_WINDOW = 5.0;
+    static const int MAX_TOLD = 64;
     protected HCSettings m_Settings;
     protected bool m_Started;
     protected bool m_Fault;
@@ -77,6 +80,8 @@ class HCSearchHouses
     protected ref array<ref HCSearchHouseSlot> m_DetachedSlots = new array<ref HCSearchHouseSlot>;
     protected ref array<ref HCSearchHouseSession> m_Sessions = new array<ref HCSearchHouseSession>;
     protected ref map<string, float> m_Empty = new map<string, float>;
+    protected ref map<string, float> m_Told = new map<string, float>;
+    protected string m_Refusal;
 
     void Start(HCSettings settings)
     {
@@ -150,12 +155,48 @@ class HCSearchHouses
 
     bool Gate(PlayerBase player)
     {
+        m_Refusal = "service";
         if (!m_Started || m_Fault || !m_Settings || !GetGame() || !GetGame().IsServer()) return false;
         bool ready = true;
         if (m_Journal && !m_Journal.Healthy()) ready = false;
         bool alive = player && player.IsAlive() && !player.IsUnconscious() && player.GetIdentity();
         if (!HCInteriorRules.MaySearch(true, m_Settings.EnableInteriors, m_Settings.EnableSearch, HCInteriorRules.SearchAdmitted(), ready, alive, true)) return false;
-        return !player.GetHumanInventory().GetEntityInHands();
+        m_Refusal = "hands";
+        if (player.GetHumanInventory().GetEntityInHands()) return false;
+        m_Refusal = "";
+        return true;
+    }
+
+    // The last refusal reason of Gate/Resolve/CanStart/Begin; "" when admitted.
+    string Refusal() { return m_Refusal; }
+
+    static string RefusalText(string reason)
+    {
+        if (reason == "busy") return "Someone is already searching here.";
+        if (reason == "capacity") return "Too many searches in progress; try again shortly.";
+        if (reason == "no_site") return "Nothing to search at this spot.";
+        if (reason == "nothing") return "Nothing searchable here.";
+        if (reason == "hands") return "Empty your hands to search.";
+        return "Search unavailable: the search service is not ready on this server.";
+    }
+
+    // One status message and one log line per player per REFUSAL_WINDOW. The log names the
+    // reason and building class only, never the player.
+    void ReportRefusal(PlayerBase player, ActionTarget target)
+    {
+        if (!player || m_Refusal == "" || !GetGame()) return;
+        string key = "anonymous";
+        if (player.GetIdentity()) key = player.GetIdentity().GetId();
+        float now = GetGame().GetTickTime();
+        float last;
+        if (m_Told.Find(key, last) && now - last < REFUSAL_WINDOW) return;
+        if (m_Told.Count() >= MAX_TOLD) m_Told.Clear();
+        m_Told.Set(key, now);
+        string cls = "none";
+        House building = HouseOf(target);
+        if (building) cls = building.GetType();
+        Print("[HC Search Houses] refused reason=" + m_Refusal + " class=" + cls);
+        Tell(player, RefusalText(m_Refusal));
     }
 
     static bool SiteShapeValid(HCInteriorTemplateSearchSite site)
@@ -169,7 +210,10 @@ class HCSearchHouses
     // Pure geometry/class check: no scan, no I/O, no state change.
     HCSearchHouseHit Resolve(PlayerBase player, ActionTarget target)
     {
-        if (!Gate(player) || !target || !HCInteriorTemplates.Loaded()) return null;
+        if (!Gate(player)) return null;
+        m_Refusal = "service";
+        if (!target || !HCInteriorTemplates.Loaded()) return null;
+        m_Refusal = "nothing";
         House building = HouseOf(target);
         if (!building) return null;
         string cls = building.GetType();
@@ -182,6 +226,7 @@ class HCSearchHouses
         if (!HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES)) return null;
         vector offset = building.WorldToModel(target.GetCursorHitPos());
         vector standing = player.GetPosition();
+        m_Refusal = "no_site";
         HCInteriorTemplateSearchSite best;
         vector bestWorld;
         float bestGap = 1000000.0;
@@ -201,6 +246,7 @@ class HCSearchHouses
             bestWorld = world;
         }
         if (!best) return null;
+        m_Refusal = "nothing";
         HCSearchHouseHit hit = new HCSearchHouseHit;
         hit.Structure = building;
         hit.BuildingClass = cls;
@@ -212,6 +258,7 @@ class HCSearchHouses
         hit.Radius = best.Radius;
         foreach (string groupId : best.Groups) hit.Groups.Insert(groupId);
         if (!HCSearchRules.TextValid(hit.SiteId, 768)) return null;
+        m_Refusal = "";
         return hit;
     }
 
@@ -259,10 +306,25 @@ class HCSearchHouses
         return fallback;
     }
 
+    // A resolved hit still needs a free site and a free session slot.
+    bool Admit(PlayerBase player, HCSearchHouseHit hit)
+    {
+        if (!hit) return false;
+        m_Refusal = "busy";
+        if (SessionOfSite(hit.SiteId)) return false;
+        m_Refusal = "capacity";
+        if (m_Sessions.Count() >= MAX_SESSIONS) return false;
+        m_Refusal = "";
+        return true;
+    }
+
     bool CanStart(PlayerBase player, ActionTarget target)
     {
-        HCSearchHouseHit hit = Resolve(player, target);
-        if (!hit || SessionOfSite(hit.SiteId) || m_Sessions.Count() >= MAX_SESSIONS) return false;
+        if (!Admit(player, Resolve(player, target)))
+        {
+            ReportRefusal(player, target);
+            return false;
+        }
         // Let Begin report a depleted site as empty. The journal still forbids refill.
         return true;
     }
@@ -632,9 +694,19 @@ class HCSearchHouses
         HCInteriorActionData action = HCInteriorActionData.Cast(data);
         if (!action || !data.m_Player) return;
         HCSearchHouseHit hit = Resolve(data.m_Player, data.m_Target);
-        if (!hit || SessionOfSite(hit.SiteId) || m_Sessions.Count() >= MAX_SESSIONS) return;
+        if (!Admit(data.m_Player, hit))
+        {
+            ReportRefusal(data.m_Player, data.m_Target);
+            return;
+        }
         string actorId = ActorId(data.m_Player);
-        if (actorId == "" || !EnsureJournal()) return;
+        m_Refusal = "service";
+        if (actorId == "" || !EnsureJournal())
+        {
+            ReportRefusal(data.m_Player, data.m_Target);
+            return;
+        }
+        m_Refusal = "";
         HCSearchHouseSlot slot = Touch(hit);
         if (!slot)
         {

@@ -154,6 +154,12 @@ class SearchPreviewSitesTests(unittest.TestCase):
         catalog = (SCRIPTS / '4_World/Interiors/HCInteriorCatalog.c').read_text()
         pilot_type = re.findall(r'"(\w+)"', method(catalog, 'SearchType'))[0]
         h.house.cls = pilot_type
+        rules = vars(h.env['HCInteriorRules'])
+        # Before pilot acceptance the server grants nothing on these props: no promise, no request.
+        h.env['HCInteriorRules'] = N(**{**rules, 'SearchAccepted': lambda: False})
+        self.assertFalse(h.preview())
+        self.assertEqual(h.sent, [])
+        h.env['HCInteriorRules'] = N(**{**rules, 'SearchAccepted': lambda: True})
         self.assertTrue(h.preview())
         self.assertEqual(h.sent, [])
         h.player.position = [500., 0., 500.]

@@ -39,8 +39,14 @@ class HCActionSearchInterior : ActionContinuousBase
         if (!player || !player.IsAlive() || !target || target.GetComponentIndex() < 0) return false;
         Object object = target.GetObject();
         if (!object) return false;
+        // Legacy pilot cabinet classes are also placed by template furnishing everywhere, but the
+        // server pilot grants nothing before acceptance and knows only its own sites. Offering
+        // the action there made the ring spin once and stop with no message.
         if (HCInteriorCatalog.SearchType(object.GetType()))
+        {
+            if (!HCInteriorRules.SearchAccepted()) return false;
             return vector.DistanceSq(MiscGameplayFunctions.GetPlayerHeadPosition(player), target.GetCursorHitPos()) <= 3.24;
+        }
         House building = HCSearchHouses.HouseOf(target);
         if (!building) return false;
         if (vector.DistanceSq(MiscGameplayFunctions.GetPlayerHeadPosition(player), target.GetCursorHitPos()) > 3.24) return false;
