@@ -1402,5 +1402,167 @@ class RunRollbackTests(InstallerCase):
         self.assertEqual(self.run_cli('--check')[0], 0)
 
 
+class ReviewRoundTwoTests(InstallerCase):
+    """Synthetic crash/recovery fixtures; no DayZ or Windows behavior is established."""
+    inject_after = RunRollbackTests.inject_after
+
+    def crash_after(self, step):
+        class Crash(BaseException):
+            pass
+        with self.inject_after(step, Crash()):
+            with self.assertRaises(Crash):
+                self.apply()
+        return next((self.server / fi.BACKUP_DIR).rglob(fi.JOURNAL))
+
+    def test_recovery_preserves_cfg_edited_after_crash_and_names_backup(self):
+        journal = self.crash_after('cfg')
+        edited = put(self.server, 'serverDZ.cfg', 'OPERATOR EDIT AFTER CRASH')
+        code, out, err = self.apply()
+        self.assertEqual(edited.read_text(), 'OPERATOR EDIT AFTER CRASH')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rollback_pending', out + err)
+        self.assertIn('serverDZ.cfg', err)
+        self.assertIn(str(journal.parent / 'serverDZ.cfg'), err)
+        self.assertEqual(json.loads(journal.read_text())['state'], 'rollback_pending')
+
+    def test_recovery_preserves_file_created_at_absent_target_after_crash(self):
+        original = ws.copy_atomic
+        class Crash(BaseException):
+            pass
+        target = self.server / '@HollowCountry/mod.cpp'
+        def crash_before_copy(source, destination):
+            if destination == target:
+                raise Crash()
+            original(source, destination)
+        with mock.patch.object(ws, 'copy_atomic', crash_before_copy):
+            with self.assertRaises(Crash):
+                self.apply()
+        put(self.server, target.relative_to(self.server), 'OPERATOR CREATED THIS')
+        code, out, err = self.apply()
+        self.assertEqual(target.read_text(), 'OPERATOR CREATED THIS')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('rollback_pending', err)
+        self.assertIn('@HollowCountry/mod.cpp', err)
+        self.assertIn(fi.BACKUP_DIR, err)
+
+    def test_recovery_preserves_edited_and_unrecognized_tree_files(self):
+        journal = self.crash_after('overlays-map')
+        put(self.mission, 'cfggameplay.json', 'SERVER EDIT')
+        put(self.mission, 'operator.txt', 'OPERATOR CREATED')
+        code, out, err = self.apply()
+        self.assertEqual((self.mission / 'cfggameplay.json').read_text(), 'SERVER EDIT')
+        self.assertEqual((self.mission / 'operator.txt').read_text(), 'OPERATOR CREATED')
+        self.assertEqual(code, 2, out + err)
+        self.assertIn(str(journal.parent / 'mpmissions' / MISSION), err)
+        self.assertIn('cfggameplay.json', err)
+        self.assertIn('operator.txt', err)
+
+    def test_journal_records_written_file_and_tree_hashes(self):
+        journal = self.crash_after('cfg')
+        rows = {row['path']: row for row in json.loads(journal.read_text())['entries']}
+        for rel in ('serverDZ.cfg', '@HollowCountry/mod.cpp'):
+            self.assertIn(sha((self.server / rel).read_bytes()), rows[rel]['written'][''])
+        tree_rel = 'mpmissions/' + MISSION
+        tree = rows[tree_rel]['written']
+        for name in ('cfggameplay.json', fi.map_overlay.MANAGED + '/receipt.json'):
+            self.assertIn(sha((self.mission / name).read_bytes()), tree[name])
+
+    def test_reserved_components_are_case_insensitive(self):
+        for rel in ('Storage_1/player.db', 'nested/Storage_1/file',
+                    'hollow-country-install-backups/file', 'HOLLOW-COUNTRY-INSTALL-BACKUPS/file'):
+            with self.subTest(rel=rel), self.assertRaises(ValueError):
+                fi.safe_relative(rel)
+
+    def test_tree_inventory_and_backup_skip_mixed_case_storage(self):
+        put(self.mission, 'Storage_1/player.db', 'PERSISTENCE')
+        inventory = fi.tree_inventory(self.mission)
+        self.assertNotIn('Storage_1/player.db', inventory)
+        self.crash_after('overlay')
+        self.assertFalse(list((self.server / fi.BACKUP_DIR).rglob('player.db')))
+
+    def test_load_bundle_refuses_backslash_manifest_paths(self):
+        # POSIX permits a literal backslash filename; Windows would treat it as a separator.
+        path = put(self.bundle, 'keys\\injected.bikey', 'KEY')
+        manifest = json.loads((self.bundle / fi.BUNDLE_MANIFEST).read_text())
+        manifest['files'].append({'path': path.name, 'sha256': sha(b'KEY')})
+        put(self.bundle, fi.BUNDLE_MANIFEST, json.dumps(manifest))
+        with self.assertRaises(fi.Refused):
+            fi.load_bundle(self.bundle)
+
+    def test_cfg_uses_atomic_fsync_writer_without_clobbering_fixed_temp_name(self):
+        sentinel = put(self.server, '.serverDZ.cfg.hc-new', 'OPERATOR TEMP')
+        syncs = []
+        real_fsync = os.fsync
+        real_replace = os.replace
+        def sync(fd):
+            syncs.append(fd)
+            return real_fsync(fd)
+        def replace(source, target):
+            if Path(target) == self.server / 'serverDZ.cfg':
+                self.assertTrue(syncs, 'cfg replacement must follow fsync')
+                self.assertNotEqual(Path(source), sentinel)
+            return real_replace(source, target)
+        with mock.patch.object(os, 'fsync', sync), mock.patch.object(os, 'replace', replace):
+            code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(sentinel.read_text(), 'OPERATOR TEMP')
+
+    def test_atomic_copy_fsyncs_parent_after_replace(self):
+        events = []
+        source = put(self.tmp, 'source', 'BYTES')
+        target = self.tmp / 'target'
+        real_sync, real_replace = os.fsync, os.replace
+        def sync(fd):
+            events.append('sync')
+            return real_sync(fd)
+        def replace(source, target):
+            events.append('replace')
+            return real_replace(source, target)
+        with mock.patch.object(os, 'fsync', sync), mock.patch.object(os, 'replace', replace):
+            ws.copy_atomic(source, target)
+        self.assertEqual(events, ['sync', 'replace', 'sync'])
+
+    def test_parent_fsync_failure_is_best_effort_on_windows(self):
+        target = self.tmp / 'target'
+        with mock.patch.object(ws.os, 'name', 'nt'), \
+                mock.patch.object(ws.os, 'open', side_effect=PermissionError('synthetic Windows directory handle')):
+            ws.fsync_parent(target)
+
+    def test_parent_fsync_io_failure_is_reported_when_supported(self):
+        target = self.tmp / 'target'
+        with mock.patch.object(ws.os, 'name', 'posix'), \
+                mock.patch.object(ws.os, 'open', return_value=123), \
+                mock.patch.object(ws.os, 'fsync', side_effect=OSError('synthetic disk failure')), \
+                mock.patch.object(ws.os, 'close') as close:
+            with self.assertRaises(OSError):
+                ws.fsync_parent(target)
+            close.assert_called_once_with(123)
+
+    def test_unfingerprinted_mission_bytes_require_manual_reconciliation(self):
+        journal = self.crash_after('overlay')
+        # Explicitly model a hard exit before a tree writer publishes its after snapshot.
+        data = json.loads(journal.read_text())
+        tree = next(row for row in data['entries'] if row['kind'] == 'tree')
+        tree['written'] = {}
+        journal.write_text(json.dumps(data))
+        before = live_snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertEqual(live_snapshot(self.server), before)
+        self.assertIn('rollback_pending', err)
+        self.assertIn('hollow-country-bundle/receipt.json', err)
+        self.assertEqual(err.count('changed after interrupted install; left untouched:'), 1)
+
+    def test_identical_dependency_key_is_unchanged_without_a_backup(self):
+        key = next(self.content.rglob('*.bikey'))
+        rel = 'keys/' + key.name
+        put(self.server, rel, key.read_bytes())
+        journal = self.crash_after('workshop')
+        data = json.loads(journal.read_text())
+        self.assertFalse((journal.parent / rel).exists(), 'unchanged dependency must not be backed up')
+        self.assertIn(rel, data['unchanged'])
+        self.assertNotIn(rel, [row['path'] for row in data['entries']])
+
+
 if __name__ == '__main__':
     unittest.main()

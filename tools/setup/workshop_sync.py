@@ -33,6 +33,7 @@ Offline checks establish nothing about DayZ behaviour: the join-time auto-subscr
 mod set at runtime stay pending the owner's acceptance.
 """
 import argparse
+import errno
 import hashlib
 import json
 import os
@@ -233,34 +234,53 @@ def sha256_of(path):
     return digest.hexdigest()
 
 
-def copy_atomic(source, target):
-    fd, temp = tempfile.mkstemp(dir=str(target.parent), prefix='.sync-', suffix='.tmp')
+def fsync_parent(path):
+    """Persist the rename where directory fsync is supported (best effort on Windows)."""
+    fd = None
     try:
-        with os.fdopen(fd, 'wb') as handle, open(source, 'rb') as src:
-            shutil.copyfileobj(src, handle, 1024 * 1024)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.chmod(temp, 0o644)
-        os.replace(temp, target)
-    except BaseException:
-        if os.path.exists(temp):
-            os.unlink(temp)
-        raise
+        fd = os.open(path.parent, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+        os.fsync(fd)
+    except OSError as error:
+        if os.name != 'nt' and error.errno not in (errno.EINVAL, errno.ENOTSUP):
+            raise
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
-def write_json_atomic(path, data):
-    fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix='.receipt-', suffix='.tmp')
+def _write_atomic(path, writer, prefix):
+    fd, temp = tempfile.mkstemp(dir=str(path.parent), prefix=prefix, suffix='.tmp')
     try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
-            handle.write(json.dumps(data, indent=2, sort_keys=True) + '\n')
+        with os.fdopen(fd, 'wb') as handle:
+            writer(handle)
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temp, 0o644)
         os.replace(temp, path)
+        fsync_parent(path)
     except BaseException:
         if os.path.exists(temp):
             os.unlink(temp)
         raise
+
+
+def copy_atomic(source, target):
+    def copy(handle):
+        with open(source, 'rb') as src:
+            shutil.copyfileobj(src, handle, 1024 * 1024)
+    _write_atomic(target, copy, '.sync-')
+
+
+def write_bytes_atomic(path, data):
+    _write_atomic(path, lambda handle: handle.write(data), '.sync-')
+
+
+def json_bytes(data):
+    return (json.dumps(data, indent=2, sort_keys=True) + '\n').encode('utf-8')
+
+
+def write_json_atomic(path, data):
+    _write_atomic(path, lambda handle: handle.write(json_bytes(data)), '.receipt-')
 
 
 def check_root(root):
@@ -521,7 +541,7 @@ def plan_install(items, dirs, root, owned=()):
     return targets, skipped, manual
 
 
-def cmd_install(args, say):
+def cmd_install(args, say, before_write=None):
     require_stopped(args)
     root = check_root(args.server_root)
     groups, items, dirs = resolve(args)
@@ -536,6 +556,8 @@ def cmd_install(args, say):
             target = root / rel
             if target.is_file():
                 continue
+            if before_write is not None:
+                before_write(rel, digest)
             parent = ''
             for part in rel.split('/')[:-1]:
                 parent = parent + '/' + part if parent else part
@@ -549,7 +571,10 @@ def cmd_install(args, say):
             changed = True
     finally:
         if changed or receipt is None:
-            write_json_atomic(root / RECEIPT_NAME, receipt_data(files, made_dirs))
+            data = receipt_data(files, made_dirs)
+            if before_write is not None:
+                before_write(RECEIPT_NAME, hashlib.sha256(json_bytes(data)).hexdigest())
+            write_json_atomic(root / RECEIPT_NAME, data)
     for item in items:
         if item['id']:
             fresh = [r for r in created if r.startswith(item['folder'] + '/')]
@@ -667,7 +692,7 @@ def build_parser():
     return parser
 
 
-def main(argv=None, out=None):
+def main(argv=None, out=None, before_write=None):
     out = out or sys.stdout
     args = build_parser().parse_args(argv)
 
@@ -676,6 +701,8 @@ def main(argv=None, out=None):
 
     commands = {'plan': cmd_plan, 'fetch': cmd_fetch, 'install': cmd_install, 'rollback': cmd_rollback}
     try:
+        if args.command == 'install':
+            return cmd_install(args, say, before_write=before_write)
         return commands[args.command](args, say)
     except SyncError as exc:
         print('error: %s' % exc, file=sys.stderr)
