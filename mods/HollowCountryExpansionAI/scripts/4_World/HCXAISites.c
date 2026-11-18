@@ -416,6 +416,7 @@ class HCXAISiteDirector : Managed
         }
         m_Build = HCXAIStore.NativeBuild();
         m_Diagnostic = FileExist(HCXAISiteDirector.DIAGNOSTIC);
+        HCXAIDefaults.ProvisionSites(); // Workshop route: shipped default when the profile has none
         m_Policy = HCXAISiteDirector.LoadPolicy();
         if (!m_Policy)
         {
@@ -442,6 +443,11 @@ class HCXAISiteDirector : Managed
         }
         int count = m_Policy.Sites.Count();
         Print("[HC Expansion AI] sites policy accepted: " + count.ToString() + " sites; waiting for Expansion AI settings");
+        bool shippedPolicy = HCXAIDefaults.MatchesShipped();
+        int shippedCount = count;
+        if (!shippedPolicy) { shippedCount = HCXAIDefaults.ShippedSiteCount(); }
+        string drift = HCXAIDefaults.PolicyDrift(shippedPolicy, count, shippedCount);
+        if (drift != "") { Print(drift); }
         if (m_Diagnostic) { Print("[HC Expansion AI] DIAGNOSTIC marker present: one site of each kind spawns once with no player (Wine observation only)"); }
     }
     void Stop()
@@ -476,6 +482,7 @@ class HCXAISiteDirector : Managed
         bool patrolLoaded = false;
         if (aiLoaded && GetExpansionSettings().GetAIPatrol(false)) { patrolLoaded = GetExpansionSettings().GetAIPatrol(false).IsLoaded(); }
         if (!aiLoaded || !patrolLoaded) { return; }
+        HCXAIDefaults.ProvisionLoadouts(m_Policy); // once: the wait phase ends below
         HCXAISiteAdmission admission = this.Observe();
         string problem = HCXAISiteRules.AdmissionProblem(m_Policy, admission);
         if (problem != "")
@@ -1061,9 +1068,10 @@ class HCXAISiteDirector : Managed
         config.CanSpawnInContaminatedArea = false;
         config.MinDistRadius = m_Policy.MinPlayerDistance;
         config.MaxDistRadius = site.ActivationRadius;
-        // Event bindings allow 600 m; the provider trigger must reach the same
-        // anchor. This only widens activation, never awareness or perception.
-        if (!state.Transient && config.MaxDistRadius < 600) { config.MaxDistRadius = 600; }
+        // Event bindings use this same trigger radius (EncounterRadius); the
+        // provider trigger must reach the bound anchor. This only widens
+        // activation, never awareness or perception.
+        if (!state.Transient) { config.MaxDistRadius = HCXAISiteRules.EncounterRadius(site.ActivationRadius); }
         config.DespawnRadius = config.MaxDistRadius + 100;
         config.DespawnTime = site.DespawnSeconds;
         config.RespawnTime = HCXAISiteDirector.RaidCooldown(site);

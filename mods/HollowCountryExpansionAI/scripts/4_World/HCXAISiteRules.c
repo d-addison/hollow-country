@@ -258,6 +258,16 @@ class HCXAISiteRules
         }
         return best;
     }
+    // The patrol's native trigger radius (HCXAISites patrol config MaxDistRadius
+    // for a reviewed, non-transient site): ActivationRadius, raised to 600 m.
+    // Encounters bind against this same radius, never a wider one. Invalid
+    // (non-positive) radii stay 0 so EncounterProblem refuses them.
+    static float EncounterRadius(float activationRadius)
+    {
+        if (activationRadius <= 0) { return 0; }
+        if (activationRadius < 600) { return 600; }
+        return activationRadius;
+    }
     // A player at the anchor must be inside the patrol's own ActivationRadius
     // of its route; the bound is the site's, never widened for the event.
     static string EncounterProblem(bool qualified, bool patrolled, bool bound, float gap, float activationRadius)

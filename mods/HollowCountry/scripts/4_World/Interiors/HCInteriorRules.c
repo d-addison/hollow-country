@@ -118,10 +118,9 @@ class HCInteriorRules
         return false;
     }
 
-    // Local acceptance only: a server operator may create these marker files so the
-    // owner's local server run can exercise placement and search. Each is probed once
-    // per process, server-only, and logs one EXPERIMENTAL line only when it opens.
-    // Markers are independent and never auto-opened. interior_search is only
+    // Owner decision 2026-11-18: placement and search are on by default. Each
+    // acceptance/<gate>.disable opt-out is probed once per process, server-only,
+    // and one HCV1Admission line ("admitted unverified" or "off") is logged. interior_search is only
     // meaningful with interior_placement: MaySearch also needs a started, healthy
     // layout (m_Ready), a bound search economy (BindSearchEconomy, which has no
     // caller on this build) and EnableInteriors/EnableSearch. Placement needs the
@@ -147,8 +146,7 @@ class HCInteriorRules
         {
             s_PlacementChecked = true;
             s_PlacementOptIn = PlacementOptIn();
-            if (s_PlacementOptIn)
-                Print("[HC Interiors] placement EXPERIMENTAL on by default (opt out: interior_placement.disable); runtime acceptance PENDING");
+            Print(HCV1Admission.Line("InteriorPlacement", s_PlacementOptIn, "interior_placement", PlacementAccepted()));
         }
         return s_PlacementOptIn;
     }
@@ -163,8 +161,7 @@ class HCInteriorRules
         {
             s_SearchChecked = true;
             s_SearchOptIn = SearchOptIn();
-            if (s_SearchOptIn)
-                Print("[HC Interiors] search EXPERIMENTAL on by default (opt out: interior_search.disable); runtime acceptance PENDING");
+            Print(HCV1Admission.Line("InteriorSearch", s_SearchOptIn, "interior_search", SearchAccepted()));
         }
         return s_SearchOptIn;
     }

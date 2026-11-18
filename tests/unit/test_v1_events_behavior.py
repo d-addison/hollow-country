@@ -13,6 +13,7 @@ from tests.unit import test_event_integration as integration_fixtures
 from tests.unit import test_event_ui as ui_fixtures
 from tests.unit import test_event_transport as transport_fixtures
 from tests.unit.test_group_server import EArray
+from tests.unit import test_event_sites as sites_tests
 
 
 def load_class(filename, owner, env):
@@ -284,6 +285,7 @@ class V1LifecycleAndPresentation(unittest.TestCase):
         env = dict(EArray=EArray, str=str); probes = []; logs = []
         env['FileExist'] = lambda path: probes.append(path) or False       # no .disable file: the default
         env['Print'] = logs.append
+        env['HCV1Admission'] = sites_tests.v1_admission()
         source = (ROOT / '4_World/Events/HCEventQualification.c').read_text()
         source = re.sub(r'\bs_(Checked|OptIn)\b', r'HCEventQualification.s_\1', source)
         cls = type('AuthoredQualification', (), dict(s_Checked=False, s_OptIn=False))
@@ -292,9 +294,12 @@ class V1LifecycleAndPresentation(unittest.TestCase):
             setattr(cls, name, staticmethod(translate(source, name, env, 'HCEventQualification')))
         self.assertFalse(cls.Qualified()); self.assertTrue(cls.Admitted()); self.assertTrue(cls.Admitted())
         self.assertEqual(['$profile:HollowCountry/acceptance/events.disable'], probes)
-        self.assertEqual(1, len(logs)); self.assertIn('EXPERIMENTAL', logs[0])
+        self.assertEqual(['[HollowCountry] V1 admission feature=Events preference=on gate=events qualified=0 result=admitted '
+                          'unverified: events has no recorded native verdict; opt out with acceptance/events.disable'], logs)
         cls.s_Checked = False; env['FileExist'] = lambda path: True        # the opt-out file now exists
         self.assertFalse(cls.Admitted())
+        self.assertEqual('[HollowCountry] V1 admission feature=Events preference=off gate=events qualified=0 '
+                         'result=off: operator opt-out acceptance/events.disable', logs[-1])
 
     def test_optional_ai_selection_constructs_only_the_fixed_script_provider(self):
         env = dict(EArray=EArray, str=str, Print=lambda line: None)

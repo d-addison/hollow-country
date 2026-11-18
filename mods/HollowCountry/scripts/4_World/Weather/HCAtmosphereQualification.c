@@ -3,10 +3,10 @@
 // ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // 2_GameLib/gameLib.c:4 GetGame; 3_Game/Global/Game.c:1120 IsServer;
 // 3_Game/Global/Game.c:934 GetWorldName(), :942 GetVersion(out string);
-// 1_Core/proto/EnString.c:171 ToLower;
+// 1_Core/proto/EnString.c:171 ToLower, :113 Substring;
+// 1_Core/proto/EnConvert.c:44 int.AsciiToString;
 // 1_Core/proto/EnSystem.c:397 FileExist, :417 OpenFile, :425 ReadFile,
 // :443 CloseFile, :380 FileMode; 1_Core/proto/EnString.c:199 Length, :240 IndexOf;
-// 1_Core/proto/EnConvert.c:44 int.AsciiToString;
 // 1_Core/proto/EnDebug.c:96 Print. HCServer/HCSettings are authored interfaces.
 class HCAtmosphereQualification
 {
@@ -48,12 +48,144 @@ class HCAtmosphereQualification
         {
             s_Probed = true;
             s_OptIn = !FileExist("$profile:HollowCountry/acceptance/atmosphere.disable");
-            if (s_OptIn)
-                Print("[HollowCountry][Atmosphere] EXPERIMENTAL on by default (opt out: atmosphere.disable); runtime acceptance PENDING; restart required to change marker");
-            else
-                Print("[HollowCountry][Atmosphere] PENDING native acceptance; opted out by atmosphere.disable; vanilla weather retained");
+            Print(HCV1Admission.Line("Atmosphere", s_OptIn, "atmosphere", HCAtmosphereQualification.Qualified()) + "; restart required to change marker");
         }
         return s_OptIn;
+    }
+
+    // XML name characters after ToLower; anything else separates tokens.
+    static bool HCXmlNameChar(string ch)
+    {
+        string nameChars = "abcdefghijklmnopqrstuvwxyz0123456789-_.:";
+        if (ch.Length() != 1)
+            return false;
+        return nameChars.IndexOf(ch) >= 0;
+    }
+
+    // Value of one attribute in a lowercased start-tag body, skipping quoted
+    // values so a name inside another value never matches. "" = absent,
+    // "?" = malformed (unterminated quote or unquoted value).
+    static string HCXmlAttribute(string tag, string name)
+    {
+        int length = tag.Length();
+        int index = 0;
+        int next = 0;
+        int stop = 0;
+        int close = 0;
+        string ch = "";
+        string tail = "";
+        string attribute = "";
+        string mark = "";
+        int quoteCode = 34;
+        string quote = quoteCode.AsciiToString();
+        while (index < length)
+        {
+            ch = tag.Substring(index, 1);
+            if (ch == "'" || ch == quote)
+            {
+                next = index + 1;
+                tail = tag.Substring(next, length - next);
+                close = tail.IndexOf(ch);
+                if (close < 0)
+                    return "?";
+                index = next + close + 1;
+                continue;
+            }
+            if (!HCAtmosphereQualification.HCXmlNameChar(ch))
+            {
+                index = index + 1;
+                continue;
+            }
+            stop = index;
+            while (stop < length)
+            {
+                ch = tag.Substring(stop, 1);
+                if (!HCAtmosphereQualification.HCXmlNameChar(ch))
+                    break;
+                stop = stop + 1;
+            }
+            attribute = tag.Substring(index, stop - index);
+            index = stop;
+            if (attribute != name)
+                continue;
+            if (stop + 2 >= length)
+                return "?";
+            ch = tag.Substring(stop, 1);
+            next = stop + 1;
+            mark = tag.Substring(next, 1);
+            if (ch != "=" || (mark != "'" && mark != quote))
+                return "?";
+            next = stop + 2;
+            tail = tag.Substring(next, length - next);
+            close = tail.IndexOf(mark);
+            if (close < 0)
+                return "?";
+            return tail.Substring(0, close);
+        }
+        return "";
+    }
+
+    // True only when the first element after <?...?> declarations and
+    // <!--...--> comments is <weather ...> with enable 0/false and reset absent
+    // or 0/false (the stock mission and generator forms). Commented-out roots,
+    // other roots, doctype/CDATA and malformed attributes refuse. Bounded: at
+    // most 64 prolog items and a 1024-character root tag of a 64 KiB document.
+    static bool DisabledXmlRoot(string document)
+    {
+        int total = document.Length();
+        if (total < 1 || total > 65536)
+            return false;
+        string text = document;
+        text.ToLower();
+        int cursor = 0;
+        int steps = 0;
+        int open = 0;
+        int close = 0;
+        string rest = "";
+        string tag = "";
+        string enable = "";
+        string reset = "";
+        while (steps < 64)
+        {
+            steps = steps + 1;
+            rest = text.Substring(cursor, total - cursor);
+            open = rest.IndexOf("<");
+            if (open < 0)
+                return false;
+            cursor = cursor + open;
+            rest = text.Substring(cursor, total - cursor);
+            if (rest.IndexOf("<?") == 0)
+            {
+                close = rest.IndexOf("?>");
+                if (close < 0)
+                    return false;
+                cursor = cursor + close + 2;
+                continue;
+            }
+            if (rest.IndexOf("<!--") == 0)
+            {
+                close = rest.IndexOf("-->");
+                if (close < 0)
+                    return false;
+                cursor = cursor + close + 3;
+                continue;
+            }
+            if (rest.IndexOf("<weather") != 0 || rest.Length() < 9)
+                return false;
+            tag = rest.Substring(8, 1);
+            if (HCAtmosphereQualification.HCXmlNameChar(tag))
+                return false;
+            close = rest.IndexOf(">");
+            if (close < 8 || close > 1024)
+                return false;
+            tag = rest.Substring(8, close - 8);
+            enable = HCAtmosphereQualification.HCXmlAttribute(tag, "enable");
+            reset = HCAtmosphereQualification.HCXmlAttribute(tag, "reset");
+            if (enable != "0" && enable != "false")
+                return false;
+            return reset == "" || reset == "0" || reset == "false";
+        }
+        return false;
     }
 
     static bool DelegatedWeather()
@@ -61,24 +193,25 @@ class HCAtmosphereQualification
         if (s_WeatherProbed)
             return s_Delegated;
         s_WeatherProbed = true;
-        // Require the generator's canonical disabled root, not a substring
-        // that could appear in a comment. No general-purpose XML parser.
+        // The script owns weather when the mission has no cfgweather.xml, or
+        // when its root disables the XML controller (stock vanilla missions
+        // ship <weather reset="0" enable="0">). No general-purpose XML parser.
         FileHandle weatherHandle = OpenFile("$mission:cfgweather.xml", FileMode.READ);
         if (!weatherHandle)
         {
-            Print("[HollowCountry][Atmosphere] BLOCKED missing delegated cfgweather.xml; generate v1-script candidate; vanilla retained");
-            return false;
+            s_Delegated = !FileExist("$mission:cfgweather.xml");
+            if (s_Delegated)
+                Print("[HollowCountry][Atmosphere] cfgweather.xml absent; no XML weather controller, script weather owner");
+            else
+                Print(HCV1Admission.Refused("Atmosphere", "atmosphere", "cfgweather.xml present but unreadable; vanilla weather retained"));
+            return s_Delegated;
         }
         string weatherDocument;
         ReadFile(weatherHandle, weatherDocument, 65537);
         CloseFile(weatherHandle);
-        int quoteCode = 34;
-        string quoteMark = quoteCode.AsciiToString();
-        string disabledPrefix = "<?xml version='1.0' encoding='utf-8'?>\n<weather enable=" + quoteMark + "0" + quoteMark;
-        disabledPrefix = disabledPrefix + " reset=" + quoteMark + "0" + quoteMark + ">";
-        s_Delegated = weatherDocument.Length() <= 65536 && weatherDocument.IndexOf(disabledPrefix) == 0;
+        s_Delegated = HCAtmosphereQualification.DisabledXmlRoot(weatherDocument);
         if (!s_Delegated)
-            Print("[HollowCountry][Atmosphere] BLOCKED XML ownership: use v1-script disabled XML without reset; no script weather or lighting applied");
+            Print(HCV1Admission.Refused("Atmosphere", "atmosphere", "cfgweather.xml root weather enable is not 0, reset is 1, or the root is unreadable; the XML controller owns weather; no script weather or lighting applied"));
         return s_Delegated;
     }
 

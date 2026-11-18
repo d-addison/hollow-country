@@ -39,9 +39,9 @@ class HCInfectedVisionQualification
             s_Checked = true;
             s_OptIn = LocalAcceptanceOptIn();
             if (s_OptIn)
-                Print("[HollowCountry] Infected vision EXPERIMENTAL local acceptance opt-in active; runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=InfectedVision preference=on gate=infected_vision qualified=0 result=admitted unverified: infected_vision has no recorded native verdict; opt out with acceptance/infected_vision.disable; EXPERIMENTAL; runtime acceptance PENDING");
             else
-                Print("[HollowCountry] Infected vision not admitted; runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=InfectedVision preference=off gate=infected_vision qualified=0 result=off: operator opt-out acceptance/infected_vision.disable; not admitted; runtime acceptance PENDING");
         }
         return s_OptIn;
     }

@@ -1,5 +1,18 @@
+// Registry ceilings are runtime constants, separate from the settings fields:
+// MaxActors/MaxResources remain the per-tick observation batch/policy bounds
+// (<= 3_Game HCEcologyLimits.ACTORS/ZONES = 32). Sized for vanilla Chernarus CE
+// (types.xml food nominal 839 + liquid containers 271, plus wells, inventories
+// and herd/ambient animals) with headroom; a binding is one handle, int and
+// short id, so the fixed ceilings bound memory to a few hundred KB.
 class HCEcologyRuntimeRules
 {
+	static const int REGISTRY_ACTORS = 256;
+	static const int REGISTRY_RESOURCES = 2048;
+	// Per observation tick: distance-only pair checks and native path probes,
+	// both also stopped by the shared HCWorkBudget 4 ms cooperative guard.
+	static const int PAIRS_PER_TICK = 512;
+	static const int PROBES_PER_TICK = 2;
+
 	static bool Finite(float value)
 	{
 		return value >= -FLT_MAX && value <= FLT_MAX;

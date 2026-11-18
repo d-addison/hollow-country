@@ -7,10 +7,15 @@
 // 3_Game/Global/Game.c:1535 GetTime, :1197 SurfaceIsPond;
 // 3_Game/Entities/Object.c:287 GetPosition. Dirty state tracks only the
 // persisted Samples/PathQueries counters; native acceptance remains pending.
-// Runtime cohort ceiling: HCEcologyLimits.ACTORS (32), shared for actors and
-// resources; settings defaults are preferences, never additional ceilings.
-// Per 5s default tick: <=8+8 samples, <=64 pairs, <=4 path queries (config max8),
-// cleanup <=32+32 bindings and <=8 intents. No global population/player scan.
+// Registry ceilings: HCEcologyRuntimeRules.REGISTRY_ACTORS (256) and
+// REGISTRY_RESOURCES (2048), fixed, sized for the shipped vanilla CE cohort;
+// settings MaxActors/MaxResources bound only the per-tick batch/policy (<=32).
+// Per 5s default tick: <=8+8 samples, <=PAIRS_PER_TICK (512) distance checks
+// and <=min(MaxPathQueries, PROBES_PER_TICK=2) native path probes, all behind
+// the shared World/HCWorkBudget guard (4 ms cooperative; native FindPath is not
+// preemptible) with cursors retained before yielding; cleanup <=256+2048
+// bindings and <=8 intents. Hooks flag bound entities, so EEInit never scans for
+// duplicates and EEDelete of unbound items never scans. No population/player scan.
 class HCEcologyLiveBinding
 {
 	EntityAI Live;
@@ -47,6 +52,7 @@ class HCEcologyRuntime
 	protected int m_ActorSample;
 	protected int m_ResourceSample;
 	protected string m_Session;
+	protected ref HCWorkBudget m_Budget = new HCWorkBudget;
 
 	static HCEcologyRuntime Instance()
 	{
@@ -55,11 +61,13 @@ class HCEcologyRuntime
 		return s_Instance;
 	}
 
-	static void Register(EntityAI entity, bool actor)
+	// True when the entity was bound; the hook keeps that flag so a repeated
+	// EEInit never rebinds and only bound entities pay for Unregister.
+	static bool Register(EntityAI entity, bool actor)
 	{
 		HCEcologyRuntime runtime = Instance();
-		if (!runtime || !entity) { return; }
-		runtime.Add(entity, actor);
+		if (!runtime || !entity) { return false; }
+		return runtime.Add(entity, actor);
 	}
 
 	// Called when the service will not start (disabled or rejected): releases
@@ -83,18 +91,18 @@ class HCEcologyRuntime
 		s_Instance.Remove(entity);
 	}
 
-	void Add(EntityAI entity, bool actor)
+	bool Add(EntityAI entity, bool actor)
 	{
-		if (!m_Collecting || !entity || !HCEcologyNative.Authority() || entity.IsPendingDeletion()) { return; }
+		if (!m_Collecting || !entity || !HCEcologyNative.Authority() || entity.IsPendingDeletion()) { return false; }
 		array<ref HCEcologyLiveBinding> entries = m_Resources;
-		int limit = HCEcologyLimits.ACTORS;
-		if (actor) { entries = m_Actors; }
-		if (m_Settings)
+		int limit = HCEcologyRuntimeRules.REGISTRY_RESOURCES;
+		if (actor)
 		{
-			limit = m_Settings.MaxResources;
-			if (actor) { limit = m_Settings.MaxActors; }
+			entries = m_Actors;
+			limit = HCEcologyRuntimeRules.REGISTRY_ACTORS;
 		}
-		// EEInit hot path: full cohorts never inspect resources or scan duplicates.
+		// EEInit hot path: full cohorts never inspect resources. Duplicates are
+		// excluded by the hook's bound flag, so no per-registration scan runs.
 		if (entries.Count() >= limit || m_NextSerial >= 2147483647)
 		{
 			// One line per registry and session: name, cap and the count this entry would make.
@@ -112,20 +120,14 @@ class HCEcologyRuntime
 				if (actor) { m_ActorOverflow = true; }
 				else { m_ResourceOverflow = true; }
 			}
-			return;
+			return false;
 		}
 		if (!actor)
 		{
 			ItemBase item = ItemBase.Cast(entity);
 			bool eligible = entity.GetWaterSourceObjectType() == EWaterSourceObjectType.WELL;
 			if (item) { eligible = eligible || item.IsFood() || Edible_Base.Cast(item) != null || item.IsLiquidContainer(); }
-			if (!eligible) { return; }
-		}
-		int i = 0;
-		while (i < entries.Count())
-		{
-			if (entries.Get(i).Live == entity) { return; }
-			i++;
+			if (!eligible) { return false; }
 		}
 		HCEcologyLiveBinding binding = new HCEcologyLiveBinding;
 		binding.Live = entity;
@@ -133,6 +135,7 @@ class HCEcologyRuntime
 		binding.LocalId = HCEcologyRuntimeRules.LocalId(m_Session, binding.Serial);
 		m_NextSerial++;
 		entries.Insert(binding);
+		return true;
 	}
 
 	void Remove(EntityAI entity)
@@ -201,7 +204,7 @@ class HCEcologyRuntime
 			Print("[HC Ecology] explicitly disabled by operator");
 			return false;
 		}
-		if (m_Actors.Count() > m_Settings.MaxActors || m_Resources.Count() > m_Settings.MaxResources)
+		if (m_Actors.Count() > HCEcologyRuntimeRules.REGISTRY_ACTORS || m_Resources.Count() > HCEcologyRuntimeRules.REGISTRY_RESOURCES)
 		{
 			Print("[HC Ecology] retained cohort exceeds configured bounds; admission rejected");
 			return false;
@@ -397,13 +400,24 @@ class HCEcologyRuntime
 		if (actorCount == 0 || resourceCount == 0) { return 0; }
 		int queries = 0;
 		int examined = 0;
+		// <=256*2048 pairs, so the product cannot overflow int.
 		int totalPairs = actorCount * resourceCount;
+		int pairLimit = Math.Min(totalPairs, HCEcologyRuntimeRules.PAIRS_PER_TICK);
+		int queryLimit = Math.Min(m_Settings.MaxPathQueries, HCEcologyRuntimeRules.PROBES_PER_TICK);
 		m_ActorCursor = m_ActorCursor % actorCount;
 		m_ResourceCursor = m_ResourceCursor % resourceCount;
-		// Pair examinations and native path queries have independent budgets.
-		// These cursors identify the NEXT pair, even when a query exhausts its budget.
-		while (examined < 64 && examined < totalPairs && queries < m_Settings.MaxPathQueries)
+		// Pair examinations and native path queries have independent budgets; the
+		// shared guard is consulted BEFORE each pair, so the cursors always name the
+		// NEXT unexamined pair when this tick yields, and the next tick resumes there.
+		m_Budget.HCReset(HCEcologyRuntimeRules.PAIRS_PER_TICK);
+		bool yielded = false;
+		while (examined < pairLimit && queries < queryLimit)
 		{
+			if (!m_Budget.HCContinue())
+			{
+				yielded = true;
+				break;
+			}
 			HCEcologyLiveBinding actor = m_Actors.Get(m_ActorCursor);
 			HCEcologyLiveBinding resource = m_Resources.Get(m_ResourceCursor);
 			examined++;
@@ -431,6 +445,7 @@ class HCEcologyRuntime
 			HCEcologyRouteIntent intent = HCEcologyNative.ProbePath(actor.Live, resource.Live, actorId, resourceId, kind, m_Settings, m_Policy.WorldName, m_Session, nowMs);
 			if (intent) { m_Intents.Insert(intent); }
 		}
+		if (yielded) { m_Budget.HCDeferred("Ecology", pairLimit - examined); }
 		return queries;
 	}
 

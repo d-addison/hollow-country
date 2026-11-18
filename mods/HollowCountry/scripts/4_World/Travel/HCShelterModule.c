@@ -14,6 +14,14 @@
 // :115 float.ToString, :138 vector.ToString, :210 DistanceSq;
 // 1_Core/proto/EnMath.c:225 AbsFloat; EnMath3D.c:18 Vector.
 // 3_Game/Systems/Inventory/Cargo.c:12 GetCargoOwner for refusal diagnostics.
+// Soft vegetation: 3_Game/Entities/Object.c:613 IsBush (overridden true by
+// BushHard/BushSoft at 4_World/Entities/Core/Inherited/Plant.c:76/96) and
+// :577 IsInventoryItem; vanilla already treats bushes as non-blocking for
+// crew access at 3_Game/Vehicles/Transport.c:810. Bushes are never deleted:
+// no replicated map-object removal API was observed, so a yard prop may share
+// space with a bush instead. Ring bearings: 1_Core/proto/EnMath.c:17 DEG2RAD,
+// :331 Sin, :343 Cos; 1_Core/proto/EnScript.c:389/399 array Set/Get;
+// 3_Game/Entities/Object.c:287 GetPosition for the ring placement log.
 // 1_Core/proto/EnDebug.c:96 Print.
 // Reused read-only HCInteriorTemplatePlacement.Resolve/Spawn and
 // HCInteriorTemplates.SlotClear/BoxValid/AsVector. No acceptance gate bypass in
@@ -33,6 +41,17 @@ class HCShelterModule : HCModule
     protected int m_LayoutVariant;
     protected float m_GroundRise;
     protected ref array<Object> m_Objects = new array<Object>;
+    // Startup-only fallback when all eight authored variants fail: one screen
+    // of at most HC_RING_CANDIDATES yard anchors (SurfaceY only, 15 reads per
+    // candidate) and at most HC_RING_ATTEMPTS full prop placements.
+    static const int HC_RING_CANDIDATES = 16;
+    static const int HC_RING_ATTEMPTS = 4;
+    static const float HC_RING_INNER = 6.0;
+    static const float HC_RING_OUTER = 12.0;
+    protected int m_RingCandidate = -1;
+    protected float m_RingRise;
+    protected int m_SoftVegetation;
+    protected ref array<float> m_RingRises = new array<float>();
 
     override string GetName() { return "Shelters"; }
 
@@ -65,7 +84,8 @@ class HCShelterModule : HCModule
         Print("[HollowCountry] V2 shelters placed=" + m_Placed.ToString() + " props=" + propCount.ToString() + " refused=" + m_Refused.ToString());
     }
 
-    // No tick work or recurring retries; startup tries at most eight layouts.
+    // No tick work or recurring retries; startup tries at most eight layouts,
+    // one 16-candidate terrain screen and HC_RING_ATTEMPTS ring placements.
     override void OnStop()
     {
         if (!m_Started) return;
@@ -109,15 +129,20 @@ class HCShelterModule : HCModule
         // occupied room box. Source: interior-sampler-110/profiles/HCInteriorSampler/census.json.
         // Reserve the WHOLE clipping box + 2m and full end approaches, including all
         // stairs/CE positions, instead of trying to furnish unobserved rooms.
+        // The yard is the windowless west side only (model x < -11.5). Both end
+        // doors are approached along z within the barn width, so the door lanes
+        // span the full clipping width +2 m (x -10.5..10.5) out to 30 m beyond
+        // each end; the east side door and inner south stairs stay inside that
+        // reserved body/lane. The west yard may then extend along the side
+        // wall for the bounded ring fallback without touching any approach.
         HCInteriorTemplate layout = new HCInteriorTemplate;
         HCInteriorTemplateRoom yard = new HCInteriorTemplateRoom;
         yard.Id = 1;
-        yard.Min = Coordinates("-23 -20 -5.5");
-        yard.Max = Coordinates("-11.5 20 5.5");
+        yard.Min = Coordinates("-31 -20 -30");
+        yard.Max = Coordinates("-11.5 20 30");
         layout.Rooms.Insert(yard);
-        Keepout(layout, "door", 0, "-10.5 -20 -17.7", "10.5 20 17.7");
-        Keepout(layout, "stair", 0, "-30 -20 -30", "30 20 -6");
-        Keepout(layout, "door", 1, "-30 -20 6", "30 20 30");
+        Keepout(layout, "door", 0, "-10.5 -20 -30", "10.5 20 30");
+        Keepout(layout, "stair", 0, "-10.5 -20 -17.7", "10.5 20 -6");
         // Continuous walk-around lane beside the windowless side wall.
         Keepout(layout, "walkway", 0, "-11.5 -20 -30", "-10.5 20 30");
         return layout;
@@ -156,6 +181,11 @@ class HCShelterModule : HCModule
             // Refuse even non-colliding foreign/orphan statics. Never infer
             // ownership from coordinates or adopt/delete a restored object.
             if (!possibleOrphan) { continue; }
+            if (HCSoftVegetation(possibleOrphan))
+            {
+                m_SoftVegetation = m_SoftVegetation + 1;
+                continue;
+            }
             vector orphanPosition = possibleOrphan.GetPosition();
             float gapX = orphanPosition[0] - point[0];
             float gapZ = orphanPosition[2] - point[2];
@@ -207,11 +237,104 @@ class HCShelterModule : HCModule
 
     protected bool HCInBarnAccessStrip(vector offset)
     {
-        // 1.2m prop footprint + 0.3m collision margin. End approaches and
-        // the entire barn clipping envelope stay clear in every variant.
+        // 1.2m prop footprint + 0.3m collision margin. The barn clipping
+        // envelope, its walk-around lane and both end-door approach lanes
+        // (all at model x >= -10.5) stay clear; the yard stays within 30 m.
         if (offset[0] + 1.5 >= -10.5) { return true; }
-        if (offset[2] - 1.5 <= -6) { return true; }
-        return offset[2] + 1.5 >= 6;
+        if (offset[0] - 1.5 <= -31) { return true; }
+        if (offset[2] - 1.5 <= -30) { return true; }
+        return offset[2] + 1.5 >= 30;
+    }
+
+    // Bushes (BushHard/BushSoft) are soft vegetation: never a yard blocker and
+    // never deleted. Anything that is an inventory item still blocks.
+    protected bool HCSoftVegetation(Object candidate)
+    {
+        if (!candidate) { return false; }
+        if (candidate.IsInventoryItem()) { return false; }
+        return candidate.IsBush();
+    }
+
+    // Ring candidate shift in the barn model frame around the variant-0 yard
+    // anchor: 0..7 at HC_RING_INNER, 8..15 at HC_RING_OUTER, 45 degree steps,
+    // bearing 0 pointing outward (away from the windowless wall).
+    protected vector HCRingShift(int candidate)
+    {
+        float radius = HC_RING_INNER;
+        int bearing = candidate;
+        if (candidate >= 8)
+        {
+            radius = HC_RING_OUTER;
+            bearing = candidate - 8;
+        }
+        float angle = bearing * 45 * Math.DEG2RAD;
+        return Vector(-radius * Math.Cos(angle), 0, radius * Math.Sin(angle));
+    }
+
+    protected vector HCRingOffset(float localZ, int candidate)
+    {
+        vector shift = HCRingShift(candidate);
+        return Vector(-13.5 + shift[0], 0, localZ + shift[2]);
+    }
+
+    // Worst footprint rise of the three yard props at one ring candidate, or
+    // -1 when any prop would enter the reserved barn strip, water or a slope.
+    protected float HCRingRise(Object house, int candidate)
+    {
+        float worst = 0;
+        int propIndex = 0;
+        while (propIndex < 3)
+        {
+            float localZ = -3 + 3 * propIndex;
+            vector offset = HCRingOffset(localZ, candidate);
+            if (HCInBarnAccessStrip(offset)) { return -1; }
+            vector point = house.ModelToWorld(offset);
+            point[1] = GetGame().SurfaceY(point[0], point[2]);
+            if (!GroundFlat(point)) { return -1; }
+            if (m_GroundRise > worst) { worst = m_GroundRise; }
+            propIndex = propIndex + 1;
+        }
+        return worst;
+    }
+
+    // One bounded terrain screen per shelter; returns admissible candidates.
+    protected int HCScreenRing(Object house)
+    {
+        m_RingRises.Clear();
+        int admissible = 0;
+        int candidate = 0;
+        while (candidate < HC_RING_CANDIDATES)
+        {
+            float rise = HCRingRise(house, candidate);
+            m_RingRises.Insert(rise);
+            if (rise >= 0) { admissible = admissible + 1; }
+            candidate = candidate + 1;
+        }
+        return admissible;
+    }
+
+    // Flattest untried screened candidate (each is offered once), or -1.
+    protected int HCNextRingCandidate()
+    {
+        int best = -1;
+        float bestRise = 0;
+        int candidate = 0;
+        while (candidate < m_RingRises.Count())
+        {
+            float rise = m_RingRises.Get(candidate);
+            if (rise >= 0 && (best < 0 || rise < bestRise))
+            {
+                best = candidate;
+                bestRise = rise;
+            }
+            candidate = candidate + 1;
+        }
+        if (best >= 0)
+        {
+            m_RingRises.Set(best, -1);
+            m_RingRise = bestRise;
+        }
+        return best;
     }
 
     protected Object PlaceProp(Object house, HCInteriorTemplate layout, string propType, float localZ)
@@ -224,6 +347,7 @@ class HCShelterModule : HCModule
         m_GroundRise = 0;
         m_RefusalReason = "";
         vector offset = HCYardOffset(localZ, m_LayoutVariant);
+        if (m_RingCandidate >= 0) { offset = HCRingOffset(localZ, m_RingCandidate); }
         vector point = house.ModelToWorld(offset);
         point[1] = GetGame().SurfaceY(point[0], point[2]);
         m_RefusalPoint = point;
@@ -281,14 +405,24 @@ class HCShelterModule : HCModule
         array<Object> collided = new array<Object>;
         if (GetGame().IsBoxColliding(center, prop.GetOrientation(), size, excluded, collided))
         {
-            m_CollisionCount = collided.Count();
+            int hardCollisions = 0;
             foreach (Object blocker : collided)
             {
                 if (!blocker) { continue; }
+                if (HCSoftVegetation(blocker))
+                {
+                    m_SoftVegetation = m_SoftVegetation + 1;
+                    continue;
+                }
+                hardCollisions = hardCollisions + 1;
                 if (m_BlockingClass == "none") { m_BlockingClass = blocker.GetType(); }
             }
-            DeleteProp(prop);
-            return RefuseProp("collision");
+            m_CollisionCount = hardCollisions;
+            if (hardCollisions > 0)
+            {
+                DeleteProp(prop);
+                return RefuseProp("collision");
+            }
         }
         return prop;
     }
@@ -308,7 +442,8 @@ class HCShelterModule : HCModule
     protected string HCRefusalDetails()
     {
         string queryCounts = " objects=" + m_QueryObjects.ToString() + " cargos=" + m_QueryCargos.ToString() + " collisions=" + m_CollisionCount.ToString();
-        return " variant=" + m_LayoutVariant.ToString() + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
+        string ring = " ring=" + m_RingCandidate.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString();
+        return " variant=" + m_LayoutVariant.ToString() + ring + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
     protected void PlaceShelter(int index)
@@ -325,6 +460,9 @@ class HCShelterModule : HCModule
         m_CollisionCount = 0;
         m_GroundRise = 0;
         m_LayoutVariant = 0;
+        m_RingCandidate = -1;
+        m_RingRise = 0;
+        m_SoftVegetation = 0;
         m_RefusalPoint = entry.Position;
         HCInteriorFurnishRow binding = new HCInteriorFurnishRow;
         binding.BuildingClass = HCShelterCatalog.BUILDING_CLASS;
@@ -345,37 +483,42 @@ class HCShelterModule : HCModule
         }
         HCInteriorTemplate layout = YardLayout();
         array<Object> batch = new array<Object>;
-        // Fire spot is a cold STATIC grate, never an inventory fireplace.
-        Object fireSpot;
-        Object chair;
-        Object emptyBox;
+        bool complete = false;
         while (m_LayoutVariant < 8)
         {
-            fireSpot = PlaceProp(house, layout, "StaticObj_Furniture_fireplace_grill", 0);
-            if (fireSpot)
-            {
-                batch.Insert(fireSpot);
-                chair = PlaceProp(house, layout, "StaticObj_Misc_Chair_Camp1", -3);
-                if (chair)
-                {
-                    batch.Insert(chair);
-                    emptyBox = PlaceProp(house, layout, "StaticObj_Furniture_PaperBox_01_small_closed", 3);
-                    if (emptyBox) { batch.Insert(emptyBox); }
-                }
-            }
-            if (batch.Count() == 3) { break; }
-            // Roll back the whole candidate before trying a shifted layout.
-            foreach (Object partialProp : batch) { DeleteProp(partialProp); }
-            batch.Clear();
+            complete = HCPlaceBatch(house, layout, batch);
+            if (complete) { break; }
             Print("[HollowCountry] V2 shelter layout refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
             if (m_LayoutVariant == 7) { break; }
             m_LayoutVariant = m_LayoutVariant + 1;
         }
-        if (batch.Count() != 3)
+        int admissible = 0;
+        int attempts = 0;
+        if (!complete)
         {
-            RefuseShelter(entry, m_RefusalReason);
-            return;
+            string variantReason = m_RefusalReason;
+            // Bounded nearby fallback: one 16-candidate terrain screen, then at
+            // most HC_RING_ATTEMPTS full placements, flattest candidate first.
+            admissible = HCScreenRing(house);
+            while (attempts < HC_RING_ATTEMPTS)
+            {
+                m_RingCandidate = HCNextRingCandidate();
+                if (m_RingCandidate < 0) { break; }
+                attempts = attempts + 1;
+                complete = HCPlaceBatch(house, layout, batch);
+                if (complete) { break; }
+                Print("[HollowCountry] V2 shelter ring candidate refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
+            }
+            if (!complete)
+            {
+                Print("[HollowCountry] V2 shelter ring exhausted name=" + entry.Name + " candidates=" + HC_RING_CANDIDATES.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " cap=" + HC_RING_ATTEMPTS.ToString());
+                if (attempts == 0) { m_RefusalReason = variantReason; }
+                m_RingCandidate = -1;
+                RefuseShelter(entry, m_RefusalReason);
+                return;
+            }
         }
+        Object fireSpot = batch.Get(0);
         foreach (Object completedProp : batch)
         {
             m_Objects.Insert(completedProp);
@@ -384,7 +527,36 @@ class HCShelterModule : HCModule
         m_Placed = m_Placed + 1;
         entry.Placed = true;
         entry.PlacementAnchor = fireSpot;
-        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString());
+        if (m_RingCandidate >= 0)
+        {
+            Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=ring candidate=" + m_RingCandidate.ToString() + " rise=" + m_RingRise.ToString() + " admissible=" + admissible.ToString() + " attempts=" + attempts.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString() + " point=" + fireSpot.GetPosition().ToString());
+            m_RingCandidate = -1;
+            return;
+        }
+        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString() + " soft_vegetation=" + m_SoftVegetation.ToString());
+    }
+
+    // Places the three yard props of the current variant or ring candidate,
+    // or rolls the whole candidate back. The fire spot is a cold STATIC grate,
+    // never an inventory fireplace, and is always batch[0] (the anchor).
+    protected bool HCPlaceBatch(Object house, HCInteriorTemplate layout, array<Object> batch)
+    {
+        Object fireSpot = PlaceProp(house, layout, "StaticObj_Furniture_fireplace_grill", 0);
+        if (fireSpot)
+        {
+            batch.Insert(fireSpot);
+            Object chair = PlaceProp(house, layout, "StaticObj_Misc_Chair_Camp1", -3);
+            if (chair)
+            {
+                batch.Insert(chair);
+                Object emptyBox = PlaceProp(house, layout, "StaticObj_Furniture_PaperBox_01_small_closed", 3);
+                if (emptyBox) { batch.Insert(emptyBox); }
+            }
+        }
+        if (batch.Count() == 3) { return true; }
+        foreach (Object partialProp : batch) { DeleteProp(partialProp); }
+        batch.Clear();
+        return false;
     }
 
     protected void DeleteProp(Object prop)

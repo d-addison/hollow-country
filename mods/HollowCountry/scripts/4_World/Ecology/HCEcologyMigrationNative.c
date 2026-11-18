@@ -36,8 +36,8 @@ class HCEcologyMigrationQualification
 		{
 			s_Checked = true;
 			s_OptIn = LocalAcceptanceOptIn();
-			if (s_OptIn) { Print("[HC Ecology] migration EXPERIMENTAL local acceptance opt-in; runtime acceptance PENDING"); }
-			else { Print("[HC Ecology] migration not admitted; runtime acceptance PENDING"); }
+			// Shared V1 admission line (4_World/Core/HCV1Admission.c); no native verdict recorded.
+			Print(HCV1Admission.Line("EcologyMigration", s_OptIn, "ecology_migration", false));
 		}
 		return s_OptIn;
 	}

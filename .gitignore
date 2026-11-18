@@ -99,3 +99,6 @@ Thumbs.db
 /tools/audit/evidence/
 /tools/audit/EVIDENCE.md
 /tools/package/tdd-*.txt
+
+# Interior template pack is derived from vanilla mapgroupproto/census; injected at package time, never committed.
+mods/HollowCountry/data/defaults/templates/

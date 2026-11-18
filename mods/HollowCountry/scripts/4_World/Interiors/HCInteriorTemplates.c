@@ -1,8 +1,17 @@
 // Atomic, startup-only admission. SHA-256 authenticity belongs to the operator
 // install receipt; script checks syntax and cross-file binding, never hashes.
+// Pack source (Workshop self-provisioning, 2026-11-18): an operator pack in
+// $profile:HollowCountry/templates always wins; otherwise the default pack that
+// ships in the PBO (HollowCountry/data/defaults/templates/) is read in place and
+// nothing is written to the profile. One root per load, never mixed.
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist and :417
+// OpenFile/:425 ReadFile on a PBO path, as 3_Game/tools/JsonFileLoader.c:9-18
+// reads "scripts/data/notifications.json" (Client/Notifications/NotificationSystem.c:74,285).
 class HCInteriorTemplates
 {
     static const string ROOT_PATH = "$profile:HollowCountry/templates/";
+    protected static string s_Root;
+    protected static string s_Source;
     protected static bool s_Attempted;
     protected static bool s_Loaded;
     protected static ref HCInteriorTemplateIndex s_Index;
@@ -196,7 +205,7 @@ class HCInteriorTemplates
             Refuse("file_cap");
             return "";
         }
-        string raw = Read(ROOT_PATH + fileName, kind);
+        string raw = Read(s_Root + fileName, kind);
         if (raw.Length() < 1 || raw.Length() > 32767)
 
         {
@@ -218,6 +227,33 @@ class HCInteriorTemplates
             Refuse("strict_keys_or_json:" + fileName);
         }
         return nativeText;
+    }
+
+    // "profile", "pbo" or "missing" once EnsureLoaded has run.
+    static string PackSource()
+
+    {
+        return s_Source;
+    }
+
+    static string SelectRoot()
+
+    {
+        string index = HCProfileDefaults.Resolve("templates/index.json", HCProfileDefaults.PBO_ROOT);
+        if (index == "")
+
+        {
+            s_Source = "missing";
+            return "";
+        }
+        s_Source = "pbo";
+        if (index == ROOT_PATH + "index.json")
+
+        {
+            s_Source = "profile";
+        }
+        int rootLength = index.Length() - 10;
+        return index.Substring(0, rootLength);
     }
 
     static bool Disposition(string value)
@@ -766,6 +802,15 @@ class HCInteriorTemplates
             return;
         }
         s_MaxProps = maxProps;
+        s_Root = SelectRoot();
+        if (s_Root == "")
+
+        {
+            Print(HCV1Admission.Refused("InteriorPlacement", "interior_placement", "template pack missing from $profile:HollowCountry/templates and HollowCountry/data/defaults/templates"));
+            Refuse("pack_missing source=missing; no $profile:HollowCountry/templates/index.json and no shipped HollowCountry/data/defaults/templates/index.json");
+            return;
+        }
+        Print("[HC Interiors] templates source=" + s_Source + " root=" + s_Root + "; operator profile pack wins, shipped pack is read in place and never copied");
         string error;
         string content = ReadStrict("index.json", "index", "index");
         if (content == "")
@@ -815,6 +860,11 @@ class HCInteriorTemplates
         if (LegacyConflict(legacy))
 
         {
+            if (s_Source == "pbo")
+
+            {
+                Print("[HC Interiors] shipped template pack yields to the operator's legacy room owner; legacy rooms unchanged");
+            }
             Refuse("rooms_conflict");
             return;
         }

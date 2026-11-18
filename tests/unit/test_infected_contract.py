@@ -15,6 +15,10 @@ SOURCE = ROOT / "mods/HollowCountry/scripts/4_World/Infected"
 FIXTURE = ROOT / "tests/fixtures/runtime/infected-policy.json"
 
 
+SHIELD = str.maketrans({";": "\x00", "{": "\x01", "}": "\x02"})
+UNSHIELD = str.maketrans({"\x00": ";", "\x01": "{", "\x02": "}"})
+
+
 def policy_functions(filename="HCInfectedPolicy.c", **collaborators):
     source = (SOURCE / filename).read_text()
     source = re.sub(r"//[^\n]*", "", source)
@@ -26,6 +30,8 @@ def policy_functions(filename="HCInfectedPolicy.c", **collaborators):
             depth += (source[end] == "{") - (source[end] == "}")
             end += 1
         body = source[match.end():end - 1]
+        # Shield separators inside string literals (V1 admission lines contain "; ").
+        body = re.sub(r'"[^"\n]*"', lambda m: m.group(0).translate(SHIELD), body)
         body = re.sub(r"if (\([^\n]+\))\s*([^{};\n]+;)", r"if \1 {\2}", body)
         body = re.sub(r"foreach \(int (\w+) : (\w+)\)", r"for \1 in \2", body)
         args = [arg.strip().split()[-1] for arg in match[2].split(",") if arg.strip()]
@@ -57,7 +63,7 @@ def policy_functions(filename="HCInfectedPolicy.c", **collaborators):
                 token += ":"
             elif token.startswith("for "):
                 token += ":"
-            lines.append("    " * indent + token)
+            lines.append("    " * indent + token.translate(UNSHIELD))
         exec(compile("\n".join(lines), str(SOURCE / filename), "exec"), namespace)
     return namespace
 

@@ -55,7 +55,7 @@ def authored(include_read=False):
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
         lines = [f'def {name}({", ".join(args)}):',
-                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps']
+                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source']
         indent = 1
         for token in statements(body(sources, match.end())):
             token = token.strip()
@@ -179,6 +179,10 @@ def fixture(values=None):
         Vector=lambda x,y,z:[x,y,z], vector=NS(DistanceSq=lambda a,b:sum((x-y)**2 for x,y in zip(a,b))),
         Math=NS(Min=min,Max=max), Print=logs.append,
         ROOT_PATH='$profile:HollowCountry/templates/',
+        HCProfileDefaults=NS(PBO_ROOT='HollowCountry/data/defaults/',
+            Resolve=lambda relative, root:'$profile:HollowCountry/'+relative),
+        s_Root='',s_Source='',
+        HCV1Admission=NS(Refused=lambda feature,gate,reason:'[HollowCountry] V1 admission feature='+feature+' preference=on gate='+gate+' qualified=0 result=refused: '+reason),
         s_Attempted=False,s_Loaded=False,s_Index=None,s_Bytes=0,s_Files=0,s_Reason='',
         s_Classes=EArray(),s_Templates=EArray(),s_Groups=EArray(),s_Furnish=EArray(),
         s_Placed=0,s_Capped=0,s_Refused=EMap(),s_Houses=EArray(),s_Started=False,s_ResolveReason='',s_MaxProps=5,
@@ -328,6 +332,42 @@ class InteriorTemplatesRuntimeTests(unittest.TestCase):
         source=(SRC/'HCInteriorTemplates.c').read_text()
         self.assertNotIn('ConfigGetChildrenCount("CfgVehicles")', source)
         self.assertIn('GetGame().IsKindOf(cls, "House")', source)
+
+    def with_sources(self, profile, shipped):
+        """Explicit synthetic file presence; the stub mirrors HCProfileDefaults.Resolve order."""
+        result=fixture(); e=result[0]; copies=[]
+        present=set()
+        if profile: present.add('$profile:HollowCountry/templates/index.json')
+        if shipped: present.add('HollowCountry/data/defaults/templates/index.json')
+        def resolve(relative, root):
+            for candidate in ('$profile:HollowCountry/'+relative, root+relative):
+                if candidate in present: return candidate
+            return ''
+        e['HCProfileDefaults']=NS(PBO_ROOT='HollowCountry/data/defaults/',Resolve=resolve,
+                                  Ensure=lambda *a:copies.append(a),EnsureBase=lambda *a:copies.append(a))
+        e['EnsureLoaded'](None)
+        return result, copies
+
+    def test_workshop_route_reads_shipped_pack_from_pbo_when_profile_pack_absent(self):
+        (e,raw,reads,logs,objects,created),copies=self.with_sources(profile=False, shipped=True)
+        self.assertTrue(e['Loaded'](),logs)
+        self.assertTrue(reads)
+        self.assertTrue(all(path.startswith('HollowCountry/data/defaults/templates/') for path in reads),reads)
+        self.assertIn('[HC Interiors] templates source=pbo root=HollowCountry/data/defaults/templates/',' '.join(logs))
+        self.assertEqual([],copies)  # read in place: nothing is written to the operator profile
+
+    def test_operator_profile_pack_wins_over_shipped_pack(self):
+        (e,raw,reads,logs,objects,created),copies=self.with_sources(profile=True, shipped=True)
+        self.assertTrue(e['Loaded'](),logs)
+        self.assertTrue(all(path.startswith('$profile:HollowCountry/templates/') for path in reads),reads)
+        self.assertIn('[HC Interiors] templates source=profile root=$profile:HollowCountry/templates/',' '.join(logs))
+        self.assertEqual([],copies)
+
+    def test_missing_pack_in_both_sources_refuses_without_reading(self):
+        (e,raw,reads,logs,objects,created),copies=self.with_sources(profile=False, shipped=False)
+        self.assertFalse(e['Loaded']()); self.assertEqual([],reads)
+        self.assertIn('templates refused: pack_missing source=missing',' '.join(logs))
+        self.assertIn('[HollowCountry] V1 admission feature=InteriorPlacement preference=on gate=interior_placement qualified=0 result=refused: template pack missing',' '.join(logs))
 
     def test_legacy_only_load_does_not_touch_legacy_files(self):
         e,raw,reads,logs,objects,created=self.load({})

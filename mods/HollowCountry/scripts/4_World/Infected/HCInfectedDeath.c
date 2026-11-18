@@ -33,11 +33,11 @@ class HCInfectedDeathQualification
             s_OptIn = LocalAcceptanceOptIn();
             if (s_OptIn)
             {
-                Print("[HollowCountry] Infected deaths EXPERIMENTAL local acceptance opt-in active; runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=InfectedDeaths preference=on gate=infected_deaths qualified=0 result=admitted unverified: infected_deaths has no recorded native verdict; opt out with acceptance/infected_deaths.disable; EXPERIMENTAL; runtime acceptance PENDING");
             }
             else
             {
-                Print("[HollowCountry] Infected deaths not admitted; runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=InfectedDeaths preference=off gate=infected_deaths qualified=0 result=off: operator opt-out acceptance/infected_deaths.disable; not admitted; runtime acceptance PENDING");
             }
         }
         return s_OptIn;

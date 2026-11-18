@@ -176,8 +176,15 @@ def _text(data):
 
 
 def original_addon_name(name):
-    return name in {'config.cpp', 'inputs.xml'} or bool(re.fullmatch(
-        r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout|data/lighting/[A-Za-z0-9_-]+\.txt)', name))
+    if name in {'config.cpp', 'inputs.xml'}:
+        return True
+    if '..' in name:
+        return False
+    # data/defaults/** holds shipped profile defaults (JSON only) that the runtime self-provisions
+    # into $profile:HollowCountry when the operator has no file of its own.
+    return bool(re.fullmatch(
+        r'(scripts/(3_Game|4_World|5_Mission)/[A-Za-z0-9_/.-]+\.c|gui/layouts/[A-Za-z0-9_-]+\.layout'
+        r'|data/lighting/[A-Za-z0-9_-]+\.txt|data/defaults/(?:[A-Za-z0-9_-]+/)*[A-Za-z0-9_.-]+\.json)', name))
 
 
 def addon_prefix(root):

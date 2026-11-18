@@ -62,6 +62,27 @@ def authored_policy():
     return NS(**{k: v for k, v in namespace.items() if callable(v)})
 
 
+def attach_xml_root_helpers(gate):
+    """Bound authored XML root helpers when present (absent before W6)."""
+    from tests.unit.test_event_runtime import translate
+    # Native int.AsciiToString (EnConvert.c:44) is mechanically adapted to chr.
+    source = GATE.read_text().replace('quoteCode.AsciiToString()', 'chr(quoteCode)')
+    env = {'HCAtmosphereQualification': gate, 'len': len, 'chr': chr}
+    for helper in ('HCXmlNameChar', 'HCXmlAttribute', 'DisabledXmlRoot'):
+        if re.search(r'\bstatic (?:bool|string) ' + helper + r'\(', source):
+            setattr(gate, helper, translate(source, helper, dict(env), 'HCAtmosphereQualification'))
+
+
+def v1_admission():
+    from tests.unit.test_event_runtime import translate
+    source = (ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCV1Admission.c').read_text()
+    admission = NS()
+    env = {'FileExist': lambda path: False, 'HCV1Admission': admission}
+    for name in ('Line', 'Refused'):
+        setattr(admission, name, translate(source, name, env, 'HCV1Admission'))
+    return admission
+
+
 def authored(path, name, context, *args):
     """Mechanical language adapter, refusing unrecognized loops/control flow."""
     source = path.read_text()
@@ -276,8 +297,34 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         gate = NS()
         for name in ('Qualified', 'SupportedWorld', 'LocalOptIn', 'DelegatedWeather', 'Enabled'):
             setattr(gate, name, lambda name=name: authored(GATE, name, context, None))
+        attach_xml_root_helpers(gate)
         context['HCAtmosphereQualification'] = gate
+        context['HCV1Admission'] = v1_admission()
         return gate, context, events
+
+    def test_stock_disabled_weather_xml_and_absent_file_delegate_to_script(self):
+        # Explicit synthetic documents in the stock mission form (double-quoted
+        # declaration, CRLF, comments, reset before enable); never DayZ evidence.
+        head = '<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>\r\n<!-- weather -->\r\n<!-- <weather enable="1"> -->\r\n'
+        for missing, exists, document, expected in (
+                (False, True, head + '<weather reset="0" enable="0">\r\n<overcast/></weather>', True),
+                (False, True, head + "<weather enable='false'>\n</weather>", True),
+                (False, True, head + '<weather reset="0" enable="1"></weather>', False),
+                (False, True, head + '<weather reset="0"></weather>', False),
+                (False, True, head + '<weather enable="0" reset="1"></weather>', False),
+                (False, True, head + '<weatherx enable="0"></weatherx>', False),
+                (False, True, head + '<weather note=\'enable="0"\' enable="1"></weather>', False),
+                (False, True, head + '<weather noenable="0" enable="1"></weather>', False),
+                (False, True, '<!-- <weather enable="0"> --', False),
+                (True, False, '', True),     # no XML controller: script owns weather
+                (True, True, '', False)):    # present but unreadable: refuse
+            with self.subTest(document=document, missing=missing, exists=exists):
+                gate, context, events = self.native_context(document=document, missing=missing)
+                context['FileExist'] = lambda path, exists=exists: exists and path == '$mission:cfgweather.xml'
+                for _ in range(3):
+                    self.assertEqual(expected, gate.Enabled())
+                self.assertEqual(1, sum(e[0] == 'open' for e in events))
+                self.assertEqual([] if missing else [65537], [e[1] for e in events if e[0] == 'read'])
 
     def test_authored_world_and_exact_engine_build_gate_are_cached(self):
         for world in ('chernarusplus', 'ChernarusPlus', 'enoch', 'sakhal', ''):
@@ -292,7 +339,8 @@ class V1WeatherAdmissionTests(unittest.TestCase):
 
     def test_enabled_executes_delegation_and_server_guards(self):
         from tools.package.atmosphere import SCRIPT_XML_PREFIX
-        for missing, document, expected in ((True, '', False), (False, '', False),
+        # W6: an absent cfgweather.xml has no XML controller, so script weather owns it.
+        for missing, document, expected in ((True, '', True), (False, '', False),
                 (False, '<weather enable="1" reset="0"></weather>', False),
                 (False, SCRIPT_XML_PREFIX.decode() + '</weather>', True)):
             gate, _, events = self.native_context(document=document, missing=missing)
@@ -336,7 +384,8 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         context = {'GetGame': lambda: game, 'HCBuildIdentity': build_identity(), 'HCServer': NS(Get=lambda: core),
                    'FileExist': lambda path: events.append(('probe', path)) or disabled,   # True = atmosphere.disable exists
                    'Print': lambda text: events.append(('log', text)),
-                   's_Probed': False, 's_OptIn': False, 's_Reported': False}
+                   's_Probed': False, 's_OptIn': False, 's_Reported': False,
+                   'HCV1Admission': v1_admission()}
         gate = NS()
         context['HCAtmosphereQualification'] = gate
         gate.Qualified = lambda: authored(GATE, 'Qualified', context, None)
@@ -354,8 +403,10 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                 self.assertEqual(not disabled, gate.Enabled())      # default with no marker is OPEN
             probes = [e for e in events if e[0] == 'probe']
             self.assertEqual([('probe', '$profile:HollowCountry/acceptance/atmosphere.disable')], probes)
-            self.assertTrue(any(('PENDING' if disabled else 'EXPERIMENTAL') in e[1]
-                                for e in events if e[0] == 'log'))
+            expected = ('result=off: operator opt-out acceptance/atmosphere.disable' if disabled
+                        else 'result=admitted unverified: atmosphere has no recorded native verdict')
+            self.assertTrue(any(e[1].startswith('[HollowCountry] V1 admission feature=Atmosphere preference=')
+                                and expected in e[1] for e in events if e[0] == 'log'))
             context['FileExist'] = lambda path: not disabled
             self.assertEqual(not disabled, gate.Enabled(), 'marker changes require process restart')
 
@@ -693,7 +744,9 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                        'OpenFile': lambda *args: calls.append(('open', args)) or 1,
                        'CloseFile': lambda handle: calls.append(('close', handle)),
                        'ReadFile': lambda handle, limit: calls.append(('read', limit)) or NativeText(document[:limit]),
-                       'FileMode': NS(READ=1), 'Print': lambda msg: calls.append(('log', msg))}
+                       'FileMode': NS(READ=1), 'Print': lambda msg: calls.append(('log', msg)),
+                       'HCV1Admission': v1_admission(), 'HCAtmosphereQualification': NS()}
+            attach_xml_root_helpers(context['HCAtmosphereQualification'])
             source = GATE.read_text().replace('FileHandle weatherHandle =', 'int weatherHandle =')
             source = source.replace('string weatherDocument;', '')
             source = source.replace('ReadFile(weatherHandle, weatherDocument, 65537);',

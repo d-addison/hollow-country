@@ -7,7 +7,12 @@
 // 1_Core/proto/EnEntity.c:518 GetID. HCEventEconomyCandidate is an HC hook.
 // 1_Core/proto/EnMath3D.c:18 Vector; EnDebug.c:96 Print.
 // Query is local, never GetPlayers/world traversal. The native API allocates its
-// result before our 128-entry refusal; this is not an engine-side query cap.
+// result before our refusal; this is not an engine-side query cap. The 15 m item
+// lookup keeps 128 objects; the 60 m infected scan keeps the same object density
+// (128 per 15 m sphere, scaled by volume: 128 * (60/15)^3 = 8192). Release 020
+// logged query_overflow for both police -7 missions because a town-centre 60 m
+// sphere returns every building, tree, bush, fence and prop under the old 128 cap.
+// 1_Core/proto/EnMath.c:427 Floor.
 // No create/move/delete/CE replenishment call is used by this adapter; the reward
 // cache is created by HCEventCacheSpawner (4_World/Events/HCEventRewardCache.c).
 class HCEventWorldBinding
@@ -39,13 +44,22 @@ class HCEventWorldBinding
         if (radius > 30) { return null; }
         return QueryBounded(anchor, radius);
     }
+    // Object cap at the 15 m lookup's density: 128 objects per 15 m sphere, by volume.
+    static int ScanCap(float radius)
+    {
+        if (radius <= 15) { return 128; }
+        float scale = radius / 15;
+        int cap = Math.Floor(128 * scale * scale * scale);
+        if (cap > 8192) { return 8192; }
+        return cap;
+    }
     static array<Object> QueryBounded(vector anchor, float radius)
     {
         if (!HCEventQualification.Admitted() || !GetGame() || !GetGame().IsServer() || radius != radius || radius < 1 || radius > 60 || !HCEventRuntimePolicy.PositionValid(anchor)) { return null; }
         array<Object> objects = new array<Object>();
         array<CargoBase> proxies = new array<CargoBase>();
         GetGame().GetObjectsAtPosition3D(anchor, radius, objects, proxies);
-        if (objects.Count() > 128)
+        if (objects.Count() > ScanCap(radius))
         {
             s_FailReason = "query_overflow";
             return null;
@@ -186,7 +200,7 @@ class HCEventWorldBinding
             // Native: 3_Game/Global/Game.c:1176 SurfaceY(x, z). A police source is a model
             // origin standing about 7 m above its ground, so a sphere centred on it reaches
             // only about 13 m on the ground. Centre on the ground and search 60 m;
-            // the 128-object overflow refusal remains authoritative.
+            // the density-scaled (8192-object) overflow refusal remains authoritative.
             float groundY = GetGame().SurfaceY(mission.Source[0], mission.Source[2]);
             if (groundY != groundY)
             {

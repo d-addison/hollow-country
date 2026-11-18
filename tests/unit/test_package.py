@@ -166,6 +166,26 @@ class PackageBehavior(unittest.TestCase):
                     pbo.collect_addon(root)
                 path.unlink()
 
+    def test_shipped_profile_defaults_json_is_packaged_for_self_provisioning(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'config.cpp').write_text('class Synthetic {};')
+            defaults = root / 'data/defaults/templates'
+            defaults.mkdir(parents=True)
+            document = b'{"schema": 1, "synthetic": true}\n'
+            (defaults / 'index.json').write_bytes(document)
+            _, entries = pbo.parse(pbo.pack(pbo.collect_addon(root)))
+            self.assertEqual(entries['data/defaults/templates/index.json'], document)
+            self.assertFalse(pbo.original_addon_name('data/defaults/../escape.json'))
+            for name, data in [('data/defaults/model.p3d', b'asset'),
+                               ('data/defaults/binary.json', b'\x00binary'),
+                               ('data/defaults/notes.txt', document)]:
+                path = root / name
+                path.write_bytes(data)
+                with self.subTest(name=name), self.assertRaises(ValueError):
+                    pbo.collect_addon(root)
+                path.unlink()
+
     def test_custom_input_defaults_survive_pbo_and_handoff_without_admitting_other_xml(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -521,6 +541,114 @@ Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on syn
         self.assertNotIn('signatures checked', unsigned)
         self.assertIn('signatures checked', signed)
         self.assertIn('Native compile, normal server/client and multiplayer acceptance pending', pending)
+
+
+class ProfileDefaultsSmoke(unittest.TestCase):
+    """Executes authored HCProfileDefaults.c over an explicit synthetic file system.
+
+    Native out-parameter/handle forms (EnSystem.c:417/:425) are mechanically adapted;
+    never DayZ evidence that FileExist/OpenFile see PBO paths.
+    """
+
+    def world(self, files):
+        from types import SimpleNamespace as NS
+        from tests.unit.test_event_runtime import translate
+        source = (Path(__file__).resolve().parents[2]
+                  / 'mods/HollowCountry/scripts/4_World/Core/HCProfileDefaults.c').read_text()
+        source = source.replace('FileHandle handle =', 'int handle =')
+        source = source.replace('int count = ReadFile(handle, text, MAX_BYTES + 1);',
+                                'text = ReadFile(handle, MAX_BYTES + 1); int count = len(text);')
+        self.assertIn('text = ReadFile(handle, MAX_BYTES + 1)', source)
+
+        class Text(str):
+            def Get(self, index): return Text(str.__getitem__(self, index))
+            def __getitem__(self, key): return Text(str.__getitem__(self, key))
+            def __add__(self, other): return Text(str.__add__(self, other))
+            def __radd__(self, other): return Text(str.__add__(other, self))
+
+        log, dirs, handles, ops, fault = [], set(), {}, [], [False]
+
+        def open_file(path, mode):
+            ops.append(('open', path, mode))
+            if mode == 'r' and path not in files:
+                return 0
+            handles[len(handles) + 1] = path
+            if mode == 'w':
+                files[path] = ''
+            return len(handles)
+
+        def fprint(handle, text):
+            if not fault[0]:
+                files[handles[handle]] += text
+
+        def copy(src, dst):
+            ops.append(('copy', src, dst))
+            files[dst] = files[src]
+            return True
+
+        def delete(path):
+            ops.append(('delete', path))
+            files.pop(path, None)
+            return True
+
+        env = {'FileExist': lambda path: path in files or path in dirs,
+               'OpenFile': open_file, 'FileMode': NS(READ='r', WRITE='w'),
+               'ReadFile': lambda handle, limit: Text(files[handles[handle]][:limit]),
+               'CloseFile': lambda handle: None, 'FPrint': fprint,
+               'MakeDirectory': lambda path: ops.append(('mkdir', path)) or dirs.add(path) or True,
+               'CopyFile': copy, 'DeleteFile': delete, 'Print': log.append, 'len': len, 'str': str,
+               'PROFILE_ROOT': Text('$profile:HollowCountry/'), 'PBO_ROOT': Text('HollowCountry/data/defaults/'),
+               'MAX_BYTES': 1048576, 'MAX_RELATIVE': 160}
+        defaults = NS()
+        env['HCProfileDefaults'] = defaults
+        for name in ('Valid', 'ReadText', 'WriteText', 'PrepareParents', 'Resolve', 'Ensure'):
+            setattr(defaults, name, translate(source, name, env, 'HCProfileDefaults'))
+        return defaults, log, ops, Text, fault
+
+    def test_provisions_once_never_overwrites_and_refuses_unsafe_paths(self):
+        shipped = 'HollowCountry/data/defaults/'
+        target = '$profile:HollowCountry/templates/index.json'
+        files = {shipped + 'templates/index.json': '{"shipped":1}'}
+        d, log, ops, Text, fault = self.world(files)
+        # Absent profile file: copied once through temp/readback, parents created.
+        self.assertTrue(d.Ensure(Text('templates/index.json'), Text(shipped)))
+        self.assertEqual('{"shipped":1}', files[target])
+        self.assertNotIn(target + '.hcdefault.tmp', files)
+        self.assertIn(('mkdir', '$profile:HollowCountry/templates'), ops)
+        self.assertEqual(['[HollowCountry] profile default provisioned file=templates/index.json bytes=13 '
+                          'source=pbo; operator files are never overwritten'], log)
+        # Present (operator-edited) file: kept byte for byte, no write, no log.
+        files[target] = '{"operator":1}'
+        del ops[:], log[:]
+        for _ in range(2):
+            self.assertTrue(d.Ensure(Text('templates/index.json'), Text(shipped)))
+        self.assertEqual('{"operator":1}', files[target])
+        self.assertEqual([], ops)
+        self.assertEqual([], log)
+        # Resolve prefers the operator file, then the shipped file, else "".
+        self.assertEqual(target, d.Resolve(Text('templates/index.json'), Text(shipped)))
+        del files[target]
+        self.assertEqual(shipped + 'templates/index.json', d.Resolve(Text('templates/index.json'), Text(shipped)))
+        self.assertEqual('', d.Resolve(Text('templates/missing.json'), Text(shipped)))
+        # Shipped default missing: refused with one diagnostic, nothing created.
+        del log[:]
+        self.assertFalse(d.Ensure(Text('expansion-ai-sites.json'), Text(shipped)))
+        self.assertNotIn('$profile:HollowCountry/expansion-ai-sites.json', files)
+        self.assertEqual(1, len(log))
+        self.assertTrue(log[0].startswith('[HollowCountry] profile default missing file=expansion-ai-sites.json'))
+        # Readback fault: refused, temp removed, no partial target.
+        del log[:]
+        fault[0] = True
+        self.assertFalse(d.Ensure(Text('templates/index.json'), Text(shipped)))
+        self.assertEqual({shipped + 'templates/index.json'}, set(files))
+        self.assertEqual(['[HollowCountry] profile default refused file=templates/index.json reason=write_readback'], log)
+        # Unsafe relative paths never touch the file system.
+        del ops[:]
+        for bad in ('', '../serverDZ.cfg', 'a/../../b.json', 'c:/x.json', '$mission:x', 'a\\b.json',
+                    '/abs.json', 'dir/', 'x' * 161):
+            self.assertFalse(d.Ensure(Text(bad), Text(shipped)), bad)
+            self.assertEqual('', d.Resolve(Text(bad), Text(shipped)), bad)
+        self.assertEqual([], ops)
 
 
 if __name__ == '__main__':

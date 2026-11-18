@@ -102,11 +102,20 @@ class LifecycleTests(unittest.TestCase):
         self.assertFalse(self.owner.Reconcile())
 
 
+
+def v1_admission():
+    """The shared HollowCountry V1 admission line, run from its authored body (read only)."""
+    source = (ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCV1Admission.c').read_text()
+    code = Authored(source, {})
+    return N(Line=lambda *a: code.call('Line', None, *a))
+
+
 class MarkerTests(unittest.TestCase):
     def test_probe_is_server_only_cached_and_qualification_stays_closed(self):
-        calls=[];server=[False]
+        calls=[];server=[False];printed=[]
         env=dict(GetGame=lambda:N(IsServer=lambda:server[0]),
-                 FileExist=lambda p:calls.append(p) or False,Print=lambda *a:None)  # no .disable marker: on by default
+                 FileExist=lambda p:calls.append(p) or False,Print=printed.append)  # no .disable marker: on by default
+        env['HCV1Admission']=v1_admission()
         text=(SCRIPTS/'HCXAIQualification.c').read_text()
         # Explicit adaptation of static state to the same authored-body harness.
         code=Authored(text.replace('s_Probed','m_Probed').replace('s_OptIn','m_OptIn'),env)
@@ -120,11 +129,15 @@ class MarkerTests(unittest.TestCase):
         self.assertTrue(owner.Admitted());self.assertTrue(owner.Admitted())
         self.assertEqual(['$profile:HollowCountry/acceptance/pve_patrols.disable'],calls)
         self.assertFalse(owner.Qualified())
+        self.assertEqual(['[HollowCountry] V1 admission feature=PvePatrols preference=on gate=pve_patrols qualified=0'
+                          ' result=admitted unverified: pve_patrols has no recorded native verdict;'
+                          ' opt out with acceptance/pve_patrols.disable'], printed)
 
     def test_disable_marker_stays_closed_until_process_restart(self):
-        calls=[]
+        calls=[];printed=[]
         env=dict(GetGame=lambda:N(IsServer=lambda:True),
-                 FileExist=lambda path:calls.append(path) or True,Print=lambda *a:None)  # the .disable marker is present
+                 FileExist=lambda path:calls.append(path) or True,Print=printed.append)  # the .disable marker is present
+        env['HCV1Admission']=v1_admission()
         text=(SCRIPTS/'HCXAIQualification.c').read_text()
         code=Authored(text.replace('s_Probed','m_Probed').replace('s_OptIn','m_OptIn'),env)
         owner=N(m_Probed=False,m_OptIn=False)
@@ -135,3 +148,5 @@ class MarkerTests(unittest.TestCase):
         env['FileExist']=lambda path:False  # removing the marker changes nothing until a restart
         self.assertFalse(owner.Admitted())
         self.assertEqual(1,len(calls))
+        self.assertEqual(['[HollowCountry] V1 admission feature=PvePatrols preference=off gate=pve_patrols qualified=0'
+                          ' result=off: operator opt-out acceptance/pve_patrols.disable'], printed)

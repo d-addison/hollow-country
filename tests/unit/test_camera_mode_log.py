@@ -33,6 +33,15 @@ class CameraModeLog(unittest.TestCase):
             self.assertRegex(body, r'ThirdPersonMode\.' + name + r'\)[^;]*\n?[^"]*"' + re.escape(label) + '"')
         self.assertIn('[HollowCountry] Camera mode: ', body)
 
+    def test_other_modes_warn_operator_with_the_server_config_fix(self):
+        # W6 friend report: the mode comes from serverDZ.cfg (no script setter in
+        # 3_Game/Global/World.c:177), so a wrong mode must name the exact fix once.
+        body = start_body()
+        self.assertRegex(body, r'if \(viewMode != ThirdPersonMode\.VEHICLES_ONLY\)\s*Print\(')
+        self.assertIn('[HollowCountry] Camera mode WARNING: owner rule is first person on foot, third person in vehicles; '
+                      'set thirdPersonView = 2; and disable3rdPerson = 0; in serverDZ.cfg and restart', body)
+        self.assertEqual(2, body.count('Print('))
+
     def test_missing_world_is_tolerated(self):
         self.assertIn('if (!GetGame() || !GetGame().GetWorld()) return;', start_body())
 

@@ -36,9 +36,9 @@ class HCFuelSiphonQualification
             s_Checked = true;
             s_OptIn = LocalAcceptanceOptIn();
             if (s_OptIn)
-                Print("[HollowCountry] Fuel siphon EXPERIMENTAL local acceptance opt-in active; runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=FuelSiphon preference=on gate=fuel_siphon qualified=0 result=admitted unverified: fuel_siphon has no recorded native verdict; opt out with acceptance/fuel_siphon.disable; EXPERIMENTAL; runtime acceptance PENDING");
             else
-                Print("[HollowCountry] Fuel siphon not admitted; runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=FuelSiphon preference=off gate=fuel_siphon qualified=0 result=off: operator opt-out acceptance/fuel_siphon.disable; not admitted; runtime acceptance PENDING");
         }
         return s_OptIn;
     }

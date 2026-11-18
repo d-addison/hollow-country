@@ -33,6 +33,7 @@ try:
     from .test_v1_native_noise_vision import Translator, f32, Unsupported
 except ImportError:
     from test_v1_native_noise_vision import Translator, f32, Unsupported
+from tests.unit.test_v1_weather import v1_admission
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS = ROOT / "mods/HollowCountry/scripts/4_World"
@@ -116,6 +117,8 @@ class World:
             "GetGame": lambda: self.game,
             "FileExist": lambda name: log.append(("FileExist", name)) or name in present_files,
             "Print": lambda text: log.append(("Print", text)),
+            # The authored V1 line helper (Core/HCV1Admission.c), itself translated.
+            "HCV1Admission": v1_admission(),
         }
         code = Translator(fragment(path, cls, methods), natives).emit({cls: None})
         namespace = dict(natives)
@@ -155,8 +158,9 @@ class OptInExecutionTests(unittest.TestCase):
                 self.assertEqual([PREFIX + gate[4] + ".disable"], w.probes())
                 lines = w.prints()
                 self.assertEqual(1, len(lines))
-                self.assertIn("EXPERIMENTAL", lines[0])
-                self.assertIn("runtime acceptance PENDING", lines[0])
+                # W6: one V1 admission line, open but never claimed accepted.
+                self.assertTrue(lines[0].startswith("[HollowCountry] V1 admission feature="), lines[0])
+                self.assertIn(" gate=" + gate[4] + " qualified=0 result=admitted unverified: ", lines[0])
 
     def test_disable_marker_closes_the_gate_probes_once_and_logs_nothing(self):
         for gate, label in self.each():
@@ -168,7 +172,9 @@ class OptInExecutionTests(unittest.TestCase):
                     self.assertIs(False, admitted())
                 self.assertIs(False, getattr(w.cls, gate[2])())
                 self.assertEqual([name], w.probes())
-                self.assertEqual([], w.prints(), "an opted-out gate logs nothing")
+                for line in w.prints():   # at most one operator opt-out line
+                    self.assertIn(" gate=" + gate[4] + " qualified=0 result=off: operator opt-out acceptance/" + gate[4] + ".disable", line)
+                self.assertLessEqual(len(w.prints()), 1)
 
     def test_each_disable_marker_closes_only_its_own_gate(self):
         for gate, label in self.each():
@@ -216,6 +222,37 @@ class OptInExecutionTests(unittest.TestCase):
             self.assertEqual(1, body.count(literal), literal)
             self.assertEqual("return false;", re.sub(r"\s+", " ", re.search(
                 r"static bool " + closed + r"\(\)\s*\{(.*?)\}", body, re.S).group(1)).strip())
+
+
+class V1AdmissionLineTests(unittest.TestCase):
+    """W6 owner decision 2026-11-18: one V1 admission line shape for every V1 gate."""
+
+    def test_line_states_preference_gate_and_never_claims_acceptance(self):
+        a = v1_admission()
+        self.assertEqual("[HollowCountry] V1 admission feature=F preference=on gate=g qualified=0 result=admitted unverified: "
+                         "g has no recorded native verdict; opt out with acceptance/g.disable", a.Line("F", True, "g", False))
+        self.assertEqual("[HollowCountry] V1 admission feature=F preference=on gate=g qualified=1 result=admitted",
+                         a.Line("F", True, "g", True))
+        for qualified in (False, True):
+            self.assertTrue(a.Line("F", False, "g", qualified).endswith(
+                "preference=off gate=g qualified=%d result=off: operator opt-out acceptance/g.disable" % qualified))
+        self.assertEqual("[HollowCountry] V1 admission feature=F preference=on gate=g qualified=0 result=refused: why",
+                         a.Refused("F", "g", "why"))
+
+    def test_literal_v1_lines_in_source_match_the_helper_exactly(self):
+        # Literal prints keep older harnesses translatable; each must equal Line() plus a suffix.
+        a = v1_admission()
+        found = 0
+        for path in sorted((ROOT / "mods").rglob("*.c")):
+            for literal in re.findall(r'"(\[HollowCountry\] V1 admission feature=[^"]*)"', path.read_text()):
+                if literal == "[HollowCountry] V1 admission feature=":
+                    continue
+                m = re.match(r"\[HollowCountry\] V1 admission feature=(\w+) preference=(on|off) gate=(\w+) qualified=0 ", literal)
+                self.assertIsNotNone(m, literal)
+                found += 1
+                self.assertTrue(literal.startswith(a.Line(m[1], m[2] == "on", m[3], False) + "; "), literal)
+                self.assertIn('FileExist("%s%s.disable")' % (PREFIX, m[3]), path.read_text(), literal)
+        self.assertGreaterEqual(found, 13)
 
 
 # SYNTHETIC stand-in for HCInfectedAdmission.Resolve: returns the six qualification flags it was given.

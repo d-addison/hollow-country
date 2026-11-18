@@ -21,14 +21,8 @@ class HCEventSitesGate
         {
             s_Checked = true;
             s_OptIn = LocalAcceptanceOptIn();
-            if (s_OptIn)
-            {
-                Print("[HC Events] EXPERIMENTAL local acceptance opt-in for reviewed sites and reward caches; runtime acceptance PENDING");
-            }
-            else
-            {
-                Print("[HC Events] reviewed sites and reward caches not admitted; runtime acceptance PENDING");
-            }
+            // One shared V1 line (Core/HCV1Admission.c) for both preference states.
+            Print(HCV1Admission.Line("EventSites", s_OptIn, "events_sites", Qualified()));
         }
         return s_OptIn;
     }

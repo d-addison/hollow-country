@@ -52,6 +52,8 @@ def environment():
     rules=SimpleNamespace(); env["HCEcologyRuntimeRules"]=rules
     for name in re.findall(r"static (?:bool|int|float|string|HCEcology\w+) (\w+)\(",text):
         setattr(rules,name,translated(text,name,env,"HCEcologyRuntimeRules"))
+    for name,value in re.findall(r"static const int (\w+) = (\d+);",text):
+        setattr(rules,name,int(value))
     return env
 
 
@@ -314,7 +316,9 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.cfg=self.e["HCEcologyRuntimeSettings"]();self.cfg.MaxPathQueries=2
         self.runtime=SimpleNamespace(m_Actors=EArray(),m_Resources=EArray(),m_Intents=EArray(),
               m_ActorCursor=0,m_ResourceCursor=0,m_Session="session-a",m_Settings=self.cfg,
-              m_Policy=SimpleNamespace(WorldName="synthetic-world"))
+              m_Policy=SimpleNamespace(WorldName="synthetic-world"),
+              m_Budget=SimpleNamespace(HCReset=lambda *a:None,HCContinue=lambda:True,
+                  HCDeferred=lambda *a:self.fail("unbudgeted pass reported deferral")))
         class Handle:
             def __init__(self,point,kind):self.point=point;self.kind=kind;self.alive=True
             def GetPosition(self):return self.point
@@ -369,8 +373,10 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
         self.assertEqual([("session-a:1", "session-a:4"),
                           ("session-a:2", "session-a:5")], self.calls)
 
-    def test_64_pair_budget_resumes_exactly_and_covers_full_scattered_cohort(self):
+    def test_pair_budget_resumes_exactly_and_covers_full_scattered_cohort(self):
         # SYNTHETIC: 32 actors x 32 distant resources; trace actual distance calls.
+        per_tick = self.e["HCEcologyRuntimeRules"].PAIRS_PER_TICK
+        self.assertEqual(0, 1024 % per_tick)
         actor_type = type(self.runtime.m_Actors[0].Live)
         self.runtime.m_Actors = EArray(SimpleNamespace(Live=actor_type([float(i),0.,0.],0),
             Serial=i+1, LocalId="session-a:"+str(i+1)) for i in range(32))
@@ -378,13 +384,13 @@ class EcologyCohortBehaviorTests(unittest.TestCase):
             Serial=i+33, LocalId="session-a:"+str(i+33)) for i in range(32))
         pairs = []
         self.e["vector"].DistanceSq = lambda a,b: pairs.append((a[0],b[0])) or 1000000.
-        for pump in range(16):
+        for pump in range(1024 // per_tick):
             before = len(pairs)
             self.assertEqual(0, self.probe(self.runtime, 100+pump))
-            self.assertEqual(64, len(pairs)-before)
+            self.assertEqual(per_tick, len(pairs)-before)
         self.assertEqual([(float(a),1000.+r) for a in range(32) for r in range(32)], pairs)
         self.probe(self.runtime, 200)
-        self.assertEqual(pairs[:64], pairs[1024:])
+        self.assertEqual(pairs[:per_tick], pairs[1024:])
 
     def test_cursor_normalizes_after_removal_and_empty_cohorts(self):
         self.runtime.m_ActorCursor = 31; self.runtime.m_ResourceCursor = 31
@@ -633,7 +639,7 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         self.assertTrue(self.runtime.m_Collecting)
         self.assertEqual(1,len(self.runtime.m_Actors))
     def test_full_resource_cohort_returns_before_resource_inspection(self):
-        self.runtime.m_Settings.MaxResources = 1
+        self.e["HCEcologyRuntimeRules"].REGISTRY_RESOURCES = 1
         self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(),Serial=1,LocalId="session-a:1"))
         def forbidden():
             self.fail("full cohort must return before native resource inspection")
@@ -647,7 +653,7 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
 
     def test_resource_overflow_names_the_registry_cap_and_attempt_once(self):
         # Observed 2026-11-17: the line carried no counts and a later actor overflow was silent.
-        self.runtime.m_Settings.MaxResources = 2
+        self.e["HCEcologyRuntimeRules"].REGISTRY_RESOURCES = 2
         for serial in (1, 2):
             self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(), Serial=serial, LocalId="session-a:%d" % serial))
         for _ in range(5):
@@ -657,8 +663,8 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         self.assertFalse(self.runtime.m_ActorOverflow)
 
     def test_actor_overflow_after_resource_overflow_is_still_reported_once(self):
-        self.runtime.m_Settings.MaxActors = 1
-        self.runtime.m_Settings.MaxResources = 1
+        self.e["HCEcologyRuntimeRules"].REGISTRY_ACTORS = 1
+        self.e["HCEcologyRuntimeRules"].REGISTRY_RESOURCES = 1
         self.runtime.m_Resources.Insert(SimpleNamespace(Live=object(), Serial=1, LocalId="session-a:1"))
         self.add(self.runtime, self.actor, False)
         self.add(self.runtime, self.actor, True)
@@ -674,13 +680,88 @@ class EcologyRegistryBehaviorTests(unittest.TestCase):
         self.assertEqual([], self.logs)
 
     def test_duplicates_budgets_and_retirement_never_reuse_identity(self):
-        self.runtime.m_Settings.MaxActors=1
-        self.add(self.runtime,self.actor,True)
-        self.add(self.runtime,self.actor,True)
-        self.add(self.runtime,SimpleNamespace(IsPendingDeletion=lambda:False),True)
+        # Duplicate EEInit is excluded by the hook's bound flag (test_ecology_native);
+        # the registry reports acceptance so the hook can keep that flag.
+        self.e["HCEcologyRuntimeRules"].REGISTRY_ACTORS=1
+        self.assertTrue(self.add(self.runtime,self.actor,True))
+        self.assertFalse(self.add(self.runtime,SimpleNamespace(IsPendingDeletion=lambda:False),True))
         self.assertEqual([1],[b.Serial for b in self.runtime.m_Actors])
         self.assertTrue(self.runtime.m_ActorOverflow)
         self.assertFalse(self.runtime.m_ResourceOverflow)
         self.remove(self.runtime,self.runtime.m_Actors,self.actor)
         self.add(self.runtime,self.actor,True)
         self.assertEqual([2],[b.Serial for b in self.runtime.m_Actors])
+
+
+class EcologyScaleSmoke(unittest.TestCase):
+    """SYNTHETIC: shipped-default cohort sizing and shared-budget probe slicing.
+    Live 2026-11-18 log: both registries overflowed at cap=32; Ecology up to 91 ms/tick."""
+    def setUp(self):
+        self.e = environment(); self.logs = []
+        self.e["Print"] = self.logs.append
+        self.rules = self.e["HCEcologyRuntimeRules"]
+        self.source = (ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
+
+    def test_default_settings_admit_shipped_cohort_and_still_cap_registries(self):
+        self.e["HCEcologyNative"] = SimpleNamespace(Authority=lambda: True)
+        self.e["HCEcologyLiveBinding"] = lambda: SimpleNamespace(Live=None, Serial=0)
+        self.e["ItemBase"] = SimpleNamespace(Cast=lambda entity: entity)
+        self.e["Edible_Base"] = SimpleNamespace(Cast=lambda item: None)
+        self.e["EWaterSourceObjectType"] = SimpleNamespace(WELL=1)
+        runtime = SimpleNamespace(m_Collecting=True, m_Actors=EArray(), m_Resources=EArray(),
+            m_Settings=self.e["HCEcologyRuntimeSettings"](), m_ActorOverflow=False,
+            m_ResourceOverflow=False, m_NextSerial=1, m_Session="session-a")
+        add = translated(self.source, "Add", self.e, "HCEcologyRuntime", True)
+        food = lambda: SimpleNamespace(IsPendingDeletion=lambda: False, GetWaterSourceObjectType=lambda: 0,
+                                       IsFood=lambda: True, IsLiquidContainer=lambda: False)
+        actor = lambda: SimpleNamespace(IsPendingDeletion=lambda: False)
+        # Vanilla Chernarus CE: 839 food + 271 liquid-container nominal, plus wells,
+        # inventories and herds/ambient animals; the 32/32 defaults overflowed live.
+        for _ in range(1200): add(runtime, food(), False)
+        for _ in range(200): add(runtime, actor(), True)
+        self.assertEqual((200, 1200, []), (len(runtime.m_Actors), len(runtime.m_Resources), self.logs))
+        actors, resources = self.rules.REGISTRY_ACTORS, self.rules.REGISTRY_RESOURCES
+        self.assertGreaterEqual(resources, 2048); self.assertGreaterEqual(actors, 256)
+        self.assertLessEqual(resources, 4096); self.assertLessEqual(actors, 512)
+        for _ in range(resources): add(runtime, food(), False)
+        for _ in range(actors): add(runtime, actor(), True)
+        self.assertEqual((actors, resources), (len(runtime.m_Actors), len(runtime.m_Resources)))
+        line = "[HC Ecology] registration overflow; registry=%s; cap=%d; attempted=%d; coverage partial, no population census"
+        self.assertEqual([line % ("resources", resources, resources + 1), line % ("actors", actors, actors + 1)], self.logs)
+
+    def test_probe_yields_to_shared_budget_and_resumes_at_retained_cursor(self):
+        cfg = self.e["HCEcologyRuntimeSettings"](); cfg.MaxPathQueries = 8
+        class Budget:
+            def __init__(self): self.allow = 5; self.resets = []; self.deferred = []; self.used = 0
+            def HCReset(self, limit, ms=4): self.resets.append(limit); self.used = 0
+            def HCContinue(self):
+                self.used += 1
+                return self.used <= self.allow
+            def HCDeferred(self, module, count): self.deferred.append((module, count))
+        budget = Budget()
+        point = lambda x: SimpleNamespace(GetPosition=lambda: [x, 0., 0.], IsAlive=lambda: True, kind=1)
+        runtime = SimpleNamespace(m_Actors=EArray(SimpleNamespace(Live=point(0.), Serial=i, LocalId="session-a:%d" % i) for i in range(1, 5)),
+            m_Resources=EArray(SimpleNamespace(Live=point(1000.), Serial=i, LocalId="session-a:%d" % i) for i in range(5, 9)),
+            m_Intents=EArray(), m_ActorCursor=0, m_ResourceCursor=0, m_Session="session-a", m_Settings=cfg,
+            m_Policy=SimpleNamespace(WorldName="synthetic-world"), m_Budget=budget)
+        pairs = []
+        self.e["vector"].DistanceSq = lambda a, b: pairs.append((a[0], b[0])) or 1000000.
+        self.e["HCEcologyNative"] = SimpleNamespace(SampleResource=lambda r: 1, ProbePath=lambda *a: None)
+        probe = translated(self.source, "ProbeCohort", self.e, "HCEcologyRuntime", True)
+        self.assertEqual(0, probe(runtime, 100))
+        self.assertEqual(5, len(pairs))
+        self.assertEqual((1, 1), (runtime.m_ActorCursor, runtime.m_ResourceCursor))
+        self.assertEqual([("Ecology", 11)], budget.deferred)
+        self.assertEqual([self.rules.PAIRS_PER_TICK], budget.resets)
+        budget.allow = 100
+        probe(runtime, 101)
+        self.assertEqual(16 + 5, len(pairs))
+        self.assertEqual(pairs[:5], pairs[16:])
+        # Near pairs: native probes stop at the per-tick ceiling despite MaxPathQueries=8.
+        calls = []
+        self.e["vector"].DistanceSq = lambda a, b: 1.
+        self.e["HCEcologyNative"].ProbePath = lambda *a: calls.append(a) or None
+        probe = translated(self.source, "ProbeCohort", self.e, "HCEcologyRuntime", True)
+        self.assertEqual(self.rules.PROBES_PER_TICK, probe(runtime, 102))
+        self.assertEqual(self.rules.PROBES_PER_TICK, len(calls))
+        self.assertLess(self.rules.PROBES_PER_TICK, 4)

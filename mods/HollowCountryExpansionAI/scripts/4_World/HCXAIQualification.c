@@ -28,9 +28,11 @@ class HCXAIQualification
         if (!GetGame() || !GetGame().IsServer()) { return false; }
         if (!s_Probed)
         {
+            // The opt-out file named by the V1 admission line (pve_patrols); the
+            // literal path stays here for the acceptance-marker inventory.
             s_OptIn = !FileExist("$profile:HollowCountry/acceptance/pve_patrols.disable");
             s_Probed = true;
-            if (s_OptIn) { Print("[HC Expansion AI] EXPERIMENTAL on by default (opt out: pve_patrols.disable); qualification pending"); }
+            Print(HCV1Admission.Line("PvePatrols", s_OptIn, "pve_patrols", false));
         }
         return s_OptIn;
     }

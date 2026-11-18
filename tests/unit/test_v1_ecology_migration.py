@@ -481,16 +481,21 @@ class MigrationNativeBehavior(unittest.TestCase):
         env['HCEcologyMigrationQualification'] = gate
         env['FileExist'] = lambda path: calls.append(path) or disabled[0]   # True = a .disable file exists
         env['Print'] = logs.append
+        admission = (ROOT / '4_World/Core/HCV1Admission.c').read_text()
+        env['HCV1Admission'] = NS(Line=translated(admission, 'Line', env, 'HCV1Admission'))
         for name in ('Qualified', 'LocalAcceptanceOptIn', 'Admitted'):
             setattr(gate, name, translated(fragment, name, env, 'HCEcologyMigrationQualification'))
         self.assertFalse(gate.Qualified())
         self.assertTrue(gate.Admitted())            # default with no marker is open
-        self.assertTrue(any('EXPERIMENTAL' in log for log in logs))
+        self.assertEqual(['[HollowCountry] V1 admission feature=EcologyMigration preference=on gate=ecology_migration '
+                          'qualified=0 result=admitted unverified: ecology_migration has no recorded native verdict; '
+                          'opt out with acceptance/ecology_migration.disable'], logs)
         disabled[0] = True
         self.assertTrue(gate.Admitted()); self.assertEqual(1, len(calls))   # probed once
         self.assertTrue(calls[0].endswith('/acceptance/ecology_migration.disable') or calls[0].endswith('.disable'), calls[0])
         gate.s_Checked = False                       # simulated restart sees the opt-out
         self.assertFalse(gate.Admitted())
+        self.assertIn('preference=off gate=ecology_migration qualified=0 result=off: operator opt-out', logs[-1])
         self.assertFalse(gate.Qualified())
 
 if __name__ == '__main__':

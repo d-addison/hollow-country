@@ -29,6 +29,20 @@ REPO = ROOT.parents[2]
 DATA = REPO / "docs/events"
 VANILLA = Path("/mnt/d/SteamLibrary/steamapps/common/DayZServer/mpmissions/dayzOffline.chernarusplus")
 MARKER = "$profile:HollowCountry/acceptance/events_sites.disable"  # opt-out: the sites are on by default
+SITES_ON = ("[HollowCountry] V1 admission feature=EventSites preference=on gate=events_sites qualified=0 result=admitted "
+            "unverified: events_sites has no recorded native verdict; opt out with acceptance/events_sites.disable")
+SITES_OFF = ("[HollowCountry] V1 admission feature=EventSites preference=off gate=events_sites qualified=0 "
+             "result=off: operator opt-out acceptance/events_sites.disable")
+
+
+def v1_admission():
+    """The parent-owned shared Core/HCV1Admission.c line format, translated unchanged."""
+    source = (ROOT / "4_World/Core/HCV1Admission.c").read_text()
+    admission = N()
+    env = {"FileExist": lambda path: False, "HCV1Admission": admission}
+    for name in ("Line", "Refused"):
+        setattr(admission, name, translate(source, name, env, "HCV1Admission"))
+    return admission
 
 
 def load(filename, owner, env, statics=None):
@@ -177,6 +191,7 @@ class Fixture(unittest.TestCase):
 
 class SitesGate(Fixture):
     def load_gate(self, env):
+        env["HCV1Admission"] = v1_admission()
         cls = load("HCEventSitesGate.c", "HCEventSitesGate", env, dict(s_Checked=False, s_OptIn=False))
         return cls
 
@@ -194,7 +209,7 @@ class SitesGate(Fixture):
         self.assertTrue(cls.Admitted())
         self.assertTrue(cls.Admitted())
         self.assertEqual([MARKER], probes)
-        self.assertTrue(any("EXPERIMENTAL" in line for line in self.logs))
+        self.assertEqual([SITES_ON], self.logs)
 
     def test_disable_marker_is_not_admitted_and_logs_pending_once(self):
         env = self.gate()
@@ -202,15 +217,14 @@ class SitesGate(Fixture):
         cls = self.load_gate(env)
         self.assertFalse(cls.Admitted())
         self.assertFalse(cls.Admitted())
-        self.assertEqual(1, len([line for line in self.logs if "not admitted" in line and "PENDING" in line]))
-        self.assertFalse(any("EXPERIMENTAL" in line for line in self.logs))
+        self.assertEqual([SITES_OFF], self.logs)
 
     def test_absent_marker_is_admitted_by_default_and_logs_once(self):
         env = self.gate()  # FileExist answers False for every path: no .disable marker
         cls = self.load_gate(env)
         self.assertTrue(cls.Admitted())
         self.assertTrue(cls.Admitted())
-        self.assertEqual(1, len([line for line in self.logs if "EXPERIMENTAL" in line]))
+        self.assertEqual([SITES_ON], self.logs)
 
     def test_marker_text_is_the_documented_opt_out_path(self):
         source = (ROOT / "4_World/Events/HCEventSitesGate.c").read_text()

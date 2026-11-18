@@ -116,10 +116,39 @@ class EcologyNativeResourceBehaviorTests(unittest.TestCase):
             self.assertIn("super.EEKilled(killer);",fragment)
             self.assertIn("override void EEKilled(Object killer)",fragment)
             trace=[]
-            actor=SimpleNamespace()
+            actor=SimpleNamespace(m_HCEcoRegistered=True)
             env=environment()
             env["super"]=SimpleNamespace(EEKilled=lambda killer:trace.append(("native",killer)))
             env["HCEcologyRuntime"]=SimpleNamespace(Unregister=lambda entity:trace.append(("unregister",entity)))
             executed=translated(fragment,"EEKilled",env,"HCEcologyHooks",True)
             executed(actor,"synthetic-killer")
             self.assertEqual([("unregister",actor),("native","synthetic-killer")],trace)
+            # Unbound (never admitted) entities skip the registry walk entirely.
+            trace.clear(); executed(actor,"again")
+            self.assertEqual([("native","again")],trace)
+
+    def test_hooks_bind_once_and_only_bound_entities_unregister(self):
+        from tests.unit.test_ecology_runtime import translated
+        from types import SimpleNamespace
+        text=(ROOT/"4_World/Ecology/HCEcologyHooks.c").read_text()
+        for name,actor in (("AnimalBase",True),("ItemBase",False),("Well",False)):
+            fragment=re.search(r"modded class "+name+r"\s*\{([\s\S]*?)(?=\nmodded class|\Z)",text)[0]
+            trace=[]; accept=[True]
+            env=environment()
+            env["super"]=SimpleNamespace(EEInit=lambda:trace.append("native-init"),
+                                         EEDelete=lambda parent:trace.append("native-delete"))
+            env["HCEcologyRuntime"]=SimpleNamespace(
+                Register=lambda entity,kind:trace.append(("register",kind)) or accept[0],
+                Unregister=lambda entity:trace.append("unregister"))
+            init=translated(fragment,"EEInit",env,"HCEcologyHooks",True)
+            delete=translated(fragment,"EEDelete",env,"HCEcologyHooks",True)
+            entity=SimpleNamespace(m_HCEcoRegistered=False)
+            init(entity); init(entity)
+            self.assertEqual(["native-init",("register",actor),"native-init"],trace,name)
+            delete(entity,None); delete(entity,None)
+            self.assertEqual(["unregister","native-delete","native-delete"],trace[3:],name)
+            # A refused (full/ineligible) registration leaves deletes walk-free.
+            trace.clear(); accept[0]=False
+            other=SimpleNamespace(m_HCEcoRegistered=False)
+            init(other); delete(other,None)
+            self.assertEqual(["native-init",("register",actor),"native-delete"],trace,name)

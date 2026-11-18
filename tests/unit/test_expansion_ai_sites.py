@@ -1390,5 +1390,99 @@ class ShippedContentTests(unittest.TestCase):
                 self.assertLessEqual(set(hands), self.MELEE, name)
 
 
+
+class ShippedDefaultsTests(unittest.TestCase):
+    """Workshop-route self-provisioning (owner report 2026-11-18). Synthetic file system only;
+    nothing here shows DayZ reading the PBO path, creating files or binding encounters.
+    RED: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_ai_sites.ShippedDefaultsTests -v
+    FileNotFoundError: ... mods/HollowCountryExpansionAI/scripts/4_World/HCXAIDefaults.c; Ran 5 tests; FAILED (errors=5).
+    GREEN: same command, Ran 5 tests; OK."""
+    DEFAULTS = ROOT / 'mods/HollowCountryExpansionAI/data/defaults'
+    FOLDER = '$profile:ExpansionMod\\Loadouts\\'
+
+    def setUp(self):
+        self.files, self.printed = {}, []
+        env = dict(A=A, Print=self.printed.append, EXPANSION_LOADOUT_FOLDER=self.FOLDER)
+        env['FileExist'] = lambda path: path in self.files or path == self.FOLDER
+        env['CopyFile'] = self.copy
+        env['DeleteFile'] = lambda path: self.files.pop(path, None) is not None
+        env['HCProfileDefaults'] = N(ReadText=lambda path: self.files.get(path, ''), WriteText=self.write)
+        self.env = env
+        self.defaults = api((SCRIPTS / 'HCXAIDefaults.c').read_text(), env)
+        env['HCXAIDefaults'] = self.defaults
+        declarations(env)
+
+    def copy(self, source, target):
+        self.files[target] = self.files[source]
+        return True
+
+    def write(self, path, text):
+        self.files[path] = text
+        return True
+
+    def test_shipped_sites_policy_and_loadouts_are_byte_identical_to_the_mission_sources(self):
+        self.assertEqual((AI / 'sites.json').read_bytes(), (self.DEFAULTS / 'expansion-ai-sites.json').read_bytes())
+        names = {s['Loadout'] for s in json.loads((AI / 'sites.json').read_text())['Sites']}
+        self.assertTrue(names)
+        for name in names:
+            self.assertEqual((AI / 'loadouts' / (name + '.json')).read_bytes(),
+                             (self.DEFAULTS / 'loadouts' / (name + '.json')).read_bytes(), name)
+        for path in self.DEFAULTS.rglob('*'):
+            if path.is_file():
+                self.assertEqual('.json', path.suffix, path)
+                self.assertLess(path.stat().st_size, 65536, path)  # HCXAISiteDirector.ReadBounded cap
+
+    def test_missing_loadouts_are_provisioned_once_and_operator_files_are_never_overwritten(self):
+        shipped = self.defaults.SHIPPED if hasattr(self.defaults, 'SHIPPED') else 'HollowCountryExpansionAI/data/defaults/'
+        self.files['HollowCountryExpansionAI/data/defaults/loadouts/HollowCountry_Patrol.json'] = 'patrol'
+        self.files['HollowCountryExpansionAI/data/defaults/loadouts/HollowCountry_Holdout.json'] = 'holdout'
+        self.files[self.FOLDER + 'HollowCountry_Holdout.json'] = 'operator edit'
+        policy = N(Sites=A([N(Loadout='HollowCountry_Patrol'), N(Loadout='HollowCountry_Patrol'),
+                            N(Loadout='HollowCountry_Holdout'), N(Loadout='..\\escape'),
+                            N(Loadout='HollowCountry_Missing')]))
+        self.assertEqual(1, self.defaults.ProvisionLoadouts(policy))
+        self.assertEqual('patrol', self.files[self.FOLDER + 'HollowCountry_Patrol.json'])
+        self.assertEqual('operator edit', self.files[self.FOLDER + 'HollowCountry_Holdout.json'])
+        self.assertNotIn(self.FOLDER + '..\\escape.json', self.files)
+        self.assertFalse([p for p in self.files if p.endswith('.tmp')])
+        self.assertEqual(1, sum('loadout default provisioned' in line for line in self.printed))
+        self.assertTrue(any('HollowCountry_Missing' in line for line in self.printed))
+        self.assertEqual(0, self.defaults.ProvisionLoadouts(policy))
+
+    def test_policy_drift_names_a_stale_operator_policy_without_replacing_it(self):
+        drift = self.defaults.PolicyDrift
+        self.assertEqual('', drift(True, 21, 21))
+        self.assertIn('profile sites=17 shipped sites=21', drift(False, 17, 21))
+        self.assertIn('operator file kept', drift(False, 17, 21))
+
+    def test_encounter_radius_is_the_patrol_trigger_radius_and_covers_the_shipped_event_anchors(self):
+        env = dict(A=A, Print=lambda *a: None)
+        declarations(env)
+        env['vector'] = N(Distance=lambda a, b: math.dist(a, b))
+        env['Math'] = N(AbsFloat=abs)
+        rules = api((SCRIPTS / 'HCXAISiteRules.c').read_text(), env)
+        self.assertEqual(650., rules.EncounterRadius(650.))
+        self.assertEqual(600., rules.EncounterRadius(300.))
+        self.assertEqual(0., rules.EncounterRadius(0.))
+        policy = json.loads((self.DEFAULTS / 'expansion-ai-sites.json').read_text())
+        for anchor in json.loads((AI / 'event-sites.contract.json').read_text())['Sites']:
+            fits = [s['Id'] for s in policy['Sites'] if not s.get('Checkpoint') and s['Kind'] != 'holdout'
+                    and rules.RouteGap(A(tuple(w) for w in s['Waypoints']), tuple(anchor['Position']))
+                    <= rules.EncounterRadius(s['ActivationRadius'])]
+            self.assertTrue(fits, anchor['Id'])
+
+    def test_director_provisions_before_reading_and_encounters_use_the_trigger_radius(self):
+        sites = (SCRIPTS / 'HCXAISites.c').read_text()
+        start = sites[sites.index('    void Start()'):sites.index('    void Stop()')]
+        self.assertLess(start.index('HCXAIDefaults.ProvisionSites()'), start.index('LoadPolicy()'))
+        self.assertIn('HCXAIDefaults.PolicyDrift(', start)
+        wait = sites[sites.index('    protected void StepWait()'):sites.index('    protected HCXAISiteAdmission Observe()')]
+        self.assertLess(wait.index('HCXAIDefaults.ProvisionLoadouts(m_Policy)'), wait.index('this.Observe()'))
+        encounters = (SCRIPTS / 'HCXAIEncounters.c').read_text()
+        self.assertIn('HCXAISiteRules.EncounterRadius(state.Site.ActivationRadius)', encounters)
+        self.assertNotIn('this.SiteBound(state.Site.Id), gap, 600)', encounters)
+        self.assertIn('HCXAISiteRules.EncounterRadius(site.ActivationRadius)', sites)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -324,10 +324,28 @@ class PoliceBinding(sites.Fixture):
             self.assertFalse(self.binder.Bind(self.observer, mission))
         self.assertEqual(1, len([s for s in self.logs if 'reason=no_candidate' in s]))
 
-    def test_infected_clear_keeps_query_overflow_refusal(self):
+    def scenery(self, count):
+        source = self.missions[7].Source
+        return [runtime.Handle(identity='', kind='SyntheticTree', position=[
+            source[0] + (i % 40), self.game.height, source[2] + (i // 40) % 40]) for i in range(count)]
+
+    def test_infected_clear_binds_through_dense_town_scenery(self):
+        # Live release 020: coastal/inland-police-source-7 logged reason=query_overflow.
+        # A 60 m sphere over a town police station returns every building, tree, bush,
+        # fence and prop; the 128 cap belonged to the 15 m item lookup (64x less volume).
         mission = self.missions[7]
         self.spherical_scan()
-        self.objects = [self.ground_infected(1, i) for i in range(129)]
+        actor = self.ground_infected(5)
+        self.objects = self.scenery(900) + [actor]
+        self.assertTrue(self.binder.Bind(self.observer, mission))
+        self.assertIs(actor, self.observer.Target(mission.Id).Infected)
+        self.assertFalse(any('reason=query_overflow' in s for s in self.logs))
+
+    def test_infected_clear_keeps_a_density_scaled_query_overflow_refusal(self):
+        # Cap keeps the 15 m lookup's object density (128 per 15 m sphere): 128 * 4^3 = 8192.
+        mission = self.missions[7]
+        self.spherical_scan()
+        self.objects = self.scenery(8192) + [self.ground_infected(1)]
         self.assertFalse(self.binder.Bind(self.observer, mission))
         self.assertEqual(1, len([s for s in self.logs if 'reason=query_overflow' in s]))
 

@@ -1,4 +1,4 @@
-// Native: 1_Core/proto/EnSystem.c:397 FileExist; 1_Core/proto/EnDebug.c:96 Print.
+// Native: 1_Core/proto/EnSystem.c:397 FileExist; 1_Core/proto/EnDebug.c:96 Print. HCV1Admission is an HC hook.
 // Source/translation is not native acceptance. Marker probed once per process.
 class HCEventQualification
 {
@@ -19,14 +19,8 @@ class HCEventQualification
         {
             s_Checked = true;
             s_OptIn = LocalAcceptanceOptIn();
-            if (s_OptIn)
-            {
-                Print("[HC Events] EXPERIMENTAL local acceptance opt-in; native objectives, journal, sites and presentation PENDING");
-            }
-            else
-            {
-                Print("[HC Events] native gameplay not admitted; runtime acceptance PENDING");
-            }
+            // One shared V1 line (Core/HCV1Admission.c) for both preference states.
+            Print(HCV1Admission.Line("Events", s_OptIn, "events", Qualified()));
         }
         return s_OptIn;
     }

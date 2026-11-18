@@ -37,7 +37,7 @@ class HCInfectedProfiles
             s_ContactGuardChecked = true;
             s_ContactGuardOptIn = ContactGuardOptIn();
             if (s_ContactGuardOptIn)
-                Print("[HC Infected] contact guard EXPERIMENTAL on by default (opt out: infected_contact_guard.disable), wall-hit runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=InfectedContactGuard preference=on gate=infected_contact_guard qualified=0 result=admitted unverified: infected_contact_guard has no recorded native verdict; opt out with acceptance/infected_contact_guard.disable; EXPERIMENTAL; wall-hit runtime acceptance PENDING");
         }
         return s_ContactGuardOptIn;
     }

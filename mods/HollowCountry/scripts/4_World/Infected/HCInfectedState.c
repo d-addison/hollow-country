@@ -99,7 +99,7 @@ class HCInfectedQualification
             s_CEAdoptionChecked = true;
             s_CEAdoptionOptIn = CEAdoptionOptIn();
             if (s_CEAdoptionOptIn)
-                Print("[HC Infected] CE adoption EXPERIMENTAL on by default (opt out: infected_ce_adoption.disable); runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=CEAdoption preference=on gate=infected_ce_adoption qualified=0 result=admitted unverified: infected_ce_adoption has no recorded native verdict; opt out with acceptance/infected_ce_adoption.disable; EXPERIMENTAL; runtime acceptance PENDING");
         }
         return s_CEAdoptionOptIn;
     }
@@ -126,7 +126,7 @@ class HCInfectedQualification
             s_NativePackRoutesChecked = true;
             s_NativePackRoutesOptIn = NativePackRoutesOptIn();
             if (s_NativePackRoutesOptIn)
-                Print("[HC Infected] native pack routes EXPERIMENTAL on by default (opt out: infected_pack_routes.disable); runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=NativePackRoutes preference=on gate=infected_pack_routes qualified=0 result=admitted unverified: infected_pack_routes has no recorded native verdict; opt out with acceptance/infected_pack_routes.disable; EXPERIMENTAL; runtime acceptance PENDING");
         }
         return s_NativePackRoutesOptIn;
     }
@@ -153,7 +153,7 @@ class HCInfectedQualification
             s_InvestigationChecked = true;
             s_InvestigationOptIn = InvestigationOptIn();
             if (s_InvestigationOptIn)
-                Print("[HC Infected] investigation EXPERIMENTAL on by default (opt out: infected_investigation.disable); runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=Investigation preference=on gate=infected_investigation qualified=0 result=admitted unverified: infected_investigation has no recorded native verdict; opt out with acceptance/infected_investigation.disable; EXPERIMENTAL; runtime acceptance PENDING");
         }
         return s_InvestigationOptIn;
     }
@@ -180,7 +180,7 @@ class HCInfectedQualification
             s_SupplementaryChainsChecked = true;
             s_SupplementaryChainsOptIn = SupplementaryChainsOptIn();
             if (s_SupplementaryChainsOptIn)
-                Print("[HC Infected] supplementary chains EXPERIMENTAL on by default (opt out: infected_supplementary_chains.disable); runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=SupplementaryChains preference=on gate=infected_supplementary_chains qualified=0 result=admitted unverified: infected_supplementary_chains has no recorded native verdict; opt out with acceptance/infected_supplementary_chains.disable; EXPERIMENTAL; runtime acceptance PENDING");
         }
         return s_SupplementaryChainsOptIn;
     }
@@ -207,7 +207,7 @@ class HCInfectedQualification
             s_MemberRecoveryChecked = true;
             s_MemberRecoveryOptIn = MemberRecoveryOptIn();
             if (s_MemberRecoveryOptIn)
-                Print("[HC Infected] member recovery EXPERIMENTAL on by default (opt out: infected_member_recovery.disable); runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=MemberRecovery preference=on gate=infected_member_recovery qualified=0 result=admitted unverified: infected_member_recovery has no recorded native verdict; opt out with acceptance/infected_member_recovery.disable; EXPERIMENTAL; runtime acceptance PENDING");
         }
         return s_MemberRecoveryOptIn;
     }
@@ -234,7 +234,7 @@ class HCInfectedQualification
             s_HordeStimulusRoutesChecked = true;
             s_HordeStimulusRoutesOptIn = HordeStimulusRoutesOptIn();
             if (s_HordeStimulusRoutesOptIn)
-                Print("[HC Infected] horde stimulus routes EXPERIMENTAL on by default (opt out: infected_horde_routes.disable); runtime acceptance PENDING");
+                Print("[HollowCountry] V1 admission feature=HordeStimulusRoutes preference=on gate=infected_horde_routes qualified=0 result=admitted unverified: infected_horde_routes has no recorded native verdict; opt out with acceptance/infected_horde_routes.disable; EXPERIMENTAL; runtime acceptance PENDING");
         }
         return s_HordeStimulusRoutesOptIn;
     }

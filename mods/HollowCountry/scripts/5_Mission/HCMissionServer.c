@@ -18,6 +18,8 @@ modded class MissionServer
         if (viewMode == ThirdPersonMode.DISABLED) viewLabel = "first person only";
         if (viewMode == ThirdPersonMode.VEHICLES_ONLY) viewLabel = "first person on foot, third person in vehicles";
         Print("[HollowCountry] Camera mode: " + viewLabel);
+        // No script setter exists (World.c:177 is a reader); the operator owns serverDZ.cfg.
+        if (viewMode != ThirdPersonMode.VEHICLES_ONLY) Print("[HollowCountry] Camera mode WARNING: owner rule is first person on foot, third person in vehicles; set thirdPersonView = 2; and disable3rdPerson = 0; in serverDZ.cfg and restart");
     }
 
     override void OnMissionFinish()
