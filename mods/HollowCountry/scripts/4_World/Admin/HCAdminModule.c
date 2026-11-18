@@ -302,3 +302,12 @@ class HCAdminModule : HCModule
         m_Players = null;
     }
 }
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCAdminModule());
+    }
+}
