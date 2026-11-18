@@ -44,18 +44,28 @@ class HCServer
         m_Settings = loaded;
         m_Registry = new HCModuleRegistry();
         m_Registry.RegisterModules();
-        foreach (HCModule module : m_Registry.GetModules())
+        // Named locals only: boot 040 and 041 showed the foreach over the
+        // returned registry array losing its array ("NULL pointer to instance"
+        // on the foreach line) once the body passed a returned status object
+        // straight into a call. Keep the array and status in locals.
+        array<ref HCModule> modules = m_Registry.GetModules();
+        bool moduleEnabled = false;
+        HCOperationalStatus reported = null;
+        foreach (HCModule module : modules)
         {
             // Exactly one lifecycle admission read; it may load local config.
-            if (!module.IsEnabled(m_Settings))
+            moduleEnabled = module.IsEnabled(m_Settings);
+            if (moduleEnabled)
             {
-                m_Operational.HCCapture(module.GetName(), false, module.HCGetOperationalStatus());
-                continue;
+                m_Active.Insert(module);
+                module.OnStart(m_Settings);
             }
-            m_Active.Insert(module);
-            module.OnStart(m_Settings);
-            m_Operational.HCCapture(module.GetName(), true, module.HCGetOperationalStatus());
-            Print("[HollowCountry] Requested module start; inspect module admission result: " + module.GetName());
+            reported = module.HCGetOperationalStatus();
+            m_Operational.HCCapture(module.GetName(), moduleEnabled, reported);
+            if (moduleEnabled)
+            {
+                Print("[HollowCountry] Requested module start; inspect module admission result: " + module.GetName());
+            }
         }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();

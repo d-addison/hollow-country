@@ -41,6 +41,7 @@ class HCVisualSeasons
     protected bool m_Running;
     protected bool m_Paused;
     protected float m_LastTick;
+    protected bool m_HitchReported;
     protected float m_Fraction;
     protected int m_LastPhase = -1;
 
@@ -89,6 +90,7 @@ class HCVisualSeasons
         m_LastPhase = -1;
         m_Running = true;
         m_Paused = false;
+        m_HitchReported = false;
         HCReport("on", "start");
         return true;
     }
@@ -125,7 +127,9 @@ class HCVisualSeasons
     {
         m_LastPhase = HCPhase();
         int elapsed = HCElapsed();
-        Print("[HC Plan] HC-6 season=" + HCSeason() + " elapsed=" + elapsed.ToString() + " clock=server-uptime state=" + status + " reason=" + reason + " count=1 unsaved_cap=" + m_Config.MaxUncheckpointedSeconds.ToString() + " runtime=PENDING");
+        // Two statements: the native compiler refuses over 9 binary '+' in one.
+        string line = "[HC Plan] HC-6 season=" + HCSeason() + " elapsed=" + elapsed.ToString() + " clock=server-uptime state=" + status;
+        Print(line + " reason=" + reason + " count=1 unsaved_cap=" + m_Config.MaxUncheckpointedSeconds.ToString() + " runtime=PENDING");
     }
 
     protected void HCPause(string reason)
@@ -142,9 +146,21 @@ class HCVisualSeasons
         if (!m_Store.HCHealthy()) { HCPause("store-fault"); return; }
         float delta = now - m_LastTick;
         // NaN fails the ordered comparisons; infinity fails the upper bound.
-        if (!(now >= 0) || now > 2000000000 || !(delta >= 0) || !(delta <= m_Config.MaxClockDeltaSeconds))
+        if (!(now >= 0) || now > 2000000000 || !(delta >= 0))
         {
             HCPause("clock-discontinuity");
+            return;
+        }
+        // A finite forward gap (server start, save or CE hitch) is skipped
+        // without crediting it; the clock keeps running (boot 042 paused here).
+        if (!(delta <= m_Config.MaxClockDeltaSeconds))
+        {
+            m_LastTick = now;
+            if (!m_HitchReported)
+            {
+                m_HitchReported = true;
+                HCReport("on", "hitch");
+            }
             return;
         }
         if (m_Store.HCUnsavedSeconds() + m_Fraction + delta > m_Config.MaxUncheckpointedSeconds)

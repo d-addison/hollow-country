@@ -156,3 +156,36 @@ class OperationalStatusHook(unittest.TestCase):
         base = module[module.index('class HCModule\n'):module.index('class HCModuleRegistry')]
         self.assertRegex(base, r'HCOperationalStatus\s+HCGetOperationalStatus\(\)\s*\{\s*return\s+null;\s*\}')
         self.assertIn('module.HCGetOperationalStatus()', (root / 'HCServer.c').read_text())
+
+
+class StartLoopHasNoContinue(unittest.TestCase):
+    """Boots 040 and 041 (native 1.30 server): with the status object passed
+    straight from module.HCGetOperationalStatus() into HCCapture inside
+    `foreach (... : m_Registry.GetModules())`, later iterations raised
+    'NULL pointer to instance' on the foreach line and replayed one module, so
+    later modules never started. Keep the array and status in named locals and
+    avoid `continue` in the loop."""
+
+    def test_server_start_module_loop_avoids_continue(self):
+        server = (ROOT / 'mods/HollowCountry/scripts/4_World/Core/HCServer.c').read_text()
+        start = server.index('void Start()')
+        loop = server.index('foreach (HCModule module : modules)', start)
+        body_start = server.index('{', loop)
+        depth, i = 0, body_start
+        while True:
+            if server[i] == '{':
+                depth += 1
+            elif server[i] == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            i += 1
+        body = server[body_start:i]
+        self.assertNotIn('continue', body)
+        self.assertEqual(1, body.count('module.IsEnabled(m_Settings)'))
+        self.assertEqual(1, body.count('m_Operational.HCCapture(module.GetName(), moduleEnabled, reported)'))
+        self.assertIn('array<ref HCModule> modules = m_Registry.GetModules();', server[start:loop])
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -94,6 +94,7 @@ class Module:
 
     def GetName(self): return self.name
     def IsEnabled(self, settings): return self.gate(self, settings)
+    def HCGetOperationalStatus(self): return None
     def OnStart(self, settings):
         self.live = True
         self.f.starts.append(self.name)
@@ -145,6 +146,8 @@ class CoreFixture:
         self.registry.RegisterModules = base
         self.state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None,
                        m_LastTick=0, m_Registry=None,
+                       m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
+                                       HCCapture=lambda name, requested, reported: None),
                        m_Perf=N(Start=lambda seconds: None, Stop=lambda: None,
                                 Sample=lambda elapsed, ticks: None,
                                 RegisterModule=lambda name: None, SampleModule=lambda index,ticks: None))
@@ -153,7 +156,9 @@ class CoreFixture:
                        HCSettings=N(LoadFromProfile=self.profile.load),
                        HCModuleRegistry=lambda: self.registry, CALL_CATEGORY_SYSTEM=0,
                        TickCount=lambda prior:0,
-                       HCV2Admission=N(Summary=lambda settings: '[HollowCountry] V2 preferences'))
+                       HCV2Admission=N(Summary=lambda settings: '[HollowCountry] V2 preferences',
+                                       OperationalSummary=lambda status: '[HC Plan] HC-1 status',
+                                       NonModuleSummary=lambda: '[HC Plan] HC-1 non_modules'))
         for name in ('Start', 'Tick', 'Stop'):
             if name == 'Tick':
                 source = core.SOURCE.read_text().replace(

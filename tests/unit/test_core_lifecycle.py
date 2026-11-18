@@ -43,7 +43,7 @@ def tokens(source):
 
 def expression(text):
     text = re.sub(r"\bnew (HCModuleRegistry)\(\)", r"\1()", text)
-    text = re.sub(r"\b(?:int|float|HCSettings|HCModule) (\w+) =", r"\1 =", text)
+    text = re.sub(r"\b(?:int|float|bool|HCSettings|HCModule|HCOperationalStatus|array<ref HCModule>) (\w+) =", r"\1 =", text)
     text = re.sub(r"\bm_(\w+)\b", r"self.m_\1", text)
     text = re.sub(r"(?<!\.)\b(Stop|Tick)\b", r"self.\1", text)
     text = text.replace("&&", " and ").replace("||", " or ")
@@ -108,6 +108,7 @@ class Module:
 
     def GetName(self): return self.name
     def IsEnabled(self, settings): return self.enabled
+    def HCGetOperationalStatus(self): return None
     def OnStart(self, settings):
         self.events.append("start:" + self.name)
         if self.abort_start: raise AbortCallback("start:" + self.name)
@@ -130,9 +131,14 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                "HCModuleRegistry": lambda: registry, "Print": lambda text: None,
                "CALL_CATEGORY_SYSTEM": 0, "TickCount": lambda prior: 0,
                # The V2 summary is a passive print; its own tests live in test_v2_admission.
-               "HCV2Admission": SimpleNamespace(Summary=lambda settings: "[HollowCountry] V2 preferences")}
+               "HCV2Admission": SimpleNamespace(Summary=lambda settings: "[HollowCountry] V2 preferences",
+                                                OperationalSummary=lambda status: "[HC Plan] HC-1 status",
+                                                NonModuleSummary=lambda: "[HC Plan] HC-1 non_modules")}
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
                             m_Registry=None, m_LastTick=0, Tick=lambda: None,
+                            # HC-1 receipts are passive; their own tests live in test_hc_operational_status.
+                            m_Operational=SimpleNamespace(HCReset=lambda: None, HCStopAll=lambda: None,
+                                                          HCCapture=lambda name, requested, reported: None),
                             # The perf sampler is a passive observer; its own tests live in test_perf_capture.
                             m_Perf=SimpleNamespace(Start=lambda seconds: None, Stop=lambda: None,
                                                    Sample=lambda elapsed, ticks: None,

@@ -72,7 +72,7 @@ class VisualSeasonBehavior(unittest.TestCase):
         job.Owner = store
         self.jobs.append(job)
         clock = N(m_Config=config, m_Store=store, m_Running=False, m_Paused=False,
-                  m_LastTick=0., m_Fraction=0., m_LastPhase=-1,
+                  m_LastTick=0., m_HitchReported=False, m_Fraction=0., m_LastPhase=-1,
                   m_Units=unit_budget(), m_Work=N(HCReset=lambda *a: None, HCContinue=lambda: True))
         bind(CLOCK, 'HCVisualSeasons', clock, self.env)
         self.assertTrue(clock.HCBeginClock(self.now))
@@ -123,7 +123,21 @@ class VisualSeasonBehavior(unittest.TestCase):
                 self.assertTrue(any('clock=server-uptime' in line and 'runtime=PENDING' in line for line in self.logs))
 
     def test_rollback_gap_and_checkpoint_lag_pause_without_crediting_time(self):
-        for delta in (-1., 999999., float('nan'), float('inf')):
+        # Boot 042: a finite forward gap (server start or save hitch) skips the gap
+        # without crediting it and keeps the clock running; only a backwards or
+        # non-finite clock pauses it.
+        clock, store, _ = self.harness(123)
+        self.advance(clock, 1)
+        self.advance(clock, 42.)
+        self.assertFalse(clock.m_Paused)
+        self.assertEqual(124, clock.HCElapsed())
+        self.advance(clock, 1)
+        self.assertEqual(125, clock.HCElapsed())
+        self.advance(clock, 999999.)
+        self.assertFalse(clock.m_Paused)
+        self.assertEqual(125, clock.HCElapsed())
+        self.assertEqual(1, sum('reason=hitch' in line for line in self.logs))
+        for delta in (-1., float('nan'), float('inf')):
             with self.subTest(delta=delta):
                 clock, store, _ = self.harness(123)
                 self.advance(clock, 1)

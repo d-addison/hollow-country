@@ -101,7 +101,12 @@ class StartPrintTests(unittest.TestCase):
                    'HCSettings': N(LoadFromProfile=lambda: loaded), 'HCModuleRegistry': lambda: registry,
                    'Print': logs.append, 'CALL_CATEGORY_SYSTEM': 0, 'TickCount': lambda prior: 0,
                    'HCV2Admission': admission()}
+        # HC-1: Start also prints the cached module status receipts.
+        context['HCV2Admission'].OperationalSummary = lambda cache: '[HC Plan] HC-1 status rows=0'
+        context['HCV2Admission'].NonModuleSummary = lambda: '[HC Plan] HC-1 non-module'
         state = N(m_Started=False, m_Active=core.NativeArray(), m_Settings=None, m_Registry=None,
+                  m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
+                                  HCCapture=lambda name, requested, reported: None),
                   m_LastTick=0, Tick=lambda: None, Stop=lambda: None,
                   m_Perf=N(Start=lambda seconds: None, RegisterModule=lambda name: None))
         core.actual_method('Start', context)(state)
