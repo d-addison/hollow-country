@@ -368,9 +368,7 @@ class ChecklistShapeTests(unittest.TestCase):
         self.assertTrue(feature_rows)
         self.assertEqual({10}, {l.count("|") for l in feature_rows})
 
-    PENDING_FEATURES = ("CE tenement coverage points", "Launcher follow-up", "Rostered optics",
-                        "Deferred datamined variants", "Interiors measured layouts and rooms",
-                        "Taped light other hosts")
+    PENDING_FEATURES = ("Interiors measured layouts and rooms", "Taped light other hosts")
 
     def section(self, name):
         return self.text.split(name, 1)[-1].split("\n## ", 1)[0]
@@ -388,7 +386,9 @@ class ChecklistShapeTests(unittest.TestCase):
         self.assertEqual(len(self.PENDING_FEATURES), section.count("pending landing:"))
         # Work that is on main moved to the per-feature table; none of it may stay pending.
         for landed in ("Weather", "Groups r2", "Crafting r2", "Deaths", "Noise/vision", "Batch A pathgraph",
-                       "Batch B cfggameplay", "Build-identity fix", "Events (", "Firearms ("):
+                       "Batch B cfggameplay", "Build-identity fix", "Events (", "Firearms (",
+                       "CE tenement coverage points", "Launcher follow-up", "Rostered optics",
+                       "Deferred datamined variants"):
             self.assertNotIn(landed, section)
 
     def test_no_row_still_carries_a_worker_branch_label(self):
@@ -435,7 +435,8 @@ class ChecklistShapeTests(unittest.TestCase):
 
     def test_session_flow_and_workshop_prerequisites_are_documented(self):
         for needle in ("### Session flow", "tools/setup/local_test_session.py", " plan ", " apply ", " rollback ",
-                       "--snafu", "--tactical-flava", "--install-key", "--markers", "(follow-up)",
+                       "--snafu", "--tactical-flava", "--install-key", "--markers", "--interiors", "--ce-coverage",
+                       "--expansion-ai", "all-local",
                        "2291785308", "2792982069", "2646817942", "Dabs Framework", "Expansion-Animations",
                        "CC BY-NC-ND"):
             self.assertIn(needle, self.text)
