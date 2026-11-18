@@ -32,7 +32,7 @@ class HoldoutsSmoke(unittest.TestCase):
                         Routine='SHELTER'), Cache=N(EntityRef='synthetic-cache'),
                 Published=False)
         data = N(Holdouts=Rows(), Facts=Rows(), Meta=N(Epoch=1),
-                 HoldoutValid=lambda value: value.Occupants <= 3,
+                 HoldoutValid=lambda value: value.Occupants <= 12,
                  Place=lambda value: N(Id='synthetic-place')
                  if value in ('synthetic-place', 'Synthetic Place') else None)
         data.InsertHoldout = lambda value: len(data.Holdouts) < 24 and data.Holdouts.Insert(value) is None
@@ -43,6 +43,8 @@ class HoldoutsSmoke(unittest.TestCase):
                                    Token=lambda value: bool(value)),
                    HCWorldClock=N(UTC=lambda: clock[0]), Print=logs.append,
                    HCWorldModule=N(Get=lambda: world if world.m_Running else None))
+        from tests.unit.ai_limits_fixture import install
+        install(env, MaxOccupiedPlaces=6, MaxHoldouts=24)
         world_env = dict(env)
         translate((SOURCE.parent / 'HCWorldModule.c').read_text(), 'HCWorldModule',
                   world_env, only=('UpsertHoldout', 'HoldoutRefusal', 'AddFact', 'AddHoldoutFact'))
@@ -62,7 +64,7 @@ class HoldoutsSmoke(unittest.TestCase):
         module, row, world, clock, logs, lights = self.publisher_fixture()
         for holdout_id in ('synthetic-house', 'synthetic-other-house'):
             row.Ledger.Id = holdout_id
-            row.Ledger.Occupants = 4  # Explicit invalid row; world refuses it.
+            row.Ledger.Occupants = 13  # Explicit invalid row; world refuses it.
             for _ in range(3):
                 module.PublishState(row)
                 self.assertFalse(module.m_Dirty, 'refused publish must not rewrite holdouts.json')
@@ -150,7 +152,7 @@ class HoldoutsSmoke(unittest.TestCase):
                 Published=False, Contents=EArray())
         class Rows(EArray):
             def Set(self, index, value): self[index] = value
-        ledger = N(Holdouts=Rows(), HoldoutValid=lambda value: value.Occupants <= 3,
+        ledger = N(Holdouts=Rows(), HoldoutValid=lambda value: value.Occupants <= 12,
                    OccupiedCount=lambda: sum(r.Occupants > 0 for r in ledger.Holdouts))
         ledger.InsertHoldout = lambda value: ledger.Holdouts.Insert(value) is None
         world = N(m_Running=True, m_Data=ledger, m_Dirty=False, AddHoldoutFact=lambda *a: True)
@@ -158,6 +160,8 @@ class HoldoutsSmoke(unittest.TestCase):
                    HCWorldModule=N(Get=lambda: world),
                    HCEscalationClock=N(Day=lambda: 0),
                    HCWorldClock=N(UTC=lambda: clock[0]), Print=lambda text: None)
+        from tests.unit.ai_limits_fixture import install
+        install(env, MaxOccupiedPlaces=6, MaxHoldouts=24)
         transition_env = dict(env)
         translate(holdouts_source, 'HCHoldouts', transition_env, only=('HCAdvanceOccupancy',))
         self.assertIn('HCAdvanceOccupancy', transition_env, 'missing day-0 holdout transition')
@@ -175,8 +179,8 @@ class HoldoutsSmoke(unittest.TestCase):
         self.assertEqual(0, env['HCEscalationClock'].Day())
         self.assertTrue(transition_env['HCAdvanceOccupancy'](module, 0, clock[0]))
         module.PublishState(row)
-        self.assertEqual(('OCCUPIED', 1),
-                         (ledger.Holdouts[0].State, ledger.Holdouts[0].Occupants))
+        self.assertEqual('OCCUPIED', ledger.Holdouts[0].State)
+        self.assertIn(ledger.Holdouts[0].Occupants, range(3, 7))
         raid_env = dict(env)
         translate(holdouts_source, 'HCHoldouts', raid_env, only=('Raid',))
         raid_env['Raid'](module, 0)
@@ -186,8 +190,8 @@ class HoldoutsSmoke(unittest.TestCase):
         self.assertTrue(transition_env['HCAdvanceOccupancy'](module, 0, clock[0] + 604800))
         module.PublishState(row)
         self.assertEqual(1, len(ledger.Holdouts))
-        self.assertEqual(('OCCUPIED', 1),
-                         (ledger.Holdouts[0].State, ledger.Holdouts[0].Occupants))
+        self.assertEqual('OCCUPIED', ledger.Holdouts[0].State)
+        self.assertIn(ledger.Holdouts[0].Occupants, range(3, 7))
         self.assertIsNot(row.Ledger, ledger.Holdouts[0])
 
     def test_zero_move_charge_locked_crate_and_player_deposit(self):

@@ -26,7 +26,7 @@ class HCXAIRules
     static string CheckpointProblem(HCXAISite site)
     {
         if (!site.Checkpoint) { return ""; }
-        if (!site.Reviewed || site.Kind != "patrol" || site.Faction != "Guards" || site.NumberOfAI != 2 || site.NumberOfAIMax > 3) { return "checkpoint needs source review and 2..3 Volunteer guards"; }
+        if (!site.Reviewed || site.Kind != "patrol" || site.Faction != "Guards" || site.NumberOfAI < 1 || site.NumberOfAIMax > HCAILimits.SIZE_CEILING) { return "checkpoint needs source review and configured Volunteer guards"; }
         if (!HCXAIRules.PositionValid(site.CheckpointProp, 16000) || site.CheckpointProp[0] < 1 || site.CheckpointProp[2] < 1) { return "checkpoint prop outside world"; }
         if (!site.Waypoints || site.Waypoints.Count() < 3 || vector.Distance(site.CheckpointProp, site.Waypoints[0]) > 60) { return "checkpoint prop must be near its reviewed route"; }
         return "";
@@ -74,9 +74,9 @@ class HCXAIRules
         if (!HCXAIRules.Token(route.FactionName) || route.FactionName == "RANDOM") { return id + "FactionName"; }
         if (!HCXAIRules.Hex(route.SurveySha256) || !HCXAIRules.Hex(route.LoadoutSha256)) { return id + "SurveySha256/LoadoutSha256 need observed 64-hex route survey and loadout digests"; }
         if (!HCXAIRules.PositionValid(route.Anchor, p.CoordinateBound)) { return id + "Anchor out of bounds"; }
-        if (!route.Spawns || route.Spawns.Count() < 1 || route.Spawns.Count() > 8) { return id + "Spawns count 1..8"; }
+        if (!route.Spawns || route.Spawns.Count() < 1 || route.Spawns.Count() > HCAILimits.SIZE_CEILING) { return id + "Spawns count outside group safety ceiling"; }
         if (route.GroupSize != route.Spawns.Count()) { return id + "GroupSize must equal Spawns count"; }
-        if (route.Spawns.Count() > p.MaxActors) { return id + "Spawns exceed MaxActors"; }
+        if (route.Spawns.Count() > HCAILimits.Get().MaxLiveAI) { return id + "Spawns exceed AILimits.MaxLiveAI"; }
         if (!route.Waypoints || route.Waypoints.Count() < 1 || route.Waypoints.Count() > 16) { return id + "Waypoints count 1..16"; }
         if (!route.Equipment || route.Equipment.Count() < 1 || route.Equipment.Count() > 8) { return id + "Equipment count 1..8"; }
         if (route.Spawns.Count() * route.Equipment.Count() > p.MaxItems) { return id + "items exceed MaxItems"; }
@@ -114,14 +114,14 @@ class HCXAIRules
         if (p.NativeScriptsSha256 != "09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a") { return "NativeScriptsSha256 pin mismatch"; }
         if (!HCXAIRules.Token(p.WorldName) || !HCXAIRules.Token(p.WorldSession)) { return "WorldName/WorldSession missing"; }
         if (!HCXAIRules.Hex(p.WorldSha256) || !HCXAIRules.Hex(p.ArtifactSha256) || !HCXAIRules.Hex(p.DependencyInventorySha256)) { return "WorldSha256/ArtifactSha256/DependencyInventorySha256 need observed 64-hex digests"; }
-        if (p.MaxGroups < 1 || p.MaxGroups > 8 || p.MaxActors < 1 || p.MaxActors > 32) { return "MaxGroups 1..8 / MaxActors 1..32"; }
+        if (p.MaxGroups < 1 || p.MaxGroups > HCAILimits.GROUP_CEILING || p.MaxActors < 1 || p.MaxActors > HCAILimits.AI_CEILING) { return "MaxGroups / MaxActors outside AI safety ceilings"; }
         if (p.MaxItems < 1 || p.MaxItems > 128 || p.MaxTickWork < 1 || p.MaxTickWork > 8) { return "MaxItems 1..128 / MaxTickWork 1..8"; }
         if (p.MaxLeaseHistory < p.MaxGroups || p.MaxLeaseHistory > 64) { return "MaxLeaseHistory MaxGroups..64"; }
         if (p.MaxObservationAgeMs < 1 || p.MaxObservationAgeMs > 1000000) { return "MaxObservationAgeMs 1..1000000"; }
         if (p.MaxLeaseMs < 1 || p.MaxLeaseMs > 1000000000) { return "MaxLeaseMs 1..1000000000"; }
         if (!HCXAIRules.Finite(p.CoordinateBound) || p.CoordinateBound <= 0 || p.CoordinateBound > 1000000) { return "CoordinateBound 0..1000000"; }
         if (!HCObserverTransitionGate.ValidPolicy(p.ObserverPolicy)) { return "ObserverPolicy invalid"; }
-        if (!p.Missions || p.Missions.Count() < 1 || p.Missions.Count() > 8) { return "Missions count 1..8"; }
+        if (!p.Missions || p.Missions.Count() < 1 || p.Missions.Count() > HCAILimits.GROUP_CEILING) { return "Missions count outside group safety ceiling"; }
         int index = 0;
         foreach (HCXAIMission route : p.Missions)
         {

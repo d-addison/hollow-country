@@ -39,6 +39,8 @@ class MaterializerSmoke(unittest.TestCase):
         authored = Authored(sites, env)
         director = N(m_Phase='run', m_Policy=N(MaxActiveAI=24, MaxActiveSites=8),
                      m_States=A())
+        from tests.unit.ai_limits_fixture import install
+        install(env, MaxLiveGroups=2, MaxLiveAI=8)
         director.BudgetProblem = lambda cap, exclude: authored.call(
             'BudgetProblem', director, cap, exclude)
         director.AdmitTransient = lambda *args: authored.call(
@@ -70,13 +72,15 @@ class MaterializerSmoke(unittest.TestCase):
         self.assertTrue(SOURCE.is_file(), 'missing HCWorldMaterializer.c')
         source = SOURCE.read_text()
         env = dict(len=len, str=str)
+        from tests.unit.ai_limits_fixture import install
+        install(env, MaxMaterialized=2, MaxLiveGroups=2, MaxLiveAI=8)
         policy = N(MAX_PROPOSALS=2, MAX_ACTORS=8, MAX_PER_PROPOSAL=4,
                    PROVIDER_TIMEOUT=120)
         env['HCWorldMaterializer'] = policy
         admit = translate(source, 'CanPropose', env, 'HCWorldMaterializer')
         self.assertTrue(admit(0, 0, 4))
         self.assertTrue(admit(1, 4, 4))
-        for args in ((2, 8, 1), (2, 2, 1), (1, 7, 2), (0, 0, 5),
+        for args in ((2, 8, 1), (2, 2, 1), (1, 7, 2), (0, 0, 13),
                      (0, 0, 0), (0, -1, 1)):
             self.assertFalse(admit(*args), args)
 

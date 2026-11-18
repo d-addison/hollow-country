@@ -74,8 +74,10 @@ class LiveMapTests(unittest.TestCase):
         env["eAIBase"] = eai
         env["eAINPCBase"] = N(Cast=lambda o: o if o is not None and o.npc else None)
         env["HCXFactions"] = N(Id=lambda f: "")
+        from tests.unit.ai_limits_fixture import install
+        self.limits = install(env)
         authored = Authored(LIVE_CLASS.search(source).group(0), env)
-        live = N(PAGE_POINTS=64, PAGES=2, MAX_UNITS=1024)
+        live = N(PAGE_POINTS=64, PAGES=2)
         for name in re.findall(r"static \w+ (\w+)\(", LIVE_CLASS.search(source).group(0)):
             setattr(live, name, lambda *a, n=name: authored.call(n, None, *a))
         env["HCXAILive"] = live
@@ -139,6 +141,14 @@ class LiveMapTests(unittest.TestCase):
             seen.update(r.id for r in rows)
         self.assertEqual([128] * 4, sizes)
         self.assertEqual(300, len(seen), "three captures cover 300 units; the fourth wraps")
+
+    def test_observation_cap_is_independent_of_live_admission_budget(self):
+        self.limits.MaxObservedAI = 20
+        self.limits.MaxLiveAI = 10
+        group = Group(1, "Synthetic-over-budget")
+        for index in range(30):
+            self.units.append(Unit(group, (float(index), 0.0, 1.0), ""))
+        self.assertEqual(20, len(self.capture(self.owner())))
 
     def test_a_small_population_is_listed_once_per_capture_and_empty_is_quiet(self):
         group = Group(2, "Small")

@@ -19,7 +19,6 @@
 // no new tick work, actors or route qualification. Refuse beyond 600 m.
 class HCXAIEncounters : Managed
 {
-    static const int MAX_OPEN = 8;
     static const int MAX_KILLS = 16;
     protected static HCXAIEncounters s_Active;
 
@@ -136,7 +135,7 @@ class HCXAIEncounters : Managed
         if (!GetGame() || !HCBuildIdentity.SameWorld(world, GetGame().GetWorldName())) { return false; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director || director.Phase() != "run") { return false; }
-        if (this.OpenCount() >= HCXAIEncounters.MAX_OPEN) { return false; }
+        if (this.OpenCount() >= HCAILimits.Get().MaxEncounters) { return false; }
         foreach (HCXAISiteState state : director.States())
         {
             if (state.Transient) { continue; } // materializer patrols keep their own lifecycle
@@ -167,7 +166,7 @@ class HCXAIEncounters : Managed
         {
             return existing.Session == session && existing.MissionId == missionId && !existing.Released;
         }
-        if (this.OpenCount() >= HCXAIEncounters.MAX_OPEN || m_Bindings.Count() >= HCXAIEncounters.MAX_OPEN * 2)
+        if (this.OpenCount() >= HCAILimits.Get().MaxEncounters || m_Bindings.Count() >= HCAILimits.Get().MaxEncounters * 2)
         {
             Print("[HC Expansion AI] encounter refused: lease=" + lease + " mission=" + missionId + " reason=open encounter cap");
             return false;

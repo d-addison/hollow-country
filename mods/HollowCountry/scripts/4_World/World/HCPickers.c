@@ -249,13 +249,13 @@ class HCPickers : HCModule
         Print(HCV2Admission.Line("Pickers", true, "EXP-L5", HCV2Gates.Qualified("EXP-L5")));
         m_Store = new HCEncounterStore<HCPickerState>("pickers");
         m_State = m_Store.Load(new HCPickerState, "Party");
-        if (!m_State || m_State.Version != 1 || !m_State.Party || m_State.Party.DailyTransfers < 0 || m_State.Party.DailyTransfers > 6 || m_State.Party.TransferDay < 0 || m_State.Party.Edge < 0 || m_State.Party.Edge >= 16 || !m_State.Party.Route || m_State.Party.Route.Count() > 16 || m_State.NextHouse < 0 || m_State.NextHouse >= 24 || m_State.NextVisit < 0) return;
+        if (!m_State || m_State.Version != 1 || !m_State.Party || m_State.Party.DailyTransfers < 0 || m_State.Party.DailyTransfers > 6 || m_State.Party.TransferDay < 0 || m_State.Party.Edge < 0 || m_State.Party.Edge >= 16 || !m_State.Party.Route || m_State.Party.Route.Count() > 16 || m_State.NextHouse < 0 || m_State.NextHouse >= HCAILimits.Get().MaxHoldouts || m_State.NextVisit < 0) { Print("[HC AI] picker state invalid or exceeds AILimits.MaxHoldouts; load refused"); return; }
         if (m_State.Party.Id == "")
         {
             m_State.Party.Id = "hc-pickers-01";
             m_State.Party.FactionId = "scavengers";
             m_State.Party.Kind = "PICKER";
-            m_State.Party.Size = 2;
+            m_State.Party.Size = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, m_State.Party.Id, "party");
             m_State.Party.TransferDay = HCEscalationClock.Day();
             m_State.NextVisit = HCWorldClock.UTC() + 900;
             if (!m_Store.Save(m_State)) return;

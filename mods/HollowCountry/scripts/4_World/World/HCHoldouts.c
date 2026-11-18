@@ -22,7 +22,7 @@
 // HCV2ThreatStore/HCGroupIO perform bounded serialization/readback. No RenameFile
 // exists: temp intent -> verified backup -> copy/readback promotion is fail-closed,
 // NOT OS atomic rename/fsync or atomic with Hive. Interrupted saves stop the feature.
-// Own catalog is the first 24 unique, covered houses in the authored template pack;
+// Own catalog is bounded by AILimits.MaxHoldouts, using unique covered houses;
 // actual placement, persistence, occupancy, pathing and lights remain UNOBSERVED.
 
 class HCEncounterStore<Class T>
@@ -182,7 +182,7 @@ class HCHoldouts : HCModule
     protected bool m_CatalogDirty;
     protected ref HCHoldoutSaveJob m_SaveJob;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
-    // Runtime diagnostics only, bounded by the 24 admitted holdout IDs.
+    // Runtime diagnostics only, bounded by AILimits.MaxHoldouts.
     protected ref map<string, string> m_PublishRefusals = new map<string, string>;
 
     static HCHoldouts Get() { if (s_Instance && s_Instance.m_Ready) { return s_Instance; } return null; }
@@ -228,14 +228,14 @@ class HCHoldouts : HCModule
         Print(HCV2Admission.Line("Holdouts", true, "EXP-L4", HCV2Gates.Qualified("EXP-L4")));
         m_Store = new HCEncounterStore<HCHoldoutState>("holdouts");
         m_State = m_Store.Load(new HCHoldoutState, "Rows");
-        if (!m_State || m_State.Version != 1 || !m_State.Rows || m_State.Rows.Count() > 24) { HCRefuseState(); return; }
+        if (!m_State || m_State.Version != 1 || !m_State.Rows || m_State.Rows.Count() > HCAILimits.Get().MaxHoldouts) { HCRefuseState(); return; }
         map<string, bool> ids = new map<string, bool>;
         int occupied = 0;
         foreach (HCHoldoutRow row : m_State.Rows)
         {
             if (!row || !row.Ledger || !HCEncounterCacheIO.Valid(row.Cache) || ids.Contains(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.Id) || !HCWorldLimits.Token(row.Ledger.HouseClass) || !HCWorldLimits.Position(row.Ledger.HousePos)) { HCRefuseState(); return; }
             if (row.Ledger.State != "DORMANT" && row.Ledger.State != "OCCUPIED" && row.Ledger.State != "ALERT" && row.Ledger.State != "RAIDED" && row.Ledger.State != "ABANDONED") { HCRefuseState(); return; }
-            if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > 3 || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) { HCRefuseState(); return; }
+            if (row.Ledger.Since < 0 || row.Ledger.ReoccupyAfter < 0 || row.Ledger.Occupants < 0 || row.Ledger.Occupants > HCAILimits.SIZE_CEILING || row.StockAttempts < 0 || row.StockAttempts > 3 || row.StockDay < 0 || !row.Contents || row.Contents.Count() > 32) { HCRefuseState(); return; }
             if (row.Ledger.State == "RAIDED" && row.Ledger.ReoccupyAfter - row.Ledger.Since < 604800) { HCRefuseState(); return; }
             ids.Set(row.Ledger.Id, true);
             if (row.Ledger.Occupants > 0)
@@ -246,19 +246,19 @@ class HCHoldouts : HCModule
             row.Published = false;
             m_Caches.Insert(new HCEncounterCacheIO);
         }
-        if (occupied > 6) { HCRefuseState(); return; }
+        if (occupied > HCAILimits.Get().MaxOccupiedPlaces) { HCRefuseState(); return; }
         s_Instance = this;
         m_SaveJob = new HCHoldoutSaveJob;
         m_SaveJob.Owner = this;
         HCSaveScheduler.HCRegister(m_SaveJob);
         m_Ready = true;
-        Print("[HollowCountry] V2 holdouts ready catalog_cap=24 occupied_cap=6 raid_lockout=604800s; bodies require materializer");
+        Print("[HollowCountry] V2 holdouts ready catalog/occupied caps from AILimits raid_lockout=604800s; bodies require materializer");
         HCSyncLights();
     }
 
     protected void HCRefuseState()
     {
-        Print("[HollowCountry] V2 holdouts refused: invalid holdouts.json state; preserve file, .tmp and .bak");
+        Print("[HollowCountry] V2 holdouts refused: invalid holdouts.json state or lowered AILimits; preserve file, .tmp and .bak");
     }
 
     bool SaveChanged()
@@ -279,7 +279,7 @@ class HCHoldouts : HCModule
     {
         if (!m_Ready) { return false; }
         if (!SaveChanged()) { return false; }
-        Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/24");
+        Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/" + HCAILimits.Get().MaxHoldouts.ToString());
         return true;
     }
 
@@ -333,12 +333,12 @@ class HCHoldouts : HCModule
             row.Ledger.Routine = "AWAITING_OCCUPANTS";
         }
         bool dormant = row.Ledger.State == "DORMANT";
-        bool capacity = Occupied() < 6;
+        bool capacity = Occupied() < HCAILimits.Get().MaxOccupiedPlaces;
         bool available = SiteAvailable(row) && Cache(index);
         if (dormant && capacity && available)
         {
             row.Ledger.State = "OCCUPIED";
-            row.Ledger.Occupants = 1;
+            row.Ledger.Occupants = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, row.Ledger.Id, "holdout");
             row.Ledger.Since = now;
             row.Ledger.Routine = "SHELTER";
         }
@@ -357,7 +357,7 @@ class HCHoldouts : HCModule
         {
             foreach (HCHoldoutRow litRow : m_State.Rows)
             {
-                if (positions.Count() >= 24) { break; }
+                if (positions.Count() >= HCAILimits.Get().MaxHoldouts) { break; }
                 bool inhabited = litRow.Ledger.State == "OCCUPIED" || litRow.Ledger.State == "ALERT";
                 if (inhabited) { positions.Insert(litRow.Ledger.HousePos); }
             }
@@ -372,11 +372,11 @@ class HCHoldouts : HCModule
     {
         HCWorldModule world = HCWorldModule.Get();
         array<ref HCInteriorFurnishRow> authored = HCInteriorTemplates.FurnishRows();
-        if (!world || !authored || m_State.Rows.Count() >= 24) return;
+        if (!world || !authored || m_State.Rows.Count() >= HCAILimits.Get().MaxHoldouts) return;
         int work = 0;
         bool changed = false;
         m_WorkBudget.HCReset(4);
-        while (work < 32 && m_CatalogCursor < authored.Count() && m_State.Rows.Count() < 24)
+        while (work < 32 && m_CatalogCursor < authored.Count() && m_State.Rows.Count() < HCAILimits.Get().MaxHoldouts)
         {
             if (!m_WorkBudget.HCContinue()) { break; }
             HCInteriorFurnishRow site = authored[m_CatalogCursor];
@@ -498,7 +498,7 @@ class HCHoldouts : HCModule
     // No immunity, equipment changes, loot controller or body creation here.
     bool BindOccupant(string id, EntityAI body)
     {
-        if (!m_Ready || !body || !body.IsMan() || !body.IsAlive() || m_Bodies.Count() >= 18) return false;
+        if (!m_Ready || !body || !body.IsMan() || !body.IsAlive() || m_Bodies.Count() >= HCAILimits.Get().MaxLiveAI) return false;
         PlayerBase human = PlayerBase.Cast(body);
         if (human && human.GetIdentity()) return false;
         int boundCount = 0;

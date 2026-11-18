@@ -21,7 +21,7 @@ def validate_settings(value):
         return ['Settings must be a JSON object']
     expected = FLAGS | LIMITS.keys() | {'SchemaVersion'}
     errors = [f'Missing field {key}' for key in sorted(expected - value.keys())]
-    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS)]
+    errors += [f'Unknown field {key}' for key in sorted(value.keys() - expected - V2_FLAGS - {'AILimits'})]
     if type(value.get('SchemaVersion')) is not int or value.get('SchemaVersion') != 1:
         errors.append('Unsupported SchemaVersion')
     for key in sorted(FLAGS):
@@ -33,6 +33,50 @@ def validate_settings(value):
     for key, (low, high) in LIMITS.items():
         if type(value.get(key)) is not int or not low <= value[key] <= high:
             errors.append(f'{key} must be an integer within {low}..{high}')
+    if 'AILimits' in value:
+        ai = value['AILimits']
+        if not isinstance(ai, dict):
+            errors.append('AILimits must be an object')
+        else:
+            # Match the runtime key-specific fallback policy. CLI validation
+            # reports invalid input before staging; the server logs/defaults it.
+            ai_ranges = {
+                'MaxLiveGroups': (1, 24),
+                'MaxLiveAI': (1, 128),
+                'OccupationMin': (1, 12),
+                'OccupationMax': (1, 12),
+                'HoldoutMin': (1, 12),
+                'HoldoutMax': (1, 12),
+                'PartyMin': (1, 12),
+                'PartyMax': (1, 12),
+                'PatrolMin': (1, 12),
+                'PatrolMax': (1, 12),
+                'CampMin': (1, 12),
+                'CampMax': (1, 12),
+                'MaxOccupiedPlaces': (1, 64),
+                'MaxParties': (1, 128),
+                'MaxMaterialized': (1, 24),
+                'FactionStrengthMax': (1, 128),
+                'MaxActiveSites': (1, 24),
+                'MaxActiveAI': (1, 128),
+                'MaxEncounters': (1, 24),
+                'MaxObservedAI': (1, 8192),
+                'MaxHoldouts': (24, 128),
+                'MaxCamps': (1, 128),
+                'MaxCampItems': (1, 128),
+                'WorldSeed': (0, 1000003),
+            }
+            for key in ai.keys() - ai_ranges.keys():
+                errors.append(f'Unknown field AILimits.{key}')
+            for key, item in ai.items():
+                if key in ai_ranges:
+                    low, high = ai_ranges[key]
+                    if type(item) is not int or not low <= item <= high:
+                        errors.append(f'AILimits.{key} must be an integer within {low}..{high}')
+            for kind in ('Occupation', 'Holdout', 'Party', 'Patrol', 'Camp'):
+                low, high = ai.get(kind + 'Min'), ai.get(kind + 'Max')
+                if type(low) is int and type(high) is int and low > high:
+                    errors.append(f'AILimits.{kind}Min must not exceed {kind}Max')
     for child, parent in [('EnableSearch', 'EnableInteriors'),
                           ('EnableHordes', 'EnableInfected'),
                           ('EnableAlertChains', 'EnableInfected')]:

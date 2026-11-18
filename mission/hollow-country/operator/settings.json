@@ -35,5 +35,31 @@
   "MaxFurnishedProps": 1500,
   "MaxBoundSearchSites": 256,
   "InfectedBindRadius": 30,
-  "MaxBindQueriesPerTick": 2
+  "MaxBindQueriesPerTick": 2,
+  "AILimits": {
+    "MaxLiveGroups": 15,
+    "MaxLiveAI": 72,
+    "OccupationMin": 3,
+    "OccupationMax": 8,
+    "HoldoutMin": 3,
+    "HoldoutMax": 6,
+    "PartyMin": 2,
+    "PartyMax": 6,
+    "PatrolMin": 2,
+    "PatrolMax": 5,
+    "CampMin": 2,
+    "CampMax": 6,
+    "MaxOccupiedPlaces": 15,
+    "MaxParties": 24,
+    "MaxMaterialized": 15,
+    "FactionStrengthMax": 24,
+    "MaxActiveSites": 15,
+    "MaxActiveAI": 72,
+    "MaxEncounters": 15,
+    "MaxHoldouts": 48,
+    "MaxCamps": 32,
+    "MaxCampItems": 64,
+    "WorldSeed": 18473,
+    "MaxObservedAI": 1024
+  }
 }
