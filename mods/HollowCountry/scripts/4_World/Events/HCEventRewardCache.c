@@ -22,6 +22,22 @@ class HCEventPoliceRewardIO : HCEventRewardIO
         m_Root = "$profile:HollowCountry/Events/police-rewards";
     }
 }
+// Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition, :57 PGFilter.SetFlags;
+// Game.c GetWorld().GetAIWorld(). Outdoor walkable polygons only (INSIDE excluded).
+class HCEventPoliceNav
+{
+    static vector Sample(vector wanted, float radius)
+    {
+        if (!GetGame() || !GetGame().GetWorld()) { return vector.Zero; }
+        AIWorld world = GetGame().GetWorld().GetAIWorld();
+        if (!world) { return vector.Zero; }
+        PGFilter filter = new PGFilter;
+        filter.SetFlags(PGPolyFlags.WALK, PGPolyFlags.DISABLED | PGPolyFlags.UNREACHABLE | PGPolyFlags.INSIDE | PGPolyFlags.SWIM | PGPolyFlags.SWIM_SEA | PGPolyFlags.LADDER | PGPolyFlags.JUMP | PGPolyFlags.CLIMB | PGPolyFlags.CRAWL | PGPolyFlags.CROUCH, PGPolyFlags.NONE);
+        vector found;
+        if (!world.SampleNavmeshPosition(wanted, radius, filter, found)) { return vector.Zero; }
+        return found;
+    }
+}
 class HCEventCacheSpawner
 {
     protected static ref HCEventRewardLedger s_PoliceLedger;
@@ -59,7 +75,7 @@ class HCEventCacheSpawner
         HCEventTarget existing = PoliceTarget(mission.Id);
         if (existing) { return existing; }
         // A deterministic source-derived point, not a field-surveyed placement.
-        vector anchor = Vector(mission.Source[0] + 8, mission.Source[1], mission.Source[2] + 8);
+        vector anchor = Vector(mission.Source[0] + 6, mission.Source[1], mission.Source[2] + 6);
         Spawn(mission, anchor, mission.ContainerClass, true);
         return PoliceTarget(mission.Id);
     }
@@ -71,19 +87,43 @@ class HCEventCacheSpawner
         return Spawn(mission, mission.Source, mission.ItemClass, false);
     }
     // Shared native creation path for both allowances; every creation is journaled.
+    // Ready/observation use a 3D radius around Source; refuse before any journal write
+    // when the point would not stay observable. Returns vector.Zero on refusal.
+    static vector SpawnPosition(HCEventMission mission, vector anchor, bool police)
+    {
+        float height = GetGame().SurfaceY(anchor[0], anchor[2]);
+        if (height != height)
+        {
+            if (!police) { Print("[HC Events] reward cache refused for site " + mission.SiteId + "; terrain height differs from the reviewed height"); }
+            return vector.Zero;
+        }
+        vector position;
+        if (police)
+        {
+            // Police Source is the station's stock mapgrouppos model origin, which stands
+            // above its ground (stock neighbours sit ~5 m lower). Accept ground up to 12 m
+            // below it, then take an outdoor walkable navmesh point so the barrel is not
+            // inside a wall. Retries report through BindFailed's bounded (mission, reason) set.
+            if (height > mission.Source[1] + 3 || height < mission.Source[1] - 12) { return vector.Zero; }
+            position = HCEventPoliceNav.Sample(Vector(anchor[0], height, anchor[2]), 6);
+            if (position == vector.Zero) { return vector.Zero; }
+        }
+        else
+        {
+            if (Math.AbsFloat(height - mission.Source[1]) > 6)
+            {
+                Print("[HC Events] reward cache refused for site " + mission.SiteId + "; terrain height differs from the reviewed height");
+                return vector.Zero;
+            }
+            position = Vector(anchor[0], height, anchor[2]);
+        }
+        if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius) { return vector.Zero; }
+        return position;
+    }
     static HCEventTarget Spawn(HCEventMission mission, vector anchor, string containerClass, bool police)
     {
-        // Ready/observation use a 3D radius around Source; refuse before any journal write
-        // when the terrain here is too far from the reviewed height to stay observable.
-        float height = GetGame().SurfaceY(anchor[0], anchor[2]);
-        if (height != height || Math.AbsFloat(height - mission.Source[1]) > 6)
-        {
-            // Police retries report through BindFailed's bounded (mission, reason) set.
-            if (!police) { Print("[HC Events] reward cache refused for site " + mission.SiteId + "; terrain height differs from the reviewed height"); }
-            return null;
-        }
-        vector position = Vector(anchor[0], height, anchor[2]);
-        if (vector.DistanceSq(position, mission.Source) > mission.Radius * mission.Radius) { return null; }
+        vector position = SpawnPosition(mission, anchor, police);
+        if (position == vector.Zero) { return null; }
         HCEventRewardPlan plan;
         if (police) { plan = PoliceLedger().Commit(mission.SiteId); }
         else { plan = HCEventRewards.Ledger().Commit(mission.SiteId); }

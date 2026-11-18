@@ -100,7 +100,7 @@ def environment():
     env["Vector"] = lambda x, y, z: [x, y, z]
     env["PlayerBase"] = SimpleNamespace(Cast=lambda value: value)
     env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Floor=math.floor)
-    env["vector"] = SimpleNamespace(DistanceSq=lambda a, b: sum((a[i]-b[i])**2 for i in range(3)))
+    env["vector"] = SimpleNamespace(DistanceSq=lambda a, b: sum((a[i]-b[i])**2 for i in range(3)), Zero=[0.0, 0.0, 0.0])
     for match in re.finditer(r"enum (\w+)\s*\{([^}]+)\}", data):
         env[match[1]] = SimpleNamespace(**{k: int(v) for k, v in re.findall(r"(\w+)\s*=\s*(\d+)", match[2])})
     for match in re.finditer(r"class (\w+)\s*\{", data):

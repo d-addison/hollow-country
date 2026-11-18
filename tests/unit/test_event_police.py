@@ -77,7 +77,18 @@ class PoliceBinding(sites.Fixture):
         self.spawner = sites.load('HCEventRewardCache.c', 'HCEventCacheSpawner', self.e)
         self.binder = sites.load('HCEventWorldBinding.c', 'HCEventWorldBinding', self.e)
         self.site = self.e['HCEventSites'].ChernarusPlus()[0]
-        self.game.height = self.site.Position[1]
+        # Synthetic: mapgrouppos gives the station's model origin, which stands above
+        # the ground (stock neighbours sit ~5 m lower), so ground is below Source.
+        self.game.height = self.site.Position[1] - 7
+        self.nav_calls = []
+        self.nav_ok = True
+        def sample(wanted, radius):
+            self.nav_calls.append((list(wanted), radius))
+            if not self.nav_ok:
+                return self.e['vector'].Zero
+            return list(wanted)
+        self.e['HCEventPoliceNav'] = N(Sample=sample)
+        self.e['vector'].Zero = [0.0, 0.0, 0.0]
         self.missions = {m.Family: m for m in self.e['HCEventRoster'].Build(self.site, False)}
 
     def test_native_barrel_starts_closed_and_must_be_opened_before_cargo(self):
@@ -108,8 +119,9 @@ class PoliceBinding(sites.Fixture):
         barrel = self.game.created[0]
         self.assertEqual('Barrel_Green', barrel.kind)
         self.assertCountEqual(['BandageDressing', 'SodaCan_Cola', 'MetalWire'], barrel.contents)
-        self.assertEqual([self.site.Position[0] + 8, self.game.height,
-                          self.site.Position[2] + 8], barrel.position)
+        self.assertEqual([self.site.Position[0] + 6, self.game.height,
+                          self.site.Position[2] + 6], barrel.position)
+        self.assertEqual(6, self.nav_calls[0][1], 'outdoor navmesh point sampled near the anchor')
         targets = [self.observer.Target(self.missions[f].Id) for f in (1, 2, 4)]
         self.assertEqual(3, len({id(t.Item) for t in targets}))
         self.assertIs(barrel, targets[1].DeliveryContainer)
@@ -144,7 +156,7 @@ class PoliceBinding(sites.Fixture):
         ordinary = self.ledger()
         self.e['HCEventRewards'] = N(Ledger=lambda: ordinary)
         for site in self.e['HCEventSites'].ChernarusPlus():
-            self.game.height = site.Position[1]
+            self.game.height = site.Position[1] - 7
             for mission in self.e['HCEventRoster'].Build(site, False):
                 if mission.Family in (1, 2, 4):
                     self.assertTrue(self.binder.Bind(self.observer, mission))
@@ -181,8 +193,35 @@ class PoliceBinding(sites.Fixture):
             self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
         self.assertLessEqual(len(self.logs), 1)
         self.assertEqual([], self.game.created)
-        self.game.height = self.site.Position[1]
+        self.game.height = self.site.Position[1] - 7
         self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
+
+    def test_station_origin_above_ground_places_on_outdoor_navmesh(self):
+        # Observed 2026-11-17 on the local server: police_supply_unavailable at both
+        # stations while the three ground-level caches spawned.
+        for drop in (7, 11):
+            self.setUp()
+            self.game.height = self.site.Position[1] - drop
+            self.assertTrue(self.binder.Bind(self.observer, self.missions[1]), drop)
+            barrel = self.game.created[0]
+            self.assertLessEqual(self.e['vector'].DistanceSq(barrel.position, self.site.Position), 15 * 15)
+
+    def test_ground_far_below_or_above_origin_refuses_without_spending(self):
+        for height in (self.site.Position[1] - 13, self.site.Position[1] + 4):
+            self.game.height = height
+            self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertEqual([], self.game.created)
+        self.assertEqual(0, len([n for n in self.spawner.PoliceLedger().m_IO.files if '-grant-' in n]))
+
+    def test_navmesh_refusal_does_not_spend_and_retries(self):
+        self.nav_ok = False
+        for _ in range(3):
+            self.assertFalse(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertEqual([], self.game.created)
+        self.assertEqual(0, len([n for n in self.spawner.PoliceLedger().m_IO.files if '-grant-' in n]))
+        self.nav_ok = True
+        self.assertTrue(self.binder.Bind(self.observer, self.missions[1]))
+        self.assertEqual(1, len(self.game.created))
 
     def test_creation_follows_durable_grant_and_partial_cargo_never_refills(self):
         ledger = self.spawner.PoliceLedger()

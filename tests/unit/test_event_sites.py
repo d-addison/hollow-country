@@ -44,7 +44,7 @@ def load(filename, owner, env, statics=None):
     cls = type(owner, (), defaults)
     env[owner] = cls
     source = re.sub(r"\bs_(\w+)\b", owner + r".s_\1", source)
-    for static, name in re.findall(r"^    (?:override )?(static )?(?:bool|int|float|string|void|HCEvent\w+|array<[^>]+>) (\w+)\(", source, re.M):
+    for static, name in re.findall(r"^    (?:override )?(static )?(?:bool|int|float|string|void|vector|HCEvent\w+|array<[^>]+>) (\w+)\(", source, re.M):
         fn = translate(source, name, env, owner, not bool(static))
         setattr(cls, name, staticmethod(fn) if static else fn)
     return cls
