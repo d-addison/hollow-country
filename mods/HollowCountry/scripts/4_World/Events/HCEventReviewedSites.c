@@ -32,6 +32,24 @@ class HCEventReviewedSites
         sites.Insert(Build("kumyrna-ambush-cache", "Ambush_Kumyrna", 8393.078, 292.062, 5998.555));
         return sites;
     }
+    // V2 scene variety reuses INVESTIGATION and the exact reviewed anchors.
+    // This definition grants no cache, item, AI body or reward capability.
+    static HCEventMission SceneMission(HCEventSite site, string missionId, int lifetime)
+    {
+        if (!site || !site.Reviewed) { return null; }
+        HCEventMission mission = new HCEventMission;
+        mission.Id = missionId;
+        mission.SiteId = site.Id;
+        mission.WorldName = site.WorldName;
+        mission.Reviewed = true;
+        mission.Family = HCEventFamily.INVESTIGATION;
+        mission.Source = site.Position;
+        mission.Destination = site.Position;
+        mission.Radius = 25;
+        mission.DwellSeconds = 20;
+        mission.LifetimeSeconds = lifetime;
+        return mission;
+    }
     static void Merge(HCEventSettings settings)
     {
         if (!settings || !settings.Sites) { return; }

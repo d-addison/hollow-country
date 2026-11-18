@@ -525,6 +525,29 @@ class HCEventDirector
         state.LastNow = context.Now;
         return HCEventCode.OK;
     }
+    // V2 environmental scene duration, exclusively on a server-owned scene
+    // director. No fabricated player, subscription or objective observation.
+    // Propose/announce/expire/cancel and COMPLETE retain their ordinary rules.
+    static int SceneElapsed(HCEventState state, HCEventContext context, int eventId, int began, int duration)
+    {
+        if (!ContextValid(state, context)) { return HCEventCode.DENIED; }
+        HCEventRecord record = FindRecord(state, eventId);
+        if (!record || record.Definition.ObjectiveTag != "scene-duration") { return HCEventCode.INVALID; }
+        if (record.Status != HCEventStatus.ANNOUNCED || record.Participants.Count() != 0 || record.Revision >= 999998) { return HCEventCode.CONFLICT; }
+        if (record.Definition.RewardUnits > 0) { return HCEventCode.BLOCKED; }
+        if (context.Now >= record.Expires) { return HCEventCode.EXPIRED; }
+        int proposedAt = record.Expires - record.Definition.LifetimeSeconds;
+        if (duration < 3600 || duration > 43200 || began < proposedAt || began > context.Now || context.Now - began < duration) { return HCEventCode.CONFLICT; }
+        record.Progress = record.Definition.Goal;
+        record.LastObservation = 1;
+        record.Status = HCEventStatus.RESOLVING;
+        record.Revision = record.Revision + 1;
+        HCEventRequest completion = new HCEventRequest;
+        completion.EventId = record.Id;
+        completion.ExpectedRevision = record.Revision;
+        completion.Op = HCEventOp.COMPLETE;
+        return Command(state, context, completion);
+    }
     static void CompactSessions(HCEventState state)
     {
         array<string> retained = new array<string>();

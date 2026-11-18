@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "reviewed": "2026-11-17",
+  "build": "1.30.164289",
+  "status": "source/data review only; native compile, DayZDiag, normal PBO/server and two-client visibility acceptance PENDING",
+  "class_evidence": "Bounded read-only tools.audit.pbo_config.read_configs against the installed vanilla addons, cross-checked against the local config dump; no asset or vanilla dump included. Absence from mapgroupproto means no stock CE group, not a missing class. Scene scenery does not register CE loot groups.",
+  "mapgroupproto_sha256": "44e70165da1b13de1ab2451aea43413955a7e81acd2d7016ba957787632585a6",
+  "site_evidence": "docs/events/sites.json and HCEventReviewedSites.Curated; exactly three existing source-reviewed sites, Surveyed=false",
+  "classes": [
+    {
+      "class": "FxCartridge_556",
+      "pbo": "weapons_projectiles.pbo",
+      "parent": "FxCartridge",
+      "model": "\\dz\\weapons\\projectiles\\nabojnice_556.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "static spent-casing model only"
+    },
+    {
+      "class": "Land_Wreck_Lada_Green",
+      "pbo": "structures_wrecks.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Lada_Green.p3d",
+      "stock_mapgroupproto_group": true,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "Land_Wreck_Uaz",
+      "pbo": "structures_wrecks.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_Uaz.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "Land_Wreck_V3S",
+      "pbo": "structures_wrecks.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "\\DZ\\structures\\Wrecks\\Vehicles\\Wreck_V3S.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Decon_CBRNCase_01_F",
+      "pbo": "structures_residential.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Residential\\Medical\\Decon_CBRNCase_01_F.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Decon_HazmatBag_01_F",
+      "pbo": "structures_residential.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Residential\\Medical\\Decon_HazmatBag_01_F.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Furniture_PaperBox_01_small_ransacked",
+      "pbo": "structures_furniture.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Furniture\\Cases\\PaperBox\\PaperBox_01_small_ransacked.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Furniture_bag_DZ",
+      "pbo": "structures_furniture.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Furniture\\Various\\bag_DZ.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Furniture_foldingbed_open",
+      "pbo": "structures_furniture.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Furniture\\folding_beds\\foldingbed_open.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Furniture_metalcrate",
+      "pbo": "structures_furniture.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Furniture\\Cases\\metalcrate\\metalcrate.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Misc_Barricade",
+      "pbo": "structures_residential.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Residential\\Misc\\Misc_Barricade.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Misc_Pallet",
+      "pbo": "structures_industrial.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Industrial\\Misc\\Misc_Pallet.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_PartyTent",
+      "pbo": "gear_camping.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\gear\\camping\\party_tent_static.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    },
+    {
+      "class": "StaticObj_Roadblock_Bags_EndL",
+      "pbo": "structures_military.pbo",
+      "parent": "HouseNoDestruct",
+      "model": "DZ\\structures\\Military\\Improvised\\Roadblock_Bags_EndL.p3d",
+      "stock_mapgroupproto_group": false,
+      "use": "non-inventory scenery, world persistence disabled"
+    }
+  ],
+  "native_apis": [
+    "3_Game/Global/Game.c:680 CreateStaticObjectUsingP3D",
+    "3_Game/Global/Game.c:703 CreateObjectEx",
+    "3_Game/Global/Game.c:705 ObjectDelete",
+    "3_Game/Global/Game.c:930 GetObjectsAtPosition3D",
+    "3_Game/Global/Game.c:932 GetWorldName",
+    "3_Game/Global/Game.c:1176 SurfaceY",
+    "3_Game/Global/Game.c:1196 SurfaceIsSea",
+    "3_Game/Global/Game.c:465 ConfigGetTextOut",
+    "3_Game/Global/Game.c:612 ConfigIsExisting",
+    "3_Game/Global/Game.c:1550 GetCallQueue",
+    "3_Game/Entities/Building.c:31 GetDoorCount",
+    "3_Game/Entities/Building.c:73 GetDoorSoundPos",
+    "3_Game/Entities/Object.c:215 IsPendingDeletion",
+    "3_Game/Entities/Object.c:287 GetPosition",
+    "3_Game/Entities/Object.c:311 SetOrientation",
+    "3_Game/Entities/Object.c:370 GetCollisionBox",
+    "3_Game/CE/CentralEconomy.c:30 ECE_NOLIFETIME",
+    "3_Game/CE/CentralEconomy.c:31 ECE_NOPERSISTENCY_WORLD",
+    "3_Game/CE/CentralEconomy.c:38 ECE_PLACE_ON_SURFACE",
+    "3_Game/tools/JsonFileLoader.c:69 LoadData",
+    "3_Game/tools/JsonFileLoader.c:85 MakeData",
+    "1_Core/proto/EnSystem.c:76 GetHourMinuteSecondUTC via HCGroupClock.Utc",
+    "1_Core/proto/EnSystem.c:100 GetYearMonthDayUTC via HCGroupClock.Utc",
+    "1_Core/proto/EnSystem.c:397 FileExist",
+    "1_Core/proto/EnSystem.c:525 MakeDirectory",
+    "1_Core/proto/EnSystem.c:528 DeleteFile",
+    "1_Core/proto/EnSystem.c:531 CopyFile",
+    "2_GameLib/tools.c:61 CallLater",
+    "2_GameLib/tools.c:65 Remove",
+    "1_Core/proto/EnMath.c:225 AbsFloat",
+    "1_Core/proto/EnMath.c:305 Sqrt",
+    "1_Core/proto/EnMath.c:566 Max"
+  ],
+  "constraints": {
+    "active_kits": 2,
+    "chains": 3,
+    "props_per_kit_max": 8,
+    "transition_far_m": 500,
+    "door_keepout_m": 4,
+    "route_strip_half_width_m": 4,
+    "one_chain_work_interval_s": 10,
+    "summary_interval_s": 600,
+    "item_moves": 0,
+    "created_loot": 0,
+    "real_stage_hours": 6,
+    "independent_stage_lifetime_hours": 12,
+    "interstage_delay_hours": 6
+  },
+  "remaining_gaps": [
+    "Lead packaging integration: add events/README.md, events/scene-chains.json and events/scene-provenance.json to tools/package/pbo.py MISSION_FILES. That shared file is outside scene ownership; the existing package test currently refuses these paths. Compiled catalog defaults keep source runtime independent of mission JSON installation.",
+    "HCObserverTransitionGate.CanTransition(vector pos, float far) is supplied by another worker; current local no-argument placeholder is not that integration.",
+    "No filesystem rename API is exposed in the installed native script snapshot; temp/backup/install/readback admission fails closed on interrupted writes but cannot claim filesystem atomic rename or fsync.",
+    "Door positions, prop footprint radii, terrain projection, road/path clearance, collision, replication, casing static-object lifetime and no world persistence require EXP-S3 normal server and two-client checks.",
+    "Timed environmental chain directors are durable inside scene-chains.json; optional v1 INVESTIGATION missions use its normal runtime/journal only when v1 Events is admitted. No fake player progress.",
+    "Nonzero rewards stay blocked exactly as v1; the remaining cache is empty static scenery. Future real-item moves require the existing qualified journal transfer path; there is no item-creation fallback.",
+    "Chains are finite, with terminal records retained; there is no automatic replay or refilling."
+  ]
+}
