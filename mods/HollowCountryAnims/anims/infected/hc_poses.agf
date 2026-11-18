@@ -1,0 +1,92 @@
+AnimSrcGraphFile {
+ Sheets {
+  AnimSrcGraphSheet HCPoses {
+   Nodes {
+    AnimSrcNodeSource HCSitWallIdleSource {
+     EditorPos 2 -2
+     Source "Default.Normal.z_erc_idle_fight01"
+     Looptype Loop
+    }
+    AnimSrcNodeSource HCSitWallGetUpSource {
+     EditorPos 6 -2
+     Source "Default.Normal.z_erc_attack_up_combo03"
+     Looptype "No Loop"
+    }
+    AnimSrcNodeStateMachine HCMasterControl {
+     EditorPos 2 -8
+     states {
+      AnimSrcNodeState SitWall {
+       EditorPos 2 -5
+       Child "HCSitWallIdleSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState SitWallGetUp {
+       EditorPos 6 -5
+       Child "HCSitWallGetUpSource"
+       StartCondition "false"
+       TimeStorage "Real Time"
+       IsExit 0
+      }
+      AnimSrcNodeState Vanilla {
+       EditorPos -2 -5
+       Child "MasterControl"
+       StartCondition "true"
+       TimeStorage Inherit
+       IsExit 0
+      }
+     }
+     transitions {
+      AnimSrcNodeTransition "{48435053495401A1}" {
+       FromState "Vanilla"
+       ToState "SitWall"
+       Duration "0.6"
+       StartTime ""
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 1"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495401A2}" {
+       FromState "SitWall"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495401A3}" {
+       FromState "SitWall"
+       ToState "SitWallGetUp"
+       Duration "0.2"
+       StartTime ""
+       Condition "(IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0) || MovementSpeed > 0.5"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495401A4}" {
+       FromState "SitWallGetUp"
+       ToState "Vanilla"
+       Duration "0.15"
+       StartTime ""
+       Condition "IsCommand(CMD_DEATH) || IsCommand(CMD_HIT_LIGHT) || IsCommand(CMD_HIT_HEAVY) || IsCommand(CMD_CRAWL) || IsCommand(CMD_ATTACK) || IsCommand(CMD_VAULT)"
+       BlendFn S
+       MotionVecBlend 0x33 0
+      }
+      AnimSrcNodeTransition "{48435053495401A5}" {
+       FromState "SitWallGetUp"
+       ToState "Vanilla"
+       Duration "0.25"
+       StartTime ""
+       Condition "RemainingTimeLess(0.25)"
+       BlendFn S
+       PostEval 1
+       MotionVecBlend 0x33 0
+      }
+     }
+    }
+   }
+  }
+ }
+}

@@ -335,6 +335,12 @@ class PackageBehavior(unittest.TestCase):
                 sign.sign_and_verify(unknown, root / 'tools', private, public, root / 'other', runner=fake_run)
             self.assertFalse((root / 'other').exists())
 
+    def test_animation_addon_prefix_is_packable_and_verifiable(self):
+        self.assertIn('HollowCountryAnims', pbo.PREFIXES)
+        blob = pbo.pack({'config.cpp': b'class Synthetic {};'}, prefix='HollowCountryAnims')
+        prefix, entries = pbo.parse(blob, prefixes=pbo.PREFIXES)
+        self.assertEqual(prefix, 'HollowCountryAnims')
+
     def test_structural_verifier_rejects_forged_distribution_and_acceptance(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
