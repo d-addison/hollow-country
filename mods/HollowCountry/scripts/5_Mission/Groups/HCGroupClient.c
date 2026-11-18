@@ -412,7 +412,7 @@ class HCGroupClient
             return false;
         if (m_Session == "" || m_RequestId >= 1000000)
             return false;
-        if (request.Op < 1 || request.Op > 13)
+        if (request.Op < 1 || request.Op > 14)
             return false;
         if (!HCGroupRules.TextValid(request.Name, 64, true))
             return false;

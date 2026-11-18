@@ -7,6 +7,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class CampsSmoke(unittest.TestCase):
+    def test_w5_respawn_requires_established_quiet_camp_and_full_cooldown(self):
+        # Synthetic scalars execute the authored gate, never engine spawn safety.
+        gate = compile_method('../Camps/HCCampTiers.c', 'static bool HCRespawnEligible(',
+                              'tier, threat, now, last', {})
+        self.assertTrue(gate(None, 1, False, 2000, 0))
+        self.assertTrue(gate(None, 3, False, 3800, 2000))
+        for args in ((0, False, 3800, 0), (1, True, 3800, 0),
+                     (1, False, 3799, 2000), (1, False, 1999, 2000),
+                     (1, False, 0, 0)):
+            self.assertFalse(gate(None, *args))
+
     def test_tiers_only_classify_and_probes_refuse_before_day_fourteen(self):
         tier = compile_method('../Camps/HCCampTiers.c', 'static int Evaluate(',
                               'hearth, shelter, storage, flag, food, kitchen, walls, lights, radio', {})

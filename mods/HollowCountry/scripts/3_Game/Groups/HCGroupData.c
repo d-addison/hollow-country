@@ -1,6 +1,8 @@
 // Wire DTOs and standalone validated settings. No native/Workshop asset copies.
 class HCGroupSettings
 {
+    // Server admission signal for optional W5 client input; never client authority.
+    bool HCTeamPingEnabled = false;
     int SchemaVersion = 1;
     bool Enabled = true;
     bool WorldIcons = true;

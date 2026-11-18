@@ -3,6 +3,15 @@
 // (diagnostics live in the module); this policy calls no native methods.
 class HCCampTiers
 {
+    // #126: full 30 minute durable per-account cooldown; rollback refuses.
+    static bool HCRespawnEligible(int tier, bool threat, int now, int last)
+    {
+        if (tier < 1 || tier > 3 || threat) { return false; }
+        if (now < 1 || last < 0 || now < last) { return false; }
+        if (last > 0 && now - last < 1800) { return false; }
+        return true;
+    }
+
     static int Evaluate(bool hearth, bool shelter, bool storage, bool flag, bool food, bool kitchen, int walls, int lights, bool radio)
     {
         if (!hearth || !shelter || !storage) { return 0; }

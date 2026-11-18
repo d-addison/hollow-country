@@ -15,6 +15,11 @@ class HCInfoMapPins
 
     static string Label(HCGroupPlace place, int utc)
     {
+        if (place.Id.IndexOf("hc-ping:") == 0)
+        {
+            if (utc < 1 || place.HCPinExpiresUtc <= utc) { return ""; }
+            return "[Team ping] " + place.Name;
+        }
         if (place.Id.IndexOf("hc-found:") == 0) { return "found: " + place.Name; }
         if (place.Id.IndexOf("hc-death:") == 0)
         {

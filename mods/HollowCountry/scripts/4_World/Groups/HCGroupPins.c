@@ -85,6 +85,9 @@ class HCGroupPins : HCModule
     void Collect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
     {
         if (!group || !output || cap < 1) { return; }
+        // #131: at most 90 expiring team pings, sharing the existing wire cap.
+        HCTeamPingModule teamPings = HCTeamPingModule.Get();
+        if (teamPings) { teamPings.HCCollect(group, cap, output); }
         // A corpse-run pin has priority over leads/trails at the existing cap.
         if (m_DeathPins) { m_DeathPins.HCCollect(group, cap, output); }
         HCLeadModule leads = HCLeadModule.Get();

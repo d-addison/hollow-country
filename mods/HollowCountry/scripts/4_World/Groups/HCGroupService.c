@@ -342,6 +342,15 @@ class HCGroupService
         int now = HCGroupClock.Utc();
         if (now < m_LastUtc) { Stop(); return; }
         m_LastUtc = now;
+        // #131 uses the same authenticated nonce/session/replay envelope.
+        // It never clones or commits inventory/group state; position is server-read.
+        if (request.Op == HCGroupOp.TEAM_PING)
+        {
+            int pingResult = HCGroupCode.DISABLED;
+            if (HCTeamPingModule.Get()) { pingResult = HCTeamPingModule.Get().HCReceive(peer, request.Role); }
+            Reply(peer, request.RequestId, pingResult, true);
+            return;
+        }
         if (request.Op == HCGroupOp.INVITE && !Live(Peer(request.TargetId)))
         { Reply(peer, request.RequestId, HCGroupCode.NOT_FOUND, true); return; }
         if ((request.Op == HCGroupOp.MARKER_CREATE || request.Op == HCGroupOp.MARKER_UPDATE) && (request.Position[0] > GetGame().GetWorld().GetWorldSize() || request.Position[2] > GetGame().GetWorld().GetWorldSize()))
