@@ -138,13 +138,7 @@ class HCAdminModule : HCModule
 
     protected bool HCKnown(string command)
     {
-        if (command == "status" || command == "snapshot" || command == "sitter") { return true; }
-        if (command == "dormant" || command == "horde" || command == "scene") { return true; }
-        if (command == "event" || command == "camp" || command == "holdout" || command == "day") { return true; }
-        if (command == "kit" || command == "list" || command == "clear" || command == "memory") { return true; }
-        if (command == "radio" || command == "deaddrop" || command == "loot" || command == "forage") { return true; }
-        if (command == "decay" || command == "weather") { return true; }
-        return false;
+        return HCAdminCatalog.HCKnown(command);
     }
 
     void HCReceive(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)

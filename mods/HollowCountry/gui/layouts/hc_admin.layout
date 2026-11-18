@@ -1,168 +1,119 @@
-FrameWidgetClass HCAdminRoot {
- position 0 0 size 1 1
- hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
- clipchildren 1 priority 150
- {
-  MapWidgetClass HCAdminMap {
-   position 0 0 size 0.65 0.88
-   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   clipchildren 1
-  }
-  CanvasWidgetClass HCAdminRoutes {
-   position 0 0 size 0.65 0.88
-   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   ignorepointer 1 clipchildren 1
-  }
-  PanelWidgetClass HCAdminPanel {
-   position 0.65 0 size 0.35 1
-   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   style rover_sim_black color 0.04 0.04 0.04 0.98
-   {
-    TextWidgetClass HCAdminTitle {
-     position 0.03 0.015 size 0.94 0.04
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
-     text "HC Admin - source tools; runtime pending"
-    }
-    ButtonWidgetClass HCAdminRefresh {
-     position 0.03 0.060 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "Request snapshot" style Default
-    }
-    ButtonWidgetClass HCAdminStatus {
-     position 0.52 0.060 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "Module status" style Default
-    }
-    ButtonWidgetClass HCAdminKit {
-     position 0.03 0.103 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "Kit availability" style Default
-    }
-    ButtonWidgetClass HCAdminList {
-     position 0.52 0.103 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "State near me" style Default
-    }
-    TextListboxWidgetClass HCAdminLayers {
-     position 0.03 0.150 size 0.94 0.12
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    ButtonWidgetClass HCAdminToggle {
-     position 0.03 0.275 size 0.94 0.035
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "Toggle selected layer" style Default
-    }
-    ButtonWidgetClass HCAdminSitter {
-     position 0.03 0.317 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "sitter" style Default
-    }
-    ButtonWidgetClass HCAdminDormant {
-     position 0.52 0.317 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "dormant" style Default
-    }
-    ButtonWidgetClass HCAdminHorde {
-     position 0.03 0.360 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "horde" style Default
-    }
-    ButtonWidgetClass HCAdminScene {
-     position 0.52 0.360 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "scene" style Default
-    }
-    ButtonWidgetClass HCAdminEvent {
-     position 0.03 0.403 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "event" style Default
-    }
-    ButtonWidgetClass HCAdminCamp {
-     position 0.52 0.403 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "camp" style Default
-    }
-    ButtonWidgetClass HCAdminHoldout {
-     position 0.03 0.446 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "holdout" style Default
-    }
-    ButtonWidgetClass HCAdminClear {
-     position 0.52 0.446 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "clear sitter" style Default
-    }
-    ButtonWidgetClass HCAdminRadio {
-     position 0.03 0.489 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "radio" style Default
-    }
-    ButtonWidgetClass HCAdminDeadDrop {
-     position 0.52 0.489 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "dead drop" style Default
-    }
-    ButtonWidgetClass HCAdminLoot {
-     position 0.03 0.532 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "loot refresh" style Default
-    }
-    ButtonWidgetClass HCAdminForage {
-     position 0.52 0.532 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "forage" style Default
-    }
-    ButtonWidgetClass HCAdminDecay {
-     position 0.03 0.575 size 0.45 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "decay" style Default
-    }
-    EditBoxWidgetClass HCAdminValue {
-     position 0.03 0.618 size 0.18 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "1" font "gui/fonts/sdf_MetronBook24"
-    }
-    ButtonWidgetClass HCAdminDay {
-     position 0.23 0.618 size 0.22 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "day" style Default
-    }
-    ButtonWidgetClass HCAdminMemory {
-     position 0.47 0.618 size 0.25 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "memory" style Default
-    }
-    ButtonWidgetClass HCAdminWeather {
-     position 0.74 0.618 size 0.23 0.037
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "weather" style Default
-    }
-    TextListboxWidgetClass HCAdminStatusRows {
-     position 0.03 0.662 size 0.94 0.27
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     font "gui/fonts/sdf_MetronBook24"
-    }
-    ButtonWidgetClass HCAdminClose {
-     position 0.03 0.94 size 0.94 0.04
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "Close" style Default
-    }
-   }
-  }
-  PanelWidgetClass HCAdminNoticePanel {
-   position 0 0.88 size 0.65 0.12
-   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-   style rover_sim_black color 0.04 0.04 0.04 0.98
-   {
-    MultilineTextWidgetClass HCAdminNotice {
-     position 0.02 0.05 size 0.96 0.90
-     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
-     text "Request a snapshot to see registered debug layers. No snapshot polling."
+ FrameWidgetClass HCAdminRoot {
+  position 0 0 size 1 1
+  hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+  priority 150 clipchildren 1
+  {
+   PanelWidgetClass HCAdminWindow {
+    position 0.10 0.10 size 0.80 0.80
+    hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+    style rover_sim_black color 0.025 0.03 0.04 0.98 clipchildren 1
+    {
+     TextWidgetClass HCAdminTitle {
+      position 0.025 0.025 size 0.50 0.055
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      ignorepointer 1 font "gui/fonts/sdf_MetronBook24" "exact text" 1  text "Hollow Country Admin" "exact text size" 24
+     }
+     TextWidgetClass HCAdminState {
+      position 0.52 0.025 size 0.40 0.055
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      ignorepointer 1 font "gui/fonts/sdf_MetronBook24" "exact text" 1  text "waiting for server" "exact text size" 14
+     }
+     ButtonWidgetClass HCAdminClose {
+      position 0.94 0.02 size 0.04 0.055
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      style Default font "gui/fonts/sdf_MetronBook24" text "X" text_proportion 0.55
+     }
+     PanelWidgetClass HCAdminSidebar {
+      position 0.02 0.11 size 0.19 0.55
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      style rover_sim_black color 0.055 0.065 0.08 1 clipchildren 1
+      {
+       GridSpacerWidgetClass HCAdminTabs {
+        position 0 0 size 1 1
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        ignorepointer 1 Columns 1 Padding 0 Margin 6 "Size To Content V" 1 "Ignore invisible" 1
+       }
+      }
+     }
+     FrameWidgetClass HCAdminContent {
+      position 0.23 0.11 size 0.75 0.55
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      clipchildren 1
+      {
+       TextWidgetClass HCAdminSectionTitle {
+        position 0 0 size 1 0.09
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        ignorepointer 1 font "gui/fonts/sdf_MetronBook24" "exact text" 1  text "" "exact text size" 22
+       }
+       MultilineTextWidgetClass HCAdminSectionHelp {
+        position 0 0.10 size 1 0.12
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        ignorepointer 1 font "gui/fonts/sdf_MetronBook24" "exact text" 1 "exact text size" 16 text "" wrap 1 "size to text v" 1
+       }
+       ButtonWidgetClass HCAdminChecks {
+        position 0 0.23 size 0.52 0.10
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        style Default font "gui/fonts/sdf_MetronBook24" text "Run read-only checks" text_proportion 0.55
+       }
+       ScrollWidgetClass HCAdminCardScroll {
+        position 0 0.36 size 1 0.64
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        clipchildren 1 "Scrollbar V" 1 "Scrollbar H" 0
+        {
+         GridSpacerWidgetClass HCAdminCards {
+          position 0 0 size 1 1
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          ignorepointer 1 Columns 1 Padding 0 Margin 6 "Size To Content V" 1 "Ignore invisible" 1
+         }
+        }
+       }
+       FrameWidgetClass HCAdminMapPanel {
+        position 0 0.23 size 1 0.77
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        visible 0 clipchildren 1
+        {
+         MapWidgetClass HCAdminMap {
+          position 0 0 size 0.72 1
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          clipchildren 1
+         }
+         CanvasWidgetClass HCAdminRoutes {
+          position 0 0 size 0.72 1
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          ignorepointer 1 clipchildren 1
+         }
+         TextListboxWidgetClass HCAdminLayers {
+          position 0.74 0 size 0.26 0.79
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          font "gui/fonts/sdf_MetronBook24"
+         }
+         ButtonWidgetClass HCAdminToggle {
+          position 0.74 0.82 size 0.26 0.16
+          hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+          style Default font "gui/fonts/sdf_MetronBook24" text "Toggle layer" text_proportion 0.55
+         }
+        }
+       }
+      }
+     }
+     TextWidgetClass HCAdminConsoleTitle {
+      position 0.025 0.675 size 0.95 0.035
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      ignorepointer 1 font "gui/fonts/sdf_MetronBook24" "exact text" 1  text "RESULT CONSOLE  /  latest 50 lines  /  newest first" "exact text size" 14
+     }
+     ScrollWidgetClass HCAdminConsoleScroll {
+      position 0.025 0.72 size 0.95 0.255
+      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+      clipchildren 1 "Scrollbar V" 1 "Scrollbar H" 0
+      {
+       GridSpacerWidgetClass HCAdminConsole {
+        position 0 0 size 1 1
+        hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+        ignorepointer 1 Columns 1 Padding 0 Margin 6 "Size To Content V" 1 "Ignore invisible" 1
+       }
+      }
+     }
     }
    }
   }
  }
-}

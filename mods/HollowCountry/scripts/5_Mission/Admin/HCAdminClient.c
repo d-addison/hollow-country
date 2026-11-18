@@ -10,6 +10,15 @@
 // 3_Game/Client/Notifications/NotificationSystem.c:215 AddNotificationExtended.
 // Lazy key-only construction. Per frame: O(1) player/expiry checks; no polling.
 // Reply validation <=512 vertices, <=64 lines; server-only auth controls UI.
+// UI console and request scheduler only; gameplay remains server-owned.
+// Native: 2_GameLib/tools.c ScriptInvoker; EnSystem.c GetHourMinuteSecond;
+// EnScript.c array.InsertAt/RemoveOrdered; EnConvert.c int.ToString.
+class HCAdminConsoleLine
+{
+    string Text;
+    bool Ok;
+}
+
 class HCAdminClient
 {
     protected static ref HCAdminClient s_Instance;
@@ -26,10 +35,108 @@ class HCAdminClient
     protected float m_WaitNoticeAt;
     protected bool m_WaitNoticeShown;
     protected PlayerBase m_Player;
+    protected bool m_Pending;
+    protected float m_RequestUntil;
+    protected string m_Command;
+    protected ref array<string> m_Checks = new array<string>;
+    protected ref array<ref HCAdminConsoleLine> m_Console = new array<ref HCAdminConsoleLine>;
+    ref ScriptInvoker Changed = new ScriptInvoker;
     ref HCAdminReply View;
     ref array<string> Hidden;
     int Revision;
     string Notice;
+
+    static string HCStamp()
+    {
+        int hour;
+        int minute;
+        int second;
+        GetHourMinuteSecond(hour, minute, second);
+        return hour.ToStringLen(2) + ":" + minute.ToStringLen(2) + ":" + second.ToStringLen(2);
+    }
+
+    array<ref HCAdminConsoleLine> HCConsole()
+    {
+        return m_Console;
+    }
+
+    void HCFeedback(string text)
+    {
+        Notice = text;
+        HCLog("input", false, "local-validation: " + text);
+        Changed.Invoke();
+    }
+
+    protected void HCLog(string command, bool ok, string text)
+    {
+        HCAdminConsoleLine line = new HCAdminConsoleLine;
+        string result = "refused";
+        if (ok) { result = "ok"; }
+        line.Text = "[" + HCStamp() + "] " + command + " | " + result + " | " + text;
+        line.Ok = ok;
+        m_Console.InsertAt(line, 0);
+        while (m_Console.Count() > 50) { m_Console.RemoveOrdered(m_Console.Count() - 1); }
+    }
+
+    protected void HCLogReply(HCAdminReply reply, string command)
+    {
+        bool ok = reply.Notice.IndexOf("result=refused") < 0;
+        // Insert backwards so the summary precedes its readable body lines.
+        for (int index = reply.Lines.Count() - 1; index >= 0; index--)
+        {
+            HCLog(command, ok, reply.Lines[index]);
+        }
+        HCLog(command, ok, reply.Notice);
+    }
+
+    bool HCBusy()
+    {
+        return m_Pending || m_Checks.Count() > 0 || GetGame().GetTickTime() < m_NextSend;
+    }
+
+    string HCState()
+    {
+        if (m_Pending) { return "admin | waiting for server: " + m_Command; }
+        if (!HCValid()) { return "refused / not an admin: session unavailable"; }
+        if (HCBusy()) { return "admin | busy: waiting for throttle"; }
+        return "admin | ready";
+    }
+
+    bool HCChecks()
+    {
+        if (!HCValid() || HCBusy()) { return false; }
+        m_Checks.Insert("status");
+        m_Checks.Insert("kit");
+        m_Checks.Insert("list");
+        HCRequestTick();
+        return true;
+    }
+
+    // Called by the existing gameplay tick; at most one request in flight.
+    // Timeout cancels the read-only batch. No automatic gameplay or retry.
+    protected void HCRequestTick()
+    {
+        float now = GetGame().GetTickTime();
+        if (m_Pending)
+        {
+            if (now < m_RequestUntil) { return; }
+            m_Pending = false;
+            m_Expected = 0;
+            m_Checks.Clear();
+            Notice = "No server reply: request timeout; remaining checks cancelled. No retry.";
+            HCLog(m_Command, false, "client-timeout; server outcome unknown; no retry");
+            Revision++;
+            Changed.Invoke();
+            return;
+        }
+        if (m_Checks.Count() == 0 || now < m_NextSend || !HCValid()) { return; }
+        if (HCSend(m_Checks[0], 0)) { m_Checks.RemoveOrdered(0); }
+    }
+
+    void HCCancelChecks()
+    {
+        m_Checks.Clear();
+    }
 
     static HCAdminClient HCGet()
     {
@@ -57,7 +164,7 @@ class HCAdminClient
     {
         if (!m_Listening) { return false; }
         float now = GetGame().GetTickTime();
-        if (now < m_NextSend || m_Ticket >= 1000000000) { return false; }
+        if (m_Pending || now < m_NextSend || m_Ticket >= 1000000000) { return false; }
         PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
         if (!player || !player.IsAlive() || player.IsUnconscious()) { return false; }
         if (command != "status" && !HCValid()) { return false; }
@@ -72,6 +179,9 @@ class HCAdminClient
         m_NextSend = now + 1.1;
         m_Ticket++;
         m_Expected = m_Ticket;
+        m_Pending = true;
+        m_RequestUntil = now + 10;
+        m_Command = command;
         HCAdminRequest request = new HCAdminRequest;
         request.Ticket = m_Ticket;
         request.Command = command;
@@ -82,6 +192,7 @@ class HCAdminClient
         rpc.Send(null, HCAdminWire.REQUEST, true);
         Notice = "Request sent; waiting for server. No retries or automatic gameplay commands.";
         Revision++;
+        Changed.Invoke();
         return true;
     }
 
@@ -122,6 +233,15 @@ class HCAdminClient
             if (!HCDebugSnapshot.HCPositionValid(mark.Position)) { return; }
             if (mark.Label.Length() > 128 || mark.Detail.Length() > 256) { return; }
         }
+        string command = "snapshot";
+        if (current)
+        {
+            command = m_Command;
+            m_Pending = false;
+            m_Expected = 0;
+        }
+        // Log the received body before the snapshot reuses the previous status.
+        HCLogReply(reply, command);
         m_Authorized = true;
         m_LastReply = GetGame().GetTickTime();
         Notice = reply.Notice;
@@ -138,11 +258,13 @@ class HCAdminClient
             View.Lines = reply.Lines;
         }
         Revision++;
+        Changed.Invoke();
     }
 
     void HCTick()
     {
         if (!m_Listening) { return; }
+        HCRequestTick();
         float now = GetGame().GetTickTime();
         if (m_OpenRequested)
         {
@@ -167,6 +289,7 @@ class HCAdminClient
         {
             View.Marks.Clear();
             Revision++;
+            Changed.Invoke();
         }
         if (m_Authorized && !HCValid()) { HCStop(); }
     }
@@ -177,11 +300,15 @@ class HCAdminClient
         m_Listening = false;
         m_Authorized = false;
         m_OpenRequested = false;
+        m_Pending = false;
+        m_Expected = 0;
+        m_Checks.Clear();
         m_Player = null;
         m_SnapshotTicket = 0;
         View = null;
         Hidden = null;
         Notice = "Admin session expired; press the admin key to authenticate again.";
         Revision++;
+        Changed.Invoke();
     }
 }

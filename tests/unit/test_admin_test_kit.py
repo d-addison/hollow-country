@@ -7,6 +7,7 @@ it decides no gameplay policy of its own. Offline results never establish DayZ
 behaviour, so runtime acceptance stays pending.
 """
 import math
+import json
 import re
 import unittest
 from pathlib import Path
@@ -202,8 +203,24 @@ def py_statement(token, members, outs):
     return py_expr(token, members)
 
 
-def compile_authored(path, cls, name, scope, members=(), modded=True):
+def compile_authored(path, cls, name, scope, members=(), modded=True, fields=(), native_strings=None):
     params, text = authored_method(path, cls, name, modded)
+    # Explicit public fields, like m_ members, belong to the synthetic receiver.
+    # Do not rewrite string literals or fields already qualified by an object.
+    parts = re.split(r'("(?:\\.|[^"\\])*")', text)
+    for index in range(0, len(parts), 2):
+        for field in fields:
+            parts[index] = re.sub(r'(?<![.\w])' + re.escape(field) + r'\b', 'self.' + field, parts[index])
+    text = ''.join(parts)
+    namespace = dict(scope)
+    if native_strings:
+        # Give literal strings the same explicit synthetic native methods as
+        # strings returned by a fake widget. This is language scaffolding only.
+        def literal(match):
+            key = '_native_literal_' + str(len(namespace))
+            namespace[key] = native_strings(json.loads(match[0]))
+            return key
+        text = re.sub(r'"(?:\\.|[^"\\])*"', literal, text)
     # Older code writes brace-less one-line returns; the translator needs braces.
     text = re.sub(r"\bif\s*\(([^;{}]*)\)\s*return\s+([^;{}]*);", r"if (\1) { return \2; }", text)
     names, outs = [], set()
@@ -232,7 +249,6 @@ def compile_authored(path, cls, name, scope, members=(), modded=True):
                 raise AssertionError("Braces required after %r in %s.%s" % (token, cls, name))
             pending = True
         lines.append("    " * indent + line)
-    namespace = dict(scope)
     exec(compile("\n".join(lines), "%s.%s [synthetic]" % (cls, name), "exec"), namespace)
     return namespace["run"]
 
@@ -646,7 +662,12 @@ OLD_COMMANDS = ("status", "snapshot", "sitter", "dormant", "horde", "scene", "ev
 
 class KnownCommands(unittest.TestCase):
     def setUp(self):
-        self.known = compile_authored(ADMIN / "HCAdminModule.c", "HCAdminModule", "HCKnown", base_scope(), modded=False)
+        # Catalog-derived synthetic metadata; HCKnown still executes the authored
+        # server body. Catalog/dispatch equality is independently checked in UI tests.
+        catalog = (SCRIPTS / '3_Game/Admin/HCAdminCatalog.c').read_text()
+        ids = set(re.findall(r'HCAdd\("(\w+)"', strip_comments(catalog)))
+        scope = base_scope(HCAdminCatalog=NS(HCKnown=lambda command: command in ids))
+        self.known = compile_authored(ADMIN / "HCAdminModule.c", "HCAdminModule", "HCKnown", scope, modded=False)
 
     def test_every_old_and_new_command_is_on_the_allowlist(self):
         for command in OLD_COMMANDS + NEW_COMMANDS:
@@ -776,16 +797,14 @@ class KitListing(unittest.TestCase):
 # ---------------------------------------------------------------- menu + docs
 
 class MenuAndDocs(unittest.TestCase):
-    def test_menu_has_a_button_and_command_for_every_new_command(self):
+    def test_menu_builds_cards_for_every_catalog_command(self):
         menu = MENU.read_text()
-        layout = LAYOUT.read_text()
+        catalog = (SCRIPTS / '3_Game/Admin/HCAdminCatalog.c').read_text()
         for command in NEW_COMMANDS:
-            self.assertIn('command = "%s"' % command, menu, command)
-        for button in ("HCAdminKit", "HCAdminList", "HCAdminClear", "HCAdminMemory", "HCAdminRadio",
-                       "HCAdminDeadDrop", "HCAdminLoot", "HCAdminForage", "HCAdminDecay", "HCAdminWeather",
-                       "HCAdminValue"):
-            self.assertRegex(layout, r"WidgetClass %s \{" % button, button)
-            self.assertIn(button, menu, button)
+            self.assertIn('HCAdd("%s"' % command, catalog, command)
+        self.assertIn('HCAdminCatalog.Commands()', menu)
+        self.assertIn('card.Entry.Id', menu)
+        self.assertTrue(LAYOUT.is_file())
 
     def test_value_commands_validate_digits_before_sending(self):
         menu = MENU.read_text()
