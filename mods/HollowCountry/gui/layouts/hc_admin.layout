@@ -1,0 +1,118 @@
+FrameWidgetClass HCAdminRoot {
+ position 0 0 size 1 1
+ hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+ clipchildren 1 priority 150
+ {
+  MapWidgetClass HCAdminMap {
+   position 0 0 size 0.65 0.88
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   clipchildren 1
+  }
+  CanvasWidgetClass HCAdminRoutes {
+   position 0 0 size 0.65 0.88
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   ignorepointer 1 clipchildren 1
+  }
+  PanelWidgetClass HCAdminPanel {
+   position 0.65 0 size 0.35 1
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   style rover_sim_black color 0.04 0.04 0.04 0.98
+   {
+    TextWidgetClass HCAdminTitle {
+     position 0.03 0.02 size 0.94 0.04
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
+     text "HC Admin - source tools; runtime pending"
+    }
+    ButtonWidgetClass HCAdminRefresh {
+     position 0.03 0.07 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Request snapshot" style Default
+    }
+    ButtonWidgetClass HCAdminStatus {
+     position 0.52 0.07 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Module status" style Default
+    }
+    TextListboxWidgetClass HCAdminLayers {
+     position 0.03 0.13 size 0.94 0.16
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCAdminToggle {
+     position 0.03 0.30 size 0.94 0.04
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Toggle selected layer" style Default
+    }
+    ButtonWidgetClass HCAdminSitter {
+     position 0.03 0.36 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "sitter" style Default
+    }
+    ButtonWidgetClass HCAdminDormant {
+     position 0.52 0.36 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "dormant" style Default
+    }
+    ButtonWidgetClass HCAdminHorde {
+     position 0.03 0.415 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "horde" style Default
+    }
+    ButtonWidgetClass HCAdminScene {
+     position 0.52 0.415 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "scene" style Default
+    }
+    ButtonWidgetClass HCAdminEvent {
+     position 0.03 0.47 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "event" style Default
+    }
+    ButtonWidgetClass HCAdminCamp {
+     position 0.52 0.47 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "camp" style Default
+    }
+    ButtonWidgetClass HCAdminHoldout {
+     position 0.03 0.525 size 0.45 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "holdout" style Default
+    }
+    EditBoxWidgetClass HCAdminDayValue {
+     position 0.52 0.525 size 0.20 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "14" font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCAdminDay {
+     position 0.74 0.525 size 0.23 0.045
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "day" style Default
+    }
+    TextListboxWidgetClass HCAdminStatusRows {
+     position 0.03 0.59 size 0.94 0.33
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     font "gui/fonts/sdf_MetronBook24"
+    }
+    ButtonWidgetClass HCAdminClose {
+     position 0.03 0.94 size 0.94 0.04
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Close" style Default
+    }
+   }
+  }
+  PanelWidgetClass HCAdminNoticePanel {
+   position 0 0.88 size 0.65 0.12
+   hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+   style rover_sim_black color 0.04 0.04 0.04 0.98
+   {
+    MultilineTextWidgetClass HCAdminNotice {
+     position 0.02 0.05 size 0.96 0.90
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
+     text "Request a snapshot to see registered debug layers. No snapshot polling."
+    }
+   }
+  }
+ }
+}

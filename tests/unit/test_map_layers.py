@@ -402,5 +402,29 @@ class ServerDiscoveryPrivacy(unittest.TestCase):
         self.assertEqual([], self.e['KnownPlaces'](self.state, self.cfg, 'alice', NS(Places=EArray([self.place('z')]))))
 
 
+class AdminCommandSmoke(unittest.TestCase):
+    def test_synthetic_sender_authority_refuses_guest_and_dispatches_admin_status(self):
+        # Executes authored guards with explicit synthetic identities; no DayZ claim.
+        from tests.unit.test_horde_stimulus import compile_method
+        admin = NS(GetPlainId=lambda: 'synthetic-admin')
+        guest = NS(GetPlainId=lambda: 'synthetic-guest')
+        service = NS(m_Running=True, m_Admins=NS(PlainIds=EArray(['synthetic-admin'])))
+        calls = []
+        authorized = compile_method('../Admin/HCAdminModule.c', 'bool HCAuthorized(', 'sender', {})
+        service.HCAuthorized = lambda sender: authorized(service, sender)
+        service.HCRefused = lambda sender: calls.append('refused')
+        service.HCStatus = lambda sender, ticket: calls.append(('status', sender, ticket))
+        service.HCCommand = lambda *args: self.fail('status must not mutate gameplay')
+        dispatch = compile_method('../Admin/HCAdminModule.c', 'bool HCDispatch(',
+                                  'sender, command, value, ticket', {},
+                                  ('HCAuthorized', 'HCRefused', 'HCStatus', 'HCCommand'))
+        self.assertFalse(dispatch(service, guest, 'status', 0, 1))
+        self.assertEqual(['refused'], calls)
+        self.assertTrue(dispatch(service, admin, 'status', 0, 2))
+        self.assertEqual(('status', admin, 2), calls[-1])
+        service.m_Running = False
+        self.assertFalse(dispatch(service, admin, 'status', 0, 3))
+
+
 if __name__ == '__main__':
     unittest.main()
