@@ -17,8 +17,8 @@ Rules for this session (owner decisions):
   in the server profile turns that one feature off (see Markers). The only opt-ins left are the
   `xai_diagnostic_spawn.enable` and `infected_lod_experiment.enable` (#135) diagnostics, which stay off until
   you create them.
-- Never commit game assets, keys, profiles or logs. Source stays private; nothing here authorizes
-  public or Workshop publishing.
+- Never commit game assets, keys, profiles or logs. The repository is public; Workshop items and
+  friend-server releases are published only by the owner's decision, never by this checklist.
 
 The marker inventory is generated, not hand-maintained. Re-run it whenever a worker lands:
 

@@ -17,7 +17,7 @@ existing runtime implementation contract and active owner instructions apply.
 | #122 read-only contributors | Players, holdouts, live dead-drop caches, shelter catalog/placed state, events, received leads, eligible materializer ledger candidates | Missing layers listed below; no private state, entity search or provider claims |
 | #122 local web map | Stdlib server bound to 127.0.0.1; bounded re-read, toggles, hover, route lines, 15 s polling, grid/towns and optional operator image | Interactive browser inspection and native JSON interoperability pending |
 | #122 diagnostics | One HCV2Admission call per module lifecycle instance; success summary at most once per 600 real seconds | RPT lines must be observed by lead; none asserted here |
-| #123 in-game admin map | Design note below | Deferred to next round; no RPC/UI/config changes here |
+| #123 in-game admin map | Implemented separately: `4_World/Admin/HCAdminModule.c`, `HCAdminStatus.c`, `5_Mission/Admin/HCAdminClient.c`, `HCAdminMenu.c`, gated by `EnableAdminMap` and `profiles/HollowCountry/admins.json`; see `docs/ADMIN_TEST_KIT.md` | Two-client replication and visibility checks pending |
 
 ## Operation
 
@@ -220,7 +220,7 @@ The success line continues `points=<n> routes=<n> bytes=<n>` and prints only on
 first success and at least 600 real seconds later. Admission deliberately
 records unverified native status. None of these lines establishes acceptance.
 
-## #123 next-round design
+## #123 design (now implemented)
 
 An in-game admin map should consume a server-built bounded DTO through an
 authenticated, rate-limited admin-only request, sharing contributor data and
@@ -230,5 +230,5 @@ input/menu registration, and evaluate redaction separately from existing
 player discovery pins. `EnableAdminMap` is a separate preference. Design the
 failure path, stale timestamps, byte/route limits and client rendering budget
 before wiring. Requires native Windows compile, normal server/PBO testing and
-two clients for authentication, replication and visibility checks; no such RPC,
-permission gate or UI is implemented in #122.
+two clients for authentication, replication and visibility checks. #122 itself adds
+no RPC, permission gate or UI; the admin map that followed lives under `Admin/`.

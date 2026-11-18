@@ -273,4 +273,4 @@ V2 is on by default. All feature rows remain **Being built** and runtime accepta
 is pending. Native Windows compilation, normal PBO/server testing and two-client
 checks are still required; offline packaging checks establish no DayZ behavior.
 
-Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+Expansion-Animations is intentionally not loaded. A reported (not yet locally reproduced, EXP-D1) conflict with Survivor Animations, which DayZ-Bicycle requires, makes us leave it out; Expansion-AI brings its own AI animations.

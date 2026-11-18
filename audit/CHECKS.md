@@ -87,7 +87,7 @@ legacy code stays in the baseline until its WP converts it.
     `probe_runtime.ENGINE_TYPE_NAMES` plus a pinned layer table.
   - Native mode reads the local engine-script cache
     (`HC_NATIVE_SCRIPTS` or `~/.cache/hollow-country/native-scripts/...`) when
-    it is present. On the current tree both modes give the same 152 findings.
+    it is present. On main at 44792d6 pinned mode reports 133 findings (all baselined, new=0).
 
 | Rule | Catches | Source of the shape |
 |---|---|---|
@@ -112,7 +112,7 @@ legacy code stays in the baseline until its WP converts it.
   - A new finding fails.
   - A baselined finding that disappears also fails as stale, so the baseline
     only ratchets down.
-  - E-rules (other than the four E006 Substring cases) may not be baselined.
+  - E-rules (other than the one reviewed E006 Substring case in `HCSearchHouseJournal.Open`) may not be baselined.
     `test_the_compile_trap_rules_have_no_baselined_exceptions` enforces this.
 - **Existing sibling detectors** (`test_script_syntax`, `test_enforce_locals`,
   `test_script_identifiers`, `probe_runtime.lint_hook`) stay where they are. WP-7
@@ -194,17 +194,17 @@ A deliberate difference is recorded in the registry with a reason.
 
 ## 8. Work packages (ordered by payoff)
 
-| WP | Payoff | Owned files | Done when |
-|---|---|---|---|
-| WP-0 | Lint gate visible in CI (this slice is already in discovery) | `.github/workflows/static.yml` | the step is green on main |
-| WP-1 | Packaging regressions (C) never reach the owner again | `tools/validate/package_manifest.py`, `tests/unit/test_package_manifest.py` | a synthetic missing anims PBO, missing `meta.cpp`, missing `Mod` tag or missing bisign each fail; real staging passes |
-| WP-2 | The search spin (A) and every predicted action explain refusals | `mods/HollowCountry/scripts/3_Game/Core/HCRefusal.c` (enum + `HCRefusalReport`), `4_World/Loot/HCSearchHouses.c`, `4_World/Interiors/HCInteriorModule.c`, the six S003 actions; baseline entries removed | S001/S002/S003 entries for those files gone from the baseline; DayZDiag shows `[HC Search] refuse reason=` plus a client message |
-| WP-3 | Real Substring risk | `HCEventNativeObserver.c:343` (LastIndexOf may be -1) and the three other E006 entries | E006 baseline empty |
-| WP-4 | Identity gate (B) | `HCBuildIdentity.c`, new rule HC-S004 in `enforce_lint.py`, its test | a literal build compare without a log is flagged; Matches logs the mismatch once |
-| WP-5 | Silent feature-off (E) | `3_Game/Core/HCServer.c` skip line, readiness lint rule HC-S005, test | every `HCModule` has one ready/off line; skipped modules are logged |
-| WP-6 | Settings drift (E) | `tools/validate/shared_settings.json`, `tools/validate/settings_consistency.py`, its test | registry covers observer/spawn distances; deliberate differences carry reasons |
-| WP-7 | One lexer | `tests/unit/test_script_syntax.py`, `test_enforce_locals.py`, `test_script_identifiers.py` moved onto `enforce_source` | same findings, one parser |
-| WP-8 | Burn down S001/S002 in the remaining modules | per-module source owners | baseline ratchets to zero, module by module |
+| WP | Payoff | Owned files | Done when | Status (2026-11-18) |
+|---|---|---|---|---|
+| WP-0 | Lint gate visible in CI (this slice is already in discovery) | `.github/workflows/static.yml` | the step is green on main | done: CI step runs the lint |
+| WP-1 | Packaging regressions (C) never reach the owner again | `tools/validate/package_manifest.py`, `tests/unit/test_package_manifest.py` | a synthetic missing anims PBO, missing `meta.cpp`, missing `Mod` tag or missing bisign each fail; real staging passes | done: `package_manifest.py` landed |
+| WP-2 | The search spin (A) and every predicted action explain refusals | `mods/HollowCountry/scripts/3_Game/Core/HCRefusal.c` (enum + `HCRefusalReport`), `4_World/Loot/HCSearchHouses.c`, `4_World/Interiors/HCInteriorModule.c`, the six S003 actions; baseline entries removed | S001/S002/S003 entries for those files gone from the baseline; DayZDiag shows `[HC Search] refuse reason=` plus a client message | partly: `HCRefusal`/`HCRefusalReport` and the search path landed; the remaining S003 actions are in #160 |
+| WP-3 | Real Substring risk | `HCEventNativeObserver.c:343` (LastIndexOf may be -1) and the three other E006 entries | E006 baseline empty | done: the one remaining E006 entry was reviewed as bounded (`PinValid` checks the length) |
+| WP-4 | Identity gate (B) | `HCBuildIdentity.c`, new rule HC-S004 in `enforce_lint.py`, its test | a literal build compare without a log is flagged; Matches logs the mismatch once | done: HC-S004 in the lint |
+| WP-5 | Silent feature-off (E) | `3_Game/Core/HCServer.c` skip line, readiness lint rule HC-S005, test | every `HCModule` has one ready/off line; skipped modules are logged | open: no HC-S005 rule yet |
+| WP-6 | Settings drift (E) | `tools/validate/shared_settings.json`, `tools/validate/settings_consistency.py`, its test | registry covers observer/spawn distances; deliberate differences carry reasons | open: no `settings_consistency.py` yet |
+| WP-7 | One lexer | `tests/unit/test_script_syntax.py`, `test_enforce_locals.py`, `test_script_identifiers.py` moved onto `enforce_source` | same findings, one parser | done: #159 moved the sibling checks onto `enforce_source` |
+| WP-8 | Burn down S001/S002 in the remaining modules | per-module source owners | baseline ratchets to zero, module by module | open: #160 |
 
 ## 9. Limits
 

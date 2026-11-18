@@ -26,10 +26,14 @@ Sections:
 
 | Item | State |
 | --- | --- |
-| #154 Checks WP-2: shared `HCRefusal` reason codes and report helper | Sol worker running |
-| #156 Checks WP-4: tolerant, logged build-identity gate and lint rule HC-S004 | Sol worker finished; review and landing next |
-| #159 Checks WP-7: older syntax tests onto the shared Enforce source model | Sol worker running |
-| HC-1 to HC-10 (audit wave 1) | Worker output sits **unmerged** in its worktrees, based on `3ab98d0`. It needs review, a rebase onto main, focused tests and a native boot before it can land. |
+| #154, #156, #159 (checks WP-2, WP-4, WP-7), weight penalty halved, bigger backpacks and smaller items, the tabbed admin window, menu input lock | Landed on main (up to `44792d6`) |
+| HC-1, HC-2, HC-4 to HC-9 (audit wave 1) | Rebased onto `44792d6` with lead fixes; under review, then native boot and landing. HC-2 keeps the V1 cold/wet overlay (see section 10) |
+| HC-10 with config-driven AI caps (3-8 AI per group, up to 15 groups) | Rebased; review found two custody P1s; fix round running |
+| HC-3 finite siphon | Being rebased over #154 |
+| #164 infected memory clock skew, groups null context | Worker finished; under review |
+| #138 interiors follow-ups, stop-queue expected failure | Worker running |
+| #163 installer, #166 parity test, #135 LOD follow-ups | Workers running |
+| #165 build compares, #157, #158, #160, tick-budget design | Next wave |
 
 The HC-1 to HC-10 packages are:
 
@@ -44,7 +48,7 @@ The HC-1 to HC-10 packages are:
 - **HC-9** recoverable 2x loot packaging;
 - **HC-10** a single AI party and cargo identity.
 
-Friend server: Workshop build 034 and bundle v1-test-9 are what the friend runs. **Nothing new goes to the Workshop or to Releases for the rest of 2026-11-18.**
+Friend server: Workshop build 034 and bundle v1-test-9 are what the friend runs. **Nothing new goes to the Workshop or to Releases for the rest of 2026-11-18.** The stamina and inventory changes need a Workshop update on every client and the server, so they reach the friend server with the next publish, from 2026-11-19.
 
 ## 2. Playtest and friend-server bugs
 
@@ -293,16 +297,12 @@ Every README feature row reads "Built · not played". Still to observe:
 
 ## 9. Doc fixes
 
-- **Stamina:**
-  - The code is 0.25 drain and 2.5x recovery, which the owner kept.
-  - The README stamina row and docs/MODULE_STATUS.md still say half drain and 25% faster recovery.
-  - The README status table says "doubled".
-- **docs/DEBUG_MAP.md** still calls the admin map (#123) deferred, but it is implemented.
-- **docs/LOCAL_ACCEPTANCE_V1.md** still calls the repo private.
-- **README:** states the Expansion-Animations conflict as fact. It is an unverified report (EXP-D1).
-- **audit/CHECKS.md:**
-  - It still says 152 findings and "four E006".
-  - Its work package table has no done markers (WP-0, WP-1 and WP-3 are done).
+Done on 2026-11-18:
+- the stamina wording already matched the 0.25 drain and 2.5x recovery;
+- docs/DEBUG_MAP.md now points to the implemented admin map (#123);
+- docs/LOCAL_ACCEPTANCE_V1.md no longer calls the repo private;
+- the README marks the Expansion-Animations conflict as a reported, unverified one (EXP-D1);
+- audit/CHECKS.md has the current finding count (133), the one reviewed E006 entry and a status column for the work packages.
 
 ## 10. Questions for the owner
 
@@ -318,3 +318,4 @@ Every README feature row reads "Built · not played". Still to observe:
    - Are there map and character wipe rules for the friend server?
    - How often should events and stories arrive?
 10. **Autonomous validation spec (002):** its 30 tasks assume an automated client, which the acceptance rules exclude. Retire it, or keep the parts that don't need one?
+11. **Cold and wet overlay:** HC-2 wanted to retire the V1 cold/wet gameplay overlay (temperature deltas and wetness modifiers) as well as the warm-meal bonus. Only the meal bonus was dropped; the overlay stays because "no cold penalties" was read as being about the seasons. Should the overlay go too?
