@@ -242,10 +242,8 @@ ran 749 tests in 183.854s: one failure, one skip. Full command
 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v`
 ran 5,878 tests in 390.830s: the same failure, one skip, three expected failures.
 It included 21 inventory tests; the final extra regression/guard then passed the
-22-test focused run and native check. The full suite is **not green**: unowned
-`test_gameplay_delta.py:774` requires CfgVehicles to contain ZombieBase alone.
-Approval for `/tmp/hc-inventory-existing-test.patch` is pending; its three
-infected-leg tests pass in memory without changing that file.
+22-test focused run and native check. The leg-zone check in `test_gameplay_delta.py`
+was then scoped to the ZombieBase block, and the full suite is green.
 
 Final unsigned PBO build/verify passed (255 entries). config.cpp remains text,
 verified byte-for-byte after packing; signing operates on the unchanged opaque
@@ -253,3 +251,23 @@ PBO and its existing flow is retained. Git metadata was not written; the writer
 commit message is set. DayZDiag, normal PBO/server/client loading, inventory fit,
 persistence/reconnect, nesting safety and balance at 3–6 players remain **pending**.
 Offline checks do not grant production acceptance.
+||||||| parent of 44d0f76 (feat(ai): centralize AI limits and grow varied groups)
+
+### Human AI limits — 2026-11-18 source update
+
+Owner defaults are now one `AILimits` settings section: 15 combined groups / 72
+actors, occupation 3–8, holdout 3–6, travelling 2–6 and patrol 2–5. A shared
+reservation ledger covers materializer proposals, transient/authored Expansion
+sites and the legacy adapter, including full deferred groups and restored HC-10
+custody. Event encounters bind existing patrols under the configured encounter
+cap. Camps remain abstract; ecology MaxActors is an animal/infected observation
+batch and Groups MaxGroups is a player-team setting, not a human AI allowance.
+
+[Operator keys](../mission/hollow-country/ai/README.md) and
+[cap inventory / implementation record](../mission/hollow-country/ai/README.md#implementation-record-ai-caps-2026-11-18) record
+save compatibility, invalid-key fallback logs, deterministic world-seed sizing
+and all deferred checks. HC-10 custody persistence was applied as a separate
+prerequisite. No HCModule/config.cpp/Admin changes are needed. Offline evidence
+is source/policy verification only; DayZDiag, normal PBO/server, two-client
+visibility/audio/replication and load testing at 3–6 players remain pending.
+Budgets are provisional until measured; production enablement is not established.

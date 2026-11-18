@@ -38,12 +38,12 @@ class HCCampVisitors
         if (camp.LastVisit > 0 && now - camp.LastVisit < interval) { return; }
         camp.LastVisit = now;
         bool settle = camp.Tier >= 2 && !camp.NeighboursSettled && !camp.NeighboursLost;
-        if (settle) { camp.Neighbours = 2; camp.NeighboursSettled = true; }
+        if (settle) { camp.Neighbours = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, camp.Id, "camp"); camp.NeighboursSettled = true; }
         if (!module.Commit(now)) { return; }
         module.Fact(camp, "camp_visitor", 0);
         string message = "At dusk, travellers have passed nearby, leaving signs of a brief stop.";
         if (signal == "chemlight-trail") { message = "At dusk, travellers followed the lit chemlights past camp."; }
-        if (settle) { message = "Two refugees have settled nearby. Their presence is known through messages and signs of life."; }
+        if (settle) { message = "Refugees have settled nearby. Their presence is known through messages and signs of life."; }
         module.Tell(camp, message);
         Print("[HollowCountry] V2 camps visitor camp=" + camp.Id + " neighbours=" + camp.Neighbours.ToString() + " abstract=1");
     }
@@ -57,7 +57,7 @@ class HCCampVisitors
         camp.NeighboursLost = true;
         if (!module.Commit(now)) { return; }
         module.Fact(camp, "camp_neighbours_lost", 2);
-        module.Tell(camp, "The refugees nearby did not survive the raid. No replacement pair will settle here.");
+        module.Tell(camp, "The refugees nearby did not survive the raid. No replacement group will settle here.");
         Print("[HollowCountry] V2 camps neighbours-lost camp=" + camp.Id + " permanent=1 abstract=1");
     }
 }

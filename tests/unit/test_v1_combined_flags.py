@@ -60,11 +60,15 @@ class Profile:
         self.env = dict(Print=self.logs.append, FileExist=lambda p: True,
                         MakeDirectory=lambda p: True, load_settings=self.decode,
                         save_settings=lambda *a: self.writes.append(a) or True)
+        from tests.unit.ai_limits_fixture import install
+        install(self.env)
+        self.env['HCAILimits'].Use = lambda limits: None
         self.env['HCEventSettings'] = self.make
         self.load = event.translate(self.source, 'LoadFromProfile', self.env, 'HCEventSettings')
 
     def make(self):
         value = N(**DEFAULTS)
+        self.ai(value, DEFAULTS["AILimits"])
         source = self.source
         for field in DEFAULTS:
             source = re.sub(r'\b' + field + r'\b', 'self.' + field, source)
@@ -72,10 +76,18 @@ class Profile:
                                                        'HCEventSettings', True)(value, error)
         return value
 
+    def ai(self, value, fields):
+        from tests.unit.test_ai_limits import authored
+        limits, api, env, logs = authored()
+        vars(limits).update(fields)
+        limits.Validate = lambda: env["Validate"](limits)
+        value.AILimits = limits
+
     def decode(self, path):
         fields = json.loads(self.text)
         value = self.make()
         vars(value).update(fields)
+        self.ai(value, fields.get("AILimits", DEFAULTS["AILimits"]))
         return value
 
 

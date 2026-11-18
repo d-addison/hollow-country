@@ -64,7 +64,9 @@ class EncounterTests(unittest.TestCase):
         self.env['GetGame'] = lambda: N(IsServer=lambda: True, GetWorldName=lambda: self.world)
         self.env['HCEventObjectiveEvidence'] = lambda: N(Observed=False, Lease='', Session='',
                                                          ParticipantId='', Sequence=0, Token='')
-        self.env['HCXAIEncounters'] = N(MAX_OPEN=8, MAX_KILLS=16)
+        from tests.unit.ai_limits_fixture import install
+        install(self.env, MaxEncounters=8)
+        self.env['HCXAIEncounters'] = N(MAX_KILLS=16)
         self.source = (SCRIPTS / 'HCXAIEncounters.c').read_text()
         self.code = Authored(self.source, self.env)
         self.svc = N(m_Journal=None, m_Bindings=A(), m_Token='', m_State='waiting for sites',

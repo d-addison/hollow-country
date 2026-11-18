@@ -22,7 +22,6 @@ class HCXAILive
 {
     static const int PAGE_POINTS = 64;
     static const int PAGES = 2;
-    static const int MAX_UNITS = 1024;
     protected int m_Cursor;
     protected int m_Base;
     protected float m_Elapsed;
@@ -88,7 +87,7 @@ class HCXAILive
     void Describe(HCDebugSnapshot snapshot, int page)
     {
         int total = eAIBase.eAI_GetAll().Count();
-        if (total > HCXAILive.MAX_UNITS) { total = HCXAILive.MAX_UNITS; }
+        if (total > HCAILimits.Get().MaxObservedAI) { total = HCAILimits.Get().MaxObservedAI; }
         if (!snapshot || total <= 0)
         {
             m_Cursor = 0;
@@ -139,7 +138,7 @@ class HCXAILive
         int expansion = 0;
         int hc = 0;
         int total = eAIBase.eAI_GetAll().Count();
-        if (total > HCXAILive.MAX_UNITS) { total = HCXAILive.MAX_UNITS; }
+        if (total > HCAILimits.Get().MaxObservedAI) { total = HCAILimits.Get().MaxObservedAI; }
         int index = 0;
         while (index < total)
         {

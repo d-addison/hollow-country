@@ -1,5 +1,92 @@
 # Optional PvE AI data
 
+## Human AI limits (owner request 2026-11-18)
+
+Edit the `AILimits` object in `$profile:HollowCountry/settings.json`, then restart.
+The shipped template is `config/hollow-country-settings.json`; mission packaging
+also carries `operator/settings.json`. Existing settings staging is reused, so
+there is no second profile file to copy. `HCSettings.LoadFromProfile` creates
+missing defaults with the existing bounded JSON loader. A pre-existing settings
+file is preserved; an absent AILimits section keeps the constructor defaults.
+`python3 -B -m tools.validate.runtime` validates the template before staging.
+
+All keys are integers. An out-of-range value logs one `[HC AI] invalid
+AILimits.<key> value=... default=...` line and restores that key's default. A
+reversed min/max pair logs its two key names and restores the pair. Invalid JSON
+or non-integer JSON that the native typed loader cannot decode still follows
+the existing settings-file refusal; the Python validator reports those types.
+The effective startup line begins `[HC AI] limits groups=15 ai=72 occupation=3-8`
+and includes every key, `provisional=1 runtime=PENDING`.
+
+| Key (inside AILimits) | Default | Valid range | Meaning |
+|---|---:|---|---|
+| `MaxLiveGroups` | 15 | 1..24 | Combined live/reserved human AI groups; pending full groups count. |
+| `MaxLiveAI` | 72 | 1..128 | Combined human AI actors, including deferred members and unknown custody. |
+| `OccupationMin` | 3 | 1..12 | Minimum new town/house occupation (Expansion house sites). |
+| `OccupationMax` | 8 | 1..12 | Maximum new town/house occupation. |
+| `HoldoutMin` | 3 | 1..12 | Minimum new base world holdout population. |
+| `HoldoutMax` | 6 | 1..12 | Maximum new base world holdout population. |
+| `PartyMin` | 2 | 1..12 | Minimum new travelling/scavenger party. |
+| `PartyMax` | 6 | 1..12 | Maximum new travelling/scavenger party. |
+| `PatrolMin` | 2 | 1..12 | Minimum new patrol/checkpoint population. |
+| `PatrolMax` | 5 | 1..12 | Maximum new patrol/checkpoint population. |
+| `CampMin` | 2 | 1..12 | Minimum settled camp refugee group (currently abstract). |
+| `CampMax` | 6 | 1..12 | Maximum settled camp refugee group (currently abstract). |
+| `MaxOccupiedPlaces` | 15 | 1..64 | Occupied logical holdouts (not an extra live-AI allowance). |
+| `MaxParties` | 24 | 1..128 | Persisted logical parties. |
+| `MaxMaterialized` | 15 | 1..24 | Simultaneous materializer proposals/leases, including custody debt. |
+| `FactionStrengthMax` | 24 | 1..128 | Maximum abstract faction strength; not live bodies. |
+| `MaxActiveSites` | 15 | 1..24 | Expansion authored plus transient site sub-budget. |
+| `MaxActiveAI` | 72 | 1..128 | Expansion site actor sub-budget; cannot bypass MaxLiveAI. |
+| `MaxEncounters` | 15 | 1..24 | Simultaneous event bindings to existing owned patrols. |
+| `MaxHoldouts` | 48 | 24..128 | Persisted holdout/catalog rows; minimum retains the old 24-row capacity. |
+| `MaxCamps` | 32 | 1..128 | Persisted player camps; these are not AI groups. |
+| `MaxCampItems` | 64 | 1..128 | Item reference capacity per camp (the old CAMP_MEMBERS name meant items). |
+| `MaxObservedAI` | 1024 | 1..8192 | Diagnostic scan ceiling; independent of admission so excess external AI remains visible. |
+| `WorldSeed` | 18473 | 0..1000003 | Stable world population seed; change deliberately, never to refill survivors. |
+
+The group/actor safety ceilings are 24/128, and each group has at most 12 members.
+Sub-budgets may be larger than the global budget; the shared reservation still
+wins. The default 72 actors can therefore prevent reaching 15 groups when many
+large groups are active. Size selection is a bounded deterministic hash of
+`WorldSeed` and stable row/site ID, inclusive of its kind's min/max; it does not
+use process RNG or player count. `EnableGroupScaling` no longer changes human AI
+populations. Existing survivors and durable populations are preserved rather
+than increased to a newly selected group size. The legacy surveyed adapter selects a stable configured patrol size from an
+unchanged prefix of surveyed spawn points. It refuses insufficient surveyed
+positions rather than inventing coordinates; it is not the live event-provider path.
+
+Legacy `MaxActiveAI` / `MaxActiveSites` in expansion-ai-sites.json are normalized
+from AILimits on load, without rewriting the operator's file. Legacy adapter
+MaxGroups/MaxActors remain compatibility/qualification data, not live capacity
+controls. Site NumberOfAI/NumberOfAIMax templates advertise occupation 3..8,
+patrol 2..5 and scavenger 2..6; Create chooses one fixed configured size. Routes,
+loadouts, finite ammo, distance/visibility and qualification gates still apply.
+
+`HCAIBudget` is the combined server reservation ledger. Materializer proposals
+reserve before dispatch; transient sites reuse the exact lease ID. Authored
+sites reserve before native Spawn, and the legacy adapter reserves before its
+first journal/provider side effect. Full deferred populations stay charged.
+The existing result/retirement paths release only after observed absence (or a
+creation refusal with no bodies). HC-10 unresolved/quarantined claims restore
+on startup; unreadable custody blocks admission. Unknown debt is retained even
+above a newly lowered limit, logged, and never authorizes new AI. No timeout
+frees a claimed group. External provider patrols must remain disabled.
+
+Old 24-holdout / 12-party / 32-camp / 64-item saves fit the shipped limits.
+Lowering below stored counts refuses loading with a log: holdout/camp stores
+preserve the file; world.json uses its existing rejected-image/backup recovery
+and fresh-world path. Back up world.json, holdouts.json, camps.json, ai-custody.json
+and engine inventory together. Lower group-size limits do not refill or rewrite
+old groups; saved member counts are validated against the 12-member safety
+ceiling and only the configured maximum can be proposed.
+
+Budgets are provisional until measured with 3–6 players. DayZDiag and normal
+PBO/server acceptance, restart/custody recovery and two-client spawn visibility,
+audio and replication checks remain pending. No engine experiment is accepted
+by the offline tests. See [implementation record](#implementation-record-ai-caps-2026-11-18) for
+the cap inventory, spec/plan/tasks, verification and native checks.
+
 ## V2 living people (LC-T401 HCX, T403–T406, T410)
 
 The owner decision of 2026-11-17 admits these features when `EnableEncounters`
@@ -33,8 +120,8 @@ Admission refuses and logs unlimited reload, recruiting, provider patrols,
 looting other than NONE, or a provider route differing from the qualified static
 route. No player coordinates are injected into the provider. The existing lower
 accuracy, reduced awareness, melee variants and finite loadouts are retained.
-V2 additionally caps site activity at eight actors / two active sites; these are
-provisional ceilings, not measured budgets. The module checks one owned actor
+The shared `AILimits` policy below defaults to 15 live groups / 72 live AI
+across materializer, sites and the legacy adapter. These are provisional budgets. The module checks one owned actor
 per tick and stops its player aggression if admission drifts.
 
 Stance consumes only weapon raised/lowered, distance, nearby delivered gunfire
@@ -132,7 +219,7 @@ by SHA-256 of route plus build in `$profile:HollowCountry/expansion-ai-routes.js
 Each qualified site becomes an `eAIDynamicPatrol` that Expansion's own trigger
 spawns when a player is inside `ActivationRadius`; HC refuses the spawn within
 `MinPlayerDistance` (200 m) of a player, in a player's line of sight, or past the
-24-AI / 8-site legacy budgets (V2 further limits these to 8 AI / 2 sites), checks each later group member at the formation point
+shared `AILimits` budgets (15 groups / 72 AI by default), checks each later group member at the formation point
 Expansion is about to use (same distance and sight rules; a refused member ends the
 group at the members already placed), refuses despawn while the group is in combat, and forces
 fair actors (finite reload, multipliers 1). Owned groups are journaled in
@@ -253,3 +340,309 @@ line `[HC Expansion AI] readiness (...) AI_ENCOUNTER Ready=...` reports the
 encounter state, the site phase, the qualified patrol count, the Expansion AI
 settings state and any unfair globals. `Ready=1` means encounters can bind, not
 that one has been observed in play.
+
+
+## Implementation record: AI caps 2026-11-18
+
+Source/package implementation against main `0413ad6` in `hc/ai-caps`. No commit,
+staging, publication, native server run or client connection was performed by
+this worker. Source stays private. Runtime acceptance and production enablement
+remain pending. The owner requested larger, varied groups and up to 15 groups;
+all budgets remain provisional until measured with 3–6 players.
+
+### Prerequisite: HC-10 (separate change)
+
+Applied `.banso-writer/inputs/w9-hc10.patch` unchanged before this task's changes.
+The supplied intent is `fix(ai): persist materializer party and cargo custody
+(HC-10)`. Its prerequisite command was:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_custody -v
+Ran 1 test; OK
+```
+
+This adds `HCAIPartyIdentity.c`, materializer custody persistence and bridge
+custody/lifecycle handling, with its behavioral smoke. The limits work then
+replaces HC-10's inherited four-actor reservation ceiling with the shared
+12-member safety ceiling and restores unresolved custody into the shared ledger.
+HC-10's identity/cargo tombstones and refusal to retry uncertain ownership stay
+intact. Claimed bodies are never released by a timeout.
+
+### Spec, plan and tasks
+
+The repository instruction names `docs/SPECIFICATION.md` and
+`docs/specs/001-survival-overhaul/spec.md`. Those files are absent from this
+worktree; their existing counterparts in the lead checkout were read without
+editing them. They are design input, not runtime evidence. The active owner
+request overrides previous small pilot populations. This bounded change extends
+LC-T402/materializer, T403–T406/living people, T410/camps and the HC-10 custody
+contract; it does not accept missing EXP-L1/EXP-P2 experiments. Banso lifecycle
+state is dispatcher-owned; this is the worker's spec/plan/task trace.
+
+| Requirement / behavior | Implementation task | Source/offline status | Runtime status |
+|---|---|---|---|
+| One validated operator policy, default 15 groups / 72 actors | Add `HCSettings.AILimits`, reuse existing profile staging/loader and validator, print effective values | Implemented | DayZDiag / server startup pending |
+| Occupation 3–8, holdout 3–6, party 2–6, patrol 2–5, camp 2–6 | Stable bounded hash of explicit WorldSeed and row/site ID; fixed provider population per group | Implemented | Geometry / native placement pending |
+| Combined capacity across every human spawn path | Shared reserve-before-side-effect ledger; transient bridge reuses materializer ID | Implemented | Two-client deferred spawn/retirement pending |
+| Preserve old saves and uncertain custody | Raise default capacities; logged refusal below stored counts; restore unknown claims | Implemented | Real save/restart/recovery pending |
+| Operator-visible and traceable tuning | Key/range table, cap inventory, effective startup line and module status | Implemented | RPT confirmation pending |
+| RED → smallest change → GREEN; full regression selection | Authored policy tests with explicit synthetic DTO/native/provider ports | Recorded below | Offline tests cannot establish DayZ behavior |
+| Target load and production enablement | Measure 3–6 players; validate two-client audio/visibility/replication, normal PBO/server | Deferred | Pending; no measured budget accepted |
+
+The plan uses the existing settings loader rather than a new ai.json because
+settings.json already has bounded typed JSON loading, first-run provisioning,
+operator staging, validation and startup ownership. A second file would duplicate
+that path and its copy order. Existing files without AILimits retain defaults.
+No HCModule.c, config.cpp, Admin, Survival or Loot edits are needed.
+
+### Full cap inventory
+
+Keys below are inside `settings.json:AILimits`; all defaults and validated ranges
+are documented in [operator keys](#human-ai-limits-owner-request-2026-11-18). Safety ceilings are centralized in
+`3_Game/World/HCAILimits.c`. They bound validation, not a second live allowance.
+
+| Former location / cap | Old value | New key / source | Default |
+|---|---|---|---|
+| HCWorldMaterializer: MAX_PROPOSALS and proposal admission | 2 | MaxMaterialized (also global MaxLiveGroups) | 15 |
+| HCWorldMaterializer: MAX_ACTORS, claim/debt admission, HC-10 actor_cap report | 8 | MaxLiveAI | 72 |
+| MaterializerRow clamp / MAX_PER_PROPOSAL | 4 | Kind's configured maximum, additionally faction strength and SIZE_CEILING | Holdout 6, party 6, patrol 5, camp 6 |
+| HC-10 HCAIPartyCustody.HCReservation, HCAIPartyResult survivors and materializer custody validation | 4 | HCAILimits.SIZE_CEILING; admission uses configured size | 12 safety ceiling |
+| HCWorldLimits.STRENGTH; faction creation, regrowth, adjustment, save validator | 12 | FactionStrengthMax | 24 |
+| HCWorldLimits.HOLDOUTS; world insert/load, holdout catalog/load/lights, materializer row spans, picker NextHouse saved index | 24 | MaxHoldouts | 48 |
+| HCWorldLimits.OCCUPIED; world upsert/load and holdout occupancy | 6 | MaxOccupiedPlaces | 15 |
+| HCWorldLimits.PARTIES; world insert/load and materializer row spans | 12 | MaxParties | 24 |
+| HCWorldLimits.MATERIALIZED; persisted party admission | 2 | MaxMaterialized | 15 |
+| HCWorldLimits.CAMPS; HCCampModule / HCCampStore row capacities | 32 | MaxCamps | 32 |
+| HCWorldLimits.CAMP_MEMBERS; HCCampScan / camp state references | 64 | MaxCampItems (these are item references) | 64 |
+| HCWorldData.HoldoutValid / HCHoldouts stored occupants ceiling | 3 | SIZE_CEILING for old/surviving rows; HoldoutMin/Max for new groups | 12 safety; 3–6 new |
+| HCWorldData.PartyValid persisted size ceiling | 4 | SIZE_CEILING; PartyMin/Max for new travelling groups | 12 safety; 2–6 new |
+| HCHoldouts.HCAdvanceOccupancy initial population | 1 | HoldoutMin / HoldoutMax | 3–6 |
+| HCHoldouts.BindOccupant body registry | 18 | MaxLiveAI | 72 |
+| HCPickers fresh party population | 2 | PartyMin / PartyMax | 2–6 |
+| HCCampVisitors settlement / HCCampStore neighbour validation | 2 | CampMin / CampMax; SIZE_CEILING for stored survivors | 2–6; safety 12 |
+| HCXAISitePolicy default MaxActiveSites / SiteRules validation | 8, accepted 1–8 | MaxActiveSites; GROUP_CEILING safety | 15; safety 24 |
+| HCXAISitePolicy default MaxActiveAI / SiteRules validation | 24, accepted 1–24 | MaxActiveAI; AI_CEILING safety | 72; safety 128 |
+| HCXAISites BudgetProblem / SpawnProblemFor global proposal/body checks | 2 / 8 | MaxLiveGroups / MaxLiveAI, plus shared HCAIBudget | 15 / 72 |
+| HCXAISites authored/transient site sub-budgets / SiteRules.SpawnProblem | Legacy site policy fields | MaxActiveSites / MaxActiveAI normalized from settings | 15 / 72 |
+| HCXAISites transient actor ceiling | 4 | Materializer's configured kind size, SIZE_CEILING validation | Up to 12 safety |
+| HCXAISite DTO NumberOfAI / NumberOfAIMax | 2 / 3 | PatrolMin / PatrolMax | 2 / 5 |
+| Expansion shipped occupation sites (both JSON files) | Mostly 3–4, holdout validator maximum 3 | OccupationMin / OccupationMax; template min/max | 3–8 |
+| Expansion patrol / checkpoint sites, including shipped JSON | 2–4; checkpoint guards 2–3 | PatrolMin / PatrolMax; template min/max | 2–5 |
+| Expansion scavenger sites | 2–3 | PartyMin / PartyMax; template min/max | 2–6 |
+| SiteRules kind/member validation / former HCGroupMembers ceiling | Kind maxima 3/4, scaling maximum 8 | SIZE_CEILING; configured kind population at Create | 12 safety |
+| HCXAIRules legacy profile maxima | MaxGroups 1–8 / MaxActors 1–32 | Compatibility validation against GROUP_CEILING / AI_CEILING; live admission reads settings | Safety 24 / 128; live 15 / 72 |
+| HCXAIAdapter reservation gates | Legacy profile MaxGroups / MaxActors | MaxLiveGroups / MaxLiveAI + HCAIBudget | 15 / 72 |
+| HCXAIAdapter surveyed group selection | All surveyed spawn positions; up to 8 | Stable PatrolMin/Max selection from unchanged surveyed prefix; refuse insufficient survey | 2–5 |
+| HCXAIRules surveyed route Spawns / profile Missions counts | 8 / 8 | SIZE_CEILING / GROUP_CEILING; config MaxLiveAI admission | Safety 12 / 24 |
+| HCXAIEncounters.MAX_OPEN and binding retention | 8, retained 2× | MaxEncounters; retention still derived 2× | 15; retained 30 |
+| HCXAILiveMap.MAX_UNITS diagnostic scan | 1024 | MaxObservedAI (independent of live admission) | 1024, safety 8192 |
+| tools/package/ai_patrols.py source/mission count and surveyed member validation | 8 / 8 members | Shared authored ceilings mirrored for offline input validation | Safety 24 groups / 12 members |
+| New combined live group ceiling | Separate materializer/site/adapter counters | MaxLiveGroups | 15 |
+| New deterministic sizing seed | Implicit/fixed populations | WorldSeed | 18473 |
+
+`HCWorldLimits.HOLDOUTS` and `.PARTIES` remain non-literal compatibility aliases
+for the unowned debug contributor; HCAILimits.Use sets them from the same policy.
+
+The audit also inspected every spawn/reservation module and distinguished these
+remaining structural, observation, native-population and work quotas. None grants
+an additional human AI spawn allowance:
+
+| Inspected module / remaining bound | Value / meaning | Disposition |
+|---|---|---|
+| HCWorldLimits.FACTIONS | Exactly 5 named identities with fixed catalog/relationships | Structural schema, not group count; stays fixed |
+| World scenes/events | Scene/lead/note/prop/cargo quotas; event AI provider binds existing owned patrols | No additional human bodies; encounter cap above covers bindings |
+| Ecology policy MaxActors / HCEcologyLimits.ACTORS | 32 observations of native CE animals/infected; ecology migration herd members up to 6 | Existing separate validated ecology policy; not human AI spawning |
+| Groups MaxGroups | 32 player teams by default, validated 1–90; member/icon/discovery quotas | Player ACL/team system, not AI; untouched |
+| Infected horde policies | 2 hordes / 24 existing infected; variety/LOD/reach observation budgets | Separate CE/infected systems outside owned scope; no human AI allowance |
+| HCXAIPatrolDebug / HCXAILiveMap | 66 state visits, 64 member slots, 2 routes / 128 points; map 2×64 points | Diagnostic work/transport quotas; scan population ceiling is configurable above |
+| HCXAIEncounters.MAX_KILLS | 16 journal kills serviced per tick | Work quota, not actor/group admission |
+| HCXDefence / HCXDefencePolicy / HCXStance | 12 perception slots per grudge, 64 grudges, 6-shot window, 8 recent deaths/warnings, 16 observer gates | Bounded memory/observation work; no creation or body reservation |
+| HC-10 custody / bridge, adapter journal/pruning | 64 durable rows/consumed IDs | Ownership evidence retention; fail closed at capacity, never recycle custody |
+| Site policy, route/cache/ownership journals | 64 authored or cached rows, geometry points 2–8 / 2–6, waypoint/spatial limits | Catalog/geometry/history validation; up to 15 groups can be live |
+| Materializer / camps / holdouts | 32 player-cache/work slots, 32 rows/ring, 4-unit slices; object/cargo/lighting/mailbox quotas | Bounded work, inventory and observer snapshots, not population policy |
+| HCX adapter MaxItems/MaxTickWork/MaxLeaseHistory | Operator-qualified equipment/work/evidence budgets | Separate item/work policy; full AI count always charged globally |
+| DTO HCWorldParty.Size initializer | 1 before row population is authored/loaded | Placeholder, not a spawning default; fresh picker draws configured size |
+
+The scan regression targets human population comparisons and former population
+constant names, allowing numeric safety ceilings only in HCAILimits. Work,
+geometry, distance, item, identity and evidence quotas are intentionally excluded;
+these cannot be accurately classified by scanning every numeric literal.
+
+### Combined budget design
+
+HCAIBudget lives in 3_Game so the base and optional addon share one server-process
+ledger. Each row holds a unique owner ID and full actor reservation. Admission
+requires both available group capacity and enough actors for the entire group,
+before any native or journal side effect. Pending and deferred members count.
+
+Materializer reserves `lease:<party identity>:<generation>` before offering its
+proposal. Transient sites reuse that exact ID, making the bridge idempotent rather
+than charging the same group twice. Authored sites use `site:<site id>`; the
+surveyed adapter uses `adapter:<lease id>`. Its deterministic population uses only
+an unchanged prefix of qualified surveyed positions and refuses insufficient
+positions; no coordinate is manufactured. Site sub-budgets cannot exceed the
+combined allowance. The synthetic integration test executes actual site Spawn
+and adapter admission after a materializer reservation and checks exact-fill,
+refusal and transient reuse.
+
+Successful absent-body results, observed native authored despawn, and completed
+adapter retirement release reservations. Creation refusal with no group can
+release an authored site. Claimed materializer bodies are never timed out.
+Unresolved/quarantined HC-10 rows restore at startup. Unreadable custody blocks
+new admission. Above-limit restored debt is preserved and logged even after an
+operator lowers the budget; it grants no new room. This is conservative accounting,
+not proof that native providers reconciled bodies. Existing external Expansion
+patrols/player recruitment must remain disabled as required by provider admission;
+HollowCountry cannot silently account for arbitrary third-party creation.
+
+### Verification
+
+All Python fixtures are explicitly synthetic; native arrays/strings/provider
+calls are ports around the authored policy bodies. They establish source and
+policy behavior, not native DayZ behavior.
+
+Actual RED commands and outcomes:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits -v
+Ran 7 tests; FAILED (failures=2, errors=5)
+## Missing HCAILimits class and former literal-cap scan findings before implementation.
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits -v
+Ran 9 tests; FAILED (failures=1, errors=1)
+## Expanded scan exposed HC-10 actorCap > 4; separate synthetic constant-port typo repaired.
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_expansion_ai_live_map -v
+Ran 19 tests; FAILED (failures=4)
+## Config key absent; 300-unit cursor coverage regressed to 72; observed cap ignored.
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.AILimitsBehavior.test_scan_no_numeric_human_ai_population_caps -v
+Ran 1 test; FAILED (failures=1)
+## Expanded scan exposed HCHoldouts.BindOccupant's 18-body gate.
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.SharedSpawnPaths.test_surveyed_adapter_uses_configured_stable_size_without_inventing_positions -v
+Ran 1 test; FAILED (failures=1)
+## Retired MaxActors profile field still rejected an otherwise-configured survey.
+```
+
+Additional actual RED:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits -v
+Ran 14 tests; FAILED (failures=2, errors=1)
+## Expanded survivor scan and typed-result behavior exposed another HC-10 >4 gate;
+## malformed saved holdout preflight fixture initially needed its native array port.
+```
+
+A final dependent-index scan also reproduced the picker saved-index bound:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.AILimitsBehavior.test_scan_no_numeric_human_ai_population_caps -v
+Ran 1 test; FAILED (failures=1)
+## NextHouse >= 24 would reject a saved picker cursor in the larger holdout catalog;
+## it now uses MaxHoldouts and logs refusal.
+```
+
+The corrected malformed-row fixture then reproduced the previous preflight body:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits.OldWorldCompatibility.test_null_holdout_row_is_safe_before_saved_image_validation -v
+Ran 1 test; FAILED (errors=1)
+## AttributeError: NoneType object has no attribute Occupants; guard added.
+```
+
+Actual GREEN commands and outcomes on the completed policy:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_ai_limits tests.unit.test_hc_ai_custody tests.unit.test_v2_holdouts -v
+Ran 20 tests; OK
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+Ran 53 tests; OK
+
+python3 -B -m tools.validate.enforce_lint --no-native
+enforce_lint: pass findings=126 new=0 stale=0 native=no
+
+python3 -B -m tools.validate.runtime
+status=pass, errors=[], scope=operator settings admission only
+
+git diff --check
+# clean
+```
+
+The required AI/world/camp/holdout/Expansion selection passed 601 tests (one
+Windows-native-helper skip) using this exact standard-library orchestration:
+
+```sh
+python3 -B - <<'PY'
+import subprocess,sys
+paths=subprocess.check_output(['rg','-l','-i','HCXAI|HCWorld|Camp|Holdout','tests/unit'],text=True).splitlines()
+modules=sorted({p[:-3].replace('/','.') for p in paths if p.endswith('.py') and p.split('/')[-1].startswith('test_')})
+print('Required selection:',', '.join(modules),flush=True)
+raise SystemExit(subprocess.call([sys.executable,'-B','-m','unittest',*modules,'-v']))
+PY
+```
+
+Only seven obsolete lint baseline entries were removed when their owned refusal
+paths gained logs or changed; no new suppression was added. Packaging rejected a
+new standalone mission documentation file under the existing handoff allowlist.
+An intermediate full run copied that file into synthetic fixtures before its
+removal and failed 27 friend-bundle assertions plus one handoff check. This
+record is now part of the tracked, allowlisted AI README. The final clean-layout
+packaging and discover results are recorded at the end. The first broad run
+identified six diagnostic fixture errors (limits not installed), then the
+behavioral RED above caught the actual observation truncation regression.
+No failed run is presented as passing.
+
+### Native API inspection and deferred acceptance
+
+Read installed snapshot 1.30.164289 before authoring: `1_Core/proto/EnString.c:199`
+Length, `:240` IndexOf, `:448` Get; `EnScript.c:380` Count, `:407` Insert,
+`:470` RemoveOrdered; `EnDebug.c:96` Print. HC-10's inspected persistence APIs and
+shared world store are cited in HCWorldMaterializer. Existing native settings
+staging is reused. Read-only installed Expansion `eAIDynamicPatrol.c:580–640`
+selects NumberOfAI/NumberOfAIMax and creates a group; `:691–729` clears a despawned
+group then nulls m_Group. No provider source or game assets were copied.
+
+Lead acceptance remains open:
+
+1. Compile source with DayZDiag and build normal PBOs; boot the normal server with
+   both addons. Confirm `[HC AI] limits groups=15 ai=72 occupation=3-8` and all
+   effective keys, no compile errors, `runtime=PENDING` qualification logs.
+2. Exercise absent/old settings, a negative/over-ceiling key and a reversed range.
+   Confirm named fallback lines and unchanged operator files. Reload old saves;
+   lower a count below stored rows and confirm logged refusal/recovery with backups.
+3. With two clients, activate mixed occupation/patrol/party/materializer groups,
+   including full deferred members. Verify combined admission stays within
+   settings, with no visible pop-in, combat despawn, duplicate gear or ownership
+   transfer. Observe death/despawn and reservation release, and group sizes across
+   restart. Diagnostic map must still reveal excess external AI if present.
+4. Interrupt/restart with claimed, quarantined and unreadable custody. Verify new
+   admission stays closed until authoritative reconciliation, and no duplicate
+   party or cargo appears. Never erase unknown claims to create capacity.
+5. Measure CPU, tick delays, networking, audio, visibility and AI navigation with
+   3–6 players and varied sizes up to 15 groups / 72 actors. Native load results,
+   geometry capacity and performance acceptance remain pending; do not enable a
+   production release based on the offline suite.
+
+### Final verification results
+
+Completed after the documentation was folded into this existing allowlisted file:
+
+```
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle tests.unit.test_gameplay_delta tests.unit.test_package -v
+Ran 111 tests in 2.233s
+OK (skipped=1)
+
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
+Ran 5892 tests in 428.791s
+OK (skipped=1, expected failures=3)
+```
+
+The required 601-test selection, 20 limits/custody/holdout regressions, 53 syntax /
+identifier / hygiene checks, settings admission validator and lint (`new=0`,
+`stale=0`, 126 existing findings) passed. The one skipped check executes a native
+Windows PowerShell helper and belongs to Windows CI; the three expected failures
+are existing suite expectations. No native DayZ acceptance is inferred. The
+worker wrote `.banso-writer/commit-message` for the dispatcher and did not stage,
+commit or push. HC-10 remains separately identified in that message and above.

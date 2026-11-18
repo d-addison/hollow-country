@@ -98,6 +98,9 @@ class Authored:
 
 
 def declarations(env):
+    if "HCAILimits" not in env:
+        from tests.unit.ai_limits_fixture import install
+        install(env)
     text = (SCRIPTS / "4_World/HCXAIData.c").read_text()
     for match in re.finditer(r"class (HCXAI\w+)\s*\{", text):
         fields = re.findall(r"^\s*(?:ref )?([\w<> ]+?) (\w+)(?: = ([^;]+))?;",
@@ -109,6 +112,8 @@ def declarations(env):
                 elif raw and raw.startswith("new "):
                     value = env[raw.split()[1].split("(")[0]]()
                 elif typ == "vector": value = (0., 0., 0.)
+                elif raw and raw.startswith("HCAILimits.Get()."):
+                    value = getattr(env["HCAILimits"].Get(), raw.split(".")[-1])
                 elif raw: value = json.loads(raw)
                 else: value = dict(bool=False, int=0, float=0., string="").get(typ)
                 setattr(result, key, value)
@@ -133,6 +138,8 @@ class ExpansionAdapterTests(unittest.TestCase):
                             Evaluate=lambda s,i,n: self.observer_code),
                         HCEventObjectiveEvidence=lambda: N(),
                         HCXAIStore=N(Freeze=lambda p: copy.deepcopy(p), NativeBuild=lambda:"1.30.164289"))
+        from tests.unit.ai_limits_fixture import install
+        self.ai_limits = install(self.env, MaxLiveGroups=2, MaxLiveAI=4, PatrolMin=2, PatrolMax=2)
         declarations(self.env)
         self.rule_source = (SCRIPTS / "4_World/HCXAIRules.c").read_text()
         self.runtime_source = (SCRIPTS / "4_World/HCXAIAdapter.c").read_text()
@@ -330,6 +337,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_gone_remains_true_when_cleanup_polls_after_same_tick_prune(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install()); self.assertTrue(self.start())
@@ -347,6 +355,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_pruned_lease_id_cannot_reissue_kill_receipt_identity(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install()); self.assertTrue(self.start())
@@ -369,6 +378,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_pruned_id_memory_is_bounded_without_forgetting_cleanup_or_identity(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install())
@@ -387,6 +397,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_pruned_id_cap_refusal_is_logged_once(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install())
@@ -470,6 +481,7 @@ class ExpansionAdapterTests(unittest.TestCase):
                 self.mod.m_ReservedGroups = 0
                 self.mod.m_ReservedActors = 0
                 self.mod.m_ReservedItems = 0
+                self.env["HCAIBudget"].Release("adapter:" + name)
                 if name != "open":
                     self.mod.StopLease(name)
                 if name == "ambiguous":
@@ -485,6 +497,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_unconfirmed_receipt_closure_is_not_prunable(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install()); self.assertTrue(self.start())
@@ -514,6 +527,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_journal_prune_persists_shrink_and_failed_write_retains_runtime_history(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install()); self.assertTrue(self.start())
@@ -530,6 +544,7 @@ class ExpansionAdapterTests(unittest.TestCase):
 
     def test_released_flag_alone_cannot_discard_ambiguous_actors(self):
         self.profile.MaxLeaseHistory = 1
+        self.ai_limits.MaxLiveGroups = 1
         self.profile.MaxGroups = 1
         self.use_authored_journal()
         self.assertTrue(self.install()); self.assertTrue(self.start())

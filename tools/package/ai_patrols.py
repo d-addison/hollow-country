@@ -72,7 +72,7 @@ def validate(data, sites):
     need(type(data.get('SchemaVersion')) is int and data['SchemaVersion'] == 1,
          'schema-version')
     source = sites.get('Sites')
-    need(type(source) is list and 1 <= len(source) <= 8, 'site-count')
+    need(type(source) is list and 1 <= len(source) <= 24, 'site-count')
     anchors = {}
     for site in source:
         need(type(site) is dict, 'site-object')
@@ -82,7 +82,7 @@ def validate(data, sites):
         need(site.get('Reviewed') is True and position(site.get('Position')), 'site-unreviewed')
         anchors[key] = site['Position']
     missions = data.get('Missions')
-    need(type(missions) is list and 1 <= len(missions) <= 8, 'patrol-count')
+    need(type(missions) is list and 1 <= len(missions) <= 24, 'patrol-count')
     seen = set()
     for route in missions:
         need(type(route) is dict, 'patrol-object')
@@ -96,7 +96,7 @@ def validate(data, sites):
         need(route['MissionId'] == site_id + '-5', 'mission-id')
         need(position(route['Anchor']) and route['Anchor'] == anchors[site_id], 'anchor-drift')
         count = route['GroupSize']
-        need(type(count) is int and 1 <= count <= 8, 'group-size')
+        need(type(count) is int and 1 <= count <= 12, 'group-size')
         for field, low, high in (('Spawns', count, count), ('Waypoints', 1, 16)):
             points = route[field]
             need(type(points) is list and low <= len(points) <= high, 'route-count')
@@ -178,15 +178,15 @@ HOUSE_PREFIXES = ('Land_House_', 'Land_Village_')
 # Scavengers also roam city blocks (loot clusters), holdouts only claim houses.
 LOOT_PREFIXES = HOUSE_PREFIXES + ('Land_HouseBlock_', 'Land_Tenement_')
 POLICY_DEFAULTS = dict(SchemaVersion=1, WorldName='chernarusplus', BuildVersion='1.30.164289',
-                       ObserverPolicy='native-eai', MaxActiveAI=24, MaxActiveSites=8, MinPlayerDistance=200.0,
+                       ObserverPolicy='native-eai', MaxActiveAI=72, MaxActiveSites=15, MinPlayerDistance=200.0,
                        LineOfSightRange=1000.0, MaxLegLength=400.0, CacheClearRadius=300.0)
 KIND_DEFAULTS = {
-    'patrol': dict(Loadout='HollowCountry_Patrol', NumberOfAI=3, NumberOfAIMax=4, Behaviour='LOOP', Speed='WALK',
+    'patrol': dict(Loadout='HollowCountry_Patrol', NumberOfAI=2, NumberOfAIMax=5, Behaviour='LOOP', Speed='WALK',
                    ActivationRadius=650.0, DespawnSeconds=600, RespawnSeconds=2700),
-    'scavenger': dict(Faction='Raiders', Loadout='HollowCountry_Scavenger', NumberOfAI=2, NumberOfAIMax=3,
+    'scavenger': dict(Faction='Raiders', Loadout='HollowCountry_Scavenger', NumberOfAI=2, NumberOfAIMax=6,
                       Behaviour='LOOP', Speed='WALK', ActivationRadius=600.0, DespawnSeconds=600,
                       RespawnSeconds=1800),
-    'holdout': dict(Faction='Guards', Loadout='HollowCountry_Holdout', NumberOfAI=2, NumberOfAIMax=3,
+    'holdout': dict(Faction='Guards', Loadout='HollowCountry_Holdout', NumberOfAI=3, NumberOfAIMax=8,
                     Behaviour='ALTERNATE', Speed='WALK', ActivationRadius=500.0, DespawnSeconds=900,
                     RespawnSeconds=5400, CacheCooldownSeconds=14400),
 }

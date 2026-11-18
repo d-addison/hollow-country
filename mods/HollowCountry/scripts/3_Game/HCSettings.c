@@ -67,8 +67,15 @@ class HCSettings
     int InfectedBindRadius = 30;
     int MaxBindQueriesPerTick = 2;
 
+    ref HCAILimits AILimits = new HCAILimits;
+
     bool Validate(out string error)
     {
+        // Additive section: old settings keep defaults; invalid tuning logs a
+        // key-specific fallback without rejecting unrelated feature settings.
+        if (!AILimits) { Print("[HC AI] invalid AILimits null; defaults restored"); AILimits = new HCAILimits; }
+        AILimits.Validate();
+        HCAILimits.Use(AILimits);
         error = "";
         if (SchemaVersion != 1) error = "Unsupported settings schema";
         else if (TickIntervalMs < 500 || TickIntervalMs > 10000) error = "Tick interval outside 500..10000 ms";
