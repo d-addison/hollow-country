@@ -212,6 +212,58 @@ class HCNativeCraftingSafety
         return false;
     }
 
+    static bool NeedsRecoveryState(string recipeName)
+    {
+        // Native non-food transformations only. Repair/clean/tan/prepare keep
+        // their own native semantics (PluginRepairing.c:3,36,106).
+        if (HCNativeCraftingSafety.NeedsEmptySource(recipeName) || HCNativeCraftingSafety.NeedsConditionCap(recipeName))
+            return true;
+        if (recipeName == "CraftBurlapStrips") return true;
+        if (recipeName == "CraftRagRope") return true;
+        if (recipeName == "CraftGhillieAttachment") return true;
+        if (recipeName == "CraftGhillieBushrag") return true;
+        if (recipeName == "CraftGhillieHood") return true;
+        if (recipeName == "CraftGhillieSuit") return true;
+        if (recipeName == "CraftGhillieTop") return true;
+        if (recipeName == "DeCraftGhillieAttachment") return true;
+        if (recipeName == "DeCraftGhillieBushrag") return true;
+        if (recipeName == "DeCraftGhillieHood") return true;
+        if (recipeName == "DeCraftGhillieSuit") return true;
+        if (recipeName == "DeCraftGhillieTop") return true;
+        if (recipeName == "DeCraftCamoNetShelter") return true;
+        if (recipeName == "CraftWoodenCrate") return true;
+        if (recipeName == "CraftTruck01DoubleWheel") return true;
+        if (recipeName == "CraftBaseBallBatNailed") return true;
+        if (recipeName == "CraftBaseBallBatBarbed") return true;
+        return false;
+    }
+
+    static void InheritRecoveryState(ItemBase source, array<ItemBase> results)
+    {
+        if (!source || !results)
+            return;
+        // N2, paths relative to the pinned scripts-1.30.164289 snapshot:
+        // 3_Game/Entities/Object.c:1001,1008,1015 (health read/cap).
+        // 3_Game/Entities/EntityAI.c:812 (deferred deletion).
+        // 4_World/Entities/ItemBase.c:3692,3721,3997,4003 (wetness/agent union).
+        // Do not transfer generic variables: MiscGameplayFunctions.c:296,319
+        // also transfers quantity and energy, which would duplicate state.
+        float sourceHealth = source.GetHealth01("", "");
+        float sourceWet = source.GetWet();
+        int sourceAgents = source.GetAgents();
+        for (int resultIndex = 0; resultIndex < results.Count(); resultIndex++)
+        {
+            ItemBase recovery = results[resultIndex];
+            if (!recovery || recovery.IsSetForDeletion())
+                continue;
+            if (recovery.GetHealth01("", "") > sourceHealth)
+                recovery.SetHealth("", "", sourceHealth * recovery.GetMaxHealth("", ""));
+            recovery.TransferAgents(sourceAgents);
+            if (recovery.GetWet() < sourceWet)
+                recovery.SetWet(sourceWet);
+        }
+    }
+
     static void DiscardNativeOutputs(array<ItemBase> results)
     {
         if (!results)
@@ -277,6 +329,11 @@ modded class RecipeBase
             if (item1.GetInventory().IsAttachment() || item2.GetInventory().IsAttachment())
                 return false;
         }
+        // N3 4_World/Classes/Recipes/Recipes/DeCraftWaterskin.c:90 checks IsEmpty().
+        // N2 EntityAI.c:646 excludes liquid; ItemBase.c:3490 reads its quantity.
+        // Refuse rather than silently discard the remaining drink.
+        if (ClassName() == "DeCraftWaterskin" && item1.GetQuantity() > 0)
+            return false;
         TrapBase trap = TrapBase.Cast(item1);
         if (trap && HCNativeCraftingSafety.NeedsEmptySource(ClassName()) && !trap.IsTakeable())
             return false;
@@ -288,6 +345,23 @@ modded class RecipeBase
         if (HCIsScoped() && !HCValidateNativeInputs(item1, item2, player))
             return false;
         return super.CheckRecipe(item1, item2, player);
+    }
+
+    override void ApplyModificationsResults(ItemBase sorted[], array<ItemBase> results, ItemBase result, PlayerBase player)
+    {
+        // N3 RecipeBase.c:268,373,532: properties before ingredient mutation.
+        // Retain native ragQuantity/yields, colours and custom Do. Only consumed
+        // inputs contribute: worn cutting tools never improve recovered health.
+        super.ApplyModificationsResults(sorted, results, result, player);
+        // Recipes outside the recovery set keep native results unchanged.
+        if (HCNativeCraftingSafety.NeedsRecoveryState(ClassName()))
+        {
+            for (int ingredientIndex = 0; ingredientIndex < MAX_NUMBER_OF_INGREDIENTS; ingredientIndex++)
+            {
+                if (m_IngredientDestroy[ingredientIndex] || m_IngredientAddQuantity[ingredientIndex] < 0)
+                    HCNativeCraftingSafety.InheritRecoveryState(sorted[ingredientIndex], results);
+            }
+        }
     }
 
     override void PerformRecipe(ItemBase item1, ItemBase item2, PlayerBase player)
@@ -309,13 +383,25 @@ modded class RecipeBase
             bool allocated = nativeResults.Count() == m_NumberOfResults;
             for (int nativeIndex = 0; nativeIndex < nativeResults.Count(); nativeIndex++)
             {
-                if (!nativeResults[nativeIndex])
+                // N2 EntityAI.c:812: a non-null pending deletion is not output.
+                if (!nativeResults[nativeIndex] || nativeResults[nativeIndex].IsSetForDeletion())
                     allocated = false;
             }
             if (allocated)
             {
-                // Keep native order, quantities, custom Do and property transfer.
                 ApplyModificationsResults(m_IngredientsSorted, nativeResults, null, player);
+                allocated = nativeResults.Count() == m_NumberOfResults;
+                // Native result quantity/property mutations can invalidate an
+                // allocation. Recheck before the single destructive commit.
+                for (int modifiedIndex = 0; modifiedIndex < nativeResults.Count(); modifiedIndex++)
+                {
+                    if (!nativeResults[modifiedIndex] || nativeResults[modifiedIndex].IsSetForDeletion())
+                        allocated = false;
+                }
+            }
+            if (allocated)
+            {
+                // Keep native order, quantities, custom Do and property transfer.
                 ApplyModificationsIngredients(m_IngredientsSorted, player);
                 Do(m_IngredientsSorted, player, nativeResults, m_Specialty);
                 if (HCNativeCraftingSafety.NeedsConditionCap(ClassName()))

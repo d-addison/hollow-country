@@ -28,13 +28,29 @@ class HCV2Admission
         return "[HollowCountry] V2 admission feature=" + feature + " preference=" + OnOff(preference) + " gate=" + gate + " qualified=" + qualified + " result=" + result;
     }
 
+    // Effective lifecycle controls are separate from preferences/gate verdicts.
+    // A ready owner report still has runtime acceptance pending.
+    static string OperationalSummary(HCOperationalStatusCache status)
+    {
+        if (!status) { return "[HC Plan] HC-1 status unavailable runtime=PENDING"; }
+        return status.HCSummary();
+    }
+
+    static string NonModuleSummary()
+    {
+        // These are not module slots. Owners must publish effective native
+        // observations separately; MealBuffs removal belongs to its worker.
+        return "[HC Plan] HC-1 non_modules Fuel=unknown Stamina=unknown Weather=unknown MealBuffs=removal_requested runtime=PENDING";
+    }
+
     static string Summary(HCSettings settings)
     {
         if (!settings) { return "[HollowCountry] V2 preferences unavailable; runtime acceptance pending"; }
         string prefs = "Grade=" + OnOff(settings.EnableGrade) + " AmbientLife=" + OnOff(settings.EnableAmbientLife) + " SignsOfLife=" + OnOff(settings.EnableSignsOfLife) + " Travel=" + OnOff(settings.EnableTravel);
         prefs = prefs + " World=" + OnOff(settings.EnableWorld) + " Leads=" + OnOff(settings.EnableLeads) + " Camps=" + OnOff(settings.EnableCamps) + " Encounters=" + OnOff(settings.EnableEncounters);
         prefs = prefs + " InfectedVariety=" + OnOff(settings.EnableInfectedVariety) + " DebugSnapshot=" + OnOff(settings.EnableDebugSnapshot) + " AdminMap=" + OnOff(settings.EnableAdminMap) + " CampRespawn=" + OnOff(settings.EnableCampRespawn) + " TeamPing=" + OnOff(settings.EnableTeamPing);
-        prefs = prefs + " VehicleFlip=" + OnOff(settings.EnableVehicleFlip) + " MealBuffs=" + OnOff(settings.EnableMealBuffs) + " Forage=" + OnOff(settings.EnableForage) + " Progression=" + OnOff(settings.EnableProgression) + " GroupScaling=" + OnOff(settings.EnableGroupScaling);
+        prefs = prefs + " VehicleFlip=" + OnOff(settings.EnableVehicleFlip) + " Forage=" + OnOff(settings.EnableForage) + " Progression=" + OnOff(settings.EnableProgression) + " GroupScaling=" + OnOff(settings.EnableGroupScaling);
+        prefs = prefs + "; retired preference MealBuffs=" + OnOff(settings.EnableMealBuffs);
         return "[HollowCountry] V2 preferences " + prefs + "; V2 features on by default, gate verdicts logged per module; runtime acceptance pending";
     }
 }

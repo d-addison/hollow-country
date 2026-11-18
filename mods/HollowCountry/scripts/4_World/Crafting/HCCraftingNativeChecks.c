@@ -57,6 +57,10 @@ class HCCraftingNativeChecks
         if (!guard.TryEnter())
             return false;
         guard.Release();
+        // Authored definitions, not accepted crafts. Run still checks cached
+        // definitions below; HCCraftingModule reports that separate verdict.
+        // Native Print: 1_Core/proto/EnDebug.c:96.
+        Print("[HC Plan] HC-4 recovery definitions=11 native_safety=active state=checking observed=0 runtime=PENDING");
         return true;
     }
 

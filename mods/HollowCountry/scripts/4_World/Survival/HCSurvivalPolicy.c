@@ -1,29 +1,23 @@
 // W5 #128/#129/#130 shared policies; no tick or entity storage.
-// Native evidence: scripts-1.30.164289/4_World/Classes/FoodStage/FoodStage.c:1-8
-// (FoodStageType); 2_GameLib/gameLib.c:4 GetGame;
+// Native evidence: scripts-1.30.164289/2_GameLib/gameLib.c:4 GetGame;
 // 3_Game/Global/Game.c:1120 IsServer, :1535 GetTime;
 // 3_Game/Entities/Man.c:21 GetIdentity; 3_Game/gameplay.c:368 GetId;
 // 1_Core/proto/EnString.c:86 ToAscii, :199 Length, :240 IndexOf, :448 Get.
-// Shared by meals and forage: server check and monotonic session seconds.
+// Shared by forage/progression: server check and monotonic session seconds.
 // Shared by forage/progression: capped reward/refill policy. Candidate tuning,
 // never measured budgets or native acceptance. UTC uses HCGroupClock.Utc.
 class HCSurvivalPolicy
 {
     static int MealExpiry(bool enabled, int stage, float temperature, float amount, int now)
     {
-        if (!enabled || now < 0) { return 0; }
-        bool cooked = stage == FoodStageType.BAKED || stage == FoodStageType.BOILED;
-        if (stage == FoodStageType.DRIED) { cooked = true; }
-        if (!cooked) { return 0; }
-        if (!(temperature >= 30 && temperature <= 200)) { return 0; }
-        if (!(amount > 0 && amount <= 10000)) { return 0; }
-        return now + 600;
+        // HC-2 / #150: compatibility tombstone. Legacy callers cannot grant heat.
+        return 0;
     }
 
     static float MealHeat(int now, int expires)
     {
-        if (now < 0 || expires <= now) { return 0; }
-        return 0.05;
+        // Includes a previously granted, unexpired meal: native thermal inputs only.
+        return 0;
     }
 
     static bool CanRefill(bool itemPresent, int cellLive, int totalLive, int now, int ready)

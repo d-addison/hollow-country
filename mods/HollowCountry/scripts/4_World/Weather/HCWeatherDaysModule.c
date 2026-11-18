@@ -102,6 +102,8 @@ modded class ChernarusPlusData
     // for 1800 server seconds, then dropped by this same tick.
     protected int m_HCWeatherAdminDay = -1;
     protected float m_HCWeatherAdminUntil;
+    // HC-6 visual season clock; this weather owner starts, ticks and stops it.
+    protected ref HCVisualSeasons m_HCVisualSeasons;
 
     string HCAdminWeatherCounts()
     {
@@ -186,6 +188,8 @@ modded class ChernarusPlusData
         m_HCWeatherDaysActive = true;
         m_HCWeatherDaysSuspended = false;
         m_HCAtmosphereStarted = true;
+        if (!m_HCVisualSeasons) { m_HCVisualSeasons = new HCVisualSeasons; }
+        m_HCVisualSeasons.HCStart(true);
         m_HCWeatherDay = -1;
         m_HCWeatherSlot = -1;
         m_HCWeatherProfile = "";
@@ -217,12 +221,16 @@ modded class ChernarusPlusData
     {
         if (!m_HCWeatherDaysActive) return;
         m_HCWeatherDaysActive = false;
+        if (m_HCVisualSeasons) { m_HCVisualSeasons.HCStop(); }
         HCStopAtmosphere();
     }
 
     void HCTickWeatherDays()
     {
         if (!m_HCWeatherDaysActive || !GetGame() || !GetGame().IsServer()) return;
+        // The season clock counts server running time, so it ticks even while a
+        // foreign controller holds the sky.
+        if (m_HCVisualSeasons) { m_HCVisualSeasons.HCTick(); }
         if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen())
         {
             if (!m_HCWeatherDaysSuspended)

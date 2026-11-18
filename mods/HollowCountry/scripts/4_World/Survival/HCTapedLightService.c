@@ -222,7 +222,10 @@ class HCTapedLightService
         b = CopyBinding(b);
         if (!p.InRange(b) || !p.HasLOS(b)) { return HCTapedLightCode.DENIED; }
         HCTapedLightSnapshot before = p.Observe(b);
-        if (!SnapshotValid(before, mounting)) { return HCTapedLightCode.DENIED; }
+        // Historical acknowledgement needs the same observed actor/items, but
+        // not a fresh tape roll: the completed operation may have spent it.
+        // New transactions still validate their tape after the replay lookup.
+        if (!SnapshotValid(before, false)) { return HCTapedLightCode.DENIED; }
         if (before.ActorId != p.ActorKey()) { return HCTapedLightCode.DENIED; }
         HCTapedLightRecord latest = null;
         foreach (HCTapedLightRecord old : s.Records)
@@ -238,6 +241,7 @@ class HCTapedLightService
             }
             if (old.LightId == before.LightId) { latest = old; }
         }
+        if (!SnapshotValid(before, mounting)) { return HCTapedLightCode.DENIED; }
         if (mounting)
         {
             if (latest && latest.Phase == HCTapedLightPhase.MOUNTED) { return HCTapedLightCode.CONFLICT; }

@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 REPO = Path(__file__).resolve().parents[2]
@@ -315,11 +316,11 @@ class InstallIsAtomicAndVerified(unittest.TestCase):
     def test_failure_after_some_files_were_switched_restores_every_file_verified(self):
         real, calls = self.lb._switch, []
 
-        def failing(mission, managed, name, data, staged_name):
+        def failing(mission, managed, name, data, staged_name, expected_sha):
             calls.append(name)
             if len(calls) == 3:
                 raise OSError('injected failure after two files were switched')
-            return real(mission, managed, name, data, staged_name)
+            return real(mission, managed, name, data, staged_name, expected_sha)
         self.lb._switch = failing
         try:
             with self.assertRaises(OSError):
@@ -328,6 +329,70 @@ class InstallIsAtomicAndVerified(unittest.TestCase):
             self.lb._switch = real
         self.assertGreaterEqual(len(calls), 3, "the injected failure happened mid-install")
         self.assert_untouched()
+
+        # HC-9: exercise failures inside the real staged swap as well as at its caller.
+        # Each mission and injected edit is SYNTHETIC; this proves filesystem recovery only.
+        scenarios = ('install_stage_drift', 'rollback_stage_drift', 'rollback_backup_drift',
+                     'rollback_replace_failure', 'install_readback', 'rollback_readback')
+        for scenario in scenarios:
+            with self.subTest(scenario=scenario):
+                root = Path(self.temp.name) / scenario
+                original = mission(root)
+                plan = self.lb.plan(root, multiplier=2.0, points=self.overlay)
+                name, before, after = plan['files'][1]
+                live = root / name
+                managed = root / self.lb.MANAGED
+                edited = before + b'<!-- synthetic concurrent operator edit -->\n'
+                if scenario.startswith('rollback'):
+                    self.lb.install(root, multiplier=2.0, points=self.overlay)
+                real_sync, real_replace = self.lb._sync_file, self.lb.os.replace
+                injected = []
+
+                def during_stage(path):
+                    if not injected:
+                        if scenario.endswith('stage_drift') and Path(path).name == '01.next':
+                            live.write_bytes(edited)
+                            injected.append(True)
+                        elif scenario == 'rollback_backup_drift' and Path(path).name == '00.next':
+                            (managed / '01.backup').write_bytes(b'SYNTHETIC corrupt backup')
+                            injected.append(True)
+                    return real_sync(path)
+
+                def during_replace(source, destination):
+                    if Path(destination) == live and not injected:
+                        if scenario == 'rollback_replace_failure':
+                            injected.append(True)
+                            raise OSError('injected rollback swap failure')
+                        if scenario.endswith('readback'):
+                            injected.append(True)
+                            real_replace(source, destination)
+                            live.write_bytes(edited)
+                            return
+                    return real_replace(source, destination)
+
+                operation = self.lb.rollback if scenario.startswith('rollback') else self.lb.install
+                kwargs = {} if scenario.startswith('rollback') else {'multiplier': 2.0, 'points': self.overlay}
+                expected_error = OSError if scenario == 'rollback_replace_failure' else ValueError
+                with mock.patch.object(self.lb, '_sync_file', side_effect=during_stage), \
+                        mock.patch.object(self.lb.os, 'replace', side_effect=during_replace):
+                    with self.assertRaises(expected_error):
+                        operation(root, **kwargs)
+                self.assertTrue(injected, 'the fault must occur inside the real swap')
+                self.assertTrue((managed / 'receipt.json').is_file(), 'keep the recovery receipt')
+                if scenario.endswith(('stage_drift', 'readback')):
+                    self.assertEqual(live.read_bytes(), edited, 'never overwrite the concurrent edit')
+                    # Explicit operator reconciliation, outside the failing transaction.
+                    live.write_bytes(after if scenario.startswith('rollback') else before)
+                if scenario == 'rollback_backup_drift':
+                    self.assertEqual(live.read_bytes(), after, 'corrupt backup was never installed')
+                    (managed / '01.backup').write_bytes(before)
+                if scenario == 'rollback_replace_failure':
+                    self.assertEqual(live.read_bytes(), after)
+                    self.assertTrue((managed / '01.next').is_file(), 'retry a leftover staged restore')
+                self.lb.rollback(root)
+                for relative, data in original.items():
+                    self.assertEqual((root / relative).read_bytes(), data, relative)
+                self.assertFalse(managed.exists(), 'remove recovery data only after verified restore')
 
     def test_mission_file_changed_after_planning_is_refused_without_any_write(self):
         real_sync, state = self.lb._sync_dir, {'done': False}
@@ -351,9 +416,9 @@ class InstallIsAtomicAndVerified(unittest.TestCase):
     def test_file_changed_between_two_swaps_undoes_the_swapped_files_and_keeps_the_edit(self):
         real, calls = self.lb._switch, []
 
-        def racing(mission, managed, name, data, staged_name):
+        def racing(mission, managed, name, data, staged_name, expected_sha):
             calls.append(name)
-            result = real(mission, managed, name, data, staged_name)
+            result = real(mission, managed, name, data, staged_name, expected_sha)
             if len(calls) == 1:
                 (self.mission / 'db/globals.xml').write_bytes(GLOBALS.encode() + b'<!-- raced edit -->\n')
             return result

@@ -1,9 +1,15 @@
+// HC-1 native scripts-1.30.164289: 3_Game/Global/Game.c:914,1120,1550
+// GetTickTime/IsServer/GetCallQueue; existing mission lifecycle owns Start/Stop.
+// 1_Core/proto/EnDebug.c:96 Print; EnScript.c:380,385,407,463 arrays;
+// EnSystem.c:106 TickCount. Queue scheduling is unchanged by HC-1.
+// HCModule.HCGetOperationalStatus is the lead-owned default-null cached hook.
 class HCServer
 {
     protected static ref HCServer s_Instance;
     protected ref HCSettings m_Settings = new HCSettings();
     protected ref HCModuleRegistry m_Registry;
     protected ref array<ref HCModule> m_Active = new array<ref HCModule>();
+    protected ref HCOperationalStatusCache m_Operational = new HCOperationalStatusCache();
     protected bool m_Started;
     protected float m_LastTick;
     protected ref HCPerfSampler m_Perf = new HCPerfSampler();
@@ -17,11 +23,17 @@ class HCServer
     HCSettings GetSettings() { return m_Settings; }
     bool IsStarted() { return m_Started; }
 
+    // Passive operator/debug ports: cached strings, no module callbacks or IO.
+    int HCOperationalCount() { return m_Operational.HCCount(); }
+    string HCOperationalLine(int index) { return m_Operational.HCLine(index); }
+    string HCOperationalSummary() { return HCV2Admission.OperationalSummary(m_Operational); }
+
     void Start()
     {
         if (m_Started || !GetGame() || !GetGame().IsServer()) return;
         // A prior startup/stop callback may have aborted before cleanup finished.
         if (m_Active.Count() > 0) Stop();
+        m_Operational.HCReset();
         if (!HCNativeSelfTests.Run())
         {
             Print("[HollowCountry] Core native self-test FAILED; no modules started");
@@ -34,9 +46,15 @@ class HCServer
         m_Registry.RegisterModules();
         foreach (HCModule module : m_Registry.GetModules())
         {
-            if (!module.IsEnabled(m_Settings)) continue;
+            // Exactly one lifecycle admission read; it may load local config.
+            if (!module.IsEnabled(m_Settings))
+            {
+                m_Operational.HCCapture(module.GetName(), false, module.HCGetOperationalStatus());
+                continue;
+            }
             m_Active.Insert(module);
             module.OnStart(m_Settings);
+            m_Operational.HCCapture(module.GetName(), true, module.HCGetOperationalStatus());
             Print("[HollowCountry] Requested module start; inspect module admission result: " + module.GetName());
         }
         m_Started = true;
@@ -48,6 +66,8 @@ class HCServer
         }
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, m_Settings.TickIntervalMs, true);
         Print(HCV2Admission.Summary(m_Settings));
+        Print(HCV2Admission.OperationalSummary(m_Operational));
+        Print(HCV2Admission.NonModuleSummary());
         Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
 
@@ -81,6 +101,8 @@ class HCServer
     {
         if (!m_Started && m_Active.Count() == 0) return;
         m_Started = false;
+        // Retain off/unknown receipts even if a later stop callback aborts.
+        m_Operational.HCStopAll();
         m_Perf.Stop();
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
         for (int i = m_Active.Count() - 1; i >= 0; i--)

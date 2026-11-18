@@ -70,6 +70,12 @@ class HCTapedLightCatalog
         Add(rows, "Scout", "UniversalLight", "weaponFlashlight", "", "");
         Add(rows, "Scout_Chernarus", "UniversalLight", "weaponFlashlight", "", "");
         Add(rows, "Scout_Livonia", "UniversalLight", "weaponFlashlight", "", "");
+        // HC-7 / #58: R12 stays PENDING, deliberately absent from these rows.
+        // probe-006 R12 has weaponFlashlight and server attachment succeeds,
+        // but its scanned proxy list contains only optic_acog. Resolution LOD
+        // scanning is incomplete; neither proxy geometry nor client alignment
+        // is accepted. See tests/fixtures/runtime/light-proxy-slot-table.json.
+        // Slot ancestry/attachment alone cannot admit it or justify a patch.
         s_Rows = rows;
         return s_Rows;
     }

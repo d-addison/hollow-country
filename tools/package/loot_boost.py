@@ -20,8 +20,10 @@ hits; furniture surfaces need a ``--intersect view`` census). Nothing here obser
 spawns on the added containers, and the resulting loot density, stay pending native/server testing.
 
 Install writes the receipt first, then fsynced backups, then switches each file through a staged
-``.next`` and ``os.replace``. Rollback checks every file is in its recorded before/after state (and each
-needed backup matches) before restoring anything; drift refuses and keeps all recovery data.
+``.next`` and ``os.replace``. Each switch rehashes the live file after staging and verifies readback.
+Rollback checks every file is in its recorded before/after state (and each needed backup matches)
+before restoring anything, then rechecks each backup and live file at its switch; drift refuses and
+keeps all recovery data. Interrupted restores can be retried after explicit operator reconciliation.
 """
 import argparse
 import json
@@ -655,7 +657,7 @@ def install(mission, multiplier=None, points=None):
         for row, (name, _, after) in zip(rows, result['files']):
             _check_unchanged(mission, [row])  # re-hash right before this file's swap
             started.add(row['name'])
-            _switch(mission, managed, name, after, row['backup'].replace('.backup', '.next'))
+            _switch(mission, managed, name, after, row['backup'].replace('.backup', '.next'), row['before'])
     except BaseException as error:
         _undo_install(mission, managed, rows, error, started)
         raise
@@ -688,11 +690,12 @@ def _undo_install(mission, managed, rows, error, started=None):
             backup = economy.read_plain(managed, row['backup'])
             if _sha(backup) != row['before']:
                 raise ValueError(f'backup of {row["name"]} drifted')
-            _switch(mission, managed, row['name'], backup, row['backup'].replace('.backup', '.next'))
+            _switch(mission, managed, row['name'], backup, row['backup'].replace('.backup', '.next'), row['after'])
             if _sha(economy.read_plain(mission, row['name'])) != row['before']:
                 raise ValueError(f'{row["name"]} did not verify after restore')
         if drifted:
             raise ValueError('changed since this install switched them: ' + ', '.join(drifted))
+        _check_unchanged(mission, [r for r in rows if started is None or r['name'] in started])
         shutil.rmtree(managed)
     except (OSError, ValueError) as undo_error:
         error.add_note('loot boost automatic undo failed (%s); recovery data kept in %s, run rollback after '
@@ -720,13 +723,24 @@ def _sync_dir(path):
         os.close(fd)
 
 
-def _switch(mission, managed, name, data, staged_name):
+def _switch(mission, managed, name, data, staged_name, expected_sha):
+    """Stage, rehash just before replacement, and verify readback; not a multi-file atomic swap.
+
+    The server must be stopped. These checks detect drift at the barriers; they cannot lock out
+    another writer in the interval between the final hash and os.replace.
+    """
     live = economy.plain_file(mission, economy.child(mission, name))
     staged = economy.fresh_write(managed, staged_name, data)
     os.chmod(staged, os.lstat(live).st_mode & 0o777)
     _sync_file(staged)
+    if _sha(economy.read_plain(managed, staged_name)) != _sha(data):
+        raise ValueError(f'staged replacement of {name} drifted; recovery data kept')
+    if _sha(economy.read_plain(mission, name)) != expected_sha:
+        raise ValueError(f'{name} changed before staged swap; refusing to overwrite it')
     os.replace(staged, live)
     _sync_dir(live.parent)
+    if _sha(economy.read_plain(mission, name)) != _sha(data):
+        raise ValueError(f'{name} did not verify after swap; recovery data kept')
 
 
 def _receipt(managed):
@@ -781,8 +795,11 @@ def rollback(mission):
     if proto:
         _check_coverage_above(mission, proto[0]['after'], proto[0]['before'])
     for row in restore:
-        _switch(mission, managed, row['name'], economy.read_plain(managed, row['backup']),
-                row['backup'].replace('.backup', '.next'))
+        backup = economy.read_plain(managed, row['backup'])
+        if _sha(backup) != row['before']:
+            raise ValueError(f'loot boost backup drifted for {row["name"]}; recovery data kept')
+        _switch(mission, managed, row['name'], backup, row['backup'].replace('.backup', '.next'), row['after'])
+    _check_unchanged(mission, receipt['files'])  # keep recovery data if an earlier restore drifted
     shutil.rmtree(managed)
     return {'restored': len(restore)}
 
