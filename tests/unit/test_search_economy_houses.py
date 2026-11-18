@@ -615,6 +615,26 @@ class SearchTests(HouseCase):
 
 
 class LruTests(HouseCase):
+    def test_spent_binding_releases_outside_player_range_and_new_house_binds_at_cap(self):
+        # Explicit synthetic world/players; this does not establish DayZ behavior.
+        self.h = Harness(MaxBoundSearchSites=1)
+        first, second = self.houses_at(2)
+        action = self.start(first, 'p1')
+        self.h.world.now += 6.5
+        self.h.houses.Commit(action)
+        self.h.houses.End(action)
+        player = action.m_Player
+        self.h.houses.RecycleSpentBindings(EArray([player]))
+        self.assertEqual(1, self.h.houses.m_Journal.SiteCount())
+        player.position = second.GetPosition()
+        self.h.houses.RecycleSpentBindings(EArray([player]))
+        self.assertEqual(0, self.h.houses.m_Journal.SiteCount())
+        self.assertTrue(self.h.houses.m_Journal.SupplyKnown('1_2_3_4'))
+        replacement = self.start(second, 'p2')
+        self.assertIsNotNone(replacement.Site)
+        self.assertEqual(1, self.h.houses.m_Journal.SiteCount())
+        self.assertEqual(1, len(self.h.moves()))
+
     def houses_at(self, count):
         out = []
         for n in range(count):

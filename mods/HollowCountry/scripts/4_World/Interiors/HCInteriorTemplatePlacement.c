@@ -1,13 +1,30 @@
-// Startup-only placement. No item creation, periodic furnishing or client state.
+// Native 1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx;
+// 3_Game/CE/CentralEconomy.c:30-33 NOLIFETIME/NOPERSISTENCY_WORLD flags.
+// One deterministic startup pass, advanced in bounded batches by module ticks.
 class HCInteriorTemplatePlacement
 {
     protected static bool s_Started;
     protected static int s_Placed;
     protected static int s_Capped;
+    protected static int s_DeferredNext;
+    protected static ref array<ref HCInteriorFurnishRow> s_Deferred = new array<ref HCInteriorFurnishRow>;
     protected static string s_ResolveReason;
     protected static ref array<Object> s_Houses = new array<Object>;
     protected static ref map<string, int> s_Refused = new map<string, int>;
     protected static ref array<string> s_BoxLogged = new array<string>;
+
+    static void ResetPlacement()
+    {
+        s_Started = false;
+        s_Placed = 0;
+        s_Capped = 0;
+        s_DeferredNext = 0;
+        s_Deferred.Clear();
+        s_ResolveReason = "";
+        s_Houses.Clear();
+        s_Refused.Clear();
+        s_BoxLogged.Clear();
+    }
 
     static void LogPropBox(Object prop)
     {
@@ -100,7 +117,7 @@ class HCInteriorTemplatePlacement
     static Object Spawn(string type, vector position, vector orientation)
 
     {
-        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY;
+        int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
         Object object = GetGame().CreateObjectEx(type, position, flags, RF_IGNORE);
         if (object)
 
@@ -162,6 +179,16 @@ class HCInteriorTemplatePlacement
             CountRefusal("binding", row.Props.Count());
             return;
         }
+        if (row.Props.Count() > houseLimit)
+        {
+            // Namespaced keys share the existing once-only diagnostic cache.
+            string capKey = "cap_" + row.BuildingClass;
+            if (s_BoxLogged.Find(capKey) < 0)
+            {
+                Print("[HC Interiors] furnishing capped class=" + row.BuildingClass + " limit=" + houseLimit.ToString());
+                s_BoxLogged.Insert(capKey);
+            }
+        }
         int houseCount = 0;
         array<Object> created = new array<Object>();
         foreach (int slotId : row.Props)
@@ -205,35 +232,95 @@ class HCInteriorTemplatePlacement
         Schedule(created);
     }
 
-    static void Place(HCInteriorsModule module, HCSettings settings, array<Object> placed)
+    // Native 1.30.164289: 3_Game/Global/Game.c:945 GetPlayers(out array<Man>),
+    // 3_Game/Entities/Object.c:287 GetPosition; 1_Core/proto/EnConvert.c:210 DistanceSq.
+    static bool PlayersNearRow(HCInteriorFurnishRow row, array<Man> players)
+    {
+        vector rowPosition = HCInteriorTemplates.AsVector(row.Position);
+        foreach (Man nearbyPlayer : players)
+        {
+            if (nearbyPlayer && vector.DistanceSq(nearbyPlayer.GetPosition(), rowPosition) <= 900.0)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
+    static bool DeferredPlacementPending()
+    {
+        return s_Deferred.Count() > 0;
+    }
+
+    static void Place(HCInteriorsModule module, HCSettings settings, array<Object> placed, int firstRow = 0)
     {
         if (s_Started || !HCInteriorTemplates.Loaded())
-
         {
             return;
         }
-        s_Started = true;
         array<ref HCInteriorFurnishRow> rows = HCInteriorTemplates.FurnishRows();
-        foreach (HCInteriorFurnishRow row : rows)
-
+        if (firstRow == 0)
         {
+            int queuedRows = rows.Count();
+            Print("[HC Interiors] templates placement queued rows=" + queuedRows.ToString() + " max_attempted_props_per_tick=50");
+        }
+        array<Man> players = new array<Man>();
+        GetGame().GetPlayers(players);
+        bool retrying = firstRow >= rows.Count();
+        int rowCount = Math.Min(10, rows.Count() - firstRow);
+        if (retrying)
+        {
+            rowCount = Math.Min(10, s_Deferred.Count());
+        }
+        int examined = 0;
+        // Every admitted row contains <=5 slots: <=50 attempted props per tick.
+        // Deferred rows are existing catalog references, bounded by its row cap.
+        while (examined < rowCount)
+        {
+            HCInteriorFurnishRow row;
+            if (retrying)
+            {
+                if (s_DeferredNext >= s_Deferred.Count()) { s_DeferredNext = 0; }
+                row = s_Deferred[s_DeferredNext];
+            }
+            else
+            {
+                row = rows[firstRow + examined];
+            }
+            examined = examined + 1;
+            // Defer before resolving/claiming the house or mutating any prop state.
+            if (PlayersNearRow(row, players))
+            {
+                if (retrying)
+                {
+                    s_DeferredNext = s_DeferredNext + 1;
+                }
+                else
+                {
+                    s_Deferred.Insert(row);
+                }
+                continue;
+            }
+            if (retrying)
+            {
+                // Native 1_Core/proto/EnScript.c:463 swaps the last row into this slot.
+                s_Deferred.Remove(s_DeferredNext);
+            }
             if (HCInteriorRules.PlacementAdmitted())
-
             {
                 module.PlaceCandidate(row, settings);
             }
             else
-
             {
                 CountRefusal("acceptance_pending", row.Props.Count());
             }
         }
+        if (firstRow + examined < rows.Count() || DeferredPlacementPending()) { return; }
+        s_Started = true;
         string summary = "[HC Interiors] templates placement placed=" + s_Placed.ToString() + " capped=" + s_Capped.ToString();
         int reasonIndex = 0;
-        // Only the fixed reasons authored above can enter this map (<=10).
+        // Only fixed refusal reasons enter this map (<=10).
         while (reasonIndex < s_Refused.Count() && reasonIndex < 16)
-
         {
             summary = summary + " refused_" + s_Refused.GetKey(reasonIndex) + "=" + s_Refused.GetElement(reasonIndex).ToString();
             reasonIndex = reasonIndex + 1;

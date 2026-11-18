@@ -111,7 +111,7 @@ class HCSearchPreviewSites
     bool Matches(PlayerBase player, ActionTarget target, House building)
     {
         vector orientation = building.GetOrientation();
-        if (Math.AbsFloat(orientation[1]) > 0.01 || Math.AbsFloat(orientation[2]) > 0.01) return false;
+        if (!HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES)) { return false; }
         HCSearchPreviewEntry entry = EntryFor(building.GetType());
         if (!entry) return false;
         vector offset = building.WorldToModel(target.GetCursorHitPos());

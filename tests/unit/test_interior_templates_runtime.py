@@ -164,7 +164,8 @@ def fixture(values=None):
             target.__dict__.update(vars(convert(value))); return True
         except ValueError: return False
     game=NS(GetWorldName=lambda:'chernarusplus',ConfigIsExisting=lambda path:True,
-            GetObjectsAtPosition3D=lambda point,radius,found,cargos:found.extend(objects))
+            GetObjectsAtPosition3D=lambda point,radius,found,cargos:found.extend(objects),
+            GetPlayers=lambda players:None)  # no players online: placement is never deferred
     def synthetic_spawn(typ, point, orientation):
         # Explicit native boundary: invented dimensions, never installed-model evidence.
         def clipping(box): box[:]=[[-.5,0,-.3],[.5,2,.3]]
@@ -181,7 +182,7 @@ def fixture(values=None):
         s_Attempted=False,s_Loaded=False,s_Index=None,s_Bytes=0,s_Files=0,s_Reason='',
         s_Classes=EArray(),s_Templates=EArray(),s_Groups=EArray(),s_Furnish=EArray(),
         s_Placed=0,s_Capped=0,s_Refused=EMap(),s_Houses=EArray(),s_Started=False,s_ResolveReason='',s_MaxProps=5,
-        s_BoxLogged=Array(),
+        s_BoxLogged=Array(), s_Deferred=Array(), s_DeferredNext=0,
         Available=lambda module,point,orientation,typ:True,
         Spawn=synthetic_spawn,
         Schedule=lambda props:None,

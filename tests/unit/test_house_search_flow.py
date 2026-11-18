@@ -101,14 +101,15 @@ class ServerFlowTests(unittest.TestCase):
         self.assertTrue(f.action.ActionCondition(player, data.m_Target, None))
         f.action.OnStartServer(data)
         self.assertTrue(f.action.ActionConditionContinue(data))
-        f.h.world.now += 5.9
+        f.h.world.now += 5.49  # Server tolerance starts at 5.5, native action remains six seconds.
         f.action.OnFinishProgressServer(data)
         self.assertEqual([], player.cargo)
-        f.h.world.now += .1
+        f.h.world.now += .01
         f.action.OnFinishProgressServer(data)
         f.action.OnFinishProgressServer(data)
         self.assertEqual([item], player.cargo)
-        self.assertEqual(['Search complete.'], player.messages)
+        self.assertEqual(['Search stopped; action completed too early. Please try again.',
+                          'Search complete.'], player.messages)
         f.action.OnEndServer(data)
         self.assertEqual(0, f.service.SessionCount())
         self.assertEqual([], f.h.pilot_calls)

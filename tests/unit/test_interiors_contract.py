@@ -448,7 +448,7 @@ class InteriorsContractTests(unittest.TestCase):
         body = method_body("HCInteriorModule.c", "ValidateTarget")
         self.assertIn("GetEntityInHands()", body)
         commit = method_body("HCInteriorModule.c", "CommitSearch")
-        self.assertIn("GetTickTime() - site.StartedAt < 6.0", commit)
+        self.assertIn("GetTickTime() - site.StartedAt < 5.5", commit)
         begin = method_body("HCInteriorModule.c", "BeginSearch")
         self.assertIn("site.StartedAt = GetGame().GetTickTime()", begin)
 
@@ -456,3 +456,89 @@ class InteriorsContractTests(unittest.TestCase):
         start = method_body("HCInteriorModule.c", "OnStart")
         self.assertIn("collision/nav/replication proof", start)
         self.assertIn("durable commit/CE/two-client proof", start)
+
+
+class FixupPlacementTests(unittest.TestCase):
+    """T014/INT-005: execute placement batches with explicit SYNTHETIC players."""
+
+    def placement(self, count=12):
+        from tests.unit import test_search_economy_houses as houses
+        source = (SRC / 'HCInteriorTemplatePlacement.c').read_text()
+        # ClippingInfo's fixed-size output array is an unused native boundary here.
+        match = re.search(r'    static void LogPropBox\([^)]*\)\s*\{', source)
+        end = houses.match_brace(source, match.end() - 1)
+        source = source[:match.start()] + source[end + 1:]
+        source = source.replace('int firstRow = 0', 'int firstRow')
+        class NativeArray(houses.EArray):
+            def Remove(self, index):
+                # Installed EnScript.c:463 swaps in the last element.
+                self[index] = self[-1]
+                self.pop()
+        rows = NativeArray(SimpleNamespace(Position=[100. * i, 0., 0.],
+                            Props=houses.EArray([1])) for i in range(count))
+        players, placed, logs = houses.EArray(), [], []
+        env = dict(EArray=NativeArray, HMap=houses.HMap, tostr=str,
+                   GetGame=lambda: SimpleNamespace(GetPlayers=lambda out: out.extend(players)),
+                   HCInteriorTemplates=SimpleNamespace(Loaded=lambda: True,
+                       FurnishRows=lambda: rows, AsVector=lambda v: v),
+                   HCInteriorRules=SimpleNamespace(PlacementAdmitted=lambda: True),
+                   Math=SimpleNamespace(Min=min), Print=logs.append,
+                   vector=SimpleNamespace(DistanceSq=lambda a,b: sum((x-y)**2 for x,y in zip(a,b))))
+        for code in houses.Translator(source).classes():
+            exec(code, env)
+        api = env['HCInteriorTemplatePlacement']
+        module = SimpleNamespace(PlaceCandidate=lambda row, settings: placed.append(row))
+        def batch(first):
+            api.Place(module, SimpleNamespace(), houses.EArray(), first)
+        return api, rows, players, placed, logs, batch
+
+    def test_player_within_thirty_metres_defers_only_that_row_until_clear(self):
+        api, rows, players, placed, logs, batch = self.placement()
+        # Includes a null handle and a second player: every player must be checked.
+        players.extend([None, SimpleNamespace(GetPosition=lambda: [900., 0., 0.]),
+                        SimpleNamespace(GetPosition=lambda: [30., 0., 0.])])
+        batch(0)
+        self.assertNotIn(rows[0], placed)
+        self.assertNotIn(rows[9], placed)
+        self.assertEqual(8, len(placed))
+        batch(10)
+        self.assertEqual(10, len(placed))
+        self.assertFalse(api.s_Started)
+        batch(12)
+        self.assertEqual(10, len(placed))
+        players.clear()
+        batch(12)
+        self.assertEqual(12, len(placed))
+        self.assertTrue(all(placed.count(row) == 1 for row in rows))
+        self.assertTrue(api.s_Started)
+        self.assertEqual(1, sum('templates placement placed=' in line for line in logs))
+        batch(12)
+        self.assertEqual(12, len(placed))
+        api.ResetPlacement()
+        self.assertFalse(api.s_Started)
+        self.assertEqual(0, api.s_Deferred.Count())
+
+    def test_deferred_retries_keep_ten_row_budget_and_reach_all_rows(self):
+        api, rows, players, placed, logs, batch = self.placement(25)
+        players.extend(SimpleNamespace(GetPosition=lambda row=row: row.Position) for row in rows)
+        for first in (0, 10, 20):
+            batch(first)
+        self.assertEqual([], placed)
+        # A blocked first retry batch must not starve the other deferred rows.
+        players[:] = players[:10]
+        for _ in range(3):
+            before = len(placed)
+            batch(25)
+            self.assertLessEqual(len(placed) - before, 10)
+        self.assertEqual(15, len(placed))
+        players.clear()
+        batch(25)
+        self.assertEqual(25, len(placed))
+        self.assertTrue(api.s_Started)
+
+    def test_player_outside_thirty_metres_does_not_defer(self):
+        api, rows, players, placed, logs, batch = self.placement(1)
+        players.append(SimpleNamespace(GetPosition=lambda: [30.001, 0., 0.]))
+        batch(0)
+        self.assertEqual([rows[0]], placed)
+        self.assertTrue(api.s_Started)

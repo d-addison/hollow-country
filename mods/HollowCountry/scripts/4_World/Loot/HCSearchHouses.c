@@ -1,3 +1,4 @@
+// Native 1.30.164289: 4_World/Entities/ManBase/PlayerBase.c:6924 MessageStatus.
 // Lazy per-house search (contract sections 6 and 8, T5). A search targets a House only when
 // (a) the House class is `Search: covered` in the loaded template pack, (b) the cursor hit
 // lies inside a template search-site sphere, and (c) the player stands within 2.5 m of that
@@ -50,7 +51,7 @@ class HCSearchHouseSession
 class HCSearchHouses
 {
     static const float BIND_RADIUS_SQ = 6.25;
-    static const float COMMIT_AFTER = 6.0;
+    static const float COMMIT_AFTER = 5.5;
     static const float DEADLINE = 15.0;
     static const float EMPTY_RETRY = 60.0;
     static const int MAX_SESSIONS = 12;
@@ -65,12 +66,15 @@ class HCSearchHouses
     protected bool m_Fault;
     protected bool m_Busy;
     protected bool m_ReadinessReported;
+    protected int m_RecycleActiveNext;
+    protected int m_RecycleDetachedNext;
     protected float m_WindowStart;
     protected int m_Queries;
     protected ref HCSearchHouseJournal m_Journal;
     protected ref HCSearchSupplyRegistry m_Registry;
     protected ref HCSearchSupplyProvider m_Provider = new HCSearchSupplyProvider;
     protected ref array<ref HCSearchHouseSlot> m_Slots = new array<ref HCSearchHouseSlot>;
+    protected ref array<ref HCSearchHouseSlot> m_DetachedSlots = new array<ref HCSearchHouseSlot>;
     protected ref array<ref HCSearchHouseSession> m_Sessions = new array<ref HCSearchHouseSession>;
     protected ref map<string, float> m_Empty = new map<string, float>;
 
@@ -119,6 +123,7 @@ class HCSearchHouses
         }
         m_Sessions.Clear();
         m_Slots.Clear();
+        m_DetachedSlots.Clear();
         if (m_Registry) m_Registry.Retire();
         m_Registry = null;
         m_Journal = null;
@@ -241,7 +246,7 @@ class HCSearchHouses
         while (m_Journal && m_Registry && index < m_Journal.Count())
         {
             HCSearchHouseRow row = m_Journal.Row(index);
-            if (row.SiteId == siteId && row.Phase == 0 && m_Registry && m_Registry.Find(row.SupplyId))
+            if (row && row.SiteId == siteId && row.Phase == 0 && m_Registry && m_Registry.Find(row.SupplyId))
             {
                 if (fallback < 0) fallback = index;
                 // A changed/out-of-range/full-size first item must not hide a usable
@@ -411,7 +416,61 @@ class HCSearchHouses
             if (m_Registry && !m_Registry.Forget(supplyId)) return false;
         }
         m_Slots.Remove(index);
+        if (slot.Sites.Count() > 0) { m_DetachedSlots.Insert(slot); }
         return true;
+    }
+
+    // Native 1.30.164289: 3_Game/Entities/Object.c:287 GetPosition;
+    // 3_Game/Global/Game.c:945 GetPlayers is called by the module tick owner.
+    bool SpentOutsideRange(HCSearchHouseSlot slot, array<Man> players)
+    {
+        if (SlotBusy(slot) || slot.Sites.Count() < 1) { return false; }
+        foreach (string siteId : slot.Sites)
+        {
+            if (!m_Journal.SiteSettled(siteId)) { return false; }
+        }
+        foreach (Man observer : players)
+        {
+            if (!observer) { continue; }
+            if (!slot.Structure) { return false; }
+            if (vector.DistanceSq(observer.GetPosition(), slot.Structure.GetPosition()) <= 2500.0) { return false; }
+        }
+        return true;
+    }
+
+    // Detached LRU handles retain only bounded binding metadata until range is safe.
+    void RecycleSpentBindings(array<Man> players)
+    {
+        if (!m_Journal || !m_Journal.Healthy() || m_Busy || !players) { return; }
+        int limit = m_Settings.MaxTickWorkItems;
+        if (limit > 32) { limit = 32; }
+        if (limit < 1) { return; }
+        int activeLimit = limit / 2;
+        if (activeLimit < 1) { activeLimit = 1; }
+        if (activeLimit > m_Slots.Count()) { activeLimit = m_Slots.Count(); }
+        int inspected = 0;
+        while (inspected < activeLimit && m_Slots.Count() > 0)
+        {
+            if (m_RecycleActiveNext >= m_Slots.Count()) { m_RecycleActiveNext = 0; }
+            if (SpentOutsideRange(m_Slots[m_RecycleActiveNext], players)) { ReleaseAt(m_RecycleActiveNext); }
+            else { m_RecycleActiveNext++; }
+            inspected++;
+        }
+        int detachedLimit = limit - inspected;
+        if (detachedLimit > m_DetachedSlots.Count()) { detachedLimit = m_DetachedSlots.Count(); }
+        inspected = 0;
+        while (inspected < detachedLimit && m_DetachedSlots.Count() > 0)
+        {
+            if (m_RecycleDetachedNext >= m_DetachedSlots.Count()) { m_RecycleDetachedNext = 0; }
+            HCSearchHouseSlot detached = m_DetachedSlots[m_RecycleDetachedNext];
+            if (SpentOutsideRange(detached, players))
+            {
+                foreach (string releasedSite : detached.Sites) { m_Journal.ReleaseSite(releasedSite); }
+                m_DetachedSlots.Remove(m_RecycleDetachedNext);
+            }
+            else { m_RecycleDetachedNext++; }
+            inspected++;
+        }
     }
 
     HCSearchHouseSlot Touch(HCSearchHouseHit hit)
@@ -425,6 +484,12 @@ class HCSearchHouses
             return known;
         }
         if (m_Slots.Count() >= m_Settings.MaxActiveInteriors && !ReleaseIdle()) return null;
+        int detachedIndex = m_DetachedSlots.Count() - 1;
+        while (detachedIndex >= 0)
+        {
+            if (m_DetachedSlots[detachedIndex].InstanceId == hit.InstanceId) { m_DetachedSlots.Remove(detachedIndex); }
+            detachedIndex = detachedIndex - 1;
+        }
         HCSearchHouseSlot slot = new HCSearchHouseSlot;
         slot.InstanceId = hit.InstanceId;
         slot.Structure = hit.Structure;
@@ -458,7 +523,8 @@ class HCSearchHouses
         {
             HCSearchHouseRow row = m_Journal.Row(index);
             index++;
-            if (row.SiteId != hit.SiteId || row.Phase != 0 || m_Registry.Find(row.SupplyId)) continue;
+            if (!row) { continue; }
+            if (row.SiteId != hit.SiteId || row.Phase != 0 || m_Registry.Find(row.SupplyId)) { continue; }
             if (!ChargeQuery()) return false;
             HCSearchScanBudget budget = NewBudget();
             array<EntityAI> found = new array<EntityAI>;
@@ -478,12 +544,13 @@ class HCSearchHouses
     // First valid start: one bounded scan, then register and journal what CE already placed.
     bool Bind(HCSearchHouseSlot slot, HCSearchHouseHit hit)
     {
-        if (!m_Journal.SiteBound(hit.SiteId) && m_Journal.SiteCount() >= m_Settings.MaxBoundSearchSites)
+        bool newBinding = !m_Journal.SiteBound(hit.SiteId) || m_Journal.BindingReleased(hit.SiteId);
+        if (newBinding && m_Journal.SiteCount() >= m_Settings.MaxBoundSearchSites)
         {
             Print("[HC Search Houses] site cap reached: " + m_Journal.SiteCount().ToString());
             return false;
         }
-        if (m_Journal.Count() >= HCSearchHouseJournal.MAX_ENTRIES || Remembered(hit.SiteId)) return false;
+        if (!m_Journal.HasCapacity() || Remembered(hit.SiteId)) return false;
         HCSearchSiteVolume volume = BuildVolume(hit);
         if (!volume)
         {
@@ -653,11 +720,26 @@ class HCSearchHouses
 
     void Commit(ActionData data)
     {
-        if (!GetGame().IsServer() || !CanContinue(data)) return;
+        if (!GetGame().IsServer()) { return; }
+        if (!CanContinue(data))
+        {
+            if (data) { Tell(data.m_Player, "Search stopped; target or session changed."); }
+            return;
+        }
         HCSearchHouseSession session = SessionOf(data);
         HCInteriorSite site = session.Site;
-        if (GetGame().GetTickTime() - site.StartedAt < COMMIT_AFTER || site.Phase != 0) return;
-        if (m_Busy || !SessionValid(data, session) || !m_Journal || !m_Journal.Healthy()) return;
+        if (site.Phase != 0) { return; }
+        if (GetGame().GetTickTime() - site.StartedAt < COMMIT_AFTER)
+        {
+            Tell(data.m_Player, "Search stopped; action completed too early. Please try again.");
+            return;
+        }
+        bool journalReady = m_Journal && m_Journal.Healthy();
+        if (m_Busy || !SessionValid(data, session) || !journalReady)
+        {
+            Tell(data.m_Player, "Search stopped; this storage is unavailable.");
+            return;
+        }
         int index = session.Row;
         HCSearchHouseRow row = m_Journal.Row(index);
         if (!row || row.Phase != 0 || row.SiteId != site.Id)

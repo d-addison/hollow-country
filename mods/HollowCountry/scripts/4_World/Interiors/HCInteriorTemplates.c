@@ -598,7 +598,9 @@ class HCInteriorTemplates
             }
             keepKeys.Insert(keepKey);
         }
-        if (!templateRow.PropSlots || templateRow.PropSlots.Count() > s_MaxProps || (classRow.Furniture == "covered" && templateRow.PropSlots.Count() < 1))
+        // Validate the bounded catalog independently of the operator's placement cap.
+        // PlaceRow emits only the allowed prefix and logs each capped building class once.
+        if (!templateRow.PropSlots || templateRow.PropSlots.Count() > 20 || (classRow.Furniture == "covered" && templateRow.PropSlots.Count() < 1))
 
         {
             return false;

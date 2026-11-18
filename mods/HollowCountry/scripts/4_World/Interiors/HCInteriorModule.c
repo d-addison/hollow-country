@@ -1,3 +1,6 @@
+// Native 1.30.164289: 4_World/Entities/ManBase/PlayerBase.c:6924 MessageStatus;
+// 3_Game/Global/Game.c:703 CreateObjectEx;
+// 3_Game/CE/CentralEconomy.c:30-33 NOLIFETIME/NOPERSISTENCY_WORLD flags.
 // Trusted provider supplies reviewed context groups, not label-derived guesses.
 // SourcePin must cover the source manifest AND these admissions in the external
 // provenance review; script checks binding/syntax, not SHA-256 authenticity.
@@ -347,7 +350,7 @@ class HCInteriorsModule : HCModule
         int propIndex;
         foreach (HCInteriorProp prop : layout.Props)
         {
-            int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_DYNAMIC_PERSISTENCY;
+            int flags = ECE_SETUP | ECE_KEEPHEIGHT | ECE_CREATEPHYSICS | ECE_UPDATEPATHGRAPH | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
             Object object = reusableProps[propIndex];
             propIndex++;
             if (!object)
@@ -498,13 +501,26 @@ class HCInteriorsModule : HCModule
 
     void CommitSearch(ActionData data)
     {
-        if (!GetGame().IsServer() || !CanContinue(data)) return;
+        if (!GetGame().IsServer()) { return; }
+        if (!CanContinue(data))
+        {
+            if (data && data.m_Player) { data.m_Player.MessageStatus("Search stopped; target or session changed."); }
+            return;
+        }
         HCInteriorActionData action = HCInteriorActionData.Cast(data);
         HCInteriorSite site = action.Site;
-        if (GetGame().GetTickTime() - site.StartedAt < 6.0) return;
+        if (GetGame().GetTickTime() - site.StartedAt < 5.5)
+        {
+            data.m_Player.MessageStatus("Search stopped; action completed too early. Please try again.");
+            return;
+        }
         // Target/capacity checks may cross native callbacks. The same captured
         // player session must still own the action immediately before admission.
-        if (!SearchGate(data.m_Player, site) || !SessionValid(data, site)) return;
+        if (!SearchGate(data.m_Player, site) || !SessionValid(data, site))
+        {
+            data.m_Player.MessageStatus("Search unavailable: supply, inventory or service changed.");
+            return;
+        }
         site.Phase = 1; // Exclude reentry BEFORE adapter I/O/native callbacks.
         int result = m_Economy.Grant(site.Id, data.m_Player);
         if (result < 0)

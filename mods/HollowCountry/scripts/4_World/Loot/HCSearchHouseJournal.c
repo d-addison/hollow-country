@@ -1,6 +1,10 @@
+// Native 1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist, :528 DeleteFile;
+// 1_Core/proto/EnScript.c:394 array.Find, :389 array.Set, :463 array.Remove.
+// 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :448 Get. Existing HCSearchJson owns JSON I/O.
+// Sparse active slots retain indices; immutable supply tombstones prevent regrant.
+// A compact_<slot> intent survives interruption and finishes cleanup before restore.
 // Lazy per-house search journal (contract section 8). Same immutable, bounded record
-// discipline as HCSearchEconomyStore (HCSearchJson.WriteNew, no overwrite, no delete, no
-// replay), but the row set grows as sites bind instead of being fixed by a manifest.
+// discipline as HCSearchEconomyStore (HCSearchJson.WriteNew, no overwrite or replay of transfer records), but the row set grows as sites bind instead of being fixed by a manifest.
 //   entry_<n>.json   the bound supply (Phase 0, ActorId "bind")
 //   claim_<n>.json   intent before any move (Phase 1)
 //   attempt_<n>.json second intent immediately before the single native move (Phase 1)
@@ -31,6 +35,7 @@ class HCSearchHouseJournal
     protected ref array<ref HCSearchHouseRow> m_Rows = new array<ref HCSearchHouseRow>;
     protected ref map<string, int> m_Supplies = new map<string, int>;
     protected ref map<string, int> m_Sites = new map<string, int>;
+    protected ref array<string> m_ReleasedSites = new array<string>;
 
     bool Fail(string reason)
     {
@@ -41,7 +46,7 @@ class HCSearchHouseJournal
 
     bool Healthy() { return m_Open && !m_Fault; }
     int Count() { return m_Rows.Count(); }
-    int SiteCount() { return m_Sites.Count(); }
+    int SiteCount() { return m_Sites.Count() - m_ReleasedSites.Count(); }
     HCSearchHouseRow Row(int index)
     {
         if (index < 0 || index >= m_Rows.Count()) return null;
@@ -49,7 +54,55 @@ class HCSearchHouseJournal
     }
 
     bool SiteBound(string siteId) { return m_Sites.Contains(siteId); }
-    bool SupplyKnown(string supplyId) { return m_Supplies.Contains(supplyId); }
+    bool BindingReleased(string siteId) { return m_ReleasedSites.Find(siteId) >= 0; }
+    bool SupplyKnown(string supplyId)
+    {
+        if (m_Supplies.Contains(supplyId)) { return true; }
+        // Only existence is read here; the stricter TombstonePath validates every write.
+        return FileExist(m_Root + "/spent_" + supplyId + ".json");
+    }
+
+    string TombstonePath(string supplyId)
+    {
+        if (!HCSearchRules.TextValid(supplyId, 64)) { return ""; }
+        string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+        int characterIndex = 0;
+        while (characterIndex < supplyId.Length())
+        {
+            if (alphabet.IndexOf(supplyId.Get(characterIndex)) < 0) { return ""; }
+            characterIndex++;
+        }
+        return m_Root + "/spent_" + supplyId + ".json";
+    }
+
+    bool HasCapacity()
+    {
+        if (m_Rows.Count() < MAX_ENTRIES) { return true; }
+        foreach (HCSearchHouseRow available : m_Rows)
+        {
+            if (!available) { return true; }
+        }
+        return false;
+    }
+
+    bool SiteSettled(string siteId)
+    {
+        bool found;
+        foreach (HCSearchHouseRow pending : m_Rows)
+        {
+            if (!pending || pending.SiteId != siteId) { continue; }
+            if (pending.Phase < 2) { return false; }
+            found = true;
+        }
+        return found;
+    }
+
+    void ReleaseSite(string siteId)
+    {
+        if (!SiteSettled(siteId) || m_ReleasedSites.Find(siteId) >= 0) { return; }
+        m_ReleasedSites.Insert(siteId);
+        Print("[HC Search Houses] spent binding released site=" + siteId);
+    }
 
     bool Open(string sourceId, string sourcePin, string worldName, string build)
     {
@@ -74,7 +127,9 @@ class HCSearchHouseJournal
     string PathFor(int index, string kind)
     {
         if (index < 0 || index >= MAX_ENTRIES) return "";
-        if (kind != "entry" && kind != "claim" && kind != "attempt" && kind != "result") return "";
+        bool transferKind = kind == "entry" || kind == "claim" || kind == "attempt";
+        bool terminalKind = kind == "result" || kind == "compact";
+        if (!transferKind && !terminalKind) { return ""; }
         return m_Root + "/" + kind + "_" + index.ToString() + ".json";
     }
 
@@ -136,32 +191,160 @@ class HCSearchHouseJournal
 
     protected void Track(HCSearchHouseRow row)
     {
-        int index = m_Rows.Count();
-        m_Rows.Insert(row);
+        int index = m_Rows.Find(null);
+        if (index < 0)
+        {
+            index = m_Rows.Count();
+            m_Rows.Insert(row);
+        }
+        else { m_Rows[index] = row; }
+        int releasedIndex = m_ReleasedSites.Find(row.SiteId);
+        if (releasedIndex >= 0) { m_ReleasedSites.Remove(releasedIndex); }
         m_Supplies.Set(row.SupplyId, index);
         int perSite = 0;
         m_Sites.Find(row.SiteId, perSite);
         m_Sites.Set(row.SiteId, perSite + 1);
     }
 
-    // One scan of entry_0.. until the first gap, bounded by MAX_ENTRIES.
+    bool DeleteIfPresent(string path)
+    {
+        if (!FileExist(path)) { return true; }
+        return DeleteFile(path);
+    }
+
+    bool FinishCompaction(int index, HCSearchRecord retired)
+    {
+        HCSearchHouseRow retiredRow = new HCSearchHouseRow;
+        if (!retired) { return Fail("unreadable compact intent; preserve journal"); }
+        retiredRow.SiteId = retired.SiteId;
+        retiredRow.SupplyId = retired.SupplyId;
+        retiredRow.ItemClass = retired.ItemClass;
+        if (!Matches(retired, retiredRow) || retired.ActorId != "retired") { return Fail("compact identity changed"); }
+        if (retired.Phase < 2 || retired.Phase > 4) { return Fail("nonterminal compact intent"); }
+        string spentPath = TombstonePath(retired.SupplyId);
+        HCSearchRecord spent;
+        if (spentPath == "") { return Fail("unsafe retired supply identity"); }
+        if (!FileExist(spentPath))
+        {
+            if (!HCSearchJson<HCSearchRecord>.WriteNew(spentPath, retired, 8192)) { return Fail("tombstone write/readback failed"); }
+        }
+        if (!HCSearchJson<HCSearchRecord>.Load(spentPath, 8192, spent)) { return Fail("retired supply tombstone unreadable"); }
+        if (!Matches(spent, retiredRow) || spent.Phase != retired.Phase || spent.ActorId != "retired") { return Fail("retired supply tombstone changed"); }
+        if (!DeleteIfPresent(PathFor(index, "claim"))) { return Fail("compact claim cleanup failed"); }
+        if (!DeleteIfPresent(PathFor(index, "attempt"))) { return Fail("compact attempt cleanup failed"); }
+        if (!DeleteIfPresent(PathFor(index, "result"))) { return Fail("compact result cleanup failed"); }
+        if (!DeleteIfPresent(PathFor(index, "entry"))) { return Fail("compact entry cleanup failed"); }
+        if (!DeleteIfPresent(PathFor(index, "compact"))) { return Fail("compact intent cleanup failed"); }
+        return true;
+    }
+
+    void Reindex()
+    {
+        m_Supplies.Clear();
+        m_Sites.Clear();
+        int rowIndex = 0;
+        int perSite;
+        while (rowIndex < m_Rows.Count())
+        {
+            HCSearchHouseRow liveRow = m_Rows[rowIndex];
+            if (liveRow)
+            {
+                m_Supplies.Set(liveRow.SupplyId, rowIndex);
+                perSite = 0;
+                m_Sites.Find(liveRow.SiteId, perSite);
+                m_Sites.Set(liveRow.SiteId, perSite + 1);
+            }
+            rowIndex++;
+        }
+        int releasedIndex = m_ReleasedSites.Count() - 1;
+        while (releasedIndex >= 0)
+        {
+            if (!m_Sites.Contains(m_ReleasedSites[releasedIndex])) { m_ReleasedSites.Remove(releasedIndex); }
+            releasedIndex = releasedIndex - 1;
+        }
+    }
+
+    // Fixed sparse scan; unfinished cleanup is completed before a slot can be reused.
     protected bool Restore()
     {
         int index = 0;
-        while (index < MAX_ENTRIES && FileExist(PathFor(index, "entry")))
+        while (index < MAX_ENTRIES)
         {
+            if (FileExist(PathFor(index, "compact")))
+            {
+                if (!FinishCompaction(index, LoadRecord(index, "compact"))) { return false; }
+            }
+            if (!FileExist(PathFor(index, "entry")))
+            {
+                bool orphanIntent = FileExist(PathFor(index, "claim")) || FileExist(PathFor(index, "attempt"));
+                if (orphanIntent || FileExist(PathFor(index, "result"))) { return Fail("orphan transfer record; preserve journal"); }
+                index++;
+                continue;
+            }
             HCSearchRecord record = LoadRecord(index, "entry");
-            if (!record || record.Phase != 0 || record.ActorId != BIND_ACTOR) return Fail("stored entry unreadable; preserve journal");
+            if (!record || record.Phase != 0 || record.ActorId != BIND_ACTOR) { return Fail("stored entry unreadable; preserve journal"); }
             HCSearchHouseRow row = new HCSearchHouseRow;
             row.SiteId = record.SiteId;
             row.SupplyId = record.SupplyId;
             row.ItemClass = record.ItemClass;
-            if (!Matches(record, row) || !HCSearchRules.TextValid(row.SiteId, 768) || !HCSearchRules.TextValid(row.SupplyId, 64) || !HCSearchRules.TextValid(row.ItemClass, 128)) return Fail("stored entry identity changed; migration required");
-            if (SupplyKnown(row.SupplyId)) return Fail("stored supply listed twice; preserve journal");
+            bool validText = HCSearchRules.TextValid(row.SiteId, 768) && HCSearchRules.TextValid(row.SupplyId, 64);
+            if (!Matches(record, row) || !validText || !HCSearchRules.TextValid(row.ItemClass, 128)) { return Fail("stored entry identity changed; migration required"); }
+            if (SupplyKnown(row.SupplyId)) { return Fail("stored supply listed twice; preserve journal"); }
             row.Phase = Recover(index, row);
-            Track(row);
+            while (m_Rows.Count() < index) { m_Rows.Insert(null); }
+            m_Rows.Insert(row);
+            m_Supplies.Set(row.SupplyId, index);
             index++;
         }
+        Reindex();
+        // Mission initialization precedes player joins; settled histories spend no live cap.
+        // One pass over the rows (not one scan per row): a site is settled when all of its rows reached phase 2.
+        array<string> settledSites = new array<string>;
+        array<bool> settledFlags = new array<bool>;
+        foreach (HCSearchHouseRow restored : m_Rows)
+        {
+            if (!restored) { continue; }
+            bool rowSettled = restored.Phase >= 2;
+            int siteAt = settledSites.Find(restored.SiteId);
+            if (siteAt < 0)
+            {
+                settledSites.Insert(restored.SiteId);
+                settledFlags.Insert(rowSettled);
+            }
+            else
+            {
+                bool merged = settledFlags[siteAt] && rowSettled;
+                settledFlags[siteAt] = merged;
+            }
+        }
+        int releasedCount = 0;
+        int flagAt = 0;
+        foreach (string settledSite : settledSites)
+        {
+            bool isSettled = settledFlags[flagAt];
+            flagAt++;
+            if (!isSettled || m_ReleasedSites.Find(settledSite) >= 0) { continue; }
+            m_ReleasedSites.Insert(settledSite);
+            releasedCount++;
+        }
+        if (releasedCount > 0) { Print("[HC Search Houses] spent bindings released at restore sites=" + releasedCount.ToString()); }
+        return true;
+    }
+
+    // Caller excludes sessions/transfers, forgets registry handles and checks refresh age.
+    bool Compact(int index)
+    {
+        HCSearchHouseRow row = Row(index);
+        if (!Healthy() || !row || row.Phase < 2) { return false; }
+        string spentPath = TombstonePath(row.SupplyId);
+        if (spentPath == "") { return Fail("unsafe compact supply identity"); }
+        HCSearchRecord retired = Record(row.SiteId, row.SupplyId, row.ItemClass, "retired", row.Phase);
+        // Intent precedes tombstone creation, so restart can finish either stage.
+        if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "compact"), retired, 8192)) { return Fail("compact intent write/readback failed"); }
+        if (!FinishCompaction(index, retired)) { return false; }
+        m_Rows[index] = null;
+        Reindex();
+        Print("[HC Search Houses] journal compacted terminal supply=" + row.SupplyId);
         return true;
     }
 
@@ -169,14 +352,15 @@ class HCSearchHouseJournal
     // must not register or hand out that supply.
     bool Add(string siteId, string supplyId, string itemClass)
     {
-        if (!Healthy() || m_Rows.Count() >= MAX_ENTRIES) return false;
+        if (!Healthy() || !HasCapacity()) { return false; }
         if (!HCSearchRules.TextValid(siteId, 768) || !HCSearchRules.TextValid(supplyId, 64) || !HCSearchRules.TextValid(itemClass, 128)) return false;
         if (SupplyKnown(supplyId)) return false;
         HCSearchHouseRow row = new HCSearchHouseRow;
         row.SiteId = siteId;
         row.SupplyId = supplyId;
         row.ItemClass = itemClass;
-        int index = m_Rows.Count();
+        int index = m_Rows.Find(null);
+        if (index < 0) { index = m_Rows.Count(); }
         if (!HCSearchJson<HCSearchRecord>.WriteNew(PathFor(index, "entry"), Record(siteId, supplyId, itemClass, BIND_ACTOR, 0), 8192)) return Fail("entry write/readback failed; no retries");
         Track(row);
         return true;

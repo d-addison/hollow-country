@@ -213,7 +213,7 @@ class HCSearchRefreshModule : HCModule
         if (now < m_State.LastUtc) { m_Store.Fault(); return; }
         if (!row)
         {
-            if (m_State.Rows.Count() >= MAX_RECORDS) return;
+            if (m_State.Rows.Count() >= MAX_RECORDS && !RecycleReadyTimer()) { return; }
             row = new HCSearchRefreshRow;
             row.Scope = scope;
             row.SiteId = siteId;
@@ -240,6 +240,53 @@ class HCSearchRefreshModule : HCModule
         if (!s_Instance) return false;
         HCSearchRefreshRow row = s_Instance.FindRow(scope, siteId);
         return row && row.Revisited;
+    }
+
+    bool RecycleReadyTimer()
+    {
+        int readyIndex = m_State.Rows.Count() - 1;
+        while (readyIndex >= 0)
+        {
+            HCSearchRefreshRow readyRow = m_State.Rows[readyIndex];
+            if (readyRow.Ready && !readyRow.Revisited)
+            {
+                // Revisited is durable pilot routing history, not disposable timer
+                // metadata. Never evict it to make room; the fixed cap fails closed.
+                RemoveReadyTimer(readyRow);
+                Print("[HC Search Houses] expired refresh timer recycled");
+                return true;
+            }
+            readyIndex = readyIndex - 1;
+        }
+        return false;
+    }
+
+    // Only after all active transfer rows for a ready site have been compacted.
+    // The immutable per-supply tombstones belong to the journal, not this timer.
+    // Keep Revisited rows in the persisted ledger: clearing the route can strand
+    // a pilot after compaction/restart. At MAX_RECORDS new timer enrollment refuses.
+    static void ForgetCompacted(string scope, string siteId)
+    {
+        if (!s_Instance || !s_Instance.Active()) { return; }
+        HCSearchRefreshRow expired = s_Instance.FindRow(scope, siteId);
+        if (!expired || !expired.Ready || expired.Revisited) { return; }
+        s_Instance.RemoveReadyTimer(expired);
+        s_Instance.m_Store.Save(s_Instance.m_State);
+    }
+
+    void RemoveReadyTimer(HCSearchRefreshRow expired)
+    {
+        int expiredIndex = m_State.Rows.Find(expired);
+        if (expiredIndex < 0 || !expired.Ready || expired.Revisited) { return; }
+        m_State.Rows.Remove(expiredIndex);
+        m_Index.Clear();
+        int timerIndex = 0;
+        foreach (HCSearchRefreshRow remaining : m_State.Rows)
+        {
+            m_Index.Set(Key(remaining.Scope, remaining.SiteId), timerIndex);
+            timerIndex++;
+        }
+        m_Next = 0;
     }
 
     static HCSearchRefreshPilotHouses Pilot()
@@ -312,7 +359,7 @@ modded class HCSearchHouseJournal
     {
         foreach (HCSearchHouseRow history : m_Rows)
         {
-            if (history.SiteId == siteId && history.Phase != 0) return true;
+            if (history && history.SiteId == siteId && history.Phase != 0) { return true; }
         }
         return false;
     }
@@ -344,6 +391,49 @@ modded class HCSearchEconomy
 
 modded class HCSearchHouses
 {
+    protected int m_CompactNext;
+
+    // <=32 inspected slots per minute, no index movement and no session invalidation.
+    void CompactSettled()
+    {
+        if (m_Busy || m_Sessions.Count() > 0 || !m_Journal || !m_Journal.Healthy()) { return; }
+        int examined = 0;
+        int limit = Math.Min(m_Settings.MaxTickWorkItems, 32);
+        if (limit > m_Journal.Count()) { limit = m_Journal.Count(); }
+        while (examined < limit)
+        {
+            if (m_CompactNext >= m_Journal.Count()) { m_CompactNext = 0; }
+            int compactIndex = m_CompactNext;
+            m_CompactNext++;
+            examined++;
+            HCSearchHouseRow candidate = m_Journal.Row(compactIndex);
+            if (!candidate || candidate.Phase < 2) { continue; }
+            string scope = m_Journal.RefreshScope();
+            string compactSite = candidate.SiteId;
+            HCSearchRefreshModule.Mark(scope, compactSite, true);
+            if (!HCSearchRefreshModule.Ready(scope, compactSite)) { continue; }
+            if (m_Journal.BindingReleased(compactSite) && !SiteResident(compactSite))
+            {
+                if (m_Registry && !m_Registry.Forget(candidate.SupplyId)) { return; }
+                if (!m_Journal.Compact(compactIndex)) { return; }
+                if (!m_Journal.SiteBound(compactSite)) { HCSearchRefreshModule.ForgetCompacted(scope, compactSite); }
+            }
+        }
+    }
+
+    bool SiteResident(string siteId)
+    {
+        foreach (HCSearchHouseSlot activeSlot : m_Slots)
+        {
+            if (activeSlot.Sites.Find(siteId) >= 0) { return true; }
+        }
+        foreach (HCSearchHouseSlot detachedSlot : m_DetachedSlots)
+        {
+            if (detachedSlot.Sites.Find(siteId) >= 0) { return true; }
+        }
+        return false;
+    }
+
     override int Prepare(HCSearchHouseSlot slot, HCSearchHouseHit hit, PlayerBase player)
     {
         if (m_Journal && m_Journal.Healthy())

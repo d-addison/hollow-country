@@ -506,7 +506,9 @@ class PlacementPathgraphTests(unittest.TestCase):
         self.game = N(CreateObjectEx=self.create_object, ObjectDelete=self.deleted.append)
         self.env = {'GetGame':lambda:self.game, 'Print':self.events.append, 'EArray':EArray,
                     'ECE_SETUP':1, 'ECE_KEEPHEIGHT':2, 'ECE_CREATEPHYSICS':4, 'ECE_UPDATEPATHGRAPH':8,
-                    'ECE_NOLIFETIME':16, 'ECE_DYNAMIC_PERSISTENCY':32, 'RF_IGNORE':0,
+                    'ECE_NOLIFETIME':16, 'ECE_DYNAMIC_PERSISTENCY':32,
+                    # Installed 1.30.164289: 3_Game/CE/CentralEconomy.c:31.
+                    'ECE_NOPERSISTENCY_WORLD':8388608, 'RF_IGNORE':0,
                     'HCInteriorSite':lambda:N(), 'HCInteriorPathgraph':N(Schedule=self.schedule),
                     'HCInteriorRules':N(Layout=lambda *a:0, Quantize=lambda v:v, Yaw=lambda v:v),
                     'HCInteriorCatalog':N(GetFor=lambda choice, candidate, trial:self.layout),
@@ -521,6 +523,7 @@ class PlacementPathgraphTests(unittest.TestCase):
         if self.fail_create_at is not None and len(self.created) == self.fail_create_at:
             return None
         self.assertEqual(flags & 8, 8)  # authored creation keeps the vanilla pathgraph flag too
+        self.assertEqual(flags & 8388608, 8388608)  # furnishings never persist as world loot
         created = NativeRef(Type=type_name, SetOrientation=lambda o:None, ModelToWorld=lambda p:p)
         self.created.append(created)
         return created
@@ -741,5 +744,72 @@ class StoreBuildAliasTests(unittest.TestCase):
         self.assertIn('manifest/config world/build/epoch/seed mismatch', self.events[-1])
 
 
-if __name__=='__main__':
+class FixupRefreshHistoryTests(unittest.TestCase):
+    """T015/FR-006: bounded timer reclamation must retain pilot routing history."""
+
+    def refresh(self):
+        from tests.unit import test_search_economy_houses as houses
+        source = (SOURCE.parents[1] / 'Loot/HCSearchRefresh.c').read_text()
+        # Mechanical syntax adapters only; policy is the actual authored module.
+        source = source.replace('bool onlyMissing = false', 'bool onlyMissing')
+        source = source.replace('m_Pending--', 'm_Pending = m_Pending - 1')
+        class RefreshSyntax(houses.Translator):
+            def expr(self, text, names):
+                code = super().expr(text, names).replace('self.s_Instance', '_refresh_state.s_Instance')
+                return code.replace('self.m_Index.Find(self.Key(scope, siteId), index)',
+                    '((_found := find_out(self.m_Index, self.Key(scope, siteId))) and '
+                    '((index := _found[1]) is not None) and _found[0])')
+        env = dict(HCModule=object, EArray=houses.EArray, HMap=houses.HMap,
+                   find_out=houses.find_out, Print=lambda message: None,
+                   HCGroupClock=N(Utc=lambda: 1000), _refresh_state=N(s_Instance=None),
+                   HCSearchRules=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap))
+        for code in RefreshSyntax(source, only=('HCSearchRefreshRow', 'HCSearchRefreshState',
+                                                'HCSearchRefreshModule')).classes():
+            exec(code, env)
+        api = env['HCSearchRefreshModule']
+        obj = api()
+        obj.m_Settings = N(EnableWorld=True)
+        obj.m_State = env['HCSearchRefreshState']()
+        obj.m_State.LastUtc = 1000
+        self.saved = []
+        obj.m_Store = N(Healthy=lambda: True, Save=lambda state: self.saved.append(copy.deepcopy(state)) or True)
+        env['_refresh_state'].s_Instance = obj
+        # A small synthetic cap exercises the actual cap branch without 4096 fixtures.
+        obj.MAX_RECORDS = 1
+        row = env['HCSearchRefreshRow']()
+        row.Scope, row.SiteId = 'synthetic_scope', 'synthetic_pilot_site'
+        row.SearchedUtc, row.Ready, row.Revisited = 100, True, True
+        obj.m_State.Rows.Insert(row)
+        obj.m_Index.Set(api.Key(row.Scope, row.SiteId), 0)
+        return api, obj, row
+
+    def test_forget_compacted_preserves_persistent_revisited_history(self):
+        api, obj, row = self.refresh()
+        api.ForgetCompacted(row.Scope, row.SiteId)
+        self.assertTrue(api.Revisited(row.Scope, row.SiteId))
+        self.assertIn(row, obj.m_State.Rows)
+        self.assertTrue(row.Revisited)
+        self.assertEqual(0, obj.m_Pending)
+        obj.RemoveReadyTimer(row)  # The shared removal helper also protects routing history.
+        self.assertIn(row, obj.m_State.Rows)
+        obj.m_Store.Save(obj.m_State)
+        self.assertTrue(self.saved[-1].Rows[0].Revisited)
+
+    def test_full_timer_ledger_preserves_history_and_cap_instead_of_eviction(self):
+        api, obj, row = self.refresh()
+        self.assertFalse(obj.RecycleReadyTimer())
+        obj.RecordSearch('synthetic_scope', 'synthetic_new_site', False)
+        self.assertTrue(api.Revisited(row.Scope, row.SiteId))
+        self.assertEqual([row], obj.m_State.Rows)
+        self.assertLessEqual(obj.m_State.Rows.Count(), obj.MAX_RECORDS)
+        self.assertIsNone(obj.FindRow('synthetic_scope', 'synthetic_new_site'))
+        # A new cooldown on the same site preserves the route after timer readiness clears.
+        obj.RecordSearch(row.Scope, row.SiteId, False)
+        self.assertTrue(api.Revisited(row.Scope, row.SiteId))
+        self.assertFalse(row.Ready)
+        self.assertEqual(1, obj.m_Pending)
+        self.assertTrue(self.saved[-1].Rows[0].Revisited)
+
+
+if __name__ == '__main__':
     unittest.main()

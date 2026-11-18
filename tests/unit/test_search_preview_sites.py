@@ -127,10 +127,15 @@ class SearchPreviewSitesTests(unittest.TestCase):
             self.assertEqual(expected, h.client.Matches(h.player, h.target(hit), h.house))
         h.player.position = h.house.ModelToWorld([0., 1., 1.])
         self.assertTrue(h.preview())
-        h.house.tilt = .011
-        self.assertFalse(h.preview())
-        h.house.GetOrientation = lambda: [0., 0., -.011]
-        self.assertFalse(h.preview())
+        maximum = h.env['HCInteriorRules'].MAX_HOUSE_TILT_DEGREES
+        self.assertEqual(.5, maximum)
+        for axis in (1, 2):
+            for tilt, expected in ((.011, True), (maximum, True), (-maximum, True),
+                                   (maximum + .001, False), (-maximum - .001, False)):
+                orientation = [0., 0., 0.]
+                orientation[axis] = tilt
+                h.house.GetOrientation = lambda o=orientation: o
+                self.assertEqual(expected, h.preview(), (axis, tilt))
 
     def test_rotated_house_uses_model_hit_and_world_standing(self):
         h = Harness(self)
