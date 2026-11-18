@@ -11,6 +11,7 @@ CE value tiers and two-client behavior stay pending.
 """
 import re
 import unittest
+from tests.unit.test_tilt_rule import tilt_rules
 from pathlib import Path
 from types import SimpleNamespace as N
 
@@ -325,7 +326,7 @@ class Harness:
             House=N(Cast=lambda obj: obj if isinstance(obj, FakeHouse) else None),
             HCInteriorActionData=N(Cast=lambda obj: obj if isinstance(obj, FakeAction) else None),
             HCInteriorTemplates=self.pack.api(),
-            HCInteriorRules=N(MaySearch=lambda *a: all(a), SearchAdmitted=lambda: True,
+            HCInteriorRules=N(**vars(tilt_rules()), MaySearch=lambda *a: all(a), SearchAdmitted=lambda: True,
                               SaneVector=lambda v, limit: all(abs(c) < limit for c in v),
                               TransformKey=lambda pos, ori: 'x%dy%dz%dw%d' % (pos[0], pos[1], pos[2], ori[0])),
             HCInteriorSearchContext=lambda: N(InstanceId='', LayoutId='', History='', Room='', GroupId='',
@@ -424,6 +425,13 @@ class TargetingTests(HouseCase):
         self.h.houses.Begin(self.h.action(player, house, [0., 1., 0.], [0., 1., 1.]))
         self.assertEqual(0, self.h.houses.SessionCount())
         self.assertEqual({}, {k: v for k, v in self.h.fs.files.items()})
+
+    def test_house_search_accepts_nearly_level_and_refuses_excessive_or_nan_tilt(self):
+        for tilt, expected in ((.3, True), (-.3, True), (-0., True), (.5, True),
+                               (-.5, True), (.6, False), (-.6, False), (float('nan'), False)):
+            with self.subTest(tilt=tilt):
+                self.h = Harness()
+                self.assertEqual(expected, self.check([0., 1., 0.], [0., 1., 1.], tilt=tilt)[0])
 
     def test_class_not_marked_covered_tilted_house_and_bad_sphere_refuse(self):
         self.h = Harness(pack=Pack(search='excluded'))

@@ -173,8 +173,8 @@ class HCSearchHouses
         HCInteriorTemplate layout = HCInteriorTemplates.Template(cls);
         if (!layout || !layout.SearchSites) return null;
         vector orientation = building.GetOrientation();
-        // Templates are surveyed in a yaw-only frame; a tilted live building refuses.
-        if (Math.AbsFloat(orientation[1]) > 0.01 || Math.AbsFloat(orientation[2]) > 0.01) return null;
+        // Near-level instances use the full house transforms below.
+        if (!HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES)) return null;
         vector offset = building.WorldToModel(target.GetCursorHitPos());
         vector standing = player.GetPosition();
         HCInteriorTemplateSearchSite best;

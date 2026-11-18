@@ -489,16 +489,28 @@ class HCInteriorTemplates
         {
             return false;
         }
-        array<string> seen = new array<string>();
+        // Sort a private copy once; preserve authored group order for consumers.
+        // Native array.Sort: 1_Core/proto/EnScript.c:493 (1.30.164289).
+        array<string> sortedValues = new array<string>();
         foreach (string value : values)
 
         {
-            if (!HCSearchRules.TextValid(value, 128) || seen.Find(value) >= 0)
+            if (!HCSearchRules.TextValid(value, 128))
 
             {
                 return false;
             }
-            seen.Insert(value);
+            sortedValues.Insert(value);
+        }
+        sortedValues.Sort();
+        int valueIndex = 1;
+        while (valueIndex < sortedValues.Count())
+        {
+            if (sortedValues[valueIndex] == sortedValues[valueIndex - 1])
+            {
+                return false;
+            }
+            valueIndex = valueIndex + 1;
         }
         return true;
     }
@@ -824,25 +836,6 @@ class HCInteriorTemplates
                 {
                     Refuse("group_row");
                     return;
-                }
-                array<string> sortedItems = new array<string>();
-                foreach (string itemClass : groupRow.Items)
-
-                {
-                    sortedItems.Insert(itemClass);
-                }
-                sortedItems.Sort();
-                int itemIndex = 1;
-                while (itemIndex < sortedItems.Count())
-
-                {
-                    if (sortedItems[itemIndex] == sortedItems[itemIndex - 1])
-
-                    {
-                        Refuse("group_items_duplicate");
-                        return;
-                    }
-                    itemIndex = itemIndex + 1;
                 }
                 s_Groups.Insert(groupRow);
             }

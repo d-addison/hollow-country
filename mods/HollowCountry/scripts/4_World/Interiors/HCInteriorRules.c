@@ -2,6 +2,14 @@
 // Journal schema 2: explicit forward migration; no wipe, downgrade or refill.
 class HCInteriorRules
 {
+    static const float MAX_HOUSE_TILT_DEGREES = 0.5;
+
+    static bool TiltAcceptable(vector orientation, float maxDegrees)
+    {
+        // Inclusive signed comparisons accept -0.0 and refuse NaN.
+        return orientation[1] >= -maxDegrees && orientation[1] <= maxDegrees && orientation[2] >= -maxDegrees && orientation[2] <= maxDegrees;
+    }
+
     static int Quantize(float value)
     {
         return Math.Floor(value * 100.0 + 0.5);

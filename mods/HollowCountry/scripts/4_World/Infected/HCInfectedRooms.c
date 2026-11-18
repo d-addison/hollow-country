@@ -1240,8 +1240,8 @@ class HCInfectedRoomCatalog
             NoteTemplateRefusal("rooms_template_pose", houseType);
             return null;
         }
-        // Yaw only: a tilted instance would need a full-basis check the contract does not grant.
-        if (!(Math.AbsFloat(orientation[1]) <= 0.01) || !(Math.AbsFloat(orientation[2]) <= 0.01))
+        // Near-level instances retain model-frame anchors and full ModelToWorld conversion.
+        if (!HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES))
         {
             NoteTemplateRefusal("tilted", houseType);
             return null;
