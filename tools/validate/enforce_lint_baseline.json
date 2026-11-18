@@ -4,39 +4,12 @@
   "entries": [
     {
       "rule": "HC-E006",
-      "path": "mods/HollowCountry/scripts/4_World/Events/HCEventNativeObserver.c",
-      "symbol": "HCEventNativeObserver.Observe",
-      "key": "result.Session = run.Lease.Substring(0, run.Lease.LastIndexOf(\":\"));",
-      "count": 1,
-      "line_at_review": 343,
-      "review": "2026-11-18 checks audit: pre-existing; real risk: LastIndexOf(\":\") can be -1 so Substring(0,-1) raises Wrong parameter value; WP-3 guard"
-    },
-    {
-      "rule": "HC-E006",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorMeasuredCatalog.c",
-      "symbol": "HCInteriorMeasuredCatalog.MeasuredCopy",
-      "key": "result = result + text.Substring(start + done, piece);",
-      "count": 1,
-      "line_at_review": 880,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-E006",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorTemplatesStrict.c",
-      "symbol": "HCInteriorTemplatesStrict.CopyText",
-      "key": "result = result + text.Substring(start + done, piece);",
-      "count": 1,
-      "line_at_review": 696,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-E006",
       "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouseJournal.c",
       "symbol": "HCSearchHouseJournal.Open",
       "key": "m_Root = parent + \"/pin_\" + sourcePin.Substring(0, 16);",
       "count": 1,
       "line_at_review": 126,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
+      "review": "2026-11-18 WP-3 reviewed: safe, Open admits sourcePin only through HCSearchRules.PinValid (Length() == 64), so Substring(0, 16) is bounded"
     },
     {
       "rule": "HC-S001",

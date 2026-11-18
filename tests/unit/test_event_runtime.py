@@ -524,6 +524,12 @@ class NativeObservationTests(unittest.TestCase):
         self.assertTrue(result.Observed); self.assertEqual("alice", result.ParticipantId)
         self.assertEqual("session-a", result.Session)
 
+    def test_lease_without_session_separator_is_not_observed(self):
+        # Substring(0, -1) raises Wrong parameter value in Enforce (checks WP-3, HC-E006).
+        self.run.Lease = "nosession"
+        self.bind(); self.item.owner = self.player
+        self.assertIsNone(self.o.Observe(self.run, self.player, 100))
+
     def test_delivery_and_static_salvage_use_distinct_locations(self):
         self.mission.Family = 2
         self.assertTrue(self.o.RegisterTarget(self.mission.Id, self.item))

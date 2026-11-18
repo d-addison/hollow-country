@@ -681,6 +681,10 @@ class HCInteriorTemplatesStrict
     static string CopyText(string text, int start, int length)
 
     {
+        if (start < 0 || length < 0 || start + length > text.Length())
+        {
+            return "";
+        }
         string result = "";
         int done = 0;
         int piece = 0;

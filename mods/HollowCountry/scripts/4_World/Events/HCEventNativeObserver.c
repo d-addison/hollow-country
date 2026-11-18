@@ -336,11 +336,17 @@ class HCEventNativeObserver : HCEventObjectiveProvider
         {
             return null;
         }
+        // A lease is session:run; without the separator there is no session to report.
+        int sessionEnd = run.Lease.LastIndexOf(":");
+        if (sessionEnd < 1)
+        {
+            return null;
+        }
         HCEventObjectiveEvidence result = new HCEventObjectiveEvidence;
         result.Observed = true;
         result.Lease = run.Lease;
         // Runtime supplies session via the durable lease, independently checked.
-        result.Session = run.Lease.Substring(0, run.Lease.LastIndexOf(":"));
+        result.Session = run.Lease.Substring(0, sessionEnd);
         result.ParticipantId = identity;
         result.Sequence = 1;
         result.Token = run.Lease + ":objective";

@@ -867,6 +867,10 @@ class HCInteriorMeasuredCatalog
     // class chunk reached LoadData as exactly 8191), so every copy of authored text goes in pieces.
     static string MeasuredCopy(string text, int start, int length)
     {
+        if (start < 0 || length < 0 || start + length > text.Length())
+        {
+            return "";
+        }
         string result = "";
         int done = 0;
         int piece = 0;
