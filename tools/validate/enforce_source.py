@@ -224,6 +224,25 @@ class Source:
             position = end + 1
 
     def _method(self, header_start, brace, end, owner=None):
+        # clean() has blanked comments and string contents, so literal brackets
+        # (including escaped quotes) cannot affect this attribute nesting count.
+        while header_start < brace:
+            if self.code[header_start].isspace():
+                header_start += 1
+            elif self.code[header_start] == '[':
+                depth = 1
+                header_start += 1
+                while header_start < brace and depth:
+                    ch = self.code[header_start]
+                    if ch == '[':
+                        depth += 1
+                    elif ch == ']':
+                        depth -= 1
+                    header_start += 1
+                if depth:
+                    return None
+            else:
+                break
         header = self.code[header_start:brace]
         paren = header.find('(')
         if paren < 0:
