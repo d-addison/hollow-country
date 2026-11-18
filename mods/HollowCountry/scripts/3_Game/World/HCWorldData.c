@@ -662,8 +662,10 @@ class HCWorldData
     // These are locality anchors, not newly surveyed village centres or geometry.
     // ai/sites.json: police-komarovo Waypoints[0]; holdout-* HousePosition;
     // events/scene-chains.json: scene-kamenka/scene-staroye Stages[0].Objective.Source.
-    // Only seven additional named localities have coordinate provenance here;
-    // remaining requested village expansion awaits local coordinate evidence.
+    // W6 #134 completes the requested 30-place catalog using installed config
+    // anchors below; position[]={x,z} becomes {x,0,z}, not terrain/placement proof.
+    // Startup/load only: <=12 Town calls; <=3 scans of <=64 places per new
+    // insertion via existing validation/dedupe. No added tick work.
     static void ExtendPlaces(HCWorldData data)
     {
         if (!data || !data.Places) { return; }
@@ -674,6 +676,16 @@ class HCWorldData
         Town(data, "polana", "Polana", "10719.43 0 8035.76");
         Town(data, "kamenka", "Kamenka", "2512.352 0 2054.215");
         Town(data, "staroye", "Staroye", "10676.524 0 4579.396");
+        // addons/worlds_chernarusplus.pbo/config.bin: CfgWorlds/ChernarusPlus/Names/Settlement_Bor/position[]
+        Town(data, "bor", "Bor", "3316.406 0 4070.966");
+        // addons/worlds_chernarusplus.pbo/config.bin: CfgWorlds/ChernarusPlus/Names/Settlement_Dolina/position[]
+        Town(data, "dolina", "Dolina", "11285.17 0 6633.58");
+        // addons/worlds_chernarusplus.pbo/config.bin: CfgWorlds/ChernarusPlus/Names/Settlement_Sosnovka/position[]
+        Town(data, "sosnovka", "Sosnovka", "2556 0 6307");
+        // addons/worlds_chernarusplus.pbo/config.bin: CfgWorlds/ChernarusPlus/Names/Settlement_Grishino/position[]
+        Town(data, "grishino", "Grishino", "5980 0 10257");
+        // addons/worlds_chernarusplus.pbo/config.bin: CfgWorlds/ChernarusPlus/Names/Settlement_Kabanino/position[]
+        Town(data, "kabanino", "Kabanino", "5300.71 0 8645.9");
     }
 
     static HCWorldData Fresh(int now)

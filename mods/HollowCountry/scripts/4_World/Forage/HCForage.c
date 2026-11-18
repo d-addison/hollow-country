@@ -17,6 +17,11 @@
 // :3377 SetLifetime; 4_World/Entities/ItemBase.c:3906 OnInventoryEnter;
 // 4_World/Entities/ItemBase/Edible_Base/{CaninaBerry,SambucusBerry,
 // BoletusMushroom,MacrolepiotaMushroom}.c:1 vanilla item classes.
+// W6 #129: Edible_Base/Cannabis.c:1,3,13,18,23-28 (native edible herb,
+// no cooking, fruit/decay, ActionEat/ActionForceFeed); 1_Core/proto/EnMath.c:38
+// RandomInt(min inclusive, max exclusive). Installed addons/gear_food.pbo
+// config.bin/CfgVehicles/Cannabis: scope=2, Edible_Base, existing leafy model
+// \dz\gear\food\cannabis_seedman.p3d. No custom item/config/art required.
 // 1_Core/proto/EnMath.c:225 AbsFloat, :427 Floor; EnConvert.c:210 DistanceSq,
 // :30 int.ToString; EnMath3D.c:18 Vector;
 // EnScript.c:380,385,389,399,407 arrays; EnDebug.c:96 Print;
@@ -24,7 +29,9 @@
 // bounded persistence (native evidence in Progression/HCProgression.c).
 // Static 200m cell/slot anchors are candidate design inputs, not surveyed sites.
 // Chernarus only; all placement/replication/CE persistence requires native tests.
-// No vanilla edible herb class identified: herbs intentionally omitted.
+// Herb chance: one of ten rolls on slot 2 in June-November (1/30 expected
+// across complete three-slot rotations). Reuses all node/cell/cooldown caps;
+// <=1 extra random draw per candidate; no extra query, spawn, store or tick.
 class HCForageSpot
 {
     int CellX;
@@ -134,7 +141,7 @@ class HCForageModule : HCModule
         m_LastUtc = now;
         m_Healthy = true;
         s_HCInstance = this;
-        Print("[HC Forage] ready cap=40 per-cell=3 respawn=1800 lifetime=600; berries/mushrooms seasonal; runtime acceptance pending");
+        Print("[HC Forage] ready cap=40 per-cell=3 respawn=1800 lifetime=600; berries/mushrooms/herbs seasonal; herb=Cannabis slot=2 chance=1/10 Jun-Nov; runtime acceptance pending");
     }
 
     protected bool HCFlush()
@@ -189,6 +196,13 @@ class HCForageModule : HCModule
 
     protected string HCSeasonalType(int month, int slot)
     {
+        if (month >= 6 && month <= 11)
+        {
+            if (slot == 2)
+            {
+                if (Math.RandomInt(0, 10) == 0) { return "Cannabis"; }
+            }
+        }
         if (month >= 6 && month <= 8)
         {
             if (slot == 1) { return "CaninaBerry"; }

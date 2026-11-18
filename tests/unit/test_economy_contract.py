@@ -168,7 +168,7 @@ class EconomyBehavior(unittest.TestCase):
 
     def test_committed_travel_ce_has_its_own_registration(self):
         root = Path('mission/hollow-country')
-        self.assertEqual(len(ET.parse(root / 'ce/types.xml').getroot()), 6)
+        self.assertEqual(len(ET.parse(root / 'ce/types.xml').getroot()), 7)
         self.assertEqual(ET.parse(root / 'cfgeconomycore.append.xml').getroot()[0].get('folder'),
                          'hollow-country-travel/ce')
 
