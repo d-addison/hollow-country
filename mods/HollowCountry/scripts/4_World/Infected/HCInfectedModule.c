@@ -610,6 +610,8 @@ class HCInfectedModule : HCModule
                 break;
         }
         int requested = candidates.Count();
+        if (requested > 3) requested = HCInfectedMemory.CohortSize(anchor, requested);
+        while (candidates.Count() > requested) { candidates.Remove(candidates.Count() - 1); }
         if (requested < 3 || !HCInfectedPolicy.CanReserve(m_State.Groups.Count(), m_GroupCap, m_State.Reserved, m_MemberCap, requested))
             return;
         HCInfectedClue adoptionClue;
