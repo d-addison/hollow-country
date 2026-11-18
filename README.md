@@ -118,7 +118,7 @@ development build; none is yet a qualified gameplay package.
 
 | System | Intended experience |
 | :--- | :--- |
-| **Extended stamina** | Half the continuous movement drain and 25% faster recovery by default. Weight still limits capacity; jumps and melee retain their normal costs. Server owners can tune the balance. |
+| **Extended stamina** | One quarter of the continuous movement drain (0.25), 2.5x recovery, and half the vanilla weight penalty by default. Weight still limits capacity; jumps and melee retain their normal costs. Server owners can tune the balance. |
 | **Stamina and weight bars** | See your exertion and burden, and understand how your load affects endurance. |
 | **Groups** | Team membership with teammate icons both in the world and on the map; visibility rules configurable by the server. |
 | **Interactive map** | Press **M**, DayZ's own map key (rebind it in the game's controls), to pan and zoom the map and share editable group markers and notes. |
@@ -215,7 +215,7 @@ several players is checked in group sessions.
 | Search, interiors and loot | Finite search economy, furnished interiors, about twice vanilla loot with extra contextual floor spots in 149 building types; firearms and ammunition stay scarce | Built · not played |
 | Crafting and recovery | Recovery families, fuel siphoning, taped lights | Built · not played |
 | Infected | Packs, alerts, investigation, hordes, doors they can open or force, and reach against players on low roofs, ladders and vehicles (attacks and steering only, no teleports) | Built · not played |
-| Travel together | Stamina doubled, separate weight and stamina bars, groups and the shared map | Built · not played |
+| Travel together | Stamina: 0.25 exertion, 2.5x recovery, half the vanilla weight penalty; separate weight and stamina bars, groups and the shared map | Built · not played |
 | Living Country (V2) | Every system in the table above | Built · not played |
 | Admin test kit | Admin-only map snapshot, module status and test triggers for sitters, hordes, scenes, events, hold-outs and camps | Built · not played |
 | Death and idle animations | A sitting infected pose built from our own keyframes | Built · not played |

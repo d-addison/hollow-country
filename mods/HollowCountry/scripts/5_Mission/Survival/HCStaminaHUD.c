@@ -156,7 +156,7 @@ class HCStaminaHUD
         float maximum = handler.GetStaminaMax();
         float minimum = CfgGameplayHandler.GetStaminaMinCap();
         float threshold = CfgGameplayHandler.GetStaminaWeightLimitThreshold();
-        float loss = CfgGameplayHandler.GetStaminaKgToStaminaPercentPenalty();
+        float loss = CfgGameplayHandler.GetStaminaKgToStaminaPercentPenalty() * HCStaminaIntegration.WeightPenaltyScale();
         // Reject unavailable/nonfinite samples; limits are display guards.
         if (!(grams >= 0 && grams <= 1000000))
         {

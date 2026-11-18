@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 HOOK = ROOT / "mods/HollowCountry/scripts/4_World/Survival/HCStaminaIntegration.c"
 SETTINGS = ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCStaminaSettings.c"
 
-def hook(name, params, gate, configuration=None):
+def hook(name, params, gate, configuration=None, maximum=200.):
     lines, indent = [f"def actual(self,{params}):"], 1
     for token in re.split(r"([{};])", re.sub(r"//[^\n]*", "", body(str(HOOK), name))):
         token = token.strip()
@@ -39,7 +39,7 @@ def hook(name, params, gate, configuration=None):
     ns = dict(HCStaminaConfiguration=configuration, gate=gate, policy=NS(**policy_functions()), Math=NS(Max=max),
               HCStaminaSettings=lambda: NS(Enabled=False, ContinuousExertionScale=1., RecoveryScale=1.),
               DayZPlayerInstanceType=NS(INSTANCETYPE_CLIENT=1),
-              cfg=NS(GetStaminaMax=lambda: 200., GetStaminaMinCap=lambda: 5.,
+              cfg=NS(GetStaminaMax=lambda: maximum, GetStaminaMinCap=lambda: 5.,
                      GetStaminaWeightLimitThreshold=lambda: 6000.,
                      GetStaminaKgToStaminaPercentPenalty=lambda: 1.75))
     exec(compile("\n".join(lines), str(HOOK), "exec"), ns)
@@ -98,12 +98,34 @@ class StaminaIntegrationTests(unittest.TestCase):
         calls = []
         h = NS(m_PlayerLoad=7000., m_StaminaCap=100.,
                native=NS(RecalculateStaminaCap=lambda: calls.append(True)))
-        fn = hook("RecalculateStaminaCap", "", NS(Enabled=lambda: True))
+        fn = hook("RecalculateStaminaCap", "", NS(Enabled=lambda: True,
+                                                WeightPenaltyScale=lambda: 1.))
         fn(h)
         self.assertEqual((198.25, 198.25), (h.m_StaminaCap, h.m_StaminaCapSynced))
         h.m_PlayerLoad = math.nan
         fn(h)
         self.assertEqual([True], calls)
+
+    def test_half_weight_penalty_preserves_native_free_weight_and_caps(self):
+        gate = NS(Enabled=lambda: True, WeightPenaltyScale=lambda: .5)
+        fn = hook("RecalculateStaminaCap", "", gate, maximum=100.)
+        for grams, expected in ((0., 100.), (6000., 100.), (40000., 70.25),
+                                (60000., 52.75), (1_000_000., 5.)):
+            with self.subTest(grams=grams):
+                h = NS(m_PlayerLoad=grams,
+                       native=NS(RecalculateStaminaCap=lambda: self.fail("unexpected fallback")))
+                fn(h)
+                self.assertEqual((expected, expected), (h.m_StaminaCap, h.m_StaminaCapSynced))
+
+    def test_weight_scale_one_matches_native_and_zero_disables_weight_loss(self):
+        for scale in (1., 0.):
+            gate = NS(Enabled=lambda: True, WeightPenaltyScale=lambda: scale)
+            fn = hook("RecalculateStaminaCap", "", gate, maximum=100.)
+            for grams in (0., 6000., 40000., 60000., 1_000_000.):
+                h = NS(m_PlayerLoad=grams)
+                fn(h)
+                expected = max(100. - max(grams - 6000., 0.) / 1000. * 1.75, 5.) if scale else 100.
+                self.assertEqual(expected, h.m_StaminaCap)
 
     def test_installer_requires_current_opted_in_native_configuration(self):
         from tests.unit.test_stamina_configuration import ConfigurationTests
@@ -140,9 +162,9 @@ class StaminaIntegrationTests(unittest.TestCase):
             self.assertFalse(execute_flat(str(SETTINGS), "Validate", "", fields)())
         for version in (0, 2):
             self.assertFalse(execute_flat(str(SETTINGS), "Validate", "", dict(
-                SchemaVersion=version, ContinuousExertionScale=1., RecoveryScale=1.))())
+                SchemaVersion=version, ContinuousExertionScale=1., RecoveryScale=1., WeightPenaltyScale=.5))())
         self.assertTrue(execute_flat(str(SETTINGS), "Validate", "", dict(
-            SchemaVersion=1, ContinuousExertionScale=1., RecoveryScale=1.))())
+            SchemaVersion=1, ContinuousExertionScale=1., RecoveryScale=1., WeightPenaltyScale=.5))())
 
 
     def test_recovery_and_event_reach_native_step_together(self):

@@ -17,6 +17,7 @@ modded class ITEM_StaminaData
     bool HCExperimental = false;
     float HCContinuousExertionScale = 1.0;
     float HCRecoveryScale = 1.0;
+    float HCWeightPenaltyScale = 1.0;
 }
 
 class HCStaminaConfiguration
@@ -58,6 +59,7 @@ class HCStaminaConfiguration
         result.Enabled = settings.Enabled;
         result.ContinuousExertionScale = settings.ContinuousExertionScale;
         result.RecoveryScale = settings.RecoveryScale;
+        result.WeightPenaltyScale = settings.WeightPenaltyScale;
         return result;
     }
 
@@ -103,7 +105,7 @@ class HCStaminaConfiguration
             Print("[HollowCountry] Stamina blocked: cannot save default profile: " + error);
             return false;
         }
-        Print("[HollowCountry] Created enabled stamina profile: 25% continuous drain, 250% recovery; native qualification pending");
+        Print("[HollowCountry] Created enabled stamina profile: 25% continuous drain, 250% recovery, 50% weight penalty; native qualification pending");
         return true;
     }
 
@@ -146,11 +148,18 @@ class HCStaminaConfiguration
         return s_Candidate.RecoveryScale;
     }
 
+    static float WeightPenaltyScale()
+    {
+        if (!Enabled())
+            return 1.0;
+        return s_Candidate.WeightPenaltyScale;
+    }
+
     static bool InstallTrusted(HCStaminaSettings settings)
     {
         if (!Enabled() || !settings || !settings.Validate())
             return false;
-        return settings.SchemaVersion == s_Candidate.SchemaVersion && settings.Enabled == s_Candidate.Enabled && settings.ContinuousExertionScale == s_Candidate.ContinuousExertionScale && settings.RecoveryScale == s_Candidate.RecoveryScale;
+        return settings.SchemaVersion == s_Candidate.SchemaVersion && settings.Enabled == s_Candidate.Enabled && settings.ContinuousExertionScale == s_Candidate.ContinuousExertionScale && settings.RecoveryScale == s_Candidate.RecoveryScale && settings.WeightPenaltyScale == s_Candidate.WeightPenaltyScale;
     }
 
     static void ConnectionState(int duration)
@@ -218,6 +227,7 @@ class HCStaminaConfiguration
         item.HCExperimental = profile.Experimental;
         item.HCContinuousExertionScale = settings.ContinuousExertionScale;
         item.HCRecoveryScale = settings.RecoveryScale;
+        item.HCWeightPenaltyScale = settings.WeightPenaltyScale;
         return Stage(settings, profile.Experimental);
     }
 
@@ -234,6 +244,7 @@ class HCStaminaConfiguration
             item.HCExperimental = false;
             item.HCContinuousExertionScale = 1.0;
             item.HCRecoveryScale = 1.0;
+            item.HCWeightPenaltyScale = 1.0;
         }
         LoadServer();
     }
@@ -250,6 +261,7 @@ class HCStaminaConfiguration
         settings.Enabled = item.HCEnabled;
         settings.ContinuousExertionScale = item.HCContinuousExertionScale;
         settings.RecoveryScale = item.HCRecoveryScale;
+        settings.WeightPenaltyScale = item.HCWeightPenaltyScale;
         bool staged = Stage(settings, item.HCExperimental);
         string stagedText = "0";
         if (staged)
