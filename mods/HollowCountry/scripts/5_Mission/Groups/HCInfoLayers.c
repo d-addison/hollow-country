@@ -16,6 +16,11 @@ class HCInfoMapPins
     static string Label(HCGroupPlace place, int utc)
     {
         if (place.Id.IndexOf("hc-found:") == 0) { return "found: " + place.Name; }
+        if (place.Id.IndexOf("hc-death:") == 0)
+        {
+            if (utc < 1 || place.HCPinExpiresUtc <= utc) { return ""; }
+            return place.Name;
+        }
         if (place.Id.IndexOf("hc-lead:") == 0)
         {
             if (utc < 1 || place.HCPinExpiresUtc <= utc) { return ""; }
@@ -33,12 +38,14 @@ class HCInfoMapPins
         s_HCLastLog = now;
         int trailCount = 0;
         int leadCount = 0;
+        int deathCount = 0;
         foreach (HCGroupPlace pin : frame.Places)
         {
             if (pin.Id.IndexOf("hc-found:") == 0) { trailCount++; }
             if (pin.Id.IndexOf("hc-lead:") == 0 && Label(pin, utc) != "") { leadCount++; }
+            if (pin.Id.IndexOf("hc-death:") == 0 && Label(pin, utc) != "") { deathCount++; }
         }
-        Print("[HollowCountry] V2 client map pins trail=" + trailCount.ToString() + " leads=" + leadCount.ToString());
+        Print("[HollowCountry] V2 client map pins trail=" + trailCount.ToString() + " leads=" + leadCount.ToString() + " deaths=" + deathCount.ToString());
     }
 }
 

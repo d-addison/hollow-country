@@ -18,13 +18,13 @@ class HCGradeParameters
 class HCGradePolicy
 {
     // Return through a caller-owned parameter set, avoiding per-frame allocation.
-    // Conservative autumn daylight window: 08-16, full grade only 10-14.
+    // Autumn daylight 08-16; lower-weight dusk fades out completely at 18.
     // Night is complete identity, including tint/contrast/vignette, not just EV.
     static void Evaluate(float hour, float overcast, float fog, float rain, float intensity, HCGradeParameters grade)
     {
         float strength = Math.Clamp(intensity, 0.0, 1.0);
         float dawn = Math.Clamp((hour - 8.0) / 2.0, 0.0, 1.0);
-        float dusk = Math.Clamp((16.0 - hour) / 2.0, 0.0, 1.0);
+        float dusk = Math.Clamp((18.0 - hour) / 4.0, 0.0, 1.0);
         float daylight = dawn * dusk;
         float damp = 0.45 * Math.Clamp(overcast, 0.0, 1.0) + 0.25 * Math.Clamp(fog, 0.0, 1.0) + 0.30 * Math.Clamp(rain, 0.0, 1.0);
         float amount = strength * daylight;

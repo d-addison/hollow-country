@@ -133,7 +133,7 @@ class CombinedRpcTests(unittest.TestCase):
         for ctx in (None, N(Read=lambda: self.fail('server must not deserialize'))):
             for sender in (None, object()):
                 receive(game, sender, None, 99, ctx)
-        self.assertEqual([], calls)
+        self.assertEqual(4, len(calls))  # Vanilla handles every CFG dispatch.
         self.assertEqual('synthetic-state', env['CfgGameplayHandler'].m_Data)
 
 

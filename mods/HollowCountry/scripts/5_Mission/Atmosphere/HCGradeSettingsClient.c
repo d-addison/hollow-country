@@ -14,7 +14,7 @@
 // 4_World/Entities/ManBase/PlayerBase.c:3925 IsUnconscious (guard also used
 // by existing 5_Mission/Groups/HCGroupGameplay.c:24-32).
 // Four policy/PPE updates per second at most, no catch-up loop after a stall.
-// The one new input is deliberately unbound; bind it in native Controls.
+// Grade defaults to K (unused in the four installed vanilla keyboard presets).
 class HCGradeSettingsClient
 {
     static const string PROFILE_KEY = "HollowCountryGradeIntensity";
@@ -101,7 +101,7 @@ class HCGradeSettingsClient
         GetGame().GetWorld().GetDate(year, month, day, hour, minute);
         float worldHour = hour + minute / 60.0;
         // Never let a smoothed previous daytime frame linger into night.
-        if (worldHour <= 8.0 || worldHour >= 16.0)
+        if (worldHour <= 8.0 || worldHour >= 18.0)
         {
             Stop();
             return;

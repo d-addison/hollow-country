@@ -91,7 +91,7 @@ class HCWreckSalvage
 
     static int Budget(string key)
     {
-        return Roll(key, 4);
+        return 1 + Roll(key, 3);
     }
 
     static string Part(string key, int left)
@@ -184,7 +184,12 @@ class HCWreckSalvageModule : HCModule
             // Review P2: never recompute the key from the JSON-reloaded float position,
             // which may round to another decimetre and fault the whole ledger on restart.
             if (row.Key == "" || seen.Contains(row.Key)) return false;
-            if (row.Budget != HCWreckSalvage.Budget(row.Key) || row.Left < 0 || row.Left > row.Budget) return false;
+            // Retain legacy enrolled budgets, including depleted zero rows.
+            // Only new enrollment uses the guaranteed 1..3 part allocation.
+            bool currentBudget = row.Budget == HCWreckSalvage.Budget(row.Key);
+            bool legacyBudget = row.Budget == HCWreckSalvage.Roll(row.Key, 4);
+            if (!currentBudget && !legacyBudget) { return false; }
+            if (row.Left < 0 || row.Left > row.Budget) { return false; }
             seen.Set(row.Key, true);
         }
         return true;

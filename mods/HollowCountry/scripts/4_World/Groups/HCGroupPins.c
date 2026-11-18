@@ -3,7 +3,10 @@
 // (GetPosition/IsAlive), 4_World/Entities/ManBase/PlayerBase.c:3925
 // (IsUnconscious), 1_Core/proto/EnScript.c:380,394,399,407 (arrays),
 // 3_Game/Global/Game.c:914 (GetTickTime for quota retry backoff),
-// 1_Core/proto/EnString.c:199,240 (Length/IndexOf),
+// 1_Core/proto/EnString.c:113,199,240 (Substring/Length/IndexOf),
+// 3_Game/Client/Notifications/NotificationSystem.c:125 (server notification).
+// 3_Game/Entities/Man.c:21 GetIdentity; 3_Game/gameplay.c:362/368 GetName/GetId;
+// 3_Game/Global/Game.c:1120 IsServer (authenticated native death hook).
 // 1_Core/proto/EnConvert.c:30 (int.ToString), EnDebug.c:96 (Print).
 // Uses existing HCGroupService authenticated peers, Clone/Commit/Broadcast,
 // HCLeadModule.GroupLeads and HCLeadPolicy.Place (authored named-place catalog).
@@ -20,10 +23,14 @@ class HCGroupPinPolicy
 
     static HCGroupPlace TrailPin(HCShelterEntry shelter)
     {
-        if (!shelter) { return null; }
+        if (!shelter || !shelter.Placed) { return null; }
         HCGroupPlace pin = new HCGroupPlace;
         pin.Id = "hc-found:" + shelter.Name;
         pin.Name = shelter.Name;
+        // Keep the wire's 64-character label bound while showing its history.
+        int historyLength = 61 - shelter.Name.Length();
+        if (historyLength > shelter.History.Length()) { historyLength = shelter.History.Length(); }
+        if (historyLength > 0) { pin.Name = shelter.Name + ": " + shelter.History.Substring(0, historyLength); }
         pin.Position = shelter.Position;
         pin.Radius = 40;
         if (!HCGroupRules.PlaceValid(pin)) { return null; }
@@ -53,10 +60,11 @@ class HCGroupPins : HCModule
     protected bool m_AdmissionPrinted;
     protected float m_RefreshSeconds;
     protected float m_LogSeconds = 600;
+    protected ref HCDeathPins m_DeathPins;
 
     static HCGroupPins Get() { return s_Instance; }
     override string GetName() { return "MapPins"; }
-    override bool IsEnabled(HCSettings settings) { return settings && (settings.EnableTravel || settings.EnableLeads); }
+    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableGroups; }
 
     override void OnStart(HCSettings settings)
     {
@@ -64,6 +72,7 @@ class HCGroupPins : HCModule
         m_Trail = settings.EnableTravel;
         m_Leads = settings.EnableLeads;
         s_Instance = this;
+        m_DeathPins = new HCDeathPins;
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("MapPins", true, "EXP-T5", HCV2Gates.Qualified("EXP-T5")));
@@ -76,6 +85,8 @@ class HCGroupPins : HCModule
     void Collect(HCGroupRecord group, int cap, array<ref HCGroupPlace> output)
     {
         if (!group || !output || cap < 1) { return; }
+        // A corpse-run pin has priority over leads/trails at the existing cap.
+        if (m_DeathPins) { m_DeathPins.HCCollect(group, cap, output); }
         HCLeadModule leads = HCLeadModule.Get();
         HCWorldModule world = HCWorldModule.Get();
         if (m_Leads && leads && world)
@@ -101,7 +112,9 @@ class HCGroupPins : HCModule
         for (int shelterIndex = 0; shelterIndex < shelterCount; shelterIndex++)
         {
             if (output.Count() >= cap) { break; }
-            HCGroupPlace trailPin = HCGroupPinPolicy.TrailPin(HCShelterCatalog.Get(shelterIndex));
+            HCShelterEntry placedShelter = HCShelterCatalog.Get(shelterIndex);
+            if (!placedShelter || !placedShelter.Placed) { continue; }
+            HCGroupPlace trailPin = HCGroupPinPolicy.TrailPin(placedShelter);
             if (trailPin && group.HCTrailPlaceIds.Find(trailPin.Id) >= 0) { output.Insert(trailPin); }
         }
     }
@@ -128,12 +141,38 @@ class HCGroupPins : HCModule
         }
     }
 
-    override void OnStop() { if (s_Instance == this) { s_Instance = null; } }
+    void HCPlayerFell(PlayerBase player)
+    {
+        HCGroupService groups = HCGroupService.Get();
+        if (!groups || !m_DeathPins) { return; }
+        groups.HCPinsDeath(player, m_DeathPins);
+    }
+
+    override void OnStop()
+    {
+        if (s_Instance == this) { s_Instance = null; }
+        m_DeathPins = null;
+    }
 }
 
 modded class HCGroupService
 {
     protected int m_HCPinsCursor;
+
+    void HCPinsDeath(PlayerBase player, HCDeathPins pins)
+    {
+        if (!m_Healthy || !player || !pins || !GetGame().IsServer()) { return; }
+        PlayerIdentity identity = player.GetIdentity();
+        if (!identity) { return; }
+        string uid = identity.GetId();
+        HCGroupPeer peer = Peer(uid);
+        if (!Live(peer) || peer.Player != player) { return; }
+        HCGroupRecord group = HCGroupRules.FindGroup(m_State, uid);
+        if (!group) { return; }
+        if (!pins.HCPublish(group, uid, identity.GetName(), player.GetPosition())) { return; }
+        Print("[HollowCountry] V2 map pins death group=" + group.Id.ToString());
+        Broadcast();
+    }
 
     void HCPinsDiscover()
     {
@@ -153,7 +192,9 @@ modded class HCGroupService
         if (shelterCount > 20) { shelterCount = 20; }
         for (int shelterIndex = 0; shelterIndex < shelterCount; shelterIndex++)
         {
-            HCGroupPlace shelter = HCGroupPinPolicy.TrailPin(HCShelterCatalog.Get(shelterIndex));
+            HCShelterEntry placedShelter = HCShelterCatalog.Get(shelterIndex);
+            if (!placedShelter || !placedShelter.Placed) { continue; }
+            HCGroupPlace shelter = HCGroupPinPolicy.TrailPin(placedShelter);
             if (!shelter || group.HCTrailPlaceIds.Find(shelter.Id) >= 0) { continue; }
             float dx = actual[0] - shelter.Position[0];
             float dz = actual[2] - shelter.Position[2];
@@ -172,7 +213,23 @@ modded class HCGroupService
         int result = Commit(candidate);
         if (result == HCGroupCode.LIMIT) { m_DiscoveryBlockedUntil = GetGame().GetTickTime() + 60; }
         if (result == HCGroupCode.STORAGE) { Stop(); return; }
-        if (result == HCGroupCode.OK) { Broadcast(); }
+        if (result == HCGroupCode.OK)
+        {
+            Broadcast();
+            // Notify only after the discovery ledger was committed successfully.
+            for (int noticeIndex = 0; noticeIndex < shelterCount; noticeIndex++)
+            {
+                HCShelterEntry discoveredShelter = HCShelterCatalog.Get(noticeIndex);
+                if (!discoveredShelter || !discoveredShelter.Placed) { continue; }
+                string discoveredId = "hc-found:" + discoveredShelter.Name;
+                bool newlyFound = group.HCTrailPlaceIds.Find(discoveredId) < 0;
+                bool committedFound = candidateGroup.HCTrailPlaceIds.Find(discoveredId) >= 0;
+                if (newlyFound && committedFound)
+                {
+                    NotificationSystem.SendNotificationToPlayerExtended(explorer.Player, 10, discoveredShelter.Name, discoveredShelter.History);
+                }
+            }
+        }
     }
 
     void HCPinsLog(HCGroupPins pins)
@@ -180,6 +237,7 @@ modded class HCGroupService
         if (!m_Healthy) { return; }
         int trailCount = 0;
         int leadCount = 0;
+        int deathCount = 0;
         foreach (HCGroupRecord group : m_State.Groups)
         {
             array<ref HCGroupPlace> known = new array<ref HCGroupPlace>();
@@ -188,9 +246,10 @@ modded class HCGroupService
             {
                 if (pin.Id.IndexOf("hc-found:") == 0) { trailCount++; }
                 if (pin.Id.IndexOf("hc-lead:") == 0) { leadCount++; }
+                if (pin.Id.IndexOf("hc-death:") == 0) { deathCount++; }
             }
         }
-        Print("[HollowCountry] V2 map pins groups=" + m_State.Groups.Count().ToString() + " trail=" + trailCount.ToString() + " leads=" + leadCount.ToString());
+        Print("[HollowCountry] V2 map pins groups=" + m_State.Groups.Count().ToString() + " trail=" + trailCount.ToString() + " leads=" + leadCount.ToString() + " deaths=" + deathCount.ToString());
     }
 }
 

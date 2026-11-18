@@ -7,6 +7,11 @@
         </actions>
     </inputs>
     <preset>
+        <!-- Installed dta/bin.pbo core.xml:7 selects preset_X1MouseKey.xml.
+             kK is absent from all four vanilla MouseKey presets (1.30.164289). -->
+        <input name="UAHollowCountryGrade">
+            <btn name="kK" />
+        </input>
         <input name="UAHollowCountryEvents">
             <btn name="kO" />
         </input>

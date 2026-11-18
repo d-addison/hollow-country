@@ -11,8 +11,10 @@
 // these HouseNoDestruct statics cannot be taken. No lootable Fireplace is made.
 // 1_Core/proto/EnScript.c:380/385/407 array Count/Clear/Insert;
 // 1_Core/proto/EnString.c:171 ToLower; 1_Core/proto/EnConvert.c:30 int.ToString,
-// :210 DistanceSq;
-// 1_Core/proto/EnMath.c:225 AbsFloat.
+// :115 float.ToString, :138 vector.ToString, :210 DistanceSq;
+// 1_Core/proto/EnMath.c:225 AbsFloat; EnMath3D.c:18 Vector.
+// 3_Game/Systems/Inventory/Cargo.c:12 GetCargoOwner for refusal diagnostics.
+// 1_Core/proto/EnDebug.c:96 Print.
 // Reused read-only HCInteriorTemplatePlacement.Resolve/Spawn and
 // HCInteriorTemplates.SlotClear/BoxValid/AsVector. No acceptance gate bypass in
 // Interiors: these V2 scenes follow EnableTravel and only LOG native verdicts.
@@ -22,6 +24,14 @@ class HCShelterModule : HCModule
     protected int m_Placed;
     protected int m_Refused;
     protected string m_RefusalReason;
+    protected string m_BlockingClass;
+    protected string m_PropType;
+    protected vector m_RefusalPoint;
+    protected int m_QueryObjects;
+    protected int m_QueryCargos;
+    protected int m_CollisionCount;
+    protected int m_LayoutVariant;
+    protected float m_GroundRise;
     protected ref array<Object> m_Objects = new array<Object>;
 
     override string GetName() { return "Shelters"; }
@@ -55,7 +65,7 @@ class HCShelterModule : HCModule
         Print("[HollowCountry] V2 shelters placed=" + m_Placed.ToString() + " props=" + propCount.ToString() + " refused=" + m_Refused.ToString());
     }
 
-    // No tick work, retries, inventory access, persistence journal or world scan.
+    // No tick work or recurring retries; startup tries at most eight layouts.
     override void OnStop()
     {
         if (!m_Started) return;
@@ -102,7 +112,7 @@ class HCShelterModule : HCModule
         HCInteriorTemplate layout = new HCInteriorTemplate;
         HCInteriorTemplateRoom yard = new HCInteriorTemplateRoom;
         yard.Id = 1;
-        yard.Min = Coordinates("-15.5 -20 -5.5");
+        yard.Min = Coordinates("-23 -20 -5.5");
         yard.Max = Coordinates("-11.5 20 5.5");
         layout.Rooms.Insert(yard);
         Keepout(layout, "door", 0, "-10.5 -20 -17.7", "10.5 20 17.7");
@@ -121,39 +131,106 @@ class HCShelterModule : HCModule
         // static with no collision geometry. A ground-level 0.75m sphere could
         // otherwise miss the same prop whose origin is above its lowest vertex.
         GetGame().GetObjectsAtPosition3D(point, 3, nearby, cargos);
-        if (nearby.Count() > 256 || cargos.Count() > 0) return false;
+        m_QueryObjects = nearby.Count();
+        m_QueryCargos = cargos.Count();
+        if (m_QueryObjects > 256)
+        {
+            m_BlockingClass = "query_cap_no_single_blocker";
+            m_RefusalReason = "query_cap";
+            return false;
+        }
+        if (m_QueryCargos > 0)
+        {
+            m_BlockingClass = "cargo_owner_unavailable";
+            CargoBase blockingCargo = cargos.Get(0);
+            if (blockingCargo)
+            {
+                EntityAI cargoOwner = blockingCargo.GetCargoOwner();
+                if (cargoOwner) { m_BlockingClass = cargoOwner.GetType(); }
+            }
+            m_RefusalReason = "cargo_query";
+            return false;
+        }
         foreach (Object possibleOrphan : nearby)
         {
             // Refuse even non-colliding foreign/orphan statics. Never infer
             // ownership from coordinates or adopt/delete a restored object.
-            if (!possibleOrphan) continue;
+            if (!possibleOrphan) { continue; }
             vector orphanPosition = possibleOrphan.GetPosition();
             float gapX = orphanPosition[0] - point[0];
             float gapZ = orphanPosition[2] - point[2];
-            if (gapX * gapX + gapZ * gapZ < 0.5625) return false;
+            if (gapX * gapX + gapZ * gapZ < 0.5625)
+            {
+                m_BlockingClass = possibleOrphan.GetType();
+                m_RefusalReason = "occupied";
+                return false;
+            }
         }
         return true;
     }
 
     protected bool GroundFlat(vector point)
     {
-        if (GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2])) return false;
+        m_GroundRise = 0;
+        if (GetGame().SurfaceIsSea(point[0], point[2]) || GetGame().SurfaceIsPond(point[0], point[2]))
+        {
+            m_BlockingClass = "water";
+            return false;
+        }
         float height = point[1];
         // Conservative 2.4m footprint; reject steep yards instead of sinking props.
-        if (Math.AbsFloat(GetGame().SurfaceY(point[0] - 1.2, point[2] - 1.2) - height) > 0.25) return false;
-        if (Math.AbsFloat(GetGame().SurfaceY(point[0] + 1.2, point[2] - 1.2) - height) > 0.25) return false;
-        if (Math.AbsFloat(GetGame().SurfaceY(point[0] - 1.2, point[2] + 1.2) - height) > 0.25) return false;
-        if (Math.AbsFloat(GetGame().SurfaceY(point[0] + 1.2, point[2] + 1.2) - height) > 0.25) return false;
-        return true;
+        m_GroundRise = Math.AbsFloat(GetGame().SurfaceY(point[0] - 1.2, point[2] - 1.2) - height);
+        float rise = Math.AbsFloat(GetGame().SurfaceY(point[0] + 1.2, point[2] - 1.2) - height);
+        if (rise > m_GroundRise) { m_GroundRise = rise; }
+        rise = Math.AbsFloat(GetGame().SurfaceY(point[0] - 1.2, point[2] + 1.2) - height);
+        if (rise > m_GroundRise) { m_GroundRise = rise; }
+        rise = Math.AbsFloat(GetGame().SurfaceY(point[0] + 1.2, point[2] + 1.2) - height);
+        if (rise > m_GroundRise) { m_GroundRise = rise; }
+        return m_GroundRise <= 0.25;
+    }
+
+    // As in HCSceneKits.LayoutOffset/LayoutYaw: bounded mirrored layouts,
+    // followed by the same keepout/collision checks. Rotating a whole yard
+    // about the barn pivot would put props in end-door approaches, so keep
+    // all eight variants on its windowless side and move the anchor outward.
+    protected vector HCYardOffset(float localZ, int variant)
+    {
+        int outward = variant;
+        float shiftedZ = localZ;
+        if (variant >= 4)
+        {
+            outward = variant - 4;
+            shiftedZ = -localZ + 1;
+        }
+        return Vector(-13.5 - 2.5 * outward, 0, shiftedZ);
+    }
+
+    protected bool HCInBarnAccessStrip(vector offset)
+    {
+        // 1.2m prop footprint + 0.3m collision margin. End approaches and
+        // the entire barn clipping envelope stay clear in every variant.
+        if (offset[0] + 1.5 >= -10.5) { return true; }
+        if (offset[2] - 1.5 <= -6) { return true; }
+        return offset[2] + 1.5 >= 6;
     }
 
     protected Object PlaceProp(Object house, HCInteriorTemplate layout, string propType, float localZ)
     {
-        if (!GetGame().ConfigIsExisting("CfgVehicles " + propType) || !GetGame().IsKindOf(propType, "HouseNoDestruct")) return RefuseProp("static_class_missing");
-        vector point = house.ModelToWorld(Vector(-13.5, 0, localZ));
+        m_PropType = propType;
+        m_BlockingClass = "none";
+        m_QueryObjects = 0;
+        m_QueryCargos = 0;
+        m_CollisionCount = 0;
+        m_GroundRise = 0;
+        m_RefusalReason = "";
+        vector offset = HCYardOffset(localZ, m_LayoutVariant);
+        vector point = house.ModelToWorld(offset);
         point[1] = GetGame().SurfaceY(point[0], point[2]);
-        if (!GroundFlat(point)) return RefuseProp("terrain");
-        if (!Available(point)) return RefuseProp("occupied_or_query_cap");
+        m_RefusalPoint = point;
+        if (!GetGame().ConfigIsExisting("CfgVehicles " + propType) || !GetGame().IsKindOf(propType, "HouseNoDestruct")) { return RefuseProp("static_class_missing"); }
+        if (HCInBarnAccessStrip(offset)) { return RefuseProp("access_strip"); }
+        if (!GroundFlat(point)) { return RefuseProp("terrain"); }
+        if (!Available(point)) { return null; }
         Object prop = HCInteriorTemplatePlacement.Spawn(propType, point, house.GetOrientation());
         if (!prop) return RefuseProp("create_failed");
         vector clip[2];
@@ -201,8 +278,15 @@ class HCShelterModule : HCModule
             DeleteProp(prop);
             return RefuseProp("keepout");
         }
-        if (GetGame().IsBoxColliding(center, prop.GetOrientation(), size, excluded))
+        array<Object> collided = new array<Object>;
+        if (GetGame().IsBoxColliding(center, prop.GetOrientation(), size, excluded, collided))
         {
+            m_CollisionCount = collided.Count();
+            foreach (Object blocker : collided)
+            {
+                if (!blocker) { continue; }
+                if (m_BlockingClass == "none") { m_BlockingClass = blocker.GetType(); }
+            }
             DeleteProp(prop);
             return RefuseProp("collision");
         }
@@ -218,13 +302,30 @@ class HCShelterModule : HCModule
     protected void RefuseShelter(HCShelterEntry entry, string reason)
     {
         m_Refused = m_Refused + 3;
-        Print("[HollowCountry] V2 shelter refused name=" + entry.Name + " reason=" + reason);
+        Print("[HollowCountry] V2 shelter refused name=" + entry.Name + " reason=" + reason + HCRefusalDetails());
+    }
+
+    protected string HCRefusalDetails()
+    {
+        string queryCounts = " objects=" + m_QueryObjects.ToString() + " cargos=" + m_QueryCargos.ToString() + " collisions=" + m_CollisionCount.ToString();
+        return " variant=" + m_LayoutVariant.ToString() + " prop=" + m_PropType + " blocking_class=" + m_BlockingClass + queryCounts + " cap=256 rise=" + m_GroundRise.ToString() + " rise_limit=0.25 point=" + m_RefusalPoint.ToString();
     }
 
     protected void PlaceShelter(int index)
     {
         HCShelterEntry entry = HCShelterCatalog.Get(index);
+        if (!entry) { return; }
+        entry.Placed = false;
+        entry.PlacementAnchor = null;
         m_RefusalReason = "";
+        m_BlockingClass = "none";
+        m_PropType = "none";
+        m_QueryObjects = 0;
+        m_QueryCargos = 0;
+        m_CollisionCount = 0;
+        m_GroundRise = 0;
+        m_LayoutVariant = 0;
+        m_RefusalPoint = entry.Position;
         HCInteriorFurnishRow binding = new HCInteriorFurnishRow;
         binding.BuildingClass = HCShelterCatalog.BUILDING_CLASS;
         binding.Position = Coordinates(entry.Position);
@@ -245,17 +346,33 @@ class HCShelterModule : HCModule
         HCInteriorTemplate layout = YardLayout();
         array<Object> batch = new array<Object>;
         // Fire spot is a cold STATIC grate, never an inventory fireplace.
-        Object fireSpot = PlaceProp(house, layout, "StaticObj_Furniture_fireplace_grill", 0);
-        if (fireSpot) batch.Insert(fireSpot);
-        Object chair = PlaceProp(house, layout, "StaticObj_Misc_Chair_Camp1", -3);
-        if (chair) batch.Insert(chair);
-        Object emptyBox = PlaceProp(house, layout, "StaticObj_Furniture_PaperBox_01_small_closed", 3);
-        if (emptyBox) batch.Insert(emptyBox);
-        // A shelter is complete only with all three props. Roll back partial
-        // scenes and count all three refused slots; no retries or duplicate loot.
+        Object fireSpot;
+        Object chair;
+        Object emptyBox;
+        while (m_LayoutVariant < 8)
+        {
+            fireSpot = PlaceProp(house, layout, "StaticObj_Furniture_fireplace_grill", 0);
+            if (fireSpot)
+            {
+                batch.Insert(fireSpot);
+                chair = PlaceProp(house, layout, "StaticObj_Misc_Chair_Camp1", -3);
+                if (chair)
+                {
+                    batch.Insert(chair);
+                    emptyBox = PlaceProp(house, layout, "StaticObj_Furniture_PaperBox_01_small_closed", 3);
+                    if (emptyBox) { batch.Insert(emptyBox); }
+                }
+            }
+            if (batch.Count() == 3) { break; }
+            // Roll back the whole candidate before trying a shifted layout.
+            foreach (Object partialProp : batch) { DeleteProp(partialProp); }
+            batch.Clear();
+            Print("[HollowCountry] V2 shelter layout refused name=" + entry.Name + " reason=" + m_RefusalReason + HCRefusalDetails());
+            if (m_LayoutVariant == 7) { break; }
+            m_LayoutVariant = m_LayoutVariant + 1;
+        }
         if (batch.Count() != 3)
         {
-            foreach (Object partialProp : batch) DeleteProp(partialProp);
             RefuseShelter(entry, m_RefusalReason);
             return;
         }
@@ -265,11 +382,21 @@ class HCShelterModule : HCModule
             GetGame().UpdatePathgraphRegionByObject(completedProp);
         }
         m_Placed = m_Placed + 1;
+        entry.Placed = true;
+        entry.PlacementAnchor = fireSpot;
+        Print("[HollowCountry] V2 shelter placed name=" + entry.Name + " variant=" + m_LayoutVariant.ToString());
     }
 
     protected void DeleteProp(Object prop)
     {
         if (!prop || !GetGame() || !GetGame().IsServer()) return;
+        for (int shelterIndex = 0; shelterIndex < HCShelterCatalog.Count(); shelterIndex++)
+        {
+            HCShelterEntry entry = HCShelterCatalog.Get(shelterIndex);
+            if (entry.PlacementAnchor != prop) { continue; }
+            entry.Placed = false;
+            entry.PlacementAnchor = null;
+        }
         vector position = prop.GetPosition();
         // Covers the bounded yard prop plus its 0.3m collision margin. Update
         // AFTER deletion, so the pathgraph does not retain the removed blocker.

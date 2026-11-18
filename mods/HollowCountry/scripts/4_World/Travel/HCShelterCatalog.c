@@ -14,6 +14,9 @@ class HCShelterEntry
     string Name;
     vector Position;
     string History;
+    bool Placed = false;
+    // Borrowed server scene handle, cleared when the scene is removed.
+    Object PlacementAnchor;
     string LeadSlot = "";
 }
 

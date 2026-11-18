@@ -1,4 +1,6 @@
-// Native reference: scripts-1.30.164289.
+// Native reference: scripts-1.30.164289, 3_Game/DayZGame.c:1267
+// OnGameplayDataHandlerLoad, :3141-3161 OnRPC and native CfgGameplay dispatch.
+// 1_Core/proto/EnDebug.c:96 Print (startup transport diagnostic).
 // Local serialization observed; native CFG delivery/order remains unqualified.
 class HCStaminaProfile
 {
@@ -205,6 +207,7 @@ class HCStaminaConfiguration
     static void ServerLoaded()
     {
         Reset(true, true);
+        Print("[HollowCountry] Stamina CFG sync vanilla passthrough active; HC receipt gated; runtime acceptance PENDING");
         CfgGameplayJson data = CfgGameplayHandler.m_Data;
         if (data && data.PlayerData && data.PlayerData.StaminaData)
         {
@@ -277,8 +280,16 @@ modded class DayZGame
             super.OnRPC(sender, target, rpc_type, ctx);
             return;
         }
-        if (IsServer() || sender || target || !ctx || !HCStaminaConfiguration.ClientActive())
+        if (IsServer() || sender || target || !ctx)
+        {
+            super.OnRPC(sender, target, rpc_type, ctx);
             return;
+        }
+        if (!HCStaminaConfiguration.ClientActive())
+        {
+            super.OnRPC(sender, target, rpc_type, ctx);
+            return;
+        }
         CfgGameplayJson previous = CfgGameplayHandler.m_Data;
         super.OnRPC(sender, target, rpc_type, ctx);
         HCStaminaConfiguration.NativeReceipt(CfgGameplayHandler.m_Data, previous);

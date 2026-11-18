@@ -47,7 +47,13 @@ class HCHints
 
     bool Valid(HCHintState state, string characterId)
     {
-        return state && state.SchemaVersion == 1 && state.CharacterId == characterId && state.ShownBits >= 0 && state.ShownBits <= 2047 && state.PlayedSeconds >= 0 && state.PlayedSeconds < 2147480000 && state.NextHintSecond >= 0 && state.NextHintSecond <= state.PlayedSeconds + 180;
+        bool matching = state && state.SchemaVersion == 1;
+        if (!matching) { return false; }
+        bool characterValid = state.CharacterId == characterId;
+        bool bitsValid = state.ShownBits >= 0 && state.ShownBits <= 16383;
+        bool playedValid = state.PlayedSeconds >= 0 && state.PlayedSeconds < 2147480000;
+        bool nextValid = state.NextHintSecond >= 0 && state.NextHintSecond <= state.PlayedSeconds + 180;
+        return characterValid && bitsValid && playedValid && nextValid;
     }
 
     bool Open(string characterId)
@@ -108,7 +114,7 @@ class HCHints
 
     bool Offer(int hint, string message)
     {
-        if (m_Fault || !m_State || hint < 0 || hint > 10) return false;
+        if (m_Fault || !m_State || hint < 0 || hint > 13) { return false; }
         int bit = 1 << hint;
         if ((m_State.ShownBits & bit) != 0 || m_State.PlayedSeconds < m_State.NextHintSecond) return false;
         m_State.ShownBits = m_State.ShownBits | bit;
@@ -155,9 +161,12 @@ class HCHints
         if (Offer(1, "Open Hollow Country Events with O by default. Rebind Hollow Country Events in Controls if needed.")) return;
         if (Offer(2, "Carry a map and use your map key to open the group map. Share places and information with your group.")) return;
         if (Offer(3, "Fuel can be siphoned from eligible vehicles with the right hose and container. The vehicle must still have fuel.")) return;
-        if (Offer(4, "Combine duct tape and a flashlight with compatible equipment to make a taped light. Removing it by hand does not return the tape.")) return;
+        if (Offer(4, "Hold a compatible weapon and carry duct tape and a Universal Light or pistol light. Tape the light to the weapon; removing it by hand does not return the tape.")) { return; }
         if (Offer(5, "Searches, gunshots and other noise can draw infected. Break sight and move carefully; noise can bring more than one.")) return;
-        Offer(6, "Firearms are scarce. Search likely locations, conserve ammunition and keep useful tools while you work toward a weapon.");
+        if (Offer(6, "Firearms are scarce. Search likely locations, conserve ammunition and keep useful tools while you work toward a weapon.")) { return; }
+        if (Offer(11, "Press K by default to change Hollow Country grade intensity in 10% steps, including off. Rebind it in Controls.")) { return; }
+        if (Offer(12, "Watch for signs of life: abandoned camps, chairs and cold hearths can tell you who passed through. Follow the details; supplies are not guaranteed.")) { return; }
+        Offer(13, "Rural barn shelters offer a stopping place. Approach one to discover its history and share a trail pin with your group.");
     }
 
     void Update(float timeslice)

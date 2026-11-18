@@ -6,7 +6,7 @@ class HCActionMountTapedLight extends ActionSingleUseBase
     {
         m_CommandUID = DayZPlayerConstants.CMD_ACTIONMOD_ATTACHITEM;
         m_StanceMask = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_CROUCH;
-        m_Text = "Tape flashlight to weapon";
+        m_Text = "Tape light to weapon";
     }
 
     override void CreateConditionComponents()
@@ -38,7 +38,7 @@ class HCActionRemoveTapedLight extends ActionSingleUseBase
     {
         m_CommandUID = DayZPlayerConstants.CMD_ACTIONMOD_ATTACHITEM;
         m_StanceMask = DayZPlayerConstants.STANCEMASK_ERECT | DayZPlayerConstants.STANCEMASK_CROUCH;
-        m_Text = "Remove taped flashlight";
+        m_Text = "Remove taped light";
     }
 
     override void CreateConditionComponents()

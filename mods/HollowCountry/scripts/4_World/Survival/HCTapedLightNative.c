@@ -1,6 +1,11 @@
 // #56 W1.3: local acceptance adapter, never production qualification.
 // API declarations and exact installed evidence are indexed in
 // tests/unit/test_taped_light_v1_evidence.py. No client profile IO.
+// Native 3_Game/Global/Game.c:1120 IsServer. Installed gear_tools.pbo
+// CfgVehicles/Flashlight has no inventorySlot (parent Inventory_Base);
+// Flashlight.c:1 is the hand torch, not a weapon/pistol light-slot item.
+// Keep the audited UniversalLight/TLRLight pairs; no invented mount slot.
+// 1_Core/proto/EnDebug.c:96 Print for startup admission.
 class HCTapedLightAdmission
 {
     protected static bool s_Checked;
@@ -35,6 +40,29 @@ class HCTapedLightAdmission
             }
         }
         return s_OptIn;
+    }
+}
+
+class HCTapedLightStartup : HCModule
+{
+    protected bool m_Printed;
+    override string GetName() { return "TapedLight"; }
+    override bool IsEnabled(HCSettings settings) { return settings != null; }
+    override void OnStart(HCSettings settings)
+    {
+        if (m_Printed) { return; }
+        m_Printed = true;
+        bool admitted = HCTapedLightAdmission.Admitted();
+        Print(HCV2Admission.Line("TapedLight", admitted, "TAPED-LIGHT-V1", HCTapedLightAdmission.Qualified()));
+    }
+}
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCTapedLightStartup);
     }
 }
 

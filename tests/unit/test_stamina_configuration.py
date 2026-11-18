@@ -175,7 +175,7 @@ class ConfigurationTests(unittest.TestCase):
             self.call('OnRPC',sender,target,77,ctx)
         self.call('Reset',False,False)
         self.call('OnRPC',None,None,77,True)
-        self.assertEqual([],self.calls)
+        self.assertEqual(4,len(self.calls))  # All four still reach native CfgGameplay.
 
     def test_decode_failure(self):
         self.call('Stage',self.settings(),False)

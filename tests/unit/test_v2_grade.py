@@ -27,7 +27,7 @@ class GradeSmokeTests(unittest.TestCase):
                      hour, overcast, fog, rain, intensity, result)
             return vars(result)
 
-        for hour in (0., 4., 6., 8., 16., 18., 22., 24.):
+        for hour in (0., 4., 6., 8., 18., 20., 22., 24.):
             self.assertEqual(identity, evaluate(hour, 1., 1., 1., 1.))
         for hour in (0., 9., 12., 15., 23.):
             self.assertEqual(identity, evaluate(hour, 1., 1., 1., 0.))
