@@ -603,5 +603,59 @@ class SamplerSource(unittest.TestCase):
         self.assertIsNone(re.search(r'"\s*\+\s*(?:m_\w+|count|index)\s*[;+]', self.code))
 
 
+class W5ToolsSmoke(unittest.TestCase):
+    def test_synthetic_log_to_caps_and_loot_routes(self):
+        """One offline CLI smoke; all measurements and CE entries are SYNTHETIC."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            script = write(root, 'script.log', [
+                line() + ' mod_max=Infected:2.00,World:1.00',
+                '[HollowCountry] V2 admission feature=World preference=on gate=EXP-P1 qualified=0 result=admitted unverified',
+                '[HollowCountry] V2 world loaded day=1 places=2 facts=0 factions=3',
+                '[HollowCountry] owner=76561198000000001 profile=C:\\Users\\Synthetic User\\profile',
+                'SCRIPT (E): TWO ANIMATION MODS', 'SCRIPT (E): synthetic error',
+                'VM exception: synthetic exception',
+            ])
+            rpt = write(root, 'server.RPT', ['12:00:00 FPS: 15.0, players: 4, animals: 10, infected: 30'] * 10)
+
+            def invoke(module, *args):
+                result = subprocess.run([sys.executable, '-B', '-m', module, *map(str, args)],
+                                        cwd=ROOT, capture_output=True, text=True)
+                self.assertEqual(0, result.returncode, result.stderr)
+                return result.stdout
+
+            raw = invoke('tools.testing.log_metrics', '--script-log', script, '--rpt', rpt)
+            report = json.loads(raw)
+            self.assertEqual([15.0] * 10, [s['fps'] for s in report['fps_samples']])
+            self.assertEqual({'Infected': 2.0, 'World': 1.0}, report['module_max_ms'])
+            self.assertEqual((1, 1), (report['errors']['script_e'], report['errors']['vm_exception']))
+            self.assertEqual(1, len(report['admissions']))
+            self.assertTrue(report['feature_summaries'])
+            self.assertNotIn('76561198000000001', raw)
+            self.assertNotIn('Synthetic User', raw)
+            self.assertNotIn('TWO ANIMATION MODS', raw)
+            metrics = root / 'metrics.json'
+            metrics.write_text(raw, encoding='utf-8')
+            caps = json.loads(invoke('tools.testing.right_size', metrics, '--infected-cap', 40, '--animal-cap', 20))
+            self.assertTrue(caps['provisional'])
+            self.assertEqual((-4, -2, 0), (caps['infected']['delta'], caps['animals']['delta'], caps['loot_delta']))
+            rpt.write_text('FPS: 60, players: 1\n', encoding='utf-8')
+            metrics.write_text(invoke('tools.testing.log_metrics', '--script-log', script, '--rpt', rpt), encoding='utf-8')
+            held = json.loads(invoke('tools.testing.right_size', metrics, '--infected-cap', 40, '--animal-cap', 20))
+            self.assertEqual((0, 0), (held['infected']['delta'], held['animals']['delta']))
+            mission = root / 'mission'
+            (mission / 'db').mkdir(parents=True)
+            (mission / 'db/types.xml').write_text('<types><type name="BandageDressing"><nominal>10</nominal>'
+                '<category name="tools"/><usage name="Town"/></type></types>', encoding='utf-8')
+            overlay = root / 'overlay.xml'
+            overlay.write_text('<types><type name="BandageDressing"><nominal>10</nominal>'
+                '<category name="tools"/><usage name="Town"/><usage name="Medic"/></type></types>', encoding='utf-8')
+            csv_text = invoke('tools.audit.loot_routes', '--mission', mission, '--overlay', overlay,
+                              '--essential', 'BandageDressing')
+            self.assertIn('BandageDressing,1,', csv_text)
+            self.assertIn('conflicting_definitions', csv_text)
+            self.assertIn('configured_only_runtime_pending', csv_text)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -499,3 +499,29 @@ Deferred V2 two-client items (never passed with one client):
 | [#88](https://github.com/d-addison/hollow-country/issues/88) [#103](https://github.com/d-addison/hollow-country/issues/103) [#118](https://github.com/d-addison/hollow-country/issues/118) | Shelter, checkpoint and settlement props | One viewpoint cannot verify replication, route clearance or lifecycle veto by a second observer. | Walk every entrance/road from both sides while the other watches a due transition; no blocked doors/stairs/routes and no visible replacement or abandoned duplicate prop after restart; deferred, runtime acceptance pending. |
 | [#111](https://github.com/d-addison/hollow-country/issues/111) | Environmental sound | A local sound handle and first-layer log do not prove each listener's mix, range or cleanup. | Compare forest wind/night howl outdoors, indoors and in vehicles, then death/reconnect; preserve combat/footstep audibility and avoid leaked loops or synthetic combat cues; deferred, runtime acceptance pending. |
 | [#59](https://github.com/d-addison/hollow-country/issues/59) [#112](https://github.com/d-addison/hollow-country/issues/112) | Observer safety and combined 3-6-player budget | Different observers and network bubbles exercise vetoes a solo run cannot; two clients still do not measure the full target load. | Keep one observer at the old site and another at the destination during transitions; benchmark actual 3-6-player load separately with AI/herds/CE active. No teleport/pop-in and no promotion from provisional budgets; deferred, runtime acceptance pending. |
+
+## W5 tools and consolidated itinerary (2026-11-18)
+
+The append-only W5 addition is [ACCEPTANCE_CHECKLIST.md](ACCEPTANCE_CHECKLIST.md).
+It provides one ordered session covering every README gameplay feature, exact
+source log prefixes or visible confirmations, explicit blocked/planned portions,
+and marked second-client checks (deferred/user bugs). All runtime results remain
+pending. Its combined-load section covers eight live human AI bodies total and
+two legitimate hordes within existing shared caps, with a ten-minute overlap and
+baseline comparison. A solo rehearsal does not establish the 3–6-player budget.
+
+New read-only tools: `tools/audit/loot_routes.py` (#12),
+`tools/testing/log_metrics.py` (#50), and `tools/testing/right_size.py` (#70).
+The checklist documents their exact commands and JSON/CSV semantics. Outputs go
+outside the repository; no committed metrics artifact, CE change or runtime hook.
+The sizing proposal never raises loot and holds when player load, calibration,
+population or log completeness is insufficient. The #78 / EXP-P2 scenario is a
+procedure only; it has not been run.
+
+One explicit synthetic smoke extends `tests/unit/test_perf_capture.py`. Actual
+RED command: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_perf_capture.W5ToolsSmoke -v`.
+Failure: `AssertionError: 0 != 1 : /usr/bin/python3: No module named tools.testing.log_metrics`;
+`Ran 1 test` / `FAILED (failures=1)`. The same command after implementation:
+`Ran 1 test` / `OK`. This establishes Python CLI behavior only. The lead still
+owns native Windows compile, joined-client evidence, target-load measurement and
+production decisions; nothing observed in DayZ yet.
