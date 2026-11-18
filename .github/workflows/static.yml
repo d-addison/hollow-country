@@ -53,6 +53,8 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python3 -m unittest discover -s tests/unit -v
+      - name: Enforce compile-trap and silent-refusal lint
+        run: python3 -B -m tools.validate.enforce_lint --no-native
       - name: Source content and documentation admission
         run: python3 -B -m tools.validate.hygiene
       - name: Operator runtime settings admission
