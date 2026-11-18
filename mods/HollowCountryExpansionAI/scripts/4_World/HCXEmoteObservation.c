@@ -133,6 +133,8 @@ class HCXEmoteObservation
     protected static ref HCXBetrayalStore s_Store;
     protected static ref HCUnitBudget s_Units = new HCUnitBudget();
     protected static ref HCWorkBudget s_Work = new HCWorkBudget();
+    protected static ref HCUnitBudget s_Events = new HCUnitBudget();
+    protected static int s_EventMinute = -1;
     protected static int s_Frame = -1;
     protected static int s_MaxWork = 8;
     protected static bool s_Running;
@@ -144,6 +146,7 @@ class HCXEmoteObservation
         if (!GetGame() || !GetGame().IsServer() || s_Running) { return; }
         s_Running = true;
         s_Frame = -1;
+        s_EventMinute = -1;
         s_StoreRefused = false;
         s_ControlRefused = false;
         HCSignalCooldown.Reset();
@@ -179,7 +182,7 @@ class HCXEmoteObservation
             rows = s_Store.Count();
             if (s_Store.Healthy()) { storeState = "ready"; }
         }
-        Print("[HC Plan] HC-5 signals=" + signals + " betrayal_store=" + storeState + " text=off rows=" + rows.ToString() + " gesture_work_per_second<=" + s_MaxWork.ToString() + " runtime=PENDING");
+        Print("[HC Plan] HC-5 signals=" + signals + " betrayal_store=" + storeState + " text=off rows=" + rows.ToString() + " gesture_work_per_second<=" + s_MaxWork.ToString() + " betrayal_events_per_minute<=32 runtime=PENDING");
     }
     static void Stop()
     {
@@ -188,6 +191,7 @@ class HCXEmoteObservation
         s_Provider = null;
         s_Store = null;
         s_Frame = -1;
+        s_EventMinute = -1;
         HCSignalCooldown.Reset();
     }
     static bool ControlReady()
@@ -216,20 +220,34 @@ class HCXEmoteObservation
         // Caller owns its existing one-actor retained cursor/budget.
         if (s_Running && s_Provider && actor) { s_Provider.Tick(actor); }
     }
+    static bool EventWork()
+    {
+        // Durability must not depend on gesture time/work. Shared deterministic
+        // unit accounting caps new events at 32 per server minute, no clock IO.
+        int nowMs = GetGame().GetTime();
+        if (nowMs < 0) { return false; }
+        int minute = nowMs / 60000;
+        if (s_EventMinute != minute)
+        {
+            s_EventMinute = minute;
+            s_Events.HCReset(32);
+        }
+        return s_Events.HCTake(1);
+    }
     static void Remember(eAIBase actor, PlayerBase player)
     {
         if (!s_Running || !GetGame() || !GetGame().IsServer() || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return; }
         if (actor.GetGroup() == player.GetGroup()) { return; }
         if (!s_Store.ValidKey(actor.GetGroup().GetName()) || !s_Store.ValidKey(player.GetIdentity().GetId())) { return; }
-        // Event callbacks share the configured work ceiling. Overload refuses
-        // this durable event explicitly; it never quarantines a healthy ledger
-        // or removes the existing native self-defence record.
-        if (!HCXEmoteObservation.Work())
+        // Repeated EEHitBy callbacks for an existing receipt are a cheap no-op.
+        // Explicit later Remember calls on the store can refresh retention.
+        if (s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId())) { return; }
+        if (!HCXEmoteObservation.EventWork())
         {
-            HCXEmoteObservation.RefuseControl("betrayal_work_exhausted");
+            HCXEmoteObservation.RefuseControl("betrayal_event_cap");
             return;
         }
-        if (!s_Store.Remember(actor.GetGroup().GetName(), player.GetIdentity().GetId(), HCGroupClock.Utc()) && !s_StoreRefused)
+        if (!s_Store.Remember(actor.GetGroup().GetName(), player.GetIdentity().GetId(), HCGroupClock.Utc()) && !s_Store.Healthy() && !s_StoreRefused)
         {
             s_StoreRefused = true;
             Print("[HC Plan] HC-5 signals=refused betrayal_store=quarantined text=off runtime=PENDING");
@@ -243,6 +261,13 @@ class HCXEmoteObservation
     static bool Surrender(eAIBase actor, PlayerBase player, bool observed)
     {
         if (!HCXEmoteObservation.ControlReady() || !actor || !player || !observed) { return false; }
+        if (HCXDefence.HCHitRecorded(actor, player))
+        {
+            // A new attack also releases a prior surrender latch immediately.
+            // The owner's bounded defence deadline survives raised hands.
+            s_Provider.Release(actor, player);
+            return false;
+        }
         bool surrendered = player.IsSurrendered();
         if (!surrendered) { s_Provider.Release(actor, player); return false; }
         if (!HCStancePolicy.CeaseForSurrender(GetGame().IsServer(), observed, surrendered)) { return false; }
@@ -276,8 +301,10 @@ class HCXEmoteObservation
     }
     static bool Warn(eAIBase actor, PlayerBase player)
     {
-        if (!HCSignalCooldown.Allowed(player) || !HCXEmoteObservation.Work()) { return false; }
-        if (s_Provider.Emote(actor, EmoteConstants.ID_EMOTE_HOLD)) { return HCSignalCooldown.Claim(player); }
+        // HCXWarning.NextWarning owns the per-actor warning interval. Greeting
+        // replies must never suppress this actor or a neighbour's warning.
+        if (!HCXEmoteObservation.Work()) { return false; }
+        if (s_Provider.Emote(actor, EmoteConstants.ID_EMOTE_HOLD)) { return true; }
         HCXEmoteObservation.RefuseControl("emote_failed");
         return false;
     }

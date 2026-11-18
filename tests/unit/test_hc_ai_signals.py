@@ -22,13 +22,54 @@ Ran 1 test; FAILED (failures=1): "exhausted event budget must not write another 
 Required GREEN:
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_signals tests.unit.test_hcx_self_defence tests.unit.test_v2_xai_living tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
 Ran 91 tests; OK. Includes 21 HC-5 tests. Runtime acceptance remains PENDING.
-The shared configured work limit refuses an excess durable betrayal event with
-one diagnostic; it retains the native self-defence record and healthy store.
+Round 2 uses a separate minute event cap; gesture work never rejects betrayal.
+All fixtures below are synthetic; native acceptance remains PENDING.
 Spec/plan/tasks: HC-5/#148/#139 observed gestures and finite betrayal memory;
 review tasks: expiry/eviction, provider lifecycle/escalation parity, legitimate
 self-defence, empty keys and interrupted publication recovery. Runtime PENDING.
+
+Round 2 RED (2026-11-18), before source edits:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_signals -v
+Ran 28 tests; FAILED (failures=19). Actual behavioral RED lines:
+  P2-1 AssertionError: 0 != 1 : hostile-faction self-defence must not write betrayal
+  P2-2 AssertionError: 0.6 != 0 : live hit/kill defence must survive surrender
+  P2-4 AssertionError: 1 != 0 : a warning must not spend betrayal event capacity
+  P2-5 AssertionError: False is not true : transient clock failure must not close signals
+  P2-6 AssertionError: False is not true : first-boot staging file was never committed
+       AssertionError: [] is not true : Open refusal must explain manual recovery: load
+  P3   AssertionError: 2 != 1 : a later betrayal refreshes retention
+P2-3 exact sequence RED after correcting synthetic release-event filtering:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_signals.Signals.test_wave_reply_then_weapon_warning_and_second_actor_escalate_within_30s -v
+Ran 1 test; FAILED (failures=1).
+  AssertionError: 2000 != -1 : reply cooldown must not defer Warn
+Round 2 plan/tasks: relation gates at both hit/kill Remember sites; bounded
+hit/kill defence wins over surrender; actor warnings use their existing interval;
+32 new betrayal events/minute via HCUnitBudget, duplicate Has before budget;
+transient clock refusal stays healthy and logs once/open; discard uncommitted
+first-boot staging; explain every Open refusal; refresh changed AtUtc only.
+Round 2 GREEN:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_ai_signals tests.unit.test_hcx_self_defence tests.unit.test_v2_xai_living tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_hygiene -v
+Ran 98 tests in 24.365s; OK (28 HC-5 tests).
+rg -l 'HCXBetrayalStore|HCXEmoteObservation|HCXStance|HCStancePolicy' tests/unit
+Readers: test_hc_ai_signals.py, test_hcx_self_defence.py, test_v2_xai_living.py.
+python3 -B -m tools.validate.enforce_lint --no-native
+  enforce_lint: pass findings=133 new=0 stale=0 native=no
+Deferred review P2-5 callback feasibility: no fallback implemented. Runtime
+PENDING. In DayZDiag RPT, the exact "Stance warning: gesture; lower weapon to
+de-escalate; runtime=PENDING" line means the synchronous provider serial/gesture
+check returned true. Expect "Stance hostile: raised weapon persisted after 8s
+warning" after continuous LOS and raised weapon. "signals=refused:emote_failed"
+with no warning means no confirmed warning; provider admission alone proves no
+callback. Inspect CreateEmoteCallback: new callback, playing=true, serial
+increments, executed ID=HOLD, before Emote returns. Then repeat with two clients
+on normal PBO/server. If never confirmed, proposed fallback (not implemented):
+start existing per-actor warning.Started at the first eligible observed raised
+weapon warning attempt; request HOLD best-effort, log callback unconfirmed,
+keep the same 8s continuous observation/lowering resets and NextWarning bound.
+No new timer, polling, target discovery or wave success assumption is needed.
 """
 import copy
+import math
 from pathlib import Path
 from types import SimpleNamespace as N
 import re
@@ -75,17 +116,18 @@ class Signals(unittest.TestCase):
         text = path.read_text()
         self.utc = 100
         self.disk = N(image=copy.deepcopy(image), writes=0, blocked=False, fail=False)
+        self.logs = []
         def save(data):
             self.disk.writes += 1
             if self.disk.fail: return False
             self.disk.image = copy.deepcopy(data); return True
         io = N(Blocked=lambda:self.disk.blocked, Exists=lambda:self.disk.image is not None,
                Load=lambda:copy.deepcopy(self.disk.image), Save=save, Recover=lambda:not self.disk.blocked)
-        env = dict(A=A, HCGroupClock=N(Utc=lambda:self.utc), HCXAIBetrayalRow=lambda:N(GroupKey="", UID="", AtUtc=0),
+        env = dict(Print=self.logs.append, A=A, HCGroupClock=N(Utc=lambda:self.utc), HCXAIBetrayalRow=lambda:N(GroupKey="", UID="", AtUtc=0),
                    HCXAIBetrayalData=lambda:N(SchemaVersion=1, LastUtc=0, Rows=A()))
         authored = Authored(text, env)
-        owner = N(m_IO=io, m_Data=None, m_Healthy=False, m_Validated=False, m_MaxRows=128, m_TtlSeconds=172800)
-        for name in ("Open", "Remember", "Has", "Healthy", "Count", "ValidKey", "Prune", "Persist", "Validate", "Configure"):
+        owner = N(m_IO=io, m_Data=None, m_Healthy=False, m_Validated=False, m_MaxRows=128, m_TtlSeconds=172800, m_ClockRefused=False)
+        for name in ("Open", "Remember", "Has", "Healthy", "Count", "ValidKey", "Prune", "Persist", "Validate", "Configure", "RefuseClock"):
             def invoke(*args, n=name):
                 if n in ("Open", "Remember"): self.utc = args[-1]
                 return authored.call(n, owner, *args)
@@ -101,7 +143,10 @@ class Signals(unittest.TestCase):
         self.assertTrue(self.policy()("CeaseForSurrender", True, True, True))
         self.assertTrue(store.Has("synthetic-site-group", "synthetic-player"))
         self.assertTrue(store.Remember("synthetic-site-group", "synthetic-player", 101))
-        self.assertEqual(1, self.disk.writes, "same betrayal must not make a save loop")
+        self.assertEqual(2, self.disk.writes, "a later betrayal refreshes retention")
+        self.assertEqual(101, self.disk.image.Rows[0].AtUtc)
+        self.assertTrue(store.Remember("synthetic-site-group", "synthetic-player", 101))
+        self.assertEqual(2, self.disk.writes, "same timestamp must not make a save loop")
         saved = copy.deepcopy(self.disk.image)
         restarted = self.store(saved)
         self.assertTrue(restarted.Open(200))
@@ -136,7 +181,7 @@ class Signals(unittest.TestCase):
         self.assertFalse(store.Has("g", "p")); self.assertTrue(store.Has("g", "q"))
         self.assertTrue(store.Healthy()); self.assertEqual(2, store.Count())
         self.assertFalse(store.Remember("", "s", 103)); self.assertTrue(store.Healthy())
-        self.assertTrue(store.Remember("g", "r", 103)); self.assertEqual(3, self.disk.writes)
+        self.assertTrue(store.Remember("g", "r", 103)); self.assertEqual(4, self.disk.writes)
         saved = copy.deepcopy(self.disk.image)
         store = self.store(saved); store.m_MaxRows = 1
         self.assertTrue(store.Open(104)); self.assertEqual(1, store.Count())
@@ -159,7 +204,7 @@ class Signals(unittest.TestCase):
         store = self.store(); self.assertTrue(store.Open(100))
         self.assertTrue(store.Remember("g", "p", 100))
         self.assertFalse(store.Remember("g", "q", 99))
-        self.assertFalse(store.Healthy())
+        self.assertTrue(store.Healthy(), "clock rollback refuses only this event")
 
     def test_accepted_hit_is_remembered_before_disconnect_and_rescue_stays_excused(self):
         source = (HCX / "HCXStance.c").read_text()
@@ -208,17 +253,21 @@ class Signals(unittest.TestCase):
         self.assertTrue(path.exists(), "missing authored observed-emote adapter")
         # Static-to-instance variable binding is syntax adaptation only.
         text = re.sub(r"\bs_(\w+)", r"m_\1", path.read_text().split("class HCXEmoteObservation", 1)[1])
+        # Enforce int/int truncates; Python '/' does not. Syntax adaptation only.
+        text = text.replace("nowMs / 60000", "Math.Floor(nowMs / 60000)")
         self.now = 1000; self.server = True; self.gesture = 9; self.serial = 1
         self.store_healthy = True
         self.raised = False; self.grudge = False; self.neutral = True
+        self.defence_recorded = False
         self.surrendered = False; self.provider_ready = True; self.cease_ok = True; self.emote_ok = True
         self.events = []
         self.player = N(GetEmoteManager=lambda:N(HCSignalSerial=lambda:self.serial,
                         HCSignalGesture=lambda:self.gesture),
                         GetIdentity=lambda:N(GetId=lambda:"synthetic-player"),
                         IsSurrendered=lambda:self.surrendered)
-        env = dict(A=A, HCGroupClock=N(Utc=lambda:100), GetGame=lambda:N(IsServer=lambda:self.server, GetTime=lambda:self.now),
+        env = dict(A=A, Math=N(Floor=math.floor), HCGroupClock=N(Utc=lambda:100), GetGame=lambda:N(IsServer=lambda:self.server, GetTime=lambda:self.now),
                    EmoteConstants=N(ID_EMOTE_GREETING=9, ID_EMOTE_HOLD=10),
+                   HCXDefence=N(HCHitRecorded=lambda *a:self.defence_recorded),
                    HCXStance=N(Relation=lambda *a:0 if self.neutral else -1,
                                RaisedWeapon=lambda p:self.raised))
         provider = N(Ready=lambda:self.provider_ready,
@@ -226,12 +275,19 @@ class Signals(unittest.TestCase):
             Release=lambda *a:self.events.append("release"),
             Emote=lambda a,g:self.events.append(g) or self.emote_ok)
         owner = N(m_Provider=provider, m_Store=N(Healthy=lambda:self.store_healthy), m_Running=True,
-                  m_ControlRefused=False)
+                  m_ControlRefused=False, m_StoreRefused=False, m_EventMinute=-1)
         env["Print"] = lambda line:self.events.append(line)
         env["HCXEmoteObservation"] = owner
+        self.observer_defence = env["HCXDefence"]
+        self.observer_clock = env["HCGroupClock"]
         api = Authored(text, env)
-        for name in ("Ready", "ControlReady", "Surrender", "Wave", "Warn", "Remember", "RefuseControl"):
+        for name in ("Ready", "ControlReady", "Surrender", "Wave", "Warn", "Remember", "RefuseControl", "EventWork"):
             setattr(owner, name, lambda *a,n=name:api.call(n, owner, *a))
+        units = N(m_Limit=0, m_Used=0, m_Items=0)
+        unit_api = Authored((ROOT / "mods/HollowCountry/scripts/4_World/Core/HCUnitBudget.c").read_text(), {})
+        for name in ("HCReset", "HCTake"):
+            setattr(units, name, lambda *a,n=name:unit_api.call(n, units, *a))
+        owner.m_Events = units
         owner.Work = lambda:self.server and owner.Ready()  # Explicit synthetic budget slot.
         owner.Grudge = lambda *a:self.grudge
         policy_text = POLICY.read_text(); policy = N()
@@ -249,7 +305,7 @@ class Signals(unittest.TestCase):
         env["HCSignalReceipt"] = lambda:N(Recipient="", At=0)
         return owner
 
-    def test_authored_observer_consumes_wave_once_and_shares_finite_cooldown(self):
+    def test_authored_observer_consumes_wave_once_and_separates_warning_cooldown(self):
         observer = self.observation(); actor = N()
         self.assertEqual(0, observer.Wave(actor, self.player, False, 0))
         self.assertEqual([], self.events)
@@ -264,10 +320,10 @@ class Signals(unittest.TestCase):
         self.grudge = False; self.serial += 1
         consumed = observer.Wave(actor, self.player, True, consumed)
         self.assertEqual([9, 9], self.events)
-        self.assertFalse(observer.Warn(actor, self.player), "wave and warning share cooldown")
+        self.assertTrue(observer.Warn(actor, self.player), "warnings are independent of reply cooldown")
         self.now += 30000
-        self.assertTrue(observer.Warn(actor, self.player)); self.assertEqual([9, 9, 10], self.events)
-        self.assertFalse(observer.Warn(actor, self.player))
+        self.assertTrue(observer.Warn(actor, self.player)); self.assertEqual([9, 9, 10, 10], self.events)
+        self.assertTrue(observer.Warn(N(), self.player), "another actor must also warn")
         self.emote_ok = False; self.now += 30000
         self.assertFalse(observer.Warn(actor, self.player))
         self.assertTrue(any("emote_failed" in str(event) for event in self.events), "failed provider control must refuse explicitly")
@@ -342,9 +398,9 @@ class Signals(unittest.TestCase):
         self.assertTrue(api.call("HCRememberKill", None, N(), N()))
         env["HCXStance"].Relation = lambda *a:-1
         env["HCXDefence"].HCHitRecorded = lambda *a:True
-        self.assertTrue(api.call("HCRememberKill", None, N(), N()))
+        self.assertFalse(api.call("HCRememberKill", None, N(), N()), "a recorded hostile-faction hit is still self-defence")
 
-    def test_warning_progresses_after_success_and_resets_when_observation_is_lost(self):
+    def stance_fixture(self, observer=None):
         # Explicit synthetic current native target, LOS state and native emote.
         # Adapt only map out-parameter binding for the restricted translator.
         text = (HCX / "HCXStance.c").read_text().split("modded class eAIPlayerTargetInformation", 1)[1]
@@ -354,16 +410,22 @@ class Signals(unittest.TestCase):
         text = text.replace("m_HCWarnings.Find(ai, surrenderedWarning)", "(surrenderedWarning != null)")
         text = text.replace("eAITarget current", "Object current").replace("eAIBase priorActor", "Object priorActor")
         self.now = 1000; self.raised = True; self.emote_ok = False
-        player = N(GetIdentity=lambda:True, IsAlive=lambda:True, IsUnconscious=lambda:False, GetPosition=lambda:0)
+        player = self.player if observer else N()
+        player.GetIdentity = lambda:True if not observer else N(GetId=lambda:"synthetic-player")
+        player.IsAlive = lambda:True
+        player.IsUnconscious = lambda:False
+        player.GetPosition = lambda:0
         warning = N(Started=-1, LastSeen=-1, Hostile=False, LastWaveSerial=0, NextWarning=0)
         actor = N(HCXLivingRefused=False, HCXLastGunfire=-1, GetTarget=lambda:N(GetEntity=lambda:player),
-                  GetPosition=lambda:0, RaiseWeapon=lambda *a:None, CanRaiseWeapon=lambda:True)
+                  GetPosition=lambda:0, GetGroup=lambda:"synthetic-group", RaiseWeapon=lambda *a:None, CanRaiseWeapon=lambda:True)
         state = N(m_LOS=True, m_ThreatLevel=0, m_ThreatLevelActive=0, m_AggressionTimeout=0)
         env = dict(null=None, GetEntity=lambda:player, PlayerBase=N(Cast=lambda p:p),
                    GetGame=lambda:N(IsServer=lambda:True, GetTime=lambda:self.now),
                    HCXStance=N(Owns=lambda a:True, Visible=lambda *a:True,
                                Relation=lambda *a:0, RaisedWeapon=lambda p:self.raised),
                    HCXAIQualification=N(ProviderProblem=lambda:""), HCXDefence=N(Hostile=lambda *a:False),
+                   HCXDefencePolicy=N(Threat=lambda base,active:max(base, 0.6) if active else base),
+                   super=N(CalculateThreat=lambda *a:0.1),
                    HCXEmoteObservation=N(Surrender=lambda *a:False, Grudge=lambda *a:False,
                        Wave=lambda a,p,o,c:c, Warn=lambda *a:self.emote_ok),
                    vector=N(Distance=lambda *a:10), Print=lambda *a:None)
@@ -371,8 +433,14 @@ class Signals(unittest.TestCase):
         rules = Authored(POLICY.read_text(), env)
         for name in ("Evaluate", "WarningDue"):
             setattr(policy, name, lambda *a,n=name:rules.call(n, policy, *a))
+        if observer: env["HCXEmoteObservation"] = observer
         api = Authored(text, env); owner = N(m_HCWarnings=N(Get=lambda a:warning))
         threat = lambda:api.call("CalculateThreat", owner, actor, state)
+        return N(threat=threat, warning=warning, actor=actor, player=player, state=state, env=env)
+
+    def test_warning_progresses_after_success_and_resets_when_observation_is_lost(self):
+        fixture = self.stance_fixture()
+        threat, warning, state = fixture.threat, fixture.warning, fixture.state
         self.assertEqual(0.15, threat()); self.assertEqual(-1, warning.Started)
         self.emote_ok = True
         self.assertEqual(0.15, threat()); self.assertEqual(1000, warning.Started)
@@ -383,6 +451,54 @@ class Signals(unittest.TestCase):
         self.assertEqual(0, threat()); self.assertEqual(-1, warning.Started)
         state.m_LOS = True; self.raised = False
         self.assertEqual(0.1, threat()); self.assertFalse(warning.Hostile)
+
+    def test_wave_reply_then_weapon_warning_and_second_actor_escalate_within_30s(self):
+        observer = self.observation()
+        first = self.stance_fixture(observer)
+        second = self.stance_fixture(observer)
+        self.raised = False; self.emote_ok = True
+        self.assertEqual(0.1, first.threat())
+        self.assertEqual([9], [e for e in self.events if isinstance(e, int)], "AI replies to the observed wave")
+        self.now = 2000; self.raised = True
+        self.assertEqual(0.15, first.threat())
+        self.assertEqual(2000, first.warning.Started, "reply cooldown must not defer Warn")
+        self.assertEqual(0.15, second.threat())
+        self.assertEqual(2000, second.warning.Started, "adjacent actor must warn independently")
+        self.assertEqual([9, 10, 10], [e for e in self.events if isinstance(e, int)])
+        for self.now in (4000, 6000, 8000):
+            self.assertEqual(0.2, first.threat()); self.assertEqual(0.2, second.threat())
+        self.now = 10000
+        self.assertEqual(0.6, first.threat()); self.assertEqual(0.6, second.threat())
+
+    def test_kill_then_observed_surrender_preserves_defence_until_expiry(self):
+        observer = self.observation(); fixture = self.stance_fixture(observer)
+        record = N(Kind=2, Until=301000)  # Synthetic native kill record, bounded 300s.
+        source = (HCX / "HCXStance.c").read_text()
+        env = dict(fixture.env, s_Running=True)
+        defence = env["HCXDefence"]
+        defence.Find = lambda *a:record
+        env["HCXDefencePolicy"] = N(KIND_HIT=1, KIND_KILL=2)
+        rules = Authored(source.replace("HCXGrudge grudge", "Object grudge"), env)
+        defence.HCHitRecorded = lambda *a:rules.call("HCHitRecorded", None, *a)
+        defence.Hostile = lambda *a:defence.HCHitRecorded(*a[:2])
+        self.observer_defence.HCHitRecorded = defence.HCHitRecorded
+        # Simulate a member's native kill callback creating the record via super.
+        record.Until = 0
+        hooks = source.split("modded class eAIBase", 1)[1].split("modded class eAIPlayerTargetInformation", 1)[0]
+        hook_env = dict(fixture.env, HCXAISiteDirector=N(Active=lambda:None),
+            EntityAI=N(Cast=lambda a:a), super=N(EEKilled=lambda *a:setattr(record, "Until", 301000)))
+        hook_env["HCXDefence"].AttackerOf = lambda *a:fixture.player
+        fixture.env["HCXStance"].HCRememberKill = lambda *a:False  # Storage is orthogonal to finite defence.
+        Authored(hooks, hook_env).call("EEKilled", fixture.actor, fixture.player)
+        self.surrendered = True
+        for kind in (1, 2):
+            record.Kind = kind
+            for self.now in (1000, 300999):
+                self.assertEqual(0.6, fixture.threat(), "live hit/kill defence must survive surrender")
+                self.assertNotIn("cease", self.events)
+        self.now = 301000
+        self.assertEqual(0, fixture.threat(), "surrender may cease fire after finite defence expires")
+        self.assertIn("cease", self.events)
 
     def test_recovery_only_removes_guard_after_validating_committed_path(self):
         good = N(SchemaVersion=1, LastUtc=100, Rows=A([N(GroupKey="g", UID="p", AtUtc=100)]))
@@ -399,7 +515,9 @@ class Signals(unittest.TestCase):
         env = dict(FileExist=lambda p:p in files,
                    DeleteFile=lambda p:deleted.append(p) or files.remove(p) or True)
         api = Authored(io, dict(env, PATH="path", PENDING="pending"))
-        self.assertTrue(api.call("Recover", N()))
+        io_owner = N()
+        io_owner.Blocked = lambda:api.call("Blocked", io_owner)
+        self.assertTrue(api.call("Recover", io_owner))
         self.assertEqual(["pending"], deleted); self.assertIn("path", files)
 
     def test_idle_wave_checks_cannot_spend_the_warning_work_budget(self):
@@ -445,18 +563,113 @@ class Signals(unittest.TestCase):
             self.assertFalse(store.Configure(rows, ttl))
         self.assertEqual((16, 3600), (store.m_MaxRows, store.m_TtlSeconds))
 
-    def test_betrayal_event_work_is_bounded_without_quarantining_the_store(self):
-        observer = self.observation(); writes = []
-        group = N(GetName=lambda:"synthetic-group")
-        actor = N(GetGroup=lambda:group)
+    def event_fixture(self):
+        observer = self.observation()
+        store = self.store(); self.assertTrue(store.Open(100))
+        observer.m_Store = store
+        actor = N(GetGroup=lambda:N(GetName=lambda:"synthetic-group"))
         self.player.GetGroup = lambda:None
-        observer.m_Store.ValidKey = lambda key:bool(key) and len(key) <= 128
-        observer.m_Store.Remember = lambda *a:writes.append(a) or True
-        observer.Work = lambda:False
+        return observer, store, actor
+
+    def test_warn_then_kill_same_second_records_even_when_gesture_work_is_spent(self):
+        observer, store, actor = self.event_fixture()
+        work = [True]
+        observer.Work = lambda:work.pop() if work else False
+        self.assertTrue(observer.Warn(actor, self.player))
         observer.Remember(actor, self.player)
-        self.assertEqual([], writes, "exhausted event budget must not write another snapshot")
-        self.assertTrue(observer.m_Store.Healthy())
-        self.assertTrue(any("betrayal_work_exhausted" in str(e) for e in self.events))
+        self.assertEqual(1, store.Count(), "a warning must not spend betrayal event capacity")
+        self.assertEqual(1, self.disk.writes)
+        # An existing row must not consume a minute slot or touch disk.
+        observer.EventWork = lambda:self.fail("duplicate EEHitBy must do no event work")
+        observer.Remember(actor, self.player)
+        self.assertEqual(1, self.disk.writes)
+
+    def test_betrayal_minute_cap_is_independent_bounded_and_resets(self):
+        observer, store, actor = self.event_fixture()
+        observer.Work = lambda:self.fail("betrayal must never use gesture work")
+        uid = ["p0"]
+        self.player.GetIdentity = lambda:N(GetId=lambda:uid[0])
+        for index in range(32):
+            uid[0] = "p" + str(index)
+            observer.Remember(actor, self.player)
+        self.assertEqual(32, self.disk.writes)
+        uid[0] = "over-cap"
+        self.now = 59999
+        observer.Remember(actor, self.player)
+        self.assertEqual(32, self.disk.writes)
+        self.assertTrue(store.Healthy())
+        self.assertTrue(any("betrayal_event_cap" in str(e) for e in self.events))
+        self.now = 60000
+        observer.Remember(actor, self.player)
+        self.assertEqual(33, self.disk.writes)
+
+    def test_transient_clock_failure_refuses_only_event_and_keeps_ready(self):
+        observer, store, actor = self.event_fixture()
+        self.assertTrue(observer.Ready())
+        self.observer_clock.Utc = lambda:-1
+        for _ in range(3):
+            observer.Remember(actor, self.player)
+            self.assertEqual(0, store.Count(), "bad clock must refuse this event")
+            self.assertTrue(observer.Ready(), "transient clock failure must not close signals")
+        self.assertEqual(1, len(self.logs), "clock refusal log must be bounded")
+        self.assertIn("clock", self.logs[0].lower())
+        self.assertFalse(any("quarantined" in str(event) for event in self.events))
+        self.observer_clock.Utc = lambda:101
+        observer.Remember(actor, self.player)
+        self.assertTrue(observer.Ready())
+        self.assertEqual(1, self.disk.writes)
+
+    def test_first_boot_discards_uncommitted_pending_and_opens(self):
+        source = (HCX / "HCXBetrayalStore.c").read_text()
+        io_text = source.split("class HCXBetrayalIO", 1)[1].split("class HCXBetrayalStore", 1)[0]
+        files = {"pending"}; deleted = []
+        env = dict(PATH="path", PENDING="pending", FileExist=lambda p:p in files,
+                   DeleteFile=lambda p:deleted.append(p) or files.remove(p) or True)
+        api = Authored(io_text, env)
+        store = self.store()
+        for name in ("Exists", "Blocked", "Recover"):
+            setattr(store.m_IO, name, lambda n=name:api.call(n, store.m_IO))
+        self.assertTrue(store.Open(100), "first-boot staging file was never committed")
+        self.assertEqual(["pending"], deleted)
+        self.assertTrue(store.Healthy()); self.assertEqual(0, self.disk.writes)
+
+    def test_every_open_refusal_names_a_manual_step(self):
+        good = N(SchemaVersion=1, LastUtc=100, Rows=A([N(GroupKey="g", UID="p", AtUtc=100)]))
+        for case in ("clock", "io", "backup", "load", "validate", "recover", "persist"):
+            with self.subTest(case=case):
+                store = self.store(good if case in ("load", "validate", "recover", "persist") else None)
+                now = 101
+                if case == "clock": now = -1
+                if case == "io": store.m_IO = None
+                if case == "backup": self.disk.blocked = True
+                if case == "load": store.m_IO.Load = lambda:None
+                if case == "validate": self.disk.image.SchemaVersion = 9
+                if case == "recover": store.m_IO.Recover = lambda:False
+                if case == "persist": store.m_TtlSeconds = 1; self.disk.fail = True
+                self.assertFalse(store.Open(now))
+                self.assertTrue(self.logs, "Open refusal must explain manual recovery: " + case)
+                self.assertTrue(any(word in self.logs[-1].lower() for word in ("check", "restore", "restart")), self.logs)
+
+    def test_hit_and_kill_hooks_only_write_for_non_hostile_relations(self):
+        source = (HCX / "HCXStance.c").read_text()
+        hooks = source.split("modded class eAIBase", 1)[1].split("modded class eAIPlayerTargetInformation", 1)[0]
+        for hook in ("EEHitBy", "EEKilled"):
+            for relation in (-1, 0, 1):
+                with self.subTest(hook=hook, relation=relation):
+                    store = self.store(); self.assertTrue(store.Open(100))
+                    actor, player = N(), N()
+                    stance = N(Owns=lambda a:True, Relation=lambda *a:relation)
+                    env = dict(GetGame=lambda:N(IsServer=lambda:True),
+                        HCXStance=stance, HCXDefence=N(AttackerOf=lambda a:player, HCHitRecorded=lambda *a:True),
+                        HCXEmoteObservation=N(Remember=lambda *a:store.Remember("g", "p", 100)),
+                        HCXAISiteDirector=N(Active=lambda:None), EntityAI=N(Cast=lambda a:a),
+                        super=N(EEHitBy=lambda *a:None, EEKilled=lambda *a:None))
+                    rule = Authored(source, env)
+                    stance.HCRememberKill = lambda *a:rule.call("HCRememberKill", None, *a)
+                    api = Authored(hooks, env)
+                    args = (None, 0, player, 0, "", "", 0, 0) if hook == "EEHitBy" else (player,)
+                    api.call(hook, actor, *args)
+                    self.assertEqual(int(relation >= 0), store.Count(), "hostile-faction self-defence must not write betrayal")
 
     def test_native_identity_and_provider_refusal_wiring(self):
         path = HCX / "HCXEmoteObservation.c"

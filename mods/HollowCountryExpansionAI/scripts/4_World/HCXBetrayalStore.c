@@ -25,12 +25,12 @@ class HCXBetrayalIO
 
     bool Exists() { return FileExist(PATH); }
     bool Blocked() { return FileExist(PENDING) || (!FileExist(PATH) && FileExist(PATH + ".bak")); }
-    // Called only after the store validates PATH (including clock and row bounds).
-    // PATH is the committed snapshot; a leftover staging file is never replayed.
+    // Existing PATH must be validated first. Without PATH, pending was never
+    // committed and may be discarded. A backup without PATH still blocks open.
     bool Recover()
     {
-        if (!FileExist(PENDING)) { return !Blocked(); }
-        return FileExist(PATH) && DeleteFile(PENDING) && !FileExist(PENDING);
+        if (!FileExist(PENDING)) { return !this.Blocked(); }
+        return DeleteFile(PENDING) && !this.Blocked();
     }
     HCXAIBetrayalData Load()
     {
@@ -65,6 +65,7 @@ class HCXBetrayalStore
     protected ref HCXAIBetrayalData m_Data;
     protected bool m_Healthy;
     protected bool m_Validated;
+    protected bool m_ClockRefused;
     // Limits come from the existing expansion-ai-sites.json policy. Hard limits
     // keep loading, validation and synchronous event persistence bounded.
     protected int m_MaxRows = 128;
@@ -130,22 +131,45 @@ class HCXBetrayalStore
     bool Persist(int nowUtc)
     {
         m_Data.LastUtc = nowUtc;
-        if (!m_IO.Save(m_Data)) { m_Healthy = false; return false; }
+        if (!m_IO.Save(m_Data))
+        {
+            m_Healthy = false;
+            Print("[HC Plan] HC-5 betrayal IO refused: back up betrayal*.json; check profile permissions/storage; validate/restore betrayal.json before restarting; runtime=PENDING");
+            return false;
+        }
         return true;
     }
     bool Open(int nowUtc)
     {
         m_Healthy = false;
         m_Validated = false;
+        m_ClockRefused = false;
         m_Data = null;
-        if (nowUtc < 1 || !m_IO) { return false; }
+        if (nowUtc < 1)
+        {
+            Print("[HC Plan] HC-5 betrayal open refused: check server UTC clock then restart; runtime=PENDING");
+            return false;
+        }
+        if (!m_IO)
+        {
+            Print("[HC Plan] HC-5 betrayal open refused: restart server to initialize betrayal IO; runtime=PENDING");
+            return false;
+        }
         if (m_IO.Exists()) { m_Data = m_IO.Load(); }
         else
         {
-            if (m_IO.Blocked()) { return false; }
+            if (!m_IO.Recover() || m_IO.Blocked())
+            {
+                Print("[HC Plan] HC-5 betrayal first open refused: back up betrayal*.json; check profile permissions; validate/restore betrayal.json from backup then remove betrayal.pending.json manually; runtime=PENDING");
+                return false;
+            }
             m_Data = new HCXAIBetrayalData();
         }
-        if (!this.Validate(nowUtc)) { return false; }
+        if (!this.Validate(nowUtc))
+        {
+            Print("[HC Plan] HC-5 betrayal load/validation refused: back up betrayal*.json; check server UTC clock; validate/restore betrayal.json schema, rows and timestamps before restarting; runtime=PENDING");
+            return false;
+        }
         if (!m_IO.Recover())
         {
             Print("[HC Plan] HC-5 betrayal recovery refused: back up betrayal*.json; validate/restore betrayal.json then remove betrayal.pending.json manually; runtime=PENDING");
@@ -172,12 +196,13 @@ class HCXBetrayalStore
         if (!m_Healthy) { return false; }
         // Invalid/unconfigured group names skip this event, never poison signals.
         if (!this.ValidKey(groupKey) || !this.ValidKey(uid)) { return false; }
-        if (nowUtc < 1 || nowUtc < m_Data.LastUtc) { m_Healthy = false; return false; }
+        if (nowUtc < 1 || nowUtc < m_Data.LastUtc) { this.RefuseClock(); return false; }
         bool changed = this.Prune(nowUtc, m_MaxRows);
         foreach (HCXAIBetrayalRow row : m_Data.Rows)
         {
             if (row.GroupKey == groupKey && row.UID == uid)
             {
+                if (row.AtUtc != nowUtc) { row.AtUtc = nowUtc; changed = true; }
                 if (changed) { return this.Persist(nowUtc); }
                 return true;
             }
@@ -189,5 +214,13 @@ class HCXBetrayalStore
         receipt.AtUtc = nowUtc;
         m_Data.Rows.Insert(receipt);
         return this.Persist(nowUtc);
+    }
+    void RefuseClock()
+    {
+        // One diagnostic per open, even if every subsequent callback sees -1.
+        // Failed clock reads never make a healthy store permanently unavailable.
+        if (m_ClockRefused) { return; }
+        m_ClockRefused = true;
+        Print("[HC Plan] HC-5 betrayal event refused: check server UTC clock (unavailable/backward); store remains ready; runtime=PENDING");
     }
 }

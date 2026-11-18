@@ -38,12 +38,12 @@ class HCXStance
         }
         return HCXFactions.Relation(HCXFactions.Id(ai.GetGroup().GetFaction()), theirs);
     }
-    // A previously hostile player may kill in legitimate self-defence. Preserve
-    // betrayal only for recorded aggression or a previously non-hostile relation.
+    // Hostile factions may be fought in legitimate self-defence even when a
+    // hit/kill defence record exists. Betrayal requires a non-hostile relation.
     static bool HCRememberKill(eAIBase actor, PlayerBase player)
     {
         if (!actor || !player) { return false; }
-        return HCXDefence.HCHitRecorded(actor, player) || HCXStance.Relation(actor, player) >= 0;
+        return HCXStance.Relation(actor, player) >= 0;
     }
     static bool RaisedWeapon(PlayerBase player)
     {
@@ -93,7 +93,7 @@ modded class eAIBase
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
         if (!GetGame() || !GetGame().IsServer() || !HCXStance.Owns(this)) { return; }
         PlayerBase attacker = HCXDefence.AttackerOf(source);
-        if (HCXDefence.HCHitRecorded(this, attacker)) { HCXEmoteObservation.Remember(this, attacker); }
+        if (HCXDefence.HCHitRecorded(this, attacker) && HCXStance.Relation(this, attacker) >= 0) { HCXEmoteObservation.Remember(this, attacker); }
     }
     override void EEKilled(Object killer)
     {
@@ -101,7 +101,8 @@ modded class eAIBase
         {
             HCXAISiteDirector raidDirector = HCXAISiteDirector.Active();
             if (raidDirector) { raidDirector.RecordDeath(GetGroup()); }
-            // Read prior aggression BEFORE super.OnKill can create a new record.
+            // Durable betrayal depends on faction relation, not the defence
+            // record super.OnKill creates for the bounded survivor response.
             PlayerBase attacker = HCXDefence.AttackerOf(EntityAI.Cast(killer));
             if (HCXStance.Owns(this) && HCXStance.HCRememberKill(this, attacker)) { HCXEmoteObservation.Remember(this, attacker); }
         }
@@ -129,7 +130,8 @@ modded class eAIPlayerTargetInformation
         if (!HCXStance.Owns(ai) || !player || !player.GetIdentity()) { return super.CalculateThreat(ai, state); }
         if (!GetGame() || !GetGame().IsServer()) { return super.CalculateThreat(ai, state); }
         // Hit/kill hooks persist accepted aggression before this evaluation.
-        // Keep the native rescue/near-miss record when hands go up.
+        // Surrender refuses cease-fire while a live hit/kill record exists;
+        // native perception still gates whether defence can raise threat.
         bool defenceHostile = !ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXDefence.Hostile(ai, player, state);
         bool observed = state && state.m_LOS && player.IsAlive() && !player.IsUnconscious() && HCXStance.Visible(ai, player);
         if (!ai.HCXLivingRefused && HCXAIQualification.ProviderProblem() == "" && HCXEmoteObservation.Surrender(ai, player, observed))
