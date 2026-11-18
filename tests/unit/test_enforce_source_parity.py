@@ -8,6 +8,18 @@ AttributeError for missing Source.methods and syntax.exponent_literals. Separate
 regressions then failed with [] for a bodyless override and {} for a multiline
 native prototype. All passed after the additive shared-model helpers were added.
 GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_source_parity -v
+
+Round 2 RED (2026-11-18):
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_source_parity.AttributedMethodParity -v
+Ran 5 tests; FAILED (failures=13): duplicate locals [], native prototypes {},
+override findings [], and two attributed method bodies missing from the census.
+Round 2 GREEN:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_script_syntax tests.unit.test_enforce_source_parity -v
+Ran 30 tests; OK.
+python3 -B -m tools.validate.enforce_lint --no-native
+enforce_lint: pass findings=144 new=0 stale=0 native=no
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
+Ran 5872 tests; OK (skipped=1, expected failures=3).
 """
 from pathlib import Path
 import tempfile
@@ -244,6 +256,83 @@ class SharedModelMigration(unittest.TestCase):
             path.write_text('float bound = 3.402823e38;\nstring safe = "3e38"; // 2e30\n', encoding='utf-8')
             with patch.object(syntax, 'ROOT', root):
                 self.assertEqual(['sample.c:1'], syntax.exponent_literals([path]))
+
+
+# Synthetic attribute syntax exercises the source model, not engine acceptance.
+ATTRIBUTES = (
+    '[Obsolete("x")]',
+    '[Obsolete("use F(x)) instead")]',
+    '[Attr(Nested(Value(1)), [Other(2)])]',
+    '[Obsolete("brackets ] [ and escaped \\\" quote )")][Other(1)]',
+)
+
+
+class AttributedMethodParity(unittest.TestCase):
+    def test_duplicate_locals_survive_leading_attributes(self):
+        for attribute in ATTRIBUTES:
+            with self.subTest(attribute=attribute):
+                text = f'class A {{ {attribute} void F(){{ int a; int a; }} }}'
+                self.assertEqual(['a'], locals_check.duplicate_locals(text))
+
+    def test_native_prototypes_survive_leading_attributes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / 'sample.c'
+            for attribute in ATTRIBUTES:
+                with self.subTest(attribute=attribute):
+                    path.write_text(f'class A {{\n{attribute}\nvoid F(int value) {{}}\n'
+                                    f'{attribute}\nproto void G(int other)\n;\n}}', encoding='utf-8')
+                    self.assertEqual({'F': {('value',)}, 'G': {('other',)}},
+                                     syntax.native_prototypes(root))
+
+    def test_mismatched_overrides_survive_leading_attributes(self):
+        for attribute in ATTRIBUTES:
+            with self.subTest(attribute=attribute), patch.object(syntax, 'ROOT', Path('.')):
+                source = es.Source(Path('sample.c'), f'class A {{\n{attribute}\n'
+                                   f'override void F(int wrong) {{}}\n{attribute}\n'
+                                   'override void G(int wrong);\n}')
+                self.assertEqual(["sample.c:3: F('wrong',) vs [('value',)]",
+                                  "sample.c:5: G('wrong',) vs [('other',)]"],
+                                 syntax.mismatched_overrides([source],
+                                                             {'F': {('value',)}, 'G': {('other',)}}))
+
+    def test_every_fixture_method_body_is_registered_with_its_original_offset(self):
+        # This fixture has only class and method braces; no control/initializer blocks.
+        source = es.Source(Path('sample.c'),
+                           '[Obsolete("free )")] void Free(int value) {}\n'
+                           'class A {\n A() {}\n ~A() {}\n'
+                           ' [Obsolete("old ] )")][Attr(Nested(1))] void F() {}\n'
+                           ' [Obsolete("declaration")] proto void G(int value);\n}')
+        body_braces = {i for i, ch in enumerate(source.code) if ch == '{'}
+        body_braces -= {c.body_start for c in source.classes}
+        self.assertEqual(body_braces, {m.body_start for m in source.methods})
+        self.assertEqual(['Free', 'A', '~A', 'F'], [m.name for m in source.methods])
+        self.assertEqual(['Free', 'A', '~A', 'F', 'G'], [m.name for m in source.signatures])
+        for method in source.signatures:
+            self.assertTrue(source.text[method.offset:].startswith(method.name))
+            self.assertEqual(')', source.text[method.end - 1])
+
+    def test_destructor_keys_and_dropped_zero_arg_calls_cannot_mask_parameter_mismatches(self):
+        """Source keeps ~A and omits call expressions the old regex counted.
+
+        These differences are harmless to the prototype consumer: destructors
+        cannot be overridden, and zero-argument candidates always compare as
+        the same empty tuple, so neither can reveal a parameter-name mismatch.
+        Actual zero-argument declarations remain available in Source.
+        """
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / 'sample.c'
+            path.write_text('class A { A() {} ~A() {} void Zero() {} }\n'
+                            'void Caller() {\n ZeroOnlyCall()\n;\n}\n', encoding='utf-8')
+            prototypes = syntax.native_prototypes(root)
+            self.assertEqual({'A': {()}, '~A': {()}, 'Zero': {()}, 'Caller': {()}}, prototypes)
+            override = es.Source(root / 'override.c',
+                                 'class B { override void Zero() {} override void ZeroOnlyCall() {} }')
+            with patch.object(syntax, 'ROOT', root):
+                self.assertEqual([], syntax.mismatched_overrides([override], prototypes))
+                self.assertEqual([], syntax.mismatched_overrides([override],
+                                                                {'Zero': {()}, 'ZeroOnlyCall': {()}}))
 
 
 if __name__ == '__main__':
