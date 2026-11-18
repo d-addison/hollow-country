@@ -6,6 +6,7 @@
     "SchemaVersion": 1,
     "Enabled": true,
     "ContinuousExertionScale": 0.25,
-    "RecoveryScale": 2.5
+    "RecoveryScale": 2.5,
+    "WeightPenaltyScale": 0.5
   }
 }

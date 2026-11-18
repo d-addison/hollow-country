@@ -9,6 +9,7 @@ class HCStaminaIntegration
     static bool Enabled() { return HCStaminaConfiguration.Enabled(); }
     static float ExertionScale() { return HCStaminaConfiguration.ExertionScale(); }
     static float RecoveryScale() { return HCStaminaConfiguration.RecoveryScale(); }
+    static float WeightPenaltyScale() { return HCStaminaConfiguration.WeightPenaltyScale(); }
 }
 
 modded class StaminaHandler
@@ -20,7 +21,8 @@ modded class StaminaHandler
             super.RecalculateStaminaCap();
             return;
         }
-        float capacity = HCStaminaPolicy.CapacityUnits(m_PlayerLoad, CfgGameplayHandler.GetStaminaMax(), CfgGameplayHandler.GetStaminaMinCap(), CfgGameplayHandler.GetStaminaWeightLimitThreshold(), CfgGameplayHandler.GetStaminaKgToStaminaPercentPenalty());
+        float loss = CfgGameplayHandler.GetStaminaKgToStaminaPercentPenalty() * HCStaminaIntegration.WeightPenaltyScale();
+        float capacity = HCStaminaPolicy.CapacityUnits(m_PlayerLoad, CfgGameplayHandler.GetStaminaMax(), CfgGameplayHandler.GetStaminaMinCap(), CfgGameplayHandler.GetStaminaWeightLimitThreshold(), loss);
         if (capacity < 0)
         {
             super.RecalculateStaminaCap();
