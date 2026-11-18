@@ -5,7 +5,7 @@
   "Settings": {
     "SchemaVersion": 1,
     "Enabled": true,
-    "ContinuousExertionScale": 0.5,
-    "RecoveryScale": 1.25
+    "ContinuousExertionScale": 0.25,
+    "RecoveryScale": 2.5
   }
 }

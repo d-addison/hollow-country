@@ -128,8 +128,13 @@ class StaminaIntegrationTests(unittest.TestCase):
 
     def test_settings_default_on_and_reject_invalid_scales(self):
         self.assertIn("bool Enabled = true;", SETTINGS.read_text())
-        self.assertIn("float ContinuousExertionScale = 0.5;", SETTINGS.read_text())
-        self.assertIn("float RecoveryScale = 1.25;", SETTINGS.read_text())
+        self.assertIn("float ContinuousExertionScale = 0.25;", SETTINGS.read_text())
+        self.assertIn("float RecoveryScale = 2.5;", SETTINGS.read_text())
+        conf = (SETTINGS.parent / "HCStaminaConfiguration.c").read_text()
+        self.assertIn("profile.Settings.ContinuousExertionScale = 0.25;", conf)
+        self.assertIn("profile.Settings.RecoveryScale = 2.5;", conf)
+        self.assertIn("Stamina profile upgraded from previous default", conf)
+        self.assertIn("[HollowCountry] Stamina client receipt", conf)
         for scale in (0., 5.01, math.nan, math.inf, -math.inf):
             fields = dict(SchemaVersion=1, ContinuousExertionScale=scale, RecoveryScale=1.)
             self.assertFalse(execute_flat(str(SETTINGS), "Validate", "", fields)())

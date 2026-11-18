@@ -3,8 +3,8 @@ class HCStaminaSettings
 {
     int SchemaVersion = 1;
     bool Enabled = true;
-    float ContinuousExertionScale = 0.5;
-    float RecoveryScale = 1.25;
+    float ContinuousExertionScale = 0.25;
+    float RecoveryScale = 2.5;
 
     bool Validate()
     {

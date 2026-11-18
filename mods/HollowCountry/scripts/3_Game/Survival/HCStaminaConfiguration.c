@@ -80,8 +80,8 @@ class HCStaminaConfiguration
         profile.Experimental = true;
         profile.Settings = new HCStaminaSettings;
         profile.Settings.Enabled = true;
-        profile.Settings.ContinuousExertionScale = 0.5;
-        profile.Settings.RecoveryScale = 1.25;
+        profile.Settings.ContinuousExertionScale = 0.25;
+        profile.Settings.RecoveryScale = 2.5;
         return profile;
     }
 
@@ -103,7 +103,7 @@ class HCStaminaConfiguration
             Print("[HollowCountry] Stamina blocked: cannot save default profile: " + error);
             return false;
         }
-        Print("[HollowCountry] Created enabled stamina profile: 50% continuous drain, 125% recovery; native qualification pending");
+        Print("[HollowCountry] Created enabled stamina profile: 25% continuous drain, 250% recovery; native qualification pending");
         return true;
     }
 
@@ -188,6 +188,23 @@ class HCStaminaConfiguration
             Print("[HollowCountry] Stamina blocked: invalid profile; file preserved: " + error);
             return false;
         }
+        // Owner decision 2026-11-18: stamina doubled again. A profile still holding
+        // the previous shipped default (0.5 drain / 1.25 recovery) is upgraded once;
+        // any other operator value is preserved.
+        if (profile.Profile == "custom" && profile.Settings.ContinuousExertionScale == 0.5 && profile.Settings.RecoveryScale == 1.25)
+        {
+            profile.Settings.ContinuousExertionScale = 0.25;
+            profile.Settings.RecoveryScale = 2.5;
+            string path = "$profile:HollowCountry/stamina.json";
+            if (!JsonFileLoader<HCStaminaProfile>.SaveFile(path, profile, error))
+            {
+                Print("[HollowCountry] Stamina profile upgrade not saved; using new default this session: " + error);
+            }
+            else
+            {
+                Print("[HollowCountry] Stamina profile upgraded from previous default: 25% continuous drain, 250% recovery");
+            }
+        }
         CfgGameplayJson data = CfgGameplayHandler.m_Data;
         if (!data || !data.PlayerData || !data.PlayerData.StaminaData)
         {
@@ -233,7 +250,12 @@ class HCStaminaConfiguration
         settings.Enabled = item.HCEnabled;
         settings.ContinuousExertionScale = item.HCContinuousExertionScale;
         settings.RecoveryScale = item.HCRecoveryScale;
-        return Stage(settings, item.HCExperimental);
+        bool staged = Stage(settings, item.HCExperimental);
+        string stagedText = "0";
+        if (staged)
+            stagedText = "1";
+        Print("[HollowCountry] Stamina client receipt staged=" + stagedText + " (server profile values; 1 = HC stamina scaling active on this client)");
+        return staged;
     }
 
     static void SessionEvent(EventType eventTypeId, bool server)

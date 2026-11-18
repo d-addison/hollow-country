@@ -85,13 +85,29 @@ class ConfigurationTests(unittest.TestCase):
         self.call('ServerLoaded')
         self.assertEqual(['$profile:HollowCountry/stamina.json'],self.writes)
         self.assertTrue(self.call('Enabled'))
-        self.assertEqual(.5,self.call('ExertionScale'))
-        self.assertEqual(1.25,self.call('RecoveryScale'))
+        self.assertEqual(.25,self.call('ExertionScale'))
+        self.assertEqual(2.5,self.call('RecoveryScale'))
         wire=self.cfg.m_Data.PlayerData.StaminaData
-        self.assertEqual((1,True,True,.5,1.25),(wire.HCSchemaVersion,wire.HCEnabled,
+        self.assertEqual((1,True,True,.25,2.5),(wire.HCSchemaVersion,wire.HCEnabled,
             wire.HCExperimental,wire.HCContinuousExertionScale,wire.HCRecoveryScale))
         self.assertFalse(self.call('Qualified'))
         self.assertFalse(self.call('LoadServer'))
+
+    def test_previous_shipped_default_is_upgraded_once_and_custom_values_kept(self):
+        import json
+        old=json.dumps(dict(SchemaVersion=1,Profile='custom',Experimental=True,
+            Settings=dict(SchemaVersion=1,Enabled=True,ContinuousExertionScale=.5,RecoveryScale=1.25)))
+        self.profile_io(old)
+        self.cfg.m_Data=self.wire(HCSchemaVersion=0,HCEnabled=False,HCExperimental=False)
+        self.call('ServerLoaded')
+        self.assertEqual(['$profile:HollowCountry/stamina.json'],self.writes)
+        self.assertEqual((.25,2.5),(self.call('ExertionScale'),self.call('RecoveryScale')))
+        kept=json.dumps(dict(SchemaVersion=1,Profile='custom',Experimental=True,
+            Settings=dict(SchemaVersion=1,Enabled=True,ContinuousExertionScale=.7,RecoveryScale=1.25)))
+        self.profile_io(kept)
+        self.call('ServerLoaded')
+        self.assertEqual([],self.writes)
+        self.assertEqual(.7,self.call('ExertionScale'))
 
     def test_operator_template_matches_actual_default_profile(self):
         import json
