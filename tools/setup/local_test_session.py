@@ -187,6 +187,18 @@ def existing_dir(path, what, repo=ROOT):
     return path
 
 
+def redact_home(text):
+    """Printed refusals name the home folder as ~ so no local account path leaves the machine in a log."""
+    text = str(text)
+    home = str(Path.home())
+    if len(home) > 1:
+        text = text.replace(home + os.sep, '~' + os.sep)
+        if text.endswith(home):
+            text = text[:-len(home)] + '~'
+        text = text.replace(home + "'", "~'").replace(home + '"', '~"')
+    return text
+
+
 def regular(path, what, links=1):
     """A plain file with exactly `links` links (one by default): symlinks, stray hard links and special files are refused."""
     path = no_links(path, what)
@@ -2269,7 +2281,7 @@ def main(argv=None, repo=ROOT, out=None):
         print(render_plan(plan, args, commands, applied=args.command == 'apply'), file=out)
         return 0
     except (Refused, ValueError, OSError, KeyError, TypeError) as error:
-        print('refused: %s' % error, file=sys.stderr)
+        print('refused: %s' % redact_home(error), file=sys.stderr)
         if args.command == 'apply':
             print('Partial work is recorded in the session receipt; run `rollback --server-root` to undo it.',
                   file=sys.stderr)

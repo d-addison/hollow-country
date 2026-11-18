@@ -17,6 +17,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+import unittest.mock
 
 from tools.setup import friend_bundle as fb
 
@@ -320,3 +321,37 @@ class FriendBundleTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class HomePathRedactionTests(unittest.TestCase):
+    """Review P3 (#113): an OSError names the failing path; the printed refusal must not show the home folder."""
+
+    def home_error(self):
+        return OSError(2, 'No such file or directory', str(Path.home() / 'private' / 'mission.xml'))
+
+    def test_bundle_refusal_prints_the_home_folder_as_tilde(self):
+        err = io.StringIO()
+        with unittest.mock.patch.object(fb, 'build', side_effect=self.home_error()), \
+                contextlib.redirect_stderr(err):
+            code = fb.main(['build', '--mission', 'm', '--profiles', 'p', '--mod', 'x', '--server-cfg', 's',
+                            '--out', 'o'])
+        self.assertEqual(code, 2)
+        self.assertIn('~/private/mission.xml', err.getvalue())
+        self.assertNotIn(str(Path.home()) + os.sep, err.getvalue())
+
+    def test_invalid_coverage_reason_prints_the_home_folder_as_tilde(self):
+        with unittest.mock.patch.object(fb.ce_coverage, 'validate', side_effect=self.home_error()):
+            report = fb.coverage_report(Path('result.json'))
+        self.assertEqual(report['status'], 'invalid')
+        self.assertIn('~/private/mission.xml', report['reason'])
+        self.assertNotIn(str(Path.home()) + os.sep, report['reason'])
+
+    def test_launcher_refusal_prints_the_home_folder_as_tilde(self):
+        from tools.setup import local_test_session as lts
+        err = io.StringIO()
+        with unittest.mock.patch.object(lts, 'rollback', side_effect=self.home_error()), \
+                contextlib.redirect_stderr(err):
+            code = lts.main(['rollback', '--server-root', 'srv', '--dry-run'], out=io.StringIO())
+        self.assertNotEqual(code, 0)
+        self.assertIn('~/private/mission.xml', err.getvalue())
+        self.assertNotIn(str(Path.home()) + os.sep, err.getvalue())

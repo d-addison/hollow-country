@@ -114,7 +114,7 @@ def coverage_report(result_path, mission=None):
     try:
         return ce_coverage.validate(result_path, mission)
     except (ValueError, OSError, KeyError, TypeError) as error:
-        return {'status': 'invalid', 'reason': str(error)}
+        return {'status': 'invalid', 'reason': lts.redact_home(error)}
 
 
 def coverage_files(mission, rows, result_path):
@@ -342,7 +342,7 @@ def main(argv=None):
     try:
         count, m_drop, p_drop = build(args)
     except (Refused, ws.SyncError, lts.Refused, ValueError, OSError, KeyError, TypeError) as exc:
-        print('refused: %s' % exc, file=sys.stderr)
+        print('refused: %s' % lts.redact_home(exc), file=sys.stderr)
         return 2
     print('bundle written: %d files (left out %d mission and %d profile files that are state, logs or '
           'rollback data). Nothing here was observed in DayZ.' % (count, m_drop, p_drop))
