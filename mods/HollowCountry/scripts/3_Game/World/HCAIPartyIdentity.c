@@ -3,8 +3,8 @@
 // array Count/Insert. HCWorldLimits.Token is an existing bounded project port.
 // No entity, position, inventory, provider or 4_World type in this layer.
 // A generation identifies an independently authored population, NEVER a return,
-// cooldown, restart or observer change. Reusing a party/cargo ID is refused even
-// with a newer generation. Camp/home/route are provenance IDs, not coordinates.
+// cooldown, restart or observer change. Party/cargo IDs exclude concurrent live
+// copies; completed leases may return. Camp/home/route are provenance IDs.
 class HCAIPartyIdentity
 {
     protected string m_PartyId;
@@ -42,8 +42,8 @@ class HCAIPartyIdentity
 
 // Detached, immutable provider result. Authority must remain in the server
 // director: call ONLY after all live/deferred actors are absent. This is not a
-// cargo snapshot or permission to restore/reseed a loadout. Missing inventory
-// continuity always means no rematerialization. Legacy callbacks remain usable.
+// cargo snapshot or permission to restore/reseed inventory. Cargo remains in
+// its owner store; this contract only transfers identity custody.
 class HCAIPartyResult
 {
     protected ref HCAIPartyIdentity m_Identity;
@@ -68,8 +68,8 @@ class HCAIPartyResult
     }
 }
 
-// Public persistence DTOs, never handed to the provider. Bounded tombstones are
-// retained without eviction. Full history refuses new admission, never replay.
+// Public persistence DTOs, never handed to the provider. Completed history can
+// be evicted; CLAIMED/QUARANTINED rows always exclude a second live copy.
 class HCAIPartyCustodyRow
 {
     string PartyId;
@@ -87,13 +87,22 @@ class HCAIPartyCustodyRow
 
 class HCAIPartyCustodyData
 {
+    int SchemaVersion = 2;
+    int NextLease = 1;
+    ref array<ref HCAIPartyCustodyRow> Rows = new array<ref HCAIPartyCustodyRow>();
+}
+
+// Exact previous image for canonical validation before upgrading in memory.
+class HCAIPartyCustodyLegacyData
+{
     int SchemaVersion = 1;
     ref array<ref HCAIPartyCustodyRow> Rows = new array<ref HCAIPartyCustodyRow>();
 }
 
 class HCAIPartyCustody
 {
-    static const int MAX_ROWS = 64;
+    // Two WORLD_CEILING spans: every configured holdout and party can be live.
+    static const int MAX_ROWS = 256;
 
     static HCAIPartyCustodyRow HCReservation(HCAIPartyIdentity identity, string leaseId, int actorCap)
     {

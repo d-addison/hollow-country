@@ -59,6 +59,15 @@ class HCXAISitePatrol : eAIDynamicPatrol
     bool m_HCFinished;
     int m_HCSurvivors;
     string m_HCRefusal;
+    protected int m_HCNextBudgetLogMs;
+
+    protected void HCRefuseBudget()
+    {
+        int nowMs = GetGame().GetTime();
+        if (nowMs < m_HCNextBudgetLogMs) { return; }
+        m_HCNextBudgetLogMs = nowMs + 60000;
+        Print("[HC AI] site shared population reservation refused id=" + m_HCSiteId);
+    }
 
     override bool CanSpawn()
     {
@@ -88,7 +97,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
         // Transients reuse the already reserved durable materializer lease.
         string budgetId = "site:" + m_HCSiteId;
         if (m_HCTransient) { budgetId = m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10); }
-        if (!HCAIBudget.TryReserve(budgetId, m_HCGroupMax)) { Print("[HC AI] site shared population reservation refused id=" + m_HCSiteId); return; }
+        if (!HCAIBudget.TryReserve(budgetId, m_HCGroupMax)) { this.HCRefuseBudget(); return; }
         super.Spawn();
         if (!m_Group) { if (!m_HCTransient) { HCAIBudget.Release(budgetId); } return; }
         m_HCLive = true;

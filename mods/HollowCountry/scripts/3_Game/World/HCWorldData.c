@@ -8,8 +8,8 @@
 class HCWorldLimits
 {
     // Compatibility for the existing debug contributor (configured at settings load).
-    static int HOLDOUTS;
-    static int PARTIES;
+    static int HOLDOUTS = 48;
+    static int PARTIES = 24;
     static const int SCHEMA = 1;
     static const int PLACES = 64;
     static const int FACTS = 256;

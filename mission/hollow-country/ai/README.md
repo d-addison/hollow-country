@@ -68,10 +68,11 @@ reserve before dispatch; transient sites reuse the exact lease ID. Authored
 sites reserve before native Spawn, and the legacy adapter reserves before its
 first journal/provider side effect. Full deferred populations stay charged.
 The existing result/retirement paths release only after observed absence (or a
-creation refusal with no bodies). HC-10 unresolved/quarantined claims restore
-on startup; unreadable custody blocks admission. Unknown debt is retained even
-above a newly lowered limit, logged, and never authorizes new AI. No timeout
-frees a claimed group. External provider patrols must remain disabled.
+creation refusal with no bodies). On process startup, HC-10 CLAIMED rows finish unknown because transient groups
+use Persist=false; their budget and identity/cargo custody return to the owner
+store without replaying inventory or casualties. Quarantined debt remains held,
+including above lowered limits. Unreadable custody blocks admission. No timeout
+frees an in-process claimed group. External provider patrols must remain disabled.
 
 Old 24-holdout / 12-party / 32-camp / 64-item saves fit the shipped limits.
 Lowering below stored counts refuses loading with a log: holdout/camp stores
@@ -364,9 +365,10 @@ Ran 1 test; OK
 This adds `HCAIPartyIdentity.c`, materializer custody persistence and bridge
 custody/lifecycle handling, with its behavioral smoke. The limits work then
 replaces HC-10's inherited four-actor reservation ceiling with the shared
-12-member safety ceiling and restores unresolved custody into the shared ledger.
-HC-10's identity/cargo tombstones and refusal to retry uncertain ownership stay
-intact. Claimed bodies are never released by a timeout.
+12-member safety ceiling. The review fix below resolves prior-process claims
+without replaying cargo, recycles completed identities after cooldown, and keeps
+in-process CLAIMED/QUARANTINED identities exclusive. Claimed bodies are never
+released by a timeout.
 
 ### Spec, plan and tasks
 
@@ -384,7 +386,7 @@ state is dispatcher-owned; this is the worker's spec/plan/task trace.
 | One validated operator policy, default 15 groups / 72 actors | Add `HCSettings.AILimits`, reuse existing profile staging/loader and validator, print effective values | Implemented | DayZDiag / server startup pending |
 | Occupation 3–8, holdout 3–6, party 2–6, patrol 2–5, camp 2–6 | Stable bounded hash of explicit WorldSeed and row/site ID; fixed provider population per group | Implemented | Geometry / native placement pending |
 | Combined capacity across every human spawn path | Shared reserve-before-side-effect ledger; transient bridge reuses materializer ID | Implemented | Two-client deferred spawn/retirement pending |
-| Preserve old saves and uncertain custody | Raise default capacities; logged refusal below stored counts; restore unknown claims | Implemented | Real save/restart/recovery pending |
+| Preserve old saves and uncertain custody | Raise capacities; migrate canonical custody v1; finish prior-process claims unknown; retain quarantines | Implemented | Real save/restart/recovery pending |
 | Operator-visible and traceable tuning | Key/range table, cap inventory, effective startup line and module status | Implemented | RPT confirmation pending |
 | RED → smallest change → GREEN; full regression selection | Authored policy tests with explicit synthetic DTO/native/provider ports | Recorded below | Offline tests cannot establish DayZ behavior |
 | Target load and production enablement | Measure 3–6 players; validate two-client audio/visibility/replication, normal PBO/server | Deferred | Pending; no measured budget accepted |
@@ -432,7 +434,7 @@ are documented in [operator keys](#human-ai-limits-owner-request-2026-11-18). Sa
 | SiteRules kind/member validation / former HCGroupMembers ceiling | Kind maxima 3/4, scaling maximum 8 | SIZE_CEILING; configured kind population at Create | 12 safety |
 | HCXAIRules legacy profile maxima | MaxGroups 1–8 / MaxActors 1–32 | Compatibility validation against GROUP_CEILING / AI_CEILING; live admission reads settings | Safety 24 / 128; live 15 / 72 |
 | HCXAIAdapter reservation gates | Legacy profile MaxGroups / MaxActors | MaxLiveGroups / MaxLiveAI + HCAIBudget | 15 / 72 |
-| HCXAIAdapter surveyed group selection | All surveyed spawn positions; up to 8 | Stable PatrolMin/Max selection from unchanged surveyed prefix; refuse insufficient survey | 2–5 |
+| HCXAIAdapter surveyed group selection | All surveyed spawn positions; up to 8 | Stable PatrolMin/Max selection clamped to unchanged surveyed prefix | 2–5 |
 | HCXAIRules surveyed route Spawns / profile Missions counts | 8 / 8 | SIZE_CEILING / GROUP_CEILING; config MaxLiveAI admission | Safety 12 / 24 |
 | HCXAIEncounters.MAX_OPEN and binding retention | 8, retained 2× | MaxEncounters; retention still derived 2× | 15; retained 30 |
 | HCXAILiveMap.MAX_UNITS diagnostic scan | 1024 | MaxObservedAI (independent of live admission) | 1024, safety 8192 |
@@ -440,8 +442,8 @@ are documented in [operator keys](#human-ai-limits-owner-request-2026-11-18). Sa
 | New combined live group ceiling | Separate materializer/site/adapter counters | MaxLiveGroups | 15 |
 | New deterministic sizing seed | Implicit/fixed populations | WorldSeed | 18473 |
 
-`HCWorldLimits.HOLDOUTS` and `.PARTIES` remain non-literal compatibility aliases
-for the unowned debug contributor; HCAILimits.Use sets them from the same policy.
+`HCWorldLimits.HOLDOUTS` and `.PARTIES` are compatibility aliases with safe
+48/24 startup defaults; HCAILimits.Use replaces them with the validated policy.
 
 The audit also inspected every spawn/reservation module and distinguished these
 remaining structural, observation, native-population and work quotas. None grants
@@ -457,7 +459,7 @@ an additional human AI spawn allowance:
 | HCXAIPatrolDebug / HCXAILiveMap | 66 state visits, 64 member slots, 2 routes / 128 points; map 2×64 points | Diagnostic work/transport quotas; scan population ceiling is configurable above |
 | HCXAIEncounters.MAX_KILLS | 16 journal kills serviced per tick | Work quota, not actor/group admission |
 | HCXDefence / HCXDefencePolicy / HCXStance | 12 perception slots per grudge, 64 grudges, 6-shot window, 8 recent deaths/warnings, 16 observer gates | Bounded memory/observation work; no creation or body reservation |
-| HC-10 custody / bridge, adapter journal/pruning | 64 durable rows/consumed IDs | Ownership evidence retention; fail closed at capacity, never recycle custody |
+| HC-10 custody / bridge; adapter journal/pruning | 256 custody/bridge records; adapter history remains separate | Custody covers both maximum world spans (128+128); oldest finished records evict, live/quarantined records never evict |
 | Site policy, route/cache/ownership journals | 64 authored or cached rows, geometry points 2–8 / 2–6, waypoint/spatial limits | Catalog/geometry/history validation; up to 15 groups can be live |
 | Materializer / camps / holdouts | 32 player-cache/work slots, 32 rows/ring, 4-unit slices; object/cargo/lighting/mailbox quotas | Bounded work, inventory and observer snapshots, not population policy |
 | HCX adapter MaxItems/MaxTickWork/MaxLeaseHistory | Operator-qualified equipment/work/evidence budgets | Separate item/work policy; full AI count always charged globally |
@@ -475,12 +477,12 @@ ledger. Each row holds a unique owner ID and full actor reservation. Admission
 requires both available group capacity and enough actors for the entire group,
 before any native or journal side effect. Pending and deferred members count.
 
-Materializer reserves `lease:<party identity>:<generation>` before offering its
+Materializer reserves bounded `lease:<durable sequence>` before offering its
 proposal. Transient sites reuse that exact ID, making the bridge idempotent rather
 than charging the same group twice. Authored sites use `site:<site id>`; the
 surveyed adapter uses `adapter:<lease id>`. Its deterministic population uses only
-an unchanged prefix of qualified surveyed positions and refuses insufficient
-positions; no coordinate is manufactured. Site sub-budgets cannot exceed the
+an unchanged prefix of qualified surveyed positions, clamped to the available
+count (at least one); no coordinate is manufactured. Site sub-budgets cannot exceed the
 combined allowance. The synthetic integration test executes actual site Spawn
 and adapter admission after a materializer reservation and checks exact-fill,
 refusal and transient reuse.
@@ -488,9 +490,11 @@ refusal and transient reuse.
 Successful absent-body results, observed native authored despawn, and completed
 adapter retirement release reservations. Creation refusal with no group can
 release an authored site. Claimed materializer bodies are never timed out.
-Unresolved/quarantined HC-10 rows restore at startup. Unreadable custody blocks
-new admission. Above-limit restored debt is preserved and logged even after an
-operator lowers the budget; it grants no new room. This is conservative accounting,
+At process startup, CLAIMED rows become FINISHED_UNKNOWN and release their
+reservations, since transient provider groups use Persist=false. Late results
+release old reservations without applying guessed outcomes. Quarantined debt
+is retained; unreadable custody blocks new admission. Save failures block every
+spawn owner and print one loud diagnostic. This is conservative accounting,
 not proof that native providers reconciled bodies. Existing external Expansion
 patrols/player recruitment must remain disabled as required by provider admission;
 HollowCountry cannot silently account for arbitrary third-party creation.
@@ -617,9 +621,11 @@ Lead acceptance remains open:
    settings, with no visible pop-in, combat despawn, duplicate gear or ownership
    transfer. Observe death/despawn and reservation release, and group sizes across
    restart. Diagnostic map must still reveal excess external AI if present.
-4. Interrupt/restart with claimed, quarantined and unreadable custody. Verify new
-   admission stays closed until authoritative reconciliation, and no duplicate
-   party or cargo appears. Never erase unknown claims to create capacity.
+4. Interrupt/restart with claimed, quarantined and unreadable custody. Verify
+   `custody restore finished_unknown=N runtime=PENDING`, budget released for
+   Persist=false claims, and no duplicate party/cargo or replayed inventory.
+   Quarantines and unreadable stores must still refuse new admission. Inject a
+   failed save and verify `CUSTODY SAVE FAILED; ALL NEW AI BLOCKED` appears once.
 5. Measure CPU, tick delays, networking, audio, visibility and AI navigation with
    3–6 players and varied sizes up to 15 groups / 72 actors. Native load results,
    geometry capacity and performance acceptance remain pending; do not enable a
@@ -646,3 +652,51 @@ Windows PowerShell helper and belongs to Windows CI; the three expected failures
 are existing suite expectations. No native DayZ acceptance is inferred. The
 worker wrote `.banso-writer/commit-message` for the dispatcher and did not stage,
 commit or push. HC-10 remains separately identified in that message and above.
+
+
+### AI limits / HC-10 review fix round
+
+Spec/plan/task trace (review P1s block landing): preserve one live party/cargo,
+release clean refusals, recycle completed identities after the six-hour process
+cooldown, recover nonpersistent claims at process startup, and retain visible
+fail-closed persistence. Implementation reuses HCAIBudget, HCWorldStore's verified
+intent/backup/readback barrier, and the existing bounded materializer interest
+ring/work budgets. No HCModule.c or config.cpp integration edits are required.
+
+| Review task | Source and behavioral validation |
+|---|---|
+| P1-1 refusal / completed identity retirement | Refusals delete claims; finished identities recycle; oldest finished history evicts at 256 rows; 300 successive claims and duplicate-live exclusion tested |
+| P1-2 restart budget leak | OnStart/HCLoadCustody resolve prior-process CLAIMED rows to FINISHED_UNKNOWN and save once; no cargo/inventory or casualty replay; late callbacks release budget; same-process off/on retains claims |
+| P2 partial fold-back | Release the confirmed-absent body reservation before world writes; log failure; never replay a partial debit |
+| P2 short surveyed patrol | Clamp configured size to surveyed spawn count, retain requested-cap gate and at least one actor |
+| P2 repeated site refusal | Shared-budget refusal diagnostic limited to one per site per 60 seconds |
+| P2 custody save latch | Every failed save barrier blocks the shared budget, including existing-ID reserve attempts, and logs once |
+| P3 bounds / defaults | Durable compact lease sequence; canonical v1-to-v2 migration; safe 48/24 aliases before Use |
+
+The custody v2 sequence is saved before provider dispatch. It prevents stale
+callbacks from a previous offer/restart from matching a fresh lease of the same
+party; neither ID truncation nor a generation reset is used. FINISHED_UNKNOWN
+records are evictable history; CLAIMED and QUARANTINED records are never evicted.
+Cooldowns remain process-local. Restart returns identity/cargo authority to the
+existing owner store; this code creates no inventory. Back up custody and its
+owner stores together; v2 writes are not readable by the earlier v1-only build.
+
+Actual RED/GREEN commands and failures are recorded in the module docstring of
+`tests/unit/test_hc_ai_custody.py` (claim 65 refused, startup debt 0 != 4, save
+failure admitted new bodies, fold-back leaks, short survey refused, 50 refusal
+logs instead of one, same-process duplicate and late typed budget leak). The
+focused limits/custody command passes 28 tests. The integration test executes
+actual authored materializer, site Spawn and adapter admission together.
+
+All disk, JSON, world, observer and provider ports in these tests are explicitly
+synthetic standard-library fixtures. DayZDiag, normal PBO/server, native restart
+and two-client inventory/visibility/retirement acceptance remain pending.
+
+Final review-round validation: 404 tests passed with two existing expected
+failures in CombinedWorkTests. The selection included every requested module,
+all six `test_expansion_ai_*` modules, plus `test_hc_unit_budget`, `test_v2_world`,
+`test_v2_leads` and `test_enforce_lint`. The focused custody/limits command above
+passed all 28 tests. `python3 -B -m tools.validate.enforce_lint --no-native` passed
+with `findings=126 new=0 stale=0 native=no`; `git diff --check` was clean.
+The commit message is in `.banso-writer/commit-message`; git staging, commit and
+push remain dispatcher-owned. No native gameplay acceptance was performed.
