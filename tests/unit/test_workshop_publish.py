@@ -102,6 +102,30 @@ class ValidateContent(Base):
         with self.assertRaisesRegex(wp.PublishError, 'not allowed'):
             wp.validate_content(self.mod)
 
+    def test_signed_animation_pbo_is_allowed_in_the_base_item(self):
+        (self.mod / 'addons' / 'hollowcountryanims.pbo').write_bytes(b'synthetic-anim-pbo')
+        (self.mod / 'addons' / ('hollowcountryanims.pbo.%s.bisign' % KEY)).write_bytes(b'synthetic-signature')
+        files = wp.validate_content(self.mod)['files']
+        self.assertIn('addons/hollowcountryanims.pbo', files)
+        self.assertIn('addons/hollowcountryanims.pbo.%s.bisign' % KEY, files)
+
+    def test_animation_pbo_without_its_own_signature_is_refused(self):
+        (self.mod / 'addons' / 'hollowcountryanims.pbo').write_bytes(b'synthetic-anim-pbo')
+        with self.assertRaisesRegex(wp.PublishError, 'hollowcountryanims.pbo has no matching .bisign'):
+            wp.validate_content(self.mod)
+
+    def test_animation_pbo_is_refused_in_the_addon_item(self):
+        mod = make_mod(tempfile.mkdtemp(dir=self.tmp), name='@HollowCountryExpansionAI', meta=None)
+        (mod / 'addons' / 'hollowcountry.pbo').unlink()
+        (mod / 'addons' / ('hollowcountry.pbo.%s.bisign' % KEY)).unlink()
+        (mod / 'addons' / 'hollowcountryexpansionai.pbo').write_bytes(b'synthetic-addon-pbo')
+        (mod / 'addons' / ('hollowcountryexpansionai.pbo.%s.bisign' % KEY)).write_bytes(b'synthetic-signature')
+        wp.validate_content(mod, 'addon')
+        (mod / 'addons' / 'hollowcountryanims.pbo').write_bytes(b'synthetic-anim-pbo')
+        (mod / 'addons' / ('hollowcountryanims.pbo.%s.bisign' % KEY)).write_bytes(b'synthetic-signature')
+        with self.assertRaisesRegex(wp.PublishError, 'not allowed'):
+            wp.validate_content(mod, 'addon')
+
     def test_unlisted_extra_files_and_folders_refused(self):
         for rel in ('readme.txt', 'addons/notes.txt', 'keys/readme.txt', 'profiles/x.rpt', 'source/a.c',
                     'logs/x.log', 'addons/sub/hollowcountry.pbo'):
@@ -234,8 +258,9 @@ class Prepare(Base):
                         wp.main(['prepare', '--mod', str(self.mod), '--out', str(self.out_dir),
                                  '--published-id', bad], out=io.StringIO())
 
-    def test_only_unlisted_visibility_is_accepted(self):
-        for bad in ('public', 'friends', 'private', 'friends-only', '0', '1', '2', '3', 'UNLISTED '):
+    def test_only_unlisted_or_public_visibility_is_accepted(self):
+        # Owner 2026-11-18: both our items may be Public; friends-only and private stay refused.
+        for bad in ('friends', 'private', 'friends-only', '0', '1', '2', '3', 'UNLISTED ', 'Public'):
             with self.subTest(bad=bad):
                 code, _, err = self.prepare('--visibility', bad)
                 self.assertEqual(code, 1)
@@ -243,6 +268,13 @@ class Prepare(Base):
                 self.assertFalse((self.out_dir / 'workshop_item.vdf').exists())
         code, _, _ = self.prepare('--visibility', 'unlisted')
         self.assertEqual(code, 0)
+        self.assertEqual(self.vdf()['visibility'], '3')
+
+    def test_public_visibility_writes_steam_value_zero(self):
+        code, text, _ = self.prepare('--visibility', 'public')
+        self.assertEqual(code, 0, text)
+        self.assertEqual(self.vdf()['visibility'], '0')
+        self.assertIn('Public', text)
 
     def test_no_password_option_exists_and_nothing_secret_is_written(self):
         for flag in ('--password', '--steam-password', '--pass'):
@@ -554,13 +586,16 @@ class AddonItem(Base):
         self.assertEqual(code, 1)
         self.assertIn('3900000002', err)
 
-    def test_addon_only_unlisted_is_accepted(self):
-        for bad in ('public', 'friends-only', 'private', '3'):
+    def test_addon_only_unlisted_or_public_is_accepted(self):
+        for bad in ('friends-only', 'private', '3', '0'):
             with self.subTest(bad=bad):
                 code, _, err = self.prepare_addon('--visibility', bad)
                 self.assertEqual(code, 1)
                 self.assertIn('unlisted', err)
                 self.assertFalse((self.out_dir / 'workshop_item.vdf').exists())
+        code, _, _ = self.prepare_addon('--visibility', 'public')
+        self.assertEqual(code, 0)
+        self.assertEqual(self.vdf()['visibility'], '0')
 
     def test_record_creates_addon_meta_with_the_addon_name(self):
         (self.addon / 'meta.cpp').unlink()

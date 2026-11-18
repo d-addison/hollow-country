@@ -499,6 +499,16 @@ Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on syn
         self.assertIn('$LASTEXITCODE', script)
         self.assertIn('Unsigned', script)
 
+    def test_build_ships_the_animation_pbo_inside_the_base_mod(self):
+        # Owner 2026-11-18: HollowCountryAnims ships as an extra signed PBO inside @HollowCountry.
+        script = Path('tools/package/Build-Sign-Verify.ps1').read_text()
+        self.assertIn('build_infected_clips.py', script)
+        self.assertIn('build_anims_addon.py', script)
+        self.assertIn("verify --prefix HollowCountryAnims", script)
+        self.assertIn("'hollowcountryanims.pbo'", script)
+        self.assertIn("Join-Path $OutputRoot '@HollowCountry'", script)
+        self.assertLess(script.index('build_anims_addon.py'), script.index("if ($Unsigned) {\n    Write-Output"))
+
     def test_build_completion_distinguishes_unsigned_from_verified_signatures(self):
         # Source contract only; PowerShell execution belongs to native Windows acceptance.
         script = Path('tools/package/Build-Sign-Verify.ps1').read_text()

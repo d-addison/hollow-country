@@ -31,7 +31,8 @@ mod folder), set the visibility to Unlisted and keep the Workshop id it shows; t
 Visibility: Steam's ERemoteStoragePublishedFileVisibility values are 0 Public, 1 Friends-only, 2 Private
 and 3 Unlisted (see the Steamworks documentation for ISteamUGC::SetItemVisibility, and the Steamworks
 "Workshop Implementation Guide" for workshop_build_item). Unlisted items are hidden from Workshop search
-and visible to anyone holding the link. This tool accepts only Unlisted.
+and visible to anyone holding the link. This tool accepts Unlisted and, since the owner's 2026-11-18
+authorization, Public; friends-only and private are refused.
 
 Offline validation establishes nothing about Workshop or DayZ behaviour; the upload and the join-time
 auto-subscribe stay pending owner acceptance.
@@ -49,6 +50,8 @@ import tempfile
 
 APP_ID = '221100'  # DayZ (the Workshop app id used by DayZ mods)
 VISIBILITY_UNLISTED = '3'  # ERemoteStoragePublishedFileVisibility_Unlisted
+VISIBILITY_PUBLIC = '0'  # ERemoteStoragePublishedFileVisibility_Public (owner-authorized 2026-11-18)
+VISIBILITIES = {'unlisted': VISIBILITY_UNLISTED, 'public': VISIBILITY_PUBLIC}
 TITLE = 'Hollow Country'
 ADDON_TITLE = 'Hollow Country Expansion AI (server)'
 DEPENDENCY_DESCRIPTION = (
@@ -73,12 +76,16 @@ ADDON_DESCRIPTION = (
     + DEPENDENCY_DESCRIPTION)
 PBO_NAME = 'hollowcountry.pbo'
 ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'
+ANIMS_PBO_NAME = 'hollowcountryanims.pbo'
 # Per item: the one PBO it may carry, its Workshop title and description, whether mod.cpp is required and
 # the meta.cpp name line.
 ITEMS = {
-    'base': {'pbo': PBO_NAME, 'title': TITLE, 'description': DESCRIPTION, 'mod_cpp_required': True},
+    # The base item may also carry our signed animation addon (owner 2026-11-18: anims ship inside
+    # @HollowCountry); each extra PBO needs its own .bisign.
+    'base': {'pbo': PBO_NAME, 'title': TITLE, 'description': DESCRIPTION, 'mod_cpp_required': True,
+             'extra_pbos': (ANIMS_PBO_NAME,)},
     'addon': {'pbo': ADDON_PBO_NAME, 'title': ADDON_TITLE, 'description': ADDON_DESCRIPTION,
-              'mod_cpp_required': False},
+              'mod_cpp_required': False, 'extra_pbos': ()},
 }
 DEFAULT_ITEM = 'base'
 # The real Workshop ids of our two Unlisted items. An item never accepts the other item's id, so a
@@ -157,7 +164,10 @@ def validate_content(mod, item=DEFAULT_ITEM):
     """
     spec = item_spec(item)
     pbo_name = spec['pbo']
-    bisign = re.compile(r'^' + re.escape(pbo_name) + r'\.([A-Za-z0-9_.-]+)\.bisign$')
+    pbo_names = (pbo_name,) + tuple(spec.get('extra_pbos', ()))
+    bisign_patterns = {name: re.compile(r'^' + re.escape(name) + r'\.([A-Za-z0-9_.-]+)\.bisign$')
+                       for name in pbo_names}
+    bisigns_by_pbo = {name: set() for name in pbo_names}
     mod = Path(mod)
     if mod.is_symlink():
         raise PublishError('%s is a symlink; give the real mod folder' % mod)
@@ -188,10 +198,13 @@ def validate_content(mod, item=DEFAULT_ITEM):
         if len(parts) == 1 and rel in ('mod.cpp', 'meta.cpp'):
             if rel == 'meta.cpp' and info.st_size > MAX_META_BYTES:
                 raise PublishError('meta.cpp is unexpectedly large')
-        elif len(parts) == 2 and parts[0] == 'addons' and rel == 'addons/' + pbo_name:
+        elif len(parts) == 2 and parts[0] == 'addons' and parts[1] in pbo_names:
             pass
-        elif len(parts) == 2 and parts[0] == 'addons' and bisign.match(parts[1]):
-            bisigns.add(bisign.match(parts[1]).group(1))
+        elif len(parts) == 2 and parts[0] == 'addons' and any(p.match(parts[1]) for p in bisign_patterns.values()):
+            for name, pattern in bisign_patterns.items():
+                if pattern.match(parts[1]):
+                    bisigns_by_pbo[name].add(pattern.match(parts[1]).group(1))
+                    bisigns.add(pattern.match(parts[1]).group(1))
         elif len(parts) == 2 and parts[0] == 'keys' and BIKEY.match(parts[1]):
             bikeys.add(BIKEY.match(parts[1]).group(1))
         else:
@@ -201,8 +214,9 @@ def validate_content(mod, item=DEFAULT_ITEM):
         raise PublishError('mod.cpp is missing')
     if 'addons/' + pbo_name not in files:
         raise PublishError('addons/%s is missing' % pbo_name)
-    if not bisigns:
-        raise PublishError('addons/%s has no matching .bisign signature' % pbo_name)
+    for name in pbo_names:
+        if (name == pbo_name or 'addons/' + name in files) and not bisigns_by_pbo[name]:
+            raise PublishError('addons/%s has no matching .bisign signature' % name)
     if not bikeys:
         raise PublishError('keys/ has no public .bikey')
     for key in sorted(bisigns - bikeys):
@@ -359,8 +373,8 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
             path_style='native', item=DEFAULT_ITEM):
     """Validate, stage and write the VDF. Returns a dict with the vdf path, content folder and command."""
     spec = item_spec(item)
-    if visibility != 'unlisted':
-        raise PublishError('only the "unlisted" visibility is supported (got %r); public, friends-only and '
+    if visibility not in VISIBILITIES:
+        raise PublishError('only the "unlisted" or "public" visibility is supported (got %r); friends-only and '
                            'private are not accepted' % visibility)
     mod = Path(os.path.abspath(mod))
     info = validate_content(mod, item)
@@ -388,7 +402,7 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
         staged_preview = out / 'preview.png'
         shutil.copyfile(preview, staged_preview)
         fields.append(('previewfile', _vdf_path(staged_preview, path_style)))
-    fields += [('visibility', VISIBILITY_UNLISTED), ('title', spec['title']), ('description', spec['description']),
+    fields += [('visibility', VISIBILITIES[visibility]), ('title', spec['title']), ('description', spec['description']),
                ('changenote', note), ('publishedfileid', str(item_id))]
     text = '"workshopitem"\n{\n' + ''.join('\t"%s"\t\t"%s"\n' % pair for pair in fields) + '}\n'
     vdf = out / VDF_NAME
@@ -397,7 +411,7 @@ def prepare(mod, out, published_id=None, preview=None, change_note=None, visibil
     command = 'steamcmd +login %s +workshop_build_item %s +quit' % (COMMAND_USER, _quote(shown, path_style))
     return {'vdf': vdf, 'content': content, 'command': command, 'published_id': item_id,
             'files': info['files'], 'pbo_sha256': info['pbo_sha256'], 'has_preview': preview is not None,
-            'change_note': note}
+            'change_note': note, 'visibility': visibility}
 
 
 # ---------------------------------------------------------------- command line
@@ -439,7 +453,7 @@ def build_parser():
     p.add_argument('--published-id', type=_positive, help='Workshop id of an existing item (omit for the first upload)')
     p.add_argument('--preview', help='preview PNG (at most 1 MiB)')
     p.add_argument('--change-note', help='change note shown on the Workshop page')
-    p.add_argument('--visibility', default='unlisted', help='only "unlisted" is accepted')
+    p.add_argument('--visibility', default='unlisted', help='"unlisted" (default) or "public"; friends-only and private are refused')
     p.add_argument('--path-style', choices=('native', 'windows'), default='native',
                    help='write Windows paths (converts /mnt/<drive>/...) when steamcmd runs on Windows')
     r = sub.add_parser('record', help='write publishedid into the mod meta.cpp', allow_abbrev=False)
@@ -477,8 +491,11 @@ def main(argv=None, out=None):
         say('  %s' % rel)
     say('pbo sha256: %s' % result['pbo_sha256'])
     say('VDF: %s' % result['vdf'])
-    say('Visibility: Unlisted (Steam value %s): hidden from Workshop search, visible to anyone with the link.'
-        % VISIBILITY_UNLISTED)
+    if result.get('visibility') == 'public':
+        say('Visibility: Public (Steam value %s): listed in Workshop search.' % VISIBILITY_PUBLIC)
+    else:
+        say('Visibility: Unlisted (Steam value %s): hidden from Workshop search, visible to anyone with the link.'
+            % VISIBILITY_UNLISTED)
     say('Item: %s' % ('new item (publishedfileid 0)' if not result['published_id']
                       else 'update of %d' % result['published_id']))
     if not result['has_preview']:

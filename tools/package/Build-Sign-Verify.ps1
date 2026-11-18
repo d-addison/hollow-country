@@ -6,6 +6,7 @@ param(
     [Parameter(Mandatory = $true)][string]$AddonRoot,
     [Parameter(Mandatory = $true)][string]$OutputRoot,
     [string]$ExpansionAddonRoot,
+    [string]$DayZAddons = 'D:\SteamLibrary\steamapps\common\DayZServer\Addons',
     [string]$ToolsRoot = 'D:\SteamLibrary\steamapps\common\DayZ Tools',
     [string]$Python = 'python',
     [switch]$Unsigned,
@@ -47,9 +48,30 @@ foreach ($build in $builds) {
     $metadata = Join-Path $build.Root 'mod.cpp'
     if (Test-Path -LiteralPath $metadata) { Copy-Item -LiteralPath $metadata -Destination (Join-Path $modRoot 'mod.cpp') }
 }
+# HollowCountryAnims ships as an extra signed PBO inside @HollowCountry (owner 2026-11-18). Its .anm clips
+# are generated from the installed DayZ data at build time and never live in Git.
+$animsRoot = Join-Path $OutputRoot 'anims'
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+& $Python (Join-Path $repoRoot 'tools\anim\build_infected_clips.py') --addons $DayZAddons --out $animsRoot
+if ($LASTEXITCODE -ne 0) { throw 'Animation clip generation failed: HollowCountryAnims' }
+& $Python (Join-Path $repoRoot 'tools\anim\build_anims_addon.py') --addons $DayZAddons --out $animsRoot
+if ($LASTEXITCODE -ne 0) { throw 'PBO build failed: HollowCountryAnims' }
+$animsPbo = Join-Path $OutputRoot 'hollowcountryanims.pbo'
+Copy-Item -LiteralPath (Join-Path $animsRoot 'addons\HollowCountryAnims.pbo') -Destination $animsPbo
+& $Python (Join-Path $PSScriptRoot 'pbo.py') verify --prefix HollowCountryAnims $animsPbo
+if ($LASTEXITCODE -ne 0) { throw 'PBO structural verification failed: HollowCountryAnims' }
+$baseAddons = Join-Path (Join-Path $OutputRoot '@HollowCountry') 'addons'
 if ($Unsigned) {
-    Write-Output 'Both development addons built unsigned; signatures not checked.'
+    Copy-Item -LiteralPath $animsPbo -Destination (Join-Path $baseAddons 'hollowcountryanims.pbo')
 } else {
-    Write-Output 'Both development addons built and signatures checked.'
+    $animsSigned = Join-Path $OutputRoot 'signed-anims'
+    & $Python (Join-Path $PSScriptRoot 'sign.py') --pbo $animsPbo --tools $ToolsRoot --private-key $PrivateKey --public-key $PublicKey --out $animsSigned
+    if ($LASTEXITCODE -ne 0) { throw 'Official signing/verification failed: HollowCountryAnims' }
+    Copy-Item -Path (Join-Path $animsSigned 'addons\*') -Destination $baseAddons
+}
+if ($Unsigned) {
+    Write-Output 'All development addons built unsigned; signatures not checked.'
+} else {
+    Write-Output 'All development addons built and signatures checked.'
 }
 Write-Output 'Native compile, normal server/client and multiplayer acceptance pending.'
