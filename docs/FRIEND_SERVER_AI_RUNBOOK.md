@@ -59,13 +59,13 @@ also reports whether the map overlay receipt is present and intact (`missing_map
 `damaged_map_overlay`, `outdated_map_overlay`). An intact receipt for the same layer set is already installed; for a
 different layer set the installer asks the operator, rolls the old one back, then installs the new one.
 
-**Never upload or share `hollow-country-install-backups\`.** It holds a copy of `serverDZ.cfg` with its passwords
-(`password`, `passwordAdmin`, RCON). Keep it on the server machine only; the server report tool never reads it.
-If `serverDZ.cfg` changes while the installer waits at a prompt, it refuses with `drift` and writes nothing: run
-it again. Backups go to `hollow-country-install-backups\<UTC time>\` and a receipt to
-`hollow-country-install-receipt.json`; a second run changes nothing. If it refuses, read the `refused: <code>` line
-and fix the cause (a changed file is drift, an existing differing file needs the operator's yes). It never deletes
-saves or `storage_*`. Use the numbered steps below only when the guided installer cannot do what is needed.
+**Never upload or share `hollow-country-install-backups\`.** It contains local passwords and an atomic
+`<run>/run-journal.json`. A late refusal restores overwritten files and both overlays and removes files created
+by that run, then says “rolled back: the server is as it was before this run”; saves and `storage_*` stay untouched.
+If an undo fails, it stops and lists every remaining operation as `rollback_pending`. A crash is reported by
+read-only `--check` as `install_interrupted` (or `rollback_pending` during undo). Keep the server stopped, fix the
+reported cause, and rerun with `--apply`: recovery finishes before installation resumes. Backups are retained;
+Steam download caches stay outside this server rollback. A prompt-time `serverDZ.cfg` edit is preserved.
 
 ## Placeholders
 
