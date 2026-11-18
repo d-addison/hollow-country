@@ -148,7 +148,7 @@ class HCInteriorRules
             s_PlacementChecked = true;
             s_PlacementOptIn = PlacementOptIn();
             if (s_PlacementOptIn)
-                Print("[HC Interiors] placement EXPERIMENTAL local acceptance opt-in (interior_placement.enable); runtime acceptance PENDING");
+                Print("[HC Interiors] placement EXPERIMENTAL on by default (opt out: interior_placement.disable); runtime acceptance PENDING");
         }
         return s_PlacementOptIn;
     }
@@ -164,7 +164,7 @@ class HCInteriorRules
             s_SearchChecked = true;
             s_SearchOptIn = SearchOptIn();
             if (s_SearchOptIn)
-                Print("[HC Interiors] search EXPERIMENTAL local acceptance opt-in (interior_search.enable); runtime acceptance PENDING");
+                Print("[HC Interiors] search EXPERIMENTAL on by default (opt out: interior_search.disable); runtime acceptance PENDING");
         }
         return s_SearchOptIn;
     }

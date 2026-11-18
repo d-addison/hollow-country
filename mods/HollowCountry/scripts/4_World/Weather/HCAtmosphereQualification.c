@@ -49,9 +49,9 @@ class HCAtmosphereQualification
             s_Probed = true;
             s_OptIn = !FileExist("$profile:HollowCountry/acceptance/atmosphere.disable");
             if (s_OptIn)
-                Print("[HollowCountry][Atmosphere] EXPERIMENTAL local acceptance opt-in; runtime acceptance PENDING; restart required to change marker");
+                Print("[HollowCountry][Atmosphere] EXPERIMENTAL on by default (opt out: atmosphere.disable); runtime acceptance PENDING; restart required to change marker");
             else
-                Print("[HollowCountry][Atmosphere] PENDING native acceptance; no atmosphere.enable marker; vanilla weather retained");
+                Print("[HollowCountry][Atmosphere] PENDING native acceptance; opted out by atmosphere.disable; vanilla weather retained");
         }
         return s_OptIn;
     }

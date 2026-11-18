@@ -12,7 +12,7 @@ class HCXAIQualification
         {
             s_OptIn = !FileExist("$profile:HollowCountry/acceptance/pve_patrols.disable");
             s_Probed = true;
-            if (s_OptIn) { Print("[HC Expansion AI] EXPERIMENTAL local acceptance opt-in (pve_patrols.enable); qualification pending"); }
+            if (s_OptIn) { Print("[HC Expansion AI] EXPERIMENTAL on by default (opt out: pve_patrols.disable); qualification pending"); }
         }
         return s_OptIn;
     }

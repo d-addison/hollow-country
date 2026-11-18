@@ -2,7 +2,7 @@
 // Bounded DATA REVIEW, 2026-11-17, of two stock ChernarusPlus placements.
 // Source: dayzOffline.chernarusplus/mapgrouppos.xml, SHA-256 below.
 // No field survey, clearance, destination-container or loot guarantee exists.
-// Police supply barrels additionally require events_sites.enable. Their placement is
+// Police supply barrels are also turned off by events_sites.disable. Their placement is
 // derived only: (+6 east, +6 north), ground projected, then an outdoor navmesh point.
 // No field clearance/door/path acceptance is implied; Surveyed stays false.
 class HCEventSites

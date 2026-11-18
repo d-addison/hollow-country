@@ -53,7 +53,7 @@ class HCInfectedConfig
 // independent and are never auto-opened: horde_routes steers native packs, so it
 // is only meaningful with pack_routes (HCInfectedAdmission.Resolve already keeps
 // it closed with reason horde_stimulus_routes_requires_pack_routes otherwise);
-// ecology migration (ecology_migration.enable) additionally needs pack_routes,
+// ecology migration (on unless ecology_migration.disable) additionally needs pack_routes,
 // horde_routes and, for its clue sources, investigation or supplementary_chains.
 class HCInfectedQualification
 {
@@ -97,7 +97,7 @@ class HCInfectedQualification
             s_CEAdoptionChecked = true;
             s_CEAdoptionOptIn = CEAdoptionOptIn();
             if (s_CEAdoptionOptIn)
-                Print("[HC Infected] CE adoption EXPERIMENTAL local acceptance opt-in (infected_ce_adoption.enable); runtime acceptance PENDING");
+                Print("[HC Infected] CE adoption EXPERIMENTAL on by default (opt out: infected_ce_adoption.disable); runtime acceptance PENDING");
         }
         return s_CEAdoptionOptIn;
     }
@@ -124,7 +124,7 @@ class HCInfectedQualification
             s_NativePackRoutesChecked = true;
             s_NativePackRoutesOptIn = NativePackRoutesOptIn();
             if (s_NativePackRoutesOptIn)
-                Print("[HC Infected] native pack routes EXPERIMENTAL local acceptance opt-in (infected_pack_routes.enable); runtime acceptance PENDING");
+                Print("[HC Infected] native pack routes EXPERIMENTAL on by default (opt out: infected_pack_routes.disable); runtime acceptance PENDING");
         }
         return s_NativePackRoutesOptIn;
     }
@@ -151,7 +151,7 @@ class HCInfectedQualification
             s_InvestigationChecked = true;
             s_InvestigationOptIn = InvestigationOptIn();
             if (s_InvestigationOptIn)
-                Print("[HC Infected] investigation EXPERIMENTAL local acceptance opt-in (infected_investigation.enable); runtime acceptance PENDING");
+                Print("[HC Infected] investigation EXPERIMENTAL on by default (opt out: infected_investigation.disable); runtime acceptance PENDING");
         }
         return s_InvestigationOptIn;
     }
@@ -178,7 +178,7 @@ class HCInfectedQualification
             s_SupplementaryChainsChecked = true;
             s_SupplementaryChainsOptIn = SupplementaryChainsOptIn();
             if (s_SupplementaryChainsOptIn)
-                Print("[HC Infected] supplementary chains EXPERIMENTAL local acceptance opt-in (infected_supplementary_chains.enable); runtime acceptance PENDING");
+                Print("[HC Infected] supplementary chains EXPERIMENTAL on by default (opt out: infected_supplementary_chains.disable); runtime acceptance PENDING");
         }
         return s_SupplementaryChainsOptIn;
     }
@@ -205,7 +205,7 @@ class HCInfectedQualification
             s_MemberRecoveryChecked = true;
             s_MemberRecoveryOptIn = MemberRecoveryOptIn();
             if (s_MemberRecoveryOptIn)
-                Print("[HC Infected] member recovery EXPERIMENTAL local acceptance opt-in (infected_member_recovery.enable); runtime acceptance PENDING");
+                Print("[HC Infected] member recovery EXPERIMENTAL on by default (opt out: infected_member_recovery.disable); runtime acceptance PENDING");
         }
         return s_MemberRecoveryOptIn;
     }
@@ -232,7 +232,7 @@ class HCInfectedQualification
             s_HordeStimulusRoutesChecked = true;
             s_HordeStimulusRoutesOptIn = HordeStimulusRoutesOptIn();
             if (s_HordeStimulusRoutesOptIn)
-                Print("[HC Infected] horde stimulus routes EXPERIMENTAL local acceptance opt-in (infected_horde_routes.enable); runtime acceptance PENDING");
+                Print("[HC Infected] horde stimulus routes EXPERIMENTAL on by default (opt out: infected_horde_routes.disable); runtime acceptance PENDING");
         }
         return s_HordeStimulusRoutesOptIn;
     }

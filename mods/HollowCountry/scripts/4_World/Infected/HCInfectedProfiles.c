@@ -37,7 +37,7 @@ class HCInfectedProfiles
             s_ContactGuardChecked = true;
             s_ContactGuardOptIn = ContactGuardOptIn();
             if (s_ContactGuardOptIn)
-                Print("[HC Infected] contact guard EXPERIMENTAL local acceptance opt-in (infected_contact_guard.enable), wall-hit runtime acceptance PENDING");
+                Print("[HC Infected] contact guard EXPERIMENTAL on by default (opt out: infected_contact_guard.disable), wall-hit runtime acceptance PENDING");
         }
         return s_ContactGuardOptIn;
     }

@@ -1,6 +1,6 @@
 // Each reviewed site supplies four authored noncombat assignments and one
 // optional provider encounter. No coordinates, loot balance or AI are invented.
-// A RewardCache site (events_sites.enable) offers only reach-the-site (INVESTIGATION)
+// A RewardCache site (on unless events_sites.disable) offers only reach-the-site (INVESTIGATION)
 // and recover-the-cache (RECOVERY); the cache is created at bind time, never here.
 class HCEventRoster
 {
