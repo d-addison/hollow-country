@@ -137,6 +137,11 @@ class HCAtmosphereQualification
             return false;
         string text = document;
         text.ToLower();
+        // DayZ 023 boot: a Substring past the end raised "Wrong parameter
+        // value" here; bound every slice by the lowered text's own length.
+        total = text.Length();
+        if (total < 1 || total > 65536)
+            return false;
         int cursor = 0;
         int steps = 0;
         int open = 0;
@@ -148,11 +153,15 @@ class HCAtmosphereQualification
         while (steps < 64)
         {
             steps = steps + 1;
+            if (cursor < 0 || cursor >= total)
+                return false;
             rest = text.Substring(cursor, total - cursor);
             open = rest.IndexOf("<");
             if (open < 0)
                 return false;
             cursor = cursor + open;
+            if (cursor >= total)
+                return false;
             rest = text.Substring(cursor, total - cursor);
             if (rest.IndexOf("<?") == 0)
             {

@@ -43,7 +43,7 @@ class HCCellarSampler : HCModule
     protected ref set<Object> m_Hits;
     protected Object m_House;
     protected HCCellarSamplerClass m_Row;
-    protected HCCellarSamplerInstance m_Instance;
+    protected ref HCCellarSamplerInstance m_Instance;
     protected vector m_CollisionMin;
     protected vector m_CollisionMax;
     protected vector m_BoxMin;

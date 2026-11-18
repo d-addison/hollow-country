@@ -732,7 +732,7 @@ class GroupServerTests(unittest.TestCase):
             self.assertIn(hook,connections)
 
     def test_immutable_store_reads_are_bounded_and_latest_corruption_has_no_fallback(self):
-        store=(ROOT/'4_World/Groups/HCGroupStore.c').read_text()
+        store=(ROOT/'4_World/Groups/HCGroupStore.c').read_text()+(ROOT/'3_Game/Groups/HCGroupIO.c').read_text()
         self.assertIn('ReadFile(handle, text, limit + 1)',store)
         self.assertIn('intent_',store)
         self.assertIn('commit_',store)

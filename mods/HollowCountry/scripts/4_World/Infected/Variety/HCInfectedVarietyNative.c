@@ -145,7 +145,7 @@ modded class HCNativeInfectedPack
 {
     // Called once when migration remembers an admitted real-noise destination.
     // Existing <=6 member roster only; no transfer, refill or runner promotion.
-    void HCVarietyWalkerHerd()
+    override void HCVarietyWalkerHerd()
     {
         if (!HCInfectedVarietyModule.VarietyActive() || m_Members.Count() > 6) { return; }
         foreach (ZombieBase walker : m_Members)

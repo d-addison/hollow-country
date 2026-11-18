@@ -20,6 +20,11 @@ class HCNativeInfectedPack
     protected float m_LastProgress;
     protected float m_NextRetarget;
     protected float m_LastRetargetObserved = -1;
+
+    // Hook for Infected/Variety (#121): declared here because modded classes
+    // compiled earlier in the chain (HCHordeMigration.c) cannot see methods a
+    // later modded class adds (DayZ 021 boot: Undefined function HCVarietyWalkerHerd).
+    void HCVarietyWalkerHerd() {}
     protected int m_RetargetAttempts;
     protected vector m_LastPosition;
     protected bool m_Search;

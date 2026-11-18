@@ -1,47 +1,6 @@
 // Original bounded native persistence. Readback is not fsync or a promise about
 // power loss. Immutable intent/image/commit triples; never load an older ACL
 // when the highest discovered revision is incomplete, corrupt or incompatible.
-class HCGroupIO
-{
-    static bool Read(string path, int limit, out string text)
-    {
-        FileHandle handle = OpenFile(path, FileMode.READ);
-        if (!handle) return false;
-        int count = ReadFile(handle, text, limit + 1);
-        CloseFile(handle);
-        return count > 0 && count <= limit && text.Length() > 0 && text.Length() <= limit;
-    }
-
-    static bool WriteNew(string path, string text, int limit)
-    {
-        if (FileExist(path)) return false;
-        if (text.Length() < 1 || text.Length() > limit) return false;
-        FileHandle handle = OpenFile(path, FileMode.WRITE);
-        if (!handle) return false;
-        FPrint(handle, text);
-        CloseFile(handle);
-        string actual;
-        return HCGroupIO.Read(path, limit, actual) && actual == text;
-    }
-}
-
-class HCGroupJson<Class T>
-{
-    static bool Load(string path, int limit, out T data)
-    {
-        string text;
-        string error;
-        return HCGroupIO.Read(path, limit, text) && JsonFileLoader<T>.LoadData(text, data, error);
-    }
-
-    static bool WriteNew(string path, T data, int limit)
-    {
-        string text;
-        string error;
-        return JsonFileLoader<T>.MakeData(data, text, error) && HCGroupIO.WriteNew(path, text, limit);
-    }
-}
-
 class HCGroupStore
 {
     protected string m_Root = "$profile:HollowCountry/Groups/state";
