@@ -9,11 +9,62 @@ import re
 import unittest
 
 from tests.unit.test_event_runtime import translate
+from tests.unit.test_group_server import EArray
 
 SCENES = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/Scenes'
 
 
 class SceneSmoke(unittest.TestCase):
+    def test_successful_scene_clears_refusal_after_optional_note_attempt(self):
+        # Explicit synthetic director/placement/note ports. Optional note
+        # refusal must not leave the successfully placed scene marked refused.
+        source = (SCENES / 'HCScenesModule.c').read_text()
+        adapted = re.sub(r'\bHCScene(\w+)\b', r'HCEventScene\1', source)
+        adapted = adapted.replace('array<vector> positions;', 'HCEventPositions positions;')
+
+        class Reasons(dict):
+            def Remove(self, key):
+                self.pop(key, None)
+
+        for note_refused in (False, True):
+            with self.subTest(note_refused=note_refused):
+                chain = N(Id='scene-kamenka', Stage=0, EventId=1, Director=N(),
+                          Cancelled=False, Complete=False, DueAt=100, BeganAt=100)
+                stage = N(Kit='synthetic-kit', HoldSeconds=1000)
+                plan = N(Stages=EArray([stage]), SiteId='synthetic-site')
+                reasons = Reasons({chain.Id: 'slope'})
+                published = []
+
+                def publish(row, site):
+                    published.append(row.Id)
+                    if note_refused:
+                        reasons[row.Id] = 'note-slope'
+
+                env = {
+                    'Print': lambda message: None,
+                    'HCEventStatus': N(ANNOUNCED=1, COMPLETED=4),
+                    'HCEventDirector': N(FindRecord=lambda director, event: N(Status=1)),
+                    'HCEventSceneChains': N(ResumeAfterGap=lambda state, now: 0,
+                                           CancelExpired=lambda *args: False,
+                                           Site=lambda site: N(Position=[1, 0, 2])),
+                    'HCEventSceneKits': N(Find=lambda kit: N(), Preflight=lambda *args: True,
+                                         Place=lambda *args: True, Healthy=lambda lease: True),
+                    'HCEventSceneLease': lambda: N(Objects=EArray([N()]), ViewEventId=1),
+                }
+                work = translate(adapted, 'Work', env, 'HCEventScenesModule', member=True)
+                owner = N(m_State=N(Chains=EArray([chain]), Catalog=N(Chains=EArray([plan]))),
+                          m_Cursor=0, m_Leases=EArray(), m_Placed=0, m_Refused=0,
+                          m_PreflightReasons=reasons, SiteAvailable=lambda anchor: True,
+                          PublishSceneStory=publish)
+                owner.Lease = lambda key: next(iter(owner.m_Leases), None)
+                work(owner, 100)
+                self.assertEqual({}, reasons)
+                self.assertEqual([chain.Id], published)
+                work(owner, 101)
+                self.assertEqual([chain.Id], published)
+                self.assertEqual(1, len(owner.m_Leases))
+                self.assertEqual(1, owner.m_Placed)
+
     def test_expired_stage_cancels_and_door_keepout_rejects(self):
         env = {}
         failed = translate((SCENES / 'HCSceneChains.c').read_text(), 'StageFailed', env)

@@ -11,6 +11,9 @@
 // 1_Core/proto/EnConvert.c:115 (float.ToString). Receiving follows the existing
 // HCGroupEquipment.Read inventory pattern, adding explicit receive/switch checks.
 // 1_Core/proto/EnScript.c:94 (Class.Cast).
+// Channel MHz values are retained authored settings: this scripts dump exposes
+// tuned-frequency APIs but contains no native list of PersonalRadio channels.
+// Camps and Morse share Frequency() instead of maintaining conflicting values.
 class HCRadioChatter : HCModule
 {
     protected static HCRadioChatter s_Instance;
@@ -63,6 +66,7 @@ class HCRadioChatter : HCModule
             if (!m_Store.Save()) { return; }
         }
         s_Instance = this;
+        Print("[HollowCountry] V2 radio ready frequencies=" + Frequency("locals").ToString() + "," + Frequency("volunteers").ToString() + "," + Frequency("scavengers").ToString() + "," + Frequency("raiders").ToString() + "," + Frequency("travellers").ToString());
     }
 
     bool Fallback(HCWorldLead offer)
@@ -123,12 +127,12 @@ class HCRadioChatter : HCModule
             if (queued.Expires > now) { m_Report = queued; break; }
         }
         HCLeadModule leads = HCLeadModule.Get();
-        if (!m_Report && leads && m_Channel.Sequence % 2 == 0) { m_Report = leads.Select(); }
+        if (!m_Report && leads) { m_Report = leads.Latest(); }
         m_Kind = "chatter";
         m_Text = Chatter(m_Channel.Faction, m_Channel.Sequence);
         if (m_Report)
         {
-            m_Text = HCLeadPolicy.Text(m_Report);
+            m_Text = m_Text + " " + HCLeadPolicy.Text(m_Report);
             m_Kind = "report";
         }
     }

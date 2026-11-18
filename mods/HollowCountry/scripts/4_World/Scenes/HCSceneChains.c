@@ -59,6 +59,35 @@ class HCSceneChainState
 
 class HCSceneChains
 {
+    // Pause unfinished stages after a >5 minute scheduler/server gap. Keep the
+    // active director deadline and BeganAt aligned with the shifted schedule.
+    static int ResumeAfterGap(HCSceneChainState state, int now)
+    {
+        int gap = now - state.LastNow;
+        if (gap <= 300) { return 0; }
+        foreach (HCSceneChain pending : state.Chains)
+        {
+            if (pending.Cancelled || pending.Complete) { continue; }
+            if (pending.DueAt > 999300000 - gap || pending.ExpiresAt > 1000086400 - gap) { return -1; }
+        }
+        foreach (HCSceneChain chain : state.Chains)
+        {
+            if (chain.Cancelled || chain.Complete) { continue; }
+            HCEventRecord record = null;
+            if (chain.EventId > 0) { record = HCEventDirector.FindRecord(chain.Director, chain.EventId); }
+            if (record && HCEventDirector.Terminal(record.Status)) { continue; }
+            chain.DueAt = chain.DueAt + gap;
+            chain.ExpiresAt = chain.ExpiresAt + gap;
+            if (record)
+            {
+                chain.BeganAt = chain.BeganAt + gap;
+                record.Expires = chain.ExpiresAt;
+            }
+        }
+        state.LastNow = now;
+        return gap;
+    }
+
     static bool StageFailed(int now, int expires, int status)
     {
         // Values are HCEventStatus: completed=4, expired=5, cancelled=6.

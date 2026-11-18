@@ -108,8 +108,8 @@ class HCCampScan
                 else if (item.IsKindOf("PortableGasLamp") || item.IsKindOf("Spotlight") || item.IsKindOf("Roadflare")) { scan.Lights++; }
             }
             TransmitterBase radio = TransmitterBase.Cast(item);
-            // Authored Travellers channel: first native frequency (87.8 MHz).
-            if (radio && Powered(radio) && radio.IsReceiving() && radio.GetTunedFrequency() > 87.79 && radio.GetTunedFrequency() < 87.81) { scan.HasRadio = true; }
+            // Authored Travellers channel shared with radio chatter (MHz).
+            if (radio && Powered(radio) && radio.IsReceiving() && radio.GetTunedFrequency() > HCRadioChatter.Frequency("travellers") - 0.01 && radio.GetTunedFrequency() < HCRadioChatter.Frequency("travellers") + 0.01) { scan.HasRadio = true; }
         }
         return scan;
     }

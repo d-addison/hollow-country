@@ -7,6 +7,10 @@
 // Common natives: 3_Game/Global/Game.c:1120 IsServer; 1_Core/proto/EnDebug.c:96 Print;
 // EnScript.c:380 Count, :394 Find, :407 Insert, :463 Remove; EnConvert.c:30 int.ToString;
 // EnString.c:171 ToLower, :199 Length (1_Core/proto).
+// Note placement reuses HCSceneKits.Preflight: Game.c:930 objects, :1176
+// SurfaceY, :1196 SurfaceIsSea; Building.c:31/73 doors, Object.c:370 bounds;
+// 1_Core/proto/EnMath3D.c:18 Vector. No new placement/physics API.
+// 1_Core/proto/EnConvert.c:210 vector.DistanceSq (named-place selection).
 
 class HCScenesModule : HCModule
 {
@@ -19,6 +23,7 @@ class HCScenesModule : HCModule
     protected int m_Refused;
     // Last preflight refusal reason printed per chain id; bounded by the 4 reviewed chains.
     protected ref map<string, string> m_PreflightReasons = new map<string, string>();
+    protected ref array<string> m_AdvertiseRefusals = new array<string>();
     protected int m_LastNow;
     protected float m_WorkElapsed;
     protected float m_LogElapsed;
@@ -101,12 +106,17 @@ class HCScenesModule : HCModule
     void Advertise(HCSceneLease lease, HCSceneStageDefinition stage, HCEventSite site, int seconds)
     {
         HCEventModule events = HCEventModule.Get();
-        if (!events || !events.Runtime() || seconds < stage.Objective.DwellSeconds) { return; }
+        if (seconds < stage.Objective.DwellSeconds) { return; }
+        if (!events || !events.Runtime()) { AdvertiseRefused(lease, "event-module-unavailable"); return; }
         HCEventMission mission = HCEventReviewedSites.SceneMission(site, stage.Objective.Id, seconds);
         HCEventRuntime runtime = events.Runtime();
-        if (runtime.HasMission(mission.Id)) { return; }
         HCEventContext context = events.Context();
-        if (runtime.Announce(mission, context) != HCEventCode.OK) { return; }
+        if (!context) { AdvertiseRefused(lease, "event-context-unavailable"); return; }
+        if (!runtime.HasMission(mission.Id))
+        {
+            int announced = runtime.Announce(mission, context);
+            if (announced != HCEventCode.OK) { AdvertiseRefused(lease, "announce-code-" + announced.ToString()); return; }
+        }
         HCEventRuntimeState snapshot = runtime.Snapshot();
         foreach (HCEventRun run : snapshot.Runs)
         {
@@ -114,7 +124,64 @@ class HCScenesModule : HCModule
             {
                 lease.ViewEventId = run.EventId;
                 lease.ViewSession = context.Session;
+                Print("[HollowCountry] V2 scene advertised id=" + lease.ChainId + " stage=" + lease.Stage.ToString() + " event=" + lease.ViewEventId.ToString());
+                return;
             }
+        }
+        AdvertiseRefused(lease, "missing-view-run");
+    }
+
+    void AdvertiseRefused(HCSceneLease lease, string reason)
+    {
+        string key = lease.ChainId + ":" + lease.Stage.ToString();
+        if (m_AdvertiseRefusals.Find(key) >= 0 || m_AdvertiseRefusals.Count() >= 12) { return; }
+        m_AdvertiseRefusals.Insert(key);
+        Print("[HollowCountry] V2 scene advertise refused id=" + lease.ChainId + " stage=" + lease.Stage.ToString() + " reason=" + reason + "; retry pending");
+    }
+
+    static bool SceneNote(HCNoteLedger notes, HCWorldLead lead, string sceneId, string placeId, vector position, int now)
+    {
+        if (!notes || !HCLeadPolicy.PrepareSceneLead(lead, sceneId, placeId, now)) { return false; }
+        return notes.Create(sceneId, position, lead) != null;
+    }
+
+    void PublishSceneStory(HCSceneChain chain, HCEventSite site)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        // A static named-place fallback also works when the world ledger is off.
+        HCWorldData catalog = HCWorldData.Fresh(1);
+        HCWorldPlace nearest;
+        float best = 500000000;
+        foreach (HCWorldPlace candidate : catalog.Places)
+        {
+            float distance = vector.DistanceSq(candidate.Position, site.Position);
+            if (distance < best) { best = distance; nearest = candidate; }
+        }
+        if (!nearest) { return; }
+        string placeId = nearest.Id;
+        if (world) { world.AddFact("scene_started", placeId, 0); }
+        HCNoteLedger notes = HCNoteLedger.Get();
+        if (!notes || notes.Scene(chain.Id)) { return; }
+        HCLeadModule leads = HCLeadModule.Get();
+        HCWorldLead lead;
+        if (leads) { lead = leads.Select(); }
+        if (!lead) { lead = new HCWorldLead; }
+        // The same native clearance checks as scenery, including all already
+        // placed kit buildings, protect the door/access strip and ground slope.
+        HCSceneKit noteKit = new HCSceneKit;
+        noteKit.Id = "scene-paper";
+        HCSceneKits.Add(noteKit, "Paper", 0, 7, 0, 0.3);
+        array<vector> notePositions;
+        int noteVariant;
+        if (!HCSceneKits.Preflight(noteKit, site, notePositions, noteVariant))
+        {
+            PreflightRefused(chain.Id, "note-" + HCSceneKits.Refusal());
+            return;
+        }
+        vector notePosition = notePositions[0];
+        if (SceneNote(notes, lead, chain.Id, placeId, notePosition, HCWorldClock.UTC()))
+        {
+            Print("[HollowCountry] V2 scene note created id=" + chain.Id + " place=" + placeId + " source=" + lead.Source);
         }
     }
 
@@ -162,6 +229,13 @@ class HCScenesModule : HCModule
 
     void Work(int now)
     {
+        int paused = HCSceneChains.ResumeAfterGap(m_State, now);
+        if (paused < 0) { Print("[HollowCountry] V2 scenes stopped; downtime exceeds clock bounds"); OnStop(); return; }
+        if (paused > 0)
+        {
+            if (!Commit(now)) { return; }
+            Print("[HollowCountry] V2 scene deadlines shifted downtime=" + paused.ToString());
+        }
         if (m_Cursor >= m_State.Chains.Count()) { m_Cursor = 0; }
         int selected = m_Cursor;
         m_Cursor = m_Cursor + 1;
@@ -205,12 +279,12 @@ class HCScenesModule : HCModule
         if (now < chain.DueAt) { return; }
         if (!lease)
         {
-            if (m_Leases.Count() >= 2) { m_Refused = m_Refused + 1; return; }
+            if (m_Leases.Count() >= 2) { m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "lease-cap"); return; }
             HCEventSite site = HCSceneChains.Site(plan.SiteId);
             if (!site) { Fail(chain, now, "missing-reviewed-site"); return; }
             // A later chain may reuse this reviewed anchor, but never while an
             // earlier lease (even a closing/partially removed one) still owns it.
-            if (!SiteAvailable(site.Position)) { m_Refused = m_Refused + 1; return; }
+            if (!SiteAvailable(site.Position)) { m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "site-unavailable"); return; }
             HCSceneKit kit = HCSceneKits.Find(stage.Kit);
             array<vector> positions;
             int variant;
@@ -235,12 +309,16 @@ class HCScenesModule : HCModule
             bool placed = HCSceneKits.Place(lease, kit, positions, variant);
             m_Placed = m_Placed + lease.Objects.Count();
             if (!placed) { Fail(chain, now, "placement-failed"); return; }
-            int remaining = stage.HoldSeconds - (now - chain.BeganAt);
-            Advertise(lease, stage, site, remaining);
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + variant.ToString());
+            PublishSceneStory(chain, site);
             m_PreflightReasons.Remove(chain.Id);
         }
         if (!HCSceneKits.Healthy(lease)) { Fail(chain, now, "partial-or-missing-lease"); return; }
+        if (lease.ViewEventId == 0)
+        {
+            int remaining = stage.HoldSeconds - (now - chain.BeganAt);
+            Advertise(lease, stage, HCSceneChains.Site(plan.SiteId), remaining);
+        }
         if (now - chain.BeganAt >= stage.HoldSeconds)
         {
             int result = HCEventDirector.SceneElapsed(chain.Director, HCSceneChains.Context(chain, now), chain.EventId, chain.BeganAt, stage.HoldSeconds);
@@ -268,6 +346,9 @@ class HCScenesModule : HCModule
             m_LastNow = now;
             // One chain per ten seconds; at most two live kits of <=8 props.
             Work(now);
+            // Persist a heartbeat even while every chain is waiting; otherwise
+            // an ordinary long stage would be mistaken for server downtime.
+            if (m_Running && now - m_State.LastNow >= 60) { Commit(now); }
         }
         if (m_LogElapsed >= 600)
         {

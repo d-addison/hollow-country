@@ -3,7 +3,8 @@
 // Native evidence in scripts-1.30.164289:
 // 4_World/Entities/ItemBase/TransmitterBase/PersonalRadio.c:1,5,6;
 // 4_World/Entities/ItemBase/TransmitterBase.c:96-116 OnWorkStart/Stop;
-// 4_World/Entities/Core/Inherited/InventoryItem.c:14-25 IsReceiving;
+// 4_World/Entities/Core/Inherited/InventoryItem.c:18 GetTunedFrequency, :22 IsReceiving;
+// 4_World/Classes/UserActionsComponent/Actions/Interact/ActionTuneFrequencyOnGround.c:17 (MHz).
 // 4_World/Entities/ManBase/PlayerBase.c:2394,2399,2638,6733 quickbar/disconnect/hands;
 // 3_Game/Entities/EntityAI.c:882,3409 hierarchy/GetCompEM;
 // 3_Game/tools/Component/ComponentEnergyManager.c:884,925 switched-on/working;
@@ -159,13 +160,17 @@ class HCMorseClues : HCModule
         m_Elapsed = 0;
         m_PlayerCursor = 0;
         m_TargetCursor = 0;
+        if (m_Running) { Print("[HollowCountry] V2 morse ready frequency=" + HCRadioChatter.Frequency("travellers").ToString() + " MHz; tuned holders only"); }
     }
 
     static bool Receiving(EntityAI item, PlayerBase player)
     {
         PersonalRadio radio = PersonalRadio.Cast(item);
         if (!radio || radio.IsRuined() || radio.GetHierarchyRootPlayer() != player || !radio.GetCompEM()) { return false; }
-        return radio.GetCompEM().IsSwitchedOn() && radio.GetCompEM().IsWorking() && radio.IsReceiving();
+        if (!radio.GetCompEM().IsSwitchedOn() || !radio.GetCompEM().IsWorking() || !radio.IsReceiving()) { return false; }
+        float frequency = HCRadioChatter.Frequency("travellers");
+        float tuned = radio.GetTunedFrequency();
+        return tuned > frequency - 0.01 && tuned < frequency + 0.01;
     }
 
     static bool Holder(PlayerBase player)

@@ -21,7 +21,7 @@
 // 3_Game/Entities/EntityAI.c:946 (EEDelete),
 // 1_Core/proto/EnScript.c:470,502 (ordered removal / RemoveItem).
 // Paper is the sole created item, has no reward/loadout, and uses vanilla UI.
-// Unknown/offline physical items retain cap reservations; never respawn them.
+// Unknown/offline items retain reservations until one day past lead expiry.
 class HCNoteEntities
 {
     protected static ref map<string, Paper> s_Entities;
@@ -72,6 +72,8 @@ class HCNoteLedger : HCModule
     protected static HCNoteLedger s_Instance;
     protected ref HCLeadStore m_Store;
     protected float m_Elapsed;
+    protected float m_LogElapsed = 600;
+    protected int m_LastCount = -1;
     protected bool m_AdmissionPrinted;
 
     static HCNoteLedger Get() { return s_Instance; }
@@ -110,7 +112,9 @@ class HCNoteLedger : HCModule
             foreach (HCLeadNote entry : m_Store.Data.Notes)
             {
                 if (!entry || HCNoteEntities.Find(entry.Row.Id)) { continue; }
-                if (HCLeadPolicy.Text(entry.Lead) != noteText) { continue; }
+                bool currentText = HCLeadPolicy.Text(entry.Lead) == noteText;
+                bool legacyText = HCLeadPolicy.LegacyText(entry.Lead) == noteText;
+                if (!currentText && !legacyText) { continue; }
                 paper.HCAssignNote(entry.Row.Id);
                 break;
             }
@@ -119,6 +123,10 @@ class HCNoteLedger : HCModule
 
     void LogCount()
     {
+        int count = m_Store.Data.Notes.Count();
+        if (count == m_LastCount && m_LogElapsed < 600) { return; }
+        m_LastCount = count;
+        m_LogElapsed = 0;
         Print("[HollowCountry] V2 notes world=" + m_Store.Data.Notes.Count().ToString() + "/10");
     }
 
@@ -204,17 +212,28 @@ class HCNoteLedger : HCModule
     {
         if (!m_Store || !m_Store.Healthy() || deltaTime <= 0) { return; }
         m_Elapsed += deltaTime;
+        m_LogElapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
         m_Elapsed = 0;
         ResolveLoaded();
         bool changed;
+        int now = HCWorldClock.UTC();
         for (int entryIndex = m_Store.Data.Notes.Count() - 1; entryIndex >= 0; entryIndex--)
         {
             HCLeadNote entry = m_Store.Data.Notes[entryIndex];
             Paper paper = HCNoteEntities.Find(entry.Row.Id);
-            // No world scan; only positively identified loaded HC items. Keep
-            // unresolved reservations, even past expiry, to preserve world cap.
-            if (!paper || entry.Expires > HCWorldClock.UTC()) { continue; }
+            // No world scan. Release missing-paper reservations after a full
+            // day of expiry grace; never replay their physical creation.
+            if (!paper)
+            {
+                if (now > entry.Expires + 86400)
+                {
+                    m_Store.Data.Notes.RemoveOrdered(entryIndex);
+                    changed = true;
+                }
+                continue;
+            }
+            if (entry.Expires > now) { continue; }
             if (paper.GetHierarchyParent())
             {
                 // Review P1: never delete a note a player or container holds. It

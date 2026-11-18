@@ -5,13 +5,30 @@
 // 3_Game/Entities/Man.c:21 (GetIdentity), 3_Game/gameplay.c:368 (identity GetId).
 // All clock/place/fact operations
 // delegate to installed project helpers. No live coordinates in lead DTOs.
-// Integration seams for the lead: HCAskForNews and HCShelterCatalog do not
-// exist in this base checkout. Their owners can call Get().Rumour(pos) for the
-// news body / SetLeadSlot text, and HCNoteLedger.Get().Create(sceneId, reviewed
-// anchor, Get().Select()) for a scene/shelter note. No unknown types are stubbed.
+// 1_Core/proto/EnString.c:113 Substring.
+// Scene notes and news use this same deterministic place-level wording.
 class HCLeadPolicy
 {
     protected static ref HCWorldData s_Places;
+
+    // Token-safe solo ownership for native (base64) identity IDs. Preserve the
+    // HCWorldLimits.Token alphabet, including '/', and map other characters.
+    // Native scripts-1.30.164289/1_Core/proto/EnString.c:113 Substring,
+    // :199 Length, :240 IndexOf. No native identity value is modified.
+    static string SoloGroup(string identityId)
+    {
+        string alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.:/";
+        string key = "solo:";
+        int keyIndex;
+        while (keyIndex < identityId.Length())
+        {
+            string character = identityId.Substring(keyIndex, 1);
+            if (alphabet.IndexOf(character) < 0) { character = "_"; }
+            key = key + character;
+            keyIndex = keyIndex + 1;
+        }
+        return key;
+    }
 
     static HCWorldPlace Place(string id)
     {
@@ -45,6 +62,12 @@ class HCLeadPolicy
 
     static string Kind(string factKind)
     {
+        if (factKind == "dead_drop_supplied" || factKind == "holdout_occupied") { return "CACHE"; }
+        if (factKind == "faction_clash" || factKind == "holdout_alert" || factKind.IndexOf("_pushed_") > 0) { return "DANGER"; }
+        if (factKind == "picker_searched" || factKind == "holdout_traces" || factKind == "holdout_dormant") { return "PLACE"; }
+        if (factKind == "morse_lead" || factKind.IndexOf("_survivors_") > 0) { return "EVENT"; }
+        if (factKind == "camp_probe_warning" || factKind == "camp_neighbours_lost" || factKind == "camp_probe_signs") { return "DANGER"; }
+        if (factKind.IndexOf("camp_") == 0) { return "PLACE"; }
         if (factKind == "PLACE" || factKind == "party_passed" || factKind == "ABANDONED" || factKind == "abandoned") { return "PLACE"; }
         if (factKind == "CACHE" || factKind == "cache_found" || factKind == "cache_stocked") { return "CACHE"; }
         if (factKind == "EVENT" || factKind == "herd_moving" || factKind == "herd_passed" || factKind == "scene_started") { return "EVENT"; }
@@ -52,7 +75,8 @@ class HCLeadPolicy
         return "";
     }
 
-    static string Text(HCWorldLead lead)
+    // Preserve recognition of vanilla papers written before this wording pass.
+    static string LegacyText(HCWorldLead lead)
     {
         if (!Valid(lead)) { return ""; }
         string placeName = Place(lead.TargetPlaceId).Name;
@@ -63,6 +87,85 @@ class HCLeadPolicy
         if (lead.TextId == "SHOTS_HEARD" || lead.TextId == "shots_heard") { report = "Shots were heard near " + placeName + " some time ago."; }
         if (lead.TextId == "herd_moving" || lead.TextId == "herd_passed") { report = "A herd was reported passing the area around " + placeName + " earlier."; }
         return report + " This is old news; things may have changed.";
+    }
+
+    static string FactionName(string id)
+    {
+        if (id == "locals") { return "Locals"; }
+        if (id == "volunteers") { return "Volunteers"; }
+        if (id == "scavengers") { return "Scavengers"; }
+        if (id == "raiders") { return "Raiders"; }
+        if (id == "travellers") { return "Travellers"; }
+        return "An unknown group";
+    }
+
+    static string Text(HCWorldLead lead)
+    {
+        if (!Valid(lead)) { return ""; }
+        string placeName = Place(lead.TargetPlaceId).Name;
+        string report;
+        string kind = lead.TextId;
+        if (kind == "holdout_occupied") { report = "Smoke was seen again from a house near " + placeName + "."; }
+        if (kind == "holdout_alert") { report = "Armed occupants were on alert near " + placeName + "."; }
+        if (kind == "holdout_dormant") { report = "A previously occupied house fell quiet near " + placeName + "."; }
+        if (kind == "holdout_traces") { report = "Traces of a temporary holdout were found near " + placeName + "."; }
+        if (kind == "STOLEN" || kind == "CACHE_EMPTIED") { report = "Crates were emptied near " + placeName + "."; }
+        if (kind == "picker_searched") { report = "Scavengers were seen picking through houses near " + placeName + "."; }
+        if (kind == "dead_drop_supplied") { report = "A drop was restocked near " + placeName + "."; }
+        if (kind == "cache_found" || kind == "cache_stocked") { report = "Supplies were reported in a cache near " + placeName + "."; }
+        if (kind == "faction_clash") { report = "Two groups fought over " + placeName + "."; }
+        if (kind == "holdout_raided" || kind == "RAIDED") { report = "A holdout was raided near " + placeName + "."; }
+        if (kind == "BODY_FOUND") { report = "A body and a discarded message were found near " + placeName + "."; }
+        if (kind == "ABANDONED" || kind == "abandoned") { report = "A camp was abandoned near " + placeName + "."; }
+        if (kind == "scene_started") { report = "Someone left signs of a recent stop near " + placeName + "."; }
+        if (kind == "morse_lead") { report = "A coded radio message mentioned an earlier event near " + placeName + "."; }
+        if (kind == "camp_settlement") { report = "A camp was growing into a settlement near " + placeName + "."; }
+        if (kind == "camp_visitor") { report = "Travellers visited a camp near " + placeName + "."; }
+        if (kind == "camp_neighbours_lost") { report = "A camp lost contact with its neighbours near " + placeName + "."; }
+        if (kind == "camp_probe_retreat") { report = "Strangers withdrew from a camp near " + placeName + "."; }
+        if (kind == "camp_probe_signs") { report = "Signs of strangers watching a camp were found near " + placeName + "."; }
+        if (kind == "camp_probe_warning") { report = "A camp received a warning from strangers near " + placeName + "."; }
+        if (report == "" && kind.IndexOf("camp_") == 0) { report = "Activity was reported around a camp near " + placeName + "."; }
+        int pushed = kind.IndexOf("_pushed_");
+        if (pushed > 0)
+        {
+            string winner = kind.Substring(0, pushed);
+            int loserAt = pushed + 8;
+            string loser = kind.Substring(loserAt, kind.Length() - loserAt);
+            report = FactionName(winner) + " pushed " + FactionName(loser) + " out of " + placeName + ".";
+        }
+        int survivors = kind.IndexOf("_survivors_");
+        if (survivors > 0)
+        {
+            string faction = kind.Substring(0, survivors);
+            int countAt = survivors + 11;
+            string tally = kind.Substring(countAt, kind.Length() - countAt);
+            int ofAt = tally.IndexOf("_of_");
+            report = "Survivors from " + FactionName(faction) + " were reported near " + placeName + ".";
+            if (ofAt > 0)
+            {
+                string remaining = tally.Substring(0, ofAt);
+                int totalAt = ofAt + 4;
+                string total = tally.Substring(totalAt, tally.Length() - totalAt);
+                report = FactionName(faction) + " reported " + remaining + " of " + total + " people surviving near " + placeName + ".";
+            }
+        }
+        if (report == "") { return LegacyText(lead); }
+        return report + " This is old news; things may have changed.";
+    }
+
+    static bool PrepareSceneLead(HCWorldLead lead, string sceneId, string placeId, int now)
+    {
+        if (!lead || now < 1) { return false; }
+        if (Valid(lead) && lead.Expires > now) { return true; }
+        if (!KnownPlace(placeId)) { return false; }
+        lead.Kind = "PLACE";
+        lead.TargetPlaceId = placeId;
+        lead.TextId = "scene_started";
+        lead.Source = "scene";
+        lead.Id = sceneId;
+        lead.Expires = now + 259200;
+        return true;
     }
 
     static HCWorldLead Copy(HCWorldLead row)
@@ -89,6 +192,8 @@ class HCLeadModule : HCModule
     protected int m_SelectionCursor;
     protected int m_ShelterCursor;
     protected float m_Elapsed = 60;
+    protected float m_LogElapsed = 600;
+    protected string m_LastSummary;
     protected bool m_AdmissionPrinted;
 
     static HCLeadModule Get()
@@ -116,6 +221,7 @@ class HCLeadModule : HCModule
     {
         if (!Get() || deltaTime <= 0) { return; }
         m_Elapsed += deltaTime;
+        m_LogElapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
         m_Elapsed = 0;
         int now = HCWorldClock.UTC();
@@ -170,7 +276,13 @@ class HCLeadModule : HCModule
         {
             if (groups.Find(active.GroupId) < 0) { groups.Insert(active.GroupId); }
         }
-        Print("[HollowCountry] V2 leads active=" + m_Store.Data.Leads.Count().ToString() + " groups=" + groups.Count().ToString());
+        string summary = "[HollowCountry] V2 leads active=" + m_Store.Data.Leads.Count().ToString() + " groups=" + groups.Count().ToString();
+        if (summary != m_LastSummary || m_LogElapsed >= 600)
+        {
+            Print(summary);
+            m_LastSummary = summary;
+            m_LogElapsed = 0;
+        }
     }
 
     override void OnStop() { s_Instance = null; }
@@ -183,6 +295,27 @@ class HCLeadModule : HCModule
             if (m_SelectionCursor >= m_Catalog.Count()) { m_SelectionCursor = 0; }
             HCWorldLead candidate = m_Catalog[m_SelectionCursor++];
             if (candidate.Expires > now) { return HCLeadPolicy.Copy(candidate); }
+        }
+        return null;
+    }
+
+    // Newest eligible fact, retaining the same 30-minute delay as other leads.
+    HCWorldLead Latest()
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!Get() || !world) { return null; }
+        world.GetRecentFacts(604800, m_Facts);
+        int checked;
+        foreach (HCWorldFact fact : m_Facts)
+        {
+            checked = checked + 1;
+            if (checked > 32) { break; }
+            HCWorldLead candidate = new HCWorldLead;
+            if (!HCLeadPolicy.Build(fact, candidate, fact.PlaceId, HCLeadPolicy.Kind(fact.Kind), HCWorldClock.UTC())) { continue; }
+            if (!HCLeadPolicy.Valid(candidate)) { continue; }
+            candidate.Id = fact.Kind + "-" + fact.PlaceId + "-" + fact.At.ToString();
+            candidate.Source = "world";
+            return candidate;
         }
         return null;
     }
@@ -219,10 +352,15 @@ class HCLeadModule : HCModule
 
     void ReceivePlayer(HCWorldLead offer, PlayerBase player, string source)
     {
+        if (!player || !player.IsAlive() || !player.GetIdentity()) { return; }
         HCGroupService groups = HCGroupService.Get();
-        if (!groups) { return; }
-        string groupId = groups.HCLeadGroup(player);
-        if (groupId != "") { Receive(offer, groupId, source); }
+        string groupId = HCLeadPolicy.SoloGroup(player.GetIdentity().GetId());
+        if (groups) { groupId = groups.HCLeadGroup(player); }
+        if (groupId == "") { return; }
+        if (Receive(offer, groupId, source))
+        {
+            Print("[HollowCountry] V2 lead received source=" + source + " place=" + offer.TargetPlaceId);
+        }
     }
 
     void GroupLeads(string groupId, out array<ref HCWorldLead> output)
@@ -237,14 +375,14 @@ class HCLeadModule : HCModule
 }
 
 // Resolve membership from authoritative state at delivery time, without editing
-// group-owned files or persisting player identities in the lead ledger.
+// group-owned files. Solo keys sanitize the server identity for lead storage.
 modded class HCGroupService
 {
     string HCLeadGroup(PlayerBase player)
     {
-        if (!m_Healthy || !player || !player.GetIdentity()) { return ""; }
+        if (!m_Healthy || !m_State || !player || !player.GetIdentity()) { return ""; }
         HCGroupRecord group = HCGroupRules.FindGroup(m_State, player.GetIdentity().GetId());
-        if (!group) { return ""; }
+        if (!group) { return HCLeadPolicy.SoloGroup(player.GetIdentity().GetId()); }
         return "group-" + group.Id.ToString();
     }
 }

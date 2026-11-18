@@ -10,6 +10,7 @@
 // 3_Game/Client/Notifications/NotificationSystem.c:125 SendNotificationToPlayerExtended;
 // 3_Game/Global/Game.c:1119,1120 IsClient/IsServer, :1535 GetTime;
 // 3_Game/tools/JsonFileLoader.c:85 MakeData;
+// 1_Core/proto/EnString.c:113 Substring (bounded notification text).
 // 1_Core/proto/EnSystem.c:397 FileExist, :525 MakeDirectory, :528,531 DeleteFile/CopyFile.
 // No native rename exists in this dump: pending guard + backup + verified copy,
 // as HCXAIStore does. Interrupted publication refuses further talk until recovery.
@@ -72,7 +73,7 @@ class HCAskForNews
             if (!row || row.NPC == "" || row.NPC.Length() > 128 || row.Group == "" || row.Group.Length() > 128 || row.At < 1 || row.At > now) { Print("[HollowCountry] AskForNews refused: invalid receipt"); return; }
         }
         s_Healthy = true;
-        Print("[HollowCountry] AskForNews ready: server validation; one per NPC/group/86400s; rumour hook empty");
+        Print("[HollowCountry] AskForNews ready: server validation; one lead per NPC/group/86400s; delayed place leads connected");
     }
     static bool NoticeAllowed(PlayerBase player)
     {
@@ -146,6 +147,16 @@ class HCAskForNews
                 return;
             }
         }
+        HCLeadModule leads = HCLeadModule.Get();
+        HCWorldLead lead;
+        if (leads) { lead = leads.Select(); }
+        if (!lead)
+        {
+            HCAskForNews.Notify(player, "News", "Nothing new to tell you.");
+            return;
+        }
+        string rumour = HCLeadPolicy.Text(lead);
+        if (rumour == "") { return; }
         int prune = s_Journal.Rows.Count() - 1;
         while (prune >= 0)
         {
@@ -166,12 +177,11 @@ class HCAskForNews
             Print("[HollowCountry] AskForNews refused: journal publication uncertain; preserve pending file");
             return;
         }
-        string rumour = HCAskForNews.Rumour(target.GetPosition());
-        if (rumour == "") { rumour = "Nothing new to tell you."; }
+        leads.ReceivePlayer(lead, player, "news");
         if (rumour.Length() > 160) { rumour = rumour.Substring(0, 160); }
         s_Target.Greet(target);
         HCAskForNews.Notify(player, "News", rumour);
-        Print("[HollowCountry] AskForNews answered: npc=" + npc + "; daily group receipt saved");
+        Print("[HollowCountry] AskForNews answered: npc=" + npc + "; daily group receipt saved; lead offered place=" + lead.TargetPlaceId);
     }
 }
 // Reuse the existing server-owned group ledger without exposing it to clients.
