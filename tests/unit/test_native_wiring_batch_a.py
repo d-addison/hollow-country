@@ -120,6 +120,7 @@ def pathgraph(server=True):
               UpdatePathgraphRegionByObject="UpdatePathgraphRegionByObject")
     scope = {"GetGame": lambda: game, "CALL_CATEGORY_SYSTEM": 1, "Math": NS(Min=min),
              "Print": lambda text: logs.append(text)}
+    scope["HCInteriorTemplatePlacement"] = NS(HCTimedPathgraph="HCTimedPathgraph")
     translate(PATHGRAPH, "HCInteriorPathgraph", scope, ["Schedule"])
     return scope["Schedule"], queue, logs
 
@@ -129,7 +130,8 @@ class PathgraphTests(unittest.TestCase):
         schedule, queue, logs = pathgraph()
         props = Array(["a", "b", "c"])
         self.assertEqual(3, schedule(props))
-        self.assertEqual([("UpdatePathgraphRegionByObject", 100, False, (prop,)) for prop in props], queue.calls)
+        # HC-owned target: stopping the module must not cancel vanilla's own queued updates.
+        self.assertEqual([("HCTimedPathgraph", 100, False, (prop,)) for prop in props], queue.calls)
         self.assertEqual(1, len(logs))
         self.assertIn("pathgraph", logs[0])
 
@@ -149,7 +151,10 @@ class PathgraphTests(unittest.TestCase):
 
     def test_source_uses_only_the_vanilla_call_later_form_with_no_retained_queue(self):
         text = code(PATHGRAPH)
-        self.assertIn("GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(GetGame().UpdatePathgraphRegionByObject, DELAY_MS, false, placedObject);", text)
+        self.assertIn("GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(HCInteriorTemplatePlacement.HCTimedPathgraph, DELAY_MS, false, placedObject);", text)
+        module = code(MODULE)
+        self.assertNotIn("Remove(GetGame().UpdatePathgraphRegionByObject)", module)
+        self.assertIn("Remove(HCInteriorTemplatePlacement.HCTimedPathgraph)", module)
         for forbidden in ("ProcessMarkedObjectsForPathgraphUpdate", "MarkObjectForPathgraphUpdate", "foreach", "for (", "ref array", "static ref"):
             self.assertNotIn(forbidden, text)
         self.assertEqual(1, text.count("while ("))
