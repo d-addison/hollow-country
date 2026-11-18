@@ -61,7 +61,7 @@ AnimSrcGraphFile {
        ToState "SitWallGetUp"
        Duration "0.2"
        StartTime ""
-       Condition "(IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0) || MovementSpeed > 0.5"
+       Condition "IsCommand(CMD_HC_POSE) && GetCommandI(CMD_HC_POSE) == 0"
        BlendFn S
        MotionVecBlend 0x33 0
       }

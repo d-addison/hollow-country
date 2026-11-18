@@ -24,19 +24,34 @@ python3 tools/anim/preview.py --out <dir> --name hc-sit-wall-idle build/anims/pr
 
 The `build/` folder is gitignored. Both build scripts read the installed game and never write to it.
 
-- **Clips.** Poses are written as code in `build_infected_clips.py`: lean angles, analytic two-bone
-  IK for the arms and legs, and a breathing/sway cycle. That code is applied to frame 0 of the
-  installed vanilla erect idle and written as a SET6 `.anm` with `tools/anim/anm.py`. The skeleton
-  hierarchy comes from the installed `hermit_newbindpose.xob` (`tools/anim/rig.py`). The repo
-  holds no game data, only the code.
+- **Clips: no vanilla animation frame is used.** Poses are written as code in
+  `build_infected_clips.py`: lean angles, analytic two-bone IK for the arms and legs, and a
+  breathing/sway cycle. The code starts from the rest pose of the `HC_ZmbM_Sitter` mesh skeleton,
+  the HEAD bone records (parent-local rest translation and rotation per bone) of `z_hermit_m.xob`
+  in the installed `characters_zombies.pbo` (`rig.load_skeleton`, `rig.rest_pose`). The pelvis
+  gets a 180 degree turn about Y, because the mesh rests facing -Z and the clips face +Z. The rest
+  pose is an A-pose, so `stand_pose` builds our standing pose from it: it leans the spine, neck and
+  head, staggers the feet and lowers the arms by IK. Untouched bones keep their skeleton rest
+  transforms.
+  - **Bone list.** It is the mesh bones minus `LookAt`, both hip helpers and four fourth finger
+    joints, plus `EntityPosition`, `Collision`, `RightHandIK_Helper`, `RightHandIK` and
+    `LeftHandIK` held at the origin. The list matches the bone set of vanilla infected clips.
+    Vanilla animates `RightHandIK_Helper`; ours holds it still.
+  - **Seam.** The get-up ends on our stand, not on the vanilla idle. The distances to vanilla
+    `zA_erc_idle01` frame 0 are 0.014 m at the pelvis, 0.056 m at the head, 0.070/0.046 m at the
+    left/right hand and 0.036/0.049 m at the left/right foot; the largest joint distance is 0.119 m
+    at `LeftForeArm`. The 0.25 s blend back to vanilla covers this seam (`SEAM_METRES = 0.12`).
+  - **Vanilla clips are read only by tests.** They check the bone set, the seam, and that no
+    shipped key matches any vanilla clip key.
+  - The repo holds no game data, only the code.
 - **Graph: no vanilla graph content is shipped.** `build_anims_addon.py` reads the installed
   `anims_workspaces.pbo` at build time only, and ships just two generated files:
   - `hc_infected.agr`. Our graph file references the vanilla template `infected.ast`, the sync
     table and the three vanilla sheets (`Locomotion.agf`, `Combat.agf`, `Interaction.agf`) by their
     `DZ/` paths. It declares the ControlTemplate interface the vanilla sheets and the engine bind
-    to: 8 variables and 8 commands, names and default/min/max only. To that it adds our `HCPose`
-    variable, our synchronized `CMD_HC_POSE` command, our sheet `hc_poses.agf`, an empty Debug
-    block with our own id, and `DefaultRunNode "HCMasterControl"`. The vanilla Debug panel (most of
+    to: 8 variables and 8 commands, names and default/min/max only, in vanilla order. After them it
+    appends our `HCPose` variable and our synchronized `CMD_HC_POSE` command. It also adds our sheet
+    `hc_poses.agf`, an empty Debug block with our own id, and `DefaultRunNode "HCMasterControl"`. The vanilla Debug panel (most of
     the vanilla file) is not carried.
   - `hc_infected.asi`. This is a child instance: `Template` is the vanilla `.ast` and
     `ParentTemplates` is the vanilla `infected_main.asi`, the engine's own inheritance (vanilla
@@ -56,6 +71,12 @@ The `build/` folder is gitignored. Both build scripts read the installed game an
     installed game. Every shipped `.agr`/`.asi` line that matches a vanilla line must be an
     interface declaration, a bare format keyword, one of our two slot names or a `DZ/` resource
     reference. The test also requires that no `DZ/anims/anm` clip line and no `.ast` is shipped.
+  - `test_no_clip_key_matches_a_vanilla_frame_except_skeleton_rest` reads every SET6 clip in the
+    installed infected animation PBO. For each bone, no shipped key may equal or lie within 2e-4
+    of a vanilla key, unless the key is within 1e-3 of that bone's skeleton rest transform or of
+    zero/identity. A bit-for-bit check alone would miss a copy: re-quantizing a copied frame
+    changes its bits. Against the earlier build, whose stand came from vanilla idle frame 0, this
+    test fails.
   - DayZ loads text graphs at runtime (the Dog mod is the precedent), so no Workbench graph compile
     step is used.
 - **Addon.** `mods/HollowCountryAnims/` contains:
@@ -97,13 +118,20 @@ writes. The hook for `tools/package/` staging (not wired yet) has three parts:
 | From | To | Condition | Blend |
 |---|---|---|---|
 | Vanilla | SitWall | `CMD_HC_POSE` with int 1 | 0.6 s |
-| SitWall | SitWallGetUp | `CMD_HC_POSE` with int 0, or `MovementSpeed > 0.5` | 0.2 s |
+| SitWall | SitWallGetUp | `CMD_HC_POSE` with int 0 | 0.2 s |
 | SitWallGetUp | Vanilla | 0.25 s before the clip ends | 0.25 s |
 | SitWall / SitWallGetUp | Vanilla | any vanilla DEATH, HIT_LIGHT, HIT_HEAVY, CRAWL, ATTACK or VAULT command | 0.15 s |
 
 The brief asked for a variable to drive this. We used a synchronized command instead, because every
 vanilla infected command is `Synchronized 1` and we have not seen a plain graph variable replicate to
 clients. The script still sets `HCPose`.
+
+The get-up does not test `MovementSpeed`, which could be stale, and it does not test `HCPose`. If
+`HCPose` did not replicate, a client would see the default 0 and stand the infected up at once.
+`MovementSpeed` is not needed. In vanilla `ZombieBase.c` `CommandHandler`, the move command starts
+again only after the current command finishes (lines 225-228), and ours finishes only after the
+get-up. Every other command start has its own exit transition: death (:353), vault (:427/:438),
+attack (:715/:760), crawl (:815) and hit (:888).
 
 ### Server hook (`HCPoseInfected.c`)
 

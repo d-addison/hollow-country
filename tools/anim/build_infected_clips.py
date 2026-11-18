@@ -1,8 +1,9 @@
 """Author Hollow Country infected pose clips as .anm files. Standard library only. Our own code.
 
 The poses are written here as code (aim directions, lean angles, a breathing cycle) and applied
-to the standing reference frame of the installed game at build time, so the repository holds no
-game data. The generated .anm files are build outputs and stay outside git
+to the rest pose of the mesh skeleton (z_hermit_m.xob bone offsets and rest rotations, read from
+the installed game at build time). No vanilla animation frame is used, and the repository holds
+no game data. The generated .anm files are build outputs and stay outside git
 (default: build/anims/clips/). See docs/ANIMATION_PIPELINE.md.
 
     python3 tools/anim/build_infected_clips.py \
@@ -25,7 +26,6 @@ from tools.anim import anm, rig  # noqa: E402
 FPS = 30
 X = (1.0, 0.0, 0.0)
 Y = (0.0, 1.0, 0.0)
-ROOT_BONES = ('Scene_Root', 'EntityPosition', 'Collision')
 # Joints written to the preview JSON (segments for the stick/mannequin renderers).
 PREVIEW_SEGMENTS = (
     ('Pelvis', 'Spine'), ('Spine', 'Spine2'), ('Spine2', 'Spine3'), ('Spine3', 'Neck'), ('Neck', 'Head'),
@@ -58,6 +58,29 @@ def two_bone(pose, upper, lower, end, target, pole):
 
 
 HIP_SEAT_Y = 0.11   # hip joints above the ground when sitting on it
+SEAM_METRES = 0.12  # our standing pose stays this close to the vanilla idle (joint positions; tested)
+
+
+def stand_pose(rest):
+    """Our standing infected pose, built from the mesh rest (A-pose) pose by our own code.
+
+    Arms hang with soft elbows and the hands in front of the thighs, the head leans forward,
+    the left foot is half a step ahead. It is the get-up's last frame, so the hand-over to the
+    vanilla idle is an approximate seam that the vanilla graph blends.
+    """
+    p = rest.copy()
+    p.rotate_world('Spine3', rig.qaxis(X, 3))
+    p.rotate_world('Neck', rig.qaxis(X, 10))
+    p.rotate_world('Head', rig.qaxis(X, 6))
+    for side, sx, foot_z in (('Left', -1.0, 0.0), ('Right', 1.0, -0.07)):
+        hip = p.pos(side + 'UpLeg')
+        two_bone(p, side + 'UpLeg', side + 'Leg', side + 'Foot', (hip[0] + sx * 0.03, 0.104, foot_z),
+                 (0.0, 0.0, 1.0))
+        ankle = p.pos(side + 'Foot')
+        p.aim(side + 'Foot', side + 'ToeBase', rig.vsub((ankle[0] + sx * 0.01, 0.02, ankle[2] + 0.135), ankle))
+        two_bone(p, side + 'Arm', side + 'ForeArm', side + 'Hand', (sx * 0.30, 0.94, 0.06),
+                 (sx * 0.5, 0.0, -1.0))
+    return p
 
 
 def seat_on_hips(p, hips):
@@ -124,15 +147,15 @@ def blend(a, b, t):
     return rig.Pose(a.parents, local)
 
 
-def to_anim(ref, poses):
-    """Anim with the reference's bone list/scale; constant tracks collapse to one key."""
+def to_anim(bones, poses):
+    """Anim over the clip bone list (no scale keys); constant tracks collapse to one key."""
     out = anm.Anim(fps=FPS, frames=len(poses))
-    for rb in ref.bones:
-        b = anm.Bone(rb.name)
-        ts = [ps.local.get(rb.name, ((0.0, 0.0, 0.0), rig.IDENTITY))[0] for ps in poses]
+    for name in bones:
+        b = anm.Bone(name)
+        ts = [ps.local.get(name, ((0.0, 0.0, 0.0), rig.IDENTITY))[0] for ps in poses]
         qs = []
         for ps in poses:
-            q = ps.local.get(rb.name, ((0, 0, 0), rig.IDENTITY))[1]
+            q = ps.local.get(name, ((0, 0, 0), rig.IDENTITY))[1]
             if qs and sum(x * y for x, y in zip(q, qs[-1])) < 0:
                 q = tuple(-c for c in q)          # keep the quaternion hemisphere continuous
             qs.append(q)
@@ -141,7 +164,6 @@ def to_anim(ref, poses):
                 track.frames, track.values = [0], [tuple(vals[0])]
             else:
                 track.frames, track.values = list(range(len(vals))), [tuple(v) for v in vals]
-        b.s = anm.Track(3, list(rb.s.frames[:1]), list(rb.s.values[:1]))
         out.bones.append(b)
     return out
 
@@ -168,11 +190,12 @@ def build_sit_wall_getup(stand, seconds=1.6):
     return poses
 
 
-def build_all(parents, ref):
-    stand = rig.pose_from_clip(parents, ref, 0)
+def build_all(parents, rest, bones):
+    """Our clips from the mesh skeleton (``rig.load_skeleton``); no vanilla clip is read."""
+    stand = stand_pose(rig.rest_pose(parents, rest, bones))
     return {
-        'hc_sit_wall_idle': to_anim(ref, build_sit_wall_idle(stand)),
-        'hc_sit_wall_getup': to_anim(ref, build_sit_wall_getup(stand)),
+        'hc_sit_wall_idle': to_anim(bones, build_sit_wall_idle(stand)),
+        'hc_sit_wall_getup': to_anim(bones, build_sit_wall_getup(stand)),
     }
 
 
@@ -189,18 +212,18 @@ def main(argv=None):
     ap.add_argument('--addons', required=True, help='installed DayZ (or DayZServer) Addons folder, read only')
     ap.add_argument('--out', default='build/anims', help='output folder (outside git)')
     args = ap.parse_args(argv)
-    parents, ref = rig.load_reference(args.addons)
+    parents, rest, bones = rig.load_skeleton(args.addons)
     os.makedirs(os.path.join(args.out, 'clips'), exist_ok=True)
     os.makedirs(os.path.join(args.out, 'preview'), exist_ok=True)
-    for name, clip in build_all(parents, ref).items():
+    for name, clip in build_all(parents, rest, bones).items():
         data = anm.write(clip)
         with open(os.path.join(args.out, 'clips', name + '.anm'), 'wb') as h:
             h.write(data)
         with open(os.path.join(args.out, 'preview', name + '.json'), 'w') as h:
             json.dump(preview_json(parents, clip), h)
         print('wrote %s.anm frames=%d bytes=%d' % (name, clip.frames, len(data)))
-    # Standing reference frame, preview only (no .anm): start/end of the preview sequences.
-    stand = to_anim(ref, [rig.pose_from_clip(parents, ref, 0)])
+    # Our standing pose, preview only (no .anm): start/end of the preview sequences.
+    stand = to_anim(bones, [stand_pose(rig.rest_pose(parents, rest, bones))])
     with open(os.path.join(args.out, 'preview', 'reference_stand.json'), 'w') as h:
         json.dump(preview_json(parents, stand), h)
     return 0

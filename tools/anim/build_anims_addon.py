@@ -83,6 +83,10 @@ def _field(text, key):
 
 def vanilla_interface(agr):
     """The Variables and Commands blocks of the vanilla ControlTemplate (declarations only)."""
+    return '\n'.join(_interface_blocks(agr))
+
+
+def _interface_blocks(agr):
     start, end = _block(agr, 'ControlTemplate AnimSrcGCT')
     body = agr[agr.index('" {', start) + 3:end]      # skip the quoted "{id}" in the header
     parts = []
@@ -93,7 +97,7 @@ def vanilla_interface(agr):
     rest = re.sub(r'\s', '', body.replace(parts[0], '').replace(parts[1], ''))
     if rest:
         raise ValueError('vanilla ControlTemplate has more than Variables/Commands; review the pose graph')
-    return '\n'.join(parts)
+    return parts
 
 
 def build_graph(agr, aw):
@@ -110,11 +114,12 @@ def build_graph(agr, aw):
     parent = re.findall(r'"\{[0-9A-F]{16}\}DZ/[^"]+/infected_main\.asi"', aw[s:e])
     if len(parent) != 1:
         raise ValueError('vanilla workspace does not name exactly one infected_main.asi')
-    interface = vanilla_interface(agr)
-    interface = interface.replace('  Variables {', '  Variables {\n   AnimSrcGCTVarInt HCPose {\n'
-                                  '    DefaultValue 0\n    MinValue 0\n    MaxValue 3\n   }', 1)
-    interface = interface.replace('  Commands {', '  Commands {\n   AnimSrcGCTCmd CMD_HC_POSE {\n'
-                                  '    Synchronized 1\n   }', 1)
+    variables, commands = _interface_blocks(agr)
+    # ours go after the vanilla declarations, so every vanilla variable/command keeps its order
+    interface = (variables[:variables.rindex('}')]
+                 + ' AnimSrcGCTVarInt HCPose {\n    DefaultValue 0\n    MinValue 0\n    MaxValue 3\n   }\n  }\n'
+                 + commands[:commands.rindex('}')]
+                 + ' AnimSrcGCTCmd CMD_HC_POSE {\n    Synchronized 1\n   }\n  }')
     gct = guid(BASE + 'hc_infected.agr#gct')
     agr_out = ('AnimSrcGraph {\n AnimSetTemplate %s\n AnimSyncTable %s\n ControlTemplate AnimSrcGCT "%s" {\n'
                '%s\n }\n Debug AnimSrcGD "%s" {\n }\n GraphFilesResourceNames {\n  %s\n }\n'

@@ -1,7 +1,9 @@
 """Quaternion/FK helpers and build-time readers for the installed infected skeleton. Stdlib only.
 
-Nothing from the game is stored in the repository: the reference pose (bone offsets and a
-standing idle frame) and the bone hierarchy are read from the local DayZ install at build time.
+Nothing from the game is stored in the repository. The clips are built from the skeleton of the
+mesh HC_ZmbM_Sitter uses (``z_hermit_m.xob``: bone hierarchy and rest transforms, read at build
+time) plus our own pose code; no vanilla animation frame is used. ``load_reference`` reads one
+vanilla idle clip for tests only (seam distance, bone list), never for building.
 
 Engine axes: Y up, +Z forward, -X is the character's left. Quaternions are (x, y, z, w).
 """
@@ -12,11 +14,24 @@ from tools.anim import anm
 
 IDENTITY = (0.0, 0.0, 0.0, 1.0)
 
-# Members of the installed DayZ addons used as the build-time reference (read, never copied).
+# Members of the installed DayZ addons read at build time (never copied).
+SKELETON_PBO = 'characters_zombies.pbo'      # prefix dz\characters\zombies
+SKELETON_MODEL = 'z_hermit_m.xob'            # the HC_ZmbM_Sitter enfanimsys meshObject
+# Tests only (codec round trip, seam distance, bone list):
 CLIP_PBO = 'anims_anm_infected.pbo'          # prefix DZ\anims\anm\infected
 WORKSPACE_PBO = 'anims_workspaces.pbo'       # prefix DZ\anims\workspaces
 REFERENCE_CLIP = 'moves\\erected\\zA_erc_idle01.anm'
 HIERARCHY_MODEL = 'infected\\models\\z_hermit_m_editorpreview.xob'
+
+# Clip bone list. Infected clips carry these root/helper bones, which the mesh skeleton lacks;
+# ours hold them at the origin with no rotation (no root motion, IK helpers unused by infected).
+ROOT_EXTRAS = ('EntityPosition', 'Collision')
+TAIL_EXTRAS = ('RightHandIK_Helper', 'RightHandIK', 'LeftHandIK')
+# Mesh bones that infected clips carry no track for (look-at and hip helpers, right finger tips).
+NOT_ANIMATED = ('LookAt', 'LeftHip_Helper', 'RightHip_Helper', 'RightHandRing4', 'RightHandThumb4',
+                'RightHandMiddle4', 'RightHandIndex4')
+# The mesh rest pose faces -Z; clips face +Z (forward). The pelvis is turned half round about Y.
+FACING = (0.0, 1.0, 0.0, 0.0)
 
 
 def qmul(a, b):
@@ -176,6 +191,16 @@ class Pose:
 
 def parse_xob_hierarchy(data):
     """Bone parent map from an XOB6 model's HEAD (names, then 36-byte bone records)."""
+    return parse_xob_skeleton(data)[1]
+
+
+def parse_xob_skeleton(data):
+    """(bone names, parent map, rest {name: (t, q)}) from an XOB6 model's HEAD.
+
+    Each 36-byte bone record is the parent-local rest translation (3 floats), rotation
+    quaternion (x, y, z, w; 4 floats), then the next-sibling and first-child indices (2 shorts)
+    and 2 more shorts.
+    """
     if data[:4] != b'FORM' or data[8:12] != b'XOB6':
         raise ValueError('not an XOB6 model')
     start = data.find(b'Scene_Root\0')
@@ -191,7 +216,10 @@ def parse_xob_hierarchy(data):
         names.append(name)
     pos += 6
     recs = []
-    for _ in names:
+    rest = {}
+    for name in names:
+        f = struct.unpack_from('<7f', data, pos)
+        rest[name] = (f[:3], qnorm(f[3:]))
         nxt, first = struct.unpack_from('<2h', data, pos + 28)
         recs.append((nxt, first))
         pos += 36
@@ -206,11 +234,47 @@ def parse_xob_hierarchy(data):
     visit(0, None, 0)
     if len(parents) != len(names):
         raise ValueError('xob hierarchy walk reached %d of %d bones' % (len(parents), len(names)))
-    return parents
+    return names, parents, rest
+
+
+def skeleton_from_xob(data):
+    """(parents, rest, clip bone order) for clips on this mesh skeleton."""
+    names, parents, rest = parse_xob_skeleton(data)
+    for n in ROOT_EXTRAS + TAIL_EXTRAS:
+        if n in parents:
+            raise ValueError('mesh skeleton now has %s; review ROOT_EXTRAS/TAIL_EXTRAS' % n)
+        parents[n] = 'Scene_Root'
+        rest[n] = ((0.0, 0.0, 0.0), IDENTITY)
+    missing = [n for n in NOT_ANIMATED if n not in names]
+    if missing or names[0] != 'Scene_Root':
+        raise ValueError('mesh skeleton changed (missing %s); review the clip bone list' % missing)
+    bones = [names[0]] + list(ROOT_EXTRAS) + [n for n in names[1:] if n not in NOT_ANIMATED] + list(TAIL_EXTRAS)
+    return parents, rest, bones
+
+
+def load_skeleton(addons_dir):
+    """(parents, rest, bones) from the installed mesh skeleton. Raises FileNotFoundError when absent."""
+    import os
+    from tools.audit import pbo_config as pc
+    path = os.path.join(addons_dir, SKELETON_PBO)
+    if not os.path.isfile(path):
+        raise FileNotFoundError(path)
+    data = pc.read_member(path, pc.read_pbo_index(path), SKELETON_MODEL, max_bytes=32 << 20)
+    if data is None:
+        raise FileNotFoundError(SKELETON_MODEL + ' missing from ' + SKELETON_PBO)
+    return skeleton_from_xob(data)
+
+
+def rest_pose(parents, rest, bones):
+    """The mesh rest pose as a clip pose: rest transforms, pelvis turned to face +Z."""
+    local = {n: rest[n] for n in bones}
+    t, q = local['Pelvis']
+    local['Pelvis'] = (qrot(FACING, t), qnorm(qmul(FACING, q)))
+    return Pose(parents, local)
 
 
 def load_reference(addons_dir):
-    """(parents, reference Anim) from the installed game. Raises FileNotFoundError when absent."""
+    """Tests only: (parents, vanilla idle Anim). Raises FileNotFoundError when absent."""
     import os
     from tools.audit import pbo_config as pc
     clip_pbo = os.path.join(addons_dir, CLIP_PBO)

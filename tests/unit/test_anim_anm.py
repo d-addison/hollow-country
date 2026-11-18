@@ -70,12 +70,14 @@ class AnmCodec(unittest.TestCase):
 class AuthoredClips(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.parents, cls.ref = rig.load_reference(ADDONS_DIR)
-        cls.built = clips.build_all(cls.parents, cls.ref)
+        cls.skeleton = rig.load_skeleton(ADDONS_DIR)
+        cls.parents = cls.skeleton[0]
+        cls.built = clips.build_all(*cls.skeleton)
+        _, cls.vanilla_idle = rig.load_reference(ADDONS_DIR)    # test only: seam and bone set
 
     def test_sit_idle_is_an_in_place_closed_loop_on_the_ground(self):
         sit = self.built['hc_sit_wall_idle']
-        self.assertEqual([b.name for b in sit.bones], [b.name for b in self.ref.bones])
+        self.assertEqual(sorted(b.name for b in sit.bones), sorted(b.name for b in self.vanilla_idle.bones))
         self.assertEqual(sit.fps, 30)
         self.assertGreaterEqual(sit.frames, 90)
         ep = sit.bone('EntityPosition')
@@ -94,17 +96,65 @@ class AuthoredClips(unittest.TestCase):
             for foot in ('LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase'):
                 self.assertGreater(pose.pos(foot)[1], -0.03, foot)
 
-    def test_getup_starts_seated_and_ends_on_the_standing_reference(self):
+    def test_getup_starts_seated_and_ends_on_our_skeleton_standing_pose(self):
         up = self.built['hc_sit_wall_getup']
         first = rig.pose_from_clip(self.parents, up, 0)
         last = rig.pose_from_clip(self.parents, up, up.frames - 1)
-        stand = rig.pose_from_clip(self.parents, self.ref, 0)
+        stand = clips.stand_pose(rig.rest_pose(*self.skeleton))      # from the mesh rest pose, our code
+        vanilla = rig.pose_from_clip(self.parents, self.vanilla_idle, 0)
         self.assertLess(first.pos('Pelvis')[1], 0.35)
-        for bone in ('Pelvis', 'Head', 'LeftHand', 'RightFoot'):
+        for bone in ('Pelvis', 'Head', 'LeftHand', 'RightHand', 'LeftFoot', 'RightFoot'):
             self.assertLess(rig.vlen(rig.vsub(last.pos(bone), stand.pos(bone))), 0.02, bone)
+            # approximate seam into the vanilla idle; the vanilla graph blends the rest
+            self.assertLess(rig.vlen(rig.vsub(last.pos(bone), vanilla.pos(bone))), clips.SEAM_METRES, bone)
         ep = up.bone('EntityPosition')
         for v in ep.t.values:
             self.assertAlmostEqual(rig.vlen(v), 0.0, places=4)
+
+    def test_no_clip_key_matches_a_vanilla_frame_except_skeleton_rest(self):
+        """No shipped key equals, or lies within NEAR of, any key of any vanilla clip for that bone.
+
+        Bit-for-bit alone is too weak: re-quantizing a copied vanilla frame with our own track
+        range changes its bits (a stand taken from vanilla idle frame 0 passes an equality test
+        but shows 161 keys within 2e-4 of vanilla). Only skeleton rest data may coincide.
+        """
+        from itertools import product
+        from tools.audit import pbo_config as pc
+        near = 2e-4
+        path = os.path.join(ADDONS_DIR, rig.CLIP_PBO)
+        index = pc.read_pbo_index(path)
+        seen = {}
+        clips_read = 0
+        for e in index['entries']:
+            if e['name'].lower().endswith('.anm'):
+                data = pc.read_member(path, index, e['name'], max_bytes=8 << 20)
+                if data[12:16] == b'SET6':
+                    clips_read += 1
+                    for b in anm.read(data).bones:
+                        for ch, values in (('t', b.t.values), ('q', b.q.values)):
+                            seen.setdefault((b.name, ch), set()).update(
+                                tuple(round(x / near) for x in v) for v in values)
+        self.assertGreater(clips_read, 200)
+
+        def matches_vanilla(key, v):
+            cells = seen.get(key, ())
+            base = [round(x / near) for x in v]
+            return any(tuple(c + o for c, o in zip(base, d)) in cells for d in product((-1, 0, 1), repeat=len(v)))
+
+        rest = rig.rest_pose(*self.skeleton).local
+        own = 0
+        for name, clip in self.built.items():
+            for b in anm.read(anm.write(clip)).bones:          # exactly what ships
+                rt, rq = rest[b.name]
+                for ch, values, allowed in (('t', b.t.values, (rt, (0.0, 0.0, 0.0))),
+                                            ('q', b.q.values, (rq, rig.IDENTITY))):
+                    for v in set(values):
+                        if any(max(abs(x - y) for x, y in zip(v, a)) < 1e-3 for a in allowed):
+                            continue    # within 1e-3 of skeleton rest data or zero/identity (offsets, untouched joints)
+                        self.assertFalse(matches_vanilla((b.name, ch), v),
+                                         '%s %s.%s %r matches a vanilla frame' % (name, b.name, ch, v))
+                        own += 1
+        self.assertGreater(own, 500)
 
     def test_written_clips_read_back(self):
         for name, clip in self.built.items():
@@ -163,6 +213,10 @@ class GraphBuild(unittest.TestCase):
         self.assertEqual(agr.count('AnimSrcGCTCmd CMD_DEATH'), 1)
         self.assertRegex(agr, r'AnimSrcGCTCmd CMD_HC_POSE \{\s*Synchronized 1')
         self.assertIn('AnimSrcGCTVarInt HCPose', agr)
+        # ours are appended after the vanilla declarations, so vanilla keeps its order
+        self.assertLess(agr.index('MovementSpeed'), agr.index('HCPose'))
+        self.assertLess(agr.index('HCPose'), agr.index('Commands {'))
+        self.assertLess(agr.index('CMD_DEATH'), agr.index('CMD_HC_POSE'))
         self.assertIn('DefaultRunNode "HCMasterControl"', agr)
         self.assertNotIn('Synthetic debug panel', agr)
         self.assertNotIn('{0000000000000003}', agr)
@@ -181,9 +235,8 @@ class GraphBuild(unittest.TestCase):
     @unittest.skipUnless(HAVE_GAME, 'installed DayZ Addons not found')
     def test_shipped_members_carry_no_vanilla_graph_content(self):
         import tempfile
-        parents, ref = rig.load_reference(ADDONS_DIR)
         with tempfile.TemporaryDirectory() as tmp:
-            for name, clip in clips.build_all(parents, ref).items():
+            for name, clip in clips.build_all(*rig.load_skeleton(ADDONS_DIR)).items():
                 with open(os.path.join(tmp, name + '.anm'), 'wb') as h:
                     h.write(anm.write(clip))
             files = addon.collect(ADDONS_DIR, tmp)
@@ -226,6 +279,7 @@ class GraphBuild(unittest.TestCase):
         for cmd in ('CMD_DEATH', 'CMD_HIT_LIGHT', 'CMD_HIT_HEAVY', 'CMD_CRAWL', 'CMD_ATTACK', 'CMD_VAULT'):
             self.assertIn('IsCommand(%s)' % cmd, sheet)
         self.assertIn('GetCommandI(CMD_HC_POSE) == 0', sheet)
+        self.assertNotIn('MovementSpeed', sheet)     # the get-up follows our pose signal only
         for node in re.findall(r'Child "([^"]+)"', sheet):
             if node != 'MasterControl':
                 self.assertRegex(sheet, r'AnimSrcNode\w+ "?%s"? \{' % re.escape(node))
