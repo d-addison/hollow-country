@@ -194,24 +194,40 @@ class HCXAISiteRules
         if (pathLength > straight * 3 + 50) { return "detour too long"; }
         return "";
     }
-    // "continue" is only for an outdoor partial path. Each call must move at
-    // least 0.5 m; the original leg's detour budget and 16-call cap bound even
-    // cyclic/disconnected paths. A holdout retains the single-call rules.
+    // Snap only a valid, affordable returned path. The original 2.5 m gap
+    // still accepts an unchanged target; wider tolerances use the reached end.
+    // Holdouts retain one FindPath per attempt, never an outdoor chain.
     static string ChainAction(string kind, int steps, int points, float endGap, float advance, float totalLength, float straight)
     {
-        if (kind == "holdout") { return HCXAISiteRules.LegProblem(true, true, points, endGap, totalLength, straight); }
         if (points < 2) { return "no path"; }
         if (totalLength > straight * 3 + 50) { return "detour too long"; }
         if (endGap <= 2.5) { return ""; }
+        float snapLimit = 4.0;
+        if (kind == "holdout") { snapLimit = 3.5; }
+        if (endGap <= snapLimit) { return "snap"; }
+        if (kind == "holdout") { return "path ends short of the waypoint"; }
         if (advance < 0.5) { return "path chain stalled"; }
         if (steps >= 16) { return "path chain step limit"; }
         return "continue";
     }
-    // The cache schema has no generated patrol points. Rebuild outdoor chains
-    // on every start rather than reusing success with an unqualified shortcut.
+    static int RouteMinimum(string kind)
+    {
+        if (kind == "holdout") { return 2; }
+        return 3;
+    }
+    // Installed Expansion AIenums.c exposes ONCE; ExpansionAISpawnBase's
+    // GetBehaviour resolves it directly. An open route must not return along
+    // a closing leg (or reversed legs) that we never qualified.
+    static string PatrolBehaviour(string authored, bool openRoute)
+    {
+        if (openRoute) { return "ONCE"; }
+        return authored;
+    }
+    // The journal has no generated geometry or effective behaviour. Rebuild
+    // every success, including holdouts, so snaps/skips survive no shortcut.
     static bool ReuseQualifiedRoute(string kind)
     {
-        return kind == "holdout";
+        return false;
     }
     static string PointText(vector point)
     {
@@ -224,7 +240,7 @@ class HCXAISiteRules
     // holdout the house class, its position, the house-local points and cache.
     static string RouteText(HCXAISite site, string build)
     {
-        string text = "chain-v2|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
+        string text = "chain-v3|" + build + "|" + site.Id + "|" + site.Kind + "|" + site.Behaviour;
         foreach (vector point : site.Waypoints)
         {
             text = text + HCXAISiteRules.PointText(point);

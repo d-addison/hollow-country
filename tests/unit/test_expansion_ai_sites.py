@@ -16,6 +16,69 @@ GREEN: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_a
     Ran 49 tests in 0.193s
     OK
 
+
+Round 2 / chain-v3 task contract A-D; NFR-001/003/006:
+Spec: bounded skips and reached-end snapping, authored minimum 3 outdoors/2 holdouts.
+Plan/tasks: stage attempt endpoints; retry next target from kept start; restart an
+isolated first point; qualify closure or use native ONCE; cap all calls at 96;
+rebuild successes since the journal stores neither snaps nor skips. Runtime gates
+remain pending. Required spec/plan/tasks were read from /code/dayzsa_mods/docs
+because they are absent in this confined worktree; those files were not changed.
+RED command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_ai_sites -v
+Actual observed-case failures (verbatim; rounded log coordinates give slightly different gaps):
+FAIL: test_observed_holdout_mogilevka_near_miss_snaps_target_one (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_holdout_mogilevka_near_miss_snaps_target_one)
+AssertionError: False is not true : leg 0: path ends short of the waypoint; from=|7556.67,214.573,5148.83; to=|7559.6,214.0,5142.52; closest=|7562.5,215.0,5143.2; gap=3.1420375554720934; steps=1
+
+FAIL: test_observed_mil_tisy_stall_skips_target_one (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_mil_tisy_stall_skips_target_one)
+AssertionError: False is not true : leg 0: path chain stalled; from=|1684.98,447.921,14219.3; to=|1710.85,451.82,14279.3; closest=|1694.9,449.68,14224.7; gap=56.92224609060886; steps=2
+
+FAIL: test_observed_police_berezino_stall_skips_target_two (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_police_berezino_stall_skips_target_two)
+AssertionError: False is not true : leg 1: path chain stalled; from=|11994.5,54.1155,9023.1; to=|12067.3,54.01,9145.8; closest=|11995.9,54.0451,9026.3; gap=139.20564367873146; steps=2
+
+FAIL: test_observed_police_chernogorsk_stall_skips_target_two (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_police_chernogorsk_stall_skips_target_two)
+AssertionError: False is not true : leg 1: path chain stalled; from=|6571.17,6.41307,2533.65; to=|6631.42,6.30214,2504.04; closest=|6571.7,6.45731,2533.3; gap=66.50300803519299; steps=2
+
+FAIL: test_observed_police_elektrozavodsk_stall_skips_target_one (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_police_elektrozavodsk_stall_skips_target_one)
+AssertionError: False is not true : leg 0: path chain stalled; from=|10403.4,5.97355,2209.93; to=|10538.6,6.23878,2271.77; closest=|10405.0,5.97355,2210.3; gap=147.06322193856957; steps=2
+
+FAIL: test_observed_scav_novodmitrovsk_stall_skips_target_two (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_scav_novodmitrovsk_stall_skips_target_two)
+AssertionError: False is not true : leg 1: path chain stalled; from=|11589.8,43.1465,14453.1; to=|11702.5,36.733,14356.1; closest=|11592.7,43.2328,14453.4; gap=146.8522298095596; steps=2
+
+FAIL: test_observed_scav_vybor_near_miss_snaps_target_two (tests.unit.test_expansion_ai_sites.SiteChainGlueTests.test_observed_scav_vybor_near_miss_snaps_target_two)
+AssertionError: False is not true : leg 1: path chain stalled; from=|3878.33,310.988,8939.24; to=|3784.31,313.466,9047.0; closest=|3783.6,315.973,9048.0; gap=2.7909046920308973; steps=2
+Ran 64 tests in 0.375s
+FAILED (failures=18, errors=1)
+The other RED failures cover closure fallback, route minimum, restart, cache,
+version, snap boundaries and site budget; the error is the old code attempting FindPath for a nine-point
+array instead of rejecting it before any call (empty synthetic result queue).
+
+GREEN command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_ai_sites -v
+Ran 67 tests in 0.501s
+OK
+
+Full discover command (run once):
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit
+Ran 5039 tests in 357.616s
+
+OK (skipped=1, expected failures=3)
+
+Exact synthetic fixture logs (all unobserved legs explicitly fake success;
+these counts/coordinates are not predictions of native server results):
+[HC Expansion AI] site holdout-mogilevka route qualified: chain-v3 legs=2 FindPath=2 continuations=0 patrol waypoints=3 skipped=0 snapped=1 behaviour=ALTERNATE skipped-points=
+[HC Expansion AI] site mil-tisy route qualified: chain-v3 legs=4 FindPath=6 continuations=1 patrol waypoints=4 skipped=1 snapped=0 behaviour=LOOP skipped-points= 1|1710.85,451.82,14279.3
+[HC Expansion AI] site police-berezino route qualified: chain-v3 legs=4 FindPath=6 continuations=1 patrol waypoints=4 skipped=1 snapped=0 behaviour=LOOP skipped-points= 2|12067.3,54.01,9145.8
+[HC Expansion AI] site police-chernogorsk route qualified: chain-v3 legs=4 FindPath=6 continuations=1 patrol waypoints=4 skipped=1 snapped=0 behaviour=LOOP skipped-points= 2|6631.42,6.30214,2504.04
+[HC Expansion AI] site police-elektrozavodsk route qualified: chain-v3 legs=4 FindPath=6 continuations=1 patrol waypoints=4 skipped=1 snapped=0 behaviour=LOOP skipped-points= 1|10538.6,6.23878,2271.77
+[HC Expansion AI] site scav-novodmitrovsk route qualified: chain-v3 legs=3 FindPath=5 continuations=1 patrol waypoints=3 skipped=1 snapped=0 behaviour=LOOP skipped-points= 2|11702.5,36.733,14356.1
+[HC Expansion AI] site scav-vybor route qualified: chain-v3 legs=4 FindPath=4 continuations=0 patrol waypoints=4 skipped=0 snapped=1 behaviour=LOOP skipped-points=
+
+Round 2 installed reference inspection (no copied provider code):
+/mnt/g/SteamLibrary/steamapps/workshop/content/221100/2792982069/addons/ai_scripts.pbo:
+3_Game/DayZExpansion_AI/Enums/AIenums.c:1-6 exposes ONCE;
+3_Game/DayZExpansion_AI/Settings/Patrols/ExpansionAIPatrolBase.c:25,86-88
+maps config Behaviour via StringToEnum. Failed LOOP closure selects ONCE, since
+ALTERNATE would introduce unqualified reverse legs. The supplied xp path is absent.
+
 Read-only API evidence: native scripts-1.30.164289/3_Game/AI/AIWorld.c:59-68,
 98,122 (PGFilter, FindPath, SampleNavmeshPosition). The supplied xp directory
 was absent; inspected installed 2792982069/addons/ai_scripts.pbo members instead:
@@ -215,9 +278,19 @@ class SiteRulesTests(unittest.TestCase):
         action = self.rules.ChainAction
         self.assertEqual(action('patrol', 1, 1, 90., 0., 0., 100.), 'no path')
         self.assertEqual(action('patrol', 2, 2, 90., 0.49, 10., 100.), 'path chain stalled')
-        self.assertEqual(action('patrol', 16, 2, 4., 2., 96., 100.), 'path chain step limit')
+        self.assertEqual(action('patrol', 16, 2, 4.01, 2., 96., 100.), 'path chain step limit')
         self.assertEqual(action('patrol', 16, 2, 2.5, 2., 98., 100.), '')
-        self.assertEqual(action('patrol', 15, 2, 4., 2., 96., 100.), 'continue')
+        self.assertEqual(action('patrol', 15, 2, 4.01, 2., 96., 100.), 'continue')
+
+    def test_snap_boundaries_preserve_original_tolerance_and_holdout_strictness(self):
+        action = self.rules.ChainAction
+        for kind, cap in (('patrol', 4.), ('scavenger', 4.), ('holdout', 3.5)):
+            self.assertEqual(action(kind, 1, 2, 2.5, 0., 1., 10.), '')
+            self.assertEqual(action(kind, 1, 2, 2.501, 0., 1., 10.), 'snap')
+            self.assertEqual(action(kind, 16, 2, cap, 0., 1., 10.), 'snap')
+            self.assertNotEqual(action(kind, 1, 2, cap + .001, 0., 1., 10.), 'snap')
+            self.assertEqual(action(kind, 1, 1, 3., 0., 1., 10.), 'no path')
+            self.assertEqual(action(kind, 1, 2, 3., 0., 81., 10.), 'detour too long')
 
     def test_chain_detour_budget_is_for_the_entire_original_leg(self):
         # Explicit synthetic lengths: individual calls fit; their sum must fit too.
@@ -231,10 +304,10 @@ class SiteRulesTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 site = self.site(kind)
                 text = self.rules.RouteText(site, '1.30.164289')
-                self.assertTrue(text.startswith('chain-v2|1.30.164289|'), text)
+                self.assertTrue(text.startswith('chain-v3|1.30.164289|'), text)
 
-    def test_only_holdouts_can_reuse_success_without_regenerating_walk_points(self):
-        self.assertTrue(self.rules.ReuseQualifiedRoute('holdout'))
+    def test_no_kind_can_reuse_success_without_regenerating_snaps_and_skips(self):
+        self.assertFalse(self.rules.ReuseQualifiedRoute('holdout'))
         self.assertFalse(self.rules.ReuseQualifiedRoute('patrol'))
         self.assertFalse(self.rules.ReuseQualifiedRoute('scavenger'))
 
@@ -287,6 +360,7 @@ class SiteChainGlueTests(unittest.TestCase):
         self.calls = []
         self.logs = []
         self.paths = []
+        self.path_fake = None
         self.rows = []
         self.cached = None
         self.env = dict(A=A, Print=self.logs.append, HCXAITestArray=A,
@@ -310,11 +384,15 @@ class SiteChainGlueTests(unittest.TestCase):
                        PatrolPoints=A([(100., 0., 100.)]), Leg=0, Qualified=False, Cached=False,
                        Failed=False, Reason='', ChainSteps=0, ChainLength=0.,
                        ChainFrom=(0., 0., 0.), ClosestEnd=(0., 0., 0.), ClosestGap=0.,
-                       PathCalls=0, Continuations=0)
+                       PathCalls=0, Continuations=0, AttemptPoints=A(), StartIndex=0, Kept=1,
+                       Skipped=0, Snapped=0, SkippedPoints='', Closed=False, OpenRoute=False)
 
     def find_path(self, start, goal, filter_used, output):
         self.calls.append((start, goal, filter_used))
-        result, points = self.paths.pop(0)
+        if self.path_fake:
+            result, points = self.path_fake(start, goal)
+        else:
+            result, points = self.paths.pop(0)
         output.extend(points)
         return result
 
@@ -322,6 +400,207 @@ class SiteChainGlueTests(unittest.TestCase):
         previous = len(self.calls)
         self.authored.call('QualifyStep', self.owner, self.state)
         self.assertLessEqual(len(self.calls) - previous, 1)
+
+    def finish(self):
+        for _ in range(180):
+            if self.state.Qualified or self.state.Failed:
+                return
+            self.step()
+        self.fail('qualifier did not terminate within its bounded synthetic schedule')
+
+    def observed(self, site_id, leg, start, target, closest, snap=False):
+        # The refused leg uses the observed coordinates. All other connectivity
+        # is an EXPLICIT SYNTHETIC SUCCESS, not a prediction of the DayZ server.
+        data = next(s for s in json.loads((AI / 'sites.json').read_text())['Sites']
+                    if s['Id'] == site_id)
+        self.state.Site = N(Id=site_id, Kind=data['Kind'], Behaviour=data['Behaviour'])
+        if data['Kind'] == 'holdout':
+            points = [start, target, (start[0] + 12., start[1], start[2] + 12.)]
+        else:
+            points = [tuple(p) for p in data['Waypoints']]
+            points[leg], points[leg + 1] = start, target
+        self.state.Sampled = A(points)
+        self.state.PatrolPoints = A([points[0]])
+        def fake(origin, goal):
+            if goal == target:
+                return True, [origin, closest]
+            return True, [origin, goal]
+        self.path_fake = fake
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual((self.state.Skipped, self.state.Snapped), (int(not snap), int(snap)))
+        self.assertNotIn(target, self.state.PatrolPoints)
+        self.assertEqual(self.state.Kept, len(points) - int(not snap))
+        next_calls = [c for c in self.calls if c[1] == points[leg + 2]]
+        self.assertEqual(next_calls[0][0], closest if snap else start)
+        if not snap:
+            self.assertNotIn(closest, self.state.PatrolPoints)  # failed attempt rolled back
+        else:
+            self.assertIn(closest, self.state.PatrolPoints)
+        self.assertEqual(len(self.logs), 1)
+        self.assertIn('skipped=%d snapped=%d' % (int(not snap), int(snap)), self.logs[0])
+        self.assertIn('chain-v3', self.logs[0])
+
+    def test_observed_police_chernogorsk_stall_skips_target_two(self):
+        self.observed('police-chernogorsk', 1, (6571.17, 6.41307, 2533.65),
+                      (6631.42, 6.30214, 2504.04), (6571.7, 6.45731, 2533.3))
+
+    def test_observed_police_elektrozavodsk_stall_skips_target_one(self):
+        self.observed('police-elektrozavodsk', 0, (10403.4, 5.97355, 2209.93),
+                      (10538.6, 6.23878, 2271.77), (10405., 5.97355, 2210.3))
+
+    def test_observed_police_berezino_stall_skips_target_two(self):
+        self.observed('police-berezino', 1, (11994.5, 54.1155, 9023.1),
+                      (12067.3, 54.01, 9145.8), (11995.9, 54.0451, 9026.3))
+
+    def test_observed_mil_tisy_stall_skips_target_one(self):
+        self.observed('mil-tisy', 0, (1684.98, 447.921, 14219.3),
+                      (1710.85, 451.82, 14279.3), (1694.9, 449.68, 14224.7))
+
+    def test_observed_scav_vybor_near_miss_snaps_target_two(self):
+        self.observed('scav-vybor', 1, (3878.33, 310.988, 8939.24),
+                      (3784.31, 313.466, 9047.), (3783.6, 315.973, 9048.), snap=True)
+
+    def test_observed_scav_novodmitrovsk_stall_skips_target_two(self):
+        self.observed('scav-novodmitrovsk', 1, (11589.8, 43.1465, 14453.1),
+                      (11702.5, 36.733, 14356.1), (11592.7, 43.2328, 14453.4))
+
+    def test_observed_holdout_mogilevka_near_miss_snaps_target_one(self):
+        self.observed('holdout-mogilevka', 0, (7556.67, 214.573, 5148.83),
+                      (7559.6, 214., 5142.52), (7562.5, 215., 5143.2), snap=True)
+
+    def synthetic_route(self, count=4, kind='patrol', behaviour='LOOP'):
+        self.state.Site.Kind = kind
+        self.state.Site.Behaviour = behaviour
+        self.state.Sampled = A((100. + i * 30., 0., 100.) for i in range(count))
+        self.state.PatrolPoints = A([self.state.Sampled[0]])
+
+    def test_unreachable_first_point_is_dropped_and_later_points_are_retried(self):
+        self.synthetic_route()
+        first = self.state.Sampled[0]
+        self.path_fake = lambda a, b: (True, [a, a if a == first else b])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual((self.state.Kept, self.state.Skipped), (3, 1))
+        self.assertEqual(self.state.PatrolPoints, self.state.Sampled[1:])
+        self.assertIn('0|100.0,0.0,100.0', self.logs[-1])
+
+    def test_closing_refusal_uses_once_and_discards_partial_closing_geometry(self):
+        self.synthetic_route()
+        first = self.state.Sampled[0]
+        partial = (110., 0., 101.)
+        self.path_fake = lambda a, b: (True, [a, partial if b == first else b])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertTrue(self.state.OpenRoute)
+        self.assertEqual(self.state.PatrolPoints, self.state.Sampled)
+        self.assertIn('behaviour=ONCE', self.logs[-1])
+        self.assertEqual(self.rules.PatrolBehaviour('LOOP', True), 'ONCE')
+
+    def test_closing_near_miss_never_moves_the_qualified_first_point(self):
+        self.synthetic_route()
+        first = self.state.Sampled[0]
+        self.path_fake = lambda a, b: (True, [a, (103., 0., 100.) if b == first else b])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertTrue(self.state.OpenRoute)
+        self.assertEqual(self.state.PatrolPoints, self.state.Sampled)
+        self.assertEqual(self.state.Snapped, 0)
+
+    def test_closing_near_miss_keeps_stepping_and_closes_the_loop(self):
+        self.synthetic_route()
+        first = self.state.Sampled[0]
+        near = (103., 0., 100.)
+        def path(a, b):
+            if b == first and a != near: return (True, [a, near])
+            return (True, [a, b])
+        self.path_fake = path
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertFalse(self.state.OpenRoute)
+        self.assertTrue(self.state.Closed)
+        self.assertIn('behaviour=LOOP', self.logs[-1])
+
+    def test_site_budget_refuses_before_findpath_call_97_even_for_closure(self):
+        self.synthetic_route(3)
+        self.state.PathCalls = 95  # explicit synthetic previously consumed work
+        self.path_fake = lambda a, b: (True, [a, b])
+        self.finish()
+        self.assertTrue(self.state.Failed)
+        self.assertEqual(len(self.calls), 1)
+        self.assertEqual(self.state.PathCalls, 96)
+        self.assertIn('route search budget', self.state.Reason)
+
+    def test_accumulated_site_budget_bounds_retries_on_all_unreachable_targets(self):
+        self.synthetic_route(8)
+        self.state.Sampled = A((1000. + i * 100., 0., 100.) for i in range(8))
+        self.state.PatrolPoints = A([self.state.Sampled[0]])
+        # Each attempt advances 1 m per call and exhausts its 16-call cap;
+        # skipped targets are retried from the same kept start, never that end.
+        self.path_fake = lambda a, b: (True, [a, (a[0] + 1., a[1], a[2])])
+        self.finish()
+        self.assertTrue(self.state.Failed)
+        self.assertIn('route search budget', self.state.Reason)
+        self.assertEqual(len(self.calls), 96)
+        self.assertEqual(self.state.PathCalls, 96)
+        self.assertEqual(self.state.Skipped, 6)
+        self.assertEqual(self.state.PatrolPoints, [self.state.Sampled[0]])
+        self.assertEqual([self.calls[i][0] for i in range(0, 96, 16)],
+                         [self.state.Sampled[0]] * 6)
+
+    def test_no_path_and_detour_refusals_skip_without_leaking_tentative_points(self):
+        for failure in ('no path', 'detour too long'):
+            with self.subTest(failure=failure):
+                self.setUp()
+                self.synthetic_route(4)
+                bad = self.state.Sampled[1]
+                def fake(a, b):
+                    if b == bad:
+                        if failure == 'no path':
+                            return False, [a, b]  # false output must be ignored
+                        return True, [a, (a[0], 0., 1000.), b]
+                    return True, [a, b]
+                self.path_fake = fake
+                self.finish()
+                self.assertTrue(self.state.Qualified, self.state.Reason)
+                self.assertEqual(self.state.Skipped, 1)
+                self.assertEqual(self.state.PatrolPoints, [self.state.Sampled[0]] + self.state.Sampled[2:])
+
+    def test_unsnapped_tolerance_keeps_authored_target_and_next_start(self):
+        self.synthetic_route(3, behaviour='ALTERNATE')
+        target = self.state.Sampled[1]
+        self.path_fake = lambda a, b: (True, [a, (b[0] - 2.5, b[1], b[2])])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual(self.state.Snapped, 0)
+        self.assertEqual(self.calls[1][0], target)
+        self.assertEqual(self.state.PatrolPoints, self.state.Sampled)
+
+    def test_minimum_counts_authored_points_not_continuation_endpoints(self):
+        self.synthetic_route(3)
+        self.paths = [(True, [(100., 0., 100.), (110., 0., 100.)]),
+                      (True, [(110., 0., 100.), (130., 0., 100.)]),
+                      (False, [])]
+        self.finish()
+        self.assertTrue(self.state.Failed)
+        self.assertIn('route minimum', self.state.Reason)
+        self.assertEqual(self.state.Kept, 2)
+
+    def test_holdout_skip_keeps_two_and_never_chains_a_far_partial_path(self):
+        self.synthetic_route(3, 'holdout', 'ALTERNATE')
+        bad = self.state.Sampled[1]
+        self.path_fake = lambda a, b: (True, [a, a if b == bad else b])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual((self.state.Kept, self.state.Skipped), (2, 1))
+        self.assertEqual(len(self.calls), 2)
+
+    def test_oversized_authored_array_is_refused_before_any_path_call(self):
+        self.synthetic_route(9)
+        self.step()
+        self.assertTrue(self.state.Failed)
+        self.assertIn('2..8', self.state.Reason)
+        self.assertEqual(self.calls, [])
 
     def test_expansion_config_returns_exact_qualified_points_without_replacement_or_interpolation(self):
         wanted = A([(100., 0., 100.), (140., 0., 100.), (220., 0., 100.)])
@@ -331,20 +610,23 @@ class SiteChainGlueTests(unittest.TestCase):
         self.assertIsNot(actual, wanted)
 
     def test_partial_calls_chain_from_actual_end_and_preserve_patrol_points(self):
+        self.state.Sampled.append((250., 0., 100.))
         self.paths = [(True, [(100., 0., 100.), (140., 0., 100.)]),
                       (True, [(140., 0., 100.), (180., 0., 100.)]),
-                      (True, [(180., 0., 100.), (220., 0., 100.)])]
+                      (True, [(180., 0., 100.), (220., 0., 100.)]),
+                      (True, [(220., 0., 100.), (250., 0., 100.)])]
         self.step()
         self.assertFalse(self.state.Failed, self.state.Reason)
         self.assertEqual(self.state.Leg, 0)
         self.step()
         self.step()
+        self.step()  # qualify the third authored waypoint
         self.step()  # finish and remember only after all legs
         self.assertTrue(self.state.Qualified)
         self.assertEqual([c[0] for c in self.calls],
-                         [(100., 0., 100.), (140., 0., 100.), (180., 0., 100.)])
-        self.assertEqual(self.state.PatrolPoints,
                          [(100., 0., 100.), (140., 0., 100.), (180., 0., 100.), (220., 0., 100.)])
+        self.assertEqual(self.state.PatrolPoints,
+                         [(100., 0., 100.), (140., 0., 100.), (180., 0., 100.), (220., 0., 100.), (250., 0., 100.)])
         self.assertTrue(self.rows[-1].Qualified)
 
     def test_disconnected_route_refusal_reports_original_leg_and_closest_end(self):
@@ -391,17 +673,20 @@ class SiteChainGlueTests(unittest.TestCase):
 
     def test_loop_closure_is_qualified_without_duplicate_first_patrol_point(self):
         self.state.Site.Behaviour = 'LOOP'
+        self.state.Sampled.append((250., 0., 100.))
         self.paths = [(True, [(100., 0., 100.), (220., 0., 100.)]),
-                      (True, [(220., 0., 100.), (160., 0., 100.)]),
+                      (True, [(220., 0., 100.), (250., 0., 100.)]),
+                      (True, [(250., 0., 100.), (160., 0., 100.)]),
                       (True, [(160., 0., 100.), (100., 0., 100.)])]
-        for _ in range(4):
+        for _ in range(5):
             self.step()
         self.assertTrue(self.state.Qualified)
         self.assertEqual(self.state.PatrolPoints,
-                         [(100., 0., 100.), (220., 0., 100.), (160., 0., 100.)])
+                         [(100., 0., 100.), (220., 0., 100.), (250., 0., 100.), (160., 0., 100.)])
         self.assertEqual(self.calls[-1][1], self.state.PatrolPoints[0])
 
     def test_cached_outdoor_success_rebuilds_intermediate_points_after_sampling(self):
+        self.state.Sampled.append((250., 0., 100.))
         self.cached = N(Qualified=True)
         self.state.Points = A(self.state.Sampled)
         self.state.Sampled = A()
@@ -410,23 +695,29 @@ class SiteChainGlueTests(unittest.TestCase):
         self.assertFalse(self.state.Qualified)
         self.assertEqual(self.state.PatrolPoints, [(100., 0., 100.)])
         self.paths = [(True, [(100., 0., 100.), (160., 0., 100.)]),
-                      (True, [(160., 0., 100.), (220., 0., 100.)])]
-        for _ in range(3):
+                      (True, [(160., 0., 100.), (220., 0., 100.)]),
+                      (True, [(220., 0., 100.), (250., 0., 100.)])]
+        for _ in range(4):
             self.step()
         self.assertTrue(self.state.Qualified)
         self.assertIn((160., 0., 100.), self.state.PatrolPoints)
 
-    def test_cached_holdout_success_preserves_original_sampled_points(self):
+    def test_cached_holdout_success_rebuilds_the_snapped_patrol_points(self):
         self.cached = N(Qualified=True)
         self.state.Site.Kind = 'holdout'
         self.state.Points = A(self.state.Sampled)
         self.state.Sampled = A()
         self.state.PatrolPoints = A()
         self.step()
+        self.assertFalse(self.state.Qualified)
+        reached = (217., 0., 100.)
+        self.paths = [(True, [(100., 0., 100.), reached])]
+        self.finish()
         self.assertTrue(self.state.Qualified)
-        self.assertTrue(self.state.Cached)
-        self.assertEqual(self.state.PatrolPoints, self.state.Sampled)
-        self.assertEqual(self.calls, [])
+        self.assertFalse(self.state.Cached)
+        self.assertEqual(self.state.PatrolPoints, [self.state.Sampled[0], reached])
+        self.assertEqual(self.state.Snapped, 1)
+        self.assertEqual(len(self.calls), 1)
 
     def test_new_version_cached_refusal_still_prevents_retry(self):
         self.cached = N(Qualified=False, Reason='synthetic disconnected island')
@@ -562,6 +853,8 @@ class SiteSourceTests(unittest.TestCase):
         self.assertIn('override TVectorArray GetWaypoints(', code)
         create = code[code.index('protected void Create('):]
         self.assertIn('new HCXAISiteSpawnConfig()', create)
+        self.assertIn('config.Behaviour = HCXAISiteRules.PatrolBehaviour(site.Behaviour, state.OpenRoute);', create)
+        self.assertNotIn('if (site.Kind != "holdout") { config =', create)
         for field in ('Speed', 'UnderThreatSpeed', 'Behaviour', 'Faction', 'Loadout'):
             self.assertIn('config.' + field + ' = ', create)
 

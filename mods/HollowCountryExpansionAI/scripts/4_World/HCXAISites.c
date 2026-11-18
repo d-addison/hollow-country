@@ -3,9 +3,9 @@
 // HC adds the budget, the 200 m and line-of-sight rules, a refusal to despawn
 // in combat, finite fair actors, navmesh-qualified routes and journals.
 // Nothing here moves an actor: Expansion places each one once when it spawns.
-// Outdoor endpoints already came from the navmesh. The provider's default
+// Qualified endpoints already came from the navmesh. The provider's default
 // GetWaypoints applies placement rays, which could move them onto another
-// surface. Preserve exactly the qualified list; holdouts keep the default.
+// surface. Preserve exactly the qualified list, including snapped holdouts.
 class HCXAISiteSpawnConfig : ExpansionAIDynamicSpawnBase
 {
     override TVectorArray GetWaypoints(vector position = vector.Zero, int beh = eAIWaypointBehavior.HALT)
@@ -132,6 +132,15 @@ class HCXAISiteState : Managed
     float ClosestGap;
     int PathCalls;
     int Continuations;
+    // Tentative chain geometry is committed only after its target qualifies.
+    ref array<vector> AttemptPoints = new array<vector>();
+    int StartIndex;
+    int Kept = 1;
+    int Skipped;
+    int Snapped;
+    string SkippedPoints;
+    bool Closed;
+    bool OpenRoute;
     Object HouseObject;
     vector CacheWorld;
     vector CacheOrientation;
@@ -405,7 +414,7 @@ class HCXAISiteDirector : Managed
             if (counted.Qualified) { qualified++; }
         }
         this.SaveRoutes();
-        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v2; navmesh sample + bounded FindPath chains; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
+        Print("[HC Expansion AI] sites routes qualified: " + qualified.ToString() + "/" + m_States.Count().ToString() + " (chain-v3; navmesh sample + bounded FindPath chains; cache " + HCXAISiteDirector.ROUTES + " keyed by algorithm, route and build)");
         m_Phase = "create";
         m_Cursor = 0;
     }
@@ -426,6 +435,11 @@ class HCXAISiteDirector : Managed
         if (state.Site.Kind == "holdout") { radius = 2; }
         if (state.Sampled.Count() == 0)
         {
+            if (state.Points.Count() < 2 || state.Points.Count() > 8)
+            {
+                this.Refuse(state, "2..8 authored waypoints are required");
+                return;
+            }
             foreach (vector wanted : state.Points)
             {
                 vector found = wanted;
@@ -450,27 +464,69 @@ class HCXAISiteDirector : Managed
             }
             return;
         }
-        int legs = state.Sampled.Count() - 1;
-        if (state.Site.Behaviour == "LOOP") { legs = state.Sampled.Count(); }
-        if (state.Leg >= legs)
+        int authoredCount = state.Sampled.Count();
+        if (authoredCount < 2 || authoredCount > 8)
+        {
+            this.Refuse(state, "2..8 authored waypoints are required");
+            return;
+        }
+        int minimum = HCXAISiteRules.RouteMinimum(state.Site.Kind);
+        bool closing = state.Leg >= authoredCount - 1;
+        if (closing && state.Kept == 1 && authoredCount - state.StartIndex - 1 >= minimum)
+        {
+            // No later target was reachable. Drop the isolated first point,
+            // retry all later points, and keep the site's consumed-call budget.
+            state.StartIndex++;
+            state.Leg = state.StartIndex;
+            state.Skipped = state.StartIndex;
+            state.Snapped = 0;
+            state.SkippedPoints = "";
+            int droppedIndex = 0;
+            while (droppedIndex < state.StartIndex)
+            {
+                state.SkippedPoints = state.SkippedPoints + " " + droppedIndex.ToString() + HCXAISiteRules.PointText(state.Sampled[droppedIndex]);
+                droppedIndex++;
+            }
+            state.PatrolPoints.Clear();
+            state.PatrolPoints.Insert(state.Sampled[state.StartIndex]);
+            state.AttemptPoints.Clear();
+            state.ChainSteps = 0;
+            return;
+        }
+        if (closing && state.Kept < minimum)
+        {
+            this.Refuse(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
+            return;
+        }
+        if (closing && (state.Site.Behaviour != "LOOP" || state.Closed || state.OpenRoute))
         {
             state.Qualified = true;
+            state.Reason = "";
             HCXAIRouteRow passed = new HCXAIRouteRow();
             passed.Key = state.Key;
             passed.SiteId = state.Site.Id;
             passed.Qualified = true;
             this.Remember(passed);
-            Print("[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v2 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString() + " patrol waypoints=" + state.PatrolPoints.Count().ToString());
+            int legs = state.Kept - 1;
+            if (state.Closed) { legs++; }
+            Print("[HC Expansion AI] site " + state.Site.Id + " route qualified: chain-v3 legs=" + legs.ToString() + " FindPath=" + state.PathCalls.ToString() + " continuations=" + state.Continuations.ToString() + " patrol waypoints=" + state.PatrolPoints.Count().ToString() + " skipped=" + state.Skipped.ToString() + " snapped=" + state.Snapped.ToString() + " behaviour=" + HCXAISiteRules.PatrolBehaviour(state.Site.Behaviour, state.OpenRoute) + " skipped-points=" + state.SkippedPoints);
             return;
         }
-        vector legFrom = state.Sampled[state.Leg];
-        vector legTo = state.Sampled[(state.Leg + 1) % state.Sampled.Count()];
+        if (state.PathCalls >= 96)
+        {
+            this.Refuse(state, "route search budget");
+            return;
+        }
+        vector legFrom = state.PatrolPoints[state.PatrolPoints.Count() - 1];
+        vector legTo = state.Sampled[(state.Leg + 1) % authoredCount];
+        if (closing) { legTo = state.PatrolPoints[0]; }
         if (state.ChainSteps == 0)
         {
             state.ChainFrom = legFrom;
             state.ChainLength = 0;
             state.ClosestEnd = legFrom;
             state.ClosestGap = vector.Distance(legFrom, legTo);
+            state.AttemptPoints.Clear();
         }
         TVectorArray path = new TVectorArray();
         bool pathFound = world.FindPath(state.ChainFrom, legTo, m_Filter, path);
@@ -501,23 +557,59 @@ class HCXAISiteDirector : Managed
         }
         state.ChainLength = state.ChainLength + length;
         string problem = HCXAISiteRules.ChainAction(state.Site.Kind, state.ChainSteps, pathPoints, endGap, advance, state.ChainLength, vector.Distance(legFrom, legTo));
+        // A closing near miss keeps stepping toward the first point, as chain-v2
+        // did, before falling back to native ONCE.
+        if (closing && problem == "snap" && state.Site.Kind != "holdout" && advance >= 0.5 && state.ChainSteps < 16) { problem = "continue"; }
         if (problem == "continue")
         {
-            state.PatrolPoints.Insert(pathEnd);
+            state.AttemptPoints.Insert(pathEnd);
             state.ChainFrom = pathEnd;
             state.Continuations++;
             return;
         }
-        if (problem != "")
+        // A closing snap would move the first point and invalidate its outgoing
+        // qualified leg. Keep that first point and use native ONCE instead.
+        if (closing && problem == "snap") { problem = "closing path ends short of the waypoint"; }
+        if (problem != "" && problem != "snap")
         {
-            this.Refuse(state, "leg " + state.Leg.ToString() + ": " + problem + "; from=" + HCXAISiteRules.PointText(legFrom) + "; to=" + HCXAISiteRules.PointText(legTo) + "; closest=" + HCXAISiteRules.PointText(state.ClosestEnd) + "; gap=" + state.ClosestGap.ToString() + "; steps=" + state.ChainSteps.ToString());
+            state.Reason = "leg " + state.Leg.ToString() + ": " + problem + "; from=" + HCXAISiteRules.PointText(legFrom) + "; to=" + HCXAISiteRules.PointText(legTo) + "; closest=" + HCXAISiteRules.PointText(state.ClosestEnd) + "; gap=" + state.ClosestGap.ToString() + "; steps=" + state.ChainSteps.ToString();
+            state.AttemptPoints.Clear();
+            state.ChainSteps = 0;
+            if (closing)
+            {
+                state.OpenRoute = true;
+                return;
+            }
+            int skippedIndex = state.Leg + 1;
+            state.Skipped++;
+            state.SkippedPoints = state.SkippedPoints + " " + skippedIndex.ToString() + HCXAISiteRules.PointText(state.Sampled[skippedIndex]);
+            state.Leg++;
+            // Refuse immediately when no remaining/restarted route can meet
+            // the minimum; keep the final leg diagnostic for data correction.
+            if (state.Leg >= authoredCount - 1 && state.Kept < minimum && (state.Kept > 1 || authoredCount - state.StartIndex - 1 < minimum))
+            {
+                this.Refuse(state, "route minimum: kept=" + state.Kept.ToString() + " required=" + minimum.ToString() + "; " + state.Reason);
+            }
             return;
         }
-        // LOOP's final path targets the first patrol point. Do not duplicate
-        // it at the end; Expansion will close the same qualified leg itself.
-        if (state.Leg < state.Sampled.Count() - 1) { state.PatrolPoints.Insert(legTo); }
+        foreach (vector acceptedEnd : state.AttemptPoints)
+        {
+            state.PatrolPoints.Insert(acceptedEnd);
+        }
+        state.AttemptPoints.Clear();
+        if (closing) { state.Closed = true; }
+        else
+        {
+            if (problem == "snap")
+            {
+                legTo = state.ClosestEnd;
+                state.Snapped++;
+            }
+            state.PatrolPoints.Insert(legTo);
+            state.Kept++;
+            state.Leg++;
+        }
         state.ChainSteps = 0;
-        state.Leg++;
     }
     protected void Refuse(HCXAISiteState state, string reason)
     {
@@ -569,13 +661,13 @@ class HCXAISiteDirector : Managed
     {
         HCXAISite site = state.Site;
         ExpansionAIDynamicSpawnBase config = new ExpansionAIDynamicSpawnBase(site.NumberOfAI, site.Speed, "SPRINT", site.Behaviour, site.Faction, site.Loadout, true, 0, 1.0, m_Policy.MinPlayerDistance, site.ActivationRadius);
-        if (site.Kind != "holdout") { config = new HCXAISiteSpawnConfig(); }
+        config = new HCXAISiteSpawnConfig();
         config.Name = "HC:" + site.Id;
         config.NumberOfAI = site.NumberOfAI;
         config.NumberOfAIMax = site.NumberOfAIMax;
         config.Speed = site.Speed;
         config.UnderThreatSpeed = "SPRINT";
-        config.Behaviour = site.Behaviour;
+        config.Behaviour = HCXAISiteRules.PatrolBehaviour(site.Behaviour, state.OpenRoute);
         config.Faction = site.Faction;
         config.Loadout = site.Loadout;
         config.Persist = false;
