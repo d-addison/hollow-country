@@ -50,7 +50,9 @@ class HCActionSalvageWreck : ActionContinuousBase
     {
         if (!GetGame().IsServer()) return HCWreckSalvage.Allowed(player, target, item);
         HCWreckSalvageModule module = HCWreckSalvageModule.Get();
-        return module && module.CanStart(player, target, item);
+        if (module && module.CanStart(player, target, item)) return true;
+        HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+        return false;
     }
 
     override bool ActionConditionContinue(ActionData action_data)
@@ -58,20 +60,41 @@ class HCActionSalvageWreck : ActionContinuousBase
         if (!action_data) return false;
         if (!GetGame().IsServer()) return HCWreckSalvage.Allowed(action_data.m_Player, action_data.m_Target, action_data.m_MainItem);
         HCWreckSalvageModule module = HCWreckSalvageModule.Get();
-        return module && module.Continuing(HCWreckSalvageActionData.Cast(action_data));
+        if (module && module.Continuing(HCWreckSalvageActionData.Cast(action_data))) return true;
+        HCWreckSalvageActionData data = HCWreckSalvageActionData.Cast(action_data);
+        if (data && !data.Completed)
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+        return false;
     }
 
     override void OnStartServer(ActionData action_data)
     {
         super.OnStartServer(action_data);
         HCWreckSalvageModule module = HCWreckSalvageModule.Get();
-        if (module) module.Begin(HCWreckSalvageActionData.Cast(action_data));
+        HCWreckSalvageActionData data = HCWreckSalvageActionData.Cast(action_data);
+        if (data && !data.Completed)
+        {
+            if (module) module.Begin(data);
+            if (!module || !module.Continuing(data))
+            {
+                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+            }
+        }
     }
 
     override void OnFinishProgressServer(ActionData action_data)
     {
         HCWreckSalvageModule module = HCWreckSalvageModule.Get();
-        if (module) module.Complete(HCWreckSalvageActionData.Cast(action_data));
+        HCWreckSalvageActionData data = HCWreckSalvageActionData.Cast(action_data);
+        if (data && !data.Completed)
+        {
+            if (!module || !module.Continuing(data) || GetGame().GetTime() - data.StartedMs < 7500)
+            {
+                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+                return;
+            }
+            module.Complete(data);
+        }
     }
 
     override void OnEndServer(ActionData action_data)

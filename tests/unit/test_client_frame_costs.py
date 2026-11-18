@@ -194,7 +194,7 @@ class TapedLightClientHintTests(unittest.TestCase):
         self.assertNotIn('PreviewHint', method_text(native, 'ExecuteOwned'))
         for mounting in ('true', 'false'):
             self.assertIn('if (!GetGame().IsServer()) { return HCTapedLightRuntime.PreviewHint(player, item, ' + mounting + '); }', actions)
-            self.assertIn('return HCTapedLightRuntime.CanExecute(player, item, ' + mounting + ');', actions)
+            self.assertIn('if (HCTapedLightRuntime.CanExecute(player, item, ' + mounting + ')) return true;', actions)
         servers = list(re.finditer(r'override void OnExecuteServer\([^)]*\)\s*\{', actions))
         self.assertEqual(2, len(servers))
         for match in servers:

@@ -534,6 +534,8 @@ class vector:
 class ItemBase(UnitObject):
     """Synthetic held vessel; quantity in ml, max as int like the native."""
 
+    def GetType(self): return 'SyntheticVessel'
+
     def __init__(self, quantity=0.0, maximum=5000, liquid=1, coef=1.0):
         self.quantity, self.maximum, self.liquid, self.coef = f32(quantity), maximum, liquid, coef
         self.destroyed, self.container = False, True
@@ -559,6 +561,8 @@ class ItemBase(UnitObject):
 
 class CarScript(UnitObject):
     """Synthetic car: dyadic default so binary32 readbacks are exact."""
+
+    def GetType(self): return 'SyntheticCar'
 
     def __init__(self, capacity=64.0, liters=16.0):
         self.capacity, self.liters = f32(capacity), f32(liters)
@@ -642,7 +646,11 @@ class ActionTarget:
 
 
 class PlayerBase:
+    def MessageStatus(self, text):
+        self.messages.append(text)
+
     def __init__(self, hands=None):
+        self.messages = []
         self.hands, self.vehicle, self.pos, self.delta = hands, False, (1.0, 0.0, 0.0), 0.5
 
     def GetItemInHands(self):
@@ -682,6 +690,9 @@ class World:
         world = self
 
         class Game:
+            def GetTickTime(self):
+                return 100.0  # Synthetic refusal window; fuel arithmetic uses GetDeltaT.
+
             def IsServer(self):
                 return world.server
 
@@ -721,6 +732,8 @@ class World:
             "HCFuelTransferPolicy": type("HCFuelTransferPolicy", (), scalar),
         }
         self.game = Game()
+        from tests.unit.test_refusal_report import install_refusal
+        install_refusal(natives)
         select = {"HCFuelSiphonQualification": None, "HCFuelSiphon": None,
                   "CAContinuousHCSiphonFuel": None,
                   "HCActionSiphonFuelFromCar": {"ActionCondition", "ActionConditionContinue"},
@@ -1191,7 +1204,9 @@ class ServerStepTests(BehaviorCase):
                 comp.Execute(world.data)
                 self.assertEqual((1, 1), calls(world))
                 self.assertTrue(comp.m_Stopped)
-                self.assertTrue(any("receipt mismatch" in line for line in world.prints))
+                self.assertTrue(any("reason=siphon_receipt_mismatch" in line for line in world.prints))
+                self.assertEqual(['Fuel siphon receipt mismatch; stopped without retry or refund.'],
+                                 world.player.messages)
                 self.assertEqual(0, comp.m_MovedMl)
                 lost = world.car.liters
                 self.assertEqual(4, comp.Execute(world.data))

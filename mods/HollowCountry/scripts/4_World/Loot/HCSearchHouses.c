@@ -61,9 +61,6 @@ class HCSearchHouses
     static const int MAX_SITES = 24;
     static const int MAX_EMPTY = 256;
     static const string SOURCE_ID = "stock-ce-template-houses-v2";
-    // A server refusal is told to the player and logged at most once per window, never silent.
-    static const float REFUSAL_WINDOW = 5.0;
-    static const int MAX_TOLD = 64;
     protected HCSettings m_Settings;
     protected bool m_Started;
     protected bool m_Fault;
@@ -80,7 +77,6 @@ class HCSearchHouses
     protected ref array<ref HCSearchHouseSlot> m_DetachedSlots = new array<ref HCSearchHouseSlot>;
     protected ref array<ref HCSearchHouseSession> m_Sessions = new array<ref HCSearchHouseSession>;
     protected ref map<string, float> m_Empty = new map<string, float>;
-    protected ref map<string, float> m_Told = new map<string, float>;
     protected string m_Refusal;
 
     void Start(HCSettings settings)
@@ -155,13 +151,13 @@ class HCSearchHouses
 
     bool Gate(PlayerBase player)
     {
-        m_Refusal = "service";
+        m_Refusal = HCRefusal.SERVICE;
         if (!m_Started || m_Fault || !m_Settings || !GetGame() || !GetGame().IsServer()) return false;
         bool ready = true;
         if (m_Journal && !m_Journal.Healthy()) ready = false;
         bool alive = player && player.IsAlive() && !player.IsUnconscious() && player.GetIdentity();
         if (!HCInteriorRules.MaySearch(true, m_Settings.EnableInteriors, m_Settings.EnableSearch, HCInteriorRules.SearchAdmitted(), ready, alive, true)) return false;
-        m_Refusal = "hands";
+        m_Refusal = HCRefusal.HANDS;
         if (player.GetHumanInventory().GetEntityInHands()) return false;
         m_Refusal = "";
         return true;
@@ -172,31 +168,18 @@ class HCSearchHouses
 
     static string RefusalText(string reason)
     {
-        if (reason == "busy") return "Someone is already searching here.";
-        if (reason == "capacity") return "Too many searches in progress; try again shortly.";
-        if (reason == "no_site") return "Nothing to search at this spot.";
-        if (reason == "nothing") return "Nothing searchable here.";
-        if (reason == "hands") return "Empty your hands to search.";
+        if (reason == HCRefusal.BUSY) return "Someone is already searching here.";
+        if (reason == HCRefusal.CAPACITY) return "Too many searches in progress; try again shortly.";
+        if (reason == HCRefusal.NO_SITE) return "Nothing to search at this spot.";
+        if (reason == HCRefusal.NOTHING) return "Nothing searchable here.";
+        if (reason == HCRefusal.HANDS) return "Empty your hands to search.";
         return "Search unavailable: the search service is not ready on this server.";
     }
 
-    // One status message and one log line per player per REFUSAL_WINDOW. The log names the
-    // reason and building class only, never the player.
+    // Shared per-player+reason window; class only, never player identity in the RPT.
     void ReportRefusal(PlayerBase player, ActionTarget target)
     {
-        if (!player || m_Refusal == "" || !GetGame()) return;
-        string key = "anonymous";
-        if (player.GetIdentity()) key = player.GetIdentity().GetId();
-        float now = GetGame().GetTickTime();
-        float last;
-        if (m_Told.Find(key, last) && now - last < REFUSAL_WINDOW) return;
-        if (m_Told.Count() >= MAX_TOLD) m_Told.Clear();
-        m_Told.Set(key, now);
-        string cls = "none";
-        House building = HouseOf(target);
-        if (building) cls = building.GetType();
-        Print("[HC Search Houses] refused reason=" + m_Refusal + " class=" + cls);
-        Tell(player, RefusalText(m_Refusal));
+        HCRefusalReport.RefusalMessage(player, m_Refusal, HouseOf(target), RefusalText(m_Refusal));
     }
 
     static bool SiteShapeValid(HCInteriorTemplateSearchSite site)
@@ -211,9 +194,9 @@ class HCSearchHouses
     HCSearchHouseHit Resolve(PlayerBase player, ActionTarget target)
     {
         if (!Gate(player)) return null;
-        m_Refusal = "service";
+        m_Refusal = HCRefusal.SERVICE;
         if (!target || !HCInteriorTemplates.Loaded()) return null;
-        m_Refusal = "nothing";
+        m_Refusal = HCRefusal.NOTHING;
         House building = HouseOf(target);
         if (!building) return null;
         string cls = building.GetType();
@@ -226,7 +209,7 @@ class HCSearchHouses
         if (!HCInteriorRules.TiltAcceptable(orientation, HCInteriorRules.MAX_HOUSE_TILT_DEGREES)) return null;
         vector offset = building.WorldToModel(target.GetCursorHitPos());
         vector standing = player.GetPosition();
-        m_Refusal = "no_site";
+        m_Refusal = HCRefusal.NO_SITE;
         HCInteriorTemplateSearchSite best;
         vector bestWorld;
         float bestGap = 1000000.0;
@@ -246,7 +229,7 @@ class HCSearchHouses
             bestWorld = world;
         }
         if (!best) return null;
-        m_Refusal = "nothing";
+        m_Refusal = HCRefusal.NOTHING;
         HCSearchHouseHit hit = new HCSearchHouseHit;
         hit.Structure = building;
         hit.BuildingClass = cls;
@@ -310,9 +293,9 @@ class HCSearchHouses
     bool Admit(PlayerBase player, HCSearchHouseHit hit)
     {
         if (!hit) return false;
-        m_Refusal = "busy";
+        m_Refusal = HCRefusal.BUSY;
         if (SessionOfSite(hit.SiteId)) return false;
-        m_Refusal = "capacity";
+        m_Refusal = HCRefusal.CAPACITY;
         if (m_Sessions.Count() >= MAX_SESSIONS) return false;
         m_Refusal = "";
         return true;
@@ -700,7 +683,7 @@ class HCSearchHouses
             return;
         }
         string actorId = ActorId(data.m_Player);
-        m_Refusal = "service";
+        m_Refusal = HCRefusal.SERVICE;
         if (actorId == "" || !EnsureJournal())
         {
             ReportRefusal(data.m_Player, data.m_Target);
@@ -710,25 +693,25 @@ class HCSearchHouses
         HCSearchHouseSlot slot = Touch(hit);
         if (!slot)
         {
-            Tell(data.m_Player, "Too many buildings are being searched; try again shortly.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.CAPACITY, "Too many buildings are being searched; try again shortly.");
             return;
         }
         int row = Prepare(slot, hit, data.m_Player);
         // Candidate preflight invokes native inventory callbacks, including Stop.
         if (!Gate(data.m_Player) || !m_Journal || !m_Registry)
         {
-            Tell(data.m_Player, "Search unavailable: supply or inventory room changed.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply or inventory room changed.");
             return;
         }
         if (row < 0)
         {
-            Tell(data.m_Player, "Nothing here to search.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.NOTHING, "Nothing here to search.");
             return;
         }
         HCSearchHouseRow entry = m_Journal.Row(row);
         if (!m_Registry.CanTransfer(EntryOf(entry), data.m_Player))
         {
-            Tell(data.m_Player, "Search unavailable: supply or inventory room changed.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply or inventory room changed.");
             return;
         }
         // Ephemeral wrapper so the action, the noise hook and the session logic stay shared.
@@ -795,7 +778,7 @@ class HCSearchHouses
         if (!GetGame().IsServer()) { return; }
         if (!CanContinue(data))
         {
-            if (data) { Tell(data.m_Player, "Search stopped; target or session changed."); }
+            if (data) { HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SESSION, "Search stopped; target or session changed."); }
             return;
         }
         HCSearchHouseSession session = SessionOf(data);
@@ -803,13 +786,13 @@ class HCSearchHouses
         if (site.Phase != 0) { return; }
         if (GetGame().GetTickTime() - site.StartedAt < COMMIT_AFTER)
         {
-            Tell(data.m_Player, "Search stopped; action completed too early. Please try again.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.TOO_EARLY, "Search stopped; action completed too early. Please try again.");
             return;
         }
         bool journalReady = m_Journal && m_Journal.Healthy();
         if (m_Busy || !SessionValid(data, session) || !journalReady)
         {
-            Tell(data.m_Player, "Search stopped; this storage is unavailable.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
             return;
         }
         int index = session.Row;
@@ -817,13 +800,13 @@ class HCSearchHouses
         if (!row || row.Phase != 0 || row.SiteId != site.Id)
         {
             site.Phase = 3;
-            Tell(data.m_Player, "Search stopped; this storage is unavailable.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
             return;
         }
         HCSearchEntry entry = EntryOf(row);
         if (!m_Registry.CanTransfer(entry, data.m_Player))
         {
-            Tell(data.m_Player, "Search unavailable: supply, inventory or service changed.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply, inventory or service changed.");
             return;
         }
         string actorId = session.ActorId;
@@ -849,7 +832,7 @@ class HCSearchHouses
         site.Phase = 3;
         if (phase == 2) site.Phase = 2;
         if (phase == 2) Tell(data.m_Player, "Search complete.");
-        else Tell(data.m_Player, "Search stopped; this storage is unavailable.");
+        else HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
     }
 
     void End(ActionData data)

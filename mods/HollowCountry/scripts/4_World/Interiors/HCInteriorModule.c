@@ -438,9 +438,25 @@ class HCInteriorsModule : HCModule
 
     bool CanStart(PlayerBase player, ActionTarget target)
     {
-        if (!target) return false;
-        HCInteriorSite site = FindSite(target.GetObject());
-        return SearchGate(player, site) && !site.Owner && ValidateTarget(player, target, site);
+        Object subject;
+        if (target) subject = target.GetObject();
+        HCInteriorSite site = FindSite(subject);
+        if (!SearchGate(player, site))
+        {
+            HCRefusalReport.RefusalMessage(player, HCRefusal.SERVICE, subject, "Search unavailable: the search service is not ready on this server.");
+            return false;
+        }
+        if (site.Owner)
+        {
+            HCRefusalReport.RefusalMessage(player, HCRefusal.BUSY, subject, "Someone is already searching here.");
+            return false;
+        }
+        if (!ValidateTarget(player, target, site))
+        {
+            HCRefusalReport.RefusalMessage(player, HCRefusal.NO_SITE, subject, "Nothing to search at this spot.");
+            return false;
+        }
+        return true;
     }
 
     bool CanContinue(ActionData data)
@@ -490,13 +506,24 @@ class HCInteriorsModule : HCModule
     void BeginSearch(ActionData data)
     {
         HCInteriorActionData action = HCInteriorActionData.Cast(data);
-        if (!action || !CanStart(data.m_Player, data.m_Target)) return;
-        HCInteriorSite site = FindSite(data.m_Target.GetObject());
-        if (!SetSession(data, site)) return;
-        site.Owner = data;
-        site.StartedAt = GetGame().GetTickTime();
-        site.Deadline = site.StartedAt + 15.0;
-        action.Site = site;
+        if (!action)
+        {
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SESSION, "Search stopped; target or session changed.");
+            return;
+        }
+        if (CanStart(data.m_Player, data.m_Target))
+        {
+            HCInteriorSite site = FindSite(data.m_Target.GetObject());
+            if (!SetSession(data, site))
+            {
+                HCRefusalReport.ActionRefusalMessage(data, HCRefusal.CAPACITY, "Too many searches in progress; try again shortly.");
+                return;
+            }
+            site.Owner = data;
+            site.StartedAt = GetGame().GetTickTime();
+            site.Deadline = site.StartedAt + 15.0;
+            action.Site = site;
+        }
     }
 
     void CommitSearch(ActionData data)
@@ -504,21 +531,21 @@ class HCInteriorsModule : HCModule
         if (!GetGame().IsServer()) { return; }
         if (!CanContinue(data))
         {
-            if (data && data.m_Player) { data.m_Player.MessageStatus("Search stopped; target or session changed."); }
+            if (data && data.m_Player) { HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SESSION, "Search stopped; target or session changed."); }
             return;
         }
         HCInteriorActionData action = HCInteriorActionData.Cast(data);
         HCInteriorSite site = action.Site;
         if (GetGame().GetTickTime() - site.StartedAt < 5.5)
         {
-            data.m_Player.MessageStatus("Search stopped; action completed too early. Please try again.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.TOO_EARLY, "Search stopped; action completed too early. Please try again.");
             return;
         }
         // Target/capacity checks may cross native callbacks. The same captured
         // player session must still own the action immediately before admission.
         if (!SearchGate(data.m_Player, site) || !SessionValid(data, site))
         {
-            data.m_Player.MessageStatus("Search unavailable: supply, inventory or service changed.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply, inventory or service changed.");
             return;
         }
         site.Phase = 1; // Exclude reentry BEFORE adapter I/O/native callbacks.
@@ -527,7 +554,7 @@ class HCInteriorsModule : HCModule
         {
             // Adapter negatives guarantee no admitted inventory attempt.
             site.Phase = 0;
-            data.m_Player.MessageStatus("Search unavailable: supply, inventory or service changed.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply, inventory or service changed.");
             return;
         }
         site.Phase = 3;
@@ -539,7 +566,7 @@ class HCInteriorsModule : HCModule
         }
         else
         {
-            data.m_Player.MessageStatus("Search stopped; this storage is unavailable.");
+            HCRefusalReport.ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.");
         }
     }
 

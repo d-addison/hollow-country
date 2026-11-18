@@ -287,6 +287,8 @@ class FakePlayer(sp.Player):
 
 
 class FakeAction:
+    m_MainItem = None
+
     def __init__(self, player, target):
         self.m_Player, self.m_Target, self.Site = player, target, None
 
@@ -373,6 +375,8 @@ class Harness:
         env['HCInteriorCatalog'] = N(SearchType=lambda cls: cls in pilot_types)
         site_fields = env['HCInteriorSite']()
         self.site_fields = {k for k in vars(site_fields)}
+        from tests.unit.test_refusal_report import install_refusal
+        install_refusal(env)
         for filename in HOUSE_FILES:
             for source in translate(filename):
                 exec(source, env)
