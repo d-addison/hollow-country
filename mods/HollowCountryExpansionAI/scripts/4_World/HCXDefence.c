@@ -74,7 +74,7 @@ class HCXGrudge
     ref array<int> SeedAt = new array<int>;
 
     // Per-actor perception slot (LOS memory and native seed time), at most 12.
-    int Slot(eAIBase ai, bool create)
+    int ActorSlot(eAIBase ai, bool create)
     {
         for (int index = 0; index < Actors.Count(); index++)
         {
@@ -95,7 +95,7 @@ class HCXGrudge
 
     void NoteSeed(eAIBase ai, int nowMs)
     {
-        int slot = Slot(ai, true);
+        int slot = ActorSlot(ai, true);
         if (slot >= 0) { SeedAt.Set(slot, nowMs); }
     }
 }
@@ -228,7 +228,7 @@ class HCXDefence
         HCXGrudge grudge = Find(group, player);
         if (!grudge || grudge.Kind == HCXDefencePolicy.KIND_RESCUE) { return false; }
         int nowMs = GetGame().GetTime();
-        int slot = grudge.Slot(ai, state.m_LOS);
+        int slot = grudge.ActorSlot(ai, state.m_LOS);
         int lastLos = 0;
         int seededAt = 0;
         if (slot >= 0)
