@@ -24,20 +24,60 @@ command cannot run for a real reason it refuses with a specific `reason`.
    file is created on first start with `EnableAdminMap` on. Only listed admins may
    send commands. Never commit or paste ids (see `docs/ACCEPTANCE_CHECKLIST.md`).
 2. Open the HC admin menu with the `UAHollowCountryAdmin` key binding (set it under
-   the game's key binding options). The right panel holds the buttons below; the
-   lower list shows the reply lines and the notice bar shows the short result.
-3. Each command has a one second per-admin throttle, one queued command per server
-   tick, and replayed tickets are refused. If a button seems to do nothing, wait a
-   second and press again.
+   the game's key binding options). The existing native notification says
+   "Asking the server for admin access...". The window opens only after an
+   authorized server reply. A silent server times out after ten seconds and the
+   notification names `admins.json` and `EnableAdminMap`; silence does not prove
+   that the user is not an admin.
+3. The centred dark window has a title, admin/request state, X close button,
+   section tabs, scrolling command cards and a result console. Closing uses the
+   existing scripted-menu focus/cursor/input lifecycle. Closing cancels any
+   unsent read-only checks; an already sent request is not undone.
 
-The menu has one shared value box, default `1`. The `day`, `memory` and `weather`
-buttons read it; the value must be 1 to 4 decimal digits and the server validates
-the range. Every other button ignores the box.
+| Section | Commands / controls |
+| :--- | :--- |
+| Overview | `status`, `kit`, `list`, `snapshot`; **Run read-only checks** |
+| Infected | `sitter`, `dormant`, `horde`, `clear`, `memory` |
+| AI & Camps | `camp`, `holdout` |
+| World & Events | `event`, `scene`, `radio`, `deaddrop`, `decay` |
+| Economy | `loot`, `forage` |
+| Time & Weather | `day`, `weather` |
+| Map | Latest snapshot, route canvas, layer list and **Toggle layer** |
+
+Each card provides a label, one-line explanation, read-only (green) or
+world-changing (amber) tag, and **Run**. Position-dependent cards say that they
+act at your position or inspect nearby state. Integer commands have their own
+**− / value / +** controls, range and unit. Defaults are `1`: memory 0–3 shots,
+weather 0–4 profiles, day 0–3650. Decimal input is validated and clamped; empty,
+negative (for these nonnegative ranges), fractional, non-digit or overflowing
+32-bit integer input is not sent. Future catalog ranges can use larger or signed
+integers without another menu change.
+Values reset to their catalog defaults when changing tabs.
+
+Only one request is pending at a time. Action/value controls are disabled while
+busy, including the 1.1-second client throttle (the server retains its one-second
+per-sender limit and global queue cap of one). **Run read-only checks** sends
+`status`, `kit`, then `list`, waiting for each validated reply and the throttle
+before sending the next. No world-changing command runs automatically. A
+10-second request timeout records an unknown server outcome and cancels remaining
+checks without retrying. Changing tabs does not cancel the checks.
+
+The Map section reuses the existing map, route projection, layer selection and
+visibility toggle. Request a snapshot from Overview, then select Map. Marks
+expire after 60 seconds as before. Routes reproject on snapshot/layer changes
+and map mouse-wheel/release events; pan/zoom alignment still needs DayZ testing.
 
 ## Where the answer shows up
 
-Every command prints one RPT line on the server and returns the same text to the
-menu:
+The console retains the latest **50 lines**, newest reply first, with local
+`HH:MM:SS` timestamps, command names and green `ok` / red `refused` results. Reply
+body lines keep their original order beneath the summary, wrap and grow vertically
+inside the scroll area; text is not substring-truncated. A long reply can evict
+older lines. Successful `status`, `kit` and `list` replies use their server notice
+as the summary; other summaries retain the exact server result and reason.
+Local validation/timeouts are explicitly labelled and are not server refusals.
+
+Every command prints one result line on the server:
 
 ```
 [HC Admin] cmd=<command> result=ok|refused reason=<reason>
@@ -209,3 +249,122 @@ menu for HC-owned state.
 14. Press `day` with a new value and confirm `persisted-escalation-day`.
 15. Record every `[HC Admin] cmd=` line in the test notes. Anything unobserved stays
     pending; nothing here is runtime acceptance.
+
+
+## Adding an admin command
+
+The shared `scripts/3_Game/Admin/HCAdminCatalog.c` is the command UI and ingress
+allowlist's single source of truth. Add one `HCAdd(...)` line in an existing
+section and implement the server handler in `HCDispatch` / `HCCommand` (or its
+`HCExtra` helper). No button, layout, menu click branch or separate `HCKnown`
+entry is needed. Metadata arguments are: wire id, section id, label, one-line
+help, read-only flag, acts-at-my-position flag, integer flag, minimum, maximum,
+default and unit. Non-value commands use `false, 0, 0, 0, ""` for the value fields.
+For a new section, add one `HCSection(id, label, help)` declaration as well.
+
+Keep value bounds aligned with the server's validation/clamps; the server remains
+authoritative. Update command documentation and behavioral tests when introducing
+new gameplay behavior. The UI tests compare the entire catalog against the
+actual dispatch branches, including `HCExtra`, so dead cards and omitted handlers
+fail offline. The existing kit-availability report remains separately maintained
+server documentation; it is not used to build or enable UI cards.
+
+Run the focused checks and standard-library layout linter:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_admin_ui tests.unit.test_layout_lint tests.unit.test_admin_test_kit tests.unit.test_admin_client_feedback -v
+python3 -B -m tools.validate.layout_lint
+python3 -B -m tools.validate.enforce_lint --no-native
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
+```
+
+The layout linter checks braces, native/vanilla widget classes, duplicate names,
+literal script lookups against the layouts loaded in that source file, and
+layout paths against the packer's existing allowlist. A script using a root
+supplied by another script produces an explicit review finding; dynamic lookup
+names are outside its scope. This does not establish rendering or widget events.
+
+## Admin UI implementation record (2026-11-18)
+
+Banso spec / plan / tasks for this confined worker are recorded here within the
+owned documentation. Base: `915aef1`, branch `hc/admin-ui`. The supplied shared
+brief and both named spec paths were absent in this worktree; the specifications
+were read from `/code/dayzsa_mods/docs/`. The active owner request takes precedence
+over older assumptions. No git metadata changes or lifecycle dispatch were run.
+
+Spec: expose all 20 existing wire commands across seven sections, preserve the
+server's behavior, authentication/open path and native menu lifecycle, and keep
+UI work and history bounded. Author original vanilla-only layouts; no COT source
+was read, copied or adapted. Given a valid admin session, selecting a tab shows
+that catalog section's cards. Given a pending request, Run cannot dispatch. Given
+a reply, the console shows its result/reason and body; given a timeout, the batch
+stops with no retry.
+
+Plan: shared 3_Game catalog → server HCKnown delegation only → original window
+and templates → generic menu cards → reply-driven client console and serial
+read-only queue → deterministic lint, behavioral tests and package inspection.
+Native evidence: installed `scripts-1.30.164289/1_Core/proto/EnWidgets.c` for all
+used widget classes/methods/flags; `2_GameLib/tools.c` for ScriptInvoker;
+`EnSystem.c` for timestamps; `EnConvert.c` for zero-padded time;
+`3_Game/gameplay.c` for MapWidget; `UIScriptedMenu.c` for focus/cursor/input and
+mouse events. Vanilla GUI layout syntax was inspected in the local cache's
+`wine-server-20261116/dta/gui.pbo` (camera tool spacers/scroll and connection
+dialogue wrapping), because the supplied `/mnt/d/.../gui.pbo` path was absent.
+No native files are shipped.
+
+Tasks / acceptance trace:
+
+- [x] UI-01: catalog metadata, sections and HCKnown; dispatch-set and value-bound checks.
+- [x] UI-02: centred window, tabs, cards, tags, validated/clamped value controls, map reuse.
+- [x] UI-03: bounded timestamped console, busy controls, serial checks, timeout/cancel behavior.
+- [x] UI-04: standard-library layout lint and deterministic behavioral tests; RED/GREEN below.
+- [ ] UI-05: DayZDiag and normal packaged client/server load, all 20 buttons and refusal reasons,
+  initial key notification, close/Escape/focus/input, tab highlighting, small-screen scrolling,
+  wrapped full replies, map layers and pan/zoom route alignment; reconnect/death/expiry.
+- [ ] UI-06: two-client visibility/authorization/snapshot behavior and target-load measurements.
+  No runtime acceptance or production qualification is granted by offline checks.
+
+Visual result is **unrendered until someone opens it in DayZ**. Budgets remain
+provisional; runtime acceptance is pending.
+
+Offline TDD evidence (synthetic collaborators and source checks only):
+
+- Initial RED: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_admin_ui tests.unit.test_layout_lint -v`
+  → `Ran 11 tests`, `FAILED (failures=4, errors=7)`: missing catalog/linter,
+  generic cards, serial checks and bounded console.
+- Focus-order RED: `python3 -B -m unittest tests.unit.test_admin_ui.CardBehavior.test_invalid_value_stays_invalid_when_edit_loses_focus_before_run -v`
+  → `Ran 1 test`, `FAILED (failures=1)`, `[] != [('weather', 1)]` after invalid
+  text lost focus. Invalid text now remains visible and cannot dispatch.
+- Modularity RED: `test_new_catalog_integer_ranges_do_not_need_menu_changes`
+  → `FAILED (failures=1)`, rejected the explicit synthetic future value `99999`.
+  Parsing now supports signed native integer ranges, checks overflow before
+  conversion, and clamps to catalog bounds. The synthetic command is never shipped.
+- Limit-step RED: `test_step_at_native_integer_limits_never_overflows`
+  → `FAILED (failures=1)`, missing `HCAdminCommand.HCStep`. Step bounds are now
+  checked before arithmetic, including native minimum/maximum integers.
+- Same-tab RED: `test_selecting_current_tab_does_not_rebuild_or_reset_values`
+  → `FAILED (errors=1)`, attempted widget access/rebuild for the active tab.
+  An early return now preserves controls and values.
+- CLI RED: `test_command_line_script_runs_from_another_directory`
+  → `FAILED (failures=1)`, `ModuleNotFoundError: No module named 'tools'`.
+  The linter now supports both module and direct script invocation.
+- GREEN: the four-suite command above → `Ran 76 tests`, `OK`.
+- `python3 -B -m tools.validate.enforce_lint --no-native`
+  → `enforce_lint: pass findings=144 new=0 stale=0 native=no`.
+- `python3 -B tools/validate/layout_lint.py`
+  → `layout_lint: layouts=9 findings=4`; **zero admin findings**. The four review
+  findings are `HCMapOverlay`, `HCGrid`, `HCNavigation`, `HCKnownEvents` lookups in
+  `5_Mission/Groups/HCGroupMapLayers.c`. They exist in `hc_group_map.layout`, whose
+  root is passed by `HCGroupMapMenu`; the per-file linter cannot trace that
+  borrowed root. Its exit status is 1 to retain those review findings. No other
+  owner's layout or script was edited.
+- Packer `collect_addon` → in-memory `pack` → `parse` round-trip: 259 entries,
+  all four admin layouts plus the catalog present; no game assets or package file
+  written. `git diff --check` passed.
+- Native-identifier RED from full discovery: `Ran 5884 tests`,
+  `FAILED (failures=1, skipped=1, expected failures=3)`; the local name `map`
+  collided with the installed Enforce `map` type. Renamed to `showMap`.
+  GREEN including `tests.unit.test_script_identifiers`: `Ran 82 tests`, `OK`.
+- Final full GREEN: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v`
+  → `Ran 5884 tests in 271.781s`, `OK (skipped=1, expected failures=3)`.
+  The skip/expected failures remain existing pending work, not runtime acceptance.
