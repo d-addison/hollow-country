@@ -1,0 +1,284 @@
+// HC-5/#148/#139. Source implementation; DayZ/two-client acceptance PENDING.
+// Native scripts-1.30.164289 API evidence inspected locally:
+// 4_World/Classes/EmoteManager.c:127 m_bEmoteIsPlaying, :144 m_CurrentGestureID,
+// :236 GetGesture returns INPUT slot (not executed ID), :629 OnCallbackEnd,
+// :640-687 PlayEmote updates executed ID and returns actual playing state,
+// :692-717 CreateEmoteCallback creates/sets playing; :1328 IsEmotePlaying includes REQUESTS.
+// 4_World/Entities/ManBase/PlayerBase.c:1892 GetEmoteManager,
+// :2116 SetSurrenderState, :8962 IsSurrendered; :3925 IsUnconscious;
+// 3_Game/Global/Game.c:1119/1120 IsClient/IsServer, :1535 GetTime;
+// 3_Game/Entities/Man.c:21 GetIdentity; 3_Game/gameplay.c:368 GetId;
+// 3_Game/constants.c:368/393 ID_EMOTE_GREETING/ID_EMOTE_HOLD. Clock: existing HCGroupClock.Utc.
+// Installed Expansion ai_scripts.pbo: Entities/AI/eAIBase.c:9743 CanRaiseWeapon,
+// :9755 RaiseWeapon(false) clears queued shots; :1276 eAI_CanFire requires raised;
+// :10860/10867 Expansion_SetEmote/Expansion_PlayEmote (void; verify callback).
+// Classes/FSM/States/Fighting/eAIState_Fighting_Melee.c:53 requires raised;
+// Classes/Melee/eAIMeleeFightLogic_LightHeavy.c:260-276 gates new melee on raised.
+// Existing HCXStance Owns/Visible/GetGroup/GetName seams retain their citations.
+// Extend the DTO already loaded by HCXAISiteDirector; no parallel settings file.
+modded class HCXAISitePolicy
+{
+    int BetrayalRetentionSeconds = 172800;
+    int MaxBetrayalRows = 128;
+    int MaxSignalWorkPerSecond = 8;
+}
+// One weak target per actor, no global player map or discovery. Only observed
+// surrender sets this latch. Retained maintenance and native control paths use
+// the observation, never poll unseen players' gesture/surrender state.
+modded class eAIBase
+{
+    protected PlayerBase m_HCXCeaseTarget;
+    protected int m_HCXCeaseUntil;
+
+    bool HCXSignalBlocked(PlayerBase player = null)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !m_HCXCeaseTarget || GetGame().GetTime() >= m_HCXCeaseUntil) { return false; }
+        if (player) { return player == m_HCXCeaseTarget; }
+        eAITarget target = GetTarget();
+        return target && target.GetEntity() == m_HCXCeaseTarget;
+    }
+    bool HCXSignalCease(PlayerBase player)
+    {
+        if (!player) { return false; }
+        m_HCXCeaseTarget = player;
+        m_HCXCeaseUntil = GetGame().GetTime() + 2000;
+        eAITarget target = GetTarget();
+        if (target && target.GetEntity() == player) { RaiseWeapon(false); }
+        return HCXSignalBlocked(player);
+    }
+    void HCXSignalRelease(PlayerBase player)
+    {
+        if (player == m_HCXCeaseTarget) { m_HCXCeaseTarget = null; m_HCXCeaseUntil = 0; }
+    }
+    override bool CanRaiseWeapon()
+    {
+        if (HCXSignalBlocked()) { return false; }
+        return super.CanRaiseWeapon();
+    }
+    override void RaiseWeapon(bool up = true)
+    {
+        if (up && HCXSignalBlocked()) { up = false; }
+        super.RaiseWeapon(up);
+    }
+    override bool eAI_CanFire(Weapon_Base weapon)
+    {
+        if (HCXSignalBlocked()) { RaiseWeapon(false); return false; }
+        return super.eAI_CanFire(weapon);
+    }
+}
+modded class EmoteManager
+{
+    protected int m_HCSignalSerial;
+
+    override protected void CreateEmoteCallback(typename callbacktype, int id, int mask, bool fullbody)
+    {
+        EmoteCB previous = m_Callback;
+        super.CreateEmoteCallback(callbacktype, id, mask, fullbody);
+        if (GetGame() && GetGame().IsServer() && m_Callback && m_Callback != previous && m_bEmoteIsPlaying)
+        {
+            // Count actual new callbacks, never failed/replayed PlayEmote calls.
+            // Saturation refuses future waves rather than wrapping/replaying.
+            if (m_HCSignalSerial < 2147483647) { m_HCSignalSerial++; }
+        }
+    }
+    int HCSignalSerial() { return m_HCSignalSerial; }
+    int HCSignalGesture()
+    {
+        if (!m_bEmoteIsPlaying || m_HCSignalSerial == 2147483647) { return 0; }
+        return m_CurrentGestureID;
+    }
+}
+class HCXSignalProvider
+{
+    bool Ready() { return false; }
+    // Must cancel queued shots AND inhibit provider ranged/melee combat against
+    // this surrendered target, including subsequent provider updates. Return true
+    // only on actual success. Threat zeroing alone never constitutes cease-fire.
+    bool CeaseFire(eAIBase actor, PlayerBase player) { return false; }
+    void Release(eAIBase actor, PlayerBase player) {}
+    bool Emote(eAIBase actor, int gesture) { return false; }
+    // Existing retained actor loop owns maintenance. No new global/player scan.
+    void Tick(eAIBase actor) {}
+    void Stop() {}
+}
+class HCXNativeSignalProvider : HCXSignalProvider
+{
+    override bool Ready() { return true; }
+    override bool CeaseFire(eAIBase actor, PlayerBase player)
+    {
+        return actor && actor.HCXSignalCease(player);
+    }
+    override void Release(eAIBase actor, PlayerBase player)
+    {
+        if (actor) { actor.HCXSignalRelease(player); }
+    }
+    override bool Emote(eAIBase actor, int gesture)
+    {
+        if (!actor || !actor.GetEmoteManager()) { return false; }
+        actor.RaiseWeapon(false);
+        if (!actor.GetEmoteManager().CanPlayEmote(gesture)) { return false; }
+        int before = actor.GetEmoteManager().HCSignalSerial();
+        actor.Expansion_SetEmote(gesture, true, 1500);
+        actor.Expansion_PlayEmote();
+        return actor.GetEmoteManager().HCSignalSerial() > before && actor.GetEmoteManager().HCSignalGesture() == gesture;
+    }
+    override void Tick(eAIBase actor)
+    {
+        if (actor && actor.HCXSignalBlocked()) { actor.RaiseWeapon(false); }
+    }
+}
+class HCXEmoteObservation
+{
+    protected static ref HCXSignalProvider s_Provider;
+    protected static ref HCXBetrayalStore s_Store;
+    protected static ref HCUnitBudget s_Units = new HCUnitBudget();
+    protected static ref HCWorkBudget s_Work = new HCWorkBudget();
+    protected static int s_Frame = -1;
+    protected static int s_MaxWork = 8;
+    protected static bool s_Running;
+    protected static bool s_StoreRefused;
+    protected static bool s_ControlRefused;
+
+    static void Start()
+    {
+        if (!GetGame() || !GetGame().IsServer() || s_Running) { return; }
+        s_Running = true;
+        s_Frame = -1;
+        s_StoreRefused = false;
+        s_ControlRefused = false;
+        HCSignalCooldown.Reset();
+        s_Store = new HCXBetrayalStore();
+        HCXAISitePolicy policy = HCXAISiteDirector.LoadPolicy();
+        s_MaxWork = 8;
+        bool configured = false;
+        if (policy && policy.MaxSignalWorkPerSecond >= 1 && policy.MaxSignalWorkPerSecond <= 32)
+        {
+            s_MaxWork = policy.MaxSignalWorkPerSecond;
+            configured = s_Store.Configure(policy.MaxBetrayalRows, policy.BetrayalRetentionSeconds);
+        }
+        if (configured) { s_Store.Open(HCGroupClock.Utc()); }
+        else { Print("[HC Plan] HC-5 betrayal config refused: check expansion-ai-sites.json retention/row/work limits; runtime=PENDING"); }
+        Print(HCV2Admission.Line("HC-5", true, "EXP-L3", false));
+        HCXEmoteObservation.LogState();
+    }
+    static bool Install(HCXSignalProvider provider)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !s_Running || s_Provider || !provider || !provider.Ready()) { return false; }
+        s_Provider = provider;
+        HCXEmoteObservation.LogState();
+        return true;
+    }
+    static void LogState()
+    {
+        string signals = "refused:provider_control_unverified";
+        if (s_Provider && s_Provider.Ready()) { signals = "supported:runtime_pending"; }
+        string storeState = "quarantined";
+        int rows = 0;
+        if (s_Store)
+        {
+            rows = s_Store.Count();
+            if (s_Store.Healthy()) { storeState = "ready"; }
+        }
+        Print("[HC Plan] HC-5 signals=" + signals + " betrayal_store=" + storeState + " text=off rows=" + rows.ToString() + " gesture_work_per_second<=" + s_MaxWork.ToString() + " runtime=PENDING");
+    }
+    static void Stop()
+    {
+        s_Running = false;
+        if (s_Provider) { s_Provider.Stop(); }
+        s_Provider = null;
+        s_Store = null;
+        s_Frame = -1;
+        HCSignalCooldown.Reset();
+    }
+    static bool ControlReady()
+    {
+        return GetGame() && GetGame().IsServer() && s_Running && s_Provider && s_Provider.Ready();
+    }
+    static bool Ready()
+    {
+        return HCXEmoteObservation.ControlReady() && s_Store && s_Store.Healthy();
+    }
+    static bool Work()
+    {
+        if (!GetGame() || !GetGame().IsServer() || !HCXEmoteObservation.ControlReady()) { return false; }
+        int frame = GetGame().GetTime() / 1000;
+        if (s_Frame != frame)
+        {
+            s_Frame = frame;
+            s_Units.HCReset(s_MaxWork);
+            s_Work.HCReset(s_MaxWork);
+        }
+        return s_Units.HCTake(1) && s_Work.HCContinue();
+    }
+    static void Tick(eAIBase actor)
+    {
+        // Cleanup/cease-fire maintenance must not starve behind gesture work.
+        // Caller owns its existing one-actor retained cursor/budget.
+        if (s_Running && s_Provider && actor) { s_Provider.Tick(actor); }
+    }
+    static void Remember(eAIBase actor, PlayerBase player)
+    {
+        if (!s_Running || !GetGame() || !GetGame().IsServer() || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return; }
+        if (actor.GetGroup() == player.GetGroup()) { return; }
+        if (!s_Store.ValidKey(actor.GetGroup().GetName()) || !s_Store.ValidKey(player.GetIdentity().GetId())) { return; }
+        // Event callbacks share the configured work ceiling. Overload refuses
+        // this durable event explicitly; it never quarantines a healthy ledger
+        // or removes the existing native self-defence record.
+        if (!HCXEmoteObservation.Work())
+        {
+            HCXEmoteObservation.RefuseControl("betrayal_work_exhausted");
+            return;
+        }
+        if (!s_Store.Remember(actor.GetGroup().GetName(), player.GetIdentity().GetId(), HCGroupClock.Utc()) && !s_StoreRefused)
+        {
+            s_StoreRefused = true;
+            Print("[HC Plan] HC-5 signals=refused betrayal_store=quarantined text=off runtime=PENDING");
+        }
+    }
+    static bool Grudge(eAIBase actor, PlayerBase player)
+    {
+        if (!s_Running || !s_Store || !actor || !actor.GetGroup() || !player || !player.GetIdentity()) { return false; }
+        return s_Store.Has(actor.GetGroup().GetName(), player.GetIdentity().GetId());
+    }
+    static bool Surrender(eAIBase actor, PlayerBase player, bool observed)
+    {
+        if (!HCXEmoteObservation.ControlReady() || !actor || !player || !observed) { return false; }
+        bool surrendered = player.IsSurrendered();
+        if (!surrendered) { s_Provider.Release(actor, player); return false; }
+        if (!HCStancePolicy.CeaseForSurrender(GetGame().IsServer(), observed, surrendered)) { return false; }
+        if (s_Provider.CeaseFire(actor, player)) { return true; }
+        HCXEmoteObservation.RefuseControl("cease_fire_failed");
+        return false;
+    }
+    static void RefuseControl(string reason)
+    {
+        if (s_ControlRefused) { return; }
+        s_ControlRefused = true;
+        Print("[HC Plan] HC-5 signals=refused:" + reason + " betrayal_store=unchanged text=off runtime=PENDING");
+    }
+    static int Wave(eAIBase actor, PlayerBase player, bool observed, int consumed)
+    {
+        if (!observed || !HCXEmoteObservation.Ready() || !actor || !player || !player.GetEmoteManager()) { return consumed; }
+        int serial = player.GetEmoteManager().HCSignalSerial();
+        bool greeting = player.GetEmoteManager().HCSignalGesture() == EmoteConstants.ID_EMOTE_GREETING;
+        bool neutral = HCXStance.Relation(actor, player) >= 0;
+        bool grudge = HCXEmoteObservation.Grudge(actor, player);
+        // Non-greeting gestures never count. Consume an observed greeting even
+        // if cooldown/provider refuses, so standing in the same wave cannot replay.
+        if (!observed || !greeting || serial <= consumed) { return consumed; }
+        bool allowed = HCStancePolicy.ReplyWave(GetGame().IsServer(), observed, neutral, HCXStance.RaisedWeapon(player), grudge, serial, consumed, GetGame().GetTime(), 0);
+        if (allowed && HCSignalCooldown.Allowed(player) && HCXEmoteObservation.Work())
+        {
+            if (s_Provider.Emote(actor, EmoteConstants.ID_EMOTE_GREETING)) { HCSignalCooldown.Claim(player); }
+            else { HCXEmoteObservation.RefuseControl("emote_failed"); }
+        }
+        return serial;
+    }
+    static bool Warn(eAIBase actor, PlayerBase player)
+    {
+        if (!HCSignalCooldown.Allowed(player) || !HCXEmoteObservation.Work()) { return false; }
+        if (s_Provider.Emote(actor, EmoteConstants.ID_EMOTE_HOLD)) { return HCSignalCooldown.Claim(player); }
+        HCXEmoteObservation.RefuseControl("emote_failed");
+        return false;
+    }
+}

@@ -16,4 +16,20 @@ class HCStancePolicy
         if (distance <= cautionRange) { return HCStancePolicy.WARN; }
         return HCStancePolicy.WATCH;
     }
+    // HC-5: authoritative observed facts only. Gesture identity/serial come from
+    // executed native callbacks, never a client claim or pending generic emote.
+    static bool ReplyWave(bool server, bool observed, bool neutral, bool raised, bool grudge, int serial, int consumed, int nowMs, int nextMs)
+    {
+        return server && observed && neutral && !raised && !grudge && serial > 0 && serial > consumed && nowMs >= 0 && nowMs >= nextMs;
+    }
+
+    static bool CeaseForSurrender(bool server, bool observed, bool surrendered)
+    {
+        return server && observed && surrendered;
+    }
+
+    static bool WarningDue(int nowMs, int nextMs)
+    {
+        return nowMs >= 0 && nowMs >= nextMs;
+    }
 }
