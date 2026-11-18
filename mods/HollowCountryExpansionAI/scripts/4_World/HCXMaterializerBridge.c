@@ -1,20 +1,15 @@
-// LC-T402 / #98. Native evidence: installed scripts-1.30.164289/
-// 1_Core/proto/EnConvert.c:30 int.ToString; EnDebug.c:96 Print.
-// Only project APIs otherwise. No Expansion classes copied or native actor API
-// called. HCXAISites.c:810 protected Create needs an owned, bound and route-
-// qualified state; :916 SpawnProblemFor budgets only its own m_States. The
-// public States() is explicitly read-only for encounter consumers (:184).
-// Therefore an arbitrary transient site cannot safely join that director from
-// this scope. Required fallback: refuse, report traces, create zero bodies.
-// A future director-owned transient admission API must reserve within the SAME
-// 8-body/2-site budget, qualify routes, observe each spawn/despawn, then report
-// group absence and survivors through HCWorldMaterializer.Result. EXP-L1/P2
-// runtime and two-client acceptance remain pending.
+// LC-T402 / #98, EXP-L1 + EXP-P2 (runtime acceptance pending).
+// Native evidence: installed scripts-1.30.164289/1_Core/proto/
+// EnConvert.c:30 int.ToString; EnDebug.c:96 Print. All lifecycle, settings,
+// proposal and director calls below are existing/project-owned interfaces.
+// No body creation, native handles, inventories or persistence in this bridge.
 class HCXMaterializerBridge : HCModule
 {
+    protected static HCXMaterializerBridge s_Instance;
     protected bool m_Running;
-    protected bool m_RefusalPrinted;
+    protected bool m_AdmissionPrinted;
     protected float m_LogSeconds;
+    protected int m_Spawned;
     protected int m_Refused;
 
     override string GetName() { return "MaterializerBridge"; }
@@ -23,35 +18,59 @@ class HCXMaterializerBridge : HCModule
     override void OnStart(HCSettings settings)
     {
         if (m_Running || !IsEnabled(settings)) { return; }
+        if (!m_AdmissionPrinted)
+        {
+            Print(HCV2Admission.Line("MaterializerBridge", true, "EXP-L1", HCV2Gates.Qualified("EXP-L1")));
+            m_AdmissionPrinted = true;
+        }
         m_Running = true;
         m_LogSeconds = 0;
+        s_Instance = this;
+    }
+
+    protected void Offer(HCWorldProposal proposal)
+    {
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        string reason = "site director unavailable";
+        bool admitted = false;
+        if (director) { admitted = director.AdmitTransient(proposal.Id, proposal.FactionId, proposal.Position, proposal.ActorCap, reason); }
+        if (admitted) { return; }
+        m_Refused++;
+        HCWorldMaterializer.Result(proposal.Id, false, 0);
+    }
+
+    // Director callbacks, including async route/setup refusal. Only a real
+    // Spawned callback increments spawned; admission itself only reserves.
+    static void SiteSpawned()
+    {
+        if (s_Instance && s_Instance.m_Running) { s_Instance.m_Spawned++; }
+    }
+    static void SiteEnded(string proposalId, bool materialized, int survivors)
+    {
+        if (!materialized && s_Instance && s_Instance.m_Running) { s_Instance.m_Refused++; }
+        HCWorldMaterializer.Result(proposalId, materialized, survivors);
     }
 
     override void OnTick(float deltaTime)
     {
         if (!m_Running || !(deltaTime > 0) || deltaTime > 3600) { return; }
-        // One claim/tick; no player data, world scans, actor/item operations or
-        // mutation of the existing qualified site director's states.
+        // One claim/tick. Director owns shared reservations, qualification,
+        // native patrol triggers and the eventual death/despawn callback.
         HCWorldProposal proposal;
-        if (HCWorldMaterializer.Next(proposal))
-        {
-            m_Refused++;
-            if (!m_RefusalPrinted)
-            {
-                Print("[HC Expansion AI] materializer bridge refused: qualified site director has no transient admission API; traces only");
-                m_RefusalPrinted = true;
-            }
-            HCWorldMaterializer.Result(proposal.Id, false, 0);
-        }
+        if (HCWorldMaterializer.Next(proposal)) { this.Offer(proposal); }
         m_LogSeconds += deltaTime;
         if (m_LogSeconds >= 600)
         {
             m_LogSeconds = 0;
-            Print("[HC Expansion AI] materializer bridge spawned=0 refused=" + m_Refused.ToString());
+            Print("[HC Expansion AI] materializer bridge spawned=" + m_Spawned.ToString() + " refused=" + m_Refused.ToString());
         }
     }
 
-    override void OnStop() { m_Running = false; }
+    override void OnStop()
+    {
+        m_Running = false;
+        if (s_Instance == this) { s_Instance = null; }
+    }
 }
 
 modded class HCModuleRegistry

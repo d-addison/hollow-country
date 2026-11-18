@@ -1,23 +1,71 @@
-"""One synthetic smoke of authored materializer decisions; no DayZ evidence.
+"""Synthetic materializer smokes; no DayZ evidence.
 
 Uses the existing syntax adapter without extending it. World facts and the
 server clock are explicit synthetic ports; no native spawning is simulated.
 
 RED: AssertionError: False is not true : missing HCWorldMaterializer.c
 GREEN: python3 -m unittest tests.unit.test_v2_materializer -v; Ran 1 test; OK.
+
+LC-T402 transient follow-up, one added behavioural smoke (2026-11-18):
+RED/GREEN command:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_v2_materializer.MaterializerSmoke.test_transient_shared_reservations_refuse_and_bridge_reports_trace -v
+RED: AssertionError: missing authored method BudgetProblem
+Ran 1 test in 0.002s; FAILED (failures=1).
+GREEN: Ran 1 test in 0.004s; OK.
 """
 from pathlib import Path
 from types import SimpleNamespace as N
 import unittest
 
 from tests.unit.test_event_runtime import translate
-from tests.unit.test_expansion_ai_adapter import A
+from tests.unit.test_expansion_ai_adapter import A, Authored
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCWorldMaterializer.c'
 
 
 class MaterializerSmoke(unittest.TestCase):
+    def test_transient_shared_reservations_refuse_and_bridge_reports_trace(self):
+        # Explicit synthetic director groups/policy; executes authored decisions,
+        # never a native spawn, navmesh, observer or provider simulation.
+        scripts = ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World'
+        sites = (scripts / 'HCXAISites.c').read_text()
+        bridge = (scripts / 'HCXMaterializerBridge.c').read_text()
+        results = []
+        env = dict(A=A, len=len, str=str,
+                   HCXAIQualification=N(EncountersEnabled=lambda: True,
+                                         ProviderProblem=lambda: ''),
+                   HCWorldMaterializer=N(Result=lambda *args: results.append(args)))
+        authored = Authored(sites, env)
+        director = N(m_Phase='run', m_Policy=N(MaxActiveAI=24, MaxActiveSites=8),
+                     m_States=A())
+        director.BudgetProblem = lambda cap, exclude: authored.call(
+            'BudgetProblem', director, cap, exclude)
+        director.AdmitTransient = lambda *args: authored.call(
+            'AdmitTransient', director, *args)
+        env['HCXAISiteDirector'] = N(Active=lambda: director)
+        def live(cap):
+            return N(Transient=False, Completed=False,
+                     Site=N(NumberOfAIMax=cap),
+                     Patrol=N(m_Group=N(Count=lambda: 1)))
+        director.m_States = A([live(4)])
+        self.assertEqual('', director.BudgetProblem(4, None))  # exact 8/2 fits
+        # Deferred members reserve their full group cap; pending transients
+        # reserve both bodies and a site even before a native group exists.
+        pending = N(Transient=True, Completed=False,
+                    Site=N(NumberOfAIMax=4), Patrol=None)
+        director.m_States.Insert(pending)
+        self.assertNotEqual('', director.BudgetProblem(1, None))
+        director.m_States = A([live(8)])  # synthetic body-only boundary
+        self.assertNotEqual('', director.BudgetProblem(1, None))
+        director.m_States = A([live(1), live(1)])  # site-only boundary
+        runtime = N(m_Refused=0)
+        proposal = N(Id='synthetic-over-budget', FactionId='travellers',
+                     Position=(100., 0., 100.), ActorCap=1)
+        Authored(bridge, env).call('Offer', runtime, proposal)
+        self.assertEqual([('synthetic-over-budget', False, 0)], results)
+        self.assertEqual(1, runtime.m_Refused)
+
     def test_caps_and_unpolled_proposal_becomes_private_place_trace(self):
         self.assertTrue(SOURCE.is_file(), 'missing HCWorldMaterializer.c')
         source = SOURCE.read_text()

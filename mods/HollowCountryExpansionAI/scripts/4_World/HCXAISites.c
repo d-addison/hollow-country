@@ -1,5 +1,18 @@
 // HC sites on Expansion AI: patrols, scavenger parties and holdouts with a
-// cache. Expansion's own eAIDynamicPatrol and sphere trigger do the spawning;
+// cache. Expansion's own eAIDynamicPatrol and sphere trigger do the spawning.
+// LC-T402 transient admission / EXP-L1, EXP-P2 (unverified): installed native
+// scripts-1.30.164289/3_Game/AI/AIWorld.c:65 SetFlags, :98 FindPath, :122
+// SampleNavmeshPosition; 3_Game/Global/Game.c:1176 SurfaceY, :1535 GetTime,
+// :945 GetPlayers; Global/DayZPhysics.c:199 RaycastRV; Entities/Object.c:287
+// GetPosition; 1_Core/proto/EnScript.c:380 Count, :407 Insert, :470 RemoveOrdered;
+// EnConvert.c:3 bool.ToString, :30 int.ToString; EnDebug.c:96 Print;
+// EnString.c:113 Substring, :199 Length; EnSystem.c:397 FileExist.
+// Read-only installed Expansion
+// ai_scripts.pbo: 4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:
+// 68 CreateEx, 427 WasGroupDestroyed, 673 SpawnAI_Deferred, 691-725 Despawn;
+// eAIPatrol.c:96 Delete, :146 Stop; Classes/eAIGroup.c:1139 GetMember,
+// :1185 Count (living members), :1194 DeceasedCount, :1220 ClearAI;
+// 3_Game/DayZExpansion_AI/Factions/eAIFaction.c:129 Create. No provider copied.
 // HC adds the budget, the 200 m and line-of-sight rules, a refusal to despawn
 // in combat, finite fair actors, navmesh-qualified routes and journals.
 // Nothing here moves an actor: Expansion places each one once when it spawns.
@@ -24,10 +37,14 @@ class HCXAISitePatrol : eAIDynamicPatrol
     string m_HCKind;
     int m_HCGroupMax;
     bool m_HCLive;
+    bool m_HCTransient;
+    bool m_HCFinished;
+    int m_HCSurvivors;
     string m_HCRefusal;
 
     override bool CanSpawn()
     {
+        if (m_HCFinished) { return false; }
         if (!super.CanSpawn()) { return false; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return false; }
@@ -41,7 +58,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
     }
     override void Spawn()
     {
-        if (m_Group) { return; }
+        if (m_Group || m_HCFinished) { return; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (!director) { return; }
         string problem = director.SpawnProblemFor(this);
@@ -60,6 +77,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
     // member ends the group at the members that already passed.
     override void SpawnAI_Deferred(int i)
     {
+        if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }
         if (!m_Group || !m_Formation) { return; }
         vector raw = m_Formation.ToWorld(m_Formation.GetPosition(i));
         vector placed = ExpansionAISpawnBase.GetPlacementPosition(raw, true);
@@ -83,16 +101,36 @@ class HCXAISitePatrol : eAIDynamicPatrol
     override void Despawn(bool deferDespawnUntilLoosingAggro = false)
     {
         if (m_Group && !HCXAISiteRules.DespawnAllowed(m_Group.IsInCombat(), m_Group.m_ForcePatrolDespawn)) { return; }
+        HCXAISiteDirector director = HCXAISiteDirector.Active();
+        // Check every live member, not just the place/leader. Forced provider
+        // retirement cannot make a transient disappear in front of an observer.
+        if (m_HCTransient && m_Group)
+        {
+            if (!director) { return; }
+            int memberIndex = 0;
+            while (memberIndex < m_Group.Count())
+            {
+                DayZPlayerImplement retiringMember = m_Group.GetMember(memberIndex);
+                if (retiringMember && (director.NearestPlayer(retiringMember.GetPosition()) < 200 || director.SeenByPlayer(retiringMember.GetPosition()))) { return; }
+                memberIndex++;
+            }
+        }
         bool intact = false;
         if (m_Group) { intact = m_Group.Count() >= m_NumberOfAI && m_Group.DeceasedCount() == 0; }
+        m_HCSurvivors = 0;
+        if (m_Group) { m_HCSurvivors = m_Group.Count(); }
         bool wasLive = m_HCLive;
         super.Despawn(false);
         m_HCLive = false;
         // An intact group that only lost its audience may return when a player
         // comes back; a group that lost members waits the full RespawnSeconds.
         if (intact) { m_TimeSinceLastSpawn = m_RespawnTime; }
-        HCXAISiteDirector director = HCXAISiteDirector.Active();
         if (wasLive && director) { director.Despawned(this, intact); }
+    }
+    override void OnUpdate()
+    {
+        if (m_HCFinished) { this.Stop(); return; }
+        super.OnUpdate();
     }
     override void SetupAI(eAIBase ai)
     {
@@ -114,7 +152,7 @@ class HCXAISitePatrol : eAIDynamicPatrol
 }
 class HCXAISiteState : Managed
 {
-    HCXAISite Site;
+    ref HCXAISite Site;
     HCXAISitePatrol Patrol;
     ref array<vector> Points = new array<vector>();
     ref array<vector> Sampled = new array<vector>();
@@ -150,6 +188,12 @@ class HCXAISiteState : Managed
     vector CacheWorld;
     vector CacheOrientation;
     bool Diagnosed;
+    bool Transient;
+    bool Completed;
+    bool Materialized;
+    int AdmittedAt;
+    string ProposalId;
+    string ProviderFaction;
 }
 class HCXAISiteDirector : Managed
 {
@@ -188,6 +232,145 @@ class HCXAISiteDirector : Managed
     {
         if (!m_Owned) { return 0; }
         return m_Owned.Session;
+    }
+
+    // Includes full deferred-member reservations and not-yet-created transient
+    // states. Authored and transient patrols consult the same ledger at spawn.
+    string BudgetProblem(int actorCap, HCXAISitePatrol exceptPatrol)
+    {
+        int reservedSites = 0;
+        int reservedActors = 0;
+        foreach (HCXAISiteState reservation : m_States)
+        {
+            if (reservation.Completed) { continue; }
+            if (exceptPatrol && reservation.Patrol == exceptPatrol) { continue; }
+            if (!reservation.Transient && (!reservation.Patrol || !reservation.Patrol.m_Group)) { continue; }
+            reservedSites++;
+            reservedActors += reservation.Site.NumberOfAIMax;
+        }
+        if (HCXAIQualification.EncountersEnabled() && (reservedSites >= 2 || reservedActors + actorCap > 8)) { return "V2 global body/site budget (8/2) reached"; }
+        if (reservedSites >= m_Policy.MaxActiveSites) { return "site budget reached"; }
+        if (reservedActors + actorCap > m_Policy.MaxActiveAI) { return "AI budget reached"; }
+        return "";
+    }
+
+    // true reserves a one-shot site; route/observer/create failures complete via
+    // the bridge callback. It does not mean actors already exist or acceptance.
+    bool AdmitTransient(string proposalId, string factionId, vector placePos, int actorCap, out string reason)
+    {
+        reason = "sites not running";
+        if (m_Phase != "run" || !m_Policy || !HCXAIQualification.EncountersEnabled()) { return false; }
+        reason = "transient actor cap must be 1..4";
+        if (actorCap < 1 || actorCap > 4) { return false; }
+        reason = this.BudgetProblem(actorCap, null);
+        if (reason != "") { return false; }
+        reason = HCXAIQualification.ProviderProblem();
+        if (reason != "") { return false; }
+        reason = "invalid transient id or place anchor";
+        if (!HCXAIRules.Token(proposalId) || proposalId.Length() > 96 || !HCXAIRules.PositionValid(placePos, 16000) || placePos[0] < 1 || placePos[2] < 1 || placePos[0] > 15950 || placePos[2] > 15950) { return false; }
+        foreach (HCXAISiteState existing : m_States)
+        {
+            if (existing.ProposalId == proposalId) { reason = "duplicate transient proposal"; return false; }
+        }
+        string providerFaction = "";
+        string loadout = "HollowCountry_Holdout";
+        if (factionId == "locals") { providerFaction = "HCLocals"; }
+        if (factionId == "volunteers") { providerFaction = "HCVolunteers"; loadout = "HollowCountry_Patrol"; }
+        if (factionId == "scavengers") { providerFaction = "HCScavengers"; loadout = "HollowCountry_Scavenger"; }
+        if (factionId == "raiders") { providerFaction = "HCRaiders"; loadout = "HollowCountry_Patrol"; }
+        if (factionId == "travellers") { providerFaction = "HCTravellers"; }
+        reason = "unknown transient faction";
+        if (providerFaction == "") { return false; }
+        eAIFaction faction = eAIFaction.Create(providerFaction);
+        reason = "transient faction or loadout unavailable/unfair";
+        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0 || !FileExist(EXPANSION_LOADOUT_FOLDER + loadout + ".json")) { return false; }
+        reason = this.MemberProblemFor(placePos);
+        if (reason != "") { return false; }
+        HCXAISite transientSite = new HCXAISite();
+        transientSite.Id = "transient:" + proposalId;
+        transientSite.Kind = "patrol";
+        transientSite.Faction = providerFaction;
+        transientSite.Loadout = loadout;
+        transientSite.NumberOfAI = actorCap;
+        transientSite.NumberOfAIMax = actorCap;
+        // Small place-relative loop, never player-relative. All four endpoints
+        // must go through Bind and the authored RouteMinimum/FindPath process.
+        transientSite.Waypoints.Insert(placePos);
+        transientSite.Waypoints.Insert(placePos + Vector(30, 0, 0));
+        transientSite.Waypoints.Insert(placePos + Vector(30, 0, 30));
+        transientSite.Waypoints.Insert(placePos + Vector(0, 0, 30));
+        HCXAISiteState admitted = new HCXAISiteState();
+        admitted.Site = transientSite;
+        admitted.Transient = true;
+        admitted.ProposalId = proposalId;
+        admitted.ProviderFaction = providerFaction;
+        admitted.AdmittedAt = GetGame().GetTime();
+        m_States.Insert(admitted);
+        Print("[HC Expansion AI] materializer transient site=" + proposalId + " faction=" + factionId + " actors=" + actorCap.ToString());
+        reason = "";
+        return true;
+    }
+
+    // At most two reserved states, one qualification step each/tick. An idle
+    // trigger/blocked route gets five minutes, then traces; live groups retain
+    // their reservation until death or the observed native despawn callback.
+    protected void StepTransients()
+    {
+        int transientIndex = m_States.Count() - 1;
+        while (transientIndex >= 0)
+        {
+            HCXAISiteState transientState = m_States[transientIndex];
+            transientIndex--;
+            if (!transientState.Transient) { continue; }
+            if (transientState.Completed) { m_States.RemoveOrdered(transientIndex + 1); continue; }
+            if (transientState.Materialized)
+            {
+                if (!transientState.Patrol) { this.FinishTransient(transientState, true, 0); continue; }
+                if (!transientState.Patrol.m_Group)
+                {
+                    // Preserve provider load-balancing cleanup even when a
+                    // native group was removed outside its normal callback.
+                    transientState.Patrol.Despawn();
+                    this.FinishTransient(transientState, true, 0);
+                }
+                else if (transientState.Patrol.m_Group.Count() == 0)
+                {
+                    // Balances the provider's active-patrol counter once;
+                    // do not ClearAI here, so lootable corpses remain native.
+                    transientState.Patrol.WasGroupDestroyed();
+                    this.FinishTransient(transientState, true, 0);
+                }
+                continue;
+            }
+            int transientNow = GetGame().GetTime();
+            if (transientNow < transientState.AdmittedAt || transientNow - transientState.AdmittedAt >= 300000)
+            {
+                transientState.Failed = true;
+                transientState.Reason = "transient qualification/activation expired";
+            }
+            if (transientState.Failed) { this.FinishTransient(transientState, false, 0); continue; }
+            if (!transientState.Bound) { this.Bind(transientState); continue; }
+            if (!transientState.Qualified) { this.QualifyStep(transientState); continue; }
+            if (!transientState.Patrol)
+            {
+                this.Create(transientState);
+                if (!transientState.Patrol) { this.FinishTransient(transientState, false, 0); }
+            }
+        }
+    }
+    protected void FinishTransient(HCXAISiteState state, bool materialized, int survivors)
+    {
+        if (state.Completed) { return; }
+        state.Completed = true;
+        if (state.Patrol)
+        {
+            state.Patrol.m_HCFinished = true;
+            state.Patrol.m_HCLive = false;
+            state.Patrol.Stop();
+            state.Patrol.Delete();
+        }
+        Print("[HC Expansion AI] materializer ended site=" + state.ProposalId + " materialized=" + materialized.ToString() + " survivors=" + survivors.ToString() + " reason=" + state.Reason);
+        HCXMaterializerBridge.SiteEnded(state.ProposalId, materialized, survivors);
     }
 
     void Start()
@@ -414,10 +597,12 @@ class HCXAISiteDirector : Managed
         ExpansionSHA256.Update(HCXAISiteRules.RouteText(site, m_Build));
         state.Key = ExpansionSHA256.HexDigest();
         ExpansionSHA256.Reset();
+        if (state.Transient) { state.Key = "transient:" + state.ProposalId; }
         state.Bound = true;
     }
     protected HCXAIRouteRow RouteRow(string key)
     {
+        if (key.Length() >= 10 && key.Substring(0, 10) == "transient:") { return null; }
         foreach (HCXAIRouteRow row : m_Routes.Rows)
         {
             if (row.Key == key) { return row; }
@@ -775,6 +960,8 @@ class HCXAISiteDirector : Managed
     }
     protected void Remember(HCXAIRouteRow row)
     {
+        // Transient route outcomes live only in their temporary state.
+        if (row.SiteId.Length() >= 10 && row.SiteId.Substring(0, 10) == "transient:") { return; }
         int index = m_Routes.Rows.Count() - 1;
         while (index >= 0)
         {
@@ -818,6 +1005,7 @@ class HCXAISiteDirector : Managed
         config.UnderThreatSpeed = "SPRINT";
         config.Behaviour = HCXAISiteRules.PatrolBehaviour(site.Behaviour, state.OpenRoute);
         config.Faction = HCXFactions.SiteFaction(site);
+        if (state.Transient) { config.Faction = state.ProviderFaction; }
         config.Loadout = site.Loadout;
         config.Persist = false;
         config.CanBeLooted = true;
@@ -830,6 +1018,7 @@ class HCXAISiteDirector : Managed
         config.DespawnRadius = site.ActivationRadius + 100;
         config.DespawnTime = site.DespawnSeconds;
         config.RespawnTime = site.RespawnSeconds;
+        if (state.Transient) { config.RespawnTime = -1; }
         config.MinSpreadRadius = 0;
         config.MaxSpreadRadius = 0;
         config.DamageMultiplier = 1;
@@ -871,10 +1060,12 @@ class HCXAISiteDirector : Managed
         patrol.m_HCSiteId = site.Id;
         patrol.m_HCKind = site.Kind;
         patrol.m_HCGroupMax = site.NumberOfAIMax;
+        patrol.m_HCTransient = state.Transient;
         state.Patrol = patrol;
     }
     protected void StepRun()
     {
+        this.StepTransients();
         this.StepCache();
         if (m_Diagnostic) { this.StepDiagnostic(); }
         if (m_Ticks % 60 != 0) { return; }
@@ -901,7 +1092,7 @@ class HCXAISiteDirector : Managed
         }
         foreach (HCXAISiteState candidate : m_States)
         {
-            if (!candidate.Patrol || candidate.Diagnosed || done.Contains("|" + candidate.Site.Kind + "|")) { continue; }
+            if (candidate.Transient || !candidate.Patrol || candidate.Diagnosed || done.Contains("|" + candidate.Site.Kind + "|")) { continue; }
             candidate.Diagnosed = true;
             Print("[HC Expansion AI] DIAGNOSTIC spawn of site " + candidate.Site.Id + " (" + candidate.Site.Kind + ")");
             candidate.Patrol.Spawn();
@@ -911,8 +1102,11 @@ class HCXAISiteDirector : Managed
     string SpawnProblemFor(HCXAISitePatrol patrol)
     {
         if (!m_Policy || m_Phase != "run") { return "sites not running"; }
+        if (patrol.m_HCFinished) { return "transient site completed"; }
         string providerIssue = HCXAIQualification.ProviderProblem();
         if (providerIssue != "") { return providerIssue; }
+        string sharedBudget = this.BudgetProblem(patrol.m_HCGroupMax, patrol);
+        if (sharedBudget != "") { return sharedBudget; }
         int activeSites = 0;
         int activeAI = 0;
         foreach (HCXAISiteState state : m_States)
@@ -965,11 +1159,21 @@ class HCXAISiteDirector : Managed
     }
     void Spawned(HCXAISitePatrol patrol)
     {
+        foreach (HCXAISiteState spawnedState : m_States)
+        {
+            if (!spawnedState.Transient || spawnedState.Patrol != patrol || spawnedState.Materialized) { continue; }
+            spawnedState.Materialized = true;
+            HCXMaterializerBridge.SiteSpawned();
+        }
         Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " spawned " + patrol.m_NumberOfAI.ToString() + " actors (" + patrol.m_HCKind + ", finite loadout, no unlimited reload)");
         this.SaveOwned();
     }
     void Despawned(HCXAISitePatrol patrol, bool intact)
     {
+        foreach (HCXAISiteState endedState : m_States)
+        {
+            if (endedState.Transient && endedState.Patrol == patrol) { this.FinishTransient(endedState, true, patrol.m_HCSurvivors); }
+        }
         Print("[HC Expansion AI] site " + patrol.m_HCSiteId + " despawned (intact=" + intact.ToString() + ")");
         this.SaveOwned();
     }
@@ -1122,6 +1326,7 @@ class HCXAISiteDirector : Managed
         m_Owned.Rows.Clear();
         foreach (HCXAISiteState state : m_States)
         {
+            if (state.Transient) { continue; }
             if (!state.Patrol || !state.Patrol.m_Group) { continue; }
             HCXAIOwnedRow ownedRow = new HCXAIOwnedRow();
             ownedRow.SiteId = state.Site.Id;
