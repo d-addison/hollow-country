@@ -50,9 +50,9 @@ prints all bands. Recyclable dead/folded actor entries move to a separate
 stays reserved. Head, chest and lateral sight samples start at each observer's
 head bone; each sample checks view/fire geometry, so at most six actual casts
 are needed per observer. Any clear sample or incomplete budget refuses the
-transition. The existing total tick budget stays `MaxObservers * 2` (default 12,
-hard maximum 16), shared by all samples/observers; the default fits two
-fully occluded observers, and incomplete checks refuse. Stats print `rays_per_min`,
+transition. The per-attempt tick budget is `MaxObservers * 6` (default 36,
+hard maximum 48), shared by all samples/observers, so every allowed observer
+can be proven occluded; incomplete checks refuse. Stats print `rays_per_min`,
 `ray_peak` and `ray_budget`. Shutdown performs no fold/delete: living members
 remain included in persisted `Alive`, and session-held leases reserve surviving
 bodies across module stop/start; deaths and external claims debit once, while

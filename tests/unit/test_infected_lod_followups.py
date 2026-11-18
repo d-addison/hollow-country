@@ -139,7 +139,7 @@ class PartialVisibility(unittest.TestCase):
         self.assertEqual(6, budget.Used)
         self.assertTrue(owner.Occluded(player, Vec([200, 0, 0]), None, budget))
         self.assertFalse(owner.Occluded(player, Vec([200, 0, 0]), None, budget), 'exhaustion is unknown sight')
-        self.assertEqual(12, len(calls), 'existing MaxObservers * 2 cast budget is unchanged')
+        self.assertEqual(12, len(calls), 'a 12-cast budget covers exactly two fully occluded observers')
 
     def test_incomplete_budget_and_vehicle_observers_refuse(self):
         owner, player, calls = sight_fixture()
@@ -278,7 +278,12 @@ class DistanceBands(unittest.TestCase):
 class FollowupWiring(unittest.TestCase):
     def test_tick_budget_stats_and_startup_ranges_are_connected(self):
         text = source(SERVICE)
-        self.assertIn('m_Sight.HCReset(m_Config.MaxObservers * 2)', text)
+        # Review P2: proving one observer occluded costs 3 samples x 2 geometries,
+        # so the per-attempt budget must cover every allowed observer.
+        self.assertIn('static const int RAYS_PER_OBSERVER = 6;', text)
+        self.assertIn('m_Sight.HCReset(m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER)', text)
+        self.assertIn('(m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER).ToString()', text)
+        self.assertNotIn('MaxObservers * 2', text)
         self.assertIn('m_Rays += m_Sight.Used', text)
         for field in ('rays_per_min=', 'ray_peak=', 'ray_budget=', 'materialize<=', 'fold>', 'sight<='):
             self.assertIn(field, text)
