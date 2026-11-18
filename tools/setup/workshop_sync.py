@@ -26,7 +26,8 @@ Safety rules:
   -mod after @HollowCountry on the server and every client; players subscribe to it when the server uses it.
 
 The printed ``-mod=`` list is shared by server and clients and follows the documented load order (CF,
-Dabs Framework, Expansion Core, Animations, AI, the optional weapons packs, @HollowCountry, then
+COT, Dabs Framework, Expansion Core, AI, Navigation, the weapons packs, RaG_Core,
+RaG Immersive Vehicles, Ambient Animals, Survivor Animations, DayZ-Bicycle, @HollowCountry, then
 @HollowCountryExpansionAI). A ``-serverMod=`` line is omitted when no server-only items remain.
 Offline checks establish nothing about DayZ behaviour: the join-time auto-subscribe, signature checks and the
 mod set at runtime stay pending the owner's acceptance.

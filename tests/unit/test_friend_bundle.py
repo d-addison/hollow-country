@@ -234,8 +234,8 @@ class FriendBundleTests(unittest.TestCase):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         bat = (self.out / 'start-server.bat').read_text()
-        self.assertIn('"-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-AI;'
-                      '@SnafuWeapons;@TacticalFlava;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI"', bat)
+        self.assertIn('"-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;'
+                      '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI"', bat)
         self.assertNotIn('-serverMod', bat)
         self.assertIn('-config=serverDZ.cfg', bat)
         self.assertIn('-profiles=profiles', bat)
@@ -258,14 +258,14 @@ class FriendBundleTests(unittest.TestCase):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         readme = (self.out / 'README.txt').read_text()
-        for item in ['1559212036', '2545327648', '2291785308', '3114410963', '2918418331', '2971190303', '2792982069', '2443122116',
+        for item in ['1559212036', '1564026768', '2792984722', '3556131153', '3105330157', '2545327648', '2291785308', '3114410963', '2918418331', '2971190303', '2792982069', '2443122116',
                      '2646817942']:
             self.assertIn('workshop_download_item 221100 ' + item, readme)
         self.assertIn('2302', readme)
         self.assertIn('27016', readme)
         self.assertIn('Players subscribe to @HollowCountryExpansionAI when this server uses it', readme)
         self.assertIn('Default dependencies are subscribed from the Workshop, never repacked or included as third-party files.', readme)
-        for optional_name in ['Community Framework (CF)', 'Dabs Framework', 'Expansion-Core',
+        for optional_name in ['Community Framework (CF)', 'COT', 'RaG_Core', 'RaG Immersive Vehicles', 'Expansion Navigation (GPS)', 'Dabs Framework', 'Expansion-Core',
                               'Expansion-AI', 'DayZ-Bicycle',
                               'Ambient Animals Pack', 'Survivor Animations']:
             self.assertIn(optional_name, readme)

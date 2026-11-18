@@ -20,6 +20,8 @@ import sys
 import tempfile
 import xml.etree.ElementTree as ET
 
+from tools.package import rag_optional
+
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
 MANAGED = 'hollow-country-optional-packs'
@@ -27,6 +29,8 @@ BUNDLE_MANAGED = 'hollow-country-bundle'
 BICYCLE_ID = '2971190303'
 ANIMALS_ID = '3114410963'
 ANIMATIONS_ID = '2918418331'
+DEFAULT_OVERLAY_IDS = (rag_optional.NAVIGATION_ID, rag_optional.RAG_CORE_ID,
+                       rag_optional.RAG_VEHICLES_ID, ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID)
 AMBIENT_SPECIES = ('otter', 'rabbit', 'rat', 'raven', 'seagull', 'squirrel')
 MAX_BYTES = 16 * 1024 * 1024
 BASE_TARGETS = {'cfgeconomycore.xml', 'cfgenvironment.xml', 'cfgeventspawns.xml', 'env/hen_territories.xml'}
@@ -166,7 +170,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     loaded = loaded_paths(loaded_mods)
     candidate = {'files': {}, 'before': {}, 'diagnostics': [], 'sources': {}, 'mission': str(mission)}
     packs = {}
-    for name, item in (('AmbientAnimals', ANIMALS_ID), ('Bicycles', BICYCLE_ID)):
+    for name, item in (('AmbientAnimals', ANIMALS_ID), ('Bicycles', BICYCLE_ID), *rag_optional.OVERLAY_PACKS):
         path = workshop / item if workshop else None
         present = bool(path and safe(path).is_dir())
         active = present and path.absolute() in loaded
@@ -195,7 +199,10 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         source(mission / 'mapgrouppos.xml')
     # Separate CE registration preserves stock db/types.xml and other installers' pins.
     events, types, spawnable = ET.Element('events'), ET.Element('types'), ET.Element('spawnabletypes')
-    eventspawns = xml(source(mission / 'cfgeventspawns.xml'), 'eventposdef')
+    eventspawns = ET.Element('eventposdef')
+    if 'Bicycles' in packs or 'AmbientAnimals' in packs:
+        eventspawns = xml(source(mission / 'cfgeventspawns.xml'), 'eventposdef')
+    rag_optional.append_types(packs, workshop, loaded, types, source, sys.modules[__name__])
     if 'Bicycles' in packs:
         bicycle = packs['Bicycles']
         options = policy['bicycle']
@@ -319,7 +326,8 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
             name = Path(relative).name
             ET.SubElement(registration, 'file', {'name': name, 'type': name[:-4]})
     put('cfgeconomycore.xml', serialized(core))
-    put('cfgeventspawns.xml', serialized(eventspawns))
+    if 'Bicycles' in packs or 'AmbientAnimals' in packs:
+        put('cfgeventspawns.xml', serialized(eventspawns))
     return candidate
 
 
@@ -544,7 +552,7 @@ def bundle_apply(bundle, mission, workshop, loaded):
         travel.install(source, scratch)
         optional = plan(workshop, scratch, loaded, source / 'optional/overlay-policy.json')
         if not all(line.endswith('loaded=1') for line in optional['diagnostics']):
-            raise ValueError('bundle requires both default optional overlays to be loaded')
+            raise ValueError('bundle requires all default optional overlays to be loaded')
         install(optional, scratch)
     install(candidate, mission, managed_name=BUNDLE_MANAGED)
     travel.install(source, mission)
@@ -583,13 +591,14 @@ def friend_bundle_plan(mission, rows):
                     continue
         result.append((relative, content))
     result += [('tools/package/optional_overlays.py', read(Path(__file__))),
+               ('tools/package/rag_optional.py', read(Path(rag_optional.__file__))),
                ('mission/hollow-country/optional/overlay-policy.json', read(POLICY))]
     return result
 
 
 def friend_notes():
     return '\r\n'.join([
-        '', 'Default subscription-only overlays: Ambient Animals Pack, Survivor Animations and DayZ-Bicycle.',
+        '', 'Default subscriptions: COT, Expansion Navigation (GPS), RaG_Core, RaG Immersive Vehicles, Ambient Animals Pack, Survivor Animations and DayZ-Bicycle.',
         'Never repack or redistribute them. Download their original Workshop folders on the friend server.',
         'Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.',
         'Keep the original numeric Workshop folders for the installer, alongside the @ copies used to launch.',
@@ -597,7 +606,9 @@ def friend_notes():
         '  python -m tools.package.optional_overlays bundle-plan --mission <friend-mission>',
         '  python -m tools.package.optional_overlays bundle-apply --mission <friend-mission> --workshop-dir <content/221100>',
         'The installer rehearses merges on scratch bytes, then backs up every changed file in a receipt.',
-        'Our mission overlay, travel CE and Bicycle/Ambient overlays apply to your own stock mission.',
+        'Our mission overlay, travel CE and Bicycle/Ambient/RaG/GPS overlays apply to your own stock mission.',
+        'RaG shipped types are generated locally from the installed item, never exported in this bundle.',
+        'ExpansionGPS uses nominal 4 with Military/Police usage; do not add another CE owner for these types.',
         'No stock mission ships. Use an isolated dayzOffline.chernarusplus copy outside Steam and this bundle.',
         'To undo (stop server first): python -m tools.package.optional_overlays bundle-rollback --mission <friend-mission>',
         'Rollback order: optional packs, travel, bundle merge. Drift refuses rather than overwriting edits.',
@@ -632,7 +643,7 @@ def launcher_run(args, repo, out, launcher):
         for destination in (session['mission'], session['profiles'], session['mod']['dest'], session['server_root']):
             if Path(destination).is_relative_to(workshop):
                 raise ValueError('Workshop sources must remain read only; destination overlaps Workshop directory')
-        for item in (ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID):
+        for item in (rag_optional.RAG_CORE_ID, rag_optional.RAG_VEHICLES_ID, ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID):
             path = workshop / item
             if path.is_dir():
                 if not launcher.has_addons(path):
@@ -640,15 +651,29 @@ def launcher_run(args, repo, out, launcher):
                 if item == BICYCLE_ID and not (workshop / ANIMATIONS_ID).is_dir():
                     raise ValueError('DayZ-Bicycle requires subscribed Survivor Animations ' + ANIMATIONS_ID)
                 additions.append(path)
-        if not args.expansion_ai and not any(p.name in (BICYCLE_ID, ANIMALS_ID) for p in additions):
-            raise ValueError('--workshop-dir without optional packs only applies with --expansion-ai')
+        if not args.expansion_ai:
+            # Retain the base launcher's input gate unless a numeric CE source
+            # is actually supplied. Alias-only framework folders are not overlays.
+            has_overlay_source = any(path.name in (ANIMALS_ID, BICYCLE_ID, rag_optional.RAG_VEHICLES_ID)
+                                     for path in additions)
+            has_overlay_source = has_overlay_source or (workshop / rag_optional.NAVIGATION_ID).is_dir()
+            if not has_overlay_source:
+                raise ValueError('--workshop-dir without optional packs only applies with --expansion-ai')
+            dependencies, _ = launcher.locate_expansion(workshop)
+            additions = [row['path'] for row in dependencies] + additions
     previous = commands['mod']
     suffix = ';'.join(launcher.to_windows(p)[0] for p in additions)
     if suffix:
         # Insert immediately before HC, retaining Expansion/weapon order.
         base_path = launcher.to_windows(session['mod']['dest'])[0]
         parts = previous.removeprefix('-mod=').split(';')
-        parts[parts.index(base_path):parts.index(base_path)] = suffix.split(';')
+        extra_parts = suffix.split(';')
+        # Dependencies precede both weapon packs, RaG/living packs follow them.
+        if not args.expansion_ai:
+            prefix_count = len(dependencies)
+            parts[0:0] = extra_parts[:prefix_count]
+            extra_parts = extra_parts[prefix_count:]
+        parts[parts.index(base_path):parts.index(base_path)] = extra_parts
         commands['mod'] = '-mod=' + ';'.join(parts)
         for key in ('server', 'client'):
             commands[key] = [line.replace(previous, commands['mod']) for line in commands[key]]
@@ -674,7 +699,12 @@ def launcher_run(args, repo, out, launcher):
         enabled = json.loads(read(settings_path)).get('EnableAmbientLife', True)
         if type(enabled) is not bool:
             raise ValueError('EnableAmbientLife must be boolean')
-    candidate = plan(workshop, session['mission'], additions if enabled else [],
+    loaded = list(additions)
+    if session.get('expansion_ai'):
+        loaded += [row['path'] for row in session['expansion_ai']['dependencies']]
+    if not enabled:
+        loaded = [path for path in loaded if path.name not in (ANIMALS_ID, BICYCLE_ID)]
+    candidate = plan(workshop, session['mission'], loaded,
                      Path(repo) / 'mission/hollow-country/optional/overlay-policy.json')
     # Source core may change when existing economy installers run. Replan after
     # apply; the preflight above rejects missing/malformed dependency inputs first.
@@ -682,7 +712,7 @@ def launcher_run(args, repo, out, launcher):
         launcher.apply_plan(session, args)
         _, _, receipt = launcher.load_receipt(session['server_root'], repo)
         receipt.step('optional_packs', 'started')
-        candidate = plan(workshop, session['mission'], additions if enabled else [],
+        candidate = plan(workshop, session['mission'], loaded,
                          Path(repo) / 'mission/hollow-country/optional/overlay-policy.json')
         install(candidate, session['mission'])
         receipt.step('optional_packs', 'done')
@@ -768,9 +798,9 @@ def main(argv=None):
                 if args.workshop_dir is None:
                     raise ValueError('bundle apply requires --workshop-dir with the subscribed default packs')
                 loaded = args.loaded_mods or ';'.join(str(args.workshop_dir / ident) for ident in
-                                                   (ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID))
-                if not all((args.workshop_dir / ident).is_dir() for ident in (ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID)):
-                    raise ValueError('default bundle needs Ambient Animals, Survivor Animations and DayZ-Bicycle')
+                                                   DEFAULT_OVERLAY_IDS)
+                if not all((args.workshop_dir / ident).is_dir() for ident in DEFAULT_OVERLAY_IDS):
+                    raise ValueError('default bundle needs Navigation, RaG_Core, RaG Immersive Vehicles, Ambient Animals, Survivor Animations and DayZ-Bicycle')
                 bundle_apply(args.bundle, args.mission, args.workshop_dir, loaded)
             print('HC bundle ' + args.command + ' complete; runtime acceptance pending')
         elif args.command == 'rollback':

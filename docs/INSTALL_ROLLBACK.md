@@ -243,11 +243,15 @@ Workshop items; never repack, modify or redistribute them.
 | Item | Workshop ID | Installed server folder |
 | :--- | :--- | :--- |
 | Community Framework | 1559212036 | `@CF` |
+| Community Online Tools | 1564026768 | `@COT` |
 | Dabs Framework | 2545327648 | `@DabsFramework` |
 | Expansion Core | 2291785308 | `@Expansion-Core` |
 | Expansion AI | 2792982069 | `@Expansion-AI` |
+| Expansion Navigation (GPS) | 2792984722 | `@Expansion-Navigation` |
 | SNAFU Weapons | 2443122116 | `@SnafuWeapons` |
 | Tactical Flava | 2646817942 | `@TacticalFlava` |
+| RaG_Core | 3556131153 | `@RaG_Core` |
+| RaG Immersive Vehicles | 3105330157 | `@RaG_Immersive_Vehicles` |
 | Ambient Animals Pack | 3114410963 | `@AmbientAnimals` |
 | Survivor Animations | 2918418331 | `@SurvivorAnimations` |
 | DayZ-Bicycle | 2971190303 | `@DayZ-Bicycle` |
@@ -256,8 +260,11 @@ Workshop items; never repack, modify or redistribute them.
 
 Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
 
-The manifest's `living_packs` group contains Ambient Animals, Survivor Animations
-and Bicycle. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
+COT owner roles stay private in the server profile; see [COT permissions](COT_PERMISSIONS.md).
+Admin ids are never written to git.
+
+The manifest's `living_packs` group contains both RaG items, Ambient Animals, Survivor Animations
+and Bicycle. COT and Navigation are in `pve_patrols`. Select `base,snafu,tactical_flava,living_packs,pve_patrols` for the full
 stack. The friend bundle selects these groups by default. Copy public `.bikey`
 files to the server `keys` directory. Keep signing private keys outside the bundle.
 
@@ -299,10 +306,10 @@ python -m tools.package.optional_overlays bundle-plan --mission /private/server/
 python -m tools.package.optional_overlays bundle-apply --mission /private/server/mpmissions/dayzOffline.chernarusplus --workshop-dir /steamapps/workshop/content/221100
 ```
 
-`bundle-plan` previews the authored merge. `bundle-apply` requires all three default
-living-pack sources, rehearses the merge and travel/optional plans on scratch,
+`bundle-plan` previews the authored merge. `bundle-apply` requires the default
+living-pack sources plus Navigation and RaG_Core, rehearses the merge and travel/optional plans on scratch,
 then writes a backup receipt before any mission file mutation. It installs the
-base merge, travel CE and Bicycle/Ambient overlays in that order. Each installer
+base merge, travel CE and Bicycle/Ambient/RaG/GPS overlays in that order. Each installer
 has its own receipt, including the first installation. Unknown existing overlay
 files and conflicting edited values refuse. Interrupted installs remain reversible
 using those receipts; preserve every receipt and backup. No stock mission is
@@ -353,5 +360,5 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-AI;@SnafuWeapons;@TacticalFlava;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
 ```

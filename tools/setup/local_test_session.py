@@ -12,7 +12,10 @@ reimplements it:
                   markers (today the xai_diagnostic_spawn diagnostic) are ever written: the V1/V2 features are on
                   by default and an operator turns one off with a `<name>.disable` file, which this tool never
                   writes.
-  optional mods   --snafu and --tactical-flava dirs are read-only (never copied); load order SNAFU, TF, HC
+  optional mods   --snafu and --tactical-flava dirs are read-only (never copied).
+                  Workshop order: CF, COT, Dabs, Expansion Core/AI/Navigation, weapons,
+                  RaG_Core, RaG Immersive Vehicles, Ambient Animals, Survivor Animations,
+                  DayZ-Bicycle, HC, then HCX. Expansion-Animations stays excluded.
   opt-in steps    --interiors [templates] --interiors-pack <assembled pack outside the checkout>
                   (interiors_profile templates install into <profiles>/HollowCountry/templates),
                   --interiors legacy (the old data pack), --[no-]travel (authored V2 CE, on by default, EnableTravel preference),
@@ -103,9 +106,11 @@ STACK_STEPS = ('ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy')  #
 
 EXPANSION_DEPENDENCIES = (
     ('CF', '1559212036', ('cf', 'communityframework')),
+    ('COT', '1564026768', ('cot', 'communityonlinetools')),
     ('Dabs Framework', '2545327648', ('dabsframework', 'dabs')),
     ('Expansion-Core', '2291785308', ('expansioncore', 'dayzexpansioncore')),
     ('Expansion-AI', '2792982069', ('expansionai', 'dayzexpansionai')),
+    ('Expansion-Navigation', '2792984722', ('expansionnavigation', 'dayzexpansionnavigation')),
 )
 DEFAULT_CLIENT_ROOT = r'D:\SteamLibrary\steamapps\common\DayZ'
 DEFAULT_TIME_ACCELERATION = 4
@@ -2316,7 +2321,8 @@ def build_parser():
                        help='stage the optional @HollowCountryExpansionAI addon after the Expansion Workshop mods '
                        '(needs --workshop-dir, --expansion-ai-mod, --expansion-ai-dest)')
         p.add_argument('--workshop-dir', type=Path, help='directory holding the subscribed Workshop mod folders '
-                       '(CF, Dabs Framework, Expansion-Core, Expansion-AI); read-only')
+                       '(CF, COT, Dabs Framework, Expansion-Core, Expansion-AI, Expansion-Navigation, '
+                       'RaG_Core, RaG Immersive Vehicles and living packs); read-only; numeric folders for CE sources')
         p.add_argument('--expansion-ai-mod', type=Path, help='built @HollowCountryExpansionAI dir (addons/%s) or a .pbo' % AI_PBO_NAME)
         p.add_argument('--expansion-ai-dest', type=Path, help='fresh @HollowCountryExpansionAI folder to create')
         p.add_argument('--time-accel', type=float, default=DEFAULT_TIME_ACCELERATION)

@@ -6,6 +6,56 @@ import xml.etree.ElementTree as ET
 
 
 class OptionalOverlaysSmoke(unittest.TestCase):
+    def test_w5_stack_types_are_local_reversible_and_not_exported(self):
+        from tools.package import optional_overlays as overlays
+        from tools.setup import friend_bundle, workshop_sync
+
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-w5-stack-') as directory:
+            root = Path(directory)
+            mission, workshop = root / 'mission', root / 'workshop'
+            mission.mkdir()
+            workshop.mkdir()
+            for name, data in {'cfgeconomycore.xml': '<economycore/>',
+                               'cfgeventspawns.xml': '<eventposdef/>',
+                               'db/types.xml': '<types/>'}.items():
+                path = mission / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(data)
+            before = {p.relative_to(mission).as_posix(): p.read_bytes()
+                      for p in mission.rglob('*') if p.is_file()}
+            rag = workshop / '3105330157'
+            (rag / 'types').mkdir(parents=True)
+            (rag / 'types/rag_immersive_vehicles.xml').write_text(
+                '<types><type name="SyntheticRaGTool"><nominal>7</nominal></type></types>')
+            core, navigation = workshop / '3556131153', workshop / '2792984722'
+            core.mkdir()
+            navigation.mkdir()
+            loaded = [rag, core, navigation]
+            candidate = overlays.plan(workshop, mission, loaded)
+            self.assertIn(overlays.MANAGED + '/types.xml', candidate['files'])
+            overlays.install(candidate, mission)
+            types = ET.fromstring((mission / overlays.MANAGED / 'types.xml').read_bytes())
+            self.assertEqual(types.find("type[@name='SyntheticRaGTool']/nominal").text, '7')
+            gps = types.find("type[@name='ExpansionGPS']")
+            self.assertEqual(gps.findtext('nominal'), '4')
+            self.assertEqual({n.get('name') for n in gps.findall('usage')}, {'Military', 'Police'})
+            rows, _ = friend_bundle.mission_files(mission)
+            export = overlays.friend_bundle_plan(mission, [('mpmissions/mission/' + n, p) for n, p in rows])
+            self.assertFalse(any(b'SyntheticRaGTool' in (p if isinstance(p, bytes) else p.read_bytes())
+                                 for _, p in export))
+            overlays.rollback(mission)
+            self.assertEqual({p.relative_to(mission).as_posix(): p.read_bytes()
+                              for p in mission.rglob('*') if p.is_file()}, before)
+            (mission / 'db/types.xml').write_text('<types><type name="ExpansionGPS"/></types>')
+            with self.assertRaisesRegex(ValueError, 'reconciliation'):
+                overlays.plan(workshop, mission, loaded)
+            items = workshop_sync.load_manifest()['mods']
+            folders = [m['folder'] for m in sorted(items, key=lambda m: m['rank'])]
+            self.assertEqual(folders[:6], ['@CF', '@COT', '@DabsFramework', '@Expansion-Core',
+                                          '@Expansion-AI', '@Expansion-Navigation'])
+            self.assertLess(folders.index('@RaG_Core'), folders.index('@RaG_Immersive_Vehicles'))
+            self.assertLess(folders.index('@RaG_Immersive_Vehicles'), folders.index('@AmbientAnimals'))
+
     def test_absent_loaded_install_export_and_rollback(self):
         from tools.package import optional_overlays as overlays
         from tools.setup import friend_bundle
@@ -41,7 +91,7 @@ class OptionalOverlaysSmoke(unittest.TestCase):
             before = snapshot(mission)
             absent = overlays.plan(workshop, mission, [])
             self.assertEqual(absent['files'], {})
-            self.assertEqual(len(absent['diagnostics']), 2)
+            self.assertEqual(len(absent['diagnostics']), 4)
             overlays.install(absent, mission)
             self.assertEqual(snapshot(mission), before)
 

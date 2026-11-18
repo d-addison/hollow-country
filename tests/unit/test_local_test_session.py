@@ -306,7 +306,7 @@ MARKER_DOC = (
     '| `$profile:HollowCountry/acceptance/events.enable` | `A.B` | `a.c` |\n'
     '\nOther prose mentions `$profile:HollowCountry/acceptance/prose_only.enable` outside the table.\n'
     '| #1 | row | `$profile:HollowCountry/acceptance/checklist_only.enable` | x |\n')
-EXPANSION_FOLDERS = ('@CF', '@Dabs Framework', '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')
+EXPANSION_FOLDERS = ('@CF', '@COT', '@Dabs Framework', '@DayZ-Expansion-Core', '@DayZ-Expansion-AI', '@DayZ-Expansion-Navigation')
 
 
 class SessionCase(unittest.TestCase):
@@ -1493,9 +1493,15 @@ class OptionalSteps(SessionCase):
 
     def test_steam_workshop_id_folders_satisfy_every_expansion_dependency(self):
         # Steam names each subscribed folder by its Workshop id.
-        for name, item_id in (('@CF', '1559212036'), ('@Dabs Framework', '2545327648'),
+        # SYNTHETIC inputs: numeric Navigation now also plans its GPS CE entry.
+        policy = self.repo / 'mission/hollow-country/optional/overlay-policy.json'
+        policy.parent.mkdir(parents=True)
+        policy.write_text('{"schema": 1}')
+        (self.mission / 'db').mkdir()
+        (self.mission / 'db/types.xml').write_text('<types/>')
+        for name, item_id in (('@CF', '1559212036'), ('@COT', '1564026768'), ('@Dabs Framework', '2545327648'),
                               ('@DayZ-Expansion-Core', '2291785308'),
-                              ('@DayZ-Expansion-AI', '2792982069')):
+                              ('@DayZ-Expansion-AI', '2792982069'), ('@DayZ-Expansion-Navigation', '2792984722')):
             (self.workshop / name).rename(self.workshop / item_id)
         code, out, err = self.run_cli(self.ai_args('plan'))
         self.assertEqual(code, 0, err)
@@ -1511,8 +1517,8 @@ class OptionalSteps(SessionCase):
         self.assertIn('AISettings.merge.json', out)
         self.assertIn('ExpansionMod', out)
         self.assertIn('manual', out.lower())
-        deps = [self.workshop / n for n in ('@CF', '@Dabs Framework',
-                                             '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')]
+        deps = [self.workshop / n for n in ('@CF', '@COT', '@Dabs Framework',
+                                             '@DayZ-Expansion-Core', '@DayZ-Expansion-AI', '@DayZ-Expansion-Navigation')]
         mods = ';'.join([str(d) for d in deps] + [str(self.snafu), str(self.tf), str(self.dest)])
         # Server and client both load the AI addon last, right after HollowCountry (V2 factions/talk binding).
         self.assertEqual(out.count('-mod=' + mods + ';' + str(self.ai_dest)), 2)

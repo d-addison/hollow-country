@@ -41,7 +41,7 @@ from tools.package import snafu_optional, tactical_flava_optional
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
-BUNDLE_TOOLS = ('optional_overlays.py', 'travel.py', 'economy.py',
+BUNDLE_TOOLS = ('optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py',
                 'datamined_items.py', 'datamined_items.json')
 
 # Mission files that are local state or tool rollback data, never configuration.
@@ -262,7 +262,9 @@ def readme(items, template, addon):
     lines += [
         '',
         'Default dependencies are subscribed from the Workshop, never repacked or included as third-party files.',
-        '  @HollowCountryExpansionAI needs Community Framework (CF), Dabs Framework, Expansion-Core and Expansion-AI.',
+        '  @HollowCountryExpansionAI uses Community Framework (CF), COT, Dabs Framework, Expansion-Core, Expansion-AI and Expansion Navigation (GPS).',
+        '  RaG_Core and RaG Immersive Vehicles are default subscribed dependencies after the weapons packs.',
+        '  COT permissions stay in the server profile; see docs/COT_PERMISSIONS.md. Admin ids are never written to git.',
         '  Ambient Animals Pack, Survivor Animations and DayZ-Bicycle are default subscriptions.',
         '  Load the listed dependencies before @HollowCountry, then @HollowCountryExpansionAI on every peer.',
         '  Review current Workshop terms and the optional-overlay instructions below before installing.',
@@ -375,6 +377,7 @@ def build(args):
     for name in BUNDLE_TOOLS:
         path = lts.ROOT / 'tools/package' / name
         plan.append(('tools/package/' + name, overlays.read(path)))
+    plan.append(('docs/COT_PERMISSIONS.md', overlays.read(lts.ROOT / 'docs/COT_PERMISSIONS.md')))
     for path in sorted(SOURCE.rglob('*')):
         if path.is_file():
             rel = path.relative_to(SOURCE).as_posix()
@@ -394,10 +397,10 @@ def build(args):
     cfg_text = Path(args.server_cfg).read_text(encoding='utf-8-sig')
     snippet, template = server_settings(cfg_text, mission.name)
     manifest = ws.load_manifest()
-    groups = list(ws.GROUPS) if args.addon else [g for g in ws.GROUPS if g != 'pve_patrols']
+    groups = list(ws.GROUPS)
     items = ws.select(manifest, groups)
     if not args.addon:
-        items = [i for i in items if i['side'] != 'server']
+        items = [i for i in items if i['folder'] != '@HollowCountryExpansionAI']
     plan += [('serverDZ-hollow-country.txt', snippet.encode()),
              ('start-server.bat', launcher(items).encode()),
              ('README.txt', readme(items, template, bool(args.addon)).encode())]

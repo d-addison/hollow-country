@@ -20,13 +20,13 @@ from tools.setup import workshop_sync as ws
 
 REPO = Path(__file__).resolve().parents[2]
 MANIFEST = REPO / 'tools/setup/workshop_mods.json'
-IDS = {'cf': '1559212036', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963', 'survivor': '2918418331', 'bicycle': '2971190303',
+IDS = {'cf': '1559212036', 'cot': '1564026768', 'navigation': '2792984722', 'rag_core': '3556131153', 'rag_vehicles': '3105330157', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963', 'survivor': '2918418331', 'bicycle': '2971190303',
        'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942'}
 HC_ID = '3841628320'
 AI_ID = '3900000002'
 AI_REAL_ID = '3841637854'
-FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-AI;'
-            '@SnafuWeapons;@TacticalFlava;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI')
+FULL_MOD = ('-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;'
+            '@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI')
 RECEIPT = 'hollow-country-workshop-receipt.json'
 MARKER = 'S3CRET-MARKER-9f2'
 
@@ -117,13 +117,13 @@ class Manifest(unittest.TestCase):
                          set())
         self.assertEqual(self.mods['@HollowCountry']['group'], 'base')
         self.assertEqual({m['folder'] for m in self.data['mods'] if m['group'] == 'pve_patrols'},
-                         {'@CF', '@DabsFramework', '@Expansion-Core', '@Expansion-AI',
+                         {'@CF', '@COT', '@DabsFramework', '@Expansion-Core', '@Expansion-AI', '@Expansion-Navigation',
                           '@HollowCountryExpansionAI'})
 
     def test_load_order_is_the_documented_one(self):
         order = [m['folder'] for m in sorted(self.data['mods'], key=lambda m: m['rank'])]
-        self.assertEqual(order, ['@CF', '@DabsFramework', '@Expansion-Core',
-                                 '@Expansion-AI', '@SnafuWeapons', '@TacticalFlava', '@AmbientAnimals', '@SurvivorAnimations', '@DayZ-Bicycle', '@HollowCountry',
+        self.assertEqual(order, ['@CF', '@COT', '@DabsFramework', '@Expansion-Core',
+                                 '@Expansion-AI', '@Expansion-Navigation', '@SnafuWeapons', '@TacticalFlava', '@RaG_Core', '@RaG_Immersive_Vehicles', '@AmbientAnimals', '@SurvivorAnimations', '@DayZ-Bicycle', '@HollowCountry',
                                  '@HollowCountryExpansionAI'])
         self.assertEqual(len({m['rank'] for m in self.data['mods']}), len(self.data['mods']))
 
@@ -286,7 +286,7 @@ class Fetch(Base):
         steam = self.tmp / 'steamcmd'
         deep = steam / 'steamapps/workshop/content/221100'
         calls = []
-        base_fake = self.fake_steamcmd(deep, [IDS['cf'], IDS['dabs'], IDS['core'], IDS['ai'],
+        base_fake = self.fake_steamcmd(deep, [IDS['cf'], IDS['cot'], IDS['dabs'], IDS['core'], IDS['ai'], IDS['navigation'],
                                               AI_REAL_ID])
         self.run_mock.side_effect = lambda cmd, **kw: (calls.append((cmd, kw)), base_fake(cmd, **kw))[1]
         code, text, _ = self.main('fetch', '--server-root', str(self.root), '--groups', 'pve_patrols',
@@ -296,9 +296,11 @@ class Fetch(Base):
         cmd, kwargs = calls[0]
         self.assertEqual(cmd, [str(steam / 'steamcmd.sh'), '+login', 'owner_login',
                                '+workshop_download_item', '221100', IDS['cf'], 'validate',
+                               '+workshop_download_item', '221100', IDS['cot'], 'validate',
                                '+workshop_download_item', '221100', IDS['dabs'], 'validate',
                                '+workshop_download_item', '221100', IDS['core'], 'validate',
                                '+workshop_download_item', '221100', IDS['ai'], 'validate',
+                               '+workshop_download_item', '221100', IDS['navigation'], 'validate',
                                '+workshop_download_item', '221100', AI_REAL_ID, 'validate',
                                '+quit'])
         # Interactive: the operator types the password into steamcmd; we never touch stdin, stdout or env.

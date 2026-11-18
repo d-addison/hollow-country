@@ -53,7 +53,8 @@ TITLE = 'Hollow Country'
 ADDON_TITLE = 'Hollow Country Expansion AI (server)'
 DEPENDENCY_DESCRIPTION = (
     'Default dependencies, loaded on server and every client in order: Community Framework / CF, '
-    'Dabs Framework, Expansion-Core, Expansion-AI, Ambient Animals Pack, '
+    'Community Online Tools / COT, Dabs Framework, Expansion-Core, Expansion-AI, Expansion Navigation (GPS), '
+    'the two weapons packs, RaG_Core, RaG Immersive Vehicles, Ambient Animals Pack, '
     'Survivor Animations, DayZ-Bicycle, @HollowCountry, @HollowCountryExpansionAI. '
     'Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations. '
     'Subscribe through the Workshop required-items links; third-party content is never bundled or repacked. ')

@@ -13,6 +13,15 @@
       "publish": false
     },
     {
+      "id": "1564026768",
+      "name": "Community Online Tools",
+      "folder": "@COT",
+      "rank": 15,
+      "side": "client",
+      "group": "pve_patrols",
+      "publish": false
+    },
+    {
       "id": "2545327648",
       "name": "Dabs Framework",
       "folder": "@DabsFramework",
@@ -40,6 +49,15 @@
       "publish": false
     },
     {
+      "id": "2792984722",
+      "name": "Expansion-Navigation",
+      "folder": "@Expansion-Navigation",
+      "rank": 55,
+      "side": "client",
+      "group": "pve_patrols",
+      "publish": false
+    },
+    {
       "id": "2443122116",
       "name": "SNAFU Weapons",
       "folder": "@SnafuWeapons",
@@ -58,10 +76,28 @@
       "publish": false
     },
     {
+      "id": "3556131153",
+      "name": "RaG_Core",
+      "folder": "@RaG_Core",
+      "rank": 71,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
+      "id": "3105330157",
+      "name": "RaG_Immersive_Vehicles",
+      "folder": "@RaG_Immersive_Vehicles",
+      "rank": 73,
+      "side": "client",
+      "group": "living_packs",
+      "publish": false
+    },
+    {
       "id": "3114410963",
       "name": "Ambient Animals Pack",
       "folder": "@AmbientAnimals",
-      "rank": 72,
+      "rank": 74,
       "side": "client",
       "group": "living_packs",
       "publish": false
@@ -70,7 +106,7 @@
       "id": "2918418331",
       "name": "Survivor Animations",
       "folder": "@SurvivorAnimations",
-      "rank": 74,
+      "rank": 76,
       "side": "client",
       "group": "living_packs",
       "publish": false
@@ -79,7 +115,7 @@
       "id": "2971190303",
       "name": "DayZ-Bicycle",
       "folder": "@DayZ-Bicycle",
-      "rank": 76,
+      "rank": 78,
       "side": "client",
       "group": "living_packs",
       "publish": false
