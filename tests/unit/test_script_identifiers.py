@@ -109,5 +109,67 @@ class ScriptIdentifierBehavior(unittest.TestCase):
         self.assertEqual([], collisions(authored_sources(), visible_for))
 
 
+# Native compile traps found by Wine compiles 142-153 that offline translation accepts.
+KEYWORD_VARIABLE = re.compile(r'\b[A-Za-z_]\w*(?:<[^;()=]*?>)?\s+owned\s*[;=,):]')
+TEMPORARY_INCREMENT = re.compile(r'\]\s*(?:\+\+|--)')
+UNBRACED_ONE_LINE_RETURN = re.compile(r'\)\s*\{\s*if\s*\([^{};]*\)\s*return\b[^{};]*;\s*return\b')
+CLASS_DEFINITION = re.compile(r'^\s*(modded\s+)?class\s+(\w+)', re.M)
+
+
+def compile_traps(path):
+    found = []
+    for number, line in enumerate(strip_comments(path.read_text(encoding='utf-8')).splitlines(), 1):
+        for label, pattern in (('keyword variable owned', KEYWORD_VARIABLE),
+                               ('++/-- on array element', TEMPORARY_INCREMENT),
+                               ('unbraced one-line return', UNBRACED_ONE_LINE_RETURN)):
+            if pattern.search(line):
+                found.append(f'{number}: {label}')
+    return found
+
+
+def class_layers(paths):
+    defined, modded = {}, []
+    for path in paths:
+        layer = layer_of(path)
+        for match in CLASS_DEFINITION.finditer(strip_comments(path.read_text(encoding='utf-8', errors='replace'))):
+            if match.group(1):
+                modded.append((path, layer, match.group(2)))
+            else:
+                defined.setdefault(match.group(2), set()).add(layer)
+    return defined, modded
+
+
+def cross_module_modded(sources, cache):
+    authored, modded = class_layers(sources)
+    native = class_layers(list((cache).rglob('*.c')))[0] if (cache / '3_Game').is_dir() else {}
+    found = []
+    for path, layer, name in modded:
+        layers = authored.get(name, set()) | native.get(name, set())
+        if layers and layer not in layers:
+            found.append(f'{path.relative_to(ROOT)}: modded {name} outside its base module')
+    return found
+
+
+class NativeCompileTraps(unittest.TestCase):
+    def test_detector_flags_observed_trap_shapes(self):
+        import tempfile
+        sample = '\n'.join(['void A() { Object owned = null; }', 'void B() { m_Slots[i]++; }',
+                            'int C() { if (!m_State) return 0; return 1; }',
+                            'int D() { if (!m_State) { return 0; } return 1; }', 'owned string E;',
+                            'void F() { foreach (HCSceneLease owned : m_Leases) {} }'])
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'sample.c'
+            path.write_text(sample, encoding='utf-8')
+            self.assertEqual(['1: keyword variable owned', '2: ++/-- on array element',
+                              '3: unbraced one-line return', '6: keyword variable owned'], compile_traps(path))
+
+    def test_authored_sources_avoid_native_compile_traps(self):
+        found = [f'{source.relative_to(ROOT)}:{trap}' for source in authored_sources() for trap in compile_traps(source)]
+        self.assertEqual([], found)
+
+    def test_modded_classes_stay_in_their_base_script_module(self):
+        self.assertEqual([], cross_module_modded(authored_sources(), CACHE))
+
+
 if __name__ == '__main__':
     unittest.main()
