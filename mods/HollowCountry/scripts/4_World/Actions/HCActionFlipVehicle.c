@@ -33,15 +33,21 @@ class HCActionFlipVehicle : ActionContinuousBase
     }
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (GetGame().IsServer() && !HCVehicleFlipModule.Get()) { return false; }
-        if (!target || target.GetParent()) { return false; }
-        return HCVehicleFlipModule.HCCandidate(player, CarScript.Cast(target.GetObject()));
+        bool allowed = target && !target.GetParent();
+        if (allowed) allowed = HCVehicleFlipModule.HCCandidate(player, CarScript.Cast(target.GetObject()));
+        if (!GetGame().IsServer()) return allowed;
+        if (allowed && HCVehicleFlipModule.Get()) return true;
+        HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.FLIP, "Cannot right this vehicle now; check clearance, helpers or crowbar, and cooldown.");
+        return false;
     }
     override void OnFinishProgressServer(ActionData action_data)
     {
         HCVehicleFlipModule module = HCVehicleFlipModule.Get();
-        if (!module || !action_data || !action_data.m_Target) { return; }
-        module.HCQueue(action_data.m_Player, CarScript.Cast(action_data.m_Target.GetObject()));
+        if (!action_data) { return; }
+        if (!module || !action_data.m_Target || !module.HCQueue(action_data.m_Player, CarScript.Cast(action_data.m_Target.GetObject())))
+        {
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.FLIP, "Cannot right this vehicle now; check clearance, helpers or crowbar, and cooldown.");
+        }
     }
 }
 modded class ActionConstructor

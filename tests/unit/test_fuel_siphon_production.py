@@ -142,7 +142,8 @@ class SiphonActionContractTests(unittest.TestCase):
         cond = method(self.text, "ActionCondition")
         self.assertIn("IsServer()", cond)
         self.assertIn("ServerEnabled()", cond)
-        self.assertIn("ServerEnabled()", method(self.text, "ActionConditionContinue"))
+        self.assertIn("ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem)",
+                      method(self.text, "ActionConditionContinue"))
 
     def test_every_server_debit_including_cancel_revalidates_gate_and_eligibility(self):
         calc = method(self.text, "CalcAndSetQuantity")

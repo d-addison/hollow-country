@@ -493,7 +493,7 @@ After a play session, from `BUNDLE` run `.\server-report.bat` (or
 `py -3 -m tools.setup.server_report --profiles "$SERVER\profiles"`). It reads the newest server `.RPT` and the
 Hollow Country profile state (counts only) and writes `hollow-country-report-<UTC date-time>.md`: summary on top,
 build and version, the `-mod` list, deduplicated `[HC ...]` lines, every `SCRIPT (E)` error with context,
-`[HC Search Houses] refused` reason counts, AI lines, whether `Player connect enabled` was logged, crash and
+`[HC Refusal] refused` (and older `[HC Search Houses] refused`) reason counts, AI lines, whether `Player connect enabled` was logged, crash and
 minidump presence and Central Economy lines. It removes Steam64 ids, BattlEye GUIDs, IP addresses and ports, player
 names on connect and disconnect lines, Windows user paths and any line that mentions a password, an admin
 remote-console setting or a key, and it never writes more than 512 KB. Read the file once, then upload that file

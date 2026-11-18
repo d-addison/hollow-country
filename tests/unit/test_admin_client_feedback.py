@@ -30,11 +30,26 @@ class AdminKeyFeedback(unittest.TestCase):
     def setUp(self):
         self.source = CLIENT.read_text(encoding='utf-8')
 
-    def test_pressing_the_key_says_the_request_was_sent_or_why_not(self):
+    def test_pressing_the_key_toasts_only_when_the_request_was_not_sent(self):
+        # Playtest 2026-11-18: admins saw "Asking the server..." on every open.
         body = method(self.source, 'void HCOpen()')
-        self.assertIn('HCNotify(', body)
-        self.assertRegex(body, r'if \(m_OpenRequested\)[\s\S]*HCNotify\(')
+        sent = re.search(r'if \(m_OpenRequested\)\s*\{([^}]*)\}', body)
+        assert sent is not None, 'sent branch missing'
+        self.assertNotIn('HCNotify(', sent.group(1))
+        self.assertIn('m_WaitNoticeAt', sent.group(1))
         self.assertRegex(body, r'else[\s\S]*HCNotify\(')
+
+    def test_a_slow_reply_says_once_that_the_client_is_still_waiting(self):
+        body = method(self.source, 'void HCTick()')
+        valid = body.index('if (HCValid())')
+        wait = re.search(r'else if \(now >= m_WaitNoticeAt && !m_WaitNoticeShown\)\s*\{([^}]*)\}', body)
+        assert wait is not None, 'delayed waiting notice missing'
+        self.assertLess(valid, wait.start())
+        self.assertIn('m_WaitNoticeShown = true', wait.group(1))
+        self.assertIn('HCNotify(', wait.group(1))
+        self.assertLess(wait.start(), body.index('else if (now >= m_OpenUntil)'))
+        authorized = body[valid:body.index('else if', valid)]
+        self.assertNotIn('HCNotify(', authorized)
 
     def test_an_unanswered_request_names_the_allowlist_before_giving_up(self):
         body = method(self.source, 'void HCTick()')

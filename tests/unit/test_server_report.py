@@ -236,6 +236,8 @@ DayZ Server version 1.30.164289
  8:30:40.000 SCRIPT    (E): Can't find variable 'x' in module 'HCDoors'
  8:30:40.100 Class:      'HCDoors'
  8:31:00.000 [HC Search Houses] refused reason=hands class=Land_House_4
+ 8:31:01.000 [HC Refusal] refused reason=siphon_unavailable class=OffroadHatchback
+ 8:31:02.000 [HC Refusal] refused reason=hands class=Land_House_5
 '''
 
 
@@ -275,7 +277,7 @@ class ReportTests(unittest.TestCase):
         headings = re.findall(r'^## (.+)$', text, re.M)
         self.assertEqual(headings[0], 'Summary')
         for section in ('Build and version', 'Mod list', 'Hollow Country lines', 'Script errors',
-                        'Search Houses refusals', 'AI', 'Player connect', 'Crash and minidumps',
+                        'Refusals (search and actions)', 'AI', 'Player connect', 'Crash and minidumps',
                         'Economy (CE) load', 'Profile state summary', 'Redaction'):
             self.assertIn(section, headings)
         self.assertLess(text.index('## Summary'), text.index('## Build and version'))
@@ -293,7 +295,7 @@ class ReportTests(unittest.TestCase):
         self.assertIn('[HC Doors] ready count=12', text)
         self.assertIn('[HollowCountry] V1 admission feature=doors', text)
         self.assertIn('[HC Reach] started', text)
-        self.assertEqual(info['hc_lines'], 12)
+        self.assertEqual(info['hc_lines'], 14)
 
     def test_the_hc_line_list_is_capped_and_says_how_many_were_left_out(self):
         many = ''.join(' 9:00:00.000 [HC Many] distinct line %d kind=%s\n' % (i, 'z' * (i % 7)) for i in range(2000))
@@ -315,8 +317,9 @@ class ReportTests(unittest.TestCase):
 
     def test_search_house_refusals_are_counted_by_reason(self):
         text, info = self.report()
-        self.assertEqual(info['search_refusals'], {'hands': 3, 'busy': 1})
-        self.assertRegex(text, r'hands\s*\|\s*3')
+        self.assertEqual(info['search_refusals'], {'hands': 4, 'busy': 1, 'siphon_unavailable': 1})
+        self.assertRegex(text, r'hands\s*\|\s*4')
+        self.assertRegex(text, r'siphon_unavailable\s*\|\s*1')
         self.assertRegex(text, r'busy\s*\|\s*1')
 
     def test_ai_lines_cover_hc_xai_and_expansion_ai_errors(self):

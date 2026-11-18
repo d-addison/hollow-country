@@ -98,6 +98,8 @@ def authored(name, parameters, context, binary32=False):
                     line = "if " + expr(token[4:index]) + ": " + expr(token[index + 1:].strip())
                     break
             else: raise AssertionError("unsupported conditional")
+        elif token == "else":
+            line = "else:"
         else:
             if re.search(r"\b(for|while|foreach|catch|switch)\b", token):
                 raise AssertionError("unsupported authored control flow")
@@ -349,6 +351,15 @@ class SiphonFuelActionTests(unittest.TestCase):
                "RecipientReady": lambda d: state.ready and state.liquid in (0, 8192)
                                           and state.quantity < state.maximum,
                "ReportDiagnostic": lambda d: events.append(("report", d.DiagnosticStatus))}
+        # Execute the shared helper too; native status/log outputs are explicit synthetic ports.
+        from tests.unit.test_refusal_report import install_refusal
+        state.messages, state.refusal_lines = [], []
+        data.m_Player = NS(MessageStatus=state.messages.append)
+        donor.GetType = lambda: 'SyntheticDonor'
+        ctx['GetGame'] = lambda: NS(IsServer=lambda:state.server, GetTime=lambda:state.now,
+                                   GetTickTime=lambda:state.now / 1000.)
+        ctx['Print'] = state.refusal_lines.append
+        install_refusal(ctx)
         stop = authored("StopTransfer", "data,reason", ctx)
         ctx["StopTransfer"] = lambda d, reason: stop(None, d, reason)
         receipt = authored("VerifyDiagnosticReceipt", "data", ctx, binary32=True)

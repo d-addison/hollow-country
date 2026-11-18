@@ -74,6 +74,15 @@ class HouseRefusalTests(houses.HouseCase):
         self.assertEqual(0, self.h.houses.SessionCount())
         self.assertEqual(1, len(player.messages), 'a Begin that opens no session must say why')
 
+    def test_different_reason_in_same_window_is_reported(self):
+        _, player, action = self.far_attempt()
+        self.assertFalse(self.h.hook.CanStart(player, action.m_Target))
+        self.h.houses.m_Fault = True
+        self.assertFalse(self.h.hook.CanStart(player, action.m_Target))
+        self.assertEqual(2, len(player.messages))
+        lines = [line for line in self.h.rt.log if 'refused reason=' in str(line)]
+        self.assertEqual(2, len(lines))
+
     def test_admitted_start_says_nothing(self):
         house = self.h.house()
         self.h.food(1, site_world(house, SITE_A))

@@ -245,7 +245,9 @@ class HCActionSiphonFuel : ActionContinuousBase
     // No client offer/RPC or normal registration; explicit server probe only.
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        return ValidateLive(player, target, item);
+        if (ValidateLive(player, target, item)) return true;
+        HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.SIPHON_DIAGNOSTIC, "Siphon diagnostic refused; the server gate or live target is unavailable.");
+        return false;
     }
 
     override bool ActionConditionContinue(ActionData action_data)
@@ -262,37 +264,55 @@ class HCActionSiphonFuel : ActionContinuousBase
     {
         super.OnStartServer(action_data);
         HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
-        if (!data || data.Sampled || data.LockHeld || !ValidateLive(data.m_Player, data.m_Target, data.m_MainItem))
-            return;
-        data.Donor = CarScript.Cast(data.m_Target.GetObject());
-        data.Vessel = data.m_MainItem;
-        data.DiagnosticStatus = "reservation_rejected";
-        if (s_Locks.Acquire(data, GetGame().GetTime()))
-            data.DiagnosticStatus = "observing";
+        if (data && !data.Sampled && !data.LockHeld)
+        {
+            if (!ValidateLive(data.m_Player, data.m_Target, data.m_MainItem))
+            {
+                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_DIAGNOSTIC, "Siphon diagnostic refused; the server gate or live target is unavailable.");
+                return;
+            }
+            data.Donor = CarScript.Cast(data.m_Target.GetObject());
+            data.Vessel = data.m_MainItem;
+            data.DiagnosticStatus = "reservation_rejected";
+            if (s_Locks.Acquire(data, GetGame().GetTime()))
+                data.DiagnosticStatus = "observing";
+            else
+            {
+                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_DIAGNOSTIC, "Siphon diagnostic refused; the target or player is already reserved.");
+            }
+        }
     }
 
     override void OnFinishProgressServer(ActionData action_data)
     {
         HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
-        if (!GetGame() || !GetGame().IsServer() || !s_DiagnosticEnabled || !data || data.Sampled)
-            return;
-        if (!s_Locks.Owns(data, GetGame().GetTime()) || !data.m_Target || data.m_Target.GetObject() != data.Donor || data.m_MainItem != data.Vessel || !ValidateLive(data.m_Player, data.m_Target, data.Vessel))
+        if (!GetGame() || !GetGame().IsServer()) return;
+        if (data && !data.Sampled)
         {
+            if (!s_DiagnosticEnabled)
+            {
+                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_DIAGNOSTIC, "Siphon diagnostic refused; the server diagnostic is disabled.");
+                return;
+            }
+            if (!s_Locks.Owns(data, GetGame().GetTime()) || !data.m_Target || data.m_Target.GetObject() != data.Donor || data.m_MainItem != data.Vessel || !ValidateLive(data.m_Player, data.m_Target, data.Vessel))
+            {
+                s_Locks.Release(data);
+                data.DiagnosticStatus = "sample_rejected";
+                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_DIAGNOSTIC, "Siphon diagnostic stopped; the reservation or live target changed.");
+                return;
+            }
+            data.Sampled = true;
+            float capacity = data.Donor.GetFluidCapacity(CarFluid.FUEL);
+            float fraction = data.Donor.GetFluidFraction(CarFluid.FUEL);
+            data.ObservedDonorLiters = capacity * fraction;
+            data.ObservedVesselMl = data.Vessel.GetQuantity();
+            float elapsedSeconds = (GetGame().GetTime() - data.StartedMs) * 0.001;
+            data.PlannedMl = HCFuelTransferPolicy.PlanQuantum(capacity, fraction, data.ObservedVesselMl, data.Vessel.GetQuantityMax(), s_RateMl, elapsedSeconds, s_MaxStepSeconds, s_CapMl, s_CapMl);
+            data.DiagnosticStatus = "proposal_only_nonatomic_observation";
+            if (s_TrustedTransferEnabled)
+                TransferDiagnostic(data);
             s_Locks.Release(data);
-            data.DiagnosticStatus = "sample_rejected";
-            return;
         }
-        data.Sampled = true;
-        float capacity = data.Donor.GetFluidCapacity(CarFluid.FUEL);
-        float fraction = data.Donor.GetFluidFraction(CarFluid.FUEL);
-        data.ObservedDonorLiters = capacity * fraction;
-        data.ObservedVesselMl = data.Vessel.GetQuantity();
-        float elapsedSeconds = (GetGame().GetTime() - data.StartedMs) * 0.001;
-        data.PlannedMl = HCFuelTransferPolicy.PlanQuantum(capacity, fraction, data.ObservedVesselMl, data.Vessel.GetQuantityMax(), s_RateMl, elapsedSeconds, s_MaxStepSeconds, s_CapMl, s_CapMl);
-        data.DiagnosticStatus = "proposal_only_nonatomic_observation";
-        if (s_TrustedTransferEnabled)
-            TransferDiagnostic(data);
-        s_Locks.Release(data);
     }
 
     override void OnEndServer(ActionData action_data)

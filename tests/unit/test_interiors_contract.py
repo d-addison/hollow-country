@@ -410,9 +410,9 @@ class InteriorsContractTests(unittest.TestCase):
 
     def test_refused_or_completed_search_has_honest_native_feedback(self):
         body = method_body("HCInteriorModule.c", "CommitSearch")
-        self.assertIn('MessageStatus("Search unavailable: supply, inventory or service changed.")', body)
+        self.assertIn('ActionRefusalMessage(data, HCRefusal.SUPPLY, "Search unavailable: supply, inventory or service changed.")', body)
         self.assertIn('MessageStatus("Search complete.")', body)
-        self.assertIn('MessageStatus("Search stopped; this storage is unavailable.")', body)
+        self.assertIn('ActionRefusalMessage(data, HCRefusal.STORAGE, "Search stopped; this storage is unavailable.")', body)
 
     def test_legacy_allocation_is_bounded_and_new_layouts_allocate_no_items(self):
         for layout in range(-1, 5):

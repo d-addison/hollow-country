@@ -247,7 +247,7 @@ def clip(text):
 # Scanning
 
 _HC = re.compile(r'\[HC [^\]]*\]|\[HollowCountry\]')
-_SEARCH_REFUSED = re.compile(r'\[HC Search Houses\] refused reason=(\w+)')
+_SEARCH_REFUSED = re.compile(r'\[HC (?:Search Houses|Refusal)\] refused reason=(\w+)')
 _SCRIPT_E = re.compile(r"SCRIPT\s*\(E\)|Can't compile|Compile error")
 _AI = re.compile(r'\[HC (?:XAI|Expansion AI|AI)[^\]]*\]')
 _AI_ERR = re.compile(r'(?i)(?:expansion\s*ai|\beAI\w*|\bHCX\b)')
@@ -459,7 +459,7 @@ def render(scan, info, profiles, now, hc_cap, script_cap, rpt_name, script_name,
               '- Mods in -mod list: %d' % len(scan.mods),
               '- Hollow Country lines: %d (%d distinct)' % (scan.hc_total, len(scan.hc) + scan.hc_overflow),
               '- Script errors: %d (%d distinct)' % (scan.script_total, len(scan.script_blocks) + scan.script_overflow),
-              '- Search Houses refusals: %d' % sum(scan.refusals.values()),
+              '- Refusals (search and actions): %d' % sum(scan.refusals.values()),
               '- AI lines: %d' % scan.ai_total,
               '- Player connect enabled: %s' % ('yes' if scan.player_enabled else 'no'),
               '- Minidump files: %d' % len(mdmp_names),
@@ -493,7 +493,7 @@ def render(scan, info, profiles, now, hc_cap, script_cap, rpt_name, script_name,
                          % (hidden, scan.script_total))
     else:
         lines.append('No SCRIPT (E) lines logged.')
-    lines += ['', '## Search Houses refusals', '']
+    lines += ['', '## Refusals (search and actions)', '']
     if scan.refusals:
         lines += ['| reason | count |', '| --- | --- |']
         lines += ['| %s | %d |' % (reason, n) for reason, n in sorted(scan.refusals.items(), key=lambda i: (-i[1], i[0]))]

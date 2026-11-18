@@ -23,6 +23,8 @@ class HCAdminClient
     protected float m_LastReply;
     protected float m_SnapshotUntil;
     protected float m_OpenUntil;
+    protected float m_WaitNoticeAt;
+    protected bool m_WaitNoticeShown;
     protected PlayerBase m_Player;
     ref HCAdminReply View;
     ref array<string> Hidden;
@@ -88,8 +90,9 @@ class HCAdminClient
         HCListen();
         m_OpenRequested = HCSend("status");
         m_OpenUntil = GetGame().GetTickTime() + 10;
-        // The server answers admins only, so say the key worked and wait visibly.
-        if (m_OpenRequested) { HCNotify("Asking the server for admin access...", 4); }
+        // The server answers admins only. Stay quiet while a normal reply is due and
+        // say something only if it is slow (playtest: admins saw a toast on every open).
+        if (m_OpenRequested) { m_WaitNoticeAt = GetGame().GetTickTime() + 2.5; m_WaitNoticeShown = false; }
         else { HCNotify("Admin request not sent: wait a second, and be alive and conscious.", 5); }
     }
 
@@ -147,6 +150,11 @@ class HCAdminClient
             {
                 m_OpenRequested = false;
                 if (!GetGame().GetUIManager().GetMenu()) { GetGame().GetUIManager().EnterScriptedMenu(HCAdminWire.MENU, null); }
+            }
+            else if (now >= m_WaitNoticeAt && !m_WaitNoticeShown)
+            {
+                m_WaitNoticeShown = true;
+                HCNotify("Still waiting for the server's admin reply...", 4);
             }
             else if (now >= m_OpenUntil)
             {

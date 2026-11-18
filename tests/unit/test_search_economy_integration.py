@@ -18,6 +18,13 @@ SOURCE = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_Wor
 
 
 class NativeRef(N):
+    # Native aliases for the shared helper, outside the integration translator.
+    @property
+    def m_Player(self): return self.player_arg
+    @property
+    def m_Target(self): return self.target_arg
+    m_MainItem = None
+
     def __eq__(self, other):
         return self is other
 
@@ -83,7 +90,7 @@ class SearchIntegrationTests(unittest.TestCase):
                        GetIdentity=lambda:N(GetId=lambda:'actor', GetPlayer=lambda:self.actor),
                        MessageStatus=lambda msg:self.events.append(('message', msg)))
         self.site = N(Id='instance_storage_v1', SlotId=0, Item='SyntheticFood', Phase=0,
-                      Owner=None, StartedAt=90.0, Deadline=105.0, Target=object())
+                      Owner=None, StartedAt=90.0, Deadline=105.0, Target=N(GetType=lambda:'SyntheticStorage'))
         self.target = N(GetObject=lambda:self.site.Target)
         self.data = NativeRef(player_arg=self.actor, target_arg=self.target, Site=self.site)
         self.site.Owner = self.data
@@ -122,6 +129,8 @@ class SearchIntegrationTests(unittest.TestCase):
                     'HCInteriorSearchSession':lambda:N(), 'Print':self.events.append,
                     'HCSearchBinding':N(PlacementComplete=lambda *args:None),
                     's_Instance':None}
+        from tests.unit.test_refusal_report import install_refusal
+        install_refusal(self.env)
         for name in ('SearchGate','CanStart','CanContinue','SearchSession','SessionValid',
                      'SearchBindingValid','PreserveLegacyManifest','SetSession'):
             setattr(self.t,name,lambda *a,n=name:self.call(n,*a))
@@ -139,6 +148,46 @@ class SearchIntegrationTests(unittest.TestCase):
     def bind(self):
         self.t.m_Economy=None
         return self.call('BindSearchEconomy',self.source,self.manifest,EArray([self.context]),False)
+
+    def assert_refusal_window(self, callback, reason):
+        for _ in range(3): callback()
+        messages = [e for e in self.events if isinstance(e, tuple) and e[0] == 'message']
+        lines = [e for e in self.events if isinstance(e, str) and e.startswith('[HC Refusal] refused reason=')]
+        self.assertEqual(1, len(messages))
+        self.assertEqual(['[HC Refusal] refused reason=' + reason + ' class=SyntheticStorage'], lines)
+        self.now += 5
+        callback()
+        self.assertEqual(2, len([e for e in self.events if isinstance(e, tuple) and e[0] == 'message']))
+        self.assertEqual(2, len([e for e in self.events if isinstance(e, str) and e.startswith('[HC Refusal] refused reason=')]))
+
+    def test_pilot_start_refusals_use_shared_reason_windows(self):
+        for reason in ('service', 'busy', 'no_site'):
+            with self.subTest(reason=reason):
+                self.setUp()
+                self.site.Owner = None
+                if reason == 'service': self.t.m_SearchProof = False
+                if reason == 'busy': self.site.Owner = object()
+                if reason == 'no_site': self.t.ValidateTarget = lambda *a: False
+                self.assert_refusal_window(lambda:self.call('CanStart', self.actor, self.target), reason)
+
+    def test_pilot_begin_session_capacity_is_reported_once(self):
+        self.site.Owner = None
+        self.t.SetSession = lambda *a: False  # Explicit synthetic full session table.
+        self.assert_refusal_window(lambda:self.call('BeginSearch', self.data), 'capacity')
+
+    def test_pilot_commit_refusals_pair_message_and_id_free_line(self):
+        for reason in ('session_changed', 'too_early', 'supply_changed', 'storage_unavailable'):
+            with self.subTest(reason=reason):
+                self.setUp()
+                if reason == 'session_changed': self.t.ValidateTarget = lambda *a: False
+                if reason == 'supply_changed': self.phase = -4
+                if reason == 'storage_unavailable': self.phase = 4
+                def attempt():
+                    # Explicit fresh synthetic attempts at the same failing boundary.
+                    self.site.Phase = 0
+                    if reason == 'too_early': self.site.StartedAt = self.now - 1
+                    self.call('CommitSearch', self.data)
+                self.assert_refusal_window(attempt, reason)
 
     def test_completed_search_calls_only_economy_once_and_depletes(self):
         self.call('CommitSearch',self.data)

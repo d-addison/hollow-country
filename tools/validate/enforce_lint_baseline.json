@@ -13,33 +13,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionFlipVehicle.c",
-      "symbol": "HCActionFlipVehicle.OnFinishProgressServer",
-      "key": "if (!module || !action_data || !action_data.m_Target) { return; }",
-      "count": 1,
-      "line_at_review": 43,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
-      "symbol": "HCActionSiphonFuel.OnFinishProgressServer",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 278,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
-      "symbol": "HCActionSiphonFuel.OnStartServer",
-      "key": "return;",
-      "count": 1,
-      "line_at_review": 266,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
       "symbol": "HCAdminModule.OnStart",
       "key": "if (!HCV2ThreatStore<HCAdminAllowlist>.CanOpen(PATH)) { return; }",
@@ -199,24 +172,6 @@
       "count": 1,
       "line_at_review": 337,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.BeginSearch",
-      "key": "if (!SetSession(data, site)) return;",
-      "count": 1,
-      "line_at_review": 495,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.BeginSearch",
-      "key": "if (!action || !CanStart(data.m_Player, data.m_Target)) return;",
-      "count": 1,
-      "line_at_review": 493,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
     },
     {
       "rule": "HC-S001",
@@ -1089,60 +1044,6 @@
       "key": "if (providerFaction == \"\") { return false; }",
       "count": 1,
       "line_at_review": 312,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S003",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionFlipVehicle.c",
-      "symbol": "HCActionFlipVehicle",
-      "key": "HCActionFlipVehicle predicted without server refusal message",
-      "count": 1,
-      "line_at_review": 19,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S003",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionSalvageWreck.c",
-      "symbol": "HCActionSalvageWreck",
-      "key": "HCActionSalvageWreck predicted without server refusal message",
-      "count": 1,
-      "line_at_review": 30,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S003",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCActionSiphonFuel.c",
-      "symbol": "HCActionSiphonFuel",
-      "key": "HCActionSiphonFuel predicted without server refusal message",
-      "count": 1,
-      "line_at_review": 116,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S003",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c",
-      "symbol": "HCActionSiphonFuelFromCar",
-      "key": "HCActionSiphonFuelFromCar predicted without server refusal message",
-      "count": 1,
-      "line_at_review": 234,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S003",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c",
-      "symbol": "HCActionMountTapedLight",
-      "key": "HCActionMountTapedLight predicted without server refusal message",
-      "count": 1,
-      "line_at_review": 3,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S003",
-      "path": "mods/HollowCountry/scripts/4_World/Actions/HCTapedLightActions.c",
-      "symbol": "HCActionRemoveTapedLight",
-      "key": "HCActionRemoveTapedLight predicted without server refusal message",
-      "count": 1,
-      "line_at_review": 35,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     }
   ]

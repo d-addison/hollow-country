@@ -191,6 +191,7 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         if (!HCFuelSiphon.ServerEnabled() || !HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, vessel))
         {
             m_Stopped = true;
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
             return;
         }
         CarScript car = CarScript.Cast(action_data.m_Target.GetObject());
@@ -200,6 +201,7 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         if (stepMl <= 0)
         {
             m_Stopped = true;
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
             return;
         }
         car.Leak(CarFluid.FUEL, stepMl * 0.001);
@@ -208,13 +210,15 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
         if (creditMl <= 0)
         {
             m_Stopped = true;
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Siphoning stopped; the fuel, container or service changed.");
             return;
         }
         Liquid.FillContainer(vessel, LIQUID_GASOLINE, creditMl);
         if (!HCFuelTransferPolicy.SiphonReceiptOk(creditMl, vesselBeforeMl, vessel.GetQuantity()))
         {
-            Print("[HollowCountry] Fuel siphon receipt mismatch; stopped without retry or refund");
+            // Ambiguous native receipt: no retry or refund.
             m_Stopped = true;
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON_RECEIPT, "Fuel siphon receipt mismatch; stopped without retry or refund.");
             return;
         }
         m_MovedMl += creditMl;
@@ -252,20 +256,27 @@ class HCActionSiphonFuelFromCar extends ActionContinuousBase
 
     override bool ActionCondition(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (!HCFuelSiphon.Allowed(player, target, item))
-            return false;
-        if (!GetGame().IsServer())
-            return true;
-        return HCFuelSiphon.ServerEnabled();
+        bool allowed = HCFuelSiphon.Allowed(player, target, item);
+        if (!GetGame().IsServer()) return allowed;
+        if (allowed && HCFuelSiphon.ServerEnabled()) return true;
+        HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.SIPHON, "Cannot siphon fuel now; check the car, container and server availability.");
+        return false;
+    }
+
+    override void OnStartServer(ActionData action_data)
+    {
+        super.OnStartServer(action_data);
+        if (!action_data) return;
+        if (!ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
+        {
+            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SIPHON, "Cannot siphon fuel now; check the car, container and server availability.");
+        }
     }
 
     override bool ActionConditionContinue(ActionData action_data)
     {
-        if (!HCFuelSiphon.Allowed(action_data.m_Player, action_data.m_Target, action_data.m_MainItem))
-            return false;
-        if (!GetGame().IsServer())
-            return true;
-        return HCFuelSiphon.ServerEnabled();
+        if (!action_data) return false;
+        return ActionCondition(action_data.m_Player, action_data.m_Target, action_data.m_MainItem);
     }
 }
 
