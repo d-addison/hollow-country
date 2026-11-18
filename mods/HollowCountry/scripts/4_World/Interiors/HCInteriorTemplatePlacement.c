@@ -7,6 +7,33 @@ class HCInteriorTemplatePlacement
     protected static string s_ResolveReason;
     protected static ref array<Object> s_Houses = new array<Object>;
     protected static ref map<string, int> s_Refused = new map<string, int>;
+    protected static ref array<string> s_BoxLogged = new array<string>;
+
+    static void LogPropBox(Object prop)
+    {
+        if (!prop)
+        {
+            return;
+        }
+        string propType = prop.GetType();
+        if (s_BoxLogged.Find(propType) >= 0 || s_BoxLogged.Count() >= 25)
+        {
+            return;
+        }
+        s_BoxLogged.Insert(propType);
+        // Installed 1.30.164289: 3_Game/Entities/Object.c:358 (model clipping min/max).
+        // 1_Core/proto/EnConvert.c:138: false emits space-separated vector components.
+        // Observe only the already-created furnishing prop; no measurement spawns.
+        vector propBox[2];
+        prop.ClippingInfo(propBox);
+        vector propMin = propBox[0];
+        vector propMax = propBox[1];
+        if (!HCInteriorRules.SaneVector(propMin, 100) || !HCInteriorRules.SaneVector(propMax, 100) || propMin[0] >= propMax[0] || propMin[1] >= propMax[1] || propMin[2] >= propMax[2])
+        {
+            return;
+        }
+        Print("[HC Interiors] prop box type=" + propType + " min=<" + propMin.ToString(false) + "> max=<" + propMax.ToString(false) + ">");
+    }
 
     static void CountRefusal(string reason, int count)
 
@@ -169,6 +196,7 @@ class HCInteriorTemplatePlacement
                 CountRefusal("create_failed", 1);
                 continue;
             }
+            LogPropBox(object);
             placed.Insert(object);
             created.Insert(object);
             houseCount = houseCount + 1;

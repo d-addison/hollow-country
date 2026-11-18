@@ -713,8 +713,10 @@ class HookTests(HouseCase):
 
 
     def test_pilot_search_target_is_never_taken_by_the_house_service(self):
-        # All three pilot types inherit House; the pilot must see them first (baseline behaviour).
-        self.assertEqual(3, len(self.h.pilot_types))
+        # SearchType props must keep the existing prop route before House targeting,
+        # including container types added beyond the original three pilot cases.
+        from tools.package.interior_catalog import SEARCH_TYPES
+        self.assertEqual(set(SEARCH_TYPES), self.h.pilot_types)
         for cls in sorted(self.h.pilot_types):
             self.h.pilot_calls.clear()
             cabinet = FakeHouse(cls, (5., 0., 5.))

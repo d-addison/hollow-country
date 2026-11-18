@@ -31,6 +31,42 @@ PILOT = (
     ('family-storage-v1', 'family', 'StaticObj_Furniture_case_bedroom_b', 'StaticObj_Furniture_PaperBox_01_small_closed'),
     ('ransacked-storage-v1', 'ransacked', 'StaticObj_Furniture_case_a_open', 'StaticObj_Furniture_PaperBox_01_small_ransacked'),
 )
+# Template catalog, independent of the frozen schema-1 PILOT layouts above.
+# Read-only verification: datamine-2026-11-17/cfg.pkl (vanilla CfgVehicles census),
+# then tools.audit.pbo_config.read_configs against the installed PBOs below.
+# No assets/config dumps are distributed here. Sizes are conservative guesses, NOT measurements.
+_FURNITURE_CONFIG = 'installed:/mnt/d/SteamLibrary/steamapps/common/DayZServer/addons/structures_furniture.pbo!config.bin:CfgVehicles/'
+_CRATE_CONFIG = 'installed:/mnt/d/SteamLibrary/steamapps/common/DayZServer/addons/structures_residential_bliss.pbo!config.bin:CfgVehicles/'
+_PROP_ROWS = (
+    ('StaticObj_Furniture_case_a', (0.9, 0.6, 1.8), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Furniture_case_a_open', (1.2, 0.9, 1.8), ('ransacked', 'abandoned'), 'container'),
+    ('StaticObj_Furniture_case_bedroom_b', (0.9, 0.6, 1.4), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Furniture_PaperBox_01_small_closed', (0.6, 0.5, 0.5), ('family', 'abandoned'), 'clutter'),
+    ('StaticObj_Furniture_PaperBox_01_small_ransacked', (0.8, 0.7, 0.5), ('ransacked', 'abandoned'), 'clutter'),
+    ('StaticObj_Furniture_kitchen_chair_a', (0.7, 0.7, 1.1), ('family', 'ransacked'), 'seat'),
+    ('StaticObj_Furniture_matress_white', (1.1, 2.2, 0.4), ('ransacked', 'abandoned'), 'bed'),
+    ('StaticObj_Furniture_postel_panelak1', (1.2, 2.3, 1.2), ('family', 'ransacked'), 'bed'),
+    ('StaticObj_Furniture_almara', (1.5, 0.8, 2.2), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Furniture_almara_open', (1.8, 1.2, 2.2), ('ransacked', 'abandoned'), 'container'),
+    ('StaticObj_Furniture_library_a', (1.4, 0.6, 2.1), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Furniture_kitchen_table_a', (1.6, 1.0, 1.0), ('family', 'ransacked'), 'table'),
+    ('StaticObj_Furniture_table_drawer', (1.4, 0.9, 1.0), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Furniture_Kitchen_desk_A', (1.3, 0.9, 1.1), ('family', 'ransacked'), 'kitchen'),
+    ('StaticObj_Furniture_case_sink_a', (1.4, 0.9, 1.2), ('family', 'ransacked'), 'kitchen'),
+    ('StaticObj_Furniture_Dkamna_bila', (1.0, 1.0, 1.5), ('family', 'ransacked'), 'stove'),
+    ('StaticObj_Furniture_Kitchenstove_Elec', (0.9, 0.9, 1.2), ('family', 'ransacked'), 'stove'),
+    ('StaticObj_Furniture_sofa_leather_old', (2.5, 1.2, 1.2), ('family', 'ransacked'), 'seat'),
+    ('StaticObj_Furniture_kitchen_unit_a_DZ', (2.8, 0.9, 2.2), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Furniture_PaperBox_01_small_destroyed', (0.9, 0.8, 0.5), ('ransacked', 'abandoned'), 'clutter'),
+    ('StaticObj_Furniture_debris_small_house', (1.5, 1.5, 0.5), ('ransacked', 'abandoned'), 'rubbish'),
+    ('StaticObj_Furniture_dirtpile_small_house', (1.5, 1.5, 0.3), ('abandoned',), 'rubbish'),
+    ('StaticObj_Furniture_metalcrate', (1.2, 0.9, 1.0), ('family', 'ransacked'), 'container'),
+    ('StaticObj_Misc_WoodenCrate', (1.2, 0.9, 1.0), ('family', 'abandoned'), 'container'),
+)
+PROPS = {name: {'Size': size, 'History': histories, 'Role': role,
+                'Evidence': (_CRATE_CONFIG if name == 'StaticObj_Misc_WoodenCrate' else _FURNITURE_CONFIG) + name}
+         for name, size, histories, role in _PROP_ROWS}
+SEARCH_TYPES = tuple(name for name, spec in PROPS.items() if spec['Role'] == 'container')
 ROOMS = {'kitchen', 'pantry', 'bedroom', 'storage', 'living-room', 'workshop', 'bathroom', 'hallway'}
 KINDS = {'native-build', 'asset-config', 'geometry', 'door-clearance', 'stairs-clearance'}
 
@@ -149,7 +185,7 @@ def source_catalog(sources):
         props = re.findall(r'layout.Props.Insert\(new HCInteriorProp\("([^"]+)"[^;]+;', body)
         actual.append((identity, history, *props))
     require(tuple(actual) == PILOT, 'pilot asset/layout source changed; review adapter')
-    for method, allowed in (('SearchType', {p[2] for p in PILOT}), ('ItemAllowed', {'', 'Rag', 'Battery9V'})):
+    for method, allowed in (('SearchType', set(SEARCH_TYPES)), ('ItemAllowed', {'', 'Rag', 'Battery9V'})):
         body = re.search(r'static bool ' + method + r'\(string type\)\s*\{([^}]+)\}', catalog)
         require(body is not None and set(re.findall(r'type == "([^"]*)"', body[1])) == allowed,
                 'pilot native allowlist changed; review adapter')

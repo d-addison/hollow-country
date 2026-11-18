@@ -11,7 +11,7 @@ at most 1,500 props) and ``build-manifest.json`` (pins for the assembler; the ga
 Search sites require ``types.xml`` so their group IDs bind only to emitted search groups.
 
 Everything is provisional room evidence: the census is sampled geometry, the prop boxes are
-conservative guesses and the stock frame comes from the sampler's native verdict. Nothing here shows
+reviewed native log boxes when available, otherwise conservative guesses; the stock frame comes from the sampler's native verdict. Nothing here shows
 how DayZ places, renders or spawns anything; runtime acceptance stays pending.
 """
 import argparse
@@ -65,25 +65,17 @@ REASONS = ("unmeasured", "not_enterable", "path_pending", "door_pending", "unsup
            "frame_unverified", "clearance_failed", "no_ce_points", "not_in_mapgrouppos", "over_budget")
 RUN_ID = re.compile(r"[0-9a-f]{32}")
 CLASS_NAME = re.compile(r"[A-Za-z0-9_]{1,128}")
-HISTORIES = ("family", "ransacked")
-
-# Conservative boxes (width, depth, height in metres) for the reviewed catalog types. They are NOT
-# measured from the models; the generator pin changes with any edit. Every type must be a PILOT type.
-_SIZES = {
-    "StaticObj_Furniture_case_a": (0.9, 0.6, 1.8),
-    "StaticObj_Furniture_case_a_open": (0.9, 0.6, 1.8),
-    "StaticObj_Furniture_case_bedroom_b": (0.9, 0.6, 1.4),
-    "StaticObj_Furniture_PaperBox_01_small_ransacked": (0.6, 0.5, 0.5),
-    "StaticObj_Furniture_PaperBox_01_small_closed": (0.6, 0.5, 0.5),
-    "StaticObj_Furniture_kitchen_chair_a": (0.6, 0.6, 1.0),
-}
+HISTORIES = ("family", "ransacked", "abandoned")
+BOXES_PATH = Path(__file__).with_name("interior_prop_boxes.json")
+BOX_LOG_LIMIT = 64 * 1024 * 1024
+BOX_MARKER = "[HC Interiors] prop box "
+BOX_LINE = re.compile(r"type=([A-Za-z0-9_]+) min=<([^<>]+)> max=<([^<>]+)>\s*\"?\s*$")
+# The schema-1 pilot stays frozen. Class templates use the separately reviewed catalog.
+_SIZES = {name: spec["Size"] for name, spec in interior_catalog.PROPS.items()}
 PROP_ORDER = tuple(_SIZES)
-PROP_TYPES = {}
-for _layout in interior_catalog.PILOT:
-    for _type in _layout[2:]:
-        PROP_TYPES.setdefault(_type, {"History": [], "Size": _SIZES.get(_type)})["History"].append(_layout[1])
-if set(PROP_TYPES) != set(_SIZES) or any(spec["Size"] is None for spec in PROP_TYPES.values()):
-    raise ImportError("interior catalog PILOT types changed; review the prop boxes")
+PROP_TYPES = {name: {"History": list(spec["History"]), "Size": spec["Size"],
+                     "BoxSource": "conservative guess (NOT measured)"}
+              for name, spec in interior_catalog.PROPS.items()}
 # (wall direction x, z, yaw that faces away from that wall); yaw 0 faces +z, which is unobserved natively.
 WALLS = ((0, -1, 0), (0, 1, 180), (-1, 0, 90), (1, 0, 270))
 
@@ -99,6 +91,88 @@ class Build:
 
 def sha256(data):
     return hashlib.sha256(data).hexdigest()
+
+
+def generator_sha256(boxes_bytes=None):
+    """Pin all generator inputs without adding unrecognised runtime Source keys."""
+    if boxes_bytes is None:
+        boxes_bytes = _read(BOXES_PATH, FILE_CAP)
+    return sha256(_dump({"interior_templates.py": sha256(Path(__file__).read_bytes()),
+                         "interior_catalog.py": sha256(Path(interior_catalog.__file__).read_bytes()),
+                         "interior_prop_boxes.json": sha256(boxes_bytes)}))
+
+
+def load_boxes(raw):
+    """Small reviewed native-box database; no synthetic measurements ship by default."""
+    try:
+        if not isinstance(raw, bytes) or not 0 < len(raw) <= FILE_CAP:
+            raise TemplateError("prop boxes exceed file cap or are empty")
+        data = json.loads(raw.decode("ascii"), object_pairs_hook=interior_catalog.json_pairs,
+                          parse_constant=interior_catalog.reject_constant)
+        interior_catalog.fields(data, "SchemaVersion Build Props")
+        if type(data["SchemaVersion"]) is not int or data["SchemaVersion"] != 1 or data["Build"] != interior_catalog.BUILD:
+            raise TemplateError("unsupported prop box schema/build")
+        if not isinstance(data["Props"], dict) or not set(data["Props"]) <= set(PROP_TYPES):
+            raise TemplateError("unknown prop box class")
+        for entry in data["Props"].values():
+            interior_catalog.fields(entry, "Min Max Width Depth Height SourceLogSha256")
+            low, high = interior_catalog.box({k: entry[k] for k in ("Min", "Max")})
+            sizes = [high[i] - low[i] for i in (0, 2, 1)]
+            for key, size in zip(("Width", "Depth", "Height"), sizes):
+                value = interior_catalog.number(entry[key], .001, 20)
+                if not math.isclose(value, size, abs_tol=1e-8):
+                    raise TemplateError("prop dimensions differ from native bounds")
+            if not isinstance(entry["SourceLogSha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", entry["SourceLogSha256"]):
+                raise TemplateError("invalid source log sha256")
+        return data
+    except (ValueError, UnicodeError, TypeError, KeyError, RecursionError) as error:
+        raise TemplateError("invalid prop boxes: " + str(error)) from error
+
+
+def ingest_boxes(log_bytes, previous=None):
+    """Merge only explicit native box diagnostics; refuse malformed/conflicting rows."""
+    if not isinstance(log_bytes, bytes) or len(log_bytes) > BOX_LOG_LIMIT:
+        raise TemplateError("prop box log outside byte limit")
+    data = load_boxes(previous) if previous is not None else {"SchemaVersion": 1, "Build": interior_catalog.BUILD, "Props": {}}
+    measured = {}
+    for line in log_bytes.decode("utf-8", errors="replace").splitlines():
+        if BOX_MARKER not in line:
+            continue
+        match = BOX_LINE.fullmatch(line.split(BOX_MARKER, 1)[1])
+        if not match or match[1] not in PROP_TYPES:
+            raise TemplateError("malformed or unknown native prop box line")
+        try:
+            low, high = list(_triple(match[2])), list(_triple(match[3]))
+        except ValueError as error:
+            raise TemplateError("invalid native prop box vector") from error
+        entry = {"Min": low, "Max": high, "Width": high[0] - low[0], "Depth": high[2] - low[2],
+                 "Height": high[1] - low[1], "SourceLogSha256": sha256(log_bytes)}
+        if match[1] in measured and measured[match[1]] != entry:
+            raise TemplateError("conflicting native boxes for " + match[1])
+        measured[match[1]] = entry
+    if not measured:
+        raise TemplateError("no native prop box lines found")
+    for name, entry in measured.items():
+        reviewed = data["Props"].get(name)
+        if reviewed is None:
+            data["Props"][name] = entry
+        elif (reviewed["Min"], reviewed["Max"]) != (entry["Min"], entry["Max"]):
+            # A reviewed measurement changes only by editing the reviewed file.
+            raise TemplateError("native box for " + name + " differs from the reviewed measurement")
+    return load_boxes(_dump(data))
+
+
+def prop_specs(boxes_bytes):
+    measured = load_boxes(boxes_bytes)["Props"]
+    specs = {name: dict(spec) for name, spec in PROP_TYPES.items()}
+    for name, entry in measured.items():
+        # Retain origin offsets. Include the origin for reader admission, and grow 1 cm
+        # for log/JSON rounding. Native dimensions alone cannot safely centre a model.
+        low = [min(0, v) - .01 for v in entry["Min"]]
+        high = [max(0, v) + .01 for v in entry["Max"]]
+        specs[name].update(Size=tuple(high[i] - low[i] for i in (0, 2, 1)),
+                           NativeMin=low, NativeMax=high, BoxSource="measured")
+    return specs
 
 
 def _index_template_budget(sources):
@@ -502,8 +576,9 @@ def _connected(members, removed, neighbours):
     return bool(rest) and len(_components(rest, neighbours)) == 1
 
 
-def _place(kind, room, lattice, step, keepouts, taken):
-    width, depth, height = PROP_TYPES[kind]["Size"]
+def _place(kind, room, lattice, step, keepouts, taken, specs=None):
+    spec = (PROP_TYPES if specs is None else specs)[kind]
+    width, depth, height = spec["Size"]
     x0, z0 = lattice
     members = set(room["members"])
 
@@ -545,8 +620,15 @@ def _place(kind, room, lattice, step, keepouts, taken):
             if not _connected(members, removed, near):
                 continue
             taken["cells"][room["id"]] = removed
-            return {"Room": room["id"], "Type": kind, "Position": _vec((cx, cell["y"], cz)),
-                    "Orientation": [yaw, 0, 0], "Bounds": bounds, "History": list(PROP_TYPES[kind]["History"])}
+            origin = [cx, cell["y"], cz]
+            if "NativeMin" in spec:
+                low, high = spec["NativeMin"], spec["NativeMax"]
+                center = [(low[i] + high[i]) / 2 for i in range(3)]
+                ox, oz = {0: (center[0], center[2]), 90: (center[2], -center[0]),
+                          180: (-center[0], -center[2]), 270: (-center[2], center[0])}[yaw]
+                origin = [cx - ox, cell["y"] - low[1], cz - oz]
+            return {"Room": room["id"], "Type": kind, "Position": _vec(origin),
+                    "Orientation": [yaw, 0, 0], "Bounds": bounds, "History": list(spec["History"])}
     return None
 
 
@@ -558,17 +640,31 @@ def _inside(outer, inner):
     return all(outer["Min"][i] <= inner["Min"][i] and inner["Max"][i] <= outer["Max"][i] for i in range(3))
 
 
-def _slots(rooms, lattice, step, keepouts):
+def _slots(rooms, lattice, step, keepouts, name="", specs=None):
     taken = {"slots": [], "cells": {}}
-    for index, kind in enumerate(PROP_ORDER):
+    # Class identity varies the catalog order; reserve a chance for each history
+    # before filling spare slots. All candidate boxes still share the same keepouts.
+    order = sorted(PROP_ORDER, key=lambda kind: sha256((name + "|" + kind).encode("ascii")))
+    selected = []
+    for history in HISTORIES:
+        preferred = [k for k in order if history in PROP_TYPES[k]["History"]]
+        if history == "abandoned":
+            preferred.sort(key=lambda k: interior_catalog.PROPS[k]["Role"] not in ("rubbish", "clutter"))
+        selected.append(preferred)
+    selected.extend([[k] for k in order])
+    for index, choices in enumerate(selected):
         if len(taken["slots"]) == MAX_SLOTS:
             break
-        for offset in range(len(rooms)):
-            room = rooms[(index + offset) % len(rooms)]
-            slot = _place(kind, room, lattice, step, keepouts, taken)
+        for kind in choices:
+            if any(s["Type"] == kind for s in taken["slots"]):
+                continue
+            for offset in range(len(rooms)):
+                room = rooms[(index + offset) % len(rooms)]
+                slot = _place(kind, room, lattice, step, keepouts, taken, specs)
+                if slot is not None:
+                    taken["slots"].append({"Id": len(taken["slots"]) + 1, **slot})
+                    break
             if slot is not None:
-                slot = {"Id": len(taken["slots"]) + 1, **slot}
-                taken["slots"].append(slot)
                 break
     return [{key: slot[key] for key in ("Id", "Room", "Type", "Position", "Orientation", "Bounds", "History")}
             for slot in taken["slots"]]
@@ -652,7 +748,7 @@ def _nearest_room(rooms, point):
 # Template, furnish and chunk assembly
 # ----------------------------------------------------------------------------------------------
 
-def _template(name, measurement, group, ids, frame):
+def _template(name, measurement, group, ids, frame, specs=None):
     rooms, lattice, step = _build_rooms(measurement)
     if not rooms:
         return "unsupported_geometry", None
@@ -669,7 +765,7 @@ def _template(name, measurement, group, ids, frame):
         return "unsupported_geometry", None
     stock = [p for item in (group["containers"] if group else []) for p in item["points"]]
     keepouts, keeps_dropped = _keepouts(measurement, rooms, step, model, stock, frame)
-    slots = _slots(rooms, lattice, step, keepouts)
+    slots = _slots(rooms, lattice, step, keepouts, name, specs)
     sites, supported, dropped, sites_dropped = ([], 0, 0, 0)
     if group:
         sites, supported, dropped, sites_dropped = _sites(group, ids, frame, rooms, model)
@@ -752,6 +848,11 @@ def _furnish(templates, instances, proto, pack_id, limit):
             digest = sha256(("%s|%s|%r|%r" % (pack_id, name, position, yaw)).encode("ascii"))
             history = histories[int(digest[:8], 16) % len(histories)]
             props = [s["Id"] for s in slots if history in s["History"]][:MAX_SLOTS]
+            if history == "abandoned":
+                # Sparse storage/rubbish first; do not fill abandoned rooms to the cap.
+                by_id = {s["Id"]: s for s in slots}
+                props.sort(key=lambda pid: interior_catalog.PROPS[by_id[pid]["Type"]]["Role"] not in ("clutter", "rubbish"))
+                props = props[:2]
             candidates.append(((town, digest), {"BuildingClass": name, "Position": list(position), "Yaw": yaw,
                                                 "Props": props, "History": history}))
     candidates.sort(key=lambda pair: pair[0])
@@ -792,17 +893,20 @@ def _count(values):
 
 
 def build(censuses, proto, pos, reach_source="strict", min_agreement=DEFAULT_MIN_AGREEMENT,
-          max_furnished=MAX_FURNISHED, types_bytes=None):
+          max_furnished=MAX_FURNISHED, types_bytes=None, boxes_bytes=None):
     """Template pack files (name -> bytes), a summary and the manifest. Raises TemplateError on any refusal."""
     try:
-        return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished, types_bytes)
+        return _build(censuses, proto, pos, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes)
     except TemplateError:
         raise
     except ValueError as error:
         raise TemplateError(str(error)) from error
 
 
-def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished, types_bytes):
+def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_furnished, types_bytes, boxes_bytes):
+    if boxes_bytes is None:
+        boxes_bytes = _read(BOXES_PATH, FILE_CAP)
+    specs = prop_specs(boxes_bytes)
     if reach_source not in pts.REACH_SOURCES:
         raise TemplateError("reach_source must be one of " + ", ".join(pts.REACH_SOURCES))
     if (not isinstance(min_agreement, (int, float)) or isinstance(min_agreement, bool)
@@ -832,7 +936,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
     if frame != "rot90":
         raise TemplateError("runtime templates require census frame rot90; got %r" % frame)
     instances = _instances(rows)
-    generator = sha256(Path(__file__).read_bytes())
+    generator = generator_sha256(boxes_bytes)
     sources = {"mapgroupproto": sha256(proto_bytes), "mapgrouppos": sha256(pos_bytes), "generator": generator}
     if types_bytes is not None:
         from tools.package import search_context
@@ -849,7 +953,7 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         group = proto.get(name)
         points = [c for c in (group["containers"] if group else []) if c["name"] in SOURCES and c["points"]]
         if reason is None:
-            reason, built = _template(name, measurement, group, ids, frame)
+            reason, built = _template(name, measurement, group, ids, frame, specs)
             if reason is None:
                 templates[name] = built
         if reason in SEARCH_ONLY_REASONS and points:
@@ -912,7 +1016,10 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         files["t-%04d.json" % index] = _dump(templates[name]["document"])
     files.update(_chunks("furnish", furnish, FURNISH_ROWS, FURNISH_CHUNKS, "furnish rows"))
     excluded = [{"BuildingClass": n, "Reason": "not_observed_as_house"} for n in sorted(set(proto) - set(names))]
-    summary = {"excluded_proto_classes": excluded,
+    used_types = sorted({s["Type"] for t in templates.values() for s in t["document"]["PropSlots"]})
+    summary = {"prop_boxes": {n: specs[n]["BoxSource"] for n in used_types},
+               "histories": _count(r["History"] for r in furnish),
+               "excluded_proto_classes": excluded,
                "keepouts_dropped_outside_model": sum(t["keepouts_dropped_outside_model"] for t in templates.values()),
                "sites_dropped_outside_model": sum(t["sites_dropped_outside_model"] for t in templates.values()),
                "classes": len(names), "templates": len(templates), "frame": frame,
@@ -952,6 +1059,9 @@ def summary_lines(summary, pack_id):
     for row in summary.get("excluded_proto_classes", []):
         lines.append("excluded proto %s: %s" % (row["BuildingClass"], row["Reason"]))
     lines.append("unsupported_containers_dropped=%d" % summary["unsupported_containers_dropped"])
+    for name, source in summary.get("prop_boxes", {}).items():
+        lines.append("prop box %s: %s" % (name, source))
+    lines.append("histories: " + " ".join("%s=%d" % (h, summary.get("histories", {}).get(h, 0)) for h in HISTORIES))
     return lines
 
 
@@ -1006,8 +1116,31 @@ def main(argv=None):
     build_parser.add_argument("--reach-source", choices=pts.REACH_SOURCES, default="strict")
     build_parser.add_argument("--min-agreement", type=float, default=DEFAULT_MIN_AGREEMENT)
     build_parser.add_argument("--max-furnished", type=int, default=MAX_FURNISHED)
+    ingest_parser = commands.add_parser("ingest-boxes", help="merge native box logs into the reviewed box database; review diff before building")
+    ingest_parser.add_argument("--log", required=True, help="script log containing native prop box diagnostics")
+    ingest_parser.add_argument("--out", type=Path, default=BOXES_PATH, help="reviewed box database (default: tools/package/interior_prop_boxes.json)")
     args = parser.parse_args(argv)
     try:
+        if args.command == "ingest-boxes":
+            destination = interior_catalog.checked_path(args.out)
+            previous = _read(destination, FILE_CAP) if destination.exists() else None
+            measured = ingest_boxes(_read(args.log, BOX_LOG_LIMIT), previous)
+            raw = (json.dumps(measured, indent=2, sort_keys=True, allow_nan=False) + "\n").encode("ascii")
+            load_boxes(raw)  # Check the human-readable representation against FILE_CAP too.
+            # All input validation precedes the atomic replacement.
+            import tempfile
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as handle:
+                    temporary = Path(handle.name)
+                    handle.write(raw)
+                os.chmod(temporary, 0o644)  # NamedTemporaryFile is 0600; the database is tracked.
+                os.replace(temporary, destination)
+            finally:
+                if temporary is not None and temporary.exists():
+                    temporary.unlink()
+            print("prop boxes=%d; review native log measurements before rebuilding; acceptance pending" % len(measured["Props"]))
+            return 0
         out = _output_dir(args.out)
         censuses = [_read(path, pts.MAX_CENSUS_BYTES) for path in args.census]
         result = build(censuses, _read(args.proto, pts.MAX_STOCK_BYTES), _read(args.pos, pts.MAX_STOCK_BYTES),
@@ -1015,7 +1148,7 @@ def main(argv=None):
                        max_furnished=args.max_furnished,
                        types_bytes=_read(args.types, pts.MAX_STOCK_BYTES) if args.types else None)
         _write(out, result)
-    except TemplateError as error:
+    except (TemplateError, OSError, ValueError) as error:
         print("refused: %s" % error, file=sys.stderr)
         return 2
     for line in summary_lines(result.summary, result.manifest["PackId"]):

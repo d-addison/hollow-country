@@ -78,7 +78,7 @@ class HCInteriorCatalog
 
     static bool SearchType(string type)
     {
-        return type == "StaticObj_Furniture_case_a" || type == "StaticObj_Furniture_case_bedroom_b" || type == "StaticObj_Furniture_case_a_open";
+        return type == "StaticObj_Furniture_case_a" || type == "StaticObj_Furniture_case_a_open" || type == "StaticObj_Furniture_case_bedroom_b" || type == "StaticObj_Furniture_almara" || type == "StaticObj_Furniture_almara_open" || type == "StaticObj_Furniture_library_a" || type == "StaticObj_Furniture_table_drawer" || type == "StaticObj_Furniture_kitchen_unit_a_DZ" || type == "StaticObj_Furniture_metalcrate" || type == "StaticObj_Misc_WoodenCrate";
     }
 
     static bool ItemAllowed(string type)

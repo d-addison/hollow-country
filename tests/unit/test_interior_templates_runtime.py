@@ -10,6 +10,7 @@ from tests.unit.test_group_server import EArray, body
 from tests.unit.test_interior_measured_catalog import EMap as BaseMap, statements
 from tests.unit.build_identity_support import translate as build_identity
 from tests.unit.test_tilt_rule import tilt_rules
+from tools.package.interior_catalog import SEARCH_TYPES
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / 'mods/HollowCountry/scripts/4_World/Interiors'
@@ -69,6 +70,7 @@ def authored(include_read=False):
             token = re.sub(r'int (\w+) = ReadFile\(([^,]+), (\w+), ([^)]+)\)', r'\1, \3 = NativeRead(\2, \4)', token)
             token = re.sub(r'new array<[^;]+>\(\)', 'EArray()', token)
             token = re.sub(r'new (HC\w+)(?:\(\))?', r'\1()', token)
+            token = re.sub(r'vector (\w+)\[2\]', r'\1 = [None, None]', token)
             token = re.sub(r'(?:array<[^>]+>|HC\w+|int|float|bool|string|vector|Object|FileHandle)\s+(?=\w+\s*=)', '', token)
             bare = re.fullmatch(r'(int|float|bool|string|vector|Object|HC\w+) (\w+)', token)
             if bare:
@@ -81,6 +83,7 @@ def authored(include_read=False):
             token = re.sub(r'([\w.]+)\.Length\(\)', r'len(\1)', token)
             token = re.sub(r'(s_Refused.GetElement\([^)]+\))\.ToString\(\)', r'str(\1)', token)
             token = re.sub(r'([\w.]+)\.ToString\(\)', r'str(\1)', token)
+            token = re.sub(r'([\w.]+)\.ToString\(false\)', r'" ".join(str(component) for component in \1)', token)
             split = re.fullmatch(r'(\w+)\.Split\(([^,]+), (\w+)\)', token)
             if split: token = split[3] + '.extend(part for part in ' + split[1] + '.split(' + split[2] + ') if part)'
             lower = re.fullmatch(r'(\w+)\.ToLower\(\)', token)
@@ -162,6 +165,10 @@ def fixture(values=None):
         except ValueError: return False
     game=NS(GetWorldName=lambda:'chernarusplus',ConfigIsExisting=lambda path:True,
             GetObjectsAtPosition3D=lambda point,radius,found,cargos:found.extend(objects))
+    def synthetic_spawn(typ, point, orientation):
+        # Explicit native boundary: invented dimensions, never installed-model evidence.
+        def clipping(box): box[:]=[[-.5,0,-.3],[.5,2,.3]]
+        return NS(Type=typ,Position=point,Orientation=orientation,GetType=lambda:typ,ClippingInfo=clipping)
     env.update(Read=read, NativeLoad=native_load, EngineHouse=lambda cls:cls=='Land_House_1W01',
         GetGame=lambda:game, HCBuildIdentity=build_identity(),FileExist=lambda path:False,
         HCInteriorMeasuredCatalog=NS(MeasuredClaimedClass=lambda:''),
@@ -174,14 +181,51 @@ def fixture(values=None):
         s_Attempted=False,s_Loaded=False,s_Index=None,s_Bytes=0,s_Files=0,s_Reason='',
         s_Classes=EArray(),s_Templates=EArray(),s_Groups=EArray(),s_Furnish=EArray(),
         s_Placed=0,s_Capped=0,s_Refused=EMap(),s_Houses=EArray(),s_Started=False,s_ResolveReason='',s_MaxProps=5,
+        s_BoxLogged=Array(),
         Available=lambda module,point,orientation,typ:True,
-        Spawn=lambda typ,point,orientation:NS(Type=typ,Position=point,Orientation=orientation),
+        Spawn=synthetic_spawn,
         Schedule=lambda props:None,
-        HCInteriorCatalog=NS(SearchType=lambda typ:typ=='StaticObj_Furniture_case_a'))
+        HCInteriorCatalog=NS(SearchType=lambda typ:typ in SEARCH_TYPES))
     return env, raw, reads, logs, objects, created
 
 
 class InteriorTemplatesRuntimeTests(unittest.TestCase):
+    def test_abandoned_history_and_every_catalog_prop_load_and_place(self):
+        from tools.package import interior_catalog
+        for typ in interior_catalog.PROPS:
+            with self.subTest(typ=typ):
+                values=pack()
+                values['t-0000.json']['PropSlots'][0].update(Type=typ,History=['abandoned'])
+                values['furnish-000.json']['Rows'][0]['History']='abandoned'
+                result=self.load(values)
+                self.assertTrue(result[0]['Loaded'](),result[3])
+                self.assertEqual(1,len(self.place(result)[1]))
+                self.assertTrue(any('[HC Interiors] prop box type='+typ+' min=<' in line for line in result[3]))
+
+    def test_native_box_logger_runs_once_per_created_type_without_spawning(self):
+        result=fixture(); env=result[0]; calls=[]
+        def clipping(box):
+            calls.append('clip'); box[:]=[[-.5,0,-.3],[.5,2,.3]]
+        prop=NS(GetType=lambda:'StaticObj_Furniture_case_a',ClippingInfo=clipping)
+        env['s_BoxLogged']=Array()
+        logger=env['LogPropBox']
+        logger(prop); logger(prop); logger(None)
+        self.assertEqual(['clip'],calls)
+        self.assertEqual(1,len(result[3]))
+        self.assertTrue(result[3][0].startswith('[HC Interiors] prop box type=StaticObj_Furniture_case_a min=<'))
+        self.assertIn('> max=<',result[3][0])
+        from tools.package import interior_templates
+        parsed=interior_templates.ingest_boxes(('SYNTHETIC\n'+'\n'.join(result[3])).encode())
+        self.assertEqual(2,parsed['Props']['StaticObj_Furniture_case_a']['Height'])
+        second=NS(GetType=lambda:'StaticObj_Furniture_case_a_open',ClippingInfo=clipping)
+        logger(second); logger(second)
+        self.assertEqual(['clip','clip'],calls)
+        self.assertEqual(2,len(result[3]))
+        self.assertEqual([],result[5])
+        source=(SRC/'HCInteriorTemplatePlacement.c').read_text()
+        self.assertIn('LogPropBox(object);',source)
+        self.assertEqual(1,source.count('CreateObjectEx('))
+
     def load(self, values=None, legacy=None):
         result=fixture(values); result[0]['EnsureLoaded'](legacy); return result
 
