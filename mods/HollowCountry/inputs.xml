@@ -3,6 +3,7 @@
     <inputs>
         <actions>
             <input name="UAHollowCountryEvents" loc="Hollow Country Events" />
+            <input name="UAHollowCountryGrade" loc="Hollow Country Grade Intensity (+10%)" />
         </actions>
     </inputs>
     <preset>
