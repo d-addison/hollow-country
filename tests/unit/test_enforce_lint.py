@@ -28,6 +28,28 @@ def where(findings):
 
 
 class SourceModel(unittest.TestCase):
+    def test_unbalanced_prototype_attribute_is_reported_without_prior_model_reads(self):
+        text = '[Broken(1)\nproto native void Lost();\nproto native void Following();'
+        findings = run({W + 'A.c': text})
+        self.assertEqual([('HC-E008', 1)], [(f.rule, f.line) for f in findings])
+
+    def test_unbalanced_attribute_reports_lint_instead_of_silently_dropping_method(self):
+        # Invalid synthetic source: the next balanced method must still be read.
+        for wrapper in ('{}', 'class A {{\n{}\n}}'):
+            with self.subTest(wrapper=wrapper):
+                text = wrapper.format('[Broken("bracket ] in string")\n'
+                                      'void Lost() {}\nvoid Following() {}')
+                source = es.Source(Path(W + 'A.c'), text)
+                # Repeated signature reads must not duplicate parse diagnostics.
+                self.assertEqual(['Following'], [s.name for s in source.signatures])
+                self.assertEqual(['Following'], [s.name for s in source.signatures])
+                findings = lint.lint([source])
+                self.assertEqual(1, len(findings))
+                self.assertEqual('HC-E008', findings[0].rule)
+                self.assertEqual(source.line_of(text.index('[Broken')), findings[0].line)
+                self.assertIn('unbalanced', findings[0].message.lower())
+                self.assertIn('attribute', findings[0].message.lower())
+
     def test_comments_strings_and_preprocessor_lines_are_blanked_but_offsets_kept(self):
         text = 'int a; // x ? y\n/* { */ string s = "a ? { b";\n#ifdef DIAG\nint c;\n#endif\n'
         code = es.clean(text)
@@ -330,7 +352,7 @@ class CurrentTree(unittest.TestCase):
     def test_the_compile_trap_rules_have_no_baselined_exceptions(self):
         # Compile traps stop a native boot outright; they are fixed, never baselined.
         self.assertEqual([], [e for e in self.baseline['entries'] if e['rule'] in ('HC-E001', 'HC-E002', 'HC-E003',
-                                                                                   'HC-E004', 'HC-E005', 'HC-E007',
+                                                                                   'HC-E004', 'HC-E005', 'HC-E007', 'HC-E008',
                                                                                    'HC-L001')])
 
 

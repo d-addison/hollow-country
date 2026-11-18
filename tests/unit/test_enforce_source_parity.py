@@ -1,7 +1,8 @@
 """WP-7 parity with the pre-migration checks at a5dafac.
 
-All fixtures are synthetic. Expected findings were captured from the three old
-modules before editing them; these checks establish no native DayZ behaviour.
+Fixtures are synthetic except the optional, read-only native-cache differential.
+Expected findings were captured from the three old modules before editing them;
+these checks establish no native DayZ behaviour.
 
 TDD record (2026-11-18): the initial SharedModelMigration run failed with
 AttributeError for missing Source.methods and syntax.exponent_literals. Separate
@@ -20,8 +21,38 @@ python3 -B -m tools.validate.enforce_lint --no-native
 enforce_lint: pass findings=144 new=0 stale=0 native=no
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
 Ran 5872 tests; OK (skipped=1, expected failures=3).
+
+Issue #166 spec/plan/tasks: compare the frozen legacy collector with the local
+vanilla tree; separate native newline-terminated prototypes; retain the first
+conditional header and check its shared body once; report malformed attributes.
+All four tasks use the shared Source model; runtime acceptance remains pending.
+
+#166 actual RED (2026-11-18), before implementation:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_source_parity.NativePrototypeDifferential tests.unit.test_enforce_source_parity.ParserGapParity -v
+Ran 4 tests; FAILED (failures=4). Missing names: GetSoundPosition,
+RefreshServerList, SetSoundFrequency. Conditional Refresh absent (two wrappers);
+semicolonless fixture signatures expected six names, got ['Body'].
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_lint.SourceModel.test_unbalanced_attribute_reports_lint_instead_of_silently_dropping_method -v
+Ran 1 test; FAILED (failures=2): AssertionError: 1 != 0 lint findings.
+The subsequent native-body/commented-else guard run failed twice: duplicate
+['Defined', 'Defined'] signatures and a spurious First method, then passed after
+distinguishing bodies from declarations and tracking real directive offsets.
+
+#166 GREEN:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_source_parity tests.unit.test_enforce_lint -v
+Ran 48 tests; OK. NativePrototypeDifferential ran against the installed cache
+(not skipped), including all four real proto.c sound declarations.
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_enforce_source_parity tests.unit.test_enforce_lint tests.unit.test_script_syntax tests.unit.test_enforce_locals tests.unit.test_script_identifiers tests.unit.test_refusal_report tests.unit.test_taped_light_v1_evidence tests.unit.test_hygiene.EnvExampleTests -v
+Ran 77 tests; OK (before adding the final bodyless-attribute test, which also
+passed separately and in the 48-test run).
+python3 -B -m tools.validate.enforce_lint --no-native
+enforce_lint: pass findings=133 new=0 stale=0 native=no (baseline unchanged).
+python3 -B -m tools.validate.hygiene
+exit 0, valid=true, errors=[]. Git-writing HygieneTests fixtures were excluded
+to honor this run's metadata restriction; the hygiene CLI only reads Git.
 """
 from pathlib import Path
+import re
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -333,6 +364,124 @@ class AttributedMethodParity(unittest.TestCase):
                 self.assertEqual([], syntax.mismatched_overrides([override], prototypes))
                 self.assertEqual([], syntax.mismatched_overrides([override],
                                                                 {'Zero': {()}, 'ZeroOnlyCall': {()}}))
+
+
+# Frozen from git show 785f82a^:tests/unit/test_script_syntax.py: METHOD,
+# strip_comments, parameter_names and the native_prototypes candidate loop.
+# Keep this reference independent of Source and the migrated syntax helpers.
+LEGACY_METHOD = re.compile(r'\b([A-Za-z_]\w*)\s*\(([^()]*)\)\s*(?:\{|$)', re.M)
+
+
+def legacy_prototype_names(raw):
+    text = re.sub(r'/\*.*?\*/', lambda m: '\n' * m.group(0).count('\n'), raw, flags=re.S)
+    text = '\n'.join(line.split('//')[0] for line in text.splitlines())
+    classes = set(re.findall(r'\bclass\s+(\w+)', text))
+    names = set()
+    for match in LEGACY_METHOD.finditer(text):
+        name, parameters = match.groups()
+        prefix = text[text.rfind('\n', 0, match.start()) + 1:match.start()]
+        if re.search(r'\boverride\b[^;{}]*$', prefix):
+            continue
+        valid = True
+        for parameter in filter(None, (p.strip() for p in parameters.split(','))):
+            parameter = parameter.split('=')[0].strip()
+            if (not re.search(r'([A-Za-z_]\w*)\s*(?:\[\s*\d*\s*\])?$', parameter)
+                    or len(parameter.split()) < 2):
+                valid = False
+                break
+        if not valid:
+            continue
+        # The old regex also counts control flow, calls and text in strings.
+        # Require declaration context, independently of the new parser's output:
+        # a return type (optionally modified/attributed), or a class constructor.
+        prefix = re.split(r'[;{}]', prefix)[-1]
+        prefix = re.sub(r'^\s*\[.*\]\s*', '', prefix).strip()
+        if name in classes and prefix in ('', '~'):
+            names.add(name)  # legacy regex aliases ~Class to Class
+        elif (re.fullmatch(r'[A-Za-z_]\w*(?:[\w\s<>,@]*[\w>])?', prefix)
+              and not set(prefix.split()) & {'return', 'new', 'delete', 'else', 'case', 'thread', '#define'}
+              and name not in {'if', 'while', 'for', 'foreach', 'switch', 'catch'}):
+            names.add(name)
+    return names
+
+
+class NativePrototypeDifferential(unittest.TestCase):
+    def test_frozen_reference_excludes_keyword_call_and_string_noise(self):
+        # Synthetic fixture, including zero-argument calls accepted by METHOD.
+        text = ('class A {\n A() {}\n ~A() {}\n void Real(int value) {}\n'
+                ' proto native int Semicolonless(int value)\n'
+                ' override void Ignored(int value) {}\n'
+                ' void Caller() {\n CallOnly()\n;\n return OtherCall()\n;\n'
+                ' if (int x) {}\n thread ThreadCall()\n;\n'
+                ' string text = "void StringNoise()\n";\n }\n}\n')
+        self.assertEqual({'A', 'Real', 'Semicolonless', 'Caller'}, legacy_prototype_names(text))
+
+    def test_real_vanilla_tree_preserves_legacy_prototype_names(self):
+        cache = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289').expanduser()
+        if not (cache / '1_Core').is_dir():
+            self.skipTest('installed native script cache not present')
+        paths = sorted(cache.rglob('*.c'))
+        self.assertTrue(paths, 'native cache exists but has no .c files')
+        old_names, new_names = set(), set()
+        for path in paths:
+            raw = path.read_text(encoding='utf-8', errors='replace')
+            old_names.update(legacy_prototype_names(raw))
+            source = es.Source(path, raw)
+            # ~Class is the intentional destructor spelling in the shared model.
+            new_names.update(m.name.lstrip('~') for m in source.signatures)
+            if path.relative_to(cache).as_posix() == '1_Core/proto/proto.c':
+                self.assertTrue({'SetSoundVolume', 'SetSoundFrequency', 'GetSoundLength',
+                                 'GetSoundPosition'} <= {m.name for m in source.signatures})
+        self.assertGreater(len(old_names), 10000, 'frozen reference lost native declaration coverage')
+        self.assertFalse(old_names - new_names, sorted(old_names - new_names))
+
+
+class ParserGapParity(unittest.TestCase):
+    def test_native_headers_with_bodies_are_not_also_bodyless_signatures(self):
+        source = es.Source(Path('sample.c'), 'proto native void Defined()\n{}\n')
+        self.assertEqual(['Defined'], [m.name for m in source.signatures])
+        self.assertEqual(['Defined'], [m.name for m in source.methods])
+
+    def test_commented_else_does_not_turn_consecutive_headers_into_alternatives(self):
+        source = es.Source(Path('sample.c'), 'void First()\n/*\n#else\n*/\nvoid Second()\n{}')
+        self.assertEqual([], source.methods)
+
+    def test_semicolonless_native_prototypes_stay_separate(self):
+        # Synthetic reproduction of 1_Core/proto/proto.c:85-93; no vanilla dump.
+        source = es.Source(Path('sample.c'),
+                           'proto native int SetSoundVolume(HSOUND sound, float volume)\n'
+                           'proto native int SetSoundFrequency(HSOUND sound, int freq)\n'
+                           'proto native int GetSoundLength(HSOUND sound)\n'
+                           'proto native int GetSoundPosition(HSOUND sound)\n'
+                           'proto native void Following(int value);\n'
+                           'void Body() { int a; int a; }\n')
+        expected = ['SetSoundVolume', 'SetSoundFrequency', 'GetSoundLength',
+                    'GetSoundPosition', 'Following', 'Body']
+        self.assertEqual(expected, [m.name for m in source.signatures])
+        self.assertEqual(['Body'], [m.name for m in source.methods])
+        self.assertEqual(['a'], locals_check.duplicate_locals(source))
+        for line, method in enumerate(source.signatures, 1):
+            self.assertEqual(line, source.line_of(method.offset))
+            self.assertEqual(')', source.text[method.end - 1])
+
+    def test_conditional_headers_keep_first_signature_and_check_shared_body_once(self):
+        # Synthetic class/global alternatives with a shared body, as in vanilla
+        # ServerBrowserTabConsolePages.c:454-459; directives remain unselected.
+        for wrapper in ('{}', 'class A {{\n{}\n}}'):
+            with self.subTest(wrapper=wrapper):
+                text = wrapper.format('#ifdef DIAG_DEVELOPER\n'
+                                      'void Refresh(bool force = false)\n'
+                                      '#else\nvoid Refresh()\n#endif\n'
+                                      '{ int repeated; int repeated; }\n'
+                                      'void Following() {}')
+                source = es.Source(Path('sample.c'), text)
+                self.assertIn(('Refresh', 'bool force = false'),
+                              [(s.name, s.params) for s in source.signatures])
+                self.assertEqual(['Refresh', 'Following'], [m.name for m in source.methods])
+                self.assertEqual(['repeated'], locals_check.duplicate_locals(source))
+                method = source.methods[0]
+                self.assertEqual('{ int repeated; int repeated; }', source.body(method))
+                self.assertEqual(text.index('Refresh'), method.offset)
 
 
 if __name__ == '__main__':
