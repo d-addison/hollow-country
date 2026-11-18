@@ -11,11 +11,15 @@ Workshop items; never repack, modify or redistribute them.
 | Item | Workshop ID | Installed server folder |
 | :--- | :--- | :--- |
 | Community Framework | 1559212036 | `@CF` |
+| Community Online Tools | 1564026768 | `@COT` |
 | Dabs Framework | 2545327648 | `@DabsFramework` |
 | Expansion Core | 2291785308 | `@Expansion-Core` |
 | Expansion AI | 2792982069 | `@Expansion-AI` |
+| Expansion Navigation | 2792984722 | `@Expansion-Navigation` |
 | SNAFU Weapons | 2443122116 | `@SnafuWeapons` |
 | Tactical Flava | 2646817942 | `@TacticalFlava` |
+| RaG_Core | 3556131153 | `@RaG_Core` |
+| RaG Immersive Vehicles | 3105330157 | `@RaG_Immersive_Vehicles` |
 | Ambient Animals Pack | 3114410963 | `@AmbientAnimals` |
 | Survivor Animations | 2918418331 | `@SurvivorAnimations` |
 | DayZ-Bicycle | 2971190303 | `@DayZ-Bicycle` |
@@ -98,13 +102,19 @@ diagnostics. Each V2 module must print exactly one admission line. Bundle CLI
 output (`HC bundle bundle-apply complete; runtime acceptance pending`) establishes
 installer completion only. All gameplay acceptance remains pending.
 
-Workshop metadata preparation remains owner-operated and Unlisted. Use
-`python -m tools.package.workshop_publish prepare` (`tools/package/workshop_publish.py`) with a signed owned mod;
-`--item addon` selects HCX. The alternative is DayZ Tools **Publisher**, pointed at
-the prepared content folder, with **Unlisted** visibility. After an authorized
-upload, `record` stores the item's published ID. Preparation sends no credentials;
-Steam handles its interactive login and Steam Guard. Public/Workshop publishing
-is not authorized by this fix task; these are operator instructions only.
+Workshop publishing is owner-operated. Both owned items are **Public** since
+2026-11-18 (owner decision); `--visibility unlisted` remains available. Use
+`python -m tools.package.workshop_publish prepare --visibility public` (`tools/package/workshop_publish.py`) with a signed owned mod;
+`--item addon` selects HCX. The base item also carries the signed
+`hollowcountryanims.pbo` (the HollowCountryAnims addon, built from installed
+data by `Build-Sign-Verify.ps1`, never from Git) with its own `.bisign`. The
+alternative is DayZ Tools **Publisher**, pointed at the prepared content folder,
+with Public or Unlisted visibility. After an upload, `record` stores the item's
+published ID. Preparation sends no credentials; Steam handles its interactive
+login and Steam Guard. A friend operator never publishes; they only subscribe.
+
+An AI agent setting up the friend's server follows
+[FRIEND_SERVER_AI_RUNBOOK.md](FRIEND_SERVER_AI_RUNBOOK.md) step by step.
 
 The dependency helper is `tools/setup/workshop_sync.py`. Preview subscriptions
 and server folder copies using:
@@ -121,5 +131,5 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 `@HollowCountryExpansionAI` in `-mod` after `@HollowCountry`. The full argument is:
 
 ```text
--mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-AI;@SnafuWeapons;@TacticalFlava;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
+-mod=@CF;@COT;@DabsFramework;@Expansion-Core;@Expansion-AI;@Expansion-Navigation;@SnafuWeapons;@TacticalFlava;@RaG_Core;@RaG_Immersive_Vehicles;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI
 ```

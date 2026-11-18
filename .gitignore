@@ -76,6 +76,7 @@ Thumbs.db
 !/docs/DEBUG_MAP.md
 !/docs/ACCEPTANCE_CHECKLIST.md
 !/docs/INFECTED_CHEESE_AUDIT.md
+!/docs/FRIEND_SERVER_AI_RUNBOOK.md
 /tools/project/
 /tools/validate/project.py
 /tools/validate/automation_spec.py
