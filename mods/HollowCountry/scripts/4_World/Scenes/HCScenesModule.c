@@ -78,11 +78,20 @@ class HCScenesModule : HCModule
 
     HCSceneLease Lease(string chainId)
     {
-        foreach (HCSceneLease owned : m_Leases)
+        foreach (HCSceneLease ownedLease : m_Leases)
         {
-            if (owned.ChainId == chainId) { return owned; }
+            if (ownedLease.ChainId == chainId) { return ownedLease; }
         }
         return null;
+    }
+
+    bool SiteAvailable(vector anchor)
+    {
+        foreach (HCSceneLease siteLease : m_Leases)
+        {
+            if (siteLease.Anchor == anchor) { return false; }
+        }
+        return true;
     }
 
     // Offer the already-placed scene through the existing optional v1 UI when
@@ -186,6 +195,10 @@ class HCScenesModule : HCModule
         {
             if (m_Leases.Count() >= 2) { m_Refused = m_Refused + 1; return; }
             HCEventSite site = HCSceneChains.Site(plan.SiteId);
+            if (!site) { Fail(chain, now, "missing-reviewed-site"); return; }
+            // A later chain may reuse this reviewed anchor, but never while an
+            // earlier lease (even a closing/partially removed one) still owns it.
+            if (!SiteAvailable(site.Position)) { m_Refused = m_Refused + 1; return; }
             HCSceneKit kit = HCSceneKits.Find(stage.Kit);
             array<vector> positions;
             if (!HCSceneKits.Preflight(kit, site, positions)) { m_Refused = m_Refused + 1; return; }

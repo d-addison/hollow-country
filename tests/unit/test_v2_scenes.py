@@ -4,6 +4,8 @@ Reuses the existing restricted translator unchanged; this is not DayZ evidence.
 """
 from pathlib import Path
 from types import SimpleNamespace as N
+import json
+import re
 import unittest
 
 from tests.unit.test_event_runtime import translate
@@ -40,6 +42,39 @@ class SceneSmoke(unittest.TestCase):
         self.assertFalse(outside([0., 0., 0.], [0., 20., 0.], 2.))
         self.assertFalse(outside([6., 0., 0.], [0., 0., 0.], 2.))
         self.assertTrue(outside([6.01, 0., 0.], [0., 0., 0.], 2.))
+        # Authored content smoke: provenance is source evidence, not runtime
+        # proof. Each new kit must resolve entirely to reviewed vanilla models.
+        events = SCENES.parents[4] / 'mission/hollow-country/events'
+        provenance = json.loads((events / 'scene-provenance.json').read_text())
+        verified = {row['class']: row for row in provenance['classes']}
+        kits = (SCENES / 'HCSceneKits.c').read_text()
+        variants = ('supply-drop-opened', 'convoy-roadside',
+                    'quarantine-cordon', 'survivor-cold-camp')
+        for variant in variants:
+            block = re.search(r'if \(kind == "' + variant + r'"\)\s*\{([^}]+)\}', kits)
+            self.assertIsNotNone(block, 'Missing new scene kit: ' + variant)
+            props = re.findall(r'Add\(kit, "([^"]+)", ([^;]+)\);', block[1])
+            self.assertTrue(1 <= len(props) <= 8)
+            for kind, args in props:
+                row = verified[kind]
+                self.assertTrue(row['model_member_present'], kind)
+                self.assertTrue(row['parent'] == 'HouseNoDestruct' or args.endswith('true'))
+                x, z, yaw, radius = map(float, args.split(',')[:4])
+                self.assertGreater(z - radius, 4)
+                # Explicit synthetic door directly under this prop: the same
+                # guard called by Preflight must refuse the whole placement.
+                self.assertFalse(outside([x, 0., z], [x, 20., z], radius))
+        catalog = json.loads((events / 'scene-chains.json').read_text())['Chains']
+        self.assertEqual(4, len(catalog))
+        self.assertEqual(259200, catalog[3]['Stages'][0]['DelaySeconds'])
+        referenced = {s['Kit'] for c in catalog for s in c['Stages']}
+        self.assertTrue(set(variants) <= referenced)
+        # A reused anchor cannot overlap a prior kit, even during cleanup.
+        available = translate((SCENES / 'HCScenesModule.c').read_text(),
+                              'SiteAvailable', {}, member=True)
+        lease_owner = N(m_Leases=[N(Anchor=[1, 0, 2], Closing=True)])
+        self.assertFalse(available(lease_owner, [1, 0, 2]))
+        self.assertTrue(available(lease_owner, [3, 0, 4]))
 
 
 if __name__ == '__main__':

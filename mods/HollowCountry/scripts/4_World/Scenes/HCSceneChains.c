@@ -117,31 +117,34 @@ class HCSceneChains
     static HCSceneCatalog Defaults()
     {
         HCSceneCatalog catalog = new HCSceneCatalog;
-        catalog.Chains.Insert(Plan("scene-kamenka", "kamenka-supply-cache", "convoy-wreck", "survivor-distress-camp", "supply-drop-remains"));
+        catalog.Chains.Insert(Plan("scene-kamenka", "kamenka-supply-cache", "convoy-roadside", "survivor-distress-camp", "supply-drop-remains"));
         catalog.Chains.Insert(Plan("scene-staroye", "staroye-traffic-cache", "quarantine-checkpoint", "evacuation-point", "last-stand"));
         catalog.Chains.Insert(Plan("scene-kumyrna", "kumyrna-ambush-cache", "last-stand", "survivor-distress-camp", "evacuation-point"));
         // First two finish around hour 30. Leave the third a fresh independent
         // window at hour 36, rather than exhausting its lifetime in a queue.
         catalog.Chains[2].Stages[0].DelaySeconds = 129600;
+        // Reuse a reviewed site only after the existing three planned windows
+        // (third ends around hour 66). Runtime also waits for any old site lease,
+        // including observer-gated cleanup. A missed deadline still cancels.
+        catalog.Chains.Insert(Plan("scene-relief-route", "kamenka-supply-cache", "supply-drop-opened", "quarantine-cordon", "survivor-cold-camp"));
+        catalog.Chains[3].Stages[0].DelaySeconds = 259200;
         return catalog;
     }
 
     static bool CatalogValid(HCSceneCatalog catalog)
     {
-        if (!catalog || catalog.Version != 1 || !catalog.Chains || catalog.Chains.Count() < 1 || catalog.Chains.Count() > 3) { return false; }
+        if (!catalog || catalog.Version != 1 || !catalog.Chains || catalog.Chains.Count() < 1 || catalog.Chains.Count() > 4) { return false; }
         array<string> ids = new array<string>();
-        array<string> siteIds = new array<string>();
         foreach (HCSceneChainDefinition plan : catalog.Chains)
         {
-            if (!plan || !HCEventDirector.TextValid(plan.Id, 32) || ids.Find(plan.Id) >= 0 || siteIds.Find(plan.SiteId) >= 0) { return false; }
+            if (!plan || !HCEventDirector.TextValid(plan.Id, 32) || ids.Find(plan.Id) >= 0) { return false; }
             HCEventSite site = Site(plan.SiteId);
             if (!HCSceneKits.Reviewed(site) || !plan.Stages || plan.Stages.Count() < 2 || plan.Stages.Count() > 3) { return false; }
             ids.Insert(plan.Id);
-            siteIds.Insert(plan.SiteId);
             array<string> missions = new array<string>();
             foreach (HCSceneStageDefinition stage : plan.Stages)
             {
-                if (!stage || !HCSceneKits.Find(stage.Kit) || stage.HoldSeconds < 3600 || stage.HoldSeconds > 43200 || stage.DelaySeconds < 0 || stage.DelaySeconds > 172800) { return false; }
+                if (!stage || !HCSceneKits.Find(stage.Kit) || stage.HoldSeconds < 3600 || stage.HoldSeconds > 43200 || stage.DelaySeconds < 0 || stage.DelaySeconds > 259200) { return false; }
                 HCEventMission mission = stage.Objective;
                 if (!HCEventRuntimePolicy.MissionValid(mission, site.WorldName)) { return false; }
                 if (mission.SiteId != site.Id || vector.DistanceSq(mission.Source, site.Position) > 0.25 || vector.DistanceSq(mission.Destination, site.Position) > 0.25 || mission.Family != HCEventFamily.INVESTIGATION) { return false; }

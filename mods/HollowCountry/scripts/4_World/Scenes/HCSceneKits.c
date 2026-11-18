@@ -12,6 +12,9 @@
 // Common natives: 3_Game/Global/Game.c:1120 IsServer; 1_Core/proto/EnDebug.c:96 Print;
 // EnScript.c:380 Count, :394 Find, :407 Insert, :463 Remove; EnConvert.c:30 int.ToString;
 // EnString.c:171 ToLower, :199 Length (1_Core/proto).
+// #120 follow-up: four additional kits; installed vanilla class AND P3D member
+// checks recorded in scene-provenance.json. No new native dependency. Container
+// and cold hearth use Game.c:680 static models, never live inventory entities.
 
 class HCSceneProp
 {
@@ -107,6 +110,44 @@ class HCSceneKits
             Add(kit, "StaticObj_Furniture_foldingbed_open", 2, 9, 45, 1.5);
             Add(kit, "StaticObj_Furniture_bag_DZ", 5, 8, 160, 0.8);
             Add(kit, "StaticObj_Furniture_metalcrate", 4, 12, 15, 1);
+        }
+        else if (kind == "supply-drop-opened")
+        {
+            // Open container shell and scattered empty crates, with its opening
+            // clear. The shell is model-only: no native container door or cargo.
+            Add(kit, "Land_Container_1Bo", -6, 13, 0, 4, true);
+            Add(kit, "StaticObj_Furniture_metalcrate", 1, 9, 20, 1);
+            Add(kit, "StaticObj_Furniture_metalcrate_02", 4, 12, 65, 1);
+            Add(kit, "StaticObj_Furniture_metalcrate", 0, 15, 130, 1);
+            Add(kit, "StaticObj_Misc_Pallet", 4, 16, 35, 1.2);
+        }
+        else if (kind == "convoy-roadside")
+        {
+            // Military wrecks sit on the same side of the authored access strip.
+            // Actual shoulder/route alignment still needs the EXP-S3 site walk.
+            Add(kit, "StaticObj_Wreck_MTVR_Cargo", -8, 13, 0, 6);
+            Add(kit, "Land_Wreck_Uaz", 6, 12, 0, 3.5);
+            Add(kit, "StaticObj_Furniture_metalcrate_02", 2, 19, 75, 1);
+        }
+        else if (kind == "quarantine-cordon")
+        {
+            Add(kit, "StaticObj_PartyTent", -8, 13, 0, 4.5);
+            Add(kit, "StaticObj_Roadblock_Bags_EndL", 2, 8, 90, 2);
+            Add(kit, "StaticObj_Roadblock_Bags_EndR", 7, 9, 90, 2);
+            Add(kit, "StaticObj_Sign_Roadblock_Stop", 1, 13, 180, 1);
+            // Vanilla static hazard/body-bag scenery, never a corpse or item.
+            Add(kit, "StaticObj_Decon_HazmatBag_01_F", 3, 16, 0, 1.5);
+            Add(kit, "StaticObj_Decon_HazmatBag_01_F", 7, 16, 15, 1.5);
+        }
+        else if (kind == "survivor-cold-camp")
+        {
+            Add(kit, "StaticObj_Mil_CamoNet_Tent2", -7, 12, 0, 4);
+            // Only the verified Fireplace P3D: no FireplaceBase, fire, fuel,
+            // cooking slots, warmth, camp registration or inventory is created.
+            Add(kit, "Fireplace", 1, 9, 0, 1, true);
+            Add(kit, "StaticObj_Furniture_foldingbed_open", 0, 14, 30, 1.5);
+            Add(kit, "StaticObj_Furniture_kitchen_chair_a", 4, 9, 220, 0.8);
+            Add(kit, "StaticObj_Furniture_bag_DZ", 4, 14, 70, 0.8);
         }
         else { return null; }
         return kit;
@@ -205,8 +246,8 @@ class HCSceneKits
             Object object;
             if (prop.StaticModel)
             {
-                // Spent cartridges use their verified model as static clutter:
-                // no projectile simulation and no usable ammunition item.
+                // Render only the verified model (casings, open shell or cold
+                // hearth): no projectile, inventory or fireplace simulation.
                 string model = GetGame().ConfigGetTextOut("CfgVehicles " + prop.Type + " model");
                 if (model == "") { lease.Closing = true; return false; }
                 object = GetGame().CreateStaticObjectUsingP3D(model, position, orientation, 1, false, false);
@@ -232,12 +273,12 @@ class HCSceneKits
             if (pending && !HCObserverTransitionGate.CanTransition(pending.GetPosition(), 500)) { return false; }
         }
         bool gone = true;
-        foreach (Object owned : lease.Objects)
+        foreach (Object ownedObject : lease.Objects)
         {
-            if (owned)
+            if (ownedObject)
             {
                 gone = false;
-                if (!owned.IsPendingDeletion()) { GetGame().ObjectDelete(owned); }
+                if (!ownedObject.IsPendingDeletion()) { GetGame().ObjectDelete(ownedObject); }
             }
         }
         // Confirm native reference invalidation on a later bounded pass.
@@ -247,9 +288,9 @@ class HCSceneKits
     static bool Healthy(HCSceneLease lease)
     {
         if (!lease || lease.Closing || lease.Objects.Count() == 0) { return false; }
-        foreach (Object owned : lease.Objects)
+        foreach (Object ownedObject : lease.Objects)
         {
-            if (!owned || owned.IsPendingDeletion()) { return false; }
+            if (!ownedObject || ownedObject.IsPendingDeletion()) { return false; }
         }
         return true;
     }

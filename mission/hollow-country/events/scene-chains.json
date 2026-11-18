@@ -6,12 +6,12 @@
       "SiteId": "kamenka-supply-cache",
       "Stages": [
         {
-          "Kit": "convoy-wreck",
+          "Kit": "convoy-roadside",
           "HoldSeconds": 21600,
           "DelaySeconds": 0,
           "Objective": {
             "Version": 1,
-            "Id": "scene-kamenka-convoy-wreck",
+            "Id": "scene-kamenka-convoy-roadside",
             "SiteId": "kamenka-supply-cache",
             "WorldName": "chernarusplus",
             "Reviewed": true,
@@ -309,6 +309,114 @@
               8393.078,
               292.062,
               5998.555
+            ],
+            "Radius": 25,
+            "DwellSeconds": 20,
+            "ItemClass": "",
+            "Goal": 1,
+            "MaxParticipants": 6,
+            "ActorBudget": 0,
+            "LifetimeSeconds": 43200,
+            "RewardUnits": 0,
+            "ContainerClass": "",
+            "AnchorClass": "",
+            "RewardCache": false
+          }
+        }
+      ]
+    },
+    {
+      "Id": "scene-relief-route",
+      "SiteId": "kamenka-supply-cache",
+      "Stages": [
+        {
+          "Kit": "supply-drop-opened",
+          "HoldSeconds": 21600,
+          "DelaySeconds": 259200,
+          "Objective": {
+            "Version": 1,
+            "Id": "scene-relief-route-supply-drop-opened",
+            "SiteId": "kamenka-supply-cache",
+            "WorldName": "chernarusplus",
+            "Reviewed": true,
+            "Family": 3,
+            "Source": [
+              2512.352,
+              6.736,
+              2054.215
+            ],
+            "Destination": [
+              2512.352,
+              6.736,
+              2054.215
+            ],
+            "Radius": 25,
+            "DwellSeconds": 20,
+            "ItemClass": "",
+            "Goal": 1,
+            "MaxParticipants": 6,
+            "ActorBudget": 0,
+            "LifetimeSeconds": 43200,
+            "RewardUnits": 0,
+            "ContainerClass": "",
+            "AnchorClass": "",
+            "RewardCache": false
+          }
+        },
+        {
+          "Kit": "quarantine-cordon",
+          "HoldSeconds": 21600,
+          "DelaySeconds": 21600,
+          "Objective": {
+            "Version": 1,
+            "Id": "scene-relief-route-quarantine-cordon",
+            "SiteId": "kamenka-supply-cache",
+            "WorldName": "chernarusplus",
+            "Reviewed": true,
+            "Family": 3,
+            "Source": [
+              2512.352,
+              6.736,
+              2054.215
+            ],
+            "Destination": [
+              2512.352,
+              6.736,
+              2054.215
+            ],
+            "Radius": 25,
+            "DwellSeconds": 20,
+            "ItemClass": "",
+            "Goal": 1,
+            "MaxParticipants": 6,
+            "ActorBudget": 0,
+            "LifetimeSeconds": 43200,
+            "RewardUnits": 0,
+            "ContainerClass": "",
+            "AnchorClass": "",
+            "RewardCache": false
+          }
+        },
+        {
+          "Kit": "survivor-cold-camp",
+          "HoldSeconds": 21600,
+          "DelaySeconds": 21600,
+          "Objective": {
+            "Version": 1,
+            "Id": "scene-relief-route-survivor-cold-camp",
+            "SiteId": "kamenka-supply-cache",
+            "WorldName": "chernarusplus",
+            "Reviewed": true,
+            "Family": 3,
+            "Source": [
+              2512.352,
+              6.736,
+              2054.215
+            ],
+            "Destination": [
+              2512.352,
+              6.736,
+              2054.215
             ],
             "Radius": 25,
             "DwellSeconds": 20,
