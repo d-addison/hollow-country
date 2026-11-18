@@ -411,15 +411,16 @@ class MockedWineRunTests(unittest.TestCase):
                 self.assertIn('--settings', str(caught.exception))
             self.assertFalse(self.experiment.exists())
 
-    def test_server_mod_is_staged_hashed_and_passed_as_server_mod(self):
+    def test_hcx_is_staged_hashed_and_appended_to_shared_mod_list(self):
         addon = self.root / 'xai.pbo'
         addon.write_bytes(probe.pbo.pack({'config.cpp': b'// synthetic server addon'}, 'HollowCountryExpansionAI'))
         report = self.run_mocked(server_mod=addon)
         staged = self.experiment / '@HollowCountryExpansionAI/addons/hollowcountryexpansionai.pbo'
         self.assertEqual(staged.read_bytes(), addon.read_bytes())
         command = self.launch.call_args.args[0]
-        self.assertIn('-serverMod=' + probe.win(staged.parent.parent), command)
-        self.assertNotIn(probe.win(staged.parent.parent), [a for a in command if a.startswith('-mod=')][0])
+        self.assertIn('-mod=' + probe.win(self.experiment / '@HollowCountry') + ';' +
+                      probe.win(staged.parent.parent), command)
+        self.assertFalse(any(a.startswith('-serverMod=') for a in command))
         self.assertEqual(report['server_mod_sha256'], hashlib.sha256(addon.read_bytes()).hexdigest())
         self.assert_cleaned_report(report)
 

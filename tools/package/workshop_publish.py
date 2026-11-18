@@ -13,7 +13,8 @@ item with its own allowlist, title and description:
 * base, @HollowCountry: addons/hollowcountry.pbo with its .bisign, keys/*.bikey, mod.cpp and, optionally,
   meta.cpp.
 * addon, @HollowCountryExpansionAI: addons/hollowcountryexpansionai.pbo with its .bisign, keys/*.bikey and,
-  optionally, mod.cpp and meta.cpp. It is a server-side -serverMod; players never load it.
+  optionally, mod.cpp and meta.cpp. Load it with -mod after HollowCountry on the server and every client;
+  players subscribe to it when the server uses it.
 
 Only our own two mods are ever published. Third-party mods (CF, Dabs Framework, Expansion, SNAFU Weapons,
 Tactical Flava) stay Workshop dependencies referenced by id. Private keys (.biprivatekey), profiles, logs
@@ -54,9 +55,10 @@ DESCRIPTION = ('Hollow Country is a DayZ survival overhaul for a small private s
                'This item contains only the signed Hollow Country mod. When you join the server the DayZ launcher '
                'subscribes to it automatically. Optional weapon packs and the PvE patrol mods are separate '
                'Workshop items and are never bundled here.')
-ADDON_DESCRIPTION = ('Hollow Country Expansion AI is a server-side addon for Hollow Country servers that run Expansion AI. '
-                     'It is loaded with -serverMod on the server only, so players do not need it and their launcher '
-                     'never subscribes to it. Expansion, CF and Dabs Framework are separate Workshop items and are '
+ADDON_DESCRIPTION = ('Hollow Country Expansion AI is an optional addon for Hollow Country servers that run Expansion AI. '
+                     'It is loaded with -mod after HollowCountry on the server and every client. '
+                     'Players subscribe to it when the server uses it. '
+                     'Expansion, CF and Dabs Framework are separate Workshop items and are '
                      'never bundled here.')
 PBO_NAME = 'hollowcountry.pbo'
 ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'

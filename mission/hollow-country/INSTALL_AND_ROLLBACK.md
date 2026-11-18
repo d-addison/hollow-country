@@ -94,8 +94,13 @@ maxPlayers = 6;                   // intended load is 3 to 6 players
   above is missing or overridden.
 - Night pace: the 32x figure assumes the BI server rule that the night value
   multiplies the day value. Check it with an in-game clock during local acceptance.
-- Mods: the server `-mod` and `-serverMod` lists, and the client `-mod` list, keep the
-  launcher's order. Optional weapon and AI dependencies (listed in `docs/FIREARMS.md`
+- Mods: the server and every client use the same `-mod` list in the launcher's order.
+  With Expansion AI, load CF, Dabs Framework, Expansion-Core, Expansion-Animations,
+  Expansion-AI, then HollowCountry, then HollowCountryExpansionAI. Players subscribe
+  to HollowCountryExpansionAI when the server uses it; both peers need its faction
+  registrations and optional news target binding. The current manifest has no
+  server-only entries, so the launcher emits no server-only mod argument.
+  Optional weapon and AI dependencies (listed in `docs/FIREARMS.md`
   and the launcher plan) load before HollowCountry and come from the server owner's own Workshop
   subscriptions. They are never repacked or bundled.
 - Every value is provisional until the owner's local session checks it with one

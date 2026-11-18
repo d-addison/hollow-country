@@ -13,8 +13,9 @@ the link):
 
 - `@HollowCountry`, Workshop item **3841628320**, which every player needs.
 - `@HollowCountryExpansionAI`, Workshop item **3841637854**, "Hollow Country Expansion
-  AI (server)". It is a server-side `-serverMod` addon for servers that run Expansion AI;
-  players never load or subscribe to it.
+  AI (server)" (the existing Workshop title). When the server uses Expansion AI,
+  every player subscribes to this addon and loads it with `-mod` after HollowCountry,
+  matching the server. Both peers need its faction registrations and optional news target binding.
 
 `workshop_publish.py` knows both ids and refuses to prepare or record one item with the
 other item's id, so an upload can never overwrite the wrong item.
@@ -30,19 +31,28 @@ the owner has uploaded the items and a friend has joined through them. The fallb
 is still to build and sign `@HollowCountry` locally (see
 `docs/LOCAL_ACCEPTANCE_V1.md`, Build, sign and verify), install its public
 `.bikey` under the server's `keys`, and give each player the same signed folder
-for "Add local mod". Every player must run the same build as the server.
+for "Add local mod". With the AI addon, give players its matching signed folder too.
+Every player must run the same builds as the server.
 
 | Set | Server | Each player | Notes |
 | --- | --- | --- | --- |
 | Base | `@HollowCountry` in `-mod`, its key | the Unlisted `@HollowCountry` Workshop item (same build) | No third-party mod is required. CF is not needed for the base mod. |
 | SNAFU subset (optional) | SNAFU Weapons in `-mod`, its key | subscribe to SNAFU Weapons | SNAFU does not depend on CF. |
 | Tactical Flava subset (optional) | Tactical Flava in `-mod`, its key | subscribe to Tactical Flava | Tactical Flava does not depend on CF. |
-| PvE patrols (optional) | CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI in `-mod`, each mod's key; `@HollowCountryExpansionAI` in `-serverMod` (its Workshop item once published, else the local signed build) | subscribe to CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI | Only this set needs CF. Expansion is never repacked or bundled. Players do not load `@HollowCountryExpansionAI`. |
+| PvE patrols (optional) | CF, Dabs Framework, Expansion-Core, Expansion-Animations and Expansion-AI in `-mod`, each mod's key; `@HollowCountryExpansionAI` in `-mod` after HollowCountry (its Workshop item, else the local signed build) | subscribe to CF, Dabs Framework, Expansion-Core, Expansion-Animations, Expansion-AI and HollowCountryExpansionAI; use the server's load order | Only this set needs CF. Expansion is never repacked or bundled. Both server and every client load the addon. |
 
 Load order in `-mod`: CF, then Dabs Framework, then the Expansion mods (Core, then
-Animations, then AI), then SNAFU, then Tactical Flava, then `@HollowCountry`. Then
-`-serverMod=@HollowCountryExpansionAI`. Every player's `-mod` list must match the
-server's client-side list. A mismatch is refused at join.
+Animations, then AI), then optional SNAFU and Tactical Flava, then `@HollowCountry`,
+then `@HollowCountryExpansionAI`. Every player's `-mod` list must match the server's.
+With the AI set and no optional weapon packs, both use:
+
+```text
+-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;@HollowCountry;@HollowCountryExpansionAI
+```
+
+A mismatch is refused at join. The generated launcher omits the server-only argument
+because the current manifest has no server-only mods. Native compile, normal PBO/server
+load and two-client faction/news checks remain pending.
 
 ## Publishing `@HollowCountry` and `@HollowCountryExpansionAI` (the owner)
 
@@ -74,7 +84,7 @@ or the reverse, is refused.
    The base item is already recorded in `tools/setup/workshop_mods.json` as 3841628320,
    so `workshop_sync.py` fetches it without extra options.
 
-### The server-only addon item
+### The optional AI addon item
 
 Run the same steps with `--item addon` on the signed `@HollowCountryExpansionAI` folder:
 
@@ -86,9 +96,9 @@ python3 -B tools/package/workshop_publish.py record --item addon --mod <@HollowC
 
 - Allowlist: `addons/hollowcountryexpansionai.pbo` with its `.bisign`, `keys/*.bikey`,
   and optional `mod.cpp` and `meta.cpp`. Every refusal rule of the base item applies.
-- The VDF carries the title "Hollow Country Expansion AI (server)" and a description
-  saying this is a server-side `-serverMod` addon for Hollow Country servers that run
-  Expansion AI, that players do not need it, and that Expansion, CF and Dabs Framework
+- The VDF keeps the existing title "Hollow Country Expansion AI (server)" and describes
+  the addon as loaded with `-mod` after HollowCountry on the server and every client.
+  Players subscribe to it when the server uses it. Expansion, CF and Dabs Framework
   are separate Workshop items that are never bundled.
 - `record` creates `meta.cpp` with that title as its `name` line when the folder has none.
 - The first upload created item 3841637854, which `tools/setup/workshop_mods.json`
@@ -120,12 +130,13 @@ It reads `tools/setup/workshop_mods.json` (ids, folder names, load order, groups
 - `rollback --server-root <dir>` removes exactly what `install` added, using the receipt
   `hollow-country-workshop-receipt.json` in the server root. Files you changed since are left in place.
 
-`install` and `plan` print the `-mod=` and `-serverMod=` lines in load order. Our own
+`install` and `plan` print the shared server/client `-mod=` list in load order. Our own
 mods with an id in the manifest are fetched and installed like the third-party ones:
 `@HollowCountry` (3841628320) and `@HollowCountryExpansionAI` (3841637854) both have one.
 `--hollowcountry-id N` only supplies an id for `@HollowCountry` if the manifest has none.
-An own mod whose id is `null` is reported as unpublished and never fetched. It is a server-side mod: it only ever appears in
-the `-serverMod=` line, never in `-mod=`.
+An own mod whose id is `null` is reported as unpublished and never fetched. Its folder
+still appears in the shared `-mod=` list; install the matching signed build on the
+server and every client until it has a Workshop item.
 
 Port forwarding (the friend's router, UDP): the game port (`-port`, default 2302)
 plus the next three ports (2303–2305), and `steamQueryPort` (27016 by default) so
@@ -154,13 +165,14 @@ python3 -B -m tools.setup.friend_bundle build \
   It leaves out runtime state (event commits, group state, leases and search journals) and logs.
 - `@HollowCountry/` and, with `--addon`, `@HollowCountryExpansionAI/` (signed PBOs
   only) plus `keys/` with the public `.bikey`.
-- `start-server.bat`: the `-mod=` and `-serverMod=` lines in manifest load order.
-  Without `--addon`, the PvE patrol set and the server mod are left out.
+- `start-server.bat`: the shared server/client `-mod=` list in manifest load order,
+  ending with `@HollowCountryExpansionAI` when `--addon` is supplied.
+  Without `--addon`, the PvE patrol set and the optional addon are left out.
 - `serverDZ-hollow-country.txt`: the values to merge into the friend's own
   `serverDZ.cfg` (camera, time acceleration, `enableCfgGameplayFile`, mission
   template). It never carries passwords or the hostname.
 - `README.txt`: the steamcmd download line per Workshop dependency, the copy steps,
-  `verifySignatures = 2` and the ports.
+  client subscriptions and the exact shared `-mod=` list, `verifySignatures = 2` and the ports.
 - `bundle-manifest.json`: SHA-256 for every file, so the friend can check the copy.
 
 It refuses a private key or symlink anywhere in the inputs, an unsigned PBO, a missing

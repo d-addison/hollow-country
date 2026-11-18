@@ -19,14 +19,15 @@ Safety rules:
   recorded there (and only if they still match the recorded SHA-256) and the now-empty folders it created.
 * ``install`` and ``rollback`` refuse while a DayZ server process is running; ``--assume-stopped`` skips the
   check (also needed where the process list cannot be read).
-* Our own mods are published as Unlisted Workshop items: @HollowCountry and the server-side
+* Our own mods are published as Unlisted Workshop items: @HollowCountry and the optional
   @HollowCountryExpansionAI. One with an id in the manifest is fetched and installed like a third-party item.
   One whose id is still null ("unpublished") is listed in the launch lines but never fetched or copied here;
-  copy its signed folder into the server root yourself. @HollowCountryExpansionAI always goes into
-  -serverMod, never -mod.
+  copy its signed folder into the server root yourself. @HollowCountryExpansionAI goes at the end of
+  -mod after @HollowCountry on the server and every client; players subscribe to it when the server uses it.
 
-The printed ``-mod=`` / ``-serverMod=`` lines follow the documented load order (CF, Dabs Framework,
-Expansion Core, Animations, AI, the optional weapons packs, @HollowCountry, then the server-only mod).
+The printed ``-mod=`` list is shared by server and clients and follows the documented load order (CF,
+Dabs Framework, Expansion Core, Animations, AI, the optional weapons packs, @HollowCountry, then
+@HollowCountryExpansionAI). A ``-serverMod=`` line is omitted when no server-only items remain.
 Offline checks establish nothing about DayZ behaviour: the join-time auto-subscribe, signature checks and the
 mod set at runtime stay pending the owner's acceptance.
 """
@@ -129,6 +130,7 @@ def select(manifest, groups, hollowcountry_id=None):
 
 
 def launch_lines(items):
+    """Shared server/client -mod list, plus -serverMod only for server-only manifest entries."""
     client = [i['folder'] for i in items if i['side'] == 'client']
     server = [i['folder'] for i in items if i['side'] == 'server']
     lines = []

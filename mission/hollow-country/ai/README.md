@@ -13,8 +13,9 @@ the new checkpoint sites, stance and news service stay off.
 
 **Client packaging requirement:** load `@HollowCountryExpansionAI` with `-mod`
 on both server and clients, after its Expansion dependencies and HollowCountry.
-The existing friend-bundle/server launcher places it in `-serverMod`; the lead
-must change that placement before client testing. Both peers need the faction
+The local launcher, friend-bundle launcher and Workshop tooling now place it at
+the end of the shared `-mod` list. Players subscribe to it when the server uses it.
+Both peers need the faction
 registrations and optional news target binding. The base action has no Expansion
 dependency and offers no target without that binding.
 

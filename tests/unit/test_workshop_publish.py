@@ -517,10 +517,11 @@ class AddonItem(Base):
         self.assertEqual(data['visibility'], '3')
         self.assertEqual(data['publishedfileid'], '0')
         description = data['description']
-        for needle in ('server-side', '-serverMod', 'Hollow Country', 'Expansion AI', 'Expansion', 'CF', 'Dabs',
+        for needle in ('server and every client', '-mod', 'after HollowCountry', 'Hollow Country', 'Expansion AI', 'Expansion', 'CF', 'Dabs',
                        'never bundled'):
             self.assertIn(needle, description)
-        self.assertRegex(description, r'(?i)players do not need')
+        self.assertRegex(description, r'(?i)players subscribe to it when the server uses it')
+        self.assertNotIn('-serverMod', description)
         self.assertIn('Unlisted', text)
         self.assertRegex(data['changenote'], r'Expansion AI.*[0-9a-f]{12}')
 

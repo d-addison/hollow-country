@@ -175,15 +175,16 @@ class FriendBundleTests(unittest.TestCase):
         self.assertEqual(code, 0, text)
         bat = (self.out / 'start-server.bat').read_text()
         self.assertNotIn('-serverMod', bat)
+        self.assertNotIn('@HollowCountryExpansionAI', bat)
         self.assertFalse(any(f.startswith('@HollowCountryExpansionAI') for f in self.files()))
 
-    def test_launcher_uses_manifest_load_order_and_server_mod(self):
+    def test_launcher_uses_manifest_load_order_and_shared_mod_list(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         bat = (self.out / 'start-server.bat').read_text()
         self.assertIn('"-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
-                      '@SnafuWeapons;@TacticalFlava;@HollowCountry"', bat)
-        self.assertIn('"-serverMod=@HollowCountryExpansionAI"', bat)
+                      '@SnafuWeapons;@TacticalFlava;@HollowCountry;@HollowCountryExpansionAI"', bat)
+        self.assertNotIn('-serverMod', bat)
         self.assertIn('-config=serverDZ.cfg', bat)
         self.assertIn('-profiles=profiles', bat)
         self.assertIn('-port=2302', bat)
@@ -210,6 +211,11 @@ class FriendBundleTests(unittest.TestCase):
             self.assertIn('workshop_download_item 221100 ' + item, readme)
         self.assertIn('2302', readme)
         self.assertIn('27016', readme)
+        self.assertIn('Players subscribe to @HollowCountryExpansionAI when this server uses it', readme)
+        mod_line = next(line for line in fb.ws.launch_lines(fb.ws.select(fb.ws.load_manifest(), fb.ws.GROUPS))
+                        if line.startswith('-mod='))
+        self.assertIn(mod_line, readme)
+        self.assertIn('"' + mod_line + '"', (self.out / 'start-server.bat').read_text())
 
     def test_manifest_hashes_every_bundled_file(self):
         code, text = self.run_cli()

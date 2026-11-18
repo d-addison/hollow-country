@@ -401,12 +401,13 @@ def run(server_root, source_pbo, experiment, prefix, seconds=90, settings=None, 
         (server_addon / SERVER_MOD_PBO).write_bytes(server_blob)
     config = experiment / 'serverDZ.cfg'
     config.write_text(configuration())
+    loaded_mods = [win(m) for m in extra_mods] + [win(addon.parent)]
+    if server_addon is not None:
+        loaded_mods.append(win(server_addon.parent))
     command = ['xvfb-run', '-a', str(wine), str(executable), '-ip=127.0.0.1', '-port=2402',
                '-config=' + win(config), '-profiles=' + win(profiles), '-storage=' + win(storage),
-               '-mod=' + ';'.join([win(m) for m in extra_mods] + [win(addon.parent)]),
+               '-mod=' + ';'.join(loaded_mods),
                '-BEpath=' + win(battleye), '-doLogs', '-adminLog', '-noPause']
-    if server_addon is not None:
-        command.append('-serverMod=' + win(server_addon.parent))
     if diagnostic:
         command.append('-server')
     diagnostic_mission = None
@@ -737,7 +738,8 @@ def main():
     parser.add_argument('--state-seed', type=Path)
     parser.add_argument('--extra-mod', type=Path, action='append', default=[],
                         help='dependency mod folder loaded in place before HollowCountry via -mod (repeatable, in order; never copied)')
-    parser.add_argument('--server-mod', type=Path, help='HollowCountryExpansionAI addon PBO staged fresh and passed via -serverMod')
+    parser.add_argument('--server-mod', type=Path,
+                        help='HollowCountryExpansionAI addon PBO staged fresh and appended after HollowCountry via -mod (legacy option name)')
     parser.add_argument('--expansion-patrol-settings', type=Path,
                         help='our AIPatrolSettings override JSON, staged into the mod-stack mission copy before the snapshot; any rewrite is input drift')
     parser.add_argument('--profile-file', action='append', default=[], metavar='RELATIVE=SOURCE',

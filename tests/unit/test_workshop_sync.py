@@ -26,7 +26,7 @@ HC_ID = '3841628320'
 AI_ID = '3900000002'
 AI_REAL_ID = '3841637854'
 FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
-            '@SnafuWeapons;@TacticalFlava;@HollowCountry')
+            '@SnafuWeapons;@TacticalFlava;@HollowCountry;@HollowCountryExpansionAI')
 RECEIPT = 'hollow-country-workshop-receipt.json'
 MARKER = 'S3CRET-MARKER-9f2'
 
@@ -114,7 +114,7 @@ class Manifest(unittest.TestCase):
     def test_groups_and_sides(self):
         self.assertEqual({m['group'] for m in self.data['mods']}, {'base', 'snafu', 'tactical_flava', 'pve_patrols'})
         self.assertEqual({m['folder'] for m in self.data['mods'] if m['side'] == 'server'},
-                         {'@HollowCountryExpansionAI'})
+                         set())
         self.assertEqual(self.mods['@HollowCountry']['group'], 'base')
         self.assertEqual({m['folder'] for m in self.data['mods'] if m['group'] == 'pve_patrols'},
                          {'@CF', '@DabsFramework', '@Expansion-Core', '@Expansion-Animations', '@Expansion-AI',
@@ -132,7 +132,7 @@ class Manifest(unittest.TestCase):
         self.assertTrue(self.mods['@HollowCountry']['publish'])
         self.assertEqual(self.mods['@HollowCountryExpansionAI']['id'], '3841637854')
         self.assertTrue(self.mods['@HollowCountryExpansionAI']['publish'])
-        self.assertEqual(self.mods['@HollowCountryExpansionAI']['side'], 'server')
+        self.assertEqual(self.mods['@HollowCountryExpansionAI']['side'], 'client')
 
     def test_manifest_note_no_longer_says_the_ai_mod_is_never_published(self):
         note = self.data['note'].lower()
@@ -189,7 +189,7 @@ class Plan(Base):
         code, text, _ = self.run_cmd('plan', 'base,snafu,tactical_flava,pve_patrols')
         self.assertEqual(code, 0, text)
         self.assertIn(FULL_MOD, text.splitlines())
-        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+        self.assertNotIn('-serverMod', text)
 
     def test_group_order_on_the_command_line_does_not_change_load_order(self):
         _, a, _ = self.run_cmd('plan', 'pve_patrols,base')
@@ -259,16 +259,19 @@ class Plan(Base):
         line = next(l for l in text.splitlines() if '@HollowCountryExpansionAI' in l and 'Workshop' in l)
         self.assertIn('unpublished', line)
         self.assertNotIn('never published', text)
-        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+        self.assertTrue(any(l.startswith('-mod=') and l.endswith(';@HollowCountryExpansionAI')
+                            for l in text.splitlines()))
+        self.assertNotIn('-serverMod', text)
 
-    def test_ai_addon_with_an_id_is_fetched_and_planned_but_stays_server_side(self):
+    def test_ai_addon_with_an_id_is_fetched_and_planned_for_both_peers(self):
         make_item(self.content, AI_ID)
         code, text, _ = self.run_cmd('plan', 'pve_patrols', '--manifest', self.manifest_copy(addon=AI_ID))
         self.assertEqual(code, 0, text)
         self.assertIn('%s present' % AI_ID, text)
         self.assertIn('copy %s -> %s' % (self.content / AI_ID, self.root / '@HollowCountryExpansionAI'), text)
-        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
-        self.assertNotIn('@HollowCountryExpansionAI', ''.join(l for l in text.splitlines() if l.startswith('-mod=')))
+        self.assertTrue(any(l.startswith('-mod=') and l.endswith(';@HollowCountryExpansionAI')
+                            for l in text.splitlines()))
+        self.assertNotIn('-serverMod', text)
 
 
 class Fetch(Base):
@@ -451,14 +454,14 @@ class Install(Base):
                                      '--manifest', self.manifest_copy(base=HC_ID))
         self.assertEqual(code, 0, text)
         self.assertIn(FULL_MOD, text.splitlines())
-        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
+        self.assertNotIn('-serverMod', text)
         self.assertTrue((self.root / '@HollowCountry' / 'addons').is_dir())
-        # Its Workshop id is still null: the server-only mod is neither created nor copied by this tool.
+        # Its Workshop id is still null: the optional addon is neither created nor copied by this tool.
         self.assertFalse((self.root / '@HollowCountryExpansionAI').exists())
         self.assertIn('@HollowCountryExpansionAI', text)
         self.assertIn('no Workshop id', text)
 
-    def test_installs_the_published_ai_addon_and_keeps_it_in_server_mod_only(self):
+    def test_installs_the_published_ai_addon_at_the_end_of_the_shared_mod_list(self):
         for key in IDS:
             self.populate(key)
         make_item(self.content, HC_ID)
@@ -470,8 +473,7 @@ class Install(Base):
         self.assertTrue((folder / 'addons' / 'hollowcountryexpansionai.pbo').is_file())
         self.assertTrue((self.root / 'keys' / ('key_%s.bikey' % AI_ID)).is_file())
         self.assertIn(FULL_MOD, text.splitlines())
-        self.assertIn('-serverMod=@HollowCountryExpansionAI', text.splitlines())
-        self.assertFalse(any('@HollowCountryExpansionAI' in l for l in text.splitlines() if l.startswith('-mod=')))
+        self.assertNotIn('-serverMod', text)
         receipt = json.loads((self.root / RECEIPT).read_text())
         self.assertIn('@HollowCountryExpansionAI', receipt['dirs'])
         self.assertEqual(self.rollback('--manifest', self.manifest_copy(base=HC_ID, addon=AI_ID))[0], 0)
@@ -778,12 +780,14 @@ class ServerDetection(unittest.TestCase):
 class Documentation(unittest.TestCase):
     def test_docs_cover_the_workshop_flow(self):
         text = (REPO / 'docs/FRIEND_SERVER.md').read_text()
-        for needle in ('workshop_sync.py', 'workshop_publish.py', '-serverMod', 'Unlisted', 'Publisher',
+        for needle in ('workshop_sync.py', 'workshop_publish.py', '-mod=', 'Unlisted', 'Publisher',
                        HC_ID, '--item addon', 'Hollow Country Expansion AI (server)'):
             self.assertIn(needle, text)
         self.assertNotIn('never fetched or published', text)
         self.assertNotIn('and is never published', text)
-        self.assertNotIn('@HollowCountryExpansionAI` in `-mod`', text)
+        self.assertIn('@HollowCountryExpansionAI` in `-mod`', text)
+        self.assertNotIn('-serverMod', text)
+        self.assertNotIn('players never load', text.lower())
 
 
 if __name__ == '__main__':

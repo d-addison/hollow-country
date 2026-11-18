@@ -1,8 +1,9 @@
 """Export a self-contained Hollow Country server bundle for a friend's dedicated server.
 
 Input is the local server that was set up with local_test_session.py apply: its applied mission
-folder, its profiles folder, the signed @HollowCountry session mod (and optionally the -serverMod
-@HollowCountryExpansionAI) and its serverDZ.cfg. Output is a new folder the owner can zip and hand
+folder, its profiles folder, the signed @HollowCountry session mod (and optionally
+@HollowCountryExpansionAI, loaded after it with -mod on server and clients) and its serverDZ.cfg.
+Output is a new folder the owner can zip and hand
 over: the mission copy, the Hollow Country profile configuration, the signed mods, their public
 keys, a start-server.bat, a serverDZ.cfg snippet and a README with the Workshop download commands.
 
@@ -249,6 +250,10 @@ def readme(items, template, addon):
         '   Copy each downloaded folder from steamapps/workshop/content/221100/<id> into the server folder',
         '   under the name shown, and copy every .bikey from their keys/ folders into the server keys/ folder.',
         '   Hollow Country itself is in this bundle (@HollowCountry); players subscribe to its Workshop item.',
+    ]
+    if addon:
+        lines.append('   Players subscribe to @HollowCountryExpansionAI when this server uses it; load it after @HollowCountry.')
+    lines += [
         '3. Copy from this bundle into the server folder:',
         '     @HollowCountry/' + ('  and  @HollowCountryExpansionAI/' if addon else ''),
         '     keys/*.bikey            -> keys/',
@@ -259,6 +264,10 @@ def readme(items, template, addon):
         '5. Forward ports %s to the server PC.' % PORTS,
         '6. Run start-server.bat. Players launch DayZ with the same -mod list (the DayZ launcher does this',
         '   when they join from the server browser after subscribing to the mods).',
+        '   Server and every client use this exact list:',
+    ]
+    lines += ['     ' + line for line in ws.launch_lines(items) if line.startswith('-mod=')]
+    lines += [
         '',
         'bundle-manifest.json lists the SHA-256 of every file in this bundle.',
         '',
