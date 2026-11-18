@@ -291,13 +291,13 @@ Ran 5605 tests in 535.713s
 OK (skipped=1, expected failures=3)
 ```
 
-The suite's one skipped check and three expected failures remain gaps; this fix
-makes no runtime claim from them. The explicit banned-text scan found no pack
+That discovery recorded one skipped check and three expected failures; the
+groups null-context failure is now resolved by hardening (offline only).
+The explicit banned-text scan found no pack
 names or IDs in `mods/`, `mission/` or `config/`. `git diff --check` passed.
 
 Discovery metadata identifies the skip as
 `test_package.PackageBehavior.test_native_smoke_verified_copy_rejects_drift_and_overwrite`
-(Windows-only helper execution). The existing expected failures are
-`test_v1_combined_flags.CombinedWorkTests.test_all_modules_tick_within_shared_work_budget`,
-`test_v1_combined_flags.CombinedWorkTests.test_stop_removes_queued_interior_updates_as_well_as_core_tick`,
-and `test_v1_combined_rpc.CombinedRpcTests.test_groups_null_context`.
+(Windows-only helper execution). The two remaining expected failures are
+`test_v1_combined_flags.CombinedWorkTests.test_all_modules_tick_within_shared_work_budget`
+and `test_v1_combined_flags.CombinedWorkTests.test_stop_removes_queued_interior_updates_as_well_as_core_tick`.

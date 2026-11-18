@@ -9,7 +9,7 @@
 // 1_Core/proto/EnMath.c:427 Floor, :413 Round, :540 Clamp, :553 Min;
 // 1_Core/proto/EnScript.c:380 Count, :407 Insert, :463 Remove;
 // 1_Core/proto/EnConvert.c:30 int / :115 float ToString; EnDebug.c:96 Print.
-// HCGroupClock.Utc uses EnSystem.c:76,100 UTC. HCV2ThreatStore/HCGroupIO
+// HCGroupClock.SampleUtc uses EnSystem.c:76,100 UTC. HCV2ThreatStore/HCGroupIO
 // use EnSystem.c:397,417,425,443,462,525,528,531 and JsonFileLoader.c:69,85.
 // No native rename exists: verified temp/backup/copy with fail-closed intent,
 // not atomic rename/fsync. Native compilation and EXP-S4 remain unobserved.
@@ -40,6 +40,7 @@ class HCInfectedMemory
     protected int m_LogUtc;
     protected int m_RecordUtc;
     protected int m_RecordCount;
+    static const int MAX_CLOCK_SKEW_SECONDS = 300;
     static const string PATH = "$profile:HollowCountry/infected-memory.json";
 
     // Linear decay from the last real noise. The base and timestamp never get
@@ -94,18 +95,35 @@ class HCInfectedMemory
         return HCInfectedVarietyModule.HCScaledCohort(requested, available);
     }
 
-    protected void Fail()
+    protected void Fail(string reason = "UTC/schema/world/persistence fault")
     {
         m_Healthy = false;
         if (s_Instance == this) s_Instance = null;
-        Print("[HollowCountry] V2 infected memory disabled: UTC/schema/world/persistence fault; preserve infected-memory.json, .tmp and .bak");
+        Print("[HollowCountry] V2 infected memory disabled: " + reason + "; preserve infected-memory.json, .tmp and .bak");
     }
 
-    protected int Now()
+    protected int Now(bool write)
     {
-        int nowUtc = HCGroupClock.Utc();
-        if (nowUtc < m_LastUtc) { Fail(); return -1; }
-        m_LastUtc = nowUtc;
+        // Sampling must not advance the shared groups watermark. Reads never
+        // mutate memory, even for an invalid sample or a large backwards step.
+        int nowUtc = HCGroupClock.SampleUtc();
+        if (nowUtc < 1)
+        {
+            if (write) { Fail(); return -1; }
+            return m_LastUtc;
+        }
+        if (nowUtc < m_LastUtc)
+        {
+            if (write && m_LastUtc - nowUtc > MAX_CLOCK_SKEW_SECONDS)
+            {
+                Fail("clock-skew");
+                return -1;
+            }
+            // No additional decay; retain sample timestamps and rate window
+            // until wall time catches up. Small-skew writes still add heat.
+            return m_LastUtc;
+        }
+        if (write) m_LastUtc = nowUtc;
         return nowUtc;
     }
 
@@ -129,7 +147,7 @@ class HCInfectedMemory
     bool Start()
     {
         if (!GetGame().IsServer() || s_Instance) return false;
-        int nowUtc = HCGroupClock.Utc();
+        int nowUtc = HCGroupClock.SampleUtc();
         if (nowUtc < 1 || !HCV2ThreatStore<HCInfectedMemoryState>.CanOpen(PATH)) { Fail(); return false; }
         if (FileExist(PATH))
         {
@@ -164,7 +182,7 @@ class HCInfectedMemory
     {
         if (!GetGame().IsServer() || !s_Instance || !s_Instance.m_Healthy) return 0;
         if (!HCInfectedStore.ValidPosition(pos)) return 0;
-        int nowUtc = s_Instance.Now();
+        int nowUtc = s_Instance.Now(false);
         if (nowUtc < 1) return 0;
         int x = Math.Floor(pos[0] / 500.0);
         int z = Math.Floor(pos[2] / 500.0);
@@ -182,7 +200,7 @@ class HCInfectedMemory
 
     protected void Add(vector pos, float loudness)
     {
-        int nowUtc = Now();
+        int nowUtc = Now(true);
         if (nowUtc < 1) return;
         // At most 32 admitted records per wall-clock second. No queue, world
         // scan or disk write in a shot callback; every array is capped at 64.
@@ -231,7 +249,7 @@ class HCInfectedMemory
     void Tick()
     {
         if (!m_Healthy) return;
-        int nowUtc = Now();
+        int nowUtc = Now(true);
         if (nowUtc < 1) return;
         float hottest = 0;
         for (int i = m_State.Cells.Count() - 1; i >= 0; i--)
@@ -254,7 +272,7 @@ class HCInfectedMemory
     {
         if (m_Healthy)
         {
-            int nowUtc = Now();
+            int nowUtc = Now(true);
             if (nowUtc > 0) Save(nowUtc);
         }
         m_Healthy = false;
