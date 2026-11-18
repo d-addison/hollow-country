@@ -248,11 +248,11 @@ class HCSearchRefreshModule : HCModule
         return s_Instance.m_Pilot;
     }
 
-    override void OnTick(float dt)
+    override void OnTick(float deltaTime)
     {
-        if (!Active() || !(dt > 0.0)) return;
-        m_Minute += dt;
-        m_Hour += dt;
+        if (!Active() || !(deltaTime > 0.0)) return;
+        m_Minute += deltaTime;
+        m_Hour += deltaTime;
         if (m_Minute >= 60.0)
         {
             // Discard excess dt rather than doing catch-up bursts. Cursor survives

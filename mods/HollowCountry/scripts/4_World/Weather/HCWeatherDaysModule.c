@@ -52,7 +52,7 @@ class HCWeatherDaysModule : HCModule
         if (m_Data) m_Data.HCBeginWeatherDays();
     }
 
-    override void OnTick(float dt)
+    override void OnTick(float deltaTime)
     {
         if (m_Data) m_Data.HCTickWeatherDays();
     }
