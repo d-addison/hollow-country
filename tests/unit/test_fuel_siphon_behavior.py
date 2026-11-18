@@ -489,7 +489,8 @@ def translate(path, select, natives):
 # Explicitly synthetic fake natives
 # --------------------------------------------------------------------------
 class UnitObject:
-    pass
+    def GetType(self):
+        return "SyntheticObject"
 
 
 class CarFluid:
@@ -671,7 +672,7 @@ class ActionData:
         self.m_Player, self.m_Target, self.m_MainItem = player, target, item
 
 
-class World:
+class NativeWorld:
     """One synthetic server process: natives, translated classes, scenario objects."""
 
     # `on` models the operator profile: True = no fuel_siphon.disable file (the default), False = the file exists.
@@ -765,6 +766,117 @@ class World:
             if results[-1] != 2:
                 return results
         raise AssertionError("session did not end")
+
+
+
+# Shared HC-3 harness: real authored leases/guards over synthetic native ports.
+from types import SimpleNamespace as NS
+from unittest.mock import patch
+from tests.unit import test_siphon_fuel_action as diagnostic
+from tests.unit.test_siphon_fuel_action import DiagnosticArray, SOURCE
+
+
+def authored(name, args, context):
+    # Extend the existing restricted port only for local vector declarations.
+    original = diagnostic.body
+    def vector_locals(path, method):
+        return re.sub(r"\bvector (\w+) =", r"\1 =", original(path, method))
+    with patch.object(diagnostic, "body", vector_locals):
+        return diagnostic.authored(name, args, context)
+class LeaseData(ActionData):
+    """Synthetic native ActionData storage; no gameplay policy."""
+    def __init__(self, player=None, target=None, item=None):
+        super().__init__(player, target, item)
+        self.Donor = self.Vessel = self.LeasePlayer = None
+        self.ProductionStarted = self.ProductionClosed = self.LockHeld = False
+        self.StartedMs = 0
+
+    @staticmethod
+    def Cast(value):
+        return value if isinstance(value, LeaseData) else None
+
+
+def native_actor(player):
+    player.IsAlive = lambda: True
+    player.IsUnconscious = player.IsRestrained = lambda: False
+    player.GetIdentity = lambda: object()
+    return player
+
+
+def native_vessel(vessel):
+    vessel.open = True
+    vessel.IsOpen = lambda: vessel.open
+    vessel.HasQuantity = lambda: True
+    return vessel
+
+
+class World(NativeWorld):
+    """Extend existing restricted ports with native custody/time/geometry.
+
+    Locks, production guards and continuous component execute authored source.
+    ClearRay is the synthetic physics boundary; no actual ray/engine is run.
+    """
+    def __init__(self, **kwargs):
+        self.now, self.visible, self.rays = 100, True, []
+        original = translate
+
+        def production_translate(source, select, natives):
+            game = natives["GetGame"]()
+            game.GetTime = lambda: self.now
+            context = dict(natives)
+            context.update(HCSiphonDiagnosticData=NS(Cast=LeaseData.Cast),
+                           NativeArray=DiagnosticArray, float=NS(MAX=transfer.FLOAT_MAX))
+            constants = {k: int(v) for k, v in re.findall(
+                r"static const int (\w+) = (\d+);", SOURCE.read_text())}
+            context.update(constants)
+            lease = authored("LeaseLive", "startedMs,nowMs", context)
+            context["LeaseLive"] = lambda *a: lease(None, *a)
+            self.locks = NS(m_Sessions=DiagnosticArray())
+            for name, args in (("Purge", "nowMs"), ("Acquire", "data,nowMs"),
+                               ("Owns", "data,nowMs"), ("Release", "data"),
+                               ("Clear", ""), ("ActiveCount", "nowMs")):
+                fn = authored(name, args, context)
+                setattr(self.locks, name, lambda *a, fn=fn: fn(self.locks, *a))
+            context["s_Locks"] = self.locks
+            defaults = {k: float(v) for k, v in re.findall(
+                r"static const float (\w+) = ([\d.]+);", SOURCE.read_text())}
+            context["HCSiphonGeometryDefaults"] = NS(**defaults)
+            context["MiscGameplayFunctions"] = NS(GetPlayerHeadPosition=lambda p: p.GetPosition())
+            context.update(ObjIntersectView=0, ObjIntersectFire=1)
+            def clear_ray(player, donor, origin, endpoint, geometry):
+                self.rays.append(geometry)
+                return self.visible
+            context["ClearRay"] = clear_ray
+            service = NS()
+            methods = (("FiniteVector", "point"), ("ReachAndVisible", "player,donor,target"),
+                       ("ProductionRecipientReady", "player,target,vessel"),
+                       ("ProductionBegin", "action_data"), ("ProductionOwns", "action_data"),
+                       ("ProductionEnd", "action_data"), ("ProductionStop", ""))
+            for name, args in methods:
+                fn = authored(name, args, context)
+                wrapped = lambda *a, fn=fn: fn(None, *a)
+                context[name] = wrapped
+                setattr(service, name, wrapped)
+            natives.update(HCActionSiphonFuel=service, HCSiphonDiagnosticData=LeaseData)
+            self.service_context = context
+            select = dict(select)
+            select["HCActionSiphonFuelFromCar"] = set(select["HCActionSiphonFuelFromCar"]) | {"CreateActionData"}
+            return original(source, select, natives)
+
+        with patch(__name__ + ".translate", production_translate):
+            super().__init__(**kwargs)
+        self.service_context["HCFuelSiphon"] = self.Siphon
+        self.car.GetSpeedometerAbsolute = lambda: 0.0
+        native_vessel(self.vessel)
+        native_actor(self.player)
+        self.target.GetParent = lambda: None
+        self.data = self.action().CreateActionData()
+        self.data.m_Player, self.data.m_Target, self.data.m_MainItem = self.player, self.target, self.vessel
+
+    def competitor(self):
+        vessel = native_vessel(ItemBase())
+        return LeaseData(native_actor(PlayerBase(vessel)), self.target, vessel)
+
 
 
 def calls(world):
@@ -922,11 +1034,12 @@ class EligibilityTests(BehaviorCase):
         world.player.pos = (10.0, 0.0, 0.0)
         self.assertTrue(self.allowed(world))
 
-    def test_selection_scan_is_bounded_to_32_entries(self):
-        for position, expected in ((0, True), (31, True), (32, False), (60, False)):
-            with self.subTest(position=position):
+    def test_selection_scan_refuses_lists_over_32_entries(self):
+        for size, position, expected in ((32, 0, True), (32, 31, True),
+                                         (33, 0, False), (70, 31, False), (70, 60, False)):
+            with self.subTest(size=size, position=position):
                 world = self.world()
-                names = ["x%d" % i for i in range(70)]
+                names = ["x%d" % i for i in range(size)]
                 names[position] = world.car.comp
                 world.car.selections = names
                 self.assertEqual(expected, self.allowed(world))
@@ -948,6 +1061,7 @@ class EligibilityTests(BehaviorCase):
                 action = world.action()
                 want = (not server) or (gate and on)
                 self.assertEqual(want, action.ActionCondition(world.player, world.target, world.vessel))
+                world.component()  # Native setup acquires the lease before continuation.
                 self.assertEqual(want, action.ActionConditionContinue(world.data))
                 world.car.engine = True
                 self.assertFalse(action.ActionCondition(world.player, world.target, world.vessel))
@@ -971,10 +1085,14 @@ class SetupTests(BehaviorCase):
         world.vessel.coef, world.car.coef = 0.25, 0.5
         self.assertEqual(125.0, world.component().m_AdjustedRate)
 
-    def test_setup_resets_state_of_a_reused_component(self):
+    def test_setup_reuses_component_only_with_fresh_action_data(self):
         world = self.world()
         comp = world.component()
         comp.m_MovedMl, comp.m_PendingMl, comp.m_Stopped, comp.m_Elapsed = 9.0, 9.0, True, 9.0
+        comp.Setup(world.data)
+        self.assertTrue(comp.m_Stopped, "old action data must not reacquire a lease")
+        self.assertFalse(world.data.LockHeld)
+        world.data = LeaseData(world.player, world.target, world.vessel)
         comp.Setup(world.data)
         self.assertEqual((0, 0, False, 0), (comp.m_MovedMl, comp.m_PendingMl, comp.m_Stopped, comp.m_Elapsed))
         self.assertEqual(0, comp.m_AdjustedRate - 500.0)
@@ -1030,6 +1148,8 @@ class ClientPredictionTests(BehaviorCase):
         comp = world.component()
         self.assertEqual(300.0, comp.m_SessionMl)
         comp.Execute(world.data)
+        self.assertEqual(250.0, comp.m_MovedMl)  # Long ticks discard catch-up beyond 0.5 s.
+        comp.Execute(world.data)
         self.assertEqual(300.0, comp.m_MovedMl)
         self.assertEqual(-1.0, comp.GetProgress())
 
@@ -1061,7 +1181,7 @@ class ServerStepTests(BehaviorCase):
                 comp = world.component()
                 before = world.snapshot()
                 results = world.run(comp)
-                self.assertEqual([2, 4], results)
+                self.assertEqual([4], results)  # Admission fails during Setup.
                 self.assertEqual(before, world.snapshot())
                 self.assertEqual((0, 0), calls(world))
                 self.assertTrue(comp.m_Stopped)
@@ -1150,7 +1270,7 @@ class ServerStepTests(BehaviorCase):
         self.assertEqual(4999.0, world.vessel.quantity)
 
     def test_step_never_exceeds_the_remaining_session(self):
-        world = self.world(liters=0.6, delta=10.0)      # 5000 ml of pending, 600 ml session
+        world = self.world(liters=0.6, rate=2000.0, delta=10.0)  # capped 1000 ml step, 600 ml session
         comp = world.component()
         comp.Execute(world.data)
         self.assertEqual([f32(600.0 * f32(0.001))], world.car.leaks)
@@ -1158,27 +1278,27 @@ class ServerStepTests(BehaviorCase):
         self.assertGreaterEqual(world.car.liters, 0)
 
     def test_step_never_exceeds_the_session_even_if_the_tank_or_vessel_grows_mid_session(self):
-        world = self.world(liters=0.5, delta=10.0)       # 500 ml session, 5000 ml of pending
+        world = self.world(liters=0.5, rate=2000.0, delta=10.0)  # 500 ml session, capped 1000 ml step
         comp = world.component()
         world.car.liters = 16.0                          # tank refilled by someone else after Setup
         comp.Execute(world.data)
         self.assertEqual([f32(500.0 * f32(0.001))], world.car.leaks)
         self.assertEqual([499.0], [f[2] for f in world.fills])
-        world = self.world(liters=16.0, quantity=4500.0, maximum=5000, delta=10.0)   # 500 ml session
+        world = self.world(liters=16.0, quantity=4500.0, maximum=5000, rate=2000.0, delta=10.0)  # 500 ml session
         comp = world.component()
         world.vessel.quantity = 0.0                      # vessel emptied elsewhere after Setup
         comp.Execute(world.data)
         self.assertEqual([f32(500.0 * f32(0.001))], world.car.leaks)
 
     def test_remaining_session_shrinks_by_what_was_credited(self):
-        world = self.world(liters=1.0)                   # 1000 ml session
+        world = self.world(liters=0.4)                   # 400 ml session
         comp = world.component()
         comp.Execute(world.data)                         # 250 ml step, 249 ml credited
         self.assertEqual(249.0, comp.m_MovedMl)
         world.car.liters = 16.0                          # tank refilled elsewhere
         world.player.delta = 10.0
         comp.Execute(world.data)
-        self.assertEqual(f32(751.0 * f32(0.001)), world.car.leaks[-1])   # session 1000 - moved 249
+        self.assertEqual(f32(151.0 * f32(0.001)), world.car.leaks[-1])  # session 400 - moved 249
         self.assertEqual(2, len(world.fills))
 
     def test_garbage_tank_readback_stops_the_session_without_mutation(self):
@@ -1352,7 +1472,8 @@ class CancelTests(BehaviorCase):
                 world = self.world()
                 comp = world.component()
                 invalidate(world)
-                self.assertEqual(2, comp.Execute(world.data))
+                expected = 4 if label == "gate" else 2  # Lease/admission checked before timing.
+                self.assertEqual(expected, comp.Execute(world.data))
                 self.assertEqual((0, 0), calls(world))
                 self.assertEqual(4, comp.Execute(world.data))
 

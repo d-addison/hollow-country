@@ -1,4 +1,5 @@
-// #53 explicit diagnostic only, unregistered and disabled by default.
+// HC-3: shared production leases/geometry plus the unregistered #53 probe.
+// The diagnostic remains disabled by default; it shares production leases.
 // Installed 1.30.164289: Car.c:355-372 GetFluidCapacity/GetFluidFraction,
 // void Leak/Fill; Liquid.c:160-169 FillContainer sets type then AddQuantity;
 // CanFillContainer:235-275 checks live mask/fullness/mixing. Native
@@ -11,6 +12,26 @@
 // templates;22 liquid-mask entries ALL CT_STRING expressions, not eligibility.
 // Live casts/masks inspect all families without pilot whitelist or wreck fuel.
 // Script/config ancestry differ. Refill geometry/tools need full runtime audit.
+// Native references relative to ~/.cache/hollow-country/native-scripts/scripts-1.30.164289:
+// 3_Game/Vehicles/Car.c:355,363,366 capacity/fraction/Leak (liters).
+// 3_Game/Vehicles/Car.c:105,230 absolute speed/engine state.
+// 3_Game/Vehicles/Transport.c:462,467,472 fuel selection/reach/refill point.
+// 4_World/Entities/ItemBase.c:825,3439,3485,3490,3887,4126 container/max/quantity/type/open.
+// 4_World/Static/Liquid.c:160,235 FillContainer/CanFillContainer (ml).
+// 3_Game/Global/DayZPhysics.c:199 RaycastRV (view and fire geometry).
+// 4_World/Static/MiscGameplayFunctions.c:778 GetPlayerHeadPosition.
+// 3_Game/Global/Game.c:1120,1535 IsServer/GetTime (milliseconds).
+// 3_Game/Entities/Man.c:21 GetIdentity; 4_World/Entities/ManBase/PlayerBase.c:2219,3925 restrained/unconscious.
+// 3_Game/Entities/Object.c:192,287,517,981 component names/position/alive/destroyed.
+// 4_World/Entities/DayZPlayerImplement.c:468,494 vehicle/delta time.
+
+// Provisional geometry defaults, awaiting the shared vanilla-distance audit.
+// Native fuel reach is still the tighter bound; these never extend it.
+class HCSiphonGeometryDefaults
+{
+    static const float MaxReachMeters = 2.0;
+    static const float ContactToleranceMeters = 0.5;
+}
 
 class HCSiphonDiagnosticData : ActionData
 {
@@ -21,6 +42,9 @@ class HCSiphonDiagnosticData : ActionData
     bool TransferAttempted;
     bool TrustedDiagnosticActor;
     int StartedMs;
+    PlayerBase LeasePlayer;
+    bool ProductionStarted;
+    bool ProductionClosed;
     float ObservedDonorLiters;
     float ObservedVesselMl;
     float PlannedMl;
@@ -103,6 +127,12 @@ class HCSiphonDiagnosticLocks
         }
         m_Sessions.Clear();
     }
+
+    int ActiveCount(int nowMs)
+    {
+        Purge(nowMs);
+        return m_Sessions.Count();
+    }
 }
 
 class HCActionSiphonFuelCB : ActionContinuousBaseCB
@@ -121,6 +151,85 @@ class HCActionSiphonFuel : ActionContinuousBase
     protected static float s_MaxStepSeconds;
     protected static float s_CapMl;
     protected static ref HCSiphonDiagnosticLocks s_Locks = new HCSiphonDiagnosticLocks;
+
+    // Lead calls once after crafting validation, and ProductionStop on stop.
+    // supported=0 means no native-qualified family/vessel pair yet, not a census.
+    static void ProductionStart(bool preference)
+    {
+        if (!GetGame() || !GetGame().IsServer())
+            return;
+        s_Locks.Clear();
+        bool admitted = preference && HCFuelSiphonQualification.Admitted();
+        Print(HCV2Admission.Line("FuelSiphon", HCV2Admission.Admitted(admitted), "fuel_siphon", false));
+        PrintFormat("[HC Plan] HC-3 siphon supported=0 leases=%1 qualified=false state=%2 runtime=PENDING scope=live_CarScript boats/wrecks=unsupported", s_Locks.ActiveCount(GetGame().GetTime()), HCV2Admission.OnOff(admitted));
+    }
+
+    static void ProductionStop()
+    {
+        s_Locks.Clear();
+    }
+
+    static bool ProductionBegin(ActionData action_data)
+    {
+        HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
+        if (!data || data.ProductionStarted || data.ProductionClosed)
+            return false;
+        data.ProductionStarted = true;
+        if (!HCFuelSiphon.ServerEnabled() || !HCFuelSiphon.Allowed(data.m_Player, data.m_Target, data.m_MainItem))
+            return false;
+        data.Donor = CarScript.Cast(data.m_Target.GetObject());
+        data.Vessel = data.m_MainItem;
+        data.LeasePlayer = data.m_Player;
+        return s_Locks.Acquire(data, GetGame().GetTime());
+    }
+
+    static bool ProductionOwns(ActionData action_data)
+    {
+        HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
+        if (!data || !data.ProductionStarted || data.ProductionClosed || data.LeasePlayer != data.m_Player)
+            return false;
+        if (!data.m_Target || data.m_Target.GetObject() != data.Donor || data.m_MainItem != data.Vessel)
+            return false;
+        int nowMs = GetGame().GetTime();
+        if (!s_Locks.Owns(data, nowMs))
+            return false;
+        // Heartbeat only a still-owned lease; an expired lease cannot revive.
+        data.StartedMs = nowMs;
+        return true;
+    }
+
+    static void ProductionEnd(ActionData action_data)
+    {
+        HCSiphonDiagnosticData data = HCSiphonDiagnosticData.Cast(action_data);
+        if (data)
+            data.ProductionClosed = true;
+        s_Locks.Release(data);
+    }
+
+    // Also used AFTER debit: an emptied donor may still credit its observed loss.
+    // No trusted-actor bypass on the production path.
+    static bool ProductionRecipientReady(PlayerBase player, ActionTarget target, ItemBase vessel)
+    {
+        if (!player || !player.IsAlive() || player.IsUnconscious() || player.IsRestrained() || player.IsInVehicle() || !player.GetIdentity())
+            return false;
+        if (!target || target.GetParent() || target.GetComponentIndex() < 0 || !vessel || player.GetItemInHands() != vessel)
+            return false;
+        CarScript donor = CarScript.Cast(target.GetObject());
+        if (!donor || donor.IsDamageDestroyed() || donor.EngineIsOn() || donor.IsMoving())
+            return false;
+        float speed = donor.GetSpeedometerAbsolute();
+        if (!HCFuelTransferPolicy.FiniteNonNegative(speed) || speed != 0)
+            return false;
+        if (vessel.IsDamageDestroyed() || !vessel.IsOpen() || !vessel.HasQuantity() || !vessel.IsLiquidContainer())
+            return false;
+        float quantity = vessel.GetQuantity();
+        float maximum = vessel.GetQuantityMax();
+        if (!HCFuelTransferPolicy.SiphonVesselValid(quantity, maximum))
+            return false;
+        if ((quantity > 0 && vessel.GetLiquidType() != LIQUID_GASOLINE) || !Liquid.CanFillContainer(vessel, LIQUID_GASOLINE))
+            return false;
+        return ReachAndVisible(player, donor, target);
+    }
 
     void HCActionSiphonFuel()
     {
@@ -185,7 +294,10 @@ class HCActionSiphonFuel : ActionContinuousBase
             return true;
         if (hits.Count() != 1 || hits[0] != donor || !FiniteVector(contact))
             return false;
-        return vector.DistanceSq(contact, endpoint) <= 0.25;
+        float tolerance = HCSiphonGeometryDefaults.ContactToleranceMeters;
+        if (!HCFuelTransferPolicy.FiniteNonNegative(tolerance))
+            return false;
+        return vector.DistanceSq(contact, endpoint) <= tolerance * tolerance;
     }
 
     protected static bool ReachAndVisible(PlayerBase player, CarScript donor, ActionTarget target)
@@ -195,9 +307,12 @@ class HCActionSiphonFuel : ActionContinuousBase
         float reach = donor.GetActionDistanceFuel();
         if (!FiniteVector(endpoint) || !FiniteVector(origin) || !HCFuelTransferPolicy.FiniteNonNegative(reach) || reach <= 0)
             return false;
-        if (reach > 2.0)
-            reach = 2.0;
-        if (!(vector.DistanceSq(player.GetPosition(), endpoint) <= reach * reach && vector.DistanceSq(origin, endpoint) <= 4.0))
+        float maxReach = HCSiphonGeometryDefaults.MaxReachMeters;
+        if (!HCFuelTransferPolicy.FiniteNonNegative(maxReach) || maxReach <= 0)
+            return false;
+        if (reach > maxReach)
+            reach = maxReach;
+        if (!(vector.DistanceSq(player.GetPosition(), endpoint) <= reach * reach && vector.DistanceSq(origin, endpoint) <= maxReach * maxReach))
             return false;
         return ClearRay(player, donor, origin, endpoint, ObjIntersectView) && ClearRay(player, donor, origin, endpoint, ObjIntersectFire);
     }
