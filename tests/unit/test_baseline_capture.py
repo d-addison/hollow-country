@@ -105,6 +105,9 @@ class Fixture(unittest.TestCase):
         args.update(overrides)
         return bc.build_capture(**args)
 
+    def capture_with_sampler(self, rows):
+        return self.capture(sampler_csv=self.write('rows.csv', sampler_csv(rows)))
+
 
 class TimestampTests(unittest.TestCase):
     def test_milliseconds_are_an_integer_not_a_fraction(self):
@@ -225,6 +228,19 @@ class SamplerTests(Fixture):
                 sample_row(30, last_write='2026-03-05T02:10:25.000Z')]
         summary = bc.read_sampler(self.write('s.csv', sampler_csv(rows)))
         self.assertEqual(summary['storage_write_events'], 2)
+
+    def test_too_few_last_write_observations_are_unmeasured_not_zero(self):
+        # Review P2 (#113): one or no last-write stamp cannot show that storage was idle.
+        for rows in ([sample_row(0)], [sample_row(0, last_write=''), sample_row(10, last_write='')],
+                     [sample_row(0), sample_row(10, last_write='')]):
+            with self.subTest(rows=len(rows)):
+                summary = bc.read_sampler(self.write('s.csv', sampler_csv(rows)))
+                self.assertIsNone(summary['storage_write_events'])
+
+    def test_summary_reports_unmeasured_write_events_as_n_a(self):
+        capture = self.capture_with_sampler([sample_row(0, last_write=''), sample_row(30, last_write='')])
+        text = bc.render_text(capture, self.dir / 'baseline.csv')
+        self.assertIn('n/a last-write changes', text)
 
     def test_dead_process_rows_do_not_feed_the_peak(self):
         rows = [sample_row(0, working_set=1000), sample_row(10, working_set=9999, alive=0)]
@@ -513,6 +529,15 @@ class PowerShellSamplerTests(unittest.TestCase):
                      'Start-Process', 'Move-Item', 'Rename-Item', 'New-Item', 'Copy-Item', 'Clear-Content',
                      'Invoke-WebRequest', 'Invoke-RestMethod', 'Add-Type'):
             self.assertNotIn(verb, self.code)
+
+    def test_storage_enumeration_errors_invalidate_the_storage_sample(self):
+        # Review P2 (#113): unreadable storage must not look empty or partially measured.
+        self.assertIn('-ErrorVariable', self.code)
+        self.assertRegex(self.code, r'(?s)ErrorVariable\s+\+?enumErrors.*if \(\$enumErrors\.Count -gt 0\)')
+
+    def test_process_loss_during_inspection_is_caught_and_stops_cleanly(self):
+        # Review P2 (#113): the process may exit between Get-Process and the property reads.
+        self.assertRegex(self.code, r'(?s)try \{\s*\$process\.Refresh\(\).*\} catch \{')
 
     def test_refuses_to_overwrite_and_does_not_record_paths(self):
         self.assertIn('Test-Path', self.code)

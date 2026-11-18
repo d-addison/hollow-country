@@ -334,7 +334,9 @@ def read_sampler(path):
         "storage_first_bytes": storage[0][1] if storage else None,
         "storage_last_bytes": storage[-1][1] if storage else None,
         "storage_write_slope_bytes_per_min": _slope_per_minute(storage),
-        "storage_write_events": sum(1 for before, after in zip(stamps, stamps[1:]) if after != before),
+        # Fewer than two last-write stamps cannot show idle storage, so the count is unmeasured (None), not 0.
+        "storage_write_events": (sum(1 for before, after in zip(stamps, stamps[1:]) if after != before)
+                                 if len(stamps) >= 2 else None),
     }
 
 
@@ -552,9 +554,9 @@ def render_text(capture, out_csv):
         "  malformed [HC Perf] lines: %d" % perf["malformed_lines"],
         "peak_working_set_mib: %s (private peak %s MiB)"
         % (row["peak_ram_mb"], round(sampler["peak_private_bytes"] / BYTES_PER_MIB, 3)),
-        "storage_write_slope_bytes_per_min: %s (net growth over %s s, %d samples, %d last-write changes)"
+        "storage_write_slope_bytes_per_min: %s (net growth over %s s, %d samples, %s last-write changes)"
         % ("n/a" if slope is None else round(slope, 3), round(sampler["span_seconds"], 1), sampler["samples"],
-           sampler["storage_write_events"]),
+           "n/a" if sampler["storage_write_events"] is None else sampler["storage_write_events"]),
     ]
     if capture["unmeasured"]:
         flags = " ".join("--" + name.replace("_", "-") for name in capture["unmeasured"])

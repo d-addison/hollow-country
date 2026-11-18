@@ -44,11 +44,18 @@ try {
         $privateBytes = ''
         $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
         if ($null -ne $process) {
-            $process.Refresh()
-            if (-not $process.HasExited) {
-                $alive = 1
-                $workingSet = [string]$process.WorkingSet64
-                $privateBytes = [string]$process.PrivateMemorySize64
+            # The process can exit between Get-Process and the property reads; record it as lost and stop.
+            try {
+                $process.Refresh()
+                if (-not $process.HasExited) {
+                    $workingSet = [string]$process.WorkingSet64
+                    $privateBytes = [string]$process.PrivateMemorySize64
+                    $alive = 1
+                }
+            } catch {
+                $alive = 0
+                $workingSet = ''
+                $privateBytes = ''
             }
         }
         $bytes = ''
@@ -58,14 +65,23 @@ try {
             $total = [long]0
             $count = [long]0
             $newest = [datetime]::MinValue
-            foreach ($item in (Get-ChildItem -LiteralPath $StoragePath -Recurse -File -Force -ErrorAction SilentlyContinue)) {
+            $enumErrors = @()
+            $items = @(Get-ChildItem -LiteralPath $StoragePath -Recurse -File -Force -ErrorAction SilentlyContinue -ErrorVariable enumErrors)
+            foreach ($item in $items) {
                 $total += $item.Length
                 $count += 1
                 if ($item.LastWriteTimeUtc -gt $newest) { $newest = $item.LastWriteTimeUtc }
             }
-            $bytes = [string]$total
-            $files = [string]$count
-            if ($count -gt 0) { $lastWrite = $newest.ToString($stamp, $culture) }
+            # Any enumeration error leaves this storage sample unmeasured instead of empty or partial.
+            if ($enumErrors.Count -gt 0) {
+                $bytes = ''
+                $files = ''
+                $lastWrite = ''
+            } else {
+                $bytes = [string]$total
+                $files = [string]$count
+                if ($count -gt 0) { $lastWrite = $newest.ToString($stamp, $culture) }
+            }
         }
         $writer.WriteLine(($now, [string]$alive, $workingSet, $privateBytes, $bytes, $files, $lastWrite) -join ',')
         $writer.Flush()
