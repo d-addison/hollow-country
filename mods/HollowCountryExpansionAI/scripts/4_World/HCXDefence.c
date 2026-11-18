@@ -1,7 +1,7 @@
 // HCX AI self-defence and near-miss response (owner bug 2026-11-18: AI "didn't
 // seem to mind being punched, shot, or killed").
-// Expansion sources read from the installed Workshop item 2792982069
-// (addons/ai_scripts.pbo, paths below relative to its scripts root) and 2291785308
+// Expansion sources read from the installed Expansion-AI Workshop item
+// (addons/ai_scripts.pbo, paths below relative to its scripts root) and Expansion-Core
 // (addons/core_scripts.pbo, marked CORE). Read-only; nothing is copied.
 // Cause: every HCXFaction is a guard faction, so Expansion only lets it fight a
 // player who raises a weapon at it (4_World/DayZExpansion_AI/Classes/Targets/
