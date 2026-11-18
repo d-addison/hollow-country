@@ -211,7 +211,7 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.mod=N(m_Profile=None,m_Hooks=None,m_Accepting=False,m_Starting=False,m_Status="uninitialized",
                    m_Leases=A(),m_PrunedIds=A(),m_PrunedCapLogged=False,m_ReservedActors=0,m_ReservedItems=0,m_ReservedGroups=0,
                    m_Cursor=0,m_LastNow=-1,m_Build="1.30.164289",
-                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None)
+                   m_LastReceiptSequence=0,m_LastReceiptAt=-1,m_ReadinessLogged=False,m_Sites=None,m_Encounters=None)
         for name in re.findall(r"(?:override )?\b\w+ (\w+)\([^)]*\)\s*\{",self.runtime_source):
             setattr(self.mod,name,lambda *a,n=name:self.engine.call(n,self.mod,*a))
 
@@ -692,31 +692,59 @@ class ExpansionAdapterTests(unittest.TestCase):
         self.assertIn("invalid or missing operator policy", self.mod.m_Status)
         self.assertIn("SurveySha256", self.mod.m_Status)
 
-    def test_start_installs_port_before_bind_and_logs_readiness_once_settings_load(self):
+    def encounters_stub(self):
+        self.encounter_state = N(settled=False, armed=False, ready=False, worlds=[])
+        st = self.encounter_state
+        def ready(world):
+            st.worlds.append(world)
+            return st.ready
+        stub = N(Open=lambda: self.calls.append(("encounters", "open")),
+                 Step=lambda: self.calls.append(("encounters", "step")),
+                 Close=lambda: self.calls.append(("encounters", "close")),
+                 Settled=lambda: st.settled, Armed=lambda: st.armed, Ready=ready,
+                 State=lambda: "armed" if st.armed else "waiting for sites",
+                 QualifiedCount=lambda: 3 if st.armed else 0)
+        self.env["HCXAIEncounters"] = lambda: stub
+        self.env["HCXAISiteDirector"] = lambda: N(Start=lambda: self.calls.append(("sites", "start")),
+                                                  Step=lambda: self.calls.append(("sites", "step")),
+                                                  Stop=lambda: self.calls.append(("sites", "stop")),
+                                                  Phase=lambda: "run" if st.armed else "wait")
+        return stub
+
+    def test_start_arms_encounters_without_profile_or_receipt_and_logs_readiness_when_settled(self):
         svc = self.service()
-        self.env["HCXAIStore"].Load = lambda: None
+        self.encounters_stub()
+        self.env["HCXAIStore"].Load = lambda: self.fail("the retired lease profile must not be read")
         self.env["HCEventAISelection"] = N(Create=lambda: None)
-        self.ai_settings_loaded = False
+        self.game.GetWorldName = lambda: "ChernarusPlus"
         self.mod.OnStart(None)
-        self.assertIn(("sites", "start"), self.calls)  # sites admit themselves, independent of the lease profile
-        self.assertEqual("local", svc.Hooks().kind)  # Bind first would have refused the port.
+        self.assertEqual([("sites", "start"), ("encounters", "open")],
+                         [c for c in self.calls if c[0] in ("sites", "encounters")])
+        self.assertIsNone(svc.Hooks())  # The local receipt port is no longer installed.
         self.assertIs(self.mod, svc.Adapter())
         lines = self.diagnostics()
-        self.assertTrue(any("trusted hook port" in l and "installed once" in l for l in lines), lines)
         ready = [l for l in lines if "readiness" in l]
         self.assertEqual(1, len(ready), lines)
-        for part in ("ready=false", "expansion_ai_settings=not loaded", "operator policy", "artifactbytesverified"):
+        for part in ("ai_encounter ready=false", "encounters=waiting for sites", "sites=wait",
+                     "expansion-ai.json and receipt verifiers retired"):
             self.assertIn(part, ready[0].lower())
+        self.assertNotIn("receipt_unverified", ready[0])
         self.calls.clear()
         self.mod.OnTick(1.)
+        self.assertEqual([("sites", "step"), ("encounters", "step")],
+                         [c for c in self.calls if c[0] in ("sites", "encounters")])
         self.assertEqual([], self.diagnostics())
-        self.assertIn(("sites", "step"), self.calls)  # stepped even without a lease profile
-        self.ai_settings_loaded = True
+        self.encounter_state.settled = True
+        self.encounter_state.armed = True
+        self.encounter_state.ready = True
         self.mod.OnTick(1.); self.mod.OnTick(1.)
         ready = [l for l in self.diagnostics() if "readiness" in l]
         self.assertEqual(1, len(ready), self.calls)
-        self.assertIn("expansion_ai_settings=loaded", ready[0])
-        self.assertIn("ready=false", ready[0].lower())
+        for part in ("ai_encounter ready=true", "encounters=armed", "sites=run", "qualified_patrols=3"):
+            self.assertIn(part, ready[0].lower())
+        self.assertEqual("ChernarusPlus", self.encounter_state.worlds[-1])
+        self.mod.OnStop()
+        self.assertIn(("encounters", "close"), self.calls)
         self.assertEqual([], self.created)
 
     def test_both_global_reload_masks_refuse_admission(self):

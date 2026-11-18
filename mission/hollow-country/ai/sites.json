@@ -171,6 +171,101 @@
       ]
     },
     {
+      "Id": "police-komarovo",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          3588.9,
+          7.2,
+          2191.5
+        ],
+        [
+          3640.0,
+          7.5,
+          2330.0
+        ],
+        [
+          3653.5,
+          7.7,
+          2454.4
+        ],
+        [
+          3640.0,
+          9.5,
+          2535.5
+        ],
+        [
+          3569.6,
+          11.0,
+          2530.3
+        ],
+        [
+          3556.1,
+          8.0,
+          2427.0
+        ]
+      ]
+    },
+    {
+      "Id": "police-novaya-petrovka",
+      "Kind": "patrol",
+      "Faction": "Guards",
+      "Loadout": "HollowCountry_Patrol",
+      "NumberOfAI": 2,
+      "NumberOfAIMax": 3,
+      "Behaviour": "LOOP",
+      "Speed": "WALK",
+      "ActivationRadius": 650.0,
+      "DespawnSeconds": 600,
+      "RespawnSeconds": 2700,
+      "Waypoints": [
+        [
+          3689.6,
+          190.5,
+          13081.1
+        ],
+        [
+          3598.2,
+          193.2,
+          13113.8
+        ],
+        [
+          3510.3,
+          192.7,
+          13039.8
+        ],
+        [
+          3428.5,
+          195.0,
+          13070.6
+        ],
+        [
+          3339.4,
+          199.0,
+          13084.9
+        ],
+        [
+          3366.1,
+          198.0,
+          12965.8
+        ],
+        [
+          3435.6,
+          196.0,
+          12897.4
+        ]
+      ]
+    },
+    {
       "Id": "mil-nwaf",
       "Kind": "patrol",
       "Faction": "East",

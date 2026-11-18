@@ -1468,9 +1468,8 @@ def expansion_lines(ai, profiles, mission, markers=None, markers_mode='all', app
         out.append('     %s opt-in marker: already present' % AI_MARKER)
     else:
         out.append('     %s opt-in marker: %s' % (AI_MARKER, 'created' if applied else 'will be created'))
-    out.append('     Lease policy: %s/%s (HC event leases) is written as a template on first start and is not' %
-               (profiles, AI_POLICY_TARGET))
-    out.append('       generated here; the shipped sites above do not depend on it.')
+    out.append('     Event AI: AI_ENCOUNTER binds the qualified site patrols above; the old lease policy')
+    out.append('       %s/%s is retired and not read; nothing here writes it.' % (profiles, AI_POLICY_TARGET))
     return out
 
 

@@ -1517,6 +1517,9 @@ class OptionalSteps(SessionCase):
                      self.ai_settings):
             self.assertIn(str(path), out)
         self.assertEqual(before, self.tree(self.world))  # a plan writes nothing
+        # The addon retired the expansion-ai.json lease policy: AI_ENCOUNTER binds the site patrols.
+        self.assertIn('expansion-ai.json is retired and not read', out)
+        self.assertNotIn('written as a template on first start', out)
         code, out, err = self.run_cli(self.ai_args('apply'))
         self.assertEqual(code, 0, err)
         self.assertEqual(sites.read_bytes(), (ai / 'sites.json').read_bytes())

@@ -141,6 +141,12 @@ SITE_SPEC = {
              Around=['Land_'], Radius=120),
         dict(Id='police-zelenogorsk', Faction='Guards', Anchor=['Land_City_PoliceStation'], Near=[2730, 5374],
              Around=['Land_'], Radius=120),
+        # Village stations that anchor the two reviewed event sites (HCEventSites.c). The shipped
+        # routes were re-authored from stock road points so the first point is beyond MinPlayerDistance.
+        dict(Id='police-komarovo', Faction='Guards', Anchor=['Land_Village_PoliceStation'], Near=[3570, 2431],
+             Around=['Land_'], Radius=120),
+        dict(Id='police-novaya-petrovka', Faction='Guards', Anchor=['Land_Village_PoliceStation'], Near=[3421, 13020],
+             Around=['Land_'], Radius=120),
         dict(Id='mil-nwaf', Faction='East', Anchor=['Land_Mil_Barracks1'], Near=[4759, 10624],
              Around=['Land_Mil_'], Radius=250),
         dict(Id='mil-tisy', Faction='East', Anchor=['Land_Mil_Barracks1'], Near=[1665, 14313],

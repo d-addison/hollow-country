@@ -223,6 +223,42 @@ class HCXAISiteRules
         if (openRoute) { return "ONCE"; }
         return authored;
     }
+    // A snapped or reached leg end is a new patrol point only when it lies more
+    // than 0.5 m from the last kept point; a stall that never left that point
+    // is a skip, not a duplicate waypoint.
+    static bool SnapKeeps(vector lastKept, vector legEnd)
+    {
+        return vector.Distance(lastKept, legEnd) > 0.5;
+    }
+    // AI_ENCOUNTER: shortest distance from the event anchor to the patrol's
+    // qualified points; 100000 when the route has none.
+    static float RouteGap(array<vector> points, vector anchor)
+    {
+        float best = 100000;
+        foreach (vector point : points)
+        {
+            float gap = vector.Distance(point, anchor);
+            if (gap < best) { best = gap; }
+        }
+        return best;
+    }
+    // A player at the anchor must be inside the patrol's own ActivationRadius
+    // of its route; the bound is the site's, never widened for the event.
+    static string EncounterProblem(bool qualified, bool patrolled, bool bound, float gap, float activationRadius)
+    {
+        if (!qualified) { return "route not qualified"; }
+        if (!patrolled) { return "no native patrol"; }
+        if (bound) { return "site already bound to an open encounter"; }
+        if (activationRadius <= 0 || gap > activationRadius) { return "route outside ActivationRadius"; }
+        return "";
+    }
+    // Per-process encounter session: the ownership session (previous + 1,
+    // persisted by orphan reconciliation) and the process start timestamp.
+    static string EncounterToken(int ownedSession, int timestamp)
+    {
+        if (ownedSession < 1 || timestamp < 1) { return ""; }
+        return "xai-" + ownedSession.ToString() + "-" + timestamp.ToString();
+    }
     // The journal has no generated geometry or effective behaviour. Rebuild
     // every success, including holdouts, so snaps/skips survive no shortcut.
     static bool ReuseQualifiedRoute(string kind)

@@ -134,6 +134,26 @@ PGPolyFlags, :65 PGFilter.SetFlags, :98 FindPath, :122 SampleNavmeshPosition;
 The outdoor flag set matches HCEventPoliceNav (HCEventRewardCache.c:27-40), with
 DOOR added. PGPolyFlags bit values, the 2 m ground tolerance and the radii are
 unobserved in DayZ.
+
+Round 4 (#36 AI_ENCOUNTER, route P2s): AI_ENCOUNTER binds an already-owned
+qualified site patrol (HCXAIEncounters.c, tests in test_expansion_ai_encounters).
+Snap merges within 0.5 m of the last kept point are skipped (SnapKeeps on the
+current pathEnd), Create allocates one spawn config, and once orphan reconciliation
+passes, prior-process journal rows become prunable.
+RED command (old sources, new tests):
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_expansion_ai_sites tests.unit.test_expansion_ai_adapter tests.unit.test_expansion_ai_lifecycle tests.unit.test_expansion_ai_encounters -v
+Ran 167 tests; FAILED (failures=5, errors=32): missing SnapKeeps/RouteGap/
+EncounterProblem/EncounterToken, the duplicated snap point [A, A, ...] in the glue
+test, Reconcile(True) TypeError, FileNotFoundError HCXAIEncounters.c, and the adapter
+still installing the receipt port and reading expansion-ai.json.
+GREEN: the same command gave Ran 167 tests, OK.
+Round 4 API evidence (read-only reference, nothing copied):
+core_scripts/3_Game/DayZExpansion_Core/ExpansionStatic.c:1748 GetTimestamp(bool useUTC);
+ai_scripts/4_World/DayZExpansion_AI/Classes/Patrols/eAIDynamicPatrol.c:45 public
+eAIGroup m_Group (set :618, cleared :715); Entities/DayZPlayerImplement.c:234
+GetGroup() and :431-438, where EEKilled defers eAI_Cleanup to the next frame;
+native 3_Game/Global/Game.c:934 GetWorldName. Kill attribution through the group
+has not been observed in DayZ.
 """
 import json
 import math
@@ -338,6 +358,37 @@ class SiteRulesTests(unittest.TestCase):
             self.assertEqual(action(kind, 1, 1, 3., 0., 1., 10.), 'no path')
             self.assertEqual(action(kind, 1, 2, 3., 0., 81., 10.), 'detour too long')
 
+    def test_snap_keeps_a_point_only_beyond_half_a_metre_of_the_last_kept_point(self):
+        keeps = self.rules.SnapKeeps
+        last = (100., 0., 100.)
+        self.assertFalse(keeps(last, last))
+        self.assertFalse(keeps(last, (100.4, 0., 100.)))
+        self.assertFalse(keeps(last, (100.5, 0., 100.)))
+        self.assertTrue(keeps(last, (100.6, 0., 100.)))
+        self.assertTrue(keeps(last, (100., 0.6, 100.)))
+
+    def test_route_gap_is_the_nearest_qualified_patrol_point_to_the_anchor(self):
+        gap = self.rules.RouteGap
+        self.assertEqual(100000, gap(A(), (0., 0., 0.)))
+        self.assertAlmostEqual(5., gap(A([(30., 0., 0.), (3., 0., 4.)]), (0., 0., 0.)))
+
+    def test_encounter_binds_only_a_qualified_owned_unbound_patrol_inside_its_activation_radius(self):
+        problem = self.rules.EncounterProblem
+        self.assertEqual('', problem(True, True, False, 650., 650.))
+        self.assertIn('qualified', problem(False, True, False, 1., 650.))
+        self.assertIn('patrol', problem(True, False, False, 1., 650.))
+        self.assertIn('bound', problem(True, True, True, 1., 650.))
+        self.assertIn('ActivationRadius', problem(True, True, False, 650.01, 650.))
+        self.assertIn('ActivationRadius', problem(True, True, False, 0., 0.))
+
+    def test_encounter_session_token_is_per_process_and_refuses_unreconciled_sessions(self):
+        token = self.rules.EncounterToken
+        self.assertEqual('xai-7-1763400000', token(7, 1763400000))
+        self.assertNotEqual(token(7, 1763400000), token(8, 1763400000))
+        self.assertNotEqual(token(7, 1763400000), token(7, 1763400001))
+        self.assertEqual('', token(0, 1763400000))
+        self.assertEqual('', token(7, 0))
+
     def test_chain_detour_budget_is_for_the_entire_original_leg(self):
         # Explicit synthetic lengths: individual calls fit; their sum must fit too.
         action = self.rules.ChainAction
@@ -536,6 +587,41 @@ class SiteChainGlueTests(unittest.TestCase):
     def test_observed_holdout_mogilevka_near_miss_snaps_target_one(self):
         self.observed('holdout-mogilevka', 0, (7556.67, 214.573, 5148.83),
                       (7559.6, 214., 5142.52), (7562.5, 215., 5143.2), snap=True)
+
+    def test_snap_that_never_left_the_last_kept_point_is_skipped_not_duplicated(self):
+        # SYNTHETIC: the next waypoint is 3 m away and FindPath stalls on the
+        # last kept point, so the near miss is that same point.
+        a, b, c, d = (100., 0., 100.), (103., 0., 100.), (160., 0., 100.), (220., 0., 100.)
+        self.state.Sampled = A([a, b, c, d])
+        self.state.Points = A([a, b, c, d])
+        self.state.PatrolPoints = A([a])
+        self.path_fake = lambda origin, goal: (True, [origin, origin]) if goal == b else (True, [origin, goal])
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual([a, c, d], list(self.state.PatrolPoints))
+        self.assertEqual((1, 0, 3), (self.state.Skipped, self.state.Snapped, self.state.Kept))
+        self.assertIn(' 1|', self.state.SkippedPoints)
+
+    def test_snap_keeps_the_current_path_end_not_an_earlier_closer_attempt(self):
+        # SYNTHETIC: a continuation step, then a near miss. The kept point is the
+        # end of the path that qualified the snap, after the committed step.
+        a, c, d = (100., 0., 100.), (160., 0., 100.), (220., 0., 100.)
+        step = (130., 0., 100.)
+        near = (157., 0., 100.)
+        self.state.Sampled = A([a, c, d])
+        self.state.Points = A([a, c, d])
+        self.state.PatrolPoints = A([a])
+        def fake(origin, goal):
+            if goal == c and origin == a:
+                return True, [origin, step]
+            if goal == c:
+                return True, [origin, near]
+            return True, [origin, goal]
+        self.path_fake = fake
+        self.finish()
+        self.assertTrue(self.state.Qualified, self.state.Reason)
+        self.assertEqual([a, step, near, d], list(self.state.PatrolPoints))
+        self.assertEqual(1, self.state.Snapped)
 
     def isolated_navmesh(self, site_id, legacy, islands, closest, outdoor):
         """Round 3 fixture: explicit SYNTHETIC navmesh, not DayZ evidence.
@@ -1062,7 +1148,7 @@ class SiteSourceTests(unittest.TestCase):
     """Static guards on the native glue; behavior is pending native observation."""
     def setUp(self):
         self.sites = (SCRIPTS / 'HCXAISites.c').read_text()
-        self.all = '\n'.join(p.read_text() for p in sorted(SCRIPTS.glob('HCXAISite*.c')))
+        self.all = '\n'.join(p.read_text() for p in sorted(SCRIPTS.glob('HCXAISite*.c')) + [SCRIPTS / 'HCXAIEncounters.c'])
 
     def code(self, text):
         text = re.sub(r'"(?:[^"\\]|\\.)*"', '""', text)
@@ -1182,9 +1268,21 @@ class SiteSourceTests(unittest.TestCase):
         for field in ('Speed', 'UnderThreatSpeed', 'Behaviour', 'Faction', 'Loadout'):
             self.assertIn('config.' + field + ' = ', create)
 
+    def test_create_builds_exactly_one_spawn_config(self):
+        code = self.code(self.sites)
+        found = re.search(r'protected void Create\(HCXAISiteState state\)\s*\{', code)
+        create = block(code, found.end())
+        self.assertNotIn('new ExpansionAIDynamicSpawnBase(', create)
+        self.assertEqual(1, create.count(' = new HCXAISiteSpawnConfig()'))
+
+    def test_director_exposes_states_and_owned_session_read_only_for_encounters(self):
+        code = self.code(self.sites)
+        self.assertIn('array<ref HCXAISiteState> States() { return m_States; }', code)
+        self.assertIn('int OwnedSession()', code)
+
     def test_no_function_redeclares_a_local_even_in_sibling_blocks(self):
         found = []
-        for filename in ('HCXAISites.c', 'HCXAISiteRules.c'):
+        for filename in ('HCXAISites.c', 'HCXAISiteRules.c', 'HCXAIEncounters.c', 'HCXAIJournal.c'):
             source = self.code((SCRIPTS / filename).read_text())
             for match in re.finditer(r'\n    (?:[\w<>, ]+\s+)?(\w+)\s*\(([^()]*)\)\s*\n    \{', source):
                 names = [p.split('=')[0].split()[-1] for p in match[2].split(',') if p.strip()]

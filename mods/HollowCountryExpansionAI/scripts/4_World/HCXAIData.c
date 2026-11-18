@@ -107,6 +107,21 @@ class HCXAILease
     ref array<ref HCXAIActorSlot> Slots = new array<ref HCXAIActorSlot>();
     ref array<ref HCXAIKill> Kills = new array<ref HCXAIKill>();
 }
+// One AI_ENCOUNTER bound to an HC site patrol (in memory only; the journal
+// keeps the intent row). It owns no actors: the patrol stays the director's.
+class HCXAIEncounter
+{
+    string Id;
+    string Session;
+    string MissionId;
+    string SiteId;
+    float Gap = 0;
+    string ReceiptToken;
+    string ReceiptParticipant;
+    bool Released = false;
+    bool Ended = false;
+    ref array<ref HCXAIKill> Kills = new array<ref HCXAIKill>();
+}
 // Metadata only: never serialize native actors, groups or inventories.
 class HCXAIJournalRow
 {

@@ -1,20 +1,23 @@
 // An unresolved intent consumes its id even after uncertain IO. No replay or factory.
 // WorldSession must identify a fresh server process, supplied by trusted hooks.
 // HC groups never persist; closed prior-process intents are tombstones, not kills.
+// Once the site director has removed every orphan "HC:" actor of earlier
+// processes (orphansReconciled), those tombstones own nothing and are prunable,
+// so a 64-row journal recycles instead of refusing every new lease.
 class HCXAIJournal
 {
     protected ref HCXAIJournalData m_Data;
     protected string m_Session;
     protected int m_Limit;
 
-    static HCXAIJournal Open(string worldSession, int limit)
+    static HCXAIJournal Open(string worldSession, int limit, bool orphansReconciled = false)
     {
         if (!GetGame() || !GetGame().IsServer() || !HCXAIRules.Token(worldSession) || limit < 1 || limit > 64) { return null; }
         HCXAIJournal journal = new HCXAIJournal();
         journal.m_Session = worldSession;
         journal.m_Limit = limit;
         journal.m_Data = HCXAIStore.LoadJournal();
-        if (!journal.Reconcile())
+        if (!journal.Reconcile(orphansReconciled))
         {
             Print("[HC Expansion AI] lease journal unresolved; admission refused (no AI restoration)");
             return null;
@@ -38,13 +41,14 @@ class HCXAIJournal
         }
         return true;
     }
-    bool Reconcile()
+    bool Reconcile(bool orphansReconciled = false)
     {
         if (!this.Valid()) { return false; }
         foreach (HCXAIJournalRow row : m_Data.Rows)
         {
             if (!row.Closed && row.WorldSession == m_Session) { return false; }
         }
+        int released = 0;
         foreach (HCXAIJournalRow oldRow : m_Data.Rows)
         {
             if (!oldRow.Closed)
@@ -53,7 +57,13 @@ class HCXAIJournal
                 oldRow.Prunable = false;
                 Print("[HC Expansion AI] retired prior-process nonpersistent lease intent; no actors/items restored");
             }
+            if (orphansReconciled && oldRow.WorldSession != m_Session && !oldRow.Prunable)
+            {
+                oldRow.Prunable = true;
+                released++;
+            }
         }
+        if (released > 0) { Print("[HC Expansion AI] lease journal: " + released.ToString() + " prior-process rows prunable after orphan reconciliation"); }
         return HCXAIStore.SaveJournal(m_Data);
     }
     // Admission preflight may shrink clean history, but never inserts an intent.

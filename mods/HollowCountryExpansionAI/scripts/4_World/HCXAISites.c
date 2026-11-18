@@ -180,6 +180,14 @@ class HCXAISiteDirector : Managed
 
     static HCXAISiteDirector Active() { return s_Active; }
     string Phase() { return m_Phase; }
+    // Read by HCXAIEncounters only; encounters never add, remove or move states.
+    array<ref HCXAISiteState> States() { return m_States; }
+    // This process's ownership session (previous + 1), 0 before reconciliation.
+    int OwnedSession()
+    {
+        if (!m_Owned) { return 0; }
+        return m_Owned.Session;
+    }
 
     void Start()
     {
@@ -611,19 +619,27 @@ class HCXAISiteDirector : Managed
             state.PatrolPoints.Insert(acceptedEnd);
         }
         state.AttemptPoints.Clear();
-        if (closing) { state.Closed = true; }
-        else
-        {
-            if (problem == "snap")
-            {
-                legTo = state.ClosestEnd;
-                state.Snapped++;
-            }
-            state.PatrolPoints.Insert(legTo);
-            state.Kept++;
-            state.Leg++;
-        }
         state.ChainSteps = 0;
+        if (closing)
+        {
+            state.Closed = true;
+            return;
+        }
+        // A snap keeps the end of the path that qualified it (endGap above).
+        if (problem == "snap") { legTo = pathEnd; }
+        vector lastKept = state.PatrolPoints[state.PatrolPoints.Count() - 1];
+        if (!HCXAISiteRules.SnapKeeps(lastKept, legTo))
+        {
+            int mergedIndex = state.Leg + 1;
+            state.Skipped++;
+            state.SkippedPoints = state.SkippedPoints + " " + mergedIndex.ToString() + HCXAISiteRules.PointText(state.Sampled[mergedIndex]);
+            state.Leg++;
+            return;
+        }
+        if (problem == "snap") { state.Snapped++; }
+        state.PatrolPoints.Insert(legTo);
+        state.Kept++;
+        state.Leg++;
     }
     // Native: 3_Game/AI/AIWorld.c:122 SampleNavmeshPosition (false leaves the
     // output untouched). vector.Zero means no sample, as in HCEventPoliceNav.
@@ -781,8 +797,7 @@ class HCXAISiteDirector : Managed
     protected void Create(HCXAISiteState state)
     {
         HCXAISite site = state.Site;
-        ExpansionAIDynamicSpawnBase config = new ExpansionAIDynamicSpawnBase(site.NumberOfAI, site.Speed, "SPRINT", site.Behaviour, site.Faction, site.Loadout, true, 0, 1.0, m_Policy.MinPlayerDistance, site.ActivationRadius);
-        config = new HCXAISiteSpawnConfig();
+        ExpansionAIDynamicSpawnBase config = new HCXAISiteSpawnConfig();
         config.Name = "HC:" + site.Id;
         config.NumberOfAI = site.NumberOfAI;
         config.NumberOfAIMax = site.NumberOfAIMax;

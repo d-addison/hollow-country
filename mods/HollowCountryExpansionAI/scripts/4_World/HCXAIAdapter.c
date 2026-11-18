@@ -60,6 +60,8 @@ class HCXAIAdapter extends HCModule
     protected int m_LastReceiptAt = -1;
     protected bool m_ReadinessLogged;
     protected ref HCXAISiteDirector m_Sites;
+    // AI_ENCOUNTER on the director's own qualified patrols (HCXAIEncounters.c).
+    protected ref HCXAIEncounters m_Encounters;
 
     override string GetName() { return "optional-expansion-human-ai"; }
     // Invoke startup to create/read the user's preference even without admission.
@@ -71,51 +73,39 @@ class HCXAIAdapter extends HCModule
         // observations; they do not depend on the lease profile below.
         m_Sites = new HCXAISiteDirector();
         m_Sites.Start();
-        // Before Bind: InstallHooks refuses once an adapter is bound.
-        bool installed = HCXAIService.InstallLocalHooks();
-        string port = "not installed (Expansion AI not loaded or not a server)";
-        if (installed) { port = "installed once (local; receipt verification flags stay false until their verifiers land)"; }
-        else if (HCXAIService.Hooks()) { port = "already installed by another server script; local port skipped"; }
-        Print("[HC Expansion AI] trusted hook port " + port);
+        // AI_ENCOUNTER readiness comes from the director's live state. The lease
+        // spawner path (expansion-ai.json profile, local hook port, trusted
+        // receipt verifiers) is retired: it is no longer installed or loaded.
+        m_Encounters = new HCXAIEncounters();
+        m_Encounters.Open();
         if (!HCXAIService.Bind(this))
         {
             Print("[HC Expansion AI] unresolved prior reservations; startup rejected");
             return;
         }
         this.LogAddonChecks();
-        HCXAIProfile profile = HCXAIStore.Load();
-        this.Install(profile, HCXAIService.Hooks());
-        Print("[HC Expansion AI] " + m_Status);
+        m_Status = "lease spawner retired; AI_ENCOUNTER binds HC site patrols";
+        Print("[HC Expansion AI] retired: expansion-ai.json lease profile, local hook port and receipt verifiers are not loaded; AI_ENCOUNTER gates on site director run + per-process session + a qualified site patrol");
         this.LogReadiness("server start");
     }
     bool ExpansionAISettingsLoaded()
     {
         return GetExpansionSettings() && GetExpansionSettings().GetAI() && GetExpansionSettings().GetAI().IsLoaded();
     }
-    // One line naming every open readiness gate; logged at start and once more
-    // when Expansion AI settings are first observed loaded.
+    // One AI_ENCOUNTER readiness line at start and once more when the
+    // encounters settle (armed, or refused with a reason).
     void LogReadiness(string trigger)
     {
+        if (!m_Encounters || !m_Sites) { return; }
+        if (m_Encounters.Settled()) { m_ReadinessLogged = true; }
+        bool ready = m_Encounters.Ready(GetGame().GetWorldName());
+        int qualified = m_Encounters.QualifiedCount();
         bool loaded = this.ExpansionAISettingsLoaded();
-        if (loaded) { m_ReadinessLogged = true; }
-        bool ready = false;
-        if (m_Profile) { ready = this.Ready(m_Profile.WorldName); }
-        bool admitted = HCXAIQualification.Admitted();
-        string session = "";
-        if (m_Profile) { session = m_Profile.WorldSession; }
-        string hooks = "missing";
-        string receipt = "no hook port";
-        HCXAIHooks installedHooks = HCXAIService.Hooks();
-        if (installedHooks)
-        {
-            hooks = "installed";
-            receipt = HCXAIRules.ReceiptGaps(installedHooks.Admission(session));
-        }
         string settingsState = "not loaded";
         if (loaded) { settingsState = "loaded"; }
         string globals = this.GlobalsProblem();
         if (globals == "") { globals = "fair"; }
-        Print("[HC Expansion AI] readiness (" + trigger + ") Ready=" + ready.ToString() + "; status=" + m_Status + "; pve_patrols_admission=" + admitted.ToString() + "; hooks=" + hooks + "; expansion_ai_settings=" + settingsState + "; globals=" + globals + "; receipt_unverified=" + receipt);
+        Print("[HC Expansion AI] readiness (" + trigger + ") AI_ENCOUNTER Ready=" + ready.ToString() + "; encounters=" + m_Encounters.State() + "; sites=" + m_Sites.Phase() + "; qualified_patrols=" + qualified.ToString() + "; expansion_ai_settings=" + settingsState + "; globals=" + globals + "; expansion-ai.json and receipt verifiers retired");
     }
     void LogAddonChecks()
     {
@@ -127,7 +117,7 @@ class HCXAIAdapter extends HCModule
         HCEventAIProvider selected = HCEventAISelection.Create();
         string selectedName = "none";
         if (selected) { selectedName = selected.ClassName(); }
-        Print("[HC Expansion AI] base event AI provider selection=" + selectedName + "; Ready stays false until Expansion AI settings are loaded and admission passes");
+        Print("[HC Expansion AI] base event AI provider selection=" + selectedName + "; AI_ENCOUNTER Ready stays false until the site director runs with a qualified patrol");
     }
     bool Install(HCXAIProfile profile, HCXAIHooks hooks)
     {
@@ -547,8 +537,13 @@ class HCXAIAdapter extends HCModule
     override void OnTick(float deltaTime)
     {
         if (!GetGame() || !GetGame().IsServer()) { return; }
-        if (!m_ReadinessLogged && this.ExpansionAISettingsLoaded()) { this.LogReadiness("Expansion AI settings loaded"); }
         if (m_Sites) { m_Sites.Step(); }
+        if (m_Encounters)
+        {
+            m_Encounters.Step();
+            if (!m_ReadinessLogged && m_Encounters.Settled()) { this.LogReadiness("encounters settled"); }
+        }
+        // Retired lease spawner: m_Profile is never installed by OnStart now.
         if (!m_Profile) { return; }
         int now = GetGame().GetTime();
         if (now < 0 || now < m_LastNow)
@@ -570,6 +565,7 @@ class HCXAIAdapter extends HCModule
     }
     override void OnStop()
     {
+        if (m_Encounters) { m_Encounters.Close(); }
         if (m_Sites) { m_Sites.Stop(); }
         m_Accepting = false;
         foreach (HCXAILease lease : m_Leases)
@@ -582,33 +578,37 @@ class HCXAIAdapter extends HCModule
         }
     }
 }
+// AI_ENCOUNTER provider: binds an already-owned, qualified HC site patrol near
+// the event anchor (HCXAIEncounters). It never spawns actors.
 class HCExpansionAIEventProvider extends HCEventAIProvider
 {
     override bool Ready(string world)
     {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        return adapter && adapter.Ready(world);
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        return encounters && encounters.Ready(world);
     }
     override bool Start(string lease, string session, string missionId, vector anchor, int actorCap)
     {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        return adapter && adapter.StartLease(lease, session, missionId, anchor, actorCap);
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        return encounters && encounters.StartEncounter(lease, session, missionId, anchor, actorCap);
     }
     override HCEventObjectiveEvidence Observe(string lease, PlayerBase participant)
     {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        if (!adapter) { return null; }
-        return adapter.ObserveLease(lease, participant);
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        if (!encounters) { return null; }
+        return encounters.ObserveEncounter(lease, participant);
     }
     override bool Stop(string lease)
     {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        return adapter && adapter.StopLease(lease);
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        return encounters && encounters.StopEncounter(lease);
     }
     override bool Gone(string lease)
     {
-        HCXAIAdapter adapter = HCXAIService.Adapter();
-        return adapter && adapter.Gone(lease);
+        // No encounters object: nothing is bound in this process.
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        if (!encounters) { return true; }
+        return encounters.GoneEncounter(lease);
     }
 }
 modded class HCModuleRegistry
@@ -640,11 +640,17 @@ modded class eAIBase
     override void EEKilled(Object killer)
     {
         super.EEKilled(killer);
-        HCXAIAdapter adapter = HCXAIService.Adapter();
         EntityAI source = EntityAI.Cast(killer);
-        if (!adapter || !source) { return; }
+        if (!source) { return; }
         PlayerBase participant = PlayerBase.Cast(source.GetHierarchyRootPlayer());
-        if (participant && participant.GetIdentity()) { adapter.RecordDeath(this, participant.GetIdentity().GetId()); }
+        if (!participant || !participant.GetIdentity()) { return; }
+        string participantId = participant.GetIdentity().GetId();
+        HCXAIAdapter adapter = HCXAIService.Adapter();
+        if (adapter) { adapter.RecordDeath(this, participantId); }
+        // Expansion defers group cleanup to the next frame so EEKilled may still
+        // read it: DayZPlayerImplement.c:431-438 (GetGroup at :234).
+        HCXAIEncounters encounters = HCXAIEncounters.Active();
+        if (encounters) { encounters.RecordKill(this.GetGroup(), participantId); }
     }
     override void EEDelete(EntityAI parent)
     {

@@ -56,6 +56,44 @@ class LifecycleTests(unittest.TestCase):
         self.owner.m_Limit=1
         self.assertFalse(self.owner.Begin('other','event','site'))
 
+    def full_journal(self):
+        self.env['GetGame']=lambda:N(IsServer=lambda:True)
+        for name in ('PrepareBegin','Prune'):
+            setattr(self.owner,name,lambda *a,n=name:self.journal.call(n,self.owner,*a))
+        self.owner.m_Limit=2
+        tombstone=self.row(lease='tombstone',closed=True);tombstone.Prunable=False
+        self.owner.m_Data.Rows=A([self.row(lease='open'),tombstone])
+
+    def test_reconciled_orphans_make_prior_process_rows_prunable_so_the_cap_recycles(self):
+        self.full_journal()
+        self.assertTrue(self.owner.Reconcile(True))
+        self.assertTrue(all(r.Closed and r.Prunable for r in self.saved[-1].Rows))
+        for index in range(3):
+            lease='fresh-'+str(index)
+            self.assertTrue(self.owner.PrepareBegin(lease,'event','site'))
+            self.assertTrue(self.owner.Begin(lease,'event','site'))
+            self.assertTrue(self.owner.End(lease,True))
+        self.assertEqual(['fresh-1','fresh-2'],[r.Id for r in self.owner.m_Data.Rows])
+
+    def test_unreconciled_restart_keeps_prior_rows_unprunable_and_refuses_at_the_cap(self):
+        self.full_journal()
+        self.assertTrue(self.owner.Reconcile())
+        self.assertTrue(all(r.Closed and not r.Prunable for r in self.saved[-1].Rows))
+        self.assertFalse(self.owner.PrepareBegin('fresh','event','site'))
+
+    def test_reconciled_orphans_leave_this_process_rows_alone(self):
+        row=self.row(lease='current-fault',session='new-process',closed=True);row.Prunable=False
+        self.owner.m_Data.Rows=A([row])
+        self.assertTrue(self.owner.Reconcile(True))
+        self.assertFalse(self.owner.m_Data.Rows[0].Prunable)
+        self.owner.m_Data.Rows=A([self.row(lease='current-open',session='new-process')])
+        self.assertFalse(self.owner.Reconcile(True))
+
+    def test_open_passes_orphan_reconciliation_through(self):
+        source=(SCRIPTS/'HCXAIJournal.c').read_text()
+        self.assertIn('static HCXAIJournal Open(string worldSession, int limit, bool orphansReconciled = false)',source)
+        self.assertIn('journal.Reconcile(orphansReconciled)',source)
+
     def test_end_is_idempotent_and_failed_reconciliation_cannot_claim_success(self):
         self.assertTrue(self.owner.Begin('one','event','site'))
         self.assertTrue(self.owner.End('one'));self.assertTrue(self.owner.End('one'))
