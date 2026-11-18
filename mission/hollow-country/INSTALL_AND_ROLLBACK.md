@@ -54,8 +54,8 @@ Module-specific catalogs, state and acceptance belong to each module. No runtime
 state is bundled. Enabling a flag does not establish eligibility or acceptance.
 
 Atmosphere remains experimental: admission also requires ChernarusPlus, an exact
-engine version of `1.30.164289` or `1.30.164289.70`, the local acceptance marker
-`HollowCountry/acceptance/atmosphere.enable` under the server profile, and the
+engine version of `1.30.164289` or `1.30.164289.70`, no `atmosphere.disable` opt-out marker
+(`HollowCountry/acceptance/atmosphere.disable` under the server profile turns it off; it is on by default), and the
 generator's canonical disabled, non-resetting `v1-script` cfgweather.xml candidate.
 Production qualification remains false. Restart after changing admission inputs.
 Missing or non-delegated XML leaves vanilla in control. Admitted atmosphere changes
@@ -65,8 +65,8 @@ disablePersonalLight untouched. From 20:00 to 05:00 the overcast limit is 0.55 (
 each dusk/dawn check, with a transition of at most 60 s; dawn restores 0..1), so
 there is no night storm or rain. Other operator values are retained and logged. Seasonal temperature arrays remain native/operator owned. A missing
 native noise system preserves the vanilla supplementary relay radius and logs once.
-For atmosphere rollback, stop the server, set EnableAtmosphere=false, remove the
-local marker and restore the backed-up mission/settings before restarting. DayZDiag,
+For atmosphere rollback, stop the server, set EnableAtmosphere=false, create the
+`atmosphere.disable` marker and restore the backed-up mission/settings before restarting. DayZDiag,
 normal PBO/server and two-client visibility/audio acceptance remain pending.
 
 ## Server configuration for the friend server (serverDZ.cfg)

@@ -10,7 +10,7 @@ class HCXAIQualification
         if (!GetGame() || !GetGame().IsServer()) { return false; }
         if (!s_Probed)
         {
-            s_OptIn = FileExist("$profile:HollowCountry/acceptance/pve_patrols.enable");
+            s_OptIn = !FileExist("$profile:HollowCountry/acceptance/pve_patrols.disable");
             s_Probed = true;
             if (s_OptIn) { Print("[HC Expansion AI] EXPERIMENTAL local acceptance opt-in (pve_patrols.enable); qualification pending"); }
         }

@@ -20,13 +20,12 @@ with backups, and its rollback restores them):
 | `loadouts/*.json` | `$profile:ExpansionMod/Loadouts/` |
 | `AIPatrolSettings.override.json` | `$mission:expansion/settings/AIPatrolSettings.json` |
 | `AISettings.merge.json` | field merge into the existing `$profile:ExpansionMod/Settings/AISettings.json` |
-| (empty file) | `$profile:HollowCountry/acceptance/pve_patrols.enable` (the opt-in) |
 
 At start `HCXAISiteDirector` admits the sites only when the engine build and
 world match the policy, the addon and its dependencies are in `CfgPatches`,
 Expansion AI and AIPatrol settings are loaded with recruiting off and no
 unlimited reload, every loadout file exists, the observer is native eAI
-perception and the opt-in marker is present. It then binds holdouts to their
+perception and no `pve_patrols.disable` opt-out marker is present (the patrols are on by default). It then binds holdouts to their
 house (nearest object of `HouseClass`), qualifies each route by navmesh
 sampling and `FindPath` (at most 4 work items per tick), and caches the result
 by SHA-256 of route plus build in `$profile:HollowCountry/expansion-ai-routes.json`.
@@ -126,8 +125,8 @@ sites. Site patrols set their own lower values per kind in `HCXAISiteRules`
 `WEAPON` sets are melee only, and they use only items Expansion accepts as melee
 (vanilla Shoulder/Melee slot). How this feels in play has not been observed yet.
 
-The server-only opt-in is the empty file
-`$profile:HollowCountry/acceptance/pve_patrols.enable`, cached until restart.
+The patrols are on by default. The server-only opt-out is the empty file
+`$profile:HollowCountry/acceptance/pve_patrols.disable`, cached until restart.
 
 ## Expansion's own patrols
 

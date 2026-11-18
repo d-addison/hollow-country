@@ -14,7 +14,7 @@ class HCTapedLightAdmission
     static bool LocalAcceptanceOptIn()
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
-        return FileExist("$profile:HollowCountry/acceptance/taped_light.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/taped_light.disable");
     }
 
     static bool Admitted()

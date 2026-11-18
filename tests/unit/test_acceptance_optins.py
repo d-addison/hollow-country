@@ -1,18 +1,20 @@
-"""Local-acceptance marker opt-ins for the remaining closed source gates.
+"""Local-acceptance marker opt-outs for the remaining source gates.
 
 Gates covered (each Qualified()/Accepted() stays a literal `return false;`; a server-only,
-probe-once, cached marker opt-in is OR'd in through a new Admitted() method, the shape of
-HCFuelSiphonQualification, HCInfectedDeathQualification and HCInfectedVisionQualification):
+probe-once, cached marker gate is OR'd in through a new Admitted() method, the shape of
+HCFuelSiphonQualification, HCInfectedDeathQualification and HCInfectedVisionQualification).
+Owner decision 2026-11-17: every feature is ON by default and `<name>.disable` in the server profile turns
+exactly that gate off, so the OptIn() probe is `!FileExist(<name>.disable)`:
 
-  HCInfectedProfiles.ContactGuardQualified       infected_contact_guard.enable
-  HCInfectedQualification.CEAdoptionQualified    infected_ce_adoption.enable
-  HCInfectedQualification.NativePackRoutesQualified     infected_pack_routes.enable
-  HCInfectedQualification.InvestigationQualified        infected_investigation.enable
-  HCInfectedQualification.SupplementaryChainsQualified  infected_supplementary_chains.enable
-  HCInfectedQualification.MemberRecoveryQualified       infected_member_recovery.enable
-  HCInfectedQualification.HordeStimulusRoutesQualified  infected_horde_routes.enable
-  HCInteriorRules.PlacementAccepted              interior_placement.enable
-  HCInteriorRules.SearchAccepted                 interior_search.enable
+  HCInfectedProfiles.ContactGuardQualified       infected_contact_guard.disable
+  HCInfectedQualification.CEAdoptionQualified    infected_ce_adoption.disable
+  HCInfectedQualification.NativePackRoutesQualified     infected_pack_routes.disable
+  HCInfectedQualification.InvestigationQualified        infected_investigation.disable
+  HCInfectedQualification.SupplementaryChainsQualified  infected_supplementary_chains.disable
+  HCInfectedQualification.MemberRecoveryQualified       infected_member_recovery.disable
+  HCInfectedQualification.HordeStimulusRoutesQualified  infected_horde_routes.disable
+  HCInteriorRules.PlacementAccepted              interior_placement.disable
+  HCInteriorRules.SearchAccepted                 interior_search.disable
 
 HCStaminaConfiguration.Qualified is deliberately NOT given a marker: nothing reads it (the
 stamina module is already enabled by the stamina.json profile), so a marker could open nothing.
@@ -97,7 +99,7 @@ def fragment(path, cls, methods):
 
 
 class World:
-    """Authored gate methods over synthetic natives; `present` is the set of marker files that exist."""
+    """Authored gate methods over synthetic natives; `present` is the set of `.disable` marker files that exist."""
 
     def __init__(self, cls, path, methods, present=(), server=True, game=True):
         self.log = []
@@ -142,53 +144,54 @@ class OptInExecutionTests(unittest.TestCase):
         for gate in GATES:
             yield gate, "%s.%s" % (gate[0], gate[3])
 
-    def test_without_the_marker_the_gate_is_closed_probes_once_and_logs_nothing(self):
+    def test_without_the_marker_the_gate_is_open_probes_once_and_logs_one_line(self):
         for gate, label in self.each():
             with self.subTest(gate=label):
                 w = world(gate)
                 admitted = getattr(w.cls, gate[3])
-                self.assertIs(False, getattr(w.cls, gate[2])())
-                for _ in range(4):
-                    self.assertIs(False, admitted())
-                self.assertEqual([PREFIX + gate[4] + ".enable"], w.probes())
-                self.assertEqual([], w.prints(), "no marker must leave the log byte-for-byte unchanged")
-
-    def test_marker_opens_logs_one_line_naming_it_and_probes_once(self):
-        for gate, label in self.each():
-            with self.subTest(gate=label):
-                name = PREFIX + gate[4] + ".enable"
-                w = world(gate, present=[name])
-                admitted = getattr(w.cls, gate[3])
-                for _ in range(4):
-                    self.assertIs(True, admitted())
                 self.assertIs(False, getattr(w.cls, gate[2])(), "the source gate itself stays closed")
-                self.assertEqual([name], w.probes())
+                for _ in range(4):
+                    self.assertIs(True, admitted(), "the default with no marker is open")
+                self.assertEqual([PREFIX + gate[4] + ".disable"], w.probes())
                 lines = w.prints()
                 self.assertEqual(1, len(lines))
-                self.assertIn(gate[4] + ".enable", lines[0])
                 self.assertIn("EXPERIMENTAL", lines[0])
                 self.assertIn("runtime acceptance PENDING", lines[0])
 
-    def test_each_marker_opens_only_its_own_gate(self):
+    def test_disable_marker_closes_the_gate_probes_once_and_logs_nothing(self):
+        for gate, label in self.each():
+            with self.subTest(gate=label):
+                name = PREFIX + gate[4] + ".disable"
+                w = world(gate, present=[name])
+                admitted = getattr(w.cls, gate[3])
+                for _ in range(4):
+                    self.assertIs(False, admitted())
+                self.assertIs(False, getattr(w.cls, gate[2])())
+                self.assertEqual([name], w.probes())
+                self.assertEqual([], w.prints(), "an opted-out gate logs nothing")
+
+    def test_each_disable_marker_closes_only_its_own_gate(self):
         for gate, label in self.each():
             with self.subTest(gate=label):
                 for other in GATES:
                     if other[:2] != gate[:2] or other is gate:
                         continue
-                    w = world(gate, present=[PREFIX + other[4] + ".enable"])
-                    self.assertIs(False, getattr(w.cls, gate[3])())
+                    w = world(gate, present=[PREFIX + other[4] + ".disable"])
+                    self.assertIs(True, getattr(w.cls, gate[3])())
+                w = world(gate, present=[PREFIX + gate[4] + ".enable"])
+                self.assertIs(True, getattr(w.cls, gate[3])(), "a stray .enable file closes nothing")
 
     def test_server_only_and_a_non_server_probe_does_not_poison_the_cache(self):
         for gate, label in self.each():
             with self.subTest(gate=label):
-                name = PREFIX + gate[4] + ".enable"
+                name = PREFIX + gate[4] + ".disable"
                 for kwargs in ({"server": False}, {"game": False}):
-                    w = world(gate, present=[name], **kwargs)
+                    w = world(gate, **kwargs)
                     admitted = getattr(w.cls, gate[3])
                     self.assertIs(False, admitted())
                     self.assertEqual([], w.probes())
                     self.assertEqual([], w.prints())
-                w = world(gate, present=[name], server=False)
+                w = world(gate, server=False)
                 admitted = getattr(w.cls, gate[3])
                 self.assertIs(False, admitted())
                 w.game.IsServer = lambda: True
@@ -204,12 +207,12 @@ class OptInExecutionTests(unittest.TestCase):
                 self.assertEqual([], w.probes())
                 self.assertEqual([], w.prints())
 
-    def test_marker_names_are_distinct_and_the_contact_guard_marker_is_literal(self):
+    def test_marker_names_are_distinct_and_each_gate_probes_a_literal_disable_marker(self):
         names = [gate[4] for gate in GATES]
         self.assertEqual(len(names), len(set(names)))
         for cls, path, closed, admitted, marker in GATES:
             body = class_source(path, cls)
-            literal = 'FileExist("%s%s.enable")' % (PREFIX, marker)
+            literal = '!FileExist("%s%s.disable")' % (PREFIX, marker)
             self.assertEqual(1, body.count(literal), literal)
             self.assertEqual("return false;", re.sub(r"\s+", " ", re.search(
                 r"static bool " + closed + r"\(\)\s*\{(.*?)\}", body, re.S).group(1)).strip())
@@ -248,20 +251,20 @@ class AdmissionEvaluateTests(unittest.TestCase):
         exec(compile(code, "authored-enforce:admission", "exec"), namespace)
         return namespace["HCInfectedAdmission"].Evaluate("config"), log
 
-    def test_default_all_closed_and_silent(self):
+    def test_default_all_open_and_one_log_line_per_path(self):
         flags, log = self.evaluate(())
-        self.assertEqual((False,) * 6, flags)
-        self.assertEqual([], log)
+        self.assertEqual((True,) * 6, flags)
+        self.assertEqual(6, len(log))
 
-    def test_each_marker_flips_exactly_its_resolve_argument(self):
+    def test_each_disable_marker_flips_exactly_its_resolve_argument(self):
         order = ("infected_ce_adoption", "infected_pack_routes", "infected_investigation",
                  "infected_supplementary_chains", "infected_member_recovery", "infected_horde_routes")
         for index, marker in enumerate(order):
             with self.subTest(marker=marker):
-                flags, log = self.evaluate([PREFIX + marker + ".enable"])
-                expected = tuple(i == index for i in range(6))
+                flags, log = self.evaluate([PREFIX + marker + ".disable"])
+                expected = tuple(i != index for i in range(6))
                 self.assertEqual(expected, flags)
-                self.assertEqual(1, len(log))
+                self.assertEqual(5, len(log), "the opted-out path logs nothing")
 
 
 class CallSiteContractTests(unittest.TestCase):

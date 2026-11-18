@@ -47,7 +47,7 @@ class HCAtmosphereQualification
         if (!s_Probed)
         {
             s_Probed = true;
-            s_OptIn = FileExist("$profile:HollowCountry/acceptance/atmosphere.enable");
+            s_OptIn = !FileExist("$profile:HollowCountry/acceptance/atmosphere.disable");
             if (s_OptIn)
                 Print("[HollowCountry][Atmosphere] EXPERIMENTAL local acceptance opt-in; runtime acceptance PENDING; restart required to change marker");
             else

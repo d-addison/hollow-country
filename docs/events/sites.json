@@ -1,7 +1,7 @@
 {
   "version": 1,
   "world": "chernarusplus",
-  "review": "Data review 2026-11-17 of the stock dayzOffline.chernarusplus mission files. Source review is not a field survey; every site is Surveyed=false and only reachable behind events.enable plus events_sites.enable.",
+  "review": "Data review 2026-11-17 of the stock dayzOffline.chernarusplus mission files. Source review is not a field survey; every site is Surveyed=false and on by default unless an events.disable or events_sites.disable opt-out marker exists.",
   "rules": {
     "min_map_group_m": 150,
     "min_player_spawn_m": 500,

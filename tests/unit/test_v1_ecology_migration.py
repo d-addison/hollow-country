@@ -471,25 +471,27 @@ class MigrationNativeBehavior(unittest.TestCase):
         self.assertEqual(1800000000, utc())
         self.assertEqual(-1, utc())
 
-    def test_gate_probes_marker_once_and_does_not_promote_qualification(self):
-        env = setup(); calls = []; logs = []; present = [False]
+    def test_gate_is_open_by_default_probes_disable_marker_once_and_does_not_promote_qualification(self):
+        env = setup(); calls = []; logs = []; disabled = [False]
         source = (ROOT / '4_World/Ecology/HCEcologyMigrationNative.c').read_text()
         gate = NS(s_Checked=False, s_OptIn=False)
         # Mechanical static storage adaptation; no policy duplicated.
         fragment = source[:source.index('class HCEcologyMigrationNative')]
         fragment = re.sub(r'\bs_(Checked|OptIn)\b', r'HCEcologyMigrationQualification.s_\1', fragment)
         env['HCEcologyMigrationQualification'] = gate
-        env['FileExist'] = lambda path: calls.append(path) or present[0]
+        env['FileExist'] = lambda path: calls.append(path) or disabled[0]   # True = a .disable file exists
         env['Print'] = logs.append
         for name in ('Qualified', 'LocalAcceptanceOptIn', 'Admitted'):
             setattr(gate, name, translated(fragment, name, env, 'HCEcologyMigrationQualification'))
-        self.assertFalse(gate.Qualified()); self.assertFalse(gate.Admitted())
-        present[0] = True
-        self.assertFalse(gate.Admitted()); self.assertEqual(1, len(calls))
-        gate.s_Checked = False
-        self.assertTrue(gate.Admitted()); self.assertTrue(any('EXPERIMENTAL' in log for log in logs))
         self.assertFalse(gate.Qualified())
-
+        self.assertTrue(gate.Admitted())            # default with no marker is open
+        self.assertTrue(any('EXPERIMENTAL' in log for log in logs))
+        disabled[0] = True
+        self.assertTrue(gate.Admitted()); self.assertEqual(1, len(calls))   # probed once
+        self.assertTrue(calls[0].endswith('/acceptance/ecology_migration.disable') or calls[0].endswith('.disable'), calls[0])
+        gate.s_Checked = False                       # simulated restart sees the opt-out
+        self.assertFalse(gate.Admitted())
+        self.assertFalse(gate.Qualified())
 
 if __name__ == '__main__':
     unittest.main()

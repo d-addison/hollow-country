@@ -50,7 +50,7 @@ ACTION = SCRIPTS / "Interiors/HCInteriorAction.c"
 NATIVE_CACHE = Path(os.environ.get(
     "HC_NATIVE_SCRIPTS",
     Path.home() / ".cache/hollow-country/native-scripts/scripts-1.30.164289"))
-MARKER = "$profile:HollowCountry/acceptance/infected_vision.enable"
+MARKER = "$profile:HollowCountry/acceptance/infected_vision.disable"   # opt-out marker; the override is on by default
 NOISE_PATH = "CfgVehicles SurvivorBase NoiseActionDefault"
 INF = float("inf")
 NAN = float("nan")
@@ -622,10 +622,10 @@ class Game:
 class VisionWorld:
     """Authored HCInfectedVision.c running over synthetic natives."""
 
-    def __init__(self, server=True, day_time=12.0, marker=False, native_range=0.9, game=True):
+    def __init__(self, server=True, day_time=12.0, disabled=False, native_range=0.9, game=True):
         self.log = []
         self.game = Game(server, day_time) if game else None
-        log, marker_present, native_value = self.log, marker, native_range
+        log, marker_present, native_value = self.log, disabled, native_range   # marker_present: a .disable file exists
 
         class AITargetCallbacksPlayer:  # native base (AITargetCallbacksPlayer.c:45-84)
             def GetMaxVisionRangeModifier(self, pApplicant):
@@ -916,7 +916,7 @@ class VisionOverrideBehavior(unittest.TestCase):
         self.assertEqual([("native", self.APPLICANT)], world.log)
 
     def test_client_with_the_real_gate_never_probes_the_acceptance_marker(self):
-        world = VisionWorld(server=False, marker=True)
+        world = VisionWorld(server=False, disabled=True)
         self.assertEqual(f32(0.9), self.call(world, Player(held=Flashlight(working=True))))
         self.assertEqual([("native", self.APPLICANT)], world.log)
 
@@ -954,8 +954,8 @@ class VisionOverrideBehavior(unittest.TestCase):
         other.GetMaxVisionRangeModifier(self.APPLICANT)
         self.assertEqual([("factor", first), ("factor", second)], [c for c in seen if c != "admission"])
 
-    def test_default_gate_is_closed_and_the_override_is_exactly_native(self):
-        world = VisionWorld(day_time=2.0)
+    def test_disable_marker_closes_the_gate_and_the_override_is_exactly_native(self):
+        world = VisionWorld(day_time=2.0, disabled=True)
         gate = world.ns["HCInfectedVisionQualification"]
         self.assertIs(False, gate.Qualified())
         player = Player(held=Flashlight(working=True), coef=0.5)
@@ -968,8 +968,8 @@ class VisionOverrideBehavior(unittest.TestCase):
         self.assertIn("not admitted", prints[0])
         self.assertIn("PENDING", prints[0])
 
-    def test_local_acceptance_marker_admits_logs_experimental_and_probes_once(self):
-        world = VisionWorld(day_time=2.0, marker=True)
+    def test_default_without_a_marker_admits_logs_experimental_and_probes_once(self):
+        world = VisionWorld(day_time=2.0)
         player = Player(held=Chemlight_Red(working=True), coef=1.0)
         for _ in range(3):
             self.assertAlmostEqual(0.9 * 1.125, self.call(world, player), places=5)
@@ -981,7 +981,7 @@ class VisionOverrideBehavior(unittest.TestCase):
         self.assertEqual(3, player.coef_reads)
 
     def test_end_to_end_unlit_night_player_is_shorter_and_lit_chemlight_longer_than_native(self):
-        world = VisionWorld(day_time=2.0, marker=True)
+        world = VisionWorld(day_time=2.0)
         self.assertAlmostEqual(0.9 * 0.75, self.call(world, Player(held=NonLight())), places=5)
         self.assertGreater(self.call(world, Player(held=PortableGasLamp(working=True))), f32(0.9))
         self.assertAlmostEqual(0.9 * 0.6, self.call(world, Player(held=NonLight(), coef=0.1)), places=5)
@@ -1135,10 +1135,11 @@ class SourceShape(unittest.TestCase):
         cls.source = VISION.read_text()
         cls.action = ACTION.read_text()
 
-    def test_closed_by_default_marker_path_and_wording(self):
+    def test_open_by_default_disable_marker_path_and_wording(self):
         qual = class_text(VISION, "HCInfectedVisionQualification")
         self.assertRegex(body(str(VISION), "Qualified"), r"return false;")
-        self.assertIn('"%s"' % MARKER, qual)
+        self.assertIn('!FileExist("%s")' % MARKER, qual)
+        self.assertNotIn("infected_vision.enable", qual)
         self.assertEqual(1, qual.count("FileExist("))
         self.assertIn("EXPERIMENTAL", qual)
         self.assertIn("runtime acceptance PENDING", qual)

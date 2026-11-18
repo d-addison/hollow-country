@@ -29,7 +29,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[2]
 ACTION = ROOT / "mods/HollowCountry/scripts/4_World/Actions/HCFuelSiphon.c"
-MARKER = "$profile:HollowCountry/acceptance/fuel_siphon.enable"
+MARKER = "$profile:HollowCountry/acceptance/fuel_siphon.disable"  # opt-out: the siphon is on by default
 f32 = transfer.f32
 
 # --------------------------------------------------------------------------
@@ -666,10 +666,11 @@ class ActionData:
 class World:
     """One synthetic server process: natives, translated classes, scenario objects."""
 
-    def __init__(self, server=True, gate=True, marker=True, liters=16.0, capacity=64.0,
+    # `on` models the operator profile: True = no fuel_siphon.disable file (the default), False = the file exists.
+    def __init__(self, server=True, gate=True, on=True, liters=16.0, capacity=64.0,
                  quantity=0.0, maximum=5000, rate=500.0, step_seconds=0.5, delta=0.5,
                  action=None, policy=None):
-        self.server, self.gate, self.marker = server, gate, marker
+        self.server, self.gate, self.on = server, gate, on
         self.file_calls, self.prints, self.fills = [], [], []
         self.fill_mode, self.can_fill = "normal", True
         self.car = CarScript(capacity, liters)
@@ -703,7 +704,7 @@ class World:
 
         def file_exist(path):
             self.file_calls.append(path)
-            return self.marker and path == MARKER
+            return (not self.on) and path == MARKER  # `on` False means the .disable file exists
 
         policy_ns = transfer.authored_policy() if policy is None else policy
         scalar = {n: staticmethod(f) for n, f in policy_ns.items()
@@ -791,37 +792,37 @@ class TranslatorTests(unittest.TestCase):
 # HCFuelSiphonQualification / ServerEnabled
 # --------------------------------------------------------------------------
 class AdmissionTests(BehaviorCase):
-    def test_fuel_admission_defaults_closed_without_the_marker(self):
-        world = self.world(marker=False)
+    def test_disable_marker_closes_the_fuel_admission(self):
+        world = self.world(on=False)
         self.assertFalse(world.Qual.Qualified())
         self.assertFalse(world.Qual.Admitted())
         self.assertIn("not admitted", " ".join(world.prints))
 
-    def test_marker_opts_in_and_is_logged_experimental(self):
-        world = self.world(marker=True)
+    def test_default_without_a_marker_is_open_and_logged_experimental(self):
+        world = self.world(on=True)
         self.assertTrue(world.Qual.Admitted())
         self.assertEqual([MARKER], world.file_calls)
         self.assertEqual(1, len(world.prints))
         self.assertIn("EXPERIMENTAL", world.prints[0])
         self.assertIn("PENDING", world.prints[0])
 
-    def test_marker_is_probed_once_per_process_whatever_it_answers(self):
-        for marker in (False, True):
-            with self.subTest(marker=marker):
-                world = self.world(marker=marker)
+    def test_disable_marker_is_probed_once_per_process_whatever_it_answers(self):
+        for on in (False, True):
+            with self.subTest(on=on):
+                world = self.world(on=on)
                 answers = [world.Qual.Admitted() for _ in range(6)]
-                self.assertEqual([marker] * 6, answers)
+                self.assertEqual([on] * 6, answers)
                 self.assertEqual([MARKER], world.file_calls)
                 self.assertEqual(1, len(world.prints))
-                world.marker = not marker          # a later file change is ignored
-                self.assertEqual(marker, world.Qual.Admitted())
+                world.on = not on          # a later file change is ignored
+                self.assertEqual(on, world.Qual.Admitted())
                 self.assertEqual([MARKER], world.file_calls)
 
     def test_server_gate_truth_table(self):
-        for server, gate, marker in itertools.product((False, True), repeat=3):
-            with self.subTest(server=server, gate=gate, marker=marker):
-                world = self.world(server=server, gate=gate, marker=marker)
-                self.assertEqual(server and gate and marker, world.Siphon.ServerEnabled())
+        for server, gate, on in itertools.product((False, True), repeat=3):
+            with self.subTest(server=server, gate=gate, on=on):
+                world = self.world(server=server, gate=gate, on=on)
+                self.assertEqual(server and gate and on, world.Siphon.ServerEnabled())
 
     def test_missing_game_is_closed(self):
         world = self.world()
@@ -928,11 +929,11 @@ class EligibilityTests(BehaviorCase):
         self.assertEqual(["native", siphon], actions)
 
     def test_action_condition_client_needs_allowed_only_server_needs_gate(self):
-        for server, gate, marker in itertools.product((False, True), repeat=3):
-            with self.subTest(server=server, gate=gate, marker=marker):
-                world = self.world(server=server, gate=gate, marker=marker)
+        for server, gate, on in itertools.product((False, True), repeat=3):
+            with self.subTest(server=server, gate=gate, on=on):
+                world = self.world(server=server, gate=gate, on=on)
                 action = world.action()
-                want = (not server) or (gate and marker)
+                want = (not server) or (gate and on)
                 self.assertEqual(want, action.ActionCondition(world.player, world.target, world.vessel))
                 self.assertEqual(want, action.ActionConditionContinue(world.data))
                 world.car.engine = True
@@ -992,7 +993,7 @@ class SetupTests(BehaviorCase):
 
 class ClientPredictionTests(BehaviorCase):
     def test_client_only_advances_progress_and_never_mutates(self):
-        world = self.world(server=False, liters=1.0, marker=True)
+        world = self.world(server=False, liters=1.0, on=True)
         comp = world.component()
         before = world.snapshot()
         progress = []
@@ -1041,9 +1042,9 @@ class ClientPredictionTests(BehaviorCase):
 
 class ServerStepTests(BehaviorCase):
     def test_gate_closed_never_leaks_or_fills(self):
-        for gate, marker in ((False, True), (True, False), (False, False)):
-            with self.subTest(gate=gate, marker=marker):
-                world = self.world(gate=gate, marker=marker)
+        for gate, on in ((False, True), (True, False), (False, False)):
+            with self.subTest(gate=gate, on=on):
+                world = self.world(gate=gate, on=on)
                 comp = world.component()
                 before = world.snapshot()
                 results = world.run(comp)

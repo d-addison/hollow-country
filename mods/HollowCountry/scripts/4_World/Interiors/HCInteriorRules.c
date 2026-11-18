@@ -129,12 +129,12 @@ class HCInteriorRules
     // "missing/invalid manifest configuration; disabled" and places nothing.
     static bool PlacementOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/interior_placement.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/interior_placement.disable");
     }
 
     static bool SearchOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/interior_search.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/interior_search.disable");
     }
 
     static bool PlacementAdmitted()

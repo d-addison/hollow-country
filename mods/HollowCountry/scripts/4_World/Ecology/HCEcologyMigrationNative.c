@@ -26,7 +26,7 @@ class HCEcologyMigrationQualification
 
 	static bool LocalAcceptanceOptIn()
 	{
-		return FileExist("$profile:HollowCountry/acceptance/ecology_migration.enable");
+		return !FileExist("$profile:HollowCountry/acceptance/ecology_migration.disable");
 	}
 
 	static bool Admitted()

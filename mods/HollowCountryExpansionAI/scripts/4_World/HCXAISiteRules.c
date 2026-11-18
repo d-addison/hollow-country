@@ -300,7 +300,7 @@ class HCXAISiteRules
         if (a.UnfairFaction != "") { return "faction " + a.UnfairFaction + " is invincible, observer, passive or has unlimited stamina"; }
         if (a.MissingLoadout != "") { return "loadout file missing: $profile:ExpansionMod/Loadouts/" + a.MissingLoadout + ".json"; }
         if (a.ObserverPolicy != "native-eai" || a.ObserverPolicy != p.ObserverPolicy) { return "observer policy must be native-eai"; }
-        if (!a.Marker) { return "pve_patrols opt-in marker missing (HollowCountry/acceptance/pve_patrols.enable in the profile)"; }
+        if (!a.Marker) { return "pve_patrols turned off by the operator (HollowCountry/acceptance/pve_patrols.disable in the profile)"; }
         if (!a.OwnershipReconciled) { return "ownership journal not reconciled"; }
         return "";
     }

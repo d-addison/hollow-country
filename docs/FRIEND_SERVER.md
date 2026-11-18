@@ -148,9 +148,10 @@ python3 -B -m tools.setup.friend_bundle build \
 
 - `mpmissions/`: the installed mission without `storage_*` (player and world state),
   rollback copies (`*.backup`, `*.next`), receipts and logs.
-- `profiles/`: an allowlist of Hollow Country and Expansion AI settings, enable
-  markers and the interior template pack. It leaves out runtime state (event commits,
-  group state, leases and search journals) and logs.
+- `profiles/`: an allowlist of Hollow Country and Expansion AI settings and the interior
+  template pack. No acceptance marker ships: the features are on by default and the friend
+  turns one off by creating `HollowCountry/acceptance/<name>.disable` in the server profile.
+  It leaves out runtime state (event commits, group state, leases and search journals) and logs.
 - `@HollowCountry/` and, with `--addon`, `@HollowCountryExpansionAI/` (signed PBOs
   only) plus `keys/` with the public `.bikey`.
 - `start-server.bat`: the `-mod=` and `-serverMod=` lines in manifest load order.

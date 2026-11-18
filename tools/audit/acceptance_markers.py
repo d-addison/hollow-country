@@ -3,9 +3,12 @@
 Scans mods/**/scripts/**/*.c for the gates that keep a feature closed until a local-server acceptance
 run:
 
-  profile_marker          a literal "$profile:HollowCountry/acceptance/<name>.enable" path that script
-                          code probes with FileExist (an operator creates the empty file in the server
-                          profile directory for a local acceptance run only)
+  profile_marker          a literal "$profile:HollowCountry/acceptance/<name>.enable" or ".disable" path
+                          that script code probes with FileExist. A ".disable" marker is an opt-out: the
+                          feature is on by default and an operator creates the empty file in the server
+                          profile directory to turn it off. An ".enable" marker is an opt-in diagnostic
+                          that stays off until the operator creates the file. The record's "polarity"
+                          says which.
   dynamic_profile_marker  a string under HollowCountry/acceptance/ that is built at run time; its name
                           cannot be listed statically, so the checklist test fails on it
   source_qualification    a no-argument bool method whose name contains "Qualified" or "Accepted"; a
@@ -16,11 +19,16 @@ run:
 The scan reads text only. Output is JSON with repository-relative paths. It never starts DayZ, a
 server or a network connection, and the scan itself writes nothing.
 
---write-profile-plan <dir> prints the empty marker files it WOULD create under
-<dir>/HollowCountry/acceptance/. Only with --apply does it create them. <dir> must be an existing
+--write-profile-plan <dir> prints the empty ".enable" marker files it WOULD create under
+<dir>/HollowCountry/acceptance/ (opt-in diagnostics only; it never creates a ".disable" marker, because
+the features they gate are on by default). Only with --apply does it create them. <dir> must be an existing
 directory (the server -profiles directory) outside every git checkout and outside this repository.
-Existing files are never overwritten. Creating a marker does not accept a feature; it only lets the
-local acceptance run exercise it.
+Existing files are never overwritten. Creating an ".enable" marker does not accept a feature; it only
+lets the local acceptance run exercise it.
+
+--opt-outs <dir> lists the ".disable" markers present under <dir>/HollowCountry/acceptance/ (the features
+the operator has turned off) and any present ".disable" file that matches no marker in the source. It
+writes nothing.
 
 Feature/issue tags are inferred, not authoritative: an issue number is taken from the comment block
 directly above the probing class (or the file's opening comment); failing that, from a small map of
@@ -38,7 +46,7 @@ PREFIX = "$profile:HollowCountry/acceptance/"
 SCHEMA = 1
 
 MARKER_LITERAL = re.compile(r'\$profile:HollowCountry/acceptance/(?P<tail>[^"\\\n]*)')
-SAFE_MARKER = re.compile(r"(?P<name>[A-Za-z0-9_-]+)\.enable\Z")
+SAFE_MARKER = re.compile(r"(?P<name>[A-Za-z0-9_-]+)\.(?P<polarity>enable|disable)\Z")
 CLASS_DECLARATION = re.compile(r"^[ \t]*(?:modded[ \t]+)?class[ \t]+(?P<name>[A-Za-z_]\w*)", re.MULTILINE)
 GATE_DEFINITION = re.compile(
     r"(?:static[ \t]+)?bool[ \t]+(?P<name>\w*(?:Qualified|Accepted|OptIn)\w*)[ \t]*\([ \t]*\)[ \t]*\n?[ \t]*\{")
@@ -210,7 +218,7 @@ def scan_text(text, relative):
     classes = _classes(code)
     records = []
 
-    def record(kind, marker, name, offset, method, state=None):
+    def record(kind, marker, name, offset, method, state=None, polarity=None):
         owner = _class_at(classes, offset)
         class_line = _line_of(code, owner[0]) if owner else 0
         feature, issues, source = _tags(relative, name, raw_lines, class_line)
@@ -218,7 +226,7 @@ def scan_text(text, relative):
         records.append({
             "marker": marker, "kind": kind, "name": name, "file": relative, "line": line,
             "location": "%s:%d" % (relative, line), "class": owner[1] if owner else None,
-            "method": method, "state": state, "feature": feature, "issues": issues, "issue_source": source,
+            "method": method, "state": state, "polarity": polarity, "feature": feature, "issues": issues, "issue_source": source,
         })
 
     gate_spans = []
@@ -248,7 +256,8 @@ def scan_text(text, relative):
         safe = SAFE_MARKER.match(tail)
         closing = code[match.end():match.end() + 1]
         if safe and closing == '"' and not _concatenated(code, match.end() + 1):
-            record("profile_marker", PREFIX + tail, safe.group("name"), offset, method)
+            record("profile_marker", PREFIX + tail, safe.group("name"), offset, method,
+                   polarity=safe.group("polarity"))
         else:  # built at run time, nested or traversal-shaped: reported, never creatable
             record("dynamic_profile_marker", PREFIX + tail, None, offset, method)
     records.sort(key=lambda item: (item["line"], item["marker"]))
@@ -280,7 +289,28 @@ def scan_tree(root=ROOT):
 
 
 def creatable_names(result):
-    return sorted({item["name"] for item in result["markers"] if item["kind"] == "profile_marker"})
+    """Opt-in (".enable") marker names only; ".disable" opt-outs are never written by this tool."""
+    return sorted({item["name"] for item in result["markers"]
+                   if item["kind"] == "profile_marker" and item["polarity"] == "enable"})
+
+
+def opt_out_names(result):
+    return sorted({item["name"] for item in result["markers"]
+                   if item["kind"] == "profile_marker" and item["polarity"] == "disable"})
+
+
+def present_opt_outs(result, directory):
+    """The ".disable" markers present under <directory>/HollowCountry/acceptance/ (read only)."""
+    base = Path(directory) / "HollowCountry" / "acceptance"
+    known = set(opt_out_names(result))
+    found, unknown = [], []
+    if base.is_dir() and not base.is_symlink():
+        for path in sorted(base.glob("*.disable")):
+            name = path.name[:-len(".disable")]
+            if path.is_symlink() or not path.is_file() or not re.fullmatch(r"[A-Za-z0-9_-]+", name):
+                continue
+            (found if name in known else unknown).append(name)
+    return {"schema": SCHEMA, "directory": str(Path(directory)), "opt_outs": found, "unrecognised": unknown}
 
 
 def _inside(path, parent):
@@ -346,6 +376,8 @@ def main(argv=None):
     parser.add_argument("--root", default=str(ROOT), help="repository root to scan (default: this repository)")
     parser.add_argument("--write-profile-plan", metavar="DIR",
                         help="existing server profile directory; print the marker files that would be created")
+    parser.add_argument("--opt-outs", metavar="DIR",
+                        help="existing server profile directory; list the .disable opt-out markers present in it")
     parser.add_argument("--apply", action="store_true", help="with --write-profile-plan, create the empty files")
     parser.add_argument("--only", action="append", metavar="NAME", help="restrict the plan to this marker name")
     args = parser.parse_args(argv)
@@ -354,6 +386,14 @@ def main(argv=None):
     if args.only and not args.write_profile_plan:
         parser.error("--only requires --write-profile-plan <dir>")
     result = scan_tree(Path(args.root))
+    if args.opt_outs:
+        if args.write_profile_plan or args.apply or args.only:
+            parser.error("--opt-outs is read only and cannot be combined with --write-profile-plan, --apply or --only")
+        if not Path(args.opt_outs).is_dir():
+            print("refused: destination must be an existing directory", file=sys.stderr)
+            return 2
+        print(json.dumps(present_opt_outs(result, args.opt_outs), indent=2, sort_keys=True))
+        return 0
     if not args.write_profile_plan:
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0

@@ -8,7 +8,10 @@ reimplements it:
                   addons/ (and keys/ only when signed) into a fresh @HollowCountry folder
   serverDZ.cfg    byte-exact backup plus receipt, then only the keys listed in MANAGED_KEYS change
   mission deltas  tools/package/gameplay.py and tools/package/economy.py generate/install/rollback
-  markers         tools/audit/acceptance_markers.py scan_tree/plan_profile/apply_plan
+  markers         tools/audit/acceptance_markers.py scan_tree/plan_profile/apply_plan. Only opt-in `.enable`
+                  markers (today the xai_diagnostic_spawn diagnostic) are ever written: the V1/V2 features are on
+                  by default and an operator turns one off with a `<name>.disable` file, which this tool never
+                  writes.
   optional mods   --snafu and --tactical-flava dirs are read-only (never copied); load order SNAFU, TF, HC
   opt-in steps    --interiors [templates] --interiors-pack <assembled pack outside the checkout>
                   (interiors_profile templates install into <profiles>/HollowCountry/templates),
@@ -1460,14 +1463,8 @@ def expansion_lines(ai, profiles, mission, markers=None, markers_mode='all', app
     out.append('       (%s turns off Expansion\'s own default patrols; %s keeps every other AISettings.json field)' %
                (ai['patrol_override'], ai['merge']))
     out.append('     MANUAL check: keep the Expansion admin unlimited-reload controls OFF; HC sites refuse to start otherwise.')
-    found = [item for item in (markers or {}).get('files', []) if item.get('name') == AI_MARKER]
-    if not found:
-        out.append('     WARNING: the %s opt-in marker is not part of this session (--markers %s): HC sites stay off.' %
-                   (AI_MARKER, markers_mode))
-    elif found[0].get('action') == 'exists':
-        out.append('     %s opt-in marker: already present' % AI_MARKER)
-    else:
-        out.append('     %s opt-in marker: %s' % (AI_MARKER, 'created' if applied else 'will be created'))
+    out.append('     %s is on by default; to turn the HC patrols off create %s/HollowCountry/acceptance/%s.disable '
+               '(this tool never writes it).' % (AI_MARKER, profiles, AI_MARKER))
     out.append('     Event AI: AI_ENCOUNTER binds the qualified site patrols above; the old lease policy')
     out.append('       %s/%s is retired and not read; nothing here writes it.' % (profiles, AI_POLICY_TARGET))
     return out
@@ -2220,8 +2217,9 @@ def build_parser():
                        '(read-only; loaded before HC; its keys/*.bikey is installed only with --install-key)')
         p.add_argument('--vanilla-addons', type=Path, help='the game\'s own Addons folder, read-only, used to verify '
                        '--tactical-flava (default: <server root>/addons)')
-        p.add_argument('--markers', default='all', help='all (every marker the code scan finds), none, all-local '
-                       '(every marker in the docs/LOCAL_ACCEPTANCE_V1.md table) or comma-separated names from that table')
+        p.add_argument('--markers', default='all', help='all (every opt-in .enable marker the code scan finds), none, all-local '
+                       '(every .enable marker in the docs/LOCAL_ACCEPTANCE_V1.md table) or comma-separated names from '
+                       'that table; V1/V2 features are on by default and no .disable marker is ever written')
         p.add_argument('--interiors', nargs='?', const='templates', choices=('templates', 'legacy'),
                        help='install templates into <profiles>/HollowCountry/templates (default); legacy explicitly '
                        'selects the old interiors.json pack')

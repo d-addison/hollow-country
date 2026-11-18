@@ -18,7 +18,7 @@ class HCInfectedDeathQualification
 
     static bool LocalAcceptanceOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_deaths.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_deaths.disable");
     }
 
     static bool Admitted()

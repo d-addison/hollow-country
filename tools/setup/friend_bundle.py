@@ -41,9 +41,10 @@ from tools.setup import workshop_sync as ws
 MISSION_EXCLUDE_DIRS = ('storage_*',)
 MISSION_EXCLUDE_FILES = ('*.backup', '*.next', 'receipt.json', 'verification.json', '*.log', '*.rpt',
                          '*.adm', '*.mdmp', 'hollow-country-*receipt*.json')
-# Profile files that are configuration (everything else under the profile is state or logs).
+# Profile files that are configuration (everything else under the profile is state or logs). No acceptance
+# marker ships: the V1/V2 features are on by default, an operator's own .disable opt-outs stay local, and the
+# xai_diagnostic_spawn.enable diagnostic must never reach a friend's server.
 PROFILE_INCLUDE = (
-    'HollowCountry/acceptance/*.enable',
     'HollowCountry/settings.json',
     'HollowCountry/stamina.json',
     'HollowCountry/interiors.json',

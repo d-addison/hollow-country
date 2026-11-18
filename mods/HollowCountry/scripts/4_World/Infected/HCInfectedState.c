@@ -83,7 +83,7 @@ class HCInfectedQualification
 
     static bool CEAdoptionOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_ce_adoption.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_ce_adoption.disable");
     }
 
     static bool CEAdoptionAdmitted()
@@ -110,7 +110,7 @@ class HCInfectedQualification
 
     static bool NativePackRoutesOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_pack_routes.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_pack_routes.disable");
     }
 
     static bool NativePackRoutesAdmitted()
@@ -137,7 +137,7 @@ class HCInfectedQualification
 
     static bool InvestigationOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_investigation.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_investigation.disable");
     }
 
     static bool InvestigationAdmitted()
@@ -164,7 +164,7 @@ class HCInfectedQualification
 
     static bool SupplementaryChainsOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_supplementary_chains.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_supplementary_chains.disable");
     }
 
     static bool SupplementaryChainsAdmitted()
@@ -191,7 +191,7 @@ class HCInfectedQualification
 
     static bool MemberRecoveryOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_member_recovery.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_member_recovery.disable");
     }
 
     static bool MemberRecoveryAdmitted()
@@ -218,7 +218,7 @@ class HCInfectedQualification
 
     static bool HordeStimulusRoutesOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_horde_routes.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_horde_routes.disable");
     }
 
     static bool HordeStimulusRoutesAdmitted()

@@ -65,8 +65,11 @@ class FriendBundleTests(unittest.TestCase):
         put(p, 'HollowCountry/stamina.json', '{}')
         put(p, 'HollowCountry/interiors.json', '{}')
         put(p, 'HollowCountry/expansion-ai.json', '{}')
-        put(p, 'HollowCountry/acceptance/events.enable', '')
-        put(p, 'HollowCountry/acceptance/interior_search.enable', '')
+        # Local acceptance markers never ship: features are on by default, so the bundle carries neither the
+        # opt-in diagnostic nor an operator's .disable opt-outs.
+        put(p, 'HollowCountry/acceptance/xai_diagnostic_spawn.enable', '')
+        put(p, 'HollowCountry/acceptance/events.disable', '')
+        put(p, 'HollowCountry/acceptance/interior_search.disable', '')
         put(p, 'HollowCountry/templates/index.json', '{}')
         put(p, 'HollowCountry/templates/t-0000.json', '{}')
         put(p, 'HollowCountry/Ecology/settings.json', '{}')
@@ -136,7 +139,6 @@ class FriendBundleTests(unittest.TestCase):
             'ExpansionMod/Loadouts/HollowCountry_Patrol.json', 'ExpansionMod/Settings/AISettings.json',
             'HollowCountry/Ecology/settings.json', 'HollowCountry/Events/settings.json',
             'HollowCountry/Groups/settings.json', 'HollowCountry/Infected/config.json',
-            'HollowCountry/acceptance/events.enable', 'HollowCountry/acceptance/interior_search.enable',
             'HollowCountry/expansion-ai-sites.json', 'HollowCountry/expansion-ai.json',
             'HollowCountry/settings.json', 'HollowCountry/stamina.json',
             'HollowCountry/templates/index.json', 'HollowCountry/templates/t-0000.json']))

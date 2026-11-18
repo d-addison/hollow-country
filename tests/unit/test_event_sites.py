@@ -28,7 +28,7 @@ from tests.unit.test_group_server import EArray
 REPO = ROOT.parents[2]
 DATA = REPO / "docs/events"
 VANILLA = Path("/mnt/d/SteamLibrary/steamapps/common/DayZServer/mpmissions/dayzOffline.chernarusplus")
-MARKER = "$profile:HollowCountry/acceptance/events_sites.enable"
+MARKER = "$profile:HollowCountry/acceptance/events_sites.disable"  # opt-out: the sites are on by default
 
 
 def load(filename, owner, env, statics=None):
@@ -183,7 +183,7 @@ class SitesGate(Fixture):
     def test_qualified_stays_false_and_marker_is_server_only_and_cached_once(self):
         env = dict(self.e)
         probes = []
-        env["FileExist"] = lambda path: probes.append(path) or True
+        env["FileExist"] = lambda path: probes.append(path) or False  # no .disable marker: default open
         env["HCEventSitesGate"] = None
         cls = self.load_gate(env)
         self.assertFalse(cls.Qualified())
@@ -196,16 +196,25 @@ class SitesGate(Fixture):
         self.assertEqual([MARKER], probes)
         self.assertTrue(any("EXPERIMENTAL" in line for line in self.logs))
 
-    def test_absent_marker_is_not_admitted_and_logs_pending_once(self):
+    def test_disable_marker_is_not_admitted_and_logs_pending_once(self):
         env = self.gate()
+        env["FileExist"] = lambda path: path == MARKER
         cls = self.load_gate(env)
         self.assertFalse(cls.Admitted())
         self.assertFalse(cls.Admitted())
-        self.assertEqual(1, len([line for line in self.logs if "PENDING" in line]))
+        self.assertEqual(1, len([line for line in self.logs if "not admitted" in line and "PENDING" in line]))
+        self.assertFalse(any("EXPERIMENTAL" in line for line in self.logs))
 
-    def test_marker_text_is_the_documented_path(self):
+    def test_absent_marker_is_admitted_by_default_and_logs_once(self):
+        env = self.gate()  # FileExist answers False for every path: no .disable marker
+        cls = self.load_gate(env)
+        self.assertTrue(cls.Admitted())
+        self.assertTrue(cls.Admitted())
+        self.assertEqual(1, len([line for line in self.logs if "EXPERIMENTAL" in line]))
+
+    def test_marker_text_is_the_documented_opt_out_path(self):
         source = (ROOT / "4_World/Events/HCEventSitesGate.c").read_text()
-        self.assertIn(MARKER, source)
+        self.assertIn('!FileExist("%s")' % MARKER, source)
         self.assertEqual(1, source.count("FileExist("))
         qualified = re.search(r"static bool Qualified\(\)\s*\{\s*return false;\s*\}", source)
         self.assertIsNotNone(qualified)

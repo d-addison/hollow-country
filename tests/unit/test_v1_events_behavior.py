@@ -280,9 +280,9 @@ class V1LifecycleAndPresentation(unittest.TestCase):
         source = (ROOT / '4_World/Events/HCEventNativeObserver.c').read_text()
         self.assertEqual([], re.findall(r'\bItemBase\s+Container\s*;', source))
 
-    def test_qualification_default_closed_and_marker_cached_once_per_process(self):
+    def test_qualification_default_open_and_disable_marker_cached_once_per_process(self):
         env = dict(EArray=EArray, str=str); probes = []; logs = []
-        env['FileExist'] = lambda path: probes.append(path) or True
+        env['FileExist'] = lambda path: probes.append(path) or False       # no .disable file: the default
         env['Print'] = logs.append
         source = (ROOT / '4_World/Events/HCEventQualification.c').read_text()
         source = re.sub(r'\bs_(Checked|OptIn)\b', r'HCEventQualification.s_\1', source)
@@ -291,9 +291,9 @@ class V1LifecycleAndPresentation(unittest.TestCase):
         for name in ('Qualified', 'LocalAcceptanceOptIn', 'Admitted'):
             setattr(cls, name, staticmethod(translate(source, name, env, 'HCEventQualification')))
         self.assertFalse(cls.Qualified()); self.assertTrue(cls.Admitted()); self.assertTrue(cls.Admitted())
-        self.assertEqual(['$profile:HollowCountry/acceptance/events.enable'], probes)
+        self.assertEqual(['$profile:HollowCountry/acceptance/events.disable'], probes)
         self.assertEqual(1, len(logs)); self.assertIn('EXPERIMENTAL', logs[0])
-        cls.s_Checked = False; env['FileExist'] = lambda path: False
+        cls.s_Checked = False; env['FileExist'] = lambda path: True        # the opt-out file now exists
         self.assertFalse(cls.Admitted())
 
     def test_optional_ai_selection_constructs_only_the_fixed_script_provider(self):

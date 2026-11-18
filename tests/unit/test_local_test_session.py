@@ -227,6 +227,8 @@ class FakeOptional:
 
 
 class FakeMarkers:
+    # SYNTHETIC opt-in (.enable) marker names. The real source has only the xai_diagnostic_spawn opt-in; the 18
+    # V1/V2 features are on by default and opt out with a .disable file the launcher never writes.
     class RefusedDestination(ValueError):
         pass
 
@@ -1618,15 +1620,18 @@ class OptionalSteps(SessionCase):
         self.assertEqual(self.ai_settings.read_bytes(), operator)  # the operator's file, not the old backup
         self.assertEqual(states, ['skipped'])
 
-    def test_the_default_session_creates_the_pve_patrols_opt_in_and_none_is_reported(self):
-        with mock.patch.object(FakeMarkers, 'NAMES', FakeMarkers.NAMES + ('pve_patrols',)):
-            code, out, err = self.run_cli(self.ai_args('plan', '--markers', 'none'))
-            self.assertEqual(code, 0, err)
-            self.assertIn('pve_patrols opt-in marker is not part of this session', out)
-            code, out, err = self.run_cli(self.ai_args('apply'))
-            self.assertEqual(code, 0, err)
-            self.assertIn('pve_patrols opt-in marker: created', out)
-        self.assertTrue((self.profiles / 'HollowCountry' / 'acceptance' / 'pve_patrols.enable').is_file())
+    def test_the_session_reports_pve_patrols_on_by_default_and_never_writes_a_marker_for_it(self):
+        code, out, err = self.run_cli(self.ai_args('plan', '--markers', 'none'))
+        self.assertEqual(code, 0, err)
+        self.assertIn('pve_patrols is on by default', out)
+        self.assertIn('pve_patrols.disable', out)
+        self.assertNotIn('opt-in marker', out)
+        code, out, err = self.run_cli(self.ai_args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertIn('pve_patrols is on by default', out)
+        acceptance = self.profiles / 'HollowCountry' / 'acceptance'
+        self.assertFalse((acceptance / 'pve_patrols.enable').exists())
+        self.assertEqual([], list(acceptance.glob('*.disable')), 'the launcher never writes an opt-out marker')
 
     def test_unreadable_patrol_override_refuses_the_ai_plan(self):
         (self.repo / 'mission' / 'hollow-country' / 'ai' / 'AIPatrolSettings.override.json').write_text('{')
@@ -1700,10 +1705,12 @@ class OptionalSteps(SessionCase):
 
     def test_real_acceptance_table_in_this_checkout_lists_only_names_the_code_scan_knows(self):
         from tools.audit import acceptance_markers
+        # The 18 V1/V2 features are on by default and listed in the doc as `.disable` opt-outs, which the launcher
+        # never reads as something to create. The only `.enable` row is the opt-in xai_diagnostic_spawn diagnostic.
         names = lts.local_marker_names(ROOT)
-        self.assertGreaterEqual(len(names), 10)
-        self.assertEqual(len(names), len(set(names)))
+        self.assertEqual(['xai_diagnostic_spawn'], names)
         self.assertFalse(set(names) - set(acceptance_markers.creatable_names(acceptance_markers.scan_tree(ROOT))))
+        self.assertFalse(set(names) & set(acceptance_markers.opt_out_names(acceptance_markers.scan_tree(ROOT))))
 
     # ---- running server
     def test_apply_and_rollback_refuse_while_the_server_runs_and_plan_only_warns(self):

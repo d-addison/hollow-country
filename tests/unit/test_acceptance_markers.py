@@ -184,6 +184,17 @@ class ScanTests(unittest.TestCase):
         self.assertEqual([], record["issues"])
         self.assertIsNone(record["issue_source"])
 
+    def test_disable_markers_are_opt_outs_and_never_creatable(self):
+        write(self.tmp.name, "mods/Other/scripts/4_World/Misc/Gate.c",
+              'class Gate { static bool On() { return !FileExist("$profile:HollowCountry/acceptance/gate_feature.disable"); } }\n')
+        result = markers.scan_tree(Path(self.tmp.name))
+        record = [r for r in result["markers"] if r["name"] == "gate_feature"][0]
+        self.assertEqual(("profile_marker", "disable", NAME + "gate_feature.disable"),
+                         (record["kind"], record["polarity"], record["marker"]))
+        self.assertEqual("enable", self.by_marker[NAME + "fuel_siphon.enable"][0]["polarity"])
+        self.assertEqual(["gate_feature"], markers.opt_out_names(result))
+        self.assertEqual(["fuel_siphon"], markers.creatable_names(result))
+
     def test_malformed_marker_names_are_not_creatable(self):
         write(self.tmp.name, "mods/Other/scripts/4_World/Misc/Bad.c",
               'class Bad { static bool Check() { return FileExist("$profile:HollowCountry/acceptance/../escape.enable"); } }\n')
@@ -258,6 +269,32 @@ class PlanTests(unittest.TestCase):
         with self.assertRaises(markers.RefusedDestination):
             markers.plan_profile(self.result, target, self.repo)
 
+    def test_a_disable_marker_is_never_planned_or_written(self):
+        write(self.repo, "mods/Other/scripts/4_World/Misc/Gate.c",
+              'class Gate { static bool On() { return !FileExist("$profile:HollowCountry/acceptance/gate_feature.disable"); } }\n')
+        result = markers.scan_tree(self.repo)
+        plan = markers.plan_profile(result, self.profile, self.repo)
+        self.assertEqual(["fuel_siphon"], [item["name"] for item in plan["files"]])
+        with self.assertRaises(markers.RefusedDestination):
+            markers.plan_profile(result, self.profile, self.repo, only=["gate_feature"])
+        markers.apply_plan(plan)
+        self.assertEqual([], [p for p in (self.profile / "HollowCountry").rglob("*.disable")])
+
+    def test_present_opt_outs_reports_disable_files_and_unknown_ones(self):
+        write(self.repo, "mods/Other/scripts/4_World/Misc/Gate.c",
+              'class Gate { static bool On() { return !FileExist("$profile:HollowCountry/acceptance/gate_feature.disable"); } }\n')
+        result = markers.scan_tree(self.repo)
+        base = self.profile / "HollowCountry/acceptance"
+        self.assertEqual([], markers.present_opt_outs(result, self.profile)["opt_outs"])
+        write(base, "gate_feature.disable", "")
+        write(base, "stale_name.disable", "")
+        write(base, "fuel_siphon.enable", "")  # an opt-in file is not an opt-out
+        report = markers.present_opt_outs(result, self.profile)
+        self.assertEqual(["gate_feature"], report["opt_outs"])
+        self.assertEqual(["stale_name"], report["unrecognised"])
+        self.assertEqual({"fuel_siphon.enable", "gate_feature.disable", "stale_name.disable"},
+                         {p.name for p in base.iterdir()}, "the report must write nothing")
+
     def test_only_filter_selects_and_rejects_unknown_names(self):
         self.assertEqual(["fuel_siphon"], [i["name"] for i in self.plan(only=["fuel_siphon"])["files"]])
         with self.assertRaises(markers.RefusedDestination):
@@ -305,6 +342,16 @@ class CliTests(unittest.TestCase):
         self.assertTrue(json.loads(out)["applied"])
         self.assertTrue((self.profile / "HollowCountry/acceptance/fuel_siphon.enable").is_file())
 
+    def test_opt_outs_flag_lists_present_disable_markers_read_only(self):
+        write(self.repo, "mods/Other/scripts/4_World/Misc/Gate.c",
+              'class Gate { static bool On() { return !FileExist("$profile:HollowCountry/acceptance/gate_feature.disable"); } }\n')
+        write(self.profile / "HollowCountry/acceptance", "gate_feature.disable", "")
+        code, out, _ = self.run_cli("--opt-outs", str(self.profile))
+        self.assertEqual(0, code)
+        self.assertEqual(["gate_feature"], json.loads(out)["opt_outs"])
+        code, _, err = self.run_cli("--opt-outs", str(self.profile), "--apply")
+        self.assertEqual(2, code)
+
     def test_apply_without_a_destination_is_a_usage_error(self):
         code, _, err = self.run_cli("--apply")
         self.assertEqual(2, code)
@@ -327,9 +374,17 @@ class ChecklistTraceabilityTests(unittest.TestCase):
         cls.result = markers.scan_tree(ROOT)
         cls.text = CHECKLIST.read_text(encoding="utf-8") if CHECKLIST.is_file() else ""
 
-    def test_the_real_source_has_the_known_fuel_marker(self):
-        names = markers.creatable_names(self.result)
-        self.assertIn("fuel_siphon", names)
+    OPT_OUTS = ("atmosphere", "ecology_migration", "events", "events_sites", "fuel_siphon", "infected_ce_adoption",
+                "infected_contact_guard", "infected_deaths", "infected_horde_routes", "infected_investigation",
+                "infected_member_recovery", "infected_pack_routes", "infected_supplementary_chains",
+                "infected_vision", "interior_placement", "interior_search", "pve_patrols", "taped_light")
+
+    def test_the_real_source_has_the_known_fuel_opt_out(self):
+        self.assertIn("fuel_siphon", markers.opt_out_names(self.result))
+
+    def test_the_eighteen_features_are_opt_out_and_only_the_diagnostic_is_opt_in(self):
+        self.assertEqual(sorted(self.OPT_OUTS), markers.opt_out_names(self.result))
+        self.assertEqual(["xai_diagnostic_spawn"], markers.creatable_names(self.result))
 
     def test_every_marker_in_current_source_is_in_the_checklist(self):
         self.assertTrue(self.text, "docs/LOCAL_ACCEPTANCE_V1.md is missing")

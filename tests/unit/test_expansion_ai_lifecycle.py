@@ -106,7 +106,7 @@ class MarkerTests(unittest.TestCase):
     def test_probe_is_server_only_cached_and_qualification_stays_closed(self):
         calls=[];server=[False]
         env=dict(GetGame=lambda:N(IsServer=lambda:server[0]),
-                 FileExist=lambda p:calls.append(p) or True,Print=lambda *a:None)
+                 FileExist=lambda p:calls.append(p) or False,Print=lambda *a:None)  # no .disable marker: on by default
         text=(SCRIPTS/'HCXAIQualification.c').read_text()
         # Explicit adaptation of static state to the same authored-body harness.
         code=Authored(text.replace('s_Probed','m_Probed').replace('s_OptIn','m_OptIn'),env)
@@ -118,13 +118,13 @@ class MarkerTests(unittest.TestCase):
         self.assertFalse(owner.Admitted());self.assertEqual([],calls)
         server[0]=True
         self.assertTrue(owner.Admitted());self.assertTrue(owner.Admitted())
-        self.assertEqual(['$profile:HollowCountry/acceptance/pve_patrols.enable'],calls)
+        self.assertEqual(['$profile:HollowCountry/acceptance/pve_patrols.disable'],calls)
         self.assertFalse(owner.Qualified())
 
-    def test_absent_marker_stays_closed_until_process_restart(self):
+    def test_disable_marker_stays_closed_until_process_restart(self):
         calls=[]
         env=dict(GetGame=lambda:N(IsServer=lambda:True),
-                 FileExist=lambda path:calls.append(path) or False,Print=lambda *a:None)
+                 FileExist=lambda path:calls.append(path) or True,Print=lambda *a:None)  # the .disable marker is present
         text=(SCRIPTS/'HCXAIQualification.c').read_text()
         code=Authored(text.replace('s_Probed','m_Probed').replace('s_OptIn','m_OptIn'),env)
         owner=N(m_Probed=False,m_OptIn=False)
@@ -132,6 +132,6 @@ class MarkerTests(unittest.TestCase):
         for name in ('Qualified','LocalAcceptanceOptIn','Admitted'):
             setattr(owner,name,lambda n=name:code.call(n,owner))
         self.assertFalse(owner.Admitted())
-        env['FileExist']=lambda path:True
+        env['FileExist']=lambda path:False  # removing the marker changes nothing until a restart
         self.assertFalse(owner.Admitted())
         self.assertEqual(1,len(calls))

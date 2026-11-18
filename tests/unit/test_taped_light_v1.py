@@ -33,13 +33,15 @@ def member(path, cls, method, state, env, *args):
 
 
 class V1AdmissionTests(unittest.TestCase):
+    MARKER = '$profile:HollowCountry/acceptance/taped_light.disable'
+
     def setUp(self):
         self.server = True
-        self.enabled = False
+        self.disabled = False      # True models an operator-created taped_light.disable file
         self.probes = []
         self.gate = NS(mHCChecked=False, mHCOptIn=False)
         self.env = dict(GetGame=lambda:NS(IsServer=lambda:self.server),
-                        FileExist=lambda path:self.probes.append(path) or self.enabled,
+                        FileExist=lambda path:self.probes.append(path) or self.disabled,
                         Print=lambda text:None)
         self.gate.Qualified = lambda:member(NATIVE, 'HCTapedLightAdmission', 'Qualified', self.gate, self.env)
         self.gate.LocalAcceptanceOptIn = lambda:member(NATIVE, 'HCTapedLightAdmission', 'LocalAcceptanceOptIn', self.gate, self.env)
@@ -49,21 +51,32 @@ class V1AdmissionTests(unittest.TestCase):
 
     def test_client_cannot_probe_or_admit(self):
         self.server = False
-        self.enabled = True
         self.assertFalse(self.admitted())
         self.assertFalse(self.gate.LocalAcceptanceOptIn())
         self.assertEqual([], self.probes)
         self.assertFalse(self.gate.mHCChecked)
 
-    def test_server_probe_is_cached_and_never_qualifies(self):
-        self.assertFalse(self.admitted())
-        self.enabled = True
-        self.assertFalse(self.admitted())
-        self.assertEqual(['$profile:HollowCountry/acceptance/taped_light.enable'], self.probes)
-        self.gate.mHCChecked = False
+    def test_server_default_without_a_marker_is_open_and_never_qualifies(self):
         self.assertTrue(self.admitted())
-        self.enabled = False
+        self.assertFalse(self.gate.Qualified())
+        self.assertEqual([self.MARKER], self.probes)
+
+    def test_disable_marker_closes_the_gate(self):
+        self.disabled = True
+        self.assertFalse(self.admitted())
+        self.assertFalse(self.gate.Qualified())
+        self.assertEqual([self.MARKER], self.probes)
+
+    def test_server_probe_is_cached_in_either_direction(self):
         self.assertTrue(self.admitted())
+        self.disabled = True            # a later file change is ignored until restart
+        self.assertTrue(self.admitted())
+        self.assertEqual([self.MARKER], self.probes)
+        self.gate.mHCChecked = False    # a restart re-probes
+        self.assertFalse(self.admitted())
+        self.disabled = False
+        self.assertFalse(self.admitted())
+        self.assertEqual([self.MARKER, self.MARKER], self.probes)
         self.assertFalse(self.gate.Qualified())
 
 

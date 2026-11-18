@@ -11,7 +11,7 @@ class HCEventSitesGate
     }
     static bool LocalAcceptanceOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/events_sites.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/events_sites.disable");
     }
     static bool Admitted()
     {

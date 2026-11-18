@@ -125,7 +125,7 @@ class SiphonActionContractTests(unittest.TestCase):
         self.assertNotIn("HCActionSiphonFuel,", self.text)
         self.assertNotRegex(code(DIAGNOSTIC), r"actions\.Insert|AddAction\(")
 
-    def test_server_gate_is_crafting_lifecycle_and_closed_fuel_admission(self):
+    def test_server_gate_is_crafting_lifecycle_and_fuel_admission_open_unless_disabled(self):
         gate = method(self.text, "ServerEnabled")
         self.assertIn("IsServer()", gate)
         self.assertIn("HCCraftingGate.CanPreviewOrCraft()", gate)
@@ -135,7 +135,8 @@ class SiphonActionContractTests(unittest.TestCase):
         admitted = method(self.text, "Admitted")
         self.assertIn("Qualified()", admitted)
         self.assertIn("LocalAcceptanceOptIn()", admitted)
-        self.assertIn('"$profile:HollowCountry/acceptance/fuel_siphon.enable"', self.text)
+        self.assertIn('!FileExist("$profile:HollowCountry/acceptance/fuel_siphon.disable")', self.text)
+        self.assertNotIn("fuel_siphon.enable", self.text)
         self.assertIn("EXPERIMENTAL", admitted)
         self.assertIn("s_Checked", admitted)          # one file probe per server process
         cond = method(self.text, "ActionCondition")

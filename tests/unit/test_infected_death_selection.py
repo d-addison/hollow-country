@@ -103,10 +103,11 @@ class ProductionSourceContractTests(unittest.TestCase):
         self.text = code(DEATH)
         self.policy = code(POLICY)
 
-    def test_admission_is_closed_by_default_with_probe_once_local_opt_in(self):
+    def test_admission_is_open_by_default_with_probe_once_disable_opt_out(self):
         self.assertRegex(self.text, r"class HCInfectedDeathQualification")
         self.assertRegex(self.text, r"static bool Qualified\(\)\s*\{\s*return false;\s*\}")
-        self.assertIn('FileExist("$profile:HollowCountry/acceptance/infected_deaths.enable")', self.text)
+        self.assertIn('!FileExist("$profile:HollowCountry/acceptance/infected_deaths.disable")', self.text)
+        self.assertNotIn("infected_deaths.enable", self.text)
         self.assertRegex(self.text, r"if \(!s_Checked\)")
         self.assertRegex(self.text, r"s_Checked = true;")
         self.assertIn("EXPERIMENTAL", self.text)
@@ -196,7 +197,7 @@ class AuditDocumentTests(unittest.TestCase):
         for required in ("EvaluateDeathAnimationEx", "ZombieBase.c:", "DayZInfected.c:",
                          "PhysicsSetRagdoll", "unsupported", "ECE_INITAI", "run 065",
                          "run 047", "run 043", "run 062", "run 064",
-                         "PENDING", "infected_deaths.enable"):
+                         "PENDING", "infected_deaths.disable", "on by default"):
             self.assertIn(required, text, required)
         self.assertNotIn(str(Path.home()), text)
 

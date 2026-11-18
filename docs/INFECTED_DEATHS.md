@@ -71,8 +71,8 @@ controls exist to answer. If the rendered controls show no visible difference,
 the correct disposition is "no selectable variant", not acceptance.
 
 Admission mirrors `HCFuelSiphonQualification`: `Qualified()` returns false;
-the only way to enable the override is the local-acceptance marker
-`$profile:HollowCountry/acceptance/infected_deaths.enable`, probed once per
+the override is on by default and is turned off only by the opt-out marker
+`$profile:HollowCountry/acceptance/infected_deaths.disable`, probed once per
 process and logged as EXPERIMENTAL with runtime acceptance PENDING. Decisions
 are logged at most 16 times per process.
 

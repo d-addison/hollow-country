@@ -1320,7 +1320,7 @@ EVIDENCE = json.loads(r'''
     "max_distance": 2,
     "return_to": "native free cargo; refuse if full",
     "catalog": "HCTapedLightCatalog.c (compiled data read by service adapter)",
-    "marker": "$profile:HollowCountry/acceptance/taped_light.enable",
+    "marker": "$profile:HollowCountry/acceptance/taped_light.disable",
     "production_qualified": false,
     "evidence_record": "tests/unit/test_taped_light_v1_evidence.py (source facts, not a synthetic observation)"
   },
@@ -1830,12 +1830,12 @@ EVIDENCE = json.loads(r'''
   "lead_integration": {
     "core_registration": "none; ActionConstructor + Weapon_Base.SetActions are automatically compiled and dispatched",
     "acceptance_checklist_additions": [
-      "$profile:HollowCountry/acceptance/taped_light.enable",
+      "$profile:HollowCountry/acceptance/taped_light.disable",
       "HCTapedLightAdmission.Qualified"
     ],
     "acceptance_checklist_file": "docs/LOCAL_ACCEPTANCE_V1.md",
     "reason": "Outside writer W1.3 file ownership; marker traceability test requires these literal entries.",
-    "checklist_suggested_row": "| #56 | Taped flashlights | $profile:HollowCountry/acceptance/taped_light.enable; HCTapedLightAdmission.Qualified=false | Hold an evidenced weapon, owned off compatible light and tape; mount, native toggle off/on, remove into free cargo | One tape unit spent; same light and battery returned; no duplicates | Taped light | pending | pending | Tier S only; two-client and restart acceptance pending |"
+    "checklist_suggested_row": "| #56 | Taped flashlights | $profile:HollowCountry/acceptance/taped_light.disable; HCTapedLightAdmission.Qualified=false | Hold an evidenced weapon, owned off compatible light and tape; mount, native toggle off/on, remove into free cargo | One tape unit spent; same light and battery returned; no duplicates | Taped light | pending | pending | Tier S only; two-client and restart acceptance pending |"
   },
   "limits": {
     "operations_per_journal": 128,

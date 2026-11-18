@@ -23,7 +23,7 @@ class HCInfectedProfiles
     // It stays server-only, is probed once per process and is never persisted.
     static bool ContactGuardOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_contact_guard.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_contact_guard.disable");
     }
 
     static bool ContactGuardAdmitted()

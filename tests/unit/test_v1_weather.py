@@ -266,7 +266,7 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         game = NS(IsServer=lambda: server, GetWorldName=lambda: world,
                   GetVersion=lambda: events.append(('version',)) or build)
         context = dict(GetGame=lambda: game, HCBuildIdentity=build_identity(), HCServer=NS(Get=lambda: core),
-                       FileExist=lambda path: True, FileMode=NS(READ=1),
+                       FileExist=lambda path: False, FileMode=NS(READ=1),   # no atmosphere.disable file: default open
                        OpenFile=lambda *args: events.append(('open', args)) or (0 if missing else 1),
                        ReadFile=lambda handle, limit: events.append(('read', limit)) or document[:limit],
                        CloseFile=lambda handle: events.append(('close', handle)),
@@ -328,13 +328,13 @@ class V1WeatherAdmissionTests(unittest.TestCase):
                                 expected += ['atmosphere']
                     self.assertEqual(expected, calls)
 
-    def context(self, enabled=True, server=True, started=True, marker=False, supported_world=True):
+    def context(self, enabled=True, server=True, started=True, disabled=False, supported_world=True):
         events = []
         settings = NS(EnableAtmosphere=enabled)
         core = NS(IsStarted=lambda: started, GetSettings=lambda: settings)
         game = NS(IsServer=lambda: server)
         context = {'GetGame': lambda: game, 'HCBuildIdentity': build_identity(), 'HCServer': NS(Get=lambda: core),
-                   'FileExist': lambda path: events.append(('probe', path)) or marker,
+                   'FileExist': lambda path: events.append(('probe', path)) or disabled,   # True = atmosphere.disable exists
                    'Print': lambda text: events.append(('log', text)),
                    's_Probed': False, 's_OptIn': False, 's_Reported': False}
         gate = NS()
@@ -346,22 +346,22 @@ class V1WeatherAdmissionTests(unittest.TestCase):
         gate.SupportedWorld = lambda: supported_world
         return gate, context, events
 
-    def test_qualification_stays_false_and_opt_in_is_probed_once(self):
-        for marker in (False, True):
-            gate, context, events = self.context(marker=marker)
+    def test_qualification_stays_false_and_default_open_disable_probe_is_once(self):
+        for disabled in (False, True):
+            gate, context, events = self.context(disabled=disabled)
             self.assertFalse(gate.Qualified())
             for _ in range(3):
-                self.assertEqual(marker, gate.Enabled())
+                self.assertEqual(not disabled, gate.Enabled())      # default with no marker is OPEN
             probes = [e for e in events if e[0] == 'probe']
-            self.assertEqual([('probe', '$profile:HollowCountry/acceptance/atmosphere.enable')], probes)
-            self.assertTrue(any(('EXPERIMENTAL' if marker else 'PENDING') in e[1]
+            self.assertEqual([('probe', '$profile:HollowCountry/acceptance/atmosphere.disable')], probes)
+            self.assertTrue(any(('PENDING' if disabled else 'EXPERIMENTAL') in e[1]
                                 for e in events if e[0] == 'log'))
-            context['FileExist'] = lambda path: not marker
-            self.assertEqual(marker, gate.Enabled(), 'marker changes require process restart')
+            context['FileExist'] = lambda path: not disabled
+            self.assertEqual(not disabled, gate.Enabled(), 'marker changes require process restart')
 
     def test_disabled_client_or_unstarted_core_never_probes_or_mutates(self):
         for change in ({'enabled': False}, {'server': False}, {'started': False}, {'supported_world': False}):
-            gate, _, events = self.context(marker=True, **change)
+            gate, _, events = self.context(**change)
             self.assertFalse(gate.Enabled())
             self.assertFalse(any(e[0] == 'probe' for e in events))
 

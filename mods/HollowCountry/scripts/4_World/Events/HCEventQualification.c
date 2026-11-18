@@ -10,7 +10,7 @@ class HCEventQualification
     }
     static bool LocalAcceptanceOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/events.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/events.disable");
     }
     static bool Admitted()
     {

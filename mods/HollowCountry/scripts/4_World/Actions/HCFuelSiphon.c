@@ -24,7 +24,7 @@ class HCFuelSiphonQualification
 
     static bool LocalAcceptanceOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/fuel_siphon.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/fuel_siphon.disable");
     }
 
     static bool Admitted()

@@ -27,7 +27,7 @@ class HCInfectedVisionQualification
 
     static bool LocalAcceptanceOptIn()
     {
-        return FileExist("$profile:HollowCountry/acceptance/infected_vision.enable");
+        return !FileExist("$profile:HollowCountry/acceptance/infected_vision.disable");
     }
 
     static bool Admitted()
