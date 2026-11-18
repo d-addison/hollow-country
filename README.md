@@ -204,28 +204,27 @@ captured and verified.
 
 ## Where we are
 
-V2 systems are in the development build, on by default, and compile and start on
-a dedicated server. They await play-testing; no V2 feature has been accepted by
-playing it yet. Behaviour needing several players is checked in group sessions.
+Everything below is in the development build, on by default, and compiles and
+starts on a dedicated server. Each feature logs one admission line at start-up
+and can be switched off on its own. None has been accepted by playing it yet:
+features are accepted one by one on a local server, and behaviour that needs
+several players is checked in group sessions.
 
-Search and interior systems, crafting recovery families, a finite search economy,
-ecology observation, optional events and fuel-transfer checks are in the
-development build. Infected now admit each complex behavior (packs, alerts,
-investigation, hordes) only after it has been qualified, and otherwise keep
-native behavior. Their stimulus selection prefers what they saw over what they
-heard over what they remember. Group navigation, separate weight and stamina
-displays and taped-light mounting are being built.
+| Area | In the build | State |
+| :--- | :--- | :--- |
+| Search, interiors and loot | Finite search economy, furnished interiors, about twice vanilla loot with extra contextual floor spots in 149 building types; firearms and ammunition stay scarce | Built · not played |
+| Crafting and recovery | Recovery families, fuel siphoning, taped lights | Built · not played |
+| Infected | Packs, alerts, investigation, hordes, doors they can open or force, and reach against players on low roofs, ladders and vehicles (attacks and steering only, no teleports) | Built · not played |
+| Travel together | Stamina doubled, separate weight and stamina bars, groups and the shared map | Built · not played |
+| Living Country (V2) | Every system in the table above | Built · not played |
+| Admin test kit | Admin-only map snapshot, module status and test triggers for sitters, hordes, scenes, events, hold-outs and camps | Built · not played |
+| Death and idle animations | A sitting infected pose built from our own keyframes | Built · not played |
 
-The complete development build compiles and initializes on a real DayZ dedicated
-server. Every feature is accepted by playing it on a local dedicated server; until
-then V1 stays gated and reports what it is missing. Behavior that needs several
-players at once is checked in later group sessions. Balance and performance still
-need qualification.
-
-Every area requires a full audit of relevant existing content and behavior.
-Pilots are checkpoints: a feature finishes only when its agreed scope is
-implemented, documented and validated. Unsupported ideas and exclusions must be
-explained rather than silently dropped.
+Balance and performance still need measuring on the target load of three to six
+players. Every area requires a full audit of relevant existing content and
+behaviour, and a feature finishes only when its agreed scope is implemented,
+documented and validated. Unsupported ideas and exclusions must be explained
+rather than silently dropped.
 
 ## For server owners and contributors
 
@@ -236,8 +235,10 @@ live in [addon development](docs/MOD_DEVELOPMENT.md), [tools](tools/README.md),
 
 The development build is not yet qualified for live-server use. ChernarusPlus is
 the first map; compatibility across maps and server setups is a goal, including
-servers around 90 players. That capacity has not been demonstrated. Workshop
-preparation is planned; there is no Workshop release yet.
+servers around 90 players. That capacity has not been demonstrated. The mod and
+its optional Expansion AI addon are on the Steam Workshop as development builds;
+a friend-server bundle ships as a GitHub pre-release, with a
+[step-by-step runbook](docs/FRIEND_SERVER_AI_RUNBOOK.md).
 
 ## Roadmap
 
