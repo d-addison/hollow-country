@@ -329,6 +329,23 @@ receipt and byte-exact backups live in `hollow-country-loot-boost`; rollback und
 `InitialSpawn`, `RespawnLimit`, `RespawnAttempt` and cleanup values are unchanged. Native CE
 acceptance of the added containers and the entity/performance cost are not yet observed.
 
+
+The guided friend installer (`python -m tools.setup.friend_install`) keeps its
+run journal and backups under `hollow-country-install-backups/<run>/`. After an
+interruption, `--check` reports pending work without changing files; rerun with
+`--apply` and the server stopped to recover before installing. Recovery restores
+or removes a target only when its live bytes match a recorded installer write;
+bytes already equal to the baseline need no change. Files created where a target
+was previously absent and files inside mission trees receive the same checks.
+If bytes match neither, recovery leaves them untouched, lists every conflict and
+its backup path, and retains `rollback_pending`. A previously absent target has
+no original backup file; the listed path identifies its place in the run backup.
+Keep the journal and backups, compare the conflicting files, and reconcile them
+by hand before retrying. A hard exit before a mission writer records its result,
+or an older journal without written hashes, can require this manual review.
+Never delete the journal to bypass a conflict. Identical dependency files are
+recorded as unchanged and receive no backup.
+
 Rollback with the server stopped:
 
 ```sh

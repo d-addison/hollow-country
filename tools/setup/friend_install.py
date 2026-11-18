@@ -258,7 +258,7 @@ def load_bundle(bundle):
     bad = []
     for row in rows:
         rel = row.get('path') if isinstance(row, dict) else None
-        if not isinstance(rel, str) or rel.startswith('/') or '..' in rel.split('/') or ':' in rel:
+        if not isinstance(rel, str) or rel.startswith('/') or '\\' in rel or '..' in rel.split('/') or ':' in rel:
             bad.append(str(rel))
             continue
         target = bundle / rel
@@ -516,9 +516,17 @@ def journal_path(root):
 def safe_relative(rel):
     path = Path(rel)
     if (not rel or path.is_absolute() or path.as_posix() != rel or '\\' in rel
-            or any(p in ('.', '..', BACKUP_DIR) or ':' in p or p.startswith('storage_') for p in path.parts)):
+            or any(p in ('.', '..') or ':' in p or reserved_component(p) for p in path.parts)):
         raise ValueError('unsafe install journal target')
     return path
+
+
+def reserved_component(name):
+    return name.casefold().startswith('storage_') or name.casefold() == BACKUP_DIR.casefold()
+
+
+def ignore_persistence(_directory, names):
+    return [name for name in names if reserved_component(name)]
 
 
 def tree_inventory(root):
@@ -530,7 +538,7 @@ def tree_inventory(root):
         if path.is_dir():
             rows[rel] = 'dir'
             for child in sorted(path.iterdir()):
-                if not child.name.startswith('storage_'):
+                if not reserved_component(child.name):
                     visit(child, child.name if not rel else rel + '/' + child.name)
         elif path.is_file():
             rows[rel] = sha256_file(path)
@@ -551,7 +559,7 @@ def ensure_journal(ctx):
     parent = ctx.server / BACKUP_DIR
     parent.mkdir(exist_ok=True)
     ctx.backup_root = Path(tempfile.mkdtemp(prefix=stamp() + '-', dir=parent))
-    data = {'schema': 1, 'state': 'active', 'entries': [], 'temporaries': {}}
+    data = {'schema': 1, 'state': 'active', 'entries': [], 'temporaries': {}, 'unchanged': []}
     ws.write_json_atomic(journal_path(ctx.backup_root), data)
     ctx.journal = data
 
@@ -573,12 +581,13 @@ def track_target(ctx, rel, tree=False):
     parent = Path(rel).parent
     if parent != Path('.') and not (ctx.server / parent).exists():
         track_target(ctx, parent.as_posix())
+        record_written(ctx, parent.as_posix(), 'dir')
     backup = ctx.backup_root / rel
-    row = {'path': rel, 'kind': 'absent'}
+    row = {'path': rel, 'kind': 'absent', 'written': {}}
     if target.is_dir() and tree:
         before = tree_inventory(target)
         backup.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(target, backup, ignore=shutil.ignore_patterns('storage_*'))
+        shutil.copytree(target, backup, ignore=ignore_persistence)
         if tree_inventory(backup) != before:
             raise ValueError('mission changed during backup')
         row.update(kind='tree', sha256=inventory_digest(before))
@@ -608,7 +617,7 @@ def pending_runs(ctx):
         ws.check_no_symlink_below(ctx.server, path.relative_to(ctx.server).as_posix())
         data = json.loads(path.read_text(encoding='utf-8'))
         if (not isinstance(data, dict) or data.get('schema') != 1
-                or data.get('state') not in ('active', 'rolling-back', 'complete', 'rolled-back')
+                or data.get('state') not in ('active', 'rolling-back', 'rollback_pending', 'complete', 'rolled-back')
                 or not isinstance(data.get('entries'), list)
                 or not isinstance(data.get('temporaries'), dict)):
             raise Refused('journal_invalid', 'cannot recover ' + shown(path))
@@ -622,14 +631,50 @@ def pending_runs(ctx):
                     or row.get('kind') not in ('file', 'tree', 'absent')):
                 raise Refused('journal_invalid', 'unknown entry in ' + shown(path))
             safe_relative(row['path'])
-        if data['state'] in ('active', 'rolling-back'):
+        if data['state'] in ('active', 'rolling-back', 'rollback_pending'):
             runs.append((path.parent, data))
     return runs
 
 
+def record_written(ctx, rel, digest):
+    """Publish expected bytes before a live write; retain earlier writes for interrupted upgrades."""
+    track_target(ctx, rel)
+    for row in ctx.journal['entries']:
+        if rel == row['path'] or (row['kind'] == 'tree' and rel.startswith(row['path'] + '/')):
+            name = rel[len(row['path']):].lstrip('/')
+            values = row['written'].setdefault(name, [])
+            if digest not in values:
+                values.append(digest)
+                ws.write_json_atomic(journal_path(ctx.backup_root), ctx.journal)
+            return
+
+
+@contextlib.contextmanager
+def tree_writer(ctx, mission):
+    """Fingerprint helper results before returning, including partial/refused writes.
+
+    A hard process exit before this snapshot leaves unknown bytes: recovery must
+    refuse those bytes, never infer ownership from a backup alone.
+    """
+    rel = mission.relative_to(ctx.server).as_posix()
+    track_target(ctx, rel, tree=True)
+    before = tree_inventory(mission)
+    try:
+        yield
+    finally:
+        after = tree_inventory(mission)
+        row = next(row for row in ctx.journal['entries'] if row['path'] == rel)
+        for name in before.keys() | after.keys():
+            if before.get(name) != after.get(name):
+                values = row['written'].setdefault(name, [])
+                if after.get(name) not in values:
+                    values.append(after.get(name))
+        ws.write_json_atomic(journal_path(ctx.backup_root), ctx.journal)
+
+
 def rollback_changes(ctx, root, data):
-    """Recompute remaining work from bytes, so interrupted undo is idempotent."""
-    changes = []
+    """Only undo known installer bytes. Validate every row before mutating anything."""
+    changes, conflicts = [], []
     for rel, before_names in data['temporaries'].items():
         if rel:
             ws.check_no_symlink_below(ctx.server, rel)
@@ -639,32 +684,43 @@ def rollback_changes(ctx, root, data):
     for row in reversed(data['entries']):
         rel = row['path']
         ws.check_no_symlink_below(ctx.server, rel)
-        backup = root / rel
         ws.check_no_symlink_below(root, rel)
-        target = ctx.server / rel
-        if row['kind'] == 'absent':
-            if target.exists():
-                changes.append(('rmdir' if target.is_dir() else 'remove', rel, None))
-        elif row['kind'] == 'file':
-            if not backup.is_file() or sha256_file(backup) != row.get('sha256'):
-                raise ValueError('backup missing or changed: ' + rel)
-            if not target.is_file() or sha256_file(target) != row['sha256']:
-                changes.append(('restore', rel, backup))
-        else:
+        backup, target = root / rel, ctx.server / rel
+        if row['kind'] == 'tree':
             before = tree_inventory(backup)
             if inventory_digest(before) != row.get('sha256'):
                 raise ValueError('backup missing or changed: ' + rel)
             current = tree_inventory(target)
-            # Remove newly created files/directories before restoring the baseline.
-            for name in sorted(current, key=lambda n: (n.count('/'), n), reverse=True):
-                if name not in before:
-                    changes.append(('rmdir' if current[name] == 'dir' else 'remove',
-                                    rel + '/' + name if name else rel, None))
-            for name in sorted(before, key=lambda n: (n.count('/'), n)):
-                if before[name] != current.get(name):
-                    changes.append(('mkdir' if before[name] == 'dir' else 'restore',
-                                    rel + '/' + name if name else rel, backup / name))
-    # A mission tree inventory may also contain one of the writer's scratch files.
+        else:
+            if row['kind'] == 'file':
+                if not backup.is_file() or sha256_file(backup) != row.get('sha256'):
+                    raise ValueError('backup missing or changed: ' + rel)
+                before = {'': row['sha256']}
+            else:
+                before = {}
+            current = ({'': sha256_file(target)} if target.is_file() else
+                       {'': 'dir'} if target.is_dir() else {})
+        written = row.get('written', {})
+        row_changes = []
+        for name in before.keys() | current.keys():
+            baseline, live = before.get(name), current.get(name)
+            if live == baseline:
+                continue
+            full_rel = rel + ('/' + name if name else '')
+            if live not in written.get(name, []):
+                conflicts.append('%s (backup: %s)' % (full_rel, shown(backup / name)))
+                continue
+            if live is not None and (baseline is None or baseline == 'dir' or live == 'dir'):
+                row_changes.append(('rmdir' if live == 'dir' else 'remove', full_rel, None))
+            if baseline is not None:
+                row_changes.append(('mkdir' if baseline == 'dir' else 'restore', full_rel, backup / name))
+        # Keep reverse journal order; within a tree remove children before parents.
+        changes.extend(sorted((c for c in row_changes if c[0] in ('remove', 'rmdir')),
+                              key=lambda c: (c[1].count('/'), c[1]), reverse=True))
+        changes.extend(sorted((c for c in row_changes if c[0] not in ('remove', 'rmdir')),
+                              key=lambda c: (c[1].count('/'), c[1])))
+    if conflicts:
+        raise ValueError('changed after interrupted install; left untouched: ' + '; '.join(sorted(conflicts)))
     unique = {}
     for change in changes:
         unique.setdefault(change[:2], change)
@@ -702,8 +758,13 @@ def describe_pending(ctx, root, data):
 def rollback_run(ctx, root, data):
     ws.write_json_atomic(journal_path(root), dict(data, state='rolling-back'))
     data['state'] = 'rolling-back'
-    for change in rollback_changes(ctx, root, data):
-        restore_change(ctx, change)  # Stop at the first failed undo; keep all backups.
+    try:
+        for change in rollback_changes(ctx, root, data):
+            restore_change(ctx, change)  # Stop at the first failed undo; keep all backups.
+    except (OSError, ValueError, ws.SyncError):
+        data['state'] = 'rollback_pending'
+        ws.write_json_atomic(journal_path(root), data)
+        raise
     ws.write_json_atomic(journal_path(root), dict(data, state='rolled-back'))
     data['state'] = 'rolled-back'
 
@@ -713,20 +774,20 @@ def recover_runs(ctx, runs):
     for root, data in runs:
         try:
             rollback_run(ctx, root, data)
-        except (OSError, ValueError, ws.SyncError) as error:
-            raise Refused('rollback_pending', '%s\n%s' % (shown(error), describe_pending(ctx, root, data)))
+        except (OSError, ValueError, ws.SyncError):
+            raise Refused('rollback_pending', describe_pending(ctx, root, data))
         ctx.say('Recovered interrupted install; ' + ROLLBACK_OK)
 
 
 def write_file(ctx, rel, source, action):
     target = ctx.server / rel
-    track_target(ctx, rel)
+    record_written(ctx, rel, sha256_file(source))
     target.parent.mkdir(parents=True, exist_ok=True)
     ws.copy_atomic(source, target)
 
 
 def save_receipt(ctx):
-    track_target(ctx, RECEIPT)
+    record_written(ctx, RECEIPT, sha256_bytes(ws.json_bytes(ctx.receipt)))
     ws.write_json_atomic(ctx.server / RECEIPT, ctx.receipt)
 
 
@@ -848,8 +909,9 @@ def do_mods(ctx, a):
     for rel in a.stale:
         target = ctx.server / rel
         ws.check_no_symlink_below(ctx.server, rel)
-        track_target(ctx, rel)
-        os.replace(target, ctx.backup_root / rel)
+        record_written(ctx, rel, None)
+        target.unlink()
+        ws.fsync_parent(target)
         ctx.receipt['files'].pop(rel, None)
     save_receipt(ctx)
     return 'done'
@@ -866,9 +928,13 @@ def install_dependencies(ctx, a):
                       'or point --workshop-content at the steamapps/workshop/content/221100 folder' % ', '.join(missing))
     items = [t['item'] for t in a.pending]
     targets, _skipped, _manual = ws.plan_install(items, ctx.dirs, ctx.server, ctx.owned)
-    for rel in sorted(targets):
-        track_target(ctx, rel)
-    track_target(ctx, ws.RECEIPT_NAME)
+    ensure_journal(ctx)
+    for rel, (_item, digest, _source) in sorted(targets.items()):
+        target = ctx.server / rel
+        if target.is_file() and sha256_file(target) == digest:
+            ctx.journal['unchanged'].append(rel)
+            ctx.say('  unchanged: ' + rel)
+    ws.write_json_atomic(journal_path(ctx.backup_root), ctx.journal)
     with tempfile.TemporaryDirectory(prefix='hc-friend-install-') as temp:
         manifest = ws.load_manifest()
         wanted = {t['item']['folder'] for t in a.pending}
@@ -881,7 +947,7 @@ def install_dependencies(ctx, a):
             argv += ['--workshop-content', str(directory)]
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stderr(err):
-            code = ws.main(argv, out=out)
+            code = ws.main(argv, out=out, before_write=lambda rel, digest: record_written(ctx, rel, digest))
     if code != 0:
         raise Refused('mods', 'the dependency copy was refused: %s' % err.getvalue().strip())
     for line in out.getvalue().splitlines():
@@ -911,7 +977,11 @@ def overlay_pack_dir(ctx):
 def run_overlay(ctx, argv):
     out, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        code = overlays.main(argv)
+        if argv[0] in ('bundle-apply', 'bundle-rollback'):
+            with tree_writer(ctx, Path(argv[argv.index('--mission') + 1])):
+                code = overlays.main(argv)
+        else:
+            code = overlays.main(argv)
     return code, out.getvalue(), err.getvalue()
 
 
@@ -980,7 +1050,11 @@ def do_overlay(ctx, a, mission, installed, want):
 def run_map(ctx, argv):
     out, err = io.StringIO(), io.StringIO()
     with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-        code = map_overlay.main(argv)
+        if argv[0] in ('install', 'rollback'):
+            with tree_writer(ctx, Path(argv[argv.index('--target') + 1])):
+                code = map_overlay.main(argv)
+        else:
+            code = map_overlay.main(argv)
     return code, out.getvalue(), err.getvalue()
 
 
@@ -1161,11 +1235,9 @@ def do_cfg(ctx, a):
     if current != cfg['raw']:
         raise Refused('drift', 'serverDZ.cfg changed while this run was waiting; nothing was written to it. Run the '
                       'installer again so it merges into the file as it is now')
-    track_target(ctx, 'serverDZ.cfg')
-    track_target(ctx, '.serverDZ.cfg.hc-new')
-    temp = cfg['path'].with_name('.serverDZ.cfg.hc-new')
-    temp.write_bytes(cfg['new'].encode('utf-8'))
-    os.replace(temp, cfg['path'])
+    data = cfg['new'].encode('utf-8')
+    record_written(ctx, 'serverDZ.cfg', sha256_bytes(data))
+    ws.write_bytes_atomic(cfg['path'], data)
     return 'done'
 
 
