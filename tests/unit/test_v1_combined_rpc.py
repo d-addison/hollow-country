@@ -109,6 +109,8 @@ class CombinedRpcTests(unittest.TestCase):
         self.assertEqual({
             '4_World/Groups/HCGroupService.c', '4_World/Events/HCEventRPC.c',
             '5_Mission/Groups/HCGroupClient.c', '5_Mission/Events/HCEventClient.c',
+            # V2 Morse is server-to-holder only; it accepts no server request.
+            '5_Mission/Leads/HCMorseClient.c',
             '3_Game/Survival/HCStaminaConfiguration.c',
             # Search prompt sites: the server answers class geometry only, rate-limited per sender.
             '4_World/Interiors/HCSearchPreviewSites.c'}, found)
