@@ -1,56 +1,292 @@
 {
   "classes": {
+    "Land_Container_1Mo": {
+      "kind": "container",
+      "loot_group": true,
+      "pbo": "structures_industrial.pbo",
+      "role": "container"
+    },
+    "Land_Container_1Moh": {
+      "kind": "container",
+      "loot_group": true,
+      "pbo": "structures_industrial.pbo",
+      "role": "container"
+    },
     "Land_Medical_Tent_Big": {
-      "pbo": "structures_residential.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_residential.pbo",
+      "role": "medical"
     },
     "Land_Medical_Tent_Shower": {
-      "pbo": "structures_residential.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_residential.pbo",
+      "role": "medical"
+    },
+    "Land_Mil_Fortified_Nest_Small": {
+      "kind": "building",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "nest"
+    },
+    "Land_Mil_GuardShed": {
+      "kind": "building",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "shed"
+    },
+    "Land_Mil_GuardTower": {
+      "kind": "building",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tower"
+    },
+    "Land_Mil_Radar_Mobile1": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "radar"
     },
     "Land_Mil_Tent_Big1_1": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big1_2": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big1_3": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big1_4": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big1_5": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big2_1": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big2_2": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big2_3": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big2_4": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big2_5": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big3": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
     },
     "Land_Mil_Tent_Big4": {
-      "pbo": "structures_military.pbo"
+      "kind": "tent",
+      "loot_group": true,
+      "pbo": "structures_military.pbo",
+      "role": "tent"
+    },
+    "Land_Roadblock_Table": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "furnishing"
+    },
+    "Land_Roadblock_WoodenCrate": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "furnishing"
+    },
+    "Land_Wreck_Uaz": {
+      "kind": "wreck",
+      "loot_group": false,
+      "pbo": "structures_wrecks.pbo",
+      "role": "wreck"
+    },
+    "Land_Wreck_offroad02_aban2": {
+      "kind": "wreck",
+      "loot_group": true,
+      "pbo": "structures_wrecks.pbo",
+      "role": "wreck"
+    },
+    "StaticObj_Container_1C": {
+      "kind": "container",
+      "loot_group": false,
+      "pbo": "structures_industrial.pbo",
+      "role": "container"
+    },
+    "StaticObj_Container_1D": {
+      "kind": "container",
+      "loot_group": false,
+      "pbo": "structures_industrial.pbo",
+      "role": "container"
+    },
+    "StaticObj_Mil_CamoNet_Side_east": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "net"
+    },
+    "StaticObj_Mil_CamoNet_Side_nato": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "net"
+    },
+    "StaticObj_Mil_HBarrier_4m": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "barrier"
+    },
+    "StaticObj_Mil_HBarrier_6m": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "barrier"
+    },
+    "StaticObj_Misc_Antenna": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "mast"
+    },
+    "StaticObj_Misc_BagFence_3m": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "wall"
+    },
+    "StaticObj_Misc_Chair_Camp1": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_residential.pbo",
+      "role": "furnishing"
+    },
+    "StaticObj_Misc_Flagpole": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "mast"
+    },
+    "StaticObj_Misc_Hedgehog_Concrete": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "barrier"
+    },
+    "StaticObj_Misc_Hedgehog_Iron": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "barrier"
+    },
+    "StaticObj_Misc_Pallets1": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_industrial.pbo",
+      "role": "furnishing"
+    },
+    "StaticObj_Misc_Pallets2": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_industrial.pbo",
+      "role": "furnishing"
+    },
+    "StaticObj_Misc_Razorwire": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "fence"
+    },
+    "StaticObj_Misc_RoadBarrier": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_residential.pbo",
+      "role": "barrier"
+    },
+    "StaticObj_Misc_Table_Camp": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_residential.pbo",
+      "role": "furnishing"
+    },
+    "StaticObj_Misc_Table_Camp_Small": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_residential.pbo",
+      "role": "furnishing"
+    },
+    "StaticObj_Roadblock_Bags_Long": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "wall"
+    },
+    "StaticObj_Roadblock_CncBlocks_Long": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_military.pbo",
+      "role": "barrier"
+    },
+    "StaticObj_Tank_Small_Rusty": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_industrial.pbo",
+      "role": "fuel"
+    },
+    "StaticObj_Tank_Small_White": {
+      "kind": "prop",
+      "loot_group": false,
+      "pbo": "structures_industrial.pbo",
+      "role": "fuel"
     }
   },
   "kind": "hollow-country-overlay-classes",
   "provenance": {
     "addons": [
+      "structures_industrial.pbo",
       "structures_military.pbo",
-      "structures_residential.pbo"
+      "structures_residential.pbo",
+      "structures_wrecks.pbo"
     ],
-    "method": "tools/package/map_overlay.py validate --server-root: each name was found as a byte string in the addon PBO named per class in the installed DayZ server 1.30 (name presence only).",
-    "source": "Class names of vanilla tents that already appear as rows in the stock Chernarus+ mapgrouppos.xml and as groups in mapgroupproto.xml.",
+    "method": "tools/package/map_overlay.py validate --server-root: each name was found as a byte string in the addon PBO named per class (name presence only).",
+    "source": "Class names (names only) read from the installed DayZ server 1.30 structures_*.pbo addons; loot_group is true when the stock Chernarus+ mapgroupproto.xml has a group of that name. Tents are classes the stock mapgrouppos.xml already places; the props and buildings are the military, checkpoint, container, wreck and camp classes the compositions use.",
     "verified": "name-in-pbo and mapgroupproto group only; scope and CreateObjectEx spawnability are NOT verified until a native run"
   }
 }

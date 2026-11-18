@@ -1,0 +1,129 @@
+{
+  "basis": {
+    "inventory": {
+      "groups": 11679,
+      "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+    },
+    "rule": "On the flanks of the same bases (90 degrees either side of the approach, then 150 degrees): a supply dump, a field hospital and a tent camp, entrance facing the base, found with the same walk-out search and the same per-piece clearance and flat-support rules. When nothing fits on the preferred flank the search turns the bearing by 45, -45, 90, -90, 135, -135 and 180 degrees in that order and keeps the first fit."
+  },
+  "id": "supply-dumps-v1",
+  "kind": "hollow-country-map-overlay",
+  "limits": {
+    "max_objects": 135
+  },
+  "objects": [],
+  "purpose": "Supply dumps, field hospitals and tent camps on the flanks of the vanilla military bases, with vanilla loot groups only.",
+  "sites": [
+    {
+      "area": "base@1677,14260 via guard booth Land_Mil_Guardhouse2",
+      "composition": "supply-dump",
+      "heading": 144.675078,
+      "id": "d01",
+      "pos": [
+        1556.840732,
+        455.140076,
+        14370.591021
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.4 m"
+    },
+    {
+      "area": "base@2497,5109 via guard booth Land_Mil_Guardhouse2",
+      "composition": "supply-dump",
+      "heading": 107.251976,
+      "id": "d02",
+      "pos": [
+        2401.778986,
+        191.744919,
+        5192.385429
+      ],
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.1 m"
+    },
+    {
+      "area": "base@4567,10700 via guard booth Land_Guardhouse",
+      "composition": "supply-dump",
+      "heading": 326.69278,
+      "id": "d03",
+      "pos": [
+        4705.766271,
+        340.478149,
+        10563.059677
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "base@4501,9555 via guard booth Land_Guardhouse",
+      "composition": "supply-dump",
+      "heading": 357.236852,
+      "id": "d04",
+      "pos": [
+        4476.426131,
+        340.724792,
+        9401.109669
+      ],
+      "y_basis": "median of 4 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "base@2589,1288 via guard booth Land_Guardhouse",
+      "composition": "supply-dump",
+      "heading": 106.889814,
+      "id": "d05",
+      "pos": [
+        2456.938505,
+        5.233922,
+        1328.490641
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.5 m"
+    },
+    {
+      "area": "base@4409,10938 via nearest settlement",
+      "composition": "supply-dump",
+      "heading": 274.862372,
+      "id": "d06",
+      "pos": [
+        4617.391012,
+        325.640839,
+        11010.036263
+      ],
+      "y_basis": "median of 6 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "base@5339,9845 via nearest settlement",
+      "composition": "supply-dump",
+      "heading": 207.697365,
+      "id": "d07",
+      "pos": [
+        5383.8493,
+        319.739227,
+        10004.829011
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "base@10946,13397 via nearest settlement",
+      "composition": "supply-dump",
+      "heading": 187.235059,
+      "id": "d08",
+      "pos": [
+        10959.686497,
+        221.812576,
+        13435.012105
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.2 m"
+    },
+    {
+      "area": "base@4008,11808 via guard booth Land_Mil_Guardhouse1",
+      "composition": "field-hospital",
+      "heading": 186.200075,
+      "id": "d09",
+      "pos": [
+        4037.650897,
+        376.857758,
+        11897.962708
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.1 m"
+    }
+  ],
+  "status": "runtime-unverified",
+  "theme": "supply dumps",
+  "version": 1
+}

@@ -1,0 +1,842 @@
+{
+  "assumptions": "Frame: x to the right of the heading, z forward along it, metres; yaw is relative to the heading, compass sense. Piece sizes and which model axis is long are not known offline: walls and containers keep their centres at least 5 m off the lane axis so a quarter-turn error cannot block the lane. Nothing here is observed in DayZ.",
+  "compositions": {
+    "checkpoint": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -15.0,
+            15.0
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "class": "StaticObj_Misc_Hedgehog_Concrete",
+          "dx": -5.5,
+          "dz": -15,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Concrete",
+          "dx": 5.5,
+          "dz": -15,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Roadblock_CncBlocks_Long",
+          "dx": -6.5,
+          "dz": -9,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Roadblock_CncBlocks_Long",
+          "dx": 6.5,
+          "dz": -9,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Roadblock_Bags_Long",
+          "dx": -7.5,
+          "dz": -1,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": 8.5,
+          "dz": 1,
+          "loot": "proto",
+          "yaw": -90.0
+        },
+        {
+          "class": "StaticObj_Roadblock_Bags_Long",
+          "dx": 7.5,
+          "dz": 7,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_Table",
+          "dx": -8.5,
+          "dz": 3,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -8.5,
+          "dz": 6,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": -5.5,
+          "dz": 12,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_RoadBarrier",
+          "dx": 5.5,
+          "dz": 12,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -10,
+          "dz": -5,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 10,
+          "dz": -6,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 9,
+          "dz": -10,
+          "loot": "none",
+          "yaw": 0.0
+        }
+      ],
+      "purpose": "A two-lane-wide road checkpoint: hedgehogs and concrete blocks funnel traffic into a 7 m lane, a guard shed with a sandbag line and a table sit on one side, razor wire and a flag behind.",
+      "theme": "road checkpoint"
+    },
+    "comms-post": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -2.0,
+            16.0
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "class": "Land_Mil_Radar_Mobile1",
+          "dx": -6,
+          "dz": -3,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": 8,
+          "dz": -8,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Antenna",
+          "dx": -9,
+          "dz": -9,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Mil_GuardShed",
+          "dx": 9,
+          "dz": 3,
+          "loot": "proto",
+          "yaw": -90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -11,
+          "dz": 4,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -11,
+          "dz": 9,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 5,
+          "dz": -4,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 6.5,
+          "dz": -3,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": 4,
+          "dz": -9,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Wreck_Uaz",
+          "dx": -8,
+          "dz": 13,
+          "loot": "none",
+          "yaw": 30.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 7,
+          "dz": 8,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -6,
+          "dz": 15,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 6,
+          "dz": 15,
+          "loot": "none",
+          "yaw": 0.0
+        }
+      ],
+      "purpose": "A radio post: a mobile radar and two antenna masts at the back, an ops shed with a sandbag screen on one side, HBarrier wall on the other, a table and chairs, a parked wreck and razor wire across the front.",
+      "theme": "comms post"
+    },
+    "field-hospital": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -2.0,
+            18.0
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "class": "Land_Medical_Tent_Big",
+          "dx": -8,
+          "dz": -6,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Medical_Tent_Shower",
+          "dx": 9,
+          "dz": -8,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_nato",
+          "dx": 8,
+          "dz": 6,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 8,
+          "dz": 4,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 6.5,
+          "dz": 4.5,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp_Small",
+          "dx": 11,
+          "dz": 3,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets1",
+          "dx": -9,
+          "dz": 6,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -8,
+          "dz": 10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -13,
+          "dz": 14,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 13,
+          "dz": 14,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": -5.5,
+          "dz": 19,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 5.5,
+          "dz": 19,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": 5,
+          "dz": -1,
+          "loot": "none",
+          "yaw": 0.0
+        }
+      ],
+      "purpose": "A medical camp: a large medical tent as the loot focus, a shower tent beside it, a triage table and chairs under a camo net, supply pallets and crates, razor wire on the flanks and hedgehogs at the entrance.",
+      "theme": "field hospital"
+    },
+    "forward-outpost": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            2.0,
+            22.0
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": -9,
+          "dz": -10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": -3,
+          "dz": -10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": 3,
+          "dz": -10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": 9,
+          "dz": -10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": -12,
+          "dz": -6,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": -12,
+          "dz": 0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": -12,
+          "dz": 6,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": 12,
+          "dz": -6,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": 12,
+          "dz": 0,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": 12,
+          "dz": 6,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": -8,
+          "dz": 10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_6m",
+          "dx": 8,
+          "dz": 10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Mil_GuardTower",
+          "dx": -8,
+          "dz": 6,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big2_2",
+          "dx": -3,
+          "dz": -4,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": 6,
+          "dz": -4,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": 8,
+          "dz": -5,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 8,
+          "dz": -3,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -6,
+          "dz": 3,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 6,
+          "dz": 3,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 10,
+          "dz": -8,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 10,
+          "dz": -6.5,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Tank_Small_Rusty",
+          "dx": -10,
+          "dz": -8,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": -7,
+          "dz": 14,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Iron",
+          "dx": 7,
+          "dz": 14,
+          "loot": "none",
+          "yaw": 0.0
+        }
+      ],
+      "purpose": "A walled outpost: HBarrier perimeter with the entrance gap facing the approach, a guard tower at the front corner, sandbag cover lines inside the gate, a tent and camo-net work area at the back, hedgehogs outside the gate.",
+      "theme": "forward outpost"
+    },
+    "mg-nest": {
+      "clear": [],
+      "pieces": [
+        {
+          "class": "Land_Mil_Fortified_Nest_Small",
+          "dx": 0,
+          "dz": 0,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -2.5,
+          "dz": 7.5,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 2.5,
+          "dz": 7.5,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -7,
+          "dz": 1,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 7,
+          "dz": 1,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": -11,
+          "dz": 4,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Mil_HBarrier_4m",
+          "dx": 11,
+          "dz": 4,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -3,
+          "dz": 14,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 3,
+          "dz": 14,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -3,
+          "dz": -7,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 3.5,
+          "dz": -7,
+          "loot": "none",
+          "yaw": 90.0
+        }
+      ],
+      "purpose": "A fortified nest with a sandbag arc facing the approach, HBarrier wings, razor wire in front and a crate pair behind; open at the back.",
+      "theme": "sandbagged MG nest"
+    },
+    "supply-dump": {
+      "clear": [
+        {
+          "x": [
+            -4.0,
+            4.0
+          ],
+          "z": [
+            -12.0,
+            20.0
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "class": "Land_Container_1Mo",
+          "dx": -10,
+          "dz": -4,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Container_1Moh",
+          "dx": 10,
+          "dz": -4,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Container_1D",
+          "dx": -10,
+          "dz": 9,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Container_1C",
+          "dx": 10,
+          "dz": 9,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets2",
+          "dx": -7,
+          "dz": 15,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Pallets1",
+          "dx": 7,
+          "dz": 15,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -6,
+          "dz": 2,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -6,
+          "dz": 3.5,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 6,
+          "dz": 2,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Wreck_offroad02_aban2",
+          "dx": 0,
+          "dz": -16,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Tank_Small_White",
+          "dx": 14,
+          "dz": 2,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -5,
+          "dz": 22,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 5,
+          "dz": 22,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Concrete",
+          "dx": -6,
+          "dz": 19,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Hedgehog_Concrete",
+          "dx": 6,
+          "dz": 19,
+          "loot": "none",
+          "yaw": 0.0
+        }
+      ],
+      "purpose": "A fenced supply yard: two military containers and two static containers frame a vehicle lane that ends at a parked wreck, pallets and crates by the entrance, a fuel tank to one side, razor wire and hedgehogs across the entrance.",
+      "theme": "supply dump"
+    },
+    "tent-camp": {
+      "clear": [
+        {
+          "x": [
+            -3.5,
+            3.5
+          ],
+          "z": [
+            -2.0,
+            14.0
+          ]
+        }
+      ],
+      "pieces": [
+        {
+          "class": "Land_Mil_Tent_Big1_1",
+          "dx": -9,
+          "dz": -4,
+          "loot": "proto",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Mil_Tent_Big2_1",
+          "dx": 9,
+          "dz": -4,
+          "loot": "proto",
+          "yaw": 180.0
+        },
+        {
+          "class": "StaticObj_Mil_CamoNet_Side_east",
+          "dx": 0,
+          "dz": -10,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Table_Camp",
+          "dx": -2,
+          "dz": -7,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Chair_Camp1",
+          "dx": 2.5,
+          "dz": -7.5,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": -5,
+          "dz": 2,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "Land_Roadblock_WoodenCrate",
+          "dx": 5,
+          "dz": 2,
+          "loot": "none",
+          "yaw": 90.0
+        },
+        {
+          "class": "StaticObj_Tank_Small_Rusty",
+          "dx": 14,
+          "dz": -9,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Flagpole",
+          "dx": -4.5,
+          "dz": 12,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": -6,
+          "dz": 8,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_BagFence_3m",
+          "dx": 6,
+          "dz": 8,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": -9,
+          "dz": 13,
+          "loot": "none",
+          "yaw": 0.0
+        },
+        {
+          "class": "StaticObj_Misc_Razorwire",
+          "dx": 9,
+          "dz": 13,
+          "loot": "none",
+          "yaw": 0.0
+        }
+      ],
+      "purpose": "Two military tents either side of a central path, a camo-net table area at the back, a sandbag cover line and razor wire at the front, crates and a fuel tank at the edges.",
+      "theme": "tent camp"
+    }
+  },
+  "kind": "hollow-country-overlay-compositions"
+}

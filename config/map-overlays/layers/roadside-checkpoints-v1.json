@@ -1,0 +1,81 @@
+{
+  "basis": {
+    "inventory": {
+      "groups": 11679,
+      "mapgrouppos_sha256": "3eeaad9786a73c339f61f6e6ad203f0732e36b88f27333978cc8b4beece9cec4"
+    },
+    "rule": "Anchors are vanilla guard booths (Land_Guardhouse, Land_Mil_Guardhouse1/2) more than 300 m outside every base extent, one per 150 m. The checkpoint stands 20, 28, 36 or 44 m from the booth on the first of 8 compass bearings that passes the per-piece rules; its lane runs toward the nearest settlement. The real road direction is not available offline, so lane alignment with the road is unverified."
+  },
+  "id": "roadside-checkpoints-v1",
+  "kind": "hollow-country-map-overlay",
+  "limits": {
+    "max_objects": 130
+  },
+  "objects": [],
+  "purpose": "Sandbag and barrier checkpoints beside the vanilla guard booths that stand away from the military bases.",
+  "sites": [
+    {
+      "area": "booth Land_Guardhouse@1876,2128",
+      "composition": "checkpoint",
+      "heading": 340.931748,
+      "id": "r01",
+      "pos": [
+        1862.200882,
+        7.562396,
+        2113.827835
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.3 m"
+    },
+    {
+      "area": "booth Land_Guardhouse@2163,3405",
+      "composition": "checkpoint",
+      "heading": 173.36385,
+      "id": "r02",
+      "pos": [
+        2162.721436,
+        94.254608,
+        3432.975098
+      ],
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.0 m"
+    },
+    {
+      "area": "booth Land_Guardhouse@13439,14268",
+      "composition": "checkpoint",
+      "heading": 125.227892,
+      "id": "r03",
+      "pos": [
+        13425.11763,
+        21.21163,
+        14253.406692
+      ],
+      "y_basis": "median of 5 vanilla rows within 60 m, spread 1.2 m"
+    },
+    {
+      "area": "booth Land_Guardhouse@13591,12143",
+      "composition": "checkpoint",
+      "heading": 278.84361,
+      "id": "r04",
+      "pos": [
+        13591.283203,
+        53.999641,
+        12171.311523
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 1.4 m"
+    },
+    {
+      "area": "booth Land_Mil_Guardhouse1@6006,2557",
+      "composition": "checkpoint",
+      "heading": 282.40685,
+      "id": "r05",
+      "pos": [
+        6031.663364,
+        59.826645,
+        2531.742398
+      ],
+      "y_basis": "median of 3 vanilla rows within 60 m, spread 0.7 m"
+    }
+  ],
+  "status": "runtime-unverified",
+  "theme": "road checkpoints",
+  "version": 1
+}

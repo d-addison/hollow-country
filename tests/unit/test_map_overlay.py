@@ -394,7 +394,7 @@ class ShippedLayer(unittest.TestCase):
 
     def test_allowlist_records_provenance_and_is_not_a_dump(self):
         self.assertIn('structures_military.pbo', json.dumps(self.source.classes['provenance']))
-        self.assertLess(len(self.source.classes['classes']), 40)
+        self.assertLess(len(self.source.classes['classes']), 60)  # an allowlist of reviewed names, not a dump
 
     def test_shipped_files_carry_no_banned_strings_or_home_paths(self):
         banned = ('snafu', 'tactical' + 'flava', '2646817942', '2291785308', '2792982069', '/home/', '/mnt/')

@@ -1,13 +1,24 @@
 {
   "kind": "hollow-country-overlay-profile",
   "enabled": [
-    "military-tents-v1"
+    "military-tents-v1",
+    "military-outposts-v1",
+    "supply-dumps-v1",
+    "roadside-checkpoints-v1"
   ],
   "limits": {
     "map_size": 15360,
-    "max_objects_total": 60,
-    "max_objects_per_layer": 24,
+    "max_objects_total": 395,
+    "max_objects_per_layer": 140,
+    "max_loot_total": 90,
+    "max_loot_per_layer": 40,
     "min_spacing_m": 6.0,
-    "vanilla_clearance_m": 8.0
+    "vanilla_clearance_m": 8.0,
+    "piece_spacing_m": 1.0,
+    "piece_vanilla_clearance_m": 10.0,
+    "flat_radius_m": 60.0,
+    "flat_spread_m": 1.5,
+    "flat_min_rows": 3,
+    "flat_site_tolerance_m": 0.8
   }
 }
