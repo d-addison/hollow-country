@@ -26,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
 MANAGED = 'hollow-country-optional-packs'
 BUNDLE_MANAGED = 'hollow-country-bundle'
+CELLARS_MANAGED = 'hollow-country-cellars'
 BICYCLE_ID = '2971190303'
 ANIMALS_ID = '3114410963'
 ANIMATIONS_ID = '2918418331'
@@ -362,11 +363,13 @@ def native_ambient_delta(mission, options, source, put):
 
 
 def allowed(relative, managed_name=MANAGED):
+    if managed_name == CELLARS_MANAGED:
+        return relative == 'cfgundergroundtriggers.json'
     if managed_name == BUNDLE_MANAGED:
         path = Path(relative)
         clean = not path.is_absolute() and '..' not in path.parts and '\\' not in relative and ':' not in relative
         authored = path.parts and path.parts[0].startswith('hollow-country')
-        if path.parts and path.parts[0] in (BUNDLE_MANAGED, MANAGED):
+        if path.parts and path.parts[0] in (BUNDLE_MANAGED, MANAGED, CELLARS_MANAGED):
             return False
         return clean and (relative in ('cfgeconomycore.xml', 'cfggameplay.json') or authored or relative == 'expansion/settings/AIPatrolSettings.json')
     if managed_name != MANAGED:
@@ -578,12 +581,15 @@ def bundle_rollback(mission):
 def friend_bundle_plan(mission, rows):
     """Strip all generated dependency data and undo its edits in export bytes only."""
     before = installed_before(safe(mission))
+    cellar_before = installed_before(safe(mission), CELLARS_MANAGED)
+    if cellar_before:
+        before = dict(before or {}, **cellar_before)
     prefix = 'mpmissions/' + Path(mission).name + '/'
     result = []
     for relative, content in rows:
         if relative.startswith(prefix):
             name = relative[len(prefix):]
-            if name.startswith(MANAGED + '/'):
+            if name.startswith(MANAGED + '/') or name.startswith(CELLARS_MANAGED + '/'):
                 continue
             if before and name in before:
                 content = before[name]

@@ -6,6 +6,59 @@ import xml.etree.ElementTree as ET
 
 
 class OptionalOverlaysSmoke(unittest.TestCase):
+    def test_cellar_measurement_generates_native_triggers_and_reversible_merge(self):
+        # Synthetic geometry only: this does not establish cellar fit or darkness.
+        import json
+        from tools.audit import cellar_triggers
+        from tools.package import optional_overlays as overlays
+
+        row = {'BuildingClass': 'Land_SyntheticCellar', 'Confidence': 0.95,
+               'SampleCount': 25, 'BoxMin': [-3, -3, -2], 'BoxMax': [3, -1, 2],
+               'StairsMeasured': True, 'StairTop': [0, 0, 1], 'StairBottom': [0, -2, 1],
+               'Instances': [{'Position': [100, 10, 200], 'Yaw': 90}]}
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-cellars-') as directory:
+            root = Path(directory)
+            measured = root / 'measured.json'
+            measured.write_text(json.dumps({'SchemaVersion': 1, 'WorldName': 'chernarusplus',
+                                           'Complete': True, 'Classes': [row, dict(row,
+                                               BuildingClass='Land_SyntheticUncertain', Confidence=0.1)]}))
+            out, mission = root / 'generated', root / 'mission'
+            mission.mkdir()
+            self.assertEqual(cellar_triggers.main(['--measured', str(measured), '--out', str(out)]), 0)
+            generated = json.loads((out / 'cfgundergroundtriggers.json').read_text())
+            transition, inner = generated['Triggers']
+            native_fields = {'Comment', 'CustomSpawn', 'Position', 'Orientation', 'Size',
+                             'EyeAccommodation', 'InterpolationSpeed', 'UseLinePointFade',
+                             'AmbientSoundType', 'AmbientSoundSet', 'Breadcrumbs'}
+            self.assertEqual(set(transition), native_fields)
+            self.assertEqual(set(inner), native_fields)
+            native = Path.home() / '.cache/hollow-country/native-scripts/scripts-1.30.164289/3_Game/UndergroundAreaLoader.c'
+            if native.is_file():
+                import re
+                dto = native.read_text().split('class JsonUndergroundAreaTriggerData', 1)[1].split('vector GetPosition()', 1)[0]
+                fields = set(re.findall(r'^\s*(?:ref\s+)?[\w<> ]+\s+(\w+);', dto, re.M))
+                self.assertTrue(native_fields <= fields, native_fields - fields)
+            self.assertEqual(inner['Position'], [100, 8, 200])
+            self.assertEqual(inner['Orientation'], [90, 0, 0])
+            self.assertEqual(inner['Size'], [6, 2, 4])
+            self.assertEqual(inner['EyeAccommodation'], 0)
+            self.assertEqual(inner['Breadcrumbs'], [])
+            self.assertTrue(transition['UseLinePointFade'])
+            self.assertEqual(transition['Breadcrumbs'][0]['Position'], [101, 10, 200])
+            self.assertEqual([b['EyeAccommodation'] for b in transition['Breadcrumbs']], [1, 0])
+            report = json.loads((out / 'cellar-trigger-report.json').read_text())
+            self.assertEqual(report['skipped'][0]['class'], 'Land_SyntheticUncertain')
+            original = b'{"Triggers":[{"Comment":"synthetic stock remains first"}]}\n'
+            target = mission / 'cfgundergroundtriggers.json'
+            target.write_bytes(original)
+            cellar_triggers.main(['--install', str(out), '--mission', str(mission)])
+            self.assertEqual(len(json.loads(target.read_text())['Triggers']), 3)
+            exported = overlays.friend_bundle_plan(mission, [
+                ('mpmissions/mission/cfgundergroundtriggers.json', target)])
+            self.assertEqual(exported[0][1], original)
+            cellar_triggers.main(['--rollback', '--mission', str(mission)])
+            self.assertEqual(target.read_bytes(), original)
+
     def test_w5_stack_types_are_local_reversible_and_not_exported(self):
         from tools.package import optional_overlays as overlays
         from tools.setup import friend_bundle, workshop_sync

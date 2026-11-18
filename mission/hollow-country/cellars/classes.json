@@ -1,0 +1,147 @@
+{
+  "SchemaVersion": 1,
+  "WorldName": "chernarusplus",
+  "Complete": false,
+  "Classes": [
+    {
+      "BuildingClass": "Land_House_1B01_Pub",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1B01_Pub.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W01",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W01.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W02",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W02.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W03",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W03.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W04",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W04.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W05",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W05.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W05_Yellow",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W05_Yellow.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W06",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W06.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W07",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W07.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W08",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W08.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W08_Brown",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W08_Brown.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W09",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W09.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W09_Yellow",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W09_Yellow.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W10",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W10.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W10_Brown",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W10_Brown.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W11",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W11.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W12",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W12.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_1W12_Brown",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_1W12_Brown.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2B01",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2B01.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2B02",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2B02.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2B03",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2B03.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2B04",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2B04.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2W01",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2W01.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2W02",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2W02.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2W03",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2W03.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2W03_Brown",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2W03_Brown.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2W04",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2W04.p3d",
+      "StairsMeasured": false
+    },
+    {
+      "BuildingClass": "Land_House_2W04_Yellow",
+      "Model": "\\DZ\\structures\\Residential\\Houses\\House_2W04_Yellow.p3d",
+      "StairsMeasured": false
+    }
+  ]
+}
