@@ -1514,14 +1514,9 @@ class OptionalSteps(SessionCase):
         deps = [self.workshop / n for n in ('@CF', '@Dabs Framework', '@Expansion-Animations',
                                              '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')]
         mods = ';'.join([str(d) for d in deps] + [str(self.snafu), str(self.tf), str(self.dest)])
-        self.assertEqual(out.count('-mod=' + mods), 2)  # server and client; HC last, the AI addon is not in either
-        self.assertNotIn(str(self.ai_dest) + ';', out)
-        self.assertNotIn('-mod=' + mods + ';' + str(self.ai_dest), out)
-        self.assertEqual(out.count('-serverMod=' + str(self.ai_dest)), 1)  # server only, after HollowCountry
-        server_lines = out.split('Client (PowerShell')[0]
-        client_lines = out.split('Client (PowerShell')[1]
-        self.assertIn('-serverMod=' + str(self.ai_dest), server_lines)
-        self.assertNotIn('serverMod', client_lines.split('NOTE:')[0])
+        # Server and client both load the AI addon last, right after HollowCountry (V2 factions/talk binding).
+        self.assertEqual(out.count('-mod=' + mods + ';' + str(self.ai_dest)), 2)
+        self.assertNotIn('-serverMod=', out)
         self.assertEqual(before, self.tree(self.world))
 
     def test_apply_installs_the_shipped_sites_loadouts_patrol_override_and_merged_settings(self):
@@ -1958,19 +1953,19 @@ class OptionalSteps(SessionCase):
         code, out, err = self.run_cli(self.ai_args('plan'))
         self.assertEqual((code, err), (0, ''))
 
-    def test_the_ai_addon_loads_as_a_server_mod_after_hollow_country_and_both_arguments_are_printed(self):
+    def test_the_ai_addon_loads_in_the_mod_list_after_hollow_country_on_server_and_client(self):
         code, out, err = self.run_cli(self.ai_args('plan'))
         self.assertEqual((code, err), (0, ''))
         server = [row for row in out.splitlines() if 'DayZServer_x64.exe' in row][0]
         client = [row for row in out.splitlines() if 'DayZ_BE.exe' in row][0]
-        mods = server.index('-mod=')
-        self.assertIn(str(self.dest), server[mods:server.index("'", mods)])
-        self.assertNotIn(str(self.ai_dest), server[mods:server.index("'", mods)])
-        self.assertIn('-serverMod=' + str(self.ai_dest), server)
-        self.assertLess(server.index(str(self.dest)), server.index('-serverMod='))
-        self.assertNotIn(str(self.ai_dest), client)
+        for line in (server, client):
+            mods = line.index('-mod=')
+            listed = line[mods:line.index("'", mods)]
+            self.assertIn(str(self.ai_dest), listed)
+            self.assertLess(listed.index(str(self.dest)), listed.index(str(self.ai_dest)))
+        self.assertNotIn('serverMod', server)
         self.assertNotIn('serverMod', client)
-        self.assertIn('-serverMod', out.split('6. Expansion AI')[1].split('Server (PowerShell)')[0])
+        self.assertIn('-mod=', out.split('6. Expansion AI')[1].split('Server (PowerShell)')[0])
 
 
     def test_a_full_session_round_trips_and_orders_every_step(self):

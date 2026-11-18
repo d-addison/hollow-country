@@ -1426,16 +1426,18 @@ def launch_commands(plan, args):
         return text
 
     ai = plan.get('expansion_ai')
-    # -mod= (server and client): Expansion's own folders, SNAFU, Tactical Flava, HC. The HC Expansion AI addon
-    # is server-only: -serverMod= on the server command, after HollowCountry; clients never load it.
+    # -mod= (server and client): Expansion's own folders, SNAFU, Tactical Flava, HC, then the HC Expansion AI
+    # addon. V2 living-world factions and the Ask for news target binding need the addon on both peers.
     mods = [win(row['path']) for row in ai['dependencies']] if ai else []
     if plan['snafu']:
         mods.append(win(plan['snafu']))
     if plan['tf']:
         mods.append(win(plan['tf']['dir']))
     mods.append(win(plan['mod']['dest']))
+    if ai:
+        mods.append(win(ai['mod']['dest']))
     mod_argument = '-mod=' + ';'.join(mods)
-    server_mod = ['-serverMod=' + win(ai['mod']['dest'])] if ai else []
+    server_mod = []
     root = win(plan['server_root'])
     port, query = args.game_port, args.query_port
     server_arguments = ['-config=' + win(plan['cfg_path']), '-profiles=' + win(plan['profiles']), mod_argument,
@@ -1485,8 +1487,8 @@ def advisories(plan):
 
 def expansion_lines(ai, profiles, mission, markers=None, markers_mode='all', applied=False):
     mod = ai['mod']
-    out = ['6. Expansion AI (optional addon): stage %s (%s) from %d file(s), loaded server-only with -serverMod= '
-           'after HollowCountry (players do not need it):' %
+    out = ['6. Expansion AI (optional addon): stage %s (%s) from %d file(s), loaded with -mod= '
+           'after HollowCountry on the server and every client (players subscribe to it too):' %
            (mod['dest'], 'signed, with keys/' if mod['signed'] else 'unsigned', len(mod['blobs']))]
     out += ['     %s  sha256 %s' % (name, mod['hashes'][name][:16]) for name in sorted(mod['hashes'])]
     out.append('     Required Workshop subscriptions (found in %s; read-only, never copied, never repacked):' % ai['workshop'])
