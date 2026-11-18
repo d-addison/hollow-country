@@ -10,7 +10,7 @@ milliseconds with a per-window calibration (ticks_per_ms) measured against the s
   [HC Perf] window=<n> samples=<k> tick_p50=<ms> tick_p95=<ms> tick_p99=<ms> tick_max=<ms>
             work_p50=<ms> work_p95=<ms> work_max=<ms> players_min=<n> players_max=<n> ticks_per_ms=<rate>
 Optional breakdown: slowest_module=<name> slowest_module_max_ms=<ms> slow_ticks=<n>
-mod_max=<name>:<ms>,... (up to 32 modules, sorted by name). slow_ticks counts module-loop
+mod_max=<name>:<ms>,... (up to 64 modules, sorted by name). slow_ticks counts module-loop
 samples strictly over 10 ms. These calibrated fields are omitted on invalid calibration.
 players_min/players_max are the lowest and highest player counts seen at the window's samples. The older form
 with one `players=<count>` (taken at window end) is still read as min == max.
@@ -136,7 +136,7 @@ def parse_line(text):
     if "mod_max" in values:
         modules = {}
         entries = values["mod_max"].split(",")
-        if len(entries) > 32:
+        if len(entries) > 64:
             raise ValueError("too many modules")
         for entry in entries:
             parts = entry.split(":")

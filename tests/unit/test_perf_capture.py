@@ -330,7 +330,7 @@ class ModuleBreakdown(unittest.TestCase):
                        ' slowest_module_max_ms=nan', ' slowest_module_max_ms=-1',
                        ' slowest_module=bad/name', ' mod_max=Ecology:nan',
                        ' mod_max=Ecology:1,Ecology:2', ' mod_max=Bad:1:2',
-                       ' mod_max=' + ','.join('M%d:1'%i for i in range(33)),
+                       ' mod_max=' + ','.join('M%d:1'%i for i in range(65)),
                        ' mod_max=B:1,A:2', ' mod_max=A:-1',
                        ' slowest_module_max_ms=1 calibration=invalid'):
             with self.subTest(suffix=suffix), self.assertRaises(ValueError):
@@ -414,12 +414,12 @@ class SamplerModuleBehavior(unittest.TestCase):
     def test_module_capacity_restart_and_invalid_calibration(self):
         sampler,clock,logs = sampler_fixture()
         sampler.Start(1)
-        for i in range(40):sampler.RegisterModule('M%02d'%i)
-        for i in range(40):sampler.SampleModule(i,1000+i)
+        for i in range(80):sampler.RegisterModule('M%02d'%i)
+        for i in range(80):sampler.SampleModule(i,1000+i)
         sampler.SampleModule(-1,999999)
         clock.now = 1.;clock.ticks = 1000000
         sampler.Sample(1.,0)
-        self.assertEqual(32,len(pc.parse_line(logs[-1])['mod_max']))
+        self.assertEqual(64,len(pc.parse_line(logs[-1])['mod_max']))
         sampler.Stop();sampler.Start(1);sampler.RegisterModule('Only')
         sampler.SampleModule(0,1234)
         clock.now = 2.;clock.ticks = 2000000
@@ -440,7 +440,7 @@ class SamplerModuleBehavior(unittest.TestCase):
             code = body(source,match.end())
             for forbidden in ('new ','.Reserve(','.Sort(','.Find('):
                 self.assertNotIn(forbidden,code)
-        self.assertIn('HC_PERF_MAX_MODULES = 32',source)
+        self.assertIn('HC_PERF_MAX_MODULES = 64',source)
 
 
 class Budgets(unittest.TestCase):

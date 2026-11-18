@@ -16,7 +16,7 @@
 // The line is printed through the expression "" + report. Print(report) with a variable makes the engine print
 // the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
-const int HC_PERF_MAX_MODULES = 32;
+const int HC_PERF_MAX_MODULES = 64;
 const int HC_PERF_MAX_WINDOW_SECONDS = 120;
 const float HC_PERF_MIN_TICKS_PER_MS = 0.01;
 const float HC_PERF_MAX_TICKS_PER_MS = 100000.0;
