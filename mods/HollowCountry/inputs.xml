@@ -7,6 +7,7 @@
             <input name="UAHollowCountryPingOK" loc="Hollow Country Ping: OK" />
             <input name="UAHollowCountryPingHurt" loc="Hollow Country Ping: Hurt" />
             <input name="UAHollowCountryPingHelp" loc="Hollow Country Ping: Need Help" />
+            <input name="UAHollowCountryAdmin" loc="Hollow Country Admin Test Kit and Map" />
         </actions>
     </inputs>
     <preset>
@@ -28,6 +29,11 @@
         </input>
         <input name="UAHollowCountryPingHelp">
             <btn name="kNumpad9" />
+        </input>
+        <!-- W6: kPause checked against vanilla presets and installed stack inputs.
+             Server allowlist approval is required before the menu can open. -->
+        <input name="UAHollowCountryAdmin">
+            <btn name="kPause" />
         </input>
     </preset>
 </modded_inputs>
