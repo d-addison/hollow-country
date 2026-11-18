@@ -48,12 +48,13 @@ class FriendBundleTests(unittest.TestCase):
         put(m, 'init.c', 'void main() {}')
         put(m, 'cfgeconomycore.xml', '<economycore/>')
         put(m, 'db/types.xml', '<types/>')
+        put(m, 'cfggameplay.json', '{}')
         put(m, 'storage_1/data/players.db', 'PLAYERS')
         put(m, 'hollow-country/ce/types.xml', '<types/>')
-        put(m, 'hollow-country/core.backup', 'old')
+        put(m, 'hollow-country/core.backup', '<economycore/>')
         put(m, 'hollow-country/receipt.json', '{}')
         put(m, 'hollow-country-gameplay/gear/hardscrabble.json', '{}')
-        put(m, 'hollow-country-gameplay/cfggameplay.backup', 'old')
+        put(m, 'hollow-country-gameplay/cfggameplay.backup', '{}')
         put(m, 'hollow-country-extra/verification.json', '{}')
         put(m, 'hollow-country-extra/ce/types.xml', '<types/>')
         put(m, 'hollow-country-extra/core.next', 'n')
@@ -121,15 +122,66 @@ class FriendBundleTests(unittest.TestCase):
         return sorted(str(p.relative_to(self.out)).replace(os.sep, '/')
                       for p in self.out.rglob('*') if p.is_file())
 
+    def test_overlay_bundle_preflight_and_receipted_install_smoke(self):
+        # Explicit synthetic stock; no DayZ/Workshop execution or runtime claim.
+        import shutil
+        from tools.package import optional_overlays as overlays
+        source = self.tmp / 'authored'
+        shutil.copytree(fb.lts.ROOT / 'mission/hollow-country', source)
+        missing = source / 'ce/events.xml'
+        data = missing.read_bytes()
+        missing.unlink()
+        put(self.mission, 'db/globals.xml', '<variables/>')
+        put(self.mission, 'cfgeconomycore.xml', '<economycore><ce folder="hollow-country/ce"><file name="types.xml" type="types"/></ce></economycore>')
+        with unittest.mock.patch.object(fb, 'SOURCE', source, create=True):
+            code, text = self.run_cli()
+            self.assertEqual(code, 2, 'missing travel CE must refuse the bundle: ' + text)
+            self.assertIn('travel CE', text)
+            self.assertFalse(self.out.exists())
+            missing.write_bytes(data)
+            policy = source / 'optional/overlay-policy.json'
+            policy_data = policy.read_bytes()
+            policy.unlink()
+            code, text = self.run_cli()
+            self.assertEqual(code, 2, text)
+            self.assertIn('optional overlay source', text)
+            policy.write_bytes(policy_data)
+            code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        self.assertFalse(any(name.startswith('mpmissions/') for name in self.files()))
+        self.assertFalse(any(name.endswith('db/globals.xml') for name in self.files()))
+        target = self.tmp / 'friend-mission'
+        put(target, 'cfgeconomycore.xml', '<economycore/>')
+        original = (target / 'cfgeconomycore.xml').read_bytes()
+        candidate = overlays.bundle_candidate(self.out, target)
+        overlays.install(candidate, target, managed_name=overlays.BUNDLE_MANAGED)
+        self.assertTrue((target / overlays.BUNDLE_MANAGED / 'receipt.json').is_file())
+        self.assertIn(b'hollow-country/ce', (target / 'cfgeconomycore.xml').read_bytes())
+        for path in source.rglob('*.json'):
+            relative = path.relative_to(source)
+            if relative.parts[0] in ('events',):
+                self.assertEqual((target / 'hollow-country' / relative).read_bytes(), path.read_bytes())
+        overlays.rollback(target, managed_name=overlays.BUNDLE_MANAGED)
+        self.assertEqual((target / 'cfgeconomycore.xml').read_bytes(), original)
+        self.assertFalse((target / 'hollow-country/events/scene-chains.json').exists())
+
     def test_mission_copy_keeps_config_and_drops_storage_rollback_and_logs(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         got = [f for f in self.files() if f.startswith('mpmissions/')]
-        base = 'mpmissions/dayzOffline.chernarusplus/'
-        self.assertEqual(got, sorted(base + r for r in [
-            'cfgeconomycore.xml', 'db/types.xml', 'expansion/settings/AIPatrolSettings.json',
-            'hollow-country-extra/ce/types.xml', 'hollow-country-gameplay/gear/hardscrabble.json',
-            'hollow-country/ce/types.xml', 'init.c']))
+        self.assertEqual(got, [])
+        self.assertIn('mission-patches.json', self.files())
+        self.assertIn('mission-overlay/hollow-country/events/scene-chains.json', self.files())
+
+    def test_weapon_pack_deltas_from_third_party_workshop_items_never_ship(self):
+        from tools.package import snafu_optional, tactical_flava_optional
+        for managed in (snafu_optional.MANAGED, tactical_flava_optional.MANAGED):
+            put(self.mission, managed + '/types.xml', '<types/>')
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        leaked = [f for f in self.files()
+                  if f.startswith(('mission-overlay/' + snafu_optional.MANAGED, 'mission-overlay/' + tactical_flava_optional.MANAGED))]
+        self.assertEqual(leaked, [])
 
     def test_profile_copy_is_an_allowlist_of_config_never_runtime_state(self):
         code, text = self.run_cli()
@@ -182,8 +234,8 @@ class FriendBundleTests(unittest.TestCase):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         bat = (self.out / 'start-server.bat').read_text()
-        self.assertIn('"-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
-                      '@SnafuWeapons;@TacticalFlava;@HollowCountry;@HollowCountryExpansionAI"', bat)
+        self.assertIn('"-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-AI;'
+                      '@SnafuWeapons;@TacticalFlava;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI"', bat)
         self.assertNotIn('-serverMod', bat)
         self.assertIn('-config=serverDZ.cfg', bat)
         self.assertIn('-profiles=profiles', bat)
@@ -206,21 +258,28 @@ class FriendBundleTests(unittest.TestCase):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)
         readme = (self.out / 'README.txt').read_text()
-        for item in ['1559212036', '2545327648', '2291785308', '2793893086', '2792982069', '2443122116',
+        for item in ['1559212036', '2545327648', '2291785308', '3114410963', '2918418331', '2971190303', '2792982069', '2443122116',
                      '2646817942']:
             self.assertIn('workshop_download_item 221100 ' + item, readme)
         self.assertIn('2302', readme)
         self.assertIn('27016', readme)
         self.assertIn('Players subscribe to @HollowCountryExpansionAI when this server uses it', readme)
-        self.assertIn('Optional dependencies are subscribed from the Workshop, never repacked or included as third-party files.', readme)
+        self.assertIn('Default dependencies are subscribed from the Workshop, never repacked or included as third-party files.', readme)
         for optional_name in ['Community Framework (CF)', 'Dabs Framework', 'Expansion-Core',
-                              'Expansion-Animations', 'Expansion-AI', 'DayZ-Bicycle',
+                              'Expansion-AI', 'DayZ-Bicycle',
                               'Ambient Animals Pack', 'Survivor Animations']:
             self.assertIn(optional_name, readme)
         mod_line = next(line for line in fb.ws.launch_lines(fb.ws.select(fb.ws.load_manifest(), fb.ws.GROUPS))
                         if line.startswith('-mod='))
         self.assertIn(mod_line, readme)
         self.assertIn('"' + mod_line + '"', (self.out / 'start-server.bat').read_text())
+        self.assertEqual(readme.count(fb.overlays.friend_notes().replace('\r\n', '\n')), 1)
+
+    def test_mission_cleanup_leaves_readme_notes_to_the_bundle_writer(self):
+        # Synthetic bytes: this helper receives mission rows in build(), before README creation.
+        original = b'SYNTHETIC README\r\n'
+        rows = fb.overlays.friend_bundle_plan(self.mission, [('README.txt', original)])
+        self.assertEqual(dict(rows)['README.txt'], original)
 
     def test_manifest_hashes_every_bundled_file(self):
         code, text = self.run_cli()
@@ -279,11 +338,11 @@ class FriendBundleTests(unittest.TestCase):
         self.assertEqual(text.count('left out CE building coverage'), 1)
         self.assertIn('PENDING', text)
         bundled = self.out / 'mpmissions' / self.mission.name
-        self.assertEqual((bundled / 'mapgroupproto.xml').read_bytes(), stock)
+        self.assertFalse((bundled / 'mapgroupproto.xml').exists())
         self.assertFalse((bundled / ce_coverage.MANAGED).exists())
         self.assertEqual((self.mission / 'mapgroupproto.xml').read_bytes(), installed)
 
-    def test_validated_coverage_is_applied_to_bundle_without_changing_source(self):
+    def test_validated_coverage_stays_local_without_changing_source(self):
         from tests.unit import test_ce_coverage as fixtures
         stock = fixtures.stock_proto()
         put(self.mission, 'mapgroupproto.xml', stock)
@@ -293,10 +352,10 @@ class FriendBundleTests(unittest.TestCase):
         code, text = self.run_cli('--ce-coverage-result', str(result))
         self.assertEqual(code, 0, text)
         bundled = self.out / 'mpmissions' / self.mission.name
-        self.assertNotEqual((bundled / 'mapgroupproto.xml').read_bytes(), stock)
+        self.assertFalse((bundled / 'mapgroupproto.xml').exists())
         self.assertEqual((self.mission / 'mapgroupproto.xml').read_bytes(), stock)
         self.assertFalse(any('sampler' in name or 'coverage-delta' in name for name in self.files()))
-        self.assertNotIn('left out CE building coverage', text)
+        self.assertIn('left out CE building coverage', text)
 
 
     def test_invalid_coverage_result_is_left_out_once_and_no_points_are_bundled(self):
@@ -307,9 +366,9 @@ class FriendBundleTests(unittest.TestCase):
         code, text = self.run_cli('--ce-coverage-result', str(result))
         self.assertEqual(code, 0, text)
         self.assertEqual(text.count('left out CE building coverage'), 1)
-        self.assertEqual((self.out / 'mpmissions' / self.mission.name / 'mapgroupproto.xml').read_bytes(), stock)
+        self.assertFalse((self.out / 'mpmissions' / self.mission.name / 'mapgroupproto.xml').exists())
 
-    def test_installed_coverage_and_valid_result_ship_only_patched_proto_bytes(self):
+    def test_installed_coverage_and_valid_result_ship_no_stock_proto_bytes(self):
         from tests.unit import test_ce_coverage as fixtures
         from tools.package import ce_coverage
         stock = fixtures.stock_proto()
@@ -323,8 +382,8 @@ class FriendBundleTests(unittest.TestCase):
         installed = (self.mission / 'mapgroupproto.xml').read_bytes()
         code, text = self.run_cli('--ce-coverage-result', str(result))
         self.assertEqual(code, 0, text)
-        self.assertNotIn('left out CE building coverage', text)
-        self.assertEqual((self.out / 'mpmissions' / self.mission.name / 'mapgroupproto.xml').read_bytes(), installed)
+        self.assertIn('left out CE building coverage', text)
+        self.assertFalse((self.out / 'mpmissions' / self.mission.name / 'mapgroupproto.xml').exists())
         self.assertFalse(any(ce_coverage.MANAGED in name for name in self.files()))
         manifest = json.loads((self.out / 'bundle-manifest.json').read_bytes())
         for row in manifest['files']:

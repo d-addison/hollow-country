@@ -306,7 +306,7 @@ MARKER_DOC = (
     '| `$profile:HollowCountry/acceptance/events.enable` | `A.B` | `a.c` |\n'
     '\nOther prose mentions `$profile:HollowCountry/acceptance/prose_only.enable` outside the table.\n'
     '| #1 | row | `$profile:HollowCountry/acceptance/checklist_only.enable` | x |\n')
-EXPANSION_FOLDERS = ('@CF', '@Dabs Framework', '@Expansion-Animations', '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')
+EXPANSION_FOLDERS = ('@CF', '@Dabs Framework', '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')
 
 
 class SessionCase(unittest.TestCase):
@@ -1492,26 +1492,26 @@ class OptionalSteps(SessionCase):
         self.assertIn(str(self.workshop / '1559212036'), out)
 
     def test_steam_workshop_id_folders_satisfy_every_expansion_dependency(self):
-        # Steam names each subscribed folder by its Workshop id; Expansion-Animations is 2793893086.
+        # Steam names each subscribed folder by its Workshop id.
         for name, item_id in (('@CF', '1559212036'), ('@Dabs Framework', '2545327648'),
-                              ('@Expansion-Animations', '2793893086'), ('@DayZ-Expansion-Core', '2291785308'),
+                              ('@DayZ-Expansion-Core', '2291785308'),
                               ('@DayZ-Expansion-AI', '2792982069')):
             (self.workshop / name).rename(self.workshop / item_id)
         code, out, err = self.run_cli(self.ai_args('plan'))
         self.assertEqual(code, 0, err)
-        self.assertIn(str(self.workshop / '2793893086'), out)
+        self.assertIn(str(self.workshop / '2792982069'), out)
 
     def test_plan_prints_subscriptions_the_merge_instruction_and_the_mod_order_without_writing(self):
         before = self.tree(self.world)
         code, out, err = self.run_cli(self.ai_args('plan', '--snafu', str(self.snafu), '--tactical-flava', str(self.tf)))
         self.assertEqual(code, 0, err)
-        for text in ('CF', 'Dabs Framework', 'Expansion-Animations', 'Expansion-Core', '2291785308', 'Expansion-AI',
+        for text in ('CF', 'Dabs Framework', 'Expansion-Core', '2291785308', 'Expansion-AI',
                      '2792982069', 'never copied'):
             self.assertIn(text, out)
         self.assertIn('AISettings.merge.json', out)
         self.assertIn('ExpansionMod', out)
         self.assertIn('manual', out.lower())
-        deps = [self.workshop / n for n in ('@CF', '@Dabs Framework', '@Expansion-Animations',
+        deps = [self.workshop / n for n in ('@CF', '@Dabs Framework',
                                              '@DayZ-Expansion-Core', '@DayZ-Expansion-AI')]
         mods = ';'.join([str(d) for d in deps] + [str(self.snafu), str(self.tf), str(self.dest)])
         # Server and client both load the AI addon last, right after HollowCountry (V2 factions/talk binding).

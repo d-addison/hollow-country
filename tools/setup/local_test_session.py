@@ -104,7 +104,6 @@ STACK_STEPS = ('ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy')  #
 EXPANSION_DEPENDENCIES = (
     ('CF', '1559212036', ('cf', 'communityframework')),
     ('Dabs Framework', '2545327648', ('dabsframework', 'dabs')),
-    ('Expansion-Animations', '2793893086', ('expansionanimations', 'dayzexpansionanimations')),
     ('Expansion-Core', '2291785308', ('expansioncore', 'dayzexpansioncore')),
     ('Expansion-AI', '2792982069', ('expansionai', 'dayzexpansionai')),
 )
@@ -2317,7 +2316,7 @@ def build_parser():
                        help='stage the optional @HollowCountryExpansionAI addon after the Expansion Workshop mods '
                        '(needs --workshop-dir, --expansion-ai-mod, --expansion-ai-dest)')
         p.add_argument('--workshop-dir', type=Path, help='directory holding the subscribed Workshop mod folders '
-                       '(CF, Dabs Framework, Expansion-Animations, Expansion-Core, Expansion-AI); read-only')
+                       '(CF, Dabs Framework, Expansion-Core, Expansion-AI); read-only')
         p.add_argument('--expansion-ai-mod', type=Path, help='built @HollowCountryExpansionAI dir (addons/%s) or a .pbo' % AI_PBO_NAME)
         p.add_argument('--expansion-ai-dest', type=Path, help='fresh @HollowCountryExpansionAI folder to create')
         p.add_argument('--time-accel', type=float, default=DEFAULT_TIME_ACCELERATION)

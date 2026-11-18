@@ -74,6 +74,7 @@ class DeploymentBehavior(unittest.TestCase):
         self.assertEqual(before, self.snapshot(self.dest))
         result = self.install()
         self.assertEqual(result['status'], 'committed')
+        self.assertTrue((self.dest / deploy.CONTROL / 'transactions' / result['transaction'] / 'result.json').is_file())
         self.assertEqual(result['runtime_acceptance'], 'pending')
         with zipfile.ZipFile(self.one) as archive:
             self.assertEqual(self.installed(), {n: archive.read(n) for n in archive.namelist()})

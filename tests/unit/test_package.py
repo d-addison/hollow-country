@@ -468,6 +468,9 @@ Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on syn
             blob = pbo.handoff(addon, mission)
             with zipfile.ZipFile(io.BytesIO(blob)) as z:
                 self.assertIn('mission/hollow-country/operator/settings.json', z.namelist())
+                for source_json in mission.rglob('*.json'):
+                    relative = source_json.relative_to(mission).as_posix()
+                    self.assertEqual(z.read('mission/hollow-country/' + relative), source_json.read_bytes())
                 text = z.read('mission/hollow-country/INSTALL_AND_ROLLBACK.md').decode()
                 for word in ['settings.json', 'rollback', 'pending', '-mod=', 'private']:
                     self.assertIn(word, text)
@@ -489,6 +492,19 @@ Write-Output 'PASS actual smoke helper copy/hash/drift/overwrite behavior on syn
         self.assertIn('PublicKey', script)
         self.assertIn('$LASTEXITCODE', script)
         self.assertIn('Unsigned', script)
+
+    def test_build_completion_distinguishes_unsigned_from_verified_signatures(self):
+        # Source contract only; PowerShell execution belongs to native Windows acceptance.
+        script = Path('tools/package/Build-Sign-Verify.ps1').read_text()
+        completion = re.search(
+            r"if \(\$Unsigned\) \{\s*Write-Output '([^']+)'\s*\} else \{\s*"
+            r"Write-Output '([^']+)'\s*\}\s*Write-Output '([^']+)'\s*$", script)
+        self.assertIsNotNone(completion, 'completion must branch on whether signing ran')
+        unsigned, signed, pending = completion.groups()
+        self.assertIn('built unsigned; signatures not checked', unsigned)
+        self.assertNotIn('signatures checked', unsigned)
+        self.assertIn('signatures checked', signed)
+        self.assertIn('Native compile, normal server/client and multiplayer acceptance pending', pending)
 
 
 if __name__ == '__main__':

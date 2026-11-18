@@ -57,10 +57,10 @@ time. Our addons never ship their files.
 | Dependency | Workshop id | Author | Installed metadata | Terms as recorded | Use in Hollow Country |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | DayZ Expansion AI | (pinned in the AI addon README) | DayZ Expansion team | 1.9.84, matching the pinned source commit `d84d3c7` | CC BY-NC-ND: no repack, no modification, no copying of sources | Optional AI addon only calls APIs it cites; GO |
-| DayZ-Bicycle | 2971190303 | Hunterz | `meta.cpp` name "DayZ-Bicycle"; ships `Bicycle.pbo` and `0_DayzBicycleDefines.pbo`, signed by its author, plus its own `events.xml` and `cfgeventspawns_Chernarus.xml` | "no repacks"; needs Survivor Animations 2918418331; reportedly conflicts with Expansion-Animations | Optional overlay generated from the installed copy only when loaded; FALLBACK |
-| Ambient Animals Pack | 3114410963 | Hunterz | `meta.cpp` name "Ambient Animals Pack"; ships `AmbientAnimalsPack.pbo` and per-species pbos, signed by its author, with its own territory files | "no repacks"; needs territory and event edits by the operator | Optional overlay generated from the installed copy only when loaded; FALLBACK |
-| Survivor Animations | 2918418331 | Hunterz | `meta.cpp` name "Survivor Animations" | Dependency of DayZ-Bicycle; not used directly | Listed only as the bicycle's dependency |
+| DayZ-Bicycle | 2971190303 | Hunterz | `meta.cpp` name "DayZ-Bicycle"; ships `Bicycle.pbo` and `0_DayzBicycleDefines.pbo`, signed by its author, plus its own `events.xml` and `cfgeventspawns_Chernarus.xml` | "no repacks"; needs Survivor Animations 2918418331; conflicts with Expansion-Animations | Default subscribed dependency; overlay generated from the installed copy when loaded; runtime acceptance pending |
+| Ambient Animals Pack | 3114410963 | Hunterz | `meta.cpp` name "Ambient Animals Pack"; ships `AmbientAnimalsPack.pbo` and per-species pbos, signed by its author, with its own territory files | "no repacks"; needs territory and event edits by the operator | Default subscribed dependency; overlay generated from the installed copy when loaded; runtime acceptance pending |
+| Survivor Animations | 2918418331 | Hunterz | `meta.cpp` name "Survivor Animations" | Dependency of DayZ-Bicycle; not used directly | Default subscribed dependency, loaded before Bicycle |
 
 The terms wording was read from the Workshop pages earlier in the session. A later re-check returned
 HTTP 429, so the wording should be re-read before the friend bundle lists these dependencies. The
-Expansion-Animations conflict is an unverified community report. Nothing here is observed in DayZ.
+Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations. Nothing here is observed in DayZ.

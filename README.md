@@ -70,12 +70,12 @@ Decorative wrecks will not become endless petrol stations. Supported vehicles,
 tools and any finite wreck supplies remain part of the audit.
 
 **Being built · Phase 2: improvised light mounts.** Use duct tape to fix a
-flashlight to a suitable gun, keeping your hands available. Peel the light off by
+weapon light to a suitable gun, keeping your hands available. Peel the light off by
 hand when you need it elsewhere. Mounting consumes the tape; removing the light
 does not recover it, and mounting again needs fresh tape. The first release covers
 rifles and pistols whose own model already carries a light, including those that
 need a railed handguard fitted first, so the beam starts where the gun expects it.
-Backpacks, helmets and other guns are planned extensions after the first release.
+The action reads **Tape light to weapon** and accepts weapon lights only. Backpacks, helmets and other guns remain planned extensions.
 
 ## The infected remember
 
@@ -173,7 +173,7 @@ and await play-testing; the descriptions below are the experience being built.
 | :--- | :--- | :--- |
 | **Hollow grade and atmosphere** | Set your own colour-grade intensity from 0–100% in 10% steps; 0 restores vanilla. Bind the grade control in DayZ's Controls to cycle it. Dusk, overcast and storm lighting and changing weather days should give each journey a mood while nights stay bright. | **Being built** |
 | **Ambient life and signs of life** | Watch for small animals around water and farms, lit windows, chimney smoke and flies around carcasses. These are clues to read as you travel. | **Being built** |
-| **Travel and repair projects** | Discover shared trail shelters and group map pins. Look for many bikes, a few boats and common cars that need real parts and repairs. DayZ-Bicycle and Ambient Animals Pack are optional subscriptions; you can play without them. | **Being built** |
+| **Travel and repair projects** | Discover shared trail shelters and group map pins. Look for many bikes, a few boats and common cars that need real parts and repairs. DayZ-Bicycle, Survivor Animations and Ambient Animals Pack are default subscriptions; their mission overlays apply at install time. | **Being built** |
 | **Survivor factions and hold-outs** | Meet the traces of local families, volunteers, scavengers, raiders and travellers. Hold-out survivors are intended to be killable and lootable, with real caches and a seven-day lockout before anyone moves back in. There is no reputation ladder, trading or recruiting. | **Being built** |
 | **Pickers and dead drops** | Other scavengers should move real supplies through houses and caches. A dead drop gives you a place to investigate, with finite contents that someone else may already have taken. | **Being built** |
 | **Radio, leads and body stories** | Carry a powered PersonalRadio to receive faction chatter and Morse clues on the right frequency. Follow rumours, notes and the stories around bodies, then share received leads with your group. Paper notes stay rare: at most one per scene and ten world-wide. | **Being built** |
@@ -264,3 +264,12 @@ the [provenance inventory](docs/PROVENANCE_AND_LICENSES.md).
 
 Game files, purchased assets, Workshop packages, signing private keys, credentials
 and runtime profiles do not belong in this repository.
+
+Default server dependencies and install folders are documented in the
+[friend server guide](docs/INSTALL_ROLLBACK.md#friend-server-installation). Our two installed folders are
+`@HollowCountry` and `@HollowCountryExpansionAI`; load both on server and clients.
+V2 is on by default. All feature rows remain **Being built** and runtime acceptance
+is pending. Native Windows compilation, normal PBO/server testing and two-client
+checks are still required; offline packaging checks establish no DayZ behavior.
+
+Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.

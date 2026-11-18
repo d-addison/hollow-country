@@ -63,6 +63,8 @@ jobs:
         run: |
           python3 -B -m tools.package.pbo pbo --addon mods/HollowCountry --out "$RUNNER_TEMP/hollowcountry-dev.pbo"
           python3 -B -m tools.package.pbo verify "$RUNNER_TEMP/hollowcountry-dev.pbo"
+          python3 -B -m tools.package.pbo pbo --addon mods/HollowCountryExpansionAI --prefix HollowCountryExpansionAI --out "$RUNNER_TEMP/hollowcountryexpansionai-dev.pbo"
+          python3 -B -m tools.package.pbo verify --prefix HollowCountryExpansionAI "$RUNNER_TEMP/hollowcountryexpansionai-dev.pbo"
           python3 -B -m tools.package.pbo handoff --addon mods/HollowCountry --mission mission/hollow-country --out "$RUNNER_TEMP/hollow-country-private-dev.zip"
           python3 -B -m tools.package.pbo verify "$RUNNER_TEMP/hollow-country-private-dev.zip"
       - uses: actions/upload-artifact@v4
@@ -71,6 +73,7 @@ jobs:
           name: hollow-country-unsigned-development-${{ github.sha }}
           path: |
             ${{ runner.temp }}/hollowcountry-dev.pbo
+            ${{ runner.temp }}/hollowcountryexpansionai-dev.pbo
             ${{ runner.temp }}/hollow-country-private-dev.zip
           if-no-files-found: error
           retention-days: 14

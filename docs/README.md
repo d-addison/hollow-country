@@ -5,7 +5,7 @@ Use the [field guide](../README.md) for the component overview and roadmap.
 | Purpose | Guide |
 | :--- | :--- |
 | Install, upgrade, recover and roll back | [Installation and rollback](INSTALL_ROLLBACK.md) |
-| Friend server: mods each player needs, build and ports | [Friend server](FRIEND_SERVER.md) |
+| Friend server: mods each player needs, build and ports | [Friend server](INSTALL_ROLLBACK.md#friend-server-installation) |
 | Connect to a local vanilla test server | [Local connection check](LOCAL_SERVER_TEST.md) |
 | Configure and develop the addon | [Addon development](MOD_DEVELOPMENT.md) |
 | Understand component boundaries and current gates | [Module status](MODULE_STATUS.md) |
@@ -44,8 +44,7 @@ All default to `true`, including when absent from an older settings file.
 
 Stop the server, back up the profile, change the existing flag to a JSON boolean
 such as `"EnableCamps": false`, then restart. Preserve the other settings and state
-files. Check `[HollowCountry] V2 preferences ` for the resulting value. Disabled
-modules do not start, so their admission line may be absent. Map pins share a
+files. Check `[HollowCountry] V2 preferences ` for the resulting value. Each V2 module must print exactly one `HCV2Admission` line, including disabled modules; verify this in the native server log. Map pins share a
 module that starts if either Travel or Leads is on; each pin kind follows its flag.
 
 Client grade, lighting, signs of life, hints and environmental sound run locally
@@ -59,7 +58,7 @@ Weather days additionally respect `EnableAtmosphere` and the existing delegated
 weather owner.
 
 In the server profile's `.RPT`/script logs, search for
-`[HollowCountry] V2 admission feature=`. For example, grade startup emits:
+`[HollowCountry] V2 admission feature=` (emitted by the `HCV2Admission` helper). For example, grade startup emits:
 
 ```text
 [HollowCountry] V2 admission feature=Grade preference=on gate=EXP-A1 qualified=0 result=admitted unverified: EXP-A1 has no recorded native verdict
@@ -100,18 +99,13 @@ images), while grade intensity uses the native profile key
 `HollowCountryGradeIntensity` rather than a separate JSON file. Friend bundles
 omit runtime state and local acceptance markers.
 
-The optional `@HollowCountryExpansionAI` addon requires the Workshop mods
-**Community Framework (CF)**, **Dabs Framework**, **Expansion-Core**,
-**Expansion-Animations** and **Expansion-AI**. Load those dependencies before
-`@HollowCountry`, then load `@HollowCountryExpansionAI` after it using `-mod` on
-the server and every client. Use the same ordered list on both; the addon belongs
-in `-mod`. Without it, the world can retain traces without AI bodies.
+The default subscribed stack loads CF, Dabs Framework, Expansion-Core, Expansion-AI,
+the weapons packs, Ambient Animals Pack, Survivor Animations, DayZ-Bicycle,
+`@HollowCountry`, then `@HollowCountryExpansionAI` on server and every client.
+The [friend server guide](INSTALL_ROLLBACK.md#friend-server-installation) lists the IDs and exact installed folders.
 
-**DayZ-Bicycle** and **Ambient Animals Pack** are also optional Workshop packs;
-DayZ-Bicycle additionally requires **Survivor Animations**. Subscribe with your
-own account on server and clients and review the current terms. These dependencies
-are referenced and never repacked or bundled. The optional overlay tool reads
-installed pack data and generates mission overlays only in the operator's external
-mission. Its plan includes both packs; their IDs are absent from the current
-Workshop manifest, so this guide adds no IDs. Overlay installation and
-Expansion-Animations compatibility still need runtime acceptance.
+Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+
+Bicycle and Ambient Animals overlays apply by default during friend-bundle install.
+The original Workshop items remain separate subscriptions; no third-party file is
+repacked or distributed. Install-time CE changes do not establish gameplay acceptance.

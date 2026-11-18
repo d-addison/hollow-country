@@ -23,6 +23,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
 MANAGED = 'hollow-country-optional-packs'
+BUNDLE_MANAGED = 'hollow-country-bundle'
 BICYCLE_ID = '2971190303'
 ANIMALS_ID = '3114410963'
 ANIMATIONS_ID = '2918418331'
@@ -352,7 +353,16 @@ def native_ambient_delta(mission, options, source, put):
         put('env/hen_territories.xml', serialized(habitat))
 
 
-def allowed(relative):
+def allowed(relative, managed_name=MANAGED):
+    if managed_name == BUNDLE_MANAGED:
+        path = Path(relative)
+        clean = not path.is_absolute() and '..' not in path.parts and '\\' not in relative and ':' not in relative
+        authored = path.parts and path.parts[0].startswith('hollow-country')
+        if path.parts and path.parts[0] in (BUNDLE_MANAGED, MANAGED):
+            return False
+        return clean and (relative in ('cfgeconomycore.xml', 'cfggameplay.json') or authored or relative == 'expansion/settings/AIPatrolSettings.json')
+    if managed_name != MANAGED:
+        return False
     return relative in BASE_TARGETS or relative in {MANAGED + '/' + name for name in GENERATED}
 
 
@@ -370,17 +380,17 @@ def atomic(path, data, managed):
     os.replace(temporary, path)
 
 
-def install(candidate, mission):
+def install(candidate, mission, managed_name=MANAGED):
     mission = mission_target(mission)
-    if not candidate['files']:
+    if not candidate['files'] and managed_name == MANAGED:
         return
     if str(mission) != candidate['mission']:
         raise ValueError('candidate belongs to another mission')
-    managed = safe(mission / MANAGED)
+    managed = safe(mission / managed_name)
     if managed.exists():
         raise ValueError('optional overlay already installed; rollback first')
     for name, data in candidate['files'].items():
-        if not allowed(name):
+        if not allowed(name, managed_name):
             raise ValueError('unexpected overlay target')
         path = safe(mission / name)
         current = read(path) if path.exists() else None
@@ -398,11 +408,12 @@ def install(candidate, mission):
     managed.mkdir()
     atomic(managed / 'receipt.json', (json.dumps(receipt, sort_keys=True) + '\n').encode(), managed)
     for name, data in candidate['files'].items():
+        (mission / name).parent.mkdir(parents=True, exist_ok=True)
         atomic(mission / name, data, managed)
 
 
-def installed_before(mission):
-    managed = safe(mission / MANAGED)
+def installed_before(mission, managed_name=MANAGED):
+    managed = safe(mission / managed_name)
     if not managed.exists():
         return None
     if not (managed / 'receipt.json').exists():
@@ -415,7 +426,7 @@ def installed_before(mission):
     before = {}
     expected = {'receipt.json', '.next'}
     for name, row in receipt['files'].items():
-        if not allowed(name) or not re.fullmatch('[0-9a-f]{64}', row['after']):
+        if not allowed(name, managed_name) or not re.fullmatch('[0-9a-f]{64}', row['after']):
             raise ValueError('invalid optional overlay target in receipt')
         old = None if row['before'] is None else base64.b64decode(row['before'], validate=True)
         if row['before_sha256'] != (None if old is None else sha(old)):
@@ -425,7 +436,7 @@ def installed_before(mission):
         if current != old and (current is None or sha(current) != row['after']):
             raise ValueError('optional overlay drift: ' + name)
         before[name] = old
-        if name.startswith(MANAGED + '/'):
+        if name.startswith(managed_name + '/'):
             expected.add(name.split('/', 1)[1])
     for path in managed.iterdir():
         if path.name not in expected:
@@ -434,20 +445,126 @@ def installed_before(mission):
     return before
 
 
-def rollback(mission, dry_run=False):
+def rollback(mission, dry_run=False, managed_name=MANAGED):
     mission = mission_target(mission)
-    before = installed_before(mission)
+    before = installed_before(mission, managed_name)
     if before is None:
         return []
     if not dry_run:
-        managed = mission / MANAGED
+        managed = mission / managed_name
         for name, data in before.items():
             if data is not None:
+                (mission / name).parent.mkdir(parents=True, exist_ok=True)
                 atomic(mission / name, data, managed)
             elif (mission / name).exists():
                 (mission / name).unlink()
         shutil.rmtree(managed)
     return sorted(before)
+
+
+def bundle_candidate(bundle, mission):
+    """Merge only authored files and explicit patches into the friend's own stock.
+
+    This uses install/rollback's byte-exact backup receipt, including first installs.
+    No stock mission is transported. Unknown edits to patched values refuse.
+    """
+    bundle, mission = safe(bundle), mission_target(mission)
+    patch = json.loads(read(bundle / 'mission-patches.json'))
+    candidate = {'mission': str(mission), 'files': {}, 'before': {}, 'sources': {}}
+
+    def put_file(name, data):
+        if not allowed(name, BUNDLE_MANAGED):
+            raise ValueError('unexpected bundle mission target: ' + name)
+        target = safe(mission / name)
+        old = read(target) if target.exists() else None
+        candidate['before'][name] = old
+        candidate['files'][name] = data
+
+    for path in sorted((bundle / 'mission-overlay').rglob('*')):
+        safe(path)
+        if path.is_file():
+            name = path.relative_to(bundle / 'mission-overlay').as_posix()
+            data = read(path)
+            target = safe(mission / name)
+            if target.exists() and read(target) != data:
+                raise ValueError('bundle overlay would replace existing file: ' + name)
+            put_file(name, data)
+    core = xml(read(mission / 'cfgeconomycore.xml'), 'economycore')
+    for entry in patch['core']:
+        node = ET.fromstring(entry['after'])
+        parent = core
+        if node.tag != 'ce':
+            parent = core.find('defaults')
+            if parent is None:
+                parent = ET.SubElement(core, 'defaults')
+        key = 'folder' if node.tag == 'ce' else 'name'
+        existing = [n for n in parent if n.tag == node.tag and n.get(key) == node.get(key)]
+        if len(existing) > 1:
+            raise ValueError('ambiguous mission core merge')
+        if existing:
+            old = ET.tostring(existing[0], encoding='unicode').strip()
+            if old != entry['before'] and old != entry['after']:
+                raise ValueError('mission core merge conflict: ' + str(node.get(key)))
+            parent.remove(existing[0])
+        elif entry['before'] is not None:
+            raise ValueError('mission core merge baseline missing')
+        parent.append(node)
+    if patch['core']:
+        put_file('cfgeconomycore.xml', serialized(core))
+    if patch['gameplay']:
+        gameplay = json.loads(read(mission / 'cfggameplay.json'))
+        for row in patch['gameplay']:
+            parent = gameplay
+            for part in row['path'][:-1]:
+                parent = parent.setdefault(part, {})
+            key = row['path'][-1]
+            if parent.get(key) not in (row['before'], row['after']):
+                raise ValueError('mission gameplay merge conflict: ' + '.'.join(row['path']))
+            parent[key] = row['after']
+        put_file('cfggameplay.json', (json.dumps(gameplay, indent=2) + '\n').encode())
+    return candidate
+
+
+def bundle_apply(bundle, mission, workshop, loaded):
+    """Rehearse on local scratch bytes, then reuse the receipt installers in order."""
+    mission = mission_target(mission)
+    for path in mission.rglob('*'):
+        safe(path)
+    if (Path(mission) / BUNDLE_MANAGED).exists():
+        raise ValueError('bundle install exists; rollback before installing again')
+    candidate = bundle_candidate(bundle, mission)
+    from tools.package import travel
+    source = Path(bundle) / 'mission/hollow-country'
+    travel.validate(source)
+    with tempfile.TemporaryDirectory(prefix='hc-bundle-preflight-') as directory:
+        scratch = Path(directory) / 'mission'
+        shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
+        rehearsal = bundle_candidate(bundle, scratch)
+        install(rehearsal, scratch, managed_name=BUNDLE_MANAGED)
+        travel.install(source, scratch)
+        optional = plan(workshop, scratch, loaded, source / 'optional/overlay-policy.json')
+        if not all(line.endswith('loaded=1') for line in optional['diagnostics']):
+            raise ValueError('bundle requires both default optional overlays to be loaded')
+        install(optional, scratch)
+    install(candidate, mission, managed_name=BUNDLE_MANAGED)
+    travel.install(source, mission)
+    install(plan(workshop, mission, loaded, source / 'optional/overlay-policy.json'), mission)
+
+
+def bundle_rollback(mission):
+    from tools.package import travel
+    mission = mission_target(mission)
+    for path in mission.rglob('*'):
+        safe(path)
+    # Validate all rollback layers on scratch before changing any live byte.
+    with tempfile.TemporaryDirectory(prefix='hc-bundle-rollback-') as directory:
+        scratch = Path(directory) / 'mission'
+        shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
+        for target in (scratch, Path(mission)):
+            rollback(target)
+            if (target / travel.MANAGED).exists():
+                travel.rollback(target)
+            rollback(target, managed_name=BUNDLE_MANAGED)
 
 
 def friend_bundle_plan(mission, rows):
@@ -464,8 +581,6 @@ def friend_bundle_plan(mission, rows):
                 content = before[name]
                 if content is None:
                     continue
-        if relative == 'README.txt':
-            content = content + friend_notes().encode()
         result.append((relative, content))
     result += [('tools/package/optional_overlays.py', read(Path(__file__))),
                ('mission/hollow-country/optional/overlay-policy.json', read(POLICY))]
@@ -474,24 +589,21 @@ def friend_bundle_plan(mission, rows):
 
 def friend_notes():
     return '\r\n'.join([
-        '', 'Optional subscriptions (Hunterz; never bundled/repacked; EXP-D1 FALLBACK):',
-        '  Ambient Animals Pack: workshop_download_item 221100 ' + ANIMALS_ID,
-        '  DayZ-Bicycle: workshop_download_item 221100 ' + BICYCLE_ID,
-        '  Bicycle also needs Survivor Animations: workshop_download_item 221100 ' + ANIMATIONS_ID,
-        'Subscribe with your own account on server and clients. Leave these out to keep the base mission.',
-        'Review the current Workshop terms before use. Expansion-Animations compatibility is unverified.',
-        'Copy each public .bikey to server keys. Load Survivor Animations before Bicycle and these packs',
-        'before @HollowCountry in the same -mod list on server and clients; do not add them to -serverMod.',
-        'Generated optional CE data was removed from this bundle. Stop the server, back up the mission,',
-        'then use the included stdlib tool on the installed mission OUTSIDE this bundle/source checkout:',
-        '  python tools/package/optional_overlays.py plan --workshop-dir <content/221100> --mission <mission> --loaded-mods "<exact server -mod list>"',
-        '  python tools/package/optional_overlays.py apply --workshop-dir <content/221100> --mission <mission> --loaded-mods "<exact server -mod list>"',
-        'Keep numeric Workshop folders in -mod (use their full paths). Inspect the plan before apply.',
-        'Rollback optional overlays FIRST, before any underlying CE install: stop server, then',
-        '  python tools/package/optional_overlays.py rollback --mission <mission>',
-        'EnableAmbientLife gates script admission; rollback the mission overlay too when disabling it.',
-        'No hive wipe. Existing persisted bikes/animals are not deleted by rollback.',
-        'Native compile, normal PBO/server, EXP-A4/T3 and two-client synchronization remain pending.', '',
+        '', 'Default subscription-only overlays: Ambient Animals Pack, Survivor Animations and DayZ-Bicycle.',
+        'Never repack or redistribute them. Download their original Workshop folders on the friend server.',
+        'Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.',
+        'Keep the original numeric Workshop folders for the installer, alongside the @ copies used to launch.',
+        'Install Python 3.10+. From this bundle folder, with the server stopped, run:',
+        '  python -m tools.package.optional_overlays bundle-plan --mission <friend-mission>',
+        '  python -m tools.package.optional_overlays bundle-apply --mission <friend-mission> --workshop-dir <content/221100>',
+        'The installer rehearses merges on scratch bytes, then backs up every changed file in a receipt.',
+        'Our mission overlay, travel CE and Bicycle/Ambient overlays apply to your own stock mission.',
+        'No stock mission ships. Use an isolated dayzOffline.chernarusplus copy outside Steam and this bundle.',
+        'To undo (stop server first): python -m tools.package.optional_overlays bundle-rollback --mission <friend-mission>',
+        'Rollback order: optional packs, travel, bundle merge. Drift refuses rather than overwriting edits.',
+        'Keep all receipts and backups on the friend server. No hive wipe; persisted entities are not deleted.',
+        'CE building coverage is excluded; qualify it separately against the friend stock mission.',
+        'Native compile, normal PBO/server and two-client synchronization remain pending.', '',
     ])
 
 
@@ -520,7 +632,7 @@ def launcher_run(args, repo, out, launcher):
         for destination in (session['mission'], session['profiles'], session['mod']['dest'], session['server_root']):
             if Path(destination).is_relative_to(workshop):
                 raise ValueError('Workshop sources must remain read only; destination overlaps Workshop directory')
-        for item in (ANIMATIONS_ID, BICYCLE_ID, ANIMALS_ID):
+        for item in (ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID):
             path = workshop / item
             if path.is_dir():
                 if not launcher.has_addons(path):
@@ -534,11 +646,10 @@ def launcher_run(args, repo, out, launcher):
     suffix = ';'.join(launcher.to_windows(p)[0] for p in additions)
     if suffix:
         # Insert immediately before HC, retaining Expansion/weapon order.
-        head, sep, tail = previous.rpartition(';')
-        if sep:
-            commands['mod'] = head + ';' + suffix + ';' + tail
-        else:
-            commands['mod'] = '-mod=' + suffix + ';' + previous.removeprefix('-mod=')
+        base_path = launcher.to_windows(session['mod']['dest'])[0]
+        parts = previous.removeprefix('-mod=').split(';')
+        parts[parts.index(base_path):parts.index(base_path)] = suffix.split(';')
+        commands['mod'] = '-mod=' + ';'.join(parts)
         for key in ('server', 'client'):
             commands[key] = [line.replace(previous, commands['mod']) for line in commands[key]]
         public_keys = list(session['keys'])
@@ -639,13 +750,30 @@ def launcher_rollback(args, repo, out, launcher):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    parser.add_argument('command', choices=('plan', 'apply', 'rollback'))
+    parser.add_argument('command', choices=('plan', 'apply', 'rollback', 'bundle-plan', 'bundle-apply', 'bundle-rollback'))
+    parser.add_argument('--bundle', type=Path, default=ROOT)
     parser.add_argument('--mission', required=True, type=Path)
     parser.add_argument('--workshop-dir', type=Path)
     parser.add_argument('--loaded-mods', default='')
     args = parser.parse_args(argv)
     try:
-        if args.command == 'rollback':
+        if args.command.startswith('bundle-'):
+            if args.command == 'bundle-rollback':
+                bundle_rollback(args.mission)
+            elif args.command == 'bundle-plan':
+                candidate = bundle_candidate(args.bundle, args.mission)
+                for name in sorted(candidate['files']):
+                    print('bundle overlay: ' + name)
+            else:
+                if args.workshop_dir is None:
+                    raise ValueError('bundle apply requires --workshop-dir with the subscribed default packs')
+                loaded = args.loaded_mods or ';'.join(str(args.workshop_dir / ident) for ident in
+                                                   (ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID))
+                if not all((args.workshop_dir / ident).is_dir() for ident in (ANIMALS_ID, ANIMATIONS_ID, BICYCLE_ID)):
+                    raise ValueError('default bundle needs Ambient Animals, Survivor Animations and DayZ-Bicycle')
+                bundle_apply(args.bundle, args.mission, args.workshop_dir, loaded)
+            print('HC bundle ' + args.command + ' complete; runtime acceptance pending')
+        elif args.command == 'rollback':
             rollback(args.mission)
         else:
             candidate = plan(args.workshop_dir, args.mission, args.loaded_mods)

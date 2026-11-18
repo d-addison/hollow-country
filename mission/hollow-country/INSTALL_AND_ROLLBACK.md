@@ -95,8 +95,9 @@ maxPlayers = 6;                   // intended load is 3 to 6 players
 - Night pace: the 32x figure assumes the BI server rule that the night value
   multiplies the day value. Check it with an in-game clock during local acceptance.
 - Mods: the server and every client use the same `-mod` list in the launcher's order.
-  With Expansion AI, load CF, Dabs Framework, Expansion-Core, Expansion-Animations,
-  Expansion-AI, then HollowCountry, then HollowCountryExpansionAI. Players subscribe
+  With Expansion AI, load CF, Dabs Framework, Expansion-Core, Expansion-AI, the weapons packs,
+  Ambient Animals Pack, Survivor Animations, DayZ-Bicycle, then @HollowCountry,
+  then @HollowCountryExpansionAI. Players subscribe
   to HollowCountryExpansionAI when the server uses it; both peers need its faction
   registrations and optional news target binding. The current manifest has no
   server-only entries, so the launcher emits no server-only mod argument.
@@ -106,7 +107,7 @@ maxPlayers = 6;                   // intended load is 3 to 6 players
 - Every value is provisional until the owner's local session checks it with one
   client.
 - Which mods each player needs, their load order and the friend server's ports:
-  see `docs/FRIEND_SERVER.md`.
+  see `docs/INSTALL_ROLLBACK.md#friend-server-installation`.
 
 ## CE generation and installation
 
@@ -374,3 +375,11 @@ Restore the matching settings/catalog/state backup when reverting schemas. CE
 rollback changes configuration, not world history: existing items and persisted
 entities are not silently deleted. Use the verified full stopped profile/storage
 backup when a tested save rollback is needed. Never wipe a live save as a shortcut.
+
+Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations.
+
+Friend bundles contain overlays and minimal merge patches only. Use the included
+`tools.package.optional_overlays bundle-apply` installer against your own stock
+mission; keep its backup receipt for `bundle-rollback`. See
+[the friend server guide](../../docs/INSTALL_ROLLBACK.md#friend-server-installation). Every authored mission JSON,
+including `hollow-country/events/scene-chains.json`, is installed with the overlay.

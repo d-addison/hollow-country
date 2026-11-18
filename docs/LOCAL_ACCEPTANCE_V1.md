@@ -88,7 +88,7 @@ repacks or re-hosts any of them, and nothing under `mods/`, `mission/` or `confi
 
 - Base addon only: none.
 - Optional Expansion AI path (`@HollowCountryExpansionAI`, the PvE patrols row): CF, Dabs Framework,
-  Expansion-Animations, Expansion-Core (Workshop 2291785308) and Expansion-AI (Workshop 2792982069). Load
+  Expansion-Core (Workshop 2291785308) and Expansion-AI (Workshop 2792982069). Load
   them before `@HollowCountryExpansionAI`. Expansion is CC BY-NC-ND: subscribe only, never repack.
 - Optional Tactical Flava subset (the Firearms rows): Tactical Flava, Workshop 2646817942. Its rights review
   is pending; it loads before HollowCountry and its key goes through `--install-key`.

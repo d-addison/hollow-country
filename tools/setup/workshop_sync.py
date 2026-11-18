@@ -48,7 +48,7 @@ APP_ID = '221100'
 DEFAULT_MANIFEST = Path(__file__).with_name('workshop_mods.json')
 RECEIPT_NAME = 'hollow-country-workshop-receipt.json'
 SERVER_EXE = 'DayZServer_x64.exe'
-GROUPS = ('base', 'snafu', 'tactical_flava', 'pve_patrols')
+GROUPS = ('base', 'snafu', 'tactical_flava', 'living_packs', 'pve_patrols')
 SIDES = ('client', 'server')
 BASE_FOLDER = '@HollowCountry'
 ID = re.compile(r'^[1-9][0-9]{5,12}$')
@@ -547,7 +547,7 @@ def cmd_install(args, say):
             created.add(rel)
             changed = True
     finally:
-        if changed:
+        if changed or receipt is None:
             write_json_atomic(root / RECEIPT_NAME, receipt_data(files, made_dirs))
     for item in items:
         if item['id']:

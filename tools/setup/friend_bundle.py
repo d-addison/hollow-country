@@ -4,7 +4,7 @@ Input is the local server that was set up with local_test_session.py apply: its 
 folder, its profiles folder, the signed @HollowCountry session mod (and optionally
 @HollowCountryExpansionAI, loaded after it with -mod on server and clients) and its serverDZ.cfg.
 Output is a new folder the owner can zip and hand
-over: the mission copy, the Hollow Country profile configuration, the signed mods, their public
+over: authored mission overlays and minimal merge patches, the Hollow Country profile configuration, the signed mods, their public
 keys, a start-server.bat, a serverDZ.cfg snippet and a README with the Workshop download commands.
 
 What it never copies: CE storage (storage_*), rollback backups and receipts, logs, any runtime
@@ -13,8 +13,7 @@ private signing keys (any .biprivatekey refuses the whole export), symlinks (ref
 password value from serverDZ.cfg. Third-party Workshop mods are named by id only; the friend
 downloads them with their own steamcmd login.
 
-Coverage is applied to scratch mission bytes only when --ce-coverage-result validates against stock.
-Otherwise it is left out, including restoring an already installed coverage delta on the scratch copy.
+Coverage is excluded from exported files; qualify it separately against the friend stock.
 Sampler results and census inputs stay outside the checkout and are never bundled.
 
 This tool establishes nothing about DayZ behaviour. Usage:
@@ -37,6 +36,13 @@ import tempfile
 from tools.package import ce_coverage
 from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
+from tools.package import optional_overlays as overlays, travel, pbo
+from tools.package import snafu_optional, tactical_flava_optional
+import xml.etree.ElementTree as ET
+
+SOURCE = lts.ROOT / 'mission/hollow-country'
+BUNDLE_TOOLS = ('optional_overlays.py', 'travel.py', 'economy.py',
+                'datamined_items.py', 'datamined_items.json')
 
 # Mission files that are local state or tool rollback data, never configuration.
 MISSION_EXCLUDE_DIRS = ('storage_*',)
@@ -255,13 +261,10 @@ def readme(items, template, addon):
         lines.append('   Players subscribe to @HollowCountryExpansionAI when this server uses it; load it after @HollowCountry.')
     lines += [
         '',
-        'Optional dependencies are subscribed from the Workshop, never repacked or included as third-party files.',
-        '  @HollowCountryExpansionAI needs Community Framework (CF), Dabs Framework, Expansion-Core,',
-        '  Expansion-Animations and Expansion-AI. Load these before @HollowCountry, then the addon after it',
-        '  in -mod on the server and every client, using the same ordered list.',
-        '  The optional overlay plan supports DayZ-Bicycle and Ambient Animals Pack;',
-        '  DayZ-Bicycle additionally needs Survivor Animations. Leave them out for the base mission.',
-        '  Those pack IDs are absent from the Workshop manifest; this listing adds no download IDs.',
+        'Default dependencies are subscribed from the Workshop, never repacked or included as third-party files.',
+        '  @HollowCountryExpansionAI needs Community Framework (CF), Dabs Framework, Expansion-Core and Expansion-AI.',
+        '  Ambient Animals Pack, Survivor Animations and DayZ-Bicycle are default subscriptions.',
+        '  Load the listed dependencies before @HollowCountry, then @HollowCountryExpansionAI on every peer.',
         '  Review current Workshop terms and the optional-overlay instructions below before installing.',
         '',
     ]
@@ -269,7 +272,7 @@ def readme(items, template, addon):
         '3. Copy from this bundle into the server folder:',
         '     @HollowCountry/' + ('  and  @HollowCountryExpansionAI/' if addon else ''),
         '     keys/*.bikey            -> keys/',
-        '     mpmissions/%s/ -> mpmissions/ (replaces the stock mission; back yours up first)' % template,
+        '     Keep your own stock mpmissions/%s/; apply the overlay using the commands below.' % template,
         '     profiles/               -> profiles/ (the -profiles folder)',
         '     start-server.bat',
         '4. Edit serverDZ.cfg as shown in serverDZ-hollow-country.txt. Keep verifySignatures = 2 and BattlEye on.',
@@ -293,10 +296,91 @@ def build(args):
         raise Refused('output %s already exists; choose a new folder' % out)
     mission = Path(args.mission)
     plan = []  # (destination relative path, source path or bytes)
+    try:
+        travel.validate(SOURCE)
+        overlays.read(Path(travel.__file__))
+    except (OSError, ValueError) as error:
+        raise Refused('travel CE source missing or invalid: %s' % error) from error
+    try:
+        policy = json.loads(overlays.read(SOURCE / 'optional/overlay-policy.json'))
+        if not isinstance(policy, dict) or policy.get('schema') != 1:
+            raise ValueError('unknown optional overlay policy')
+        for name in BUNDLE_TOOLS:
+            overlays.read(lts.ROOT / 'tools/package' / name)
+    except (OSError, ValueError) as error:
+        raise Refused('optional overlay source missing or invalid: %s' % error) from error
     m_keep, m_drop = mission_files(mission)
-    covered = coverage_files(mission, m_keep, args.ce_coverage_result)
-    m_drop += len(m_keep) - len(covered)
-    plan += [('mpmissions/%s/%s' % (mission.name, rel), path) for rel, path in covered]
+    # Remove dependency-derived bytes before selecting our authored overlay.
+    prefix = 'mpmissions/' + mission.name + '/'
+    clean = overlays.friend_bundle_plan(mission, [(prefix + rel, path) for rel, path in m_keep])
+    clean = {rel[len(prefix):]: data if isinstance(data, bytes) else data.read_bytes()
+             for rel, data in clean if rel.startswith(prefix)}
+    authored = {}
+    for rel, data in clean.items():
+        top = PurePosixPath(rel).parts[0]
+        # Weapon-pack deltas are generated from the installed third-party Workshop items: never export them.
+        own = top.startswith('hollow-country') and top not in (travel.MANAGED, ce_coverage.MANAGED,
+                                                                snafu_optional.MANAGED, tactical_flava_optional.MANAGED)
+        if own or rel == 'expansion/settings/AIPatrolSettings.json':
+            if PurePosixPath(rel).name not in ('delta-manifest.json', 'economy-report.json', 'gameplay-report.json'):
+                authored[rel] = data
+    # Every authored V2 JSON is copied at its runtime mission path. Never infer
+    # the catalog from a hard-coded list that silently misses the next module.
+    for path in sorted(SOURCE.rglob('*.json')):
+        rel = path.relative_to(SOURCE).as_posix()
+        authored['hollow-country/' + rel] = overlays.read(path)
+    plan += [('mission-overlay/' + rel, data) for rel, data in sorted(authored.items())]
+    m_drop += len(m_keep) - len(authored.keys() & clean.keys())
+    core = overlays.xml(clean['cfgeconomycore.xml'], 'economycore')
+    changes = []
+    for node in core.findall('ce'):
+        folder = node.get('folder', '')
+        if folder.startswith('hollow-country') and not folder.startswith((travel.MANAGED, overlays.MANAGED, ce_coverage.MANAGED,
+                                                                                   snafu_optional.MANAGED, tactical_flava_optional.MANAGED)):
+            node.tail = None
+            changes.append({'before': None, 'after': ET.tostring(node, encoding='unicode').strip()})
+    backup = mission / 'hollow-country/core.backup'
+    if backup.exists():
+        old_core = overlays.xml(overlays.read(backup), 'economycore')
+        for node in core.findall('defaults/*'):
+            old = next((n for n in old_core.findall('defaults/*')
+                        if n.tag == node.tag and n.get('name') == node.get('name')), None)
+            node.tail = None
+            if old is not None:
+                old.tail = None
+            after = ET.tostring(node, encoding='unicode').strip()
+            before = None if old is None else ET.tostring(old, encoding='unicode').strip()
+            if before != after:
+                changes.append({'before': before, 'after': after})
+    gameplay_patch = []
+    gameplay_backup = mission / 'hollow-country-gameplay/cfggameplay.backup'
+    if gameplay_backup.exists():
+        before = json.loads(overlays.read(gameplay_backup))
+        after = json.loads(clean['cfggameplay.json'])
+
+        def changed_leaves(old, new, path):
+            if isinstance(new, dict):
+                for key, value in new.items():
+                    changed_leaves(old.get(key) if isinstance(old, dict) else None, value, path + [key])
+            elif old != new:
+                gameplay_patch.append({'path': path, 'before': old, 'after': new})
+
+        changed_leaves(before, after, [])
+    plan.append(('mission-patches.json', json.dumps({'schema': 1, 'core': changes, 'gameplay': gameplay_patch}, indent=2).encode()))
+    if args.ce_coverage_result or (mission / ce_coverage.MANAGED).exists():
+        print('left out CE building coverage: PENDING; rerun the native sampler against the friend stock mission')
+    else:
+        print('left out CE building coverage: PENDING (no native sampler result is shipped)')
+    # Portable stdlib installers; no source addon, stock mission or dependency bytes.
+    for name in BUNDLE_TOOLS:
+        path = lts.ROOT / 'tools/package' / name
+        plan.append(('tools/package/' + name, overlays.read(path)))
+    for path in sorted(SOURCE.rglob('*')):
+        if path.is_file():
+            rel = path.relative_to(SOURCE).as_posix()
+            if rel not in pbo.MISSION_FILES:
+                raise Refused('unreviewed mission source: ' + rel)
+            plan.append(('mission/hollow-country/' + rel, overlays.read(path)))
     p_keep, p_drop = profile_files(args.profiles)
     plan += [('profiles/' + rel, path) for rel, path in p_keep]
     mods = [(Path(args.mod), True)] + ([(Path(args.addon), False)] if args.addon else [])
@@ -317,10 +401,8 @@ def build(args):
     plan += [('serverDZ-hollow-country.txt', snippet.encode()),
              ('start-server.bat', launcher(items).encode()),
              ('README.txt', readme(items, template, bool(args.addon)).encode())]
-    # Export authored tooling/policy only; restore mission bytes affected by
-    # operator-generated optional pack overlays before adding install notes.
-    from tools.package import optional_overlays
-    plan = optional_overlays.friend_bundle_plan(mission, plan)
+    plan = [(dest, data + overlays.friend_notes().encode() if dest == 'README.txt' else data)
+            for dest, data in plan]
     seen = set()
     for dest, _ in plan:
         if dest.lower() in seen:
@@ -358,7 +440,7 @@ def main(argv=None):
     b.add_argument('--mission', required=True)
     b.add_argument('--profiles', required=True)
     b.add_argument('--ce-coverage-result', type=Path,
-                   help='external validated sampler result; apply coverage to the bundled mission, or leave it out '
+                   help='external validated sampler result; apply coverage to the local stock (coverage is not exported), or leave it out '
                    'with one PENDING line when no result exists')
     b.add_argument('--mod', required=True)
     b.add_argument('--addon')

@@ -20,13 +20,13 @@ from tools.setup import workshop_sync as ws
 
 REPO = Path(__file__).resolve().parents[2]
 MANIFEST = REPO / 'tools/setup/workshop_mods.json'
-IDS = {'cf': '1559212036', 'dabs': '2545327648', 'core': '2291785308', 'anim': '2793893086',
+IDS = {'cf': '1559212036', 'dabs': '2545327648', 'core': '2291785308', 'animals': '3114410963', 'survivor': '2918418331', 'bicycle': '2971190303',
        'ai': '2792982069', 'snafu': '2443122116', 'tf': '2646817942'}
 HC_ID = '3841628320'
 AI_ID = '3900000002'
 AI_REAL_ID = '3841637854'
-FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-Animations;@Expansion-AI;'
-            '@SnafuWeapons;@TacticalFlava;@HollowCountry;@HollowCountryExpansionAI')
+FULL_MOD = ('-mod=@CF;@DabsFramework;@Expansion-Core;@Expansion-AI;'
+            '@SnafuWeapons;@TacticalFlava;@AmbientAnimals;@SurvivorAnimations;@DayZ-Bicycle;@HollowCountry;@HollowCountryExpansionAI')
 RECEIPT = 'hollow-country-workshop-receipt.json'
 MARKER = 'S3CRET-MARKER-9f2'
 
@@ -112,18 +112,18 @@ class Manifest(unittest.TestCase):
             self.assertTrue(by_id[item_id]['name'] and by_id[item_id]['folder'].startswith('@'))
 
     def test_groups_and_sides(self):
-        self.assertEqual({m['group'] for m in self.data['mods']}, {'base', 'snafu', 'tactical_flava', 'pve_patrols'})
+        self.assertEqual({m['group'] for m in self.data['mods']}, {'base', 'snafu', 'tactical_flava', 'living_packs', 'pve_patrols'})
         self.assertEqual({m['folder'] for m in self.data['mods'] if m['side'] == 'server'},
                          set())
         self.assertEqual(self.mods['@HollowCountry']['group'], 'base')
         self.assertEqual({m['folder'] for m in self.data['mods'] if m['group'] == 'pve_patrols'},
-                         {'@CF', '@DabsFramework', '@Expansion-Core', '@Expansion-Animations', '@Expansion-AI',
+                         {'@CF', '@DabsFramework', '@Expansion-Core', '@Expansion-AI',
                           '@HollowCountryExpansionAI'})
 
     def test_load_order_is_the_documented_one(self):
         order = [m['folder'] for m in sorted(self.data['mods'], key=lambda m: m['rank'])]
-        self.assertEqual(order, ['@CF', '@DabsFramework', '@Expansion-Core', '@Expansion-Animations',
-                                 '@Expansion-AI', '@SnafuWeapons', '@TacticalFlava', '@HollowCountry',
+        self.assertEqual(order, ['@CF', '@DabsFramework', '@Expansion-Core',
+                                 '@Expansion-AI', '@SnafuWeapons', '@TacticalFlava', '@AmbientAnimals', '@SurvivorAnimations', '@DayZ-Bicycle', '@HollowCountry',
                                  '@HollowCountryExpansionAI'])
         self.assertEqual(len({m['rank'] for m in self.data['mods']}), len(self.data['mods']))
 
@@ -186,7 +186,7 @@ class Plan(Base):
         self.assertIn('unpublished', text)
 
     def test_full_set_prints_the_documented_load_order(self):
-        code, text, _ = self.run_cmd('plan', 'base,snafu,tactical_flava,pve_patrols')
+        code, text, _ = self.run_cmd('plan', 'base,snafu,tactical_flava,living_packs,pve_patrols')
         self.assertEqual(code, 0, text)
         self.assertIn(FULL_MOD, text.splitlines())
         self.assertNotIn('-serverMod', text)
@@ -286,7 +286,7 @@ class Fetch(Base):
         steam = self.tmp / 'steamcmd'
         deep = steam / 'steamapps/workshop/content/221100'
         calls = []
-        base_fake = self.fake_steamcmd(deep, [IDS['cf'], IDS['dabs'], IDS['core'], IDS['anim'], IDS['ai'],
+        base_fake = self.fake_steamcmd(deep, [IDS['cf'], IDS['dabs'], IDS['core'], IDS['ai'],
                                               AI_REAL_ID])
         self.run_mock.side_effect = lambda cmd, **kw: (calls.append((cmd, kw)), base_fake(cmd, **kw))[1]
         code, text, _ = self.main('fetch', '--server-root', str(self.root), '--groups', 'pve_patrols',
@@ -298,7 +298,6 @@ class Fetch(Base):
                                '+workshop_download_item', '221100', IDS['cf'], 'validate',
                                '+workshop_download_item', '221100', IDS['dabs'], 'validate',
                                '+workshop_download_item', '221100', IDS['core'], 'validate',
-                               '+workshop_download_item', '221100', IDS['anim'], 'validate',
                                '+workshop_download_item', '221100', IDS['ai'], 'validate',
                                '+workshop_download_item', '221100', AI_REAL_ID, 'validate',
                                '+quit'])
@@ -450,7 +449,7 @@ class Install(Base):
         for key in IDS:
             self.populate(key)
         make_item(self.content, HC_ID)
-        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols',
+        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,living_packs,pve_patrols',
                                      '--manifest', self.manifest_copy(base=HC_ID))
         self.assertEqual(code, 0, text)
         self.assertIn(FULL_MOD, text.splitlines())
@@ -466,7 +465,7 @@ class Install(Base):
             self.populate(key)
         make_item(self.content, HC_ID)
         make_item(self.content, AI_ID, name='hollowcountryexpansionai')
-        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,pve_patrols',
+        code, text, _ = self.run_cmd('install', 'base,snafu,tactical_flava,living_packs,pve_patrols',
                                      '--manifest', self.manifest_copy(base=HC_ID, addon=AI_ID))
         self.assertEqual(code, 0, text)
         folder = self.root / '@HollowCountryExpansionAI'

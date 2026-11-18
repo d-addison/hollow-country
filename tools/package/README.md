@@ -31,7 +31,7 @@ gui/layouts/*.layout text enter the PBO. mod.cpp is accepted original text, excl
 Absolute/traversal/Windows device/ADS paths, case collisions, symlinks, unknown
 files, binary source, game assets, config.bin and keys are rejected. Do not add
 addon README or game data to the mod root. ZIP mission files use an exact list:
-the CE no-ops, authored policies, operator settings, and install/rollback guides.
+the travel CE overlays, authored policies, operator settings, and install/rollback guides.
 No whole-checkout glob or runtime profile is packed.
 
 ## Weather candidates
@@ -186,3 +186,15 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/unit -v
 
 The experiment report records actual red/green commands, primary format sources,
 installed byte observations, traceability and pending gates.
+
+The Windows `Build-Sign-Verify.ps1` now builds both addons. It finds
+`HollowCountryExpansionAI` beside `-AddonRoot`, or accepts `-ExpansionAddonRoot`.
+HCX is packed with `--prefix HollowCountryExpansionAI`; both outputs are structurally
+verified and signed when keys are supplied. CI also packs and verifies both PBOs.
+
+Friend bundles ship authored overlays and minimal merge patches, never a stock
+mission. `optional_overlays` owns bundle merge, backup receipts, travel/optional
+install ordering and reverse rollback. See [friend installation](../../docs/INSTALL_ROLLBACK.md#friend-server-installation).
+The tracked Workshop descriptions live in `tools/package/workshop_publish.py`
+(`DESCRIPTION` and `ADDON_DESCRIPTION`); no `steam_ugc_upload.py` exists here.
+Descriptions list the default subscribed stack and pending runtime acceptance.

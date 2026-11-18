@@ -51,15 +51,25 @@ APP_ID = '221100'  # DayZ (the Workshop app id used by DayZ mods)
 VISIBILITY_UNLISTED = '3'  # ERemoteStoragePublishedFileVisibility_Unlisted
 TITLE = 'Hollow Country'
 ADDON_TITLE = 'Hollow Country Expansion AI (server)'
-DESCRIPTION = ('Hollow Country is a DayZ survival overhaul for a small private server of three to six players. '
-               'This item contains only the signed Hollow Country mod. When you join the server the DayZ launcher '
-               'subscribes to it automatically. Optional weapon packs and the PvE patrol mods are separate '
-               'Workshop items and are never bundled here.')
-ADDON_DESCRIPTION = ('Hollow Country Expansion AI is an optional addon for Hollow Country servers that run Expansion AI. '
-                     'It is loaded with -mod after HollowCountry on the server and every client. '
-                     'Players subscribe to it when the server uses it. '
-                     'Expansion, CF and Dabs Framework are separate Workshop items and are '
-                     'never bundled here.')
+DEPENDENCY_DESCRIPTION = (
+    'Default dependencies, loaded on server and every client in order: Community Framework / CF, '
+    'Dabs Framework, Expansion-Core, Expansion-AI, Ambient Animals Pack, '
+    'Survivor Animations, DayZ-Bicycle, @HollowCountry, @HollowCountryExpansionAI. '
+    'Expansion-Animations is intentionally not loaded: it conflicts with Survivor Animations, which DayZ-Bicycle requires; Expansion-AI brings its own AI animations. '
+    'Subscribe through the Workshop required-items links; third-party content is never bundled or repacked. ')
+DESCRIPTION = (
+    'Hollow Country is a private ChernarusPlus survival overhaul for three to six players. '
+    'Features being built: contextual house searches and interiors, native crafting and salvage, '
+    'perceptual infected alerts and persistent hordes, survivor groups and map pins, weather and lighting, '
+    'ambient life, repairable travel, taped weapon lights, scene chains, leads, camps and persistent world stories. '
+    'V2 preferences are on by default; native compile, normal PBO/server and two-client runtime acceptance remain pending. '
+    + DEPENDENCY_DESCRIPTION)
+ADDON_DESCRIPTION = (
+    'Hollow Country Expansion AI connects the survival overhaul to Expansion AI on server and clients. '
+    'Being built: bounded encounters, survivor factions, hold-outs, camps and world materialization. '
+    'Load @HollowCountryExpansionAI with -mod after HollowCountry (@HollowCountry) on server and every client. Players subscribe to it when the server uses it. '
+    'V2 is on by default; runtime acceptance remains pending. '
+    + DEPENDENCY_DESCRIPTION)
 PBO_NAME = 'hollowcountry.pbo'
 ADDON_PBO_NAME = 'hollowcountryexpansionai.pbo'
 # Per item: the one PBO it may carry, its Workshop title and description, whether mod.cpp is required and
