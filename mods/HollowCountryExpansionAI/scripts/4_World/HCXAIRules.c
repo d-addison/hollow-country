@@ -110,7 +110,7 @@ class HCXAIRules
         if (p.SchemaVersion != 1 || !p.Enabled || !p.Experimental) { return "SchemaVersion 1, Enabled and Experimental required"; }
         if (!p.AllowBuiltinStuckRecovery || !p.ProvisionalBounds) { return "AllowBuiltinStuckRecovery and ProvisionalBounds required"; }
         if (p.SourceCommit != "d84d3c73694969eba2f969e9178a1914e2f1b31d" || p.ProviderVersion != "1.9.84") { return "SourceCommit/ProviderVersion pin mismatch"; }
-        if (p.BuildVersion != "1.30.164289") { return "BuildVersion pin mismatch"; }
+        if (!HCBuildIdentity.Matches(p.BuildVersion)) { return "BuildVersion pin mismatch"; }
         if (p.NativeScriptsSha256 != "09012cdae8c4ae2d478ca90f3e2e3f01e435f0f6945a63b7cae290e3ccdea28a") { return "NativeScriptsSha256 pin mismatch"; }
         if (!HCXAIRules.Token(p.WorldName) || !HCXAIRules.Token(p.WorldSession)) { return "WorldName/WorldSession missing"; }
         if (!HCXAIRules.Hex(p.WorldSha256) || !HCXAIRules.Hex(p.ArtifactSha256) || !HCXAIRules.Hex(p.DependencyInventorySha256)) { return "WorldSha256/ArtifactSha256/DependencyInventorySha256 need observed 64-hex digests"; }

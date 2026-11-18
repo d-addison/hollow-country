@@ -46,6 +46,7 @@ RULES = {
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
     'HC-S003': 'client-predicted action whose server path never sends the player a refusal message',
+    'HC-S004': 'literal engine/build version comparison without a Print or log in the same method',
 }
 
 _KEYWORDS = frozenset({'if', 'while', 'for', 'foreach', 'switch', 'return', 'new', 'delete', 'case',
@@ -376,6 +377,55 @@ def rule_bare_print(project, source):
 
 # ---------------------------------------------------------------- silent refusals
 
+_IDENTITY_LOG = re.compile(r'\b(?:Print|PrintFormat|PrintToRPT|DPrint|Error|ErrorEx|Log\w*|log\w*|\w+Log\w*)\s*(?:\(|\.)')
+_VERSION_LITERAL = re.compile(r'(?<!\d)\d+\.\d+\b')
+_VALUE = r'[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*'
+_BUILD_COMPARE = re.compile(
+    r'(?P<left>' + _VALUE + r'(?:\s*\(\s*\))?)\s*(?:==|!=)\s*(?P<right_literal>"[^"\n]*")'
+    r'|(?P<left_literal>"[^"\n]*")\s*(?:==|!=)\s*(?P<right>' + _VALUE + r'(?:\s*\(\s*\))?)')
+
+
+def _build_value(value):
+    name = value.rsplit('.', 1)[-1].lower()
+    return ('build' in name
+            or re.fullmatch(r'(?:(?:m_|s_)?(?:engine|game|runtime|native|current|actual)?)version', name)
+            or value.endswith('GetVersion()'))
+
+
+def rule_build_identity(project, source):
+    """Use cleaned offsets to inspect literals without treating comments/log text as code.
+
+    Track GetVersion out-arguments and simple aliases within each method. Also
+    recognise build-named values and conventional engine-version names (not a
+    dependency's ProviderVersion). This is deliberately not intermethod dataflow.
+    A log anywhere in this method satisfies the rule; runtime path coverage is
+    still a native acceptance check.
+    """
+    for method in _all_methods(source):
+        body = source.body(method)
+        if _IDENTITY_LOG.search(body):
+            continue
+        observed = {re.sub(r'\s+', '', m[1]) for m in
+                    re.finditer(r'\bGetVersion\s*\(\s*(' + _VALUE + r')\s*\)', body)}
+        aliases = list(re.finditer(r'(' + _VALUE + r')\s*=(?!=)\s*(' + _VALUE + r')\s*;', body))
+        while True:
+            before = set(observed)
+            for alias in aliases:
+                target, value = (re.sub(r'\s+', '', alias[i]) for i in (1, 2))
+                if value in observed or _build_value(value):
+                    observed.add(target)
+            if observed == before:
+                break
+        for match in _BUILD_COMPARE.finditer(body):
+            value = re.sub(r'\s+', '', match['left'] or match['right'])
+            if value not in observed and not _build_value(value):
+                continue
+            literal_group = 'right_literal' if match['right_literal'] else 'left_literal'
+            offset = method.body_start + match.start(literal_group)
+            literal = source.text[offset:method.body_start + match.end(literal_group)]
+            if _VERSION_LITERAL.search(literal):
+                yield _finding('HC-S004', source, offset, _symbol(method), RULES['HC-S004'])
+
 def _branch(body, position):
     """(condition or None, branch text, is_branch, is_block) for a return at body offset position."""
     start = max(body.rfind(';', 0, position), body.rfind('{', 0, position), body.rfind('}', 0, position))
@@ -515,7 +565,7 @@ def rule_predicted_actions(project, source):
 
 
 ALL_RULES = (rule_ternary, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
-             rule_substring, rule_type_named_methods, rule_bare_print, rule_silent_commit, rule_silent_gate,
+             rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions)
 
 

@@ -108,6 +108,122 @@ class MatcherTests(unittest.TestCase):
         self.assertEqual({CANONICAL, NATIVE}, set(re.findall(r'"(1\.30\.164289[^"]*)"', text)))
 
 
+class IdentityLogTests(unittest.TestCase):
+    """Execute authored comparisons/logging with explicit synthetic game/Print adapters."""
+
+    def setUp(self):
+        self.identity = build_identity()
+        self.lines = []
+        self.game = NS(GetWorldName=lambda: "ChernarusPlus", GetVersion=lambda: NATIVE)
+        self.identity.Matches.__globals__.update(Print=self.lines.append, GetGame=lambda: self.game)
+
+    def test_accepted_build_forms_and_world_case_do_not_consume_the_mismatch_log(self):
+        self.assertTrue(self.identity.Matches(CANONICAL))
+        self.assertTrue(self.identity.Matches(NATIVE))
+        self.assertTrue(self.identity.SameWorld("ChernarusPlus", "chernarusplus"))
+        self.assertEqual([], self.lines)
+        self.assertFalse(self.identity.Matches("1.30.164290"))
+        self.assertEqual(["[HC Identity] build=1.30.164290 world=ChernarusPlus accepted=0 reason=build_mismatch"],
+                         self.lines)
+
+    def test_build_refusal_logs_exactly_once_across_repeated_and_different_mismatches(self):
+        for build in ("1.30.164290", "1.30.164290", "", "1.31.164289"):
+            self.assertFalse(self.identity.Matches(build))
+        self.assertFalse(self.identity.SameWorld("enoch", "ChernarusPlus"))
+        self.assertEqual(["[HC Identity] build=1.30.164290 world=ChernarusPlus accepted=0 reason=build_mismatch"],
+                         self.lines)
+        self.assertTrue(self.identity.Matches(NATIVE))
+
+    def test_world_refusal_uses_the_same_process_latch_and_seen_engine_values(self):
+        self.assertFalse(self.identity.SameWorld("chernarusplus", "Enoch"))
+        self.assertFalse(self.identity.Matches("foreign"))
+        self.assertEqual(["[HC Identity] build=1.30.164289.70 world=Enoch accepted=0 reason=world_mismatch"],
+                         self.lines)
+
+    def test_missing_game_does_not_crash_or_prevent_the_one_refusal_diagnostic(self):
+        self.game = None
+        self.assertFalse(self.identity.Matches("foreign"))
+        self.assertFalse(self.identity.Matches("foreign"))
+        self.assertEqual(["[HC Identity] build=foreign world= accepted=0 reason=build_mismatch"], self.lines)
+
+    def test_separate_process_state_can_report_again(self):
+        self.assertFalse(self.identity.Matches("foreign"))
+        second = build_identity()
+        second.Matches.__globals__.update(Print=self.lines.append, GetGame=lambda: self.game)
+        self.assertFalse(second.Matches("foreign"))
+        self.assertEqual(2, len(self.lines))
+
+    def test_same_build_success_does_not_consume_the_log_even_for_equal_synthetic_stamps(self):
+        self.assertTrue(self.identity.SameBuild("synthetic", "synthetic"))
+        self.assertTrue(self.identity.SameBuild(CANONICAL, NATIVE))
+        self.assertEqual([], self.lines)
+        self.assertFalse(self.identity.SameBuild(CANONICAL, "foreign"))
+        self.assertEqual(["[HC Identity] build=foreign world=ChernarusPlus accepted=0 reason=build_mismatch"],
+                         self.lines)
+
+    def test_empty_build_comparison_logs_the_refusal(self):
+        self.assertFalse(self.identity.SameBuild("", CANONICAL))
+        self.assertEqual(["[HC Identity] build= world=ChernarusPlus accepted=0 reason=build_mismatch"],
+                         self.lines)
+
+    def test_world_refusal_without_game_still_logs_and_never_resets_the_latch(self):
+        self.game = None
+        self.assertFalse(self.identity.SameWorld("chernarusplus", "Enoch"))
+        self.assertTrue(self.identity.SameWorld("Enoch", "enoch"))
+        self.assertFalse(self.identity.SameWorld("chernarusplus", ""))
+        self.assertEqual(["[HC Identity] build= world=Enoch accepted=0 reason=world_mismatch"], self.lines)
+
+
+class TranslatorStateTests(unittest.TestCase):
+    """Explicit synthetic source exercises the additive static-state/Print adapter."""
+
+    def test_borrowed_out_string_wrappers_are_native_string_values_at_call_boundary(self):
+        # Existing room harnesses use mutable out-string boxes, not Python str subclasses.
+        class BorrowedText:
+            def __init__(self, value): self.value = value
+            def __str__(self): return self.value
+            def __eq__(self, other): return self.value == str(other)
+
+        identity = build_identity()
+        lines = []
+        identity.Matches.__globals__["Print"] = lines.append
+        self.assertTrue(identity.Matches(BorrowedText(NATIVE)))
+        self.assertFalse(identity.Matches(BorrowedText("foreign")))
+        self.assertEqual(["[HC Identity] build=foreign world= accepted=0 reason=build_mismatch"], lines)
+        self.assertEqual("foreign", identity.Normalize(BorrowedText("foreign")))
+        self.assertTrue(identity.SameWorld(BorrowedText("Enoch"), "enoch"))
+
+    def test_static_assignment_is_shared_by_methods_and_isolated_between_processes(self):
+        source = '''class HCBuildIdentity
+        {
+            static bool s_Logged = false;
+            static bool Seen() { return s_Logged; }
+            static bool Check(string value)
+            {
+                if (value == "accepted") return true;
+                if (s_Logged) return false;
+                s_Logged = true;
+                Print(value);
+                return false;
+            }
+        }'''
+        lines = []
+        first, second = build_identity(source), build_identity(source)
+        first.Check.__globals__["Print"] = lines.append
+        self.assertTrue(first.Check("accepted"))
+        self.assertFalse(first.Seen())
+        self.assertFalse(first.Check("foreign"))
+        self.assertFalse(first.Check("again"))
+        self.assertTrue(first.Seen())
+        self.assertFalse(second.Seen())
+        self.assertEqual(["foreign"], lines)
+
+    def test_unsupported_statements_still_fail_loudly(self):
+        source = 'class HCBuildIdentity { static bool Check() { while (true) {}; return false; } }'
+        with self.assertRaisesRegex(AssertionError, "unsupported"):
+            build_identity(source)
+
+
 class ProfilesDelegationTests(unittest.TestCase):
     def test_infected_native_build_gate_uses_the_shared_matcher(self):
         from tests.unit.test_infected_defaults import authored
@@ -227,6 +343,7 @@ class GetVersionSiteTests(unittest.TestCase):
             if "GetVersion(" in code:
                 users[str(path.relative_to(SCRIPTS))] = code
         self.assertEqual({
+            "3_Game/HCBuildIdentity.c",
             "4_World/Loot/HCSearchNativeSupply.c", "4_World/Loot/HCSearchSupplyProvider.c",
             "4_World/Infected/HCInfectedRooms.c", "4_World/Infected/HCInfectedModule.c",
             "4_World/Interiors/HCInteriorMeasuredCatalog.c", "4_World/Survival/HCTapedLightService.c",
@@ -235,6 +352,10 @@ class GetVersionSiteTests(unittest.TestCase):
             set(users))
         for relative, code in users.items():
             with self.subTest(relative=relative):
+                # The helper itself reads the engine build only for refusal diagnostics.
+                if relative == "3_Game/HCBuildIdentity.c":
+                    self.assertIn('return Refuse(SeenBuild(), right, "world_mismatch");', code)
+                    continue
                 # Module start delegates to HCInfectedProfiles.NativeBuildSupported, which uses the matcher.
                 self.assertTrue("HCBuildIdentity." in code or "NativeBuildSupported(" in code)
 
