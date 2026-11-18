@@ -729,6 +729,40 @@ class BuildTreatmentTests(unittest.TestCase):
         self.assertEqual("known", report["classes"]["Land_Tenement_Small"]["reachability_mode"])
         self.assertEqual(report, json.loads(json.dumps(report)))
 
+    def test_calibration_gates_on_floor_geometry_and_reports_reach_separately(self):
+        """Issue #11 native run 120: the floors under 75% of stock lootFloor points were sampled, but the reach
+        probe found a path to almost none of them. Calibration checks that the sampler finds the floors stock
+        uses; reach is reported beside it and still gates which new points are selected."""
+        document = full_census()
+        for row in document["placements"]:
+            if row["class"] in pts.CALIBRATION_CLASSES:
+                row["open_codes"] = [0] * len(row["open_codes"])
+        _data, report = self.build(document)
+        calibration = report["calibration"]
+        self.assertTrue(calibration["passed"])
+        self.assertEqual("geometry", calibration["pool"])
+        self.assertAlmostEqual(2 / 4, calibration["min_coverage"])
+        self.assertAlmostEqual(0.0, calibration["min_reach_coverage"])
+        house = calibration["classes"]["Land_HouseBlock_2F1"]
+        self.assertAlmostEqual(0.0, house["reach"]["v3_coverage"])
+        self.assertEqual(0, house["reach"]["candidates"])
+        self.assertEqual(8, report["classes"]["Land_Tenement_Small"]["selected"])
+        unreachable = full_census()
+        for row in unreachable["placements"]:
+            if row["class"] != "Land_Tenement_Big":
+                row["open_codes"] = [0] * len(row["open_codes"])
+        with self.assertRaises(ValueError) as caught:
+            self.build(unreachable)
+        self.assertIn("Land_Tenement_Small: no eligible candidates", str(caught.exception))
+        moved = full_census()
+        for row in moved["placements"]:
+            if row["class"] in pts.CALIBRATION_CLASSES:
+                row["open_codes"] = [0] * len(row["open_codes"])
+                for hit in row["hits"]:
+                    hit[1] += 100.0
+        with self.assertRaises(pts.CoverageError):
+            self.build(moved)
+
     def test_coverage_below_the_threshold_is_refused_with_the_numbers(self):
         with self.assertRaises(pts.CoverageError) as caught:
             self.build(min_calibration=0.6)
@@ -1389,6 +1423,27 @@ class Round5FrameTests(unittest.TestCase):
     def test_an_ambiguous_frame_verdict_is_refused(self):
         error = refusal_of(self, encode(full_census_frame("ambiguous")))
         self.assertEqual("frame-verdict-missing", error.report["refusal"]["kind"])
+
+    def test_a_hit_counts_only_when_it_lands_at_the_stock_floor_height(self):
+        """Issue #11 native run 120: in Land_HouseBlock_2F1 both transforms hit the building, but the as-is hits
+        land about 0.5 m off the stock lootFloor height while the rot90 hits land on it."""
+        def shifted(row):
+            row["frame"] = [[float(i), 1.0, float(-i), 1, 1.5, 1, 1.0] for i in range(8)]
+        rows = four_placements("Land_HouseBlock_2F1", role="calibration", frame="rot90") + four_placements(
+            "Land_Mil_Barracks2", role="calibration", frame="rot90")
+        for row in rows[:4]:
+            shifted(row)
+        verdict = pts.frame_verdict(pts.parse_census(encode(census(rows))))
+        self.assertEqual({"records": 32, "as_is_hits": 0, "rot90_hits": 32, "verdict": "rot90"},
+                         verdict["classes"]["Land_HouseBlock_2F1"])
+        self.assertEqual("rot90", verdict["verdict"])
+        self.assertEqual(pts.FRAME_HEIGHT_TOLERANCE, verdict["height_tolerance"])
+        for floor, hit, counted in ((1.0, 1.0, 1), (1.0, 1.15, 1), (1.0, 1.16, 0), (1.0, 0.84, 0), (-1.0, -0.85, 1)):
+            with self.subTest(floor=floor, hit=hit):
+                for row in rows[:4]:
+                    row["frame"] = [[0.0, floor, 0.0, 1, hit, 0, -1000.0] for _ in range(8)]
+                classes = pts.frame_verdict(pts.parse_census(encode(census(rows))))["classes"]
+                self.assertEqual(32 * counted, classes["Land_HouseBlock_2F1"]["as_is_hits"])
 
     def test_a_malformed_frame_record_is_a_parse_error(self):
         for mutate in (lambda row: row.update(frame="nope"), lambda row: row["frame"].append([1, 2, 3]),

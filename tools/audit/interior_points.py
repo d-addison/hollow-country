@@ -67,6 +67,9 @@ FRAMES = ("as-is", "rot90")
 FRAME_MIN_RECORDS = 4
 FRAME_MIN_FRACTION = 0.8
 FRAME_MIN_MARGIN = 0.25
+# A frame-check hit counts only when the ray lands within this height of the stock lootFloor point (provisional;
+# native run 120 showed as-is hits in Land_HouseBlock_2F1 landing about 0.5 m off the stock floor).
+FRAME_HEIGHT_TOLERANCE = 0.15
 MAX_FRAME_RECORDS = 4096
 ENTERED_STATES = ("entered", "not-entered", "untested")
 # Round 7: the census must say it was written by the ACTUAL-phase door sampler (IsDoorOpened/IsDoorOpenedAjar/IsDoorClosed).
@@ -191,8 +194,9 @@ def sampler_to_stock(point, frame):
 def frame_verdict(census):
     """Native frame verdict from the sampler's vertical raycasts at stock lootFloor points.
 
-    Per calibration class the fraction of stock points whose vertical ray hit the building as-is and under
-    the rotate +90 transform decide the frame: one must reach FRAME_MIN_FRACTION and beat the other by
+    Per calibration class the fraction of stock points whose vertical ray hit the building at the stock floor
+    height (within FRAME_HEIGHT_TOLERANCE) as-is and under the rotate +90 transform decide the frame: one must
+    reach FRAME_MIN_FRACTION and beat the other by
     FRAME_MIN_MARGIN (thresholds are provisional). Every calibration class must agree; anything else, or no
     record, gives verdict None. The verdict only says which transform matched a raycast, nothing about spawning.
     """
@@ -204,8 +208,8 @@ def frame_verdict(census):
                 continue
             for record in row.get("frame") or []:
                 total += 1
-                as_is += record[3] == 1
-                rotated += record[5] == 1
+                as_is += record[3] == 1 and abs(record[4] - record[1]) <= FRAME_HEIGHT_TOLERANCE + EPSILON
+                rotated += record[5] == 1 and abs(record[6] - record[1]) <= FRAME_HEIGHT_TOLERANCE + EPSILON
         verdict = None
         if total >= FRAME_MIN_RECORDS:
             fa, fr = as_is / total, rotated / total
@@ -216,7 +220,8 @@ def frame_verdict(census):
         classes[name] = {"records": total, "as_is_hits": as_is, "rot90_hits": rotated, "verdict": verdict}
         verdicts.append(verdict)
     result = {"verdict": None, "classes": classes, "reason": "", "min_records": FRAME_MIN_RECORDS,
-              "min_fraction": FRAME_MIN_FRACTION, "min_margin": FRAME_MIN_MARGIN}
+              "min_fraction": FRAME_MIN_FRACTION, "min_margin": FRAME_MIN_MARGIN,
+              "height_tolerance": FRAME_HEIGHT_TOLERANCE}
     if all(v is not None for v in verdicts) and len(set(verdicts)) == 1:
         result["verdict"] = verdicts[0]
     elif any(c["records"] == 0 for c in classes.values()):
@@ -545,6 +550,14 @@ def eligible(candidates, reach_mode, min_agreement):
             and c["reachable"] is True and c["reach_agreement"] >= min_agreement - EPSILON]
 
 
+def geometric(candidates, min_agreement):
+    """Candidates that are roofed with clearance, walkable, one measured height and agreed by placements,
+    whatever the reach probe said. Calibration uses this pool: it checks that the sampler finds the floors stock
+    lootFloor points lie on. It never authorizes a point; selection still uses ``eligible``."""
+    return [c for c in candidates
+            if c["clearance_ok"] and c["height_ok"] and c["walkable"] and c["agreement"] >= min_agreement - EPSILON]
+
+
 def _cell_counts(cell):
     counts = dict(cell["reach"])
     counts["unqualified"] = cell.get("reach_unqualified", 0)
@@ -647,7 +660,8 @@ def _covering(candidate_list, point, radius):
     return xz, bool(used), used
 
 
-def calibrate(candidates, stock, radius, min_agreement, frame=None, gate_container=FLOOR_CONTAINER):
+def calibrate(candidates, stock, radius, min_agreement, frame=None, gate_container=FLOOR_CONTAINER,
+              pool="eligible"):
     """How many stock points lie within ``radius`` of an eligible candidate, and which candidates stock uses.
 
     Stock points are moved into the sampler frame first (``frame`` is the native verdict; there is no default).
@@ -657,7 +671,13 @@ def calibrate(candidates, stock, radius, min_agreement, frame=None, gate_contain
     if frame is None:
         raise ValueError("calibration needs a native frame verdict")
     _check_frame(frame)
-    pool = eligible(candidates["candidates"], candidates["reach_mode"], min_agreement)
+    if pool not in ("eligible", "geometry"):
+        raise ValueError("calibration pool must be eligible or geometry")
+    pool_name = pool
+    if pool == "geometry":
+        pool = geometric(candidates["candidates"], min_agreement)
+    else:
+        pool = eligible(candidates["candidates"], candidates["reach_mode"], min_agreement)
     used = set()
     containers = {}
     total = xz_total = v3_total = 0
@@ -676,7 +696,8 @@ def calibrate(candidates, stock, radius, min_agreement, frame=None, gate_contain
             total += stats["points"]
             xz_total += stats["xz_covered"]
             v3_total += stats["v3_covered"]
-    return {"radius": radius, "frame": frame, "gate": gate_container, "points": total, "xz_covered": xz_total,
+    return {"radius": radius, "frame": frame, "gate": gate_container, "pool": pool_name, "points": total,
+            "xz_covered": xz_total,
             "v3_covered": v3_total, "xz_coverage": xz_total / total if total else None,
             "v3_coverage": v3_total / total if total else None, "containers": containers,
             "candidates": len(pool), "candidates_used": len(used), "candidates_unused": len(pool) - len(used),
@@ -975,8 +996,12 @@ def _build(census_bytes, stock_bytes, base, min_calibration, radius, max_per_sto
         elif not stock.get(FLOOR_CONTAINER):
             missing.append(f"{name} (no stock {FLOOR_CONTAINER} points)")
         else:
-            calibration[name] = calibrate(candidates, stock, radius, min_agreement, frame=frame["verdict"])
+            calibration[name] = calibrate(candidates, stock, radius, min_agreement, frame=frame["verdict"],
+                                          pool="geometry")
             calibration[name]["usable_placements"] = candidates["usable_placements"]
+            reach = calibrate(candidates, stock, radius, min_agreement, frame=frame["verdict"])
+            calibration[name]["reach"] = {key: reach[key] for key in
+                                          ("xz_covered", "v3_covered", "xz_coverage", "v3_coverage", "candidates")}
     if missing:
         base["calibration"] = {"passed": False, "missing": missing, "classes": calibration, "frame": frame}
         raise _refusal(CoverageError("calibration data missing for " + ", ".join(missing)
@@ -985,8 +1010,11 @@ def _build(census_bytes, stock_bytes, base, min_calibration, radius, max_per_sto
     xz_coverage = min(entry["xz_coverage"] for entry in calibration.values())
     worst = min(calibration, key=lambda name: calibration[name]["v3_coverage"])
     passed = coverage >= min_calibration - EPSILON
+    reach_coverage = min(entry["reach"]["v3_coverage"] for entry in calibration.values())
     base["calibration"] = {"passed": passed, "min_coverage": coverage, "min_xz_coverage": xz_coverage,
-                           "gate": "vertical (3D) coverage of %s points only" % FLOOR_CONTAINER,
+                           "pool": "geometry", "min_reach_coverage": reach_coverage,
+                           "gate": ("vertical (3D) coverage of %s points by sampled floor cells (reach is "
+                                    "reported, not gated; selection requires reach)" % FLOOR_CONTAINER),
                            "threshold": min_calibration, "frame": frame, "classes": calibration}
     if not passed:
         raise _refusal(CoverageError(f"calibration vertical (3D) coverage {coverage:.3f} ({worst}, radius {radius}, "
