@@ -106,3 +106,15 @@ class HCHordeStimulus
         return FreezeClue(chosen);
     }
 }
+
+// V2 migration accepts only a real externally-heard clue. Heat may rank these
+// frozen sound locations, but never manufactures hearing or a live player fix.
+modded class HCHordeStimulus
+{
+    static HCInfectedClue MigrationClue(HCInfectedActor actor, float now)
+    {
+        if (!actor || !actor.HeardExternally || !actor.Heard) { return null; }
+        if (actor.Heard.Provenance != 1 || !actor.Heard.IsLive(now)) { return null; }
+        return FreezeClue(actor.Heard);
+    }
+}

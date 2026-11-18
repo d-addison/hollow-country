@@ -132,6 +132,9 @@ class HCWorldModule : HCModule
                 }
             }
         }
+        // V2 settlement decay/faction conflict reads the previous day from LastTick,
+        // so it runs before the stamp moves.
+        HCFactionConflict.Tick(this, m_Data, now);
         m_Data.Meta.LastTick = now;
         m_Data.Escalation.Day = HCWorldClock.Day(m_Data, now);
         // Review P2: the tick stamp alone does not need a save every minute;

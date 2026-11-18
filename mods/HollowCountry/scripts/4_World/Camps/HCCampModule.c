@@ -1,0 +1,302 @@
+// LC-T412..416 / #105..109. Preference EnableCamps admits V2 by default;
+// experiment verdicts are diagnostics, never claimed as observed/accepted.
+// Native evidence ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/:
+// 4_World/Entities/ItemBase/FireplaceBase.c:1760 StartFire(bool), :1951
+// StopFire(FireplaceFireState), :1639 IsBurning; 3_Game/Entities/EntityAI.c:
+// :905 EEInit, :946 EEDelete; 3_Game/Global/Game.c:945 GetPlayers, :1120
+// IsServer; 3_Game/Entities/Object.c:215 IsPendingDeletion, :287 GetPosition,
+// :467 GetType, :517 IsAlive; 3_Game/Entities/Man.c:21 GetIdentity;
+// 3_Game/gameplay.c:368 PlayerIdentityBase.GetId; EnMath.c:553 Math.Min;
+// 1_Core/proto/EnScript.c:470 array.RemoveOrdered.
+// EnScript.c:94/380/385/394/407 Cast/count/clear/find/insert.
+// 1_Core/proto/EnConvert.c:30 int.ToString, :210 vector.DistanceSq;
+// 1_Core/proto/EnString.c:171 ToLower; 1_Core/proto/EnDebug.c:96 Print;
+// 3_Game/Client/Notifications/NotificationSystem.c:125
+// SendNotificationToPlayerExtended. Persistent native refs: HCCampScan header.
+// Project APIs reused: HCGroupRules.FindGroup, HCGroupService.Peer/Live;
+// HCWorldClock.UTC, HCWorldModule.Get, HCEscalationClock; HCCampStore.
+class HCCampModule : HCModule
+{
+    protected static HCCampModule s_Instance;
+    protected static ref array<FireplaceBase> s_Fires = new array<FireplaceBase>();
+    protected static bool s_FireCapLogged;
+    protected ref HCCampData m_Data;
+    protected ref array<Man> m_Players = new array<Man>();
+    protected bool m_Running;
+    protected bool m_AdmissionPrinted;
+    protected float m_Elapsed;
+    protected int m_FireCursor;
+    protected int m_CampCursor;
+    protected int m_LastUtc;
+    protected int m_LastSaved;
+
+    override string GetName() { return "Camps"; }
+    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableCamps; }
+
+    static HCCampModule Get()
+    {
+        if (s_Instance && s_Instance.m_Running) { return s_Instance; }
+        return null;
+    }
+
+    static void Remember(FireplaceBase fire)
+    {
+        if (!GetGame() || !GetGame().IsServer() || !fire || s_Fires.Find(fire) >= 0) { return; }
+        if (s_Fires.Count() >= 128)
+        {
+            if (!s_FireCapLogged) { Print("[HollowCountry] V2 camps fire candidate cap=128; extra fires ignored"); s_FireCapLogged = true; }
+            return;
+        }
+        s_Fires.Insert(fire);
+    }
+
+    static void Forget(FireplaceBase fire)
+    {
+        int index = s_Fires.Find(fire);
+        if (index >= 0) { s_Fires.RemoveOrdered(index); }
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        if (m_Running || !GetGame().IsServer() || !IsEnabled(settings)) { return; }
+        if (!m_AdmissionPrinted)
+        {
+            Print(HCV2Admission.Line("Camps", true, "EXP-L7", HCV2Gates.Qualified("EXP-L7")));
+            m_AdmissionPrinted = true;
+        }
+        m_LastUtc = HCWorldClock.UTC();
+        m_Data = HCCampStore.Load(m_LastUtc);
+        if (!m_Data) { Fail(); return; }
+        m_LastSaved = m_LastUtc;
+        m_Running = true;
+        s_Instance = this;
+        HCCampTheft.Admission();
+        Print("[HollowCountry] V2 camps started camps=" + m_Data.Camps.Count().ToString() + " visitors=abstract probes=abstract mailbox=notification; native acceptance pending");
+    }
+
+    protected void Fail()
+    {
+        m_Running = false;
+        if (s_Instance == this) { s_Instance = null; }
+        Print("[HollowCountry] V2 camps disabled: UTC/schema/world/persistence fault; preserve camps.json, .tmp and .bak");
+    }
+
+    bool Commit(int now)
+    {
+        if (!m_Running || now < m_LastUtc || !HCCampStore.Save(m_Data, now)) { Fail(); return false; }
+        m_LastSaved = now;
+        return true;
+    }
+
+    string GroupId(PlayerBase player)
+    {
+        HCGroupService groups = HCGroupService.Get();
+        if (!groups || !player || !player.GetIdentity()) { return ""; }
+        return groups.HCCampReadGroupId(player);
+    }
+
+    int NearMembers(HCCampRecord camp, float radius)
+    {
+        int count;
+        foreach (Man person : m_Players)
+        {
+            PlayerBase player = PlayerBase.Cast(person);
+            if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion()) { continue; }
+            if (vector.DistanceSq(player.GetPosition(), camp.Position) <= radius * radius && GroupId(player) == camp.GroupId) { count++; }
+        }
+        return count;
+    }
+
+    void Tell(HCCampRecord camp, string authoredText)
+    {
+        // Cached online recipients, max 32, group ACL re-read for each send.
+        foreach (Man person : m_Players)
+        {
+            PlayerBase player = PlayerBase.Cast(person);
+            if (!player || !player.GetIdentity() || !player.IsAlive() || player.IsPendingDeletion() || GroupId(player) != camp.GroupId) { continue; }
+            NotificationSystem.SendNotificationToPlayerExtended(player, 8, "Hollow Country camp", authoredText);
+        }
+    }
+
+    void Fact(HCCampRecord camp, string kind, int severity)
+    {
+        HCWorldModule world = HCWorldModule.Get();
+        if (!world) { return; }
+        // Current catalog Name is the title-cased Id. NearestPlace returns Name,
+        // despite AddFact requiring Id. Normalise for that read-only contract;
+        // AddFact itself validates and rejects unknown future catalog names.
+        string place = world.NearestPlace(camp.Position);
+        place.ToLower();
+        world.AddFact(kind, place, severity);
+    }
+
+    protected void Candidate(FireplaceBase fire, int now)
+    {
+        if (!fire || fire.IsPendingDeletion() || fire.GetHierarchyParent() || !fire.IsBurning()) { return; }
+        vector position = fire.GetPosition();
+        string selected;
+        float best = 145;
+        foreach (Man person : m_Players)
+        {
+            PlayerBase player = PlayerBase.Cast(person);
+            if (!player || !player.IsAlive() || !player.GetIdentity()) { continue; }
+            string group = GroupId(player);
+            float distance = vector.DistanceSq(player.GetPosition(), position);
+            if (group != "" && distance < best) { best = distance; selected = group; }
+        }
+        foreach (HCCampRecord known : m_Data.Camps)
+        {
+            // Existing camp keeps its binding even when all members are away.
+            if (known.FireClass == fire.GetType() && vector.DistanceSq(known.Position, position) <= 1)
+            {
+                known.LastLit = now;
+                return;
+            }
+            if (selected != "" && known.GroupId == selected) { return; }
+        }
+        if (selected == "" || m_Data.Camps.Count() >= 32) { return; }
+        HCCampRecord camp = new HCCampRecord;
+        camp.GroupId = selected;
+        camp.Id = "camp-" + selected;
+        camp.Position = position;
+        camp.FireClass = fire.GetType();
+        camp.FireRef = HCCampScan.RefOf(fire);
+        // Fresh fires may have no persistent ID until native persistence runs.
+        // Store a fixed camp anchor token; runtime rebind is class + <=1m.
+        if (camp.FireRef == "") { camp.FireRef = camp.Id + "-hearth"; }
+        camp.LastLit = now;
+        m_Data.Camps.Insert(camp);
+        if (!Commit(now)) { return; }
+        Tell(camp, "Your group's fire is recognised as a camp. Nearby native structures determine its tier.");
+        Print("[HollowCountry] V2 camps recognised camp=" + camp.Id + " tier=0");
+    }
+
+    protected FireplaceBase FireFor(HCCampRecord camp)
+    {
+        foreach (FireplaceBase fire : s_Fires)
+        {
+            if (fire && !fire.IsPendingDeletion() && !fire.GetHierarchyParent() && fire.GetType() == camp.FireClass && vector.DistanceSq(fire.GetPosition(), camp.Position) <= 1) { return fire; }
+        }
+        return null;
+    }
+
+    protected void Step(HCCampRecord camp, int now)
+    {
+        int interval = 600;
+        if (camp.ProbePhase > 0) { interval = 30; }
+        if (camp.LastScan > 0 && now - camp.LastScan < interval) { return; }
+        FireplaceBase fire = FireFor(camp);
+        bool burning = fire && fire.IsBurning();
+        HCCampScan scan = HCCampScan.Read(camp.Position, burning);
+        if (!scan) { return; }
+        camp.LastScan = now;
+        if (burning) { camp.LastLit = now; }
+        int previous = camp.Tier;
+        int tier = HCCampTiers.Evaluate(fire != null, scan.Shelter, scan.Storage, scan.RaisedFlag, scan.Garden || scan.Traps >= 2, scan.Kitchen, scan.Walls, scan.Lights, scan.HasRadio);
+        camp.Tier = HCCampTiers.Decayed(tier, now, camp.LastLit);
+        camp.Flag = scan.Flag;
+        camp.Members = scan.Items;
+        if (!Commit(now)) { return; }
+        if (previous != camp.Tier)
+        {
+            Tell(camp, "Camp tier is now " + camp.Tier.ToString() + ". Tiers change visits only.");
+            Print("[HollowCountry] V2 camps tier camp=" + camp.Id + " from=" + previous.ToString() + " to=" + camp.Tier.ToString());
+            if (camp.Tier == 3) { Fact(camp, "camp_settlement", 0); }
+        }
+        HCCampVisitors.Step(this, camp, scan, burning, now);
+        if (!m_Running) { return; }
+        HCCampMailbox.Step(this, camp, scan, now);
+        if (!m_Running) { return; }
+        HCCampProbes.Step(this, camp, scan, burning, now);
+        // Theft has no native journal destination overload: no work is queued.
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        if (!m_Running || !(deltaTime > 0)) { return; }
+        m_Elapsed += Math.Min(deltaTime, 5);
+        if (m_Elapsed < 5) { return; }
+        m_Elapsed = 0;
+        int now = HCWorldClock.UTC();
+        if (now < m_LastUtc || now < 1) { Fail(); return; }
+        m_LastUtc = now;
+        m_Players.Clear();
+        GetGame().GetPlayers(m_Players);
+        // No partial observer/group snapshot is used if the server exceeds cap.
+        if (m_Players.Count() > 32) { m_Players.Clear(); return; }
+        if (s_Fires.Count() > 0)
+        {
+            if (m_FireCursor >= s_Fires.Count()) { m_FireCursor = 0; }
+            Candidate(s_Fires[m_FireCursor], now);
+            m_FireCursor++;
+        }
+        if (!m_Running) { return; }
+        if (m_Data.Camps.Count() > 0)
+        {
+            if (m_CampCursor >= m_Data.Camps.Count()) { m_CampCursor = 0; }
+            Step(m_Data.Camps[m_CampCursor], now);
+            m_CampCursor++;
+        }
+        if (m_Running && now - m_LastSaved >= 600) { Commit(now); }
+    }
+
+    override void OnStop()
+    {
+        if (m_Running) { Commit(HCWorldClock.UTC()); }
+        m_Running = false;
+        if (s_Instance == this) { s_Instance = null; }
+        m_Players.Clear();
+    }
+}
+
+// Read-only group bridge in the Camps scope. No group files/ACLs/protocols change.
+// Uses the exact service-owned live peer and HCGroupRules.FindGroup; no player
+// identity is persisted in camp data. No RPC or client-owned group admission.
+modded class HCGroupService
+{
+    string HCCampReadGroupId(PlayerBase player)
+    {
+        if (!m_Healthy || !m_State || !player || !player.GetIdentity()) { return ""; }
+        HCGroupPeer peer = Peer(player.GetIdentity().GetId());
+        if (!Live(peer) || peer.Player != player) { return ""; }
+        HCGroupRecord group = HCGroupRules.FindGroup(m_State, peer.Id);
+        if (!group) { return ""; }
+        return group.Id.ToString();
+    }
+}
+
+modded class FireplaceBase
+{
+    override void EEInit()
+    {
+        super.EEInit();
+        HCCampModule.Remember(this);
+    }
+
+    override void StartFire(bool force_start = false)
+    {
+        super.StartFire(force_start);
+        HCCampModule.Remember(this);
+    }
+
+    override void StopFire(FireplaceFireState fire_state = FireplaceFireState.END_FIRE)
+    {
+        super.StopFire(fire_state);
+        HCCampModule.Remember(this);
+    }
+
+    override void EEDelete(EntityAI parent)
+    {
+        HCCampModule.Forget(this);
+        super.EEDelete(parent);
+    }
+}
+
+modded class HCModuleRegistry
+{
+    override void RegisterModules()
+    {
+        super.RegisterModules();
+        Register(new HCCampModule);
+    }
+}
