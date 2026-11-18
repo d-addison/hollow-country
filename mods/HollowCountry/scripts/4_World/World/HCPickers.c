@@ -1,3 +1,6 @@
+// W5-PERF-5: <=one finite visit/60s, <=32 item rows per visit.
+// Shared guard precedes route/native work; journal barriers remain synchronous.
+// Native timing evidence: HCWorkBudget.c (Game.c:914).
 // LC-T407/409, #101. Native evidence in installed scripts-1.30.164289:
 // 3_Game/Entities/Object.c:287 GetPosition, :305 GetOrientation, :873 ModelToWorld;
 // 3_Game/Global/Game.c:1120 IsServer; gameplay.c:636 GetGame;
@@ -236,6 +239,7 @@ class HCPickers : HCModule
     protected float m_Elapsed;
     protected bool m_Ready;
     protected int m_Reports;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
 
     override string GetName() { return "Pickers"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
@@ -266,6 +270,8 @@ class HCPickers : HCModule
         m_Elapsed += deltaTime;
         if (m_Elapsed < 60) return;
         m_Elapsed = 0;
+        m_WorkBudget.HCReset(1);
+        if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         HCHoldouts holdouts = HCHoldouts.Get();
         HCDeadDrops drops = HCDeadDrops.Get();
         HCSearchHouses houses = HCSearchBinding.Houses();

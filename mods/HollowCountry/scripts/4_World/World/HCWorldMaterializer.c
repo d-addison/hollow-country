@@ -1,3 +1,5 @@
+// W5-PERF-6: <=4 ledger proposals/ring tick, <=2 active lease outcomes.
+// Native time/player cache evidence: HCWorkBudget.c (Game.c:914/945/1535).
 // LC-T402 / #98, EXP-L1 + EXP-P2. Native evidence (installed snapshot):
 // scripts-1.30.164289/3_Game/Global/Game.c:945 GetPlayers;
 // 3_Game/Entities/Man.c:21 GetIdentity; Entities/Object.c:287 GetPosition,
@@ -92,6 +94,7 @@ class HCWorldMaterializer : HCModule
     protected float m_LogSeconds;
     protected int m_PlayerCursor;
     protected int m_RowCursor;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected int m_Proposals;
     protected int m_Materialized;
     protected int m_Traces;
@@ -251,8 +254,7 @@ class HCWorldMaterializer : HCModule
     {
         HCWorldModule world = HCWorldModule.Get();
         if (!world || !GetGame() || m_Active.Count() >= MAX_PROPOSALS) { return; }
-        array<Man> players = new array<Man>;
-        GetGame().GetPlayers(players);
+        array<Man> players = HCPerfPlayers.HCGet();
         int playerCount = players.Count();
         if (playerCount < 1) { return; }
         int playerWork = playerCount;
@@ -269,9 +271,11 @@ class HCWorldMaterializer : HCModule
         }
         // Player positions never leave this function or enter proposal DTOs.
         int totalRows = HCWorldLimits.HOLDOUTS + HCWorldLimits.PARTIES;
+        m_WorkBudget.HCReset(4);
         for (int rowWork = 0; rowWork < ROWS_PER_RING; rowWork++)
         {
             if (m_Active.Count() >= MAX_PROPOSALS) { return; }
+            if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), ROWS_PER_RING - rowWork); return; }
             if (m_RowCursor >= totalRows) { m_RowCursor = 0; }
             int rowIndex = m_RowCursor;
             m_RowCursor++;

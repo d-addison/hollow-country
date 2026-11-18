@@ -1,3 +1,6 @@
+// W5-PERF: scalar clock update/tick; hourly watermark checkpoints use the
+// shared HCSaveScheduler (<=one routine store/tick), flushed at stop.
+// Scheduling native evidence: HCWorkBudget.c (Game.c:914).
 // LC-T311; EnableWorld. Input pressures only; never changes population or loot.
 // Native evidence: ~/.cache/hollow-country/native-scripts/scripts-1.30.164289/
 // 1_Core/proto/EnSystem.c:76,100 UTC (via HCGroupClock.Utc), :397 FileExist,
@@ -69,6 +72,7 @@ class HCEscalationClock : HCModule
     protected int m_LogUtc;
     protected int m_LogDay = -1;
     protected bool m_Healthy;
+    protected ref HCEscalationSaveJob m_SaveJob;
     static const string PATH = "$profile:HollowCountry/escalation.json";
 
     override string GetName() { return "Escalation"; }
@@ -140,6 +144,9 @@ class HCEscalationClock : HCModule
         }
         m_Healthy = true;
         s_Instance = this;
+        m_SaveJob = new HCEscalationSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         Report();
     }
 
@@ -153,7 +160,7 @@ class HCEscalationClock : HCModule
         if (m_State.SavedUtc != m_NowUtc)
         {
             m_State.SavedUtc = m_NowUtc;
-            if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) { Fail(); return; }
+            m_SaveJob.HCDirty = true;
         }
         float infected = Pressure("infected");
         float raiders = Pressure("raiders");
@@ -169,21 +176,39 @@ class HCEscalationClock : HCModule
         Report();
     }
 
+    bool HCFlushRoutine()
+    {
+        if (!m_Healthy) { return false; }
+        if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) { Fail(); return false; }
+        return true;
+    }
+
     override void OnStop()
     {
         if (m_Healthy)
         {
             int nowUtc = HCGroupClock.Utc();
-            if (nowUtc < m_NowUtc) { Fail(); return; }
-            if (nowUtc > m_State.SavedUtc)
+            if (nowUtc < m_NowUtc) { Fail(); }
+            else
             {
-                m_State.SavedUtc = nowUtc;
-                if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) Fail();
+                if (nowUtc > m_State.SavedUtc)
+                {
+                    m_State.SavedUtc = nowUtc;
+                    m_SaveJob.HCDirty = true;
+                }
+                HCSaveScheduler.HCFlush(m_SaveJob);
             }
         }
+        HCSaveScheduler.HCUnregister(m_SaveJob);
         m_Healthy = false;
-        if (s_Instance == this) s_Instance = null;
+        if (s_Instance == this) { s_Instance = null; }
     }
+}
+
+class HCEscalationSaveJob : HCSaveJob
+{
+    HCEscalationClock Owner;
+    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }
 
 modded class HCModuleRegistry

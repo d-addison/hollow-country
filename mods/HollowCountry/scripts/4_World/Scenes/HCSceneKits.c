@@ -1,3 +1,5 @@
+// W5-PERF-3: queued kits create <=1 prop per module tick; <=2 live leases.
+// Pending creation uses only runtime handles; existing chain intent is durable.
 // LC-T309 / #93 / #120, EXP-S3. Source/package only; no native acceptance.
 // Installed scripts-1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx,
 // :680 CreateStaticObjectUsingP3D, :705 ObjectDelete, :930 GetObjectsAtPosition3D,
@@ -39,6 +41,10 @@ class HCSceneLease
     bool Closing;
     int ViewEventId;
     string ViewSession;
+    ref HCSceneKit PlacementKit;
+    ref array<vector> PlacementPositions;
+    int PlacementVariant;
+    bool StoryPublished;
     ref array<Object> Objects = new array<Object>();
 }
 
@@ -315,30 +321,50 @@ class HCSceneKits
     {
         if (!GetGame() || !GetGame().IsServer()) { return false; }
         if (!lease || !kit || !positions || positions.Count() != kit.Props.Count() || lease.Objects.Count() != 0) { return false; }
-        for (int index = 0; index < kit.Props.Count(); index++)
+        lease.PlacementKit = kit;
+        lease.PlacementPositions = positions;
+        lease.PlacementVariant = variant;
+        return true;
+    }
+
+    static bool HCPlacementComplete(HCSceneLease lease)
+    {
+        if (!lease || lease.Closing) { return true; }
+        if (!lease.PlacementKit) { return false; }
+        return lease.Objects.Count() >= lease.PlacementKit.Props.Count();
+    }
+
+    // Caller keeps the lease before any native create. Check observers again
+    // for every prop; a newly arrived player cancels the remaining partial kit.
+    static bool HCPlaceOne(HCSceneLease lease)
+    {
+        if (!lease || lease.Closing || HCPlacementComplete(lease)) { return false; }
+        HCSceneKit kit = lease.PlacementKit;
+        if (!kit) { return false; }
+        array<vector> positions = lease.PlacementPositions;
+        int variant = lease.PlacementVariant;
+        int index = lease.Objects.Count();
+        HCSceneProp prop = kit.Props[index];
+        vector position = positions[index];
+        if (!HCObserverTransitionGate.CanTransition(position, 500)) { lease.Closing = true; return false; }
+        vector orientation = Vector(LayoutYaw(prop.Yaw, variant), 0, 0);
+        Object object;
+        if (prop.StaticModel)
         {
-            HCSceneProp prop = kit.Props[index];
-            vector position = positions[index];
-            if (!HCObserverTransitionGate.CanTransition(position, 500)) { lease.Closing = true; return false; }
-            vector orientation = Vector(LayoutYaw(prop.Yaw, variant), 0, 0);
-            Object object;
-            if (prop.StaticModel)
-            {
-                // Render only the verified model (casings, open shell or cold
-                // hearth): no projectile, inventory or fireplace simulation.
-                string model = GetGame().ConfigGetTextOut("CfgVehicles " + prop.Type + " model");
-                if (model == "") { lease.Closing = true; return false; }
-                object = GetGame().CreateStaticObjectUsingP3D(model, position, orientation, 1, false, false);
-            }
-            else
-            {
-                int flags = ECE_PLACE_ON_SURFACE | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
-                object = GetGame().CreateObjectEx(prop.Type, position, flags);
-            }
-            if (!object) { lease.Closing = true; return false; }
-            lease.Objects.Insert(object);
-            object.SetOrientation(orientation);
+            // Render only the verified model (casings, open shell or cold
+            // hearth): no projectile, inventory or fireplace simulation.
+            string model = GetGame().ConfigGetTextOut("CfgVehicles " + prop.Type + " model");
+            if (model == "") { lease.Closing = true; return false; }
+            object = GetGame().CreateStaticObjectUsingP3D(model, position, orientation, 1, false, false);
         }
+        else
+        {
+            int flags = ECE_PLACE_ON_SURFACE | ECE_NOLIFETIME | ECE_NOPERSISTENCY_WORLD;
+            object = GetGame().CreateObjectEx(prop.Type, position, flags);
+        }
+        if (!object) { lease.Closing = true; return false; }
+        lease.Objects.Insert(object);
+        object.SetOrientation(orientation);
         return true;
     }
 

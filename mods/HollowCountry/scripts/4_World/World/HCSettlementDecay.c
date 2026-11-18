@@ -1,3 +1,6 @@
+// W5-PERF: <=32 fact references/tick, <=1 town/10s after its history
+// cursor completes, <=1 visual query/create, routine dirty save/60s.
+// Native timing/proximity cache evidence: World/HCWorkBudget.c header.
 // #118 settlement decay. Native references in scripts-1.30.164289:
 // 3_Game/Global/Game.c:612 ConfigIsExisting, :703 CreateObjectEx, :705
 // ObjectDelete, :930 GetObjectsAtPosition3D, :945 GetPlayers, :1176 SurfaceY,
@@ -59,8 +62,7 @@ modded class HCObserverTransitionGate
             return false;
         }
         float distanceSquared = farDistance * farDistance;
-        array<Man> players = new array<Man>;
-        GetGame().GetPlayers(players);
+        array<Man> players = HCPerfPlayers.HCGet();
         if (players.Count() > 16) { clearSince = -1; return false; }
         foreach (Man observer : players)
         {
@@ -85,8 +87,13 @@ class HCSettlementDecay : HCModule
     protected ref array<Object> m_Props = new array<Object>;
     protected ref array<int> m_PropSlots = new array<int>;
     protected ref array<float> m_Clear = new array<float>;
-    protected ref array<ref HCWorldFact> m_Facts = new array<ref HCWorldFact>;
+    protected int m_FactNext;
+    protected int m_FactSeverity;
+    protected int m_TownNow;
+    protected bool m_HistoryPending;
     protected bool m_Fault;
+    protected ref HCSettlementSaveJob m_SaveJob;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected int m_Cursor;
     protected float m_Elapsed;
     protected ref array<string> m_RefusalReasons = new array<string>;
@@ -113,6 +120,9 @@ class HCSettlementDecay : HCModule
     {
         Print(HCV2Admission.Line("SettlementDecay", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
         m_Store = new HCSettlementDecayStore;
+        m_SaveJob = new HCSettlementSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         // World may start after us; resolve it on the bounded module tick.
     }
 
@@ -183,20 +193,11 @@ class HCSettlementDecay : HCModule
         return m_Store.Save(m_State);
     }
 
-    protected int Severity(HCWorldModule world, string id)
+    bool HCFlushRoutine()
     {
-        world.GetRecentFacts(7 * HCWorldLimits.DAY, m_Facts);
-        int severity = 0;
-        foreach (HCWorldFact fact : m_Facts)
-        {
-            // Only damaging events change history; a courier/peaceful visit
-            // must not ransack a town merely because it has a severity number.
-            bool directDamage = fact.Kind == "RAIDED" || fact.Kind == "STOLEN";
-            bool conflictDamage = fact.Kind == "faction_clash" || fact.Kind.IndexOf("pushed_") >= 0;
-            bool damage = directDamage || conflictDamage || fact.Kind == "holdout_raided";
-            if (fact.PlaceId == id && damage && fact.Severity > severity) { severity = fact.Severity; }
-        }
-        return severity;
+        if (m_Fault || !m_State) { return false; }
+        if (!Persist()) { Fail(); return false; }
+        return true;
     }
 
     // At most one line per reason, at most sixteen reasons per boot.
@@ -273,20 +274,35 @@ class HCSettlementDecay : HCModule
     {
         if (m_Fault || !(deltaTime > 0)) { return; }
         m_Elapsed += Math.Min(deltaTime, 60);
-        if (m_Elapsed < 10) { return; }
-        m_Elapsed = 0;
+        if (!m_HistoryPending && m_Elapsed < 10) { return; }
         HCWorldModule world = HCWorldModule.Get();
         if (!world) { return; }
         int now = HCWorldClock.UTC();
         if (now < world.Epoch()) { Fail(); return; }
         if (!m_State && !Initialize(world, now)) { Fail(); return; }
         if (m_State.Epoch != world.Epoch() || now < m_State.SavedUtc) { Fail(); return; }
+        m_WorkBudget.HCReset(1);
+        if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         int index = m_Cursor;
-        m_Cursor = (m_Cursor + 1) % m_State.Towns.Count();
         HCSettlementTown town = m_State.Towns[index];
+        if (!m_HistoryPending)
+        {
+            m_HistoryPending = true;
+            m_FactNext = 0;
+            m_FactSeverity = 0;
+            m_TownNow = now;
+        }
+        if (now < m_TownNow) { Fail(); return; }
+        int sliceSeverity;
+        m_FactNext = world.HCScanDamage(town.Id, m_TownNow, m_FactNext, sliceSeverity);
+        m_FactSeverity = Math.Max(m_FactSeverity, sliceSeverity);
+        if (m_FactNext >= 0) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        m_HistoryPending = false;
+        m_Elapsed = 0;
+        m_Cursor = (m_Cursor + 1) % m_State.Towns.Count();
         int changed = 0;
         int before = town.Ransack + town.Barricades + town.Remains + town.Notices;
-        town.Ransack = RansackAfter(town.Ransack, HCEscalationClock.Day(), Severity(world, town.Id));
+        town.Ransack = RansackAfter(town.Ransack, HCEscalationClock.Day(), m_FactSeverity);
         if (town.Ransack >= 1) { town.Remains = 1; town.Notices = 1; }
         if (town.Ransack >= 2) { town.Barricades = Math.Max(town.Barricades, 1); }
         if (HCEscalationClock.Pressure("raiders") >= 0.55 && town.Ransack >= 2) { town.Barricades = 2; }
@@ -295,7 +311,7 @@ class HCSettlementDecay : HCModule
         {
             town.LastDay = world.Day();
             m_State.SavedUtc = now;
-            if (!Persist()) { Fail(); return; }
+            m_SaveJob.HCDirty = true;
             int towns = m_State.Towns.Count();
             Print("[HollowCountry] V2 settlement decay towns=" + towns.ToString() + " changed=" + changed.ToString());
         }
@@ -306,8 +322,19 @@ class HCSettlementDecay : HCModule
     {
         // Native nonpersistent scenery is cleaned with the mission; do not
         // delete visible props during an ordinary observer's session.
+        if (m_SaveJob)
+        {
+            HCSaveScheduler.HCFlush(m_SaveJob);
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+        }
         m_State = null;
     }
+}
+
+class HCSettlementSaveJob : HCSaveJob
+{
+    HCSettlementDecay Owner;
+    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }
 
 modded class HCModuleRegistry

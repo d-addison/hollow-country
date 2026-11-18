@@ -95,6 +95,9 @@ def translate(text, name, env, owner=None, member=False):
 def environment():
     data = "\n".join(p.read_text() for p in sorted((ROOT / "3_Game/Events").glob("*.c")))
     env = dict(EArray=EArray, len=len, str=str, Print=lambda text: None)
+    # Synthetic budget boundary; actual guard control flow is covered by the W5 world smoke.
+    env["HCWorkBudget"] = lambda: SimpleNamespace(HCReset=lambda *args: None,
+        HCContinue=lambda: True, HCDeferred=lambda *args: None)
     env["HCEventQualification"] = SimpleNamespace(Admitted=lambda: True) # explicit synthetic admission
     env["HCEventSitesGate"] = SimpleNamespace(Admitted=lambda: False) # synthetic: reviewed sites stay closed unless a test opens them
     env["Vector"] = lambda x, y, z: [x, y, z]

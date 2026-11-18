@@ -48,7 +48,8 @@ class SceneSmoke(unittest.TestCase):
                                            CancelExpired=lambda *args: False,
                                            Site=lambda site: N(Position=[1, 0, 2])),
                     'HCEventSceneKits': N(Find=lambda kit: N(), Preflight=lambda *args: True,
-                                         Place=lambda *args: True, Healthy=lambda lease: True),
+                                         Place=lambda *args: True, Healthy=lambda lease: True,
+                                         HCPlacementComplete=lambda lease: True),
                     'HCEventSceneLease': lambda: N(Objects=EArray([N()]), ViewEventId=1),
                 }
                 work = translate(adapted, 'Work', env, 'HCEventScenesModule', member=True)

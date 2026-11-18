@@ -1,3 +1,10 @@
+// W5-PERF: production lifecycle uses HCInteriorPlacementCursor: <=1 prop
+// attempt/tick, <=2 tiny spatial queries; 4 ms guard before the next attempt.
+// Native scripts-1.30.164289: 3_Game/Global/Game.c:930 GetObjectsAtPosition3D;
+// Object.c:287/305/311/873 position/orientation/set/model transform;
+// 1_Core/proto/EnScript.c:380/394/407 Count/Find/Insert;
+// EnConvert.c:30/210 ToString/DistanceSq; EnDebug.c:96 Print;
+// EnMath.c:553 Min. Shared time/player cache: World/HCWorkBudget.c.
 // Native 1.30.164289: 3_Game/Global/Game.c:703 CreateObjectEx;
 // 3_Game/CE/CentralEconomy.c:30-33 NOLIFETIME/NOPERSISTENCY_WORLD flags.
 // One deterministic startup pass, advanced in bounded batches by module ticks.
@@ -148,6 +155,11 @@ class HCInteriorTemplatePlacement
     }
 
     static void PlaceRow(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed)
+    {
+        HCPlaceRowSlice(module, row, settings, placed, 0, 5, 0, 0);
+    }
+
+    static bool HCPlaceRowSlice(HCInteriorsModule module, HCInteriorFurnishRow row, HCSettings settings, array<Object> placed, int firstSlot, int slotCount, int resume, int placedBefore)
 
     {
         int limit = Math.Min(settings.MaxFurnishedProps, 1500);
@@ -156,28 +168,28 @@ class HCInteriorTemplatePlacement
 
         {
             s_Capped = s_Capped + row.Props.Count();
-            return;
+            return false;
         }
         Object house = Resolve(row);
         if (!house)
 
         {
             CountRefusal(s_ResolveReason, row.Props.Count());
-            return;
+            return false;
         }
-        if (s_Houses.Find(house) >= 0)
+        if (resume == 0 && s_Houses.Find(house) >= 0)
 
         {
             CountRefusal("duplicate_house", row.Props.Count());
-            return;
+            return false;
         }
-        s_Houses.Insert(house);
+        if (resume == 0) { s_Houses.Insert(house); }
         HCInteriorTemplate templateRow = HCInteriorTemplates.Template(row.BuildingClass);
         if (!templateRow)
 
         {
             CountRefusal("binding", row.Props.Count());
-            return;
+            return false;
         }
         if (row.Props.Count() > houseLimit)
         {
@@ -189,11 +201,14 @@ class HCInteriorTemplatePlacement
                 s_BoxLogged.Insert(capKey);
             }
         }
-        int houseCount = 0;
+        int houseCount = placedBefore;
+        int slotIndex = -1;
         array<Object> created = new array<Object>();
         foreach (int slotId : row.Props)
 
         {
+            slotIndex = slotIndex + 1;
+            if (slotIndex < firstSlot || slotIndex >= firstSlot + slotCount) { continue; }
             if (placed.Count() >= limit || houseCount >= houseLimit)
 
             {
@@ -230,6 +245,7 @@ class HCInteriorTemplatePlacement
             s_Placed = s_Placed + 1;
         }
         Schedule(created);
+        return true;
     }
 
     // Native 1.30.164289: 3_Game/Global/Game.c:945 GetPlayers(out array<Man>),
@@ -259,10 +275,15 @@ class HCInteriorTemplatePlacement
             return;
         }
         array<ref HCInteriorFurnishRow> rows = HCInteriorTemplates.FurnishRows();
+        if (firstRow < 0)
+        {
+            Print("[HC Interiors] templates placement queued max_attempted_props_per_tick=1");
+            return;
+        }
         if (firstRow == 0)
         {
             int queuedRows = rows.Count();
-            Print("[HC Interiors] templates placement queued rows=" + queuedRows.ToString() + " max_attempted_props_per_tick=50");
+            Print("[HC Interiors] templates placement queued rows=" + queuedRows.ToString() + " max_attempted_props_per_tick=1");
         }
         array<Man> players = new array<Man>();
         GetGame().GetPlayers(players);

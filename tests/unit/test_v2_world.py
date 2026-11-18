@@ -24,6 +24,25 @@ STORE = ROOT / 'mods/HollowCountry/scripts/4_World/World/HCWorldStore.c'
 
 
 class WorldSmoke(unittest.TestCase):
+    def test_perf_budget_yields_without_consuming_the_next_cursor_item(self):
+        # Explicit synthetic monotonic seconds; executes the authored guard.
+        # Native timing, serialization cost and DayZ scheduling remain unproved.
+        path = STORE.parent / 'HCWorkBudget.c'
+        self.assertTrue(path.is_file(), 'W5-PERF shared HCWorkBudget missing')
+        env = {}
+        guard = translate(path.read_text(), 'HCMayContinue', env, 'HCWorkBudget', member=True)
+        budget = N(m_Deadline=0.004, m_Limit=2, m_Used=0)
+        cursor = 7
+        for now in (0.0, 0.003, 0.0035, 0.005):
+            if guard(budget, now):
+                cursor += 1
+        self.assertEqual(9, cursor)
+        self.assertEqual(2, budget.m_Used)
+        budget.m_Used = 0
+        self.assertFalse(guard(budget, 0.004))
+        self.assertEqual(0, budget.m_Used)
+        self.assertFalse(guard(budget, float('nan')))
+
     def test_cap_refusal_and_corrupt_load_preserve_backup_and_start_fresh(self):
         self.assertTrue(DATA.is_file(), 'missing world implementation HCWorldData.c')
         logs = []

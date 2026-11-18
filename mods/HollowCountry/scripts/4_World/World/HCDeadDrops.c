@@ -1,3 +1,7 @@
+// W5-PERF-5: <=one drop/60s; shared work guard before consuming its cursor.
+// Durable crate creation, finite deposit and provenance barriers remain
+// synchronous: deferring them without continuations risks replay.
+// Native timing evidence: HCWorkBudget.c (Game.c:914).
 // #117, finite authored dead drops. Native evidence: scripts-1.30.164289:
 // 3_Game/Global/Game.c:1176 SurfaceY, :1188 SurfaceGetNormal, :1196/1197
 // SurfaceIsSea/SurfaceIsPond; surface normal y >= cos(30deg) rejects steep sites; :930 GetObjectsAtPosition3D and :703
@@ -37,6 +41,7 @@ class HCDeadDrops : HCModule
     protected bool m_Ready;
     protected bool m_Dirty;
     protected int m_Next;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected float m_Elapsed;
     protected int m_Reports;
 
@@ -200,7 +205,9 @@ class HCDeadDrops : HCModule
         m_Elapsed += deltaTime;
         if (m_Elapsed < 60) return;
         m_Elapsed = 0;
-        if (m_Next >= Count()) m_Next = 0;
+        m_WorkBudget.HCReset(1);
+        if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        if (m_Next >= Count()) { m_Next = 0; }
         int index = m_Next;
         m_Next++;
         HCDeadDropRow row = m_State.Rows[index];

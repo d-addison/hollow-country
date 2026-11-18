@@ -1,3 +1,7 @@
+// W5-PERF-3: <=1 chain/10s OR <=1 prop creation/tick, never both.
+// Heartbeat saves coalesce through HCSaveScheduler; transition intents stay
+// synchronous. Preflight remains one 40m query with <=256 objects/64 doors.
+// Shared timer evidence: World/HCWorkBudget.c header (Game.c:914).
 // LC-T309/310, #93/#94/#120. EnableEncounters admits source by preference;
 // EXP-S3 is logged, never asserted accepted. No core registration edit required.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:932 GetWorldName, :914
@@ -19,6 +23,8 @@ class HCScenesModule : HCModule
     protected ref HCSceneChainState m_State;
     protected ref array<ref HCSceneLease> m_Leases = new array<ref HCSceneLease>();
     protected int m_Cursor;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
+    protected ref HCSceneSaveJob m_SaveJob;
     protected int m_Placed;
     protected int m_Refused;
     // Last preflight refusal reason printed per chain id; bounded by the 4 reviewed chains.
@@ -61,6 +67,9 @@ class HCScenesModule : HCModule
         m_State = m_Store.Open(now);
         if (!m_State) { return; }
         m_LastNow = now;
+        m_SaveJob = new HCSceneSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         m_Running = true;
         if (!m_SummaryPrinted) { Summary(); }
     }
@@ -77,7 +86,15 @@ class HCScenesModule : HCModule
     bool Commit(int now)
     {
         m_State.LastNow = now;
-        if (m_Store.Save(m_State)) { return true; }
+        if (m_Store.Save(m_State))
+        {
+            if (m_SaveJob)
+            {
+                m_SaveJob.HCDirty = false;
+                m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
+            }
+            return true;
+        }
         m_Running = false;
         OnStop();
         return false;
@@ -305,15 +322,22 @@ class HCScenesModule : HCModule
             lease.ChainId = chain.Id;
             lease.Stage = chain.Stage;
             lease.Anchor = site.Position;
+            lease.StoryPublished = false;
+            lease.PlacementVariant = variant;
             m_Leases.Insert(lease);
             bool placed = HCSceneKits.Place(lease, kit, positions, variant);
-            m_Placed = m_Placed + lease.Objects.Count();
             if (!placed) { Fail(chain, now, "placement-failed"); return; }
-            Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + variant.ToString());
-            PublishSceneStory(chain, site);
+        }
+        if (!HCSceneKits.HCPlacementComplete(lease)) { return; }
+        if (!HCSceneKits.Healthy(lease)) { Fail(chain, now, "partial-or-missing-lease"); return; }
+        if (!lease.StoryPublished)
+        {
+            lease.StoryPublished = true;
+            m_Placed = m_Placed + lease.Objects.Count();
+            Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
+            PublishSceneStory(chain, HCSceneChains.Site(plan.SiteId));
             m_PreflightReasons.Remove(chain.Id);
         }
-        if (!HCSceneKits.Healthy(lease)) { Fail(chain, now, "partial-or-missing-lease"); return; }
         if (lease.ViewEventId == 0)
         {
             int remaining = stage.HoldSeconds - (now - chain.BeganAt);
@@ -333,6 +357,18 @@ class HCScenesModule : HCModule
         if (!m_Running || !GetGame() || !GetGame().IsServer()) { return; }
         m_WorkElapsed = m_WorkElapsed + deltaTime;
         m_LogElapsed = m_LogElapsed + deltaTime;
+        m_WorkBudget.HCReset(1);
+        foreach (HCSceneLease buildingLease : m_Leases)
+        {
+            if (HCSceneKits.HCPlacementComplete(buildingLease)) { continue; }
+            // Review hardening: a lease whose kit failed to place waits for its Fail pass; never dereference it.
+            if (!buildingLease.PlacementKit) { continue; }
+            if (!m_WorkBudget.HCContinue()) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+            HCSceneKits.HCPlaceOne(buildingLease);
+            int pendingProps = buildingLease.PlacementKit.Props.Count() - buildingLease.Objects.Count();
+            m_WorkBudget.HCDeferred(GetName(), pendingProps);
+            return;
+        }
         if (m_WorkElapsed >= 10)
         {
             m_WorkElapsed = 0;
@@ -348,13 +384,24 @@ class HCScenesModule : HCModule
             Work(now);
             // Persist a heartbeat even while every chain is waiting; otherwise
             // an ordinary long stage would be mistaken for server downtime.
-            if (m_Running && now - m_State.LastNow >= 60) { Commit(now); }
+            if (m_Running && now - m_State.LastNow >= 60) { m_SaveJob.HCDirty = true; }
         }
         if (m_LogElapsed >= 600)
         {
             m_LogElapsed = 0;
             Summary();
         }
+    }
+
+    bool HCFlushRoutine()
+    {
+        if (!m_Running || !m_State) { return false; }
+        m_State.LastNow = m_LastNow;
+        if (m_Store.Save(m_State)) { return true; }
+        m_SaveJob.HCDirty = false;
+        OnStop();
+        Print("[HollowCountry] V2 scenes heartbeat save failed; preserve store; cleanup pending");
+        return false;
     }
 
     void Summary()
@@ -391,12 +438,23 @@ class HCScenesModule : HCModule
 
     override void OnStop()
     {
+        if (m_SaveJob)
+        {
+            HCSaveScheduler.HCFlush(m_SaveJob);
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+        }
         m_Running = false;
         if (!GetGame() || !GetGame().IsServer() || m_Leases.Count() == 0) { return; }
         s_CleanupOwner = this;
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(CleanupStopped);
         GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(CleanupStopped, 10000, true);
     }
+}
+
+class HCSceneSaveJob : HCSaveJob
+{
+    HCScenesModule Owner;
+    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }
 
 modded class HCModuleRegistry

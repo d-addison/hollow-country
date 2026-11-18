@@ -1,3 +1,7 @@
+// W5-PERF-2: one growth faction OR one authored conflict place/tick.
+// Daily place traversal retains a cursor; no full-place conflict scan/tick.
+// World retains LastTick until this job completes. Shared HCWorkBudget
+// bounds every slice (native evidence in HCWorkBudget.c: Game.c:914).
 // LC-T411 / #104 abstract only. scripts-1.30.164289 native references:
 // 1_Core/proto/EnMath.c:427 Floor, :553 Min; EnConvert.c:30 int.ToString;
 // EnScript.c:380,385,394,407,463 arrays; EnDebug.c:96 Print.
@@ -7,12 +11,17 @@
 class HCFactionConflict : HCModule
 {
     protected static bool s_Active;
+    protected static int s_WorkNow = -1;
+    protected static int s_GrowthNext;
+    protected static int s_PlaceNext;
+    protected static ref HCWorkBudget s_WorkBudget = new HCWorkBudget;
     override string GetName() { return "FactionConflict"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("FactionConflict", true, "EXP-S4", HCV2Gates.Qualified("EXP-S4")));
         s_Active = true;
+        s_WorkNow = -1;
     }
     override void OnStop() { s_Active = false; }
 
@@ -56,32 +65,45 @@ class HCFactionConflict : HCModule
         return false;
     }
 
-    static void Tick(HCWorldModule world, HCWorldData data, int now)
+    static bool Tick(HCWorldModule world, HCWorldData data, int now)
     {
-        if (!s_Active || !world || !data || now < data.Meta.Epoch) { return; }
-        // Five fixed factions, each with <=64 claims. Seeding runs once;
-        // regrowth is <=1 per TWO real days and cannot resurrect extinction.
-        foreach (HCWorldFaction growing : data.Factions)
+        if (!s_Active || !world || !data || now < data.Meta.Epoch) { return true; }
+        if (s_WorkNow != now)
         {
+            s_WorkNow = now;
+            s_GrowthNext = 0;
+            s_PlaceNext = 0;
+        }
+        s_WorkBudget.HCReset(1);
+        if (!s_WorkBudget.HCContinue()) { s_WorkBudget.HCDeferred("FactionConflict", 1); return false; }
+        // Fixed faction growth/initial seed is separate from the daily search.
+        // Seed touches <=64 validated place anchors once per faction, never entities.
+        if (s_GrowthNext < data.Factions.Count())
+        {
+            HCWorldFaction growing = data.Factions[s_GrowthNext];
+            s_GrowthNext = s_GrowthNext + 1;
             Seed(data, growing, now);
             if (now - growing.LastRegrowth >= 2 * HCWorldLimits.DAY)
             {
                 if (growing.Strength > 0 && growing.Strength < HCWorldLimits.STRENGTH) { world.AdjustStrength(growing.Id, 1); }
                 growing.LastRegrowth = now;
             }
+            s_WorkBudget.HCDeferred("FactionConflict", data.Factions.Count() - s_GrowthNext);
+            return false;
         }
         int today = HCWorldClock.Day(data, now);
         int previousDay = HCWorldClock.Day(data, data.Meta.LastTick);
-        if (today <= previousDay) { return; }
+        if (today <= previousDay) { return true; }
         // One shared cell/day, no downtime catch-up, no per-minute attrition.
         // Epoch/day/place index give a stable seeded roll without consuming the
         // engine's random stream. A restart reloads the same committed outcome.
         int start = today % data.Places.Count();
-        for (int offset = 0; offset < data.Places.Count(); offset++)
+        if (s_PlaceNext < data.Places.Count())
         {
-            int placeIndex = (start + offset) % data.Places.Count();
+            int placeIndex = (start + s_PlaceNext) % data.Places.Count();
+            s_PlaceNext = s_PlaceNext + 1;
             HCWorldPlace place = data.Places[placeIndex];
-            if (HCRecentlyContested(data, place.Id, now)) { continue; }
+            if (HCRecentlyContested(data, place.Id, now)) { return s_PlaceNext >= data.Places.Count(); }
             string cell = Cell(place.Position);
             for (int first = 0; first < data.Factions.Count(); first++)
             {
@@ -111,10 +133,12 @@ class HCFactionConflict : HCModule
                     memory.Expires = now + HCWorldLimits.FACT_LIFETIME;
                     data.AppendMemory(memory);
                     Print("[HollowCountry] V2 faction conflict " + winner.Id + " pushed " + loser.Id + " out of " + place.Name);
-                    return;
+                    return true;
                 }
             }
         }
+        s_WorkBudget.HCDeferred("FactionConflict", data.Places.Count() - s_PlaceNext);
+        return s_PlaceNext >= data.Places.Count();
     }
 }
 

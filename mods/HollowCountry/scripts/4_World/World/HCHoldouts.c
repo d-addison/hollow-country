@@ -1,3 +1,7 @@
+// W5-PERF-5: catalog <=4 authored rows/tick (4 ms cooperative guard);
+// <=one holdout/10s. Catalog checkpoints coalesce, creation/spend/raid
+// barriers retain synchronous verified saves. Native scripts-1.30.164289:
+// 3_Game/Global/Game.c:914 GetTickTime; shared guard in HCWorkBudget.c.
 // LC-T408, #102. Native evidence: installed scripts-1.30.164289:
 // 1_Core/proto/EnSystem.c:397 FileExist, :525 MakeDirectory, :528 DeleteFile,
 // :531 CopyFile; 3_Game/tools/JsonFileLoader.c:69 LoadData, :85 MakeData;
@@ -175,6 +179,9 @@ class HCHoldouts : HCModule
     protected bool m_Dirty;
     protected int m_Reports;
     protected bool m_WaitReported;
+    protected bool m_CatalogDirty;
+    protected ref HCHoldoutSaveJob m_SaveJob;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     // Runtime diagnostics only, bounded by the 24 admitted holdout IDs.
     protected ref map<string, string> m_PublishRefusals = new map<string, string>;
 
@@ -241,6 +248,9 @@ class HCHoldouts : HCModule
         }
         if (occupied > 6) { HCRefuseState(); return; }
         s_Instance = this;
+        m_SaveJob = new HCHoldoutSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         m_Ready = true;
         Print("[HollowCountry] V2 holdouts ready catalog_cap=24 occupied_cap=6 raid_lockout=604800s; bodies require materializer");
         HCSyncLights();
@@ -256,6 +266,20 @@ class HCHoldouts : HCModule
         if (!m_Dirty) { return true; }
         if (!m_Store.Save(m_State)) { m_Ready = false; HCSyncLights(); return false; }
         m_Dirty = false;
+        m_CatalogDirty = false;
+        if (m_SaveJob)
+        {
+            m_SaveJob.HCDirty = false;
+            m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
+        }
+        return true;
+    }
+
+    bool HCFlushCatalog()
+    {
+        if (!m_Ready) { return false; }
+        if (!SaveChanged()) { return false; }
+        Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/24");
         return true;
     }
 
@@ -351,8 +375,10 @@ class HCHoldouts : HCModule
         if (!world || !authored || m_State.Rows.Count() >= 24) return;
         int work = 0;
         bool changed = false;
+        m_WorkBudget.HCReset(4);
         while (work < 32 && m_CatalogCursor < authored.Count() && m_State.Rows.Count() < 24)
         {
+            if (!m_WorkBudget.HCContinue()) { break; }
             HCInteriorFurnishRow site = authored[m_CatalogCursor];
             m_CatalogCursor++;
             work++;
@@ -384,8 +410,8 @@ class HCHoldouts : HCModule
         {
             m_State.TemplatePin = HCInteriorTemplates.SourcePin();
             m_Dirty = true;
-            if (!SaveChanged()) { return; }
-            else Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/24");
+            m_CatalogDirty = true;
+            m_SaveJob.HCDirty = true;
         }
     }
 
@@ -588,6 +614,7 @@ class HCHoldouts : HCModule
         }
         if (m_State.TemplatePin != "" && m_State.TemplatePin != HCInteriorTemplates.SourcePin()) { m_Ready = false; HCSyncLights(); Print("[HollowCountry] V2 holdouts template pin changed; recovery required"); return; }
         FillCatalog();
+        if (m_CatalogDirty) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
         if (!m_Ready || Count() == 0) { return; }
         if (m_Next >= Count()) m_Next = 0;
         int index = m_Next;
@@ -684,7 +711,8 @@ class HCHoldouts : HCModule
     override void OnStop()
     {
         // Flush changes marked by native callbacks since the last tick; a faulted store stays unwritten.
-        if (m_Ready && m_State) SaveChanged();
+        if (m_Ready && m_State) { SaveChanged(); }
+        HCSaveScheduler.HCUnregister(m_SaveJob);
         m_Ready = false;
         HCSyncLights();
         m_Bodies.Clear();
@@ -712,6 +740,12 @@ modded class PlayerBase
         HCHoldouts.OccupantKilled(this);
         super.EEKilled(killer);
     }
+}
+
+class HCHoldoutSaveJob : HCSaveJob
+{
+    HCHoldouts Owner;
+    override bool HCWrite() { return Owner && Owner.HCFlushCatalog(); }
 }
 
 modded class HCModuleRegistry

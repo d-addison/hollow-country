@@ -36,6 +36,7 @@ class HCWorldStore
     protected bool m_KeepBackup;
     protected bool m_Fresh;
     protected bool m_Fault;
+    protected string m_VerifiedText;
 
     bool Prepare()
     {
@@ -110,17 +111,21 @@ class HCWorldStore
     static HCWorldData Decode(string text)
     {
         if (text.Length() < 1 || text.Length() > MAX_BYTES || !KeysAllowed(text)) { return null; }
+        // Migrate validates the full input, then appends only validated places.
+        // Repeating the same whole-ledger validation here doubles startup work.
         HCWorldData decoded;
         string error;
-        if (!JsonFileLoader<HCWorldData>.LoadData(text, decoded, error) || !Migrate(decoded) || !HCWorldData.Valid(decoded)) { return null; }
+        if (!JsonFileLoader<HCWorldData>.LoadData(text, decoded, error) || !Migrate(decoded)) { return null; }
         return decoded;
     }
 
     bool ReadCurrent()
     {
-        HCWorldData current = Decode(Read(m_Path));
+        string text = Read(m_Path);
+        HCWorldData current = Decode(text);
         if (!current || current.Meta.Epoch > HCWorldClock.UTC()) { return false; }
         m_Data = current;
+        m_VerifiedText = text;
         return true;
     }
 
@@ -191,7 +196,10 @@ class HCWorldStore
         if (!m_Fresh && !m_KeepBackup && FileExist(m_Path))
         {
             prior = Read(m_Path);
-            if (!Decode(prior)) { return Fault(); }
+            // Compare with the exact image validated on load/last write. This
+            // preserves external-edit refusal without reparsing every old key
+            // and every DTO during each checkpoint (W5-PERF-2).
+            if (prior == "" || prior != m_VerifiedText) { return Fault(); }
         }
         if (!Write(m_Temp, text)) { return Fault(); }
         if (prior != "")
@@ -205,6 +213,7 @@ class HCWorldStore
         if (!CopyFile(m_Temp, m_Path) || Read(m_Path) != text) { return Fault(); }
         if (!DeleteFile(m_Temp)) { return Fault(); }
         m_Fresh = false;
+        m_VerifiedText = text;
         return true;
     }
 }

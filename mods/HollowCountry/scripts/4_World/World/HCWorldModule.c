@@ -1,8 +1,10 @@
+// W5-PERF: <=1 ledger row/tick, 4 ms cooperative budget; one minute batch
+// retains its cursor/time across ticks. Routine saves use HCSaveScheduler.
 // LC-T303 traces only; LC-T401 catalog lives in 3_Game. Native evidence:
 // scripts-1.30.164289/1_Core/proto/EnScript.c:380,385,407 (arrays),
 // 1_Core/proto/EnSystem.c:76,100 (UTC via HCWorldClock),
 // 3_Game/tools/JsonFileLoader.c:69,85 (snapshot cloning).
-// 1_Core/proto/EnConvert.c:30 (int.ToString),
+// 1_Core/proto/EnString.c:240 IndexOf; EnMath.c:553 Math.Min; EnConvert.c:30 (int.ToString),
 // 1_Core/proto/EnDebug.c:96 (Print); EnScript.c:389 array.Set.
 // HCModule/HCModuleRegistry lifecycle is the project's runtime contract.
 // No provider bodies, entities, inventories, RPCs or player state here.
@@ -15,7 +17,11 @@ class HCWorldModule : HCModule
     protected bool m_AdmissionPrinted;
     protected bool m_Dirty;
     protected float m_StepSeconds;
-    protected float m_SaveSeconds;
+    protected ref HCWorldSaveJob m_SaveJob;
+    protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
+    protected int m_WorkLeft;
+    protected bool m_StepActive;
+    protected int m_WorkNow;
     protected int m_Cursor;
     protected int m_StepsSinceSave;
     protected string m_HoldoutRefusal;
@@ -67,7 +73,9 @@ class HCWorldModule : HCModule
         }
         m_Cursor = 0;
         m_StepSeconds = 0;
-        m_SaveSeconds = 0;
+        m_SaveJob = new HCWorldSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         m_Running = true;
         s_Instance = this;
         Print("[HollowCountry] V2 world loaded day=" + Day().ToString() + " places=" + m_Data.Places.Count().ToString() + " facts=" + m_Data.Facts.Count().ToString() + " factions=" + m_Data.Factions.Count().ToString());
@@ -80,18 +88,21 @@ class HCWorldModule : HCModule
         float elapsed = deltaTime;
         if (elapsed > 60) { elapsed = 60; }
         m_StepSeconds += elapsed;
-        m_SaveSeconds += elapsed;
-        if (m_SaveSeconds > 60) { m_SaveSeconds = 60; }
-        if (m_StepSeconds >= 60)
+        if (m_StepSeconds >= 60 && !m_StepActive)
         {
             m_StepSeconds = 0;
-            HCWorldStep(HCWorldClock.UTC());
+            m_StepActive = true;
+            m_WorkNow = HCWorldClock.UTC();
+            // Review P1: a failed clock read must not latch the step forever.
+            if (m_WorkNow < 1) { m_StepActive = false; m_StepSeconds = 50; return; }
+            m_WorkLeft = Math.Min(HCWorldLimits.STEP_ROWS, m_Data.Factions.Count() + m_Data.Holdouts.Count() + m_Data.Parties.Count());
         }
-        if (m_Dirty && m_SaveSeconds >= 60)
+        if (m_StepActive)
         {
-            m_SaveSeconds = 0;
-            if (m_Store.Save(m_Data)) { m_Dirty = false; m_StepsSinceSave = 0; }
+            HCWorldStep(m_WorkNow);
+            m_WorkBudget.HCDeferred(GetName(), m_WorkLeft);
         }
+        if (m_Dirty) { m_SaveJob.HCDirty = true; }
     }
 
     override void OnStop()
@@ -99,7 +110,17 @@ class HCWorldModule : HCModule
         if (!m_Running) { return; }
         s_Instance = null;
         m_Running = false;
-        if (m_Dirty && m_Store.Save(m_Data)) { m_Dirty = false; m_StepsSinceSave = 0; }
+        if (m_Dirty) { m_SaveJob.HCDirty = true; }
+        HCSaveScheduler.HCFlush(m_SaveJob);
+        HCSaveScheduler.HCUnregister(m_SaveJob);
+    }
+
+    bool HCFlushRoutine()
+    {
+        if (!m_Store.Save(m_Data)) { return false; }
+        m_Dirty = false;
+        m_StepsSinceSave = 0;
+        return true;
     }
 
     // A row means one faction, hold-out or abstract party. Store serialization
@@ -110,11 +131,11 @@ class HCWorldModule : HCModule
         int factionRows = m_Data.Factions.Count();
         int holdoutRows = m_Data.Holdouts.Count();
         int totalRows = factionRows + holdoutRows + m_Data.Parties.Count();
-        int work = HCWorldLimits.STEP_ROWS;
-        if (work > totalRows) { work = totalRows; }
-        for (int workIndex = 0; workIndex < work; workIndex++)
+        m_WorkBudget.HCReset(1);
+        while (m_WorkLeft > 0 && m_WorkBudget.HCContinue())
         {
             if (m_Cursor >= totalRows) { m_Cursor = 0; }
+            m_WorkLeft = m_WorkLeft - 1;
             int rowIndex = m_Cursor;
             m_Cursor++;
             if (rowIndex < factionRows)
@@ -133,9 +154,14 @@ class HCWorldModule : HCModule
                 }
             }
         }
+        if (m_WorkLeft > 0) { return; }
+        if (!m_WorkBudget.HCContinue()) { return; }
         // V2 settlement decay/faction conflict reads the previous day from LastTick,
         // so it runs before the stamp moves.
-        HCFactionConflict.Tick(this, m_Data, now);
+        // Conflict growth and a daily place search also yield across ticks.
+        // Stamp only after completion so a day boundary cannot be skipped.
+        if (!HCFactionConflict.Tick(this, m_Data, now)) { m_WorkBudget.HCDeferred(GetName(), 1); return; }
+        m_StepActive = false;
         m_Data.Meta.LastTick = now;
         m_Data.Escalation.Day = HCWorldClock.Day(m_Data, now);
         // Review P2: the tick stamp alone does not need a save every minute;
@@ -304,6 +330,29 @@ class HCWorldModule : HCModule
         }
     }
 
+    // Allocation-free history reader for incremental decay. <=32 existing
+    // fact references per call; returns the next cursor, -1 when exhausted.
+    int HCScanDamage(string placeId, int now, int first, out int severity)
+    {
+        severity = 0;
+        if (!m_Running || first < 0) { return -1; }
+        int next = first;
+        int end = Math.Min(first + 32, m_Data.Facts.Count());
+        while (next < end)
+        {
+            HCWorldFact fact = m_Data.Facts[next];
+            next = next + 1;
+            if (fact.PlaceId != placeId || fact.At > now || fact.Expires <= now) { continue; }
+            if (now - fact.At > 7 * HCWorldLimits.DAY) { continue; }
+            bool directDamage = fact.Kind == "RAIDED" || fact.Kind == "STOLEN";
+            bool conflictDamage = fact.Kind == "faction_clash" || fact.Kind.IndexOf("pushed_") >= 0;
+            bool damage = directDamage || conflictDamage || fact.Kind == "holdout_raided";
+            if (damage && fact.Severity > severity) { severity = fact.Severity; }
+        }
+        if (next >= m_Data.Facts.Count()) { return -1; }
+        return next;
+    }
+
     string NearestPlace(vector pos)
     {
         if (!m_Running || !HCWorldLimits.Position(pos)) { return ""; }
@@ -460,6 +509,12 @@ class HCWorldModule : HCModule
         }
         return false;
     }
+}
+
+class HCWorldSaveJob : HCSaveJob
+{
+    HCWorldModule Owner;
+    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
 }
 
 modded class HCModuleRegistry

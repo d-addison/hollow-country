@@ -1,3 +1,7 @@
+// W5-PERF-4: <=1 run cleanup/expiry + <=64 subscribed observations + <=1
+// terminal-subscription purge/tick; cursors survive yields. 4 ms cooperative
+// guard between jobs; synchronous journal/provider calls cannot be preempted.
+// Timing native evidence: World/HCWorkBudget.c (Game.c:914).
 // Durable orchestrator. The caller owns a fresh trusted session and invokes
 // Tick/Disconnect from server lifecycle hooks. No rewards or network ingress.
 // Native 1.30.164289: 1_Core/proto/EnScript.c:380/385/394/407/463/470
@@ -18,6 +22,9 @@ class HCEventRuntime
     protected bool m_StopRequested = false;
     protected int m_LastNow = 0;
     protected int m_Cursor = 0;
+    protected int m_RunCursor;
+    protected int m_PurgeCursor;
+    protected ref HCWorkBudget m_WorkBudget;
     protected ref array<string> m_BlockedLogged = new array<string>();
     // At most one cooldown per retained current-session record (32).
     protected ref array<int> m_ReofferIds = new array<int>();
@@ -33,6 +40,9 @@ class HCEventRuntime
         m_ReofferIds = new array<int>();
         m_ReofferAfter = new array<int>();
         m_Cursor = 0;
+        m_RunCursor = 0;
+        m_PurgeCursor = 0;
+        m_WorkBudget = new HCWorkBudget;
         if (!HCEventRuntimePolicy.SettingsValid(settings) || !settings.Enabled || !context || !context.Server)
         {
             Print("[HC Events] disabled or invalid configuration/context");
@@ -510,10 +520,7 @@ class HCEventRuntime
         while (index >= 0)
         {
             HCEventSubscription sub = m_Subscriptions[index];
-            if (sub.Player == player)
-            {
-                Leave(sub.EventId, player, context);
-            }
+            if (sub.Player == player) { Leave(sub.EventId, player, context); }
             index = index - 1;
         }
     }
@@ -639,11 +646,14 @@ class HCEventRuntime
         }
         m_LastNow = context.Now;
         HCEventRuntimeState stable = m_State;
-        int runIndex = 0;
-        while (runIndex < stable.Runs.Count())
+        m_WorkBudget.HCReset(m_Settings.WorkPerTick + 1);
+        int runWork = 0;
+        while (runWork < 1 && stable.Runs.Count() > 0 && m_WorkBudget.HCContinue())
         {
-            HCEventRun run = stable.Runs[runIndex];
-            runIndex = runIndex + 1;
+            if (m_RunCursor >= stable.Runs.Count()) { m_RunCursor = 0; }
+            HCEventRun run = stable.Runs[m_RunCursor];
+            m_RunCursor = m_RunCursor + 1;
+            runWork = runWork + 1;
             if (!m_Ready)
             {
                 return;
@@ -672,25 +682,23 @@ class HCEventRuntime
             {
                 m_Cursor = 0;
             }
+            if (!m_WorkBudget.HCContinue()) { break; }
             Observe(m_Subscriptions[m_Cursor], context);
             m_Cursor = m_Cursor + 1;
             work = work + 1;
         }
         PurgeTerminal();
+        m_WorkBudget.HCDeferred("Events", stable.Runs.Count() - runWork + count - work);
     }
     void PurgeTerminal()
     {
-        int index = m_Subscriptions.Count() - 1;
-        while (index >= 0)
-        {
-            HCEventSubscription sub = m_Subscriptions[index];
-            HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
-            if (!record || HCEventDirector.Terminal(record.Status))
-            {
-                m_Subscriptions.Remove(index);
-            }
-            index = index - 1;
-        }
+        if (m_Subscriptions.Count() == 0) { return; }
+        if (m_PurgeCursor >= m_Subscriptions.Count()) { m_PurgeCursor = 0; }
+        int index = m_PurgeCursor;
+        HCEventSubscription sub = m_Subscriptions[index];
+        HCEventRecord record = HCEventDirector.FindRecord(m_State.Director, sub.EventId);
+        if (!record || HCEventDirector.Terminal(record.Status)) { m_Subscriptions.Remove(index); }
+        else { m_PurgeCursor = m_PurgeCursor + 1; }
     }
     bool CleanupComplete()
     {
