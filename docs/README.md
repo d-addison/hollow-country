@@ -8,6 +8,7 @@ Use the [field guide](../README.md) for the component overview and roadmap.
 | Friend server: mods each player needs, build and ports | [Friend server](INSTALL_ROLLBACK.md#friend-server-installation) |
 | Connect to a local vanilla test server | [Local connection check](LOCAL_SERVER_TEST.md) |
 | Configure and develop the addon | [Addon development](MOD_DEVELOPMENT.md) |
+| Trigger and inspect HC features on a test server | [Admin test kit](ADMIN_TEST_KIT.md) |
 | Understand component boundaries and current gates | [Module status](MODULE_STATUS.md) |
 | Review shared runtime interfaces | [Runtime integration contract](RUNTIME_IMPLEMENTATION_CONTRACT.md) |
 | Review ownership and dependencies | [Provenance and licenses](PROVENANCE_AND_LICENSES.md) |

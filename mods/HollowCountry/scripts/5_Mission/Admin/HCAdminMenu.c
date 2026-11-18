@@ -19,7 +19,7 @@ class HCAdminMenu : UIScriptedMenu
     protected TextWidget m_Notice;
     protected TextListboxWidget m_Layers;
     protected TextListboxWidget m_Status;
-    protected EditBoxWidget m_Day;
+    protected EditBoxWidget m_Value;
     protected ref array<string> m_LayerNames = new array<string>;
     protected int m_Revision = -1;
     protected float m_Elapsed;
@@ -34,8 +34,8 @@ class HCAdminMenu : UIScriptedMenu
         m_Notice = TextWidget.Cast(layoutRoot.FindAnyWidget("HCAdminNotice"));
         m_Layers = TextListboxWidget.Cast(layoutRoot.FindAnyWidget("HCAdminLayers"));
         m_Status = TextListboxWidget.Cast(layoutRoot.FindAnyWidget("HCAdminStatusRows"));
-        m_Day = EditBoxWidget.Cast(layoutRoot.FindAnyWidget("HCAdminDayValue"));
-        if (!m_Map || !m_Routes || !m_Notice || !m_Layers || !m_Status || !m_Day)
+        m_Value = EditBoxWidget.Cast(layoutRoot.FindAnyWidget("HCAdminValue"));
+        if (!m_Map || !m_Routes || !m_Notice || !m_Layers || !m_Status || !m_Value)
         {
             layoutRoot.Unlink();
             layoutRoot = null;
@@ -137,17 +137,28 @@ class HCAdminMenu : UIScriptedMenu
         else if (name == "HCAdminEvent") { command = "event"; }
         else if (name == "HCAdminCamp") { command = "camp"; }
         else if (name == "HCAdminHoldout") { command = "holdout"; }
-        else if (name == "HCAdminDay")
+        else if (name == "HCAdminKit") { command = "kit"; }
+        else if (name == "HCAdminList") { command = "list"; }
+        else if (name == "HCAdminClear") { command = "clear"; }
+        else if (name == "HCAdminRadio") { command = "radio"; }
+        else if (name == "HCAdminDeadDrop") { command = "deaddrop"; }
+        else if (name == "HCAdminLoot") { command = "loot"; }
+        else if (name == "HCAdminForage") { command = "forage"; }
+        else if (name == "HCAdminDecay") { command = "decay"; }
+        else if (name == "HCAdminDay") { command = "day"; }
+        else if (name == "HCAdminMemory") { command = "memory"; }
+        else if (name == "HCAdminWeather") { command = "weather"; }
+        if (command == "day" || command == "memory" || command == "weather")
         {
-            string text = m_Day.GetText();
+            string text = m_Value.GetText();
             string digits = "0123456789";
-            if (text.Length() < 1 || text.Length() > 4) { client.Notice = "Enter day 0 to 3650; changes escalation only."; client.Revision++; return true; }
+            if (text.Length() < 1 || text.Length() > 4) { client.Notice = "Enter a whole number: day 0 to 3650, memory 0 to 3, weather 0 to 4."; client.Revision++; return true; }
             // Require decimal digits: malformed text must not silently become 0.
             for (int digitIndex = 0; digitIndex < text.Length(); digitIndex++)
             {
-                if (digits.IndexOf(text.Get(digitIndex)) < 0) { client.Notice = "Day must contain decimal digits."; client.Revision++; return true; }
+                if (digits.IndexOf(text.Get(digitIndex)) < 0) { client.Notice = "The value must contain decimal digits only."; client.Revision++; return true; }
             }
-            client.HCSend("day", text.ToInt());
+            client.HCSend(command, text.ToInt());
             return true;
         }
         if (command != "") { client.HCSend(command); return true; }

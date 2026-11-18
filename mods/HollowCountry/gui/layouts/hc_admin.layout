@@ -19,78 +19,128 @@ FrameWidgetClass HCAdminRoot {
    style rover_sim_black color 0.04 0.04 0.04 0.98
    {
     TextWidgetClass HCAdminTitle {
-     position 0.03 0.02 size 0.94 0.04
+     position 0.03 0.015 size 0.94 0.04
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      ignorepointer 1 font "gui/fonts/sdf_MetronBook24"
      text "HC Admin - source tools; runtime pending"
     }
     ButtonWidgetClass HCAdminRefresh {
-     position 0.03 0.07 size 0.45 0.045
+     position 0.03 0.060 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "Request snapshot" style Default
     }
     ButtonWidgetClass HCAdminStatus {
-     position 0.52 0.07 size 0.45 0.045
+     position 0.52 0.060 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "Module status" style Default
     }
+    ButtonWidgetClass HCAdminKit {
+     position 0.03 0.103 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "Kit availability" style Default
+    }
+    ButtonWidgetClass HCAdminList {
+     position 0.52 0.103 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "State near me" style Default
+    }
     TextListboxWidgetClass HCAdminLayers {
-     position 0.03 0.13 size 0.94 0.16
+     position 0.03 0.150 size 0.94 0.12
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCAdminToggle {
-     position 0.03 0.30 size 0.94 0.04
+     position 0.03 0.275 size 0.94 0.035
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "Toggle selected layer" style Default
     }
     ButtonWidgetClass HCAdminSitter {
-     position 0.03 0.36 size 0.45 0.045
+     position 0.03 0.317 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "sitter" style Default
     }
     ButtonWidgetClass HCAdminDormant {
-     position 0.52 0.36 size 0.45 0.045
+     position 0.52 0.317 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "dormant" style Default
     }
     ButtonWidgetClass HCAdminHorde {
-     position 0.03 0.415 size 0.45 0.045
+     position 0.03 0.360 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "horde" style Default
     }
     ButtonWidgetClass HCAdminScene {
-     position 0.52 0.415 size 0.45 0.045
+     position 0.52 0.360 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "scene" style Default
     }
     ButtonWidgetClass HCAdminEvent {
-     position 0.03 0.47 size 0.45 0.045
+     position 0.03 0.403 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "event" style Default
     }
     ButtonWidgetClass HCAdminCamp {
-     position 0.52 0.47 size 0.45 0.045
+     position 0.52 0.403 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "camp" style Default
     }
     ButtonWidgetClass HCAdminHoldout {
-     position 0.03 0.525 size 0.45 0.045
+     position 0.03 0.446 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "holdout" style Default
     }
-    EditBoxWidgetClass HCAdminDayValue {
-     position 0.52 0.525 size 0.20 0.045
+    ButtonWidgetClass HCAdminClear {
+     position 0.52 0.446 size 0.45 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
-     text "14" font "gui/fonts/sdf_MetronBook24"
+     text "clear sitter" style Default
+    }
+    ButtonWidgetClass HCAdminRadio {
+     position 0.03 0.489 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "radio" style Default
+    }
+    ButtonWidgetClass HCAdminDeadDrop {
+     position 0.52 0.489 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "dead drop" style Default
+    }
+    ButtonWidgetClass HCAdminLoot {
+     position 0.03 0.532 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "loot refresh" style Default
+    }
+    ButtonWidgetClass HCAdminForage {
+     position 0.52 0.532 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "forage" style Default
+    }
+    ButtonWidgetClass HCAdminDecay {
+     position 0.03 0.575 size 0.45 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "decay" style Default
+    }
+    EditBoxWidgetClass HCAdminValue {
+     position 0.03 0.618 size 0.18 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "1" font "gui/fonts/sdf_MetronBook24"
     }
     ButtonWidgetClass HCAdminDay {
-     position 0.74 0.525 size 0.23 0.045
+     position 0.23 0.618 size 0.22 0.037
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      text "day" style Default
     }
+    ButtonWidgetClass HCAdminMemory {
+     position 0.47 0.618 size 0.25 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "memory" style Default
+    }
+    ButtonWidgetClass HCAdminWeather {
+     position 0.74 0.618 size 0.23 0.037
+     hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
+     text "weather" style Default
+    }
     TextListboxWidgetClass HCAdminStatusRows {
-     position 0.03 0.59 size 0.94 0.33
+     position 0.03 0.662 size 0.94 0.27
      hexactpos 0 vexactpos 0 hexactsize 0 vexactsize 0
      font "gui/fonts/sdf_MetronBook24"
     }

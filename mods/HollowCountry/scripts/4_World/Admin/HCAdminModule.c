@@ -141,6 +141,9 @@ class HCAdminModule : HCModule
         if (command == "status" || command == "snapshot" || command == "sitter") { return true; }
         if (command == "dormant" || command == "horde" || command == "scene") { return true; }
         if (command == "event" || command == "camp" || command == "holdout" || command == "day") { return true; }
+        if (command == "kit" || command == "list" || command == "clear" || command == "memory") { return true; }
+        if (command == "radio" || command == "deaddrop" || command == "loot" || command == "forage") { return true; }
+        if (command == "decay" || command == "weather") { return true; }
         return false;
     }
 
@@ -216,10 +219,84 @@ class HCAdminModule : HCModule
         HCSend(sender, reply);
     }
 
+    // Test-kit availability: one line per allowlisted command, read-only.
+    void HCKit(PlayerIdentity sender, int ticket)
+    {
+        HCAdminReply reply = new HCAdminReply;
+        reply.Ticket = ticket;
+        reply.Notice = "Kit: available=0 names the reason. Runtime acceptance pending.";
+        HCServer.Get().HCAdminKit(reply);
+        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { Print(reply.Lines[lineIndex]); }
+        Print("[HC Admin] cmd=kit result=ok reason=bounded-command-list");
+        HCSend(sender, reply);
+    }
+
+    // Read-only state near the admin: sitter, memory heat, drops, forage, decay.
+    void HCList(PlayerIdentity sender, int ticket, vector pos)
+    {
+        HCAdminReply reply = new HCAdminReply;
+        reply.Ticket = ticket;
+        reply.Notice = "List: state near you, read-only. Runtime acceptance pending.";
+        HCServer.Get().HCAdminNearby(reply, pos);
+        for (int lineIndex = 0; lineIndex < reply.Lines.Count(); lineIndex++) { Print(reply.Lines[lineIndex]); }
+        Print("[HC Admin] cmd=list result=ok reason=bounded-nearby-state");
+        HCSend(sender, reply);
+    }
+
+    protected HCModule HCNamed(string name)
+    {
+        return HCServer.Get().HCAdminModuleNamed(name);
+    }
+
+    // Test-kit hooks; each calls its owner's normal bounded path and never spawns.
+    protected bool HCExtra(PlayerBase player, vector pos, string command, int value, out string reason)
+    {
+        reason = "module-unavailable";
+        if (command == "clear")
+        {
+            HCInfectedModule infected = HCInfectedModule.Instance;
+            if (infected) { return infected.HCAdminClearSitter(reason); }
+        }
+        else if (command == "memory") { return HCInfectedMemory.HCAdminHeat(pos, value, reason); }
+        else if (command == "radio")
+        {
+            HCRadioChatter radio = HCRadioChatter.Get();
+            if (radio) { return radio.HCAdminRadio(player, reason); }
+        }
+        else if (command == "deaddrop")
+        {
+            HCDeadDrops drops = HCDeadDrops.Get();
+            if (drops) { return drops.HCAdminDeadDrop(pos, reason); }
+        }
+        else if (command == "loot")
+        {
+            HCSearchRefreshModule loot = HCSearchRefreshModule.Cast(HCNamed("LootRefresh"));
+            if (loot) { return loot.HCAdminDue(reason); }
+        }
+        else if (command == "forage")
+        {
+            HCForageModule forage = HCForageModule.Cast(HCNamed("Forage"));
+            if (forage) { return forage.HCAdminForage(player, reason); }
+        }
+        else if (command == "decay")
+        {
+            HCSettlementDecay decay = HCSettlementDecay.Cast(HCNamed("SettlementDecay"));
+            if (decay) { return decay.HCAdminTown(pos, reason); }
+        }
+        else if (command == "weather")
+        {
+            HCWeatherDaysModule weather = HCWeatherDaysModule.Cast(HCNamed("WeatherDays"));
+            if (weather) { return weather.HCAdminWeather(value, reason); }
+        }
+        return false;
+    }
+
     bool HCCommand(PlayerIdentity sender, string command, int value, int ticket)
     {
         PlayerBase player = HCPlayer(sender);
         if (!player) { HCReply(sender, ticket, command, false, "live-sender-unavailable-or-player-cap=32"); return false; }
+        if (command == "kit") { HCKit(sender, ticket); return true; }
+        if (command == "list") { HCList(sender, ticket, player.GetPosition()); return true; }
         if (command == "snapshot")
         {
             int slot = m_Admins.PlainIds.Find(sender.GetPlainId());
@@ -253,6 +330,7 @@ class HCAdminModule : HCModule
         else if (command == "camp" && camps) { ok = camps.HCAdminCamp(pos, m_Players, reason); }
         else if (command == "holdout" && holdouts) { ok = holdouts.HCAdminHoldout(pos, reason); }
         else if (command == "day") { ok = HCEscalationClock.HCAdminDay(value, reason); }
+        else { ok = HCExtra(player, pos, command, value, reason); }
         HCReply(sender, ticket, command, ok, reason);
         return ok;
     }

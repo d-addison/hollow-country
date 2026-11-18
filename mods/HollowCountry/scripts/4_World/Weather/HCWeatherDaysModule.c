@@ -62,6 +62,21 @@ class HCWeatherDaysModule : HCModule
         if (m_Data) m_Data.HCEndWeatherDays();
         m_Data = null;
     }
+
+    // Admin test kit: read-only metrics and one bounded override request. The
+    // override only selects which seeded day this same owner's tick reads.
+    string HCAdminCounts()
+    {
+        if (!m_Data) { return "active=n/a override=n/a"; }
+        return m_Data.HCAdminWeatherCounts();
+    }
+
+    bool HCAdminWeather(int code, out string reason)
+    {
+        reason = "weather-days-inactive; needs EnableGrade and EnableAtmosphere, otherwise vanilla weather is retained";
+        if (!m_Data) { return false; }
+        return m_Data.HCAdminWeather(code, reason);
+    }
 }
 
 modded class HCModuleRegistry
@@ -83,6 +98,74 @@ modded class ChernarusPlusData
     protected float m_HCWeatherLastHour;
     protected float m_HCWeatherCalm;
     protected string m_HCWeatherProfile;
+    // Admin override: a seeded day within 64 days of the real one, honoured
+    // for 1800 server seconds, then dropped by this same tick.
+    protected int m_HCWeatherAdminDay = -1;
+    protected float m_HCWeatherAdminUntil;
+
+    string HCAdminWeatherCounts()
+    {
+        if (!m_HCWeatherDaysActive) { return "active=0 override=n/a"; }
+        int overrideActive = 0;
+        if (m_HCWeatherAdminDay >= 0) { overrideActive = 1; }
+        return "active=1 day=" + m_HCWeatherDay.ToString() + " profile=" + m_HCWeatherProfile + " calm_hours=" + m_HCWeatherCalm.ToString() + " override=" + overrideActive.ToString();
+    }
+
+    // code 0 clears; 1 plain, 2 calm, 3 fog (05:00-09:00 game time), 4 bad
+    // (daytime). Picks the first day in [today, today+63] whose Seed % 5 draws
+    // the requested profile, so Profile(), FogTarget() and the forecasts all
+    // run unmodified.
+    bool HCAdminWeather(int code, out string reason)
+    {
+        reason = "weather-code-0-clear-1-plain-2-calm-3-fog-4-bad";
+        if (code < 0 || code > 4) { return false; }
+        reason = "weather-days-inactive; needs EnableGrade and EnableAtmosphere, otherwise vanilla weather is retained";
+        if (!m_HCWeatherDaysActive || !GetGame() || !GetGame().IsServer()) { return false; }
+        // A foreign controller (COT, mission weather) owns the sky; the tick is
+        // suspended, so an override would report success and change nothing.
+        reason = "foreign-weather-controller-active";
+        if (m_HCWeatherDaysSuspended || !m_Weather) { return false; }
+        if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen()) { return false; }
+        if (code == 0)
+        {
+            m_HCWeatherAdminDay = -1;
+            m_HCWeatherAdminUntil = 0;
+            m_HCWeatherCalm = 0;
+            reason = "weather-override-cleared; the real day profile resumes";
+            return true;
+        }
+        int utc = HCGroupClock.Utc();
+        reason = "weather-clock-unavailable";
+        if (utc < 1) { return false; }
+        int baseDay = utc / 86400;
+        int chosen = -1;
+        for (int offset = 0; offset < 64; offset++)
+        {
+            int seed = HCWeatherDays.Seed(baseDay + offset);
+            if (seed < 0) { break; }
+            int bucket = seed % 5;
+            bool wanted = bucket >= 3;
+            if (code == 4) { wanted = bucket == 0; }
+            else if (code == 3) { wanted = bucket == 1 || bucket == 2; }
+            if (wanted)
+            {
+                chosen = baseDay + offset;
+                break;
+            }
+        }
+        reason = "no-matching-seed-day-within-64-days";
+        if (chosen < 0) { return false; }
+        string profileName = "plain";
+        if (code == 2) { profileName = "calm"; }
+        else if (code == 3) { profileName = "fog"; }
+        else if (code == 4) { profileName = "bad"; }
+        m_HCWeatherAdminDay = chosen;
+        m_HCWeatherAdminUntil = GetGame().GetTickTime() + 1800;
+        m_HCWeatherCalm = 0;
+        if (code == 2) { m_HCWeatherCalm = 3; }
+        reason = "weather-override profile=" + profileName + " for 1800s; fog shows 05:00-09:00 game time, bad shows by day, 0 clears";
+        return true;
+    }
 
     void HCBeginWeatherDays()
     {
@@ -152,6 +235,16 @@ modded class ChernarusPlusData
         // Integer division keeps the day exact (no binary32 rounding into
         // tomorrow near UTC midnight); '%' inside a float expression does not compile natively.
         int day = utc / 86400;
+        if (m_HCWeatherAdminDay >= 0)
+        {
+            if (GetGame().GetTickTime() < m_HCWeatherAdminUntil) { day = m_HCWeatherAdminDay; }
+            else
+            {
+                m_HCWeatherAdminDay = -1;
+                m_HCWeatherCalm = 0;
+                Print("[HollowCountry] V2 weather admin override expired; real day profile resumes");
+            }
+        }
         float hour = GetGame().GetDayTime();
         float gameHours = hour - m_HCWeatherLastHour;
         if (gameHours < 0) gameHours += 24;

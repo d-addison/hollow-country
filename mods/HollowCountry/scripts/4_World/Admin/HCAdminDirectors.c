@@ -16,6 +16,11 @@
 // chains then ONE normal director Work (existing geometry query caps), camp
 // <=32 camps then ONE normal StepCamp; holdout <=24 rows then ONE occupancy
 // transition; day ONE normal persisted clock change. No clock aging of camps.
+// Test-kit hooks (each only primes the owner's normal bounded path, never a
+// parallel spawner): memory <=3 normal Record calls; clear deletes only the
+// admin sitter; radio/deaddrop/loot/forage/decay clear one owner timer and
+// request that owner's own next tick (<=1 row/node/town; no loot or item is
+// created here); weather picks a seeded day within 64 for the owner's profile.
 
 class HCAdminPlacement
 {
@@ -75,7 +80,8 @@ class HCAdminPlacement
 modded class HCInfectedModule
 {
     // One native admin-created body at a time, including its corpse. Weak
-    // handle: native economy owns normal cleanup; never delete it to refill.
+    // handle: native economy owns normal cleanup. Only the explicit admin
+    // clear command deletes it, never an automatic refill.
     protected Object m_HCAdminSitter;
 
     string HCAdminCounts()
@@ -115,6 +121,23 @@ modded class HCInfectedModule
         m_HCAdminSitter = body;
         reason = "created-at-8m; addon-owns-pose; runtime-unverified";
         return true;
+    }
+
+    bool HCAdminClearSitter(out string reason)
+    {
+        reason = "no-admin-sitter";
+        if (!m_HCAdminSitter) { return false; }
+        GetGame().ObjectDelete(m_HCAdminSitter);
+        m_HCAdminSitter = null;
+        reason = "admin-sitter-deleted; other infected untouched";
+        return true;
+    }
+
+    string HCAdminNear(vector pos)
+    {
+        if (!m_HCAdminSitter) { return "admin_sitter=none"; }
+        float distance = Math.Sqrt(vector.DistanceSq(pos, m_HCAdminSitter.GetPosition()));
+        return "admin_sitter=present distance=" + Math.Round(distance).ToString() + "m";
     }
 
     bool HCAdminHorde(vector pos, out string reason)
@@ -375,5 +398,348 @@ modded class HCEscalationClock
         clock.Report();
         reason = "persisted-escalation-day=" + day.ToString() + "; camp-age-and-other-clocks-unchanged; runtime-unverified";
         return true;
+    }
+}
+
+// Test-kit hooks below. Each reads or primes ONE owner's normal path.
+modded class HCInfectedMemory
+{
+    static string HCAdminCounts()
+    {
+        if (!Active()) { return "active=n/a cells_cap=64 record_cap=32/s"; }
+        return "cells=" + s_Instance.m_State.Cells.Count().ToString() + " cells_cap=64 record_cap=32/s";
+    }
+
+    static string HCAdminNear(vector pos)
+    {
+        if (!Active()) { return "heat=unavailable"; }
+        float heat = Heat(pos);
+        return "heat=" + heat.ToString() + " cohort=" + CohortSizeAtHeat(heat, 6).ToString() + " alert_limit=" + ResponseLimitAtHeat(heat).ToString() + " cell=500m";
+    }
+
+    // shots 1..3 call the normal Record path at full loudness (0.35 heat each,
+    // clamped at 1). 0 removes only the 500 m cell under the admin.
+    static bool HCAdminHeat(vector pos, int shots, out string reason)
+    {
+        reason = "infected-memory-unavailable";
+        if (!Active()) { return false; }
+        reason = "heat-shots-0-to-3";
+        if (shots < 0 || shots > 3) { return false; }
+        reason = "heat-position-invalid";
+        if (!HCInfectedStore.ValidPosition(pos)) { return false; }
+        if (shots == 0)
+        {
+            int cellX = Math.Floor(pos[0] / 500.0);
+            int cellZ = Math.Floor(pos[2] / 500.0);
+            for (int cellIndex = 0; cellIndex < s_Instance.m_State.Cells.Count(); cellIndex++)
+            {
+                HCInfectedMemoryCell cell = s_Instance.m_State.Cells[cellIndex];
+                if (cell.X == cellX && cell.Z == cellZ)
+                {
+                    s_Instance.m_State.Cells.Remove(cellIndex);
+                    s_Instance.m_Dirty = true;
+                    reason = "heat-cell-cleared; next horde and alert use base cohort";
+                    return true;
+                }
+            }
+            reason = "no-heat-in-this-cell";
+            return false;
+        }
+        for (int shot = 0; shot < shots; shot++) { Record(pos, 1); }
+        float heat = Heat(pos);
+        // Record() drops samples past its per-second cap or without a clock.
+        reason = "heat-record-refused-or-capped";
+        if (heat <= 0) { return false; }
+        reason = "heat-recorded shots=" + shots.ToString() + " heat=" + heat.ToString() + " cohort=" + CohortSizeAtHeat(heat, 6).ToString() + " alert_limit=" + ResponseLimitAtHeat(heat).ToString() + "; next horde adoption in this 500 m cell uses it";
+        return true;
+    }
+}
+
+modded class HCRadioChatter
+{
+    string HCAdminCounts()
+    {
+        if (!m_Store || !m_Store.Healthy()) { return "active=n/a channels=n/a"; }
+        int busy = 0;
+        if (m_Channel) { busy = 1; }
+        return "channels=" + m_Store.Data.Channels.Count().ToString() + " busy=" + busy.ToString() + " fallback=" + m_Fallback.Count().ToString() + "/4 channel_gap=600s";
+    }
+
+    bool HCAdminRadio(PlayerBase player, out string reason)
+    {
+        reason = "radio-service-unavailable";
+        if (!m_Store || !m_Store.Healthy() || m_Store.Data.Channels.Count() != 5) { return false; }
+        reason = "radio-channel-busy; wait for the current line to finish";
+        if (m_Channel) { return false; }
+        for (int channelIndex = 0; channelIndex < 5; channelIndex++)
+        {
+            HCRadioChannel channel = m_Store.Data.Channels[channelIndex];
+            if (!Receiving(player, channel.Frequency)) { continue; }
+            int previous = channel.LastSent;
+            channel.LastSent = 0;
+            if (!m_Store.Save())
+            {
+                channel.LastSent = previous;
+                reason = "radio-channel-save-refused";
+                return false;
+            }
+            m_ChannelCursor = channelIndex;
+            reason = "rate-limit-cleared freq=" + channel.Frequency.ToString() + "; normal radio tick sends the next line to tuned powered radios";
+            return true;
+        }
+        reason = "no-receiving-radio; carry a powered personal radio, receiving, tuned to 87.8 89.5 91.3 94.6 or 96.6";
+        return false;
+    }
+}
+
+modded class HCDeadDrops
+{
+    string HCAdminCounts()
+    {
+        if (!m_Ready || !m_State) { return "active=n/a drops=n/a"; }
+        int deposits = 0;
+        int work = Math.Min(64, Count());
+        for (int rowIndex = 0; rowIndex < work; rowIndex++) { deposits += m_State.Rows[rowIndex].Deposits; }
+        return "drops=" + Count().ToString() + " deposits=" + deposits.ToString() + " deposit_cap=4/drop day_gap=1";
+    }
+
+    string HCAdminNear(vector pos)
+    {
+        if (!m_Ready || !m_State) { return "dead_drop=unavailable"; }
+        int selected = -1;
+        float best = 4000000;
+        int work = Math.Min(64, Count());
+        for (int rowIndex = 0; rowIndex < work; rowIndex++)
+        {
+            float distance = vector.DistanceSq(pos, m_State.Rows[rowIndex].Cache.Position);
+            if (distance < best) { selected = rowIndex; best = distance; }
+        }
+        if (selected < 0) { return "dead_drop=none-within-2000m"; }
+        HCDeadDropRow row = m_State.Rows[selected];
+        int quarantined = 0;
+        if (row.Quarantined) { quarantined = 1; }
+        return "dead_drop=" + row.Id + " distance=" + Math.Round(Math.Sqrt(best)).ToString() + "m phase=" + row.Cache.Phase.ToString() + " used=" + row.Deposits.ToString() + "/4 next_day=" + row.NextDay.ToString() + " today=" + HCEscalationClock.Day().ToString() + " quarantined=" + quarantined.ToString();
+    }
+
+    bool HCAdminDeadDrop(vector pos, out string reason)
+    {
+        reason = "dead-drop-service-unavailable";
+        if (!m_Ready || !m_State) { return false; }
+        int selected = -1;
+        float best = 1000000;
+        int work = Math.Min(64, Count());
+        for (int rowIndex = 0; rowIndex < work; rowIndex++)
+        {
+            float distance = vector.DistanceSq(pos, m_State.Rows[rowIndex].Cache.Position);
+            if (distance < best) { selected = rowIndex; best = distance; }
+        }
+        reason = "no-dead-drop-within-1000m";
+        if (selected < 0) { return false; }
+        HCDeadDropRow row = m_State.Rows[selected];
+        reason = "dead-drop-quarantined id=" + row.Id;
+        if (row.Quarantined) { return false; }
+        reason = "deposits-exhausted id=" + row.Id + " used=4/4";
+        if (row.Deposits >= 4) { return false; }
+        int today = HCEscalationClock.Day();
+        if (row.NextDay > today)
+        {
+            row.NextDay = today;
+            m_Dirty = true;
+        }
+        reason = "dead-drop-persistence-refused";
+        if (!SaveChanged()) { return false; }
+        m_Next = selected;
+        m_Elapsed = 60;
+        reason = "dead-drop-due id=" + row.Id + " used=" + row.Deposits.ToString() + "/4; next 60 s tick runs the normal crate and one house-item deposit (needs a player within 500 m of the crate and a holdout house)";
+        return true;
+    }
+}
+
+modded class HCSearchRefreshModule
+{
+    string HCAdminCounts()
+    {
+        if (!Active()) { return "active=n/a timers=n/a"; }
+        return "timers=" + m_State.Rows.Count().ToString() + " pending=" + m_Pending.ToString() + " timers_cap=" + MAX_RECORDS.ToString() + " per_minute=" + RECORDS_PER_MINUTE.ToString();
+    }
+
+    // Ages ONLY the oldest pending timer by its own interval; the module's
+    // normal minute tick then marks it Ready. No loot is created here.
+    bool HCAdminDue(out string reason)
+    {
+        reason = "loot-refresh-service-unavailable";
+        if (!Active()) { return false; }
+        int selected = -1;
+        int oldest = 0;
+        for (int rowIndex = 0; rowIndex < m_State.Rows.Count(); rowIndex++)
+        {
+            HCSearchRefreshRow candidate = m_State.Rows[rowIndex];
+            if (candidate.Ready) { continue; }
+            if (selected < 0 || candidate.SearchedUtc < oldest)
+            {
+                selected = rowIndex;
+                oldest = candidate.SearchedUtc;
+            }
+        }
+        reason = "no-pending-refresh-timer; search a container first, a timer starts at the search";
+        if (selected < 0) { return false; }
+        int now = HCGroupClock.Utc();
+        reason = "loot-refresh-clock-behind";
+        if (now < m_State.LastUtc) { return false; }
+        HCSearchRefreshRow row = m_State.Rows[selected];
+        int previousSearched = row.SearchedUtc;
+        int previousLast = m_State.LastUtc;
+        row.SearchedUtc = now - HCSearchRefreshPolicy.Interval(row.SiteId);
+        m_State.LastUtc = now;
+        if (!m_Store.Save(m_State))
+        {
+            row.SearchedUtc = previousSearched;
+            m_State.LastUtc = previousLast;
+            reason = "refresh-timer-save-refused";
+            return false;
+        }
+        m_Next = selected;
+        m_Minute = 60.0;
+        reason = "oldest-timer-aged site=" + row.SiteId + "; next tick marks it Ready, no loot created; search that container again to see the refresh";
+        return true;
+    }
+}
+
+modded class HCForageModule
+{
+    string HCAdminCounts()
+    {
+        if (!m_Healthy || !m_Nodes) { return "active=n/a nodes=n/a"; }
+        int live = 0;
+        for (int nodeIndex = 0; nodeIndex < m_Nodes.Count(); nodeIndex++)
+        {
+            if (m_Nodes[nodeIndex].Item) { live++; }
+        }
+        return "nodes=" + m_Nodes.Count().ToString() + " live=" + live.ToString() + " nodes_cap=40 cell_live_cap=3 spawn_tick=10s";
+    }
+
+    string HCAdminNear(vector pos)
+    {
+        if (!m_Healthy || !m_Nodes) { return "forage=unavailable"; }
+        int cellX = Math.Floor(pos[0] / 200);
+        int cellZ = Math.Floor(pos[2] / 200);
+        int inCell = 0;
+        int live = 0;
+        for (int nodeIndex = 0; nodeIndex < m_Nodes.Count(); nodeIndex++)
+        {
+            HCForageNode node = m_Nodes[nodeIndex];
+            if (node.Spot.CellX != cellX || node.Spot.CellZ != cellZ) { continue; }
+            inCell++;
+            if (node.Item) { live++; }
+        }
+        return "forage_cell=" + cellX.ToString() + "," + cellZ.ToString() + " nodes=" + inCell.ToString() + " live=" + live.ToString() + " month=" + HCAdminMonth().ToString() + " season_months=6-11";
+    }
+
+    protected int HCAdminMonth()
+    {
+        int year;
+        int month;
+        int day;
+        int hour;
+        int minute;
+        GetGame().GetWorld().GetDate(year, month, day, hour, minute);
+        return month;
+    }
+
+    // Clears only idle cooldowns in the admin's 200 m cell and asks the normal
+    // 10 s tick to run. The tick still requires forest surface, a slot 30 m
+    // away from every player, and the 3 per cell and 40 total live caps.
+    bool HCAdminForage(PlayerBase player, out string reason)
+    {
+        reason = "forage-service-unavailable";
+        if (!m_Healthy || !m_Nodes) { return false; }
+        int month = HCAdminMonth();
+        reason = "forage-out-of-season month=" + month.ToString() + "; season months 6 to 11";
+        if (month < 6 || month > 11) { return false; }
+        vector position = player.GetPosition();
+        int cellX = Math.Floor(position[0] / 200);
+        int cellZ = Math.Floor(position[2] / 200);
+        int cleared = 0;
+        for (int nodeIndex = 0; nodeIndex < m_Nodes.Count(); nodeIndex++)
+        {
+            HCForageNode node = m_Nodes[nodeIndex];
+            if (node.Spot.CellX != cellX || node.Spot.CellZ != cellZ) { continue; }
+            if (node.Item || node.WasLive) { continue; }
+            if (node.Spot.ReadyUtc > 0)
+            {
+                node.Spot.ReadyUtc = 0;
+                cleared++;
+            }
+        }
+        if (cleared > 0) { m_Dirty = true; }
+        m_Elapsed = 10;
+        reason = "forage-primed cleared=" + cleared.ToString() + " cell=" + cellX.ToString() + "," + cellZ.ToString() + "; normal tick spawns one node when you stand in forest 30 m or more from its slot (cycles 3 slots, up to 30 s)";
+        return true;
+    }
+}
+
+modded class HCSettlementDecay
+{
+    string HCAdminCounts()
+    {
+        if (m_Fault || !m_State) { return "active=n/a towns=n/a"; }
+        int ransacked = 0;
+        int work = Math.Min(256, m_State.Towns.Count());
+        for (int townIndex = 0; townIndex < work; townIndex++)
+        {
+            if (m_State.Towns[townIndex].Ransack > 0) { ransacked++; }
+        }
+        int pending = 0;
+        if (m_HistoryPending) { pending = 1; }
+        return "towns=" + m_State.Towns.Count().ToString() + " ransacked=" + ransacked.ToString() + " day=" + HCEscalationClock.Day().ToString() + " scan_pending=" + pending.ToString();
+    }
+
+    string HCAdminNear(vector pos)
+    {
+        if (m_Fault || !m_State || !m_Catalog) { return "decay=unavailable"; }
+        int selected = -1;
+        float best = 25000000;
+        int work = Math.Min(Math.Min(m_State.Towns.Count(), m_Catalog.Places.Count()), 256);
+        for (int townIndex = 0; townIndex < work; townIndex++)
+        {
+            float distance = vector.DistanceSq(pos, m_Catalog.Places[townIndex].Position);
+            if (distance < best) { selected = townIndex; best = distance; }
+        }
+        if (selected < 0) { return "decay=none-within-5000m"; }
+        HCSettlementTown town = m_State.Towns[selected];
+        return "town=" + town.Id + " distance=" + Math.Round(Math.Sqrt(best)).ToString() + "m ransack=" + town.Ransack.ToString() + "/3 barricades=" + town.Barricades.ToString() + "/2 remains=" + town.Remains.ToString() + " notices=" + town.Notices.ToString();
+    }
+
+    // Queues the nearest town for the owner's normal step; the owner's history
+    // scan, quiet gate and visual gates still run. Escalation day drives severity.
+    bool HCAdminTown(vector pos, out string reason)
+    {
+        reason = "decay-not-initialised; wait for the first normal step";
+        if (m_Fault || !m_State || !m_Catalog) { return false; }
+        reason = "history-scan-in-progress; retry in a few seconds";
+        if (m_HistoryPending) { return false; }
+        int selected = -1;
+        float best = 1000000;
+        int work = Math.Min(Math.Min(m_State.Towns.Count(), m_Catalog.Places.Count()), 256);
+        for (int townIndex = 0; townIndex < work; townIndex++)
+        {
+            float distance = vector.DistanceSq(pos, m_Catalog.Places[townIndex].Position);
+            if (distance < best) { selected = townIndex; best = distance; }
+        }
+        reason = "no-town-within-1000m";
+        if (selected < 0) { return false; }
+        m_Cursor = selected;
+        m_Elapsed = 10;
+        reason = "town-queued id=" + m_State.Towns[selected].Id + " ransack=" + m_State.Towns[selected].Ransack.ToString() + "/3; normal step runs within seconds, visuals still wait for the quiet gate";
+        return true;
+    }
+}
+
+modded class HCBodyStories
+{
+    string HCAdminCounts()
+    {
+        if (!m_Store || !m_Store.Healthy()) { return "active=n/a bodies=n/a"; }
+        return "bodies=" + m_Store.Data.Bodies.Count().ToString() + "/3 placed=" + m_Props.Count().ToString() + "/3 trigger=random-1-in-10-per-new-scene-note";
     }
 }
