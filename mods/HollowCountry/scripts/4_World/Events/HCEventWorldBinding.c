@@ -20,6 +20,8 @@ class HCEventWorldBinding
     // Bind diagnostics: the last Select/Query refusal and the last reported
     // reason per mission (at most 64), so retries log only state changes.
     protected static string s_FailReason;
+    protected static string s_FailDetails;
+    protected static bool s_StartupReported;
     protected static ref array<string> s_BindReported;
     protected static ref array<string> s_BindReasons;
     static void BindSites(HCEventNativeObserver observer, HCEventSettings settings, string world)
@@ -27,6 +29,8 @@ class HCEventWorldBinding
         if (!observer || !settings || !HCEventRuntimePolicy.SettingsValid(settings)) { return; }
         string current = world;
         current.ToLower();
+        int checked = 0;
+        int unbindable = 0;
         foreach (HCEventSite site : settings.Sites)
         {
             string siteWorld = site.WorldName;
@@ -34,9 +38,70 @@ class HCEventWorldBinding
             if (siteWorld == current)
             {
                 array<ref HCEventMission> roster = HCEventRoster.Build(site, false);
-                foreach (HCEventMission mission : roster) { Bind(observer, mission); }
+                foreach (HCEventMission mission : roster)
+                {
+                    // Only static PRESENCE anchors can be preflighted. Infected and
+                    // ordinary CE items may appear later; absence is never permanent.
+                    if (!s_StartupReported && mission.Family == HCEventFamily.PRESENCE)
+                    {
+                        checked = checked + 1;
+                        array<Object> anchors = QueryBounded(mission.Source, 60);
+                        string constraint = AnchorConstraint(anchors, mission);
+                        if (!anchors)
+                        {
+                            Print("[HC Events] startup anchor unresolved; " + mission.Id + "; constraint=" + constraint + s_FailDetails + "; probe_radius_m=60; retryable=1");
+                        }
+                        else
+                        {
+                            if (constraint != "")
+                            {
+                                unbindable = unbindable + 1;
+                                Print("[HC Events] startup anchor unbindable; " + mission.Id + "; constraint=" + constraint + s_FailDetails + "; probe_radius_m=60; retryable=1");
+                            }
+                        }
+                    }
+                    Bind(observer, mission);
+                }
             }
         }
+        if (!s_StartupReported)
+        {
+            s_StartupReported = true;
+            Print("[HC Events] startup anchors checked=" + checked.ToString() + " unbindable=" + unbindable.ToString());
+        }
+    }
+    // Native: EnMath.c:305 Sqrt; distances cover only observed query results,
+    // never a claim to know the nearest object outside our bounded local probe.
+    static string CandidateDetails(string wanted, float nearestSq, float radius)
+    {
+        string distance = "none_within_" + radius.ToString();
+        if (nearestSq >= 0)
+        {
+            float metres = Math.Sqrt(nearestSq);
+            distance = metres.ToString();
+        }
+        return "; wanted=" + wanted + "; nearest_candidate_m=" + distance + "; radius_m=" + radius.ToString();
+    }
+    static string AnchorConstraint(array<Object> objects, HCEventMission mission)
+    {
+        s_FailDetails = "; wanted=" + mission.AnchorClass + "; nearest_candidate_m=unknown_query_refused; radius_m=15";
+        if (!objects) { return "anchor_query_unavailable"; }
+        float nearestSq = -1;
+        int inside = 0;
+        foreach (Object anchor : objects)
+        {
+            if (anchor && !anchor.IsPendingDeletion() && anchor.GetType() == mission.AnchorClass)
+            {
+                float distanceSq = vector.DistanceSq(anchor.GetPosition(), mission.Source);
+                if (nearestSq < 0 || distanceSq < nearestSq) { nearestSq = distanceSq; }
+                if (distanceSq <= 225) { inside = inside + 1; }
+            }
+        }
+        s_FailDetails = CandidateDetails(mission.AnchorClass, nearestSq, 60) + "; bind_radius_m=15";
+        if (nearestSq < 0) { return "anchor_class_absent_within_probe"; }
+        if (inside == 0) { return "anchor_outside_bind_radius"; }
+        if (inside > 1) { return "anchor_ambiguous"; }
+        return "";
     }
     static array<Object> Query(vector anchor, float radius)
     {
@@ -125,7 +190,7 @@ class HCEventWorldBinding
             s_BindReported.Insert(mission.Id);
             s_BindReasons.Insert(reason);
         }
-        Print("[HC Events] bind failed; " + mission.Id + "; reason=" + reason);
+        Print("[HC Events] bind failed; " + mission.Id + "; reason=" + reason + s_FailDetails);
         return false;
     }
     // Reviewed-site reward cache: created at most once per site and session by the
@@ -186,6 +251,7 @@ class HCEventWorldBinding
     }
     static bool BindCandidate(HCEventNativeObserver observer, HCEventMission mission)
     {
+        s_FailDetails = "";
         if (!observer || !mission || !HCEventRuntimePolicy.MissionValid(mission, mission.WorldName) || !HCEventQualification.Admitted()) { return false; }
         if (mission.Family == HCEventFamily.INVESTIGATION) { return true; }
         if (mission.Family == HCEventFamily.AI_ENCOUNTER) { return false; }
@@ -195,6 +261,14 @@ class HCEventWorldBinding
         s_FailReason = "";
         vector origin = mission.Source;
         float radius = 15;
+        string wanted = mission.ItemClass;
+        if (mission.Family == HCEventFamily.PRESENCE) { wanted = mission.AnchorClass; }
+        if (mission.Family == HCEventFamily.INFECTED_CLEAR)
+        {
+            wanted = "ZombieBase";
+            radius = 60;
+        }
+        s_FailDetails = "; wanted=" + wanted + "; nearest_candidate_m=unknown_query_refused; radius_m=" + radius.ToString();
         if (mission.Family == HCEventFamily.INFECTED_CLEAR)
         {
             // Native: 3_Game/Global/Game.c:1176 SurfaceY(x, z). A police source is a model
@@ -226,9 +300,19 @@ class HCEventWorldBinding
             // Query order is unspecified: nearest to the ground centre first, native entity id breaks ties.
             ZombieBase selected;
             float nearest = 0;
+            float nearestCandidateSq = -1;
+            int infectedCount = 0;
+            int liveCount = 0;
             foreach (Object candidate : nearby)
             {
                 ZombieBase infected = ZombieBase.Cast(candidate);
+                if (infected && !infected.IsPendingDeletion())
+                {
+                    infectedCount = infectedCount + 1;
+                    float candidateSq = vector.DistanceSq(infected.GetPosition(), origin);
+                    if (nearestCandidateSq < 0 || candidateSq < nearestCandidateSq) { nearestCandidateSq = candidateSq; }
+                    if (infected.IsAlive()) { liveCount = liveCount + 1; }
+                }
                 if (infected && infected.HCEventEconomyCandidate() && infected.IsAlive() && !infected.IsPendingDeletion())
                 {
                     float distance = vector.DistanceSq(infected.GetPosition(), origin);
@@ -241,7 +325,10 @@ class HCEventWorldBinding
             }
             if (!selected)
             {
-                s_FailReason = "no_candidate";
+                s_FailReason = "no_candidate; constraint=no_ce_infected_in_radius";
+                if (liveCount == 0) { s_FailReason = "no_candidate; constraint=no_live_infected_in_radius"; }
+                if (infectedCount == 0) { s_FailReason = "no_candidate; constraint=no_infected_in_radius"; }
+                s_FailDetails = CandidateDetails(wanted, nearestCandidateSq, radius);
                 return BindFailed(mission);
             }
             if (!observer.RegisterInfected(mission.Id, selected))
@@ -251,7 +338,6 @@ class HCEventWorldBinding
             }
             return true;
         }
-        string wanted = mission.ItemClass;
         bool economy = true;
         if (mission.Family == HCEventFamily.PRESENCE)
         {
@@ -259,7 +345,20 @@ class HCEventWorldBinding
             economy = false;
         }
         HCEventTarget target = Select(nearby, wanted, economy);
-        if (!target) { return BindFailed(mission); }
+        if (!target)
+        {
+            float nearestItemSq = -1;
+            foreach (Object localCandidate : nearby)
+            {
+                if (localCandidate && !localCandidate.IsPendingDeletion() && localCandidate.GetType() == wanted)
+                {
+                    float itemDistanceSq = vector.DistanceSq(localCandidate.GetPosition(), origin);
+                    if (nearestItemSq < 0 || itemDistanceSq < nearestItemSq) { nearestItemSq = itemDistanceSq; }
+                }
+            }
+            s_FailDetails = CandidateDetails(wanted, nearestItemSq, radius);
+            return BindFailed(mission);
+        }
         if (mission.Family == HCEventFamily.PRESENCE)
         {
             return observer.RegisterPresence(mission.Id, target.Presence);

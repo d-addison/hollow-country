@@ -482,6 +482,7 @@ class V1EventsReviewFixes(unittest.TestCase):
         bound = []
         binder = load_class('HCEventWorldBinding.c', 'HCEventWorldBinding', env)
         binder.Bind = staticmethod(lambda observer, mission: bound.append(mission.Id))
+        binder.QueryBounded = staticmethod(lambda anchor, radius: EArray())
         binder.BindSites(N(), cfg, 'chernarusplus')
         self.assertEqual(6, len(bound))
 

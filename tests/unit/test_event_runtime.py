@@ -102,7 +102,7 @@ def environment():
     env["HCEventSitesGate"] = SimpleNamespace(Admitted=lambda: False) # synthetic: reviewed sites stay closed unless a test opens them
     env["Vector"] = lambda x, y, z: [x, y, z]
     env["PlayerBase"] = SimpleNamespace(Cast=lambda value: value)
-    env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Floor=math.floor)
+    env["Math"] = SimpleNamespace(AbsFloat=abs, Min=min, Max=max, Floor=math.floor, Sqrt=math.sqrt)
     env["vector"] = SimpleNamespace(DistanceSq=lambda a, b: sum((a[i]-b[i])**2 for i in range(3)), Zero=[0.0, 0.0, 0.0])
     for match in re.finditer(r"enum (\w+)\s*\{([^}]+)\}", data):
         env[match[1]] = SimpleNamespace(**{k: int(v) for k, v in re.findall(r"(\w+)\s*=\s*(\d+)", match[2])})

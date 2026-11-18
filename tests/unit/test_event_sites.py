@@ -659,19 +659,19 @@ class BindDiagnosticTests(unittest.TestCase):
         self.objects = [self.candidate() for _ in range(129)]
         for _ in range(5):
             self.assertFalse(self.binder.Bind(self.f.o, self.mission))
-        self.assertEqual(["[HC Events] bind failed; %s; reason=query_overflow" % self.mission.Id], self.bind_lines())
+        self.assertEqual(["[HC Events] bind failed; %s; reason=query_overflow; wanted=SyntheticSupply; nearest_candidate_m=unknown_query_refused; radius_m=15" % self.mission.Id], self.bind_lines())
 
     def test_zero_candidates_are_reported_as_no_candidate(self):
         self.objects = [self.candidate("SomethingElse")]
         for _ in range(3):
             self.assertFalse(self.binder.Bind(self.f.o, self.mission))
-        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate" % self.mission.Id], self.bind_lines())
+        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate; wanted=SyntheticSupply; nearest_candidate_m=none_within_15; radius_m=15" % self.mission.Id], self.bind_lines())
 
     def test_more_than_one_candidate_is_reported_as_ambiguous(self):
         self.objects = [self.candidate(), self.candidate()]
         for _ in range(3):
             self.assertFalse(self.binder.Bind(self.f.o, self.mission))
-        self.assertEqual(["[HC Events] bind failed; %s; reason=ambiguous" % self.mission.Id], self.bind_lines())
+        self.assertEqual(["[HC Events] bind failed; %s; reason=ambiguous; wanted=SyntheticSupply; nearest_candidate_m=0.0; radius_m=15" % self.mission.Id], self.bind_lines())
 
     def test_infected_clear_retries_zero_then_accepts_multiple_candidates(self):
         self.mission.Family = 7
@@ -684,7 +684,7 @@ class BindDiagnosticTests(unittest.TestCase):
         self.objects = [zombie(), zombie()]
         self.assertTrue(self.binder.Bind(self.f.o, self.mission))
         self.assertTrue(self.binder.Bind(self.f.o, self.mission))
-        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate" % self.mission.Id], self.bind_lines())
+        self.assertEqual(["[HC Events] bind failed; %s; reason=no_candidate; constraint=no_infected_in_radius; wanted=ZombieBase; nearest_candidate_m=none_within_60; radius_m=60" % self.mission.Id], self.bind_lines())
 
     def test_a_new_reason_for_the_same_mission_is_reported_again(self):
         self.assertFalse(self.binder.Bind(self.f.o, self.mission))
