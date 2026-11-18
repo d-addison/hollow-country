@@ -544,9 +544,13 @@ def bundle_apply(bundle, mission, workshop, loaded):
     if (Path(mission) / BUNDLE_MANAGED).exists():
         raise ValueError('bundle install exists; rollback before installing again')
     candidate = bundle_candidate(bundle, mission)
-    from tools.package import travel
+    from tools.package import loot_boost, travel
     source = Path(bundle) / 'mission/hollow-country'
     travel.validate(source)
+    if (Path(mission) / loot_boost.MANAGED).exists():
+        raise ValueError('loot boost already installed; bundle-rollback before installing again')
+    # The loot boost is generated from the friend's own installed bytes and goes last, on top of every layer.
+    multiplier, points = loot_boost.default_multiplier(Path(bundle)), loot_boost.shipped_points(Path(bundle))
     with tempfile.TemporaryDirectory(prefix='hc-bundle-preflight-') as directory:
         scratch = Path(directory) / 'mission'
         shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
@@ -557,13 +561,15 @@ def bundle_apply(bundle, mission, workshop, loaded):
         if not all(line.endswith('loaded=1') for line in optional['diagnostics']):
             raise ValueError('bundle requires all default optional overlays to be loaded')
         install(optional, scratch)
+        loot_boost.install(scratch, multiplier, points)
     install(candidate, mission, managed_name=BUNDLE_MANAGED)
     travel.install(source, mission)
     install(plan(workshop, mission, loaded, source / 'optional/overlay-policy.json'), mission)
+    loot_boost.install(mission, multiplier, points)
 
 
 def bundle_rollback(mission):
-    from tools.package import travel
+    from tools.package import loot_boost, travel
     mission = mission_target(mission)
     for path in mission.rglob('*'):
         safe(path)
@@ -572,6 +578,8 @@ def bundle_rollback(mission):
         scratch = Path(directory) / 'mission'
         shutil.copytree(mission, scratch, ignore=shutil.ignore_patterns('storage_*'))
         for target in (scratch, Path(mission)):
+            if os.path.lexists(target / loot_boost.MANAGED):
+                loot_boost.rollback(target)  # installed last, so it is undone first
             rollback(target)
             if (target / travel.MANAGED).exists():
                 travel.rollback(target)
@@ -617,7 +625,9 @@ def friend_notes():
         'ExpansionGPS uses nominal 4 with Military/Police usage; do not add another CE owner for these types.',
         'No stock mission ships. Use an isolated dayzOffline.chernarusplus copy outside Steam and this bundle.',
         'To undo (stop server first): python -m tools.package.optional_overlays bundle-rollback --mission <friend-mission>',
-        'Rollback order: optional packs, travel, bundle merge. Drift refuses rather than overwriting edits.',
+        'The loot boost goes last: non-firearm building loot x2 (settings in mission/hollow-country/loot-points/settings.json),',
+        '  RespawnTypes x2 and model-derived kitchen/garage/police/medical loot points; firearms, ammo and explosives keep their scarcity.',
+        'Rollback order: loot boost, optional packs, travel, bundle merge. Drift refuses rather than overwriting edits.',
         'Keep all receipts and backups on the friend server. No hive wipe; persisted entities are not deleted.',
         'CE building coverage is excluded; qualify it separately against the friend stock mission.',
         'Native compile, normal PBO/server and two-client synchronization remain pending.', '',

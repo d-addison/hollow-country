@@ -35,3 +35,15 @@ server. Check the displayed server name before joining. Baseline results apply
 to vanilla only; signed addon loading and each gameplay feature require their
 own tests. The prepared baseline runtime shuts down after its scheduled
 30-minute session.
+
+## Loot boost on the local test session
+
+`tools/setup/local_test_session.py apply` installs the loot boost by default as the last CE
+layer (after economy, optional deltas, travel and CE coverage) and rolls it back first. It
+multiplies non-firearm loot and `RespawnTypes` by `Multiplier` from
+`mission/hollow-country/loot-points/settings.json` (default 2.0) and merges the contextual
+building points from `loot-points/additions.json`. `--loot-multiplier N` (1.0-4.0) overrides the
+setting, `--no-loot-boost` leaves it out and `--loot-boost` turns any skip advisory into a
+refusal. Firearms, ammunition, magazines, attachments and explosives keep their scarcity.
+`plan` prints a `loot boost (x2 ...)` line with per-family point counts. CE spawns on the added
+`lootHCFloor` containers, the real loot density and the server cost remain pending native checks.

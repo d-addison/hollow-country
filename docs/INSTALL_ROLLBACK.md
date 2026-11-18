@@ -309,11 +309,25 @@ python -m tools.package.optional_overlays bundle-apply --mission /private/server
 `bundle-plan` previews the authored merge. `bundle-apply` requires the default
 living-pack sources plus Navigation and RaG_Core, rehearses the merge and travel/optional plans on scratch,
 then writes a backup receipt before any mission file mutation. It installs the
-base merge, travel CE and Bicycle/Ambient/RaG/GPS overlays in that order. Each installer
+base merge, travel CE and Bicycle/Ambient/RaG/GPS overlays, then the loot boost last. Each installer
 has its own receipt, including the first installation. Unknown existing overlay
 files and conflicting edited values refuse. Interrupted installs remain reversible
 using those receipts; preserve every receipt and backup. No stock mission is
 replaced wholesale. Do not merge another CE owner for the same class/event.
+
+**Loot boost (on by default).** `bundle-apply` finishes with `tools/package/loot_boost.py`, which
+regenerates the change from the friend's own installed mission bytes (no vanilla file ships):
+non-firearm `nominal`/`min` in `db/types.xml` and registered HC CE types files, group/container
+`lootmax` in `mapgroupproto.xml` and `RespawnTypes` in `db/globals.xml` (capped at 64) are
+multiplied by `Multiplier` in `mission/hollow-country/loot-points/settings.json` (default 2.0,
+range 1.0-4.0). Weapons/explosives categories (firearms, ammunition, magazines, attachments),
+the firearms roster, uncategorized rows and every container that lists weapons or explosives keep their stock values; added spots never carry those categories.
+It also merges `loot-points/additions.json`: model-derived floor points per building family
+(kitchen food, garage/shed tools, police and military at existing weapon scarcity, medical,
+fire, civic and residential), at most 12 points per building and 3000 in total. Its own
+receipt and byte-exact backups live in `hollow-country-loot-boost`; rollback undoes it first.
+`InitialSpawn`, `RespawnLimit`, `RespawnAttempt` and cleanup values are unchanged. Native CE
+acceptance of the added containers and the entity/performance cost are not yet observed.
 
 Rollback with the server stopped:
 
@@ -321,8 +335,8 @@ Rollback with the server stopped:
 python -m tools.package.optional_overlays bundle-rollback --mission /private/server/mpmissions/dayzOffline.chernarusplus
 ```
 
-Rollback rehearses before changing live files, then undoes optional packs, travel
-and the base merge, restoring the friend's own exact bytes. Drift refuses instead
+Rollback rehearses before changing live files, then undoes the loot boost, optional packs,
+travel and the base merge, restoring the friend's own exact bytes. Drift refuses instead
 of overwriting changes. It does not wipe the hive or remove persisted bikes or
 animals. Restore profile configuration separately from your stopped-server backup.
 

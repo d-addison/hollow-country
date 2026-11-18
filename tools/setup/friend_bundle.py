@@ -38,11 +38,12 @@ from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 from tools.package import optional_overlays as overlays, travel, pbo
 from tools.package import snafu_optional, tactical_flava_optional
+from tools.package import loot_boost
 import xml.etree.ElementTree as ET
 
 SOURCE = lts.ROOT / 'mission/hollow-country'
 BUNDLE_TOOLS = ('optional_overlays.py', 'rag_optional.py', 'travel.py', 'economy.py',
-                'datamined_items.py', 'datamined_items.json')
+                'datamined_items.py', 'datamined_items.json', 'loot_boost.py', 'firearms_roster.json')
 
 # Mission files that are local state or tool rollback data, never configuration.
 MISSION_EXCLUDE_DIRS = ('storage_*',)
@@ -321,11 +322,20 @@ def build(args):
     for rel, data in clean.items():
         top = PurePosixPath(rel).parts[0]
         # Weapon-pack deltas are generated from the installed third-party Workshop items: never export them.
-        own = top.startswith('hollow-country') and top not in (travel.MANAGED, ce_coverage.MANAGED,
+        own = top.startswith('hollow-country') and top not in (travel.MANAGED, ce_coverage.MANAGED, loot_boost.MANAGED,
                                                                 snafu_optional.MANAGED, tactical_flava_optional.MANAGED)
         if own or rel == 'expansion/settings/AIPatrolSettings.json':
             if PurePosixPath(rel).name not in ('delta-manifest.json', 'economy-report.json', 'gameplay-report.json'):
                 authored[rel] = data
+    # The friend's own bundle-apply boosts loot once on their stock mission: export the pre-boost bytes of
+    # every file a local loot boost holds (for example the economy types), never the doubled ones.
+    try:
+        unboosted = loot_boost.installed_before(mission)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise Refused('local loot boost cannot be undone in the export: %s' % error) from error
+    for rel, data in unboosted.items():
+        if rel in authored:
+            authored[rel] = data
     # Every authored V2 JSON is copied at its runtime mission path. Never infer
     # the catalog from a hard-coded list that silently misses the next module.
     for path in sorted(SOURCE.rglob('*.json')):

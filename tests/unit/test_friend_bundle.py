@@ -183,6 +183,34 @@ class FriendBundleTests(unittest.TestCase):
                   if f.startswith(('mission-overlay/' + snafu_optional.MANAGED, 'mission-overlay/' + tactical_flava_optional.MANAGED))]
         self.assertEqual(leaked, [])
 
+    def test_a_locally_boosted_mission_exports_pre_boost_overlay_bytes_and_ships_the_boost_installer(self):
+        # SYNTHETIC rows: the friend's own install doubles the loot once; the export must never carry doubled bytes.
+        from tools.package import loot_boost
+        put(self.mission, 'cfgeconomycore.xml', '<economycore><ce folder="hollow-country/ce">'
+            '<file name="types.xml" type="types"/></ce></economycore>')
+        put(self.mission, 'db/types.xml', '<types><type name="SyntheticApple"><nominal>4</nominal><min>2</min>'
+            '<category name="food"/></type></types>')
+        authored = ('<types>\n<type name="SyntheticSaw"><nominal>3</nominal><min>1</min>'
+                    '<category name="tools"/></type>\n</types>\n')
+        put(self.mission, 'hollow-country/ce/types.xml', authored)
+        put(self.mission, 'db/globals.xml', '<variables><var name="RespawnTypes" type="0" value="12"/></variables>')
+        put(self.mission, 'mapgroupproto.xml', '<prototype><group name="SyntheticShed" lootmax="2">'
+            '<container name="lootFloor"><point pos="0 0 0"/></container></group></prototype>')
+        put(self.mission, 'cfglimitsdefinition.xml', '<lists><categories/><tags/></lists>')
+        loot_boost.install(self.mission, 2.0, None)
+        self.assertIn(b'<nominal>6</nominal>', (self.mission / 'hollow-country/ce/types.xml').read_bytes())
+        code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        files = self.files()
+        self.assertEqual((self.out / 'mission-overlay/hollow-country/ce/types.xml').read_text(), authored)
+        self.assertFalse([f for f in files if f.startswith('mission-overlay/' + loot_boost.MANAGED)])
+        for name in ('tools/package/loot_boost.py', 'tools/package/firearms_roster.json',
+                     'mission/hollow-country/loot-points/additions.json',
+                     'mission/hollow-country/loot-points/families.json',
+                     'mission/hollow-country/loot-points/settings.json'):
+            self.assertIn(name, files)
+        self.assertIn('loot boost', (self.out / 'README.txt').read_text())
+
     def test_profile_copy_is_an_allowlist_of_config_never_runtime_state(self):
         code, text = self.run_cli()
         self.assertEqual(code, 0, text)

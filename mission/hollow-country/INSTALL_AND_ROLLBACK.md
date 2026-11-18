@@ -253,6 +253,43 @@ existing saved vehicles are not deleted or retroactively repaired. DayZDiag,
 normal PBO/server load, native CE warnings, newly spawned attachment condition,
 fluid usability, persistence and boat navigation remain unobserved.
 
+## Loot boost and contextual building points
+
+Install **last**, after the economy, optional extensions, travel CE and CE building coverage,
+and roll back **first**. The local-session launcher does this by default (`--no-loot-boost`
+leaves it out, `--loot-multiplier N` overrides the setting); the friend bundle's `bundle-apply`
+runs it last on the friend's own mission. Stand-alone, with the server stopped:
+
+```powershell
+python -m tools.package.loot_boost plan --mission D:\HollowCountryLocal\candidate\mpmissions\dayzOffline.chernarusplus
+python -m tools.package.loot_boost install --mission D:\HollowCountryLocal\candidate\mpmissions\dayzOffline.chernarusplus
+python -m tools.package.loot_boost rollback --mission D:\HollowCountryLocal\candidate\mpmissions\dayzOffline.chernarusplus
+```
+
+The change is generated from the mission's installed bytes; no vanilla dump is stored. The
+`Multiplier` in `loot-points/settings.json` (default 2.0, range 1.0-4.0) scales `nominal`/`min`
+of non-firearm categories (tools, containers, clothes, food, books) in `db/types.xml` and the
+registered HC CE types files, group/container `lootmax` in `mapgroupproto.xml` and
+`RespawnTypes` in `db/globals.xml` (cap 64; storage is persistent, so the respawn batch scales
+with the larger nominal). `InitialSpawn`, `RespawnLimit`, `RespawnAttempt`,
+`LootSpawnAvoidance` and cleanup are reported unchanged. Weapons/explosives categories, the
+firearms roster, uncategorized rows (vehicle parts) and every container that lists weapons or
+explosives stay exact.
+
+`loot-points/additions.json` holds model-derived `lootHCFloor` points per building, from the
+interior sampler censuses: walkable floor cells away from doors, at most 12 per building and
+3000 in total, each pinned to the stock group's hash so changed buildings are skipped as stale.
+Families map to categories/tags: kitchen food, garage/shed tools, medical, police and military
+(no weapons or explosives: added spots never carry them), fire, civic and residential.
+`loot-points/families.json` records the building-to-family rules. Regenerate the points from
+new censuses with `python -m tools.package.loot_boost points` (see the tool help).
+
+The receipt, byte-exact backups and the CE coverage pin live in `hollow-country-loot-boost`.
+CE coverage refuses to roll back underneath the boost; the economy, travel and bundle
+rollbacks refuse drift while the boost holds their files. Native CE acceptance of the added
+containers, observed loot density, server entity/performance cost at 3-6 players and the
+two-client view remain pending; nothing here is DayZ evidence.
+
 ## Gameplay settings (cfggameplay delta and spawn kit)
 
 The native loader reads `cfggameplay.json` only when the server configuration
@@ -364,6 +401,9 @@ managed directory. Drift, unexpected files or symlinks cause refusal so operator
 changes are preserved for manual reconciliation. An interrupted install with its
 receipt/backup and types file complete can also roll back before the core switch;
 inspect incomplete earlier writes manually against your stopped backup.
+
+Roll the loot boost back first (`python -m tools.package.loot_boost rollback --mission ...`);
+the economy, coverage and travel rollbacks refuse while it holds their files.
 
 The gameplay delta has its own rollback (`gameplay.py rollback`, see Gameplay
 settings) that restores the original `cfggameplay.json` bytes. Roll back the CE

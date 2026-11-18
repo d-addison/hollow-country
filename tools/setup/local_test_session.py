@@ -20,13 +20,16 @@ reimplements it:
                   (interiors_profile templates install into <profiles>/HollowCountry/templates),
                   --interiors legacy (the old data pack), --[no-]travel (authored V2 CE, on by default, EnableTravel preference),
                   --ce-coverage [--ce-coverage-result <external result>],
+                  --[no-]loot-boost [--loot-multiplier N] (tools/package/loot_boost.py, on by default: non-firearm
+                  building loot x2 from mission/hollow-country/loot-points/settings.json, RespawnTypes x2 and the
+                  model-derived contextual points overlay; generated from the mission's installed bytes, last CE layer),
                   --expansion-ai (stage @HollowCountryExpansionAI after Expansion's own Workshop folders, which
                   are only checked and never copied; then expansion_ai_config installs ai/sites.json and the
                   HollowCountry_* loadouts, the patrol override and the field merge into Expansion's existing
                   AISettings.json, with byte-exact backups) and
                   --markers all-local / NAME,... (names parsed from docs/LOCAL_ACCEPTANCE_V1.md at run time).
                   Apply order: mod, keys, cfg, gameplay, economy, snafu, tactical_flava, travel, ce_coverage,
-                  interiors, expansion_ai, expansion_ai_config,
+                  loot_boost, interiors, expansion_ai, expansion_ai_config,
                   markers; rollback reverses.
 
     python3 tools/setup/local_test_session.py plan  --server-root /mnt/d/HollowCountryLocal/runtime-001 \\
@@ -101,8 +104,9 @@ MARKER_ROW = re.compile(r'^\|\s*`\$profile:HollowCountry/acceptance/(?P<name>[A-
 OPTIONAL_DELTAS = (('snafu', 'snafu_optional', 'SNAFU'),
                    ('tactical_flava', 'tactical_flava_optional', 'Tactical Flava'))
 STEP_TOOLS = {'tactical_flava': 'tactical_flava_optional', 'snafu': 'snafu_optional',
-              'economy': 'economy', 'gameplay': 'gameplay', 'ce_coverage': 'ce_coverage', 'travel': 'travel'}
-STACK_STEPS = ('ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
+              'economy': 'economy', 'gameplay': 'gameplay', 'ce_coverage': 'ce_coverage', 'travel': 'travel',
+              'loot_boost': 'loot_boost'}
+STACK_STEPS = ('loot_boost', 'ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
 
 EXPANSION_DEPENDENCIES = (
     ('CF', '1559212036', ('cf', 'communityframework')),
@@ -327,6 +331,7 @@ def load_tool(name):
               'interiors_profile': 'tools.package.interiors_profile',
               'ce_coverage': 'tools.package.ce_coverage',
               'travel': 'tools.package.travel',
+              'loot_boost': 'tools.package.loot_boost',
               'snafu_optional': 'tools.package.snafu_optional',
               'tactical_flava_optional': 'tools.package.tactical_flava_optional'}[name]
     try:
@@ -1210,6 +1215,8 @@ def rehearse_deltas(plan, repo):
         rehearsal_inputs = set(getattr(economy, 'INPUTS', ()))
         if plan.get('ce_coverage'):
             rehearsal_inputs.add('mapgroupproto.xml')
+        if plan.get('loot_boost'):
+            rehearsal_inputs.update(load_tool('loot_boost').INPUTS)
         for relative in sorted(rehearsal_inputs):
             (copy / relative).parent.mkdir(parents=True, exist_ok=True)
             (copy / relative).write_bytes(read_bytes(plan['mission'] / relative, relative, MAX_BYTES))
@@ -1239,8 +1246,43 @@ def rehearse_deltas(plan, repo):
             coverage = load_tool('ce_coverage')
             coverage.write_delta(scratch / 'ce-coverage', coverage.generate(plan['ce_coverage']['data'], copy))
             coverage.install(scratch / 'ce-coverage', copy)
+        if plan.get('loot_boost'):
+            boost = load_tool('loot_boost')
+            try:
+                boost.install(copy, plan['loot_boost']['multiplier'], plan['loot_boost']['points'])
+            except (ValueError, OSError, KeyError, TypeError) as error:
+                raise Refused('loot boost cannot be installed on top of the other CE deltas (nothing was changed): '
+                              '%s' % error) from None
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
+
+
+def plan_loot_boost(args, plan, mission, repo):
+    """(spec or None, skipped advisory or None). Owner decision 2026-11-18: the loot boost is on by default.
+
+    Only an explicit --loot-boost refuses on a problem; the default skips with an advisory. The plan here runs on
+    the mission's current bytes; rehearse_deltas then installs it on a scratch copy on top of the other CE deltas."""
+    choice = getattr(args, 'loot_boost', None)
+    if choice is False:
+        return None, None
+    explicit = choice is True
+    try:
+        if not plan['economy']:
+            raise ValueError('it needs the economy delta (economy profile none)')
+        boost = load_tool('loot_boost')
+        multiplier = getattr(args, 'loot_multiplier', None)
+        if multiplier is None:
+            multiplier = boost.default_multiplier(repo)
+        points = boost.shipped_points(repo)
+        if os.path.lexists(mission / boost.MANAGED):
+            raise ValueError('already installed in the mission; roll it back first (never applied twice)')
+        result = boost.plan(mission, multiplier, points)
+    except (ValueError, OSError, KeyError, TypeError, Refused) as error:
+        if explicit:
+            raise Refused('loot boost cannot be installed: %s' % error) from None
+        return None, 'loot boost skipped: %s' % error
+    return {'multiplier': result['multiplier'], 'points': points, 'points_sha256': result['points_sha256'],
+            'describe': boost.describe(result)[1:]}, None
 
 
 def check_destinations(plan, mission, snafu, tf, ai, keys, plan_interiors_target=None):
@@ -1257,6 +1299,8 @@ def check_destinations(plan, mission, snafu, tf, ai, keys, plan_interiors_target
         managed.append(('CE coverage', 'ce_coverage'))
     if plan.get('travel'):
         managed.append(('travel CE', 'travel'))
+    if plan.get('loot_boost'):
+        managed.append(('loot boost', 'loot_boost'))
     if snafu:
         managed.append(('SNAFU delta', 'snafu_optional'))
     if tf:
@@ -1417,7 +1461,16 @@ def build_plan(args, repo=ROOT):
                 if explicit:
                     raise
                 plan['travel'], plan['travel_skipped'] = False, 'travel CE skipped: %s' % error
-    if snafu or tf or plan.get('ce_coverage') or plan.get('travel'):
+    plan['loot_boost'], plan['loot_boost_skipped'] = plan_loot_boost(args, plan, mission, repo)
+    if plan['loot_boost']:
+        try:
+            check_destinations(plan, mission, snafu, tf, ai, keys if args.install_key else (),
+                               plan_interiors_target=getattr(args, 'interiors', False) and profiles / 'HollowCountry')
+        except Refused as error:
+            if getattr(args, 'loot_boost', None) is True:
+                raise
+            plan['loot_boost'], plan['loot_boost_skipped'] = None, 'loot boost skipped: %s' % error
+    if snafu or tf or plan.get('ce_coverage') or plan.get('travel') or plan.get('loot_boost'):
         rehearse_deltas(plan, repo)
     if ai:
         ai['config'] = plan_ai_config(profiles, mission, repo)
@@ -1477,6 +1530,9 @@ def advisories(plan):
     facts, rows = plan['cfg_facts'], []
     if plan.get('travel_skipped'):
         rows.append(plan['travel_skipped'] + '; pass --travel to make this a refusal, or --no-travel to silence it.')
+    if plan.get('loot_boost_skipped'):
+        rows.append(plan['loot_boost_skipped'] + '; pass --loot-boost to make this a refusal, or --no-loot-boost to '
+                    'silence it.')
     if not plan['mod']['signed']:
         rows.append('Unsigned mod: the server and the client need signature verification relaxed by you; '
                     'this tool does not change verifySignatures (currently %s).' % facts.get('verifySignatures', 'not set'))
@@ -1564,6 +1620,13 @@ def render_plan(plan, args, commands, applied=False):
         'install' if plan['economy'] else 'skipped'))
     out.append('     travel CE (EnableTravel, on by default, EXP-T1/T2/T4 pending): %s' % (
         'install' if plan.get('travel') else 'skipped (--no-travel, EnableTravel false, or see advisories)'))
+    boost = plan.get('loot_boost')
+    out.append('     loot boost (x%g non-firearm loot, RespawnTypes, contextual building points; last CE layer, '
+               'runtime acceptance pending): %s' % (
+                   boost['multiplier'] if boost else 2, 'install' if boost else
+                   'skipped (--no-loot-boost, economy profile none, or see advisories)'))
+    if boost:
+        out += ['       ' + line for line in boost['describe']]
     out.append('4. Acceptance markers in %s: %s' % (plan['profiles'], plan['markers_mode'] if plan['markers_mode'] != 'names' else ','.join(plan['markers_only'])))
     for item in (plan['markers'] or {}).get('files', []):
         out.append('     %s.enable [%s]' % (item['name'], item['action']))
@@ -1686,6 +1749,9 @@ def apply_plan(plan, args):
                     'server_keys': [], 'server_keys_dir': None, 'mission': str(plan['mission']),
                     'profiles': str(plan['profiles']), 'markers': {'created': [], 'dirs': []},
                     'interiors': interiors_record, 'ce_coverage': coverage_record, 'travel': plan.get('travel', False),
+                    'loot_boost': {'multiplier': plan['loot_boost']['multiplier'],
+                                   'points_sha256': plan['loot_boost']['points_sha256']}
+                    if plan.get('loot_boost') else None,
                     'snafu_delta': optional_receipt(plan.get('snafu_delta')),
                     'tactical_flava_delta': optional_receipt(plan.get('tactical_flava_delta')),
                     'expansion_ai': {'dest': str(plan['expansion_ai']['mod']['dest']),
@@ -1780,6 +1846,12 @@ def apply_plan(plan, args):
         coverage.write_delta(coverage_stage, coverage.generate(plan['ce_coverage']['data'], plan['mission']))
         coverage.install(coverage_stage, plan['mission'])
         receipt.step('ce_coverage', 'done')
+    # 4c. the loot boost, generated from the patched mission bytes; last CE layer, first rolled back
+    if plan.get('loot_boost'):
+        boost = load_tool('loot_boost')
+        receipt.step('loot_boost', 'started')
+        boost.install(plan['mission'], plan['loot_boost']['multiplier'], plan['loot_boost']['points'])
+        receipt.step('loot_boost', 'done')
     # 5. interior templates (or explicit legacy data pack), through the existing installer
     if plan['interiors']:
         interiors = interiors_installer(plan['interiors']['mode'])
@@ -1996,7 +2068,16 @@ def trial_rollback(name, tool, mission, started, above=(), inputs=()):
                 if entry.is_file():
                     regular(entry, 'CE pinning receipt file')
             shutil.copytree(mission / folder, copy / folder, symlinks=True)
-        for relative in sorted(set(getattr(tool, 'INPUTS', ())) | set(inputs)):
+        extra = set()
+        for _, member in chain:  # files named in an installer's own receipt (the loot boost's scaled types files)
+            hook = getattr(member, 'rollback_inputs', None)
+            if hook is not None:
+                try:
+                    extra.update(hook(mission))
+                except (ValueError, OSError, KeyError, TypeError) as error:
+                    raise Refused('%s rollback would be refused (nothing was changed; the receipt is kept): %s' %
+                                  (label, error)) from None
+        for relative in sorted(set(getattr(tool, 'INPUTS', ())) | set(inputs) | extra):
             source = mission / relative
             if os.path.lexists(source):
                 (copy / relative).parent.mkdir(parents=True, exist_ok=True)
@@ -2171,8 +2252,10 @@ def plan_rollback(server_root, repo=ROOT):
 
     rollback_inputs = set(getattr(load_tool('economy'), 'INPUTS', ()))
     rollback_inputs.add('mapgroupproto.xml')
+    if steps.get('loot_boost'):
+        rollback_inputs.update(load_tool('loot_boost').INPUTS)
     above = []  # CE-stack installers that roll back before the next one (their trial runs on top of them)
-    for name in ('ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy', 'gameplay'):
+    for name in ('loot_boost', 'ce_coverage', 'travel', 'tactical_flava', 'snafu', 'economy', 'gameplay'):
         if not steps.get(name) or progress.get(name) == 'done':
             continue
         tool = load_tool(STEP_TOOLS[name])
@@ -2317,6 +2400,12 @@ def build_parser():
         p.add_argument('--travel', action=argparse.BooleanOptionalAction, default=None,
                        help='authored travel CE after economy; on by default (skipped with an advisory if it cannot '
                        'install), --travel refuses instead of skipping, --no-travel leaves it out')
+        p.add_argument('--loot-boost', action=argparse.BooleanOptionalAction, default=None,
+                       help='loot boost after the other CE deltas: non-firearm building loot and RespawnTypes x the '
+                       'multiplier plus the contextual building points overlay; on by default (skipped with an advisory '
+                       'if it cannot install), --loot-boost refuses instead of skipping, --no-loot-boost leaves it out')
+        p.add_argument('--loot-multiplier', type=float, default=None,
+                       help='loot boost multiplier, 1.0-4.0 (default: mission/hollow-country/loot-points/settings.json, 2.0)')
         p.add_argument('--expansion-ai', action='store_true',
                        help='stage the optional @HollowCountryExpansionAI addon after the Expansion Workshop mods '
                        '(needs --workshop-dir, --expansion-ai-mod, --expansion-ai-dest)')

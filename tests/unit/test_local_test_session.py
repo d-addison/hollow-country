@@ -399,6 +399,8 @@ class SessionCase(unittest.TestCase):
             extra += ['--vanilla-addons', str(self.vanilla)]
         if command in ('plan', 'apply') and '--travel' not in extra and '--no-travel' not in extra:
             extra.append('--no-travel')  # travel CE is on by default; these fakes model the other steps
+        if command in ('plan', 'apply') and '--loot-boost' not in extra and '--no-loot-boost' not in extra:
+            extra.append('--no-loot-boost')  # the loot boost is on by default; these fakes do not model it
         return [command, '--server-root', str(self.server), '--mission', str(self.mission),
                 '--profiles', str(self.profiles), '--mod', str(self.built), '--mod-dest', str(self.dest), *extra]
 
@@ -2309,6 +2311,58 @@ class RealInstallers(unittest.TestCase):
             self.assertEqual(lts.main(['rollback', '--server-root', str(server)], out=io.StringIO()), 0)
             after = {p: p.read_bytes() for p in list(mission.rglob('*')) + list(server.rglob('*')) if p.is_file()}
             self.assertEqual(before, after)
+
+    def test_the_real_loot_boost_is_on_by_default_installs_last_and_rolls_back_first_byte_identically(self):
+        """SYNTHETIC economy-contract mission plus an invented globals.xml; the real loot_boost runs after the
+        economy and travel installers and is the first CE layer the session rolls back. No DayZ behavior."""
+        from tests.unit import test_economy_contract, test_gameplay_delta
+        from tools.package import loot_boost
+        with tempfile.TemporaryDirectory(prefix='hc-synthetic-real-') as t:
+            base = Path(t)
+            mission, server, profiles = base / 'mission', base / 'server', base / 'profiles'
+            mission.mkdir()
+            test_economy_contract.synthetic(mission)
+            vanilla_usage_vocabulary(mission)
+            (mission / 'db' / 'globals.xml').write_text(
+                '<variables>\n<var name="RespawnTypes" type="0" value="12"/>\n'
+                '<var name="InitialSpawn" type="0" value="100"/>\n</variables>\n')
+            test_gameplay_delta.synthetic_source(base / 'gp')
+            shutil.copy(base / 'gp' / 'cfggameplay.json', mission / 'cfggameplay.json')
+            for directory in (server, profiles, base / 'out'):
+                directory.mkdir()
+            (server / 'serverDZ.cfg').write_bytes(CFG.encode())
+            built = base / 'built' / '@HollowCountry'
+            (built / 'addons').mkdir(parents=True)
+            (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
+            argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
+                    '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
+                    '--economy-profile', 'baseline', '--no-roster']
+
+            def everything():
+                return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out')
+                        for p in root.rglob('*') if p.is_file()}
+            before = everything()
+            out, err = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stderr(err):
+                self.assertEqual(lts.main(['plan'] + argv, out=out), 0, err.getvalue())
+                self.assertIn('loot boost (x2', out.getvalue())
+                self.assertEqual(before, everything())
+                self.assertEqual(lts.main(['apply'] + argv, out=io.StringIO()), 0, err.getvalue())
+                receipt = json.loads((mission / loot_boost.MANAGED / 'receipt.json').read_text())
+                self.assertEqual(receipt['multiplier'], 2.0)
+                self.assertIn('db/types.xml', [row['name'] for row in receipt['files']])
+                self.assertIn('<nominal>20</nominal>', (mission / 'db' / 'types.xml').read_text())  # tools 10 -> 20
+                self.assertIn('value="24"', (mission / 'db' / 'globals.xml').read_text())
+                session = json.loads((server / lts.STATE_NAME / lts.RECEIPT_NAME).read_text())
+                self.assertEqual(session['steps']['loot_boost'], 'done')
+                self.assertEqual(lts.main(['rollback', '--server-root', str(server), '--dry-run'], out=io.StringIO()),
+                                 0, err.getvalue())
+                self.assertEqual(lts.main(['rollback', '--server-root', str(server)], out=io.StringIO()), 0, err.getvalue())
+            self.assertEqual(before, everything())
+            self.assertFalse((mission / loot_boost.MANAGED).exists())
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(lts.main(['apply'] + argv + ['--no-loot-boost'], out=io.StringIO()), 0)
+            self.assertFalse((mission / loot_boost.MANAGED).exists())
 
     def test_the_real_interiors_pack_and_all_local_markers_install_and_roll_back_byte_identically(self):
         from tests.unit import test_economy_contract, test_gameplay_delta

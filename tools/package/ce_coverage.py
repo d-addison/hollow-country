@@ -525,7 +525,9 @@ def _switch(staged, proto):
 
 
 # Installers that pin mapgroupproto.xml in their receipt's ``sources`` (economy, SNAFU, Tactical Flava).
-PINNING_FOLDERS = (economy.MANAGED, 'hollow-country-snafu', 'hollow-country-tactical-flava')
+# The loot boost installs on top of coverage and pins the coverage-patched mapgroupproto, so coverage
+# refuses to roll back underneath it (tools/package/loot_boost.py rolls back first).
+PINNING_FOLDERS = (economy.MANAGED, 'hollow-country-snafu', 'hollow-country-tactical-flava', 'hollow-country-loot-boost')
 
 
 def _check_pinning_installs(target, expected_sha):
