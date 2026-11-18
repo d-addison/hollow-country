@@ -333,10 +333,6 @@ class CombinedWorkTests(unittest.TestCase):
         self.assertLessEqual(len(processed), f.state.m_Settings.MaxTickWorkItems,
                              'shared budget exceeded by actual infected/interior loops: ' + repr(processed))
 
-    # HARDENING GAP (reviewed: callbacks fire within 100 ms and null-check; tidy with Remove in OnStop) mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c:542
-    # and HCInteriorPathgraph.c:30: stopping before
-    # the 100ms deferred updates execute leaves both callbacks queued.
-    @unittest.expectedFailure
     def test_stop_removes_queued_interior_updates_as_well_as_core_tick(self):
         f = CoreFixture()
         interior = search.SearchIntegrationTests(); interior.setUp()

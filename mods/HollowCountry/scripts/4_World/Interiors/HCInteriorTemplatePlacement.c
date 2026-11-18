@@ -34,6 +34,11 @@ class HCInteriorTemplatePlacement
     protected static ref array<Object> s_Houses = new array<Object>;
     protected static ref map<string, int> s_Refused = new map<string, int>;
     protected static ref array<string> s_BoxLogged = new array<string>;
+    // Exact query centres only: nearby rows can have different ambiguity/refusal results.
+    // FIFO bounds retained snapshots and lookup work; never retain >256 native objects per entry.
+    static const int RESOLVE_CACHE_LIMIT = 128;
+    protected static ref array<ref HCInteriorResolveEntry> s_ResolveCache = new array<ref HCInteriorResolveEntry>;
+    protected static int s_ResolveNext;
 
     static void ResetPlacement()
     {
@@ -48,6 +53,8 @@ class HCInteriorTemplatePlacement
         s_BoxLogged.Clear();
         s_LastType = "";
         s_LastQuery = 0;
+        s_ResolveCache.Clear();
+        s_ResolveNext = 0;
     }
 
     // Shared sub-timer of the Interiors module tick; the step order matches the STEP_* indices.
@@ -112,23 +119,54 @@ class HCInteriorTemplatePlacement
         s_Refused.Set(reason, s_Refused.Get(reason) + count);
     }
 
+    // Native 1_Core/proto/EnScript.c:380/385/389/407 Count/Clear/Set/Insert.
+    // Reuse the unmodified 0.75 m native query for all slices/templates at this building centre.
+    // Filtering still runs on live object state in Resolve; cached failure snapshots retain #q.
+    static HCInteriorResolveEntry HCResolveObjects(vector position)
+    {
+        foreach (HCInteriorResolveEntry cached : s_ResolveCache)
+        {
+            if (cached.Position == position)
+            {
+                return cached;
+            }
+        }
+        HCInteriorResolveEntry entry = new HCInteriorResolveEntry;
+        entry.Position = position;
+        array<CargoBase> cargos = new array<CargoBase>();
+        GetGame().GetObjectsAtPosition3D(position, 0.75, entry.Objects, cargos);
+        entry.QuerySize = entry.Objects.Count();
+        if (entry.QuerySize > 256)
+        {
+            entry.Objects.Clear();
+        }
+        if (s_ResolveCache.Count() < RESOLVE_CACHE_LIMIT)
+        {
+            s_ResolveCache.Insert(entry);
+        }
+        else
+        {
+            s_ResolveCache.Set(s_ResolveNext, entry);
+            s_ResolveNext = (s_ResolveNext + 1) % RESOLVE_CACHE_LIMIT;
+        }
+        return entry;
+    }
+
     static Object Resolve(HCInteriorFurnishRow row)
 
     {
         s_ResolveReason = "unresolved";
-        array<Object> objects = new array<Object>();
-        array<CargoBase> cargos = new array<CargoBase>();
         vector position = HCInteriorTemplates.AsVector(row.Position);
-        GetGame().GetObjectsAtPosition3D(position, 0.75, objects, cargos);
-        s_LastQuery = objects.Count();
-        if (objects.Count() > 256)
+        HCInteriorResolveEntry entry = HCResolveObjects(position);
+        s_LastQuery = entry.QuerySize;
+        if (s_LastQuery > 256)
 
         {
             s_ResolveReason = "query_cap";
             return null;
         }
         Object found;
-        foreach (Object object : objects)
+        foreach (Object object : entry.Objects)
 
         {
             if (!object || object.GetType() != row.BuildingClass || vector.DistanceSq(position, object.GetPosition()) > 0.5625)

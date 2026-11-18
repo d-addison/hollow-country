@@ -1,4 +1,11 @@
-"""Synthetic translated Enforce checks; never DayZ geometry/runtime evidence."""
+"""Synthetic translated Enforce checks; never DayZ geometry/runtime evidence.
+
+#138 TDD (2026-11-18): test_building_templates_keep_placements_and_refusals_with_one_resolve_query
+RED: AssertionError: 1 != 3 : same building must share one native resolve query.
+RED/GREEN command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest
+tests.unit.test_interior_templates_runtime.InteriorTemplatesRuntimeTests.test_building_templates_keep_placements_and_refusals_with_one_resolve_query -v
+GREEN also covers bounded eviction/reset, duplicate-house and unchanged refusal snapshots.
+"""
 import copy
 import json
 from pathlib import Path
@@ -23,10 +30,12 @@ class EMap(BaseMap):
     def GetKey(self, index): return list(self)[index]
     def GetElement(self, index): return list(self.values())[index]
     def Set(self, key, value): self[key] = value
+    def Clear(self): self.clear()
 
 
 class Array(EArray):
     def Sort(self): self.sort()
+    def Set(self, index, value): self[index] = value
 
 
 def authored(include_read=False):
@@ -55,7 +64,7 @@ def authored(include_read=False):
             continue  # Native byte/config/spawn boundaries are explicit in fixture().
         args = [arg.split('=')[0].strip().split()[-1] + ('='+arg.split('=')[1].strip() if '=' in arg else '') for arg in re.sub(r'<[^>]*>', '', match[3]).split(',') if arg.strip()]
         lines = [f'def {name}({", ".join(args)}):',
-                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery']
+                 '    global s_Attempted, s_Loaded, s_Index, s_Bytes, s_Files, s_Reason, s_Placed, s_Capped, s_Started, s_ResolveReason, s_MaxProps, s_Root, s_Source, s_Steps, s_LastType, s_LastQuery, s_ResolveNext']
         indent = 1
         for token in statements(body(sources, match.end())):
             token = token.strip()
@@ -189,6 +198,7 @@ def fixture(values=None):
         s_Classes=EArray(),s_Templates=EArray(),s_Groups=EArray(),s_Furnish=EArray(),
         s_Placed=0,s_Capped=0,s_Refused=EMap(),s_Houses=EArray(),s_Started=False,s_ResolveReason='',s_MaxProps=5,
         s_BoxLogged=Array(), s_Deferred=Array(), s_DeferredNext=0,
+        s_ResolveCache=Array(), s_ResolveNext=0,
         # SYNTHETIC sub-timer sink (the authored HCStepTimer is exercised in test_hc_unit_budget).
         # This translator renders 'new HCStepTimer("Interiors")' as 'HCStepTimer()("Interiors")'.
         s_Steps=None, s_LastType='', s_LastQuery=0, HCStepTimer=lambda *args:lambda *owner:NS(HCDefine=lambda name:0,
@@ -202,6 +212,125 @@ def fixture(values=None):
 
 
 class InteriorTemplatesRuntimeTests(unittest.TestCase):
+    def test_resolve_cache_is_bounded_separates_positions_and_resets_on_stop(self):
+        result = self.load()
+        env = result[0]
+        queries = []
+        def query(position, radius, found, cargos):
+            queries.append(tuple(position))
+            found.append(SyntheticHouse(position=position))
+        env['GetGame'] = lambda: NS(GetObjectsAtPosition3D=query)
+        row = env['FurnishRows']()[0]
+        for index in range(env['RESOLVE_CACHE_LIMIT'] + 1):
+            row.Position = [100 + index * 10, 0, 100]
+            self.assertIsNotNone(env['Resolve'](row))
+        self.assertEqual(env['RESOLVE_CACHE_LIMIT'], len(env['s_ResolveCache']))
+        row.Position = [100, 0, 100]
+        env['Resolve'](row)  # Oldest position was evicted, without an unbounded cache.
+        self.assertEqual(env['RESOLVE_CACHE_LIMIT'] + 2, len(queries))
+        env['Resolve'](row)
+        self.assertEqual(env['RESOLVE_CACHE_LIMIT'] + 2, len(queries))
+        env['ResetPlacement']()
+        self.assertEqual([], env['s_ResolveCache'])
+        self.assertEqual(0, env['s_ResolveNext'])
+        env['Resolve'](row)
+        self.assertEqual(env['RESOLVE_CACHE_LIMIT'] + 3, len(queries))
+        extension = (SRC / 'HCInteriorTemplatesModule.c').read_text()
+        self.assertIn('HCInteriorTemplatePlacement.ResetPlacement();',
+                      body(extension, extension.index('{', extension.index('override void OnStop()')) + 1))
+
+    def test_cached_resolve_rechecks_live_pose_and_class(self):
+        result = self.load()
+        env, _, _, _, world, _ = result
+        row = env['FurnishRows']()[0]
+        house = world[0]
+        self.assertIs(house, env['Resolve'](row))
+        house.orientation[1] = .6
+        self.assertIsNone(env['Resolve'](row))
+        self.assertEqual('tilted', env['s_ResolveReason'])
+        house.orientation[1] = 0
+        house.position[0] += 1
+        self.assertIsNone(env['Resolve'](row))
+        self.assertEqual('unresolved', env['s_ResolveReason'])
+        house.position[0] -= 1
+        row.BuildingClass = 'Land_SyntheticOther'
+        self.assertIsNone(env['Resolve'](row))
+        self.assertEqual('unresolved', env['s_ResolveReason'])
+
+    def test_multiple_template_rows_for_one_live_building_preserve_duplicate_refusals(self):
+        # Explicit synthetic placement inputs; normal pack validation rejects identical rows.
+        # Exercise the placement backstop as well as the per-slot continuation path below.
+        snapshots = []
+        for uncached in (True, False):
+            result = self.load()
+            env, _, _, _, world, placed = result
+            queries = []
+            def query(position, radius, found, cargos):
+                queries.append(tuple(position)); found.extend(world)
+            env['GetGame'] = lambda:NS(GetObjectsAtPosition3D=query)
+            row = env['FurnishRows']()[0]
+            settings = NS(MaxFurnishedProps=1500, MaxPropsPerInterior=5)
+            for _ in range(3):
+                if uncached:
+                    env['s_ResolveCache'].Clear()
+                env['PlaceRow'](NS(), copy.deepcopy(row), settings, placed)
+            snapshots.append(([(obj.Type, obj.Position, obj.Orientation) for obj in placed],
+                              dict(env['s_Refused']), len(queries)))
+        self.assertEqual(snapshots[0][:2], snapshots[1][:2])
+        self.assertEqual(1, len(snapshots[1][0]))
+        self.assertEqual(2, snapshots[1][1]['duplicate_house'])
+        self.assertEqual((3, 1), (snapshots[0][2], snapshots[1][2]))
+
+    def test_building_templates_keep_placements_and_refusals_with_one_resolve_query(self):
+        # Explicit synthetic building with three prop templates, attempted one per slice.
+        # Clearing only the candidate cache before each slice models the old native queries.
+        values = pack()
+        template = values['t-0000.json']
+        original = copy.deepcopy(template['PropSlots'][0])
+        for slot_id, x in ((2, 0), (3, 2)):
+            slot = copy.deepcopy(original)
+            slot.update(Id=slot_id, Position=[x, 0, -2],
+                        Bounds=dict(Min=[x-.5, 0, -2.5], Max=[x+.5, 2, -1.5]))
+            template['PropSlots'].append(slot)
+        values['furnish-000.json']['Rows'][0]['Props'] = [1, 2, 3]
+
+        def run(uncached, objects=None):
+            result = self.load(values)
+            env, _, _, _, world, placed = result
+            if objects is not None:
+                world[:] = objects
+            queries = []
+            def query(position, radius, found, cargos):
+                queries.append((list(position), radius))
+                found.extend(world)
+            env['GetGame'] = lambda: NS(GetObjectsAtPosition3D=query)
+            row = env['FurnishRows']()[0]
+            settings = NS(MaxFurnishedProps=1500, MaxPropsPerInterior=5)
+            for index in range(3):
+                if uncached:
+                    env['s_ResolveCache'].Clear()
+                env['HCPlaceRowSlice'](NS(), row, settings, placed, index, 1, index, len(placed))
+            snapshot = [(obj.Type, obj.Position, obj.Orientation) for obj in placed]
+            return snapshot, dict(env['s_Refused']), queries
+
+        baseline, refusals, baseline_queries = run(True)
+        cached, cached_refusals, queries = run(False)
+        self.assertEqual(3, len(baseline))
+        self.assertEqual(baseline, cached)
+        self.assertEqual(refusals, cached_refusals)
+        self.assertEqual(3, len(baseline_queries))
+        self.assertEqual(1, len(queries), 'same building must share one native resolve query')
+        for world, reason in (([], 'unresolved'),
+                              ([SyntheticHouse(), SyntheticHouse()], 'ambiguous'),
+                              ([SyntheticHouse(orientation=(15, .6, 0))], 'tilted'),
+                              ([SyntheticHouse()] * 257, 'query_cap')):
+            with self.subTest(reason=reason):
+                before = run(True, world)
+                after = run(False, world)
+                self.assertEqual(before[:2], after[:2])
+                self.assertEqual(9, after[1][reason])
+                self.assertEqual(1, len(after[2]))
+
     def test_abandoned_history_and_every_catalog_prop_load_and_place(self):
         from tools.package import interior_catalog
         for typ in interior_catalog.PROPS:

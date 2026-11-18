@@ -588,6 +588,13 @@ class HCInteriorsModule : HCModule
     override void OnStop()
     {
         m_Ready = false;
+        // Cancel 100 ms updates before deleting owned props. Installed native 1.30.164289:
+        // 3_Game/Global/Game.c:1550 GetCallQueue; 2_GameLib/tools.c:65 ScriptCallQueue.Remove(func).
+        if (GetGame())
+        {
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(GetGame().UpdatePathgraphRegionByObject);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(HCInteriorTemplatePlacement.HCTimedPathgraph);
+        }
         if (m_Economy) m_Economy.Stop();
         m_SearchSessions.Clear();
         HCInteriorMeasuredCatalog.MeasuredClear();
