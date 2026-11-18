@@ -10,6 +10,7 @@ Use the [field guide](../README.md) for the component overview and roadmap.
 | Configure and develop the addon | [Addon development](MOD_DEVELOPMENT.md) |
 | Trigger and inspect HC features on a test server | [Admin test kit](ADMIN_TEST_KIT.md) |
 | Understand component boundaries and current gates | [Module status](MODULE_STATUS.md) |
+| See every outstanding feature, fix, audit and owner question | [Outstanding work](OUTSTANDING.md) |
 | Review shared runtime interfaces | [Runtime integration contract](RUNTIME_IMPLEMENTATION_CONTRACT.md) |
 | Review ownership and dependencies | [Provenance and licenses](PROVENANCE_AND_LICENSES.md) |
 | Find official documentation | [Sources](SOURCES.md) |
