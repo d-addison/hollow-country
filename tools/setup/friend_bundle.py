@@ -12,6 +12,10 @@ private signing keys (any .biprivatekey refuses the whole export), symlinks (ref
 password value from serverDZ.cfg. Third-party Workshop mods are named by id only; the friend
 downloads them with their own steamcmd login.
 
+Coverage is applied to scratch mission bytes only when --ce-coverage-result validates against stock.
+Otherwise it is left out, including restoring an already installed coverage delta on the scratch copy.
+Sampler results and census inputs stay outside the checkout and are never bundled.
+
 This tool establishes nothing about DayZ behaviour. Usage:
 
   python3 -m tools.setup.friend_bundle build --mission <server>/mpmissions/dayzOffline.chernarusplus \
@@ -27,7 +31,9 @@ from pathlib import Path, PurePosixPath
 import re
 import shutil
 import sys
+import tempfile
 
+from tools.package import ce_coverage
 from tools.setup import local_test_session as lts
 from tools.setup import workshop_sync as ws
 
@@ -101,6 +107,55 @@ def mission_files(mission):
         else:
             keep.append((rel, path))
     return keep, dropped
+
+
+def coverage_report(result_path, mission=None):
+    """An unvalidated optional result is left out; an installed delta must still restore safely."""
+    try:
+        return ce_coverage.validate(result_path, mission)
+    except (ValueError, OSError, KeyError, TypeError) as error:
+        return {'status': 'invalid', 'reason': str(error)}
+
+
+def coverage_files(mission, rows, result_path):
+    """Apply or remove coverage on scratch bytes only; never export sampler inputs or recovery data."""
+    if result_path is not None:
+        lts.outside_checkouts(result_path, 'CE coverage sampler result')
+        lts.no_links(result_path, 'CE coverage sampler result')
+    report = coverage_report(result_path)
+    accepted = report['status'] == 'result-valid'
+    managed = Path(mission) / ce_coverage.MANAGED
+    keep = [(rel, path) for rel, path in rows if PurePosixPath(rel).parts[0] != ce_coverage.MANAGED]
+    if not accepted and not managed.exists():
+        print('left out CE building coverage: %s (%s)' % (report['status'].upper(), report['reason']))
+        return keep
+    with tempfile.TemporaryDirectory(prefix='hc-bundle-coverage-') as temp:
+        scratch = Path(temp) / 'mission'
+        scratch.mkdir()
+        source = Path(mission) / ce_coverage.PROTO
+        (scratch / ce_coverage.PROTO).write_bytes(source.read_bytes())
+        # The existing installer checks pinning receipts when restoring an already installed delta.
+        for folder in (*ce_coverage.PINNING_FOLDERS, ce_coverage.MANAGED):
+            source_dir = Path(mission) / folder
+            if source_dir.exists():
+                shutil.copytree(source_dir, scratch / folder)
+        if managed.exists():
+            ce_coverage.rollback(scratch)
+        if accepted:
+            report = coverage_report(result_path, scratch)
+            accepted = report['status'] == 'result-valid'
+        if accepted:
+            result_file = result_path
+            if result_file is None:
+                result_file = ce_coverage.REPO_ROOT / ce_coverage.SHIPPED_RESULT
+            delta = Path(temp) / 'delta'
+            ce_coverage.write_delta(delta, ce_coverage.generate(Path(result_file).read_bytes(), scratch))
+            ce_coverage.install(delta, scratch)
+        proto = (scratch / ce_coverage.PROTO).read_bytes()
+    if not accepted:
+        print('left out CE building coverage: %s (%s)' % (report['status'].upper(), report['reason']))
+    return [(rel, proto) for rel, _ in keep if rel == ce_coverage.PROTO] + [
+        (rel, path) for rel, path in keep if rel != ce_coverage.PROTO]
 
 
 def _profile_allowed(rel):
@@ -217,7 +272,9 @@ def build(args):
     mission = Path(args.mission)
     plan = []  # (destination relative path, source path or bytes)
     m_keep, m_drop = mission_files(mission)
-    plan += [('mpmissions/%s/%s' % (mission.name, rel), path) for rel, path in m_keep]
+    covered = coverage_files(mission, m_keep, args.ce_coverage_result)
+    m_drop += len(m_keep) - len(covered)
+    plan += [('mpmissions/%s/%s' % (mission.name, rel), path) for rel, path in covered]
     p_keep, p_drop = profile_files(args.profiles)
     plan += [('profiles/' + rel, path) for rel, path in p_keep]
     mods = [(Path(args.mod), True)] + ([(Path(args.addon), False)] if args.addon else [])
@@ -274,6 +331,9 @@ def main(argv=None):
     b = sub.add_parser('build', help='write a new bundle folder')
     b.add_argument('--mission', required=True)
     b.add_argument('--profiles', required=True)
+    b.add_argument('--ce-coverage-result', type=Path,
+                   help='external validated sampler result; apply coverage to the bundled mission, or leave it out '
+                   'with one PENDING line when no result exists')
     b.add_argument('--mod', required=True)
     b.add_argument('--addon')
     b.add_argument('--server-cfg', required=True)
@@ -281,7 +341,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         count, m_drop, p_drop = build(args)
-    except (Refused, ws.SyncError, OSError) as exc:
+    except (Refused, ws.SyncError, lts.Refused, ValueError, OSError, KeyError, TypeError) as exc:
         print('refused: %s' % exc, file=sys.stderr)
         return 2
     print('bundle written: %d files (left out %d mission and %d profile files that are state, logs or '

@@ -1,5 +1,17 @@
 """Behavior tests for tools/setup/local_test_session.py on synthetic temp-dir fixtures.
 
+TDD record for #42/#11: before launcher implementation, the TemplateAndCoverage plus new bundle
+behavior tests ran with PYTHONDONTWRITEBYTECODE=1 python3 -m unittest and reached the missing CLI
+options. The actual exception was "SystemExit: 2" and the initial summary was:
+Ran 7 tests in 0.193s
+FAILED (errors=8)
+One initial bundle fixture error (missing synthetic economy source pins) was corrected before source
+implementation. Rerunning the two coverage refusal cases produced:
+Ran 2 tests in 0.103s
+FAILED (errors=2)
+The focused GREEN command is:
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_local_test_session tests.unit.test_friend_bundle
+
 Every server, mission, profile, mod and installer here is synthetic and explicit. The existing
 gameplay/economy/acceptance-marker tools are replaced by recording fakes in most tests (the contract
 under test is how the session orchestrates them), and exercised for real in one guarded integration
@@ -135,11 +147,15 @@ class FakeEconomy:
         # The launcher must use the manifest-driven install so datamined and firearms rows keep their permissions.
         self.log.append(('economy.install_delta', str(target)))
         (Path(target) / self.MANAGED).mkdir()
-        (Path(target) / self.MANAGED / 'receipt.json').write_text('{}')
+        receipt = {}
+        if (Path(target) / 'mapgroupproto.xml').is_file():
+            receipt['sources'] = {'mapgroupproto.xml': lts.sha((Path(target) / 'mapgroupproto.xml').read_bytes())}
+        (Path(target) / self.MANAGED / 'receipt.json').write_text(json.dumps(receipt))
 
     def rollback(self, target):
         self.log.append(('economy.rollback', str(target)))
-        if (Path(target) / self.MANAGED / 'receipt.json').read_text() != '{}':
+        receipt = json.loads((Path(target) / self.MANAGED / 'receipt.json').read_text())
+        if set(receipt) - {'sources'}:
             raise ValueError('installed delta drift; inspect before rollback')
         shutil.rmtree(Path(target) / self.MANAGED)
 
@@ -1369,7 +1385,7 @@ class OptionalSteps(SessionCase):
     # ---- interiors
     def test_plan_lists_the_interiors_install_and_writes_nothing(self):
         before = self.tree(self.world)
-        code, out, err = self.run_cli(self.args('plan', '--interiors'))
+        code, out, err = self.run_cli(self.args('plan', '--interiors', 'legacy'))
         self.assertEqual(code, 0, err)
         self.assertIn('Interiors data pack', out)
         self.assertIn(str(self.profiles / 'HollowCountry'), out)
@@ -1378,7 +1394,7 @@ class OptionalSteps(SessionCase):
         self.assertNotIn('interiors.install', [n for n, *_ in self.log])
 
     def test_apply_installs_after_the_economy_before_the_markers_and_records_it_in_the_receipt(self):
-        code, out, err = self.run_cli(self.args('apply', '--interiors'))
+        code, out, err = self.run_cli(self.args('apply', '--interiors', 'legacy'))
         self.assertEqual(code, 0, err)
         order = [n for n, *_ in self.log if n in ('economy.install_delta', 'interiors.install')]
         self.assertEqual(order, ['economy.install_delta', 'interiors.install'])
@@ -1392,7 +1408,7 @@ class OptionalSteps(SessionCase):
 
     def test_rollback_runs_in_reverse_order_and_leaves_the_world_byte_identical(self):
         before = self.tree(self.world)
-        self.assertEqual(self.run_cli(self.args('apply', '--interiors'))[0], 0)
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors', 'legacy'))[0], 0)
         self.assertEqual(self.steps(), ['markers', 'interiors', 'economy', 'gameplay', 'cfg', 'server_keys', 'mod'])
         code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
         self.assertEqual((code, err), (0, ''), out)
@@ -1403,7 +1419,7 @@ class OptionalSteps(SessionCase):
         self.interiors_errors = ['interiors.json: synthetic validation failure']
         before = self.tree(self.world)
         for command in ('plan', 'apply'):
-            code, out, err = self.run_cli(self.args(command, '--interiors'))
+            code, out, err = self.run_cli(self.args(command, '--interiors', 'legacy'))
             self.assertEqual(code, 2, out)
             self.assertIn('synthetic validation failure', err)
         self.assertEqual(before, self.tree(self.world))
@@ -1412,13 +1428,13 @@ class OptionalSteps(SessionCase):
         managed = self.profiles / 'HollowCountry' / 'hc-interiors-pack'
         managed.mkdir(parents=True)
         before = self.tree(self.world)
-        code, out, err = self.run_cli(self.args('apply', '--interiors'))
+        code, out, err = self.run_cli(self.args('apply', '--interiors', 'legacy'))
         self.assertEqual(code, 2, out)
         self.assertIn('interiors', err)
         self.assertEqual(before, self.tree(self.world))
 
     def test_a_drifted_interiors_install_refuses_rollback_before_any_change(self):
-        self.assertEqual(self.run_cli(self.args('apply', '--interiors'))[0], 0)
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors', 'legacy'))[0], 0)
         (self.profiles / 'HollowCountry' / 'stray.json').write_text('operator file')
         before = self.tree(self.world)
         code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
@@ -1630,7 +1646,7 @@ class OptionalSteps(SessionCase):
 
     def test_rollback_removes_the_ai_addon_before_anything_older_and_keeps_expansion(self):
         before = self.tree(self.world)
-        self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors'))[0], 0)
+        self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors', 'legacy'))[0], 0)
         self.assertEqual(self.steps(), ['markers', 'expansion_ai_config', 'expansion_ai', 'interiors', 'economy',
                                         'gameplay', 'cfg', 'server_keys', 'mod'])
         self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
@@ -1688,7 +1704,7 @@ class OptionalSteps(SessionCase):
 
     # ---- running server
     def test_apply_and_rollback_refuse_while_the_server_runs_and_plan_only_warns(self):
-        self.assertEqual(self.run_cli(self.args('apply', '--interiors'))[0], 0)
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors', 'legacy'))[0], 0)
         self.running = [4242]
         before = self.tree(self.world)
         code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
@@ -1698,11 +1714,11 @@ class OptionalSteps(SessionCase):
         self.running = []
         self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
         self.running = [4242]
-        code, out, err = self.run_cli(self.args('apply', '--interiors'))
+        code, out, err = self.run_cli(self.args('apply', '--interiors', 'legacy'))
         self.assertEqual(code, 2)
         self.assertIn('server is running', err)
         self.assertFalse(self.state.exists())
-        code, out, err = self.run_cli(self.args('plan', '--interiors'))
+        code, out, err = self.run_cli(self.args('plan', '--interiors', 'legacy'))
         self.assertEqual(code, 0, err)
         self.assertIn('server is running', out)
 
@@ -1750,7 +1766,7 @@ class OptionalSteps(SessionCase):
     # ---- review round: P1 interiors preflight, P1 AI drift, P1 AI source, P2 casing, serverMod
 
     def test_a_hard_linked_interiors_file_refuses_the_dry_run_and_the_real_rollback_before_any_change(self):
-        self.assertEqual(self.run_cli(self.args('apply', '--interiors', '--markers', 'all-local'))[0], 0)
+        self.assertEqual(self.run_cli(self.args('apply', '--interiors', 'legacy', '--markers', 'all-local'))[0], 0)
         os.link(self.profiles / 'HollowCountry' / 'interiors.json', self.world / 'elsewhere.json')
         before = self.tree(self.world)
         for argv in (['rollback', '--server-root', str(self.server), '--dry-run'], ['rollback', '--server-root', str(self.server)]):
@@ -1762,7 +1778,7 @@ class OptionalSteps(SessionCase):
         self.assertEqual(self.run_cli(['rollback', '--server-root', str(self.server)])[0], 0)
 
     def test_drift_in_a_completed_ai_addon_refuses_the_whole_rollback_before_any_change(self):
-        self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors', '--markers', 'all-local'))[0], 0)
+        self.assertEqual(self.run_cli(self.ai_args('apply', '--interiors', 'legacy', '--markers', 'all-local'))[0], 0)
         staged = self.ai_dest / 'addons' / 'hollowcountryexpansionai.pbo'
         original = staged.read_bytes()
         staged.write_bytes(original + b'drift')
@@ -1818,7 +1834,7 @@ class OptionalSteps(SessionCase):
         (self.profiles / 'HollowCountry' / 'interiors.json').write_text('{"operator":true}')
         before = self.tree(self.world)
         for command in ('plan', 'apply'):
-            code, out, err = self.run_cli(self.args(command, '--interiors'))
+            code, out, err = self.run_cli(self.args(command, '--interiors', 'legacy'))
             self.assertEqual(code, 2, command)
             self.assertIn('interiors', err)
             self.assertEqual(self.tree(self.world), before, command)
@@ -1841,7 +1857,7 @@ class OptionalSteps(SessionCase):
         def operator_interiors():
             (self.profiles / 'HollowCountry').mkdir(exist_ok=True)
             (self.profiles / 'HollowCountry' / 'interiors.json').write_text('{"operator":true}')
-            return ['--interiors']
+            return ['--interiors', 'legacy']
 
         def optional_path():
             (self.mission / 'hollow-country-snafu').mkdir()
@@ -1932,7 +1948,7 @@ class OptionalSteps(SessionCase):
 
     def test_a_full_session_round_trips_and_orders_every_step(self):
         before = self.tree(self.world)
-        code, out, err = self.run_cli(self.ai_args('apply', '--interiors', '--markers', 'all-local',
+        code, out, err = self.run_cli(self.ai_args('apply', '--interiors', 'legacy', '--markers', 'all-local',
                                                    '--tactical-flava', str(self.tf), '--install-key'))
         self.assertEqual(code, 0, err)
         receipt = self.receipt()
@@ -1963,7 +1979,7 @@ class OptionalDeltas(SessionCase):
         return [name for name, *rest in self.log if name in names and str(self.mission) in rest]
 
     def test_both_flags_install_snafu_then_tactical_flava_after_economy_before_interiors(self):
-        code, out, err = self.run_cli(self.args('apply', *self.both('--interiors')))
+        code, out, err = self.run_cli(self.args('apply', *self.both('--interiors', 'legacy')))
         self.assertEqual(code, 0, err)
         self.assertEqual(self.real('economy.install_delta', 'snafu.install', 'tf.install'),
                          ['economy.install_delta', 'snafu.install', 'tf.install'])
@@ -2063,7 +2079,7 @@ class OptionalDeltas(SessionCase):
 
     def test_rollback_runs_in_reverse_and_the_whole_tree_is_byte_identical(self):
         before = self.tree(self.server, self.mission, self.profiles, self.snafu, self.tf, self.world / 'session')
-        args = self.both('--interiors', '--markers', 'all-local')
+        args = self.both('--interiors', 'legacy', '--markers', 'all-local')
         self.assertEqual(self.run_cli(self.args('apply', *args))[0], 0)
         self.assertIn('<!--tf-->', (self.mission / 'cfgeconomycore.xml').read_text())
         del self.log[:]
@@ -2273,7 +2289,7 @@ class RealInstallers(unittest.TestCase):
             (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline', '--no-roster', '--interiors', '--markers', 'all-local']
+                    '--economy-profile', 'baseline', '--no-roster', '--interiors', 'legacy', '--markers', 'all-local']
 
             def everything():
                 return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out')
@@ -2307,7 +2323,7 @@ class RealInstallers(unittest.TestCase):
             (built / 'addons' / 'hollowcountry.pbo').write_bytes(pbo.pack({'config.cpp': b'synthetic'}))
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
-                    '--economy-profile', 'baseline', '--no-roster', '--interiors', '--markers', 'all-local']
+                    '--economy-profile', 'baseline', '--no-roster', '--interiors', 'legacy', '--markers', 'all-local']
             err = io.StringIO()
             with contextlib.redirect_stderr(err):
                 self.assertEqual(lts.main(['apply'] + argv, out=io.StringIO()), 0, err.getvalue())
@@ -2356,7 +2372,7 @@ class RealInstallers(unittest.TestCase):
             argv = ['--server-root', str(server), '--mission', str(mission), '--profiles', str(profiles),
                     '--mod', str(built), '--mod-dest', str(base / 'out' / '@HollowCountry'),
                     '--economy-profile', 'baseline', '--no-roster', '--no-gameplay', '--snafu', str(snafu_install),
-                    '--tactical-flava', str(tf_install), '--interiors', '--markers', 'all-local']
+                    '--tactical-flava', str(tf_install), '--interiors', 'legacy', '--markers', 'all-local']
 
             def everything():
                 return {p: p.read_bytes() for root in (mission, server, profiles, base / 'out', base / 'workshop')
@@ -2418,6 +2434,205 @@ class RealInstallers(unittest.TestCase):
             self.assertFalse((mission / 'hollow-country').exists())
             self.assertFalse((mission / 'hollow-country-gameplay').exists())
             self.assertEqual((server / 'serverDZ.cfg').read_bytes(), CFG.encode())
+
+
+
+def synthetic_template_pack(base):
+    """SYNTHETIC geometry, run IDs, stock and search groups; no native observations."""
+    from tests.unit import test_interior_templates as fixtures
+    from tools.package import interior_templates, interiors_profile, search_context
+    stock = base / 'template-stock'
+    (stock / 'db').mkdir(parents=True)
+    (stock / 'mapgroupproto.xml').write_bytes(fixtures.PROTO)
+    (stock / 'mapgrouppos.xml').write_bytes(fixtures.POS)
+    (stock / 'db/types.xml').write_bytes(fixtures.TYPES)
+    for relative in ('cfgspawnabletypes.xml', 'cfglimitsdefinition.xml'):
+        (stock / relative).write_bytes(b'<synthetic/>')
+    census = base / 'synthetic-census.json'
+    census.write_bytes(fixtures.encode(fixtures.census(
+        fixtures.house_rows() + fixtures.calibration_rows(), fixtures.CLASSES)))
+    build, pack, search = base / 'template-build', base / 'template-pack', base / 'search-build'
+    with contextlib.redirect_stdout(io.StringIO()):
+        assert interior_templates.main(['build', '--census', str(census),
+            '--proto', str(stock / 'mapgroupproto.xml'), '--pos', str(stock / 'mapgrouppos.xml'),
+            '--out', str(build)]) == 0
+        assert search_context.main(['--mapgroupproto', str(stock / 'mapgroupproto.xml'),
+            '--types', str(stock / 'db/types.xml'), '--output-dir', str(search)]) == 0
+    interiors_profile.templates_assemble(build, pack, search, stock)
+    return pack
+
+
+class TemplateAndCoverage(SessionCase):
+    """Real package entry points on explicit synthetic inputs; remaining session tools are fakes."""
+
+    def load_tool(self, name):
+        if name == 'interiors_profile':
+            from tools.package import interiors_profile
+            return interiors_profile
+        if name == 'ce_coverage':
+            from tools.package import ce_coverage
+            return ce_coverage
+        return super().load_tool(name)
+
+    def template_args(self, command):
+        return self.args(command, '--interiors', '--interiors-pack', str(self.pack))
+
+    def coverage_result(self):
+        from tests.unit import test_ce_coverage as fixtures
+        stock = fixtures.stock_proto(eol='\r\n')
+        (self.mission / 'mapgroupproto.xml').write_bytes(stock)
+        result = self.base / 'synthetic-coverage-result.json'
+        result.write_bytes(fixtures.blob(fixtures.result_doc(stock)))
+        return result
+
+    def test_default_interiors_plan_uses_templates_and_apply_rolls_back_profile_byte_exactly(self):
+        self.pack = synthetic_template_pack(self.base)
+        target = self.profiles / 'HollowCountry'
+        target.mkdir()
+        (target / 'settings.json').write_bytes(b'{ "operator": true }\r\n')
+        # An identical existing chunk belongs to the operator and must survive rollback.
+        (target / 'templates').mkdir()
+        chunk = next((self.pack / 'templates').glob('search-groups-*.json'))
+        (target / 'templates' / chunk.name).write_bytes(chunk.read_bytes())
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.template_args('plan'))
+        self.assertEqual(code, 0, err)
+        self.assertIn('Interior template pack', out)
+        self.assertIn(str(target / 'templates'), out)
+        self.assertEqual(before, self.tree(self.world))
+        code, out, err = self.run_cli(self.template_args('apply'))
+        self.assertEqual(code, 0, err)
+        self.assertTrue((target / 'templates/index.json').is_file())
+        self.assertTrue((target / 'templates/hc-interiors-pack/receipt.json').is_file())
+        self.assertFalse((target / 'interiors.json').exists())
+        receipt = json.loads((self.state / lts.RECEIPT_NAME).read_text())
+        self.assertEqual(receipt['interiors']['mode'], 'templates')
+        self.assertEqual(receipt['steps']['interiors'], 'done')
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_template_plan_refuses_each_legacy_room_owner_without_writing(self):
+        self.pack = synthetic_template_pack(self.base)
+        for relative in ('interiors.json', 'Infected/production-rooms.json'):
+            with self.subTest(owner=relative):
+                owner = self.profiles / 'HollowCountry' / relative
+                owner.parent.mkdir(parents=True, exist_ok=True)
+                owner.write_bytes(b'{}')
+                before = self.tree(self.world)
+                for command in ('plan', 'apply'):
+                    code, out, err = self.run_cli(self.template_args(command))
+                    self.assertEqual(code, 2, out)
+                    self.assertIn('rooms_conflict', err)
+                    self.assertIn(relative, err)
+                    self.assertEqual(before, self.tree(self.world))
+                owner.unlink()
+
+    def test_ce_coverage_pending_refuses_plan_and_apply_without_writing(self):
+        missing = self.base / 'absent-synthetic-result.json'
+        before = self.tree(self.world)
+        for command in ('plan', 'apply'):
+            code, out, err = self.run_cli(self.args(command, '--ce-coverage',
+                '--ce-coverage-result', str(missing)))
+            self.assertEqual(code, 2, out)
+            self.assertIn('PENDING', err)
+            self.assertEqual(before, self.tree(self.world))
+
+    def test_validated_coverage_installs_after_economy_and_rolls_back_byte_exactly(self):
+        result = self.coverage_result()
+        before = self.tree(self.world)
+        argv = ['--ce-coverage', '--ce-coverage-result', str(result)]
+        code, out, err = self.run_cli(self.args('plan', *argv))
+        self.assertEqual(code, 0, err)
+        self.assertIn('CE building coverage', out)
+        self.assertEqual(before, self.tree(self.world))
+        code, out, err = self.run_cli(self.args('apply', *argv))
+        self.assertEqual(code, 0, err)
+        self.assertIn(b'<point', (self.mission / 'mapgroupproto.xml').read_bytes())
+        self.assertTrue((self.mission / 'hollow-country-ce-coverage/receipt.json').is_file())
+        receipt = json.loads((self.state / lts.RECEIPT_NAME).read_text())
+        self.assertEqual(receipt['steps']['ce_coverage'], 'done')
+        _, _, todo = lts.plan_rollback(self.server, self.repo)
+        names = [name for name, _, _ in todo]
+        self.assertLess(names.index('ce_coverage'), names.index('economy'))
+        code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_drifted_coverage_refuses_all_rollback_writes(self):
+        result = self.coverage_result()
+        code, out, err = self.run_cli(self.args('apply', '--ce-coverage', '--ce-coverage-result', str(result)))
+        self.assertEqual(code, 0, err)
+        proto = self.mission / 'mapgroupproto.xml'
+        proto.write_bytes(proto.read_bytes() + b'<!-- operator drift -->')
+        before = self.tree(self.world)
+        for dry in (['--dry-run'], []):
+            code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)] + dry)
+            self.assertEqual(code, 2, out)
+            self.assertIn('ce_coverage', err)
+            self.assertEqual(before, self.tree(self.world))
+
+
+    def test_templates_and_coverage_use_real_economy_receipts_and_restore_every_byte(self):
+        from tests.unit import test_economy_contract, test_ce_coverage as fixtures
+        from tools.package import economy
+        self.pack = synthetic_template_pack(self.base)
+        test_economy_contract.synthetic(self.mission)
+        vanilla_usage_vocabulary(self.mission)
+        result = self.coverage_result()
+        real_economy = economy.generate
+        # Exercise the authored baseline profile against the explicit synthetic mission.
+        profile = json.loads((ROOT / lts.ECONOMY_PROFILES / 'baseline.json').read_bytes())
+        def real_tools(name):
+            if name == 'economy':
+                return economy
+            return self.load_tool(name)
+
+        # Template/coverage/economy operations are real; gameplay and marker tools remain recording fakes.
+        with mock.patch.object(lts, 'economy_delta', lambda tool, mission, repo, spec: real_economy(mission, profile)), \
+                mock.patch.object(lts, 'load_tool', real_tools):
+            before = self.tree(self.world)
+            argv = self.template_args('apply') + ['--ce-coverage', '--ce-coverage-result', str(result)]
+            code, out, err = self.run_cli(argv)
+            self.assertEqual(code, 0, err)
+            self.assertEqual((self.mission / 'hollow-country-ce-coverage/mapgroupproto.backup').read_bytes(),
+                             fixtures.stock_proto(eol='\r\n'))
+            for dry in (['--dry-run'], []):
+                code, out, err = self.run_cli(['rollback', '--server-root', str(self.server)] + dry)
+                self.assertEqual(code, 0, err)
+            self.assertEqual(before, self.tree(self.world))
+
+    def test_templates_require_an_external_assembled_pack(self):
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('plan', '--interiors'))
+        self.assertEqual(code, 2, out)
+        self.assertIn('--interiors-pack', err)
+        self.assertEqual(before, self.tree(self.world))
+
+    def test_default_coverage_result_is_pending_and_flags_require_their_steps(self):
+        from tools.package import ce_coverage
+        before = self.tree(self.world)
+        with mock.patch.object(ce_coverage, 'REPO_ROOT', self.repo):
+            code, out, err = self.run_cli(self.args('plan', '--ce-coverage'))
+        self.assertEqual(code, 2, out)
+        self.assertIn('PENDING', err)
+        for extra in (['--interiors-pack', str(self.base / 'pack')],
+                      ['--ce-coverage-result', str(self.base / 'result')]):
+            code, out, err = self.run_cli(self.args('plan', *extra))
+            self.assertEqual(code, 2, out)
+            self.assertIn('requires', err)
+        self.assertEqual(before, self.tree(self.world))
+
+
+    def test_coverage_result_symlink_refuses_before_any_write(self):
+        result = self.coverage_result()
+        link = self.base / 'linked-result.json'
+        link.symlink_to(result)
+        before = self.tree(self.world)
+        code, out, err = self.run_cli(self.args('plan', '--ce-coverage', '--ce-coverage-result', str(link)))
+        self.assertEqual(code, 2, out)
+        self.assertIn('symlink', err)
+        self.assertEqual(before, self.tree(self.world))
 
 
 if __name__ == '__main__':

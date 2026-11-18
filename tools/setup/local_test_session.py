@@ -10,13 +10,16 @@ reimplements it:
   mission deltas  tools/package/gameplay.py and tools/package/economy.py generate/install/rollback
   markers         tools/audit/acceptance_markers.py scan_tree/plan_profile/apply_plan
   optional mods   --snafu and --tactical-flava dirs are read-only (never copied); load order SNAFU, TF, HC
-  opt-in steps    --interiors (tools/package/interiors_profile.py into <profiles>/HollowCountry),
+  opt-in steps    --interiors [templates] --interiors-pack <assembled pack outside the checkout>
+                  (interiors_profile templates install into <profiles>/HollowCountry/templates),
+                  --interiors legacy (the old data pack), --ce-coverage [--ce-coverage-result <external result>],
                   --expansion-ai (stage @HollowCountryExpansionAI after Expansion's own Workshop folders, which
                   are only checked and never copied; then expansion_ai_config installs ai/sites.json and the
                   HollowCountry_* loadouts, the patrol override and the field merge into Expansion's existing
                   AISettings.json, with byte-exact backups) and
                   --markers all-local / NAME,... (names parsed from docs/LOCAL_ACCEPTANCE_V1.md at run time).
-                  Apply order: mod, keys, cfg, gameplay, economy, interiors, expansion_ai, expansion_ai_config,
+                  Apply order: mod, keys, cfg, gameplay, economy, snafu, tactical_flava, ce_coverage,
+                  interiors, expansion_ai, expansion_ai_config,
                   markers; rollback reverses.
 
     python3 tools/setup/local_test_session.py plan  --server-root /mnt/d/HollowCountryLocal/runtime-001 \\
@@ -33,6 +36,8 @@ nothing is replaced without a backup and a receipt. Nothing here establishes Day
 acceptance stays pending the owner's local session (docs/LOCAL_ACCEPTANCE_V1.md).
 """
 import argparse
+from functools import partial
+from types import SimpleNamespace
 import difflib
 import hashlib
 import importlib
@@ -89,8 +94,8 @@ MARKER_ROW = re.compile(r'^\|\s*`\$profile:HollowCountry/acceptance/(?P<name>[A-
 OPTIONAL_DELTAS = (('snafu', 'snafu_optional', 'SNAFU'),
                    ('tactical_flava', 'tactical_flava_optional', 'Tactical Flava'))
 STEP_TOOLS = {'tactical_flava': 'tactical_flava_optional', 'snafu': 'snafu_optional',
-              'economy': 'economy', 'gameplay': 'gameplay'}
-STACK_STEPS = ('tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
+              'economy': 'economy', 'gameplay': 'gameplay', 'ce_coverage': 'ce_coverage'}
+STACK_STEPS = ('ce_coverage', 'tactical_flava', 'snafu', 'economy')  # each rolls back on top of the CE core the ones below patched
 
 EXPANSION_DEPENDENCIES = (
     ('CF', '1559212036', ('cf', 'communityframework')),
@@ -300,6 +305,7 @@ def load_tool(name):
     module = {'gameplay': 'tools.package.gameplay', 'economy': 'tools.package.economy',
               'acceptance_markers': 'tools.audit.acceptance_markers',
               'interiors_profile': 'tools.package.interiors_profile',
+              'ce_coverage': 'tools.package.ce_coverage',
               'snafu_optional': 'tools.package.snafu_optional',
               'tactical_flava_optional': 'tools.package.tactical_flava_optional'}[name]
     try:
@@ -900,7 +906,43 @@ def locate_expansion(workshop):
     return found, missing
 
 
-def plan_interiors(profiles, repo):
+def interiors_installer(mode):
+    """Adapt the existing template entry points to the session's legacy installer interface."""
+    tool = load_tool('interiors_profile')
+    if mode == 'templates':
+        return SimpleNamespace(MANAGED=tool.TEMPLATE_MANAGED, validate=tool.templates_validate,
+            install=partial(tool.templates_install, server_stopped=True),
+            rollback=partial(tool.templates_rollback, server_stopped=True))
+    return tool
+
+
+def plan_interiors(profiles, repo, args):
+    if args.interiors == 'legacy':
+        if os.path.lexists(profiles / 'HollowCountry/templates/index.json'):
+            raise Refused('--interiors legacy: rooms_conflict with the existing template pack')
+        legacy = plan_legacy_interiors(profiles, repo)
+        legacy['mode'] = 'legacy'
+        return legacy
+    target = no_links(profiles / 'HollowCountry', 'profiles/HollowCountry')
+    for relative in ('interiors.json', 'Infected/production-rooms.json'):
+        if os.path.lexists(target / relative):
+            raise Refused('--interiors: rooms_conflict: %s is present; preserve it outside HollowCountry '
+                          'before installing templates. Nothing was changed.' % relative)
+    if not args.interiors_pack:
+        raise Refused('--interiors needs --interiors-pack <assembled template pack outside the checkout>; '
+                      'build with interior_templates build, then interiors_profile templates assemble')
+    pack = existing_dir(args.interiors_pack, 'assembled interior template pack', repo)
+    tool = interiors_installer('templates')
+    report = tool.validate(pack)
+    if target.exists() and not target.is_dir():
+        raise Refused('--interiors: %s is not a directory' % target)
+    if os.path.lexists(target / tool.MANAGED):
+        raise Refused('--interiors: a template install already exists in %s; run its rollback first' % target)
+    rehearse_interiors(tool, pack, target, report, templates=True)
+    return {'mode': 'templates', 'pack': pack, 'target': target, 'pending': ['runtime acceptance']}
+
+
+def plan_legacy_interiors(profiles, repo):
     pack = no_links(repo / INTERIORS_PACK, 'interiors data pack')
     if not pack.is_dir():
         raise Refused('--interiors: the data pack is not in this checkout: %s' % INTERIORS_PACK)
@@ -920,18 +962,20 @@ def plan_interiors(profiles, repo):
     return {'pack': pack, 'target': target, 'pending': [row['id'] for row in report.get('pending', [])]}
 
 
-def rehearse_interiors(tool, pack, target, report):
+def rehearse_interiors(tool, pack, target, report, templates=False):
     """Run the interiors installer's own conflict checks on a scratch copy of the profile paths it would touch, so a
     different operator-owned interiors.json, a journal or a non-directory in the way refuses at plan time."""
     names = set(report.get('files') or ())
-    try:
-        manifest = json.loads(read_bytes(pack / 'pack.json', 'interiors pack.json', 65536))
-        names |= set(manifest['files']) if isinstance(manifest.get('files'), dict) else set()
-        config = json.loads(read_bytes(pack / 'interiors.json', 'interiors.json', 65536))
-        if isinstance(config, dict) and isinstance(config.get('Epoch'), int) and not isinstance(config['Epoch'], bool):
-            names.add('interiors_s1_e%d' % config['Epoch'])
-    except (ValueError, OSError, AttributeError, Refused):
-        pass
+    if not templates:
+        try:
+            manifest = json.loads(read_bytes(pack / 'pack.json', 'interiors pack.json', 65536))
+            if isinstance(manifest.get('files'), dict):
+                names.update(manifest['files'])
+            config = json.loads(read_bytes(pack / 'interiors.json', 'interiors.json', 65536))
+            if isinstance(config, dict) and isinstance(config.get('Epoch'), int) and not isinstance(config['Epoch'], bool):
+                names.add('interiors_s1_e%d' % config['Epoch'])
+        except (ValueError, OSError, AttributeError, Refused):
+            pass
     scratch = Path(tempfile.mkdtemp(prefix='hc-interiors-rehearsal-'))
     try:
         copy = scratch / target.name
@@ -1094,17 +1138,43 @@ def verify_optional(tool_name, label, install, vanilla_dir):
             'allowlist_sha256': report.get('allowlist_sha256'), 'vanilla': vanilla_dir}
 
 
+def plan_ce_coverage(args, mission, repo):
+    if not args.ce_coverage:
+        if args.ce_coverage_result:
+            raise Refused('--ce-coverage-result requires --ce-coverage')
+        return None
+    tool = load_tool('ce_coverage')
+    result = args.ce_coverage_result
+    if result is not None:
+        no_links(result, 'CE coverage sampler result')
+        result = outside_checkouts(result, 'CE coverage sampler result', repo)
+    report = tool.validate(result, mission)
+    if report['status'] != 'result-valid':
+        raise Refused('--ce-coverage: PENDING: %s; supply --ce-coverage-result <external validated sampler result>. '
+                      'Nothing was changed.' % report['reason'])
+    regular(mission / tool.PROTO, 'coverage mapgroupproto.xml')
+    if os.path.lexists(mission / tool.MANAGED):
+        raise Refused('--ce-coverage: an install already exists; run its rollback first')
+    if result is None:
+        result = tool.REPO_ROOT / tool.SHIPPED_RESULT
+    data = read_bytes(result, 'CE coverage sampler result', tool.MAX_RESULT_BYTES)
+    return {'result': result, 'data': data, 'sha256': sha(data), 'report': report}
+
+
 def rehearse_deltas(plan, repo):
     """Run economy, then the optional deltas, through the real installers on a scratch copy of the mission inputs.
 
     The optional deltas are generated from the economy-patched core, so they cannot be generated before the economy
-    is installed; this is the only way to refuse a bad combination before apply writes anything."""
+    is installed; coverage follows all pinning CE deltas. Refuse bad combinations before apply writes anything."""
     economy = load_tool('economy')
     scratch = Path(tempfile.mkdtemp(prefix='hc-delta-rehearsal-'))
     try:
         copy = scratch / 'mission'
         copy.mkdir()
-        for relative in getattr(economy, 'INPUTS', ()):
+        rehearsal_inputs = set(getattr(economy, 'INPUTS', ()))
+        if plan.get('ce_coverage'):
+            rehearsal_inputs.add('mapgroupproto.xml')
+        for relative in sorted(rehearsal_inputs):
             (copy / relative).parent.mkdir(parents=True, exist_ok=True)
             (copy / relative).write_bytes(read_bytes(plan['mission'] / relative, relative, MAX_BYTES))
         try:
@@ -1123,6 +1193,10 @@ def rehearse_deltas(plan, repo):
             except (ValueError, OSError, KeyError, TypeError) as error:
                 raise Refused('%s delta cannot be generated for this mission (nothing was changed): %s' %
                               (label, error)) from None
+        if plan.get('ce_coverage'):
+            coverage = load_tool('ce_coverage')
+            coverage.write_delta(scratch / 'ce-coverage', coverage.generate(plan['ce_coverage']['data'], copy))
+            coverage.install(scratch / 'ce-coverage', copy)
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -1137,6 +1211,8 @@ def check_destinations(plan, mission, snafu, tf, ai, keys, plan_interiors_target
         managed.append(('gameplay', 'gameplay'))
     if plan['economy']:
         managed.append(('economy', 'economy'))
+    if plan.get('ce_coverage'):
+        managed.append(('CE coverage', 'ce_coverage'))
     if snafu:
         managed.append(('SNAFU delta', 'snafu_optional'))
     if tf:
@@ -1201,8 +1277,13 @@ def build_plan(args, repo=ROOT):
             'time_accel': float(args.time_accel), 'night_accel': float(args.night_accel),
             'markers_mode': mode, 'markers_only': only, 'warnings': [], 'repo': repo,
             'install_key': bool(args.install_key), 'expansion_ai': ai,
-            'interiors': plan_interiors(profiles, repo) if getattr(args, 'interiors', False) else None,
+            'interiors': None,
             'running': running_servers()}
+    if args.interiors_pack and args.interiors != 'templates':
+        raise Refused('--interiors-pack requires --interiors [templates]')
+    if args.interiors:
+        plan['interiors'] = plan_interiors(profiles, repo, args)
+    plan['ce_coverage'] = plan_ce_coverage(args, mission, repo)
     for row in changes:
         if row['key'].lower() == 'thirdpersonview':
             row['to_confirm'] = TO_CONFIRM
@@ -1260,6 +1341,9 @@ def build_plan(args, repo=ROOT):
                               '(pass --vanilla-addons <DayZ server dir>/addons)' % vanilla)
             vanilla = existing_dir(vanilla, 'vanilla addons directory', repo)
             plan['tactical_flava_delta'] = verify_optional('tactical_flava_optional', 'Tactical Flava', tf['dir'], vanilla)
+    if plan.get('ce_coverage') and not plan['economy']:
+        raise Refused('--ce-coverage requires the economy delta; do not combine it with --economy-profile none')
+    if snafu or tf or plan.get('ce_coverage'):
         rehearse_deltas(plan, repo)
     if ai:
         ai['config'] = plan_ai_config(profiles, mission, repo)
@@ -1407,10 +1491,19 @@ def render_plan(plan, args, commands, applied=False):
         out.append('     %s.enable [%s]' % (item['name'], item['action']))
     if plan.get('interiors'):
         info = plan['interiors']
-        out.append('5. Interiors data pack: install %s into %s with interiors_profile (receipt, byte-exact rollback)' %
-                   (info['pack'], info['target']))
-        if info['pending']:
+        if info['mode'] == 'templates':
+            out.append('5. Interior template pack: install %s into %s with interiors_profile templates install '
+                       '(receipt, byte-exact rollback); runtime acceptance pending' %
+                       (info['pack'], info['target'] / 'templates'))
+        else:
+            out.append('5. Interiors data pack (legacy): install %s into %s with interiors_profile '
+                       '(receipt, byte-exact rollback)' % (info['pack'], info['target']))
+        if info['mode'] == 'legacy' and info['pending']:
             out.append('     pending components (not installed, need a native measurement): %s' % ', '.join(info['pending']))
+    if plan.get('ce_coverage'):
+        out.append('   CE building coverage: ce_coverage generate/install after economy and optional CE deltas '
+                   '(receipt, byte-exact rollback); validated result %s; runtime acceptance pending' %
+                   plan['ce_coverage']['result'])
     if plan.get('expansion_ai'):
         out += expansion_lines(plan['expansion_ai'], plan['profiles'], plan['mission'], plan['markers'],
                                plan['markers_mode'], applied)
@@ -1496,6 +1589,14 @@ def apply_plan(plan, args):
                       ', '.join(map(str, plan['running'])))
     state.mkdir()
     receipt = Receipt(state / RECEIPT_NAME)
+    interiors_record = None
+    coverage_record = None
+    if plan['interiors']:
+        interiors_record = {'target': str(plan['interiors']['target']), 'pack': str(plan['interiors']['pack']),
+                            'mode': plan['interiors']['mode']}
+    if plan.get('ce_coverage'):
+        coverage_record = {'result': str(plan['ce_coverage']['result']), 'sha256': plan['ce_coverage']['sha256'],
+                           'report': plan['ce_coverage']['report']}
     receipt.create({'schema': SCHEMA, 'status': 'in-progress', 'server_root': str(plan['server_root']),
                     'steps': {}, 'runtime_acceptance': 'pending',
                     'cfg': {'path': str(plan['cfg_path']), 'before_sha256': sha(plan['cfg_before']),
@@ -1506,8 +1607,7 @@ def apply_plan(plan, args):
                             'signed': plan['mod']['signed']},
                     'server_keys': [], 'server_keys_dir': None, 'mission': str(plan['mission']),
                     'profiles': str(plan['profiles']), 'markers': {'created': [], 'dirs': []},
-                    'interiors': {'target': str(plan['interiors']['target']), 'pack': str(plan['interiors']['pack'])}
-                    if plan['interiors'] else None,
+                    'interiors': interiors_record, 'ce_coverage': coverage_record,
                     'snafu_delta': optional_receipt(plan.get('snafu_delta')),
                     'tactical_flava_delta': optional_receipt(plan.get('tactical_flava_delta')),
                     'expansion_ai': {'dest': str(plan['expansion_ai']['mod']['dest']),
@@ -1590,9 +1690,16 @@ def apply_plan(plan, args):
             tool.write_delta(stage, tool.generate(plan['mission'], spec['allowlist'], spec['report']))
             tool.install(stage, plan['mission'])
             receipt.step(step, 'done')
-    # 5. interiors data pack, through its own installer (own receipt, byte-exact rollback)
+    if plan.get('ce_coverage'):
+        coverage = load_tool('ce_coverage')
+        receipt.step('ce_coverage', 'started')
+        coverage_stage = stage_directory(state, 'ce-coverage')
+        coverage.write_delta(coverage_stage, coverage.generate(plan['ce_coverage']['data'], plan['mission']))
+        coverage.install(coverage_stage, plan['mission'])
+        receipt.step('ce_coverage', 'done')
+    # 5. interior templates (or explicit legacy data pack), through the existing installer
     if plan['interiors']:
-        interiors = load_tool('interiors_profile')
+        interiors = interiors_installer(plan['interiors']['mode'])
         receipt.step('interiors', 'started')
         interiors.install(plan['interiors']['pack'], plan['interiors']['target'])
         receipt.step('interiors', 'done')
@@ -1774,6 +1881,11 @@ def trial_rollback(name, tool, mission, started, above=(), inputs=()):
     `above` are the (name, tool) pairs whose real rollback runs before this one (the CE deltas installed after
     it); they are rolled back on the copy first, because each later install patched the core this one reads."""
     chain = list(above) + [(name, tool)]
+    pinning = []
+    if any(label == 'ce_coverage' for label, _ in chain):
+        for folder in load_tool('ce_coverage').PINNING_FOLDERS:
+            if os.path.lexists(mission / folder) and all(member.MANAGED != folder for _, member in chain):
+                pinning.append(folder)
     for label, member in chain:
         managed = mission / member.MANAGED
         for path in (managed, *sorted(managed.rglob('*'))):
@@ -1786,7 +1898,13 @@ def trial_rollback(name, tool, mission, started, above=(), inputs=()):
         copy.mkdir()
         for label, member in chain:
             shutil.copytree(mission / member.MANAGED, copy / member.MANAGED, symlinks=True)
-        for relative in (getattr(tool, 'INPUTS', None) or inputs):
+        for folder in pinning:
+            for entry in (mission / folder).rglob('*'):
+                no_links(entry, 'CE pinning receipt path')
+                if entry.is_file():
+                    regular(entry, 'CE pinning receipt file')
+            shutil.copytree(mission / folder, copy / folder, symlinks=True)
+        for relative in sorted(set(getattr(tool, 'INPUTS', ())) | set(inputs)):
             source = mission / relative
             if os.path.lexists(source):
                 (copy / relative).parent.mkdir(parents=True, exist_ok=True)
@@ -1947,7 +2065,7 @@ def plan_rollback(server_root, repo=ROOT):
         if target != profiles / 'HollowCountry':
             raise Refused('receipt names an interiors target outside the profiles directory')
         no_links(target, 'interiors target')
-        tool = load_tool('interiors_profile')
+        tool = interiors_installer(data['interiors'].get('mode', 'legacy'))
         managed = target / tool.MANAGED
         if not os.path.lexists(managed):
             if progress.get('interiors') != 'started' and steps['interiors'] == 'done':
@@ -1959,8 +2077,10 @@ def plan_rollback(server_root, repo=ROOT):
             todo.append(('interiors', 'interiors: existing installer rollback on %s' % target,
                          lambda tool=tool, target=target: run_installer_rollback('interiors', tool, target)))
 
+    rollback_inputs = set(getattr(load_tool('economy'), 'INPUTS', ()))
+    rollback_inputs.add('mapgroupproto.xml')
     above = []  # CE-stack installers that roll back before the next one (their trial runs on top of them)
-    for name in ('tactical_flava', 'snafu', 'economy', 'gameplay'):
+    for name in ('ce_coverage', 'tactical_flava', 'snafu', 'economy', 'gameplay'):
         if not steps.get(name) or progress.get(name) == 'done':
             continue
         tool = load_tool(STEP_TOOLS[name])
@@ -1973,7 +2093,7 @@ def plan_rollback(server_root, repo=ROOT):
             todo.append((name, '%s: installer already rolled back, nothing to undo' % name, noop))
         elif trial_rollback(name, tool, mission, steps[name] == 'started',
                             above if name in STACK_STEPS else (),
-                            getattr(load_tool('economy'), 'INPUTS', ()) if name in STACK_STEPS else ()) == 'noop':
+                            rollback_inputs if name in STACK_STEPS else ()) == 'noop':
             todo.append((name, '%s: installer wrote no receipt, nothing to undo' % name, _remove_empty(managed)))
         else:
             todo.append((name, '%s: existing installer rollback on %s' % (name, mission),
@@ -2091,8 +2211,16 @@ def build_parser():
                        '--tactical-flava (default: <server root>/addons)')
         p.add_argument('--markers', default='all', help='all (every marker the code scan finds), none, all-local '
                        '(every marker in the docs/LOCAL_ACCEPTANCE_V1.md table) or comma-separated names from that table')
-        p.add_argument('--interiors', action='store_true',
-                       help='install the interiors data pack into <profiles>/HollowCountry (interiors_profile)')
+        p.add_argument('--interiors', nargs='?', const='templates', choices=('templates', 'legacy'),
+                       help='install templates into <profiles>/HollowCountry/templates (default); legacy explicitly '
+                       'selects the old interiors.json pack')
+        p.add_argument('--interiors-pack', type=Path,
+                       help='external assembled pack root containing templates/index.json and groups; build with '
+                       'interior_templates build then interiors_profile templates assemble')
+        p.add_argument('--ce-coverage', action='store_true',
+                       help='install validated apartment CE building coverage after economy; refuse PENDING results')
+        p.add_argument('--ce-coverage-result', type=Path,
+                       help='external sampler result for ce_coverage validate/generate (requires --ce-coverage)')
         p.add_argument('--expansion-ai', action='store_true',
                        help='stage the optional @HollowCountryExpansionAI addon after the Expansion Workshop mods '
                        '(needs --workshop-dir, --expansion-ai-mod, --expansion-ai-dest)')

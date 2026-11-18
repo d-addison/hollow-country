@@ -1,5 +1,11 @@
 """Friend server bundle: synthetic mission, profile and mod trees only.
 
+Additional TDD RED for optional invalid results, before the omission fix (verbatim failure line):
+AssertionError: 2 != 0 : refused: sampler result keys must be exactly: frame, groups, kind, native_run_id, pins, schema
+Ran 1 test in 0.132s
+FAILED (failures=1)
+GREEN command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_friend_bundle
+
 Nothing here runs DayZ, steamcmd or a server. It checks which files the exporter copies, refuses and
 writes; it establishes nothing about DayZ behaviour or a real friend's install.
 """
@@ -240,6 +246,76 @@ class FriendBundleTests(unittest.TestCase):
         self.assertNotEqual(code, 0)
         self.assertIn('bisign', text)
         self.assertFalse(self.out.exists())
+
+
+    def test_coverage_is_left_out_once_when_result_is_pending(self):
+        from tests.unit import test_ce_coverage as fixtures
+        from tools.package import ce_coverage
+        stock = fixtures.stock_proto()
+        put(self.mission, 'mapgroupproto.xml', stock)
+        put(self.mission, 'hollow-country/receipt.json', json.dumps({'sources': {
+            'mapgroupproto.xml': hashlib.sha256(stock).hexdigest()}}))
+        result = put(self.tmp, 'synthetic-result.json', fixtures.blob(fixtures.result_doc(stock)))
+        delta = self.tmp / 'coverage-delta'
+        ce_coverage.write_delta(delta, ce_coverage.generate(result.read_bytes(), self.mission))
+        ce_coverage.install(delta, self.mission)
+        installed = (self.mission / 'mapgroupproto.xml').read_bytes()
+        code, text = self.run_cli('--ce-coverage-result', str(self.tmp / 'missing-result.json'))
+        self.assertEqual(code, 0, text)
+        self.assertEqual(text.count('left out CE building coverage'), 1)
+        self.assertIn('PENDING', text)
+        bundled = self.out / 'mpmissions' / self.mission.name
+        self.assertEqual((bundled / 'mapgroupproto.xml').read_bytes(), stock)
+        self.assertFalse((bundled / ce_coverage.MANAGED).exists())
+        self.assertEqual((self.mission / 'mapgroupproto.xml').read_bytes(), installed)
+
+    def test_validated_coverage_is_applied_to_bundle_without_changing_source(self):
+        from tests.unit import test_ce_coverage as fixtures
+        stock = fixtures.stock_proto()
+        put(self.mission, 'mapgroupproto.xml', stock)
+        put(self.mission, 'hollow-country/receipt.json', json.dumps({'sources': {
+            'mapgroupproto.xml': hashlib.sha256(stock).hexdigest()}}))
+        result = put(self.tmp, 'synthetic-result.json', fixtures.blob(fixtures.result_doc(stock)))
+        code, text = self.run_cli('--ce-coverage-result', str(result))
+        self.assertEqual(code, 0, text)
+        bundled = self.out / 'mpmissions' / self.mission.name
+        self.assertNotEqual((bundled / 'mapgroupproto.xml').read_bytes(), stock)
+        self.assertEqual((self.mission / 'mapgroupproto.xml').read_bytes(), stock)
+        self.assertFalse(any('sampler' in name or 'coverage-delta' in name for name in self.files()))
+        self.assertNotIn('left out CE building coverage', text)
+
+
+    def test_invalid_coverage_result_is_left_out_once_and_no_points_are_bundled(self):
+        from tests.unit import test_ce_coverage as fixtures
+        stock = fixtures.stock_proto()
+        put(self.mission, 'mapgroupproto.xml', stock)
+        result = put(self.tmp, 'synthetic-invalid-result.json', '{}')
+        code, text = self.run_cli('--ce-coverage-result', str(result))
+        self.assertEqual(code, 0, text)
+        self.assertEqual(text.count('left out CE building coverage'), 1)
+        self.assertEqual((self.out / 'mpmissions' / self.mission.name / 'mapgroupproto.xml').read_bytes(), stock)
+
+    def test_installed_coverage_and_valid_result_ship_only_patched_proto_bytes(self):
+        from tests.unit import test_ce_coverage as fixtures
+        from tools.package import ce_coverage
+        stock = fixtures.stock_proto()
+        put(self.mission, 'mapgroupproto.xml', stock)
+        put(self.mission, 'hollow-country/receipt.json', json.dumps({'sources': {
+            'mapgroupproto.xml': hashlib.sha256(stock).hexdigest()}}))
+        result = put(self.tmp, 'synthetic-result.json', fixtures.blob(fixtures.result_doc(stock)))
+        delta = self.tmp / 'coverage-delta'
+        ce_coverage.write_delta(delta, ce_coverage.generate(result.read_bytes(), self.mission))
+        ce_coverage.install(delta, self.mission)
+        installed = (self.mission / 'mapgroupproto.xml').read_bytes()
+        code, text = self.run_cli('--ce-coverage-result', str(result))
+        self.assertEqual(code, 0, text)
+        self.assertNotIn('left out CE building coverage', text)
+        self.assertEqual((self.out / 'mpmissions' / self.mission.name / 'mapgroupproto.xml').read_bytes(), installed)
+        self.assertFalse(any(ce_coverage.MANAGED in name for name in self.files()))
+        manifest = json.loads((self.out / 'bundle-manifest.json').read_bytes())
+        for row in manifest['files']:
+            self.assertEqual(hashlib.sha256((self.out / row['path']).read_bytes()).hexdigest(), row['sha256'])
+        self.assertTrue((self.mission / ce_coverage.MANAGED / 'receipt.json').is_file())
 
 
 if __name__ == '__main__':
