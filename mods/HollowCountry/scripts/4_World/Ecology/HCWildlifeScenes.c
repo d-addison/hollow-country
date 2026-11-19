@@ -48,8 +48,11 @@ class HCWildlifeSceneRow
 
 class HCWildlifeSceneState
 {
-    int Version = 1;
+    int Version = 2;
     ref array<ref HCWildlifeSceneRow> Rows = new array<ref HCWildlifeSceneRow>();
+    // Independent spent-ID ring. Never overwrite an ID to admit a new body:
+    // saturation refuses further reservations, so eviction cannot revive loot.
+    ref array<string> SpentCorpseIds = new array<string>();
 }
 
 class HCWildlifeSceneDebug : HCDebugContributor
@@ -67,6 +70,8 @@ class HCWildlifeSceneDebug : HCDebugContributor
 class HCWildlifeScenes
 {
     static const int MAX_RECEIPTS = 64;
+    static const int MAX_SPENT_CORPSES = 64;
+    protected static ref array<string> s_StoryOff = new array<string>;
     protected ref HCWildlifeSceneConfig m_Config;
     protected ref HCEncounterStore<HCWildlifeSceneState> m_Store;
     protected ref HCWildlifeSceneState m_State;
@@ -85,6 +90,25 @@ class HCWildlifeScenes
     protected string m_Effective = "off";
     protected string m_Reason = "not_started";
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+
+    // Lead calls once at scene publication when the Stories schedule is off.
+    // Chosen disposition: named refusal, never replay or replenish that scene.
+    // Bounded process-local dedup; the final slot represents aggregate overflow.
+    static void HCStoryOff(string sceneId)
+    {
+        if (!HCEventDirector.TextValid(sceneId, 80) || s_StoryOff.Find(sceneId) >= 0) { return; }
+        if (s_StoryOff.Count() > HCWildlifeScenes.MAX_RECEIPTS) { return; }
+        if (s_StoryOff.Count() == HCWildlifeScenes.MAX_RECEIPTS)
+        {
+            s_StoryOff.Insert("");
+            Print("[HC Plan] HC-49 state=refused refusal=STORIES_NOT_READY scene=overflow retained=64 offered=0 runtime=PENDING");
+            return;
+        }
+        s_StoryOff.Insert(sceneId);
+        Print("[HC Plan] HC-49 state=refused refusal=STORIES_NOT_READY scene=" + sceneId + " offered=0 runtime=PENDING");
+    }
+
+    bool HCActive() { return m_Enabled && !m_Fault && m_Active != null; }
 
     static HCWildlifeSceneConfig HCLoadConfig()
     {
@@ -108,7 +132,17 @@ class HCWildlifeScenes
 
     static bool HCValid(HCWildlifeSceneState state)
     {
-        if (!state || state.Version != 1 || !state.Rows || state.Rows.Count() > HCWildlifeScenes.MAX_RECEIPTS) { return false; }
+        if (!state || (state.Version != 1 && state.Version != 2) || !state.Rows || state.Rows.Count() > HCWildlifeScenes.MAX_RECEIPTS) { return false; }
+        array<string> spent = new array<string>();
+        if (state.Version == 2)
+        {
+            if (!state.SpentCorpseIds || state.SpentCorpseIds.Count() > HCWildlifeScenes.MAX_SPENT_CORPSES) { return false; }
+            foreach (string spentId : state.SpentCorpseIds)
+            {
+                if (!HCEventDirector.TextValid(spentId, 96) || spent.Find(spentId) >= 0) { return false; }
+                spent.Insert(spentId);
+            }
+        }
         array<string> identities = new array<string>();
         array<string> bodies = new array<string>();
         array<int> stories = new array<int>();
@@ -124,6 +158,7 @@ class HCWildlifeScenes
             if (row.CorpseId != "")
             {
                 if (!HCEventDirector.TextValid(row.CorpseId, 96) || bodies.Find(row.CorpseId) >= 0) { return false; }
+                if (state.Version == 2 && spent.Find(row.CorpseId) < 0) { return false; }
                 bodies.Insert(row.CorpseId);
             }
             if (row.Supply == "pending" || row.Supply == "native_skinnable") { active = active + 1; }
@@ -202,6 +237,19 @@ class HCWildlifeScenes
         m_Effective = "ready";
         m_Reason = "native_observation_only";
         bool changed = false;
+        if (m_State.Version == 1)
+        {
+            // Native missing Version=0 is refused above, never treated as v1.
+            // Only retained legacy receipts are recoverable; never infer IDs
+            // of scenes already evicted before this migration.
+            m_State.SpentCorpseIds = new array<string>();
+            foreach (HCWildlifeSceneRow legacy : m_State.Rows)
+            {
+                if (legacy.CorpseId != "") { m_State.SpentCorpseIds.Insert(legacy.CorpseId); }
+            }
+            m_State.Version = 2;
+            changed = true;
+        }
         foreach (HCWildlifeSceneRow restored : m_State.Rows)
         {
             if (restored.Supply == "native_skinnable")
@@ -267,11 +315,7 @@ class HCWildlifeScenes
 
     protected bool HCSpent(string corpseId)
     {
-        foreach (HCWildlifeSceneRow receipt : m_State.Rows)
-        {
-            if (receipt.CorpseId == corpseId) { return true; }
-        }
-        return false;
+        return m_State.SpentCorpseIds.Find(corpseId) >= 0;
     }
 
     protected void HCFinish(string supply)
@@ -330,6 +374,12 @@ class HCWildlifeScenes
                 continue;
             }
             if (HCSpent(corpseId)) { continue; }
+            if (m_State.SpentCorpseIds.Count() >= HCWildlifeScenes.MAX_SPENT_CORPSES)
+            {
+                HCRefuse("CARCASS_SPENT_HISTORY_FULL");
+                return;
+            }
+            m_State.SpentCorpseIds.Insert(corpseId);
             m_Active.CorpseId = corpseId;
             m_Active.Supply = "native_skinnable";
             m_Effective = "ready";

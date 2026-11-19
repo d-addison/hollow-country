@@ -56,6 +56,11 @@ four compressed XML members were decoded in memory with size/checksum verificati
 Numpad5 was bound in three alternate vanilla presets, so it was not chosen.
 Existing HC inputs are retained. RPC ids **4853911** (request) and **4853912**
 (reply) were unused in the full mods/ scan; menu id is 48539.
+RPC id **4853913** is reserved for HC-51's server-to-client season snapshot:
+three integers (version, revision, phase), targeted on join/ready/reconnect and
+broadcast on phase changes and a 30-second heartbeat after first publication.
+It accepts no client requests. Native transport and two-client acceptance remain
+PENDING.
 
 Buttons send `sitter`, `dormant`, `horde`, `scene`, `event`, `camp`, `holdout`,
 `status`, `snapshot`, or `day` with the adjacent decimal field (clamped server-side

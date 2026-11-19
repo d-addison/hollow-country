@@ -66,6 +66,41 @@ Lead: no HCModule.c/config.cpp edits, registration unchanged; reconcile the
 central Banso trace (required central spec/plan/tasks still absent).
 Distances added: none. DayZDiag, signed PBO/server, two clients, restart/downtime,
 native weather/survival controls and exact package hashes all remain PENDING.
+
+Wave 7 / #184, HC-51 review follow-ups (2026-11-19).
+Trace: supplied HC-51/49 Wave-7 task + shared brief -> owner tick regression,
+idle RPC suppression, snow cleanup, bounded null-lighting startup -> same
+feature behavior below. The central Banso/spec files remain absent; HC-11 owns
+trace reconciliation. No new distances, mission/ files or registration edits.
+Installed native evidence rechecked: 3_Game/Weather.c:65-74 SetLimits holds
+actual in the supplied range; 3_Game/gameplay.c:747 GetWorldLighting may return
+null; 3_Game/Global/Game.c:1093 GetMission, :914 GetTickTime. No new engine API.
+RED command (before production edits):
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons test_hc_wildlife -v
+  Ran 7 tests; FAILED (failures=11). Season failures included:
+  AssertionError: Tuples differ: (0.0, 0.0) != (0.0, 0.55) [end and suspension]
+  AssertionError: 0 not greater than 0 : startup never retries without another settings RPC
+  + [None] : null lighting must not allocate a permanently inert client
+  + [((1, 1, -1), (None, 4853913, True, None))] : unpublished phase -1 must skip heartbeat
+  RPC registry: AssertionError: '4853913' not found.
+Existing winter/other phase limits, seasonal max(target, actual) versus inactive
+hard fog cap, and once-per-phase logging already passed the new owner-driven
+regression before production edits; no RED is claimed for an already fixed path.
+GREEN required command:
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_hc_visual_seasons test_hc_client_controls test_v1_weather test_hc_wildlife test_ecology_module test_hc_story_module test_v1_combined_flags -v
+  Ran 102 tests; OK (expected failures=1, pre-existing shared-budget check).
+GREEN affected readers/native guards:
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_script_syntax test_enforce_locals test_script_identifiers test_hygiene test_enforce_formula_complexity test_admin_ui test_admin_test_kit test_hc_wildlife_wiring test_v1_ecology_sight test_v2_weather_days test_v2_lighting test_v1_ecology_resources test_hc_story_schedule -v
+  Ran 141 tests; OK.
+  PYTHONDONTWRITEBYTECODE=1 python3 -m tools.validate.enforce_lint --no-native
+  pass findings=121 new=0 stale=0 native=no.
+Startup retries are capped at 12 per GRADE enable cycle, at five-second update
+intervals; subsequent explicit reconciles may also retry, within that same cap.
+Off/stop clears the retry state. WEATHER_OWNER_NOT_ADMITTED and HC6_NOT_ADMITTED
+remain fail-closed; LIGHTING_START_UNAVAILABLE logs once at attempt exhaustion.
+Native DayZDiag, signed PBO/server, two-client join/change/off/death/reconnect,
+foreign weather handover, restart and exact build/dependency hashes PENDING.
+Nothing observed in DayZ yet.
 """
 import functools
 import json
@@ -317,6 +352,13 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         for name in re.findall(r'static (?:bool|int|float|string) (\w+)\(', source):
             setattr(weather, name, translate(source, name, env, 'HCWeatherDays'))
 
+        # Wave 7 extends this same feature behavior over synthetic owners.
+        check_wave7_weather_owner(self, env, policy)
+        check_wave7_lighting_start(self)
+        with self.subTest(wave7='RPC registry'):
+            self.assertIn('4853913', (ROOT / 'docs/ACCEPTANCE_CHECKLIST.md').read_text(),
+                          'HC-51 season RPC missing from registry')
+
         # Wave 6: named half-hour season-fog envelope is continuous at the
         # weather owner's 05:00 and 20:00 boundaries (synthetic hours only).
         self.assertTrue(hasattr(policy, 'FOG_BLEND_HOURS'), 'HC-51 boundary blend missing')
@@ -380,6 +422,12 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
                        HCWorkBudget=lambda: N(HCReset=lambda *a: None, HCContinue=lambda: True))
         sender = install(rpc_path, rpc_env, 'HCSeasonSnapshotRPC',
                          ('HCPublish', 'SendTo', 'HCSend', 'HCTick'))
+        with self.subTest(wave7='idle heartbeat'):
+            sender.HCTick(300.)
+            self.assertEqual([], packets, 'unpublished phase -1 must skip heartbeat')
+            self.assertEqual(0., sender.s_Elapsed, 'idle heartbeat must not accrue debt')
+            packets.clear()
+            sender.s_Elapsed = 0.
         sender.SendTo('synthetic identity')
         self.assertEqual(((1, 1, -1), (None, rpc_id, True, 'synthetic identity')), packets[-1])
         sender.HCPublish(2)
@@ -393,6 +441,10 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         sender.HCPublish(4)
         self.assertEqual((1, 2, 2), packets[-1][0])
         sender.HCPublish(-1)
+        self.assertEqual((1, 3, -1), packets[-1][0])
+        before_off = len(packets)
+        sender.HCTick(30.)
+        self.assertEqual(before_off + 1, len(packets), 'published off still heartbeats for late clients')
         self.assertEqual((1, 3, -1), packets[-1][0])
         sender.s_Revision = 1999999999
         sender.HCPublish(3)
@@ -616,3 +668,121 @@ class VisualSeasonPresentationBehavior(unittest.TestCase):
         for forbidden in ('modded class Environment', 'modded class PlayerBase',
                           'AddToEnvironmentTemperature(', 'SetHeatComfort(', 'AddWet(', 'SetDate('):
             self.assertNotIn(forbidden, seasonal_sources)
+
+
+def check_wave7_weather_owner(test, policy_env, policy):
+    """SYNTHETIC phenomena only; tick/phase/log/cleanup decisions are authored."""
+    logs, published = [], []
+    foreign, phase = [False], [3]
+    def phenomenon(actual):
+        value = N(limits=None, actual=actual, target=None)
+        value.GetActual = lambda: value.actual
+        value.SetLimits = lambda low, high: setattr(value, 'limits', (low, high))
+        value.Set = lambda target, *args: setattr(value, 'target', target)
+        return value
+    snow, fog = phenomenon(.3), phenomenon(.8)
+    weather = N(GetMissionWeather=lambda: foreign[0], GetWeatherUpdateFrozen=lambda: False,
+                GetSnowfall=lambda: snow, GetFog=lambda: fog,
+                GetRain=lambda: phenomenon(0.), GetOvercast=lambda: phenomenon(.9), GetWindSpeed=lambda: 1.)
+    env = dict(policy_env, Print=logs.append, Math=N(Floor=math.floor, Max=max),
+               GetGame=lambda: N(IsServer=lambda: True, GetDayTime=lambda: 12., GetTickTime=lambda: 100.),
+               HCGroupClock=N(Utc=lambda: 20700 * 86400),
+               HCSeasonSnapshotRPC=N(HCPublish=published.append),
+               EWeatherPhenomenon=N(OVERCAST=0, RAIN=1, WIND_MAGNITUDE=2, WIND_DIRECTION=3, SNOWFALL=4),
+               string=N(Format=lambda pattern, *args: 'synthetic day log'))
+    # Namespace fields are explicit native/member fixtures; the translator supplies syntax.
+    source = (WEATHER / 'HCWeatherDaysModule.c').read_text()
+    source = source[source.index('modded class ChernarusPlusData'):]
+    source = source.replace('HCApplyNightLimits(false)', 'this.HCApplyNightLimits(false)')
+    source = source.replace('HCStopAtmosphere()', 'this.HCStopAtmosphere()')
+    owner = N(m_Weather=weather, m_HCWeatherDaysActive=True, m_HCWeatherDaysSuspended=False,
+              m_HCVisualSeasons=N(HCActive=lambda: phase[0] >= 0, HCPhase=lambda: phase[0],
+                                 HCTick=lambda: None, HCStop=lambda: None),
+              m_HCReportedPhase=-2, m_HCWeatherAdminDay=-1, m_HCWeatherLastHour=12.,
+              m_HCWeatherCalm=0., m_HCWeatherWasWet=False, m_HCWeatherDay=-1,
+              m_HCWeatherProfile='', m_HCWeatherPhase='', m_HCNightLimited=False,
+              m_HCWeatherSlot=-1, HCApplyNightLimits=lambda *args: None,
+              HCWeatherDaysForecast=lambda *args: None, CalculateVolFog=lambda *args: None,
+              HCStopAtmosphere=lambda: None)
+    for name in ('HCWeatherDaysAuthority', 'HCSeasonPhaseCode', 'HCPublishSeason',
+                 'HCTickWeatherDays', 'HCEndWeatherDays'):
+        setattr(owner, name, functools.partial(translate(source, name, env, 'ChernarusPlusData', True), owner))
+    with test.subTest(wave7='tick snow/fog and once-per-phase receipt'):
+        for current in (3, 0, 1, 2, -1):
+            phase[0] = current
+            owner.HCTickWeatherDays()
+            target = env['HCWeatherDays'].HCSeasonFog(policy.HCPhaseName(current), 20700, 12., 0.)
+            test.assertEqual((0., policy.WINTER_SNOWFALL if current == 3 else 0.), snow.limits)
+            test.assertEqual((0., max(target, .8) if current >= 0 else target), fog.limits)
+            count = len(logs)
+            owner.HCTickWeatherDays()
+            test.assertEqual(count, len(logs), 'repeated tick logged an unchanged phase')
+        test.assertEqual(5, sum('HC-51 phase=' in line for line in logs))
+    with test.subTest(wave7='snow cleanup on end'):
+        phase[0] = 3
+        owner.HCTickWeatherDays()
+        owner.HCEndWeatherDays()
+        test.assertEqual((0., 0.), snow.limits, 'winter snowfall cap survives owner stop')
+    with test.subTest(wave7='snow cleanup on foreign suspension'):
+        owner.m_HCWeatherDaysActive = True
+        owner.m_HCWeatherPhase = ''
+        owner.HCTickWeatherDays()
+        foreign[0] = True
+        owner.HCTickWeatherDays()
+        test.assertEqual((0., 0.), snow.limits, 'winter snowfall cap survives foreign suspension')
+        snow.limits = (0., .7)  # SYNTHETIC subsequent foreign-owned change.
+        owner.HCTickWeatherDays()
+        test.assertEqual((0., .7), snow.limits, 'suspended ticks must not keep overwriting foreign weather')
+
+
+def check_wave7_lighting_start(test):
+    """Null first mission/lighting, bounded retries, GRADE off and stop, SYNTHETIC."""
+    from tests.unit.test_hc_client_controls import COORD, SETTINGS, install
+    for missing in ('mission', 'lighting'):
+        with test.subTest(wave7='lighting retry', missing=missing):
+            starts, queries, logs = [], [], []
+            ready, now = [False], [0.]
+            def mission():
+                queries.append('mission')
+                if missing == 'mission' and not ready[0]: return None
+                return N(GetWorldLighting=lambda: 'synthetic lighting' if ready[0] else None)
+            def lighting(handle):
+                return N(Start=lambda: starts.append(handle), Stop=lambda: None)
+            game = N(IsDedicatedServer=lambda: False, GetTickTime=lambda: now[0],
+                     GetPlayer=lambda: None)
+            env = dict(GetGame=lambda: game, Print=logs.append, tostr=str, make_lighting=lighting,
+                       synthetic_mission=mission, PlayerBase=N(Cast=lambda player: player),
+                       HCOperationalStatus=lambda: N(HCPublish=lambda *args: None),
+                       HCUnitBudget=lambda: unit_budget(),
+                       HCWorkBudget=lambda: N(HCReset=lambda *args: None, HCContinue=lambda: True),
+                       HCGradeSettingsClient=lambda: N(Start=lambda: None, Stop=lambda: None, HCHandleCount=lambda: 0))
+            install(SETTINGS, env, 'HCClientPresentationSettings', ('HCValidMask',))
+            c = install(COORD, env, 'HCClientPresentation',
+                        ('HCReconcile', 'HCUpdate', 'HCReport', 'HCHandleCount'))()
+            c.m_Settings = N(HCEffective=lambda local: 2)
+            c.m_Stopped = False
+            c.HCReconcile()
+            test.assertEqual([], starts, 'null lighting must not allocate a permanently inert client')
+            ready[0] = True
+            c.HCReconcile()
+            test.assertEqual(['synthetic lighting'], starts, 'later reconcile never starts lighting')
+            c.HCReconcile()
+            test.assertEqual(['synthetic lighting'], starts, 'one lighting owner only')
+            # Start a fresh GRADE cycle whose mission never becomes ready.
+            c.m_Settings = N(HCEffective=lambda local: 0)
+            c.HCReconcile()
+            c.m_Settings = N(HCEffective=lambda local: 2)
+            ready[0] = False
+            c.HCReconcile()
+            queries.clear()
+            for _ in range(100): c.HCUpdate(.01, True)
+            test.assertEqual([], queries, 'per-frame lighting retry storm')
+            for _ in range(100): c.HCUpdate(5., True)
+            test.assertGreater(len(queries), 0, 'startup never retries without another settings RPC')
+            test.assertLessEqual(len(queries), 12, 'lighting startup retry count is unbounded')
+            test.assertEqual(1, sum('LIGHTING_START_UNAVAILABLE' in line for line in logs))
+            queries.clear()
+            c.m_Stopped = True
+            c.HCReconcile()
+            for _ in range(20): c.HCUpdate(5., True)
+            test.assertEqual([], queries)

@@ -42,6 +42,55 @@ The two out-of-scope legacy fixtures need static owner/status/carcass ports
 Those files remain untouched; lead integration must update their scaffolding.
 Validating those two proposed fixture edits in memory only (no file writes),
 the ecology/story/combined-flags subset ran 52 tests; OK (expected failures=1).
+
+Wave 7 / #181, HC-49 follow-ups (2026-11-19).
+Trace: supplied Wave-7 task -> cheap HCActive before UTC, independent ecology
+and HC-49 cached statuses, durable bounded spent IDs, named Stories-off refusal.
+Same pre-edit RED command recorded in test_hc_visual_seasons.py: Ran 7 tests;
+FAILED (failures=11). Wildlife failures included these actual output lines:
+  AssertionError: 'pending' != 'native_skinnable' : evicted scene corpse was offered again
+  AssertionError: False is not true : Stories-off scene has no named refusal seam
+  AssertionError: 2 != 1 : legacy journal never migrated
+  Status assertion: HC-49 replaced ecology operational status.
+  Inactive tick events incorrectly gained ('utc',), ('step', 100, 4321).
+GREEN: the exact required 102-test command and 141-test reader/guard command
+are recorded in test_hc_visual_seasons.py; both passed, with one pre-existing
+expected failure in the required command. Fixtures changed in
+ test_ecology_module.py only supply the new HCActive/independent status ports.
+No production engine/provider/clock/IO behavior is implemented in the fixtures.
+Framework: HCModule lifecycle/status, HCUnitBudget + HCWorkBudget + retained
+cursor, HCPerfPlayers-backed HC-15 snapshots, HCV2Admission, bounded debug
+contributor and HCEncounterStore synchronous transition barriers. No new
+scheduler, distances or mission/ files. Registration blocks unchanged.
+Native rechecked: EnScript.c:394 Find, :407 Insert, :470 RemoveOrdered;
+Game.c:1535 GetTime. Source provenance is the pinned scripts-1.30.164289 tree.
+The independent spent-ID ring retains up to 64 IDs and never overwrites one;
+CARCASS_SPENT_HISTORY_FULL refuses new bindings at saturation. Version 1
+migrates retained IDs once behind a barrier; Version 0 and invalid Version 2
+refuse. Pre-fix evicted IDs are unrecoverable; migration cannot prove their
+absence. Future ring eviction would require native corpse-lifetime evidence.
+Chosen disposition is refusal, not story replay: HCStoryOff(sceneId) logs
+STORIES_NOT_READY once per retained scene identity (64 plus one overflow line,
+process-local). Actual owner is HCScenesModule.m_Stories / HCStorySchedule,
+not a class named Stories module. Owed lead edit, outside worker file scope:
+in HCScenesModule.c Work(), inside !lease.StoryPublished, immediately after
+PublishSceneStory(chain, HCSceneChains.Site(plan.SiteId)), insert:
+    if (chain.Stage == 0 && (!m_Stories || !m_Stories.HCReady()))
+    {
+        HCWildlifeScenes.HCStoryOff(chain.Id);
+    }
+This call site remains unwired by this worker; helper testing is not a claim
+that the live scene publisher emits it. HCGetWildlifeStatus() exposes HC-49's
+separate cached status; HCGetOperationalStatus() remains Ecology's own status.
+No HCModule.c/config.cpp/MISSION_FILES edits required. HC-11 central trace
+reconciliation remains with the lead (requested spec/plan/task files absent).
+Grep HC-49, CARCASS_SPENT_HISTORY_FULL, STORIES_NOT_READY and existing
+AUTHORED_CORPSE_CE_ADMISSION_UNPROVEN after exact-source DayZDiag, then normal
+PBO/server. Observe no corpse re-offer after eviction/restart, off no-op,
+native skinning, one refusal on Stories-off first-stage publication, independent
+Ecology/HC-49 status and bounded diagnostic counts. Two-client visibility and
+inventory, paired Hive/journal restoration and exact package hashes PENDING.
+Nothing observed in DayZ yet.
 """
 import functools
 import copy
@@ -76,6 +125,8 @@ def carcass_fixture(image=None, enabled=True):
                         'new SyntheticStore()')
     disk = N(image=copy.deepcopy(image), fail=False)
     logs, calls, snapshots = [], [], EArray()
+    if disk.image is not None and not hasattr(disk.image, 'SpentCorpseIds'):
+        disk.image.SpentCorpseIds = None  # Explicit synthetic legacy JSON field absence.
     def save(state):
         calls.append('save')
         if disk.fail: return False
@@ -87,7 +138,7 @@ def carcass_fixture(image=None, enabled=True):
     status.HCPublish = lambda state, reason: (setattr(status, 'state', state), setattr(status, 'reason', reason))
     cap = int(re.search(r'MAX_RECEIPTS = (\d+);', text)[1])
     env = dict(str=str, GetGame=lambda: N(IsServer=lambda: True), Print=logs.append,
-        HCWildlifeScenes=N(MAX_RECEIPTS=cap),
+        HCWildlifeScenes=N(MAX_RECEIPTS=cap, MAX_SPENT_CORPSES=int(re.search(r'MAX_SPENT_CORPSES = (\d+);', text)[1])), s_StoryOff=EArray(),
         HCEcologyNative=N(Authority=lambda: True),
         HCV2Admission=N(Admitted=lambda preference: preference),
         HCEventDirector=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap),
@@ -95,7 +146,8 @@ def carcass_fixture(image=None, enabled=True):
         HCWildlifeObservation=N(HCSnapshot=lambda now: snapshots),
         HCStoryPolicy=N(HCValid=lambda state: True),
         HCEcologyRuntimeIO=N(Read=lambda *args: ''),
-        HCWildlifeSceneState=lambda: N(Version=1, Rows=EArray()),
+        HCWildlifeSceneState=lambda: N(Version=int(re.search(r'int Version = (\d+);', text)[1]),
+                                      Rows=EArray(), SpentCorpseIds=EArray()),
         HCWildlifeSceneRow=lambda: N(Id=EStr(''), StorySequence=0, CorpseId=EStr(''),
             Supply=EStr('pending'), Origin=EStr('observed'), DueAt=0, EndsAt=0),
         SyntheticStore=lambda: N(Load=lambda fresh, collection: calls.append('load') or
@@ -149,18 +201,21 @@ def check_carcass_runtime(test):
     legacy.setUp()
     events, static_owner = [], N(instance=None)
     status = N(HCPublish=lambda *args: None)
-    carcasses = N(HCOpen=lambda enabled: events.append(('open', enabled)),
+    ecology_status = N(HCPublish=lambda *args: None)
+    active = [True]
+    carcasses = N(HCActive=lambda: active[0], HCOpen=lambda enabled: events.append(('open', enabled)),
                   HCStep=lambda now, now_ms: events.append(('step', now, now_ms)),
                   HCClose=lambda: events.append(('close',)), HCStatus=lambda: status)
     utc = [1577836900]
     env = dict(legacy.e, static_owner=static_owner, HCWildlifeScenes=lambda: carcasses,
-               HCGroupClock=N(Utc=lambda: utc[0]))
+               HCGroupClock=N(Utc=lambda: events.append(('utc',)) or utc[0]))
     source = legacy.source.replace('override ', '').replace('s_Instance', 'static_owner.instance')
     source = re.sub(r'\bthis\b', 'self', source)
-    names = ('IsEnabled', 'OnStart', 'OnTick', 'OnStop', 'HCGetOperationalStatus', 'HCWildlife')
+    names = ('IsEnabled', 'OnStart', 'OnTick', 'OnStop', 'HCGetOperationalStatus', 'HCGetWildlifeStatus', 'HCWildlife')
     handlers(source, 'HCEcologyRuntimeModule', env, only=names)
     owner = legacy.module
-    owner.m_WildlifeScenes, owner.m_Status = None, status
+    owner.m_WildlifeScenes, owner.m_Status = None, ecology_status
+    owner.m_WildlifeStatus = status
     for name in names:
         setattr(owner, name, env[name] if name == 'HCWildlife' else MethodType(env[name], owner))
     test.assertIsNone(owner.HCWildlife())
@@ -168,16 +223,24 @@ def check_carcass_runtime(test):
     owner.OnStart(None)
     test.assertEqual([('open', True)], events)
     test.assertIs(carcasses, owner.HCWildlife())
-    test.assertIs(status, owner.HCGetOperationalStatus())
+    with test.subTest(wave7='separate ecology and HC-49 status'):
+        test.assertIs(ecology_status, owner.HCGetOperationalStatus(), 'HC-49 replaced ecology operational status')
+        test.assertIs(status, owner.HCGetWildlifeStatus())
     owner.OnStart(None)
     test.assertEqual([('open', True)], events, 'duplicate start never opens a second owner')
     owner.OnTick(1)
     test.assertEqual(('step', 100, 4321), events[-1])
+    with test.subTest(wave7='inactive HC-49 skips UTC'):
+        active[0] = False
+        before = list(events)
+        owner.OnTick(1)
+        test.assertEqual(before, events, 'inactive carcass scenes read UTC')
+        active[0] = True
     for invalid in (-1, 0, 1577836800):
         utc[0] = invalid
         before = list(events)
         owner.OnTick(1)
-        test.assertEqual(before, events, 'invalid group UTC skips carcass step')
+        test.assertEqual(before + [('utc',)], events, 'invalid group UTC skips carcass step')
     owner.OnStop()
     test.assertIsNone(owner.HCWildlife())
     test.assertIsNone(owner.m_WildlifeScenes)
@@ -477,10 +540,14 @@ class WildlifeBehavior(unittest.TestCase):
         sliced.owner.HCStep(102, 3000)
         self.assertEqual('native_skinnable', sliced.disk.image.Rows[0].Supply)
         full_image = copy.deepcopy(scene.disk.image)
+        full_image.Version = 1
+        full_image.SpentCorpseIds = None  # SYNTHETIC pre-ledger legacy journal.
         full_image.Rows = EArray(copy.deepcopy(full_image.Rows[0]) for _ in range(64))
         for index, row in enumerate(full_image.Rows):
             row.Id, row.StorySequence, row.CorpseId = 'old-' + str(index), index + 1, 'body-' + str(index)
         full = carcass_fixture(full_image)
+        self.assertEqual(1, full.calls.count('save'), 'legacy spent IDs require one migration barrier')
+        full.calls.clear()
         self.assertFalse(full.owner.HCOffer(full.chain, full.state))
         self.assertEqual(64, len(full.owner.m_State.Rows), 'duplicate offer cannot evict a receipt')
         self.assertNotIn('save', full.calls)
@@ -494,11 +561,54 @@ class WildlifeBehavior(unittest.TestCase):
             self.assertEqual(64, len(capped.disk.image.Rows))
             self.assertNotIn(1, [row.StorySequence for row in capped.disk.image.Rows])
             self.assertEqual('pending', capped.disk.image.Rows[-1].Supply)
+            with self.subTest(wave7='spent body survives scene eviction and restart'):
+                # Oldest scene was evicted; its native corpse remains spent.
+                capped.animal.pid = 'body-0'
+                capped.owner.HCStep(100, 1000)
+                self.assertEqual('pending', capped.disk.image.Rows[-1].Supply,
+                                 'evicted scene corpse was offered again')
+                restored = carcass_fixture(capped.disk.image)
+                restored.animal.pid = 'body-0'
+                restored.owner.HCStep(100, 1000)
+                self.assertIsNone(restored.owner.m_Body)
+                self.assertEqual(64, len(restored.disk.image.SpentCorpseIds))
+                restored.animal.pid = 'previously-unseen-body'
+                restored.owner.HCStep(101, 2000)
+                self.assertIsNone(restored.owner.m_Body)
+                self.assertTrue(any('CARCASS_SPENT_HISTORY_FULL' in line for line in restored.logs))
+                self.assertEqual(64, len(restored.disk.image.SpentCorpseIds))
             receipt = copy.deepcopy(capped.disk.image.Rows[-1])
             capped.chain.Id, capped.chain.StorySequence = 'synthetic-story-66', 66
             capped.state.Stories.NextSequence = 67
             self.assertFalse(capped.owner.HCOffer(capped.chain, capped.state))
             self.assertEqual(receipt, capped.disk.image.Rows[-1], 'pending is never evicted')
+        with self.subTest(wave7='Stories-off refusal once'):
+            refused = carcass_fixture()
+            self.assertTrue(hasattr(refused.owner, 'HCStoryOff'), 'Stories-off scene has no named refusal seam')
+            refused.owner.HCStoryOff('synthetic-stories-off-scene')
+            refused.owner.HCStoryOff('synthetic-stories-off-scene')
+            self.assertEqual(1, sum('STORIES_NOT_READY' in line for line in refused.logs))
+            for serial in range(70):
+                refused.owner.HCStoryOff('synthetic-off-' + str(serial))
+            self.assertEqual(65, sum('STORIES_NOT_READY' in line for line in refused.logs))
+            self.assertEqual(1, sum('scene=overflow' in line for line in refused.logs))
+            self.assertEqual([], refused.disk.image.Rows if refused.disk.image else [])
+        with self.subTest(wave7='spent ledger migration and safe saturation'):
+            saturated = carcass_fixture(full_image)
+            self.assertEqual(2, saturated.owner.m_State.Version, 'legacy journal never migrated')
+            self.assertEqual(64, len(saturated.disk.image.SpentCorpseIds))
+            saturated.chain.Id, saturated.chain.StorySequence = 'synthetic-story-65', 65
+            saturated.state.Stories.NextSequence = 66
+            self.assertTrue(saturated.owner.HCOffer(saturated.chain, saturated.state))
+            saturated.owner.HCStep(100, 1000)
+            self.assertIsNone(saturated.owner.m_Body, 'full spent ledger must fail closed')
+            self.assertTrue(any('CARCASS_SPENT_HISTORY_FULL' in line for line in saturated.logs))
+        with self.subTest(wave7='corrupt spent ledger refuses without repair'):
+            for spent_ids in (None, EArray(['duplicate', 'duplicate']), EArray([''])):
+                corrupt = N(Version=2, Rows=EArray(), SpentCorpseIds=spent_ids)
+                denied = carcass_fixture(corrupt)
+                self.assertTrue(denied.owner.m_Fault)
+                self.assertNotIn('save', denied.calls)
         expired = carcass_fixture()
         expired.owner.HCOffer(expired.chain, expired.state)
         expired.owner.HCStep(200, 1000)

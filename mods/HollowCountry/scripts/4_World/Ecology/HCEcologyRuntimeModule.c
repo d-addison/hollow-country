@@ -29,10 +29,16 @@ class HCEcologyRuntimeModule : HCModule
     protected ref HCEcologyRuntimeSettings m_Settings;
     protected ref HCWildlifeScenes m_WildlifeScenes;
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+    protected ref HCOperationalStatus m_WildlifeStatus = new HCOperationalStatus;
     protected bool m_Started;
 
-    void HCEcologyRuntimeModule() { m_Status.HCPublish("off", "not_started"); }
+    void HCEcologyRuntimeModule()
+    {
+        m_Status.HCPublish("off", "not_started");
+        m_WildlifeStatus.HCPublish("off", "not_started");
+    }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    HCOperationalStatus HCGetWildlifeStatus() { return m_WildlifeStatus; }
     static HCWildlifeScenes HCWildlife()
     {
         if (!s_Instance) { return null; }
@@ -52,6 +58,7 @@ class HCEcologyRuntimeModule : HCModule
             HCEcologyRuntime.CloseCollection();
             HCWildlifeObservation.HCStart(false);
             m_Status.HCPublish("refused", "ecology_settings_invalid");
+            m_WildlifeStatus.HCPublish("refused", "ecology_settings_invalid");
             Print("[HC Plan] HC-49 state=refused refusal=ecology_settings_invalid retained=0 active=0 runtime=PENDING");
             return false;
         }
@@ -61,6 +68,7 @@ class HCEcologyRuntimeModule : HCModule
             HCEcologyRuntime.CloseCollection();
             HCWildlifeObservation.HCStart(false);
             m_Status.HCPublish("off", "ecology_operator_off");
+            m_WildlifeStatus.HCPublish("off", "ecology_operator_off");
             Print("[HC Plan] HC-49 state=off refusal=ecology_operator_off retained=0 active=0 runtime=PENDING");
             return false;
         }
@@ -78,7 +86,8 @@ class HCEcologyRuntimeModule : HCModule
             s_Instance = this;
             m_WildlifeScenes = new HCWildlifeScenes;
             m_WildlifeScenes.HCOpen(true);
-            m_Status = m_WildlifeScenes.HCStatus();
+            m_WildlifeStatus = m_WildlifeScenes.HCStatus();
+            m_Status.HCPublish("ready", "ecology_observation_started_runtime_pending");
         }
         if (!m_Started)
         {
@@ -86,6 +95,7 @@ class HCEcologyRuntimeModule : HCModule
             HCEcologyRuntime.CloseCollection();
             HCWildlifeObservation.HCStart(false);
             m_Status.HCPublish("refused", "ecology_admission_rejected");
+            m_WildlifeStatus.HCPublish("refused", "ecology_admission_rejected");
             Print("[HC Plan] HC-49 state=refused refusal=ecology_admission_rejected retained=0 active=0 runtime=PENDING");
         }
     }
@@ -95,6 +105,7 @@ class HCEcologyRuntimeModule : HCModule
         HCEcologyRuntime.Tick(GetGame().GetTime());
         if (m_Started) { HCWildlifeObservation.HCTick(GetGame().GetTime()); }
         if (!m_Started || !m_WildlifeScenes) { return; }
+        if (!m_WildlifeScenes.HCActive()) { return; }
         int utc = HCGroupClock.Utc();
         if (utc < 1577836801) { return; }
         m_WildlifeScenes.HCStep(utc - 1577836800, GetGame().GetTime());
@@ -106,6 +117,7 @@ class HCEcologyRuntimeModule : HCModule
         m_WildlifeScenes = null;
         if (s_Instance == this) { s_Instance = null; }
         m_Status.HCPublish("off", "owner_closed");
+        m_WildlifeStatus.HCPublish("off", "owner_closed");
         HCWildlifeObservation.HCStop();
         HCEcologyMigration.Stop();
         HCEcologyRuntime.Stop();
