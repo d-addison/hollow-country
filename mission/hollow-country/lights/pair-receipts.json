@@ -2,7 +2,7 @@
   "SchemaVersion": 1,
   "WorkPackage": "HC-52",
   "Issue": "#58 part 2",
-  "Authority": "Operator-reviewed per-pair client-check receipts. A pair can only qualify when the EnableTapedPackMounts setting is on, this file lists it with Checked=true, a CheckDate and a Note, and HCTapedPackCatalog admits it. Every pair ships unchecked; nothing here is DayZ evidence (runtime=PENDING). Edit a row to Checked=true only after that pair passed its own two-client check.",
+  "Authority": "Operator-reviewed per-pair client-check receipts. A pair can only qualify when the EnableTapedPackMounts setting is on, this file lists it with Checked=true, a CheckDate and a Note, and HCTapedPackCatalog admits it. Every pair ships unchecked; nothing here is DayZ evidence (runtime=PENDING). Edit a row to Checked=true only after that pair passed its own two-client check. Wave 15: one row per approved cross-slot weapon pair (TLRLight on the rail rifles, UniversalLight on the pistols); the ids are derived from the HCTapedLightCatalog rows by HCTapedLightCatalog.CrossPairIds and unit tests pin that this file lists exactly those ids.",
   "RuntimeAcceptance": "PENDING",
   "Receipts": [
     {
@@ -13,6 +13,180 @@
     },
     {
       "PairId": "tortilla_universal_cross",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AK101_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AK101_Black_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AK101_Green_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AK74_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AK74_Black_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AK74_Green_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AKM_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_AKM_Gold_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_ASVAL_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Aug_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Colt1911_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_CZ75_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Engraved1911_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_FNX45_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_FNX45_arrow_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Glock19_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Glock19_Tan_UniversalLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_M4A1_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_M4A1_Black_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_M4A1_Green_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_MP5K_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_SCARH_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_SCARH_Black_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_SCARL_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_SCARL_Black_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_UMP45_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Scout_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Scout_Chernarus_TLRLight",
+      "Checked": false,
+      "CheckDate": "",
+      "Note": "client check pending"
+    },
+    {
+      "PairId": "cross_Scout_Livonia_TLRLight",
       "Checked": false,
       "CheckDate": "",
       "Note": "client check pending"

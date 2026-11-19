@@ -19,6 +19,7 @@ from tests.unit.test_group_ui import ui_member
 ROOT = Path(__file__).resolve().parents[2]
 PACKS = ROOT / "mods/HollowCountry/scripts/4_World/Survival/HCTapedPackMounts.c"
 WEARABLE = ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCTapedWearableCatalog.c"
+CATALOG = ROOT / "mods/HollowCountry/scripts/3_Game/Survival/HCTapedLightCatalog.c"
 MANIFEST = ROOT / "mission/hollow-country/lights/backpack-mounts.json"
 PATH = "$mission:hollow-country/lights/backpack-mounts.json"
 
@@ -29,7 +30,7 @@ def member(path, cls, method, state, env, *args):
     source = body(text, match.end())
     source = re.sub(r'\b(?:TStringArray|HCTapedPackManifest|HCTapedPackSettingsContract|'
                     r'HCTapedLightMountSettings|HCTapedPairReceipts|HCTapedPairReceipt|'
-                    r'array<ref HCTapedPairReceipt>)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
+                    r'array<ref HCTapedPairReceipt>|array<ref HCTapedLightHostRow>|HCTapedLightHostRow)\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
     source = source.replace('new TStringArray', 'NewSlots()')
     source = re.sub(r'(\w+)\.ToString\(\)', r'str(\1)', source)
     # Native string members on Python str: Get/Substring/IndexOf/IndexOfFrom.
@@ -37,7 +38,7 @@ def member(path, cls, method, state, env, *args):
     source = re.sub(r'(\w+)\.Substring\((\w+), (\d+)\)', r'\1[\2:\2 + \3]', source)
     source = re.sub(r'(\w+)\.IndexOfFrom\((\w+), (\w+)\)', r'\1.find(\3, \2)', source)
     source = re.sub(r'(\w+)\.IndexOf\((\w+)\)', r'\1.find(\2)', source)
-    source = re.sub(r'\bTStringArray (?=PairIds\()', 'int ', source)
+    source = re.sub(r'\bTStringArray (?=(?:PairIds|ReceiptPairIds|CrossPairIds)\()', 'int ', source)
     source = re.sub(r'\b(?:HCTapedPackManifest|HCTapedPairReceipts|HCOperationalStatus) (?=(?:ParseManifest|ParseReceipts|HCGetOperationalStatus)\()',
                     'int ', source)
     return ui_member(source, method, state, dict(env), *args)
@@ -60,12 +61,30 @@ def scan_every(text, key, depth):
     return all(key in row for row in rows)
 
 
+def light_catalogue():
+    """Executes the authored HCTapedLightCatalog cross-pair derivation over the
+    compiled Add(rows, ...) data. The row list is parsed from the source text; the
+    derivation rule itself is the authored code, not a copy."""
+    rows = EArray(NS(HostClass=a, LightClass=b, SlotName=c, PrerequisiteSlot=d, PrerequisiteClass=e)
+                  for a, b, c, d, e in re.findall(
+                      r'Add\(rows, "([^"]+)", "([^"]+)", "([^"]+)", "([^"]*)", "([^"]*)"\)',
+                      CATALOG.read_text()))
+    catalogue = NS(Rows=lambda: rows, rows=rows)
+    env = {"NewSlots": EArray, "Rows": catalogue.Rows}
+    for name in ("CrossLightClass", "CrossPairId", "CrossPairIds"):
+        setattr(catalogue, name, lambda *a, name=name: member(
+            CATALOG, "HCTapedLightCatalog", name, catalogue, env, *a))
+    return catalogue
+
+
 def build(text, build_ok=True, files=None, receipts=""):
     """Executes the authored PackMounts handlers against explicit fakes."""
     catalog = NS()
-    for name in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal", "PairIds"):
+    lights = light_catalogue()
+    for name in ("KnownPair", "Matches", "Qualified", "SlotName", "Refusal", "PairIds", "ReceiptPairIds"):
         setattr(catalog, name, lambda *a, name=name: member(
-            WEARABLE, "HCTapedPackCatalog", name, catalog, {"NewSlots": EArray}, *a))
+            WEARABLE, "HCTapedPackCatalog", name, catalog,
+            {"NewSlots": EArray, "HCTapedLightCatalog": lights}, *a))
     probes = []
     gate = NS(mHCCrossSlot=False, mHCPermitted=EArray(), mHCConfigured=False, probes=probes,
               mHCSettingOn=False, mHCChecked=EArray(), mHCReceiptMaxBytes=0,
@@ -77,7 +96,7 @@ def build(text, build_ok=True, files=None, receipts=""):
         GetGame=lambda: NS(IsServer=lambda: True,
                            ConfigGetTextArray=lambda p, out: out.extend([])),
         HCBuildIdentity=NS(Matches=lambda b: build_ok, SeenBuild=lambda: "synthetic"),
-        HCTapedPackCatalog=catalog, NewSlots=EArray,
+        HCTapedPackCatalog=catalog, HCTapedLightCatalog=lights, NewSlots=EArray,
         HCJsonFields=NS(Has=lambda t, k: scan(t, k, 1),
                         Every=scan_every,
                         Check=lambda t, k, d, every: scan(t, k, d)),
@@ -91,7 +110,7 @@ def build(text, build_ok=True, files=None, receipts=""):
         return json.loads(t, object_hook=hook)
     names = ("Configure", "Reset", "CrossSlotEnabled", "NativeSlotAvailable", "PairRefusal",
              "BindingAllowed", "ApplyManifest", "LoadSettings", "ReadManifest", "ParseManifest",
-             "ApplyReceipts", "ReceiptCheckedTyped", "ValidCheckDate", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ReceiptChecked",
+             "ApplyReceipts", "ReceiptCheckedTyped", "ValidCheckDate", "DateNumber", "LoadReceipts", "ReadReceipts", "ParseReceipts", "ReceiptChecked",
              "PairAdmission", "PairQualified", "AdmittedCount", "FirstAdmissionReason", "OnStart")
     for name in names:
         setattr(gate, name, lambda *a, name=name: member(PACKS, "HCTapedPackMounts", name, gate, env, *a))

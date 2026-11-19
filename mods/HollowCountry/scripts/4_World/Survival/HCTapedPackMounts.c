@@ -201,8 +201,24 @@ class HCTapedPackMounts : HCModule
         return true;
     }
 
-    // ISO date YYYY-MM-DD: digits and dashes, month 01-12, day 01-31 (calendar
-    // length per month is not checked; the date is operator prose, never evidence).
+    // Decimal value of width digit characters of an already digit-checked date.
+    static int DateNumber(string date, int first, int width)
+    {
+        string digits = "0123456789";
+        int value = 0;
+        int index = first;
+        while (index < first + width)
+        {
+            string letter = date.Get(index);
+            value = value * 10 + digits.IndexOf(letter);
+            index = index + 1;
+        }
+        return value;
+    }
+
+    // ISO date YYYY-MM-DD: digits and dashes, month 01-12, day 1 to the real
+    // Gregorian month length (leap years included). The date is operator prose,
+    // never evidence, but an impossible day is still a typo worth refusing.
     static bool ValidCheckDate(string date)
     {
         if (date.Length() != 10) { return false; }
@@ -221,17 +237,22 @@ class HCTapedPackMounts : HCModule
             }
             index = index + 1;
         }
-        string monthTens = date.Get(5);
-        string monthOnes = date.Get(6);
-        string dayTens = date.Get(8);
-        string dayOnes = date.Get(9);
-        if (monthTens == "0" && monthOnes == "0") { return false; }
-        if (monthTens == "1" && monthOnes != "0" && monthOnes != "1" && monthOnes != "2") { return false; }
-        if (monthTens != "0" && monthTens != "1") { return false; }
-        if (dayTens == "0" && dayOnes == "0") { return false; }
-        if (dayTens == "3" && dayOnes != "0" && dayOnes != "1") { return false; }
-        if (dayTens != "0" && dayTens != "1" && dayTens != "2" && dayTens != "3") { return false; }
-        return true;
+        int year = DateNumber(date, 0, 4);
+        int month = DateNumber(date, 5, 2);
+        int day = DateNumber(date, 8, 2);
+        if (month < 1 || month > 12) { return false; }
+        int limit = 31;
+        if (month == 4 || month == 6 || month == 9 || month == 11) { limit = 30; }
+        if (month == 2)
+        {
+            limit = 28;
+            bool leap = false;
+            if (year % 4 == 0) { leap = true; }
+            if (year % 100 == 0) { leap = false; }
+            if (year % 400 == 0) { leap = true; }
+            if (leap) { limit = 29; }
+        }
+        return day >= 1 && day <= limit;
     }
 
     // Returns "" and records the checked pair ids, else a refusal reason with
@@ -249,11 +270,12 @@ class HCTapedPackMounts : HCModule
         if (!parsed || !parsed.Receipts) { return "receipts_invalid"; }
         if (parsed.SchemaVersion != 1) { return "receipts_schema"; }
         TStringArray seen = new TStringArray;
+        TStringArray known = HCTapedPackCatalog.ReceiptPairIds();
         array<ref HCTapedPairReceipt> rows = parsed.Receipts;
         string refusal = "";
         foreach (HCTapedPairReceipt row : rows)
         {
-            if (refusal == "" && (!row || !HCTapedPackCatalog.KnownPair(row.PairId))) { refusal = "receipt_unknown_pair"; }
+            if (refusal == "" && (!row || known.Find(row.PairId) < 0)) { refusal = "receipt_unknown_pair"; }
             if (refusal == "" && seen.Find(row.PairId) >= 0) { refusal = "receipt_duplicate_pair"; }
             if (refusal == "" && row.Checked && (row.CheckDate == "" || row.Note == "")) { refusal = "receipt_check_incomplete"; }
             if (refusal == "" && row.CheckDate != "" && !ValidCheckDate(row.CheckDate)) { refusal = "receipt_check_incomplete"; }
@@ -345,6 +367,7 @@ class HCTapedPackMounts : HCModule
         string crossSlot = HCV2Admission.OnOff(CrossSlotEnabled());
         string setting = HCV2Admission.OnOff(mHCSettingOn);
         int pairs = HCTapedPackCatalog.PairIds().Count();
+        int receiptPairs = HCTapedPackCatalog.ReceiptPairIds().Count();
         int permitted = mHCPermitted.Count();
         int checked = mHCChecked.Count();
         int qualified = AdmittedCount();
@@ -359,7 +382,8 @@ class HCTapedPackMounts : HCModule
         if (loadReason != "") { state = "degraded"; stateReason = loadReason; }
         mHCStatus.HCPublish(state, stateReason);
         Print(HCV2Admission.Line("TapedPackMounts", mHCSettingOn, stateReason, qualified > 0));
-        string line = "[HC TapedPackMounts] pairs=" + pairs.ToString() + " receipts_checked=" + checked.ToString();
+        string line = "[HC TapedPackMounts] pairs=" + pairs.ToString() + " receipt_pairs=" + receiptPairs.ToString();
+        line = line + " receipts_checked=" + checked.ToString();
         line = line + " admitted=" + qualified.ToString() + " setting=" + setting + " reason=" + stateReason;
         Print(line + " receipts=" + receipts + " runtime=PENDING");
         line = "[HC Plan] HC-52 pack_pairs=1 cross_slot=" + crossSlot + " qualified=" + qualified.ToString();
