@@ -36,6 +36,7 @@ class HCAdminModule : HCModule
     protected int m_CaptureTicket;
     protected ref HCDebugSnapshot m_Capture;
     protected bool m_DebugEnabled;
+    protected bool m_OperatorControls;
     protected float m_DeniedOverflowAt;
     protected ref HCAdminLootMap m_LootMap;
     protected PlayerIdentity m_LootMapSender;
@@ -110,6 +111,12 @@ class HCAdminModule : HCModule
             m_Identities.Insert(null);
         }
         m_DebugEnabled = settings.EnableDebugSnapshot;
+        m_OperatorControls = !FileExist("$profile:HollowCountry/acceptance/AdminControls.disable");
+        Print(HCV2Admission.Line("AdminControls", m_OperatorControls, "203", false) + " runtime=PENDING");
+        if (m_OperatorControls)
+        {
+            Print("[HC Admin] controls missing=HCRequestFreshDormant,HCRequestVisitorParty,HCRequestRaidParty runtime=PENDING");
+        }
         m_Running = true;
         DayZGame.Event_OnRPC.Insert(HCReceive);
         m_Status.HCPublish("ready", "allowlist_loaded_native_acceptance_pending");
@@ -408,6 +415,20 @@ class HCAdminModule : HCModule
         return false;
     }
 
+    // Catalog integration is owned by the lead. New commands use this same RPC,
+    // authorization, replay protection and single-command core-tick queue.
+    protected bool HCOperatorCommand(vector pos, string command, int value, out string reason)
+    {
+        if (command != "camptier" && command != "campvisit" && command != "campraid") { return false; }
+        if (!m_OperatorControls) { reason = "AdminControls.disable"; return false; }
+        HCCampModule camps = HCCampModule.Get();
+        if (!camps) { reason = "camp-service-unavailable"; return false; }
+        if (command == "camptier") { return camps.HCAdminTier(pos, value, reason); }
+        if (command == "campvisit") { return camps.HCAdminArrival(pos, false, reason); }
+        if (command == "campraid") { return camps.HCAdminArrival(pos, true, reason); }
+        return false;
+    }
+
     bool HCCommand(PlayerIdentity sender, string command, int value, int ticket)
     {
         PlayerBase player = HCPlayer(sender);
@@ -440,14 +461,22 @@ class HCAdminModule : HCModule
             if (!GetGame().ConfigIsExisting("CfgVehicles HC_ZmbM_Sitter")) { reason = "class-missing-HC_ZmbM_Sitter"; }
             else if (infected) { ok = infected.HCAdminSitter(player, reason); }
         }
-        else if (command == "dormant") { reason = "InfectedVariety-fresh-spawn-skipped; no-shared-body-lease-or-dormant-spawn-policy"; }
+        else if (command == "dormant")
+        {
+            if (!m_OperatorControls) { reason = "AdminControls.disable"; }
+            else if (infected) { ok = infected.HCAdminDormant(pos, reason); }
+        }
         else if (command == "horde" && infected) { ok = infected.HCAdminHorde(pos, reason); }
         else if (command == "event" && events) { ok = events.HCAdminEvent(pos, reason); }
         else if (command == "scene") { ok = HCScenesModule.HCAdminScene(pos, reason); }
         else if (command == "camp" && camps) { ok = camps.HCAdminCamp(pos, m_Players, reason); }
         else if (command == "holdout" && holdouts) { ok = holdouts.HCAdminHoldout(pos, reason); }
         else if (command == "day") { ok = HCEscalationClock.HCAdminDay(value, reason); }
-        else { ok = HCExtra(player, pos, command, value, reason); }
+        else
+        {
+            ok = HCExtra(player, pos, command, value, reason);
+            if (!ok && reason == "module-unavailable") { ok = HCOperatorCommand(pos, command, value, reason); }
+        }
         HCReply(sender, ticket, command, ok, reason);
         return ok;
     }
@@ -489,6 +518,7 @@ class HCAdminModule : HCModule
     {
         if (m_Running) { DayZGame.Event_OnRPC.Remove(HCReceive); }
         m_Running = false;
+        m_OperatorControls = false;
         m_Status.HCPublish("off", "server_stopped");
         m_Pending = null;
         m_Capture = null;

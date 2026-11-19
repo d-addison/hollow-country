@@ -54,7 +54,7 @@ modded class HCServer
         HCAdminKitLine(reply, "list", "AdminMap", "", "none; state near you");
         HCAdminKitLine(reply, "sitter", "Infected", sitterGate, "none; 1 body cap");
         HCAdminKitLine(reply, "clear", "Infected", "", "none; deletes only the admin sitter");
-        HCAdminKitLine(reply, "dormant", "Infected", "refused-by-design", "none");
+        HCAdminKitLine(reply, "dormant", "Infected", "refused-by-design; missing-hook-HCRequestFreshDormant", "none; runtime=PENDING");
         HCAdminKitLine(reply, "horde", "Infected", "", "none; nearest native cohort within 100 m");
         HCAdminKitLine(reply, "memory", "InfectedMemory", "", "value 0 to 3 simulated loud shots, 0 clears this cell");
         HCAdminKitLine(reply, "scene", "Scenes", "", "none; nearest due scene");
