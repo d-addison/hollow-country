@@ -53,8 +53,12 @@ class HCAdminSnapshotWire
                 HCMark(reply, layers, route.layer, Vector(pair[0], 0, pair[1]), route.label, "Contributor route; not a surveyed path", routeIndex + 1);
             }
         }
+        int operationalLoss = document.operationalTruncated + document.truncated;
+        HCOperationalContributors.HCAppend(reply, document.operational, operationalLoss);
         int dropped = total - reply.Marks.Count();
-        reply.Notice = "Snapshot vertices=" + reply.Marks.Count().ToString() + " dropped=" + dropped.ToString() + "; captured over several ticks; expires in 60s";
+        int rowLoss = Math.Max(0, document.operational.Count() - 63);
+        int refused = document.truncated + document.operationalTruncated + rowLoss;
+        reply.Notice = "Snapshot row/contributor losses=" + refused.ToString() + "; runtime=PENDING; vertices=" + reply.Marks.Count().ToString() + " dropped=" + dropped.ToString() + "; captured over several ticks; expires in 60s";
         Print("[HC Admin] cmd=snapshot result=ok reason=delivered vertices=" + reply.Marks.Count().ToString() + " truncated=" + dropped.ToString());
         return reply;
     }
