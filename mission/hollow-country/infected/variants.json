@@ -6,7 +6,7 @@
   "trace": {
     "spec": "selected_native_unused_variants_owner_decision_2026-11-18; required_spec_paths_absent_in_worker_checkout",
     "plan": "consolidated_coverage_Wave_2_HC-14",
-    "task": "author_manifest_three_event_substitutions_and_bounded_admission_helper; HC-11_owns_shared_trace"
+    "task": "round2_in_place_child_substitution_stock_pin_receipt_byte_exact_off_rollback_and_cached_admission; HC-11_owns_shared_trace"
   },
   "runtime_acceptance": "PENDING",
   "production_enabled": false,
@@ -44,11 +44,11 @@
   ],
   "admission": {
     "mode": "restart_bound_mission_content; no_runtime_spawn_controller",
-    "effective_preference": "lead_installer_requires_EnableInfected_and_EnableInfectedVariety; preserve_existing_operator_choices",
-    "on_failure": "do_not_wire_delta; retain_original_stock_event_definitions; already_loaded_CE_changes_require_mission_restart",
+    "effective_preference": "operator_requires_EnableInfected_and_EnableInfectedVariety; use_install_--off_and_restart_when_either_is_disabled; preserve_existing_operator_choices",
+    "on_failure": "refuse_before_mutation; retain_stock_events; interrupted_atomic_switch_retains_backup_receipt_for_rollback",
     "profile_changes": "none; native_aiAgentTemplate_and_IsZombieMilitary_ancestry_retained; existing_HC_profile_fallback_unchanged",
     "observer": "HC-62_fixed_bounded_content_status_path; helper_returns_cached_metadata_only; never_CE_success",
-    "helper": "HCNativeVariantAdmission.Check(preference); invoke_once_at_start; HCPlanLine_is_formatted_only_by_fixed_boot_status_owner",
+    "helper": "HCInfectedModule.OnStart_calls_Check_once_before_healthy; NativeVariants_returns_cached_receipt; OnStop_clears; HC-62_formats_HCPlanLine",
     "distances_added": [],
     "distances_retained_from_stock": {
       "saferadius": 100,
@@ -57,7 +57,9 @@
     },
     "loot": "new_children_inherit_donor_lootmin_and_lootmax; no_scripted_inventory_or_extra_loot_spawn",
     "mission_install_directory": "hollow-country-infected",
-    "economycore_child": "<ce folder=\"hollow-country-infected\"><file name=\"events.append.xml\" type=\"events\" /></ce>"
+    "installation": "tools.package.infected_variety install; in_place_db/events.xml_child_substitution; NO_CE_extension_or_duplicate_event_names",
+    "stock_pin": "operator_supplies_installed_stock_events; verify_evidence.stock_events_sha256; every_target_event_semantically_stock_identical_before_write",
+    "xml_format": "only_donor_child_tags_and_XML_declaration_rewritten; other_bytes_retained; declaration_uses_tools/package/xml_text.py_double_quotes_UTF-8; rollback_restores_all_original_bytes"
   },
   "refusals": [
     {
@@ -73,7 +75,7 @@
     {
       "name": "CE_RUNTIME_DISABLE_UNAVAILABLE",
       "disposition": "pending",
-      "reason": "Script preference off skips admission work; it cannot undo mission XML already consumed by CE. Packaging must omit this delta when off and restart when changing it."
+      "reason": "Script preference off skips admission work; it cannot undo loaded CE. Stop server, run install --off to restore the byte-exact events backup, then restart."
     },
     {
       "name": "BLUEBRIGHT_SPELLING_UNRESOLVED",
@@ -165,7 +167,7 @@
   "acceptance_required": [
     "exact_source_DayZDiag_compile_boot_no_script_or_CE_errors",
     "normal_signed_PBO_server_same_mission_config_dependency_hashes",
-    "off_path_omits_delta_before_CE_initialization",
+    "off_path_restores_original_db/events.xml_byte_for_byte_before_CE_initialization",
     "stop_restart_retains_stock_population_and_no_duplicate_event_children",
     "sample_all_six_new_appearances_and_three_families_for_skin_model_audio_death_crawl_native_door_profile",
     "two_clients_rendering_and_late_join",
