@@ -43,5 +43,119 @@
       {"class": "SewingKit", "required": true},
       {"class": "Flashlight", "required": true},
       {"class": "Battery9V", "required": false}]}
+  ],
+  "native_use_routes": [
+    {
+      "id": "native_well",
+      "route": "native_use",
+      "acquisition": "native-Well-and-pump-world-objects",
+      "input_items": [],
+      "uses": [
+        "ActionDrinkWellContinuous",
+        "ActionWashHandsWell",
+        "ActionObtainLiquidBase"
+      ],
+      "predicates": [
+        "native well source type or IsWell; correct liquid selection; CanEatAndDrink; refuse heavy held item",
+        "container fill delegates to native ActionObtainLiquidBase/CCTLiquid and Liquid.CanFillContainer checks, with native quantity ceiling; no HC water grant"
+      ],
+      "evidence": [
+        "4_World/Entities/Building/Well.c:8-32",
+        "4_World/Classes/UserActionsComponent/Actions/Continuous/ActionDrinkWellContinuous.c:36-59,74-86",
+        "4_World/Classes/UserActionsComponent/Actions/Continuous/ActionObtainLiquidBase.c:54-57,114-129; ActionConstructor.c:156"
+      ],
+      "runtime_acceptance": "pending"
+    },
+    {
+      "id": "native_purification",
+      "route": "native_use",
+      "acquisition": "native-CE-PurificationTablets-and-liquid-container",
+      "input_items": [
+        "PurificationTablets",
+        "WaterBottle",
+        "Canteen"
+      ],
+      "uses": [
+        "PurifyWater"
+      ],
+      "predicates": [
+        "RecipeBase configured nonruined ingredients; at least one tablet; exact registered container list",
+        "container quantity > 0 and not frozen; one tablet consumed; RemoveAllAgentsExcept HEAVYMETAL; no promise of universally safe water"
+      ],
+      "evidence": [
+        "4_World/Classes/Recipes/Recipes/PurifyWater.c:12-45,70-78",
+        "4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:92"
+      ],
+      "runtime_acceptance": "pending"
+    },
+    {
+      "id": "native_bandaging",
+      "route": "native_use",
+      "acquisition": "native-CE-bandage-or-native-rag-recovery",
+      "input_items": [
+        "BandageDressing",
+        "Rag"
+      ],
+      "uses": [
+        "ActionBandageSelf"
+      ],
+      "predicates": [
+        "native nonruined item; player IsBleeding; native bandage eligibility and per-wound consumption remain authoritative",
+        "HC-30 recovery and native CraftRag remain separate finite acquisition routes; no HC medical item synthesis"
+      ],
+      "evidence": [
+        "4_World/Classes/UserActionsComponent/Actions/Continuous/Medical/ActionBandageSelf.c:27-47",
+        "4_World/Classes/UserActionsComponent/Actions/Continuous/Medical/ActionBandageBase.c:1"
+      ],
+      "runtime_acceptance": "pending"
+    },
+    {
+      "id": "native_disinfection",
+      "route": "native_use",
+      "acquisition": "native-CE-disinfectant-and-compatible-item",
+      "input_items": [
+        "DisinfectantAlcohol",
+        "DisinfectantSpray",
+        "IodineTincture"
+      ],
+      "uses": [
+        "DisinfectItem"
+      ],
+      "predicates": [
+        "nonruined configured ingredients; target CanBeDisinfected; quantity >= GetDisinfectQuantity; liquid bit includes LIQUID_DISINFECTANT",
+        "native quantity debit, RemoveAllAgentsExcept BRAIN|SALMONELLA|CHOLERA and SetCleanness; no universal sterility claim"
+      ],
+      "evidence": [
+        "4_World/Classes/Recipes/Recipes/DisinfectItem.c:12-75,80-89",
+        "4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:102",
+        "4_World/Entities/ItemBase.c:608,3251,3983"
+      ],
+      "runtime_acceptance": "pending"
+    },
+    {
+      "id": "native_repair",
+      "route": "native_use",
+      "acquisition": "native-CE-tape-and-sewing-kits",
+      "input_items": [
+        "DuctTape",
+        "SewingKit",
+        "LeatherSewingKit"
+      ],
+      "uses": [
+        "RepairWithTape",
+        "RepairWithSewingKit",
+        "RepairWithLeatherSewingKit"
+      ],
+      "predicates": [
+        "exact recipe ingredient health/quantity rules; PluginRepairing.CanRepair plus target CanBeRepairedByCrafting",
+        "native repairKitType/repairableWithKits and health-state rules; kit quantity/cost and repaired health stay native; no generic repair-anything grant"
+      ],
+      "evidence": [
+        "4_World/Classes/Recipes/Recipes/RepairWithTape.c:12-38,63-84",
+        "4_World/Plugins/PluginBase/PluginRepairing.c:45-79,92-117",
+        "4_World/Classes/Recipes/Recipes/PluginRecipesManagerBase.c:41,166-167"
+      ],
+      "runtime_acceptance": "pending"
+    }
   ]
 }

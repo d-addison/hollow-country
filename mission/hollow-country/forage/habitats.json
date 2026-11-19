@@ -1,0 +1,438 @@
+{
+  "schema": 1,
+  "kind": "hollow-country-forage-habitats",
+  "wp": "HC-33",
+  "native_snapshot": "1.30.164289",
+  "trace": {
+    "spec": "HC-33 task brief: practical native acquisition without calendar starvation or duplicate orchard fruit; owner 2026-11-18 decisions binding",
+    "plan": "Reuse HC-12 bounded records and HC-13 death-reset progression; retain eight verified stock flora generator children, three finite HC supplements and five native essential-use families; explicitly refuse four missing flora routes and script generator control",
+    "task": "One HC-12 behavioral check extended with actual all-season tick RED/GREEN; no new controller or registration",
+    "dependencies": [
+      "HC-12",
+      "HC-13",
+      "HC-22"
+    ],
+    "required_spec_paths": "docs/SPECIFICATION.md and docs/specs/001-survival-overhaul/spec.md absent from assigned checkout; HC-11 lead trace integration pending"
+  },
+  "manifest_role": "Authored disposition and experiment metadata only; not a runtime loader, spawn atlas or observed native receipt",
+  "runtime_acceptance": "pending",
+  "production_enablement": "pending-native-qualification",
+  "authored_counts": {
+    "flora": 15,
+    "native_routes": 13,
+    "hc_routes": 3,
+    "unresolved": 5
+  },
+  "counts_definition": "native_routes = eight flora with exact active stock generator children plus five essential-use families; hc_routes = three finite supplemental classes; unresolved = four flora lacking acquisition evidence plus one unsupported generator lifecycle request. No observed or admitted success implied.",
+  "admitted_routes": 0,
+  "observed_routes": 0,
+  "distances_added": [],
+  "native_use_policy": "tools/package/essential_routes.json#native_use_routes",
+  "runtime_policy": {
+    "supplements": "HCForageModule uses existing June berry/herb content table for every runtime month; Cannabis remains one-of-ten on slot 2. No GetDate/HCVisualSeasons dependency, no mushroom/orchard HC grant. Legacy selector retained for existing callers.",
+    "habitat_predicate": "existing cp_conifer_/cp_broadleaf_ prefixes and all existing surface/water/slope/player/geometry vetoes; no new surface inferred",
+    "native_supply": "Installed stock mission only: orchard and five mushroom children active; berry trajectories inactive. Effective mission/dependency drift must be checked before promotion. No generator API invoked, no native counts/ranges changed.",
+    "familiarity": "HC-13 character identity/death hooks, consumed unchanged; native pickups do not award HC familiarity",
+    "saves": "HC-12 reservation-before-create, bounded exact-handle custody observation and staged HCSaveScheduler checkpoints unchanged",
+    "off": "Forage preference/authority off returns before state allocation; native generators/actions keep native lifecycle",
+    "availability_limit": "Authored all-season HC supply is not proof of nutrition sufficiency, safe food, access in every habitat or runtime fairness"
+  },
+  "habitats": [
+    {
+      "id": "conifer_forest",
+      "route": "native_generator_and_hc_supplement",
+      "acceptance": "pending"
+    },
+    {
+      "id": "broadleaf_forest",
+      "route": "native_generator_and_hc_supplement",
+      "acceptance": "pending"
+    },
+    {
+      "id": "orchard",
+      "route": "native_fruit_only",
+      "acceptance": "pending"
+    },
+    {
+      "id": "garden",
+      "route": "native_fruit_and_native_ce",
+      "acceptance": "pending"
+    },
+    {
+      "id": "farm",
+      "route": "native_fruit_and_native_ce",
+      "acceptance": "pending"
+    },
+    {
+      "id": "settlement",
+      "route": "native_well_and_native_ce",
+      "acceptance": "pending"
+    },
+    {
+      "id": "meadow",
+      "route": "native_ce_access_pending",
+      "acceptance": "pending"
+    },
+    {
+      "id": "hedgerow",
+      "route": "native_plant_access_pending",
+      "acceptance": "pending"
+    },
+    {
+      "id": "wetland",
+      "route": "native_water_access_pending",
+      "acceptance": "pending"
+    },
+    {
+      "id": "coast",
+      "route": "native_ce_and_water_access_pending",
+      "acceptance": "pending"
+    },
+    {
+      "id": "island",
+      "route": "native_ce_and_water_access_pending",
+      "acceptance": "pending"
+    }
+  ],
+  "flora": [
+    {
+      "class": "AgaricusMushroom",
+      "route": "native_generator",
+      "acquisition": "TrajectoryHumus",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/AgaricusMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed stock mission db/events.xml:925-1044; TrajectoryHumus active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "AmanitaMushroom",
+      "route": "refused",
+      "acquisition": "no-active-stock-generator-child-inspected",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "forest_candidate_unverified"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/AmanitaMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
+      ]
+    },
+    {
+      "class": "Apple",
+      "route": "native_generator",
+      "acquisition": "TrajectoryApple",
+      "uses": [
+        "ActionEatFruit"
+      ],
+      "habitats": [
+        "orchard",
+        "garden",
+        "farm",
+        "settlement"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/Apple.c:1",
+        "installed stock mission db/events.xml:925-1044; TrajectoryApple active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "AuriculariaMushroom",
+      "route": "refused",
+      "acquisition": "no-active-stock-generator-child-inspected",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "forest_candidate_unverified"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/AuriculariaMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
+      ]
+    },
+    {
+      "class": "BoletusMushroom",
+      "route": "native_generator",
+      "acquisition": "TrajectoryConiferous",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/BoletusMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed stock mission db/events.xml:925-1044; TrajectoryConiferous active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "CaninaBerry",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/CaninaBerry.c:1",
+        "Forage/HCForage.c: HCSeasonalType June table, bounded native CreateObjectEx path; stock TrajectoryCanina/TrajectorySambucus inactive"
+      ]
+    },
+    {
+      "class": "Cannabis",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/Cannabis.c:1",
+        "Forage/HCForage.c: HCSeasonalType June table, bounded native CreateObjectEx path; stock TrajectoryCanina/TrajectorySambucus inactive"
+      ]
+    },
+    {
+      "class": "CraterellusMushroom",
+      "route": "refused",
+      "acquisition": "no-active-stock-generator-child-inspected",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "forest_candidate_unverified"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/CraterellusMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
+      ]
+    },
+    {
+      "class": "LactariusMushroom",
+      "route": "native_generator",
+      "acquisition": "TrajectoryDeciduous",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/LactariusMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed stock mission db/events.xml:925-1044; TrajectoryDeciduous active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "MacrolepiotaMushroom",
+      "route": "native_generator",
+      "acquisition": "TrajectoryConiferous",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/MacrolepiotaMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed stock mission db/events.xml:925-1044; TrajectoryConiferous active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "Pear",
+      "route": "native_generator",
+      "acquisition": "TrajectoryPear",
+      "uses": [
+        "ActionEatFruit"
+      ],
+      "habitats": [
+        "orchard",
+        "garden",
+        "farm",
+        "settlement"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/Pear.c:1",
+        "installed stock mission db/events.xml:925-1044; TrajectoryPear active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "PleurotusMushroom",
+      "route": "native_generator",
+      "acquisition": "TrajectoryHumus",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/PleurotusMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44",
+        "installed stock mission db/events.xml:925-1044; TrajectoryHumus active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "Plum",
+      "route": "native_generator",
+      "acquisition": "TrajectoryPlum",
+      "uses": [
+        "ActionEatFruit"
+      ],
+      "habitats": [
+        "orchard",
+        "garden",
+        "farm",
+        "settlement"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/Plum.c:1",
+        "installed stock mission db/events.xml:925-1044; TrajectoryPlum active=1, exact child class inspected"
+      ]
+    },
+    {
+      "class": "PsilocybeMushroom",
+      "route": "refused",
+      "acquisition": "no-active-stock-generator-child-inspected",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "forest_candidate_unverified"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/PsilocybeMushroom.c:1",
+        "4_World/Entities/ItemBase/Gear/Food/MushroomBase.c:3-44"
+      ]
+    },
+    {
+      "class": "SambucusBerry",
+      "route": "hc_bounded_supplement",
+      "acquisition": "HCForageModule",
+      "uses": [
+        "ActionEat"
+      ],
+      "habitats": [
+        "conifer_forest",
+        "broadleaf_forest"
+      ],
+      "safety": "unknown-config-and-food-stage-dependent",
+      "evidence": [
+        "4_World/Entities/ItemBase/Edible_Base/SambucusBerry.c:1",
+        "Forage/HCForage.c: HCSeasonalType June table, bounded native CreateObjectEx path; stock TrajectoryCanina/TrajectorySambucus inactive"
+      ]
+    }
+  ],
+  "refusals": [
+    {
+      "id": "native_generator_lifecycle_unexposed",
+      "evidence": [
+        "3_Game/CE/CentralEconomy.c:239-746: inspected export/debug/spawn methods and CE globals; no exact fruit/mushroom generator ownership/exhaustion API exposed",
+        "4_World/Classes/UserActionsComponent/Actions/Interact/ActionPickBerry.c:9,39-53: deprecated, server completion commented out"
+      ],
+      "disposition": "Keep native config/lifecycle and refuse script generator control or direct orchard rewards; effective config/native observations remain required"
+    }
+  ],
+  "experiments": [
+    {
+      "id": "native-orchards",
+      "status": "pending",
+      "acceptance": "Apple/Pear/Plum: visit orchard, garden and farm hosts; observe native generation, empty/exhausted hosts, pickup/re-drop and restart; HC must create none."
+    },
+    {
+      "id": "native-mushrooms",
+      "status": "pending",
+      "acceptance": "Observe the five exact active stock mushroom children in coniferous/deciduous/humus habitats; inspect installed food-stage/agent config and actual native eat/cook/decay before any safety claim."
+    },
+    {
+      "id": "unassigned-flora",
+      "status": "pending",
+      "acceptance": "Find permitted native acquisition evidence for Amanita/Auricularia/Craterellus/Psilocybe; do not enable HC spawning or infer safe food from a name."
+    },
+    {
+      "id": "berry-generator-overlap",
+      "status": "pending",
+      "acceptance": "Compare effective staged db/events.xml with stock inactive TrajectoryCanina/TrajectorySambucus. Refuse promotion on overlap; demonstrate a single finite acquisition per HC handle and no generator double grant."
+    },
+    {
+      "id": "hc-habitats",
+      "status": "pending",
+      "acceptance": "Survey actual cp_conifer_/cp_broadleaf_ surfaces, slope/water/geometry vetoes and candidate access; no measured all-habitat coverage from surface names."
+    },
+    {
+      "id": "other-habitats",
+      "status": "pending",
+      "acceptance": "Observe native CE food/water/medical/repair access in meadow, hedgerow, wetland, coast and islands. Record geometric/access gaps; no quiet-by-design exclusion and no unsupported surface expansion."
+    },
+    {
+      "id": "all-season-supply",
+      "status": "pending",
+      "acceptance": "Across all four HCVisualSeasons phases and calendar months, compare native and HC availability without calendar changes, seasonal penalties or guaranteed safe food."
+    },
+    {
+      "id": "wells",
+      "status": "pending",
+      "acceptance": "At native pumps/wells verify selection access, drink, wash and fill with compatible empty/full/ruined/frozen containers; bloody-hand agents remain native."
+    },
+    {
+      "id": "medical",
+      "status": "pending",
+      "acceptance": "Acquire bandage/rag and disinfectants through effective CE; test actual bleeding/nonbleeding and dirty/clean/exhausted items. Confirm native consumption, agents and no duplicate output."
+    },
+    {
+      "id": "purification",
+      "status": "pending",
+      "acceptance": "Acquire tablets/container; test empty, nonempty, frozen and exhausted doses; verify native agent exceptions, no claim of universal decontamination."
+    },
+    {
+      "id": "repair",
+      "status": "pending",
+      "acceptance": "Acquire tape/sewing/leather kits; test compatible/incompatible targets, ruined/pristine states and exhausted kits, consumption and repaired health through native recipes."
+    },
+    {
+      "id": "restart-and-death",
+      "status": "pending",
+      "acceptance": "Exercise HC-12 exact-handle pickup, re-drop, spent/empty spots, >40 travelled records, saves, stop/restart, lost handle and HC-13 character death/fresh life familiarity reset."
+    },
+    {
+      "id": "qualification",
+      "status": "pending",
+      "acceptance": "Exact-source DayZDiag compile/boot, normal signed PBO/server, two-client visibility/competition, feature-off and stop/restart cleanup, no script/CE errors; record source/PBO/mission/config/dependency hashes."
+    }
+  ]
+}
