@@ -11,7 +11,7 @@
 // near-standing skip) today. Reach and doors are player-centred, not infected
 // proximity scans, so they keep their own bounded queries.
 //
-// Virtual herds (default OFF): a herd keeps its full head count as data in
+// Virtual herds (owner default ON; explicit v2 false opts out): a herd keeps its full head count as data in
 // $profile:HollowCountry/infected-lod.json. While a player is within
 // MaterializeRange of the herd edge, at most MaxPerHerd of its living members
 // exist as bodies; each body is created through the admin sitter spawn path
@@ -265,7 +265,8 @@ modded class HCInfectedModule
         if (!m_Healthy || m_Actors.Count() == 0) { return 0; }
         int count = m_Actors.Count();
         int spent = 0;
-        while (spent < work && spent < count)
+        HCUnitBudget lodWork = HCServer.HCTickWork();
+        while (spent < work && spent < count && lodWork.HCTakeFor(HCUnitBudget.HC_WORK_LOD_CLASSIFY, 1))
         {
             if (m_HCLODCursor >= count) { m_HCLODCursor = 0; }
             HCInfectedActor actor = m_Actors[m_HCLODCursor];
@@ -496,7 +497,7 @@ class HCInfectedLODModule : HCModule
         float now = GetGame().GetTickTime();
         array<Man> players = HCPerfPlayers.HCGet();
         infected.HCLODClassify(players, now, m_Config.ClassifyPerTick, m_Config.FullRange, m_Config.IdleRange);
-        if (m_Herds && m_Store.Healthy())
+        if (m_Herds && m_Store.Healthy() && HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_LOD_HERD, 1))
         {
             m_Sight.HCReset(m_Config.MaxObservers * HCInfectedLOD.RAYS_PER_OBSERVER);
             HCLODPollLeases(infected, now);
