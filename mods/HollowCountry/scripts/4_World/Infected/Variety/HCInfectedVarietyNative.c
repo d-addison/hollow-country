@@ -4,6 +4,7 @@
 // 3-4 OverrideMovementSpeed/GetMovementSpeed; DayZAnimal.c:193 GetAIAgent;
 // 3_Game/Entities/DayZInfectedInputController.c:9 GetMindState;
 // 3_Game/Global/Game.c:1120 IsServer; 1_Core/proto/EnScript.c:380 Count;
+// 3_Game/Entities/Object.c:517 IsAlive; EntityAI.c:946 EEDelete.
 // 3_Game/AI/AIAgent.c:6 SetKeepInIdle. ZombieBase.c:10 m_StanceVariation,
 // :113 IsZombieMilitary, :198-277 command order,
 // :349 HandleDeath, :981 EEHitBy, :1090 IsCrawling, :1060 IsBeingBackstabbed.
@@ -45,8 +46,15 @@ modded class ZombieBase
 
     bool HCVarietySleep(float now, bool permitted)
     {
+        // One attempt per existing native entity, including refusal. Repeated
+        // calls cannot extend a hold or restart a completed/dead actor.
+        if (m_HCVarietyTriedDormant) { return false; }
         m_HCVarietyTriedDormant = true;
+        if (!GetGame().IsServer() || !HCInfectedVarietyModule.VarietyActive()) { return false; }
+        if (!HCPostureAdmission.HCCanEnter("native_crawler_idle") || !(now >= 0)) { return false; }
         if (!permitted || !IsAlive() || !IsCrawling() || IsBeingBackstabbed()) { return false; }
+        DayZInfectedInputController controller = GetInputController();
+        if (!controller || controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM) { return false; }
         AIAgent agent = GetAIAgent();
         if (!agent) { return false; }
         agent.SetKeepInIdle(true);
@@ -59,8 +67,10 @@ modded class ZombieBase
     {
         if (!m_HCVarietyDormant) { return false; }
         m_HCVarietyDormant = false;
+        m_HCVarietySleepUntil = 0;
         // The native finisher owns its own keep-idle latch. Never clear it.
-        if (!IsBeingBackstabbed())
+        // Death owns the final FSM too: cleanup must not restart a dead actor.
+        if (IsAlive() && !IsBeingBackstabbed())
         {
             AIAgent agent = GetAIAgent();
             if (agent) { agent.SetKeepInIdle(false); }
@@ -78,6 +88,14 @@ modded class ZombieBase
         }
         m_HCVarietySpeed = false;
         m_HCVarietyRole = -1;
+        m_HCVarietyPlace = "";
+    }
+
+    // N8 EntityAI.c:946 deletion hook; no replacement object or loot is made.
+    override void EEDelete(EntityAI parent)
+    {
+        if (GetGame() && GetGame().IsServer()) { HCVarietyRelease(); }
+        super.EEDelete(parent);
     }
 
     override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)
@@ -128,6 +146,68 @@ modded class ZombieBase
             if (HCVarietyWake()) { HCInfectedVarietyModule.HCRecordDamageWake(); }
         }
         super.EEHitBy(damageResult, damageType, source, component, dmgZone, ammo, modelPos, speedCoef);
+    }
+}
+
+// Extend HC-14's existing registered lifecycle, without a second registration,
+// scheduler, player scan, season clock or infected/LOD roster. Core invokes the
+// cached HC-1 hook; getters do no config IO or new capability experiments.
+modded class HCInfectedVarietyModule
+{
+    protected ref HCPostureAdmission m_HCPostures;
+    protected ref HCOperationalStatus m_HCVarietyStatus = new HCOperationalStatus;
+
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool requested = super.IsEnabled(settings);
+        if (!m_HCPostures) { m_HCPostures = new HCPostureAdmission; }
+        // Core does not start disabled modules. Cache/print their off result
+        // here from the single original preference observation, with no scan.
+        if (!requested)
+        {
+            m_HCPostures.HCStart(false);
+            m_HCVarietyStatus.HCPublish("off", "operator_preference");
+        }
+        return requested;
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        super.OnStart(settings);
+        if (!GetGame().IsServer() || !m_Running)
+        {
+            m_HCVarietyStatus.HCPublish("off", "owner_inactive");
+            Print("[HC Plan] HC-45 posture=all support=off wake=off state=off reason=owner_inactive checked=0/4 runtime=PENDING");
+            return;
+        }
+        if (!m_HCPostures) { m_HCPostures = new HCPostureAdmission; }
+        m_HCPostures.HCStart(m_Variety);
+        // The module also owns group scaling: posture off must not label that
+        // running service off. These are observed owner states, not wake proof.
+        m_HCVarietyStatus.HCPublish("ready", "variety_or_scaling_owner_running_rest_wake_unverified");
+        if (m_Variety && !VarietyActive())
+        {
+            m_HCVarietyStatus.HCPublish("degraded", "infected_owner_unavailable_rest_wake_unverified");
+        }
+    }
+
+    override void OnTick(float deltaTime)
+    {
+        super.OnTick(deltaTime);
+        if (m_HCPostures) { m_HCPostures.HCSlice(); }
+    }
+
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        return m_HCVarietyStatus;
+    }
+
+    override void OnStop()
+    {
+        super.OnStop();
+        if (m_HCPostures) { m_HCPostures.HCStop(); }
+        m_HCPostures = null;
+        m_HCVarietyStatus.HCPublish("off", "variety_owner_stopped");
     }
 }
 

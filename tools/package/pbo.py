@@ -47,7 +47,9 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
                  'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
                  # HC-14 infected variety policy read by tools/package/infected_variety.py install/rollback.
-                 'infected/variants.json'}
+                 'infected/variants.json',
+                 # HC-45 posture site research record (not read at runtime yet).
+                 'infected/variety-sites.json'}
 
 
 def safe_name(name):

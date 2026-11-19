@@ -11,7 +11,9 @@ class CfgPatches
         units[] = {"HC_ZmbM_Sitter"};
         weapons[] = {};
         requiredVersion = 0.1;
-        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies"};
+        // One-way dependency: shared HC-45 admission must compile before this
+        // experimental script subclass. HollowCountry does not require Anims.
+        requiredAddons[] = {"DZ_Data", "DZ_Scripts", "DZ_Characters_Zombies", "HollowCountry"};
     };
 };
 class CfgMods
@@ -39,7 +41,8 @@ class CfgVehicles
     class ZmbM_HermitSkinny_Beige;
     class HC_ZmbM_Sitter: ZmbM_HermitSkinny_Beige
     {
-        scope = 2;
+        // HC-45: no public/CE admission until exact-source native wake proof.
+        scope = 1;
         // Same mesh, skeleton and input mapping as ZombieBase; only the graph and instance differ.
         class enfanimsys
         {
