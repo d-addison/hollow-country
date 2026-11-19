@@ -263,6 +263,11 @@ class HCOperatorSettingsRegistry
         HCAdd("Convoys.StallMeters", "float", 3.0, 0.5, 50, "HCConvoyPolicy");
         HCAdd("Convoys.StallSeconds", "float", 15.0, 3, 120, "HCConvoyPolicy");
         HCAdd("Convoys.MaxDriveSeconds", "float", 600.0, 30, 1800, "HCConvoyPolicy");
+        HCAdd("PerceptionRing", "object", 0, 0, 0, "HCSettings");
+        HCAdd("PerceptionRing.ViewRangeMeters", "float", 1000, 100, 5000, "HCPerceptionRing");
+        HCAdd("PerceptionRing.HearingRangeMeters", "float", 1000, 100, 5000, "HCPerceptionRing");
+        HCAdd("PerceptionRing.SpawnMarginMeters", "float", 100, 1, 500, "HCPerceptionRing");
+        HCAdd("PerceptionRing.SpawnBandMeters", "float", 400, 1, 2000, "HCPerceptionRing");
         // END GENERATED SETTINGS REGISTRY
     }
 

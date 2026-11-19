@@ -1319,5 +1319,50 @@
     "min": 10,
     "max": 3600,
     "owner": "HCHearthConfig"
+  },
+  {
+    "key": "PerceptionRing",
+    "type": "object",
+    "default": {
+      "ViewRangeMeters": 1000,
+      "HearingRangeMeters": 1000,
+      "SpawnMarginMeters": 100,
+      "SpawnBandMeters": 400
+    },
+    "min": null,
+    "max": null,
+    "owner": "HCSettings"
+  },
+  {
+    "key": "PerceptionRing.ViewRangeMeters",
+    "type": "float",
+    "default": 1000,
+    "min": 100,
+    "max": 5000,
+    "owner": "HCPerceptionRing"
+  },
+  {
+    "key": "PerceptionRing.HearingRangeMeters",
+    "type": "float",
+    "default": 1000,
+    "min": 100,
+    "max": 5000,
+    "owner": "HCPerceptionRing"
+  },
+  {
+    "key": "PerceptionRing.SpawnMarginMeters",
+    "type": "float",
+    "default": 100,
+    "min": 1,
+    "max": 500,
+    "owner": "HCPerceptionRing"
+  },
+  {
+    "key": "PerceptionRing.SpawnBandMeters",
+    "type": "float",
+    "default": 400,
+    "min": 1,
+    "max": 2000,
+    "owner": "HCPerceptionRing"
   }
 ]

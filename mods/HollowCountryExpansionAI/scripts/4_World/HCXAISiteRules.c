@@ -159,7 +159,7 @@ class HCXAISiteRules
         if (p.ObserverPolicy != "native-eai") { return "observer policy must be native-eai (native eAI perception only)"; }
         if (p.MaxActiveAI < 1 || p.MaxActiveAI > HCAILimits.AI_CEILING) { return "MaxActiveAI must be within AI safety ceiling"; }
         if (p.MaxActiveSites < 1 || p.MaxActiveSites > HCAILimits.GROUP_CEILING) { return "MaxActiveSites must be within group safety ceiling"; }
-        if (!HCXAIRules.Finite(p.MinPlayerDistance) || p.MinPlayerDistance < 200 || p.MinPlayerDistance > 500) { return "MinPlayerDistance must be 200..500"; }
+        if (!HCXAIRules.Finite(p.MinPlayerDistance) || p.MinPlayerDistance < 200 || p.MinPlayerDistance > HCPerceptionRing.HCCeiling()) { return "MinPlayerDistance must be 200..perception ceiling"; }
         if (!HCXAIRules.Finite(p.LineOfSightRange) || p.LineOfSightRange < 200 || p.LineOfSightRange > 1500) { return "LineOfSightRange must be 200..1500"; }
         if (!HCXAIRules.Finite(p.MaxLegLength) || p.MaxLegLength < 50 || p.MaxLegLength > 600) { return "MaxLegLength must be 50..600"; }
         if (!HCXAIRules.Finite(p.CacheClearRadius) || p.CacheClearRadius < 100 || p.CacheClearRadius > 1000) { return "CacheClearRadius must be 100..1000"; }
@@ -196,7 +196,7 @@ class HCXAISiteRules
         if (s.NumberOfAI < 1 || s.NumberOfAIMax < s.NumberOfAI || s.NumberOfAIMax > most) { return "group size must be 1.." + most.ToString(); }
         if (!HCXAISiteRules.Among(s.Behaviour, "|LOOP|ALTERNATE|")) { return "Behaviour must be LOOP or ALTERNATE"; }
         if (!HCXAISiteRules.Among(s.Speed, "|WALK|JOG|")) { return "Speed must be WALK or JOG"; }
-        if (!HCXAIRules.Finite(s.ActivationRadius) || s.ActivationRadius < p.MinPlayerDistance + 50 || s.ActivationRadius > 1200) { return "ActivationRadius must be MinPlayerDistance + 50 .. 1200"; }
+        if (!HCXAIRules.Finite(s.ActivationRadius) || s.ActivationRadius <= 0 || s.ActivationRadius > HCPerceptionRing.HCCeiling()) { return "ActivationRadius must be positive and within perception ceiling (effective radius includes spawn ring)"; }
         if (s.DespawnSeconds < 60 || s.DespawnSeconds > 3600) { return "DespawnSeconds must be 60..3600"; }
         if (s.RespawnSeconds < 600 || s.RespawnSeconds > 86400) { return "RespawnSeconds must be 600..86400"; }
         if (s.Kind == "holdout") { return HCXAISiteRules.HoldoutProblem(s); }
@@ -248,7 +248,7 @@ class HCXAISiteRules
     {
         if (activeSites >= HCAILimits.Get().MaxActiveSites) { return "site budget reached"; }
         if (activeAI + groupMax > HCAILimits.Get().MaxActiveAI) { return "AI budget reached"; }
-        if (nearest < p.MinPlayerDistance) { return "player within MinPlayerDistance"; }
+        if (nearest < p.MinPlayerDistance || !HCPerceptionRing.HCOutside(nearest)) { return "player within perception spawn ring or MinPlayerDistance"; }
         if (seen) { return "spawn point in a player's line of sight"; }
         return "";
     }
@@ -256,7 +256,7 @@ class HCXAISiteRules
     // distance and sight rules at its own point (the budget was taken for the group).
     static string MemberSpawnProblem(HCXAISitePolicy p, float nearest, bool seen)
     {
-        if (nearest < p.MinPlayerDistance) { return "player within MinPlayerDistance"; }
+        if (nearest < p.MinPlayerDistance || !HCPerceptionRing.HCOutside(nearest)) { return "player within perception spawn ring or MinPlayerDistance"; }
         if (seen) { return "spawn point in a player's line of sight"; }
         return "";
     }
