@@ -810,7 +810,7 @@ class EcologyLifecycleBehaviorTests(unittest.TestCase):
     def test_invalid_start_closes_prestart_cohort_without_stopping_live_duplicate(self):
         source=(ROOT/"4_World/Ecology/HCEcologyRuntime.c").read_text()
         for running in (False,True):
-            runtime=SimpleNamespace(m_StartupMaxTicks=0,m_Running=running,Begin=lambda *args:False,Finish=lambda:self.stops.append("stop"))
+            runtime=SimpleNamespace(m_StartupMaxTicks=0,m_StartRefusal='',m_Running=running,Begin=lambda *args:False,Finish=lambda:self.stops.append("stop"))
             self.e["HCEcologyRuntime"]=SimpleNamespace(Instance=lambda:runtime)
             start=translated(source,"Start",self.e,"HCEcologyRuntime")
             self.assertFalse(start(None,"synthetic-world","session-b"))

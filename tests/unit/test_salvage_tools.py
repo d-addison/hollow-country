@@ -75,6 +75,10 @@ def authored(name,params,context,filename=SOURCE,owner=None):
         elif token=='else':line='else:'
         else:line=expr(token)
         lines.append('    '*indent+line.replace('\n',' '))
+    # Refusal reporting is a port (#160): default to no-op/real reason codes unless a test supplies one.
+    context.setdefault('HCRefusal',NS(BUSY='busy',SERVICE='service',SALVAGE='salvage_unavailable'))
+    context.setdefault('HCCraftRefusal',NS(INPUTS='craft_inputs_invalid',OUTPUT='craft_output_unavailable',
+        Refuse=lambda *args:None,ActionRefuse=lambda *args:None))
     exec(compile('def actual(self,'+params+'):\n'+'\n'.join(lines),
                  'authored-salvage:'+name,'exec'),context)
     return context['actual']

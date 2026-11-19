@@ -199,6 +199,9 @@ class HCWreckSalvageModule : HCModule
     protected bool m_Active;
     protected bool m_Busy;
     protected bool m_HCReported;
+    // Last start/begin refusal reasons: one log line per change, cleared on success.
+    protected string m_HCStartRefusal;
+    protected string m_HCBeginRefusal;
     protected int m_HCPurgeCursor = -1;
     protected ref HCUnitBudget m_HCUnits = new HCUnitBudget;
     protected ref HCWorkBudget m_HCWork = new HCWorkBudget;
@@ -342,6 +345,8 @@ class HCWreckSalvageModule : HCModule
         m_Index.Clear();
         m_Sessions.Clear();
         m_Busy = false;
+        m_HCStartRefusal = "";
+        m_HCBeginRefusal = "";
         m_HCPurgeCursor = -1;
         m_State = null;
         if (!IsEnabled(settings)) return;
@@ -364,7 +369,12 @@ class HCWreckSalvageModule : HCModule
         wheelsFit = wheelsFit && HCWreckSalvage.HCWheelFits("CivSedanWheel", "CivilianSedan");
         wheelsFit = wheelsFit && HCWreckSalvage.HCWheelFits("Sedan_02_Wheel", "Sedan_02");
         if (!wheelsFit) { Fault(); return; }
-        if (!Load()) return;
+        if (!Load())
+        {
+            // Fault() published the cause; name it on the start line too.
+            Print("[HollowCountry] V2 wreck salvage not started: journal load refused reason=" + m_HCStatus.HCReason());
+            return;
+        }
         m_Active = true;
         m_HCStatus.HCPublish("ready", "finite_journal_and_part_config_loaded");
         HCReport("ready", "finite_journal_and_part_config_loaded");
@@ -415,12 +425,33 @@ class HCWreckSalvageModule : HCModule
         return true;
     }
 
+    protected bool HCRefuseStart(string reason)
+    {
+        if (m_HCStartRefusal != reason)
+            Print("[HC WreckSalvage] start refused reason=" + reason + " runtime=PENDING");
+        m_HCStartRefusal = reason;
+        return false;
+    }
+
+    protected void HCRefuseBegin(string reason)
+    {
+        if (m_HCBeginRefusal != reason)
+            Print("[HC WreckSalvage] begin refused reason=" + reason + " runtime=PENDING");
+        m_HCBeginRefusal = reason;
+    }
+
     bool CanStart(PlayerBase player, ActionTarget target, ItemBase item)
     {
-        if (!GetGame() || !GetGame().IsServer() || !m_Active || m_Busy || !player || !player.GetIdentity()) return false;
-        if (!HCWreckSalvage.Allowed(player, target, item)) return false;
+        if (!GetGame() || !GetGame().IsServer()) return false;
+        if (!m_Active) return HCRefuseStart(HCRefusal.SERVICE);
+        if (m_Busy) return HCRefuseStart(HCRefusal.BUSY);
+        if (!player) return false;
+        if (!player.GetIdentity()) return HCRefuseStart(HCRefusal.SESSION);
+        if (!HCWreckSalvage.Allowed(player, target, item)) return HCRefuseStart(HCRefusal.SALVAGE);
         int index = Enroll(target.GetObject());
-        return index >= 0 && m_State.Rows[index].Left > 0;
+        bool startable = index >= 0 && m_State.Rows[index].Left > 0;
+        if (startable) m_HCStartRefusal = "";
+        return startable;
     }
 
     void Purge()
@@ -440,20 +471,43 @@ class HCWreckSalvageModule : HCModule
 
     void Begin(HCWreckSalvageActionData data)
     {
-        if (!data || data.Completed || !CanStart(data.m_Player, data.m_Target, data.m_MainItem)) return;
+        if (!data) return;
+        if (data.Completed)
+        {
+            HCRefuseBegin(HCRefusal.SESSION);
+            return;
+        }
+        if (!CanStart(data.m_Player, data.m_Target, data.m_MainItem))
+        {
+            // CanStart named the cause; Begin records that the commit did not start.
+            HCRefuseBegin(HCRefusal.SALVAGE);
+            return;
+        }
         Purge();
-        if (m_Sessions.Count() >= 16) return;
+        if (m_Sessions.Count() >= 16)
+        {
+            HCRefuseBegin(HCRefusal.CAPACITY);
+            return;
+        }
         string key = HCWreckSalvage.Key(data.m_Target.GetObject().GetType(), data.m_Target.GetObject().GetPosition());
         foreach (HCWreckSalvageActionData session : m_Sessions)
         {
-            if (session == data || session.Key == key || session.m_Player == data.m_Player) return;
+            if (session == data || session.Key == key || session.m_Player == data.m_Player)
+            {
+                HCRefuseBegin(HCRefusal.BUSY);
+                return;
+            }
         }
         data.Key = key;
         data.Wreck = data.m_Target.GetObject();
         data.Tool = data.m_MainItem;
         data.Index = Enroll(data.Wreck);
         data.StartedMs = GetGame().GetTime();
-        if (data.Index >= 0) m_Sessions.Insert(data);
+        if (data.Index >= 0)
+        {
+            m_Sessions.Insert(data);
+            m_HCBeginRefusal = "";
+        }
     }
 
     bool Continuing(HCWreckSalvageActionData data)

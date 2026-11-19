@@ -53,6 +53,8 @@ class HCEcologyRuntime
 	protected int m_ResourceSample;
 	protected bool m_SampleActorTurn = true;
 	protected string m_Session;
+	// Why the latest Begin refused admission (stable code); Start reports it once.
+	protected string m_StartRefusal;
 	// Cycle stage machine (HCEcologyRuntimeRules.STAGE_*) and the totals one cycle carries between stages.
 	protected int m_Stage;
 	protected int m_CycleSamples;
@@ -209,7 +211,9 @@ class HCEcologyRuntime
 		runtime.m_StartupMaxTicks = Math.Max(runtime.m_StartupMaxTicks, TickCount(startupStart));
 		if (!started && !runtime.m_Running)
 		{
-			Print("[HC Plan] HC-29 state=refused reason=start_admission visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING");
+			string cause = runtime.m_StartRefusal;
+			if (cause == "") { cause = "start_admission"; }
+			Print("[HC Plan] HC-29 state=refused reason=" + cause + " visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING");
 			runtime.Finish();
 		}
 		return started;
@@ -218,35 +222,41 @@ class HCEcologyRuntime
 	bool Begin(HCEcologyRuntimeSettings settings, string worldName, string session)
 	{
 		int admissionStart = TickCount(0);
-		if (m_Running || session == m_Session) { return false; }
+		m_StartRefusal = "";
+		if (m_Running) { m_StartRefusal = "already_running"; return false; }
+		if (session == m_Session) { m_StartRefusal = "session_reused"; return false; }
 		// A new session starts a new save-cost window (#180); Open records startup saves after this.
 		m_SaveMaxTicks = -1;
 		worldName = HCBuildIdentity.CanonicalWorld(worldName);
-		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(worldName, GetGame().GetWorldName())) { return false; }
-		if (!HCEcologyRuntimeRules.Token(worldName) || !HCEcologyRuntimeRules.Token(session)) { return false; }
+		if (!HCEcologyNative.Authority()) { m_StartRefusal = "authority_required"; return false; }
+		if (!HCBuildIdentity.SameWorld(worldName, GetGame().GetWorldName())) { m_StartRefusal = "world_mismatch"; return false; }
+		if (!HCEcologyRuntimeRules.Token(worldName) || !HCEcologyRuntimeRules.Token(session)) { m_StartRefusal = "invalid_token"; return false; }
 		int nowMs = GetGame().GetTime();
-		if (!HCEcologyRuntimeRules.ClockValid(nowMs)) { return false; }
+		if (!HCEcologyRuntimeRules.ClockValid(nowMs)) { m_StartRefusal = "clock_invalid"; return false; }
 		if (!settings) { settings = HCEcologyRuntimeIO.Settings(); }
 		if (!HCEcologyRuntimeRules.SettingsValid(settings))
 		{
 			Print("[HC Ecology] invalid or unreadable settings; admission rejected");
 			Print("[HC Plan] HC-29 state=refused reason=invalid_settings visited=0 deferred=0 save_phase=0 elapsed_us=-1; runtime=PENDING");
+			m_StartRefusal = "invalid_settings";
 			return false;
 		}
 		// Freeze caller-owned scalar preferences through the bounded native codec.
 		string text;
 		string error;
-		if (!JsonFileLoader<HCEcologyRuntimeSettings>.MakeData(settings, text, error)) { return false; }
-		if (text.Length() > 2048) { return false; }
-		if (!JsonFileLoader<HCEcologyRuntimeSettings>.LoadData(text, m_Settings, error)) { return false; }
+		if (!JsonFileLoader<HCEcologyRuntimeSettings>.MakeData(settings, text, error)) { m_StartRefusal = "settings_encode_failed"; return false; }
+		if (text.Length() > 2048) { m_StartRefusal = "settings_too_large"; return false; }
+		if (!JsonFileLoader<HCEcologyRuntimeSettings>.LoadData(text, m_Settings, error)) { m_StartRefusal = "settings_decode_failed"; return false; }
 		if (!m_Settings.Enabled)
 		{
 			Print("[HC Ecology] explicitly disabled by operator");
+			m_StartRefusal = "disabled_by_operator";
 			return false;
 		}
 		if (m_Actors.Count() > HCEcologyRuntimeRules.REGISTRY_ACTORS || m_Resources.Count() > HCEcologyRuntimeRules.REGISTRY_RESOURCES)
 		{
 			Print("[HC Ecology] retained cohort exceeds configured bounds; admission rejected");
+			m_StartRefusal = "cohort_over_bounds";
 			return false;
 		}
 		m_AdmissionMaxTicks = Math.Max(m_AdmissionMaxTicks, TickCount(admissionStart));
@@ -259,6 +269,7 @@ class HCEcologyRuntime
 		if (!m_Checkpoint)
 		{
 			Print("[HC Ecology] checkpoint unavailable; observation service rejected");
+			m_StartRefusal = "checkpoint_unavailable";
 			return false;
 		}
 		m_SaveJob = new HCEcologySaveJob;
