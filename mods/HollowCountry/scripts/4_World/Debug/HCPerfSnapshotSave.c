@@ -80,7 +80,7 @@ class HCPerfSnapshotSave : HCSaveJob
             if (m_Row < m_Data.operational.Count())
             {
                 string operational = m_Data.operational[m_Row];
-                if (!JsonFileLoader<string>.MakeData(operational, encoded, error, false)) { return -1; }
+                encoded = HCQuote(operational);
                 if (m_Row > 0) { m_Operational += ","; }
                 m_Operational += encoded;
                 m_Row++;
@@ -106,6 +106,23 @@ class HCPerfSnapshotSave : HCSaveJob
         return 1;
     }
 
+    // The native JsonSerializer writes class instances, not a bare string, so
+    // keys and operational lines are quoted here. Short texts only.
+    static string HCQuote(string text)
+    {
+        string quoted = "\"";
+        int length = text.Length();
+        for (int index = 0; index < length; index++)
+        {
+            string letter = text.Get(index);
+            int code = letter.ToAscii();
+            if (letter == "\"" || letter == "\\") { quoted += "\\" + letter; }
+            else if (code >= 0 && code < 32) { quoted += " "; }
+            else { quoted += letter; }
+        }
+        return quoted + "\"";
+    }
+
     protected int HCEncodeLayer()
     {
         if (m_Layer == 0 && !m_LayerOpen) { m_Layers = "{"; }
@@ -119,7 +136,7 @@ class HCPerfSnapshotSave : HCSaveJob
         if (!m_LayerOpen)
         {
             string key = m_Data.layers.GetKey(m_Layer);
-            if (!JsonFileLoader<string>.MakeData(key, encoded, error, false)) { return -1; }
+            encoded = HCQuote(key);
             if (m_Layer > 0) { m_Layers += ","; }
             m_Layers += encoded + ":[";
             m_LayerOpen = true;
