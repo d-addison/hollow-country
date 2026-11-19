@@ -295,7 +295,11 @@ modded class ChernarusPlusData
         if (snowMin == 0.0 && snowMax == m_HCSnowLimit)
         {
             m_Weather.GetSnowfall().SetLimits(0.0, 0.0);
+            return;
         }
+        // Current limits are not the pair HC wrote: a foreign controller owns
+        // them. Keep them, and say so once (the release flag is already clear).
+        Print("[HC Plan] HC-51 snowfall=release_skipped reason=SNOW_LIMITS_FOREIGN runtime=PENDING");
     }
 
     void HCEndWeatherDays()

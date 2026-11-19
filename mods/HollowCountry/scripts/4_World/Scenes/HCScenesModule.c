@@ -70,13 +70,17 @@ class HCScenesModule : HCModule
         m_State = m_Store.Open(now);
         if (!m_State) { return; }
         m_Stories = new HCStorySchedule;
-        if (!m_Stories.HCStart(m_State, m_Store, HCStoryPolicy.HCLoadConfig(), now, true) && m_Stories.HCReason() != "operator-off")
+        bool storiesStarted = m_Stories.HCStart(m_State, m_Store, HCStoryPolicy.HCLoadConfig(), now, true);
+        if (!storiesStarted && m_Stories.HCReason() != "operator-off")
         {
             Print("[HollowCountry] V2 scenes refused; HC-19 " + m_Stories.HCReason());
             m_Stories = null;
             return;
         }
-        HCSituationSource.HCBind(m_State, m_Store);
+        // HC-38 offers every retained chain once from the bound source. Bind it
+        // only while HC-19 is ready: operator-off Stories must offer nothing.
+        // HC-19 has already logged its own off reason; no second line here.
+        if (storiesStarted) { HCSituationSource.HCBind(m_State, m_Store); }
         m_LastNow = now;
         m_Stopping = false;
         m_SaveJob = new HCSceneSaveJob;
