@@ -35,6 +35,8 @@ class HCSceneCatalog
 class HCSceneChain
 {
     string Id;
+    // HC-19: zero only in unmigrated v1 state; old IDs and plans remain pinned.
+    int StorySequence;
     int Stage;
     int DueAt;
     int ExpiresAt;
@@ -51,6 +53,8 @@ class HCSceneChainState
     string WorldName;
     int Revision;
     int LastNow;
+    // Optional additive v1 migration; same verified store and staged save job.
+    ref HCStoryProgress Stories;
     // Pin the complete authored plan: edits to mission data cannot shorten a
     // running stage, revive a cancelled chain or silently replace its kit/site.
     ref HCSceneCatalog Catalog;
@@ -160,9 +164,9 @@ class HCSceneChains
         return catalog;
     }
 
-    static bool CatalogValid(HCSceneCatalog catalog)
+    static bool CatalogValid(HCSceneCatalog catalog, bool allowEmpty = false)
     {
-        if (!catalog || catalog.Version != 1 || !catalog.Chains || catalog.Chains.Count() < 1 || catalog.Chains.Count() > 4) { return false; }
+        if (!catalog || catalog.Version != 1 || !catalog.Chains || (!allowEmpty && catalog.Chains.Count() < 1) || catalog.Chains.Count() > 4) { return false; }
         array<string> ids = new array<string>();
         foreach (HCSceneChainDefinition plan : catalog.Chains)
         {
@@ -226,7 +230,8 @@ class HCSceneChains
     static bool StateValid(HCSceneChainState state)
     {
         if (!state || state.Version != 1 || state.WorldName != "chernarusplus" || state.Revision < 0 || state.Revision > 999999999 || state.LastNow < 1 || state.LastNow > 999000000) { return false; }
-        if (!CatalogValid(state.Catalog) || !state.Chains || state.Chains.Count() != state.Catalog.Chains.Count()) { return false; }
+        if (!HCStoryPolicy.HCValid(state)) { return false; }
+        if (!CatalogValid(state.Catalog, state.Stories != null) || !state.Chains || state.Chains.Count() != state.Catalog.Chains.Count()) { return false; }
         for (int index = 0; index < state.Chains.Count(); index++)
         {
             HCSceneChain chain = state.Chains[index];
