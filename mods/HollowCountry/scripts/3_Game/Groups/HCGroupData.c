@@ -13,7 +13,8 @@ class HCGroupSettings
     bool NavigationLayer = true;
     bool DiscoveryLayer = true;
     bool MissionLayer = true;
-    bool ShareDiscovery = false;
+    // Share only recorded visits within the server-owned group; false opts out.
+    bool ShareDiscovery = true;
     int MaxLOSRaysPerTick = 56;
     int MaxDiscoveries = 64;
     int MaxExplorers = 256;
@@ -33,6 +34,19 @@ class HCGroupSettings
     float PositionStaleSeconds = 10.0;
     float MaxIconDistance = 1000.0;
 }
+// Native 1.30.164289: 1_Core/proto/EnDebug.c:96 Print. Presence
+// distinguishes native missing-key zero-fill from the operator's explicit false.
+class HCGroupSettingDefaults
+{
+    static void HCRestoreMissingDefaults(HCGroupSettings settings, string content)
+    {
+        if (HCJsonFields.Has(content, "ShareDiscovery")) { return; }
+        HCGroupSettings declared = new HCGroupSettings;
+        settings.ShareDiscovery = declared.ShareDiscovery;
+        Print("[HC Groups] settings.json missing ShareDiscovery; declared default restored ShareDiscovery=true runtime=PENDING");
+    }
+}
+
 class HCGroupRequest
 {
     int Version = 3;
