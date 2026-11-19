@@ -1,0 +1,22 @@
+{
+  "Version": 1,
+  "Enabled": true,
+  "SearchRadiusMeters": 600.0,
+  "MaxActiveGroups": 2,
+  "MaxKnownCars": 512,
+  "CooldownSeconds": 900,
+  "ClaimSeconds": 1800,
+  "WorkSecondsPerStep": 20,
+  "WorkRangeMeters": 4.0,
+  "StashRangeMeters": 15.0,
+  "WalkMetersPerSecond": 1.6,
+  "WalkSlackSeconds": 120,
+  "MaxAttemptsPerCar": 3,
+  "MaxScanItems": 96,
+  "StepSeconds": 2,
+  "MaxRouteNodes": 64,
+  "MechanicToolClasses": [
+    "Wrench",
+    "LugWrench"
+  ]
+}
