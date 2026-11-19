@@ -7,9 +7,14 @@
 // Therefore no new engine/provider API is called and no body is commandeered.
 // Native/runtime acceptance remains PENDING; no ready flag can enable this.
 // Lead binds HCCampRaidActors.HCBind(new HCXAIRaidAdapter) during adapter
-// startup, clears it on stop. No module, tick, player scan or second actor cap.
+// startup, also HCSituationActors.HCBindRaid with that SAME instance;
+// clears both bindings on stop. No module, tick, player scan or second actor cap.
 class HCXAIRaidAdapter : HCCampRaidActorPort
 {
+    override bool HCReady() { return false; }
+    override string HCSelect(HCSituationState opportunity) { return ""; }
+    override bool HCBegin(HCSituationState opportunity) { return false; }
+    override string HCObserve(HCSituationState opportunity) { return ""; }
     override string HCRefusal()
     {
         return "RAID_FOOT_ROUTE_COMBAT_CUSTODY_UNVERIFIED";

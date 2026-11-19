@@ -8,10 +8,20 @@
 class HCEventModule : HCModule
 {
     protected static HCEventModule s_Instance;
+    protected static HCEventModule s_SituationOwner;
     // HCServer drops stopped modules from its active list. Keep at most one
     // unresolved owner alive across registry replacement; never replace its AI.
     protected static ref HCEventModule s_CleanupOwner;
     protected ref HCEventSettings m_Config;
+    protected ref HCSituationDirector m_Situations;
+    protected ref HCCampRaidSituation m_Raids;
+    protected ref HCTransitSituation m_Transit;
+    protected ref HCOperationalStatus m_SituationStatus = new HCOperationalStatus;
+    protected ref HCOperationalOwner m_SurvivorOwner;
+    protected ref HCOperationalOwner m_RaidOwner;
+    protected ref HCOperationalOwner m_TransitOwner;
+    protected bool m_SituationEnabled;
+    protected bool m_SourceAttempted;
     protected ref HCEventRuntime m_Runtime;
     protected ref HCEventNativeObserver m_NativeObserver;
     protected float m_RosterElapsed = 0;
@@ -40,8 +50,117 @@ class HCEventModule : HCModule
     {
         HCEventConfiguration loader = new HCEventConfiguration;
         m_Config = loader.Load();
-        return m_Config && m_Config.Enabled;
+        // Lifecycle stays registered so even shipping/off profiles get exactly
+        // one boot receipt. Preference-off ticks are a cheap no-op, with no IO.
+        return true;
     }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_SituationStatus; }
+
+    void HCStartSituations(HCSettings settings)
+    {
+        s_SituationOwner = this;
+        m_SituationEnabled = HCV2Admission.Admitted(settings && settings.EnableEncounters);
+        m_SourceAttempted = false;
+        m_Situations = new HCSituationDirector;
+        m_Raids = new HCCampRaidSituation;
+        m_Transit = new HCTransitSituation;
+        HCCampRaidConfig raids;
+        if (m_SituationEnabled) { raids = HCCampRaidSituation.HCLoad(); }
+        m_Raids.HCOpen(raids, m_SituationEnabled);
+        m_Transit.HCOpen(m_SituationEnabled);
+        m_Situations.HCOpen(null, null, m_SituationEnabled);
+        m_Situations.HCEnableProfile("raid", m_Raids.HCProfilesEnabled(), 0);
+        m_Situations.HCEnableProfile("column", m_Raids.HCProfilesEnabled(), 0);
+        HCTransitProfile roadside = m_Transit.HCFind("hc40-roadside-position");
+        HCTransitProfile exodus = m_Transit.HCFind("hc40-threatened-exodus");
+        // History admits one row per profile, so an unready transit provider must
+        // not write durable rows that would expire as "unknown" and burn the profile.
+        bool transitReady = m_SituationEnabled && HCSituationActors.HCForProfile("roadside-position").HCReady();
+        if (roadside) { m_Situations.HCEnableProfile("roadside-position", transitReady, roadside.LifetimeSeconds); }
+        if (exodus) { m_Situations.HCEnableProfile("threatened-exodus", transitReady, exodus.LifetimeSeconds); }
+        m_SurvivorOwner = HCOperationalContributors.HCRegisterOwner("HC-38 survivor");
+        m_RaidOwner = HCOperationalContributors.HCRegisterOwner("HC-39 raid,column");
+        m_TransitOwner = HCOperationalContributors.HCRegisterOwner("HC-40 roadside,exodus");
+        HCPublishSituations();
+    }
+
+    void HCPublishSituations()
+    {
+        if (!m_Situations || !m_Raids || !m_Transit) { return; }
+        // Cached HC-1/25 path only: no new status, concatenation, config read or
+        // provider readiness query. Owners retain separate off/refused receipts.
+        HCOperationalStatus survivorStatus = m_Situations.HCStatus();
+        HCOperationalStatus raidStatus = m_Raids.HCStatus();
+        HCOperationalStatus transitStatus = m_Transit.HCStatus();
+        m_SituationStatus.HCPublish(survivorStatus.HCState(), survivorStatus.HCReason());
+        float observedAt = -1;
+        if (GetGame()) { observedAt = GetGame().GetTickTime(); }
+        if (m_SurvivorOwner) { m_SurvivorOwner.HCObserve(m_SituationEnabled, survivorStatus, observedAt); }
+        if (m_RaidOwner) { m_RaidOwner.HCObserve(m_SituationEnabled, raidStatus, observedAt); }
+        if (m_TransitOwner) { m_TransitOwner.HCObserve(m_SituationEnabled, transitStatus, observedAt); }
+    }
+
+    void HCStepSituations()
+    {
+        if (!m_SituationEnabled || !m_Situations) { return; }
+        HCSceneChainState source = HCSituationSource.HCState();
+        HCSceneChainStore store = HCSituationSource.HCStore();
+        // The first server tick follows all module starts. Resolve once, so
+        // registry order cannot hide a scene binding and missing input never
+        // creates a retry scan or another persistence owner.
+        if (!m_SourceAttempted)
+        {
+            m_SourceAttempted = true;
+            if (source && store && m_Situations.HCOpen(source, store, true))
+            {
+                // One startup reconciliation over HC-19's validated <=4 rows.
+                // Future arrivals are pushed by the existing durable owner;
+                // there is no recurring chain scan or offer/save loop here.
+                foreach (HCSceneChain retained : source.Chains) { m_Situations.HCOffer(retained); }
+            }
+        }
+        if (!source || !store) { HCPublishSituations(); return; }
+        int utc = HCGroupClock.Utc();
+        if (utc < 1577836801) { return; }
+        int now = utc - 1577836800;
+        m_Situations.HCStep(now);
+        HCPublishSituations();
+    }
+
+    // Called only after HC-19 durably issued a fresh chain. No client/RPC
+    // surface; offers still validate membership, sequence and retained history.
+    static void HCStoryArrived(HCSceneChain chain)
+    {
+        if (s_SituationOwner) { s_SituationOwner.HCOfferSituation(chain); }
+    }
+
+    void HCOfferSituation(HCSceneChain chain)
+    {
+        if (!m_SituationEnabled || !m_Situations) { return; }
+        m_Situations.HCOffer(chain);
+    }
+
+    static void HCSourceClosing()
+    {
+        if (s_SituationOwner) { s_SituationOwner.HCCloseSituations(); }
+    }
+
+    void HCCloseSituations()
+    {
+        if (s_SituationOwner == this) { s_SituationOwner = null; }
+        if (m_Situations) { m_Situations.HCClose(); }
+        if (m_Raids) { m_Raids.HCClose(); }
+        if (m_Transit) { m_Transit.HCClose(); }
+        m_SituationEnabled = false;
+        HCPublishSituations();
+        m_Situations = null;
+        m_Raids = null;
+        m_Transit = null;
+        m_SurvivorOwner = null;
+        m_RaidOwner = null;
+        m_TransitOwner = null;
+    }
+
     HCEventAIProvider CreateAIProvider()
     {
         return HCEventAISelection.Create();
@@ -95,7 +214,9 @@ class HCEventModule : HCModule
             Print("[HC Events] startup blocked: prior runtime cleanup remains unconfirmed");
             return;
         }
-        if (!m_Config || !m_Config.Enabled || !GetGame() || !GetGame().IsServer())
+        if (!GetGame() || !GetGame().IsServer()) { return; }
+        HCStartSituations(settings);
+        if (!m_Config || !m_Config.Enabled)
         {
             return;
         }
@@ -188,6 +309,7 @@ class HCEventModule : HCModule
     }
     override void OnTick(float deltaTime)
     {
+        HCStepSituations();
         if (m_Stopping)
         {
             if (!m_Quarantined)
@@ -302,6 +424,7 @@ class HCEventModule : HCModule
     }
     override void OnStop()
     {
+        HCCloseSituations();
         if (m_EventRPC)
         {
             m_EventRPC.Stop();
