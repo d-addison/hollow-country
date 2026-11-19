@@ -1,0 +1,103 @@
+{
+  "SchemaVersion": 1,
+  "WorkPackage": "HC-52",
+  "Issue": "#58 part 2",
+  "DependsOn": ["HC-7", "HC-23"],
+  "GameBuild": "1.30.164289",
+  "Qualified": false,
+  "RuntimeAcceptance": "PENDING",
+  "Authority": "Review/authoring manifest only. HCTapedPackCatalog fixes exact pair identities; preferences, this file and live slot arrays cannot grant qualification.",
+  "AuthoredPairs": [
+    {
+      "PairId": "tortilla_universal_mount",
+      "HostClass": "TortillaBag",
+      "LightClass": "UniversalLight",
+      "SlotName": "helmetFlashlight",
+      "CrossSlot": false,
+      "LocalPosition": null,
+      "LocalOrientation": null,
+      "Qualified": false,
+      "Status": "candidate_only",
+      "Refusal": "pack_native_slot_unavailable",
+      "GeometryRefusal": "pack_mount_geometry_pending"
+    }
+  ],
+  "CrossSlotPairs": [
+    {
+      "PairId": "tortilla_universal_cross",
+      "HostClass": "TortillaBag",
+      "LightClass": "UniversalLight",
+      "SlotName": "Chemlight",
+      "CrossSlot": true,
+      "LocalPosition": null,
+      "LocalOrientation": null,
+      "Qualified": false,
+      "Status": "candidate_only",
+      "Refusal": "cross_slot_disabled",
+      "EnabledRefusal": "pack_native_slot_unavailable",
+      "GeometryRefusal": "cross_slot_geometry_pending"
+    }
+  ],
+  "Attachment": {
+    "RequestedMode": "native_attachment",
+    "HostConfigRoot": "CfgVehicles",
+    "HostInventorySlot": "Back",
+    "BatterySlot": "BatteryD",
+    "LightMemoryPoints": ["beamStart", "beamEnd"],
+    "TransformOwner": "Pending genuine authored backpack model/proxy mount. No numeric offsets or orientations are invented; null is missing evidence, never an origin transform.",
+    "NativeHierarchy": "actor -> exact backpack -> existing light -> existing battery, conditional on actual native slot permissions and measured model mount; never a second inventory or visual copy.",
+    "TransactionOwner": "HC-7 HCTapedLightService/HCTapedLightPort plus HCTapedLightV1Custody reservations, same synchronous journal/intent/readback and native move barriers. HC-52 grants no alternate move path.",
+    "SwitchingRefusal": "pack_native_switch_action_pending",
+    "WearerRefusal": "pack_ai_wearer_observation_pending"
+  },
+  "Evidence": {
+    "Kind": "Installed static config and native script inspection only; no runtime experiment and no model/LOD qualification.",
+    "ConfigRoot": "~/.cache/hollow-country/wine-server-20261116/addons",
+    "BackpackConfig": "characters_backpacks.pbo:config.bin CfgVehicles/TortillaBag : Clothing; model=dz/characters/backpacks/tortilla_g.p3d; inventorySlot=[Back]; attachments=[Chemlight,WalkieTalkie,Backpack_1,NBCBag]",
+    "BackpackConfigSHA256": "4df08829cb89fe989a0b8c2fdf8502b0efddb17d88fbfacb03639549940c83ae",
+    "BackpackPatchClass": "DZ_Characters_Backpacks",
+    "LightConfig": "weapon_lights.pbo:config.bin CfgVehicles/UniversalLight : Switchable_Base; inventorySlot=[weaponFlashlight,helmetFlashlight]",
+    "LightConfigSHA256": "95dbd81b85ed9e5ecdd405c8df877a6d99a3a5b0846fc9cf1c717d75e29db64e",
+    "ScriptRoot": "~/.cache/hollow-country/native-scripts/scripts-1.30.164289",
+    "BackpackScript": "4_World/Entities/ItemBase/Clothing/TortillaBag.c:1-3; exact TortillaBag : Backpack_Base; variants are separate classes, not admitted by ancestry.",
+    "NativeAttachmentLocation": "3_Game/Systems/Inventory/InventoryLocation.c:52,71,131 GetParent/GetSlot/SetAttachment; destination identifies a real attachment, not an authored item offset.",
+    "NativePermissionAndMove": "3_Game/Systems/Inventory/Inventory.c:246,567,717,763,787 CanAddAttachmentEx/LocationSyncMoveEntity/reservations; HC-7 already owns these calls.",
+    "NativeLight": "4_World/Entities/ItemBase/Switchable_Base/UniversalLight.c:47-91 creates a client light, uses beamStart/beamEnd and fades on stop.",
+    "LocalLightTransform": "4_World/Entities/ScriptedLightBase.c:132-180 AttachOnObjectPivot/AttachOnMemoryPoint apply to the light entity; they do not establish an inventory item model/proxy mount.",
+    "NativeSwitch": "4_World/Classes/UserActionsComponent/Actions/SingleUse/ActionTurnOnHelmetFlashlight.c:33-65 casts Mich2001Helmet; cannot be reused as a backpack action without further authored implementation/qualification.",
+    "Conclusion": "No safe flashlight backpack pair is established. The ordinary candidate lacks a backpack flashlight slot; the cross-slot candidate lacks a matching UniversalLight inventorySlot. Neither a config-only slot addition nor a client light offset establishes mounted geometry."
+  },
+  "SettingsContract": {
+    "DefaultsFile": "config/hollow-country-light-mounts.json",
+    "DTO": "HCTapedLightMountSettings",
+    "ServerOwnerCall": "HCTapedPackMounts.Configure(settings.LightMounts) before module startup, after bounded settings validation; lead-owned integration pending.",
+    "DefaultCrossSlotLights": false,
+    "DefaultPermittedPairIds": [],
+    "MaxPermittedPairIds": 2,
+    "Validation": "Exact compiled IDs only; duplicate/unknown/oversize/null lists reset closed. Copy accepted IDs; no client setter or operator transform/qualification input.",
+    "Lifecycle": "OnStop clears preferences and cached module start state; server owner must configure again before the next start."
+  },
+  "LeadIntegration": {
+    "Registry": "In mods/HollowCountry/scripts/4_World/Core/HCModule.c HCModuleRegistry.RegisterModules(), add Register(new HCTapedPackMounts()); once, subject to the shared 64-module cap. Worker left all existing registration blocks unchanged.",
+    "Settings": "In mods/HollowCountry/scripts/3_Game/HCSettings.c add ref HCTapedLightMountSettings LightMounts = new HCTapedLightMountSettings; defaults mirror config/hollow-country-light-mounts.json, which this worker does not load separately.",
+    "ServerStart": "In mods/HollowCountry/scripts/4_World/Core/HCServer.c Start(), after m_Settings = loaded and before RegisterModules/OnStart, call HCTapedPackMounts.Configure(m_Settings.LightMounts); if false, log pack_mount_settings_refused. Configure already resets malformed server settings closed.",
+    "AddonConfigRefusal": "pack_mount_geometry_pending: no justified config.cpp mount/slot stanza can be supplied from the inspected evidence. Wait for genuine exact TortillaBag model/proxy and slot-class evidence; keep production disabled. No broad clothing/Back slot or UniversalLight inventorySlot override.",
+    "Actions": "Existing HC-7 weapon action registration and qualification remain unchanged. A held-backpack action/custody binding and native switching need separate observed model/slot support before activation; no backpack action is registered by this refusal-only slice."
+  },
+  "GeometryEvidenceQueue": [
+    "Author/inspect the exact TortillaBag worn and ground model proxy/memory points, origin, orientation, cone and clearance before recording genuine local transforms. Keep model assets external/private.",
+    "Lead config.cpp must wait for actual mount/slot class evidence; no justified backpack flashlight/proxy stanza is available in this snapshot. Never override all Head/Back slots or widen UniversalLight to Chemlight globally.",
+    "Retain prone/aim/cargo/backpack-swap/obstruction geometry and shadow evidence for each named pair separately. Missing evidence is pending coverage, not a permanent exclusion.",
+    "Add other packs/helmets only after exact model/config inspection in later bounded slices; this manifest establishes no broad compatibility count."
+  ],
+  "AcceptanceQueue": [
+    "Lead registers HCTapedPackMounts once and connects the existing server settings owner. Observe the proposed HC-52 plan and pair refusals, including feature off and stop/restart cleanup.",
+    "Exact-source DayZDiag compile/boot with zero script/CE errors; retain exact source/PBO/mission/config/dependency hashes.",
+    "Normal signed PBO/server with two clients per pair: native attachment hierarchy and slot permission, mounted origin/orientation, light cone, prone, aim, cargo and backpack swaps, obstruction, rain and shadows.",
+    "Same light/battery persistent IDs, health and energy across mount/removal/destruction/full cargo/rejoin/restart; one tape debit per new mount; back up native inventory and HC journals together.",
+    "Player wearers first; AI wearers remain refused until observed server ownership and lifecycle support exists. HC-7's player-identity port does not establish an AI wearer adapter.",
+    "Implement/observe a native backpack toggle action before any qualification. Never create a second light item, client-owned inventory, or a per-frame light controller.",
+    "Qualification remains false until separate reviewed promotion with genuine pair-level native/two-client receipts."
+  ],
+  "DistancesAdded": []
+}

@@ -31,11 +31,23 @@ class HCTapedLightBinding
     string LightClass;
     string SlotName;
     string BatterySlotName;
+    // HC-52: exact authored pair identity survives journal copy/readback.
+    // Empty/false retains the HC-7 weapon journal format; never a wearable grant.
+    string PairId;
+    bool CrossSlot = false;
     // Explicit qualified policy inputs, never inferred from class-name hints.
     float TapeUnits = 0;
     float MaxDistance = 0;
     // v1 keeps the weapon in hands and returns the existing light to cargo.
     bool ReturnToCargo = false;
+}
+
+// Server settings owner supplies this section; JSON is preference, not evidence.
+// Missing fields preserve the closed default. No client/RPC setter exists.
+class HCTapedLightMountSettings
+{
+    bool crossSlotLights = false;
+    ref TStringArray permittedPairIds = new TStringArray;
 }
 
 class HCTapedLightSnapshot
