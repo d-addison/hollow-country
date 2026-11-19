@@ -12,7 +12,6 @@ import unittest
 from tests.unit.test_group_server import body, EArray
 from tests.unit.test_group_ui import ui_member
 from tests.unit.test_salvage_tools import authored
-from tests.unit import test_event_ui as event_ui
 from tests.unit.test_event_transport import methods, Handle, ROOT as EVENT_ROOT
 
 REPO = Path(__file__).resolve().parents[2]
@@ -335,37 +334,25 @@ class WorldIconCostTests(unittest.TestCase):
 
 
 class EventInputCacheTests(unittest.TestCase):
-    def test_input_is_resolved_once_not_every_frame(self):
-        helper = event_ui.EventInputLifecycleTests()
-        helper.setUp()
-        lookups = []
-        helper.e['GetUApi'] = lambda: NS(GetInputByName=lambda name: lookups.append(name) or NS(LocalPress=lambda: False))
-        helper.hook.m_HCEventInput = None
-        helper.hook.m_HCEventInputResolved = False
-        helper.hook.OnInit()
-        for _ in range(5):
-            helper.hook.OnUpdate(.1)
-        self.assertEqual(['UAHollowCountryEvents'], lookups)
-
-    def test_undeclared_input_is_also_cached_and_never_opens_the_menu(self):
-        helper = event_ui.EventInputLifecycleTests()
-        helper.setUp()
-        lookups = []
-        helper.e['GetUApi'] = lambda: NS(GetInputByName=lambda name: lookups.append(name) or None)
-        helper.hook.m_HCEventInput = None
-        helper.hook.m_HCEventInputResolved = False
-        helper.hook.OnInit()
-        del helper.calls[:]
-        for _ in range(3):
-            helper.hook.OnUpdate(.1)
-        self.assertEqual(1, len(lookups))
-        self.assertFalse(any(call[0] == 'enter' for call in helper.calls))
-
-    def test_mission_finish_drops_the_cached_input(self):
-        source = (SCRIPTS / '5_Mission/Events/HCEventGameplay.c').read_text()
-        finish = method_text(source, 'OnMissionFinish')
-        self.assertIn('m_HCEventInput = null;', finish)
-        self.assertIn('m_HCEventInputResolved = false;', finish)
+    def test_retired_event_hook_inherits_native_lifecycle_without_input_or_frame_work(self):
+        calls = []
+        class NativeMission:
+            def OnInit(self): calls.append('init')
+            def OnUpdate(self, dt): calls.append(('native-update', dt))
+            def OnMissionFinish(self): calls.append('finish')
+        env = dict(GetUApi=lambda: self.fail('retired input queried'),
+                   GetGame=lambda: self.fail('retired hook queried game'),
+                   native_super_OnInit=lambda: calls.append('init'),
+                   native_super_OnUpdate=lambda dt: calls.append(('native-update', dt)),
+                   native_super_OnMissionFinish=lambda: calls.append('finish'),
+                   HCEventClient=NS(Get=lambda: self.fail('retired client polled')))
+        authored = methods(EVENT_ROOT / '5_Mission/Events/HCEventGameplay.c', env)
+        hook = type('SyntheticMission', (authored, NativeMission), {})()
+        hook.OnInit()
+        for _ in range(5): hook.OnUpdate(.1)
+        hook.OnMissionFinish()
+        self.assertEqual(['init'] + [('native-update', .1)] * 5 + ['finish'], calls)
+        self.assertEqual({}, vars(hook))
 
 
 if __name__ == '__main__':

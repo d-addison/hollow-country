@@ -12,8 +12,12 @@ class HCEventPeer
     int RateCount = 0;
     float NextMutation = 0;
 }
-// Main attaches this adapter to the frozen module lifecycle. Context is always
-// derived from that module; client fields never supply identity or authority.
+// HC-38 refusal-only adapter. Main attaches its existing bounded native
+// authentication/rate admission to module lifetime; no quest payload is read.
+// Native scripts-1.30.164289: Game.c:914,1120 GetTickTime/IsServer;
+// gameplay.c:368,375 identity GetId/GetPlayer, :117 ScriptRPC.Send;
+// 1_Core/proto/Serializer.c:57 Write; 3_Game/Entities/Man.c:21 GetIdentity;
+// Object.c:215,517 IsPendingDeletion/IsAlive; PlayerBase.c:2638 disconnect.
 class HCEventRPC
 {
     protected HCEventModule m_Module;
@@ -28,7 +32,7 @@ class HCEventRPC
 
     bool Start(HCEventModule module)
     {
-        if (m_Started || !GetGame().IsServer() || !module || !module.Runtime())
+        if (m_Started || !GetGame().IsServer() || !module)
         {
             return false;
         }
@@ -82,7 +86,7 @@ class HCEventRPC
                 {
                     return existing;
                 }
-                m_Module.Runtime().Disconnect(existing.Player, m_Module.Context());
+                if (m_Module.Runtime()) { m_Module.Runtime().Disconnect(existing.Player, m_Module.Context()); }
                 m_Peers.Remove(index);
             }
             index = index - 1;
@@ -144,96 +148,21 @@ class HCEventRPC
         peer.RateCount = peer.RateCount + 1;
         return true;
     }
+    // HC-38: the old wire IDs remain reserved; no client quest/reward operation.
     bool RequestValid(HCEventWireRequest request)
     {
-        if (!request || request.Version != HCEventWire.VERSION || request.Session.Length() > 128)
-        {
-            return false;
-        }
-        if (request.Op == HCEventWireOp.BROWSE)
-        {
-            return request.RequestId == 0 && request.EventId == 0 && request.Ticket > 0 && request.Ticket <= 1000000000;
-        }
-        if (request.Op != HCEventWireOp.JOIN && request.Op != HCEventWireOp.LEAVE)
-        {
-            return false;
-        }
-        return request.Ticket == 0 && request.RequestId > 0 && request.RequestId <= 1000000000 && request.EventId > 0 && request.EventId <= 32;
+        return false;
     }
     string Title(int family)
     {
-        if (family == HCEventFamily.RECOVERY) { return "Supply recovery"; }
-        if (family == HCEventFamily.DELIVERY) { return "Supply delivery"; }
-        if (family == HCEventFamily.INVESTIGATION) { return "Site investigation"; }
-        if (family == HCEventFamily.STATIC_SALVAGE) { return "Salvage collection"; }
-        if (family == HCEventFamily.PRESENCE) { return "Incident confirmation"; }
-        if (family == HCEventFamily.INFECTED_CLEAR) { return "Local infected threat"; }
-        return "Optional AI encounter";
+        return "";
     }
     HCEventPublicView Project(HCEventPeer peer, int ticket, int code)
     {
         HCEventPublicView view = new HCEventPublicView;
         view.Session = peer.Session;
-        view.Ticket = ticket;
-        view.Code = code;
-        view.LastRequest = peer.LastRequest;
-        view.ReceiptId = peer.LastRequest;
-        view.ReceiptOp = peer.LastOp;
-        view.ReceiptEventId = peer.LastEventId;
-        view.ReceiptCode = peer.LastCode;
-        HCEventRuntime runtime = m_Module.Runtime();
-        HCEventContext context = m_Module.Context();
-        view.Enabled = runtime && runtime.Allowed(context);
-        if (!view.Enabled)
-        {
-            view.Code = HCEventWireCode.DISABLED;
-            return view;
-        }
-        // Snapshot clones via JSON. Cache that immutable private projection
-        // source once per revision, while rebuilding peer/time fields below.
-        if (!m_ProjectionState || m_ProjectionState.Revision != runtime.Revision())
-        {
-            m_ProjectionState = runtime.Snapshot();
-            if (!HCEventRuntimePolicy.StateValid(m_ProjectionState))
-            {
-                m_ProjectionState = null;
-            }
-        }
-        HCEventRuntimeState state = m_ProjectionState;
-        if (!state)
-        {
-            view.Enabled = false;
-            view.Code = HCEventWireCode.DISABLED;
-            return view;
-        }
-        int slot = 0;
-        foreach (HCEventRun run : state.Runs)
-        {
-            HCEventRecord record = HCEventDirector.FindRecord(state.Director, run.EventId);
-            // Previous sessions stay private; terminal current-session rows
-            // remain visible so a participant can see expiry/completion.
-            if (record.Session == context.Session)
-            {
-                slot = slot + 1;
-                HCEventPublicRow row = new HCEventPublicRow;
-                row.EventId = slot;
-                row.Revision = record.Revision;
-                row.Family = run.Objective.Family;
-                row.Title = Title(row.Family);
-                row.Briefing = HCEventBriefing.Describe(run.Objective);
-                row.Status = record.Status;
-                row.Progress = record.Progress;
-                row.Goal = record.Definition.Goal;
-                row.Participants = record.Participants.Count();
-                row.MaxParticipants = record.Definition.MaxParticipants;
-                row.Joined = record.Participants.Find(peer.Identity.GetId()) >= 0;
-                if (!HCEventDirector.Terminal(record.Status))
-                {
-                    row.RemainingSeconds = Math.Max(0, Math.Min(86400, record.Expires - context.Now));
-                }
-                view.Rows.Insert(row);
-            }
-        }
+        view.Code = HCEventWireCode.DISABLED;
+        // Empty default Rows and Enabled=false also revoke cached task markers.
         return view;
     }
     void Send(HCEventPeer peer, int ticket, int code)
@@ -249,6 +178,10 @@ class HCEventRPC
         rpc.Write(view);
         rpc.Send(peer.Player, HCEventWire.RPC_VIEW, true, peer.Identity);
     }
+    // Native identity and existing bounded rate admission precede refusal.
+    // Never deserialize a retired request or call Join/Leave/reward handlers.
+    // Native scripts-1.30.164289: Game.c:1120 IsServer; ScriptRPC transport is
+    // unchanged (Serializer.c:57 Write; gameplay.c:117 Send; Game.c:211 OnRPC).
     void OnRPC(PlayerIdentity sender, Object target, int rpcType, ParamsReadContext ctx)
     {
         if (!m_Started || !GetGame().IsServer() || target || rpcType != HCEventWire.RPC_REQUEST || !ctx)
@@ -256,72 +189,8 @@ class HCEventRPC
             return;
         }
         HCEventPeer peer = Authenticate(sender);
-        if (!peer || !Admit(peer))
-        {
-            return;
-        }
-        HCEventWireRequest request;
-        if (!ctx.Read(request) || !request)
-        {
-            return;
-        }
-        if (!RequestValid(request))
-        {
-            return;
-        }
-        if (request.Op == HCEventWireOp.BROWSE)
-        {
-            Send(peer, request.Ticket, HCEventCode.OK);
-            return;
-        }
-        if (request.Session != peer.Session)
-        {
-            Send(peer, 0, HCEventWireCode.SESSION);
-            return;
-        }
-        if (request.RequestId == peer.LastRequest && request.Op == peer.LastOp && request.EventId == peer.LastEventId)
-        {
-            Send(peer, 0, peer.LastCode);
-            return;
-        }
-        if (request.RequestId != peer.LastRequest + 1)
-        {
-            Send(peer, 0, HCEventWireCode.ORDER);
-            return;
-        }
-        peer.LastRequest = request.RequestId;
-        peer.LastOp = request.Op;
-        peer.LastEventId = request.EventId;
-        peer.LastCode = HCEventCode.DENIED;
-        HCEventRuntime runtime = m_Module.Runtime();
-        HCEventContext context = m_Module.Context();
-        float now = GetGame().GetTickTime();
-        if (now < peer.NextMutation)
-        {
-            peer.LastCode = HCEventCode.LIMIT;
-        }
-        else
-        {
-            // Stored on the already bounded (90) native peer list, discarded
-            // on disconnect. Consumed refusals also have replayable receipts.
-            peer.NextMutation = now + 3;
-            if (runtime)
-            {
-                int id = runtime.PublicEventId(request.EventId);
-                if (request.Op == HCEventWireOp.LEAVE)
-                {
-                    peer.LastCode = runtime.Leave(id, peer.Player, context);
-                }
-                else
-                {
-                    if (!peer.Player.IsUnconscious())
-                    {
-                        peer.LastCode = runtime.Join(id, peer.Player, context);
-                    }
-                }
-            }
-        }
-        Send(peer, 0, peer.LastCode);
+        if (!peer || !Admit(peer)) { return; }
+        Send(peer, 0, HCEventWireCode.DISABLED);
     }
     void Tick()
     {

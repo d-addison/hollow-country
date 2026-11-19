@@ -166,7 +166,7 @@ class InfoSites(unittest.TestCase):
         pin = self.env['HCInfoPin']()
         return self.env['ParseSite'](EStr(text), world, pin), pin
 
-    def test_site_position_comes_from_the_text_the_event_menu_already_shows(self):
+    def test_retained_legacy_parser_extracts_only_source_position(self):
         ok, pin = self.parse(SITE)
         self.assertTrue(ok)
         self.assertAlmostEqual(3569.727783, pin.Position[0], 3)
@@ -194,7 +194,7 @@ class InfoSites(unittest.TestCase):
         ok, _ = self.parse('Site a at <15361, 0, 3>', 15360.0)
         self.assertFalse(ok)
 
-    def test_collect_keeps_only_active_known_rows_and_is_bounded(self):
+    def test_collect_clears_stale_pins_even_for_valid_active_legacy_rows(self):
         rows = EArray([
             row('Supply recovery', SITE, 1, 60, False),
             row('Expired', SITE, 2, 0, False),
@@ -202,13 +202,13 @@ class InfoSites(unittest.TestCase):
             row('Unparseable', 'no site here', 1, 60, False),
             row('Joined one', DELIVERY, 2, 30, True),
         ])
-        pins = EArray()
+        pins = EArray([NS(Label='stale quest')])
         self.env['Collect'](NS(Enabled=True, Rows=rows), 15360.0, pins)
-        self.assertEqual(['[Known] Supply recovery', '[Joined] Joined one'], [p.Label for p in pins])
+        self.assertEqual([], pins)
         many = EArray([row('Many %d' % i, SITE, 1, 60, False) for i in range(80)])
         pins = EArray()
         self.env['Collect'](NS(Enabled=True, Rows=many), 15360.0, pins)
-        self.assertEqual(32, len(pins))
+        self.assertEqual(0, len(pins))
         pins = EArray()
         self.env['Collect'](NS(Enabled=False, Rows=rows), 15360.0, pins)
         self.assertEqual(0, len(pins))
@@ -222,6 +222,17 @@ class InfoSites(unittest.TestCase):
 
 
 class InfoCache(unittest.TestCase):
+    def test_retired_event_client_leaves_mission_list_empty(self):
+        from tests.unit.test_group_ui import SyntheticList, ui_member
+        listing = SyntheticList()
+        listing.items.append('stale quest')
+        source = (GROUPS / 'HCGroupMapLayers.c').read_text()
+        source = re.sub(r'\bHCEvent\w+\s+(?=\w+\s*[=;])', 'HCGroupNative ', source)
+        env = dict(HCEventClient=NS(Get=lambda: NS(Fresh=lambda: False,
+            GetView=lambda: self.fail('retired client view must not be queried'))))
+        ui_member(source, 'Missions', NS(mHCEvents=listing), env, NS(MissionLayer=True))
+        self.assertEqual([], listing.items)
+
     def build(self, fresh, view, reads):
         source = INFO.read_text()
         env = native_env()
@@ -243,68 +254,77 @@ class InfoCache(unittest.TestCase):
         self.assertEqual(0, len(cache.Pins(0.0, 15360.0)))
         self.assertEqual([], reads)
         fresh[0] = True
-        self.assertEqual(1, len(cache.Pins(1.0, 15360.0)))
+        self.assertEqual(0, len(cache.Pins(1.0, 15360.0)))
+        self.assertEqual([], reads)
         fresh[0] = False
         self.assertEqual(0, len(cache.Pins(2.5, 15360.0)))
 
-    def test_pins_clear_as_soon_as_event_data_goes_stale_inside_the_throttle(self):
+    def test_pins_clear_even_when_old_event_data_claims_freshness(self):
         reads = []
         fresh = [True]
         view = NS(Enabled=True, Rows=EArray([row('A', SITE, 1, 60, False)]))
         cache = self.build(fresh, view, reads)
-        self.assertEqual(1, len(cache.Pins(10.0, 15360.0)))
+        cache.mHCPins.Insert(NS(Label='stale quest'))
+        self.assertEqual(0, len(cache.Pins(10.0, 15360.0)))
         fresh[0] = False
         self.assertEqual(0, len(cache.Pins(10.5, 15360.0)))
 
-    def test_view_is_read_at_most_once_per_second_not_every_draw(self):
+    def test_draws_never_read_legacy_views_even_across_clock_changes(self):
         reads = []
         view = NS(Enabled=True, Rows=EArray([row('A', SITE, 1, 60, False)]))
         cache = self.build([True], view, reads)
         for tick in range(10):
             cache.Pins(10.0 + tick * 0.1, 15360.0)
-        self.assertEqual(1, len(reads))
+        self.assertEqual([], reads)
         cache.Pins(11.5, 15360.0)
-        self.assertEqual(2, len(reads))
-        # A clock that moved backwards (new session) must refresh, not stick.
+        self.assertEqual([], reads)
+        # A clock rollback cannot revive the retired cache.
         cache.Pins(0.2, 15360.0)
-        self.assertEqual(3, len(reads))
+        self.assertEqual([], reads)
 
 
 class InfoFlags(unittest.TestCase):
     def setUp(self):
         self.env = native_env()
         translate(INFO.read_text(), 'HCInfoLayerFlags', self.env)
-        self.flags = NS(ShowEvents=True, ShowVisited=True, ShowTeam=True, ShowMarkers=True, ShowGrid=True)
+        self.flags = NS(ShowEvents=False, ShowVisited=True, ShowTeam=True, ShowMarkers=True, ShowGrid=True)
         self.toggle = lambda action: self.env['Toggle'](self.flags, action)
         self.label = lambda action: self.env['Label'](self.flags, action)
 
-    def test_every_layer_starts_visible_and_each_button_flips_only_its_layer(self):
-        pairs = {'HCInfoToggleEvents': 'ShowEvents', 'HCInfoToggleVisited': 'ShowVisited',
-                 'HCInfoToggleTeam': 'ShowTeam', 'HCInfoToggleMarkers': 'ShowMarkers',
-                 'HCInfoToggleGrid': 'ShowGrid'}
+    def test_events_stay_disabled_and_other_buttons_flip_only_their_layer(self):
+        pairs = {'HCInfoToggleVisited': 'ShowVisited', 'HCInfoToggleTeam': 'ShowTeam',
+                 'HCInfoToggleMarkers': 'ShowMarkers', 'HCInfoToggleGrid': 'ShowGrid'}
         for action, field in pairs.items():
             with self.subTest(action=action):
                 self.assertTrue(self.toggle(action))
                 for other_field in pairs.values():
                     self.assertEqual(other_field != field, getattr(self.flags, other_field))
+                self.assertFalse(self.flags.ShowEvents)
                 self.assertTrue(self.toggle(action))
                 self.assertTrue(getattr(self.flags, field))
+        for initial in (False, True):  # Stale session flag cannot re-enable quests.
+            self.flags.ShowEvents = initial
+            self.assertTrue(self.toggle('HCInfoToggleEvents'))
+            self.assertFalse(self.flags.ShowEvents)
 
     def test_unknown_buttons_are_not_consumed(self):
         self.assertFalse(self.toggle('HCSave'))
         self.assertFalse(self.toggle(''))
-        self.assertTrue(all(vars(self.flags).values()))
+        self.assertFalse(self.flags.ShowEvents)
+        self.assertTrue(all(getattr(self.flags, field) for field in
+                            ('ShowVisited', 'ShowTeam', 'ShowMarkers', 'ShowGrid')))
 
     def test_labels_name_the_layer_and_its_state_without_relying_on_colour(self):
-        self.assertEqual('Events: on', self.label('HCInfoToggleEvents'))
+        self.assertEqual('', self.label('HCInfoToggleEvents'))
         self.toggle('HCInfoToggleEvents')
-        self.assertEqual('Events: off', self.label('HCInfoToggleEvents'))
+        self.assertEqual('', self.label('HCInfoToggleEvents'))
         self.assertEqual('Visited: on', self.label('HCInfoToggleVisited'))
         self.assertEqual('', self.label('HCNew'))
 
     def test_defaults_match_the_authored_field_initialisers(self):
         text = INFO.read_text()
-        for field in ('ShowEvents', 'ShowVisited', 'ShowTeam', 'ShowMarkers', 'ShowGrid'):
+        self.assertRegex(text, r'bool ShowEvents = false;')
+        for field in ('ShowVisited', 'ShowTeam', 'ShowMarkers', 'ShowGrid'):
             self.assertRegex(text, r'bool ' + field + r' = true;')
 
 
