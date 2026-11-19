@@ -53,11 +53,15 @@ class NativeString(str):
     def Length(self): return len(self.encode('utf-8'))
     def LengthUtf8(self): return len(self)
     def SubstringUtf8(self, start, count): return NativeString(self[start:start + count])
+    # Concatenation keeps the synthetic native methods (Enforce strings always have them).
+    def __add__(self, other): return NativeString(str.__add__(self, other))
+    def __radd__(self, other): return NativeString(str.__add__(other, self))
 
 
-def bind(obj, path, cls, names, scope, fields=(), members=(), modded=False):
+def bind(obj, path, cls, names, scope, fields=(), members=(), modded=False, native_strings=None):
     for name in names:
-        fn = compile_authored(path, cls, name, scope, members, modded=modded, fields=fields)
+        fn = compile_authored(path, cls, name, scope, members, modded=modded, fields=fields,
+                              native_strings=native_strings)
         setattr(obj, name, lambda *args, fn=fn: fn(obj, *args))
 
 
@@ -316,13 +320,13 @@ class OperationalSnapshot(unittest.TestCase):
         self.assertEqual(11, doc.operationalTruncated)
 
         # Maximum authored capture envelope, synthetic native arrays only.
-        wire_scope = dict(scope, HCAdminReply=lambda:N(Lines=EArray(), Marks=EArray()),
+        wire_scope = dict(scope, str=NativeString, HCAdminReply=lambda:N(Lines=EArray(), Marks=EArray()),
                           HCAdminMark=lambda:N(), Vector=lambda x,y,z:(x,y,z),
-                          HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24))
+                          HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24, NOTICE_BYTES=1024, NOTICE_UNPLACED_SHARE=4))
         wire = N()
         bind(wire, WORLD / 'Admin/HCAdminSnapshotWire.c', 'HCAdminSnapshotWire',
-             ('HCMark','HCSlot','HCAllocate','HCFitted','HCBuild'), wire_scope,
-             members=('HCMark','HCSlot','HCAllocate','HCFitted'))
+             ('HCMark','HCSlot','HCAllocate','HCFitted','HCFitEntries','HCBuild'), wire_scope,
+             members=('HCMark','HCSlot','HCAllocate','HCFitted','HCFitEntries'), native_strings=NativeString)
         doc.layers = NativeMap({str(i):EArray([N(x=1,z=2,label='fixture',detail='fixture')
                                               for _ in range(32)]) for i in range(32)})
         doc.routes = EArray([N(layer='fixture', label='route',

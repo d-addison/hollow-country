@@ -354,6 +354,17 @@ class HCAdminClient
         return text;
     }
 
+    // Layer list row text (#196). Only the lootmap row is labelled: the filter its marks came
+    // from, and `previous run` when a refused or failed final reply kept them. Other layers and an
+    // empty lootmap layer read as their plain name. The toggle still uses the raw layer name.
+    string HCLayerRowLabel(string layer)
+    {
+        if (layer != "lootmap" || !m_LootMarksShown) { return layer; }
+        string text = layer + " [filter=" + HCLootFilterLabel(m_LootShownFilter);
+        if (m_LootStale) { text = text + ", previous run"; }
+        return text + "]";
+    }
+
     // Label text for a run's filter: the filter itself, or `all` for an empty (unfiltered) one.
     protected string HCLootFilterLabel(string filter)
     {

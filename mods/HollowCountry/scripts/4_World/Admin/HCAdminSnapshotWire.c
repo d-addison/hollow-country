@@ -14,9 +14,43 @@
 // the result. The named layer cap grows 16 -> 24 for the w29 layers. A layer's
 // `unplaced` count (rows with no drawable position, kept out of total) rides in
 // the Notice as `unplaced=layer:n,...` only when nonzero.
+// w31-p3admin3 #196: the Notice is built head and tail first (the fixed text is never
+// clipped); `layers=` and `unplaced=` entries are added only while they fit inside
+// NOTICE_BYTES, cut on entry boundaries, and a cut list ends with an explicit `+N more`.
+// `unplaced=` keeps a reserved share (1/NOTICE_UNPLACED_SHARE of the room) so a crowded
+// layers= list cannot hide it. Same caps: 1024 Notice bytes, 512 marks, 24 layers.
 class HCAdminSnapshotWire
 {
     static const int MAX_WIRE_LAYERS = 24;
+    static const int NOTICE_BYTES = 1024;
+    static const int NOTICE_UNPLACED_SHARE = 4;
+
+    // Comma-joined entries that fit in `room` bytes. A cut list ends in `+N more`, and the
+    // room for that marker is reserved before an entry is added (digits of the total count
+    // is an upper bound for N), so the result is <= room whenever the marker alone fits.
+    protected static string HCFitEntries(array<string> entries, int room)
+    {
+        string joined = "";
+        int kept = 0;
+        int markerBytes = 8 + entries.Count().ToString().Length();
+        for (int entryIndex = 0; entryIndex < entries.Count(); entryIndex++)
+        {
+            string entry = entries[entryIndex];
+            int added = joined.Length() + entry.Length();
+            if (kept > 0) { added = added + 1; }
+            if (entryIndex < entries.Count() - 1) { added = added + markerBytes; }
+            if (added > room) { break; }
+            if (kept > 0) { joined += ","; }
+            joined += entry;
+            kept++;
+        }
+        if (kept < entries.Count())
+        {
+            if (kept > 0) { joined += ","; }
+            joined += "+" + (entries.Count() - kept).ToString() + " more";
+        }
+        return joined;
+    }
 
     protected static void HCMark(HCAdminReply reply, array<string> layers, string layer, vector pos, string label, string detail, int route)
     {
@@ -192,7 +226,7 @@ class HCAdminSnapshotWire
         int rowLoss = Math.Max(0, document.operational.Count() - 63);
         int refused = document.truncated + document.operationalTruncated + rowLoss;
         // Per-layer sent/total: total adds the contributor-side loss from layerStats.
-        string statText = "";
+        array<string> statEntries = new array<string>;
         for (int statSlot = 0; statSlot < layers.Count(); statSlot++)
         {
             int layerTotal = demand[statSlot];
@@ -201,22 +235,36 @@ class HCAdminSnapshotWire
                 HCDebugLayerStat stat = document.layerStats[statIndex];
                 if (stat.layer == layers[statSlot] && stat.total > stat.shown) { layerTotal += stat.total - stat.shown; }
             }
-            if (statSlot > 0) { statText += ","; }
-            statText += HCDebugSnapshot.HCText(layers[statSlot], 24) + ":" + sentCount[statSlot].ToString() + "/" + layerTotal.ToString();
+            statEntries.Insert(HCDebugSnapshot.HCText(layers[statSlot], 24) + ":" + sentCount[statSlot].ToString() + "/" + layerTotal.ToString());
         }
-        string unplacedText = "";
+        array<string> unplacedEntries = new array<string>;
         for (int unplacedIndex = 0; unplacedIndex < document.layerStats.Count(); unplacedIndex++)
         {
             HCDebugLayerStat unplacedStat = document.layerStats[unplacedIndex];
             if (unplacedStat.unplaced < 1) { continue; }
-            if (unplacedText != "") { unplacedText += ","; }
-            unplacedText += HCDebugSnapshot.HCText(unplacedStat.layer, 24) + ":" + unplacedStat.unplaced.ToString();
+            unplacedEntries.Insert(HCDebugSnapshot.HCText(unplacedStat.layer, 24) + ":" + unplacedStat.unplaced.ToString());
         }
-        string notice = "Snapshot row/contributor losses=" + refused.ToString() + "; runtime=PENDING; vertices=" + reply.Marks.Count().ToString() + " dropped=" + dropped.ToString();
-        notice += "; layers=" + statText + "; layers_unsent=" + unsent.Count().ToString();
-        if (unplacedText != "") { notice += "; unplaced=" + unplacedText; }
-        notice += "; captured over several ticks; expires in 60s";
-        reply.Notice = HCDebugSnapshot.HCText(notice, 1024);
+        // Fixed head and tail first; the list entries share what is left.
+        string head = "Snapshot row/contributor losses=" + refused.ToString() + "; runtime=PENDING; vertices=" + reply.Marks.Count().ToString() + " dropped=" + dropped.ToString();
+        string middle = "; layers_unsent=" + unsent.Count().ToString();
+        string tail = "; captured over several ticks; expires in 60s";
+        string layersLabel = "; layers=";
+        string unplacedLabel = "; unplaced=";
+        int noticeRoom = HCAdminSnapshotWire.NOTICE_BYTES - head.Length() - middle.Length() - tail.Length() - layersLabel.Length();
+        int unplacedRoom = 0;
+        if (unplacedEntries.Count() > 0)
+        {
+            noticeRoom = noticeRoom - unplacedLabel.Length();
+            unplacedRoom = noticeRoom / HCAdminSnapshotWire.NOTICE_UNPLACED_SHARE;
+        }
+        string layerText = HCFitEntries(statEntries, noticeRoom - unplacedRoom);
+        string notice = head + layersLabel + layerText + middle;
+        if (unplacedEntries.Count() > 0)
+        {
+            notice += unplacedLabel + HCFitEntries(unplacedEntries, noticeRoom - layerText.Length());
+        }
+        notice += tail;
+        reply.Notice = HCDebugSnapshot.HCText(notice, HCAdminSnapshotWire.NOTICE_BYTES);
         Print("[HC Admin] cmd=snapshot result=ok reason=delivered vertices=" + reply.Marks.Count().ToString() + " truncated=" + dropped.ToString());
         return reply;
     }

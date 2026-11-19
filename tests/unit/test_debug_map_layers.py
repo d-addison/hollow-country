@@ -18,7 +18,7 @@ import unittest
 from tests.unit import test_admin_test_kit as _kit
 from tests.unit.test_admin_test_kit import base_scope
 from tests.unit.test_group_server import EArray
-from tests.unit.test_hc_operational_snapshot import NativeMap, bind
+from tests.unit.test_hc_operational_snapshot import NativeMap, NativeString, bind
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -364,14 +364,14 @@ class OwnerGetters(unittest.TestCase):
 
 class WireFairness(unittest.TestCase):
     def wire(self):
-        scope = base_scope(array=EArray, HCDebugSnapshot=N(HCText=lambda value, limit: value[:limit]),
+        scope = base_scope(array=EArray, str=NativeString, HCDebugSnapshot=N(HCText=lambda value, limit: value[:limit]),
                            HCOperationalContributors=N(HCAppend=lambda reply, rows, lost: None),
                            HCAdminReply=lambda: N(Lines=EArray(), Marks=EArray(), Notice=''),
                            HCAdminMark=lambda: N(), Vector=lambda x, y, z: (x, y, z),
-                           HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24), Print=lambda line: None)
+                           HCAdminSnapshotWire=N(MAX_WIRE_LAYERS=24, NOTICE_BYTES=1024, NOTICE_UNPLACED_SHARE=4), Print=lambda line: None)
         wire = N()
-        bind(wire, WIRE, 'HCAdminSnapshotWire', ('HCMark', 'HCSlot', 'HCAllocate', 'HCFitted', 'HCBuild'), scope,
-             members=('HCMark', 'HCSlot', 'HCAllocate', 'HCFitted'))
+        bind(wire, WIRE, 'HCAdminSnapshotWire', ('HCMark', 'HCSlot', 'HCAllocate', 'HCFitted', 'HCFitEntries', 'HCBuild'), scope,
+             members=('HCMark', 'HCSlot', 'HCAllocate', 'HCFitted', 'HCFitEntries'), native_strings=NativeString)
         return wire
 
     def capture(self, layers, routes=(), stats=()):
@@ -458,6 +458,37 @@ class WireFairness(unittest.TestCase):
         self.assertIn('lead-ledger:3/3', reply.Notice, 'unplaced rows are not part of the layer total')
         quiet = self.wire().HCBuild(self.capture([('camps', 2)], stats=[N(layer='camps', total=2, shown=2, truncated=0, unplaced=0)]), 1)
         self.assertNotIn('unplaced=', quiet.Notice)
+
+    # w31-p3admin3 #196: the Notice keeps its fixed head and tail whole, adds layers=/unplaced=
+    # entries only while they fit, cuts on entry boundaries and says how many were left out.
+    def crowded_notice(self, with_unplaced=True):
+        names = ['%02d' % i + 'x' * 22 for i in range(24)]  # 24 chars, the wire's name cap
+        stats = [N(layer=name, total=900, shown=40, truncated=1, unplaced=(123 if with_unplaced else 0)) for name in names]
+        return self.wire().HCBuild(self.capture([(name, 600) for name in names], stats=stats), 1).Notice
+
+    def test_a_crowded_notice_keeps_its_tail_and_stays_inside_the_byte_cap(self):
+        notice = self.crowded_notice()
+        self.assertLessEqual(len(notice.encode('utf-8')), 1024)
+        self.assertTrue(notice.endswith('; captured over several ticks; expires in 60s'), notice[-80:])
+        self.assertIn('; layers_unsent=0', notice)
+
+    def test_a_crowded_notice_cuts_on_entry_boundaries_and_counts_what_it_dropped(self):
+        notice = self.crowded_notice()
+        layers = re.search(r'; layers=(.*?); layers_unsent=', notice).group(1).split(',')
+        entry = re.compile(r'^\d\dx{22}:\d+/\d+$')
+        shown = [item for item in layers if entry.match(item)]
+        self.assertEqual(layers[:len(shown)], shown, 'whole entries first, then only the marker')
+        self.assertEqual(['+%d more' % (24 - len(shown))], layers[len(shown):])
+        self.assertLess(len(shown), 24, 'the fixture must overflow, or this test proves nothing')
+        unplaced = re.search(r'; unplaced=(.*?); captured', notice).group(1).split(',')
+        kept = [item for item in unplaced if re.match(r'^\d\dx{22}:123$', item)]
+        self.assertEqual(unplaced[:len(kept)], kept)
+        self.assertGreater(len(kept), 0, 'unplaced keeps a reserved share')
+        self.assertTrue(len(kept) == 24 or unplaced[len(kept):] == ['+%d more' % (24 - len(kept))])
+
+    def test_a_notice_that_fits_has_no_more_marker(self):
+        notice = self.wire().HCBuild(self.capture([('players', 3), ('camps', 2)]), 1).Notice
+        self.assertNotIn(' more', notice)
 
     def test_light_snapshot_is_sent_whole(self):
         reply = self.wire().HCBuild(self.capture([('players', 3), ('camps', 2)]), 1)

@@ -14,10 +14,12 @@ evicted (#194), not the oldest inserted. A hit refreshes `used` only when it is 
 a run of hits stays read-only. Each write goes through its own temp file (pid + random suffix) and an atomic
 replace, so two concurrent builds never share a temp path.
 
-Concurrent builds are last writer wins: each loads the file, adds its rows and replaces it, so a row
-another build added in between is lost (never corrupted) and is simply re-hashed next time. A `used`
-stamp in the future (clock change) is clamped to now when the file is read, so the row can age out and
-be evicted. A write first removes `sha256-cache.json.*.tmp` files older than ORPHAN_TEMP_AGE_NS, the
+Concurrent builds merge (#196): just before the atomic replace a write re-reads the file on disk and
+keeps both writers' rows, preferring the newer `used` stamp per key (a tie goes to the writer holding the
+row), then applies the LRU cap to the merged rows. Only the short gap between that re-read and the
+replace is unprotected, so a row can still be lost there (never corrupted); it is simply re-hashed next
+time. A `used` stamp in the future (clock change) is clamped to now when a file is read and again in the
+merge, so the next write persists the clamp and the row can age out and be evicted. A write first removes `sha256-cache.json.*.tmp` files older than ORPHAN_TEMP_AGE_NS, the
 leftovers of a build that was killed between writing and replacing.
 """
 import hashlib
@@ -107,11 +109,25 @@ def _row_stamp(row):
     return (row.get('size'), row.get('mtime_ns'), row.get('ino'), row.get('ctime_ns'))
 
 
+def _merge(directory, entries):
+    """Our rows over the rows another build wrote meanwhile: the newer `used` stamp wins per key."""
+    merged = _load(directory)  # clamps future stamps on read
+    now = _now_ns()
+    for key, row in entries.items():
+        if _used(row) > now:
+            row['used'] = now
+        other = merged.get(key)
+        if other is None or _used(row) >= _used(other):
+            merged[key] = row
+    return merged
+
+
 def _store(directory, entries):
     temp = None
     try:
         directory.mkdir(parents=True, exist_ok=True)
         _sweep_orphans(directory)
+        entries = _merge(directory, entries)
         if len(entries) > MAX_ENTRIES:
             # Stable sort: rows with an equal (or missing) `used` keep their loaded order (keys are stored sorted).
             ranked = sorted(entries.items(), key=lambda item: _used(item[1]))
