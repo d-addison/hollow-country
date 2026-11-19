@@ -17,11 +17,15 @@ replace, so two concurrent builds never share a temp path.
 Concurrent builds merge (#196): just before the atomic replace a write re-reads the file on disk and
 keeps both writers' rows, preferring the newer `used` stamp per key (a tie goes to the writer holding the
 row), then applies the LRU cap to the merged rows. The re-read, merge and replace run under a lock file
-(#197, `sha256-cache.json.lock`, created with O_EXCL), so concurrent writers serialize and keep every row.
+(#197, `sha256-cache.json.lock`, held by the OS), so concurrent writers serialize and keep every row.
 A writer waits at most LOCK_WAIT_NS for the lock and then skips its write (the row is re-hashed next time);
-a lock older than LOCK_STALE_NS is a killed build's leftover and is broken. A `used` stamp in the future (clock change) is clamped to now when a file is read and again in the
-merge, so the next write persists the clamp and the row can age out and be evicted. A write first removes `sha256-cache.json.*.tmp` files older than ORPHAN_TEMP_AGE_NS, the
-leftovers of a build that was killed between writing and replacing.
+the OS releases the lock when a build exits, including after a crash. The lock file stays in place:
+unlinking or replacing it would let writers lock different inodes and overlap their merges. Lock age
+never establishes that its owner is dead. Stop older O_EXCL-based builds before switching protocols.
+A `used` stamp in the future (clock change) is clamped to now when a file is read and again in the
+merge, so the next write persists the clamp and the row can age out and be evicted. A write first
+removes `sha256-cache.json.*.tmp` files older than ORPHAN_TEMP_AGE_NS, the leftovers of a build
+that was killed between writing and replacing.
 """
 import hashlib
 import json
@@ -44,8 +48,6 @@ BLOCK_BYTES = 1024 * 1024
 LOCK_FILE = CACHE_FILE + '.lock'
 # A writer waits this long (5 s) for another build's merge, then skips its own write.
 LOCK_WAIT_NS = 5 * 10 ** 9
-# A lock older than this (60 s) belongs to a killed build; any merge finishes far sooner.
-LOCK_STALE_NS = 60 * 10 ** 9
 _DIGEST = re.compile(r'[0-9a-f]{64}')
 
 
@@ -129,25 +131,37 @@ def _merge(directory, entries):
 
 
 def _acquire(directory):
-    """Create the lock file exclusively; True when held. Breaks a stale lock; gives up after LOCK_WAIT_NS."""
-    lock = directory / LOCK_FILE
+    """Return an OS-locked descriptor, or None after a bounded wait/error.
+
+    As in deploy._locked, descriptor close/process death releases ownership. Keep the
+    synchronization file persistent so every contender locks the same file. Older
+    O_EXCL-based tooling must be stopped before using this locking protocol.
+    """
+    try:
+        descriptor = os.open(directory / LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o600)
+    except OSError:
+        return None
     deadline = time.monotonic_ns() + LOCK_WAIT_NS
-    while True:
-        try:
-            os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
-            return True
-        except FileExistsError:
+    held = False
+    try:
+        while True:
             try:
-                if _now_ns() - lock.stat().st_mtime_ns > LOCK_STALE_NS:
-                    lock.unlink()
-                    continue
+                if os.name == 'nt':
+                    import msvcrt
+                    os.lseek(descriptor, 0, os.SEEK_SET)
+                    msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held = True
+                return descriptor
             except OSError:
-                continue  # released (or broken) meanwhile: try again
-        except OSError:
-            return False
-        if time.monotonic_ns() >= deadline:
-            return False
-        time.sleep(0.005)
+                if time.monotonic_ns() >= deadline:
+                    return None
+                time.sleep(0.005)
+    finally:
+        if not held:
+            os.close(descriptor)
 
 
 def _store(directory, entries):
@@ -155,13 +169,14 @@ def _store(directory, entries):
         directory.mkdir(parents=True, exist_ok=True)
     except OSError:
         return
-    if not _acquire(directory):
+    descriptor = _acquire(directory)
+    if descriptor is None:
         return  # another build is merging: this row is simply re-hashed next time
     try:
         _store_locked(directory, entries)
     finally:
         try:
-            (directory / LOCK_FILE).unlink()
+            os.close(descriptor)
         except OSError:
             pass
 
