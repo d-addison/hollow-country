@@ -14,9 +14,13 @@
 // tick/cell/item/type/output caps. Native query allocation/time CANNOT be
 // preempted; oversize output refuses without processing. The query COST IS
 // UNMEASURED (named in every start line). Never scan inventories or imply a CE census.
-// Job arithmetic (HCJobTickCap): every tick ends at a cell boundary or with the
-// row-unit budget spent, so ticks <= cells + ceil(worst-case row units / rows per
-// step) + 1. The cap is derived from that, not a wall-clock guess.
+// Job arithmetic (HCJobTickCap): a tick runs at most one native query, then rows
+// until the row-unit budget is spent, so ticks <= cells + ceil(worst-case row units /
+// rows per step) + 1. The row loop has its own wall-clock deadline (RowDeadlineMs)
+// that STARTS AFTER the query, so a slow native query (not preemptible) never
+// consumes the deadline of its own rows and costs no extra tick. Slow ROW work
+// (rows over RowDeadlineMs) can still add ticks; the job then ends in the safe
+// job_tick_cap refusal. Unmeasured.
 class HCAdminLootMapLimits
 {
     // Square sub-cell edge for one query. The query circle is its half diagonal,
@@ -28,6 +32,9 @@ class HCAdminLootMapLimits
     // only); a matched class costs MatchRowUnits (cast, profile, type row, point).
     int MaxRowsPerStep = 256;
     int MatchRowUnits = 4;
+    // Wall-clock guard for the row loop only, started after the native query so the
+    // query's own time never spends it (the 4 ms HCWorkBudget default, now named).
+    int RowDeadlineMs = 4;
     int MaxObjectsPerCell = 4096;
     int MaxItemsScanned = 65536;
     int MaxMatches = 8192;
@@ -39,6 +46,10 @@ class HCAdminLootMapLimits
     // Client wait = job tick cap in seconds plus this slack for ingress, the
     // final write and delivery. Not an RPC retry interval.
     int ReplyGraceSeconds = 30;
+    // Floor of the client's job window sized from the ack (a tiny job still gets
+    // time for ingress, the final write and delivery). The ceiling is the largest
+    // admitted job, HCClientWaitSeconds().
+    int MinClientWaitSeconds = 60;
     // How long the client keeps lootmap marks on its map after the reply.
     int ViewSeconds = 300;
     int CooldownSeconds = 30;
@@ -118,6 +129,8 @@ class HCAdminLootMap
     }
 
     // Worst case row units: every scanned row costs 1, each match costs MatchRowUnits.
+    // One query plus its rows fit one tick (RowDeadlineMs starts after the query), so the
+    // cells term is one tick per cell; the row term is the extra ticks big cells need.
     static int HCJobTickCap(HCAdminLootMapLimits limits, int cells)
     {
         int stepUnits = Math.Max(limits.MaxRowsPerStep, 1);
@@ -126,15 +139,52 @@ class HCAdminLootMap
         return cells + rowTicks + 1;
     }
 
-    // Client job window for the final marks reply (the request itself is acked at
-    // once): the largest possible job (MaxCells) at the budgeted core tick, plus
-    // ReplyGraceSeconds. Bounds how long the client keeps its session and tracks
-    // the ticket; it is not a request timeout.
+    // Ceiling of the client job window for the final marks reply (the request itself is
+    // acked at once): the largest possible job (MaxCells) at the budgeted core tick, plus
+    // ReplyGraceSeconds. The client sizes its real window from the ack
+    // (HCClientWindowSeconds) and never exceeds this. Not a request timeout.
     static int HCClientWaitSeconds()
     {
         HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
         int ticks = HCAdminLootMap.HCJobTickCap(limits, limits.MaxCells);
         return (ticks * limits.MaxTickIntervalMs + 999) / 1000 + limits.ReplyGraceSeconds;
+    }
+
+    // First unsigned integer after `key` in an ack/notice text (at most 9 digits), or -1
+    // when the key or its digits are missing. Bounded, no Substring past Length().
+    static int HCAckInt(string notice, string key)
+    {
+        int at = notice.IndexOf(key);
+        if (at < 0) { return -1; }
+        int start = at + key.Length();
+        string digitSet = "0123456789";
+        int value = 0;
+        int digits = 0;
+        while (start + digits < notice.Length() && digits < 9)
+        {
+            string one = notice.Get(start + digits);
+            int found = digitSet.IndexOf(one);
+            if (found < 0) { break; }
+            value = value * 10 + found;
+            digits++;
+        }
+        if (digits == 0) { return -1; }
+        return value;
+    }
+
+    // Client job window from the ack's est_ticks and the server tick interval (tick_ms),
+    // plus ReplyGraceSeconds, between MinClientWaitSeconds and HCClientWaitSeconds().
+    // An unreadable or out-of-range ack falls back to the ceiling, never a short wait.
+    static int HCClientWindowSeconds(int estTicks, int tickMs)
+    {
+        HCAdminLootMapLimits limits = new HCAdminLootMapLimits;
+        int ceiling = HCAdminLootMap.HCClientWaitSeconds();
+        if (estTicks < 1 || estTicks > 100000) { return ceiling; }
+        if (tickMs < 1 || tickMs > limits.MaxTickIntervalMs) { return ceiling; }
+        int seconds = (estTicks * tickMs + 999) / 1000 + limits.ReplyGraceSeconds;
+        seconds = Math.Max(seconds, limits.MinClientWaitSeconds);
+        seconds = Math.Min(seconds, ceiling);
+        return seconds;
     }
 
     int HCTotalCells() { return m_Across * m_Across; }
@@ -275,9 +325,11 @@ class HCAdminLootMap
         if (!GetGame().IsServer() || !GetCEApi()) { HCFinish("ce_world_enumeration_unavailable"); return true; }
         m_Ticks++;
         if (m_Ticks > m_MaxTicks) { HCFinish("job_tick_cap"); return true; }
-        m_Budget.HCReset(m_Limits.MaxRowsPerStep);
         m_Units.HCReset(m_Limits.MaxRowsPerStep);
         if (!m_Loaded && !HCQueryCell()) { return true; }
+        // Start the row clock after the query: a query slower than the row deadline
+        // must not leave its rows for a second tick.
+        m_Budget.HCReset(m_Limits.MaxRowsPerStep, m_Limits.RowDeadlineMs);
         while (m_Cursor < m_Candidates.Count())
         {
             if (!m_Units.HCTake(1) || !m_Budget.HCContinue()) { return false; }

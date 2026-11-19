@@ -8,6 +8,8 @@ AssertionError: Missing authored method HCAdminWire.HCIsLootMap in HCAdminWire.c
 GREEN (same command): Ran 1 test; OK.
 Boundary extension RED (same command): AssertionError: False is not true
 at self.assertTrue(oversized_class.HCStep()); GREEN: Ran 1 test; OK.
+#191 export failure after the ack (final ticketed reply, Snapshot=true) RED, same command:
+AssertionError: 1 != 2 (an ordinary Snapshot=false reply was sent after the ack); GREEN: OK.
 """
 import io
 import json
@@ -61,7 +63,7 @@ class LootmapBehavior(unittest.TestCase):
         path = ADMIN / 'HCAdminLootMap.c'
         defaults = N(SubCellM=1000, MaxPositionsPerReply=2, MaxRowsPerStep=2, MatchRowUnits=1,
                      MaxObjectsPerCell=16, MaxItemsScanned=40, MaxMatches=20,
-                     MaxTypes=4, MaxCells=16, CooldownSeconds=30, MaxTickIntervalMs=1000)
+                     MaxTypes=4, MaxCells=16, CooldownSeconds=30, MaxTickIntervalMs=1000, RowDeadlineMs=4)
         query_calls, probes, sent, exported = [], [], [], []
         server = [True]
         ce_ready = [True]
@@ -116,7 +118,7 @@ class LootmapBehavior(unittest.TestCase):
                       m_Cargos=NativeArray(), m_Seen=NativeArray(), m_Cursor=0,
                       m_Cell=0, m_Across=0, m_Size=0, m_Loaded=False,
                       m_MinX=0, m_MinZ=0, m_MaxX=0, m_MaxZ=0, m_Ticks=0, m_MaxTicks=0,
-                      m_Budget=N(HCReset=lambda count:probes.append(count), HCContinue=lambda:True),
+                      m_Budget=N(HCReset=lambda count, ms:probes.append((count, ms)), HCContinue=lambda:True),
                       m_Units=Units())
             names = ('HCStart', 'HCStep', 'HCQueryCell', 'HCObserve', 'HCFinish',
                      'HCDocument', 'HCReply', 'HCMatches', 'HCTotalCells', 'HCMaxTicks')
@@ -258,7 +260,8 @@ class LootmapBehavior(unittest.TestCase):
                 CanOpen=lambda path:True, Save=lambda path,data,limit:
                 receipts.append((path,data.state,limit)) or store_ok[0]),
                 FileExist=lambda path:True, MakeDirectory=lambda path:True, Print=lambda line:printed.append(line),
-                HCServer=N(Get=lambda:N(GetSettings=lambda:N(TickIntervalMs=1000))))
+                HCServer=N(Get=lambda:N(GetSettings=lambda:N(TickIntervalMs=1000))),
+                HCAdminReply=lambda:N(Lines=NativeArray(), Marks=NativeArray(), Snapshot=False, Ticket=0, Notice=''))
         source = (ADMIN/'HCAdminModule.c').read_text().replace('HCV2ThreatStore<HCAdminLootDocument>', 'HCV2ThreatStore')
         with patch.object(Path, 'read_text', return_value=source):
             start = compile_authored(ADMIN/'HCAdminModule.c', 'HCAdminModule', 'HCStartLootMap',
@@ -284,7 +287,7 @@ class LootmapBehavior(unittest.TestCase):
         # derived tick estimate. The marks are NOT sent yet; they come later by ticket.
         ack = notices[-1]
         self.assertEqual((5, 'lootmap', True), ack[1:4])
-        for token in ('started', 'ticket=5', 'est_ticks=', 'final_reply=by_ticket'):
+        for token in ('started', 'ticket=5', 'est_ticks=', 'tick_ms=1000', 'final_reply=by_ticket'):
             self.assertIn(token, ack[-1])
         self.assertEqual([], exported)
         # A second lootmap while one runs is refused server-side with a named reason.
@@ -313,6 +316,31 @@ class LootmapBehavior(unittest.TestCase):
         self.assertFalse(start(module, object(), EStr('lootmap Bandage'), 7))
         self.assertEqual('lootmap_export_failed', notices[-1][-1])
         self.assertIsNone(module.m_LootMap)
+
+        # #191: a failure AFTER the ack (the final export write) is the one final ticketed
+        # reply, Snapshot=true, so the client consumes it, clears its ticket and shows it.
+        store_ok[0] = True
+        now[0] = 300
+        query_calls.clear()
+        exported.clear()
+        notices.clear()
+        self.assertTrue(start(module, object(), EStr('lootmap Bandage'), 8))
+        self.assertEqual(8, module.m_LootMapTicket)
+        ack_count = len(notices)
+        store_ok[0] = False
+        for _ in range(20):
+            tick(module)
+            if module.m_LootMap is None: break
+        self.assertIsNone(module.m_LootMap)
+        self.assertEqual(ack_count, len(notices))  # not an ordinary (Snapshot=false) reply
+        self.assertEqual(1, len(exported))
+        failure = exported[0][1]
+        self.assertTrue(failure.Snapshot)
+        self.assertEqual(8, failure.Ticket)
+        self.assertIn('reason=lootmap_export_failed', failure.Notice)
+        self.assertIn('result=refused', failure.Notice)
+        self.assertTrue(any('lootmap_export_failed' in line for line in printed))
+        store_ok[0] = True
 
         # Offline loopback-handler port; no socket or game/profile data.
         from tools.webmap import server as web

@@ -13,42 +13,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
-      "symbol": "HCAdminModule.OnStart",
-      "key": "if (!HCV2ThreatStore<HCAdminAllowlist>.CanOpen(PATH)) { return; }",
-      "count": 1,
-      "line_at_review": 52,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
-      "symbol": "HCAdminModule.OnStart",
-      "key": "if (!HCV2ThreatStore<HCAdminAllowlist>.Load(PATH, 4096, m_Admins)) { return; }",
-      "count": 1,
-      "line_at_review": 55,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
-      "symbol": "HCAdminModule.OnStart",
-      "key": "if (!HCV2ThreatStore<HCAdminAllowlist>.Save(PATH, m_Admins, 4096)) { return; }",
-      "count": 1,
-      "line_at_review": 60,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Admin/HCAdminModule.c",
-      "symbol": "HCAdminModule.OnStart",
-      "key": "if (!m_Admins || !m_Admins.PlainIds) { return; }",
-      "count": 1,
-      "line_at_review": 62,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Camps/HCCampRespawn.c",
       "symbol": "HCCampRespawnModule.OnStart",
       "key": "if (!HCV2ThreatStore<HCCampRespawnState>.Load(PATH, 65536, m_State)) { return; }",
