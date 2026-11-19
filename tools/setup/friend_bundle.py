@@ -30,6 +30,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -205,6 +206,67 @@ def profile_files(profiles):
     return keep, dropped
 
 
+# Exact authored source paths, never a basename search through unrelated JSON.
+# Generated/measured profile images have no checked-in byte history: their earlier
+# installed hashes can only be recognized from the destination install receipt.
+PROFILE_SOURCES = {
+    'HollowCountry/settings.json': ('config/hollow-country-settings.json',),
+    'HollowCountry/stamina.json': ('config/hollow-country-stamina.json',),
+    'HollowCountry/interiors.json': ('mission/hollow-country/interiors/interiors.json',),
+    'HollowCountry/expansion-ai-sites.json': (
+        'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json',
+        'mission/hollow-country/ai/sites.json'),
+    'HollowCountry/expansion-ai-localities.json': (
+        'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-localities.json',
+        'mission/hollow-country/ai/localities.json'),
+}
+
+
+def profile_history(source):
+    """Hash every authored revision, following renames. Git metadata is read-only.
+
+    Fail closed if tracked history is unavailable rather than silently issuing an
+    incomplete upgrade catalogue. Never include git stderr (paths/identities).
+    """
+    def git(*args):
+        result = subprocess.run(['git', *args], cwd=lts.ROOT, capture_output=True, check=False)
+        if result.returncode:
+            raise Refused('profile_history_unavailable: cannot read tracked default history for ' + source)
+        return result.stdout
+
+    history = git('log', '--follow', '--diff-filter=AMR', '--format=%H', '--name-only', 'HEAD', '--', source)
+    revision = None
+    hashes = set()
+    for line in history.decode('utf-8').splitlines():
+        if re.fullmatch(r'[0-9a-f]{40,64}', line):
+            revision = line
+        elif line and revision:
+            hashes.add(hashlib.sha256(git('show', revision + ':' + line)).hexdigest())
+    if not hashes:
+        raise Refused('profile_history_unavailable: no tracked revisions for ' + source)
+    return hashes
+
+
+def profile_defaults(rows):
+    """Current bundle bytes plus known earlier authored defaults, per shipped file."""
+    defaults = {}
+    for rel, path in rows:
+        sources = PROFILE_SOURCES.get(rel, ())
+        if rel.startswith('ExpansionMod/Loadouts/HollowCountry_'):
+            name = PurePosixPath(rel).name
+            candidates = ('mods/HollowCountryExpansionAI/data/defaults/loadouts/' + name,
+                          'mission/hollow-country/ai/loadouts/' + name)
+            sources = tuple(source for source in candidates if (lts.ROOT / source).is_file())
+        current = hashlib.sha256(path.read_bytes()).hexdigest()
+        hashes = {current}
+        for source in sources:
+            hashes.update(profile_history(source))
+        defaults['profiles/' + rel] = {
+            'sha256': current, 'shipped_sha256': sorted(hashes),
+            'history': 'git-log' if sources else 'receipt-only', 'sources': list(sources)}
+    return defaults
+
+
 def mod_files(mod, need_key):
     rows = _walk(mod)
     names = {rel for rel, _ in rows}
@@ -313,6 +375,10 @@ def readme(items, template, addon):
         'reports/friend-server/ in a pull request. Never upload the raw .RPT, .ADM or .mdmp files.',
         '',
         'bundle-manifest.json lists the SHA-256 of every file in this bundle.',
+        'Its profile_defaults catalogue includes current bytes and earlier authored defaults from git log.',
+        'Generated/measured profiles without tracked JSON history are marked receipt-only; older installed',
+        'bytes are recognized from the server installer receipt. Unknown bytes are always kept with a WARN.',
+        'To adopt one kept default with a backup: install-hollow-country.bat --apply --adopt-profile "profiles/<file>"',
         '',
     ]
     return '\r\n'.join(lines)
@@ -441,6 +507,7 @@ def build(args):
                 raise Refused('unreviewed mission source: ' + rel)
             plan.append(('mission/hollow-country/' + rel, overlays.read(path)))
     p_keep, p_drop = profile_files(args.profiles)
+    defaults = profile_defaults(p_keep)
     plan += [('profiles/' + rel, path) for rel, path in p_keep]
     mods = [(Path(args.mod), True)] + ([(Path(args.addon), False)] if args.addon else [])
     keys = {}
@@ -483,6 +550,7 @@ def build(args):
                 shutil.copyfile(source, target)
             rows.append({'path': dest, 'sha256': hashlib.sha256(target.read_bytes()).hexdigest()})
         data = {'schema': 1, 'mission': mission.name, 'files': sorted(rows, key=lambda r: r['path']),
+                'profile_defaults': defaults,
                 'excluded': {'mission': m_drop, 'profiles': p_drop}}
         (stage / 'bundle-manifest.json').write_text(json.dumps(data, indent=2) + '\n')
         os.replace(stage, out)
