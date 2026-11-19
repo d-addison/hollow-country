@@ -29,13 +29,25 @@ class HCEventRPC
     protected int m_GlobalCount = 0;
     protected float m_LastTime = 0;
     protected ref HCEventRuntimeState m_ProjectionState;
+    protected string m_Refusal;
 
+    // Last refusal reason (Start or Admit). Logged once per reason change, so a
+    // client flood cannot grow the log; the reason carries no player identity.
+    string Refusal() { return m_Refusal; }
+    bool HCRefuse(string reason)
+    {
+        if (m_Refusal != reason)
+        {
+            m_Refusal = reason;
+            Print("[HC Events] opt-in transport refused reason=" + reason);
+        }
+        return false;
+    }
     bool Start(HCEventModule module)
     {
-        if (m_Started || !GetGame().IsServer() || !module)
-        {
-            return false;
-        }
+        if (m_Started) { return HCRefuse("already_started"); }
+        if (!GetGame().IsServer()) { return HCRefuse("not_server"); }
+        if (!module) { return HCRefuse("module_missing"); }
         m_Module = module;
         int first = Math.RandomIntInclusive(1, 1000000000);
         int second = Math.RandomIntInclusive(1, 1000000000);
@@ -43,7 +55,7 @@ class HCEventRPC
         m_LastTime = GetGame().GetTickTime();
         if (m_LastTime != m_LastTime || m_LastTime < 0 || m_LastTime > 1000000000)
         {
-            return false;
+            return HCRefuse("tick_clock_invalid");
         }
         m_GlobalWindow = m_LastTime;
         m_GlobalCount = 0;
@@ -111,7 +123,7 @@ class HCEventRPC
         float now = GetGame().GetTickTime();
         if (now != now || now < 0 || now > 1000000000)
         {
-            return false;
+            return HCRefuse("clock_invalid");
         }
         if (now < m_LastTime)
         {
@@ -142,7 +154,7 @@ class HCEventRPC
         }
         if (m_GlobalCount >= 128 || peer.RateCount >= 4)
         {
-            return false;
+            return HCRefuse("rate_limited");
         }
         m_GlobalCount = m_GlobalCount + 1;
         peer.RateCount = peer.RateCount + 1;

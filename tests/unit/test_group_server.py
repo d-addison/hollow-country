@@ -493,7 +493,7 @@ class GroupServerTests(unittest.TestCase):
         for now in (99.,math.nan,math.inf,-math.inf):
             peer=SimpleNamespace(RateWindow=100.,RateCount=0)
             service=SimpleNamespace(m_Config=self.cfg,m_GlobalWindow=100.,m_GlobalCount=0)
-            env={**self.e,'GetGame':lambda:SimpleNamespace(GetTickTime=lambda:now)}
+            env={**self.e,'GetGame':lambda:SimpleNamespace(GetTickTime=lambda:now),'HCRefuse':lambda reason:False}
             self.assertFalse(execute_member(source,'Admit',env,service,peer),now)
             self.assertEqual(0,peer.RateCount)
             self.assertEqual(0,service.m_GlobalCount)

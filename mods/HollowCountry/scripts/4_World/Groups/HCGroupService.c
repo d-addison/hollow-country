@@ -159,12 +159,35 @@ class HCGroupService
     protected int m_GlobalCount;
     protected ref array<ref HCGroupPendingVisit> m_PendingVisits = new array<ref HCGroupPendingVisit>();
     protected float m_BatchTime;
+    protected string m_Refusal;
 
     static HCGroupService Get() { return s_Instance; }
 
+    // Last Start/Admit refusal reason; the log line prints once per reason change,
+    // so a request flood or a retry cannot grow the log. No player identity.
+    string Refusal() { return m_Refusal; }
+    bool HCRefuse(string reason)
+    {
+        if (m_Refusal != reason)
+        {
+            m_Refusal = reason;
+            Print("[HC Groups] refused reason=" + reason);
+        }
+        return false;
+    }
+    string HCStartBlock(HCGroupSettings config)
+    {
+        if (!GetGame().IsServer()) { return "not_server"; }
+        if (!HCGroupRules.SettingsValid(config)) { return "settings_invalid"; }
+        if (!config.Enabled) { return "disabled"; }
+        if (s_Instance) { return "already_started"; }
+        return "";
+    }
+
     bool Start(HCGroupSettings config)
     {
-        if (!GetGame().IsServer() || !HCGroupRules.SettingsValid(config) || !config.Enabled || s_Instance) return false;
+        string blocked = HCStartBlock(config);
+        if (blocked != "") { return HCRefuse(blocked); }
         m_Config = config;
         if (config.DiscoveryLayer)
         {
@@ -177,9 +200,10 @@ class HCGroupService
         }
         m_LastUtc = HCGroupClock.Utc();
         float worldSize = GetGame().GetWorld().GetWorldSize();
-        if (m_LastUtc < 1 || worldSize < 1 || worldSize > 50000) return false;
+        if (m_LastUtc < 1) { return HCRefuse("utc_unavailable"); }
+        if (worldSize < 1 || worldSize > 50000) { return HCRefuse("world_size_invalid"); }
         m_Store = new HCGroupStore;
-        if (!m_Store.Open(config, m_State)) return false;
+        if (!m_Store.Open(config, m_State)) { return HCRefuse("store_unavailable"); }
         if (!HCGroupRules.ClockAllows(m_State, m_LastUtc))
         {
             Print("[HC Groups] startup refused: UTC precedes last committed mutation; state preserved");
@@ -191,7 +215,7 @@ class HCGroupService
         {
             foreach (HCGroupMarker marker : group.Markers)
             {
-                if (marker.Position[0] > worldSize || marker.Position[2] > worldSize) return false;
+                if (marker.Position[0] > worldSize || marker.Position[2] > worldSize) { return HCRefuse("saved_marker_outside_world"); }
             }
         }
         // Fresh anti-stale receipt, not a credential: authority is sender.GetId.
@@ -295,11 +319,11 @@ class HCGroupService
     bool Admit(HCGroupPeer peer)
     {
         float now = GetGame().GetTickTime();
-        if (!(now >= 0.0 && now <= 2147483647.0)) return false;
-        if (now < peer.RateWindow || now < m_GlobalWindow) return false;
+        if (!(now >= 0.0 && now <= 2147483647.0)) { return HCRefuse("clock_invalid"); }
+        if (now < peer.RateWindow || now < m_GlobalWindow) { return HCRefuse("clock_rollback"); }
         if (now - peer.RateWindow >= 1.0) { peer.RateWindow = now; peer.RateCount = 0; }
         if (now - m_GlobalWindow >= 1.0) { m_GlobalWindow = now; m_GlobalCount = 0; }
-        if (peer.RateCount >= m_Config.MaxRequestsPerSecond || m_GlobalCount >= m_Config.MaxRequestsPerSecond * 2) return false;
+        if (peer.RateCount >= m_Config.MaxRequestsPerSecond || m_GlobalCount >= m_Config.MaxRequestsPerSecond * 2) { return HCRefuse("rate_limited"); }
         peer.RateCount++;
         m_GlobalCount++;
         return true;

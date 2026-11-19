@@ -105,6 +105,9 @@ class EventIntegrationTests(unittest.TestCase):
                 self.members = ["synthetic-peer"]
                 owner.runtimes.append(self)
 
+            def Refusal(self):
+                return "synthetic_refusal"
+
             def Start(self, cfg, context, store, observer, ai):
                 self.session = context.Session
                 owner.calls.append("runtime.start")
@@ -164,6 +167,7 @@ class EventIntegrationTests(unittest.TestCase):
                 self.m_Module = None
                 self.m_Peers = EArray()
                 self.m_Started = False
+                self.m_Refusal = ""
                 self.m_Serial = 0
                 self.m_GlobalWindow = 0.
                 self.m_GlobalCount = 0

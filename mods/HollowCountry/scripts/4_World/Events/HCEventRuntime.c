@@ -29,7 +29,17 @@ class HCEventRuntime
     // At most one cooldown per retained current-session record (32).
     protected ref array<int> m_ReofferIds = new array<int>();
     protected ref array<int> m_ReofferAfter = new array<int>();
+    protected string m_Refusal;
 
+    // Reason of the last refused Start (cleared at each Start). Start runs once
+    // per module start, so each refusal logs one line; no player identity.
+    string Refusal() { return m_Refusal; }
+    bool HCRefuse(string reason)
+    {
+        m_Refusal = reason;
+        Print("[HC Events] runtime start refused reason=" + reason);
+        return false;
+    }
     bool Start(HCEventSettings settings, HCEventContext context, HCEventPersistence store, HCEventObjectiveProvider observer, HCEventAIProvider ai)
     {
         m_Ready = false;
@@ -39,18 +49,18 @@ class HCEventRuntime
         m_BlockedLogged = new array<string>();
         m_ReofferIds = new array<int>();
         m_ReofferAfter = new array<int>();
+        m_Refusal = "";
         m_Cursor = 0;
         m_RunCursor = 0;
         m_PurgeCursor = 0;
         m_WorkBudget = new HCWorkBudget;
         if (!HCEventRuntimePolicy.SettingsValid(settings) || !settings.Enabled || !context || !context.Server)
         {
-            Print("[HC Events] disabled or invalid configuration/context");
-            return false;
+            return HCRefuse("settings_or_context_invalid");
         }
         if (!store || !observer || !ai || context.Now < 0 || context.Now > 1000000000)
         {
-            return false;
+            return HCRefuse("dependency_missing_or_clock_range");
         }
         m_Settings = settings;
         m_Store = store;
@@ -60,7 +70,7 @@ class HCEventRuntime
         if (!state || !HCEventRuntimePolicy.StateValid(state) || state.Director.WorldName != context.WorldName)
         {
             Print("[HC Events] persistence admission failed; preserve journal, no fallback");
-            return false;
+            return HCRefuse("persistence_admission_failed");
         }
         m_State = state;
         if (state.Director.Session != context.Session)
@@ -73,7 +83,7 @@ class HCEventRuntime
             state = m_Store.Clone(state);
             if (!state || HCEventDirector.Restart(state.Director, previous, context.Session) != HCEventCode.OK)
             {
-                return false;
+                return HCRefuse("session_restart_rejected");
             }
             foreach (HCEventRun run : state.Runs)
             {
@@ -84,13 +94,13 @@ class HCEventRuntime
             }
             if (!Publish(state))
             {
-                return false;
+                return HCRefuse("restart_state_not_persisted");
             }
             context.Session = m_State.Director.Session;
         }
         if (!HCEventDirector.ContextValid(m_State.Director, context))
         {
-            return false;
+            return HCRefuse("context_rejected");
         }
         // A process restart must use a fresh session. Rebinding a live state
         // without cancellation would retain persisted participants, not handles.
@@ -99,7 +109,7 @@ class HCEventRuntime
             if (!HCEventDirector.Terminal(record.Status))
             {
                 Print("[HC Events] restored live session requires a fresh session token");
-                return false;
+                return HCRefuse("restored_live_session");
             }
         }
         // Complete durable restart cleanup before the caller's first roster pass.
@@ -110,7 +120,7 @@ class HCEventRuntime
         {
             if (restoredRun.Phase == HCEventRunPhase.CLEANUP)
             {
-                if (!Cleanup(restoredRun.EventId)) { return false; }
+                if (!Cleanup(restoredRun.EventId)) { return HCRefuse("startup_cleanup_unconfirmed"); }
                 if (m_State.Runs[restoredRun.EventId - m_State.Director.PrunedThrough - 1].Phase == HCEventRunPhase.CLOSED)
                 {
                     closed = closed + 1;

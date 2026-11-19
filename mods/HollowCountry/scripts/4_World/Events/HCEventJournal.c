@@ -4,11 +4,24 @@
 class HCEventJournalIO
 {
     protected string m_Root = "$profile:HollowCountry/Events/state";
+    protected string m_Refusal;
+    // Last directory refusal; the log line prints once per reason change (Names/Start are boot-time).
+    string Refusal() { return m_Refusal; }
+    bool HCRefuse(string reason)
+    {
+        if (m_Refusal != reason)
+        {
+            m_Refusal = reason;
+            Print("[HC Events] journal directory refused reason=" + reason);
+        }
+        return false;
+    }
     bool Ensure()
     {
-        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) return false;
-        if (!FileExist("$profile:HollowCountry/Events") && !MakeDirectory("$profile:HollowCountry/Events")) return false;
-        return FileExist(m_Root) || MakeDirectory(m_Root);
+        if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry")) { return HCRefuse("profile_directory_unavailable"); }
+        if (!FileExist("$profile:HollowCountry/Events") && !MakeDirectory("$profile:HollowCountry/Events")) { return HCRefuse("events_directory_unavailable"); }
+        if (!FileExist(m_Root) && !MakeDirectory(m_Root)) { return HCRefuse("state_directory_unavailable"); }
+        return true;
     }
     array<string> Names()
     {

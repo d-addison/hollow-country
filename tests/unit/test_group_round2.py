@@ -210,7 +210,7 @@ class ServiceRound2(unittest.TestCase):
         self.assertEqual(places,bool(len(sent[0].Places)))
     def test_M62_start_refuses_bad_catalog(self):
         self.s.s_Instance=None
-        self.e.update(GetGame=lambda:N(IsServer=lambda:True,GetWorld=lambda:N(GetWorldSize=lambda:10000),GetPlayers=lambda a:None),s_Instance=None,HCGroupPlaces=N(Load=lambda:None),HCGroupStore=lambda:N(Open=lambda *args:True))
+        self.e.update(HCStartBlock=lambda config:'',HCRefuse=lambda reason:False,GetGame=lambda:N(IsServer=lambda:True,GetWorld=lambda:N(GetWorldSize=lambda:10000),GetPlayers=lambda a:None),s_Instance=None,HCGroupPlaces=N(Load=lambda:None),HCGroupStore=lambda:N(Open=lambda *args:True))
         self.assertFalse(run('HCGroupService','Start',self.s,self.e,self.cfg))
 
 class NativeRound2(unittest.TestCase):

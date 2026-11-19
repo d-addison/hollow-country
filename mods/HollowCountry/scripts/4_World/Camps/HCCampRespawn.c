@@ -29,9 +29,18 @@ class HCCampRespawnModule : HCModule
     protected static HCCampRespawnModule s_Instance;
     protected ref HCCampRespawnState m_State;
     protected bool m_AdmissionPrinted;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     static const string PATH = "$profile:HollowCountry/camp-respawn.json";
     static HCCampRespawnModule Get() { return s_Instance; }
     override string GetName() { return "CampRespawn"; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    // Start-time refusal: HC-1 reads the status, the log line is one boot line.
+    // Reasons: clock_unavailable, store_unavailable, state_unreadable, state_invalid.
+    void HCStartRefused(string reason)
+    {
+        m_Status.HCPublish("refused", reason);
+        Print("[HollowCountry] W5 camp-respawn start refused reason=" + reason + "; vanilla fallback");
+    }
     override bool IsEnabled(HCSettings settings)
     {
         if (!settings || !settings.EnableCampRespawn) { return false; }
@@ -46,10 +55,23 @@ class HCCampRespawnModule : HCModule
             m_AdmissionPrinted = true;
         }
         int now = HCGroupClock.Utc();
-        if (now < 1 || !HCV2ThreatStore<HCCampRespawnState>.CanOpen(PATH)) { return; }
+        if (now < 1)
+        {
+            HCStartRefused("clock_unavailable");
+            return;
+        }
+        if (!HCV2ThreatStore<HCCampRespawnState>.CanOpen(PATH))
+        {
+            HCStartRefused("store_unavailable");
+            return;
+        }
         if (FileExist(PATH))
         {
-            if (!HCV2ThreatStore<HCCampRespawnState>.Load(PATH, 65536, m_State)) { return; }
+            if (!HCV2ThreatStore<HCCampRespawnState>.Load(PATH, 65536, m_State))
+            {
+                HCStartRefused("state_unreadable");
+                return;
+            }
         }
         else
         {
@@ -57,8 +79,14 @@ class HCCampRespawnModule : HCModule
             m_State.WorldName = GetGame().GetWorldName();
             m_State.SavedUtc = now;
         }
-        if (!HCValid(now)) { m_State = null; return; }
+        if (!HCValid(now))
+        {
+            m_State = null;
+            HCStartRefused("state_invalid");
+            return;
+        }
         s_Instance = this;
+        m_Status.HCPublish("ready", "cooldown_store_loaded_native_acceptance_pending");
         Print("[HollowCountry] W5 camp-respawn source ready; native acceptance pending");
     }
     protected bool HCValid(int now)
@@ -80,7 +108,12 @@ class HCCampRespawnModule : HCModule
     {
         if (s_Instance != this || !identity || !GetGame().IsServer()) { return false; }
         int now = HCGroupClock.Utc();
-        if (!HCValid(now)) { s_Instance = null; return false; }
+        if (!HCValid(now))
+        {
+            s_Instance = null;
+            m_Status.HCPublish("refused", "state_invalid");
+            return false;
+        }
         int last;
         HCCampRespawnUse previous;
         string account = identity.GetId();
@@ -110,6 +143,7 @@ class HCCampRespawnModule : HCModule
         if (!HCV2ThreatStore<HCCampRespawnState>.Save(PATH, m_State, 65536))
         {
             s_Instance = null;
+            m_Status.HCPublish("refused", "storage_fault");
             Print("[HollowCountry] W5 camp-respawn storage fault; vanilla fallback");
             return false;
         }
@@ -120,6 +154,7 @@ class HCCampRespawnModule : HCModule
     {
         if (s_Instance == this) { s_Instance = null; }
         m_State = null;
+        m_Status.HCStop();
     }
 }
 

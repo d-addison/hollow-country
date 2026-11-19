@@ -64,7 +64,19 @@ class HCEventRewardLedger
     protected int m_Boot = 0;
     protected bool m_Ready = false;
     protected bool m_Fault = false;
+    protected string m_Refusal;
 
+    // Last Start refusal; logged once per reason change (Commit can retry per cache).
+    string Refusal() { return m_Refusal; }
+    bool HCRefuse(string reason)
+    {
+        if (m_Refusal != reason)
+        {
+            m_Refusal = reason;
+            Print("[HC Events] reward ledger refused reason=" + reason);
+        }
+        return false;
+    }
     bool Configure(HCEventJournalIO io, HCEventRewardPool pool)
     {
         if (!io || !HCEventRewardPools.Valid(pool)) { return false; }
@@ -75,6 +87,7 @@ class HCEventRewardLedger
         m_Boot = 0;
         m_Ready = false;
         m_Fault = false;
+        m_Refusal = "";
         return true;
     }
     bool Fault()
@@ -105,9 +118,9 @@ class HCEventRewardLedger
     }
     bool Start()
     {
-        if (m_Fault) { return false; }
+        if (m_Fault) { return HCRefuse("journal_fault"); }
         if (m_Ready) { return true; }
-        if (!m_IO || !m_Pool) { return false; }
+        if (!m_IO || !m_Pool) { return HCRefuse("not_configured"); }
         array<string> names = m_IO.Names();
         if (!names) { return Fault(); }
         int highest = 0;

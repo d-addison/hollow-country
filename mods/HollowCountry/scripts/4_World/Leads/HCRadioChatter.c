@@ -48,6 +48,7 @@ class HCRadioChatter : HCModule
     protected bool m_FromFallback;
     protected bool m_Ready;
     protected bool m_AdmissionPrinted;
+    protected string m_Refusal;
 
     static HCRadioChatter Get() { return s_Instance; }
 
@@ -73,6 +74,19 @@ class HCRadioChatter : HCModule
         return enabled;
     }
     override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    // Non-terminal refusal: publishes the HC-1 status every call and keeps the radio
+    // running; the log line prints once per reason change (BeginChannel retries each minute).
+    string Refusal() { return m_Refusal; }
+    bool HCRefuseAs(string state, string reason)
+    {
+        m_Status.HCPublish(state, reason);
+        if (m_Refusal != reason)
+        {
+            m_Refusal = reason;
+            Print("[HC Plan] HC-20 radio=" + state + " morse=folded reports=" + m_Reports.ToString() + " reason=" + reason + " runtime=PENDING");
+        }
+        return false;
+    }
 
     override void OnStart(HCSettings settings)
     {
@@ -103,7 +117,11 @@ class HCRadioChatter : HCModule
                 channel.Frequency = Frequency(faction);
                 m_Store.Data.Channels.Insert(channel);
             }
-            if (!m_Store.Save()) { return; }
+            if (!m_Store.Save())
+            {
+                HCRefuse("channel_store_save_failed");
+                return;
+            }
         }
         m_Ready = true;
         s_Instance = this;
@@ -189,7 +207,11 @@ class HCRadioChatter : HCModule
 
     void BeginChannel()
     {
-        if (m_Store.Data.Channels.Count() != 5) { return; }
+        if (m_Store.Data.Channels.Count() != 5)
+        {
+            HCRefuseAs("degraded", "channel_roster_invalid");
+            return;
+        }
         m_Channel = m_Store.Data.Channels[m_ChannelCursor];
         m_ChannelCursor = (m_ChannelCursor + 1) % 5;
         int now = HCWorldClock.UTC();
