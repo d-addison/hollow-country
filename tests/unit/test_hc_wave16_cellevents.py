@@ -1,9 +1,19 @@
 """Wave 16 (w32-cellevents): Cellars, CellarSampler and Events report an honest `ready`.
 
 Owner decision 2026-11-19: evidence gates that only wait for a native verdict are
-admitted unverified; a module whose idle/deferred state is by design reports ready.
+admitted unverified; deferred source binding stays pending until validated.
 Restricted Enforce translation executes the authored bodies on explicit synthetic
 fixtures. It is a test port, never DayZ evidence: runtime acceptance stays PENDING.
+
+Fix round 1 / P1 readiness + P2 startup binding (2026-11-19):
+  RED command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_wave16_cellevents.EventsReadyAtBoot -v
+  Actual RED: AssertionError: 'ready' != 'started' : unopened director must not announce readiness
+  Ran 5 tests; FAILED (failures=4), including bound/unavailable/invalid sequences.
+  The first implementation exposed that HCOperationalStatus rejects "started";
+  use its supported "requested" pending state (no shared status API change).
+  GREEN command: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest tests.unit.test_hc_wave16_cellevents.EventsReadyAtBoot -v
+  Ran 5 tests; OK. Replaced the old premature-ready assertion and removed the
+  string-only EnableStories check in favor of authored Scenes startup/binding.
 """
 from pathlib import Path
 from types import MethodType, SimpleNamespace as N
@@ -112,7 +122,7 @@ class SamplerIdle(unittest.TestCase):
 def events_module(enabled=True, config_enabled=True, bind=None, provider_ready=False):
     """Real HCEventModule situation bodies over a real director and stub sibling owners."""
     receipts = []
-    state = {'source': None}
+    state = {'source': None, 'store': None}
     run = director_fixture(enabled=False, ready=provider_ready)
     run.owner.HCClose()  # reopen as a fresh, unopened director
     director_fixture_owner = run.owner
@@ -134,7 +144,7 @@ def events_module(enabled=True, config_enabled=True, bind=None, provider_ready=F
                HCSituationDirector=lambda: director_fixture_owner, HCCampRaidSituation=raid_factory,
                HCTransitSituation=lambda: transit,
                HCSituationActors=N(HCForProfile=lambda profile: ports),
-               HCSituationSource=N(HCState=lambda: state['source'], HCStore=lambda: state['source'] and N(Save=lambda value: True)),
+               HCSituationSource=N(HCState=lambda: state['source'], HCStore=lambda: state['store']),
                HCGroupClock=N(Utc=lambda: 1577836900),
                HCOperationalContributors=N(HCRegisterOwner=lambda name: N(
                    HCObserve=lambda requested, status, now: published.append((name, status.HCState())))))
@@ -150,13 +160,13 @@ def events_module(enabled=True, config_enabled=True, bind=None, provider_ready=F
 
 
 class EventsReadyAtBoot(unittest.TestCase):
-    def test_director_defers_to_first_tick_and_reports_ready_at_boot(self):
+    def test_director_defers_to_first_tick_and_reports_pending_at_boot(self):
         module, run, state, receipts, _ = events_module()
         before = sum('HC-38' in line for line in run.logs)
         module.HCStartSituations(N(EnableEncounters=True))
         status = module.HCGetOperationalStatus()
-        self.assertEqual(status.HCState(), 'ready', 'scene source binds after Events starts (registry order)')
-        self.assertEqual(status.HCReason(), 'situation_source_binds_on_first_tick')
+        self.assertEqual(status.HCState(), 'requested', 'unopened director must not announce readiness')
+        self.assertEqual(status.HCReason(), 'situation_source_pending')
         self.assertEqual(sum('HC-38' in line for line in run.logs) - before, 1, 'one HC-38 receipt at start')
 
     def test_first_tick_without_a_bound_source_is_refused_by_name(self):
@@ -173,6 +183,7 @@ class EventsReadyAtBoot(unittest.TestCase):
         module, run, state, receipts, _ = events_module()
         module.HCStartSituations(N(EnableEncounters=True))
         state['source'] = run.state
+        state['store'] = N(Save=lambda value: True)
         module.HCStepSituations()
         status = module.HCGetOperationalStatus()
         self.assertEqual(status.HCState(), 'ready')
@@ -189,11 +200,79 @@ class EventsReadyAtBoot(unittest.TestCase):
         status = module.HCGetOperationalStatus()
         self.assertEqual((status.HCState(), status.HCReason()), ('off', 'operator_off'))
 
-    def test_shipped_stories_source_is_the_default_enabled_schedule(self):
-        # The source Events waits for is bound by HCScenesModule when HC-19 starts; its
-        # default config enables stories, so shipped data needs no new mission file.
-        text = (SCRIPTS / '4_World/Scenes/HCStorySchedule.c').read_text()
-        self.assertIn('bool EnableStories = true;', text)
+    def test_scenes_startup_binding_drives_events_status_sequence(self):
+        from tests.unit.test_hc_story_module import StoryModuleBehavior
+
+        # Explicit synthetic HC-19 admission/store/native fixtures. Execute the
+        # authored Scenes startup and source accessors, then the real director's
+        # validation. These fixtures establish no shipped/native data acceptance.
+        for case in ('bound', 'unavailable', 'invalid'):
+            with self.subTest(source=case):
+                module, run, state, receipts, _ = events_module()
+                ports = dict(HCSituationSource=N(s_State=None, s_Store=None))
+                source = DIRECTOR.read_text().replace('s_State', 'HCSituationSource.s_State')
+                source = source.replace('s_Store', 'HCSituationSource.s_Store')
+                class_translate(source, 'HCSituationSource', ports, only=('HCBind', 'HCState', 'HCStore'))
+                # Reuse the module translation's explicit binding port; the
+                # store below is the exact instance owned by Scenes.
+                fixture = StoryModuleBehavior()
+                scenes = fixture.owner()
+                scenes.m_Running = False
+                scenes.m_AdmissionPrinted = True
+                scenes.m_SummaryPrinted = True
+                scenes.IsEnabled = lambda settings: True
+                scenes.m_SaveJob = None
+                live = run.state
+                if case == 'invalid':
+                    live.Stories.HCFirstSurvivor = N(Version=0)
+                store = N(Open=lambda now: None if case == 'unavailable' else live,
+                          Save=lambda value: True)
+                bindings = []
+
+                def bind_source(value, owner_store):
+                    ports['HCBind'](value, owner_store)
+                    bindings.append((value, owner_store))
+                    state['source'] = ports['HCState']()
+                    state['store'] = ports['HCStore']()
+
+                fixture.env.update(
+                    GetGame=lambda: N(IsServer=lambda: True, GetWorldName=lambda: 'chernarusplus'),
+                    HCSceneChainStore=lambda: store,
+                    HCStoryPolicy=N(HCLoadConfig=lambda: N(EnableStories=True)),
+                    HCStorySchedule=lambda: N(HCStart=lambda *args: True, HCReason=lambda: ''),
+                    HCSituationSource=N(HCBind=bind_source),
+                    HCSceneSaveJob=lambda: N(), HCSaveScheduler=N(HCRegister=lambda job: None))
+                fixture.bind(scenes, 'OnStart')
+                module.HCStartSituations(N(EnableEncounters=True))
+                status = module.HCGetOperationalStatus()
+                sequence = [(status.HCState(), status.HCReason())]
+                self.assertFalse(run.owner.m_Enabled)
+                self.assertIsNone(run.owner.m_State)
+                self.assertIsNone(run.owner.m_Store)
+                scenes.OnStart(N(EnableEncounters=True))
+                if case != 'unavailable':
+                    self.assertEqual(bindings, [(live, store)])
+                    self.assertIs(ports['HCStore'](), scenes.m_Store)
+                else:
+                    self.assertEqual(bindings, [])
+                before = len(run.logs)
+                module.HCStepSituations()
+                sequence.append((status.HCState(), status.HCReason()))
+                expected = {
+                    'bound': ('ready', 'situation_director_running_actor_provider_pending'),
+                    'unavailable': ('refused', 'SITUATION_SOURCE_UNAVAILABLE'),
+                    'invalid': ('refused', 'SITUATION_STATE_INVALID'),
+                }
+                self.assertEqual(sequence, [('requested', 'situation_source_pending'), expected[case]])
+                self.assertEqual(run.owner.m_Enabled, case == 'bound')
+                if case == 'bound':
+                    self.assertIs(run.owner.m_State, scenes.m_State)
+                    self.assertIs(run.owner.m_Store, scenes.m_Store)
+                else:
+                    self.assertIsNone(run.owner.m_State)
+                    self.assertIsNone(run.owner.m_Store)
+                module.HCStepSituations()
+                self.assertEqual(len(run.logs) - before, 1, 'one bind/refusal receipt; no retry loop')
 
 
 if __name__ == '__main__':
