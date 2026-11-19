@@ -420,7 +420,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
         if published != WORKSHOP_ID:
             problems.append('publishedid-mismatch')
     merged, duplicates, models, listed = _load_addons(root, problems, max_pbos,
-                                                      whole_hash=not snafu_optional._subset_pinned(allowlist))
+                                                      whole_hash=snafu_optional._needs_whole_hash(allowlist))
     terms = _terms(root, allowlist['rights'])
     if not terms['present']:
         problems.append('terms-file-missing')
@@ -428,6 +428,7 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
         problems.append('terms-changed-since-review')
     class_hashes = snafu_optional.subset_pins(allowlist, merged)
     snafu_optional._check_pins(allowlist, listed, problems, class_hashes)
+    warnings = snafu_optional.dependency_warnings(allowlist, listed)
     if vanilla is None:
         problems.append('vanilla-not-provided')
         vanilla_report = {'checked': False, 'problems': [], 'magazines': 0, 'ammo': 0}
@@ -445,8 +446,9 @@ def verify_install(install, allowlist, vanilla=None, max_pbos=MAX_PBOS):
     ok = not problems and counts['verified'] == len(classes)
     return {'schema': 1, 'kind': 'tactical-flava-verification', 'status': 'verified' if ok else 'unverified',
             'workshop_id': WORKSHOP_ID, 'allowlist_sha256': allowlist_sha256(allowlist),
-            'install': {'name': root.name, 'publishedid': published, 'problems': problems, 'pbos': listed},
-            'subset_pins': class_hashes, 'subset_pins_scope': snafu_optional.SUBSET_PIN_SCOPE,
+            'install': {'name': root.name, 'publishedid': published, 'problems': problems,
+                        'warnings': warnings, 'pbos': listed},
+            'dependency_changed': bool(warnings), 'subset_pins': class_hashes, 'subset_pins_scope': snafu_optional.SUBSET_PIN_SCOPE,
             'allowlist': allowlist, 'terms': terms, 'vanilla': vanilla_report, 'classes': dict(sorted(classes.items())),
             'counts': counts,
             'basis': 'static read-only: meta.cpp, PBO headers, config.bin/config.cpp members, vendor readme hash, '
@@ -786,6 +788,8 @@ def main(argv=None):
                 print(f'  {row["status"]:10} {name} {" ".join(row["reasons"])}')
             for problem in report['install']['problems']:
                 print(f'  install problem: {problem}')
+            for warning in report['install']['warnings']:
+                print(f'  install warning: {warning}')
             for problem in report['vanilla']['problems']:
                 print(f'  vanilla note: {problem}')
             if report['status'] == 'verified' and not snafu_optional._subset_pinned(allowlist):
