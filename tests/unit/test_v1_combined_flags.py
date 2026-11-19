@@ -32,6 +32,9 @@ from tools.validate.runtime import V2_FLAGS
 ROOT = event.ROOT
 SETTINGS = ROOT / '3_Game/HCSettings.c'
 DEFAULTS = json.loads((ROOT.parents[2] / 'config/hollow-country-settings.json').read_text())
+# Optional limits are absent from the shipped settings; JsonFileLoader leaves them 0 (= built-in).
+from tools.validate.runtime import OPTIONAL_LIMITS
+DEFAULTS.update({key: 0 for key in OPTIONAL_LIMITS if key not in DEFAULTS})
 # V2 preferences (LC-T001) gate no module yet; the 256-combination product stays
 # over the v1 module flags, while reload preservation covers every flag.
 ALL_FLAGS = tuple(k for k in DEFAULTS if k.startswith('Enable'))

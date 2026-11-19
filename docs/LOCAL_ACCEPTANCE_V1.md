@@ -260,6 +260,9 @@ features (a feature whose prerequisite you turned off stays refused):
 - `HCTapedLightAdmission.Qualified`
 - `HCTapedWearableCatalog.Qualified`
 - `HCXAIQualification.Qualified`
+- `HCForageModule.HCVisibilityQualified` returns true and has no marker: forage spawns keep their
+  existing placement vetoes (world bounds, sea, pond, forest, slope, players within 30 m); native visibility acceptance stays
+  pending (#150).
 
 ### 5. Server gameplay configuration (enableCfgGameplayFile)
 

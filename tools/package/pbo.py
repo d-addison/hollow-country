@@ -45,7 +45,9 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'ai/loadouts/HollowCountry_Holdout.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
-                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json'}
+                 'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
+                 # HC-14 infected variety policy read by tools/package/infected_variety.py install/rollback.
+                 'infected/variants.json'}
 
 
 def safe_name(name):
