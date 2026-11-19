@@ -106,6 +106,27 @@ class VarietyW56(unittest.TestCase):
         self.assertFalse(state.s_Pending)
         self.assertIn('fresh_native_entry_refused_body_retained', refusals)
 
+    def test_body_cap_refusal_advances_the_automatic_deadline(self):
+        # Review P2: a full body cap must not spend shared infected work every tick.
+        taken, refusals = [], []
+        state = N(s_Running=True, s_Pending=False, s_Admin=False, s_NextAutomatic=0.,
+                  s_Config=N(MaxFreshBodies=1, AutomaticIntervalSeconds=60.),
+                  s_Bodies=Array([N()]), s_Selected=-1, s_Made=0, s_Tried=Array(),
+                  s_Used=Array(), s_LastRefusal='', s_PlayerCursor=0)
+        method = native(str(AREA / 'HCInfectedVariety.c'), 'static void HCStep(',
+            ('HCNearestCandidate', 'HCHidden', 'HCRefuse'), statics=tuple(vars(state)),
+            STATICS=state, HCInfectedVarietyModule=N(VarietyActive=lambda: True),
+            HCInfectedModule=N(Instance=N()),
+            HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda *args: taken.append(args) or True)),
+            HCUnitBudget=N(HC_WORK_INFECTED=0), HCPerfPlayers=N(HCGet=lambda: Array()),
+            Print=lambda *args: None)
+        owner = N(HCRefuse=refusals.append, HCNearestCandidate=lambda: -1, HCHidden=lambda *a: True)
+        for now in (1., 2., 3., 30.):
+            method(owner, now, 1.)
+        self.assertEqual(1, len(taken), 'cap refusal spent shared work on every tick')
+        self.assertEqual(61., state.s_NextAutomatic)
+        self.assertEqual(['fresh_body_cap_including_corpses'], refusals)
+
     def test_status_preserves_dependency_observation_and_surfaces_missing_data(self):
         publications = []
         observed = N(HCPublish=lambda *args: publications.append(args))

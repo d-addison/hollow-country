@@ -67,6 +67,8 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'forage/habitats.json',
                  # HC-45 posture site research record (not read at runtime yet).
                  'infected/variety-sites.json',
+                 # HC-56 fresh dormant crawler groups and CE context anchors (HCInfectedVariety reads $mission:).
+                 'infected/variety-runtime.json',
                  # HC-46 surveyed herd routes (HCHordeMigration reads $mission:; unsurveyed routes stay inert).
                  'infected/route-surveys.json',
                  # HC-48 habitat dispositions; events.append.xml is inert (no cfgeconomycore registration).

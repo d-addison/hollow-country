@@ -185,7 +185,14 @@ class HCInfectedVariety
         {
             if (!s_Bodies[bodyIndex]) { s_Bodies.RemoveOrdered(bodyIndex); }
         }
-        if (s_Bodies.Count() >= s_Config.MaxFreshBodies) { s_Pending = false; HCRefuse("fresh_body_cap_including_corpses"); return; }
+        if (s_Bodies.Count() >= s_Config.MaxFreshBodies)
+        {
+            // Automatic retries wait a full interval; an admin request is still refused now.
+            if (!s_Pending) { s_NextAutomatic = now + s_Config.AutomaticIntervalSeconds; }
+            s_Pending = false;
+            HCRefuse("fresh_body_cap_including_corpses");
+            return;
+        }
         array<Man> players = HCPerfPlayers.HCGet();
         if (!s_Pending)
         {

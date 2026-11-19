@@ -91,14 +91,11 @@ modded class HCInfectedModule
         return "tracked=" + m_Actors.Count().ToString() + " tracked_cap=" + cap.ToString() + " reserved=" + m_State.Reserved.ToString() + " member_cap=" + m_MemberCap.ToString() + " groups=" + m_State.Groups.Count().ToString() + " group_cap=" + m_GroupCap.ToString();
     }
 
-    // HCLODMaterialize supplies tracked fresh bodies, but no normal service can
-    // turn a fresh standing body into a reversible dormant crawler. The native
-    // ZombieBase.c:811-818 crawl transition is injury, not a resting posture.
-    // Do not allocate a live body only to discover that missing transition.
+    // One fresh dormant group through the variety queue: normal caps, hidden
+    // placement and the shared infected budget (HCInfectedVariety.HCAdminFreshDormant).
     bool HCAdminDormant(vector pos, out string reason)
     {
-        reason = "missing-hook-HCRequestFreshDormant; fresh-body-rest-transition-unavailable; runtime=PENDING";
-        return false;
+        return HCInfectedVariety.HCAdminFreshDormant(pos, reason);
     }
 
     bool HCAdminSitter(PlayerBase player, out string reason)

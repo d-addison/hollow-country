@@ -54,12 +54,18 @@ class CampControls(unittest.TestCase):
             self.assertIn(expected, reason.value)
             self.assertIn('runtime=PENDING', reason.value)
 
-    def test_dormant_refuses_missing_transition_without_creating_body(self):
-        fn = compile_authored(DIRECTORS, 'HCInfectedModule', 'HCAdminDormant', base_scope())
+    def test_dormant_delegates_to_the_variety_queue_and_propagates_its_refusal(self):
+        calls = []
+        def fresh(pos, reason):
+            calls.append(pos)
+            reason.value = 'fresh_body_cap_including_corpses'
+            return False
+        fn = compile_authored(DIRECTORS, 'HCInfectedModule', 'HCAdminDormant',
+                              base_scope(HCInfectedVariety=NS(HCAdminFreshDormant=fresh)))
         reason = Cell()
-        self.assertFalse(fn(NS(), None, reason))
-        self.assertIn('HCRequestFreshDormant', reason.value)
-        self.assertIn('runtime=PENDING', reason.value)
+        self.assertFalse(fn(NS(), 7, reason))
+        self.assertEqual([7], calls)
+        self.assertEqual('fresh_body_cap_including_corpses', reason.value)
 
 
 class CampSelection(unittest.TestCase):
