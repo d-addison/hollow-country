@@ -40,3 +40,32 @@ class FormulaComplexityTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+SIGNATURE = re.compile(r'^\s*(?:(?:static|override|protected|private|proto|native|void|bool|int|float|string|ref|auto)\s+)*[A-Za-z_]\w*(?:<[^>]*>)?\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*$')
+
+
+class ParameterOwnershipTests(unittest.TestCase):
+    """Boot 047: `refusal = new HCRefusalResult;` on a defaulted parameter failed
+    native compile with "Variable 'refusal' is not strong ref". Parameters are
+    weak; a `new` object needs a strong local or a `ref` member."""
+
+    def test_no_new_object_assigned_to_a_parameter(self):
+        over = []
+        for path in sorted((ROOT / 'mods').rglob('*.c')):
+            params = set()
+            for number, line in enumerate(path.read_text(errors='replace').split('\n'), 1):
+                code = re.sub(r'"(\\.|[^"\\])*"', '""', line.split('//')[0])
+                match = SIGNATURE.match(code)
+                if match:
+                    params = set()
+                    for part in match.group(2).split(','):
+                        words = re.findall(r'[A-Za-z_]\w*', part.split('=')[0])
+                        # `out`/`inout` parameters are caller-owned and compile.
+                        if len(words) >= 2 and not {'out', 'inout'} & set(words):
+                            params.add(words[-1])
+                    continue
+                for name in params:
+                    if re.search(r'(?<![\w.])' + name + r'\s*=\s*new\b', code):
+                        over.append(f'{path.relative_to(ROOT)}:{number} {name}')
+        self.assertEqual([], over)
