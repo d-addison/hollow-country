@@ -105,6 +105,7 @@ class HCProgressionModule : HCModule
     protected int m_SaveUtc;
     protected int m_Revision;
     protected int m_SnapshotRevision;
+    protected ref HCV2ThreatStore<HCProgressionState> m_Writer = new HCV2ThreatStore<HCProgressionState>;
     protected int m_SaveStage;
     protected ref HCProgressionState m_Snapshot;
     protected ref HCProgressionSaveJob m_SaveJob;
@@ -439,6 +440,7 @@ class HCProgressionModule : HCModule
         if (!m_Healthy) { return HCSaveJob.STEP_FAILED; }
         if (m_SaveStage == 0)
         {
+            HCSaveJob.HCOperation = "snapshot";
             m_Snapshot = new HCProgressionState;
             foreach (HCProgressionRow row : m_State.Players)
             {
@@ -456,7 +458,9 @@ class HCProgressionModule : HCModule
             m_SaveStage = 1;
             return HCSaveJob.STEP_MORE;
         }
-        if (!HCV2ThreatStore<HCProgressionState>.Save(PATH, m_Snapshot, 65536))
+        int result = m_Writer.SaveStep(PATH, m_Snapshot, 65536);
+        if (result == HCSaveJob.STEP_MORE) { return result; }
+        if (result == HCSaveJob.STEP_FAILED)
         {
             HCFail();
             return HCSaveJob.STEP_FAILED;

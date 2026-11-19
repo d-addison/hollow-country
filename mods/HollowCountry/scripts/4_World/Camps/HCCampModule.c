@@ -146,6 +146,8 @@ class HCCampModule : HCModule
     protected static HCCampModule s_Instance;
     protected static ref array<FireplaceBase> s_Fires = new array<FireplaceBase>();
     protected static bool s_FireCapLogged;
+    protected int m_CheckpointUtc;
+    protected ref HCV2ThreatStore<HCCampData> m_CheckpointWriter = new HCV2ThreatStore<HCCampData>;
     protected ref HCCampData m_Data;
     protected ref array<Man> m_Players = new array<Man>();
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
@@ -252,9 +254,26 @@ class HCCampModule : HCModule
 
     bool Commit(int now)
     {
-        if (!m_Running || now < m_LastUtc || !HCCampStore.Save(m_Data, now)) { Fail(); return false; }
+        if (!m_Running || now < m_LastUtc || !m_CheckpointWriter.FinishSave() || !HCCampStore.Save(m_Data, now)) { Fail(); return false; }
         m_LastSaved = now;
         return true;
+    }
+
+    // Snapshot serialization leaves files untouched; subsequent crash states
+    // follow HCStagedSaveImage.HCStepImage. HCCampStore admission remains unchanged.
+    int HCStepCheckpoint(int now)
+    {
+        if (!m_Running || now < m_LastUtc) { return HCSaveJob.STEP_FAILED; }
+        if (!m_CheckpointWriter.SaveInFlight())
+        {
+            m_CheckpointUtc = now;
+            if (!HCCampStore.CanCheckpoint(m_Data, now)) { Fail(); return HCSaveJob.STEP_FAILED; }
+        }
+        int result = m_CheckpointWriter.SaveStep(HCCampStore.PATH, m_Data, HCCampStore.BYTES);
+        if (result == HCSaveJob.STEP_FAILED) { Fail(); }
+        // Use the snapshot timestamp so a later automatic Commit remains due.
+        if (result == HCSaveJob.STEP_DONE) { m_LastSaved = m_CheckpointUtc; }
+        return result;
     }
 
     string GroupId(PlayerBase player)

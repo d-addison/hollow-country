@@ -191,6 +191,13 @@ class HCCampStore
         return data;
     }
 
+    static bool CanCheckpoint(HCCampData data, int now)
+    {
+        if (!data || !HCV2ThreatStore<HCCampData>.CanOpen(PATH)) { return false; }
+        data.SavedUtc = now;
+        return Valid(data, now);
+    }
+
     static bool Save(HCCampData data, int now)
     {
         if (!data || !HCV2ThreatStore<HCCampData>.CanOpen(PATH)) { return false; }

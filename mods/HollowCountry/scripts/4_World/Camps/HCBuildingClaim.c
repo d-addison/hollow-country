@@ -381,6 +381,15 @@ class HCBuildingClaim
         else { m_Cursor++; }
     }
 
+    int HCStepCheckpoint()
+    {
+        int now = HCWorldClock.UTC();
+        if (!HCReady(now) || !m_Owner) { HCFail(); return HCSaveJob.STEP_FAILED; }
+        int result = m_Owner.HCStepCheckpoint(now);
+        if (result == HCSaveJob.STEP_FAILED) { HCFail(); }
+        return result;
+    }
+
     bool HCCheckpoint()
     {
         return HCCommit(HCWorldClock.UTC());
@@ -403,7 +412,11 @@ class HCBuildingClaimSave : HCSaveJob
 {
     HCBuildingClaim Owner;
     override string HCName() { return "BuildingClaimVisits"; }
-    override bool HCWrite() { return Owner && Owner.HCCheckpoint(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepCheckpoint();
+    }
 }
 
 // Same layer, narrow server-only bridge. No group journal/ACL/RPC changes.

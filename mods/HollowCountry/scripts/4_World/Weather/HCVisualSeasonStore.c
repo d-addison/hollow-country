@@ -7,8 +7,8 @@
 // 3_Game/tools/JsonFileLoader.c:69,85 LoadData/MakeData. Verified intent, backup,
 // copy/readback only; NO atomic rename/fsync guarantee. Pending intent or invalid
 // state refuses admission, preserves files and never falls back/reset to spring.
-// Routine job: stage 0 snapshots scalars; stage 1 calls the existing verified
-// store. Live uptime after the snapshot is retained for the next checkpoint.
+// Routine job snapshots scalars then advances one image operation per tick.
+// Live uptime after the snapshot is retained for the next checkpoint.
 class HCVisualSeasonState
 {
     int Version;
@@ -111,6 +111,7 @@ class HCVisualSeasonStore
     protected ref HCVisualSeasonState m_Snapshot;
     protected ref HCVisualSeasonSaveJob m_Job;
     protected bool m_Healthy;
+    protected ref HCV2ThreatStore<HCVisualSeasonState> m_Writer = new HCV2ThreatStore<HCVisualSeasonState>;
     protected int m_SaveStage;
     protected int m_PersistedSeconds;
 
@@ -170,6 +171,7 @@ class HCVisualSeasonStore
         if (!m_Healthy) { return HCSaveJob.STEP_FAILED; }
         if (m_SaveStage == 0)
         {
+            HCSaveJob.HCOperation = "snapshot";
             m_Snapshot = new HCVisualSeasonState;
             m_Snapshot.Version = m_State.Version;
             m_Snapshot.WorldName = m_State.WorldName;
@@ -178,7 +180,9 @@ class HCVisualSeasonStore
             m_SaveStage = 1;
             return HCSaveJob.STEP_MORE;
         }
-        if (!HCVisualSeasonIO.HCSave(m_Snapshot))
+        int result = m_Writer.SaveStep(HCVisualSeasonIO.STATE_PATH, m_Snapshot, HCVisualSeasonIO.LIMIT);
+        if (result == HCSaveJob.STEP_MORE) { return result; }
+        if (result == HCSaveJob.STEP_FAILED)
         {
             HCFault();
             return HCSaveJob.STEP_FAILED;

@@ -815,7 +815,7 @@ Shared save scheduling and retained world facts/leads/scenes; EnableSharedSaves=
 | `SaveFirstDelaySeconds` | `30` | 0–3600 |
 | `SaveStaggerSeconds` | `1` | 0–60 |
 | `SaveCoalesceSeconds` | `60` | 1–3600 |
-| `SaveFlushStageLimit` | `16` | 1–16 |
+| `SaveFlushStageLimit` | `64` | 1–64 |
 | `SaveScanSliceMs` | `4` | 1–4 |
 | `BudgetDeferredLogSeconds` | `600` | 1–3600 |
 | `MaxFacts` | `256` | 1–256 |

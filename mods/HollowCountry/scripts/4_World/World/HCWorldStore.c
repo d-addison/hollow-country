@@ -37,6 +37,7 @@ class HCWorldStore
     protected bool m_Fresh;
     protected bool m_Fault;
     protected string m_VerifiedText;
+    protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected int m_SaveStage;
     protected string m_PendText;
     protected string m_PendPrior;
@@ -201,13 +202,12 @@ class HCWorldStore
         return HCSaveJob.STEP_FAILED;
     }
 
-    // Issue #138: one bounded stage of a checkpoint per call (HCSaveScheduler runs one stage per tick).
-    //   stage 0: validate + serialize the SNAPSHOT (no file I/O).
-    //   stage 1: read the primary image and compare it with the exact verified image (no write).
-    //   stage 2: the unchanged commit sequence, in ONE call, because the temp image is the durability
-    //            intent: a crash with it present is rejected on the next load, so it is never left
-    //            standing across ticks.
-    // Same files, same order, same fault handling as the former whole-store Save.
+    // Stages 0/1 encode/check prior: original files untouched. Stage 2 begins
+    // the intent transaction; HCStagedSaveImage.HCStepImage documents each subsequent
+    // crash boundary. Any .tmp still quarantines on Load; backup checks unchanged.
+    // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
+    // copy_backup retains old primary/backup + intent; copy_primary/read_primary
+    // retain new primary, old backup and intent; clear_intent admits new primary.
     int SaveStep(HCWorldData data)
     {
         if (m_Fault)
@@ -219,6 +219,7 @@ class HCWorldStore
         }
         if (m_SaveStage == 0)
         {
+            HCSaveJob.HCOperation = "encode";
             if (!HCWorldData.Valid(data)) { return SaveFailed(); }
             m_PendText = Encode(data);
             if (m_PendText == "") { return SaveFailed(); }
@@ -228,6 +229,7 @@ class HCWorldStore
         }
         if (m_SaveStage == 1)
         {
+            HCSaveJob.HCOperation = "read_prior";
             // Only a validated paired primary can reach saving. Never automatically
             // restore a prior world or overwrite a backup after a load refusal.
             if (!m_Fresh && !m_KeepBackup && FileExist(m_Path))
@@ -241,24 +243,19 @@ class HCWorldStore
             m_SaveStage = 2;
             return HCSaveJob.STEP_MORE;
         }
-        string text = m_PendText;
-        string prior = m_PendPrior;
+        if (m_SaveStage == 2)
+        {
+            if (!m_SaveImage.Begin(m_Path, m_PendText, MAX_BYTES, m_PendPrior != "", false)) { return SaveFailed(); }
+            m_SaveStage = 3;
+        }
+        int result = m_SaveImage.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { return SaveFailed(); }
+        if (result == HCSaveJob.STEP_MORE) { return result; }
+        m_Fresh = false;
+        m_VerifiedText = m_PendText;
         m_SaveStage = 0;
         m_PendText = "";
         m_PendPrior = "";
-        if (!Write(m_Temp, text)) { return SaveFailed(); }
-        if (prior != "")
-        {
-            if (FileExist(m_Backup) && !DeleteFile(m_Backup)) { return SaveFailed(); }
-            if (!CopyFile(m_Path, m_Backup) || Read(m_Backup) != prior) { return SaveFailed(); }
-        }
-        // No guessed rename call: intent remains until copy and readback pass.
-        // A crash at any point below makes the next load reject the image.
-        if (FileExist(m_Path) && !DeleteFile(m_Path)) { return SaveFailed(); }
-        if (!CopyFile(m_Temp, m_Path) || Read(m_Path) != text) { return SaveFailed(); }
-        if (!DeleteFile(m_Temp)) { return SaveFailed(); }
-        m_Fresh = false;
-        m_VerifiedText = text;
         return HCSaveJob.STEP_DONE;
     }
 
@@ -266,10 +263,17 @@ class HCWorldStore
     bool Save(HCWorldData data)
     {
         if (m_Fault) { return false; }
-        m_SaveStage = 0;
+        // Finish an older snapshot before serializing current barrier state.
+        int remainingStages;
+        while (SaveInFlight() && remainingStages < 8)
+        {
+            remainingStages++;
+            if (SaveStep(data) == HCSaveJob.STEP_FAILED) { return false; }
+        }
+        if (SaveInFlight()) { return false; }
         int result = HCSaveJob.STEP_MORE;
         int guard = 0;
-        while (result == HCSaveJob.STEP_MORE && guard < 4)
+        while (result == HCSaveJob.STEP_MORE && guard < 8)
         {
             result = SaveStep(data);
             guard = guard + 1;

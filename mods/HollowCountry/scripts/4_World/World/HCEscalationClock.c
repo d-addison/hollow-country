@@ -30,32 +30,50 @@ class HCV2ThreatStore<Class T>
         return HCGroupJson<T>.Load(path, limit, state);
     }
 
+    protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
+    protected bool m_SaveFault;
+
+    bool SaveInFlight() { return m_SaveImage.Active(); }
+    bool FinishSave()
+    {
+        if (m_SaveFault) { return false; }
+        if (!m_SaveImage.Finish()) { m_SaveFault = true; return false; }
+        return true;
+    }
+
+    // Snapshot stage has no disk effects. Subsequent per-stage crash states are
+    // documented in HCStagedSaveImage.HCStepImage; CanOpen/Load refusal is unchanged.
+    // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
+    // copy_backup retains old primary/backup + intent; copy_primary/read_primary
+    // retain new primary, old backup and intent; clear_intent admits new primary.
+    int SaveStep(string path, T state, int limit)
+    {
+        if (m_SaveFault) { return HCSaveJob.STEP_FAILED; }
+        if (!m_SaveImage.Active())
+        {
+            HCSaveJob.HCOperation = "encode";
+            string text;
+            string error;
+            if (!JsonFileLoader<T>.MakeData(state, text, error) || !m_SaveImage.Begin(path, text, limit))
+            {
+                m_SaveFault = true;
+                return HCSaveJob.STEP_FAILED;
+            }
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_SaveImage.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { m_SaveFault = true; }
+        return result;
+    }
+
     static bool Save(string path, T state, int limit)
     {
-        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
-        string text;
-        string error;
-        if (!JsonFileLoader<T>.MakeData(state, text, error)) return false;
-        string temporary = path + ".tmp";
-        string backup = path + ".bak";
-        if (!HCGroupIO.WriteNew(temporary, text, limit)) return false;
-        // Leave the intent on every failure from here onward. Never fall back
-        // to a backup automatically or silently recreate a lost epoch/heat map.
-        if (FileExist(path))
-        {
-            string previous;
-            string backedUp;
-            if (!HCGroupIO.Read(path, limit, previous)) return false;
-            if (FileExist(backup) && !DeleteFile(backup)) return false;
-            if (!CopyFile(path, backup)) return false;
-            if (!HCGroupIO.Read(backup, limit, backedUp) || backedUp != previous) return false;
-            if (!DeleteFile(path)) return false;
-        }
-        if (!CopyFile(temporary, path)) return false;
-        string actual;
-        if (!HCGroupIO.Read(path, limit, actual) || actual != text) return false;
-        return DeleteFile(temporary);
+        HCV2ThreatStore<T> writer = new HCV2ThreatStore<T>;
+        int result = writer.SaveStep(path, state, limit);
+        if (result == HCSaveJob.STEP_FAILED) { return false; }
+        return writer.FinishSave();
     }
+
 }
 
 class HCEscalationState
@@ -106,6 +124,7 @@ class HCEscalationState
 class HCEscalationClock : HCModule
 {
     protected static HCEscalationClock s_Instance;
+    protected ref HCV2ThreatStore<HCEscalationState> m_Writer = new HCV2ThreatStore<HCEscalationState>;
     protected ref HCEscalationState m_State;
     protected int m_NowUtc;
     protected int m_LogUtc;
@@ -250,14 +269,29 @@ class HCEscalationClock : HCModule
     bool HCFlushRoutine()
     {
         if (!m_Healthy || !HCRecoveryGate.HCReady("escalation")) { return false; }
-        if (!HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) { Fail(); return false; }
+        if (!m_Writer.FinishSave() || !HCV2ThreatStore<HCEscalationState>.Save(PATH, m_State, 2048)) { Fail(); return false; }
         return true;
+    }
+
+    int HCStepRoutine()
+    {
+        if (!m_Healthy || !HCRecoveryGate.HCReady("escalation")) { return HCSaveJob.STEP_FAILED; }
+        int result = m_Writer.SaveStep(PATH, m_State, 2048);
+        if (result == HCSaveJob.STEP_FAILED) { Fail(); }
+        return result;
     }
 
     override void OnStop()
     {
         if (m_Healthy)
         {
+            if (m_SaveJob.HCInFlight && !HCSaveScheduler.HCFlush(m_SaveJob))
+            {
+                Fail();
+                HCSaveScheduler.HCUnregister(m_SaveJob);
+                HCPersistenceDisposition.HCStopStore("escalation");
+                return;
+            }
             int nowUtc = HCGroupClock.Utc();
             if (nowUtc < m_NowUtc) { Fail(); }
             else
@@ -282,7 +316,11 @@ class HCEscalationSaveJob : HCSaveJob
 {
     override string HCName() { return "EscalationClock"; }
     HCEscalationClock Owner;
-    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepRoutine();
+    }
 }
 
 modded class HCModuleRegistry

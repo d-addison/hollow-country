@@ -71,6 +71,7 @@ class HCLeadStore
     protected string m_LastTraceRefusal;
     protected string m_FaultAt = "unspecified"; // names the refusing step in the fault line
     protected ref HCLeadSaveJob m_SaveJob;
+    protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected int m_SaveStage;
     protected int m_Revision;
     protected int m_SnapshotRevision;
@@ -354,13 +355,19 @@ class HCLeadStore
         return HCSaveJob.STEP_FAILED;
     }
 
-    // Reuse HC-138's three-stage pattern: serialize, inspect prior image,
-    // then intent/backup/copy/readback in one uninterrupted commit stage.
+    // Encode/read-prior stages leave disk unchanged. HCStagedSaveImage.HCStepImage
+    // documents subsequent crash states; Open still refuses .tmp/backup-only.
+    // Revision changes may restart only before intent; afterwards finish the
+    // old snapshot then persist the newer authoritative rows before DONE.
+    // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
+    // copy_backup retains old primary/backup + intent; copy_primary/read_primary
+    // retain new primary, old backup and intent; clear_intent admits new primary.
     int HCCheckpointStep()
     {
         if (!m_Healthy) { return HCSaveFailed(); }
         if (m_SaveStage == 0)
         {
+            HCSaveJob.HCOperation = "encode";
             m_FaultAt = "save_rows";
             if (!Valid(Data)) { return HCSaveFailed(); }
             m_FaultAt = "save_serialize";
@@ -375,6 +382,7 @@ class HCLeadStore
         }
         if (m_SaveStage == 1)
         {
+            HCSaveJob.HCOperation = "read_prior";
             if (FileExist(m_Path))
             {
                 m_PendPrior = HCWorldStore.Read(m_Path);
@@ -383,34 +391,47 @@ class HCLeadStore
             m_SaveStage = 2;
             return HCSaveJob.STEP_MORE;
         }
-        // A cleanup during the staged snapshot cannot resurrect a removed row.
-        if (m_SnapshotRevision != m_Revision) { m_SaveStage = 0; return HCSaveJob.STEP_MORE; }
-        string text = m_PendText;
-        string prior = m_PendPrior;
+        if (m_SaveStage == 2)
+        {
+            if (m_SnapshotRevision != m_Revision) { m_SaveStage = 0; return HCSaveJob.STEP_MORE; }
+            m_FaultAt = "save_commit";
+            if (!m_SaveImage.Begin(m_Path, m_PendText, HCWorldStore.MAX_BYTES, m_PendPrior != "", false)) { return HCSaveFailed(); }
+            m_SaveStage = 3;
+        }
+        // Never clear intent over an obsolete cleanup snapshot: a crash must
+        // refuse, rather than admit removed rows. Re-encode under the same intent
+        // (no file IO this stage); original backup survives all refresh stages.
+        if (m_SaveImage.HCReadyToClearIntent() && m_SnapshotRevision != m_Revision)
+        {
+            HCSaveJob.HCOperation = "encode_refresh";
+            if (!Valid(Data)) { return HCSaveFailed(); }
+            Data.LastWrite = HCWorldClock.UTC();
+            string refreshError;
+            if (!JsonFileLoader<HCLeadData>.MakeData(Data, m_PendText, refreshError)) { return HCSaveFailed(); }
+            if (!m_SaveImage.HCRefreshIntent(m_PendText)) { return HCSaveFailed(); }
+            m_SnapshotRevision = m_Revision;
+            return HCSaveJob.STEP_MORE;
+        }
+        int result = m_SaveImage.HCStepImage();
+        if (result == HCSaveJob.STEP_FAILED) { return HCSaveFailed(); }
+        if (result == HCSaveJob.STEP_MORE) { return result; }
         m_SaveStage = 0;
         m_PendText = "";
         m_PendPrior = "";
-        m_FaultAt = "save_commit";
-        if (!HCWorldStore.Write(m_Path + ".tmp", text)) { return HCSaveFailed(); }
-        if (prior != "")
-        {
-            if (FileExist(m_Path + ".bak") && !DeleteFile(m_Path + ".bak")) { return HCSaveFailed(); }
-            if (!CopyFile(m_Path, m_Path + ".bak") || HCWorldStore.Read(m_Path + ".bak") != prior) { return HCSaveFailed(); }
-        }
-        if (FileExist(m_Path) && !DeleteFile(m_Path)) { return HCSaveFailed(); }
-        if (!CopyFile(m_Path + ".tmp", m_Path) || HCWorldStore.Read(m_Path) != text || !DeleteFile(m_Path + ".tmp")) { return HCSaveFailed(); }
+        if (m_SnapshotRevision != m_Revision) { return HCSaveJob.STEP_MORE; }
         return HCSaveJob.STEP_DONE;
     }
 
     bool Save()
     {
-        // Creation/read receipts remain synchronous durability barriers. Cancel
-        // any older routine snapshot before serializing current authoritative Data.
+        if (!m_Healthy) { return false; }
+        // Creation/read receipts finish any disk intent before serializing Data.
+        if (m_SaveImage.Active() && !m_SaveImage.Finish()) { HCSaveFailed(); return false; }
         m_SaveStage = 0;
         if (m_SaveJob) { m_SaveJob.HCInFlight = false; }
         int result = HCSaveJob.STEP_MORE;
         int steps;
-        while (result == HCSaveJob.STEP_MORE && steps < 3)
+        while (result == HCSaveJob.STEP_MORE && steps < 8)
         {
             result = HCCheckpointStep();
             steps++;

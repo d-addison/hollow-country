@@ -639,10 +639,10 @@ class HCScenesModule : HCModule
         if (m_Stories) { m_Stories.HCStop(); }
         if (m_SaveJob)
         {
-            // A staged heartbeat holds an older snapshot: drop it and flush the current state whole.
+            // Finish the older snapshot before flushing current state at shutdown.
             if (m_SaveJob.HCInFlight && m_Store)
             {
-                m_Store.SaveAbandon();
+                HCSaveScheduler.HCFlush(m_SaveJob);
                 m_SaveJob.HCInFlight = false;
                 m_SaveJob.HCDirty = true;
             }

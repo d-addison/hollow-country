@@ -24,6 +24,17 @@ class HCEcologyRuntimeIO
 		return Read(path, limit) == text;
 	}
 
+    // Staged-only raw write: caller verifies before deleting the pending intent.
+    static bool WriteRaw(string path, string text, int limit)
+    {
+        if (text.Length() < 1 || text.Length() > limit) { return false; }
+        FileHandle handle = OpenFile(path, FileMode.WRITE);
+        if (!handle) { return false; }
+        FPrint(handle, text);
+        CloseFile(handle);
+        return true;
+    }
+
 	static bool WriteNew(string path, string text, int limit)
 	{
 		if (FileExist(path)) { return false; }
@@ -102,22 +113,46 @@ class HCEcologyRuntimeStore
 
 	int HCPhase() { return m_SavePhase; }
 
-	// HCSaveJob result codes: 0 done, 1 more, 2 failed. One bounded file
-	// operation per stage (Write/WriteNew include their existing readback).
+	// Crash boundary 1: pending written, old primary intact; Open archives pending.
+    // 2: pending verified, old primary intact. 3: primary written with pending
+    // retained; Open archives pending and validates primary, refusing corruption.
+    // 4: primary verified. 5: pending removed, new primary admitted as before.
+    // Exactly one full write/read per stage; result codes 0 done/1 more/2 failed.
 	int HCStepSave()
 	{
 		if (m_Fault && m_SavePhase <= 0) { return 2; }
-		if (m_SavePhase < 1 || m_SavePhase > 4) { return 2; }
+		if (m_SavePhase < 1 || m_SavePhase > 5) { return 2; }
 		string pendingPath = m_Root + "/pending-" + m_World + ".json";
 		string imagePath = m_Root + "/state-" + m_World + ".json";
 		bool ok = false;
 		// Fault before the first intent attempt. Only this in-flight continuation
 		// may proceed; every failure retains the journal and forbids retries.
 		m_Fault = true;
-		if (m_SavePhase == 1) { ok = HCEcologyRuntimeIO.WriteNew(pendingPath, m_SaveText, 2048); }
-		if (m_SavePhase == 2) { ok = HCEcologyRuntimeIO.Write(imagePath, m_SaveText, 2048); }
-		if (m_SavePhase == 3) { ok = HCEcologyRuntimeIO.Read(imagePath, 2048) == m_SaveText; }
-		if (m_SavePhase == 4) { ok = DeleteFile(pendingPath); }
+		if (m_SavePhase == 1)
+        {
+            HCSaveJob.HCOperation = "write_tmp";
+            ok = !FileExist(pendingPath) && HCEcologyRuntimeIO.WriteRaw(pendingPath, m_SaveText, 2048);
+        }
+        if (m_SavePhase == 2)
+        {
+            HCSaveJob.HCOperation = "read_tmp";
+            ok = HCEcologyRuntimeIO.Read(pendingPath, 2048) == m_SaveText;
+        }
+        if (m_SavePhase == 3)
+        {
+            HCSaveJob.HCOperation = "write_primary";
+            ok = HCEcologyRuntimeIO.WriteRaw(imagePath, m_SaveText, 2048);
+        }
+        if (m_SavePhase == 4)
+        {
+            HCSaveJob.HCOperation = "read_primary";
+            ok = HCEcologyRuntimeIO.Read(imagePath, 2048) == m_SaveText;
+        }
+        if (m_SavePhase == 5)
+        {
+            HCSaveJob.HCOperation = "clear_intent";
+            ok = DeleteFile(pendingPath);
+        }
 		if (!ok)
 		{
 			m_SavePhase = -1;
@@ -125,7 +160,7 @@ class HCEcologyRuntimeStore
 			Print("[HC Plan] HC-29 state=refused reason=checkpoint_io visited=0 deferred=0 save_phase=-1 elapsed_us=-1; runtime=PENDING");
 			return 2;
 		}
-		if (m_SavePhase < 4)
+		if (m_SavePhase < 5)
 		{
 			m_SavePhase++;
 			return 1;

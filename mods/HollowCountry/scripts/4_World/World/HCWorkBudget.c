@@ -73,6 +73,7 @@ class HCSaveJob
     static const int STEP_DONE = 0;
     static const int STEP_MORE = 1;
     static const int STEP_FAILED = 2;
+    static string HCOperation; // operation executed by the current scheduler stage
     bool HCDirty;
     float HCDue;
     bool HCInFlight;
@@ -91,7 +92,7 @@ class HCSaveJob
 // job's stage). Existing verified intent/backup/copy writers remain authoritative. Native
 // copy/JSON calls have no cancellation API; this does not promise a 5 ms save.
 // Per-job new-peak save timing is logged as '[HC Save] job=.. stages=.. max_stage_ticks=.. total_ticks=..
-// slowest_stage=..' in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line);
+// slowest_stage=.. op=.. runtime=PENDING' in raw EnSystem.c:106 TickCount units (divide by ticks_per_ms of the [HC Perf] line);
 // slowest_stage is the 1-based stage that took max_stage_ticks (issue #138 round 2).
 class HCSaveScheduler : HCModule
 {
@@ -103,6 +104,7 @@ class HCSaveScheduler : HCModule
     protected int m_Stages;
     protected int m_StageMax;
     protected int m_StageMaxIndex;
+    protected string m_StageMaxOperation;
     protected int m_TotalTicks;
     protected bool m_Started;
     protected string m_Fault;
@@ -156,7 +158,8 @@ class HCSaveScheduler : HCModule
     }
 
     // Synchronous path (shutdown, barriers): finishes every remaining stage in this call. A job
-    // that never reports completion is abandoned at SaveFlushStageLimit (ceiling 16).
+    // that never reports completion is abandoned at SaveFlushStageLimit (default/ceiling 64: a staged
+    // image flush may finish an older snapshot before writing the current one).
     static bool HCFlush(HCSaveJob job)
     {
         if (!job || (!job.HCDirty && !job.HCInFlight)) { return true; }
@@ -188,6 +191,7 @@ class HCSaveScheduler : HCModule
     // Runs ONE stage of a job and keeps it as the active job until it reports completion.
     protected void HCRunStep(HCSaveJob job, float now)
     {
+        HCSaveJob.HCOperation = "checkpoint";
         int started = TickCount(0);
         int result = job.HCStep();
         int ticks = TickCount(started);
@@ -197,6 +201,7 @@ class HCSaveScheduler : HCModule
         {
             m_StageMax = ticks;
             m_StageMaxIndex = m_Stages;
+            m_StageMaxOperation = HCSaveJob.HCOperation;
         }
         HCWorldRuntimeConfig config = HCWorldRuntimeConfig.HCGet();
         if (result == HCSaveJob.STEP_MORE)
@@ -214,7 +219,9 @@ class HCSaveScheduler : HCModule
             if (m_StageMax > job.HCPeakTicks)
             {
                 job.HCPeakTicks = m_StageMax;
-                Print("[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString() + " slowest_stage=" + m_StageMaxIndex.ToString() + "; runtime acceptance pending");
+                string timing = "[HC Save] job=" + job.HCName() + " stages=" + m_Stages.ToString() + " max_stage_ticks=" + m_StageMax.ToString() + " total_ticks=" + m_TotalTicks.ToString();
+                timing += " slowest_stage=" + m_StageMaxIndex.ToString() + " op=" + m_StageMaxOperation + " runtime=PENDING";
+                Print("" + timing);
             }
         }
         else
@@ -274,5 +281,150 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCSaveScheduler);
+    }
+}
+
+// Shared issue #233 image transaction. No rename/fsync claim. One full-file
+// native operation per Step; metadata checks/deletes do not transfer images.
+class HCStagedSaveImage
+{
+    protected string m_Path;
+    protected string m_Text;
+    protected int m_Limit;
+    protected int m_Phase = -1;
+    protected bool m_Backup;
+    protected bool m_CheckPrior;
+    protected bool m_Failed;
+
+    bool Active() { return m_Phase >= 0; }
+    bool Begin(string path, string text, int limit, bool backup = true, bool checkPrior = true)
+    {
+        if (m_Failed || Active() || text.Length() < 1 || text.Length() > limit || limit > HCGroupIO.HC_RAW_READ_CAP)
+        {
+            Print("[HC SaveImage] state=refused reason=active_or_size runtime=PENDING");
+            return false;
+        }
+        if (!HCRecoveryGate.HCAllowWrite(path) || FileExist(path + ".tmp"))
+        {
+            Print("[HC SaveImage] state=refused reason=gate_or_intent runtime=PENDING");
+            return false;
+        }
+        m_Path = path;
+        m_Text = text;
+        m_Limit = limit;
+        m_Backup = backup;
+        m_CheckPrior = checkPrior;
+        m_Phase = 0;
+        return true;
+    }
+
+    // Optional read_prior: original files untouched; refuse unreadable/oversize
+    // primary before replacing its last good backup (same old threat-store gate).
+    // Crash states at each boundary:
+    // 0 write_tmp: old primary retained; partial/complete intent refuses load.
+    // 1 read_tmp: verified intent, old primary retained; load still refuses.
+    // 2 copy_backup: old primary and last good backup retained under intent.
+    // 3 copy_primary: verified temp + old backup survive a partial promotion.
+    // 4 read_primary: new primary verified, intent still refuses load.
+    // 5 clear_intent: new primary + old backup; original load checks apply.
+    // Never delete the old primary until the temp read and backup copy succeed.
+    int HCStepImage()
+    {
+        if (m_Failed || !Active() || !HCRecoveryGate.HCAllowWrite(m_Path))
+        {
+            m_Failed = true;
+            return HCSaveJob.STEP_FAILED;
+        }
+        if (m_CheckPrior)
+        {
+            HCSaveJob.HCOperation = "read_prior";
+            string prior;
+            if (FileExist(m_Path) && !HCGroupIO.Read(m_Path, m_Limit, prior))
+            {
+                m_Failed = true;
+                return HCSaveJob.STEP_FAILED;
+            }
+            m_CheckPrior = false;
+            return HCSaveJob.STEP_MORE;
+        }
+        string temporary = m_Path + ".tmp";
+        string backup = m_Path + ".bak";
+        bool ok = false;
+        string actual;
+        if (m_Phase == 0)
+        {
+            HCSaveJob.HCOperation = "write_tmp";
+            FileHandle handle = OpenFile(temporary, FileMode.WRITE);
+            if (handle)
+            {
+                FPrint(handle, m_Text);
+                CloseFile(handle);
+                ok = true; // FPrint is void: next stage MUST verify before promotion.
+            }
+        }
+        if (m_Phase == 1)
+        {
+            HCSaveJob.HCOperation = "read_tmp";
+            ok = HCGroupIO.Read(temporary, m_Limit, actual) && actual == m_Text;
+        }
+        if (m_Phase == 2)
+        {
+            HCSaveJob.HCOperation = "copy_backup";
+            ok = true;
+            if (m_Backup && FileExist(m_Path))
+            {
+                ok = !FileExist(backup) || DeleteFile(backup);
+                if (ok) { ok = CopyFile(m_Path, backup); }
+            }
+        }
+        if (m_Phase == 3)
+        {
+            HCSaveJob.HCOperation = "copy_primary";
+            ok = !FileExist(m_Path) || DeleteFile(m_Path);
+            if (ok) { ok = CopyFile(temporary, m_Path); }
+        }
+        if (m_Phase == 4)
+        {
+            HCSaveJob.HCOperation = "read_primary";
+            ok = HCGroupIO.Read(m_Path, m_Limit, actual) && actual == m_Text;
+        }
+        if (m_Phase == 5)
+        {
+            HCSaveJob.HCOperation = "clear_intent";
+            ok = DeleteFile(temporary);
+        }
+        if (!ok) { m_Failed = true; return HCSaveJob.STEP_FAILED; } // preserve intent; never retry a fault
+        m_Phase++;
+        if (m_Phase < 6) { return HCSaveJob.STEP_MORE; }
+        m_Phase = -1;
+        m_Text = "";
+        return HCSaveJob.STEP_DONE;
+    }
+
+    bool HCReadyToClearIntent() { return m_Phase == 5; }
+
+    // A revised authoritative snapshot can replace an obsolete intent without
+    // exposing that obsolete primary to the next load. Keep the original backup.
+    bool HCRefreshIntent(string text)
+    {
+        if (m_Phase != 5 || text.Length() < 1 || text.Length() > m_Limit) { return false; }
+        m_Text = text;
+        m_Phase = 0;
+        m_Backup = false;
+        m_CheckPrior = false;
+        return true;
+    }
+
+    bool Finish()
+    {
+        if (m_Failed) { return false; }
+        int result = HCSaveJob.STEP_MORE;
+        int stages;
+        while (Active() && result == HCSaveJob.STEP_MORE && stages < 7)
+        {
+            result = HCStepImage();
+            stages++;
+        }
+        return !Active() && result != HCSaveJob.STEP_FAILED;
     }
 }

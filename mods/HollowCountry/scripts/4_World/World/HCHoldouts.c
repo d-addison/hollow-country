@@ -28,6 +28,7 @@
 
 class HCEncounterStore<Class T>
 {
+    protected ref HCV2ThreatStore<T> m_Writer = new HCV2ThreatStore<T>;
     protected string m_Path;
     protected bool m_Fault;
     // Raw image of the last successful file load; owners may check key presence
@@ -68,8 +69,20 @@ class HCEncounterStore<Class T>
     bool Save(T data)
     {
         if (m_Fault || !data) return false;
-        if (!HCV2ThreatStore<T>.Save(m_Path, data, 262144)) return Fault();
+        if (!m_Writer.FinishSave() || !HCV2ThreatStore<T>.Save(m_Path, data, 262144)) return Fault();
         return true;
+    }
+
+    bool SaveInFlight() { return m_Writer.SaveInFlight(); }
+    // Disk stage boundaries: write_tmp/read_tmp retain old primary + intent;
+    // copy_backup retains old primary/backup + intent; copy_primary/read_primary
+    // retain new primary, old backup and intent; clear_intent admits new primary.
+    int SaveStep(T data)
+    {
+        if (m_Fault || !data) { return HCSaveJob.STEP_FAILED; }
+        int result = m_Writer.SaveStep(m_Path, data, 262144);
+        if (result == HCSaveJob.STEP_FAILED) { Fault(); }
+        return result;
     }
 
 }
@@ -390,16 +403,39 @@ class HCHoldouts : HCModule
 
     bool SaveChanged()
     {
-        if (!m_Dirty) { return true; }
+        if (!m_Dirty && !m_Store.SaveInFlight()) { return true; }
         if (!m_Store.Save(m_State)) { m_Ready = false; m_Operational.HCPublish("refused", "HC16_store_uncertain"); HCSyncLights(); return false; }
         m_Dirty = false;
         m_CatalogDirty = false;
         if (m_SaveJob)
         {
             m_SaveJob.HCDirty = false;
+            m_SaveJob.HCInFlight = false;
             m_SaveJob.HCDue = GetGame().GetTickTime() + 60;
         }
         return true;
+    }
+
+    int HCStepCatalog()
+    {
+        if (!m_Ready) { return HCSaveJob.STEP_FAILED; }
+        bool starting = !m_Store.SaveInFlight();
+        int result = m_Store.SaveStep(m_State);
+        if (starting && result == HCSaveJob.STEP_MORE) { m_Dirty = false; }
+        if (result == HCSaveJob.STEP_FAILED)
+        {
+            m_Ready = false;
+            m_Operational.HCPublish("refused", "HC16_store_uncertain");
+            HCSyncLights();
+        }
+        if (result == HCSaveJob.STEP_DONE)
+        {
+            // A newer mutation needs another snapshot before reporting completion.
+            if (m_Dirty) { return HCSaveJob.STEP_MORE; }
+            m_CatalogDirty = false;
+            Print("[HollowCountry] V2 holdouts catalog houses=" + Count().ToString() + "/" + HCAILimits.Get().MaxHoldouts.ToString());
+        }
+        return result;
     }
 
     bool HCFlushCatalog()
@@ -1185,7 +1221,11 @@ class HCHoldoutSaveJob : HCSaveJob
 {
     override string HCName() { return "Holdouts"; }
     HCHoldouts Owner;
-    override bool HCWrite() { return Owner && Owner.HCFlushCatalog(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepCatalog();
+    }
 }
 
 modded class HCModuleRegistry

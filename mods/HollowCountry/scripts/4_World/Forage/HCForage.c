@@ -230,6 +230,7 @@ class HCForageModule : HCModule
     protected int m_Deferred;
     protected int m_Revision;
     protected int m_SnapshotRevision;
+    protected ref HCV2ThreatStore<HCForageState> m_Writer = new HCV2ThreatStore<HCForageState>;
     protected int m_SaveStage;
     protected ref HCForageState m_Snapshot;
     protected ref HCForageSaveJob m_SaveJob;
@@ -378,6 +379,7 @@ class HCForageModule : HCModule
         if (!m_Healthy) { return HCSaveJob.STEP_FAILED; }
         if (m_SaveStage == 0)
         {
+            HCSaveJob.HCOperation = "snapshot";
             m_Snapshot = new HCForageState;
             m_Snapshot.WorldName = m_State.WorldName;
             foreach (HCForageSpot spot : m_State.Spots)
@@ -393,7 +395,9 @@ class HCForageModule : HCModule
             m_SaveStage = 1;
             return HCSaveJob.STEP_MORE;
         }
-        if (!HCV2ThreatStore<HCForageState>.Save(PATH, m_Snapshot, 16384))
+        int result = m_Writer.SaveStep(PATH, m_Snapshot, 16384);
+        if (result == HCSaveJob.STEP_MORE) { return result; }
+        if (result == HCSaveJob.STEP_FAILED)
         {
             HCFail();
             return HCSaveJob.STEP_FAILED;

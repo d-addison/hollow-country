@@ -43,11 +43,19 @@ class HCSettlementDecayStore
         return HCJsonFields.Every(text, "Remains", 3) && HCJsonFields.Every(text, "Notices", 3);
     }
 
+    protected ref HCV2ThreatStore<HCSettlementState> m_Writer = new HCV2ThreatStore<HCSettlementState>;
     static const string PATH = "$profile:HollowCountry/settlement-decay.json";
     bool Save(HCSettlementState state)
     {
+        if (!m_Writer.FinishSave()) { return false; }
         return HCV2ThreatStore<HCSettlementState>.Save(PATH, state, 16384);
     }
+    bool SaveInFlight() { return m_Writer.SaveInFlight(); }
+    // Encode: original files intact; write/read tmp: old primary + intent;
+    // backup: old primary/backup + intent; promote/read: new primary + old
+    // backup + intent; cleanup: new primary/old backup, original load rules.
+    int SaveStep(HCSettlementState state) { return m_Writer.SaveStep(PATH, state, 16384); }
+
 }
 
 // This is an additional distance-only gate for authored waypoint/prop changes,
@@ -100,6 +108,8 @@ class HCSettlementDecay : HCModule
     protected int m_TownNow;
     protected bool m_HistoryPending;
     protected bool m_Fault;
+    protected int m_CheckpointRevision;
+    protected int m_StateRevision;
     protected ref HCSettlementSaveJob m_SaveJob;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
     protected int m_Cursor;
@@ -238,6 +248,16 @@ class HCSettlementDecay : HCModule
         return true;
     }
 
+    int HCStepRoutine()
+    {
+        if (m_Fault || !m_State) { return HCSaveJob.STEP_FAILED; }
+        if (!m_Store.SaveInFlight()) { m_CheckpointRevision = m_StateRevision; }
+        int result = m_Store.SaveStep(m_State);
+        if (result == HCSaveJob.STEP_DONE && m_CheckpointRevision != m_StateRevision) { return HCSaveJob.STEP_MORE; }
+        if (result == HCSaveJob.STEP_FAILED) { Fail(); }
+        return result;
+    }
+
     // At most one line per reason, at most sixteen reasons per boot.
     protected void HCVisualRefused(int index, string reason)
     {
@@ -349,6 +369,7 @@ class HCSettlementDecay : HCModule
         {
             town.LastDay = world.Day();
             m_State.SavedUtc = now;
+            m_StateRevision++;
             m_SaveJob.HCDirty = true;
             int towns = m_State.Towns.Count();
             Print("[HollowCountry] V2 settlement decay towns=" + towns.ToString() + " changed=" + changed.ToString());
@@ -375,7 +396,11 @@ class HCSettlementSaveJob : HCSaveJob
 {
     override string HCName() { return "SettlementDecay"; }
     HCSettlementDecay Owner;
-    override bool HCWrite() { return Owner && Owner.HCFlushRoutine(); }
+    override int HCStep()
+    {
+        if (!Owner) { return STEP_FAILED; }
+        return Owner.HCStepRoutine();
+    }
 }
 
 modded class HCModuleRegistry

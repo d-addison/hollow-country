@@ -14,6 +14,7 @@ class HCPerfSnapshotSave : HCSaveJob
     protected string m_Routes;
     protected string m_Operational;
     protected string m_Stats;
+    protected ref HCStagedSaveImage m_SaveImage = new HCStagedSaveImage;
     protected string m_Text;
     protected int m_Bytes;
     protected int m_Row;
@@ -31,25 +32,26 @@ class HCPerfSnapshotSave : HCSaveJob
     int HCBytes() { return m_Bytes; }
     bool HCNeedsFlush() { return m_Phase >= 5; }
 
+    // Encoding stages leave files untouched. The shared image transaction
+    // documents every crash boundary; existing snapshot recovery stays intact.
     override int HCStep()
     {
-        bool ok = false;
         if (m_Phase < 4)
         {
+            HCSaveJob.HCOperation = "encode";
             int encoded = HCEncode(m_Phase);
             if (encoded < 0) { return STEP_FAILED; }
             if (encoded == 0) { return STEP_MORE; }
-            ok = true;
             m_Row = 0;
+            m_Phase++;
+            return STEP_MORE;
         }
-        if (m_Phase == 4) { ok = HCWriteIntent(); }
-        if (m_Phase == 5) { ok = HCBackup(); }
-        if (m_Phase == 6) { ok = HCPromote(); }
-        if (m_Phase == 7) { ok = HCClean(); }
-        if (!ok) { return STEP_FAILED; }
-        m_Phase++;
-        if (m_Phase >= 8) { return STEP_DONE; }
-        return STEP_MORE;
+        if (m_Phase == 4)
+        {
+            if (!m_SaveImage.Begin(m_Path, m_Text, m_Limit)) { return STEP_FAILED; }
+            m_Phase = 5;
+        }
+        return m_SaveImage.HCStepImage();
     }
 
     // A point, route (already capped to 64 vertices), string or stat is the
@@ -169,30 +171,4 @@ class HCPerfSnapshotSave : HCSaveJob
         return m_Bytes > 0 && m_Bytes <= m_Limit;
     }
 
-    protected bool HCWriteIntent()
-    {
-        return HCGroupIO.WriteNew(m_Path + ".tmp", m_Text, m_Limit);
-    }
-
-    protected bool HCBackup()
-    {
-        if (!FileExist(m_Path)) { return true; }
-        string previous;
-        string backedUp;
-        string backup = m_Path + ".bak";
-        if (!HCGroupIO.Read(m_Path, m_Limit, previous)) { return false; }
-        if (FileExist(backup) && !DeleteFile(backup)) { return false; }
-        if (!CopyFile(m_Path, backup)) { return false; }
-        return HCGroupIO.Read(backup, m_Limit, backedUp) && backedUp == previous;
-    }
-
-    protected bool HCPromote()
-    {
-        if (FileExist(m_Path) && !DeleteFile(m_Path)) { return false; }
-        if (!CopyFile(m_Path + ".tmp", m_Path)) { return false; }
-        string actual;
-        return HCGroupIO.Read(m_Path, m_Limit, actual) && actual == m_Text;
-    }
-
-    protected bool HCClean() { return DeleteFile(m_Path + ".tmp"); }
 }
