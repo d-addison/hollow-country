@@ -94,7 +94,7 @@ class HCVisualSeasons
         m_Paused = false;
         m_HitchReported = false;
         HCReport("on", "start");
-        Print("[HC Plan] HC-150 leaves=unavailable reason=emitter_asset_contract_uninspected runtime=PENDING");
+        Print(HCV2Admission.Line("SeasonLeaves", true, "HC-226", false) + " runtime=PENDING");
         return true;
     }
 
