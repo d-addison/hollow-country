@@ -46,6 +46,8 @@ def authored(path, kind, target, env, member=False, only=None, modded=False):
                     r'((\3 := archive_read(\1, \2, \4)) != null)', source)
     source = re.sub(r'\b(HCRecovery\w+|HCPersistence\w+|HCGroupIO|HCGroupJson|HCWorldData|HCWorldClock|HCGroupClock|HCSaveJob|HCSaveScheduler|HCEscalation\w+|HCOperationalStatus|HCV2\w+)\b', r'HCEvent\1', source)
     scope = {('HCEvent' + k if k.startswith('HC') else k): v for k, v in env.items()}
+    source = re.sub(r'HCEventHCGroupIO.Read\(([^,]+), ([^,]+), (\w+)\)',
+                    r'((\3 := raw_read(\1, \2)) != null)', source)
     source = re.sub(r'HCEventHCGroupIO.HCReadRaw\(([^,]+), ([^,]+), (\w+)\)',
                     r'((\3 := raw_read(\1, \2)) != null)', source)
     source = re.sub(r'HCEventHCGroupJson<HCEvent(\w+)>\.Load\(([^,]+), ([^,]+), (\w+)\)',
@@ -215,8 +217,17 @@ class Harness:
             return None
 
     def clock_load(self, path, limit):
-        self.clock.m_State = self.load(path, limit, 'HCEscalationState')
-        return self.clock.m_State is not None
+        state = self.load(path, limit, 'HCEscalationState')
+        if state is None:
+            return False
+        # Synthetic DTO class supplies the newly authored tuning normalization;
+        # its method stays off the JSON instance field map, like native methods.
+        normalize = translate(CLOCK.read_text(), 'HCNormalize',
+                              {'HCJsonFields':N(Has=lambda text,key:key in json.loads(text))},
+                              'HCEscalationState', member=True)
+        state_type = type('SyntheticEscalationState', (N,), {'HCNormalize':normalize})
+        self.clock.m_State = state_type(**vars(state))
+        return True
 
     def clock_save(self, path, state, limit):
         if not self.gate.HCAllowWrite(path):

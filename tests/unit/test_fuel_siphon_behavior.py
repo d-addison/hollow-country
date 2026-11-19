@@ -480,6 +480,8 @@ _TRANSLATED = {}
 
 
 def translate(path, select, natives):
+    from tests.unit.test_c3_survivalcfg import config_ports
+    natives.update(config_ports())  # Explicit synthetic default profile.
     text = Path(path).read_text()
     key = (text, repr(sorted((k, sorted(v) if v else v) for k, v in select.items())))
     if key not in _TRANSLATED:      # translation is pure in (source, selection, native names)

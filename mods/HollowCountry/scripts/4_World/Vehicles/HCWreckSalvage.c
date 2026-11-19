@@ -1,3 +1,71 @@
+// Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
+// HCGroupIO.Read owns bounded native file IO; HCJsonFields owns key presence.
+class HCWreckSalvageConfig
+{
+    int WheelWeight = 2;
+    int SparkPlugWeight = 20;
+    int BatteryWeight = 15;
+    int RadiatorWeight = 15;
+    int HeadlightWeight = 20;
+    int ScrapWeight = 28;
+    int BudgetMinimum = 1;
+    int BudgetRollSides = 3;
+    float ActionSeconds = 8.0;
+    float ReachMeters = 2.0;
+    int CompletionGraceMs = 500;
+    protected static ref HCWreckSalvageConfig s_Config;
+
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "WheelWeight")) { this.WheelWeight = 2; }
+        if (!(this.WheelWeight >= 0 && this.WheelWeight <= 100)) { this.WheelWeight = 2; invalid = true; }
+        if (!HCJsonFields.Has(text, "SparkPlugWeight")) { this.SparkPlugWeight = 20; }
+        if (!(this.SparkPlugWeight >= 0 && this.SparkPlugWeight <= 100)) { this.SparkPlugWeight = 20; invalid = true; }
+        if (!HCJsonFields.Has(text, "BatteryWeight")) { this.BatteryWeight = 15; }
+        if (!(this.BatteryWeight >= 0 && this.BatteryWeight <= 100)) { this.BatteryWeight = 15; invalid = true; }
+        if (!HCJsonFields.Has(text, "RadiatorWeight")) { this.RadiatorWeight = 15; }
+        if (!(this.RadiatorWeight >= 0 && this.RadiatorWeight <= 100)) { this.RadiatorWeight = 15; invalid = true; }
+        if (!HCJsonFields.Has(text, "HeadlightWeight")) { this.HeadlightWeight = 20; }
+        if (!(this.HeadlightWeight >= 0 && this.HeadlightWeight <= 100)) { this.HeadlightWeight = 20; invalid = true; }
+        if (!HCJsonFields.Has(text, "ScrapWeight")) { this.ScrapWeight = 28; }
+        if (!(this.ScrapWeight >= 1 && this.ScrapWeight <= 100)) { this.ScrapWeight = 28; invalid = true; }
+        if (!HCJsonFields.Has(text, "BudgetMinimum")) { this.BudgetMinimum = 1; }
+        if (!(this.BudgetMinimum >= 1 && this.BudgetMinimum <= 3)) { this.BudgetMinimum = 1; invalid = true; }
+        if (!HCJsonFields.Has(text, "BudgetRollSides")) { this.BudgetRollSides = 3; }
+        if (!(this.BudgetRollSides >= 1 && this.BudgetRollSides <= 3)) { this.BudgetRollSides = 3; invalid = true; }
+        if (!HCJsonFields.Has(text, "ActionSeconds")) { this.ActionSeconds = 8.0; }
+        if (!(this.ActionSeconds >= 1 && this.ActionSeconds <= 20)) { this.ActionSeconds = 8.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "ReachMeters")) { this.ReachMeters = 2.0; }
+        if (!(this.ReachMeters >= 0.5 && this.ReachMeters <= 2)) { this.ReachMeters = 2.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "CompletionGraceMs")) { this.CompletionGraceMs = 500; }
+        if (!(this.CompletionGraceMs >= 0 && this.CompletionGraceMs <= 500)) { this.CompletionGraceMs = 500; invalid = true; }
+        if (this.BudgetMinimum + this.BudgetRollSides - 1 > 3) { this.BudgetMinimum = 1; this.BudgetRollSides = 3; invalid = true; }
+        return invalid;
+    }
+    static HCWreckSalvageConfig Get()
+    {
+        if (s_Config) { return s_Config; }
+        s_Config = new HCWreckSalvageConfig;
+        string path = "$profile:HollowCountry/wreck-salvage-config.json";
+        if (!FileExist(path)) { return s_Config; }
+        string text;
+        string error;
+        HCWreckSalvageConfig loaded;
+        if (!HCGroupIO.Read(path, 16384, text) || !JsonFileLoader<HCWreckSalvageConfig>.LoadData(text, loaded, error) || !loaded)
+        {
+            Print("[HC Config] HCWreckSalvageConfig invalid_json defaults_restored runtime=PENDING");
+            return s_Config;
+        }
+        bool invalid = loaded.HCNormalize(text);
+        s_Config = loaded;
+        if (invalid) { Print("[HC Config] HCWreckSalvageConfig invalid_range defaults_restored runtime=PENDING"); }
+        return s_Config;
+    }
+}
+
 // HC-59 / HC-4/32: compatible finite car parts; all native acceptance pending.
 // New API evidence: 3_Game/Global/Game.c:558 ConfigGetTextArray;
 // 1_Core/proto/EnString.c:240 IndexOf; wheel inventorySlot intersects the
@@ -100,17 +168,24 @@ class HCWreckSalvage
 
     static int Budget(string key)
     {
-        return 1 + Roll(key, 3);
+        return HCWreckSalvageConfig.Get().BudgetMinimum + Roll(key, HCWreckSalvageConfig.Get().BudgetRollSides);
     }
 
     static string Part(string key, int left)
     {
-        int roll = Roll(key + "|part|" + left.ToString(), 100);
-        if (roll < 2) return "HatchbackWheel";
-        if (roll < 22) return "SparkPlug";
-        if (roll < 37) return "CarBattery";
-        if (roll < 52) return "CarRadiator";
-        if (roll < 72) return "HeadlightH7";
+        HCWreckSalvageConfig tuning = HCWreckSalvageConfig.Get();
+        int total = tuning.WheelWeight + tuning.SparkPlugWeight + tuning.BatteryWeight + tuning.RadiatorWeight + tuning.HeadlightWeight + tuning.ScrapWeight;
+        int roll = Roll(key + "|part|" + left.ToString(), total);
+        int threshold = tuning.WheelWeight;
+        if (roll < threshold) return "HatchbackWheel";
+        threshold += tuning.SparkPlugWeight;
+        if (roll < threshold) return "SparkPlug";
+        threshold += tuning.BatteryWeight;
+        if (roll < threshold) return "CarBattery";
+        threshold += tuning.RadiatorWeight;
+        if (roll < threshold) return "CarRadiator";
+        threshold += tuning.HeadlightWeight;
+        if (roll < threshold) return "HeadlightH7";
         return "MetalPlate";
     }
 
@@ -180,7 +255,7 @@ class HCWreckSalvage
         vector endpoint = target.GetCursorHitPos();
         vector origin = MiscGameplayFunctions.GetPlayerHeadPosition(player);
         if (!PositionValid(endpoint) || !PositionValid(origin)) return false;
-        if (vector.DistanceSq(player.GetPosition(), endpoint) > 4 || vector.DistanceSq(origin, endpoint) > 6.25 || vector.DistanceSq(wreck.GetPosition(), endpoint) > 36) return false;
+        if (vector.DistanceSq(player.GetPosition(), endpoint) > HCWreckSalvageConfig.Get().ReachMeters * HCWreckSalvageConfig.Get().ReachMeters || vector.DistanceSq(origin, endpoint) > 6.25 || vector.DistanceSq(wreck.GetPosition(), endpoint) > 36) return false;
         return HCWreckRay(player, wreck, origin, endpoint, ObjIntersectView) && HCWreckRay(player, wreck, origin, endpoint, ObjIntersectFire);
     }
 }
@@ -274,7 +349,7 @@ class HCWreckSalvageModule : HCModule
             if (row.Key == "" || seen.Contains(row.Key)) return false;
             // Retain legacy enrolled budgets, including depleted zero rows.
             // Only new enrollment uses the guaranteed 1..3 part allocation.
-            bool currentBudget = row.Budget == HCWreckSalvage.Budget(row.Key);
+            bool currentBudget = row.Budget >= 1 && row.Budget <= 3; // Retain finite allocations across tuning changes.
             bool legacyBudget = row.Budget == HCWreckSalvage.Roll(row.Key, 4);
             if (!currentBudget && !legacyBudget) { return false; }
             if (row.Left < 0 || row.Left > row.Budget) { return false; }
@@ -566,7 +641,7 @@ class HCWreckSalvageModule : HCModule
 
     void Complete(HCWreckSalvageActionData data)
     {
-        if (!Continuing(data) || GetGame().GetTime() - data.StartedMs < 7500) return;
+        if (!Continuing(data) || GetGame().GetTime() - data.StartedMs < HCWreckSalvageConfig.Get().ActionSeconds * 1000 - HCWreckSalvageConfig.Get().CompletionGraceMs) return;
         data.Completed = true;
         m_Busy = true;
         HCWreckSalvageRow row = m_State.Rows[data.Index];

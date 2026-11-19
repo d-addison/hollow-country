@@ -85,6 +85,8 @@ class EnvironmentalRadio(unittest.TestCase):
                    HCEventPersonalRadio=N(Cast=lambda value: value),
                    vector=N(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b))),
                    NotificationSystem=N(SendNotificationToPlayerIdentityExtended=lambda *args: sent.append(args)))
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())
         shared = syntax_port((RADIO.parent / 'HCLeadModule.c').read_text())
         policy.Build = translate(shared, 'Build', env, 'HCLeadPolicy')
         policy.Kind = translate(shared, 'Kind', env, 'HCLeadPolicy')
@@ -270,6 +272,8 @@ class RadioFixture:
             HCPerfPlayers=N(HCGet=lambda: self.roster),
             vector=N(DistanceSq=lambda a, b: sum((x-y)**2 for x, y in zip(a, b))),
             NotificationSystem=N(SendNotificationToPlayerIdentityExtended=lambda *args: self.sent.append(args)))
+        from tests.unit.test_c3_survivalcfg import config_ports
+        self.env.update(config_ports())
         shared = syntax_port((RADIO.parent / 'HCLeadModule.c').read_text())
         for name in ('Valid', 'KnownPlace', 'Build', 'Kind', 'Copy', 'Text', 'LegacyText', 'FactionName'):
             setattr(self.policy, name, translate(shared, name, self.env, 'HCLeadPolicy'))

@@ -397,6 +397,8 @@ class RadioRefusals(unittest.TestCase):
                    HCPerfPlayers=N(HCGet=lambda: EArray()),
                    Frequency=lambda faction: 87.8)
         store = N(Healthy=lambda: True, Data=N(Channels=channels), Save=lambda: save)
+        from tests.unit.test_c3_survivalcfg import config_ports
+        env.update(config_ports())
         radio = authored(source, 'HCRadioChatter', env, ('OnStart', 'BeginChannel', 'HCRefuse', 'HCRefuseAs', 'Refusal', 'Frequency'))()
         radio.m_StaticInstance = None
         radio.m_AdmissionPrinted = True

@@ -1,3 +1,52 @@
+// Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
+// HCGroupIO.Read owns bounded native file IO; HCJsonFields owns key presence.
+class HCVehicleFlipConfig
+{
+    float ReachMeters = 5.0;
+    int Helpers = 3;
+    float TorqueMassScale = 0.4;
+    float LiftMassScale = 0.1;
+    int Pulses = 3;
+    protected static ref HCVehicleFlipConfig s_Config;
+
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "ReachMeters")) { this.ReachMeters = 5.0; }
+        if (!(this.ReachMeters >= 1 && this.ReachMeters <= 5)) { this.ReachMeters = 5.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "Helpers")) { this.Helpers = 3; }
+        if (!(this.Helpers >= 1 && this.Helpers <= 6)) { this.Helpers = 3; invalid = true; }
+        if (!HCJsonFields.Has(text, "TorqueMassScale")) { this.TorqueMassScale = 0.4; }
+        if (!(this.TorqueMassScale >= 0.01 && this.TorqueMassScale <= 0.4)) { this.TorqueMassScale = 0.4; invalid = true; }
+        if (!HCJsonFields.Has(text, "LiftMassScale")) { this.LiftMassScale = 0.1; }
+        if (!(this.LiftMassScale >= 0.01 && this.LiftMassScale <= 0.1)) { this.LiftMassScale = 0.1; invalid = true; }
+        if (!HCJsonFields.Has(text, "Pulses")) { this.Pulses = 3; }
+        if (!(this.Pulses >= 1 && this.Pulses <= 3)) { this.Pulses = 3; invalid = true; }
+        return invalid;
+    }
+    static HCVehicleFlipConfig Get()
+    {
+        if (s_Config) { return s_Config; }
+        s_Config = new HCVehicleFlipConfig;
+        string path = "$profile:HollowCountry/vehicle-flip.json";
+        if (!FileExist(path)) { return s_Config; }
+        string text;
+        string error;
+        HCVehicleFlipConfig loaded;
+        if (!HCGroupIO.Read(path, 16384, text) || !JsonFileLoader<HCVehicleFlipConfig>.LoadData(text, loaded, error) || !loaded)
+        {
+            Print("[HC Config] HCVehicleFlipConfig invalid_json defaults_restored runtime=PENDING");
+            return s_Config;
+        }
+        bool invalid = loaded.HCNormalize(text);
+        s_Config = loaded;
+        if (invalid) { Print("[HC Config] HCVehicleFlipConfig invalid_range defaults_restored runtime=PENDING"); }
+        return s_Config;
+    }
+}
+
 // #127. Read-only inspection of installed RaG Immersive Vehicles PBO
 // (3105330157/Addons/rag_immersive_vehicles.pbo, 2026-11-18):
 // rag_car_jack.c and RaGIVVehicleComponent.c implement wheel jacking, no recovery
@@ -62,7 +111,7 @@ class HCVehicleFlipModule : HCModule
     {
         if (!actor || !vehicle || vehicle.IsPendingDeletion() || vehicle.IsRuined()) { return false; }
         if (!actor.IsAlive() || actor.IsUnconscious() || actor.IsRestrained() || actor.IsInVehicle()) { return false; }
-        if (vehicle.EngineIsOn() || vector.DistanceSq(actor.GetPosition(), vehicle.GetPosition()) > 25) { return false; }
+        if (vehicle.EngineIsOn() || vector.DistanceSq(actor.GetPosition(), vehicle.GetPosition()) > HCVehicleFlipConfig.Get().ReachMeters * HCVehicleFlipConfig.Get().ReachMeters) { return false; }
         vector transform[4];
         vehicle.GetTransform(transform);
         vector up = transform[1];
@@ -96,11 +145,11 @@ class HCVehicleFlipModule : HCModule
             PlayerBase helper = PlayerBase.Cast(person);
             if (!helper || !helper.GetIdentity() || !helper.IsAlive() || helper.IsUnconscious()) { continue; }
             if (helper.IsInVehicle() || helper.IsRestrained()) { continue; }
-            if (vector.DistanceSq(helper.GetPosition(), vehicle.GetPosition()) <= 25) { helpers++; }
+            if (vector.DistanceSq(helper.GetPosition(), vehicle.GetPosition()) <= HCVehicleFlipConfig.Get().ReachMeters * HCVehicleFlipConfig.Get().ReachMeters) { helpers++; }
         }
         ItemBase tool = actor.GetItemInHands();
         bool hasTool = tool && Crowbar.Cast(tool) && !tool.IsRuined();
-        return helpers >= 3 || hasTool;
+        return helpers >= HCVehicleFlipConfig.Get().Helpers || hasTool;
     }
     bool HCQueue(PlayerBase actor, CarScript vehicle)
     {
@@ -151,11 +200,11 @@ class HCVehicleFlipModule : HCModule
         // Select the sign that raises world up; fully inverted chooses one side.
         // Each torque <= mass*0.4 (<=2000); lift <= mass*0.1 (<=500).
         vector axis = transform[2];
-        dBodyApplyTorqueImpulse(job.Vehicle, axis * mass * 0.4 * direction);
-        dBodyApplyImpulse(job.Vehicle, Vector(0, mass * 0.1, 0));
+        dBodyApplyTorqueImpulse(job.Vehicle, axis * mass * HCVehicleFlipConfig.Get().TorqueMassScale * direction);
+        dBodyApplyImpulse(job.Vehicle, Vector(0, mass * HCVehicleFlipConfig.Get().LiftMassScale, 0));
         job.Pulses++;
         Print("[HollowCountry] W5 vehicle-flip impulse pulse=" + job.Pulses.ToString());
-        if (job.Pulses >= 3) { m_Jobs.RemoveOrdered(m_Cursor); }
+        if (job.Pulses >= HCVehicleFlipConfig.Get().Pulses) { m_Jobs.RemoveOrdered(m_Cursor); }
         else { m_Cursor++; }
     }
     override void OnStop()

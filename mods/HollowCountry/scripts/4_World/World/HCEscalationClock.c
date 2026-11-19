@@ -60,6 +60,43 @@ class HCV2ThreatStore<Class T>
 
 class HCEscalationState
 {
+    float InfectedWeek = 0.25;
+    float InfectedFortnight = 0.55;
+    float InfectedCap = 1.0;
+    float RaidersWeek = 0.1;
+    float RaidersFortnight = 0.35;
+    float RaidersCap = 1.0;
+    float ScarcityWeek = 0.15;
+    float ScarcityFortnight = 0.4;
+    float ScarcityCap = 1.0;
+    int HorizonDays = 30;
+
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "InfectedWeek")) { this.InfectedWeek = 0.25; }
+        if (!(this.InfectedWeek >= 0 && this.InfectedWeek <= 1)) { this.InfectedWeek = 0.25; invalid = true; }
+        if (!HCJsonFields.Has(text, "InfectedFortnight")) { this.InfectedFortnight = 0.55; }
+        if (!(this.InfectedFortnight >= 0 && this.InfectedFortnight <= 1)) { this.InfectedFortnight = 0.55; invalid = true; }
+        if (!HCJsonFields.Has(text, "InfectedCap")) { this.InfectedCap = 1.0; }
+        if (!(this.InfectedCap >= 0 && this.InfectedCap <= 1)) { this.InfectedCap = 1.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "RaidersWeek")) { this.RaidersWeek = 0.1; }
+        if (!(this.RaidersWeek >= 0 && this.RaidersWeek <= 1)) { this.RaidersWeek = 0.1; invalid = true; }
+        if (!HCJsonFields.Has(text, "RaidersFortnight")) { this.RaidersFortnight = 0.35; }
+        if (!(this.RaidersFortnight >= 0 && this.RaidersFortnight <= 1)) { this.RaidersFortnight = 0.35; invalid = true; }
+        if (!HCJsonFields.Has(text, "RaidersCap")) { this.RaidersCap = 1.0; }
+        if (!(this.RaidersCap >= 0 && this.RaidersCap <= 1)) { this.RaidersCap = 1.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "ScarcityWeek")) { this.ScarcityWeek = 0.15; }
+        if (!(this.ScarcityWeek >= 0 && this.ScarcityWeek <= 1)) { this.ScarcityWeek = 0.15; invalid = true; }
+        if (!HCJsonFields.Has(text, "ScarcityFortnight")) { this.ScarcityFortnight = 0.4; }
+        if (!(this.ScarcityFortnight >= 0 && this.ScarcityFortnight <= 1)) { this.ScarcityFortnight = 0.4; invalid = true; }
+        if (!HCJsonFields.Has(text, "ScarcityCap")) { this.ScarcityCap = 1.0; }
+        if (!(this.ScarcityCap >= 0 && this.ScarcityCap <= 1)) { this.ScarcityCap = 1.0; invalid = true; }
+        if (!HCJsonFields.Has(text, "HorizonDays")) { this.HorizonDays = 30; }
+        if (!(this.HorizonDays >= 15 && this.HorizonDays <= 365)) { this.HorizonDays = 30; invalid = true; }
+        return invalid;
+    }
+
     int Version;
     string WorldName;
     int EpochUtc;
@@ -82,21 +119,28 @@ class HCEscalationClock : HCModule
     override HCOperationalStatus HCGetOperationalStatus() { return m_Operational; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
 
+    static HCEscalationState HCParameters()
+    {
+        if (s_Instance && s_Instance.m_State) { return s_Instance.m_State; }
+        HCEscalationState defaults = new HCEscalationState;
+        return defaults;
+    }
+
     // Authored piecewise knots at day 0 / 7 / 14 / 30; held at cap thereafter.
     static float Curve(int day, float week, float fortnight, float cap)
     {
         if (day <= 0) { return 0; }
         if (day <= 7) { return Math.Clamp(week * day / 7.0, 0, 1); }
         if (day <= 14) { return Math.Clamp(week + (fortnight - week) * (day - 7) / 7.0, 0, 1); }
-        if (day <= 30) { return Math.Clamp(fortnight + (cap - fortnight) * (day - 14) / 16.0, 0, 1); }
+        if (day <= HCEscalationClock.HCParameters().HorizonDays) { return Math.Clamp(fortnight + (cap - fortnight) * (day - 14) / (HCEscalationClock.HCParameters().HorizonDays - 14.0), 0, 1); }
         return Math.Clamp(cap, 0, 1);
     }
 
     static float PressureAtDay(string axis, int day)
     {
-        if (axis == "infected") { return HCEscalationClock.Curve(day, 0.25, 0.55, 1); }
-        if (axis == "raiders") { return HCEscalationClock.Curve(day, 0.10, 0.35, 1); }
-        if (axis == "scarcity") { return HCEscalationClock.Curve(day, 0.15, 0.40, 1); }
+        if (axis == "infected") { return HCEscalationClock.Curve(day, HCEscalationClock.HCParameters().InfectedWeek, HCEscalationClock.HCParameters().InfectedFortnight, HCEscalationClock.HCParameters().InfectedCap); }
+        if (axis == "raiders") { return HCEscalationClock.Curve(day, HCEscalationClock.HCParameters().RaidersWeek, HCEscalationClock.HCParameters().RaidersFortnight, HCEscalationClock.HCParameters().RaidersCap); }
+        if (axis == "scarcity") { return HCEscalationClock.Curve(day, HCEscalationClock.HCParameters().ScarcityWeek, HCEscalationClock.HCParameters().ScarcityFortnight, HCEscalationClock.HCParameters().ScarcityCap); }
         return 0;
     }
 
@@ -158,6 +202,13 @@ class HCEscalationClock : HCModule
             m_State.WorldName = GetGame().GetWorldName();
             m_State.EpochUtc = m_NowUtc;
             m_State.SavedUtc = m_NowUtc;
+        }
+        // Preserve epoch/watermark semantics; optional tuning is restored independently.
+        string tuningText;
+        if (FileExist(PATH))
+        {
+            if (!HCGroupIO.Read(PATH, 2048, tuningText)) { Fail(); return; }
+            if (m_State.HCNormalize(tuningText)) { Print("[HC Config] HCEscalationState invalid_range defaults_restored runtime=PENDING"); }
         }
         m_Healthy = true;
         m_Operational.HCPublish("ready", "files_validated_runtime_pending");

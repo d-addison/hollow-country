@@ -1,3 +1,43 @@
+// Optional tuning only; absent keys retain declared defaults (native JSON zero-fills).
+// Native scripts-1.30.164289: 1_Core/proto/EnSystem.c:397 FileExist;
+// 3_Game/tools/JsonFileLoader.c:69 LoadData; 1_Core/proto/EnDebug.c:96 Print.
+// HCGroupIO.Read owns bounded native file IO; HCJsonFields owns key presence.
+class HCProgressionConfig
+{
+    int GainPeriodSeconds = 60;
+    int SavePeriodSeconds = 60;
+    protected static ref HCProgressionConfig s_Config;
+
+    bool HCNormalize(string text)
+    {
+        bool invalid = false;
+        if (!HCJsonFields.Has(text, "GainPeriodSeconds")) { this.GainPeriodSeconds = 60; }
+        if (!(this.GainPeriodSeconds >= 1 && this.GainPeriodSeconds <= 86400)) { this.GainPeriodSeconds = 60; invalid = true; }
+        if (!HCJsonFields.Has(text, "SavePeriodSeconds")) { this.SavePeriodSeconds = 60; }
+        if (!(this.SavePeriodSeconds >= 60 && this.SavePeriodSeconds <= 3600)) { this.SavePeriodSeconds = 60; invalid = true; }
+        return invalid;
+    }
+    static HCProgressionConfig Get()
+    {
+        if (s_Config) { return s_Config; }
+        s_Config = new HCProgressionConfig;
+        string path = "$profile:HollowCountry/progression-config.json";
+        if (!FileExist(path)) { return s_Config; }
+        string text;
+        string error;
+        HCProgressionConfig loaded;
+        if (!HCGroupIO.Read(path, 16384, text) || !JsonFileLoader<HCProgressionConfig>.LoadData(text, loaded, error) || !loaded)
+        {
+            Print("[HC Config] HCProgressionConfig invalid_json defaults_restored runtime=PENDING");
+            return s_Config;
+        }
+        bool invalid = loaded.HCNormalize(text);
+        s_Config = loaded;
+        if (invalid) { Print("[HC Config] HCProgressionConfig invalid_range defaults_restored runtime=PENDING"); }
+        return s_Config;
+    }
+}
+
 // HC-13: account lookup plus native character-generation key; death is a
 // synchronous reset barrier, reconnect keeps only the same living generation.
 // Native scripts-1.30.164289: 3_Game/Entities/EntityAI.c:3374 GetPersistentID
@@ -349,7 +389,7 @@ class HCProgressionModule : HCModule
         if (found.Dead) { return 0; }
         if (found.DecayUtc > now || found.GainUtc > now) { HCFail(); return 0; }
         HCDecay(found, now);
-        if (now - found.GainUtc >= 60)
+        if (now - found.GainUtc >= HCProgressionConfig.Get().GainPeriodSeconds)
         {
             if (found.Forage < 100) { found.Forage = found.Forage + 1; }
             found.GainUtc = now;
@@ -455,7 +495,7 @@ class HCProgressionModule : HCModule
             if (row.DecayUtc > now || row.GainUtc > now) { HCFail(); return; }
             HCDecay(row, now);
         }
-        if (m_Dirty && now - m_SaveUtc >= 60) { m_SaveJob.HCDirty = true; }
+        if (m_Dirty && now - m_SaveUtc >= HCProgressionConfig.Get().SavePeriodSeconds) { m_SaveJob.HCDirty = true; }
     }
 
     override void OnStop()

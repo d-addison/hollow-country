@@ -47,6 +47,8 @@ class EnrollReasons(unittest.TestCase):
                         tostr=str, SyntheticArray=Rows,
                         HCUnitBudget=lambda: N(), HCWorkBudget=lambda: N(),
                         HCOperationalStatus=lambda: N(HCPublish=lambda *a: None))
+        from tests.unit.test_c3_survivalcfg import config_ports
+        self.env.update(config_ports())  # Explicit synthetic default profile.
         for code in MethodsTranslator(source, 'HCWreckSalvageModule',
                                       ('Enroll', 'CanStart', 'HCRefuseStart', 'HCRefuseBegin',
                                        'StartRefusal', 'HCEnrollReason')).classes():

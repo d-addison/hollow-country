@@ -395,11 +395,10 @@ class CAContinuousHCSiphonFuel extends CAContinuousBase
 
 class HCActionSiphonFuelFromCarCB : ActionContinuousBaseCB
 {
-    private const float TIME_TO_REPEAT = 0.5;
 
     override void CreateActionComponent()
     {
-        m_ActionData.m_ActionComponent = new CAContinuousHCSiphonFuel(UAQuantityConsumed.FUEL, TIME_TO_REPEAT);
+        m_ActionData.m_ActionComponent = new CAContinuousHCSiphonFuel(UAQuantityConsumed.FUEL, HCFuelSiphonConfig.Get().RepeatSeconds);
     }
 }
 
