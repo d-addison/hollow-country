@@ -464,8 +464,21 @@ class HCInteriorsModule : HCModule
             HCInteriorSite lockSite = m_Sites[m_LockCursor];
             m_LockCursor++;
             visited++;
-            if (lockSite.Owner && GetGame().GetTickTime() > lockSite.Deadline) lockSite.Owner = null;
+            ExpireLock(lockSite);
         }
+    }
+
+    // The one lock-expiry path (#195): clears the owner of a lock whose deadline has passed; true when it
+    // did. The tick loop above and CanStart both call it, so an expired lock never blocks a new search
+    // while the budgeted cursor has not reached its site yet.
+    bool ExpireLock(HCInteriorSite lockSite)
+    {
+        if (lockSite.Owner && GetGame().GetTickTime() > lockSite.Deadline)
+        {
+            lockSite.Owner = null;
+            return true;
+        }
+        return false;
     }
 
     HCInteriorSite FindSite(Object target)
@@ -526,6 +539,7 @@ class HCInteriorsModule : HCModule
             HCRefusalReport.RefusalMessage(player, why, subject, "Search unavailable: the search service is not ready on this server.");
             return false;
         }
+        ExpireLock(site);
         if (site.Owner)
         {
             HCRefusalReport.RefusalMessage(player, HCRefusal.BUSY, subject, "Someone is already searching here.");

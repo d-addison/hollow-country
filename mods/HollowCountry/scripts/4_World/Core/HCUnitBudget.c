@@ -36,7 +36,10 @@ class HCUnitBudget
     static const int HC_WORK_SEARCH_BIND = 2;
     static const int HC_WORK_SEARCH_MAINT = 3;
     static const int HC_WORK_SEARCH_REFRESH = 4;
-    static const int HC_WORK_CONSUMERS = 5;
+    // Wave 14 (#195): the detached-slot loop of HCSearchHouses.RecycleSpentBindings has its own id, so a
+    // spent pool still forces one unit for it after the active-slot loop took the MAINT one.
+    static const int HC_WORK_SEARCH_DETACHED = 5;
+    static const int HC_WORK_CONSUMERS = 6;
     // Sentinel limit of HCServer's idle budget (no core tick running): far above any real per-tick count and
     // far below int overflow of m_Used + units.
     static const int HC_WORK_UNBOUNDED = 1000000000;

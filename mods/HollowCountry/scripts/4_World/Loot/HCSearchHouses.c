@@ -524,7 +524,8 @@ class HCSearchHouses
         while (inspected < detachedLimit && m_DetachedSlots.Count() > 0)
         {
             if (m_RecycleDetachedNext >= m_DetachedSlots.Count()) { m_RecycleDetachedNext = 0; }
-            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_MAINT, 1)) { break; }
+            // Own consumer id: a spent pool must not leave this loop without its forced unit (#195).
+            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_DETACHED, 1)) { break; }
             HCSearchHouseSlot detached = m_DetachedSlots[m_RecycleDetachedNext];
             if (SpentOutsideRange(detached, players))
             {
