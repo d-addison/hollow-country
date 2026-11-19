@@ -335,7 +335,7 @@ class W37DebugRegistration(unittest.TestCase):
         for name in re.findall(r'new (HCDebug\w+Contributor|HCConflictDebugContributor)',source):
             env[name]=lambda name=name:N(kind=name)
         translate(source,'HCDebugSnapshotModule',env,only=('OnStart','HCKeep','OnStop'))
-        owner=N(m_Running=False,m_AdmissionPrinted=False,m_Builtins=None,
+        owner=N(m_Running=False,m_AdmissionPrinted=False,m_Builtins=None,m_Save=None,
                 IsEnabled=lambda settings:settings.EnableDebugSnapshot,
                 HCRefuse=lambda:self.fail('synthetic prerequisites are present'))
         owner.HCKeep=lambda row:env['HCKeep'](owner,row)
