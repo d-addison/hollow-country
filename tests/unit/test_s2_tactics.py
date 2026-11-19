@@ -596,10 +596,18 @@ class Loadouts(unittest.TestCase):
                 self.assertAlmostEqual(chance, rows[0]["Chance"], msg=role)
                 self.assertEqual([], rows[0]["InventoryCargo"])
 
-    def test_shipped_and_mission_copies_stay_byte_identical(self):
+    def test_shipped_variety_preserves_mission_smoke_policy(self):
+        # Kits worker owns packaged defaults; lead owns mission mirror refresh.
+        # Preserve the gameplay policy while permitting new outfits/worn health.
         for role in LOADOUT_CHANCE:
             name = "HollowCountry_" + role + ".json"
-            self.assertEqual((self.PATHS[0] / name).read_bytes(), (self.PATHS[1] / name).read_bytes(), name)
+            def smoke_policy(folder):
+                return [(row['ClassName'], row['Chance'], row['Quantity'])
+                        for row in self.smoke_entries(folder / name)]
+            self.assertEqual(smoke_policy(self.PATHS[0]), smoke_policy(self.PATHS[1]), name)
+            packaged = json.loads((self.PATHS[1] / name).read_text())
+            self.assertGreaterEqual(sum(s['ClassName'] == 'ARCHETYPE'
+                                        for s in packaged['Sets']), 4, name)
 
     def test_loadout_smoke_class_is_not_the_contaminated_variant(self):
         self.assertNotIn("Contaminated", "M18SmokeGrenade_White")
