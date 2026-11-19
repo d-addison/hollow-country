@@ -744,6 +744,6 @@ modded class HCBodyStories
     string HCAdminCounts()
     {
         if (!m_Store || !m_Store.Healthy()) { return "active=n/a bodies=n/a"; }
-        return "bodies=" + m_Store.Data.Bodies.Count().ToString() + "/3 placed=" + m_Props.Count().ToString() + "/3 trigger=random-1-in-10-per-new-scene-note";
+        return "bodies=" + m_Store.Data.Bodies.Count().ToString() + "/3 observed=" + m_Observed.Count().ToString() + "/3 trigger=trusted-death-producer-pending";
     }
 }

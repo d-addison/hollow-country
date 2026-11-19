@@ -20,6 +20,7 @@
 // 1_Core/proto/EnScript.c:94,852 (Class.Cast / map Count),
 // 3_Game/Entities/EntityAI.c:946 (EEDelete),
 // 1_Core/proto/EnScript.c:470,502 (ordered removal / RemoveItem).
+// HC-44 authority: 3_Game/Global/Game.c:1120 IsServer.
 // Paper is the sole created item, has no reward/loadout, and uses vanilla UI.
 // Unknown/offline items retain reservations until one day past lead expiry.
 class HCNoteEntities
@@ -67,6 +68,13 @@ class HCNoteEntities
     }
 }
 
+class HCTraceDefaults
+{
+    // Existing 500 m cleanup guard, now named: half the vanilla ~1000 m
+    // network bubble / ~1 km rifle hearing anchor. Provisional, not visibility proof.
+    float CleanupQuietMetres = 500;
+}
+
 class HCNoteLedger : HCModule
 {
     protected static HCNoteLedger s_Instance;
@@ -75,10 +83,41 @@ class HCNoteLedger : HCModule
     protected float m_LogElapsed = 600;
     protected int m_LastCount = -1;
     protected bool m_AdmissionPrinted;
+    protected bool m_Ready;
+    protected string m_LastRefusal;
+    protected int m_Cursor;
+    protected ref HCTraceDefaults m_Defaults = new HCTraceDefaults;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+    protected ref HCUnitBudget m_Units = new HCUnitBudget;
+    protected ref HCWorkBudget m_Work = new HCWorkBudget;
 
     static HCNoteLedger Get() { return s_Instance; }
     override string GetName() { return "Notes"; }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableLeads; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool enabled = settings && settings.EnableLeads;
+        if (!enabled)
+        {
+            m_Status.HCPublish("off", "operator_preference");
+            Print("[HC Plan] HC-44 facts=0 traces=0 duplicate_refusals=0 state=off reason=operator_preference runtime=PENDING");
+        }
+        return enabled;
+    }
+
+    protected void HCRefuse(string reason)
+    {
+        m_Status.HCPublish("refused", reason);
+        if (m_LastRefusal == reason) { return; }
+        m_LastRefusal = reason;
+        if (m_Store) { m_Store.HCTraceRefuse(reason); }
+    }
+
+    string HCText(HCLeadNote entry)
+    {
+        if (entry.NativeText != "") { return entry.NativeText; }
+        return HCLeadPolicy.Text(entry.Lead);
+    }
 
     static bool CanCreate(int worldCount, int sceneCount)
     {
@@ -88,14 +127,18 @@ class HCNoteLedger : HCModule
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || s_Instance) { return; }
+        if (!GetGame().IsServer()) { HCRefuse("SERVER_AUTHORITY_REQUIRED"); return; }
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("Notes", true, "EXP-S1", HCV2Gates.Qualified("EXP-S1")));
             m_AdmissionPrinted = true;
         }
         m_Store = HCLeadStore.Get();
-        if (!m_Store || !m_Store.Healthy()) { return; }
+        if (!m_Store || !m_Store.Healthy()) { HCRefuse("LEAD_STORE_UNAVAILABLE"); return; }
+        m_Ready = true;
         s_Instance = this;
+        m_Status.HCPublish("ready", "observed_fact_notes_native_acceptance_pending");
+        m_Store.HCPlan("ready", "observed_fact_notes");
         ResolveLoaded();
         LogCount();
     }
@@ -112,8 +155,8 @@ class HCNoteLedger : HCModule
             foreach (HCLeadNote entry : m_Store.Data.Notes)
             {
                 if (!entry || HCNoteEntities.Find(entry.Row.Id)) { continue; }
-                bool currentText = HCLeadPolicy.Text(entry.Lead) == noteText;
-                bool legacyText = HCLeadPolicy.LegacyText(entry.Lead) == noteText;
+                bool currentText = HCText(entry) == noteText;
+                bool legacyText = entry.NativeText == "" && HCLeadPolicy.LegacyText(entry.Lead) == noteText;
                 if (!currentText && !legacyText) { continue; }
                 paper.HCAssignNote(entry.Row.Id);
                 break;
@@ -148,15 +191,22 @@ class HCNoteLedger : HCModule
 
     Paper Create(string sceneId, vector position, HCWorldLead lead)
     {
-        if (!m_Store || !m_Store.Healthy() || !HCWorldLimits.Token(sceneId) || !HCWorldLimits.Position(position) || !HCLeadPolicy.Valid(lead) || lead.Expires <= HCWorldClock.UTC()) { return null; }
+        if (!m_Ready || !GetGame().IsServer() || !m_Store || !m_Store.Healthy() || !HCWorldLimits.Token(sceneId) || !HCWorldLimits.Position(position) || !HCLeadPolicy.Valid(lead) || lead.Expires <= HCWorldClock.UTC()) { return null; }
         int sceneCount;
         if (Scene(sceneId)) { sceneCount = 1; }
-        if (!CanCreate(m_Store.Data.Notes.Count(), sceneCount)) { return null; }
-        string text = HCLeadPolicy.Text(lead);
+        int activeTraces = m_Store.Data.Notes.Count() + m_Store.Data.Bodies.Count();
+        if (!CanCreate(activeTraces, sceneCount) || m_Store.HCSceneTraces(m_Store.Data, sceneId) >= 3) { return null; }
+        string text = m_Store.HCTraceText(lead);
         if (text == "") { RadioFallback(lead); return null; }
+        string noteId = m_Store.NextId("note");
+        if (noteId == "") { return null; } // serial cap: never leave an id-less receipt
+        HCTraceReceipt receipt = m_Store.HCReserveTrace(lead, sceneId);
+        if (!receipt) { return null; }
         HCLeadNote entry = new HCLeadNote;
-        entry.Row.Id = m_Store.NextId("note");
+        entry.Row.Id = noteId;
         entry.Row.SceneId = sceneId;
+        receipt.NoteId = entry.Row.Id;
+        entry.NativeText = text;
         entry.Row.EntityRef = entry.Row.Id;
         entry.Row.CreatedAt = HCWorldClock.UTC();
         entry.Row.TextId = lead.TextId;
@@ -191,17 +241,19 @@ class HCNoteLedger : HCModule
         entry.Phase = 1;
         if (!m_Store.Save()) { return paper; }
         LogCount();
-        HCBodyStories bodies = HCBodyStories.Get();
-        if (bodies) { bodies.Consider(sceneId, position, lead); }
+        // A factual note never implies a death or authorizes a corpse/cache.
+        m_Store.HCPlan("ready", "note_reserved_once");
         return paper;
     }
 
     void Read(PlayerBase player, Paper paper)
     {
-        if (!m_Store || !m_Store.Healthy() || !paper || !player || !player.IsAlive() || !player.GetIdentity()) { return; }
+        if (!m_Ready || !GetGame().IsServer() || !m_Store || !m_Store.Healthy() || !paper || !player || !player.IsAlive() || !player.GetIdentity()) { return; }
+        if (!paper.GetWrittenNoteData()) { return; }
         foreach (HCLeadNote entry : m_Store.Data.Notes)
         {
             if (entry.Row.Id != paper.HCNoteId() || entry.Expires <= HCWorldClock.UTC()) { continue; }
+            if (paper.GetWrittenNoteData().GetNoteText() != HCText(entry)) { return; }
             HCLeadModule leads = HCLeadModule.Get();
             if (leads) { leads.ReceivePlayer(entry.Lead, player, "note"); }
             return;
@@ -210,51 +262,58 @@ class HCNoteLedger : HCModule
 
     override void OnTick(float deltaTime)
     {
-        if (!m_Store || !m_Store.Healthy() || deltaTime <= 0) { return; }
+        if (!m_Ready || !m_Store || !(deltaTime > 0)) { return; }
+        if (!m_Store.Healthy()) { HCRefuse("LEAD_STORE_UNCERTAIN"); return; }
         m_Elapsed += deltaTime;
         m_LogElapsed += deltaTime;
         if (m_Elapsed < 60) { return; }
         m_Elapsed = 0;
-        ResolveLoaded();
-        bool changed;
+        m_Units.HCReset(1);
+        m_Work.HCReset(1);
+        if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
+        ResolveLoaded(); // <=32 restored handles x <=10 notes, no world scan
+        if (m_Store.Data.Notes.Count() == 0) { return; }
+        if (m_Cursor >= m_Store.Data.Notes.Count()) { m_Cursor = 0; }
+        int entryIndex = m_Cursor;
+        m_Cursor++;
+        HCLeadNote entry = m_Store.Data.Notes[entryIndex];
+        Paper paper = HCNoteEntities.Find(entry.Row.Id);
         int now = HCWorldClock.UTC();
-        for (int entryIndex = m_Store.Data.Notes.Count() - 1; entryIndex >= 0; entryIndex--)
+        if (!paper)
         {
-            HCLeadNote entry = m_Store.Data.Notes[entryIndex];
-            Paper paper = HCNoteEntities.Find(entry.Row.Id);
-            // No world scan. Release missing-paper reservations after a full
-            // day of expiry grace; never replay their physical creation.
-            if (!paper)
-            {
-                if (now > entry.Expires + 86400)
-                {
-                    m_Store.Data.Notes.RemoveOrdered(entryIndex);
-                    changed = true;
-                }
-                continue;
-            }
-            if (entry.Expires > now) { continue; }
+            // Offline inventory is unknown; grace releases only the active
+            // slot. Permanent fact receipts remain and cannot refill it.
+            if (now <= entry.Expires + 86400) { return; }
+        }
+        else
+        {
+            if (entry.Expires > now) { return; }
             if (paper.GetHierarchyParent())
             {
-                // Review P1: never delete a note a player or container holds. It
-                // becomes an ordinary zero-value Paper and its slot is released.
                 HCNoteEntities.Forget(paper);
                 paper.HCAssignNote("");
             }
             else
             {
-                // Expired loose notes vanish only where no player can see them.
-                if (!HCObserverTransitionGate.CanTransition(paper.GetPosition(), 500)) { continue; }
+                array<Man> observers = HCPerfPlayers.HCGet();
+                if (!observers || observers.Count() > 32) { return; }
+                if (!HCObserverTransitionGate.CanTransition(paper.GetPosition(), m_Defaults.CleanupQuietMetres)) { return; }
                 GetGame().ObjectDelete(paper);
             }
-            m_Store.Data.Notes.RemoveOrdered(entryIndex);
-            changed = true;
         }
-        if (changed && !m_Store.Save()) { return; }
+        m_Store.Data.Notes.RemoveOrdered(entryIndex);
+        m_Store.HCRequestCheckpoint();
         LogCount();
     }
 
-    override void OnStop() { s_Instance = null; }
+    override void OnStop()
+    {
+        m_Ready = false;
+        if (m_Store) { m_Store.HCCloseCheckpoint(); }
+        m_Store = null;
+        s_Instance = null;
+        m_Status.HCPublish("off", "stopped");
+    }
 }
 
 modded class Paper

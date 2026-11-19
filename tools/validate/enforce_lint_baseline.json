@@ -202,29 +202,11 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCBodyStories.c",
-      "symbol": "HCBodyStories.OnStart",
-      "key": "if (!m_Store || !m_Store.Healthy()) { return; }",
-      "count": 1,
-      "line_at_review": 35,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
       "symbol": "HCLeadModule.OnStart",
       "key": "if (!m_Store.Open()) { return; }",
       "count": 1,
       "line_at_review": 216,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Leads/HCNoteLedger.c",
-      "symbol": "HCNoteLedger.OnStart",
-      "key": "if (!m_Store || !m_Store.Healthy()) { return; }",
-      "count": 1,
-      "line_at_review": 97,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
