@@ -51,6 +51,11 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  'ai/trade-recipes.json',
                  # HC-42 regional story-kit site candidates (authored; indexed-site consumer pending).
                  'events/story-sites.json',
+                 # HC-57 tenement CE input subset (offline-selected) and the office survey (pending, refused).
+                 'ce-coverage/apartments.json', 'ce-coverage/municipal-office.json',
+                 # HC-36 caravan corridor (unsurveyed, refused), HC-49 carcass sites (authored refused),
+                 # HC-39 raid and foot-column profiles (admission refused until provider evidence).
+                 'ai/caravans.json', 'ecology/carcass-sites.json', 'events/raids.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
                  'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
