@@ -148,6 +148,9 @@ def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, g
                             # in test_hc_tick_budget.
                             m_TickWork=tick_fixture.new_budget(), m_TickActive=False,
                             # HC-1 receipts are passive; their own tests live in test_hc_operational_status.
+                            # Wave 16: passive late-readiness detector; real behaviour in test_hc_module_readiness_wave16.
+                            m_Changes=SimpleNamespace(HCReset=lambda: None, HCBaseline=lambda status: None,
+                                                      HCChange=lambda index, name, status: ''),
                             m_Operational=SimpleNamespace(HCReset=lambda: None, HCStopAll=lambda: None,
                                                           HCCapture=lambda name, requested, reported: None),
                             # The perf sampler is a passive observer; its own tests live in test_perf_capture.

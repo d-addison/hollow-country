@@ -441,7 +441,7 @@ class RecoveryIntegrityTests(unittest.TestCase):
                         def hc4():
                             validations.append('hc4')
                             return case != 'hc4-failed'
-                        context = dict(HCModule=object, HCCraftingGate=gate, GetGame=lambda: boot_game,
+                        context = dict(HCModule=object, HCOperationalStatus=object, HCCraftingGate=gate, GetGame=lambda: boot_game,
                                        HCCraftingNativeChecks=NS(Run=hc4),
                                        HCCommonRecoveryPolicy=NS(HCValidateRegistered=validate, HCReport=report),
                                        HCActionSiphonFuel=NS(ProductionStart=starts.append), Print=boot_logs.append)

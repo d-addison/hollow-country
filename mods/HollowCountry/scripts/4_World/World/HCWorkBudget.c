@@ -103,9 +103,28 @@ class HCSaveScheduler : HCModule
     protected int m_StageMax;
     protected int m_StageMaxIndex;
     protected int m_TotalTicks;
+    protected bool m_Started;
+    protected string m_Fault;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "WorldSaves"; }
     override bool IsEnabled(HCSettings settings) { return settings != null; }
+
+    // Wave 16: ready = the scheduler is started and ticking; a writer that faulted and was dropped from the
+    // scheduler (see HCRunStep) is a real degradation, reported until the process restarts.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", m_Fault, "save_scheduler_started");
+        return m_Operational;
+    }
+
+    override void OnStart(HCSettings settings)
+    {
+        m_Fault = "";
+        m_Started = true;
+    }
+
+    override void OnStop() { m_Started = false; }
 
     static void HCRegister(HCSaveJob job)
     {
@@ -175,6 +194,7 @@ class HCSaveScheduler : HCModule
         {
             // Faulted writer preserves its intent; no every-tick retry.
             HCUnregister(job);
+            m_Fault = "save_job_write_faulted";
         }
         m_Stages = 0;
         m_StageMax = 0;

@@ -300,6 +300,18 @@ class HCInfectedMemoryModule : HCModule
     protected ref HCInfectedMemory m_Memory;
     protected float m_Elapsed;
     override string GetName() { return "InfectedMemory"; }
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
+    // Wave 16: started = the memory object exists; an unhealthy memory store is a real fault (degraded).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool started = false;
+        string fault = "";
+        if (m_Memory) { started = true; }
+        if (started && !HCInfectedMemory.Active()) { fault = "memory_state_unhealthy"; }
+        HCModuleReadiness.HCDerive(m_Operational, started, "", fault, "infected_memory_started");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableWorld; }
 
     override void OnStart(HCSettings settings)

@@ -19,7 +19,17 @@ class HCXMaterializerBridge : HCModule
     protected int m_UnattributedSpawnCallbacks;
     protected ref array<string> m_Started = new array<string>();
 
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
     override string GetName() { return "MaterializerBridge"; }
+
+    // Wave 16: started = the bridge is the registered offer target (m_Running); the site director is resolved
+    // per offer, so a missing director refuses that offer (counted) and is not a module fault.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, "", "", "materializer_bridge_started");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
 
     override void OnStart(HCSettings settings)

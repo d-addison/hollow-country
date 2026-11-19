@@ -384,7 +384,7 @@ class RoundTwoTests(unittest.TestCase):
                                                  HCReport=lambda enabled, admitted: None),
                        HCActionSiphonFuel=NS(ProductionStart=lambda preference: calls.append(preference),
                                             ProductionStop=service.ProductionStop), Print=world.prints.append)
-        context.update(HCModule=object, tostr=lambda value: value.ToString())
+        context.update(HCModule=object, HCOperationalStatus=object, tostr=lambda value: value.ToString())
         from tests.unit.test_refusal_report import MethodsTranslator
         for code in MethodsTranslator(source.read_text(), "HCCraftingModule",
                                       ("IsEnabled", "OnStart", "OnStop")).classes():

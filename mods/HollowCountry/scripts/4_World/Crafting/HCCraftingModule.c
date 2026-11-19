@@ -26,7 +26,17 @@ class HCCraftingGate
 
 class HCCraftingModule extends HCModule
 {
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
     override string GetName() { return "Crafting"; }
+
+    // Wave 16: ready only when the definition/config checks passed (HCCraftingGate.m_Started).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, HCCraftingGate.m_Started, m_Refusal, "", "definition_checks_passed");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings)
     {
         bool enabled = settings && settings.EnableCrafting;
@@ -40,6 +50,7 @@ class HCCraftingModule extends HCModule
     {
         HCCraftingGate.m_Started = false;
         HCCraftingGate.m_Validated = false;
+        m_Refusal = "";
         if (!GetGame() || !GetGame().IsServer() || !settings || !settings.EnableCrafting)
         {
             HCCommonRecoveryPolicy.HCReport(false, false);
@@ -50,7 +61,10 @@ class HCCraftingModule extends HCModule
         HCActionSiphonFuel.ProductionStart(HCCraftingGate.m_Validated);
         HCCommonRecoveryPolicy.HCReport(true, HCCraftingGate.m_Validated);
         if (!HCCraftingGate.m_Validated)
+        {
+            m_Refusal = "native_definition_checks_failed";
             Print("[HollowCountry] Crafting native definition/config checks FAILED; salvage disabled");
+        }
         else
             Print("[HollowCountry] Crafting definition/config checks passed; runtime acceptance PENDING");
     }

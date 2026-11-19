@@ -33,8 +33,18 @@ class HCVehicleFlipModule : HCModule
     protected ref array<Man> m_Players;
     protected int m_Cursor;
     protected bool m_AdmissionPrinted;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     static HCVehicleFlipModule Get() { return s_Instance; }
     override string GetName() { return "VehicleFlip"; }
+
+    // Wave 16: started = this module is the registered flip service (s_Instance).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool started = false;
+        if (s_Instance == this) { started = true; }
+        HCModuleReadiness.HCDerive(m_Operational, started, "", "", "vehicle_flip_service_started");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableVehicleFlip; }
     override void OnStart(HCSettings settings)
     {

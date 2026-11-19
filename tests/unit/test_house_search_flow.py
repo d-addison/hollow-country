@@ -52,7 +52,7 @@ class Flow:
         self.logs = []
         self.marker = marker
         self.env = self.h.env
-        self.env.update(HCModule=object, Print=self.logs.append, _binding_state=N(s_Instance=None))
+        self.env.update(HCModule=object, HCOperationalStatus=object, Print=self.logs.append, _binding_state=N(s_Instance=None))
         self.env['HCInteriorRules'].SearchAdmitted = lambda: self.marker
         self.env['HCInteriorRules'].SearchOptIn = lambda: self.marker
         for code in BindingSyntax(BINDING.read_text(), only=('HCSearchBinding',)).classes():

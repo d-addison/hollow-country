@@ -251,7 +251,17 @@ class HCXLivingModule : HCModule
     protected ref HCXCheckpointProps m_Checkpoints;
     protected int m_ActorCursor;
     protected string m_Refusal;
+    protected bool m_Started;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     override string GetName() { return "v2-expansion-living-world"; }
+
+    // Wave 16: started = OnStart ran; a provider/fairness refusal seen on a live actor is a real degradation
+    // and reports its own text (bounded to 128 characters by HCOperationalStatus).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", m_Refusal, "living_world_providers_installed");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override void OnStart(HCSettings settings)
     {
@@ -265,6 +275,8 @@ class HCXLivingModule : HCModule
         HCXEmoteObservation.Install(new HCXNativeSignalProvider());
         m_Checkpoints = new HCXCheckpointProps();
         m_Checkpoints.Start();
+        m_Refusal = "";
+        m_Started = true;
     }
     override void OnTick(float deltaTime)
     {
@@ -298,6 +310,7 @@ class HCXLivingModule : HCModule
     }
     override void OnStop()
     {
+        m_Started = false;
         HCAskForNews.Configure(false);
         HCXEmoteObservation.Stop();
         HCXAIQualification.SetEncountersEnabled(false);

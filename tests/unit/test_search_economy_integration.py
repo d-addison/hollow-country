@@ -860,7 +860,7 @@ class FixupRefreshHistoryTests(unittest.TestCase):
                 return code.replace('self.m_Index.Find(self.Key(scope, siteId), index)',
                     '((_found := find_out(self.m_Index, self.Key(scope, siteId))) and '
                     '((index := _found[1]) is not None) and _found[0])')
-        env = dict(HCModule=object, EArray=houses.EArray, HMap=houses.HMap,
+        env = dict(HCModule=object, HCOperationalStatus=object, EArray=houses.EArray, HMap=houses.HMap,
                    find_out=houses.find_out, Print=lambda message: None,
                    HCGroupClock=N(Utc=lambda: 1000), _refresh_state=N(s_Instance=None),
                    HCSearchRules=N(TextValid=lambda value, cap: bool(value) and len(value) <= cap))

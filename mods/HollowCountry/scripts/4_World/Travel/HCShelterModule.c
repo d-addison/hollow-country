@@ -52,8 +52,20 @@ class HCShelterModule : HCModule
     protected float m_RingRise;
     protected int m_SoftVegetation;
     protected ref array<float> m_RingRises = new array<float>();
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Shelters"; }
+
+    // Wave 16: placement is startup-only. Ready = started and at least one shelter placed; a started module that
+    // placed none (every layout refused, or not the reviewed world) is degraded, never ready. The per-site
+    // refusal counts are in the existing "V2 shelters placed=... refused=..." line.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        string fault = "";
+        if (m_Started && m_Placed < 1) { fault = "no_shelter_placed"; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", fault, "shelters_placed");
+        return m_Operational;
+    }
 
     override bool IsEnabled(HCSettings settings)
     {

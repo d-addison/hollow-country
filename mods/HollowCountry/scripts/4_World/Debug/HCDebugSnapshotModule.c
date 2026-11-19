@@ -16,6 +16,8 @@ class HCDebugSnapshotModule : HCModule
     static const string PATH = "$profile:HollowCountry/debug/snapshot.json";
     static const int MAX_BYTES = 1048576;
     protected bool m_Running;
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
     protected bool m_AdmissionPrinted;
     protected bool m_Logged;
     protected float m_Elapsed;
@@ -24,12 +26,20 @@ class HCDebugSnapshotModule : HCModule
     protected ref array<ref HCDebugContributor> m_Builtins;
 
     override string GetName() { return "DebugSnapshot"; }
+
+    // Wave 16: ready = contributors registered and the snapshot tick running; a world/date/store fault reports why.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, "", "snapshot_contributors_registered");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableDebugSnapshot; }
 
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || m_Running) { return; }
         if (!GetGame() || !GetGame().IsServer()) { return; }
+        m_Refusal = "";
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("DebugSnapshot", true, "W5-122", false));
@@ -69,6 +79,7 @@ class HCDebugSnapshotModule : HCModule
     {
         Print("[HollowCountry] debug snapshot disabled: world/date/store fault; preserve snapshot.json, .tmp and .bak");
         OnStop();
+        m_Refusal = "world_date_or_store_fault";
     }
 
     protected int HCWorldTime()

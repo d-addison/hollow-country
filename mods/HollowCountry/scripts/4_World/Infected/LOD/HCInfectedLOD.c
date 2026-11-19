@@ -408,10 +408,21 @@ class HCInfectedLODModule : HCModule
     protected ref HCLODSightBudget m_Sight;
     protected int m_Rays;
     protected int m_RayPeak;
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     static HCInfectedLODModule Get() { return s_Instance; }
 
     override string GetName() { return "InfectedLOD"; }
+
+    // Wave 16: cached readiness from the live started flag; a faulted herd store is a real degradation.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        string fault = "";
+        if (m_Running && m_Herds && m_Store && !m_Store.Healthy()) { fault = "herd_store_unhealthy"; }
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, fault, "lod_config_loaded_tick_running");
+        return m_Operational;
+    }
 
     override bool IsEnabled(HCSettings settings)
     {
@@ -422,10 +433,12 @@ class HCInfectedLODModule : HCModule
     {
         if (!GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
         string reason;
+        m_Refusal = "";
         m_Config = HCInfectedLODConfig.Load(reason);
         if (!m_Config)
         {
             Print("[HC InfectedLOD] disabled: " + reason + " runtime=PENDING");
+            m_Refusal = "lod_config_unavailable";
             return;
         }
         bool lodPreference = m_Config.EnableLOD;
@@ -436,6 +449,7 @@ class HCInfectedLODModule : HCModule
         {
             reason = "operator_preference_off";
             Print("[HC InfectedLOD] not started: " + reason + " runtime=PENDING");
+            m_Refusal = "operator_preference_off";
             m_Config = null;
             return;
         }

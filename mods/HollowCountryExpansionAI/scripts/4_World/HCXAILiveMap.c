@@ -181,7 +181,18 @@ class HCXAILiveModule : HCModule
     protected ref HCXAILive m_Live;
     protected ref array<ref HCXAILiveDebug> m_Pages;
 
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
     override string GetName() { return "hcxai-live-map"; }
+
+    // Wave 16: started = the live reporter exists (created in OnStart, dropped in OnStop).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        bool started = false;
+        if (m_Live) { started = true; }
+        HCModuleReadiness.HCDerive(m_Operational, started, "", "", "live_map_reporter_started");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return true; }
 
     override void OnStart(HCSettings settings)

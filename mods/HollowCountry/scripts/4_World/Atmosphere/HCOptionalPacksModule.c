@@ -9,8 +9,16 @@
 class HCOptionalPacksModule : HCModule
 {
     protected bool m_Started;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "OptionalPacks"; }
+
+    // Wave 16: cached readiness from the live started flag (never hard-coded).
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Started, "", "", "optional_pack_config_probe_logged");
+        return m_Operational;
+    }
 
     override bool IsEnabled(HCSettings settings)
     {
@@ -30,6 +38,8 @@ class HCOptionalPacksModule : HCModule
         Print("[HollowCountry] V2 optional pack AmbientAnimals loaded=" + animalsLoaded);
         Print("[HollowCountry] V2 optional pack Bicycles loaded=" + bicyclesLoaded);
     }
+
+    override void OnStop() { m_Started = false; }
 }
 
 modded class HCModuleRegistry

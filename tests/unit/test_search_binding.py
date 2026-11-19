@@ -73,6 +73,8 @@ class ScriptObject:
             typ, key, initial = match.groups()
             if 'array<' in typ:
                 value = EArray() if initial else None
+            elif initial and initial.startswith('new '):
+                value = None  # wave 16: owned HCOperationalStatus status holder, unused by these flows
             elif initial:
                 value = json.loads(initial)
             else:

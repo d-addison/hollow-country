@@ -58,13 +58,24 @@ class HCScenesModule : HCModule
     protected bool m_Stopping;
     protected bool m_AdmissionPrinted;
     protected bool m_SummaryPrinted;
+    protected string m_Refusal;
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
 
     override string GetName() { return "Scenes"; }
+
+    // Wave 16: ready = the scene store opened, the story schedule resolved (an operator-off story schedule logs
+    // its own HC-19 reason) and the module is running; a refused start reports the named refusal.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, "", "scene_store_open_schedule_running");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
 
     override void OnStart(HCSettings settings)
     {
         if (!GetGame() || !GetGame().IsServer() || !IsEnabled(settings) || m_Running) { return; }
+        m_Refusal = "";
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("Scenes", true, "EXP-S3", HCV2Gates.Qualified("EXP-S3")));
@@ -73,6 +84,7 @@ class HCScenesModule : HCModule
         if (s_CleanupOwner || m_Leases.Count() > 0)
         {
             Print("[HollowCountry] V2 scenes startup refused; prior observer-gated cleanup pending");
+            m_Refusal = "prior_cleanup_pending";
             return;
         }
         string world;
@@ -81,12 +93,14 @@ class HCScenesModule : HCModule
         if (world != "chernarusplus")
         {
             Print("[HollowCountry] V2 scenes refused; no reviewed sites for this world");
+            m_Refusal = "no_reviewed_sites_for_world";
             return;
         }
         int now = Now();
         if (now < 1)
         {
             Print("[HollowCountry] V2 scenes refused; utc_clock_unavailable");
+            m_Refusal = "utc_clock_unavailable";
             return;
         }
         m_Store = new HCSceneChainStore;
@@ -95,6 +109,7 @@ class HCScenesModule : HCModule
         {
             // HCSceneChainStore.Open already logged the persistence cause (reason=...).
             Print("[HollowCountry] V2 scenes refused; store_unavailable");
+            m_Refusal = "store_unavailable";
             return;
         }
         m_Stories = new HCStorySchedule;
@@ -103,6 +118,7 @@ class HCScenesModule : HCModule
         {
             Print("[HollowCountry] V2 scenes refused; HC-19 " + m_Stories.HCReason());
             m_Stories = null;
+            m_Refusal = "story_schedule_refused";
             return;
         }
         // HC-38 offers every retained chain once from the bound source. Bind it

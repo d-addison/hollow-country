@@ -607,7 +607,16 @@ class HCXDefence
 
 class HCXDefenceModule : HCModule
 {
+    protected ref HCOperationalStatus m_Operational = new HCOperationalStatus;
+
     override string GetName() { return "AISelfDefence"; }
+
+    // Wave 16: started = the grudge service is running (HCXDefence.Running), never hard-coded.
+    override HCOperationalStatus HCGetOperationalStatus()
+    {
+        HCModuleReadiness.HCDerive(m_Operational, HCXDefence.Running(), "", "", "defence_grudge_service_running");
+        return m_Operational;
+    }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableEncounters; }
     override void OnStart(HCSettings settings)
     {
