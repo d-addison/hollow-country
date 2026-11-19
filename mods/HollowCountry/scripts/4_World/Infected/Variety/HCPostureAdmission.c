@@ -9,7 +9,14 @@
 // observed engine playback or safe wake evidence. No caller can promote them
 // through a client assertion, JSON preference, successful bind or elapsed timer.
 // Arrays/Print: 1_Core/proto/EnScript.c:380,385,407; EnDebug.c:96.
-// Fixed four modes, <=1 queue row per core tick, retained cursor, then no-op.
+// Audit #121: tier-C modes are admitted by SHIPPED ASSETS, not by a client verdict.
+// A mode is shipped only when mods/HollowCountryAnims has its clips (tools/anim
+// build_anims_addon.py CLIPS) and its entry state in hc_poses.agf; tests/unit/
+// test_auditpose_riser.py forces the three to change together. The native playback
+// verdict is admitted unverified (owner decision 2026-11-19), logged runtime=PENDING.
+// Unshipped modes (flat sleeper, lying riser, feeding) refuse with a named reason
+// pointing at the exact asset spec in docs/ANIMATION_PIPELINE.md.
+// Fixed four queued modes (feed_kneel is a pose id only, not a queue row), <=1 queue row per core tick, retained cursor, then no-op.
 // Native actor activation stays in the existing HC-14 observer/#135 budget path.
 class HCPostureAdmission
 {
@@ -29,7 +36,10 @@ class HCPostureAdmission
     static bool HCCanEnter(string mode)
     {
         if (mode == "native_stance_idle" || mode == "native_mind_idle") { return true; }
-        return mode == "native_crawler_idle" || mode == "native_crawler_wake";
+        if (mode == "native_crawler_idle" || mode == "native_crawler_wake") { return true; }
+        // Tier C: only the sit pair has authored clips and a graph entry state.
+        // prone_sleep, riser and feed_kneel flip here, with their clips and AGF states.
+        return mode == "sit_wall";
     }
 
     static string HCPostureRefusal(string mode)
@@ -37,10 +47,15 @@ class HCPostureAdmission
         if (mode == "native_crawler_idle") { return "none_native_idle_only"; }
         if (mode == "native_crawler_wake") { return "none_native_resume_crawl_unverified"; }
         if (mode == "native_stance_idle" || mode == "native_mind_idle") { return "none_native_move_api_unverified"; }
-        if (mode == "sit_wall") { return "SIT_WAKE_NATIVE_PROOF_PENDING"; }
-        if (mode == "prone_sleep") { return "PRONE_WAKE_GRAPH_UNVERIFIED"; }
-        if (mode == "riser") { return "REVERSIBLE_RISE_UNEXPOSED"; }
+        if (mode == "sit_wall") { return "none_graph_admitted_unverified"; }
+        if (mode == "prone_sleep" || mode == "riser" || mode == "feed_kneel") { return "ASSET_NOT_AUTHORED_" + mode; }
         return "POSTURE_MODE_UNSUPPORTED";
+    }
+
+    static string HCTierCState(string mode)
+    {
+        if (HCCanEnter(mode)) { return "admitted_unverified"; }
+        return "asset_missing";
     }
 
     static string HCPoseMode(int pose)
@@ -48,7 +63,21 @@ class HCPostureAdmission
         if (pose == 1) { return "sit_wall"; }
         if (pose == 2) { return "prone_sleep"; }
         if (pose == 3) { return "riser"; }
+        if (pose == 4) { return "feed_kneel"; }
         return "unsupported";
+    }
+
+    // Length of the get-up clip played when LEAVING a pose. These are asset
+    // facts, not tuning: each value is the authored clip length plus its blend
+    // (sit: hc_sit_wall_getup 1.6 s). The unshipped rows are the asset spec
+    // targets in docs/ANIMATION_PIPELINE.md and must match the clip when authored.
+    static float HCRiseSeconds(int pose)
+    {
+        if (pose == 1) { return 1.7; }
+        if (pose == 2) { return 2.6; }
+        if (pose == 3) { return 2.8; }
+        if (pose == 4) { return 2.0; }
+        return 0;
     }
 
     static string HCLine(string mode, int checked)
@@ -65,6 +94,11 @@ class HCPostureAdmission
         if (mode == "native_stance_idle" || mode == "native_mind_idle")
         {
             support = "native_move_api_only";
+            wake = "native_mind_state_unverified";
+        }
+        if (mode == "sit_wall")
+        {
+            support = "own_graph_command_unverified";
             wake = "native_mind_state_unverified";
         }
         string line = "[HC Plan] HC-45 posture=" + mode + " support=" + support + " wake=" + wake;
@@ -96,7 +130,9 @@ class HCPostureAdmission
         if (HCPostureAdmission.HCCanEnter("native_crawler_idle") && HCPostureAdmission.HCCanEnter("native_stance_idle") && HCPostureAdmission.HCCanEnter("native_mind_idle") && HCPostureAdmission.HCCanEnter("native_crawler_wake")) { state = "ready"; }
         m_Status.HCPublish(state, "native_crawler_idle_admitted_rest_wake_unverified_runtime_pending");
         Print("[HC Variety] native_postures=admitted_unverified stance=0..3 idle=native_mind_state wake=resume_crawl opt_out=EnableInfectedVariety runtime=PENDING");
-        Print("[HC Variety] tier_c=custom_graph_required sit_wall=experimental_addon_unverified prone_flat=assets_missing standing_riser=assets_missing native_crawl_reverse=unexposed runtime=PENDING");
+        string tierC = "[HC Variety] tier_c=custom_graph sit_wall=" + HCTierCState("sit_wall") + " prone_sleep=" + HCTierCState("prone_sleep");
+        tierC = tierC + " lying_riser=" + HCTierCState("riser") + " feed_kneel=" + HCTierCState("feed_kneel");
+        Print(tierC + " native_crawl_reverse=unexposed asset_spec=docs/ANIMATION_PIPELINE.md runtime=PENDING");
         HCSlice();
     }
 

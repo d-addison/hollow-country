@@ -262,9 +262,10 @@ class PostureWiring(unittest.TestCase):
                   FindActor=lambda actor: None, Track=lambda actor: tracked.append(actor) or True)
         reason = Cell()
         self.assertTrue(fn(owner, player, reason), 'body spawning must remain available')
-        self.assertIn('pose-refused:SIT_WAKE_NATIVE_PROOF_PENDING', reason.value,
-                      'sitter reported pose ownership despite refused sit admission')
-        self.assertNotIn('addon-owns-pose', reason.value)
+        # Audit #121: the sit pair ships, so admission is granted (unverified) and the
+        # addon owns the pose. A refusing policy still reports the actual refusal.
+        self.assertIn('addon-owns-pose', reason.value)
+        self.assertNotIn('pose-refused', reason.value)
         self.assertIs(body, owner.m_HCAdminSitter)
         self.assertEqual([body], tracked)
         self.assertEqual([('HC_ZmbM_Sitter', [10., 0., 18.], 3)], created)
@@ -272,6 +273,15 @@ class PostureWiring(unittest.TestCase):
         self.assertFalse(fn(owner, player, reason))
         self.assertEqual('sitter-body-cap=1; includes-corpse', reason.value)
         self.assertEqual(1, len(created))
+
+        refusing = N(HCCanEnter=lambda mode: False, HCPostureRefusal=p.HCPostureRefusal)
+        env['HCPostureAdmission'] = refusing
+        fn = compile_authored(ADMIN, 'HCInfectedModule', 'HCAdminSitter', env, ('FindActor', 'Track'))
+        owner.m_HCAdminSitter = None
+        reason = Cell()
+        self.assertTrue(fn(owner, player, reason))
+        self.assertIn('pose-refused:none_graph_admitted_unverified', reason.value)
+        self.assertNotIn('addon-owns-pose', reason.value)
 
 
 if __name__ == '__main__':

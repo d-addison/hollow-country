@@ -70,7 +70,7 @@ class VarietyW56(unittest.TestCase):
         site = N(Id='synthetic-wreck', Context='wreck', Position=[1000., 0., 1000.])
         state = N(s_Running=True, s_Pending=True, s_Admin=True,
                   s_NextAutomatic=0., s_Config=N(MaxFreshBodies=3, GroupMembers=3,
-                    Sites=Array([site]), ContextRange=40., GroupSpacing=4., InterestRange=1000., StandingRiserEvery=0),
+                    Sites=Array([site]), ContextRange=40., GroupSpacing=4., InterestRange=1000., StandingRiserEvery=0, PosedFreshEvery=0),
                   s_Bodies=bodies, s_Selected=0, s_Made=0, s_Tried=Array(),
                   s_Used=Array(), s_LastRefusal='')
         visible = [False]
@@ -85,11 +85,12 @@ class VarietyW56(unittest.TestCase):
             HCInfectedModule=N(Instance=infected),
             HCServer=N(HCTickWork=lambda: N(HCTakeFor=lambda *args: True)),
             HCUnitBudget=N(HC_WORK_INFECTED=0), HCPerfPlayers=N(HCGet=lambda: Array()),
-            GetGame=lambda: N(SurfaceY=lambda *args: 0.),
+            GetGame=lambda: N(SurfaceY=lambda *args: 0., ConfigIsExisting=lambda cfg: False),
             HCInfectedLOD=N(NearestDistance=lambda *args: 500.),
             HCAdminPlacement=N(HCClear=lambda pos: True),
             HCInfectedVarietyPolicy=N(HCContextRole=lambda *args: 0,
-                HCStandingFresh=lambda *args: False), Print=lambda *args: None)
+                HCStandingFresh=lambda *args: False,
+                HCPoseClass=lambda: 'HC_ZmbM_Sitter', HCPoseFresh=lambda *args: 0), Print=lambda *args: None)
         owner = N(HCHidden=lambda *args: not visible[0], HCRefuse=refusals.append)
         method(owner, 1., 1.)
         self.assertEqual(1, len(created))

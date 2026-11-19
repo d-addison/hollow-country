@@ -1,10 +1,14 @@
 // Hollow Country posed infected: server-side request hook for the HCMasterControl pose layer.
 // Experimental: compiled and played by nobody yet; native and two-client acceptance pending.
 //
-// HC-45: all seated/prone/riser entry requests now refuse until native proof.
+// Audit #121: admission is by SHIPPED ASSETS (HCPostureAdmission.HCCanEnter). The sit pair
+// ships, so pose 1 is admitted unverified; pose 2 (flat sleeper), 3 (lying riser) and
+// 4 (feed_kneel) keep refusing, once per change, until their clips and graph states exist
+// (exact asset spec: docs/ANIMATION_PIPELINE.md). The adapter is already pose-generic: one
+// command, one int, per-pose rise length (HCPostureAdmission.HCRiseSeconds), no re-pose
+// while a rise is playing, and the Variety wake paths reach it through HCVarietyPoseWake.
 // EEInit submits one request synchronously; no retained CallLater callback can
-// outlive deletion. Pose 0 remains cleanup. The graph implementation below stays
-// experimental, unreachable through HCRequestPose while admission refuses it.
+// outlive deletion. Pose 0 remains cleanup.
 // A scripted command holds the infected still and sends the synchronized graph command
 // CMD_HC_POSE (int param = pose); hc_poses.agf enters/leaves the pose on that command and
 // returns to the vanilla MasterControl on any vanilla death/hit/crawl/attack/vault command.
@@ -26,12 +30,12 @@
 
 class HCPoseCommand extends DayZInfectedCommandScript
 {
-	static const float RISE_SECONDS = 1.7;    // hc_sit_wall_getup is 1.6 s
 	static const float RESEND_SECONDS = 2.0;  // re-announce the pose for clients that streamed in late
 
 	protected HC_ZmbM_Sitter m_HCOwner;
 	protected int m_HCSent;
 	protected float m_HCRise;
+	protected int m_HCRiseFrom;   // pose being left; its clip length bounds the rise
 	protected float m_HCResend;
 
 	void HCPoseCommand(DayZInfected pInfected)
@@ -39,6 +43,7 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		m_HCOwner = HC_ZmbM_Sitter.Cast(pInfected);
 		m_HCSent = -1;
 		m_HCRise = -1;
+		m_HCRiseFrom = -1;
 		m_HCResend = 0;
 	}
 
@@ -66,7 +71,7 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		if (m_HCRise >= 0)
 		{
 			m_HCRise += pDt;
-			if (m_HCRise > RISE_SECONDS)
+			if (m_HCRise > HCPostureAdmission.HCRiseSeconds(m_HCRiseFrom))
 				SetFlagFinished(true);
 			return;
 		}
@@ -74,9 +79,14 @@ class HCPoseCommand extends DayZInfectedCommandScript
 		m_HCResend += pDt;
 		if (wanted != m_HCSent || m_HCResend > RESEND_SECONDS)
 		{
+			int leaving = m_HCSent;
 			HCSend(wanted);
 			if (wanted == 0)
+			{
+				m_HCRiseFrom = leaving;
 				m_HCRise = 0;
+				m_HCOwner.HCNoteRise();
+			}
 		}
 	}
 
@@ -91,9 +101,11 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 	static const int MAX_POSED = 12;   // server-wide budget of posed infected
 	static int s_HCPosed;
 
-	protected int m_HCPose;            // 0 stand, 1 sit against a wall or tree
+	protected int m_HCPose;            // 0 stand, 1 sit against a wall or tree, 2 flat sleeper, 3 lying riser, 4 kneel feeding
 	protected bool m_HCHolding;        // holds one MAX_POSED slot
 	protected bool m_HCStarted;        // our scripted command was started
+	protected bool m_HCRising;         // the get-up clip is playing; no new pose until it ends
+	static string s_HCLastRefusal;     // print-once-per-change refusal reason
 	protected int m_HCPoseCmd = -1;
 	protected int m_HCPoseVar = -1;
 
@@ -103,7 +115,9 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		if (!g_Game.IsServer() || !IsAlive())
 			return false;
 		if (pose != 0 && !HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(pose)))
-			return false;
+			return HCRefusePose(pose);
+		if (pose != 0 && m_HCRising)
+			return false;   // finish the get-up (interruption safety); never snap into a new pose
 		if (pose == m_HCPose)
 			return true;
 		if (pose != 0 && !m_HCHolding)
@@ -119,6 +133,35 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		m_HCPose = pose;
 		Print("[HollowCountryAnims] pose request pose=" + pose.ToString() + " posed=" + s_HCPosed.ToString());
 		return true;
+	}
+
+	protected bool HCRefusePose(int pose)
+	{
+		string reason = HCPostureAdmission.HCPostureRefusal(HCPostureAdmission.HCPoseMode(pose));
+		if (reason != s_HCLastRefusal)
+		{
+			s_HCLastRefusal = reason;
+			Print("[HollowCountryAnims] pose refused pose=" + pose.ToString() + " reason=" + reason + " runtime=PENDING");
+		}
+		return false;
+	}
+
+	//! Called by our command when the get-up clip starts; cleared on release.
+	void HCNoteRise()
+	{
+		m_HCRising = true;
+	}
+
+	//! Variety fresh posed body: the pose layer holds it; Variety owns the wake.
+	override bool HCVarietyPoseRequest(int pose)
+	{
+		return HCRequestPose(pose);
+	}
+
+	//! Variety wake (proximity, noise, shot, damage, cap, stop): begin the get-up once.
+	override void HCVarietyPoseWake()
+	{
+		HCRequestPose(0);
 	}
 
 	int HCWantedPose()
@@ -149,6 +192,7 @@ class HC_ZmbM_Sitter extends ZmbM_HermitSkinny_Base
 		}
 		m_HCPose = 0;
 		m_HCStarted = false;
+		m_HCRising = false;
 	}
 
 	override bool ModCommandHandlerBefore(float pDt, int pCurrentCommandID, bool pCurrentCommandFinished)

@@ -23,6 +23,41 @@ class HCInfectedVarietyPolicy
         return every > 0 && ordinal >= 0 && (ordinal + 1) % every == 0;
     }
 
+    // Audit #121: every Nth fresh body is a custom-graph posed body (named
+    // config PosedFreshEvery in variety-runtime.json; 0 opts out). Optional key,
+    // defaulted ON when absent. The authored third body of a group of three.
+    static const int DEFAULT_POSED_FRESH_EVERY = 3;
+
+    // Addon class carrying the pose layer (mods/HollowCountryAnims config.cpp).
+    static string HCPoseClass()
+    {
+        return "HC_ZmbM_Sitter";
+    }
+
+    // Context-fitting primary pose (CMD_HC_POSE value); 0 = no posed variant.
+    // wreck: a lying body that rises; roadside: a flat sleeper; gas station: a
+    // feeder; church/building: sitting against a wall. Sit is the shipped fallback.
+    static int HCPosePrimary(string context)
+    {
+        if (context == "wreck") { return 3; }
+        if (context == "roadside") { return 2; }
+        if (context == "gas_station") { return 4; }
+        if (context == "church" || context == "building") { return 1; }
+        return 0;
+    }
+
+    // Zero-based group ordinal -> pose to request, or 0 for the native variants.
+    // Admission (shipped assets) and the addon class presence are caller facts.
+    static int HCPoseFresh(string context, int ordinal, int every, bool classPresent)
+    {
+        if (!classPresent || !HCStandingFresh(ordinal, every)) { return 0; }
+        int primary = HCPosePrimary(context);
+        if (primary < 1) { return 0; }
+        if (HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(primary))) { return primary; }
+        if (HCPostureAdmission.HCCanEnter(HCPostureAdmission.HCPoseMode(1))) { return 1; }
+        return 0;
+    }
+
     // Source context chooses the role; the existing runner cap remains authoritative.
     static int HCContextRole(string context, bool runnerRoom)
     {
