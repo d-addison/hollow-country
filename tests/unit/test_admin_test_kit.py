@@ -745,7 +745,7 @@ class ExtraRouting(unittest.TestCase):
 
 
 class KitListing(unittest.TestCase):
-    def build(self, active=("AdminMap", "Infected", "Scenes", "Radio"), sitter_class=True, controls=True, physical="ready", physical_reason="bound"):
+    def build(self, active=("AdminMap", "Infected", "Scenes", "Radio"), sitter_class=True, controls=True, physical="ready", physical_reason="bound", variety=True):
         lines = []
         reply = NS(Lines=EArray())
         # Synthetic cast: the started AdminMap owner exposes its cached opt-out sample.
@@ -754,7 +754,8 @@ class KitListing(unittest.TestCase):
         scope = base_scope(HCCampProbes=NS(HCGetOperationalStatus=lambda: status),
                            HCBaseRaid=NS(HCGetOperationalStatus=lambda: status),
                            GetGame=lambda: NS(ConfigIsExisting=lambda name: sitter_class),
-                           HCAdminModule=NS(Cast=lambda module: admin if module == "AdminMap" else None))
+                           HCAdminModule=NS(Cast=lambda module: admin if module == "AdminMap" else None),
+                           HCInfectedVarietyModule=NS(VarietyActive=lambda: variety))
         service = NS()
         service.HCAdminModuleNamed = lambda name: name if name in active else None
         fn = compile_authored(ADMIN / "HCAdminStatus.c", "HCServer", "HCAdminKit", scope,
@@ -812,11 +813,14 @@ class KitListing(unittest.TestCase):
         self.assertIn("available=0", sitter)
         self.assertIn("class-missing-HC_ZmbM_Sitter", sitter)
 
-    def test_dormant_is_listed_as_refused_by_design(self):
-        lines = self.build(active=("AdminMap", "Infected"))
-        dormant = [l for l in lines if "cmd=dormant" in l][0]
+    def test_dormant_follows_the_variety_fresh_body_queue(self):
+        dormant = [l for l in self.build(active=("AdminMap", "Infected")) if "cmd=dormant" in l][0]
+        self.assertIn("available=1", dormant)
+        self.assertNotIn("refused-by-design", dormant)
+        self.assertNotIn("missing-hook", dormant)
+        dormant = [l for l in self.build(active=("AdminMap", "Infected"), variety=False) if "cmd=dormant" in l][0]
         self.assertIn("available=0", dormant)
-        self.assertIn("refused-by-design", dormant)
+        self.assertIn("reason=variety-inactive", dormant)
 
     def test_the_listing_fits_the_reply_line_cap(self):
         self.assertLessEqual(len(self.build()), 64)

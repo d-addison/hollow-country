@@ -114,10 +114,6 @@ class HCAdminModule : HCModule
         m_DebugEnabled = settings.EnableDebugSnapshot;
         m_OperatorControls = !FileExist("$profile:HollowCountry/acceptance/AdminControls.disable");
         Print(HCV2Admission.Line("AdminControls", m_OperatorControls, "203", false) + " runtime=PENDING");
-        if (m_OperatorControls)
-        {
-            Print("[HC Admin] controls missing=HCRequestFreshDormant runtime=PENDING");
-        }
         m_Running = true;
         DayZGame.Event_OnRPC.Insert(HCReceive);
         m_Status.HCPublish("ready", "allowlist_loaded_native_acceptance_pending");

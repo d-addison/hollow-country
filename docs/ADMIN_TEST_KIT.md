@@ -13,11 +13,8 @@ replay guard and existing per-admin throttle remain authoritative. `status`
 continues to use the existing operational-status hook: a ready admin transport
 is not evidence that a missing body provider exists. Admission logs include
 `feature=AdminControls` and `runtime=PENDING`. Once after a successful allowlist
-startup, enabled controls log:
-
-```text
-[HC Admin] controls missing=HCRequestFreshDormant,HCRequestVisitorParty,HCRequestRaidParty runtime=PENDING
-```
+startup, every camp and dormant control has an owner path, so no missing-controls line is
+logged any more.
 
 The server handlers and catalog registrations below are authored. The three camp
 wire IDs use the existing authorized RPC ingress, replay guard and one-command
@@ -26,24 +23,26 @@ queue, and are offered by the catalog-driven UI. Runtime acceptance is pending.
 | Command | Value | Behavior and limits |
 | :--- | :--- | :--- |
 | `camptier` | 0 to 3 | Persists the nearest recognised camp's tier through `HCCampModule.Commit` / `HCCampStore`. The entire candidate set must fit configured `HCAILimits.MaxCamps` and shared `HCTickWork().HCTake(1)` per row, otherwise no camp is changed. There is no new range cutoff. UTC rollback, inactive services and failed writes refuse; failed writes restore the previous in-memory tier. The next due normal camp scan reclassifies it. No clock aging, structures, claims, world facts, bodies or loot are fabricated. |
-| `campvisit` | none | Selects a camp under the same caps; returns `missing-hook-HCRequestVisitorParty`. The current visitor service records missing-body refusals and cannot request physical arrivals. No visitor state or cooldown is changed. |
-| `campraid` | none | Selects a camp under the same caps; returns `missing-hook-HCRequestRaidParty`. The current probe service has no physical raid request port. No threat state or cooldown is changed. |
-| `dormant` | none | Existing wire ID now calls a narrow module adapter and reports `missing-hook-HCRequestFreshDormant`. LOD has tracked creation, but native crawling is an injury transition, not a reversible spawn-to-rest API. No standing substitute or orphan body is created. |
+| `campvisit` | none | Selects a recognised camp under the same caps and asks `HCCampProbes.HCRequestVisitorParty` for a physical visit. The request goes through normal eligibility (tier 3, camp day 14 or later, not hidden, three real days since `LastVisit`), attendance, cooldown and shared budget checks. A naturally materialised party walks in through native doors, inspects storage and leaves; it never takes items, spawns in sight or teleports. A success debits `LastVisit` once. Refusals name a `CAMP_VISITOR_` or `BASE_RAID_` reason and change no cooldown. `camp_visitors.disable`, `camp_probes.disable` or `base_raid.disable` turns visits off. |
+| `campraid` | none | Selects a recognised camp under the same caps and asks `HCCampProbes.HCRequestRaidParty` for the normal warned raid. The owner gets the camp warning first; nothing happens before `WarningSeconds`, and a returning group member or observer cancels it. A success debits `LastProbe`; refusals name a `BASE_RAID_` reason and change no cooldown. `camp_probes.disable` or `base_raid.disable` turns raids off. |
+| `dormant` | none | Delegates to `HCInfectedVariety.HCAdminFreshDormant`: queues one fresh crawler group at the nearest authored variety place in range, under the normal fresh-body cap (corpses included). It refuses while variety is inactive or `infected_variety.disable` is present, for an invalid position, or while a request is already pending. No standing substitute or orphan body is created. |
 
 Do not count successful tier persistence as a visitor/raid observation. Normal
 camp classification, cooldowns, faction resources and observer-safe materializer
-ownership still belong to their existing owners. The missing hooks must connect
-physical custody, routes and observed body outcomes before any arrival can be
-reported. This worker introduces no new distances or numeric configuration fields;
+ownership still belong to their existing owners. Visits, raids and dormant groups
+go through those owners' physical custody, routes and body outcomes; none has been
+observed in DayZ yet. Camps that exist only as a building claim (no recognised
+hearth camp row) cannot be targeted yet
+([#212](https://github.com/d-addison/hollow-country/issues/212)). This worker introduces no new distances or numeric configuration fields;
 0..3 is the existing camp store schema. COT-role authorization remains open; no
 COT files or source were read during this work.
 
 Catalog integration is applied in `scripts/3_Game/Admin/HCAdminCatalog.c`:
 `camptier`, `campvisit` and `campraid` follow `camp`, with tier bounds 0 to 3.
-Dormant help reports the missing fresh-body rest transition hook. `HCKnown`
+Dormant help describes the variety fresh-body queue. `HCKnown`
 continues to delegate to the catalog. `HCAdminStatus.c:HCAdminKit` lists the three
-camp commands after `camp`; the compatibility `refused-by-design` dormant prefix
-still names its actual missing hook. Catalog/dispatch equality includes
+camp commands after `camp`; the dormant line is available only while infected
+variety is active (`reason=variety-inactive` otherwise). Catalog/dispatch equality includes
 `HCOperatorCommand`, and kit tests include all three IDs. No module slot,
 MISSION_FILES entry, config.cpp or settings-registry edit is needed.
 
@@ -91,7 +90,7 @@ receipt and its rollback API exist. Feature flags alone cannot undo these bytes.
 ### Native checks still required
 
 With catalog integration applied, run DayZDiag and normal packaged server/client
-loads with two clients. Grep `feature=AdminControls`, `[HC Admin] controls missing=`,
+loads with two clients. Grep `feature=AdminControls`, `feature=CampVisitors`, `[HC CampVisitors] reserved walk=pending`,
 `[HC Admin] cmd=camptier`, `cmd=campvisit`, `cmd=campraid`, `cmd=dormant`, and
 `SCRIPT (E)`. Confirm the existing `status` owner row follows allowlist startup,
 not catalog presence. With a recognised camp, test tiers 0 and 3, rejection of
@@ -99,9 +98,8 @@ out-of-schema raw values, save/restart and next-scan reclassification. A forced
 tier must create no structures, items, world facts or actors. With the opt-out
 file present at restart, tier writes and dormant requests must refuse; remove
 it and restart to readmit controls. Verify an unallowlisted second client cannot
-run commands. Visit/raid/dormant outcomes must remain their named missing-hook
-refusals until their owners supply the ports; do not record them as observed
-spawns. Rehearse removal against a disposable installed mission while stopped,
+run commands. Record visit/raid/dormant outcomes only from what the two clients
+actually see; a refusal reason is not an observed arrival. Rehearse removal against a disposable installed mission while stopped,
 check byte hashes and untouched saves, then test a normal packaged restart.
 
 ### Spec, plan and tasks for this worker
@@ -398,7 +396,7 @@ decay towns=`. Grep `[HollowCountry]` after a command to see the effect.
 | Horde migration, shelters, wreck salvage, vehicle flip | none | snapshot (shelters) | no trigger yet; play normally |
 | Signs of life, Morse, team ping, progression, crafting, meal buffs | none | none | no admin trigger; test by playing |
 | Faction conflict, camp respawn, pickers, materializer | none | snapshot (materializer) | no admin trigger; test by playing |
-| Dormant infected | `dormant` | `kit` | missing `HCRequestFreshDormant` fresh-body rest transition |
+| Dormant infected | `dormant` | `kit` | queues a fresh crawler group at the nearest variety place; refused at the fresh-body cap |
 
 Wildlife, visual seasons and claim-a-building bases are not in the source yet, so
 they have nothing to trigger.
