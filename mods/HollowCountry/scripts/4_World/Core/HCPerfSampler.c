@@ -19,7 +19,8 @@
 // the declaration (string report = '...'), as observed in a real RPT.
 const int HC_PERF_MAX_SAMPLES = 512;
 const int HC_PERF_MAX_MODULES = 64;
-// Per-module [HC Cost] lines per emission; a single [HC CostTotal] line covers all modules.
+// Per-module [HC Cost] lines per emission (plus the pinned Ecology line when outside the top N);
+// a single [HC CostTotal] line covers all modules.
 const int HC_PERF_COST_TOP = 8;
 const int HC_PERF_MAX_WINDOW_SECONDS = 120;
 const float HC_PERF_MIN_TICKS_PER_MS = 0.01;
@@ -170,7 +171,13 @@ class HCPerfSampler
     }
 
     // One totals line, then the HC_PERF_COST_TOP costliest modules by peak
-    // (descending; ties and unobserved modules keep registration order).
+    // (descending; ties and unobserved modules keep registration order). The
+    // Ecology module is pinned last when it fell outside the top N, so at most
+    // N + 1 lines print and Ecology never prints twice. m_CostPicked holds the
+    // 1-based print order per module, 0 = not printed.
+    // The *_maxsum_* fields add each module's own per-window MAXIMUM. Those
+    // maxima need not coincide in time, and startup/callback/save/admission
+    // overlap, so they are an upper bound per kind and never a total cost.
     protected void EmitCosts(float ticksPerMs)
     {
         int moduleCount = m_ModuleNames.Count();
@@ -194,25 +201,6 @@ class HCPerfSampler
             if (m_CostMaxTicks.Get(scanSlot + 3) > 0) sumAdmission += m_CostMaxTicks.Get(scanSlot + 3);
             scan++;
         }
-        int omitted = moduleCount - shown;
-        string total = "[HC CostTotal] modules=" + moduleCount.ToString() + " observed=" + observed.ToString();
-        total = total + " shown=" + shown.ToString() + " omitted=" + omitted.ToString();
-        if (ticksPerMs > 0)
-        {
-            total = total + " startup_sum_ms=" + FormatMs(sumStartup / ticksPerMs);
-            total = total + " callback_sum_ms=" + FormatMs(sumCallback / ticksPerMs);
-            total = total + " save_sum_ms=" + FormatMs(sumSave / ticksPerMs);
-            total = total + " admission_sum_ms=" + FormatMs(sumAdmission / ticksPerMs);
-        }
-        else
-        {
-            total = total + " startup_sum_ticks=" + sumStartup.ToString();
-            total = total + " callback_sum_ticks=" + sumCallback.ToString();
-            total = total + " save_sum_ticks=" + sumSave.ToString();
-            total = total + " admission_sum_ticks=" + sumAdmission.ToString();
-            total = total + " calibration=invalid reason=invalid_calibration";
-        }
-        Print("" + total + "; runtime=PENDING");
         int rank = 0;
         while (rank < shown)
         {
@@ -233,9 +221,48 @@ class HCPerfSampler
                 pick++;
             }
             if (best < 0) break;
-            m_CostPicked.Set(best, 1);
-            EmitCostLine(best, ticksPerMs);
             rank++;
+            m_CostPicked.Set(best, rank);
+        }
+        int printed = rank;
+        if (m_EcologyIndex >= 0 && m_EcologyIndex < moduleCount && m_CostPicked.Get(m_EcologyIndex) == 0)
+        {
+            printed++;
+            m_CostPicked.Set(m_EcologyIndex, printed);
+        }
+        int omitted = moduleCount - printed;
+        string total = "[HC CostTotal] modules=" + moduleCount.ToString() + " observed=" + observed.ToString();
+        total = total + " shown=" + printed.ToString() + " omitted=" + omitted.ToString();
+        if (ticksPerMs > 0)
+        {
+            total = total + " startup_maxsum_ms=" + FormatMs(sumStartup / ticksPerMs);
+            total = total + " callback_maxsum_ms=" + FormatMs(sumCallback / ticksPerMs);
+            total = total + " save_maxsum_ms=" + FormatMs(sumSave / ticksPerMs);
+            total = total + " admission_maxsum_ms=" + FormatMs(sumAdmission / ticksPerMs);
+        }
+        else
+        {
+            total = total + " startup_maxsum_ticks=" + sumStartup.ToString();
+            total = total + " callback_maxsum_ticks=" + sumCallback.ToString();
+            total = total + " save_maxsum_ticks=" + sumSave.ToString();
+            total = total + " admission_maxsum_ticks=" + sumAdmission.ToString();
+            total = total + " calibration=invalid reason=invalid_calibration";
+        }
+        Print("" + total + "; runtime=PENDING");
+        int order = 1;
+        while (order <= printed)
+        {
+            int emit = 0;
+            while (emit < moduleCount)
+            {
+                if (m_CostPicked.Get(emit) == order)
+                {
+                    EmitCostLine(emit, ticksPerMs);
+                    break;
+                }
+                emit++;
+            }
+            order++;
         }
     }
 

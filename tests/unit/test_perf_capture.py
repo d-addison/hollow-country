@@ -689,7 +689,7 @@ class CostSummaryBehavior(unittest.TestCase):
         self.assertEqual(['M00', 'M01', 'M02', 'M03'], [line.split()[2][7:] for line in costs[4:]],
                          'unobserved modules rank last in registration order')
         self.assertIn('modules=64 observed=4 shown=8 omitted=56', totals[0])
-        self.assertIn('startup_sum_ticks=101 callback_sum_ticks=900 save_sum_ticks=900 admission_sum_ticks=5000',
+        self.assertIn('startup_maxsum_ticks=101 callback_maxsum_ticks=900 save_maxsum_ticks=900 admission_maxsum_ticks=5000',
                       totals[0])
         self.assertIn('runtime=PENDING', totals[0])
         self.assertTrue(logs.index(totals[0]) < logs.index(costs[0]))
@@ -703,10 +703,59 @@ class CostSummaryBehavior(unittest.TestCase):
         self.assertEqual(3, len([line for line in logs if '[HC Cost]' in line]))
         total = [line for line in logs if '[HC CostTotal]' in line][-1]
         self.assertIn('modules=3 observed=1 shown=3 omitted=0', total)
-        self.assertIn('save_sum_ms=3.00', total)
+        self.assertIn('save_maxsum_ms=3.00', total)
+        self.assertNotIn('_sum_', total, 'per-window maxima must not read as total cost')
         first = [line for line in logs if '[HC Cost]' in line][0]
         self.assertIn('module=M01', first)
         self.assertIn('save_ms=3.00', first)
+
+    def test_ecology_line_is_pinned_last_when_outside_the_top_n(self):
+        sampler, _, logs = sampler_fixture()
+        sampler.Start(60)
+        for index in range(20):
+            sampler.RegisterModule('Ecology' if index == 15 else 'M%02d' % index)
+        for index in range(8):
+            sampler.SampleCost(index, 2, 1000 + index)
+        sampler.SampleCost(15, 2, 1)
+        del logs[:]
+        sampler.Stop()
+        costs = [line.split()[2][7:] for line in logs if '[HC Cost]' in line]
+        total = [line for line in logs if '[HC CostTotal]' in line][0]
+        self.assertEqual(9, len(costs), costs)
+        self.assertEqual(['M07', 'M06', 'M05', 'M04', 'M03', 'M02', 'M01', 'M00', 'Ecology'], costs)
+        self.assertIn('shown=9 omitted=11', total)
+
+    def test_ecology_in_the_top_n_prints_once_and_unobserved_pin_still_shows(self):
+        sampler, _, logs = sampler_fixture()
+        sampler.Start(60)
+        for index in range(20):
+            sampler.RegisterModule('Ecology' if index == 3 else 'M%02d' % index)
+        sampler.SampleCost(3, 2, 9000)
+        del logs[:]
+        sampler.Stop()
+        costs = [line.split()[2][7:] for line in logs if '[HC Cost]' in line]
+        self.assertEqual(8, len(costs), costs)
+        self.assertEqual(1, costs.count('Ecology'))
+        self.assertEqual('Ecology', costs[0])
+        self.assertIn('shown=8 omitted=12', [line for line in logs if '[HC CostTotal]' in line][0])
+        sampler.Start(60)
+        for index in range(20):
+            sampler.RegisterModule('Ecology' if index == 19 else 'M%02d' % index)
+        del logs[:]
+        sampler.Stop()
+        costs = [line.split()[2][7:] for line in logs if '[HC Cost]' in line]
+        self.assertEqual(9, len(costs), costs)
+        self.assertEqual('Ecology', costs[-1])
+
+    def test_few_modules_with_ecology_do_not_duplicate(self):
+        sampler, _, logs = sampler_fixture()
+        sampler.Start(60)
+        sampler.RegisterModule('M00')
+        sampler.RegisterModule('Ecology')
+        del logs[:]
+        sampler.Stop()
+        costs = [line.split()[2][7:] for line in logs if '[HC Cost]' in line]
+        self.assertEqual(['M00', 'Ecology'], costs)
 
 
 if __name__ == '__main__':
