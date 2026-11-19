@@ -173,7 +173,10 @@ class HCWildlifeProviders
     {
         string fault = m_RuntimeFault;
         if (m_Fault) { fault = "wildlife_allocation_store_uncertain"; }
-        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, fault, "finite_carcasses_phase_data_shared_clues_observed_contacts_goals_unavailable");
+        // Clues ride the shared incident registry; an opted-out registry means no clues (#223).
+        string ready = "finite_carcasses_phase_data_shared_clues_observed_contacts_goals_unavailable";
+        if (m_Config && m_Config.CluesEnabled && HCWorldIncidents.HCOff()) { ready = "finite_carcasses_phase_data_clues_unavailable_world_incidents_off_observed_contacts_goals_unavailable"; }
+        HCModuleReadiness.HCDerive(m_Status, m_Running, m_Refusal, fault, ready);
         HCOperationalOwner owner = HCOperationalContributors.HCRegisterOwner("HC-149");
         if (owner) { owner.HCObserve(m_Running, m_Status, GetGame().GetTickTime()); }
     }
@@ -338,7 +341,10 @@ class HCWildlifeProviders
         if (!m_EcosystemPrinted)
         {
             m_EcosystemPrinted = true;
-            Print("[HC Wildlife] AUDITWILD_MEMORY admitted_unverified clues=shared_incidents contacts=observed_only runtime=PENDING");
+            string clues = "shared_incidents";
+            if (!m_Config.CluesEnabled) { clues = "off"; }
+            else if (HCWorldIncidents.HCOff()) { clues = "unavailable_world_incidents_off"; }
+            Print("[HC Wildlife] AUDITWILD_MEMORY admitted_unverified clues=" + clues + " contacts=observed_only runtime=PENDING");
             Print("[HC Wildlife] AUDITWILD_GOALS_PENDING reason=no_native_animal_destination_target_or_consumption_port routes=data_only attraction=unavailable crows=unavailable combat_cap=unavailable runtime=PENDING");
         }
         return true;

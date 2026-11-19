@@ -254,6 +254,13 @@ class HCWorldIncidents : HCModule
         return id;
     }
 
+    // Operator opt-out (start-order independent) or a refused/off registry.
+    static bool HCOff()
+    {
+        if (FileExist("$profile:HollowCountry/acceptance/world_incidents.disable")) { return true; }
+        return s_Instance && s_Instance.m_Off;
+    }
+
     static void HCRetire(Object anchor)
     {
         if (!s_Instance || !anchor) { return; }
