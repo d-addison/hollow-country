@@ -231,8 +231,11 @@ class VarietyW60(unittest.TestCase):
         owner.HCPosedCadenceValid = lambda: translate(
             str(AREA / 'HCInfectedVariety.c'), 'bool HCPosedCadenceValid(', (),
             fields=('PosedFreshEvery', 'MaxFreshBodies'))(owner)
+        owner.HCMaxPosedValid = lambda: translate(
+            str(AREA / 'HCInfectedVariety.c'), 'bool HCMaxPosedValid(', (),
+            fields=('MaxPosed',))(owner)
         valid = translate(str(AREA / 'HCInfectedVariety.c'), 'bool HCValid(',
-                          ('HCNormalizeTunables', 'HCPosedCadenceValid'),
+                          ('HCNormalizeTunables', 'HCPosedCadenceValid', 'HCMaxPosedValid'),
                           fields=tuple(data) + ('PosedFreshEvery',),
                           HCInfectedStore=N(ValidPosition=lambda p: True))
         for cadence, expected in ((2, True), (0, True), (-1, False), (4, False)):

@@ -29,6 +29,8 @@ class HCInfectedVarietyConfig
     // Audit #121: every Nth fresh body is a custom-graph posed body (0 opts out).
     // Optional in the JSON: HCApplyOptionalDefaults restores the ON default.
     int PosedFreshEvery = 3;
+    // Server-wide custom-graph pose slots, including bodies still rising. 0 opts out.
+    int MaxPosed = 12;
     bool EnableMigration = true;
     float CorridorRangeMetres = 80;
     float MaxMigrationMetres = 480;
@@ -69,7 +71,13 @@ class HCInfectedVarietyConfig
     void HCApplyOptionalDefaults(string content, bool posesOptedOut)
     {
         if (!HCJsonFields.Has(content, "PosedFreshEvery")) { PosedFreshEvery = HCInfectedVarietyPolicy.DEFAULT_POSED_FRESH_EVERY; }
+        if (!HCJsonFields.Has(content, "MaxPosed")) { MaxPosed = 12; }
         if (posesOptedOut) { PosedFreshEvery = 0; }
+    }
+
+    bool HCMaxPosedValid()
+    {
+        return MaxPosed >= 0 && MaxPosed <= 64;
     }
 
     bool HCPosedCadenceValid()
@@ -80,6 +88,7 @@ class HCInfectedVarietyConfig
     bool HCValid()
     {
         HCNormalizeTunables();
+        if (!HCMaxPosedValid()) { return false; }
         if (SchemaVersion != 1 || !Sites || Sites.Count() < 1 || Sites.Count() > MaxSites) { return false; }
         if (MaxSites < 1 || MaxSites > 64 || GroupMembers < 1 || GroupMembers > MaxFreshBodies || MaxFreshBodies > 3) { return false; }
         if (!(CorridorRangeMetres > 0 && CorridorRangeMetres <= 80 && MaxMigrationMetres >= CorridorRangeMetres && MaxMigrationMetres <= 480)) { return false; }
@@ -165,6 +174,12 @@ class HCInfectedVariety
         HCInfectedVarietyConfig config;
         bool loaded = JsonFileLoader<HCInfectedVarietyConfig>.LoadData(content, config, error);
         if (loaded && config) { config.HCApplyOptionalDefaults(content, HCPosesOptedOut()); }
+        if (loaded && config && !config.HCMaxPosedValid())
+        {
+            s_Fault = "variety_max_posed_out_of_range";
+            HCRefuse(s_Fault);
+            return false;
+        }
         if (!loaded || !config || !config.HCValid())
         {
             s_Fault = "variety_data_invalid";
@@ -191,7 +206,16 @@ class HCInfectedVariety
         }
         config.HCNormalizeTunables();
         s_Config = config;
+        Print("[HC Variety] max_posed=" + config.MaxPosed.ToString() + " bounds=0..64 opt_out=MaxPosed=0 runtime=PENDING");
         return true;
+    }
+
+    // HollowCountryAnims depends on this owner, never the reverse. No IO per request.
+    // Inactive/refused owners admit no new holds; cleanup remains unconditional.
+    static int HCMaxPosed()
+    {
+        if (!s_Running || !s_Config) { return 0; }
+        return s_Config.MaxPosed;
     }
 
     static HCInfectedVarietyConfig HCConfig() { return s_Config; }
