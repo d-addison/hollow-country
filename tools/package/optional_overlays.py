@@ -25,7 +25,7 @@ except ImportError:  # run as a script
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     from tools.package import xml_text
 
-from tools.package import rag_optional
+from tools.package import rag_optional, travel
 
 ROOT = Path(__file__).resolve().parents[2]
 POLICY = ROOT / 'mission/hollow-country/optional/overlay-policy.json'
@@ -136,7 +136,7 @@ def fragments(data, tag):
 
 def unique_append(parent, node, attribute='name'):
     key = node.get(attribute)
-    if not key or any(n.get(attribute) == key for n in parent if n.tag == node.tag):
+    if not key or any(n.get(attribute, '').casefold() == key.casefold() for n in parent if n.tag == node.tag):
         raise ValueError('duplicate or missing overlay entry: ' + str(key))
     parent.append(copy.deepcopy(node))
 
@@ -175,6 +175,21 @@ def loaded_paths(loaded_mods):
     if isinstance(loaded_mods, str):
         loaded_mods = loaded_mods.removeprefix('-mod=').strip('"').split(';')
     return {Path(p).absolute() for p in loaded_mods if str(p)}
+
+
+def ambient_caps(options):
+    """Installed schema: six independent ambient maxima and a separate snake CE
+    event. Reserve snakes first, then share the remainder; there is no native
+    aggregate field. These are authored ceilings, never observed occupancy.
+    """
+    cap, total, snake = (options[k] for k in ('per_species_cap', 'total_cap', 'snake_cap'))
+    if (any(type(n) is not int for n in (cap, total, snake)) or not 1 <= cap <= 8
+            or not 0 <= snake <= 2 or not snake <= total <= 48
+            or options.get('total_cap_includes_snakes', True) is not True):
+        raise ValueError('ambient policy exceeds provisional aggregate caps')
+    share, remainder = divmod(min(total - snake, cap * len(AMBIENT_SPECIES)), len(AMBIENT_SPECIES))
+    return {**{name: share + (index < remainder) for index, name in enumerate(AMBIENT_SPECIES)},
+            'snake': snake}
 
 
 def plan(workshop, mission, loaded_mods, policy_path=POLICY):
@@ -219,6 +234,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         source(mission / 'mapgrouppos.xml')
     # Separate CE registration preserves stock db/types.xml and other installers' pins.
     events, types, spawnable = ET.Element('events'), ET.Element('types'), ET.Element('spawnabletypes')
+    bicycle_event_count = 0
     eventspawns = ET.Element('eventposdef')
     if 'Bicycles' in packs or 'AmbientAnimals' in packs:
         eventspawns = xml(source(mission / 'cfgeventspawns.xml'), 'eventposdef')
@@ -234,6 +250,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         preferred = positions(mission, options['preferred_group_fragments'])
         budget = options['nominal_cap']
         for event in bike_events:
+            bicycle_event_count += 1
             nominal = event.find('nominal')
             nominal.text = str(min(budget, int(int(nominal.text) * multiplier)))
             budget -= int(nominal.text)
@@ -259,14 +276,18 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
         for entry in xml(source(find_file(bicycle, 'types.xml')), 'types'):
             unique_append(types, entry)
         spawnable = xml(source(find_file(bicycle, 'spawnabletypes.xml')), 'spawnabletypes')
+        travel.validate_repairs(spawnable)
+        vehicle_names = set(travel.vehicle_owners(events))
+        for tag, rows in (('type', types), ('repair template', spawnable)):
+            available = [n.get('name', '').casefold() for n in rows.findall('type')]
+            if len(available) != len(set(available)) or not vehicle_names <= set(available):
+                raise ValueError('HC-32 bicycle missing or duplicate ' + tag)
         put(MANAGED + '/spawnabletypes.xml', serialized(spawnable))
 
     if 'AmbientAnimals' in packs:
         animals = packs['AmbientAnimals']
         options = policy['ambient']
-        cap = options['per_species_cap']
-        if not 1 <= cap <= 8 or cap * len(AMBIENT_SPECIES) > options['total_cap'] or options['total_cap'] > 48:
-            raise ValueError('ambient policy exceeds provisional caps')
+        caps = ambient_caps(options)
         environment = xml(source(mission / 'cfgenvironment.xml'), 'env')
         territories = environment.find('territories')
         if territories is None:
@@ -291,8 +312,11 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
             # against that species' actual installed file, never another species.
             usable = species + '_territories'
             territory.find('file').set('usable', usable)
-            limit = options['snake_cap'] if species == 'snake' else cap
-            for item in territory.findall("item[@name='globalCountMax']"):
+            limit = caps[species]
+            maxima = territory.findall("item[@name='globalCountMax']")
+            if species != 'snake' and len(maxima) != 1:
+                raise ValueError('ambient cap schema missing or ambiguous: ' + species)
+            for item in maxima:
                 item.set('val', str(min(int(item.get('val')), limit)))
             unique_append(territories, territory)
             territory_file = find_file(directory, 'chernarus/' + usable + '.xml')
@@ -318,11 +342,33 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     # Refuse existing declarations of the same types/events across stock and CE
     # extensions. No duplicate loot or reliance on unobserved replacement order.
     core = xml(source(mission / 'cfgeconomycore.xml'), 'economycore')
+    owners = travel.vehicle_owners(events)
+    travel.validate_vehicle_budgets(types, set(owners))
+    # An optional event with a new name can still duplicate a native/managed
+    # vehicle. Compare child classes against every effective source, too.
+    event_files = ['db/events.xml']
+    for ce in core.findall('ce'):
+        for entry in ce.findall("file[@type='events']"):
+            event_files.append(_ce_relative(ce.get('folder', ''), entry.get('name', '')))
+    effective_events = {}
+    for relative in event_files:
+        # Types-only plans do not need a stock events file; synthetic/stripped
+        # missions may omit it. A declared CE file is always required.
+        if relative == 'db/events.xml' and not (mission / relative).exists() and not owners:
+            continue
+        existing = xml(source(mission / relative), 'events')
+        for event in existing:
+            if set(owners) & {n.get('type', '').casefold() for n in event.findall('children/child')}:
+                raise ValueError('HC-32 vehicle has another event owner: ' + event.get('name', ''))
+            effective_events[event.get('name', '').casefold()] = event
+    existing_vehicles = {n.get('type', '').casefold() for event in effective_events.values()
+                         for n in event.findall('children/child')}
+    travel.validate_vehicle_budgets(types, existing_vehicles | set(owners))
     for kind, additions, stock in (('events', events, 'db/events.xml'), ('types', types, 'db/types.xml'),
                                    ('spawnabletypes', spawnable, 'cfgspawnabletypes.xml')):
         if not len(additions):
             continue
-        names = {node.get('name') for node in additions if node.get('name')}
+        names = {node.get('name').casefold() for node in additions if node.get('name')}
         if len(names) != len([node for node in additions if node.get('name')]):
             raise ValueError('duplicate installed optional entries: ' + kind)
         existing_files = [stock]
@@ -332,7 +378,7 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
                     existing_files.append(_ce_relative(ce.get('folder', ''), entry.get('name', '')))
         for relative in existing_files:
             existing = xml(source(mission / relative), kind)
-            if names & {node.get('name') for node in existing}:
+            if names & {node.get('name', '').casefold() for node in existing}:
                 raise ValueError('existing optional CE entries require reconciliation: ' + kind)
     registration = ET.SubElement(core, 'ce', {'folder': MANAGED})
     for name, content in (('events.xml', events), ('types.xml', types)):
@@ -345,6 +391,10 @@ def plan(workshop, mission, loaded_mods, policy_path=POLICY):
     put('cfgeconomycore.xml', serialized(core))
     if 'Bicycles' in packs or 'AmbientAnimals' in packs:
         put('cfgeventspawns.xml', serialized(eventspawns))
+    native_count = len(set(effective_events) & {n.casefold() for n in travel.NATIVE_FAMILIES})
+    candidate['diagnostics'].append(
+        '[HC Plan] HC-32 vehicle_families=%d optional=%d refused=runtime_pending state=authored runtime=PENDING'
+        % (native_count, bicycle_event_count))
     return candidate
 
 

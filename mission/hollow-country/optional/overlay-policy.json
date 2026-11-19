@@ -10,6 +10,7 @@
   "ambient": {
     "per_species_cap": 8,
     "total_cap": 48,
+    "total_cap_includes_snakes": true,
     "snake_cap": 2,
     "native_zone_limit": 12,
     "native_density_cap": 3,
