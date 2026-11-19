@@ -599,6 +599,15 @@ class FurnishTests(unittest.TestCase):
                                                                           for i in range(20)]
         result = tpl.build([encode(census(rows, [HOUSE, farm] + list(CALIBRATION)))], proto, pos_xml(entries),
                            max_furnished=9)
+        # An actual comment-only source variant must change provenance, never selection.
+        with tempfile.TemporaryDirectory() as temporary:
+            variant = Path(temporary) / "interior_templates.py"
+            variant.write_bytes(Path(tpl.__file__).read_bytes() + b"\n# Selection stability probe.\n")
+            with mock.patch.object(tpl, "__file__", str(variant)):
+                commented = tpl.build([encode(census(rows, [HOUSE, farm] + list(CALIBRATION)))],
+                                      proto, pos_xml(entries), max_furnished=9)
+        self.assertNotEqual(result.manifest["PackId"], commented.manifest["PackId"])
+        self.assertEqual(furnish_rows(result), furnish_rows(commented), "comment changed furnishing selection")
         out = furnish_rows(result)
         self.assertLessEqual(sum(len(r["Props"]) for r in out), 9)
         self.assertTrue(out)

@@ -117,6 +117,9 @@ class HCInteriorConfig
     bool MigrateLegacyJournal = false;
     bool DiagnosticPlacementTrial = false;
     bool DiagnosticSearchTrial = false;
+    // HC-24 provisional load steps per tick. Native missing ints deserialize as 0;
+    // the reader resolves 0 to DEFAULT_PACK_LOAD_STEPS (8), even without a pilot.
+    int TemplateLoadStepsPerTick = 8;
     ref array<ref HCInteriorCandidate> Candidates = new array<ref HCInteriorCandidate>;
 }
 

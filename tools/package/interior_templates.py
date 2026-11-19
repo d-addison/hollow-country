@@ -1012,7 +1012,15 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
         del templates[name]
         reasons[name] = "over_budget"
 
-    furnish, total = _furnish(templates, instances, proto, pack_id, max_furnished)
+    # Selection depends on authored data, never executable-source provenance. Keep
+    # generator pins in PackId so a source edit still invalidates the audit receipt.
+    selection_inputs = {key: value for key, value in pinned.items()
+                        if key not in ("generator", "search-generator")}
+    selection_inputs["prop_boxes"] = sha256(boxes_bytes)
+    selection_inputs["authored"] = (None if authored_bytes is None else
+                                   {n: sha256(raw) for n, raw in sorted(authored_bytes.items())})
+    selection_seed = sha256(_dump({"Inputs": selection_inputs, "Parameters": parameters}))
+    furnish, total = _furnish(templates, instances, proto, selection_seed, max_furnished)
     furnished = {row["BuildingClass"] for row in furnish}
     table = []
     for name in names:
@@ -1020,6 +1028,8 @@ def _build(censuses, proto_bytes, pos_bytes, reach_source, min_agreement, max_fu
             entry = templates[name]["document"]
             if not entry["PropSlots"]:
                 furniture = "clearance_failed"
+                if templates[name].get("theme_reason") in ("missing_prop_measurements", "authored_queue"):
+                    furniture = "unmeasured"
             elif not instances.get(name):
                 furniture = "not_in_mapgrouppos"
             elif name not in furnished:
