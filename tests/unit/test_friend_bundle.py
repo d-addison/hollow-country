@@ -1,5 +1,11 @@
 """Friend server bundle: synthetic mission, profile and mod trees only.
 
+Issue #175 / Wave 7 bundle catalogue TDD RED (before implementation):
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_friend_bundle.FriendBundleTests.test_profile_default_history_records_current_and_earlier_git_bytes -v
+KeyError: 'profile_defaults'
+Ran 1 test in 0.049s; FAILED (errors=1)
+The paired installer/bundle GREEN command and result are in test_friend_install.py.
+
 Additional TDD RED for optional invalid results, before the omission fix (verbatim failure line):
 AssertionError: 2 != 0 : refused: sampler result keys must be exactly: frame, groups, kind, native_run_id, pins, schema
 Ran 1 test in 0.132s
@@ -464,6 +470,46 @@ class FriendBundleTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256((self.out / rel).read_bytes()).hexdigest(), digest)
         self.assertGreater(manifest['excluded']['profiles'], 0)
         self.assertGreater(manifest['excluded']['mission'], 0)
+
+    def test_profile_default_history_records_current_and_earlier_git_bytes(self):
+        # Synthetic history, including a rename: read-only git calls, no test repository writes.
+        import subprocess
+        old, older = b'{"synthetic_release": 52}', b'{"synthetic_release": 50}'
+        rel = 'profiles/HollowCountry/expansion-ai-sites.json'
+        put(self.profiles, rel.removeprefix('profiles/'), b'{"synthetic_release": 54}')
+        custom = 'ExpansionMod/Loadouts/HollowCountry_SyntheticCustom.json'
+        put(self.profiles, custom, b'{"synthetic_operator_loadout": true}')
+        source = 'mods/HollowCountryExpansionAI/data/defaults/expansion-ai-sites.json'
+        previous = 'mission/hollow-country/ai/sites.json'
+
+        def git_result(argv, **kwargs):
+            if argv[1] == 'log':
+                data = ('a' * 40 + '\n\n' + source + '\n' + 'b' * 40 + '\n\n' + previous + '\n').encode()
+            else:
+                self.assertEqual(argv[1], 'show')
+                data = old if argv[-1].startswith('a' * 40 + ':') else older
+            return subprocess.CompletedProcess(argv, 0, stdout=data, stderr=b'')
+
+        with unittest.mock.patch('subprocess.run', side_effect=git_result) as calls:
+            code, text = self.run_cli()
+        self.assertEqual(code, 0, text)
+        manifest = json.loads((self.out / 'bundle-manifest.json').read_text())
+        profiles = {row['path']: row['sha256'] for row in manifest['files']
+                    if row['path'].startswith('profiles/')}
+        self.assertEqual(set(manifest['profile_defaults']), set(profiles))
+        self.assertEqual(manifest['profile_defaults']['profiles/' + custom]['history'], 'receipt-only')
+        for name, digest in profiles.items():
+            self.assertEqual(manifest['profile_defaults'][name]['sha256'], digest)
+            self.assertIn(digest, manifest['profile_defaults'][name]['shipped_sha256'])
+        self.assertTrue({hashlib.sha256(old).hexdigest(), hashlib.sha256(older).hexdigest()}
+                        <= set(manifest['profile_defaults'][rel]['shipped_sha256']))
+        self.assertTrue(any(c.args[0][1] == 'log' and '--follow' in c.args[0]
+                            and source in c.args[0] for c in calls.call_args_list))
+        with unittest.mock.patch('subprocess.run', return_value=subprocess.CompletedProcess(
+                [], 128, stdout=b'', stderr=b'synthetic private path or identity')):
+            with self.assertRaisesRegex(fb.Refused, '^profile_history_unavailable:') as error:
+                fb.profile_history(source)
+        self.assertNotIn('private path or identity', str(error.exception))
 
     def test_private_key_anywhere_refuses_and_writes_nothing(self):
         put(self.mod, 'keys/hollowcountry.biprivatekey', b'PRIVATE')

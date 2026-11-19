@@ -21,6 +21,8 @@ Safety rules:
   PBO in our own mod folder is moved into the backup folder. Saves and storage_* are never touched.
 * A second run changes nothing. A file this installer wrote and that was changed afterwards is drift: for mod
   files, keys and start-server.bat the run refuses; a profile file the server or Expansion rewrote is kept.
+  Profile bytes matching any shipped/receipted default upgrade with a backup; unknown bytes are kept with
+  a WARN, unless explicitly selected with --adopt-profile "profiles/<file>".
   An existing file that was not written by this installer and differs needs --yes (or a typed yes).
 * The server must be stopped (read-only process check; nothing is ever stopped or killed here).
 * The friend types their own Steam login name; steamcmd asks for the password and the Steam Guard code
@@ -278,6 +280,16 @@ def load_bundle(bundle):
     absent = [rel for rel in ('start-server.bat', 'serverDZ-hollow-country.txt') if rel not in listed]
     if absent:
         raise Refused('bundle_tampered', '%s is not listed in %s; unzip the bundle again' % (', '.join(absent), BUNDLE_MANIFEST))
+    defaults = data.get('profile_defaults', {})  # Older bundles have only their current file hashes.
+    profiles = {row['path']: row['sha256'] for row in rows if row['path'].startswith('profiles/')}
+    if not isinstance(defaults, dict) or (defaults and set(defaults) != set(profiles)):
+        raise Refused('bundle_tampered', 'profile_defaults must describe only and all shipped profile files')
+    for rel, entry in defaults.items():
+        hashes = entry.get('shipped_sha256') if isinstance(entry, dict) else None
+        if (not isinstance(hashes, list) or not hashes or
+                any(not isinstance(h, str) or not re.fullmatch(r'[0-9a-f]{64}', h) for h in hashes) or
+                entry.get('sha256') != profiles[rel] or profiles[rel] not in hashes):
+            raise Refused('bundle_tampered', 'invalid shipped profile hashes for ' + rel)
     data['_sha'] = sha256_file(path)
     return data
 
@@ -312,6 +324,12 @@ def load_receipt(server):
                       'existing ones and backed up before they are replaced)' % RECEIPT)
     if not isinstance(data, dict) or data.get('schema') != SCHEMA or not isinstance(data.get('files'), dict):
         raise Refused('receipt_invalid', '%s has an unknown layout' % RECEIPT)
+    profiles = data.get('profile_defaults', {})
+    if (not isinstance(profiles, dict) or
+            any(not isinstance(hashes, list) or
+                any(not isinstance(h, str) or not re.fullmatch(r'[0-9a-f]{64}', h) for h in hashes)
+                for hashes in profiles.values())):
+        raise Refused('receipt_invalid', '%s has invalid profile default hashes' % RECEIPT)
     return data
 
 
@@ -417,6 +435,27 @@ def classify_file(ctx, rel, source):
     return ('upgrade' if current == recorded else 'drift'), want
 
 
+def classify_profile(ctx, rel, source, adopt=False):
+    action, want = classify_file(ctx, rel, source)
+    if action in ('new', 'same'):
+        return action, want
+    current = sha256_file(ctx.server / rel)
+    known = set(ctx.manifest.get('profile_defaults', {}).get(rel, {}).get('shipped_sha256', []))
+    known.update(ctx.receipt.get('profile_defaults', {}).get(rel, []))
+    recorded = ctx.receipt['files'].get(rel)
+    if current == recorded or current in known:
+        return 'upgrade', want
+    if adopt:
+        return 'confirm', want
+    return 'drift', want
+
+
+def profile_warning(rel):
+    return ('kept %s (hand-edited or unknown profile bytes; not overwritten); '
+            'to adopt with a backup, stop the server and run: '
+            'install-hollow-country.bat --apply --adopt-profile "%s"' % (rel, rel))
+
+
 class Analysis:
     def __init__(self):
         self.running = False
@@ -464,8 +503,12 @@ def analyze(ctx):
             a.own.append((rel, source, action, sha))
             keys[rel] = source
     if 'profiles' not in ctx.skip:
+        shipped = {rel for rel, _ in bundle_walk(ctx.bundle, ctx.manifest, 'profiles')}
+        unknown = set(args.adopt_profile) - shipped
+        if unknown:
+            raise Refused('profile_not_shipped', '--adopt-profile requires an exact shipped profile path')
         for rel, source in bundle_walk(ctx.bundle, ctx.manifest, 'profiles'):
-            action, sha = classify_file(ctx, rel, source)
+            action, sha = classify_profile(ctx, rel, source, adopt=rel in args.adopt_profile)
             a.profiles.append((rel, source, action, sha))
         a.holdouts_state, a.holdouts_moves = inspect_holdouts(ctx)
     if 'launcher' not in ctx.skip:
@@ -1246,7 +1289,7 @@ def plan_profiles(ctx, a):
     kept = [r for r in a.profiles if r[2] == 'drift']
     lines = ['profile files from the bundle: %s' % describe({k: v for k, v in counts.items() if k != 'drift'})]
     for rel, _s, _a, _h in kept:
-        lines.append('kept %s (changed on the server since the last install; not overwritten)' % rel)
+        lines.append('WARN  profile_defaults  ' + profile_warning(rel))
     if a.holdouts_moves:
         lines.append('holdouts: %s; preserve the old image so the mod can start fresh' % a.holdouts_state)
         for rel in a.holdouts_moves:
@@ -1280,6 +1323,13 @@ def do_files(ctx, rows):
             continue
         if action != 'same':
             write_file(ctx, rel, source, action)
+        if rel.startswith('profiles/'):
+            hashes = ctx.receipt.setdefault('profile_defaults', {}).setdefault(rel, [])
+            previous = ctx.receipt['files'].get(rel)
+            if previous and previous not in hashes:
+                hashes.append(previous)
+            if sha not in hashes:
+                hashes.append(sha)
         ctx.receipt['files'][rel] = sha
     save_receipt(ctx)
     return 'done'
@@ -1463,6 +1513,15 @@ def run_check(ctx):
             % (holdouts_state, HOLDOUT_PATH)],
            'absent (fresh state allowed)' if holdouts_state == 'absent' else
            'funded schema %d present; runtime acceptance pending' % FUNDED_HOLDOUT_VERSION)
+    if 'profiles' not in ctx.skip:
+        profile_problems = []
+        for rel, source in bundle_walk(ctx.bundle, ctx.manifest, 'profiles'):
+            action, _digest = classify_profile(ctx, rel, source)
+            if action == 'drift':
+                say('WARN  profile_defaults  ' + profile_warning(rel))
+            elif action != 'same':
+                profile_problems.append('%s: run the profiles step to install the current default' % rel)
+        result('profile_defaults', profile_problems, 'shipped defaults checked; kept custom files are listed as WARN')
     if 'overlays-map' not in ctx.skip:
         mission = map_mission(ctx)
         source, reason = map_source(ctx)
@@ -1622,6 +1681,8 @@ def build_parser():
     parser.add_argument('--check', action='store_true', help='only verify an existing install; changes nothing')
     parser.add_argument('--plan-only', action='store_true', help='dry run without offering to apply')
     parser.add_argument('--skip', default='', help='comma list of steps to skip: ' + ', '.join(SKIPPABLE))
+    parser.add_argument('--adopt-profile', action='append', default=[], metavar='profiles/<file>',
+                        help='adopt this exact shipped default even when hand-edited (backup first; repeatable)')
     parser.add_argument('--assume-stopped', action='store_true', help='skip the running-server check')
     parser.add_argument('--workshop-content', action='append', default=[],
                         help='a steamapps/workshop/content/221100 folder (repeatable)')

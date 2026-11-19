@@ -1,5 +1,12 @@
 """Guided friend installer: synthetic bundle, server, Workshop content and mission trees only.
 
+Issue #175 / Wave 7 profile upgrade TDD RED (actual failure before implementation):
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_friend_install.ProfileUpgradeTests -v
+AssertionError: b'{"synthetic_release": 52}' != b'{"EnableX": true}'
+Ran 1 test in 0.953s; FAILED (failures=1)
+GREEN: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_friend_install.ProfileUpgradeTests test_friend_bundle.FriendBundleTests.test_profile_default_history_records_current_and_earlier_git_bytes -v
+Ran 2 tests in 1.986s; OK
+
 Issue #174 TDD RED, before implementing the holdouts migration:
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=.:tests/unit python3 -m unittest test_friend_install.HoldoutProfileTests.test_plan_only_names_each_existing_legacy_file_and_changes_nothing
 AssertionError: 'legacy' not found
@@ -1205,6 +1212,86 @@ class HoldoutProfileTests(InstallerCase):
         self.assertEqual(code, 2, out + err)
         self.assertIn('symlink', err)
         self.assertEqual(snapshot(self.tmp), before)
+
+
+class ProfileUpgradeTests(InstallerCase):
+    def test_shipped_history_upgrade_preserves_edits_warns_and_rolls_back(self):
+        # Explicit synthetic shipped versions, not native config/runtime evidence.
+        rel = 'profiles/HollowCountry/settings.json'
+        old = b'{"synthetic_release": 52}'
+        current = (self.bundle / rel).read_bytes()
+        self.assertEqual(self.apply()[0], 0)
+        put(self.server, rel, old)
+        unshipped = put(self.server, 'profiles/HollowCountry/unshipped.json', old)
+        doc = json.loads((self.bundle / fi.BUNDLE_MANIFEST).read_text())
+        doc['profile_defaults'] = {
+            row['path']: {'sha256': row['sha256'], 'shipped_sha256': [row['sha256']]}
+            for row in doc['files'] if row['path'].startswith('profiles/')}
+        doc['profile_defaults'][rel]['shipped_sha256'].append(sha(old))
+        put(self.bundle, fi.BUNDLE_MANIFEST, json.dumps(doc))
+        code, out, err = self.apply()
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual((self.server / rel).read_bytes(), current)
+        journals = [p for p in (self.server / fi.BACKUP_DIR).rglob(fi.JOURNAL)
+                    if any(r['path'] == rel and r.get('sha256') == sha(old)
+                           for r in json.loads(p.read_text())['entries'])]
+        self.assertEqual(len(journals), 1)
+        journal = journals[0]
+        self.assertEqual((journal.parent / rel).read_bytes(), old)
+        receipt = json.loads((self.server / fi.RECEIPT).read_text())
+        self.assertEqual(receipt['files'][rel], sha(current))
+        # Reuse the real journal rollback, including restoration of the old receipt.
+        ctx = fi.Ctx(fi.build_parser().parse_args([]), io.StringIO(), None)
+        ctx.server = self.server
+        fi.rollback_run(ctx, journal.parent, json.loads(journal.read_text()))
+        self.assertEqual((self.server / rel).read_bytes(), old)
+        self.assertEqual(unshipped.read_bytes(), old)
+        # A legacy receipt alone also recognizes a previous installer-owned default.
+        doc.pop('profile_defaults')
+        put(self.bundle, fi.BUNDLE_MANIFEST, json.dumps(doc))
+        receipt = json.loads((self.server / fi.RECEIPT).read_text())
+        receipt['files'][rel] = sha(old)
+        put(self.server, fi.RECEIPT, json.dumps(receipt))
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual((self.server / rel).read_bytes(), current)
+        history = json.loads((self.server / fi.RECEIPT).read_text())['profile_defaults'][rel]
+        self.assertEqual(set(history), {sha(old), sha(current)})
+        # An operator restoring an older installer-owned image still gets the upgrade.
+        put(self.server, rel, old)
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual((self.server / rel).read_bytes(), current)
+        edited = b'{"synthetic_operator_choice": false}'
+        put(self.server, rel, edited)
+        other = 'profiles/ExpansionMod/Settings/AISettings.json'
+        put(self.server, other, edited)
+        # Even without a receipt, --yes must preserve an unknown profile image.
+        (self.server / fi.RECEIPT).unlink()
+        self.assertEqual(self.apply()[0], 0)
+        self.assertEqual((self.server / rel).read_bytes(), edited)
+        before = snapshot(self.tmp)
+        code, out, err = self.run_cli('--check')
+        self.assertEqual(code, 0, out + err)
+        self.assertRegex(out, r'WARN\s+profile_defaults.*' + rel)
+        self.assertRegex(out, r'WARN\s+profile_defaults.*' + other)
+        self.assertNotRegex(out, r'FAIL\s+profile_defaults')
+        adopt = '--adopt-profile "%s"' % rel
+        self.assertIn('install-hollow-country.bat --apply ' + adopt, out)
+        self.assertEqual(snapshot(self.tmp), before)
+        self.assertEqual(self.apply('--adopt-profile', rel)[0], 0)
+        self.assertEqual((self.server / rel).read_bytes(), current)
+        self.assertEqual((self.server / other).read_bytes(), edited)
+        self.assertEqual(unshipped.read_bytes(), old)
+        code, out, err = self.apply('--adopt-profile', 'profiles/HollowCountry/unshipped.json')
+        self.assertEqual(code, 2, out + err)
+        self.assertEqual(unshipped.read_bytes(), old)
+        doc['profile_defaults'] = {'profiles/HollowCountry/unshipped.json': {
+            'sha256': sha(old), 'shipped_sha256': [sha(old)]}}
+        put(self.bundle, fi.BUNDLE_MANIFEST, json.dumps(doc))
+        before = snapshot(self.server)
+        code, out, err = self.apply()
+        self.assertEqual(code, 2, out + err)
+        self.assertIn('bundle_tampered', err)
+        self.assertEqual(snapshot(self.server), before)
 
 
 class CheckTests(InstallerCase):
