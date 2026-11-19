@@ -169,7 +169,12 @@ Run installs/rollbacks with the server stopped. The Workshop title remains
 
 None of these behaviors has been observed in DayZ yet. They describe the source.
 
-**Persistence.** Upgrading does not require wiping `storage_1`; keep it. HC state
+**Persistence and loot.** Upgrading does not require wiping `storage_1`; keep it.
+Do not wipe it to "regenerate" loot either: native CE does not spawn a large
+batch at boot after a wipe (`Initially (re)spawned:0` even with `InitialSpawn
+100`). It refills the map at roughly 150–250 items a minute, and with stock
+`IdleModeStartup 1` / `IdleModeCountdown 60` it refills nothing while the
+server is empty. HC state
 lives under `$profile:HollowCountry`. A store that finds damaged or unpaired files
 quarantines only itself and keeps every file. The other stores start normally.
 See [OPS_RECOVERY.md](OPS_RECOVERY.md), including the one-time `.bak` note for
@@ -178,7 +183,10 @@ worlds that were reset by an older build.
 **Expansion's own patrols.** HC owns AI spawning. Install our
 `AIPatrolSettings.override.json` as `$mission:expansion/settings/AIPatrolSettings.json`
 (`Enabled: 0`, no `Patrols`, no `LoadBalancingCategories`). Without it Expansion
-also spawns its default police, wreck and roaming patrols. See
+also spawns its default police, wreck and roaming patrols. With provider patrols
+enabled, HC refuses every site with `provider patrols must be off`. That message
+is this precondition, not a crash. `acceptance/pve_patrols.disable` turns HC's own
+patrols off and does not fix it. See
 [Expansion's own patrols](../mission/hollow-country/ai/README.md#expansions-own-patrols).
 
 **AI policy keys** (`$profile:HollowCountry/expansion-ai-sites.json`). A profile
