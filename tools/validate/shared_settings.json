@@ -697,6 +697,38 @@
     "owner": "HCPerfConfig"
   },
   {
+    "key": "Performance.InteriorPackOnlineMs",
+    "type": "int",
+    "default": 25,
+    "min": 1,
+    "max": 50,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.InteriorPackEmptyMs",
+    "type": "int",
+    "default": 150,
+    "min": 1,
+    "max": 250,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.InteriorPackUnitsPerTick",
+    "type": "int",
+    "default": 4096,
+    "min": 1,
+    "max": 65536,
+    "owner": "HCPerfConfig"
+  },
+  {
+    "key": "Performance.DebugSnapshotIntervalSeconds",
+    "type": "int",
+    "default": 300,
+    "min": 30,
+    "max": 3600,
+    "owner": "HCPerfConfig"
+  },
+  {
     "key": "CampTheft.Version",
     "type": "int",
     "default": 1,

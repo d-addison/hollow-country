@@ -1,7 +1,7 @@
 // W5 #122. Per core tick: at most ONE Describe (<=64 emitted points, <=8
-// routes of <=64 vertices); cursor over <=24 contributors. Every 20 s begin
-// a new cycle; completed captures encode/promote over eight separate ticks
-// (<=1024 points/128 routes, <=1MiB JSON).
+// routes of <=64 vertices); cursor over <=24 contributors. Every configured interval begin
+// a new cycle (default 300 s); captured rows encode/promote in cooperative
+// TickCount slices (<=1024 points/128 routes, <=1MiB JSON).
 // Off: no arrays, contributors, file I/O or Describe calls allocated by module.
 // Native scripts-1.30.164289: 3_Game/Global/Game.c:914 GetTickTime, :931
 // GetWorld, :934 GetWorldName, :1120 IsServer; Global/World.c:28 GetDate.
@@ -25,6 +25,7 @@ class HCDebugSnapshotModule : HCModule
     protected float m_LastLog;
     protected ref HCDebugSnapshot m_Snapshot;
     protected ref HCPerfSnapshotSave m_Save;
+    protected ref HCPerfBootBudget m_SaveBudget = new HCPerfBootBudget;
     protected ref array<ref HCDebugContributor> m_Builtins;
 
     override string GetName() { return "DebugSnapshot"; }
@@ -101,23 +102,29 @@ class HCDebugSnapshotModule : HCModule
     {
         if (!m_Running || !(deltaTime > 0)) { return; }
         m_Elapsed += deltaTime;
-        // A completed capture, four encodes and each verified file phase get
-        // separate ticks. HCStep failure preserves .tmp/.bak and refuses once.
+        m_SaveBudget.HCFrame(deltaTime);
+        // Individual JSON rows and verified file phases resume under the shared
+        // slice target. Native calls cannot be interrupted; acceptance is pending.
         if (m_Save)
         {
-            int result = m_Save.HCStep();
-            if (result == HCSaveJob.STEP_FAILED) { m_Save = null; HCRefuse(); return; }
-            if (result == HCSaveJob.STEP_DONE)
+            m_SaveBudget.HCReset(HCDebugSnapshot.MAX_CONTRIBUTOR_POINTS, HCPerfConfig.HCGet().SliceMs);
+            while (m_SaveBudget.HCContinue())
             {
-                HCReportSaved(m_Save.HCBytes());
-                m_Save = null;
-                m_Snapshot = null;
+                int result = m_Save.HCStep();
+                if (result == HCSaveJob.STEP_FAILED) { m_Save = null; HCRefuse(); return; }
+                if (result == HCSaveJob.STEP_DONE)
+                {
+                    HCReportSaved(m_Save.HCBytes());
+                    m_Save = null;
+                    m_Snapshot = null;
+                    break;
+                }
             }
             return;
         }
         if (!m_Snapshot)
         {
-            if (m_Elapsed < 20) { return; }
+            if (m_Elapsed < HCPerfConfig.HCGet().DebugSnapshotIntervalSeconds) { return; }
             m_Elapsed = 0;
             int worldTime = HCWorldTime();
             if (worldTime < 0) { HCRefuse(); return; }
@@ -144,7 +151,7 @@ class HCDebugSnapshotModule : HCModule
         m_Running = false;
         // Once intent exists, complete it before discarding the document. Before
         // intent, dropping this read-only diagnostic capture cannot lose world state.
-        if (m_Save && !HCSaveScheduler.HCFlush(m_Save))
+        if (m_Save && m_Save.HCNeedsFlush() && !HCSaveScheduler.HCFlush(m_Save))
         {
             m_Refusal = "snapshot_shutdown_store_fault";
             Print("[HC PerfControl] DebugSnapshot shutdown save failed; preserve intent runtime=PENDING");

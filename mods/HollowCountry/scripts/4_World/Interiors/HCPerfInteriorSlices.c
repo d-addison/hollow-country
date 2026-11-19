@@ -11,7 +11,7 @@ modded class HCInteriorsModule
         m_PackBudget = new HCPerfSlices("Interiors");
         Print("[HC PerfControl] Interiors pack slicing admitted; tokens resumable; runtime=PENDING");
     }
-    protected ref HCWorkBudget m_PrepareBudget = new HCWorkBudget;
+    protected ref HCPerfBootBudget m_PrepareBudget = new HCPerfBootBudget;
     protected bool m_SlicedPack;
     protected ref HCStepTimer m_PackSteps;
     protected int m_PrepareStep;
@@ -19,46 +19,54 @@ modded class HCInteriorsModule
 
     override void OnTick(float deltaTime)
     {
-        bool packing = m_PackLoading;
+        if (!m_PackLoading || !GetGame().IsServer())
+        {
+            super.OnTick(deltaTime);
+            return;
+        }
+        if (!m_SlicedPack)
+        {
+            m_PackBudget = new HCW64InteriorPackBudget;
+            m_PackSteps = new HCStepTimer("InteriorsPack");
+            m_PrepareStep = m_PackSteps.HCDefine("prepare");
+            m_LoadStep = m_PackSteps.HCDefine("decode_validate");
+            m_SlicedPack = true;
+        }
+        HCSettings settings = HCServer.Get().GetSettings();
+        if (!IsEnabled(settings)) { OnStop(); return; }
+        HCPerfConfig config = HCPerfConfig.HCGet();
+        float sliceMs = config.InteriorPackOnlineMs;
+        array<Man> players = HCPerfPlayers.HCGet();
+        if (players.Count() == 0) { sliceMs = config.InteriorPackEmptyMs; }
+        m_PrepareBudget.HCFrame(deltaTime);
+        m_PrepareBudget.HCReset(config.InteriorPackUnitsPerTick, sliceMs);
         int packStart = TickCount(0);
-        if (m_PackLoading && GetGame().IsServer())
+        while (m_PackLoading && m_PrepareBudget.HCContinue())
         {
-            if (!m_SlicedPack)
-            {
-                m_PackBudget = new HCW64InteriorPackBudget;
-                m_PackSteps = new HCStepTimer("InteriorsPack");
-                m_PrepareStep = m_PackSteps.HCDefine("prepare");
-                m_LoadStep = m_PackSteps.HCDefine("decode_validate");
-                m_SlicedPack = true;
-            }
-            HCSettings settings = HCServer.Get().GetSettings();
-            if (!IsEnabled(settings)) { OnStop(); return; }
             int prepareStart = TickCount(0);
-            m_PrepareBudget.HCReset(1, HCPerfConfig.HCGet().SliceMs);
             int prepared = HCW64InteriorLoad.HCPrepare(m_PrepareBudget);
-            m_PackSteps.HCAdd(m_PrepareStep, TickCount(prepareStart));
-            if (prepared != 0)
-            {
-                m_PackSteps.HCItem("pack_prepare", TickCount(packStart));
-                m_PackSteps.HCEndTick(TickCount(packStart));
-                return;
-            }
+            int prepareTicks = TickCount(prepareStart);
+            m_PackSteps.HCAdd(m_PrepareStep, prepareTicks);
+            m_PackSteps.HCItem("pack_prepare", prepareTicks);
+            if (prepared == 1) { continue; }
+            if (prepared == 0 && !m_PrepareBudget.HCContinue()) { break; }
+            // Refusal must pass through the reader once to publish its status.
+            int loadStart = TickCount(0);
+            super.OnTick(deltaTime);
+            HCW64InteriorLoad.HCConsumed();
+            int loadTicks = TickCount(loadStart);
+            m_PackSteps.HCAdd(m_LoadStep, loadTicks);
+            m_PackSteps.HCItem("pack_decode_validate", loadTicks);
+            if (prepared == 2) { break; }
         }
-        int loadStart = TickCount(0);
-        super.OnTick(deltaTime);
-        HCW64InteriorLoad.HCConsumed();
-        if (packing && m_PackSteps)
-        {
-            m_PackSteps.HCAdd(m_LoadStep, TickCount(loadStart));
-            m_PackSteps.HCItem("pack_decode_validate", TickCount(packStart));
-            m_PackSteps.HCEndTick(TickCount(packStart));
-        }
+        m_PackSteps.HCEndTick(TickCount(packStart));
     }
 
     override void OnStop()
     {
         HCW64InteriorLoad.HCReset();
         m_SlicedPack = false;
+        m_PrepareBudget = new HCPerfBootBudget;
         super.OnStop();
     }
 }

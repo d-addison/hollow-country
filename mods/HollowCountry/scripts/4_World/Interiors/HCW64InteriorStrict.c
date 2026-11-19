@@ -171,7 +171,6 @@ class HCW64InteriorLoad
 {
     protected static ref HCW64InteriorStrict s_Parser;
     protected static string s_File;
-    protected static ref HCWorkBudget s_Tokens = new HCWorkBudget;
 
     static void HCReset() { s_Parser = null; s_File = ""; }
 
@@ -197,8 +196,7 @@ class HCW64InteriorLoad
         if (s_File != nextFile) { HCInteriorTemplates.Refuse("slice_file_changed"); HCReset(); return 2; }
         if (job.Pins.Get("__prepared_file") != nextFile)
         {
-            s_Tokens.HCReset(HCInteriorTemplates.TEMPLATE_CHECKS_PER_STEP, HCPerfConfig.HCGet().SliceMs);
-            int result = s_Parser.HCStep(s_Tokens);
+            int result = s_Parser.HCStep(budget);
             if (result == 2) { HCInteriorTemplates.Refuse("chunk_strict:" + nextFile); HCReset(); return 2; }
             if (result == 1) { return 1; }
             job.Pins.Set("__prepared_file", nextFile);
