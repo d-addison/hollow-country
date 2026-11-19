@@ -103,7 +103,7 @@ class Situations(unittest.TestCase):
     def test_group_cleanup_or_deleted_handles_never_invent_deaths(self):
         source = (AI/'HCW38SituationRuntime.c').read_text().replace('array<eAIBase> ', 'EArray ').replace('s_Active', 'active')
         actor = N(IsAlive=lambda: True, IsPendingDeletion=lambda: False)
-        env = dict(active=N(Id='event', Members=EArray([actor])))
+        env = dict(active=N(Id='event', Members=EArray([actor])), HCSignals=lambda active: None)
         translate(source, 'HCW38SituationRuntime', env, only=('HCObserve',))
         opportunity = N(Id='event')
         self.assertEqual('', env['HCObserve'](opportunity))
