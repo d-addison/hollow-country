@@ -383,6 +383,40 @@ class PostureAdmission(unittest.TestCase):
         self.assertEqual([True], latches)
         self.assertEqual(760., actor.m_HCVarietySleepUntil)
 
+        # Refusals after the candidate checks hold for the named cooldown too
+        # (#191): a non-calm mind state or a missing controller/agent must not be
+        # re-evaluated on every bounded-cursor visit. Pre-checks that mean "not a
+        # candidate" (not crawling, not alive, backstab, admission, inactive) hold
+        # nothing so they stay cheap and flip the moment the state changes.
+        def fresh_actor(mind_state=0, controller=True, agent=True, crawling=True):
+            held = []
+            probe = N(m_HCVarietyTriedDormant=False, m_HCVarietyDormant=False,
+                      m_HCVarietyNextTry=0., m_HCVarietySleepUntil=0., IsAlive=lambda: True,
+                      IsCrawling=lambda: crawling, IsBeingBackstabbed=lambda: False,
+                      GetInputController=lambda: N(GetMindState=lambda: mind_state) if controller else None,
+                      GetAIAgent=lambda: N(SetKeepInIdle=held.append) if agent else None)
+            bind(NATIVE, probe, ('HCVarietyCanTry', 'HCVarietySleep'), env,
+                 statics=('HC_VARIETY_RETRY_SECONDS',), bound=('IsAlive', 'IsCrawling',
+                 'IsBeingBackstabbed', 'GetInputController', 'GetAIAgent'))
+            return probe, held
+        for label, kwargs in (('non-calm', dict(mind_state=4)), ('no controller', dict(controller=False)),
+                              ('no agent', dict(agent=False))):
+            probe, held = fresh_actor(**kwargs)
+            self.assertFalse(probe.HCVarietySleep(100., True), label)
+            self.assertEqual(100. + retry_seconds, probe.m_HCVarietyNextTry, label + ' set no hold')
+            self.assertFalse(probe.m_HCVarietyTriedDormant, label + ' consumed the only rest')
+            self.assertFalse(probe.HCVarietyCanTry(101.), label + ' revisit not held')
+            self.assertFalse(probe.HCVarietySleep(101., True), label)
+            self.assertEqual(100. + retry_seconds, probe.m_HCVarietyNextTry, label + ' hold extended')
+            self.assertEqual([], held)
+        probe, held = fresh_actor(mind_state=4)
+        probe.HCVarietySleep(100., True)
+        self.assertTrue(probe.HCVarietyCanTry(100. + retry_seconds), 'hold never expires')
+        # Not-a-candidate pre-checks must not set the hold.
+        probe, held = fresh_actor(crawling=False)
+        self.assertFalse(probe.HCVarietySleep(100., True))
+        self.assertEqual(0., probe.m_HCVarietyNextTry, 'not-crawling set a hold')
+
         # Execute the real retained cursor too: a revisit during cooldown must
         # skip both the random draw and corpse/proximity work, not just deny
         # entry after re-rolling. Geometry/native observations are synthetic.

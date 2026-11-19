@@ -66,10 +66,23 @@ modded class ZombieBase
             m_HCVarietyNextTry = now + HC_VARIETY_RETRY_SECONDS;
             return false;
         }
+        // Refusals below are candidate-specific (aggro'd, or the native handles are
+        // absent): hold them for the same cooldown so the bounded cursor does not
+        // re-evaluate them every visit. The pre-checks above stay hold-free: they
+        // mean "not a candidate" (gate off, dead, not crawling, backstab) and must
+        // flip the instant the state does. The single rest is still not consumed.
         DayZInfectedInputController controller = GetInputController();
-        if (!controller || controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM) { return false; }
+        if (!controller || controller.GetMindState() != DayZInfectedConstants.MINDSTATE_CALM)
+        {
+            m_HCVarietyNextTry = now + HC_VARIETY_RETRY_SECONDS;
+            return false;
+        }
         AIAgent agent = GetAIAgent();
-        if (!agent) { return false; }
+        if (!agent)
+        {
+            m_HCVarietyNextTry = now + HC_VARIETY_RETRY_SECONDS;
+            return false;
+        }
         agent.SetKeepInIdle(true);
         m_HCVarietyTriedDormant = true;
         m_HCVarietyDormant = true;
