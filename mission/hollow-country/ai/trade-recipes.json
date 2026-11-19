@@ -1,0 +1,8 @@
+{
+  "Version": 1,
+  "RecipeId": "bandage-for-drink",
+  "LeftClass": "BandageDressing",
+  "RightClass": "SodaCan_Kvass",
+  "TimeoutSeconds": 120,
+  "TransferRangeMeters": 2.5
+}
