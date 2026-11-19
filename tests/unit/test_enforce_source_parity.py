@@ -405,6 +405,9 @@ def legacy_prototype_names(raw):
     return names
 
 
+NATIVE_CACHE = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289').expanduser()
+
+
 class NativePrototypeDifferential(unittest.TestCase):
     def test_frozen_reference_excludes_keyword_call_and_string_noise(self):
         # Synthetic fixture, including zero-argument calls accepted by METHOD.
@@ -416,10 +419,10 @@ class NativePrototypeDifferential(unittest.TestCase):
                 ' string text = "void StringNoise()\n";\n }\n}\n')
         self.assertEqual({'A', 'Real', 'Semicolonless', 'Caller'}, legacy_prototype_names(text))
 
+    @unittest.skipUnless((NATIVE_CACHE / '1_Core').is_dir(),
+                         'native script cache scripts-1.30.164289 not installed under ~/.cache/hollow-country')
     def test_real_vanilla_tree_preserves_legacy_prototype_names(self):
-        cache = Path('~/.cache/hollow-country/native-scripts/scripts-1.30.164289').expanduser()
-        if not (cache / '1_Core').is_dir():
-            self.skipTest('installed native script cache not present')
+        cache = NATIVE_CACHE
         paths = sorted(cache.rglob('*.c'))
         self.assertTrue(paths, 'native cache exists but has no .c files')
         old_names, new_names = set(), set()
