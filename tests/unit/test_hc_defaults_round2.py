@@ -65,6 +65,7 @@ class LoaderFixture:
         self.env = dict(FileExist=lambda p: p in self.files, MakeDirectory=lambda p: True,
                         read=lambda p: self.files.get(p), decode=self.decode, Print=self.logs.append,
                         refusal=lambda value: self.reasons.append(value) or value,
+                        EArray=EArray, GetGame=lambda: N(ConfigIsExisting=lambda t: True, IsKindOf=lambda *a: True),
                         HCJsonFields=json_fields_port(), HCGroupRules=N(SettingsValid=translated_rules()['SettingsValid']),
                         HCInfectedStore=N(ROOT='$profile:HollowCountry', DIRECTORY='$profile:HollowCountry/Infected'),
                         StorePort=N(CanOpen=lambda p: not (p+'.tmp' in self.files), Save=self.save,
@@ -75,6 +76,13 @@ class LoaderFixture:
         restore = translate(restore_text, 'HCRestoreMissingDefaults', self.env)
         self.env['HCRestoreMissingDefaults'] = restore
         self.env['HCGroupSettingDefaults'] = N(HCRestoreMissingDefaults=restore)
+        if not group:
+            # Execute the authored seed catalogue on explicit synthetic DTOs.
+            self.env['HCInfectedLODHerdSeed'] = lambda: N(Id='', X=0., Z=0., Radius=60., HeadCount=12)
+            for name in ('HCSeed', 'HCSeedDefaults'):
+                fn = translate(text, name, self.env, owner=self.kind)
+                setattr(self.factory, name, fn)
+                self.env[name] = fn
         self.load = translate(syntax_port(text), 'LoadSettings' if group else 'Load', self.env)
 
     def decode(self, content):
@@ -83,7 +91,7 @@ class LoaderFixture:
         except (ValueError, TypeError):
             return None
         if self.module != 'Groups':
-            # Execute the authored validator on empty synthetic class/seed arrays.
+            # Execute the authored validator on synthetic class/seed arrays.
             text = lod_config()[1]
             text = re.sub(r'for \(int (\w+) = 0; \1 < ([^;]+); \1\+\+\)',
                           r'foreach (int \1 : indices(\2))', text)
@@ -92,6 +100,7 @@ class LoaderFixture:
                 text = re.sub(r'(?<![\w.])'+key+r'\b', 'm_'+key, text)
             text = re.sub(r'\bHC\w+ (?=\w+\s*[;=])', 'HCEventHandle ', text)
             fn = translate(text, 'IsValid', dict(HCLODPolicy=policy(), indices=range,
+                           GetGame=self.env['GetGame'],
                            HCInfectedVarietyPolicy=N(ValidNonCalmHold=lambda n: 30 <= n <= 3600)), member=True)
             cfg.IsValid = lambda: fn(N(**{'m_'+k:v for k,v in vars(cfg).items() if k != 'IsValid'}))
         return cfg
@@ -100,7 +109,7 @@ class LoaderFixture:
         self.saves.append(path)
         if not self.save_ok:
             return False
-        self.files[path] = json.dumps({k:v for k,v in vars(cfg).items() if not callable(v)})
+        self.files[path] = json.dumps(cfg, default=lambda obj: {k:v for k,v in vars(obj).items() if not callable(v)})
         return True
 
     def run(self):
@@ -122,7 +131,7 @@ class SettingsMigration(unittest.TestCase):
             del values[key]
         return json.dumps(values), key
 
-    def test_v1_generated_false_migrates_and_rewrites_v2_once(self):
+    def test_v1_generated_false_migrates_to_current_schema_once(self):
         for module in ('Groups', 'InfectedLOD'):
             with self.subTest(module=module):
                 image, key = self.image(module)
@@ -130,29 +139,43 @@ class SettingsMigration(unittest.TestCase):
                 cfg = h.run()
                 self.assertIsNotNone(cfg)
                 self.assertTrue(getattr(cfg, key), 'v1 generated false must migrate to owner default-on')
-                self.assertEqual(2, json.loads(h.files[h.path])['SchemaVersion'])
+                self.assertEqual(2 if module == 'Groups' else 3, json.loads(h.files[h.path])['SchemaVersion'])
                 self.assertTrue(json.loads(h.files[h.path])[key])
                 line = f'[HC {module}] settings migrated v1->v2 {key}=true (owner default-on; set false to opt out)'
-                self.assertEqual([line], [s for s in h.logs if 'settings migrated' in s])
+                expected = [line]
+                if module == 'InfectedLOD':
+                    expected.append('[HC InfectedLOD] settings migrated v2->v3 herds=8 runtime=PENDING')
+                    self.assertEqual(8, len(cfg.Herds))
+                self.assertEqual(expected, [s for s in h.logs if 'settings migrated' in s])
                 h.run()
                 self.assertEqual(1, len(h.saves))
 
-    def test_v2_false_keeps_opt_out_and_file(self):
+    def test_v2_false_keeps_opt_out_through_schema_migration(self):
         for module in ('Groups', 'InfectedLOD'):
             image, key = self.image(module, version=2)
             h = LoaderFixture(module, image)
             cfg = h.run()
             self.assertIsNotNone(cfg)
             self.assertFalse(getattr(cfg, key))
-            self.assertEqual(image, h.files[h.path])
-            self.assertEqual([], h.saves)
+            if module == 'Groups':
+                self.assertEqual(image, h.files[h.path])
+                self.assertEqual([], h.saves)
+            else:
+                self.assertEqual(3, cfg.SchemaVersion)
+                self.assertEqual(8, len(cfg.Herds))
+                self.assertFalse(json.loads(h.files[h.path])[key])
+                migrated = h.files[h.path]
+                h.run()
+                self.assertEqual(migrated, h.files[h.path])
+                self.assertEqual([h.path], h.saves)
 
     def test_every_missing_baseline_field_refuses_and_preserves_bytes(self):
         for module in ('Groups', 'InfectedLOD'):
-            for version in (1, 2):
+            for version in ((1, 2) if module == 'Groups' else (1, 2, 3)):
                 image, _ = self.image(module, version)
                 fields = json.loads(image)
-                for key in fields.keys() - self.ALLOWED_MISSING[module]:
+                allowed = self.ALLOWED_MISSING[module] | ({'Herds'} if module == 'InfectedLOD' and version < 3 else set())
+                for key in fields.keys() - allowed:
                     with self.subTest(module=module, version=version, missing=key):
                         partial = fields.copy()
                         del partial[key]
@@ -193,8 +216,32 @@ class SettingsMigration(unittest.TestCase):
             for key, value in fields.items():
                 if isinstance(value, bool):
                     self.assertIs(False, getattr(cfg, key))
-            self.assertEqual(content, h.files[h.path])
-            self.assertEqual([], h.saves)
+            if module == 'Groups':
+                self.assertEqual(content, h.files[h.path])
+                self.assertEqual([], h.saves)
+            else:
+                saved = json.loads(h.files[h.path])
+                self.assertEqual(3, saved['SchemaVersion'])
+                self.assertEqual(8, len(saved['Herds']))
+                for key, value in fields.items():
+                    if key not in {'SchemaVersion', 'Herds'}:
+                        self.assertEqual(value, saved[key])
+                self.assertEqual([h.path], h.saves)
+
+    def test_legacy_missing_herds_migrates_to_schema3_once(self):
+        for version in (1, 2):
+            image, _ = self.image('InfectedLOD', version)
+            fields = json.loads(image)
+            del fields['Herds']
+            h = LoaderFixture('InfectedLOD', json.dumps(fields))
+            cfg = h.run()
+            self.assertIsNotNone(cfg)
+            self.assertEqual(3, cfg.SchemaVersion)
+            self.assertEqual(8, len(cfg.Herds))
+            self.assertEqual(version == 1, cfg.EnableVirtualHerds)
+            self.assertIn('[HC InfectedLOD] settings migrated v2->v3 herds=8 runtime=PENDING', h.logs)
+            h.run()
+            self.assertEqual([h.path], h.saves)
 
     def test_missing_key_restores_on_for_both_versions(self):
         for module in ('Groups', 'InfectedLOD'):

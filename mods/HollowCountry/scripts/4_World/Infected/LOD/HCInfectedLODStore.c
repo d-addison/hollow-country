@@ -253,7 +253,7 @@ class HCInfectedLODConfig
             if (config && config.SchemaVersion == 2)
             {
                 // Do not convert explicit null/invalid arrays into defaults.
-                if (!HCJsonFields.Has(content, "Herds")) { config.Herds = new array<ref HCInfectedLODHerdSeed>; }
+                if (!HCJsonFields.Has(content, "Herds")) { config.Herds = new array<ref HCInfectedLODHerdSeed>(); }
                 HCInfectedLODConfig.HCSeedDefaults(config);
                 config.SchemaVersion = 3;
                 migrate = true;
@@ -284,7 +284,9 @@ class HCInfectedLODConfig
             {
                 Print("[HC InfectedLOD] settings migrated v1->v2 EnableVirtualHerds=true (owner default-on; set false to opt out)");
             }
-            Print("[HC InfectedLOD] settings migrated v2->v3 herds=" + config.Herds.Count().ToString() + " runtime=PENDING");
+            int migratedHerdCount;
+            migratedHerdCount = config.Herds.Count();
+            Print("[HC InfectedLOD] settings migrated v2->v3 herds=" + migratedHerdCount.ToString() + " runtime=PENDING");
         }
         return config;
     }
