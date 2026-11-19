@@ -135,16 +135,17 @@ class HCInfectedMemory
         return nowUtc;
     }
 
-    // Version 1 predates grid metadata. Its only authored grid was 500 m.
-    // Retain that interpretation, persist it, and never re-key surviving heat
-    // against a new operator setting. Empty stores may adopt the new grid.
+    // Legacy v1 stores used configurable grids without recording their size.
+    // After schema validation, deliberately expire that unknowable heat rather
+    // than re-key it. Start supplies the configured grid for the empty store.
+    // Native EnScript.c:385 Clear; existing Tick owns the bounded durable save.
     protected void HCResolveGrid(string image)
     {
         if (!HCJsonFields.Has(image, "CellMetres"))
         {
-            m_State.CellMetres = 500;
+            m_State.Cells.Clear();
             m_Dirty = true;
-            Print("[HC InfectedMemory] grid=legacy_500_migrated runtime=PENDING");
+            Print("[HC InfectedMemory] grid=legacy_heat_expired_unknown_grid runtime=PENDING");
         }
     }
 
@@ -182,8 +183,10 @@ class HCInfectedMemory
             string error;
             if (!HCGroupIO.Read(PATH, 16384, image) || !JsonFileLoader<HCInfectedMemoryState>.LoadData(image, m_State, error)) { Fail("read/json"); return false; }
             if (!m_State) { Fail("null state"); return false; }
-            HCResolveGrid(image);
+            // Supply only the grid for future records, never legacy metadata.
+            if (!HCJsonFields.Has(image, "CellMetres")) { m_State.CellMetres = HCInfectedTuning.Get().Memory.CellMetres; }
             if (!HCFieldsPresent(image) || !Valid(nowUtc)) { Fail("missing X/Z or invalid state"); return false; }
+            HCResolveGrid(image);
         }
         else
         {

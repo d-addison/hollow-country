@@ -273,6 +273,7 @@ class HCOperatorSettingsRegistry
         HCAdd("Helicopters.WorldCap", "int", 4, 0, 64, "HCHeliPolicyConfig");
         HCAdd("Helicopters.MaxTypeCache", "int", 128, 1, 512, "HCHeliPolicyConfig");
         HCAdd("Helicopters.SpawnFuelMaxFraction", "float", 0.1, 0, 0.35, "HCHeliPolicyConfig");
+        HCAdd("Radio.ChannelCountLimit", "int", 64, 1, 64, "HCRadioDefaults");
         // END GENERATED SETTINGS REGISTRY
     }
 

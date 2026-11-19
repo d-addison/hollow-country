@@ -1,5 +1,10 @@
 """#220 spec/plan/tasks: exercise joint validation, durable grid, native timing
-and configured weather/radio consumers. All native ports below are synthetic;
+and configured weather/radio consumers.
+Fix-round specification: missing vanilla frequency config must retain chatter;
+legacy heat without grid metadata expires explicitly; radio count is registered.
+Plan/tasks: regress startup and migration, remove unsupported startup dependency,
+validate before expiry and persist configured empty grid, register count, verify.
+The requested spec files are absent in this confined worktree. All native ports below are synthetic;
 these checks never establish DayZ behavior or network acceptance.
 """
 import json
@@ -53,18 +58,80 @@ class Followups(unittest.TestCase):
         self.assertEqual(2,len(f.memory.m_State.Cells))
         self.assertAlmostEqual(.735,f.memory.m_State.Cells[1].Value)
 
-    def test_memory_legacy_grid_migration_is_explicit_and_validated(self):
+    def test_memory_legacy_unknown_grid_expires_heat_instead_of_rekeying(self):
+        from tests.unit.test_infected_memory_clock import MemoryFixture
         source = (ROOT/'4_World/Infected/HCInfectedMemory.c').read_text()
-        state = N(CellMetres=0)
-        obj = N(m_State=state,m_Dirty=False)
-        logs=[]
-        migrate = translate(source,'HCResolveGrid',dict(Print=logs.append, HCJsonFields=N(Has=lambda text,key:key in json.loads(text))),member=True)
-        migrate(obj,'{"Version":1}')
-        self.assertEqual(500,state.CellMetres)
-        self.assertTrue(obj.m_Dirty)
-        state.CellMetres=1000
-        migrate(obj,'{"Version":1,"CellMetres":1000}')
-        self.assertEqual(1000,state.CellMetres)
+        f = MemoryFixture()
+        # Explicit synthetic legacy store authored with a 1000 m operator grid;
+        # no grid metadata exists in its JSON, so that history is unknowable.
+        f.memory.m_State.CellMetres = 1000
+        f.scope['HCInfectedTuning'] = N(Get=lambda:N(Memory=N(CellMetres=1000,DecaySeconds=259200)))
+        migrate = translate(source, 'HCResolveGrid', dict(Print=f.logs.append,
+            HCJsonFields=N(Has=lambda text,key:key in json.loads(text))), member=True)
+        migrate(f.memory, '{"Version":1}')
+        self.assertEqual([], list(f.memory.m_State.Cells), 'unknown legacy grid must expire heat')
+        self.assertEqual(1000, f.memory.m_State.CellMetres)
+        self.assertTrue(f.memory.m_Dirty)
+        self.assertEqual(0, f.api.Heat([1010,0,10]))
+        self.assertTrue(any('legacy_heat_expired_unknown_grid' in line and 'runtime=PENDING' in line
+                            for line in f.logs))
+        # Explicit metadata is authoritative, even if tuning changes later.
+        f = MemoryFixture()
+        migrate(f.memory, '{"Version":1,"CellMetres":500}')
+        self.assertEqual(2, len(f.memory.m_State.Cells))
+        self.assertEqual(.7, f.api.Heat([510,0,10]))
+        self.assertFalse(f.memory.m_Dirty)
+
+    def test_memory_legacy_start_validates_then_persists_empty_configured_grid(self):
+        from tests.unit.test_infected_memory_clock import MemoryFixture
+        source = (ROOT/'4_World/Infected/HCInfectedMemory.c').read_text()
+        # Explicit synthetic native JSON out-parameter seam, not migration policy.
+        source = source.replace('s_Instance', 'm_StaticInstance')
+        source = source.replace('HCV2ThreatStore<HCInfectedMemoryState>', 'SyntheticStore')
+        source = source.replace('HCInfectedMemoryState', 'HCEventMemoryState')
+        source = source.replace('HCInfectedMemoryCell', 'HCEventMemoryCell')
+        source = source.replace('string image;', 'string image = SyntheticImage();')
+        source = source.replace('JsonFileLoader<HCEventMemoryState>.LoadData(image, m_State, error)',
+                                'SyntheticLoad(this)')
+        source = re.sub(r'for \(int (\w+) = ([^;]+); \1 < ([^;]+); \1\+\+\)',
+                        r'foreach (int \1 : range(\2, \3))', source)
+        for corrupt in (False, True):
+            with self.subTest(corrupt=corrupt):
+                f = MemoryFixture()
+                state = f.memory.m_State
+                state.CellMetres = 0  # native zero-fill for absent metadata
+                if corrupt: state.Cells[0].Value = 2
+                image = json.dumps({'Version':1, 'Cells':[{'X':0,'Z':0}]})
+                persisted = []
+                def load(memory):
+                    memory.m_State = state
+                    return True
+                env = dict(Print=f.logs.append, range=range, PATH='synthetic-memory.json',
+                    HCGroupClock=N(SampleUtc=lambda:f.last),
+                    HCGroupIO=N(Read=lambda *args:True), FileExist=lambda path:True,
+                    HCJsonFields=N(Has=lambda text,key:key in json.loads(text)),
+                    HCFieldsPresent=lambda text:True,  # coordinates explicitly present above
+                    HCInfectedTuning=N(Get=lambda:N(Memory=N(CellMetres=1000))),
+                    GetGame=lambda:N(IsServer=lambda:True,GetWorldName=lambda:'synthetic_world'),
+                    SyntheticStore=N(CanOpen=lambda path:True, Save=lambda path,state,cap:
+                        persisted.append(json.dumps(state,default=vars)) or True),
+                    SyntheticImage=lambda:image, SyntheticLoad=load)
+                f.memory.m_StaticInstance = None
+                f.memory.HCFieldsPresent = env['HCFieldsPresent']
+                f.memory.Tick = lambda: f.memory.Save(f.last)  # existing synchronous startup save seam
+                for name in ('Valid','HCResolveGrid','Save','Start'):
+                    fn = translate(source,name,env,'Memory',member=True)
+                    setattr(f.memory,name,fn.__get__(f.memory))
+                result = f.memory.Start()
+                self.assertEqual(not corrupt,result)
+                if corrupt:
+                    self.assertEqual([],persisted)
+                    self.assertEqual(2,len(state.Cells), 'invalid legacy state must be preserved')
+                else:
+                    saved = json.loads(persisted[0])
+                    self.assertEqual(1000,saved['CellMetres'])
+                    self.assertEqual([],saved['Cells'])
+                    self.assertFalse(f.memory.m_Dirty)
 
     def test_admin_bucket_matches_configured_partition(self):
         source=(ROOT/'4_World/Weather/HCWeatherDaysModule.c').read_text()
@@ -150,10 +217,22 @@ class Followups(unittest.TestCase):
         self.assertFalse(valid(cfg,EArray([87.8,89.5,91.3,94.6,96.6,99.7,102.5])))
         self.assertTrue(valid(cfg,EArray([87.8,89.5,91.3,94.6,96.6])))
 
+    def test_radio_count_registry_enforces_declared_bounds(self):
+        from tests.unit.settings_registry_fixture import install_registry
+        registry = install_registry({})
+        rule = registry.HCFind('Radio.ChannelCountLimit')
+        self.assertEqual(('int',64,1,64,'HCRadioDefaults'),
+                         (rule.ValueKind,rule.DefaultValue,rule.Minimum,rule.Maximum,rule.Owner))
+        for value in (1,5,64):
+            self.assertTrue(registry.HCValid('Radio.ChannelCountLimit',value))
+        for value in (0,65,float('nan')):
+            self.assertFalse(registry.HCValid('Radio.ChannelCountLimit',value))
+
     def test_existing_team_ping_and_camp_theft_registry_rows_are_present(self):
         rows=json.loads((ROOT.parents[2]/'tools/validate/shared_settings.json').read_text())
         by_key={row['key']:row for row in rows}
         for key,kind,default,lower,upper,owner in (
+            ('Radio.ChannelCountLimit','int',64,1,64,'HCRadioDefaults'),
             ('EnableTeamPing','bool',True,0,1,'HCSettings'),
             ('CampTheft.Version','int',1,1,1,'HCTheftConfig'),
             ('CampTheft.MaxAttemptsPerDay','int',1,1,6,'HCTheftConfig'),
