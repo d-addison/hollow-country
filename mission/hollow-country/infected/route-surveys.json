@@ -24,11 +24,31 @@
       "Surveyed": true,
       "Evidence": "offline-derived:police-chernogorsk:waypoints 0-4:ai/sites.json (no native survey)",
       "Nodes": [
-        [6564.47, 14.31, 2551.96],
-        [6571.44, 15.39, 2534.06],
-        [6631.27, 12.91, 2504.17],
-        [6652.29, 8.91, 2508.92],
-        [6708.72, 11.26, 2555.77]
+        [
+          6564.47,
+          14.31,
+          2551.96
+        ],
+        [
+          6571.44,
+          15.39,
+          2534.06
+        ],
+        [
+          6631.27,
+          12.91,
+          2504.17
+        ],
+        [
+          6652.29,
+          8.91,
+          2508.92
+        ],
+        [
+          6708.72,
+          11.26,
+          2555.77
+        ]
       ]
     },
     {
@@ -37,11 +57,31 @@
       "Surveyed": true,
       "Evidence": "offline-derived:police-zelenogorsk:waypoints 0-4:ai/sites.json (no native survey)",
       "Nodes": [
-        [2700.11, 207.77, 5298.06],
-        [2722.85, 210.1, 5291.15],
-        [2782.79, 211.93, 5311.66],
-        [2804.18, 213.88, 5404.2],
-        [2777.69, 212.41, 5442.69]
+        [
+          2700.11,
+          207.77,
+          5298.06
+        ],
+        [
+          2722.85,
+          210.1,
+          5291.15
+        ],
+        [
+          2782.79,
+          211.93,
+          5311.66
+        ],
+        [
+          2804.18,
+          213.88,
+          5404.2
+        ],
+        [
+          2777.69,
+          212.41,
+          5442.69
+        ]
       ]
     },
     {
@@ -50,11 +90,31 @@
       "Surveyed": true,
       "Evidence": "offline-derived:police-novaya-petrovka:waypoints 0-4:ai/sites.json (no native survey)",
       "Nodes": [
-        [3689.6, 190.5, 13081.1],
-        [3598.2, 193.2, 13113.8],
-        [3510.3, 192.7, 13039.8],
-        [3428.5, 195.0, 13070.6],
-        [3339.4, 199.0, 13084.9]
+        [
+          3689.6,
+          190.5,
+          13081.1
+        ],
+        [
+          3598.2,
+          193.2,
+          13113.8
+        ],
+        [
+          3510.3,
+          192.7,
+          13039.8
+        ],
+        [
+          3428.5,
+          195.0,
+          13070.6
+        ],
+        [
+          3339.4,
+          199.0,
+          13084.9
+        ]
       ]
     },
     {
@@ -63,10 +123,26 @@
       "Surveyed": true,
       "Evidence": "offline-derived:police-elektrozavodsk:waypoints 1-4:ai/sites.json (no native survey)",
       "Nodes": [
-        [10538.56, 10.43, 2271.77],
-        [10517.75, 11.44, 2327.14],
-        [10494.88, 11.18, 2346.99],
-        [10457.1, 11.7, 2355.9]
+        [
+          10538.56,
+          10.43,
+          2271.77
+        ],
+        [
+          10517.75,
+          11.44,
+          2327.14
+        ],
+        [
+          10494.88,
+          11.18,
+          2346.99
+        ],
+        [
+          10457.1,
+          11.7,
+          2355.9
+        ]
       ]
     },
     {
@@ -75,9 +151,21 @@
       "Surveyed": true,
       "Evidence": "offline-derived:police-berezino:waypoints 2-4:ai/sites.json (no native survey)",
       "Nodes": [
-        [12067.34, 55.96, 9145.8],
-        [12039.64, 56.89, 9132.38],
-        [11995.83, 57.34, 9109.17]
+        [
+          12067.34,
+          55.96,
+          9145.8
+        ],
+        [
+          12039.64,
+          56.89,
+          9132.38
+        ],
+        [
+          11995.83,
+          57.34,
+          9109.17
+        ]
       ]
     },
     {
@@ -86,10 +174,26 @@
       "Surveyed": true,
       "Evidence": "offline-derived:police-komarovo:waypoints 2-5:ai/sites.json (no native survey)",
       "Nodes": [
-        [3653.5, 7.7, 2454.4],
-        [3640.0, 9.5, 2535.5],
-        [3569.6, 11.0, 2530.3],
-        [3556.1, 8.0, 2427.0]
+        [
+          3653.5,
+          7.7,
+          2454.4
+        ],
+        [
+          3640.0,
+          9.5,
+          2535.5
+        ],
+        [
+          3569.6,
+          11.0,
+          2530.3
+        ],
+        [
+          3556.1,
+          8.0,
+          2427.0
+        ]
       ]
     },
     {
@@ -98,11 +202,31 @@
       "Surveyed": true,
       "Evidence": "offline-derived:mil-vybor:waypoints 0-4:ai/sites.json (no native survey)",
       "Nodes": [
-        [4485.2, 316.69, 8290.67],
-        [4519.36, 320.95, 8282.69],
-        [4559.72, 320.63, 8260.79],
-        [4540.23, 319.82, 8306.92],
-        [4547.5, 319.45, 8323.4]
+        [
+          4485.2,
+          316.69,
+          8290.67
+        ],
+        [
+          4519.36,
+          320.95,
+          8282.69
+        ],
+        [
+          4559.72,
+          320.63,
+          8260.79
+        ],
+        [
+          4540.23,
+          319.82,
+          8306.92
+        ],
+        [
+          4547.5,
+          319.45,
+          8323.4
+        ]
       ]
     },
     {
@@ -111,10 +235,26 @@
       "Surveyed": true,
       "Evidence": "offline-derived:mil-tisy:waypoints 0-3:ai/sites.json (no native survey)",
       "Nodes": [
-        [1684.98, 456.29, 14219.32],
-        [1710.85, 456.72, 14279.26],
-        [1708.93, 453.25, 14300.84],
-        [1667.09, 453.21, 14368.55]
+        [
+          1684.98,
+          456.29,
+          14219.32
+        ],
+        [
+          1710.85,
+          456.72,
+          14279.26
+        ],
+        [
+          1708.93,
+          453.25,
+          14300.84
+        ],
+        [
+          1667.09,
+          453.21,
+          14368.55
+        ]
       ]
     }
   ],
@@ -134,7 +274,7 @@
     "max_bytes": 32768,
     "max_routes": 8,
     "nodes_per_route": "2..8 ordered measured WORLD positions, adjacent segments within NativeSegmentMetres; both directions checked at runtime",
-    "evidence": "External/private exact-source survey receipt identity (max 128 characters), Surveyed=true only after measured native navmesh/obstacle/door survey. No game dumps or raw coordinates invented from place centroids.",
+    "evidence": "Surveyed=true is the legacy authored-source binding flag, not a native verdict. Native evidence is a separate exact-source gapcov receipt; all runtime segment checks remain mandatory.",
     "admission": "Existing healthy HC-14/18 physical pack, exact 1..6 native members, <=2 cohorts and <=24 tracked actors; existing hearing/stimulus opt-outs retained. No new CE admission, materialization or population reservation.",
     "noise": "Frozen externally heard provenance=1, original IsLive TTL<=30 seconds and hops<=2; route deadline min(original Expires, Observed+MaxNoiseSeconds); monotone observation watermark plus cooldown prevents replay. No new sound, relay, live player fix or noise radius.",
     "observer_gap": "Existing V2Quiet requires 60 seconds with a fresh clear-since value, longer than the <=30-second live-noise receipt. Consumer logs OBSERVER_QUIET_CONTRACT_REFUSED and releases through existing ledger. No distance/grace reduction or TTL extension is authorized here; #135 must supply a verified physical cohort/observer interface before useful noise traversal can be accepted.",
@@ -196,5 +336,12 @@
     "source": "mission/hollow-country/ai/sites.json Sites[].Waypoints",
     "method": "consecutive waypoints, indices in Evidence",
     "measured_native": false
+  },
+  "gapcov_routes": {
+    "catalog": "travel/route-surveys.json#gapcov_routes",
+    "receipt_contract": "travel/route-surveys.json#gapcov_survey_receipt_contract",
+    "locality_candidates": 88,
+    "runtime_acceptance": "PENDING",
+    "admission": "Existing features remain default-on with their existing opt-outs. Candidate catalog needs bounded runtime paging; current active Routes are unchanged. No native survey accepted."
   }
 }
