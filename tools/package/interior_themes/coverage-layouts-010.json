@@ -1,0 +1,250 @@
+{
+  "SchemaVersion": 1,
+  "RuntimeAcceptance": "pending",
+  "Pending": [
+    "Native full-world enterability census and unmeasured room clearance remain queued",
+    "Native traversal, two-client visibility/replication and target-load performance remain pending"
+  ],
+  "Layouts": [
+    {
+      "Id": "cov-a73684531f06b67e",
+      "BuildingClass": "Land_Wreck_sed02_aban1_yellow",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-63182b1878dcce53",
+      "BuildingClass": "Land_Wreck_sed02_aban1_yellow_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-63147ddd06769fea",
+      "BuildingClass": "Land_Wreck_sed02_aban2_grey",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-6d00870edf217c8c",
+      "BuildingClass": "Land_Wreck_sed02_aban2_grey_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-a7fbeb6623ca4014",
+      "BuildingClass": "Land_Wreck_sed02_aban2_red",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-099ae940460435c6",
+      "BuildingClass": "Land_Wreck_sed02_aban2_red_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0ce2e304db5f30b8",
+      "BuildingClass": "Land_Wreck_sed02_aban2_yellow",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0a365719296e7b5e",
+      "BuildingClass": "Land_Wreck_sed02_aban2_yellow_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-2c2389a8b784beb5",
+      "BuildingClass": "Land_Wreck_truck01_aban1_blue",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-32ad6a92bec5122c",
+      "BuildingClass": "Land_Wreck_truck01_aban1_blue_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-4f1af4f2f1199d0a",
+      "BuildingClass": "Land_Wreck_truck01_aban1_green",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-af5099c4cc779992",
+      "BuildingClass": "Land_Wreck_truck01_aban1_orange",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-7bad7d0f77942b29",
+      "BuildingClass": "Land_Wreck_truck01_aban1_orange_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-3bd5fb47bb7fbd67",
+      "BuildingClass": "Land_Wreck_truck01_aban2_blue",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-bc1e45be14882372",
+      "BuildingClass": "Land_Wreck_truck01_aban2_blue_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-cd7d51e9c3d93b91",
+      "BuildingClass": "Land_Wreck_truck01_aban2_green",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0c5d069b80938156",
+      "BuildingClass": "Land_Wreck_truck01_aban2_orange",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-b4322c16059620d1",
+      "BuildingClass": "Land_Wreck_truck01_aban2_orange_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-ec5c6c8749c99d21",
+      "BuildingClass": "Land_wreck_truck01_aban1_firetruck",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-40a6187d9d29d323",
+      "BuildingClass": "Land_wreck_truck01_aban1_firetruck_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-c26a39eee515118f",
+      "BuildingClass": "Land_wreck_truck01_aban1_green_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-9e9eaf41442057d8",
+      "BuildingClass": "Land_wreck_truck01_aban2_firetruck",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-e0fcd52658d883c5",
+      "BuildingClass": "Land_wreck_truck01_aban2_firetruck_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-4c5ce8cf11cbda9c",
+      "BuildingClass": "Land_wreck_truck01_aban2_green_DE",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    }
+  ]
+}

@@ -1,0 +1,410 @@
+{
+  "SchemaVersion": 1,
+  "RuntimeAcceptance": "pending",
+  "Pending": [
+    "Native full-world enterability census and unmeasured room clearance remain queued",
+    "Native traversal, two-client visibility/replication and target-load performance remain pending"
+  ],
+  "Layouts": [
+    {
+      "Id": "cov-6e75d8fb24e4357a",
+      "BuildingClass": "Land_HouseBlock_3F_Corner2",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-ed215ee274e84b56",
+      "BuildingClass": "Land_HouseBlock_5F",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-5b32e95001e08adc",
+      "BuildingClass": "Land_House_1B01_Pub",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-5884e750016567b8",
+      "BuildingClass": "Land_House_1W02",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-4d170446df79f96b",
+      "BuildingClass": "Land_House_1W03",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-b6f4e7b1d1099c86",
+      "BuildingClass": "Land_House_1W04",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-cbac3a2f3b8340c1",
+      "BuildingClass": "Land_House_1W05",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-6cfe6a5b43477304",
+      "BuildingClass": "Land_House_1W05_Yellow",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-240a6efbf2cfb313",
+      "BuildingClass": "Land_House_1W06",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-e89631534fbab3e8",
+      "BuildingClass": "Land_House_1W07",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-fb56d3861118dcfa",
+      "BuildingClass": "Land_House_1W08",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-1a927d6e52e75f74",
+      "BuildingClass": "Land_House_1W08_Brown",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-27e98ce2d4271eda",
+      "BuildingClass": "Land_House_1W09",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0fc87f46ed0d86d7",
+      "BuildingClass": "Land_House_1W09_Yellow",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-a539661695a72038",
+      "BuildingClass": "Land_House_1W10",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-829b1c002f2bc87f",
+      "BuildingClass": "Land_House_1W10_Brown",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-06a748f794896c16",
+      "BuildingClass": "Land_House_1W11",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-890650ed474d1d96",
+      "BuildingClass": "Land_House_1W12",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-7b76cdece9f26084",
+      "BuildingClass": "Land_House_1W12_Brown",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-e9f866b151e9cb39",
+      "BuildingClass": "Land_House_1W13_Dam",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-4e8ead5fca1fdeb4",
+      "BuildingClass": "Land_House_2B01",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-cc38ca75d9aea08d",
+      "BuildingClass": "Land_House_2B02",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-ed9aa46aff89b09d",
+      "BuildingClass": "Land_House_2B03",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-5349ff91aa076311",
+      "BuildingClass": "Land_House_2B04",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0e2671213f8fc8d1",
+      "BuildingClass": "Land_House_2W02",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-10fe7dd28ac1b007",
+      "BuildingClass": "Land_House_2W03",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-9959d051634e3990",
+      "BuildingClass": "Land_House_2W03_Brown",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-f2cc6cbba64fc240",
+      "BuildingClass": "Land_House_2W04",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-21f4eb3ff6fe4b6f",
+      "BuildingClass": "Land_House_2W04_Yellow",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-710f0e3a71963de4",
+      "BuildingClass": "Land_Lighthouse",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0f00155bdd07f4ff",
+      "BuildingClass": "Land_Lunapark_Autodrome",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-ded63e6de260fb32",
+      "BuildingClass": "Land_Lunapark_Carousel_Swan",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-fef015e78ca86a0e",
+      "BuildingClass": "Land_Lunapark_Ferris_wheel",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-07cc396e5f15a2f7",
+      "BuildingClass": "Land_Lunapark_Shooting_Gallery",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-0f6d96605a644357",
+      "BuildingClass": "Land_Medical_Tent_Big",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-4a58aa0ab0ec5ec8",
+      "BuildingClass": "Land_Medical_Tent_Shower",
+      "History": "family",
+      "PropClasses": [
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
+      ],
+      "Intent": "Sparse household storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-6c207d70acd9b8ba",
+      "BuildingClass": "Land_Mil_ATC_Big",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-ff3d2e668ba9f1a3",
+      "BuildingClass": "Land_Mil_ATC_Small",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-4ccaee5457d214e8",
+      "BuildingClass": "Land_Mil_AircraftShelter",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    },
+    {
+      "Id": "cov-511c798ad80e7f9c",
+      "BuildingClass": "Land_Mil_Airfield_HQ",
+      "History": "ransacked",
+      "PropClasses": [
+        "StaticObj_Furniture_case_a_open",
+        "StaticObj_Furniture_PaperBox_01_small_ransacked"
+      ],
+      "Intent": "Sparse disturbed storage along measured free walls; retain CE point access, door swings and connected floor cells."
+    }
+  ]
+}

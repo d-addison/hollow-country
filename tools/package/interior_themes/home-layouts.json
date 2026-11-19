@@ -2,10 +2,8 @@
   "SchemaVersion": 1,
   "RuntimeAcceptance": "pending",
   "Pending": [
-    "Native model origin and collision-box measurements for every selected prop",
     "Native room fit, full door swings, stairs and corridor traversal",
-    "Two-client replication and native AI traversal; occupancy deferral and restart",
-    "Other home families and layouts remain in the authored queue"
+    "Two-client replication, native AI traversal, occupancy deferral and restart"
   ],
   "Layouts": [
     {
@@ -13,10 +11,10 @@
       "BuildingClass": "Land_House_1W01",
       "History": "family",
       "PropClasses": [
-        "StaticObj_Furniture_case_a",
-        "StaticObj_Furniture_kitchen_chair_a"
+        "StaticObj_Furniture_case_bedroom_b",
+        "StaticObj_Furniture_PaperBox_01_small_closed"
       ],
-      "Intent": "A sparse household pantry with a closed cupboard and a single chair; fit only to measured free wall cells."
+      "Intent": "Sparse household storage with a low cupboard and closed carton; fit only to measured free wall cells."
     },
     {
       "Id": "home-ransacked-storage-v1",
