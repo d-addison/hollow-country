@@ -1,14 +1,22 @@
+// HC-12 / #150: finite reclaimable records, native supply retained.
+// Supplemental spawn REFUSED: surface_visibility_unqualified; native fruit/
+// mushroom generator controls not exposed by inspected N19 CE/script classes.
+// No invented generator API or 30m visibility claim. Qualification must replace
+// HCVisibilityQualified only after exact-source, two-client native evidence.
+// No new distances: all existing cell/geometry/exclusion values retained.
+// 1_Core/proto/EnScript.c:470 RemoveOrdered; shared budgets/cache/save native evidence
+// is in Core/HCUnitBudget.c and World/HCWorkBudget.c.
 // W5 #129/#130. Bound per 10s tick: maintain <=4 of <=40 nodes by cursor;
 // cache GetPlayers once (refuse spawning above 16), inspect one player's one
 // candidate, <=40 node lookups/counts, <=16 distance vetoes, one geometry query,
-// <=1 spawn and <=1 16384-byte store transaction. No full-map enumeration.
-// Inventory callback: <=40 exact-reference comparisons, no file I/O. Shutdown
+// <=1 spawn; release/create barriers use bounded 16384-byte stores. No map scan.
+// Inventory callback: <=40 exact-reference comparisons and one cooldown barrier. Shutdown
 // touches <=40 authored item handles. Off: return before allocating any data.
 // Installed scripts-1.30.164289 native evidence:
 // 3_Game/Global/Game.c:612 ConfigIsExisting, :703 CreateObjectEx, :705
 // ObjectDelete, :931 GetWorld, :934 GetWorldName, :945 GetPlayers,
 // :1176 SurfaceY, :1180 SurfaceGetType, :1196/1197 water veto,
-// :1366 IsBoxCollidingGeometry; 3_Game/Global/World.c:28 GetDate;
+// :1366 IsBoxCollidingGeometry; no calendar controls used;
 // 3_Game/CE/CentralEconomy.c:9,10,17,33 ECE_SETUP/TRACE/CREATEPHYSICS and
 // ECE_DYNAMIC_PERSISTENCY (unpicked items are not persisted; native pickup
 // enables persistence). 3_Game/constants.c:31-36 ObjIntersect geometry enums;
@@ -29,8 +37,8 @@
 // bounded persistence (native evidence in Progression/HCProgression.c).
 // Static 200m cell/slot anchors are candidate design inputs, not surveyed sites.
 // Chernarus only; all placement/replication/CE persistence requires native tests.
-// Herb chance: one of ten rolls on slot 2 in June-November (1/30 expected
-// across complete three-slot rotations). Reuses all node/cell/cooldown caps;
+// Herb chance: one of ten rolls on slot 2, independent of calendar month.
+// Reuses all node/cell/cooldown caps;
 // <=1 extra random draw per candidate; no extra query, spawn, store or tick.
 class HCForageSpot
 {
@@ -55,13 +63,26 @@ class HCForageNode
     bool WasLive;
 }
 
+class HCForageSaveJob : HCSaveJob
+{
+    HCForageModule Owner;
+    override string HCName() { return "Forage"; }
+    override int HCStep()
+    {
+        if (!Owner) { return HCSaveJob.STEP_FAILED; }
+        return Owner.HCStepCheckpoint();
+    }
+}
+
 class HCForageModule : HCModule
 {
+    static const int RECORD_CAP = 40;
+    static const int LIVE_CAP = 40;
     static const string PATH = "$profile:HollowCountry/forage.json";
     protected static HCForageModule s_HCInstance;
     protected ref HCForageState m_State;
     protected ref array<ref HCForageNode> m_Nodes;
-    protected ref array<Man> m_Players;
+    protected ref array<Man> m_Players; // shared HCPerfPlayers snapshot, never Clear()
     protected ref array<Object> m_Exclude;
     protected bool m_Healthy;
     protected bool m_Dirty;
@@ -70,6 +91,45 @@ class HCForageModule : HCModule
     protected int m_SlotCursor;
     protected int m_LastUtc;
     protected float m_Elapsed;
+    protected int m_Deferred;
+    protected int m_Revision;
+    protected int m_SnapshotRevision;
+    protected int m_SaveStage;
+    protected ref HCForageState m_Snapshot;
+    protected ref HCForageSaveJob m_SaveJob;
+    protected ref HCUnitBudget m_Units = new HCUnitBudget;
+    protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+
+    protected bool HCVisibilityQualified()
+    {
+        // Named refusal: native surface/view/pop-in acceptance has not occurred.
+        return false;
+    }
+
+    protected void HCChanged()
+    {
+        m_Dirty = true;
+        m_Revision = m_Revision + 1;
+        if (m_SaveJob) { m_SaveJob.HCDirty = true; }
+    }
+
+    protected void HCReceipt(string state, string reason)
+    {
+        int live = 0;
+        int records = 0;
+        if (m_Nodes)
+        {
+            records = m_Nodes.Count();
+            foreach (HCForageNode node : m_Nodes)
+            {
+                if (node.Item) { live = live + 1; }
+            }
+        }
+        Print("[HC Plan] HC-12 forage live=" + live.ToString() + " records=" + records.ToString() + " deferred=" + m_Deferred.ToString() + " state=" + state + " reason=" + reason + " runtime=PENDING");
+    }
 
     override string GetName() { return "Forage"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableForage; }
@@ -77,6 +137,8 @@ class HCForageModule : HCModule
     protected void HCFail()
     {
         m_Healthy = false;
+        m_Status.HCPublish("refused", "clock_schema_store_fault");
+        HCReceipt("refused", "clock_schema_store_fault");
         if (s_HCInstance == this) { s_HCInstance = null; }
         Print("[HC Forage] disabled: clock/schema/store fault; preserve forage.json .tmp .bak");
     }
@@ -85,7 +147,7 @@ class HCForageModule : HCModule
     {
         if (!m_State || m_State.Version != 1) { return false; }
         if (m_State.WorldName != "chernarusplus") { return false; }
-        if (!m_State.Spots || m_State.Spots.Count() > 40) { return false; }
+        if (!m_State.Spots || m_State.Spots.Count() > RECORD_CAP) { return false; }
         for (int spotIndex = 0; spotIndex < m_State.Spots.Count(); spotIndex++)
         {
             HCForageSpot spot = m_State.Spots[spotIndex];
@@ -107,12 +169,18 @@ class HCForageModule : HCModule
     override void OnStart(HCSettings settings)
     {
         Print(HCV2Admission.Line("Forage", settings.EnableForage, "W5-129", false));
-        if (!settings.EnableForage || !HCSurvivalRuntime.HCIsServer()) { return; }
+        if (!settings.EnableForage || !HCSurvivalRuntime.HCIsServer())
+        {
+            m_Status.HCPublish("off", "preference_or_authority");
+            HCReceipt("off", "preference_or_authority");
+            return;
+        }
         string worldName = GetGame().GetWorldName();
         worldName.ToLower();
         if (worldName != "chernarusplus")
         {
-            Print("[HC Forage] unavailable: only Chernarus surface/cell candidates authored");
+            m_Status.HCPublish("refused", "world_unsupported");
+            HCReceipt("refused", "world_unsupported");
             return;
         }
         int now = HCGroupClock.Utc();
@@ -136,20 +204,58 @@ class HCForageModule : HCModule
             node.Spot = spot;
             m_Nodes.Insert(node);
         }
-        m_Players = new array<Man>;
+        m_SaveJob = new HCForageSaveJob;
+        m_SaveJob.Owner = this;
+        HCSaveScheduler.HCRegister(m_SaveJob);
         m_Exclude = new array<Object>;
         m_LastUtc = now;
         m_Healthy = true;
         s_HCInstance = this;
-        Print("[HC Forage] ready cap=40 per-cell=3 respawn=1800 lifetime=600; berries/mushrooms/herbs seasonal; herb=Cannabis slot=2 chance=1/10 Jun-Nov; runtime acceptance pending");
+        m_Status.HCPublish("degraded", "surface_visibility_unqualified");
+        HCReceipt("refused", "surface_visibility_unqualified,native_generator_api_unexposed");
+    }
+
+    // Routine checkpoint: bounded snapshot then existing verified store. A
+    // mutation during the snapshot is never lost; barriers finish the newest image.
+    int HCStepCheckpoint()
+    {
+        if (!m_Healthy) { return HCSaveJob.STEP_FAILED; }
+        if (m_SaveStage == 0)
+        {
+            m_Snapshot = new HCForageState;
+            m_Snapshot.WorldName = m_State.WorldName;
+            foreach (HCForageSpot spot : m_State.Spots)
+            {
+                HCForageSpot copy = new HCForageSpot;
+                copy.CellX = spot.CellX;
+                copy.CellZ = spot.CellZ;
+                copy.NodeSlot = spot.NodeSlot;
+                copy.ReadyUtc = spot.ReadyUtc;
+                m_Snapshot.Spots.Insert(copy);
+            }
+            m_SnapshotRevision = m_Revision;
+            m_SaveStage = 1;
+            return HCSaveJob.STEP_MORE;
+        }
+        if (!HCV2ThreatStore<HCForageState>.Save(PATH, m_Snapshot, 16384))
+        {
+            HCFail();
+            return HCSaveJob.STEP_FAILED;
+        }
+        m_SaveStage = 0;
+        m_Snapshot = null;
+        if (m_SnapshotRevision != m_Revision) { return HCSaveJob.STEP_MORE; }
+        m_Dirty = false;
+        return HCSaveJob.STEP_DONE;
     }
 
     protected bool HCFlush()
     {
         if (!m_Dirty) { return true; }
-        if (!HCV2ThreatStore<HCForageState>.Save(PATH, m_State, 16384)) { HCFail(); return false; }
-        m_Dirty = false;
-        return true;
+        m_SaveJob.HCDirty = true;
+        if (HCSaveScheduler.HCFlush(m_SaveJob)) { return true; }
+        HCFail();
+        return false;
     }
 
     static void HCCollected(ItemBase item, PlayerBase player)
@@ -181,7 +287,10 @@ class HCForageModule : HCModule
         node.WasLive = false;
         int familiarity = HCProgressionModule.HCRecordForage(player);
         node.Spot.ReadyUtc = now + HCSurvivalPolicy.ForageDelay(familiarity);
-        m_Dirty = true;
+        HCChanged();
+        // A picked item can persist natively across restart. Its spent evidence
+        // is a transaction barrier, not a delayed routine checkpoint.
+        if (!HCFlush()) { return; }
         Print("[HC Forage] node released; refill delay=" + HCSurvivalPolicy.ForageDelay(familiarity).ToString());
     }
 
@@ -196,29 +305,17 @@ class HCForageModule : HCModule
 
     protected string HCSeasonalType(int month, int slot)
     {
-        if (month >= 6 && month <= 11)
-        {
-            if (slot == 2)
-            {
-                if (Math.RandomInt(0, 10) == 0) { return "Cannabis"; }
-            }
-        }
-        if (month >= 6 && month <= 8)
-        {
-            if (slot == 1) { return "CaninaBerry"; }
-            return "SambucusBerry";
-        }
-        if (month >= 9 && month <= 11)
-        {
-            if (slot == 0) { return "BoletusMushroom"; }
-            if (slot == 1) { return "MacrolepiotaMushroom"; }
-            return "CaninaBerry";
-        }
-        return "";
+        // Compatibility signature for existing tooling; month is intentionally unused.
+        // Supply does not disappear with the calendar or change the HC-6 clock.
+        if (slot == 2 && Math.RandomInt(0, 10) == 0) { return "Cannabis"; }
+        if (slot == 0) { return "BoletusMushroom"; }
+        if (slot == 1) { return "CaninaBerry"; }
+        return "MacrolepiotaMushroom";
     }
 
     protected bool HCClearCandidate(vector position)
     {
+        if (!HCVisibilityQualified()) { return false; }
         if (!HCWorldLimits.Position(position)) { return false; }
         if (GetGame().SurfaceIsSea(position[0], position[2])) { return false; }
         if (GetGame().SurfaceIsPond(position[0], position[2])) { return false; }
@@ -250,8 +347,14 @@ class HCForageModule : HCModule
         HCForageNode found;
         int cellLive;
         int totalLive;
-        foreach (HCForageNode candidate : m_Nodes)
+        int reclaim = -1;
+        for (int candidateIndex = 0; candidateIndex < m_Nodes.Count(); candidateIndex++)
         {
+            HCForageNode candidate = m_Nodes[candidateIndex];
+            if (!candidate.Item && !candidate.WasLive && now >= candidate.Spot.ReadyUtc && reclaim < 0)
+            {
+                reclaim = candidateIndex;
+            }
             bool sameCell = candidate.Spot.CellX == cellX && candidate.Spot.CellZ == cellZ;
             if (candidate.Item)
             {
@@ -271,11 +374,25 @@ class HCForageModule : HCModule
         // A just-deleted handle awaits its maintenance cursor; do not mistake
         // it for a never-spawned node and bypass the post-despawn timer.
         if (found && found.WasLive) { return null; }
-        if (!found && m_Nodes.Count() >= 40) { return null; }
+        if (totalLive >= LIVE_CAP) { return null; }
+        if (!found && m_Nodes.Count() >= RECORD_CAP && reclaim < 0)
+        {
+            if (m_Deferred < RECORD_CAP) { m_Deferred = m_Deferred + 1; }
+            return null;
+        }
         position = HCPosition(cellX, cellZ, slot);
         if (!HCClearCandidate(position)) { return null; }
         if (!found)
         {
+            if (m_Nodes.Count() >= RECORD_CAP)
+            {
+                // Same ordered index in both bounded arrays. No live handle,
+                // pending disappearance or unexpired spent evidence is evicted.
+                m_Nodes.RemoveOrdered(reclaim);
+                m_State.Spots.RemoveOrdered(reclaim);
+                if (reclaim < m_NodeCursor) { m_NodeCursor = m_NodeCursor - 1; }
+                if (m_NodeCursor >= m_Nodes.Count()) { m_NodeCursor = 0; }
+            }
             HCForageSpot spot = new HCForageSpot;
             spot.CellX = cellX;
             spot.CellZ = cellZ;
@@ -289,7 +406,7 @@ class HCForageModule : HCModule
         // Dynamic unpicked entities vanish on restart; picked items become
         // ordinary native inventory. Neither case is cloned/reconstructed.
         found.Spot.ReadyUtc = now + 1800;
-        m_Dirty = true;
+        HCChanged();
         return found;
     }
 
@@ -303,10 +420,13 @@ class HCForageModule : HCModule
         int now = HCGroupClock.Utc();
         if (now < m_LastUtc || now > 2146000000) { HCFail(); return; }
         m_LastUtc = now;
+        m_Units.HCReset(48);
+        m_Work.HCReset(5);
         int work = m_Nodes.Count();
         if (work > 4) { work = 4; }
         for (int tickIndex = 0; tickIndex < work; tickIndex++)
         {
+            if (!m_Work.HCContinue() || !m_Units.HCTake(1)) { return; }
             if (m_NodeCursor >= m_Nodes.Count()) { m_NodeCursor = 0; }
             HCForageNode current = m_Nodes[m_NodeCursor];
             m_NodeCursor = m_NodeCursor + 1;
@@ -318,19 +438,14 @@ class HCForageModule : HCModule
             }
             if (!m_Healthy) { return; }
         }
-        m_Players.Clear();
-        GetGame().GetPlayers(m_Players);
+        // HCPerfPlayers owns the snapshot; do not clear/mutate the shared array.
+        m_Players = HCPerfPlayers.HCGet();
+        if (!m_Work.HCContinue() || !m_Units.HCTake(RECORD_CAP)) { return; }
         HCForageNode selected;
         string type;
         if (m_Players.Count() > 0 && m_Players.Count() <= 16)
         {
-            int year;
-            int month;
-            int day;
-            int hour;
-            int minute;
-            GetGame().GetWorld().GetDate(year, month, day, hour, minute);
-            type = HCSeasonalType(month, m_SlotCursor);
+            type = HCSeasonalType(0, m_SlotCursor);
             if (m_PlayerCursor >= m_Players.Count()) { m_PlayerCursor = 0; }
             PlayerBase player = PlayerBase.Cast(m_Players[m_PlayerCursor]);
             m_PlayerCursor = m_PlayerCursor + 1;
@@ -345,8 +460,11 @@ class HCForageModule : HCModule
                 selected = HCSelectCandidate(player, slot, now);
             }
         }
-        if (!HCFlush()) { return; }
+        // Routine retirement checkpoints are scheduled. Creation and release
+        // reservations retain their synchronous durability barriers.
+        if (m_Dirty && m_SaveJob) { m_SaveJob.HCDirty = true; }
         if (!selected) { return; }
+        if (!HCFlush()) { return; }
         int flags = ECE_SETUP | ECE_TRACE | ECE_CREATEPHYSICS | ECE_DYNAMIC_PERSISTENCY;
         Object created = GetGame().CreateObjectEx(type, HCPosition(selected.Spot.CellX, selected.Spot.CellZ, selected.Spot.NodeSlot), flags);
         selected.Item = ItemBase.Cast(created);
@@ -364,6 +482,13 @@ class HCForageModule : HCModule
     override void OnStop()
     {
         if (m_Healthy) { HCFlush(); }
+        if (m_SaveJob)
+        {
+            HCSaveScheduler.HCUnregister(m_SaveJob);
+            m_SaveJob.Owner = null;
+            m_SaveJob = null;
+        }
+        m_Status.HCPublish("off", "stopped");
         m_Healthy = false;
         if (s_HCInstance == this) { s_HCInstance = null; }
         if (!m_Nodes) { return; }
@@ -378,6 +503,7 @@ class HCForageModule : HCModule
         }
         m_Nodes = null;
         m_State = null;
+        m_Snapshot = null;
         m_Players = null;
         m_Exclude = null;
     }
