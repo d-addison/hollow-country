@@ -27,6 +27,7 @@ from tools.setup.probe_runtime import ENGINE_TYPE_NAMES, RESERVED_WORDS
 from tools.validate import enforce_source as es
 from tools.validate import enforce_json
 from tools.validate import enforce_rules_readiness as _readiness
+from tools.validate import native_symbols
 
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = Path(__file__).with_name('enforce_lint_baseline.json')
@@ -48,6 +49,8 @@ RULES = {
     'HC-E008': 'unbalanced method attribute (the source model cannot inspect the declaration)',
     'HC-E010': 'integer assigned to a FileHandle (native compile: Incompatible parameter); track open state in a bool',
     'HC-E011': 'Enforce keyword used as a variable, member or parameter name (native compile: Expected name, not a keyword)',
+    'HC-E012': 'method absent from the declared receiver type and its visible ancestors/modded bodies',
+    'HC-E013': 'type only defined in a higher script layer than its use',
     'HC-L001': 'Print of a bare variable (the engine logs "string name = \'...\'" instead of the text)',
     'HC-S001': 'server commit point returns early without logging or telling the player why',
     'HC-S002': 'server gate returns false without a reason code, log line or player message',
@@ -108,9 +111,11 @@ class Finding:
 class Project:
     """Cross-file indexes over authored sources (and optional native type names)."""
 
-    def __init__(self, sources, native=None):
+    def __init__(self, sources, native=None, symbols=None):
         self.sources = sources
         self.native = native or {}
+        self.symbols = (symbols or {}).get('classes', {})
+        self._receiver_cache = {}
         self.links, self.types, self.enums, self.typedefs = {}, {}, set(), {}
         for source in sources:
             for definition in source.classes:
@@ -158,6 +163,52 @@ class Project:
             seen.add(type_text)
             type_text = re.sub(r'\s+', '', self.typedefs[type_text])
         return type_text
+
+    def receiver_members(self, name, layer):
+        """(method names, field types, complete) at the caller's script layer.
+
+        Unknown engine parents leave resolution incomplete, so offline mode
+        never guesses that their methods are absent. Both authored and native
+        classes include their visible authored modded bodies.
+        """
+        key = (name, layer)
+        if key in self._receiver_cache:
+            return self._receiver_cache[key]
+        methods, fields, seen, complete = set(), {}, set(), True
+
+        def visit(kind):
+            nonlocal complete
+            if kind in seen:
+                return
+            seen.add(kind)
+            bodies = [d for d in self.links.get(kind, ())
+                      if layer is None or d.source.layer is None or d.source.layer <= layer]
+            engine = [d for d in self.symbols.get(kind, ())
+                      if layer is None or d['layer'] <= layer]
+            ordinary = [d for d in bodies if not d.modded]
+            native_ordinary = [d for d in engine if not d['modded']]
+            if not ordinary and not native_ordinary:
+                complete = False
+            parents = [d.base for d in bodies if d.base]
+            parents += [d['parent'] for d in engine if d['parent']]
+            for parent in parents:
+                visit(parent)
+            for body in engine:
+                methods.update(body['methods'])
+                fields.update(body['fields'])
+            for body in bodies:
+                methods.update(s.name for s in body.source.class_signatures(body))
+                fields.update({f.name: f.type for f in body.fields})
+
+        visit(name)
+        # Every Enforce class implicitly inherits Class; these intrinsic
+        # methods are also legal in --no-native mode (pinned EnScript.c).
+        methods.update({'Cast', 'CastTo', 'IsInherited', 'ClassName', 'Type', 'StaticType', 'ToString'})
+        if name != 'Class' and self.symbols:
+            visit('Class')
+        result = methods, fields, complete
+        self._receiver_cache[key] = result
+        return result
 
 
 def _finding(rule, source, offset, symbol, message, native=False, key=None):
@@ -242,6 +293,94 @@ def rule_layers(project, source):
             yield _finding('HC-E002', source, match.start(), name,
                            f'{name} is defined in {defined}; {es.LAYERS[source.layer]} cannot see it',
                            native=not authored, key=f'{name} used in {es.LAYERS[source.layer]}')
+
+
+def rule_receiver_layers(project, source):
+    """Extend the legacy layer check to all authored class names, including lowercase.
+
+    E002 remains stable for existing consumers/baselines; E013 explicitly
+    identifies the receiver-resolution layer contract for authored types.
+    Member names (including method declarations) are not type uses.
+    """
+    if source.layer is None:
+        return
+    members = {s.offset for s in source.signatures}
+    members.update(f.offset for d in source.classes for f in d.fields)
+    own_methods = {s.name for s in source.signatures}
+    reported = set()
+    for match in re.finditer(r'(?<![\w.])\b[A-Za-z_]\w*\b', source.code):
+        name = match[0]
+        if name in reported or match.start() in members:
+            continue
+        if (name in own_methods and re.match(r'\s*\(', source.code[match.end():])
+                and not re.search(r'\bnew\s+$', source.code[:match.start()])):
+            continue  # unqualified method calls are not type references
+        layers = project.types.get(name, set()) - {None}
+        layers |= {layer for layer, names in project.native.items() if name in names}
+        if not project.native and name in PINNED_LAYERS:
+            layers.add(PINNED_LAYERS[name])
+        if layers and min(layers) > source.layer:
+            reported.add(name)
+            yield _finding('HC-E013', source, match.start(), name,
+                           f'{name} is defined in {es.LAYERS[min(layers)]}; '
+                           f'{es.LAYERS[source.layer]} cannot see it',
+                           native=name not in project.types,
+                           key=f'{name} used in {es.LAYERS[source.layer]}')
+
+
+_RECEIVER_CALL = re.compile(r'(?<![\w.)\]])\b([A-Za-z_]\w*'
+                            r'(?:\s*\.\s*[A-Za-z_]\w*)*)\s*\.\s*([A-Za-z_]\w*)\s*\(')
+
+
+def rule_receiver_methods(project, source):
+    """Resolve explicit typed receivers; no cast, return-type or auto inference.
+
+    Start only with types originally declared in our mods, not engine/provider
+    types that we merely mod. Provider method tables are unavailable here.
+    Ancestors may be engine classes. Field chains retain declared types,
+    never the runtime subtype. Incomplete ancestor chains are skipped.
+    """
+    for method in _all_methods(source):
+        fields = (project.receiver_members(method.owner.name, source.layer)[1]
+                  if method.owner else {})
+        parameters = {name: kind for kind, name, _ in method.parameters()}
+        declarations = source.local_declarations(method)
+        for call in _RECEIVER_CALL.finditer(source.body(method)):
+            offset = method.body_start + call.start()
+            receiver = re.split(r'\s*\.\s*', call[1])
+            first = receiver.pop(0)
+            if first == 'this' and method.owner:
+                kind = method.owner.name
+            else:
+                bindings = [kind for name, kind, start, end in declarations
+                            if name == first and start <= offset < end]
+                if bindings:
+                    kind = bindings[-1]
+                elif first in parameters:
+                    kind = parameters[first]
+                elif first in fields:
+                    kind = fields[first]
+                elif first in project.links:  # explicit Type.Method static call
+                    kind = first
+                else:
+                    continue
+            for member in receiver:
+                kind = project.resolve_typedef(kind)
+                kind = project.receiver_members(kind, source.layer)[1].get(member, '')
+            kind = project.resolve_typedef(kind)
+            # Generic specializations and template parameters need substitution;
+            # skip them instead of resolving against an unrelated concrete type.
+            if kind not in project.types or kind not in project.links or '<' in kind:
+                continue
+            layers = project.types.get(kind, set()) - {None}
+            if layers and source.layer is not None and min(layers) > source.layer:
+                continue  # E013 owns invisible receiver types
+            methods, _, complete = project.receiver_members(kind, source.layer)
+            if complete and call[2] not in methods:
+                yield _finding('HC-E012', source, offset, _symbol(method),
+                               f'{call[1]}.{call[2]}: {kind} has no visible method {call[2]} '
+                               '(including parents and modded bodies)',
+                               native=any(name in project.native_names for name in project.lineage(kind)))
 
 
 def _fields_visible(project, class_name):
@@ -623,13 +762,14 @@ def rule_predicted_actions(project, source):
 
 
 ALL_RULES = (rule_parse_issues, rule_ternary, rule_file_handle_int, rule_keyword_names, rule_layers, rule_weak_new, rule_weak_collection, rule_modded_links,
+             rule_receiver_layers, rule_receiver_methods,
              rule_substring, rule_type_named_methods, rule_bare_print, rule_build_identity, rule_silent_commit, rule_silent_gate,
              rule_predicted_actions, enforce_json.rule_json_defaults,
              _readiness.rule_module_names, _readiness.rule_engine_type_names)
 
 
-def lint(sources, native=None, rules=ALL_RULES):
-    project = Project(sources, native)
+def lint(sources, native=None, rules=ALL_RULES, symbols=None):
+    project = Project(sources, native, symbols)
     findings = []
     for source in sources:
         for rule in rules:
@@ -704,7 +844,8 @@ def native_cache(argument=None, disabled=False):
     path = Path(argument or os.environ.get('HC_NATIVE_SCRIPTS') or DEFAULT_CACHE).expanduser()
     if not (path / '3_Game').is_dir():
         return None
-    return es.native_types_by_layer(path)
+    symbols = native_symbols.load(path, allow_uncached=True)
+    return {int(layer): set(names) for layer, names in symbols['types'].items()}
 
 
 def main(argv=None):
@@ -718,8 +859,16 @@ def main(argv=None):
     parser.add_argument('--write-baseline', metavar='REVIEW_NOTE',
                         help='rewrite the baseline from the current findings with this review note')
     args = parser.parse_args(argv)
-    native = native_cache(args.native_scripts, args.no_native)
-    findings = lint(es.mod_sources(args.root), native)
+    path = Path(args.native_scripts or os.environ.get('HC_NATIVE_SCRIPTS') or DEFAULT_CACHE).expanduser()
+    symbols = None
+    if not args.no_native and (path / '3_Game').is_dir():
+        try:
+            symbols = native_symbols.load(path, allow_uncached=True)
+        except (OSError, ValueError):
+            parser.exit(1, 'enforce_lint: cannot read scripts or write the local symbol cache\n')
+    native = ({int(layer): set(names) for layer, names in symbols['types'].items()}
+              if symbols is not None else None)
+    findings = lint(es.mod_sources(args.root), native, symbols=symbols)
     if args.write_baseline:
         args.baseline.write_text(json.dumps(baseline_from(findings, args.write_baseline), indent=1) + '\n',
                                  encoding='utf-8')

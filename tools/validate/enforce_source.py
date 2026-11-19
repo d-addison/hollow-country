@@ -9,6 +9,7 @@ Nothing here establishes DayZ behaviour; only a native compile/boot does.
 from bisect import bisect_right
 from dataclasses import dataclass, field
 from pathlib import Path
+from functools import cached_property
 import re
 
 LAYERS = ('1_Core', '2_GameLib', '3_Game', '4_World', '5_Mission')
@@ -338,13 +339,67 @@ class Source:
     def body(self, method):
         return self.code[method.body_start:method.body_end + 1]
 
+    def class_signatures(self, definition):
+        """All direct methods, including native/bodyless declarations, of a class."""
+        return [signature for signature in self.signatures
+                if definition.body_start < signature.offset < definition.body_end]
+
+    def local_declarations(self, method):
+        """(name, declared type, start, scope end) for explicit local bindings.
+
+        Includes foreach and for headers. Unknown/auto types are retained to
+        shadow fields; this deliberately does not infer expression types.
+        Offsets are absolute. A for/foreach binding ends with its loop body.
+        """
+        body = self.body(method)
+        scopes, stack = {}, []
+        for index, ch in enumerate(body):
+            if ch == '{':
+                stack.append(index)
+            elif ch == '}' and stack:
+                scopes[stack.pop()] = index
+        declarations = []
+        pattern = re.compile(r'(?<![\w.])([A-Za-z_]\w*(?:\s*<[^;(){}=]*>)?)'
+                             r'\s+([A-Za-z_]\w*)\s*(?=[=;\[,:)]|$)')
+        for match in pattern.finditer(body):
+            kind = re.sub(r'\s+', '', match[1])
+            if kind in MODIFIERS or kind in {'return', 'new', 'delete', 'else', 'case', 'throw'}:
+                continue
+            end = min((close for start, close in scopes.items()
+                       if start < match.start() < close), default=len(body))
+            # Loop header variables have the loop's scope, not the containing
+            # block's. Match only enclosing headers (not earlier loops).
+            for loop in re.finditer(r'\b(?:for|foreach)\s*\(', body[:match.start()]):
+                close = matching_paren(body, loop.end() - 1)
+                if close > match.start():
+                    after = close + 1
+                    while after < len(body) and body[after].isspace():
+                        after += 1
+                    end = scopes.get(after, body.find(';', after))
+                    if end < 0:
+                        end = len(body)
+            declarations.append((match[2], kind, method.body_start + match.start(),
+                                 method.body_start + end))
+            # Preserve the declared type in common grouped declarations such
+            # as HCInfectedSnapshot a, b; (not separate typed foreach slots).
+            position = match.end()
+            while True:
+                following = re.match(r',\s*([A-Za-z_]\w*)\s*(?=[,;=])', body[position:])
+                if not following:
+                    break
+                declarations.append((following[1], kind,
+                                     method.body_start + position + following.start(1),
+                                     method.body_start + end))
+                position += following.end()
+        return declarations
+
     @property
     def methods(self):
         """Class methods and file functions in source order (definitions only)."""
         return sorted(self.functions + [m for c in self.classes for m in c.methods],
                       key=lambda m: m.offset)
 
-    @property
+    @cached_property
     def signatures(self):
         """Method headers, including bodyless declarations, in source order.
 
