@@ -1,0 +1,47 @@
+{
+  "SchemaVersion": 1,
+  "Package": "HC-40",
+  "Runtime": "PENDING",
+  "Trace": ["HC-40", "#146", "#147", "HC-5", "HC-18", "HC-36", "HC-37", "HC-38"],
+  "State": "authored profiles; transit admission refused pending verified provider, route and clearance",
+  "Profiles": [
+    {
+      "Id": "hc40-roadside-position",
+      "Kind": "roadside",
+      "MaxMembers": 3,
+      "LifetimeSeconds": 600,
+      "MaxExitNodes": 4,
+      "Reinforcements": 0,
+      "CollisionBarricades": false,
+      "CorridorPolicy": "native_clear_road_and_entrances",
+      "ExitPolicy": "verified_walk_or_refuse"
+    },
+    {
+      "Id": "hc40-threatened-exodus",
+      "Kind": "exodus",
+      "MaxMembers": 4,
+      "LifetimeSeconds": 900,
+      "MaxExitNodes": 4,
+      "Reinforcements": 0,
+      "CollisionBarricades": false,
+      "CorridorPolicy": "native_clear_road_and_entrances",
+      "ExitPolicy": "verified_walk_or_refuse"
+    }
+  ],
+  "IdentityPolicy": "Profile IDs are reusable content keys. HC-19 alone issues a fresh durable source identity; append roadside or exodus, retain the profile selection in HC-38 history before any actor action. Never reset history, replay completed stories, replace lost actors or replenish cargo.",
+  "SchedulePolicy": "Consume HC-19's existing persistent independent arrival schedule and HC-38 intent/active/closed barriers. No transit timer or catch-up burst. Finite lifetime is an expiry bound, never evidence of safe departure; uncertain expiry/restart closes unknown.",
+  "LeasePolicy": "Bind existing HC-10-funded group bodies and existing custody only. MaxMembers is an upper bound, not a spawn or reinforcement quota. No new population, cargo or inventory owner.",
+  "RoutePolicy": "HC-36 must supply a surveyed walking route with a finite exit node list bounded by MaxExitNodes. No routes or exits are qualified in this manifest. Never teleport, reposition, silently repair movement, recruit followers or infer an arrival from a waypoint request.",
+  "CorridorPolicy": "Native geometry must establish a continuously passable driving/walking corridor and all entrances before admission. Actors remain off that corridor. Do not create collision barricades, lock doors or move actors/props to force the scene to fit. Refuse an unsafe site or route and leave its locality pending coverage.",
+  "SignalPolicy": "Consume only HC-5/37 server-observed wave, raised-weapon warning, surrender and betrayal. Surrender stops shooting without erasing grudges. Client assertions, proximity alone, requested emotes and timers prove no signal or outcome. Frighten/follow/kill outcomes require provider observation.",
+  "CoveragePolicy": "Every eligible HC-18 settlement and island remains eligible over time. Geometry/access refusal or temporary quiet records pending coverage, never permanent exclusion.",
+  "RangePolicy": "No new distances, coordinates or perception radii. Reuse admitted HC-36 clearance/proximity geometry and HCPerfPlayers snapshots; no custom scan around the approximately 1000 m vanilla network bubble/rifle report envelope.",
+  "Refusals": [
+    "TRANSIT_MANIFEST_INVALID",
+    "TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED",
+    "HC36_WALKING_ROUTE_CONTRACT_UNAVAILABLE",
+    "TRANSIT_DIRECTOR_PROFILE_INTEGRATION_PENDING",
+    "TRANSIT_NATIVE_CORRIDOR_SURVEY_PENDING",
+    "TRANSIT_NATIVE_TWO_CLIENT_ACCEPTANCE_PENDING"
+  ]
+}

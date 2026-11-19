@@ -216,6 +216,105 @@ class SituationBehavior(unittest.TestCase):
         self.check_raid_profiles()
         self.assertTrue(any('HC-38 opportunity=hc-story-5-survivor' in line and
                             'quest_ui=off' in line and 'runtime=PENDING' in line for line in run.logs))
+        # HC-40 shares this one situation check. Explicitly synthetic HC-19
+        # chain/parsed DTOs: execute authored validation, never model movement.
+        transit_source = (SCRIPTS/'4_World/Events/HCTransitSituation.c').read_text()
+        def dto(value):
+            if isinstance(value, dict):
+                return N(**{key: dto(item) for key, item in value.items()})
+            if isinstance(value, list):
+                return EArray(dto(item) for item in value)
+            return EStr(value) if isinstance(value, str) else value
+        manifest = dto(json.loads((ROOT/'mission/hollow-country/events/transit-situations.json').read_text()))
+        class NativeInt(int):
+            def ToString(self):
+                return EStr(str(self))
+        run.state.Stories.LegacyIds = EArray([EStr('synthetic-legacy')])
+        story_identity = {}
+        translate((SCRIPTS/'4_World/Scenes/HCStorySchedule.c').read_text(),
+                  'HCStoryPolicy', story_identity, only=('HCIdentity',))
+        policies = dict(HCSituationDirector=N(HCValid=run.owner.HCValid),
+                        HCEventDirector=N(TextValid=lambda s, n: 0 < len(s) <= n),
+                        HCStoryPolicy=N(HCIdentity=story_identity['HCIdentity']))
+        translate(transit_source, 'HCTransitSituation', policies,
+                  only=('HCProfileValid', 'HCManifestValid', 'HCIdentity', 'HCOpportunityValid'))
+        self.assertTrue(policies['HCManifestValid'](manifest))
+        self.assertEqual({'roadside', 'exodus'}, {p.Kind for p in manifest.Profiles})
+        identities = []
+        for profile in manifest.Profiles:
+            identity = policies['HCIdentity'](run.state.Chains[0], profile)
+            identities.append(identity)
+            opportunity = N(Version=1, Id=identity, StorySequence=NativeInt(5), DueAt=100,
+                            EndsAt=100 + profile.LifetimeSeconds, Phase=EStr('pending'),
+                            Lease=EStr(''), Outcome=EStr(''), Refusal=EStr(''))
+            self.assertTrue(policies['HCOpportunityValid'](profile, opportunity, run.state.Stories))
+            opportunity.EndsAt += 1
+            self.assertFalse(policies['HCOpportunityValid'](profile, opportunity, run.state.Stories))
+            opportunity.EndsAt -= 1
+            opportunity.Id = EStr('hc-story-5-survivor')
+            self.assertFalse(policies['HCOpportunityValid'](profile, opportunity, run.state.Stories))
+            for field, value in (('MaxExitNodes', 0), ('MaxMembers', 0),
+                                 ('Reinforcements', 1), ('CollisionBarricades', True),
+                                 ('CorridorPolicy', EStr('assume_clear')),
+                                 ('ExitPolicy', EStr('teleport'))):
+                unsafe = copy.deepcopy(profile)
+                setattr(unsafe, field, value)
+                self.assertFalse(policies['HCProfileValid'](unsafe), field)
+        self.assertEqual(2, len(set(identities)))
+        for invalid in (N(SchemaVersion=0, Profiles=manifest.Profiles),
+                        N(SchemaVersion=1, Profiles=EArray([manifest.Profiles[0]])),
+                        N(SchemaVersion=1, Profiles=EArray([manifest.Profiles[0]] * 2))):
+            self.assertFalse(policies['HCManifestValid'](invalid))
+
+        # Shipping transit adapter cannot select, command or invent an outcome.
+        transit_adapter = {}
+        translate((ROOT/'mods/HollowCountryExpansionAI/scripts/4_World/HCXAITransitAdapter.c')
+                  .read_text().replace('    override ', '    '), 'HCXAITransitAdapter', transit_adapter)
+        self.assertFalse(transit_adapter['HCReady'](N()))
+        self.assertEqual('', transit_adapter['HCSelect'](N(), opportunity))
+        self.assertFalse(transit_adapter['HCBegin'](N(), opportunity))
+        self.assertEqual('', transit_adapter['HCObserve'](N(), opportunity))
+        self.assertEqual('TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED',
+                         transit_adapter['HCRefusal'](N()))
+
+        # Existing module owns lifecycle. Off/repeated open/stop do no IO or
+        # actor work; each start reports two bounded refusal/off diagnostics.
+        def transit_boot(enabled, configured=manifest):
+            loads, receipts, status = [], [], []
+            lifecycle = dict(GetGame=lambda: N(IsServer=lambda: True),
+                             HCV2Admission=N(Admitted=lambda preference: preference),
+                             Print=receipts.append,
+                             HCLoad=lambda: loads.append('load') or configured)
+            cleaned = transit_source.replace('    protected ', '    ')
+            translate(cleaned, 'HCTransitSituation', lifecycle,
+                      only=('HCOpen', 'HCClose', 'HCReport', 'HCStatus'))
+            owner = N(m_Opened=False, m_Closed=False, m_Authored=0, m_Manifest=None,
+                      m_Effective=EStr('off'), m_Reason=EStr('not_started'),
+                      m_Status=N(HCPublish=lambda *args: status.append(args)))
+            for name in ('HCOpen', 'HCClose', 'HCReport', 'HCStatus'):
+                setattr(owner, name, MethodType(lifecycle[name], owner))
+            owner.HCOpen(enabled)
+            owner.HCOpen(enabled)
+            self.assertEqual(2, len(receipts))
+            self.assertTrue(all('lease=none' in line and 'runtime=PENDING' in line for line in receipts))
+            return owner, loads, receipts, status
+        transit_off, off_loads, _, off_status = transit_boot(False)
+        self.assertEqual([], off_loads)
+        self.assertEqual(('off', 'operator_off'), off_status[-1])
+        transit_on, on_loads, on_receipts, on_status = transit_boot(True)
+        self.assertEqual(['load'], on_loads)
+        self.assertEqual(('refused', 'TRANSIT_PROVIDER_SOURCE_ROUTE_CLEARANCE_UNVERIFIED'), on_status[-1])
+        self.assertTrue(all('authored=1 admitted=0 observed=0' in line for line in on_receipts))
+        transit_on.HCClose()
+        close_receipts = len(on_receipts)
+        transit_on.HCClose()
+        transit_on.HCOpen(True)
+        self.assertEqual(close_receipts, len(on_receipts))
+        self.assertEqual(['load'], on_loads)
+        self.assertEqual(('off', 'owner_closed'), on_status[-1])
+        _, bad_loads, _, bad_status = transit_boot(True, None)
+        self.assertEqual(['load'], bad_loads)
+        self.assertEqual(('refused', 'TRANSIT_MANIFEST_INVALID'), bad_status[-1])
 
     def check_raid_profiles(self):
         manifest = json.loads((ROOT/'mission/hollow-country/events/raids.json').read_text())
