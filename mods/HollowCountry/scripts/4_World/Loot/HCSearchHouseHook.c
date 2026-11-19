@@ -5,6 +5,20 @@
 // started). Runtime acceptance PENDING.
 modded class HCInteriorsModule
 {
+    // Membership/health only. The action still validates geometry, locks, revisit age
+    // and a finite supply on the server before any journal claim or transfer.
+    HCInteriorSite HCLootKnownPilotSite(PlayerBase player, Object cabinet)
+    {
+        if (!m_Ready || !m_SearchProof || !m_Store || !m_Store.Healthy() || !m_Economy || !m_Economy.Serving()) return null;
+        HCInteriorSite site = FindSite(cabinet);
+        if (!site) return null;
+        if (SearchGate(player, site)) return site;
+        HCSearchRefreshPilotHouses refresh = HCSearchRefreshModule.Pilot();
+        HCSearchRefreshPilotSite reviewed = HCSearchRefreshPilotCatalog.Find(site.Id);
+        if (refresh && reviewed && reviewed.Site == site && refresh.Gate(player)) return site;
+        return null;
+    }
+
     override bool CanStart(PlayerBase player, ActionTarget target)
     {
         if (HCSearchHouses.IsHouseTarget(target))
