@@ -56,6 +56,8 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  # HC-36 caravan corridor (unsurveyed, refused), HC-49 carcass sites (authored refused),
                  # HC-39 raid and foot-column profiles (admission refused until provider evidence).
                  'ai/caravans.json', 'ecology/carcass-sites.json', 'events/raids.json',
+                 # HC-40 transit profiles (admission refused until route/clearance evidence).
+                 'events/transit-situations.json',
                  # Loot boost: multiplier setting, building-family policy and the model-derived points overlay
                  # (stock-frame offsets only, generated offline; never a vanilla dump).
                  'loot-points/settings.json', 'loot-points/families.json', 'loot-points/additions.json',
