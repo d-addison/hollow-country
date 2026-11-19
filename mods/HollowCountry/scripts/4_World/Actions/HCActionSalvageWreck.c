@@ -51,7 +51,11 @@ class HCActionSalvageWreck : ActionContinuousBase
         if (!GetGame().IsServer()) return HCWreckSalvage.Allowed(player, target, item);
         HCWreckSalvageModule module = HCWreckSalvageModule.Get();
         if (module && module.CanStart(player, target, item)) return true;
-        HCRefusalReport.TargetRefusalMessage(player, target, item, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+        // CanStart names its cause on the module; report it through the bounded per-reason window.
+        string reason = HCRefusal.SALVAGE;
+        if (module) reason = module.StartRefusal();
+        if (reason == "") reason = HCRefusal.SALVAGE;
+        HCCraftRefusal.WreckTarget(player, target, item, reason);
         return false;
     }
 
@@ -63,7 +67,7 @@ class HCActionSalvageWreck : ActionContinuousBase
         if (module && module.Continuing(HCWreckSalvageActionData.Cast(action_data))) return true;
         HCWreckSalvageActionData data = HCWreckSalvageActionData.Cast(action_data);
         if (data && !data.Completed)
-            HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+            HCCraftRefusal.WreckAction(action_data, HCRefusal.SALVAGE);
         return false;
     }
 
@@ -77,7 +81,9 @@ class HCActionSalvageWreck : ActionContinuousBase
             if (module) module.Begin(data);
             if (!module || !module.Continuing(data))
             {
-                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+                string reason = HCRefusal.SALVAGE;
+                if (module) reason = module.LastRefusal();
+                HCCraftRefusal.WreckAction(action_data, reason);
             }
         }
     }
@@ -90,7 +96,7 @@ class HCActionSalvageWreck : ActionContinuousBase
         {
             if (!module || !module.Continuing(data) || GetGame().GetTime() - data.StartedMs < 7500)
             {
-                HCRefusalReport.ActionRefusalMessage(action_data, HCRefusal.SALVAGE, "Cannot salvage this wreck now; check the tool, reach and remaining parts.");
+                HCCraftRefusal.WreckAction(action_data, HCRefusal.SALVAGE);
                 return;
             }
             module.Complete(data);

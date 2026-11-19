@@ -76,7 +76,7 @@ class WreckSupply(unittest.TestCase):
                    HCV2Gates=N(Qualified=lambda gate: False),
                    HCBuildIdentity=N(SameWorld=lambda a, b: a == b),
                    HCRefusal=N(BUSY='busy', SERVICE='service', SALVAGE='salvage_unavailable',
-                               CAPACITY='capacity', SESSION='session_changed'))
+                               CAPACITY='capacity', SESSION='session_changed', STORAGE='storage_unavailable', NOTHING='nothing'))
         def create(location, kind, flags, rotation):
             if not create_ok[0]:
                 return None

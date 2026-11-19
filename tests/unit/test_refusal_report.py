@@ -162,6 +162,12 @@ class RefusalReportTests(unittest.TestCase):
         env.update(ActionContinuousBase=base, ActionSingleUseBase=base, **extra)
         methods = ('ActionCondition', 'ActionConditionContinue', 'OnStartServer',
                    'OnFinishProgressServer', 'OnExecuteServer')
+        if filename == 'HCActionSalvageWreck.c':
+            # The salvage action words its refusals through HCCraftRefusal (real bodies).
+            craft = ('WreckMessage', 'WreckTarget', 'WreckAction')
+            for code in MethodsTranslator((SCRIPTS / '4_World/Crafting/HCNativeCraftingSafety.c').read_text(),
+                                          'HCCraftRefusal', craft).classes():
+                exec(compile(code, 'HCNativeCraftingSafety.c(synthetic)', 'exec'), env)
         for code in MethodsTranslator((SCRIPTS / '4_World/Actions' / filename).read_text(),
                                       owner, methods).classes():
             exec(compile(code, filename + '(synthetic action)', 'exec'), env)
