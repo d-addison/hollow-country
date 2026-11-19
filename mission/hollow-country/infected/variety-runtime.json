@@ -627,8 +627,13 @@
       "normal source and package runtime acceptance pending",
       "issue-213 standing living idle variant; never reverse native crawl",
       "issue-213 marker isolation and restart readiness",
-      "road/terrain topology unavailable; authored migration sites retained"
+      "issue-213 reuse HC-46 corridors and native pack segment consumer; nearest segment and authored-site fallback; runtime PENDING"
     ]
   },
-  "StandingRiserEvery": 2
+  "StandingRiserEvery": 2,
+  "EnableMigration": true,
+  "CorridorRangeMetres": 80,
+  "MaxMigrationMetres": 480,
+  "MigrationLifetimeSeconds": 60,
+  "MigrationScanSeconds": 5
 }

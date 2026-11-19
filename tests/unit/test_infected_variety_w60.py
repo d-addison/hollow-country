@@ -101,23 +101,78 @@ class VarietyW60(unittest.TestCase):
         self.assertEqual(['tick'], mutations)
 
     def test_status_off_invalid_data_and_dependency_recovery_are_observed(self):
-        rows, fault = [], ['infected_variety_disabled']
-        observed = N(HCPublish=lambda *a: rows.append(a))
-        fn = translate(str(AREA / 'HCInfectedVarietyStatus.c'),
-                       'HCOperationalStatus HCGetOperationalStatus(', (),
-                       super=N(HCGetOperationalStatus=lambda: observed),
-                       HCInfectedVariety=N(HCFault=lambda: fault[0]),
-                       HCInfectedModule=N(Instance=None))
-        owner = N(m_Running=True, m_Variety=False)
-        fn(owner)
-        self.assertEqual([('off', 'infected_variety_disabled')], rows)
-        owner.m_Variety = True
-        fault[0] = 'variety_data_invalid'
-        fn(owner)
-        self.assertEqual(('degraded', 'variety_data_invalid'), rows[-1])
-        fault[0] = ''
-        fn(owner)
-        self.assertEqual(('degraded', 'infected_owner_unavailable'), rows[-1])
+        # Execute startup, the actual cached-status refresh and public getter.
+        # Every engine/admission/storage collaborator is an explicit synthetic port.
+        rows, logs, disabled, valid = [], [], [True], [True]
+        primary = N(Instance=None)
+        route_fault = ['']
+        state = N(s_Running=False, s_Pending=False, s_Fault='', s_Config=None)
+        enabled = translate(str(AREA / 'HCInfectedVariety.c'), 'static bool HCOperatorEnabled(', (),
+                            FileExist=lambda path: disabled[0])
+        start = translate(str(AREA / 'HCInfectedVariety.c'), 'static void HCStart(',
+                          ('HCOperatorEnabled', 'HCLoadConfig'), statics=tuple(vars(state)),
+                          STATICS=state, Print=logs.append,
+                          HCV2Admission=N(Line=lambda *a: 'synthetic runtime=PENDING'))
+        def load():
+            if not valid[0]: state.s_Fault = 'variety_data_invalid'
+            return valid[0]
+        source = N(HCOperatorEnabled=lambda p: enabled(None, p), HCLoadConfig=load)
+        cached = N(state='off', reason='not_started')
+        def publish(status, reason):
+            cached.state, cached.reason = status, reason
+            rows.append((status, reason))
+        cached.HCPublish = publish
+        cached.HCState = lambda: cached.state
+        cached.HCReason = lambda: cached.reason
+        postures = N(HCStatus=lambda: N(HCState=lambda: 'ready',
+                         HCReason=lambda: 'native_crawler_idle_admitted_rest_wake_unverified_runtime_pending'))
+        owner = N(m_Running=False, m_Variety=False, m_HCVarietyStatus=cached,
+                  m_HCPostures=postures)
+        refresh = translate(str(AREA / 'HCInfectedVarietyNative.c'),
+                            'void HCRefreshVarietyStatus(', ('VarietyActive',))
+        owner.VarietyActive = lambda: owner.m_Running and owner.m_Variety and primary.Instance is not None
+        owner.HCRefreshVarietyStatus = lambda: refresh(owner)
+        getter = translate(str(AREA / 'HCInfectedVarietyStatus.c'),
+                           'HCOperationalStatus HCGetOperationalStatus(', ('HCRefreshVarietyStatus',),
+                           super=N(HCGetOperationalStatus=lambda: cached),
+                           HCInfectedVariety=N(HCFault=lambda: state.s_Fault),
+                           HCInfectedVarietyRoutes=N(HCFault=lambda: route_fault[0]),
+                           HCInfectedModule=primary)
+        def boot():
+            owner.m_Running = False
+            start(source, True)
+            owner.m_Variety = enabled(None, True)
+            owner.m_Running = True
+            return observe()
+        def observe():
+            getter(owner)
+            return cached.state, cached.reason
+        sequence = [boot()]
+        disabled[0], valid[0] = False, False
+        sequence.append(boot())
+        valid[0] = True
+        sequence.append(boot())
+        self.assertTrue(state.s_Running, 'successful source startup was not executed')
+        primary.Instance = N()
+        sequence.append(observe())
+        primary.Instance = None
+        sequence.append(observe())
+        primary.Instance = N()
+        sequence.append(observe())
+        disabled[0] = True
+        sequence.append(boot())
+        disabled[0] = False
+        sequence.append(boot())  # Restart after marker removal with dependency available.
+        route_fault[0] = 'variety_route_document_unavailable'
+        self.assertEqual(('degraded', route_fault[0]), observe())
+        route_fault[0] = ''
+        sequence.append(observe())
+        ready = ('ready', 'native_crawler_idle_admitted_rest_wake_unverified_runtime_pending')
+        missing = ('degraded', 'infected_owner_unavailable')
+        self.assertEqual([('off', 'infected_variety_disabled'),
+                          ('degraded', 'variety_data_invalid'), missing, ready,
+                          missing, ready, ('off', 'infected_variety_disabled'), ready, ready], sequence)
+        self.assertTrue(all('runtime=PENDING' in line for line in logs))
 
     def test_mixed_group_shares_corpse_cap_and_rechecks_visibility(self):
         created, entries, refused = [], [], []
