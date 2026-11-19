@@ -42,6 +42,7 @@ class HCScenesModule : HCModule
     protected ref HCSceneChainStore m_Store;
     protected ref HCSceneChainState m_State;
     protected ref HCStorySchedule m_Stories;
+    protected ref HCGapcodeStoryIndex m_StoryIndex;
     protected ref array<ref HCSceneLease> m_Leases = new array<ref HCSceneLease>();
     protected int m_Cursor;
     protected ref HCWorkBudget m_WorkBudget = new HCWorkBudget;
@@ -64,13 +65,18 @@ class HCScenesModule : HCModule
 
     override string GetName() { return "Scenes"; }
 
-    // Wave 16: ready = the scene store opened, the story schedule resolved (an operator-off story schedule logs
-    // its own HC-19 reason) and the module is running; a refused start reports the named refusal.
+    // HC-62 readiness also requires a source-admitted pair to pass preflight.
+    // This reports operational preparation only; native acceptance stays pending.
     override HCOperationalStatus HCGetOperationalStatus()
     {
         if (m_Fault != "")
         {
             m_Operational.HCPublish("degraded", m_Fault);
+            return m_Operational;
+        }
+        if (m_Running && m_StoryIndex && !m_StoryIndex.HCOff() && !m_StoryIndex.HCReady())
+        {
+            m_Operational.HCPublish("degraded", m_StoryIndex.HCReason());
             return m_Operational;
         }
         HCModuleReadiness.HCDerive(m_Operational, m_Running, m_Refusal, "", "scene_store_open_schedule_running");
@@ -132,6 +138,12 @@ class HCScenesModule : HCModule
         // only while HC-19 is ready: operator-off Stories must offer nothing.
         // HC-19 has already logged its own off reason; no second line here.
         if (storiesStarted) { HCSituationSource.HCBind(m_State, m_Store); }
+        if (storiesStarted)
+        {
+            m_StoryIndex = new HCGapcodeStoryIndex;
+            m_StoryIndex.HCStart();
+            m_Stories.HCBindIndex(m_StoryIndex);
+        }
         m_LastNow = now;
         m_Stopping = false;
         m_SaveJob = new HCSceneSaveJob;
@@ -467,7 +479,7 @@ class HCScenesModule : HCModule
         if (!lease)
         {
             if (m_Leases.Count() >= 2) { m_Refused = m_Refused + 1; PreflightRefused(chain.Id, "lease-cap"); return; }
-            HCEventSite site = HCSceneChains.Site(plan.SiteId);
+            HCEventSite site = HCSceneChains.HCPlanSite(plan);
             if (!site) { Fail(chain, now, "missing-reviewed-site"); return; }
             // A later chain may reuse this reviewed anchor, but never while an
             // earlier lease (even a closing/partially removed one) still owns it.
@@ -505,17 +517,12 @@ class HCScenesModule : HCModule
             lease.StoryPublished = true;
             m_Placed = m_Placed + lease.Objects.Count();
             Print("[HollowCountry] V2 scene placed id=" + chain.Id + " stage=" + chain.Stage.ToString() + " kit=" + stage.Kit + " layout=" + lease.PlacementVariant.ToString());
-            PublishSceneStory(chain, HCSceneChains.Site(plan.SiteId));
+            PublishSceneStory(chain, HCSceneChains.HCPlanSite(plan));
             if (chain.Stage == 0 && (!m_Stories || !m_Stories.HCReady()))
             {
                 HCWildlifeScenes.HCStoryOff(chain.Id);
             }
             m_PreflightReasons.Remove(chain.Id);
-        }
-        if (lease.ViewEventId == 0)
-        {
-            int remaining = stage.HoldSeconds - (now - chain.BeganAt);
-            Advertise(lease, stage, HCSceneChains.Site(plan.SiteId), remaining);
         }
         if (now - chain.BeganAt >= stage.HoldSeconds)
         {
@@ -543,6 +550,9 @@ class HCScenesModule : HCModule
             m_WorkBudget.HCDeferred(GetName(), pendingProps);
             return;
         }
+        // Loading/selection shares the scenes slice and never runs on a prop
+        // creation tick or the chain/save slot. No index work when Stories is off.
+        if (m_WorkElapsed < 10 && m_StoryIndex && m_Stories && m_Stories.HCReady()) { m_StoryIndex.HCStep(this); }
         if (m_WorkElapsed >= 10)
         {
             m_WorkElapsed = 0;
@@ -625,6 +635,7 @@ class HCScenesModule : HCModule
         if (m_Stopping) { return; }
         m_Stopping = true;
         HCSituationSource.HCClear(m_State);
+        if (m_StoryIndex) { m_StoryIndex.HCStop(); }
         if (m_Stories) { m_Stories.HCStop(); }
         if (m_SaveJob)
         {
