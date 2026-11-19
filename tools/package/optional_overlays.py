@@ -437,7 +437,7 @@ def allowed(relative, managed_name=MANAGED):
         authored = path.parts and path.parts[0].startswith('hollow-country')
         if path.parts and path.parts[0] in (BUNDLE_MANAGED, MANAGED, CELLARS_MANAGED):
             return False
-        return clean and (relative in ('cfgeconomycore.xml', 'cfggameplay.json') or authored or relative == 'expansion/settings/AIPatrolSettings.json')
+        return clean and (relative in ('cfgeconomycore.xml', 'cfggameplay.json', 'cfgenvironment.xml', 'db/events.xml') or authored or relative == 'expansion/settings/AIPatrolSettings.json')
     if managed_name != MANAGED:
         return False
     return relative in BASE_TARGETS or relative in {MANAGED + '/' + name for name in GENERATED}
@@ -599,6 +599,18 @@ def bundle_candidate(bundle, mission):
                 raise ValueError('mission gameplay merge conflict: ' + '.'.join(row['path']))
             parent[key] = row['after']
         put_file('cfggameplay.json', (json.dumps(gameplay, indent=2) + '\n').encode())
+    # #149: replace one stock event, never add another CE event owner. These
+    # class names are from the inspected stock 1.30 configuration inventory;
+    # this candidate is not evidence of class loading or mixed-herd behavior.
+    from tools.package import HCWildlife_habitats
+    habitat_root = bundle / 'mission-overlay/hollow-country/ecology'
+    habitat = json.loads(read(habitat_root / 'habitat-overrides.json'))
+    habitat_files = HCWildlife_habitats.build(
+        habitat, read(habitat_root / 'events.append.xml'),
+        read(mission / 'cfgenvironment.xml'), read(mission / 'db/events.xml'),
+        HCWildlife_habitats.REQUIRED_CLASSES)
+    for relative, data in habitat_files.items():
+        put_file(relative, data)
     return candidate
 
 

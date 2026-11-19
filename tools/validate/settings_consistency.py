@@ -139,7 +139,8 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
-    shipped_rules = {k: row for k, row in rules.items() if row['owner'] not in EXTERNAL_OWNERS}
+    shipped_rules = {k: row for k, row in rules.items()
+                     if row['owner'] not in EXTERNAL_OWNERS and not k.startswith('WildlifeProviders.')}
     for label, image in images:
         values = flatten(image)
         for key in sorted(values.keys() - shipped_rules.keys()): errors.append(f'{label}: unregistered key {key}')

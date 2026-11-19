@@ -27,7 +27,7 @@ MISSION_FILES = {'README.md', 'INSTALL_AND_ROLLBACK.md', 'operator/settings.json
                  # HC-30 authored recovery dispositions; native qualification remains pending.
                  'crafting/recovery-dispositions.json',
                  # HC-15 wildlife observation budgets (read by HCWildlifeObservation.HCStart).
-                 'ecology/species.json',
+                 'ecology/species.json', 'ecology/HCWildlife-providers.json',
                  # V2 optional-pack overlay policy (the packs themselves are never shipped or copied).
                  'optional/overlay-policy.json',
                  # W6 #60 authored survey inputs only; generated trigger instances never ship.

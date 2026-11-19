@@ -215,6 +215,19 @@ class HCOperatorSettingsRegistry
         HCAdd("BaseRaid.MaxDoors", "int", 32, 1, 32, "HCBaseRaidConfig");
         HCAdd("BaseRaid.MaxRouteNodes", "int", 32, 1, 32, "HCBaseRaidConfig");
         HCAdd("BaseRaid.MaxCargoScan", "int", 32, 1, 32, "HCBaseRaidConfig");
+        HCAdd("WildlifeProviders.Version", "int", 1, 1, 1, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.TickMs", "int", 5000, 1, 60000, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.WorkUnits", "int", 16, 1, 64, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.MaxCarcasses", "int", 2, 1, 8, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.MaxPairs", "int", 8, 1, 16, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.MaxPairChecksPerTick", "int", 32, 1, 64, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.PairLifetimeMs", "int", 10000, 1, 60000, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.PairCooldownMs", "int", 30000, 1, 60000, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.MaxPlayerChecks", "int", 16, 1, 64, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.MinPlayerDistanceM", "float", 200.0, 100, 1000, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.Enabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.CarcassesEnabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
+        HCAdd("WildlifeProviders.TargetPairsEnabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
         // END GENERATED SETTINGS REGISTRY
     }
 
