@@ -89,7 +89,11 @@ class HCXAISitePatrol : eAIDynamicPatrol
     {
         if (m_Group || m_HCFinished) { return; }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
-        if (!director) { return; }
+        if (!director)
+        {
+            this.HCRefuseBudget("sites not running");
+            return;
+        }
         string problem = director.SpawnProblemFor(this);
         if (problem != "")
         {
@@ -115,7 +119,11 @@ class HCXAISitePatrol : eAIDynamicPatrol
     {
         m_HCPendingMembers = 0;
         if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }
-        if (!m_Group || !m_Formation) { return; }
+        if (!m_Group || !m_Formation)
+        {
+            this.HCRefuseBudget("member spawn without a live group");
+            return;
+        }
         vector raw = m_Formation.ToWorld(m_Formation.GetPosition(i));
         vector placed = ExpansionAISpawnBase.GetPlacementPosition(raw, true);
         string problem = "sites not running";
@@ -717,16 +725,14 @@ class HCXAISiteDirector : Managed
     // the bridge callback. It does not mean actors already exist or acceptance.
     bool AdmitTransient(string proposalId, string factionId, vector placePos, int actorCap, out string reason)
     {
-        reason = "sites not running";
-        if (m_Phase != "run" || !m_Policy || !HCXAIQualification.EncountersEnabled()) { return false; }
+        if (m_Phase != "run" || !m_Policy || !HCXAIQualification.EncountersEnabled()) { reason = "sites not running"; return false; }
         reason = "transient actor cap outside group safety ceiling";
         if (actorCap < 1 || actorCap > HCAILimits.SIZE_CEILING) { Print("[HC AI] transient refused group safety ceiling"); return false; }
         reason = this.BudgetProblem(actorCap, null);
         if (reason != "") { return false; }
         reason = HCXAIQualification.ProviderProblem();
         if (reason != "") { return false; }
-        reason = "invalid transient id or place anchor";
-        if (!HCXAIRules.Token(proposalId) || proposalId.Length() > 96 || !HCXAIRules.PositionValid(placePos, 16000) || placePos[0] < 1 || placePos[2] < 1 || placePos[0] > 15950 || placePos[2] > 15950) { return false; }
+        if (!HCXAIRules.Token(proposalId) || proposalId.Length() > 96 || !HCXAIRules.PositionValid(placePos, 16000) || placePos[0] < 1 || placePos[2] < 1 || placePos[0] > 15950 || placePos[2] > 15950) { reason = "invalid transient id or place anchor"; return false; }
         foreach (HCXAISiteState existing : m_States)
         {
             if (existing.ProposalId == proposalId) { reason = "duplicate transient proposal"; return false; }
@@ -738,11 +744,9 @@ class HCXAISiteDirector : Managed
         if (factionId == "scavengers") { providerFaction = "HCScavengers"; loadout = "HollowCountry_Scavenger"; }
         if (factionId == "raiders") { providerFaction = "HCRaiders"; loadout = "HollowCountry_Patrol"; }
         if (factionId == "travellers") { providerFaction = "HCTravellers"; }
-        reason = "unknown transient faction";
-        if (providerFaction == "") { return false; }
+        if (providerFaction == "") { reason = "unknown transient faction"; return false; }
         eAIFaction faction = eAIFaction.Create(providerFaction);
-        reason = "transient faction or loadout unavailable/unfair";
-        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0 || !FileExist(EXPANSION_LOADOUT_FOLDER + loadout + ".json")) { return false; }
+        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0 || !FileExist(EXPANSION_LOADOUT_FOLDER + loadout + ".json")) { reason = "transient faction or loadout unavailable/unfair"; return false; }
         reason = this.MemberProblemFor(placePos);
         if (reason != "") { return false; }
         HCXAISite transientSite = new HCXAISite();
@@ -2063,14 +2067,24 @@ class HCXCheckpointProps
 {
     protected ref array<ref HCXCheckpointProp> m_Props = new array<ref HCXCheckpointProp>();
     protected int m_Cursor;
+    // Start runs once per stance start, so every refusal logs once.
+    protected void HCStartRefused(string problem)
+    {
+        Print("[HollowCountry] Checkpoints props not placed: " + problem + "; runtime=PENDING");
+    }
     void Start()
     {
         HCXAISitePolicy policy = HCXAISiteDirector.LoadPolicy();
-        if (!policy || HCXAISiteRules.PolicyProblem(policy) != "" || !GetGame() || !HCBuildIdentity.SameWorld(policy.WorldName, GetGame().GetWorldName())) { return; }
+        if (!policy) { this.HCStartRefused("policy unavailable"); return; }
+        string policyProblem = HCXAISiteRules.PolicyProblem(policy);
+        if (policyProblem != "") { this.HCStartRefused(policyProblem); return; }
+        if (!GetGame() || !HCBuildIdentity.SameWorld(policy.WorldName, GetGame().GetWorldName())) { this.HCStartRefused("policy world differs from the running world"); return; }
         foreach (HCXAISite site : policy.Sites)
         {
             if (!site.Checkpoint) { continue; }
-            if (m_Props.Count() >= 3 || HCXAIRules.CheckpointProblem(site) != "") { return; }
+            if (m_Props.Count() >= 3) { this.HCStartRefused("checkpoint prop cap=3 reached at " + site.Id); return; }
+            string siteProblem = HCXAIRules.CheckpointProblem(site);
+            if (siteProblem != "") { this.HCStartRefused(site.Id + ": " + siteProblem); return; }
             HCXCheckpointProp row = new HCXCheckpointProp();
             row.Site = site;
             m_Props.Insert(row);

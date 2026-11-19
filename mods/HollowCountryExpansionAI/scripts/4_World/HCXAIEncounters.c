@@ -28,6 +28,8 @@ class HCXAIEncounters : Managed
     protected string m_State = "waiting for sites";
     protected bool m_Armed;
     protected bool m_Settled;
+    // Last StartEncounter refusal code ("" after a bind); logged once per change.
+    protected string m_LastRefusal;
 
     static HCXAIEncounters Active() { return s_Active; }
 
@@ -157,10 +159,18 @@ class HCXAIEncounters : Managed
     // Binds the nearest eligible patrol: qualified, native patrol present, not
     // bound to another open encounter, some qualified point within 600 m of
     // the anchor. Intent is journaled first. No transient actor path is needed.
+    string LastRefusal() { return m_LastRefusal; }
+    protected bool RefuseEncounter(string reason)
+    {
+        if (m_LastRefusal != reason) { Print("[HC Expansion AI] encounter start refused reason=" + reason); }
+        m_LastRefusal = reason;
+        return false;
+    }
     bool StartEncounter(string lease, string session, string missionId, vector anchor, int actorCap)
     {
-        if (!m_Armed || !m_Journal || actorCap < 1) { return false; }
-        if (lease == "" || session == "" || missionId == "") { return false; }
+        if (!m_Armed || !m_Journal) { return this.RefuseEncounter("encounters_not_armed"); }
+        if (actorCap < 1) { return this.RefuseEncounter("actor_cap"); }
+        if (lease == "" || session == "" || missionId == "") { return this.RefuseEncounter("lease_ids_missing"); }
         HCXAIEncounter existing = this.FindEncounter(lease);
         if (existing)
         {
@@ -168,11 +178,12 @@ class HCXAIEncounters : Managed
         }
         if (this.OpenCount() >= HCAILimits.Get().MaxEncounters || m_Bindings.Count() >= HCAILimits.Get().MaxEncounters * 2)
         {
+            m_LastRefusal = HCRefusal.CAPACITY;
             Print("[HC Expansion AI] encounter refused: lease=" + lease + " mission=" + missionId + " reason=open encounter cap");
             return false;
         }
         HCXAISiteDirector director = HCXAISiteDirector.Active();
-        if (!director || director.Phase() != "run") { return false; }
+        if (!director || director.Phase() != "run") { return this.RefuseEncounter("director_not_running"); }
         HCXAISiteState chosen;
         float chosenGap = 0;
         string nearestId = "none";
@@ -200,11 +211,13 @@ class HCXAIEncounters : Managed
         if (!chosen)
         {
             Print("[HC Expansion AI] encounter refused: lease=" + lease + " mission=" + missionId + " nearest=" + nearestId + " gap=" + nearestGap.ToString() + " reason=" + nearestProblem);
+            m_LastRefusal = HCRefusal.NO_SITE;
             return false;
         }
         if (!m_Journal.PrepareBegin(lease, session, missionId) || !m_Journal.Begin(lease, session, missionId))
         {
             Print("[HC Expansion AI] encounter refused: lease=" + lease + " mission=" + missionId + " reason=lease journal refused the intent");
+            m_LastRefusal = "journal_refused";
             return false;
         }
         HCXAIEncounter binding = new HCXAIEncounter();
@@ -214,6 +227,7 @@ class HCXAIEncounters : Managed
         binding.SiteId = chosen.Site.Id;
         binding.Gap = chosenGap;
         m_Bindings.Insert(binding);
+        m_LastRefusal = "";
         Print("[HC Expansion AI] encounter bound: lease=" + lease + " mission=" + missionId + " site=" + binding.SiteId + " gap=" + chosenGap.ToString() + " m; the site patrol stays director-owned");
         return true;
     }

@@ -9,6 +9,8 @@ class HCXAIJournal
     protected ref HCXAIJournalData m_Data;
     protected string m_Session;
     protected int m_Limit;
+    // Last Begin refusal code ("" after an accepted intent); logged once per change.
+    protected string m_Refusal;
 
     static HCXAIJournal Open(string worldSession, int limit, bool orphansReconciled = false)
     {
@@ -86,15 +88,23 @@ class HCXAIJournal
         }
         return true;
     }
+    string Refusal() { return m_Refusal; }
+    protected bool RefuseBegin(string reason)
+    {
+        if (m_Refusal != reason) { Print("[HC Expansion AI] lease journal intent refused reason=" + reason); }
+        m_Refusal = reason;
+        return false;
+    }
     bool Begin(string id, string session, string missionId)
     {
         // Recheck without pruning: callers prepare capacity before reserving.
         // After insertion, an uncertain save must keep the consumed intent.
-        if (!this.Valid() || m_Data.Rows.Count() >= m_Limit) { return false; }
-        if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return false; }
+        if (!this.Valid()) { return this.RefuseBegin("journal_invalid"); }
+        if (m_Data.Rows.Count() >= m_Limit) { return this.RefuseBegin(HCRefusal.CAPACITY); }
+        if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return this.RefuseBegin("bad_token"); }
         foreach (HCXAIJournalRow existingRow : m_Data.Rows)
         {
-            if (existingRow.Id == id) { return false; }
+            if (existingRow.Id == id) { return this.RefuseBegin("duplicate_id"); }
         }
         HCXAIJournalRow row = new HCXAIJournalRow();
         row.Id = id;
@@ -102,6 +112,7 @@ class HCXAIJournal
         row.Session = session;
         row.MissionId = missionId;
         m_Data.Rows.Insert(row);
+        m_Refusal = "";
         return HCXAIStore.SaveJournal(m_Data);
     }
     bool End(string id, bool prunable = false)

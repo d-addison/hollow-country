@@ -14,15 +14,16 @@ class LifecycleTests(unittest.TestCase):
     def setUp(self):
         self.saved=[]
         self.ok=True
-        self.env=dict(A=A,Print=lambda *a:None)
+        self.logs=[]
+        self.env=dict(A=A,Print=self.logs.append,HCRefusal=N(CAPACITY='capacity'))
         declarations(self.env)
         self.env['HCXAIStore']=N(SaveJournal=self.save)
         self.env['HCXAIRules']=N(Token=lambda s:isinstance(s,str) and 0 < len(s) <= 128)
         self.journal=Authored((SCRIPTS/'HCXAIJournal.c').read_text(),self.env)
-        self.owner=N(m_Data=self.env['HCXAIJournalData'](),m_Session='new-process',m_Limit=8)
+        self.owner=N(m_Data=self.env['HCXAIJournalData'](),m_Session='new-process',m_Limit=8,m_Refusal='')
         self.owner.m_Data.Rows=A()
         self.owner.m_Data.SchemaVersion=1
-        for name in ('Valid','Reconcile','Begin','End'):
+        for name in ('Valid','Reconcile','Begin','End','RefuseBegin','Refusal'):
             setattr(self.owner,name,lambda *a,n=name:self.journal.call(n,self.owner,*a))
 
     def save(self,data):

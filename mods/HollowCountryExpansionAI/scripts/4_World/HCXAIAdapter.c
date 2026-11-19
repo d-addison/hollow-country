@@ -46,6 +46,8 @@ class HCXAIAdapter extends HCModule
     protected ref HCXAIJournal m_Journal;
     protected bool m_Accepting;
     protected bool m_Starting;
+    // Last StartLease refusal code ("" after an accepted start); logged once per change.
+    protected string m_LeaseRefusal;
     protected string m_Status = "not initialized";
     protected string m_Build;
     protected ref array<ref HCXAILease> m_Leases = new array<ref HCXAILease>();
@@ -287,40 +289,49 @@ class HCXAIAdapter extends HCModule
     }
     bool StartLease(string id, string session, string missionId, vector anchor, int actorCap)
     {
-        if (m_Starting) { return false; }
+        if (m_Starting) { return this.RefuseLease(HCRefusal.BUSY); }
         m_Starting = true;
         bool result = this.StartLeaseWork(id, session, missionId, anchor, actorCap);
         m_Starting = false;
         return result;
     }
+    string LeaseRefusal() { return m_LeaseRefusal; }
+    // Stable refusal code for the last StartLease; one log line per reason change.
+    protected bool RefuseLease(string reason)
+    {
+        if (m_LeaseRefusal != reason) { Print("[HC Expansion AI] lease start refused reason=" + reason); }
+        m_LeaseRefusal = reason;
+        return false;
+    }
     protected bool StartLeaseWork(string id, string session, string missionId, vector anchor, int actorCap)
     {
-        if (!GetGame() || !GetGame().IsServer() || !HCXAIRules.Token(id) || !HCXAIRules.Token(session)) { return false; }
-        if (!m_Profile || !this.Ready(m_Profile.WorldName)) { return false; }
-        if (m_PrunedIds.Find(id) >= 0) { return false; }
+        if (!GetGame() || !GetGame().IsServer()) { return this.RefuseLease(HCRefusal.SERVICE); }
+        if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session)) { return this.RefuseLease("bad_lease_token"); }
+        if (!m_Profile || !this.Ready(m_Profile.WorldName)) { return this.RefuseLease("adapter_not_ready"); }
+        if (m_PrunedIds.Find(id) >= 0) { return this.RefuseLease("lease_id_pruned"); }
         HCXAILease prior = this.FindLease(id);
         if (prior)
         {
             return !prior.Retiring && !prior.Failed && !prior.Released && prior.IntentConfirmed && prior.Session == session && prior.MissionId == missionId && prior.Anchor == anchor && prior.RequestedCap == actorCap;
         }
-        if (actorCap < 1 || actorCap > HCAILimits.Get().MaxLiveAI) { Print("[HC AI] adapter refused AILimits.MaxLiveAI"); return false; }
+        if (actorCap < 1 || actorCap > HCAILimits.Get().MaxLiveAI) { m_LeaseRefusal = "actor_cap_limit"; Print("[HC AI] adapter refused AILimits.MaxLiveAI"); return false; }
         HCXAIMission mission = this.FindMission(missionId);
-        if (!mission || anchor != mission.Anchor) { Print("[HC AI] adapter mission or surveyed anchor unavailable"); return false; }
-        if (!m_Hooks.RouteQualified(mission.SurveySha256, mission.LoadoutSha256)) { return false; }
+        if (!mission || anchor != mission.Anchor) { m_LeaseRefusal = "mission_or_anchor"; Print("[HC AI] adapter mission or surveyed anchor unavailable"); return false; }
+        if (!m_Hooks.RouteQualified(mission.SurveySha256, mission.LoadoutSha256)) { return this.RefuseLease("route_unqualified"); }
         int actors = HCAILimits.GroupSize(HCAILimits.Get().WorldSeed, mission.SiteId, "patrol");
         // Select a surveyed prefix, never manufacture extra spawn coordinates.
         if (actors > mission.Spawns.Count()) { actors = mission.Spawns.Count(); }
-        if (actors < 1 || actors > actorCap) { Print("[HC AI] adapter group empty or exceeds requested cap"); return false; }
+        if (actors < 1 || actors > actorCap) { m_LeaseRefusal = "group_size"; Print("[HC AI] adapter group empty or exceeds requested cap"); return false; }
         int items = actors * mission.Equipment.Count();
-        if (m_ReservedGroups >= HCAILimits.Get().MaxLiveGroups || m_ReservedActors + actors > HCAILimits.Get().MaxLiveAI || m_ReservedItems + items > m_Profile.MaxItems) { Print("[HC AI] adapter population/item reservation refused"); return false; }
+        if (m_ReservedGroups >= HCAILimits.Get().MaxLiveGroups || m_ReservedActors + actors > HCAILimits.Get().MaxLiveAI || m_ReservedItems + items > m_Profile.MaxItems) { m_LeaseRefusal = HCRefusal.CAPACITY; Print("[HC AI] adapter population/item reservation refused"); return false; }
         eAIFaction faction = eAIFaction.Create(mission.FactionName);
-        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return false; }
-        if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return false; }
-        if (!this.PruneHistory()) { return false; }
+        if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return this.RefuseLease("faction_unfair"); }
+        if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return this.RefuseLease("faction_melee_unfair"); }
+        if (!this.PruneHistory()) { return this.RefuseLease("history_prune_failed"); }
         // Capacity/duplicate refusals and clean-row pruning create no intent.
         // Resolve them before publishing a reservation that needs End to close.
-        if (!HCAIBudget.TryReserve("adapter:" + id, actors)) { Print("[HC AI] adapter shared population reservation refused"); return false; }
-        if (!m_Journal.PrepareBegin(id, session, missionId)) { HCAIBudget.Release("adapter:" + id); return false; }
+        if (!HCAIBudget.TryReserve("adapter:" + id, actors)) { m_LeaseRefusal = HCRefusal.CAPACITY; Print("[HC AI] adapter shared population reservation refused"); return false; }
+        if (!m_Journal.PrepareBegin(id, session, missionId)) { HCAIBudget.Release("adapter:" + id); return this.RefuseLease("journal_prepare_refused"); }
         HCXAILease lease = new HCXAILease();
         lease.Id = id;
         lease.Session = session;
@@ -352,18 +363,19 @@ class HCXAIAdapter extends HCModule
         {
             lease.Failed = true;
             lease.Retiring = true;
-            return false;
+            return this.RefuseLease("journal_intent_unconfirmed");
         }
         lease.Group = eAIGroup.CreateGroup(faction);
         if (!lease.Group)
         {
             lease.Failed = true;
             lease.Retiring = true;
-            return false;
+            return this.RefuseLease("group_create_failed");
         }
         lease.Group.m_Persist = false;
         lease.Group.SetWaypointBehaviour(eAIWaypointBehavior.HALT);
         foreach (vector waypoint : mission.Waypoints) { lease.Group.AddWaypoint(waypoint); }
+        m_LeaseRefusal = "";
         return true;
     }
     bool Equip(eAIBase actor, HCXAIMission mission)

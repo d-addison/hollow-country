@@ -321,15 +321,6 @@
       "rule": "HC-S001",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
       "symbol": "HCXAISitePatrol.Spawn",
-      "key": "if (!director) { return; }",
-      "count": 1,
-      "line_at_review": 81,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISitePatrol.Spawn",
       "key": "if (m_Group || m_HCFinished) { return; }",
       "count": 1,
       "line_at_review": 79,
@@ -339,45 +330,9 @@
       "rule": "HC-S001",
       "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
       "symbol": "HCXAISitePatrol.SpawnAI_Deferred",
-      "key": "if (!m_Group || !m_Formation) { return; }",
-      "count": 1,
-      "line_at_review": 99,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISitePatrol.SpawnAI_Deferred",
       "key": "if (m_HCFinished || (m_HCTransient && m_Group && m_Group.Count() == 0)) { return; }",
       "count": 1,
       "line_at_review": 98,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXCheckpointProps.Start",
-      "key": "if (!policy || HCXAISiteRules.PolicyProblem(policy) != \"\" || !GetGame() || !HCBuildIdentity.SameWorld(policy.WorldName, GetGame().GetWorldName())) { return; }",
-      "count": 1,
-      "line_at_review": 1589,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXCheckpointProps.Start",
-      "key": "if (m_Props.Count() >= 3 || HCXAIRules.CheckpointProblem(site) != \"\") { return; }",
-      "count": 1,
-      "line_at_review": 1593,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXDefence.c",
-      "symbol": "HCXDefenceModule.OnStart",
-      "key": "if (!GetGame().IsServer() || !IsEnabled(settings) || HCXDefence.Running()) { return; }",
-      "count": 1,
-      "line_at_review": 614,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
@@ -720,177 +675,6 @@
       "key": "if (!HCWreckSalvage.Allowed(player, target, item)) return false;",
       "count": 1,
       "line_at_review": 313,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLease",
-      "key": "if (m_Starting) { return false; }",
-      "count": 1,
-      "line_at_review": 249,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (!GetGame() || !GetGame().IsServer() || !HCXAIRules.Token(id) || !HCXAIRules.Token(session)) { return false; }",
-      "count": 1,
-      "line_at_review": 257,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina()) { return false; }",
-      "count": 1,
-      "line_at_review": 273,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (!m_Hooks.RouteQualified(mission.SurveySha256, mission.LoadoutSha256)) { return false; }",
-      "count": 1,
-      "line_at_review": 268,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (!m_Profile || !this.Ready(m_Profile.WorldName)) { return false; }",
-      "count": 1,
-      "line_at_review": 258,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (!this.PruneHistory()) { return false; }",
-      "count": 1,
-      "line_at_review": 275,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0) { return false; }",
-      "count": 1,
-      "line_at_review": 274,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "if (m_PrunedIds.Find(id) >= 0) { return false; }",
-      "count": 1,
-      "line_at_review": 259,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIAdapter.c",
-      "symbol": "HCXAIAdapter.StartLeaseWork",
-      "key": "return false;",
-      "count": 2,
-      "line_at_review": 310,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIEncounters.c",
-      "symbol": "HCXAIEncounters.StartEncounter",
-      "key": "if (!director || director.Phase() != \"run\") { return false; }",
-      "count": 1,
-      "line_at_review": 176,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIEncounters.c",
-      "symbol": "HCXAIEncounters.StartEncounter",
-      "key": "if (!m_Armed || !m_Journal || actorCap < 1) { return false; }",
-      "count": 1,
-      "line_at_review": 163,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIEncounters.c",
-      "symbol": "HCXAIEncounters.StartEncounter",
-      "key": "if (lease == \"\" || session == \"\" || missionId == \"\") { return false; }",
-      "count": 1,
-      "line_at_review": 164,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIJournal.c",
-      "symbol": "HCXAIJournal.Begin",
-      "key": "if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return false; }",
-      "count": 1,
-      "line_at_review": 94,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIJournal.c",
-      "symbol": "HCXAIJournal.Begin",
-      "key": "if (!this.Valid() || m_Data.Rows.Count() >= m_Limit) { return false; }",
-      "count": 1,
-      "line_at_review": 93,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAIJournal.c",
-      "symbol": "HCXAIJournal.Begin",
-      "key": "if (existingRow.Id == id) { return false; }",
-      "count": 1,
-      "line_at_review": 97,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISiteDirector.AdmitTransient",
-      "key": "if (!HCXAIRules.Token(proposalId) || proposalId.Length() > 96 || !HCXAIRules.PositionValid(placePos, 16000) || placePos[0] < 1 || placePos[2] < 1 || placePos[0] > 15950 || placePos[2] > 15950) { return false; }",
-      "count": 1,
-      "line_at_review": 299,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISiteDirector.AdmitTransient",
-      "key": "if (!faction || faction.IsInvincible() || faction.IsObserver() || faction.IsPassive() || faction.HasUnlimitedStamina() || faction.GetMeleeDamageMultiplier() != 1 || faction.GetMeleeYeetForce() != 0 || !FileExist(EXPANSION_LOADOUT_FOLDER + loadout + \".json\")) { return false; }",
-      "count": 1,
-      "line_at_review": 315,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISiteDirector.AdmitTransient",
-      "key": "if (m_Phase != \"run\" || !m_Policy || !HCXAIQualification.EncountersEnabled()) { return false; }",
-      "count": 1,
-      "line_at_review": 291,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountryExpansionAI/scripts/4_World/HCXAISites.c",
-      "symbol": "HCXAISiteDirector.AdmitTransient",
-      "key": "if (providerFaction == \"\") { return false; }",
-      "count": 1,
-      "line_at_review": 312,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
