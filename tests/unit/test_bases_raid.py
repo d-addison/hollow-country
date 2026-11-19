@@ -212,7 +212,7 @@ class BaseRaidAdmissionAndAttendance(unittest.TestCase):
         player = NS(IsAlive=lambda: True, GetIdentity=lambda: 'identity', GetPosition=lambda: (0, 0, 0))
         people = [player]
         owner = NS(GroupId=lambda actor: group[0])
-        camp = NS(GroupId='owners', Position=(0, 0, 0))
+        camp = NS(GroupId='owners', Position=(0, 0, 0), AnchorKind='')
         config = NS(MaxPlayers=2, AttendanceRangeMeters=500, ObserverRangeMeters=500)
         env = dict(HCCampModule=NS(Get=lambda: owner), HCEnabled=lambda: True,
                    GetGame=lambda: NS(IsServer=lambda: True, GetPlayers=lambda out: out.extend(people)),

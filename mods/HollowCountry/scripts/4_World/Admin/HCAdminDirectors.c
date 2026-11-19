@@ -388,7 +388,7 @@ modded class HCCampModule
 
     bool HCAdminArrival(vector pos, bool raid, out string reason)
     {
-        HCCampRecord selected = HCAdminSelectCamp(pos, reason);
+        HCCampRecord selected = HCAdminSelectCamp(pos, reason, true);
         if (!selected) { return false; }
         return HCAdminRequestArrival(selected, raid, reason);
     }

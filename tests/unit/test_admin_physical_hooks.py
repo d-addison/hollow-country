@@ -15,7 +15,7 @@ class PhysicalHooks(unittest.TestCase):
                 calls.append((selected, requested_raid))
                 reason.value = 'physical-request; runtime=PENDING'
                 return True
-            owner = NS(HCAdminSelectCamp=lambda pos, reason: camp, HCAdminRequestArrival=request)
+            owner = NS(HCAdminSelectCamp=lambda pos, reason, claims=False: camp, HCAdminRequestArrival=request)
             fn = compile_authored(ADMIN / 'HCAdminDirectors.c', 'HCCampModule', 'HCAdminArrival',
                                   base_scope(), ('HCAdminSelectCamp', 'HCAdminRequestArrival'))
             reason = Cell()
