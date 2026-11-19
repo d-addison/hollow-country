@@ -51,12 +51,15 @@ class CraftRefusalVocabulary(unittest.TestCase):
 
 
     def test_wreck_message_is_specific_per_module_reason_and_never_empty(self):
-        env = dict(HCRefusal=REFUSAL, HCCraftRefusal=NS())
+        env = dict(HCRefusal=REFUSAL, HCCraftRefusal=NS(),
+                   HCWreckSalvageModule=NS(HC_TABLE_FULL='wreck_table_full',
+                                           HC_SAVE_FAILED='wreck_journal_save_failed'))
         message = authored('WreckMessage', 'reason', env, 'HCNativeCraftingSafety.c', 'HCCraftRefusal')
         texts = {r: message(None, r) for r in ('busy', 'capacity', 'service', 'session_changed', 'nothing',
-                                               'storage_unavailable', 'salvage_unavailable', 'unknown')}
+                                               'storage_unavailable', 'salvage_unavailable', 'unknown',
+                                               'wreck_table_full', 'wreck_journal_save_failed')}
         self.assertEqual(texts['busy'], texts['capacity'])
-        self.assertEqual(6, len(set(texts.values())))  # busy/capacity share; salvage/unknown share
+        self.assertEqual(8, len(set(texts.values())))  # busy/capacity share; salvage/unknown share
         self.assertEqual(texts['salvage_unavailable'], texts['unknown'])
         self.assertTrue(all(texts.values()))
 

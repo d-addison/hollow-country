@@ -42,6 +42,10 @@ class HCCraftRefusal
             return "Nothing usable is left on this wreck.";
         if (reason == HCRefusal.STORAGE)
             return "The salvage could not be recorded right now.";
+        if (reason == HCWreckSalvageModule.HC_TABLE_FULL)
+            return "The server salvage record is full; no new wrecks can be salvaged.";
+        if (reason == HCWreckSalvageModule.HC_SAVE_FAILED)
+            return "The salvage record could not be saved; try again later.";
         return "Cannot salvage this wreck now; check the tool, reach and remaining parts.";
     }
 

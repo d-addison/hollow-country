@@ -5,6 +5,8 @@
 // Lead binds HCBindProvider(new HCXAITradeAdapter) in HCXAIAdapter.OnStart,
 // clears on stop; existing qualified activity calls HCAITrade.HCGet().HCBegin
 // and reads HCObservedComplete("hc35-first-barter"). No new config class.
+// Any HCBegin releases a complete journal: read HCObservedComplete before the
+// next HCBegin, or latch the result in the consumer.
 // A future qualified implementation must bind exact HC-10 lease bodies and
 // existing item handles, call HCInventoryBound, request a surveyed walking
 // route, and observe BOTH native gesture completions. No client assertions.
