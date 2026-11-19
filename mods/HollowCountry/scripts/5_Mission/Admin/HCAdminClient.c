@@ -39,6 +39,9 @@ class HCAdminClient
     protected string m_LootRunFilter;
     protected string m_LootShownFilter;
     protected bool m_LootStale;
+    // #195: lootmap marks are on the map. Its own flag, so an unfiltered run (empty filter) is
+    // still labelled (filter=all) instead of the label depending on a non-empty filter text.
+    protected bool m_LootMarksShown;
     protected float m_OpenUntil;
     protected float m_WaitNoticeAt;
     protected bool m_WaitNoticeShown;
@@ -304,13 +307,14 @@ class HCAdminClient
             {
                 HCMergeLootMap(reply);
                 m_LootShownFilter = m_LootRunFilter;
+                m_LootMarksShown = true;
                 m_LootStale = false;
             }
             else if (HCLootMarkCount() > 0)
             {
                 // The kept layer is labelled with the filter of the run that drew it (#194).
                 m_LootStale = true;
-                Notice = Notice + "; previous lootmap marks kept; previous run filter=" + m_LootShownFilter;
+                Notice = Notice + "; previous lootmap marks kept; previous run filter=" + HCLootFilterLabel(m_LootShownFilter);
             }
             m_LootTicket = 0;
         }
@@ -344,10 +348,17 @@ class HCAdminClient
     // Empty when no lootmap marks are shown.
     string HCLootLayerStatus()
     {
-        if (m_LootShownFilter == "" || HCLootMarkCount() < 1) { return ""; }
-        string text = "lootmap marks: filter=" + m_LootShownFilter;
+        if (!m_LootMarksShown || HCLootMarkCount() < 1) { return ""; }
+        string text = "lootmap marks: filter=" + HCLootFilterLabel(m_LootShownFilter);
         if (m_LootStale) { text = text + " (previous run)"; }
         return text;
+    }
+
+    // Label text for a run's filter: the filter itself, or `all` for an empty (unfiltered) one.
+    protected string HCLootFilterLabel(string filter)
+    {
+        if (filter == "") { return "all"; }
+        return filter;
     }
 
     protected int HCLootMarkCount()
@@ -419,6 +430,7 @@ class HCAdminClient
         {
             m_LootViewUntil = 0;
             m_LootShownFilter = "";
+            m_LootMarksShown = false;
             m_LootStale = false;
         }
         Revision++;
