@@ -26,7 +26,8 @@ modded class HCInteriorMeasuredCatalog
         if (assignment.MeasuredRecordSha256 != s_Binding.RecordSha256 || !HCSearchRules.PinValid(s_Binding.RecordSha256)) return null;
         if (site.SlotId != assignment.SlotId || site.Id != assignment.InstanceId + "_storage_v1") return null;
         HCInteriorMeasuredCatalogLayout selected;
-        foreach (HCInteriorMeasuredCatalogLayout measuredLayout : s_Binding.Record.Layouts)
+        array<ref HCInteriorMeasuredCatalogLayout> measuredLayoutRows = s_Binding.Record.Layouts;
+        foreach (HCInteriorMeasuredCatalogLayout measuredLayout : measuredLayoutRows)
         {
             if (measuredLayout.Id == assignment.LayoutId) selected = measuredLayout;
         }
@@ -77,13 +78,15 @@ modded class HCInteriorMeasuredCatalog
         // or a claim that proximity alone establishes stock-CE provenance.
         review.Context.SourcePin = s_Binding.RecordSha256;
         review.Context.EvidencePin = s_Binding.RecordSha256;
-        foreach (string groupId : rule.ItemGroups)
+        array<string> groupIdRows = rule.ItemGroups;
+        foreach (string groupId : groupIdRows)
         {
             HCInteriorMeasuredCatalogGroup group = MeasuredGroup(s_Binding.Record.Policy, groupId);
             if (!group || !group.Items || group.Items.Count() < 1) return null;
             if (review.Context.GroupId != "") review.Context.GroupId = review.Context.GroupId + "+";
             review.Context.GroupId = review.Context.GroupId + groupId;
-            foreach (string itemClass : group.Items)
+            array<string> itemClassRows = group.Items;
+            foreach (string itemClass : itemClassRows)
             {
                 if (!HCSearchRules.TextValid(itemClass, 128)) return null;
                 if (review.Context.Items.Find(itemClass) >= 0) continue;
@@ -100,8 +103,6 @@ modded class HCInteriorMeasuredCatalog
 // before the interior module is started. This gives mission finish an OnStop owner.
 class HCSearchBinding : HCModule
 {
-    static const int RETRY_MS = 10000;
-    static const int MAX_ATTEMPTS = 3;
     static const string SOURCE_ID = "stock-ce-measured-interiors-v1";
     protected static HCSearchBinding s_Instance;
     protected bool m_Started;
@@ -159,6 +160,7 @@ class HCSearchBinding : HCModule
             m_Refusal = "search_admission_marker_absent";
             return;
         }
+        if (!HCSearchLimits.HCGet().Healthy()) { m_Refusal = "search_limits_invalid"; return; }
         if (s_Instance && s_Instance != this) return;
         m_Started = true;
         m_Refusal = "";
@@ -168,6 +170,7 @@ class HCSearchBinding : HCModule
         m_Houses = new HCSearchHouses;
         m_Houses.Start(settings);
         s_Instance = this;
+        Print(HCV2Admission.Line("SearchBinding", true, "interior_search", false) + " runtime=PENDING");
     }
 
     // The running House search service, or null when this module is stopped or never started.
@@ -226,7 +229,7 @@ class HCSearchBinding : HCModule
         m_Manifest = manifest;
         m_Sites = sites;
         // First observation is post-start, never inside the placement pass.
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Attempt, RETRY_MS, false);
+        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Attempt, HCSearchLimits.HCGet().RetryDelayMs, false);
     }
 
     bool BuildInputs()
@@ -237,12 +240,14 @@ class HCSearchBinding : HCModule
         int count = m_Manifest.Assignments.Count();
         if (count < 1 || count > 12 || m_Config.Candidates.Count() != count || m_Sites.Count() != count) return false;
         int index;
-        foreach (HCInteriorAssignment assignment : m_Manifest.Assignments)
+        array<ref HCInteriorAssignment> assignmentRows = m_Manifest.Assignments;
+        foreach (HCInteriorAssignment assignment : assignmentRows)
         {
             HCInteriorCandidate candidate = m_Config.Candidates[index];
             if (!candidate || !assignment || assignment.SlotId != candidate.SlotId || assignment.InstanceId != candidate.Id(m_Config.Epoch)) return false;
             HCInteriorSite placed;
-            foreach (HCInteriorSite site : m_Sites)
+            array<ref HCInteriorSite> siteRows = m_Sites;
+            foreach (HCInteriorSite site : siteRows)
             {
                 if (!site || site.SlotId != assignment.SlotId || site.Id != assignment.InstanceId + "_storage_v1") continue;
                 if (placed) return false;
@@ -299,13 +304,13 @@ class HCSearchBinding : HCModule
         }
         if (!plan)
         {
-            if (m_Attempts >= MAX_ATTEMPTS)
+            if (m_Attempts >= HCSearchLimits.HCGet().RetryAttempts)
             {
                 m_Provider.Abandon(plan);
                 Finish("native supply unavailable after " + m_Attempts.ToString() + " attempts; see [HC Search Supply] reason");
                 return;
             }
-            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Attempt, RETRY_MS, false);
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Attempt, HCSearchLimits.HCGet().RetryDelayMs, false);
             return;
         }
         if (!m_Owner.BindSearchEconomy(plan.Registry, plan.Manifest, m_Contexts, plan.InitializeNewEpoch))
