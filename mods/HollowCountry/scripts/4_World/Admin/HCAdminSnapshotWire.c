@@ -25,21 +25,28 @@ class HCAdminSnapshotWire
     static const int NOTICE_BYTES = 1024;
     static const int NOTICE_UNPLACED_SHARE = 4;
 
-    // Comma-joined entries that fit in `room` characters. A cut list ends in `+N more`, and the
-    // room for that marker is reserved before an entry is added (digits of the total count
-    // is an upper bound for N), so the result is <= room whenever the marker alone fits.
+    // Comma-joined entries that fit in `room` characters. A cut list ends in `+N more`.
+    // Check the complete list first: reserving a marker must not clip a list that
+    // fits without one. Otherwise reserve the exact omitted-count suffix per entry.
+    // Tiny rooms retain the existing identifiable first-entry preview.
     protected static string HCFitEntries(array<string> entries, int room)
     {
         if (room < 1 || !entries || entries.Count() < 1) { return ""; }
+        string complete = "";
+        for (int completeIndex = 0; completeIndex < entries.Count(); completeIndex++)
+        {
+            if (completeIndex > 0) { complete += ","; }
+            complete += entries[completeIndex];
+        }
+        if (complete.Length() <= room) { return complete; }
         string joined = "";
         int kept = 0;
-        int markerBytes = 8 + entries.Count().ToString().Length();
         for (int entryIndex = 0; entryIndex < entries.Count(); entryIndex++)
         {
             string entry = entries[entryIndex];
             int added = joined.Length() + entry.Length();
             if (kept > 0) { added = added + 1; }
-            if (entryIndex < entries.Count() - 1) { added = added + markerBytes; }
+            if (entryIndex < entries.Count() - 1) { added = added + 7 + (entries.Count() - entryIndex - 1).ToString().Length(); }
             if (added > room) { break; }
             if (kept > 0) { joined += ","; }
             joined += entry;
@@ -283,7 +290,7 @@ class HCAdminSnapshotWire
         }
         notice += tail;
         reply.Notice = HCDebugSnapshot.HCText(notice, HCAdminSnapshotWire.NOTICE_BYTES);
-        Print("[HC Admin] cmd=snapshot result=ok reason=delivered vertices=" + reply.Marks.Count().ToString() + " truncated=" + dropped.ToString());
+        Print("[HC Admin] cmd=snapshot result=ok reason=delivered vertices=" + reply.Marks.Count().ToString() + " truncated=" + dropped.ToString() + " runtime=PENDING");
         return reply;
     }
 }
