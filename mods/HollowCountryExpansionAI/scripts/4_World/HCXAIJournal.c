@@ -71,11 +71,11 @@ class HCXAIJournal
     // Admission preflight may shrink clean history, but never inserts an intent.
     bool PrepareBegin(string id, string session, string missionId)
     {
-        if (!this.Valid()) { return false; }
-        if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return false; }
+        if (!this.Valid()) { return this.RefuseBegin("journal_invalid"); }
+        if (!HCXAIRules.Token(id) || !HCXAIRules.Token(session) || !HCXAIRules.Token(missionId)) { return this.RefuseBegin("bad_token"); }
         foreach (HCXAIJournalRow priorRow : m_Data.Rows)
         {
-            if (priorRow.Id == id) { return false; }
+            if (priorRow.Id == id) { return this.RefuseBegin("duplicate_id"); }
         }
         if (m_Data.Rows.Count() >= m_Limit)
         {
@@ -84,7 +84,8 @@ class HCXAIJournal
             {
                 if (candidate.Closed && candidate.Prunable) { oldest = candidate; break; }
             }
-            if (!oldest || !this.Prune(oldest.Id)) { return false; }
+            if (!oldest) { return this.RefuseBegin(HCRefusal.CAPACITY); }
+            if (!this.Prune(oldest.Id)) { return this.RefuseBegin("prune_failed"); }
         }
         return true;
     }
@@ -112,8 +113,11 @@ class HCXAIJournal
         row.Session = session;
         row.MissionId = missionId;
         m_Data.Rows.Insert(row);
+        // An uncertain save keeps the consumed intent but must say why Begin failed.
+        bool saved = HCXAIStore.SaveJournal(m_Data);
+        if (!saved) { return this.RefuseBegin("journal_save_failed"); }
         m_Refusal = "";
-        return HCXAIStore.SaveJournal(m_Data);
+        return true;
     }
     bool End(string id, bool prunable = false)
     {

@@ -75,12 +75,46 @@ class AdapterLeaseRefusals(unittest.TestCase):
         self.assertTrue(self.t.mod.m_Leases[0].Failed)
         self.assertTrue(self.t.mod.m_Leases[0].Retiring)
 
+    def test_idempotent_restart_mismatch_names_a_reason_and_a_match_clears_it(self):
+        self.assertTrue(self.t.install())
+        self.assertTrue(self.t.start(lease='again'))
+        self.t.mod.m_LeaseRefusal = 'stale_reason'
+        self.assertTrue(self.t.start(lease='again'))
+        self.assertEqual('', self.t.mod.LeaseRefusal())
+        self.assertFalse(self.t.start(lease='again', cap=3))
+        self.assertEqual('lease_params_mismatch', self.t.mod.LeaseRefusal())
+        self.assertFalse(self.t.start(lease='again', session='other-session'))
+        self.assertEqual('lease_params_mismatch', self.t.mod.LeaseRefusal())
+        self.assertEqual(1, len(lines(self.diagnostics(), 'reason=lease_params_mismatch')))
+        self.t.mod.m_Leases[0].Retiring = True
+        self.assertFalse(self.t.start(lease='again'))
+        self.assertEqual('lease_not_active', self.t.mod.LeaseRefusal())
+        self.assertEqual(1, len(self.t.mod.m_Leases))
+
+    def test_cap_anchor_group_and_capacity_refusals_log_once_per_reason_change(self):
+        self.assertTrue(self.t.install())
+        self.assertFalse(self.t.start(lease='big', cap=5))
+        self.assertEqual('actor_cap_limit', self.t.mod.LeaseRefusal())
+        self.assertFalse(self.t.start(lease='big2', cap=5))
+        self.assertFalse(self.t.mod.StartLease('far', 'event-session', 'mission-site-5', (1., 0., 1.), 4))
+        self.assertEqual('mission_or_anchor', self.t.mod.LeaseRefusal())
+        self.assertFalse(self.t.start(lease='small', cap=1))
+        self.assertEqual('group_size', self.t.mod.LeaseRefusal())
+        self.t.ai_limits.MaxLiveGroups = 1
+        self.assertTrue(self.t.start(lease='first'))
+        self.assertFalse(self.t.start(lease='second'))
+        self.assertEqual('capacity', self.t.mod.LeaseRefusal())
+        self.assertFalse(self.t.start(lease='third'))
+        reasons = [re.search(r'reason=(\w+)', l)[1] for l in lines(self.diagnostics(), 'lease start refused')]
+        self.assertEqual(['actor_cap_limit', 'mission_or_anchor', 'group_size', 'capacity'], reasons)
+        self.assertEqual([], lines(self.diagnostics(), '[HC AI] adapter'))
+
 
 class JournalBeginRefusals(unittest.TestCase):
     def setUp(self):
         self.logs = []
         self.ok = True
-        self.env = dict(A=A, Print=self.logs.append, HCRefusal=HCREFUSAL)
+        self.env = dict(A=A, Print=self.logs.append, HCRefusal=HCREFUSAL, GetGame=lambda: N(IsServer=lambda: True))
         declarations(self.env)
         self.env['HCXAIStore'] = N(SaveJournal=lambda data: self.ok)
         self.env['HCXAIRules'] = N(Token=lambda s: isinstance(s, str) and 0 < len(s) <= 128)
@@ -88,7 +122,7 @@ class JournalBeginRefusals(unittest.TestCase):
         self.owner = N(m_Data=self.env['HCXAIJournalData'](), m_Session='new-process', m_Limit=2, m_Refusal='')
         self.owner.m_Data.Rows = A()
         self.owner.m_Data.SchemaVersion = 1
-        for name in ('Valid', 'Begin', 'RefuseBegin', 'Refusal'):
+        for name in ('Valid', 'Begin', 'RefuseBegin', 'Refusal', 'PrepareBegin', 'Prune'):
             setattr(self.owner, name, lambda *a, n=name: self.code.call(n, self.owner, *a))
 
     def test_each_begin_refusal_has_a_reason_and_logs_once_per_change(self):
@@ -108,6 +142,39 @@ class JournalBeginRefusals(unittest.TestCase):
         self.assertEqual('journal_invalid', self.owner.Refusal())
         self.assertEqual(['bad_token', 'duplicate_id', 'capacity', 'journal_invalid'],
                          [re.search(r'reason=(\w+)', l)[1] for l in lines(self.logs, 'intent refused')])
+
+    def test_failed_begin_save_names_a_reason_and_a_good_save_clears_it(self):
+        self.ok = False
+        self.assertFalse(self.owner.Begin('one', 'event', 'site'))
+        self.assertEqual('journal_save_failed', self.owner.Refusal())
+        self.assertEqual(1, len(self.owner.m_Data.Rows))
+        self.ok = True
+        self.assertTrue(self.owner.Begin('two', 'event', 'site'))
+        self.assertEqual('', self.owner.Refusal())
+        self.assertEqual(1, len(lines(self.logs, 'reason=journal_save_failed')))
+
+    def test_prepare_begin_refusals_each_have_a_reason_and_log_once(self):
+        self.owner.m_Data.SchemaVersion = 9
+        self.assertFalse(self.owner.PrepareBegin('one', 'event', 'site'))
+        self.assertEqual('journal_invalid', self.owner.Refusal())
+        self.owner.m_Data.SchemaVersion = 1
+        self.assertFalse(self.owner.PrepareBegin('', 'event', 'site'))
+        self.assertEqual('bad_token', self.owner.Refusal())
+        self.assertFalse(self.owner.PrepareBegin('', 'event', 'site'))
+        self.assertTrue(self.owner.Begin('one', 'event', 'site'))
+        self.assertFalse(self.owner.PrepareBegin('one', 'event', 'site'))
+        self.assertEqual('duplicate_id', self.owner.Refusal())
+        self.assertTrue(self.owner.Begin('two', 'event', 'site'))
+        self.assertFalse(self.owner.PrepareBegin('three', 'event', 'site'))
+        self.assertEqual('capacity', self.owner.Refusal())
+        self.assertEqual(['journal_invalid', 'bad_token', 'duplicate_id', 'capacity'],
+                         [re.search(r'reason=(\w+)', l)[1] for l in lines(self.logs, 'intent refused')])
+        self.owner.m_Data.Rows[0].Closed = True
+        self.owner.m_Data.Rows[0].Prunable = True
+        self.ok = False
+        self.assertFalse(self.owner.PrepareBegin('three', 'event', 'site'))
+        self.assertEqual('prune_failed', self.owner.Refusal())
+        self.assertEqual(2, len(self.owner.m_Data.Rows))
 
 
 class EncounterStartRefusals(unittest.TestCase):
