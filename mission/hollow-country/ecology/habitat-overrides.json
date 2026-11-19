@@ -718,7 +718,7 @@
     "Normal signed PBO/server repeats exact-source checks, off path, stop/restart cleanup and source/PBO/mission/config/dependency hashes. Performance budgets remain provisional at 3-6 players."
   ],
   "GameBuild": "1.30.164289",
-  "ManifestMaxBytes": 32768,
+  "ManifestMaxBytes": 65536,
   "NativeConfigSources": [
     {
       "Path": "addons/animals.pbo",

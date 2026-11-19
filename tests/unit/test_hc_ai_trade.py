@@ -113,7 +113,7 @@ class TradeBehavior(unittest.TestCase):
                    HCItemId=lambda left_side: 'left-item' if left_side else 'right-item',
                    HCActorId=lambda left_side: 'left' if left_side else 'right')
             trade = N(m_State=state, m_Store=N(Save=save), m_IO=io,
-                      m_Ready=True, m_Enabled=True, m_Busy=False, m_Reports=0, m_Released=0,
+                      m_Ready=True, m_Enabled=True, m_Busy=False, m_Reports=0, m_Released=0, m_LogRefusal='',
                       m_Recipe=N(RecipeId='bandage-for-drink', TimeoutSeconds=120),
                       m_Status=N(HCPublish=lambda *args: None))
             # Synthetic port: a fresh HCTradeState carries the authored defaults (Version 1, idle, none).
@@ -307,6 +307,12 @@ class TradeBehavior(unittest.TestCase):
         self.assertFalse(c.trade.m_Ready, 'uncertain persistence fails closed')
         self.assertEqual([('refused', 'TRADE_JOURNAL_UNCERTAIN')], published)
         self.assertEqual(0, len([line for line in c.logs if 'slot released' in line]))
+        # #194 (wave 13): the log shows the new refusal, not the terminal journal's old text,
+        # while the in-memory journal itself stays untouched.
+        trade_lines = [line for line in c.logs if line.startswith('[HC Plan] HC-35 trade=')]
+        self.assertIn('refusal=TRADE_JOURNAL_UNCERTAIN', trade_lines[-1])
+        self.assertIn('state=refused', trade_lines[-1])
+        self.assertFalse(c.trade.m_Ready)
         self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 400), 'no retry until restart')
         self.assertEqual('cancelled', c.state.Phase)
         c = fixture()

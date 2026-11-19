@@ -358,6 +358,7 @@ class SharedSpawnPaths(unittest.TestCase):
                                                     Spawned=lambda p: spawned.append(p)))
         env['synthetic_spawn'] = lambda patrol: setattr(patrol, 'm_Group', N(Count=lambda: 1))
         env['synthetic_suffix'] = lambda key: key[10:]
+        env['HC_SITE_LOG_INTERVAL_MS'] = 60000  # named const of HCXAISitePatrol (#194)
         policy = Authored(source, env)
         def attempt(key, size, transient=False):
             patrol = N(m_Group=None, m_HCFinished=False, m_HCLive=False,
@@ -391,6 +392,7 @@ class ReviewAdmissionRegression(unittest.TestCase):
         source = source.replace('super.Spawn();', 'synthetic_spawn(this);')
         source = source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)',
                                 'synthetic_suffix(m_HCSiteId)')
+        env['HC_SITE_LOG_INTERVAL_MS'] = 60000  # named const of HCXAISitePatrol (#194)
         policy = Authored(source, env)
         def patrol(key):
             owner = N(m_Group=None, m_HCFinished=False, m_HCSiteId=key,
@@ -433,6 +435,7 @@ class ReviewAdmissionRegression(unittest.TestCase):
         source = source.replace('super.Spawn();', 'synthetic_spawn(this);')
         source = source.replace('m_HCSiteId.Substring(10, m_HCSiteId.Length() - 10)',
                                 'synthetic_suffix(m_HCSiteId)')
+        env['HC_SITE_LOG_INTERVAL_MS'] = 60000  # named const of HCXAISitePatrol (#194)
         policy = Authored(source, env)
         patrol = N(m_Group=None, m_HCFinished=False, m_HCSiteId='synthetic-site',
                    m_HCTransient=False, m_HCGroupMax=2, m_HCNextBudgetLogMs=0)

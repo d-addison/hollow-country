@@ -212,6 +212,8 @@ class HCTradeTransaction
     bool m_Busy;
     int m_Reports;
     int m_Released;
+    // #194: refusal text shown by HCLog after a failed idle save; the journal itself stays untouched.
+    string m_LogRefusal;
 
     bool HCValidState(HCTradeState row)
     {
@@ -271,6 +273,7 @@ class HCTradeTransaction
         {
             m_Ready = false;
             m_Status.HCPublish("refused", "TRADE_JOURNAL_UNCERTAIN");
+            m_LogRefusal = "TRADE_JOURNAL_UNCERTAIN";
             HCLog();
             return false;
         }
@@ -484,8 +487,10 @@ class HCTradeTransaction
         string observed = "0";
         if (m_State.Id != "") { id = m_State.Id; bound = "1"; }
         if (m_State.Phase == "complete") { observed = "1"; }
+        string shown = m_State.Refusal;
+        if (m_LogRefusal != "") { shown = m_LogRefusal; }
         string line = "[HC Plan] HC-35 trade=" + id + " phase=" + m_State.Phase;
-        line += " transfer=" + m_State.Transfer + " state=" + effective + " refusal=" + m_State.Refusal;
+        line += " transfer=" + m_State.Transfer + " state=" + effective + " refusal=" + shown;
         line += " authored=1 count=" + bound + " observed_complete=" + observed;
         Print(line + " count_cap=1 runtime=PENDING");
     }

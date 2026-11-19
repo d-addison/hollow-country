@@ -79,7 +79,14 @@ class HCEcologyNative
 	// Native scripts-1.30.164289: 1_Core/proto/EnDebug.c:96 Print;
 	// 1_Core/proto/EnString.c:199 Length, :240 IndexOf, :271 IndexOfFrom.
 	static const string HC_HABITAT_MANIFEST = "$mission:hollow-country/ecology/habitat-overrides.json";
-	static const int HC_HABITAT_MAX_BYTES = 32768; // the manifest's own ManifestMaxBytes
+	// #194: read cap raised from 32768 (the manifest's declared ManifestMaxBytes, ~9% headroom)
+	// to 65536. Native ReadFile takes any length (1_Core/proto/EnSystem.c:425; vanilla
+	// 3_Game/tools/JsonFileLoader.c:3,19 reads with 100000000), so only this named const bounds it.
+	static const int HC_HABITAT_MAX_BYTES = 65536;
+	// Only after a failed capped read: one bounded probe tells over-cap from unreadable.
+	static const int HC_HABITAT_PROBE_BYTES = 1048576;
+	// Longest blank run skipped between a section key and its colon.
+	static const int HC_HABITAT_BLANKS_MAX = 16;
 	protected static string s_HabitatState;
 	protected static bool s_HabitatLoaded;
 	protected static bool s_HabitatValid;
@@ -88,6 +95,8 @@ class HCEcologyNative
 	protected static int s_HabitatSpeciesAddon;
 	protected static int s_HabitatNative;
 	protected static int s_HabitatLegacy;
+	protected static int s_HabitatBytes;
+	protected static string s_HabitatReason;
 
 	// Occurrences of token that start inside [first, last). Bounded by the text length.
 	static int HCHabitatCount(string text, string token, int first, int last)
@@ -104,15 +113,65 @@ class HCEcologyNative
 		return count;
 	}
 
+	static bool HCHabitatBlank(string glyph)
+	{
+		return glyph == " " || glyph == "\t" || glyph == "\n" || glyph == "\r";
+	}
+
+	// Start of the first quoted key whose name is followed by optional blanks and a colon
+	// (a quoted string value is skipped). The blank run is bounded; no regex in Enforce.
+	static int HCHabitatKey(string text, string key)
+	{
+		string token = "\"" + key + "\"";
+		int total = text.Length();
+		int cursor = text.IndexOf(token);
+		int probe = 0;
+		int blanks = 0;
+		int next = 0;
+		string glyph = "";
+		while (cursor >= 0)
+		{
+			probe = cursor + token.Length();
+			blanks = 0;
+			glyph = "";
+			if (probe < total) { glyph = text.Substring(probe, 1); }
+			while (blanks < HCEcologyNative.HC_HABITAT_BLANKS_MAX && HCHabitatBlank(glyph))
+			{
+				probe++;
+				blanks++;
+				glyph = "";
+				if (probe < total) { glyph = text.Substring(probe, 1); }
+			}
+			if (glyph == ":") { return cursor; }
+			next = cursor + token.Length();
+			if (next >= total) { return -1; }
+			cursor = text.IndexOfFrom(next, token);
+		}
+		return -1;
+	}
+
 	static void HCHabitatLoad()
 	{
 		if (s_HabitatLoaded) { return; }
 		s_HabitatLoaded = true;
 		string text = HCEcologyRuntimeIO.Read(HC_HABITAT_MANIFEST, HC_HABITAT_MAX_BYTES);
-		if (text == "") { return; }
-		int speciesAt = text.IndexOf("\"Species\":");
-		int habitatsAt = text.IndexOf("\"Habitats\":");
-		int pairsAt = text.IndexOf("\"TargetPairs\":");
+		if (text == "")
+		{
+			// Read returns "" for unreadable and for over-cap alike: one bounded probe names which.
+			s_HabitatReason = "manifest_unreadable";
+			string probe = HCEcologyRuntimeIO.Read(HC_HABITAT_MANIFEST, HC_HABITAT_PROBE_BYTES);
+			if (probe.Length() > HC_HABITAT_MAX_BYTES)
+			{
+				s_HabitatBytes = probe.Length();
+				s_HabitatReason = "manifest_over_cap";
+			}
+			return;
+		}
+		s_HabitatBytes = text.Length();
+		int speciesAt = HCHabitatKey(text, "Species");
+		int habitatsAt = HCHabitatKey(text, "Habitats");
+		int pairsAt = HCHabitatKey(text, "TargetPairs");
+		s_HabitatReason = "manifest_sections_missing";
 		if (speciesAt < 0 || habitatsAt <= speciesAt || pairsAt <= habitatsAt) { return; }
 		int speciesNative = HCHabitatCount(text, "\"retain_native\"", speciesAt, habitatsAt);
 		int speciesPending = HCHabitatCount(text, "\"pending_suitability\"", speciesAt, habitatsAt);
@@ -122,8 +181,10 @@ class HCEcologyNative
 		int habitatLegacy = HCHabitatCount(text, "\"legacy_unreferenced_pending_survey\"", habitatsAt, pairsAt);
 		int habitatRows = HCHabitatCount(text, "\"Disposition\"", habitatsAt, pairsAt);
 		// Every row must carry exactly one disposition this receipt names.
+		s_HabitatReason = "manifest_dispositions_inconsistent";
 		if (speciesRows < 1 || speciesRows != speciesNative + speciesPending + speciesAddon) { return; }
 		if (habitatRows < 1 || habitatRows != habitatNative + habitatLegacy) { return; }
+		s_HabitatReason = "";
 		s_HabitatSpeciesNative = speciesNative;
 		s_HabitatSpeciesPending = speciesPending;
 		s_HabitatSpeciesAddon = speciesAddon;
@@ -146,22 +207,40 @@ class HCEcologyNative
 			species = s_HabitatSpeciesNative;
 			habitats = s_HabitatNative;
 		}
-		int authoredSpecies = s_HabitatSpeciesNative + s_HabitatSpeciesPending + s_HabitatSpeciesAddon;
-		int authoredHabitats = s_HabitatNative + s_HabitatLegacy;
+		// #194: a manifest that was not read claims no counts (authored 0 would be a claim).
+		string authoredSpecies = "unread";
+		string authoredHabitats = "unread";
+		if (s_HabitatValid)
+		{
+			int speciesTotal = s_HabitatSpeciesNative + s_HabitatSpeciesPending + s_HabitatSpeciesAddon;
+			int habitatTotal = s_HabitatNative + s_HabitatLegacy;
+			authoredSpecies = speciesTotal.ToString();
+			authoredHabitats = habitatTotal.ToString();
+		}
 		string counts = "species=" + species.ToString() + " habitats=" + habitats.ToString();
 		counts = counts + " target_pairs_supported=0 state=" + state;
-		counts = counts + " authored_species=" + authoredSpecies.ToString() + " authored_habitats=" + authoredHabitats.ToString();
+		counts = counts + " authored_species=" + authoredSpecies + " authored_habitats=" + authoredHabitats;
 		counts = counts + " admitted_overlay_species=0 observed_reactions=unobserved";
-		string kinds = "species_dispositions=retain_native:" + s_HabitatSpeciesNative.ToString();
-		kinds = kinds + ",pending_suitability:" + s_HabitatSpeciesPending.ToString();
-		kinds = kinds + ",selected_pending_addon_and_native:" + s_HabitatSpeciesAddon.ToString();
-		kinds = kinds + " habitat_dispositions=retain_native:" + s_HabitatNative.ToString();
-		kinds = kinds + ",legacy_unreferenced_pending_survey:" + s_HabitatLegacy.ToString();
+		string kinds = "species_dispositions=unread habitat_dispositions=unread";
+		if (s_HabitatValid)
+		{
+			kinds = "species_dispositions=retain_native:" + s_HabitatSpeciesNative.ToString();
+			kinds = kinds + ",pending_suitability:" + s_HabitatSpeciesPending.ToString();
+			kinds = kinds + ",selected_pending_addon_and_native:" + s_HabitatSpeciesAddon.ToString();
+			kinds = kinds + " habitat_dispositions=retain_native:" + s_HabitatNative.ToString();
+			kinds = kinds + ",legacy_unreferenced_pending_survey:" + s_HabitatLegacy.ToString();
+		}
 		string refusals = "refusals=animal_destination:no_inspected_animal_destination_api";
 		refusals = refusals + ",animal_migration:native_brains_retained_no_destination_provider";
 		refusals = refusals + ",animal_target_pairs:no_inspected_animal_target_accessor";
 		refusals = refusals + ",provider_target_pairs:provider_source_unavailable_at_supplied_path";
-		Print("[HC Plan] HC-48 " + counts + " " + kinds + " " + refusals + " runtime=PENDING");
+		// #194: manifest size against its cap, and the named reason when the manifest is refused.
+		string manifest = "manifest_bytes=unread";
+		if (s_HabitatBytes > 0) { manifest = "manifest_bytes=" + s_HabitatBytes.ToString(); }
+		int capBytes = HCEcologyNative.HC_HABITAT_MAX_BYTES;
+		manifest = manifest + " manifest_cap=" + capBytes.ToString();
+		if (!s_HabitatValid) { manifest = manifest + " manifest_refusal=" + s_HabitatReason; }
+		Print("[HC Plan] HC-48 " + counts + " " + kinds + " " + refusals + " " + manifest + " runtime=PENDING");
 	}
 
 	static HCEcologyRouteIntent ProbePath(EntityAI actor, EntityAI resource, string actorId, string resourceId, int kind, HCEcologyRuntimeSettings settings, string worldName, string session, int nowMs)
