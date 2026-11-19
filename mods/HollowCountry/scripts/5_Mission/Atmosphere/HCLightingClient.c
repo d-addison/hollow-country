@@ -29,8 +29,8 @@ class HCLightingClient
     protected string m_HCLoaded = "";
     protected float m_HCWeight;
     protected string m_HCLoggedName = "";
-    protected float m_HCLoggedWeight = -1;
-    protected float m_HCLogSeconds = 60;
+    protected float m_HCLoggedWeight = -1.0;
+    protected float m_HCLogSeconds = 60.0;
     // HC-51 shares the existing 3-second callback; one scalar item, no scan,
     // save job or cursor. Off/underground/death cleanup never waits on a budget.
     protected ref HCUnitBudget m_HCSeasonUnits = new HCUnitBudget;
@@ -44,9 +44,12 @@ class HCLightingClient
     void Start()
     {
         if (m_HCRunning || !m_HCLighting) return;
-        m_HCRunning = true;
-        // Mission creates a fresh owner only while the effective GRADE bit is on.
-        GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, 3000, true);
+        if (GetGame() && !GetGame().IsDedicatedServer())
+        {
+            m_HCRunning = true;
+            // HCClientPresentation creates this owner under the effective GRADE bit.
+            GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).CallLater(Tick, 3000, true);
+        }
     }
 
     protected void LogChange(string name, float weight)
@@ -178,39 +181,5 @@ class HCLightingClient
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
         Restore();
         m_HCLighting = null;
-    }
-}
-
-modded class MissionGameplay
-{
-    protected ref HCLightingClient m_HCLightingClient;
-
-    override void OnUpdate(float timeslice)
-    {
-        super.OnUpdate(timeslice);
-        if (GetGame().IsDedicatedServer()) return;
-        HCClientPresentation presentation = HCClientPresentation.HCGet();
-        bool grade = false;
-        if (presentation)
-        {
-            grade = (presentation.HCGetEffectiveMask() & HCClientPresentationSettings.GRADE) != 0;
-        }
-        if (grade && !m_HCLightingClient)
-        {
-            m_HCLightingClient = new HCLightingClient(GetWorldLighting());
-            m_HCLightingClient.Start();
-        }
-        if (!grade && m_HCLightingClient)
-        {
-            m_HCLightingClient.Stop();
-            m_HCLightingClient = null;
-        }
-    }
-
-    override void OnMissionFinish()
-    {
-        if (m_HCLightingClient) m_HCLightingClient.Stop();
-        m_HCLightingClient = null;
-        super.OnMissionFinish();
     }
 }

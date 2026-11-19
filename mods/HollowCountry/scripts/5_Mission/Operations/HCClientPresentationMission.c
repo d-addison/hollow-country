@@ -41,6 +41,7 @@ modded class MissionServer
     {
         PlayerBase player = super.OnClientNewEvent(identity, pos, ctx);
         HCClientPresentationServer.SendTo(identity);
+        HCSeasonSnapshotRPC.SendTo(identity);
         return player;
     }
 
@@ -48,17 +49,20 @@ modded class MissionServer
     {
         super.OnClientReadyEvent(identity, player);
         HCClientPresentationServer.SendTo(identity);
+        HCSeasonSnapshotRPC.SendTo(identity);
     }
 
     override void OnClientReconnectEvent(PlayerIdentity identity, PlayerBase player)
     {
         super.OnClientReconnectEvent(identity, player);
         HCClientPresentationServer.SendTo(identity);
+        HCSeasonSnapshotRPC.SendTo(identity);
     }
 
     override void OnUpdate(float timeslice)
     {
         super.OnUpdate(timeslice);
         HCClientPresentationServer.HCTick(timeslice);
+        HCSeasonSnapshotRPC.HCTick(timeslice);
     }
 }

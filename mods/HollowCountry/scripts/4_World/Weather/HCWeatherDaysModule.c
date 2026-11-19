@@ -8,6 +8,7 @@
 // :183 GetOvercast, :186 GetFog, :189 GetRain, :192 GetSnowfall,
 // :199 GetWindDirection, :205 GetWindMagnitude, :219 SetStorm,
 // :248 GetWindSpeed, :269 SetWindMaximumSpeed, :303 SetRainThresholds,
+// :321 SetSnowfallThresholds(float tMin, float tMax, float tTime);
 // :354 IsDynVolFogEnabled, :360/:370/:381 volumetric setters,
 // :392 GetMissionWeather, :402 GetWeatherUpdateFrozen;
 // :126-145 native phenomenon -> WorldData.WeatherOnBeforeChange;
@@ -24,17 +25,30 @@
 class HCWeatherDaysModule : HCModule
 {
     protected ChernarusPlusData m_Data;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+
+    protected void HCUpdateOperationalStatus()
+    {
+        if (!m_Data) { return; }
+        if (!m_Data.HCWeatherDaysAuthority()) { m_Status.HCPublish("refused", "WEATHER_OWNER_NOT_ADMITTED"); }
+        else if (m_Data.HCSeasonPhaseCode() < 0) { m_Status.HCPublish("off", "HC6_NOT_ADMITTED"); }
+        else { m_Status.HCPublish("ready", "season_snapshot_owned_runtime_pending"); }
+    }
 
     override string GetName() { return "WeatherDays"; }
     override bool IsEnabled(HCSettings settings) { return settings.EnableGrade; }
 
     override void OnStart(HCSettings settings)
     {
+        m_Status.HCPublish("refused", "WEATHER_OWNER_NOT_ADMITTED");
         Print(HCV2Admission.Line("WeatherDays", true, "EXP-A2", HCV2Gates.Qualified("EXP-A2")));
         if (!GetGame() || !GetGame().IsServer()) return;
         // Respect the existing weather owner's explicit off switch as well.
         if (!settings.EnableAtmosphere)
         {
+            m_Status.HCPublish("off", "EnableAtmosphere_off");
             Print("[HollowCountry] V2 weather blocked: EnableAtmosphere is off");
             return;
         }
@@ -50,17 +64,21 @@ class HCWeatherDaysModule : HCModule
         if (!mission) return;
         m_Data = ChernarusPlusData.Cast(mission.GetWorldData());
         if (m_Data) m_Data.HCBeginWeatherDays();
+        HCUpdateOperationalStatus();
     }
 
     override void OnTick(float deltaTime)
     {
         if (m_Data) m_Data.HCTickWeatherDays();
+        HCUpdateOperationalStatus();
     }
 
     override void OnStop()
     {
         if (m_Data) m_Data.HCEndWeatherDays();
         m_Data = null;
+        HCSeasonSnapshotRPC.HCPublish(-1);
+        m_Status.HCPublish("off", "module_stop");
     }
 
     // Admin test kit: read-only metrics and one bounded override request. The
@@ -95,6 +113,8 @@ modded class ChernarusPlusData
     protected bool m_HCWeatherWasWet;
     protected int m_HCWeatherDay = -1;
     protected int m_HCWeatherSlot = -1;
+    protected string m_HCWeatherPhase = "unavailable";
+    protected int m_HCReportedPhase = -2;
     protected float m_HCWeatherLastHour;
     protected float m_HCWeatherCalm;
     protected string m_HCWeatherProfile;
@@ -104,6 +124,32 @@ modded class ChernarusPlusData
     protected float m_HCWeatherAdminUntil;
     // HC-6 visual season clock; this weather owner starts, ticks and stops it.
     protected ref HCVisualSeasons m_HCVisualSeasons;
+
+    // The HC-6 clock can keep running under a foreign controller, but its
+    // phase MUST NOT authorize weather or client grades while authority is lost.
+    bool HCWeatherDaysAuthority()
+    {
+        if (!m_HCWeatherDaysActive || !m_Weather || !GetGame() || !GetGame().IsServer()) { return false; }
+        return !m_Weather.GetMissionWeather() && !m_Weather.GetWeatherUpdateFrozen();
+    }
+
+    int HCSeasonPhaseCode()
+    {
+        if (!HCWeatherDaysAuthority() || !m_HCVisualSeasons) { return -1; }
+        if (!m_HCVisualSeasons.HCActive()) { return -1; }
+        return m_HCVisualSeasons.HCPhase();
+    }
+
+    protected void HCPublishSeason()
+    {
+        int phaseCode = HCSeasonPhaseCode();
+        HCSeasonSnapshotRPC.HCPublish(phaseCode);
+        if (phaseCode == m_HCReportedPhase) { return; }
+        m_HCReportedPhase = phaseCode;
+        float snow = 0.0;
+        if (m_Weather) { snow = m_Weather.GetSnowfall().GetActual(); }
+        Print(HCWeatherDays.HCSeasonLine(HCSeasonVisualPolicy.HCPhaseName(phaseCode), snow, HCWeatherDaysAuthority()));
+    }
 
     // HC-50 read-only seam for the one-shot white-terrain boot receipt.
     HCVisualSeasons HCWinterTerrainSeasons() { return m_HCVisualSeasons; }
@@ -196,18 +242,23 @@ modded class ChernarusPlusData
         HCWinterTerrainAdmission.HCReport(m_HCVisualSeasons); // HC-50: one fail-closed receipt per start
         m_HCWeatherDay = -1;
         m_HCWeatherSlot = -1;
+        m_HCWeatherPhase = "unavailable";
+        m_HCReportedPhase = -2;
         m_HCWeatherProfile = "";
         m_HCWeatherCalm = 0;
         m_HCWeatherWasWet = false;
         m_HCWeatherLastHour = GetGame().GetDayTime();
         HCApplyNightLimits(true);
-        m_Weather.GetRain().SetLimits(0, 0.9);
-        m_Weather.GetSnowfall().SetLimits(0, 0);
-        m_Weather.GetWindMagnitude().SetLimits(0, 16);
+        m_Weather.GetRain().SetLimits(0.0, 0.9);
+        m_Weather.GetSnowfall().SetLimits(0.0, 0.0);
+        // Native Weather.c:321, default overcast range/stopping time :309-311.
+        // Falling snow keeps stock wetness effects; no extra thermal owner.
+        m_Weather.SetSnowfallThresholds(HCSeasonVisualPolicy.SNOW_CLOUD_THRESHOLD, 1.0, 30.0);
+        m_Weather.GetWindMagnitude().SetLimits(0.0, 16.0);
         m_Weather.GetWindDirection().SetLimits(-3.14159, 3.14159);
-        m_Weather.SetWindMaximumSpeed(16);
-        m_Weather.SetStorm(1, m_WeatherDefaultSettings.m_StormThreshold, 90);
-        m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1, 90);
+        m_Weather.SetWindMaximumSpeed(16.0);
+        m_Weather.SetStorm(1.0, m_WeatherDefaultSettings.m_StormThreshold, 90.0);
+        m_Weather.SetRainThresholds(m_WeatherDefaultSettings.m_RainThreshold, 1.0, 90.0);
         // Same bright-night baseline and owner as v1; personal light untouched.
         CfgGameplayHandler.m_Data.WorldsData.lightingConfig = 0;
         HCTickWeatherDays();
@@ -225,6 +276,7 @@ modded class ChernarusPlusData
     {
         if (!m_HCWeatherDaysActive) return;
         m_HCWeatherDaysActive = false;
+        HCPublishSeason();
         if (m_HCVisualSeasons) { m_HCVisualSeasons.HCStop(); }
         HCStopAtmosphere();
     }
@@ -235,6 +287,7 @@ modded class ChernarusPlusData
         // The season clock counts server running time, so it ticks even while a
         // foreign controller holds the sky.
         if (m_HCVisualSeasons) { m_HCVisualSeasons.HCTick(); }
+        HCPublishSeason();
         if (m_Weather.GetMissionWeather() || m_Weather.GetWeatherUpdateFrozen())
         {
             if (!m_HCWeatherDaysSuspended)
@@ -267,23 +320,35 @@ modded class ChernarusPlusData
         if (rain > 0.05 || cloud >= 0.85) m_HCWeatherWasWet = true;
         if (rain <= 0.02 && cloud < 0.85) m_HCWeatherWasWet = false;
         string profile = HCWeatherDays.Profile(day, hour, m_HCWeatherCalm);
-        bool changed = day != m_HCWeatherDay || profile != m_HCWeatherProfile;
+        int seasonCode = HCSeasonPhaseCode();
+        string phase = HCSeasonVisualPolicy.HCPhaseName(seasonCode);
+        bool changed = day != m_HCWeatherDay || profile != m_HCWeatherProfile || phase != m_HCWeatherPhase;
+        m_HCWeatherPhase = phase;
         if (changed)
             Print(string.Format("[HollowCountry] V2 weather day=%1 profile=%2", day, profile));
         m_HCWeatherDay = day;
         m_HCWeatherProfile = profile;
         bool boundary = HCAtmospherePolicy.IsNight(hour) != m_HCNightLimited;
         HCApplyNightLimits(false);
-        // Native holds actual within limits. Lowering the cap through 07..09
-        // prevents a long native transition leaving dense fog past 09:00 even
-        // with accelerated world time. No other owner writes normalized fog.
-        float fog = HCWeatherDays.FogTarget(day, hour, m_HCWeatherCalm);
-        m_Weather.GetFog().SetLimits(0, fog);
+        // This remains the sole normalized fog writer. Fade the seasonal
+        // target at dawn/dusk and preserve observed fog inside the native cap.
+        float fog = HCWeatherDays.HCSeasonFog(phase, day, hour, m_HCWeatherCalm);
+        float actual = m_Weather.GetFog().GetActual();
+        // Never clamp observed stock fog down to a seasonal target. Native
+        // forecast interpolation performs the transition instead of a cap pop.
+        // With no season phase (HC-27 grade or seasons off) keep the v1 hard
+        // cap so a long native fog transition cannot linger past 09:00.
+        float fogCap = fog;
+        if (seasonCode >= 0) fogCap = Math.Max(fog, actual);
+        m_Weather.GetFog().SetLimits(0.0, fogCap);
         int slot = Math.Floor(hour * 4);
         if (changed || boundary || slot != m_HCWeatherSlot || m_HCWeatherDaysSuspended)
         {
             m_HCWeatherSlot = slot;
-            m_Weather.GetFog().Set(fog, 30, 0);
+            float snowLimit = 0.0;
+            if (phase == "winter") { snowLimit = HCSeasonVisualPolicy.WINTER_SNOWFALL; }
+            m_Weather.GetSnowfall().SetLimits(0.0, snowLimit);
+            m_Weather.GetFog().Set(fog, 30.0, 0.0);
             if (changed || boundary || m_HCWeatherDaysSuspended)
             {
                 HCWeatherDaysForecast(EWeatherPhenomenon.OVERCAST);
@@ -292,7 +357,7 @@ modded class ChernarusPlusData
                 HCWeatherDaysForecast(EWeatherPhenomenon.WIND_DIRECTION);
                 HCWeatherDaysForecast(EWeatherPhenomenon.SNOWFALL);
             }
-            CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 30);
+            CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 30.0);
         }
         m_HCWeatherDaysSuspended = false;
     }
@@ -302,20 +367,20 @@ modded class ChernarusPlusData
         float hour = GetGame().GetDayTime();
         float cloud = m_Weather.GetOvercast().GetActual();
         if (type == EWeatherPhenomenon.OVERCAST)
-            m_Weather.GetOvercast().Set(HCWeatherDays.CloudTarget(m_HCWeatherProfile, m_Weather.GetTime(), hour), 300, 300);
+            m_Weather.GetOvercast().Set(HCWeatherDays.HCSeasonCloud(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherProfile, m_Weather.GetTime(), hour), 300.0, 300.0);
         else if (type == EWeatherPhenomenon.RAIN)
-            m_Weather.GetRain().Set(HCWeatherDays.RainTarget(m_HCWeatherProfile, cloud, hour), 180, 120);
+            m_Weather.GetRain().Set(HCWeatherDays.HCSeasonRain(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherProfile, cloud, hour), 180.0, 120.0);
         else if (type == EWeatherPhenomenon.WIND_MAGNITUDE)
-            m_Weather.GetWindMagnitude().Set(HCWeatherDays.WindTarget(m_HCWeatherProfile, cloud, hour), 180, 120);
+            m_Weather.GetWindMagnitude().Set(HCWeatherDays.WindTarget(m_HCWeatherProfile, cloud, hour), 180.0, 120.0);
         else if (type == EWeatherPhenomenon.FOG)
-            m_Weather.GetFog().Set(HCWeatherDays.FogTarget(m_HCWeatherDay, hour, m_HCWeatherCalm), 30, 0);
+            m_Weather.GetFog().Set(HCWeatherDays.HCSeasonFog(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherDay, hour, m_HCWeatherCalm), 30.0, 0.0);
         else if (type == EWeatherPhenomenon.WIND_DIRECTION)
-            m_Weather.GetWindDirection().Set(HCAtmospherePolicy.WindDirectionTarget(m_Weather.GetTime()), 300, 300);
+            m_Weather.GetWindDirection().Set(HCAtmospherePolicy.WindDirectionTarget(m_Weather.GetTime()), 300.0, 300.0);
         else if (type == EWeatherPhenomenon.SNOWFALL)
-            m_Weather.GetSnowfall().Set(0, 300, 300);
+            m_Weather.GetSnowfall().Set(HCWeatherDays.HCSeasonSnow(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherProfile, cloud, hour), 300.0, 300.0);
         else if (type != EWeatherPhenomenon.VOLFOG_HEIGHT_DENSITY && type != EWeatherPhenomenon.VOLFOG_DISTANCE_DENSITY && type != EWeatherPhenomenon.VOLFOG_HEIGHT_BIAS)
             return false;
-        CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 30);
+        CalculateVolFog(cloud, m_Weather.GetWindSpeed(), 30.0);
         return true;
     }
 
@@ -338,7 +403,7 @@ modded class ChernarusPlusData
         // V2's selected mornings alone get extra valley density. Retain the v1
         // wind damping, and immediately remove the extra term outside mornings.
         float density = HCAtmospherePolicy.DistanceDensity(12, lerpValue, windMagnitude);
-        float extra = HCWeatherDays.FogTarget(m_HCWeatherDay, hour, m_HCWeatherCalm) - 0.04;
+        float extra = HCWeatherDays.HCSeasonFog(HCSeasonVisualPolicy.HCPhaseName(HCSeasonPhaseCode()), m_HCWeatherDay, hour, m_HCWeatherCalm) - 0.04;
         m_Weather.SetDynVolFogDistanceDensity(density + extra * 0.12, 0);
         m_Weather.SetDynVolFogHeightDensity(0.95, 0);
         m_Weather.SetDynVolFogHeightBias(50 + extra * 70, 0);

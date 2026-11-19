@@ -1,11 +1,11 @@
 // HC-51: bounded server-phase cache; no weather writes, effects, timers or IO.
-// Lead's existing mission control transport calls HCApplyServer ONLY after its
+// HC-27's mission control transport calls HCApplyServer ONLY after its
 // server-origin/target checks. Three ints: VERSION, revision (1..2e9), phase
 // (-1 = off, 0..3 = HC-6 phase). No client gameplay request or local season clock.
 // Repeat the same revision/phase as a heartbeat at <=30 seconds; expire at 90.
 // New revision required after conflict. Revisions never wrap within a mission.
 // Client preferences/effect cleanup remain HC-27 + HCLightingClient's GRADE.
-// The cache retains one scalar snapshot while grade is off; no idle callback.
+// GRADE off releases the cache; re-enable awaits a fresh server heartbeat.
 // Native scripts-1.30.164289, relative paths:
 // 3_Game/Global/Game.c:909-914 GetTickTime, :1125 IsDedicatedServer;
 // 3_Game/gameplay.c:636 GetGame; 1_Core/proto/EnDebug.c:96 Print;
@@ -25,10 +25,23 @@ class HCSeasonVisualClient
 
     HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
 
+    // HCClientPresentation owns this cache only under the effective GRADE gate.
+    void HCStart()
+    {
+        if (!GetGame() || GetGame().IsDedicatedServer()) { return; }
+        HCSeasonVisualClient.s_Current = this;
+        HCReport("off", "awaiting_server_snapshot");
+    }
+
+    void HCRejectSnapshot()
+    {
+        HCRefuse("malformed_season_rpc");
+    }
+
     static void HCApplyServer(int version, int revision, int phaseCode)
     {
         if (!GetGame() || GetGame().IsDedicatedServer()) { return; }
-        if (!s_Current) { s_Current = new HCSeasonVisualClient; }
+        if (!s_Current) { return; }
         s_Current.HCAccept(version, revision, phaseCode, GetGame().GetTickTime());
     }
 
@@ -127,23 +140,9 @@ class HCSeasonVisualClient
     {
         m_Revision = 0;
         m_Phase = -1;
-        m_ReceivedAt = 0;
+        m_ReceivedAt = 0.0;
         m_Conflict = false;
         HCReport("off", "mission_stop");
-    }
-}
-
-modded class MissionGameplay
-{
-    override void OnInit()
-    {
-        HCSeasonVisualClient.HCReset();
-        super.OnInit();
-    }
-
-    override void OnMissionFinish()
-    {
-        HCSeasonVisualClient.HCReset();
-        super.OnMissionFinish();
+        if (HCSeasonVisualClient.s_Current == this) { HCSeasonVisualClient.s_Current = null; }
     }
 }
