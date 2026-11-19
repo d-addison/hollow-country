@@ -40,6 +40,8 @@ class HCInteriorsModule : HCModule
     protected int m_PropLimit;
     protected ref HCSearchEconomy m_Economy;
     protected bool m_SearchBound;
+    // Last SearchGate/CanContinue refusal code (HCRefusal vocabulary); "" when admitted.
+    protected string m_SearchRefusal;
     protected ref array<ref HCInteriorSearchSession> m_SearchSessions = new array<ref HCInteriorSearchSession>;
 
     static HCInteriorsModule Get()
@@ -264,8 +266,16 @@ class HCInteriorsModule : HCModule
             return;
         }
         m_Manifest = AllocateManifest();
-        if (!m_Manifest) return;
-        if (!RestoreLayoutManifest()) return;
+        if (!m_Manifest)
+        {
+            Print("[HC Interiors] placement disabled: layout manifest unavailable (see the refusal above)");
+            return;
+        }
+        if (!RestoreLayoutManifest())
+        {
+            Print("[HC Interiors] placement disabled: layout state not restored; preserved for manual recovery");
+            return;
+        }
         if (!FileExist("$profile:HollowCountry") && !MakeDirectory("$profile:HollowCountry"))
         {
             Reject("cannot create profile state directory");
@@ -453,11 +463,20 @@ class HCInteriorsModule : HCModule
     bool SearchGate(PlayerBase player, HCInteriorSite site)
     {
         HCSettings settings = HCServer.Get().GetSettings();
+        m_SearchRefusal = HCRefusal.SERVICE;
         if (!settings) return false;
         bool ready = m_Ready && m_Store && m_Store.Healthy() && m_Economy;
         if (!HCInteriorRules.MaySearch(GetGame().IsServer(), settings.EnableInteriors, settings.EnableSearch, m_SearchProof, ready, player && player.IsAlive(), site && site.Phase == 0)) return false;
-        return m_Economy.CanGrant(site.Id, player);
+        if (!m_Economy.CanGrant(site.Id, player))
+        {
+            m_SearchRefusal = HCRefusal.SUPPLY;
+            return false;
+        }
+        m_SearchRefusal = "";
+        return true;
     }
+
+    string SearchRefusal() { return m_SearchRefusal; }
 
     bool CanStart(PlayerBase player, ActionTarget target)
     {
@@ -466,7 +485,10 @@ class HCInteriorsModule : HCModule
         HCInteriorSite site = FindSite(subject);
         if (!SearchGate(player, site))
         {
-            HCRefusalReport.RefusalMessage(player, HCRefusal.SERVICE, subject, "Search unavailable: the search service is not ready on this server.");
+            // SearchGate left the specific code; the player text stays the service one.
+            string why = m_SearchRefusal;
+            if (why == "") why = HCRefusal.SERVICE;
+            HCRefusalReport.RefusalMessage(player, why, subject, "Search unavailable: the search service is not ready on this server.");
             return false;
         }
         if (site.Owner)
@@ -485,8 +507,23 @@ class HCInteriorsModule : HCModule
     bool CanContinue(ActionData data)
     {
         HCInteriorActionData action = HCInteriorActionData.Cast(data);
+        m_SearchRefusal = HCRefusal.SESSION;
         if (!action || !action.Site) return false;
-        return SearchGate(data.m_Player, action.Site) && action.Site.Owner == data && SessionValid(data, action.Site) && GetGame().GetTickTime() >= action.Site.StartedAt && GetGame().GetTickTime() <= action.Site.Deadline && ValidateTarget(data.m_Player, data.m_Target, action.Site);
+        // SearchGate sets its own code when it refuses.
+        if (!SearchGate(data.m_Player, action.Site)) return false;
+        m_SearchRefusal = HCRefusal.SESSION;
+        bool sessionOk = action.Site.Owner == data && SessionValid(data, action.Site);
+        if (!sessionOk) return false;
+        float now = GetGame().GetTickTime();
+        // Written as an inclusive window so a NaN clock refuses.
+        if (!(now >= action.Site.StartedAt && now <= action.Site.Deadline)) return false;
+        if (!ValidateTarget(data.m_Player, data.m_Target, action.Site))
+        {
+            m_SearchRefusal = HCRefusal.NO_SITE;
+            return false;
+        }
+        m_SearchRefusal = "";
+        return true;
     }
 
     HCInteriorSearchSession SearchSession(HCInteriorSite site)

@@ -764,6 +764,7 @@ class HCSearchRefreshPilotHouses : HCSearchHouses
         if (!journal.Open("stock-ce-measured-refresh-v2", m_PilotPin, HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()), HCBuildIdentity.Canonical()))
         {
             m_Fault = true;
+            Print("[HC Search Refresh] pilot journal refused; pilot house search stays refused");
             return false;
         }
         m_Journal = journal;
@@ -772,13 +773,23 @@ class HCSearchRefreshPilotHouses : HCSearchHouses
 
     override bool EnsureJournal()
     {
-        if (!OpenJournal()) return false;
+        if (!OpenJournal())
+        {
+            m_Refusal = HCRefusal.STORAGE;
+            return false;
+        }
         if (m_Registry) return true;
-        if (m_Fault) return false;
+        if (m_Fault)
+        {
+            m_Refusal = HCRefusal.STORAGE;
+            return false;
+        }
         HCSearchSupplyRegistry registry = new HCSearchSupplyRegistry;
         if (!registry.BindLazySource("stock-ce-measured-refresh-v2", m_PilotPin, HCBuildIdentity.CanonicalWorld(GetGame().GetWorldName()), HCBuildIdentity.Canonical()))
         {
             m_Fault = true;
+            Print("[HC Search Refresh] pilot registry refused; pilot house search stays refused");
+            m_Refusal = HCRefusal.STORAGE;
             return false;
         }
         m_Registry = registry;

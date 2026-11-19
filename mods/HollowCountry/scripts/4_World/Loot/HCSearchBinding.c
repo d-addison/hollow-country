@@ -133,7 +133,17 @@ class HCSearchBinding : HCModule
 
     override void OnStart(HCSettings settings)
     {
-        if (m_Started || m_Stopped || !GetGame() || !GetGame().IsServer() || !IsEnabled(settings) || !HCInteriorRules.SearchAdmitted()) return;
+        if (m_Started || !GetGame() || !GetGame().IsServer() || !IsEnabled(settings)) return;
+        if (m_Stopped)
+        {
+            Print("[HC Search Binding] start refused: module already stopped; search remains refused");
+            return;
+        }
+        if (!HCInteriorRules.SearchAdmitted())
+        {
+            Print("[HC Search Binding] off: search admission marker absent; search remains refused");
+            return;
+        }
         if (s_Instance && s_Instance != this) return;
         m_Started = true;
         m_Settings = settings;
@@ -183,7 +193,16 @@ class HCSearchBinding : HCModule
 
     void Begin(HCInteriorsModule owner, HCInteriorConfig config, HCInteriorManifest manifest, array<ref HCInteriorSite> sites)
     {
-        if (!m_Started || m_Stopped || m_Claimed || m_Done || !IsEnabled(m_Settings)) return;
+        if (!m_Started || m_Stopped || !IsEnabled(m_Settings))
+        {
+            Print("[HC Search Binding] begin refused: service not started, stopped or disabled; search remains refused");
+            return;
+        }
+        if (m_Claimed || m_Done)
+        {
+            Print("[HC Search Binding] begin ignored: placement already handed over; one bind per boot");
+            return;
+        }
         m_Claimed = true;
         m_Owner = owner;
         m_Config = config;

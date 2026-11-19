@@ -76,24 +76,6 @@
     },
     {
       "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.OnStart",
-      "key": "if (!RestoreLayoutManifest()) return;",
-      "count": 1,
-      "line_at_review": 245,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.OnStart",
-      "key": "if (!m_Manifest) return;",
-      "count": 1,
-      "line_at_review": 244,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S001",
       "path": "mods/HollowCountry/scripts/4_World/Leads/HCLeadModule.c",
       "symbol": "HCLeadModule.OnStart",
       "key": "if (!m_Store.Open()) { return; }",
@@ -118,42 +100,6 @@
       "count": 1,
       "line_at_review": 66,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
-      "symbol": "HCSearchBinding.Begin",
-      "key": "if (!m_Started || m_Stopped || m_Claimed || m_Done || !IsEnabled(m_Settings)) return;",
-      "count": 1,
-      "line_at_review": 186,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchBinding.c",
-      "symbol": "HCSearchBinding.OnStart",
-      "key": "if (m_Started || m_Stopped || !GetGame() || !GetGame().IsServer() || !IsEnabled(settings) || !HCInteriorRules.SearchAdmitted()) return;",
-      "count": 1,
-      "line_at_review": 136,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "symbol": "HCSearchHouses.Begin",
-      "key": "if (!action || !data.m_Player) return;",
-      "count": 1,
-      "line_at_review": 633,
-      "review": "2026-11-18 checks audit: pre-existing; owner-reported search spin with no message (2026-11-18); WP-2 converts Gate/CanStart/Begin/CanContinue to reason codes + MessageStatus"
-    },
-    {
-      "rule": "HC-S001",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "symbol": "HCSearchHouses.Commit",
-      "key": "if (site.Phase != 0) { return; }",
-      "count": 1,
-      "line_at_review": 731,
-      "review": "2026-11-18 checks audit: pre-existing; owner-reported search spin with no message (2026-11-18); WP-2 converts Gate/CanStart/Begin/CanContinue to reason codes + MessageStatus"
     },
     {
       "rule": "HC-S001",
@@ -324,105 +270,6 @@
       "key": "if (marker.Position[0] > worldSize || marker.Position[2] > worldSize) return false;",
       "count": 1,
       "line_at_review": 187,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.CanContinue",
-      "key": "if (!action || !action.Site) return false;",
-      "count": 1,
-      "line_at_review": 449,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.SearchGate",
-      "key": "if (!HCInteriorRules.MaySearch(GetGame().IsServer(), settings.EnableInteriors, settings.EnableSearch, m_SearchProof, ready, player && player.IsAlive(), site && site.Phase == 0)) return false;",
-      "count": 1,
-      "line_at_review": 435,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c",
-      "symbol": "HCInteriorsModule.SearchGate",
-      "key": "if (!settings) return false;",
-      "count": 1,
-      "line_at_review": 433,
-      "review": "2026-11-18 checks audit: pre-existing; pilot interiors search shares the silent Begin/SearchGate shape; WP-2"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Interiors/HCInteriorStore.c",
-      "symbol": "HCInteriorStore.BeginGrant",
-      "key": "if (m_Fault || !site || !m_Pool || !m_Pool.Reserved(site)) return false;",
-      "count": 1,
-      "line_at_review": 275,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "symbol": "HCSearchHouses.CanContinue",
-      "key": "if (!session || !SessionValid(data, session) || !session.Site) return false;",
-      "count": 1,
-      "line_at_review": 693,
-      "review": "2026-11-18 checks audit: pre-existing; owner-reported search spin with no message (2026-11-18); WP-2 converts Gate/CanStart/Begin/CanContinue to reason codes + MessageStatus"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "symbol": "HCSearchHouses.CanContinue",
-      "key": "if (now < session.Site.StartedAt || now > session.Site.Deadline) return false;",
-      "count": 1,
-      "line_at_review": 695,
-      "review": "2026-11-18 checks audit: pre-existing; owner-reported search spin with no message (2026-11-18); WP-2 converts Gate/CanStart/Begin/CanContinue to reason codes + MessageStatus"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "symbol": "HCSearchHouses.EnsureJournal",
-      "key": "if (!OpenJournal()) return false;",
-      "count": 1,
-      "line_at_review": 363,
-      "review": "2026-11-18 checks audit: pre-existing; owner-reported search spin with no message (2026-11-18); WP-2 converts Gate/CanStart/Begin/CanContinue to reason codes + MessageStatus"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchHouses.c",
-      "symbol": "HCSearchHouses.EnsureJournal",
-      "key": "if (m_Fault) return false;",
-      "count": 1,
-      "line_at_review": 365,
-      "review": "2026-11-18 checks audit: pre-existing; owner-reported search spin with no message (2026-11-18); WP-2 converts Gate/CanStart/Begin/CanContinue to reason codes + MessageStatus"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "symbol": "HCSearchRefreshPilotHouses.EnsureJournal",
-      "key": "if (!OpenJournal()) return false;",
-      "count": 1,
-      "line_at_review": 775,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "symbol": "HCSearchRefreshPilotHouses.EnsureJournal",
-      "key": "if (m_Fault) return false;",
-      "count": 1,
-      "line_at_review": 777,
-      "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
-    },
-    {
-      "rule": "HC-S002",
-      "path": "mods/HollowCountry/scripts/4_World/Loot/HCSearchRefresh.c",
-      "symbol": "HCSearchRefreshPilotHouses.EnsureJournal",
-      "key": "return false;",
-      "count": 1,
-      "line_at_review": 782,
       "review": "2026-11-18 checks audit: pre-existing, reviewed; not fixed here (brief forbids mod edits); fix tracked in audit/CHECKS.md WP"
     },
     {
