@@ -36,13 +36,14 @@ Landed on main since the 2026-11-18 snapshot, so no longer in flight:
 - the #135 and #138 review rounds (section 3 lists what remains);
 - wave 10: the #191 loot map, Stop cost, subset pin and infected variety fixes, the #183 subset pins (closed), #168 (closed), and the #160 baseline burn-down from 132 to 19 findings;
 - wave 11: the #192 review P3 fixes (Expansion AI, events, crafting, loot and infected), the #160 HC-S005 burn-down, the HC-52 backpack mount manifest loader (#58), the HC-48 habitat boot line (#149), the HC-35 trade slot release and module registration (#145), and the debug map Camps layer with per-layer counts;
-- wave 12: the #193 wave 11 review follow-ups (journal and event labels, wreck enroll reasons with their own player text, the trade slot released only after the idle save, the HC-48 counts read from the habitat manifest, a configurable infected non-calm hold, a restored `HerdWorld` default, the pack `not_started` reason), the admin loot map tick budget and kept marks, Wine noise ignored in signature checks with a PBO hash cache, the debug map lead-ledger and Scenes layers (registry cap 20, fair admin wire), and the last #160 HC-S001/HC-S005 entries.
+- wave 12: the #193 wave 11 review follow-ups (journal and event labels, wreck enroll reasons with their own player text, the trade slot released only after the idle save, the HC-48 counts read from the habitat manifest, a configurable infected non-calm hold, a restored `HerdWorld` default, the pack `not_started` reason), the admin loot map tick budget and kept marks, Wine noise ignored in signature checks with a PBO hash cache, the debug map lead-ledger and Scenes layers (registry cap 20, fair admin wire), and the last #160 HC-S001/HC-S005 entries;
+- wave 13: the #194 wave 12 review follow-ups (the trade log refusal, the HC-48 manifest tally with `manifest_bytes`/`manifest_cap` and a 64 KB read cap, one `lod.json` restore line, the site `spawn skipped` line, the loot map running tick budget, `min_rows_per_tick` and kept-mark filter labels, an LRU PBO hash cache with unique temp files, strict Wine `err:` lines in signature checks), the shared per-tick work budget (#138), the `EnableTapedPackMounts` setting with per-pair receipts (#58), and the debug map pickers, group-pins and materializer-proposals layers.
 
 Now:
 
 | Item | State |
 | --- | --- |
-| Wave 12 boot | Native boot of the wave 12 source through the friend bundle and installer, then push |
+| Wave 13 boot | Native boot of the wave 13 source through the friend bundle and installer, then push |
 | This refresh | `docs/OUTSTANDING.md` only |
 | HC-55 floor-loot dispositions (#179) | Branch `hc/w21-surfaces` is not landed and is held for an owner decision (section 10) |
 
@@ -73,8 +74,9 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
   - Interiors: regenerate the template pack. Blocked on a native door phase 2 census;
   - native loot map checks: the Map tab EditBox and Run button, the immediate ack, the `lootmap_job_running` refusal, the layer surviving a snapshot, query and render cost.
 - **#192** wave 10 review follow-ups: landed in wave 11 except the kept-on-purpose notes (the `HCSearchHouses.Commit` BUSY reason, the module-wide wreck start reason).
-- **#193** wave 11 review follow-ups: landed in wave 12. Still open: the trade provider is unbound (refusal-only), `HCSettings.LightMounts` and the per-pair client-check receipt, and the native checks (unmapped manifest keys, `static const` DTO members, the 0-byte pending file).
-- **Wave 12 review P3s** (filed as a new issue): the loot map tick sample and kept-mark labels, hash cache eviction order, the ecology manifest headroom, repeated `lod.json` missing-key lines, debug map clock calls and unused route allowance.
+- **#193** wave 11 review follow-ups: landed in wave 12; the light-mount setting and per-pair receipt landed in wave 13. Still open: the trade provider is unbound (refusal-only), and the native checks (unmapped manifest keys, `static const` DTO members, the 0-byte pending file).
+- **#194** wave 12 review follow-ups: landed in wave 13. Still open: a file rewritten with the same size and mtime outside the 2 s racy window keeps its cached hash (inherent to the size+mtime key), and the native checks.
+- **Wave 13 review P3s** (filed as a new issue).
 - **#138** performance:
   - Building resolves are cached and deferred interior updates are cancelled on stop (`a8b87e8`, `21efae6`). The Ecology save runs staged (HC-29). Per-module cost lines now print at Stop.
   - Still open: re-measure every module with 3 to 6 players connected and record p50, p95 and max. The first resolve per building class still pays the native position query (132 ms was the worst seen locally); the issue's options of a smaller query or per-building registration were not taken.
@@ -83,7 +85,7 @@ Friend server: the last server report was Workshop build 034 / bundle v1-test-9.
   - raising the posed budget (still 12/12/12) only after measurement;
   - the distance bands are not confirmed against gunshot and network ranges (about 1 km);
   - nothing is measured with 3 to 6 players.
-- **Tick-budget design:** `test_all_modules_tick_within_shared_work_budget` is the one remaining expected-failure test in `tests/unit/test_v1_combined_flags.py`. It encodes the missing shared per-tick work allowance across modules.
+- **Tick-budget design (done in wave 13):** HCServer owns one shared `HCUnitBudget` per tick (`MaxTickWorkItems`), drawn by Infected sampling, Interiors lock expiry and the search bind, maintenance and refresh loops; each consumer gets one forced unit per tick so none starves. `[HC TickWork]` prints `shared_used_max` and `shared_starved` once per 60 s window. `test_all_modules_tick_within_shared_work_budget` is a normal test now. Unmeasured natively.
 - **Unfiled review P2s** (carried, not re-checked): the event preflight can hitch at start; (the admin map wire squeeze on `ai-units` is addressed in wave 12 by the fair per-layer split). Review notes also left HC-45/47/59/35 P2/P3s in commit bodies (for example a cancelled trade journal keeps the single slot).
 - **Unresolved engine findings** (docs/MODULE_STATUS.md, docs/INFECTED_DEATHS.md):
   - the native crash when creating an infected with `ECE_INITAI` (run 065);
@@ -116,14 +118,14 @@ Carried from the 2026-11-18 snapshot unless a commit changed them.
   - no COT role authorisation;
   - a fresh `dormant` spawn is refused;
   - forced tiers, visits and raids are skipped.
-- **Debug map** (docs/DEBUG_MAP.md): Camps, lead-ledger and Scenes are layers now, and `snapshot.json` carries per-layer shown/total counts; the admin wire splits its caps fairly per layer and reports `layers_unsent`. Pickers, group pins and materializer proposals have no layers yet. Snapshot writes are not atomic, because the engine has no rename. The loot map layer is built and unobserved.
+- **Debug map** (docs/DEBUG_MAP.md): Camps, lead-ledger and Scenes are layers now, and `snapshot.json` carries per-layer shown/total counts; the admin wire splits its caps fairly per layer and reports `layers_unsent`. Pickers, group pins and materializer proposals are layers since wave 13 (ids withheld); a lead at an unknown place counts as `unplaced`, not in `total`. `camps total=48 shown=24` is the 48-holdout catalogue against the 24-row layer cap, not a double count. Snapshot writes are not atomic, because the engine has no rename. The loot map layer is built and unobserved.
 - **Animations** (docs/ANIMATION_PIPELINE.md):
   - The sleep, get-up, kneel-feed and feed-to-stand clips wait on the sitter working natively.
   - An own `.ast` template is the fallback if the dead slot is used.
 - **Camp theft** stays off (fail closed) until lock state is defined.
 - **Taped lights #58:**
-  - Helmet mounts (HC-23) are a fail-closed catalogue. Backpack mounts (HC-52) load `mission/hollow-country/lights/backpack-mounts.json` at boot and publish `off reason=cross_slot_disabled`, but `Qualified()` is false, so no pair attaches. There is no `HCSettings` switch yet; the manifest is the only input.
-  - The approved cross-slot pairs, TLRLight on 22 rail rifles and UniversalLight on 7 pistols, stay disabled behind a setting. Each pair needs its own client check. Still to do: client checks for every pair, a per-pair receipt, and an operator setting if wanted.
+  - Helmet mounts (HC-23) are a fail-closed catalogue. Backpack mounts (HC-52) load `mission/hollow-country/lights/backpack-mounts.json` at boot. The operator setting `EnableTapedPackMounts` (default false) gates them and publishes `off reason=setting_off`; with it on, `mission/hollow-country/lights/pair-receipts.json` is read once (bounded by `MaxReceiptBytes`) and a pair needs `Checked=true`. `Qualified()` is still false, so no pair attaches.
+  - The approved cross-slot pairs, TLRLight on 22 rail rifles and UniversalLight on 7 pistols, stay disabled behind a setting. Each pair needs its own client check. Still to do: client checks for every pair. The receipt catalogue only names `tortilla_universal_mount` and `tortilla_universal_cross`; the per-weapon pairs above are not in it yet.
 
 ## 5. V3 features (open epics)
 
