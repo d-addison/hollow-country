@@ -23,6 +23,8 @@ class HCCampModule : HCModule
     protected ref HCCampData m_Data;
     protected ref array<Man> m_Players = new array<Man>();
     protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
+    protected ref HCOperationalOwner m_TheftOwner;
+    protected string m_TheftLine;
     protected bool m_Running;
     protected bool m_AdmissionPrinted;
     protected float m_Elapsed;
@@ -37,7 +39,23 @@ class HCCampModule : HCModule
     override HCOperationalStatus HCGetOperationalStatus()
     {
         if (!m_Running) { return m_Status; }
+        HCObserveTheft();
         return HCBuildingClaim.HCObservedStatus();
+    }
+
+    // CampTheft is a non-module contributor riding this owner's status hook,
+    // which the shared server calls once at startup and on its 15 s refresh.
+    protected void HCObserveTheft()
+    {
+        if (!m_TheftOwner) { m_TheftOwner = HCOperationalContributors.HCRegisterOwner("CampTheft"); }
+        HCOperationalStatus theft = HCCampTheft.HCGetOperationalStatus();
+        if (!theft || !GetGame()) { return; }
+        if (m_TheftOwner) { m_TheftOwner.HCObserve(true, theft, GetGame().GetTickTime()); }
+        string line = "[HC CampTheft] " + theft.HCState() + " reason=" + theft.HCReason();
+        if (theft.HCState() == "ready") { line = "[HC CampTheft] ready"; }
+        if (line == m_TheftLine) { return; }
+        m_TheftLine = line;
+        Print("" + line);
     }
 
     static HCCampModule Get()
@@ -83,7 +101,8 @@ class HCCampModule : HCModule
         {
             if (!HCBuildingClaim.HCStart(this, m_Data)) { Print("[HC Plan] HC-17 claims=off reason=claims_start_refused fire_camps=running runtime=PENDING"); }
         }
-        Print(HCV2Admission.Line("CampTheft", true, "EXP-L9", HCV2Gates.Qualified("EXP-L9")));
+        // One opt-out-aware CampTheft admission line, sampled once.
+        HCCampTheft.HCEnabled();
         Print("[HollowCountry] V2 camps started camps=" + m_Data.Camps.Count().ToString() + " visitors=abstract probes=abstract mailbox=off; native acceptance pending");
     }
 

@@ -196,7 +196,8 @@ class ClaimReviewBehavior(unittest.TestCase):
         env = dict(HCBuildingClaim=claims, Print=logs.append, Math=NS(Min=min),
                    GetGame=lambda: NS(IsServer=lambda: True), HCWorldClock=NS(UTC=lambda: 1000),
                    HCCampStore=NS(Load=lambda now: data), HCV2Admission=NS(Line=lambda *args: ''),
-                   HCV2Gates=NS(Qualified=lambda gate: False))
+                   HCV2Gates=NS(Qualified=lambda gate: False), HCCampTheft=NS(HCEnabled=lambda: False),
+                   HCObserveTheft=lambda: None)
         # ToString is a native scalar operation, not policy.
         source = source.replace('m_Data.Camps.Count().ToString()', 'str(m_Data.Camps.Count())')
         state.Fail = lambda: run(source, 'Fail', state, env)

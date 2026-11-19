@@ -164,7 +164,7 @@ class ClaimRound3Behavior(unittest.TestCase):
                    HCOperationalStatus=lambda: status, HCGroupMember=lambda: status,
                    GetGame=lambda: NS(IsServer=lambda: True), HCWorldClock=NS(UTC=lambda: 1000),
                    HCCampStore=NS(Load=lambda now: NS(Camps=EArray())),
-                   HCV2Admission=NS(Line=lambda *args: ''), HCV2Gates=NS(Qualified=lambda gate: False), Print=lambda line: None)
+                   HCV2Admission=NS(Line=lambda *args: ''), HCV2Gates=NS(Qualified=lambda gate: False), HCCampTheft=NS(HCEnabled=lambda: False), HCObserveTheft=lambda: None, Print=lambda line: None)
         invoke = compiled_runner(source, state, env)
         state.Fail = lambda: invoke('Fail')
         invoke('HCCampModule')

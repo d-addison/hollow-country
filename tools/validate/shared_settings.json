@@ -695,5 +695,45 @@
     "min": 1,
     "max": 4,
     "owner": "HCPerfConfig"
+  },
+  {
+    "key": "CampTheft.Version",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 1,
+    "owner": "HCTheftConfig"
+  },
+  {
+    "key": "CampTheft.MaxAttemptsPerDay",
+    "type": "int",
+    "default": 1,
+    "min": 1,
+    "max": 6,
+    "owner": "HCTheftConfig"
+  },
+  {
+    "key": "CampTheft.MaxAttendancePlayers",
+    "type": "int",
+    "default": 32,
+    "min": 1,
+    "max": 32,
+    "owner": "HCTheftConfig"
+  },
+  {
+    "key": "CampTheft.AttendanceRangeMeters",
+    "type": "float",
+    "default": 500,
+    "min": 500,
+    "max": 1000,
+    "owner": "HCTheftConfig"
+  },
+  {
+    "key": "CampTheft.ObserverRangeMeters",
+    "type": "float",
+    "default": 500,
+    "min": 500,
+    "max": 1000,
+    "owner": "HCTheftConfig"
   }
 ]

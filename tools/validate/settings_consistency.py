@@ -73,6 +73,39 @@ def render_native_registry(rows):
     return '\n'.join(lines)
 
 
+# Owner -> (source, registry key prefix, DTO accessor used in validation bindings).
+EXTERNAL_OWNERS = {
+    'HCW38SituationPolicy': ('mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c', 'W38Situations', 'policy.'),
+    'HCTheftConfig': ('mods/HollowCountry/scripts/4_World/Camps/HCCampTheft.c', 'CampTheft', 'config.'),
+}
+
+
+def check_external_owner(rules, owner, path, prefix, var):
+    """Defaults, registry bindings and literal fallback bounds of one external DTO."""
+    errors = []
+    source = path.read_text()
+    dto = source.split('class ' + owner + '\n', 1)[-1]
+    defaults = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
+        r'^    (int|float) (\w+) = ([\d.]+);', dto, re.M)}
+    owned = {key.removeprefix(prefix + '.'): row for key, row in rules.items() if row['owner'] == owner}
+    if set(defaults) != set(owned):
+        errors.append(f'{prefix} registry/native key set differs')
+    for key, row in owned.items():
+        if defaults.get(key) != (row['type'], row['default']):
+            errors.append(f'{prefix} default/type differs for {key}')
+        binding = f'HCOperatorSettingsRegistry.HCValid("{prefix}.{key}", {var}{key})'
+        if binding not in source:
+            errors.append(f'{prefix} validation binding differs for {key}')
+        if row['min'] == row['max']:
+            bounds = [f"{var}{key} != {row['min']}"]
+        else:
+            bounds = [f"{var}{key} < {row['min']}", f"{var}{key} > {row['max']}"]
+        if any(bound not in source for bound in bounds):
+            errors.append(f'{prefix} fallback bounds differ for {key}')
+    return errors
+
+
+
 def check_consistency(*, registry=None, shipped=None, native=None, perf_native=None, perf_registry=None):
     """Optional inputs are explicit synthetic mutation seams for the same check."""
     rows = load_registry(include_scoped=True) if registry is None else registry
@@ -105,7 +138,7 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     rules = {r['key']: r for r in rows}
     images = [('<synthetic shipped settings>', shipped)] if shipped is not None else [
         (str(path.relative_to(ROOT)), json.loads(path.read_text())) for path in SHIPPED]
-    shipped_rules = {k: row for k, row in rules.items() if row['owner'] != 'HCW38SituationPolicy'}
+    shipped_rules = {k: row for k, row in rules.items() if row['owner'] not in EXTERNAL_OWNERS}
     for label, image in images:
         values = flatten(image)
         for key in sorted(values.keys() - shipped_rules.keys()): errors.append(f'{label}: unregistered key {key}')
@@ -142,27 +175,9 @@ def check_consistency(*, registry=None, shipped=None, native=None, perf_native=N
     for key, row in nested.items():
         if ai_defaults.get(key) != row['default'] or ai_ranges.get(key) != (row['min'], row['max']):
             errors.append(f'AILimits default/range differs for {key}')
-    # External owner policy uses its own optional profile JSON, not HCSettings.
-    policy_path = ROOT / 'mods/HollowCountry/scripts/4_World/Events/HCW38SituationPolicy.c'
-    policy_source = policy_path.read_text()
-    policy_defaults = {key: (kind, json.loads(value)) for kind, key, value in re.findall(
-        r'^    (int|float) (\w+) = ([\d.]+);', policy_source, re.M)}
-    policy_rows = {key.removeprefix('W38Situations.'): row for key, row in rules.items()
-                   if row['owner'] == 'HCW38SituationPolicy'}
-    if set(policy_defaults) != set(policy_rows):
-        errors.append('W38Situations registry/native key set differs')
-    for key, row in policy_rows.items():
-        if policy_defaults.get(key) != (row['type'], row['default']):
-            errors.append(f'W38Situations default/type differs for {key}')
-        binding = f'HCOperatorSettingsRegistry.HCValid("W38Situations.{key}", policy.{key})'
-        if binding not in policy_source:
-            errors.append(f'W38Situations validation binding differs for {key}')
-        if row['min'] == row['max']:
-            bounds = [f"policy.{key} != {row['min']}"]
-        else:
-            bounds = [f"policy.{key} < {row['min']}", f"policy.{key} > {row['max']}"]
-        if any(bound not in policy_source for bound in bounds):
-            errors.append(f'W38Situations fallback bounds differ for {key}')
+    # External owners use their own optional profile JSON, not HCSettings.
+    for owner, (path, prefix, var) in EXTERNAL_OWNERS.items():
+        errors.extend(check_external_owner(rules, owner, ROOT / path, prefix, var))
     return errors
 
 

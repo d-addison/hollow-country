@@ -122,6 +122,7 @@ class HCCampTheft
         if (!s_Status) { s_Status = new HCOperationalStatus; }
         if (!s_Admission) { s_Status.HCPublish("off", "camp_theft_not_started"); return s_Status; }
         if (!s_Enabled || !s_Config) { return s_Status; }
+        if (!HCCampModule.Get()) { s_Status.HCPublish("degraded", "THEFT_CAMP_OWNER_UNAVAILABLE"); return s_Status; }
         HCPickers pickers = HCPickers.Get();
         if (!pickers) { s_Status.HCPublish("degraded", "THEFT_PICKER_UNAVAILABLE"); return s_Status; }
         HCOperationalStatus observed = pickers.HCGetOperationalStatus();
@@ -206,8 +207,19 @@ class HCTheftConfig
     float AttendanceRangeMeters = 500;
     float ObserverRangeMeters = 500;
 
+    // Literal fallbacks mirror the shared registry rows (owner HCTheftConfig);
+    // the registry check applies whenever the compiled mirror is present.
     bool HCValid()
     {
-        return MaxAttendancePlayers >= 1 && MaxAttendancePlayers <= 32 && Version == 1 && MaxAttemptsPerDay >= 1 && MaxAttemptsPerDay <= 6 && AttendanceRangeMeters >= 500 && AttendanceRangeMeters <= 1000 && ObserverRangeMeters >= 500 && ObserverRangeMeters <= 1000;
+        HCTheftConfig config = this;
+        if (config.Version != 1 || config.MaxAttemptsPerDay < 1 || config.MaxAttemptsPerDay > 6) { return false; }
+        if (config.MaxAttendancePlayers < 1 || config.MaxAttendancePlayers > 32) { return false; }
+        if (config.AttendanceRangeMeters != config.AttendanceRangeMeters || config.ObserverRangeMeters != config.ObserverRangeMeters) { return false; }
+        if (config.AttendanceRangeMeters < 500 || config.AttendanceRangeMeters > 1000 || config.ObserverRangeMeters < 500 || config.ObserverRangeMeters > 1000) { return false; }
+        if (!HCOperatorSettingsRegistry.HCFind("CampTheft.Version")) { return true; }
+        if (!HCOperatorSettingsRegistry.HCValid("CampTheft.Version", config.Version) || !HCOperatorSettingsRegistry.HCValid("CampTheft.MaxAttemptsPerDay", config.MaxAttemptsPerDay)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("CampTheft.MaxAttendancePlayers", config.MaxAttendancePlayers)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("CampTheft.AttendanceRangeMeters", config.AttendanceRangeMeters)) { return false; }
+        return HCOperatorSettingsRegistry.HCValid("CampTheft.ObserverRangeMeters", config.ObserverRangeMeters);
     }
 }
