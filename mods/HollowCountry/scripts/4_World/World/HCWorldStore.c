@@ -7,7 +7,7 @@
 // Groups/HCGroupService.c:76 HCGroupClock.Utc() calendar helper.
 // There is NO native rename API in this snapshot. Verified temp -> backup ->
 // copy promotion with a retained temp intent is fail-closed, NOT OS-atomic
-// rename/fsync. Interrupted promotion starts fresh and never rolls back loot.
+// rename/fsync. Interrupted promotion quarantines and never rolls back loot.
 class HCWorldClock
 {
     static int UTC()
@@ -59,6 +59,7 @@ class HCWorldStore
 
     static bool Write(string path, string text)
     {
+        if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
         if (text.Length() < 1 || text.Length() > MAX_BYTES) { return false; }
         FileHandle handle = OpenFile(path, FileMode.WRITE);
         if (!handle) { return false; }
@@ -134,45 +135,17 @@ class HCWorldStore
 
     bool Load()
     {
-        m_Data = HCWorldData.Fresh(HCWorldClock.UTC());
-        if (m_Data.Meta.Epoch < 1) { return false; }
-        if (!Prepare()) { return false; }
-        bool pending = FileExist(m_Temp);
-        bool image = FileExist(m_Path);
-        if (pending || (image && !ReadCurrent()))
+        m_Data = null;
+        m_Fresh = false;
+        // No fresh epoch, cargo or completion-history reset on missing/corrupt
+        // durable state. A new installation also needs explicit provisioning.
+        if (!HCPersistenceDisposition.HCAdmitStore("world")) { m_Fault = true; return false; }
+        if (!Prepare() || FileExist(m_Temp) || !FileExist(m_Path) || !ReadCurrent())
         {
-            m_KeepBackup = true;
-            m_Fresh = true;
-            // Review P1: keep the rejected primary and any interrupted temp image
-            // aside before a fresh world may ever be saved over them. If they
-            // cannot be preserved, run memory-only and never write.
-            if (!Preserve(m_Path) || !Preserve(m_Temp))
-            {
-                m_Fault = true;
-                Print("[HollowCountry] V2 world load rejected; rejected image could not be preserved; running memory-only, writes suspended");
-                return true;
-            }
-            Print("[HollowCountry] V2 world load rejected; fresh world; rejected image kept as world.json.rejected, backup preserved");
-            return true;
+            m_Data = null;
+            m_Fault = true;
+            return HCPersistenceDisposition.HCQuarantine("world_missing_corrupt_or_interrupted");
         }
-        if (!image)
-        {
-            m_KeepBackup = FileExist(m_Backup);
-            m_Fresh = true;
-        }
-        return true;
-    }
-
-    // Copy a rejected file to <file>.rejected (replacing an older one) and, for
-    // the temp image, remove it so the next save starts clean. Missing is fine.
-    protected bool Preserve(string file)
-    {
-        if (!FileExist(file)) { return true; }
-        string kept = file + ".rejected";
-        string original = Read(file);
-        if (FileExist(kept) && !DeleteFile(kept)) { return false; }
-        if (!CopyFile(file, kept) || Read(kept) != original) { return false; }
-        if (file == m_Temp && !DeleteFile(m_Temp)) { return false; }
         return true;
     }
 
@@ -182,6 +155,7 @@ class HCWorldStore
     bool Fault()
     {
         m_Fault = true;
+        HCPersistenceDisposition.HCQuarantine("world_save_failed");
         Print("[HollowCountry] V2 world save failed; files preserved; writes suspended");
         return false;
     }
@@ -233,8 +207,8 @@ class HCWorldStore
         }
         if (m_SaveStage == 1)
         {
-            // Load marks corrupt/interrupted state fresh. Never copy that primary
-            // over a good backup, and never automatically restore a prior world.
+            // Only a validated paired primary can reach saving. Never automatically
+            // restore a prior world or overwrite a backup after a load refusal.
             if (!m_Fresh && !m_KeepBackup && FileExist(m_Path))
             {
                 m_PendPrior = Read(m_Path);
