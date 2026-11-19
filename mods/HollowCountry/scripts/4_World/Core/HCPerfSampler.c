@@ -212,6 +212,12 @@ class HCPerfSampler
     void Stop()
     {
         if (!m_Active) return;
+        // HCServer keeps this window open through every module's OnStop.
+        // Consume the owner's cached shutdown save/refusal costs after Finish.
+        if (m_EcologyIndex >= 0) HCSampleEcology(m_EcologyIndex);
+        // A partial window has no freshly validated conversion. Preserve raw
+        // save costs (including failed writes) rather than reuse an old rate.
+        EmitCosts(0);
         m_Active = false;
         m_TicksPerMs = 0;
         HCRefreshEcologyCalibration();

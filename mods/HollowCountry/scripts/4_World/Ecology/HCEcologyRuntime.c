@@ -219,6 +219,8 @@ class HCEcologyRuntime
 	{
 		int admissionStart = TickCount(0);
 		if (m_Running || session == m_Session) { return false; }
+		// A new session starts a new save-cost window (#180); Open records startup saves after this.
+		m_SaveMaxTicks = -1;
 		worldName = HCBuildIdentity.CanonicalWorld(worldName);
 		if (!HCEcologyNative.Authority() || !HCBuildIdentity.SameWorld(worldName, GetGame().GetWorldName())) { return false; }
 		if (!HCEcologyRuntimeRules.Token(worldName) || !HCEcologyRuntimeRules.Token(session)) { return false; }

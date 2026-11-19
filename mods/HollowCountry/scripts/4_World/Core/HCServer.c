@@ -54,25 +54,42 @@ class HCServer
         // straight into a call. Keep the array and status in locals.
         array<ref HCModule> modules = m_Registry.GetModules();
         bool moduleEnabled = false;
+        bool moduleStarted = false;
+        bool moduleReady = false;
+        bool moduleConflicted = false;
         HCOperationalStatus reported = null;
         HCOperationalOwner opOwner = null;
         foreach (HCModule module : modules)
         {
             // Exactly one lifecycle admission read; it may load local config.
             moduleEnabled = module.IsEnabled(m_Settings);
+            moduleStarted = false;
+            moduleReady = false;
+            moduleConflicted = false;
             if (moduleEnabled)
             {
                 m_Active.Insert(module);
                 module.OnStart(m_Settings);
+                moduleStarted = true;
             }
             reported = module.HCGetOperationalStatus();
             m_Operational.HCCapture(module.GetName(), moduleEnabled, reported);
             opOwner = HCOperationalContributors.HCRegisterOwner(module.GetName());
             if (opOwner) { opOwner.HCObserve(moduleEnabled, reported, GetGame().GetTickTime()); }
-            if (moduleEnabled)
+            // OnStart returning alone is not readiness. Internal started flags
+            // are private to owners: their existing cached hook publishes them.
+            // Missing evidence is never ready; never repeat IsEnabled/config reads.
+            // A started module without a status hook says so rather than "off".
+            if (reported)
             {
-                Print("[HollowCountry] Requested module start; inspect module admission result: " + module.GetName());
+                moduleReady = moduleEnabled && moduleStarted && reported.HCState() == "ready";
+                moduleConflicted = !moduleStarted && (reported.HCState() == "ready" || reported.HCState() == "degraded" || reported.HCState() == "requested");
+                if (moduleReady) { Print("[HC " + module.GetName() + "] ready"); }
+                if (moduleConflicted) { Print("[HC " + module.GetName() + "] off reason=owner_report_conflicts_with_no_start"); }
+                if (!moduleReady && !moduleConflicted) { Print("[HC " + module.GetName() + "] off reason=" + reported.HCReason()); }
             }
+            if (!reported && !moduleEnabled) { Print("[HC " + module.GetName() + "] off reason=module_not_enabled"); }
+            if (!reported && moduleEnabled) { Print("[HC " + module.GetName() + "] started reason=owner_state_unreported"); }
         }
         m_Started = true;
         m_LastTick = GetGame().GetTickTime();
@@ -143,7 +160,6 @@ class HCServer
         m_Started = false;
         // Retain off/unknown receipts even if a later stop callback aborts.
         m_Operational.HCStopAll();
-        m_Perf.Stop();
         if (GetGame()) GetGame().GetCallQueue(CALL_CATEGORY_SYSTEM).Remove(Tick);
         float stopNow = -1;
         if (GetGame()) { stopNow = GetGame().GetTickTime(); }
@@ -157,6 +173,8 @@ class HCServer
             if (stopOwner) { stopOwner.HCStop(stopNow); }
             module.OnStop();
         }
+        // Stop consumes the final cached save/refusal costs after OnStop.
+        m_Perf.Stop();
         m_Active.Clear();
         Print("[HollowCountry] Server modules stopped");
     }

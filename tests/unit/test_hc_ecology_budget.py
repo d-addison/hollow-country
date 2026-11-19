@@ -72,12 +72,36 @@ class EcologyBudgetBehavior(unittest.TestCase):
             self.check_barrier_cost()
         with self.subTest(scenario='startup_store_failure_is_attributed'):
             self.check_startup_save_cost()
+        with self.subTest(scenario='shutdown_save_remains_inside_perf_window'):
+            self.check_shutdown_cost()
         runtime.m_Running=False
         source=(ROOT/'4_World/Ecology/HCEcologyRuntime.c').read_text()
         pump=translated(source,'Pump',{},'HCEcologyRuntime',True)
         before=list(runtime.m_Resources)
         pump(runtime,100000)
         self.assertEqual(before,runtime.m_Resources)
+
+    def check_shutdown_cost(self):
+        from tests.unit import test_core_lifecycle as core
+        from tests.unit.test_perf_capture import sampler_fixture
+        runtime = self.cost_runtime()
+        sampler, clock, logs = sampler_fixture(runtime)
+        sampler.Start(60); sampler.RegisterModule('Ecology')
+        sampler.SampleModule(0, 0)  # consume the pre-shutdown maxima
+        def shutdown():
+            clock.ticks += 97000
+            runtime.m_SaveMaxTicks = 97000  # synthetic shutdown storage port
+        module = NS(GetName=lambda: 'Ecology', OnStop=shutdown)
+        state, _ = core.fixture(active=[module], started=True)
+        state.m_Perf = sampler
+        state.Stop()
+        costs = [line for line in logs if '[HC Cost]' in line]
+        self.assertTrue(any('save_ticks=97000' in line for line in costs),
+                        'shutdown save cost is missing from perf status')
+        self.assertFalse(sampler.IsActive())
+        before = list(logs)
+        state.Stop()
+        self.assertEqual(before, logs, 'repeated stop must not re-emit costs')
 
     def check_staged_save(self, env):
         files={}; trace=[]
@@ -304,7 +328,8 @@ class EcologyBudgetBehavior(unittest.TestCase):
 
     def check_startup_save_cost(self):
         owner,env,clock=runtime_fixture()
-        owner.m_Running=False;owner.m_AdmissionMaxTicks=-1;owner.m_SaveMaxTicks=-1
+        # A stale max from a previous session must not survive into this one (#180).
+        owner.m_Running=False;owner.m_AdmissionMaxTicks=-1;owner.m_SaveMaxTicks=900
         env['TickCount']=lambda prior:clock.ticks-prior
         env['HCEcologyNative']=NS(Authority=lambda:True)
         env['GetGame']=lambda:NS(GetTime=lambda:100,GetWorldName=lambda:'synthetic-world')
