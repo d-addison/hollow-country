@@ -117,23 +117,28 @@ class Module:
         if self.abort_stop: raise AbortCallback("stop:" + self.name)
 
 
-def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, game_present=True, server=True):
+def fixture(modules=(), active=(), started=False, self_test=True, loaded=True, game_present=True, server=True, ports=None):
     calls = []
     queue = SimpleNamespace(Remove=lambda fn: calls.append("remove-tick"),
                             CallLater=lambda *args: calls.append("schedule-tick"))
     game = SimpleNamespace(IsServer=lambda: server, GetTickTime=lambda: 12,
                            GetCallQueue=lambda category: queue)
-    settings = SimpleNamespace(TickIntervalMs=1000)
+    settings = SimpleNamespace(TickIntervalMs=1000, EnableInfected=True)
     registry = SimpleNamespace(RegisterModules=lambda: calls.append("register"), GetModules=lambda: modules)
     context = {"GetGame": lambda: game if game_present else None,
                "HCNativeSelfTests": SimpleNamespace(Run=lambda: self_test),
                "HCSettings": SimpleNamespace(LoadFromProfile=lambda: settings if loaded else None),
                "HCModuleRegistry": lambda: registry, "Print": lambda text: None,
                "CALL_CATEGORY_SYSTEM": 0, "TickCount": lambda prior: 0,
+               # Synthetic threat ports; real admission and summary are exercised
+               # by test_hc_threat_posture_wiring, never native runtime evidence.
+               "HCInfectedVisionQualification": SimpleNamespace(HCThreatReset=lambda enabled: None),
+               "HCInfectedReachPolicy": SimpleNamespace(HCThreatSummary=lambda requested: "synthetic threat summary"),
                # The V2 summary is a passive print; its own tests live in test_v2_admission.
                "HCV2Admission": SimpleNamespace(Summary=lambda settings: "[HollowCountry] V2 preferences",
                                                 OperationalSummary=lambda status: "[HC Plan] HC-1 status",
                                                 NonModuleSummary=lambda: "[HC Plan] HC-1 non_modules")}
+    context.update(ports or {})
     state = SimpleNamespace(m_Started=started, m_Active=NativeArray(active), m_Settings=settings,
                             m_Registry=None, m_LastTick=0, Tick=lambda: None,
                             # HC-1 receipts are passive; their own tests live in test_hc_operational_status.

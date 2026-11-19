@@ -33,6 +33,7 @@ class HCServer
         if (m_Started || !GetGame() || !GetGame().IsServer()) return;
         // A prior startup/stop callback may have aborted before cleanup finished.
         if (m_Active.Count() > 0) Stop();
+        HCInfectedVisionQualification.HCThreatReset(false);
         m_Operational.HCReset();
         if (!HCNativeSelfTests.Run())
         {
@@ -78,6 +79,7 @@ class HCServer
         Print(HCV2Admission.Summary(m_Settings));
         Print(HCV2Admission.OperationalSummary(m_Operational));
         Print(HCV2Admission.NonModuleSummary());
+        Print(HCInfectedReachPolicy.HCThreatSummary(m_Settings.EnableInfected));
         Print("[HollowCountry] Server initialized; feature preferences default enabled; inspect each module's admission result");
     }
 

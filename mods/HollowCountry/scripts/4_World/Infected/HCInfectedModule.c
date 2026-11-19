@@ -210,12 +210,18 @@ class HCInfectedModule : HCModule
         if (m_Config.RunPolicySelfTests && !HCInfectedSelfTests.Run())
             Quarantine("scalar policy selftest failed");
 #endif
+        if (m_Healthy)
+        {
+            HCInfectedVisionQualification.HCThreatReset(true);
+            HCInfectedVisionQualification.Admitted();
+        }
         Print("[HC Infected] source installed; optional native pack routing; no materialization; runtime acceptance pending");
     }
 
     protected void Quarantine(string reason)
     {
         m_Healthy = false;
+        HCInfectedVisionQualification.HCThreatReset(false);
         if (Instance == this)
             Instance = null;
         ReleasePacks();
@@ -1061,6 +1067,7 @@ class HCInfectedModule : HCModule
 
     override void OnStop()
     {
+        HCInfectedVisionQualification.HCThreatReset(false);
         ReleasePacks();
         if (m_Healthy && m_Hordes && m_Dirty && GetGame().IsServer())
         {

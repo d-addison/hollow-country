@@ -120,6 +120,10 @@ modded class HCInfectedModule
         if (!FindActor(infected) && !Track(infected)) { GetGame().ObjectDelete(body); return false; }
         m_HCAdminSitter = body;
         reason = "created-at-8m; addon-owns-pose; runtime-unverified";
+        if (!HCPostureAdmission.HCCanEnter("sit_wall"))
+        {
+            reason = "created-at-8m; pose-refused:" + HCPostureAdmission.HCPostureRefusal("sit_wall") + "; runtime-unverified";
+        }
         return true;
     }
 
