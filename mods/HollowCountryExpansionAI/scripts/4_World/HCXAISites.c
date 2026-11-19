@@ -1563,7 +1563,7 @@ class HCXAISiteDirector : Managed
         config.Chance = 1.0;
         config.CanBeTriggeredByAI = false;
         config.CanSpawnInContaminatedArea = false;
-        config.MinDistRadius = m_Policy.MinPlayerDistance;
+        config.MinDistRadius = HCPerceptionRing.HCSpawnMin();
         // Start with the event-binding radius (EncounterRadius), then apply
         // operator activation tuning. Perception and event bindings stay native.
         config.MaxDistRadius = this.HCActivationRadius(site, state.Transient);
@@ -1625,13 +1625,14 @@ class HCXAISiteDirector : Managed
         float scale = m_Policy.ActivationRadiusScale;
         if (scale == 0) { scale = 1.0; }
         radius = radius * scale;
-        float clamped = radius;
-        if (clamped < m_Policy.MinPlayerDistance + 50) { clamped = m_Policy.MinPlayerDistance + 50; }
-        if (clamped > 1200) { clamped = 1200; }
+        // ExpansionAIPatrolBase.c:218-219; eAIDynamicPatrol.c:172-185
+        // (installed read-only xref): native minimum/maximum trigger distances.
+        // Scaled authored radius stays a lower bound, widened to SpawnMax.
+        float clamped = HCPerceptionRing.HCClampActivation(radius);
         if (clamped != radius && !m_RadiusClampLogged)
         {
             m_RadiusClampLogged = true;
-            Print("[HC Expansion AI] activation radius clamped " + radius.ToString() + "m to " + clamped.ToString() + "m; limits MinPlayerDistance+50..1200 runtime=PENDING");
+            Print("[HC Expansion AI] activation radius clamped " + radius.ToString() + "m to " + clamped.ToString() + "m; perception ring runtime=PENDING");
         }
         return clamped;
     }

@@ -228,6 +228,11 @@ class HCOperatorSettingsRegistry
         HCAdd("WildlifeProviders.Enabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.CarcassesEnabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
         HCAdd("WildlifeProviders.TargetPairsEnabled", "bool", 1, 0, 1, "HCWildlifeProviderConfig");
+        HCAdd("PerceptionRing", "object", 0, 0, 0, "HCSettings");
+        HCAdd("PerceptionRing.ViewRangeMeters", "float", 1000, 100, 5000, "HCPerceptionRing");
+        HCAdd("PerceptionRing.HearingRangeMeters", "float", 1000, 100, 5000, "HCPerceptionRing");
+        HCAdd("PerceptionRing.SpawnMarginMeters", "float", 100, 1, 500, "HCPerceptionRing");
+        HCAdd("PerceptionRing.SpawnBandMeters", "float", 400, 1, 2000, "HCPerceptionRing");
         // END GENERATED SETTINGS REGISTRY
     }
 

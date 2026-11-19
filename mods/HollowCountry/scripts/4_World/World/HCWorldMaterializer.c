@@ -631,6 +631,14 @@ class HCWorldMaterializer : HCModule
         HCAIBudget.Release(result.HCLeaseId());
     }
 
+    // Squared horizontal distance: conservative, allocation-free, no sqrt
+    // inside the bounded observer loop. Provider sight/member gates still run.
+    static bool HCSpawnDistanceAllowed(float distanceSquared)
+    {
+        float minimum = HCPerceptionRing.HCSpawnMin();
+        return distanceSquared >= minimum * minimum;
+    }
+
     protected void InterestRing()
     {
         HCWorldModule world = HCWorldModule.Get();
@@ -652,6 +660,8 @@ class HCWorldMaterializer : HCModule
             vector interest = observer.GetPosition();
             if (HCWorldLimits.Position(interest)) { interests.Insert(interest); }
         }
+        float interestMaximum = HCPerceptionRing.HCSpawnMax();
+        float interestMaximumSquared = interestMaximum * interestMaximum;
         // Player positions never leave this function or enter proposal DTOs.
         int totalRows = HCAILimits.Get().MaxHoldouts + HCAILimits.Get().MaxParties;
         m_WorkBudget.HCReset(4);
@@ -668,13 +678,16 @@ class HCWorldMaterializer : HCModule
             HCWorldProposal row = world.MaterializerRow(rowIndex);
             if (!row || !this.HCCustodyAllows(row.Identity)) { continue; }
             bool nearby = false;
+            bool insideRing = false;
             foreach (vector point : interests)
             {
                 float dx = point[0] - row.Position[0];
                 float dz = point[2] - row.Position[2];
-                if (dx * dx + dz * dz <= 2250000) { nearby = true; break; }
+                float playerDistanceSquared = dx * dx + dz * dz;
+                if (!HCWorldMaterializer.HCSpawnDistanceAllowed(playerDistanceSquared)) { insideRing = true; break; }
+                if (playerDistanceSquared <= interestMaximumSquared) { nearby = true; }
             }
-            if (!nearby) { continue; }
+            if (!nearby || insideRing) { continue; }
             int reservedActors = this.HCCustodyDebt(true);
             int factionActors = 0;
             bool duplicate = false;

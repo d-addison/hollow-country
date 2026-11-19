@@ -65,5 +65,11 @@
     "MaxObservedAI": 1024
   },
   "MaxFamiliarityRows": 0,
-  "SearchDensityScale": 0
+  "SearchDensityScale": 0,
+  "PerceptionRing": {
+    "ViewRangeMeters": 1000,
+    "HearingRangeMeters": 1000,
+    "SpawnMarginMeters": 100,
+    "SpawnBandMeters": 400
+  }
 }
