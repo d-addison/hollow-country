@@ -24,6 +24,7 @@ class HCConvoyPolicy
     int MaxPlanNodes = 4000;
     int RoadNodesPerTick = 256;
     int RoadNodesPerWorkUnit = 8;
+    int ExitAttempts = 3;
     float SeekMeters = 60;
     float SeekSeconds = 15;
     float PlayerClaimMeters = 150;
@@ -71,17 +72,13 @@ class HCConvoyPolicy
         }
         if (!HCValid(policy)) { HCInvalid(); return null; }
         s_Instance = policy;
-        if (!HCOperatorSettingsRegistry.HCFind("Convoys.Version"))
-        {
-            Print("[HC Convoy] CONVOY_SETTINGS_REGISTRY_PENDING local_policy_validated runtime=PENDING");
-        }
         return s_Instance;
     }
 
     static bool HCFields(string encoded)
     {
         if (!HCJsonFields.Has(encoded, "Version") || !HCJsonFields.Has(encoded, "MaxConvoys") || !HCJsonFields.Has(encoded, "SeekObjects") || !HCJsonFields.Has(encoded, "MaxSeekScans") || !HCJsonFields.Has(encoded, "MaxRouteNodes") || !HCJsonFields.Has(encoded, "MaxPlanNodes") || !HCJsonFields.Has(encoded, "RoadNodesPerTick")) { return false; }
-        if (!HCJsonFields.Has(encoded, "RoadNodesPerWorkUnit") || !HCJsonFields.Has(encoded, "SeekMeters") || !HCJsonFields.Has(encoded, "SeekSeconds") || !HCJsonFields.Has(encoded, "PlayerClaimMeters") || !HCJsonFields.Has(encoded, "BoardMeters") || !HCJsonFields.Has(encoded, "ApproachSeconds") || !HCJsonFields.Has(encoded, "BoardSeconds")) { return false; }
+        if (!HCJsonFields.Has(encoded, "RoadNodesPerWorkUnit") || !HCJsonFields.Has(encoded, "ExitAttempts") || !HCJsonFields.Has(encoded, "SeekMeters") || !HCJsonFields.Has(encoded, "SeekSeconds") || !HCJsonFields.Has(encoded, "PlayerClaimMeters") || !HCJsonFields.Has(encoded, "BoardMeters") || !HCJsonFields.Has(encoded, "ApproachSeconds") || !HCJsonFields.Has(encoded, "BoardSeconds")) { return false; }
         if (!HCJsonFields.Has(encoded, "ExitSeconds") || !HCJsonFields.Has(encoded, "NodeReachMeters") || !HCJsonFields.Has(encoded, "ArriveMeters") || !HCJsonFields.Has(encoded, "DismountMeters") || !HCJsonFields.Has(encoded, "MaxApproachMeters") || !HCJsonFields.Has(encoded, "MinDriveMeters") || !HCJsonFields.Has(encoded, "MaxDriveMeters")) { return false; }
         if (!HCJsonFields.Has(encoded, "DetourMeters") || !HCJsonFields.Has(encoded, "CruiseKmh") || !HCJsonFields.Has(encoded, "TurnKmh") || !HCJsonFields.Has(encoded, "SpeedBandKmh") || !HCJsonFields.Has(encoded, "TurnRadians") || !HCJsonFields.Has(encoded, "SteerGain") || !HCJsonFields.Has(encoded, "Throttle")) { return false; }
         return HCJsonFields.Has(encoded, "BrakeStrength") && HCJsonFields.Has(encoded, "StopKmh") && HCJsonFields.Has(encoded, "StopSeconds") && HCJsonFields.Has(encoded, "StallMeters") && HCJsonFields.Has(encoded, "StallSeconds") && HCJsonFields.Has(encoded, "MaxDriveSeconds");
@@ -106,26 +103,71 @@ class HCConvoyPolicy
         return policy.StallSeconds == policy.StallSeconds && policy.MaxDriveSeconds == policy.MaxDriveSeconds;
     }
 
+    // Literal fallback bounds equal the Convoys.* registry rows (tools/validate/
+    // shared_settings.json); the registry check then binds every field.
     static bool HCValid(HCConvoyPolicy policy)
     {
-        if (!policy || policy.Version != 1 || policy.MaxConvoys != 1) { return false; }
+        if (!policy) { return false; }
         if (!HCNumbers(policy)) { return false; }
-        if (policy.SeekObjects < 1 || policy.SeekObjects > 1024 || policy.MaxSeekScans < 1 || policy.MaxSeekScans > 32) { return false; }
-        if (policy.MaxRouteNodes < 2 || policy.MaxRouteNodes > 256 || policy.MaxPlanNodes < 2 || policy.MaxPlanNodes > 40000) { return false; }
-        if (policy.RoadNodesPerTick < 1 || policy.RoadNodesPerTick > 1024 || policy.RoadNodesPerWorkUnit < 1 || policy.RoadNodesPerWorkUnit > 64) { return false; }
+        if (policy.Version != 1 || policy.MaxConvoys != 1 || policy.SeekObjects < 1 || policy.SeekObjects > 1024) { return false; }
+        if (policy.MaxSeekScans < 1 || policy.MaxSeekScans > 32 || policy.MaxRouteNodes < 2 || policy.MaxRouteNodes > 256) { return false; }
+        if (policy.MaxPlanNodes < 2 || policy.MaxPlanNodes > 40000 || policy.RoadNodesPerTick < 1 || policy.RoadNodesPerTick > 1024) { return false; }
+        if (policy.RoadNodesPerWorkUnit < 1 || policy.RoadNodesPerWorkUnit > 64 || policy.ExitAttempts < 1 || policy.ExitAttempts > 10) { return false; }
         if (policy.SeekMeters < 5 || policy.SeekMeters > 200 || policy.SeekSeconds < 1 || policy.SeekSeconds > 300) { return false; }
         if (policy.PlayerClaimMeters < 50 || policy.PlayerClaimMeters > 1000 || policy.BoardMeters < 1 || policy.BoardMeters > 10) { return false; }
         if (policy.ApproachSeconds < 10 || policy.ApproachSeconds > 600 || policy.BoardSeconds < 5 || policy.BoardSeconds > 300) { return false; }
         if (policy.ExitSeconds < 1 || policy.ExitSeconds > 120 || policy.NodeReachMeters < 1 || policy.NodeReachMeters > 50) { return false; }
         if (policy.ArriveMeters < 1 || policy.ArriveMeters > 100 || policy.DismountMeters < 0 || policy.DismountMeters > 500) { return false; }
         if (policy.MaxApproachMeters < 5 || policy.MaxApproachMeters > 200 || policy.MinDriveMeters < 50 || policy.MinDriveMeters > 2000) { return false; }
-        if (policy.MaxDriveMeters < policy.MinDriveMeters || policy.MaxDriveMeters > 5000 || policy.DetourMeters < 0 || policy.DetourMeters > 2000) { return false; }
-        if (policy.CruiseKmh < 5 || policy.CruiseKmh > 60 || policy.TurnKmh < 3 || policy.TurnKmh > policy.CruiseKmh) { return false; }
-        if (policy.SpeedBandKmh < 1 || policy.SpeedBandKmh > 20 || policy.TurnRadians <= 0 || policy.TurnRadians > 1.6) { return false; }
-        if (policy.SteerGain <= 0 || policy.SteerGain > 8 || policy.Throttle <= 0 || policy.Throttle > 1) { return false; }
-        if (policy.BrakeStrength <= 0 || policy.BrakeStrength > 1 || policy.StopKmh <= 0 || policy.StopKmh > 10) { return false; }
-        if (policy.StopSeconds < 1 || policy.StopSeconds > 60 || policy.StallMeters <= 0 || policy.StallMeters > 50) { return false; }
-        return policy.StallSeconds >= 3 && policy.StallSeconds <= 120 && policy.MaxDriveSeconds >= 30 && policy.MaxDriveSeconds <= 1800;
+        if (policy.MaxDriveMeters < 150 || policy.MaxDriveMeters > 5000 || policy.DetourMeters < 0 || policy.DetourMeters > 2000) { return false; }
+        if (policy.CruiseKmh < 5 || policy.CruiseKmh > 60 || policy.TurnKmh < 3 || policy.TurnKmh > 60) { return false; }
+        if (policy.SpeedBandKmh < 1 || policy.SpeedBandKmh > 20 || policy.TurnRadians < 0.05 || policy.TurnRadians > 1.6) { return false; }
+        if (policy.SteerGain < 0.1 || policy.SteerGain > 8 || policy.Throttle < 0.05 || policy.Throttle > 1) { return false; }
+        if (policy.BrakeStrength < 0.05 || policy.BrakeStrength > 1 || policy.StopKmh < 0.5 || policy.StopKmh > 10) { return false; }
+        if (policy.StopSeconds < 1 || policy.StopSeconds > 60 || policy.StallMeters < 0.5 || policy.StallMeters > 50) { return false; }
+        if (policy.StallSeconds < 3 || policy.StallSeconds > 120 || policy.MaxDriveSeconds < 30 || policy.MaxDriveSeconds > 1800) { return false; }
+        if (policy.MaxDriveMeters < policy.MinDriveMeters || policy.TurnKmh > policy.CruiseKmh) { return false; }
+        return HCRegistryValid(policy);
+    }
+
+    static bool HCRegistryValid(HCConvoyPolicy policy)
+    {
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.Version", policy.Version)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxConvoys", policy.MaxConvoys)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.SeekObjects", policy.SeekObjects)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxSeekScans", policy.MaxSeekScans)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxRouteNodes", policy.MaxRouteNodes)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxPlanNodes", policy.MaxPlanNodes)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.RoadNodesPerTick", policy.RoadNodesPerTick)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.RoadNodesPerWorkUnit", policy.RoadNodesPerWorkUnit)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.ExitAttempts", policy.ExitAttempts)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.SeekMeters", policy.SeekMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.SeekSeconds", policy.SeekSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.PlayerClaimMeters", policy.PlayerClaimMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.BoardMeters", policy.BoardMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.ApproachSeconds", policy.ApproachSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.BoardSeconds", policy.BoardSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.ExitSeconds", policy.ExitSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.NodeReachMeters", policy.NodeReachMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.ArriveMeters", policy.ArriveMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.DismountMeters", policy.DismountMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxApproachMeters", policy.MaxApproachMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MinDriveMeters", policy.MinDriveMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxDriveMeters", policy.MaxDriveMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.DetourMeters", policy.DetourMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.CruiseKmh", policy.CruiseKmh)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.TurnKmh", policy.TurnKmh)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.SpeedBandKmh", policy.SpeedBandKmh)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.TurnRadians", policy.TurnRadians)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.SteerGain", policy.SteerGain)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.Throttle", policy.Throttle)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.BrakeStrength", policy.BrakeStrength)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.StopKmh", policy.StopKmh)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.StopSeconds", policy.StopSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.StallMeters", policy.StallMeters)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.StallSeconds", policy.StallSeconds)) { return false; }
+        if (!HCOperatorSettingsRegistry.HCValid("Convoys.MaxDriveSeconds", policy.MaxDriveSeconds)) { return false; }
+        return true;
     }
 }
 
