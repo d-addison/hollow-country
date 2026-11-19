@@ -128,7 +128,9 @@ class TradeAddon(unittest.TestCase):
             self.assertRegex(source, r'override \w+ ' + method + r'\(')
         cls = source[source.index('class HCXAITradeAdapter'):source.index('modded class HCXAIAdapter')]
         self.assertIn('HCInventoryBound(row)', cls)
-        self.assertIn('EnumerateInventory(InventoryTraversalType.PREORDER', cls)
+        self.assertNotIn('EnumerateInventory(', cls)
+        self.assertIn('HCXTradeInventoryScan', cls)
+        self.assertIn('HCServer.HCTickWork().HCTake(1)', source)
         self.assertIn('Recipe.InventoryScanLimit', cls)
         self.assertIn('state.ProposalId != lease', cls)
         self.assertIn('HCSignalSerial()', cls)

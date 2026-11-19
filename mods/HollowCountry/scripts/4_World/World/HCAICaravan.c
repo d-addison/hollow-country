@@ -18,8 +18,8 @@
 // Length; EnConvert.c:30 ToString; EnDebug.c:96 Print.
 // Wave 6: N1 3_Game/Global/Game.c:914 GetTickTime (seconds, monotonic
 // within a process); EnScript.c:380,407,470 Count/Insert/RemoveOrdered.
-// Pinned Expansion roots in the brief are absent. N17 is NOT an AI SDK.
-// Provider walking/arrival/flee callbacks and corridor survey remain refused.
+// The addon now binds installed-road walking callbacks. Geometry, combat
+// recovery and two-client observations remain admitted unverified.
 // All status lines below are proposed diagnostics; runtime acceptance PENDING.
 // Wave 8 #185: fresh idle-stock ceilings, terminal-history retention upgrades
 // and failed-provider-bind cleanup; the same custody/save barriers still apply.
@@ -37,6 +37,45 @@ class HCCaravanCorridor
     int CooldownSeconds = 900;
     // Includes the current trip; only oldest terminal receipts can be evicted.
     int MaxTripHistory = 16;
+
+    // Read the installed Expansion data in bounded slices. No redistributed
+    // road geometry, invented survey hash or native verdict in mission data.
+    string RoadDataPath = "DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads";
+    int RoadMapWidth = 14200;
+    int RoadMapHeight = 15500;
+    int MaxRoadNodes = 40000;
+    int MaxRoadDegree = 8;
+    int RoadWorkPerTick = 256;
+    int RoadNodesPerWorkUnit = 8;
+    int MaxRouteNodes = 128;
+    float MaxApproachMeters = 100;
+    float MaxJourneyMeters = 250;
+    int ReturnTimeoutSeconds = 600;
+
+    void HCApplyDefaults(string encoded)
+    {
+        if (!HCJsonFields.Has(encoded, "ReturnTimeoutSeconds")) { ReturnTimeoutSeconds = 600; }
+        if (!HCJsonFields.Has(encoded, "RoadDataPath")) { RoadDataPath = "DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads"; }
+        if (!HCJsonFields.Has(encoded, "RoadMapWidth")) { RoadMapWidth = 14200; }
+        if (!HCJsonFields.Has(encoded, "RoadMapHeight")) { RoadMapHeight = 15500; }
+        if (!HCJsonFields.Has(encoded, "MaxRoadNodes")) { MaxRoadNodes = 40000; }
+        if (!HCJsonFields.Has(encoded, "MaxRoadDegree")) { MaxRoadDegree = 8; }
+        if (!HCJsonFields.Has(encoded, "RoadNodesPerWorkUnit")) { RoadNodesPerWorkUnit = 8; }
+        if (!HCJsonFields.Has(encoded, "RoadWorkPerTick")) { RoadWorkPerTick = 256; }
+        if (!HCJsonFields.Has(encoded, "MaxRouteNodes")) { MaxRouteNodes = 128; }
+        if (!HCJsonFields.Has(encoded, "MaxApproachMeters")) { MaxApproachMeters = 100; }
+        if (!HCJsonFields.Has(encoded, "MaxJourneyMeters")) { MaxJourneyMeters = 250; }
+    }
+    bool HCNetworkValid()
+    {
+        if (RoadDataPath != "DayZExpansion/AI/Scripts/Data/Roads/ChernarusPlus.roads") { return false; }
+        if (RoadMapWidth != 14200 || RoadMapHeight != 15500) { return false; }
+        if (MaxRoadNodes < 1 || MaxRoadNodes > 50000 || MaxRoadDegree < 1 || MaxRoadDegree > 16) { return false; }
+        if (RoadWorkPerTick < 1 || RoadWorkPerTick > 512 || MaxRouteNodes < 2 || MaxRouteNodes > 256) { return false; }
+        if (RoadNodesPerWorkUnit < 1 || RoadNodesPerWorkUnit > 16) { return false; }
+        if (ReturnTimeoutSeconds < 60 || ReturnTimeoutSeconds > 3600) { return false; }
+        return MaxApproachMeters > 0 && MaxApproachMeters <= 200 && MaxJourneyMeters > 0 && MaxJourneyMeters <= 400;
+    }
 
     bool HCValid()
     {
@@ -56,7 +95,7 @@ class HCCaravanCorridor
     {
         if (!HCValid()) { return "CARAVAN_CONFIG_INVALID"; }
         if (!HCWorldLimits.Token(FromCamp) || !HCWorldLimits.Token(ToCamp)) { return "CARAVAN_CORRIDOR_UNSURVEYED"; }
-        if (FromCamp == ToCamp || SurveySha256.Length() != 64) { return "CARAVAN_CORRIDOR_UNSURVEYED"; }
+        if (FromCamp == ToCamp) { return "CARAVAN_CORRIDOR_UNSURVEYED"; }
         // A hash in JSON is an input, never provider/survey qualification.
         return "";
     }
@@ -174,7 +213,15 @@ class HCAICaravan
     // timestamps are never persisted/reused across restart or clock rollback.
     float m_TerminalAt = -1;
 
-    HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    HCOperationalStatus HCGetOperationalStatus()
+    {
+        if (m_Enabled && m_Ready && m_IO)
+        {
+            string fault = m_IO.HCOperationalFault();
+            if (fault != "") { m_Status.HCPublish("refused", fault); }
+        }
+        return m_Status;
+    }
 
     bool HCTerminal(string leg) { return leg == "returned" || leg == "lost"; }
 
@@ -275,6 +322,13 @@ class HCAICaravan
         m_State = new HCCaravanState;
         if (!m_Enabled) { m_Status.HCPublish("off", "operator_disabled"); HCLog(); return; }
         if (!GetGame() || !GetGame().IsServer()) { m_Enabled = false; return; }
+        // Native EnSystem.c:397; independent operator opt-out.
+        if (FileExist("$profile:HollowCountry/acceptance/ai_caravans.disable"))
+        {
+            m_Enabled = false;
+            m_Status.HCPublish("off", "operator_opt_out");
+            HCLog(); return;
+        }
         Print(HCV2Admission.Line("AICaravan", true, "HC36-WALKING-CORRIDOR", false));
         string encoded = HCWorldStore.Read("$mission:hollow-country/ai/caravans.json");
         string error;
@@ -283,7 +337,8 @@ class HCAICaravan
         {
             parsed = JsonFileLoader<HCCaravanCorridor>.LoadData(encoded, m_Corridor, error);
         }
-        if (!parsed || !m_Corridor || !m_Corridor.HCValid())
+        if (parsed && m_Corridor) { m_Corridor.HCApplyDefaults(encoded); }
+        if (!parsed || !m_Corridor || !m_Corridor.HCValid() || !m_Corridor.HCNetworkValid())
         {
             m_State.Refusal = "CARAVAN_CONFIG_INVALID";
             m_Status.HCPublish("refused", m_State.Refusal);
@@ -319,7 +374,8 @@ class HCAICaravan
             if (m_State.Refusal == "" && m_IO) { m_State.Refusal = m_ProviderRefusal; }
             if (m_State.Refusal == "") { m_State.Refusal = "CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED"; }
         }
-        m_Status.HCPublish("refused", m_State.Refusal);
+        if (m_State.Leg == "quarantined") { m_Status.HCPublish("refused", m_State.Refusal); }
+        else { m_Status.HCPublish("ready", "journal_loaded_waiting_funded_road_pair"); }
         HCLog();
     }
 

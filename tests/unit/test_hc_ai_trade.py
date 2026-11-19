@@ -112,10 +112,11 @@ class TradeBehavior(unittest.TestCase):
                    HCMove=move, HCClear=lambda: None,
                    HCItemId=lambda left_side: 'left-item' if left_side else 'right-item',
                    HCActorId=lambda left_side: 'left' if left_side else 'right')
+            status = ['ready']
             trade = N(m_State=state, m_Store=N(Save=save), m_IO=io,
                       m_Ready=True, m_Enabled=True, m_Busy=False, m_Reports=0, m_Released=0, m_LogRefusal='',
                       m_Recipe=N(RecipeId='bandage-for-drink', TimeoutSeconds=120),
-                      m_Status=N(HCPublish=lambda *args: None))
+                      m_Status=N(HCPublish=lambda value, reason: status.__setitem__(0, value), HCState=lambda: status[0]))
             # Synthetic port: a fresh HCTradeState carries the authored defaults (Version 1, idle, none).
             blank = lambda: N(Version=1, Id='', Phase='idle', Transfer='none', Refusal=EStr(''), LeftLease='',
                               RightLease='', StartedAt=0, EndsAt=0)
@@ -299,7 +300,7 @@ class TradeBehavior(unittest.TestCase):
         self.assertEqual('cancelled', c.state.Phase)
         before = deepcopy(c.state)
         published = []
-        c.trade.m_Status = N(HCPublish=lambda *args: published.append(args))
+        c.trade.m_Status = N(HCPublish=lambda *args: published.append(args), HCState=lambda: 'refused')
         saves = len(c.saved)
         self.assertFalse(c.trade.HCBegin('left-lease', 'right-lease', 300))
         self.assertEqual(vars(before), vars(c.state), 'a failed idle save must not touch the in-memory journal')
@@ -341,7 +342,7 @@ class TradeBehavior(unittest.TestCase):
         # Wave 16: the addon adapter is ready exactly while the site director runs, and
         # its rendezvous walk is declined (logged once) unless the pair is already in
         # range. The emote-ack gate is admitted unverified in the module, not refused here.
-        adapter = N(m_RouteNoted=False)
+        adapter = N(m_RouteNoted=False, Walker=None, PlannedLeft="", PlannedRight="")
         meeting = [False]
         director = N(Phase=lambda: 'wait')
         printed = []
@@ -542,7 +543,7 @@ class TradeBehavior(unittest.TestCase):
              dict(HCScavengeDefaults=lambda: N(TransferRangeMeters=2.5),
                   HCWorldLimits=N(Token=lambda value: bool(value) and len(value) <= 96)))
         self.assertTrue(corridor.HCValid())
-        self.assertEqual('CARAVAN_CORRIDOR_UNSURVEYED', corridor.HCAdmissionRefusal())
+        self.assertEqual('', corridor.HCAdmissionRefusal(), 'native survey verdict is admitted unverified; real road data is checked by the provider')
         corridor.Version = 0
         self.assertFalse(corridor.HCValid(), 'missing JSON version must refuse')
         corridor.Version, corridor.ArrivalRangeMeters = 1, 1000
@@ -939,20 +940,23 @@ class TradeBehavior(unittest.TestCase):
         carrier_alive[0], unconscious[0] = False, False
         self.assertFalse(native_caravan.HCLive())
 
-        shipped = N(LeftActor=carrier, RightActor=None, LeftItem=stock, RightItem=None)
+        shipped = N(LeftActor=carrier, RightActor=None, LeftItem=stock, RightItem=None,
+                    Corridor=None, m_Group=None, m_Lease='')
         bind(source, 'HCTradeInventory', shipped, ('HCClear',), {})
         addon = (ROOT / 'mods/HollowCountryExpansionAI/scripts/4_World/HCXAICaravanAdapter.c').read_text()
-        addon = addon.replace('HCClear()', 'self.HCClear()')  # syntax-only inherited method binding
+        addon = addon.replace('eAIGroup', 'HCGroupPort').replace('eAIBase', 'PlayerBase').replace('HCClear()', 'self.HCClear()')
+        addon = addon.replace('class HCXAICaravanAdapter : HCCaravanInventory\n{', 'class HCXAICaravanAdapter : HCCaravanInventory\n{\n    ref HCCaravanCorridor Corridor;\n    PlayerBase LeftActor;')  # syntax-only inherited method binding
         bind(addon, 'HCXAICaravanAdapter', shipped,
-             ('HCReady', 'HCRefusal', 'HCBindCaravan', 'HCWalkCaravan', 'HCAtCamp', 'HCFleeObserved'), {})
+             ('HCReady', 'HCRefusal', 'HCBindCaravan', 'HCWalkCaravan', 'HCAtCamp', 'HCFleeObserved'),
+             {'GetGame': lambda: None})
         self.assertFalse(shipped.HCReady())
         self.assertFalse(shipped.HCBindCaravan(N()))
         self.assertEqual((None, None), (shipped.LeftActor, shipped.LeftItem),
                          'refused provider bind must discard stale native handles')
-        self.assertFalse(shipped.HCWalkCaravan(N(), False))
+        self.assertFalse(shipped.HCWalkCaravan(None, False))
         self.assertFalse(shipped.HCAtCamp(N(), True))
         self.assertFalse(shipped.HCFleeObserved(N()))
-        self.assertEqual('CARAVAN_PROVIDER_CALLBACKS_UNVERIFIED', shipped.HCRefusal())
+        self.assertEqual('CARAVAN_WAITING_FUNDED_ROAD_PAIR', shipped.HCRefusal())
 
 
 class TradeRegistration(unittest.TestCase):

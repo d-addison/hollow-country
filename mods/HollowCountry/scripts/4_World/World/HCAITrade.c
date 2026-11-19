@@ -1,7 +1,8 @@
 // HC-35/#145: one reciprocal recipe, two EXISTING HC-10-funded parties.
 // Spec/plan/task: HC-16 funding -> HC-10 custody -> HC-34 same-item barriers
 // -> rendezvous -> observed gestures -> two moves -> receipt or quarantine.
-// No abstract bargain creates cargo; no stock credit/debit, rewards or UI.
+// No abstract bargain creates cargo; no stock credit, rewards or UI.
+// Confirmed caravan loss reduces both existing camp allocations once.
 // All writes are synchronous transaction barriers through HCEncounterStore's
 // verified intent/backup/copy/readback, NOT atomic with Hive. Back up both.
 // No routine dirty state: HCSaveJob/HCSaveScheduler remain the sole routine
@@ -21,7 +22,7 @@
 // Classes/EmoteManager.c:236 GetGesture, :1328 IsEmotePlaying inspected ONLY:
 // neither proves provider command acknowledgement. No emote calls here.
 // 3_Game/dayzplayer.c + 4_World/Entities/DayZPlayerImplement.c are NOT an AI
-// SDK. Pinned Expansion ai/core sources absent: named refusal in addon port.
+// SDK. Inspected installed Expansion calls are cited in the addon ports.
 // 3_Game/tools/JsonFileLoader.c:69 LoadData; CfgGameplayHandler.c:3 $mission:;
 // 1_Core/proto/EnConvert.c:210 DistanceSq, :30 ToString; EnString.c:199
 // Length; EnDebug.c:96 Print. Runtime acceptance PENDING.
@@ -41,20 +42,40 @@ class HCTradeRecipe
     // file omits the key (native JSON zero-fills a missing int).
     int GestureRequests = 3;
     int InventoryScanLimit = 64;
+    // Infrequent, single active pair; these are provisional pilot budgets.
+    int OfferIntervalSeconds = 900;
+    int MinimumCampReserve = 4;
+    int MinimumCampMembers = 2;
+    int LossSupplyDebit = 1;
+    int MaxLossReceipts = 128;
+    int PairCandidatesPerTick = 1;
     static const int DEFAULT_GESTURE_REQUESTS = 3;
     static const int DEFAULT_INVENTORY_SCAN_LIMIT = 64;
 
     void HCApplyDefaults(string encoded)
     {
+        if (!HCJsonFields.Has(encoded, "OfferIntervalSeconds")) { OfferIntervalSeconds = 900; }
+        if (!HCJsonFields.Has(encoded, "MinimumCampMembers")) { MinimumCampMembers = 2; }
+        if (!HCJsonFields.Has(encoded, "MinimumCampReserve")) { MinimumCampReserve = 4; }
+        if (!HCJsonFields.Has(encoded, "LossSupplyDebit")) { LossSupplyDebit = 1; }
+        if (!HCJsonFields.Has(encoded, "MaxLossReceipts")) { MaxLossReceipts = 128; }
+        if (!HCJsonFields.Has(encoded, "PairCandidatesPerTick")) { PairCandidatesPerTick = 1; }
         if (!HCJsonFields.Has(encoded, "GestureRequests")) { GestureRequests = HCTradeRecipe.DEFAULT_GESTURE_REQUESTS; }
         if (!HCJsonFields.Has(encoded, "InventoryScanLimit")) { InventoryScanLimit = HCTradeRecipe.DEFAULT_INVENTORY_SCAN_LIMIT; }
+    }
+
+    bool HCOfferConfigValid()
+    {
+        return MinimumCampMembers >= 2 && MinimumCampMembers <= HCAILimits.SIZE_CEILING && OfferIntervalSeconds >= 60 && OfferIntervalSeconds <= 86400 && MinimumCampReserve >= 1 && MinimumCampReserve <= 24 && LossSupplyDebit >= 1 && LossSupplyDebit <= MinimumCampReserve && MaxLossReceipts >= 1 && MaxLossReceipts <= 256 && PairCandidatesPerTick == 1;
     }
 
     bool HCValid()
     {
         HCScavengeDefaults pickup = new HCScavengeDefaults;
-        if (Version != 1 || RecipeId != "bandage-for-drink") { return false; }
-        if (LeftClass != "BandageDressing" || RightClass != "SodaCan_Kvass") { return false; }
+        if (Version != 1 || LeftClass != "BandageDressing") { return false; }
+        bool legacyDrink = RecipeId == "bandage-for-drink" && RightClass == "SodaCan_Kvass";
+        bool fundedFood = RecipeId == "bandage-for-food" && RightClass == "TunaCan";
+        if (!legacyDrink && !fundedFood) { return false; }
         if (TimeoutSeconds < 1 || TimeoutSeconds > 300) { return false; }
         if (GestureRequests < 1 || GestureRequests > 10 || InventoryScanLimit < 1 || InventoryScanLimit > 256) { return false; }
         return TransferRangeMeters > 0 && TransferRangeMeters <= pickup.TransferRangeMeters;
@@ -161,6 +182,7 @@ class HCTradeInventory
     ref HCTradeRecipe Recipe;
 
     bool HCReady() { return false; }
+    string HCOperationalFault() { return ""; }
     string HCRefusal() { return "TRADE_PROVIDER_UNAVAILABLE"; }
     bool HCBind(HCTradeState row) { return false; }
     bool HCBeginWalk(HCTradeState row) { return false; }
@@ -556,9 +578,7 @@ class HCTradeTransaction
     {
         if (!m_State || m_Reports >= 16) { return; }
         m_Reports++;
-        string effective = "refused";
-        if (!m_Enabled) { effective = "off"; }
-        else if (m_Ready && m_State.Phase != "quarantined") { effective = "ready"; }
+        string effective = m_Status.HCState();
         string id = "none";
         string bound = "0";
         string observed = "0";
@@ -609,7 +629,24 @@ class HCAITrade : HCModule
     // its own refusal and is never overwritten here.
     void HCRefreshStatus()
     {
-        if (!m_Trade || !m_Trade.m_Enabled || !m_Trade.m_Ready || !m_Trade.m_State || m_Trade.m_State.Phase == "quarantined") { return; }
+        if (!m_Trade || !m_Trade.m_Enabled || !m_Trade.m_State) { return; }
+        if (!m_Trade.m_Ready || m_Trade.m_State.Phase == "quarantined")
+        {
+            string journalReason = m_Trade.m_State.Refusal;
+            if (m_Trade.m_LogRefusal != "") { journalReason = m_Trade.m_LogRefusal; }
+            m_Status.HCPublish("refused", journalReason);
+            return;
+        }
+        if (s_Provider)
+        {
+            string providerFault = s_Provider.HCOperationalFault();
+            if (providerFault != "")
+            {
+                m_StatusReason = "";
+                m_Status.HCPublish("refused", providerFault);
+                return;
+            }
+        }
         bool bound = false;
         bool providerReady = false;
         if (s_Provider) { bound = true; providerReady = s_Provider.HCReady(); }
@@ -627,7 +664,7 @@ class HCAITrade : HCModule
         m_ProviderLogged = true;
         if (s_Provider)
         {
-            Print("[HC Plan] HC-35 provider=bound trade=ai_only rendezvous_route=unsurveyed runtime=PENDING");
+            Print("[HC Plan] HC-35 provider=bound trade=ai_only rendezvous_route=installed_road_plan_per_pair runtime=PENDING");
             return;
         }
         Print("[HC Plan] HC-35 provider=absent reason=expansion_ai_addon_not_loaded trade=none runtime=PENDING");
@@ -663,7 +700,7 @@ class HCAITrade : HCModule
             parsed = JsonFileLoader<HCTradeRecipe>.LoadData(encoded, recipe, error);
         }
         if (parsed && recipe) { recipe.HCApplyDefaults(encoded); }
-        if (!parsed || !recipe || !recipe.HCValid())
+        if (!parsed || !recipe || !recipe.HCValid() || !recipe.HCOfferConfigValid())
         {
             m_Status.HCPublish("refused", "TRADE_RECIPE_INVALID");
             Print("[HC Plan] HC-35 trade=none phase=refused transfer=none state=refused refusal=TRADE_RECIPE_INVALID count=0 runtime=PENDING");
@@ -707,6 +744,10 @@ class HCAITrade : HCModule
         return m_Trade.HCBegin(leftLease, rightLease, HCWorldClock.UTC());
     }
 
+    HCTradeRecipe HCRecipe() { if (m_Trade) { return m_Trade.m_Recipe; } return null; }
+    HCTradeState HCState() { if (m_Trade) { return m_Trade.m_State; } return null; }
+    bool HCTrading() { return m_Trade && m_Trade.HCActive(); }
+
     bool HCObservedComplete(string tradeId)
     {
         if (!GetGame() || !GetGame().IsServer() || !m_Trade || !m_Trade.m_State) { return false; }
@@ -739,5 +780,87 @@ modded class HCModuleRegistry
     {
         super.RegisterModules();
         Register(new HCAITrade);
+    }
+}
+
+// #145: pure admission policy shared with the funded-pair producer. Supply is
+// the existing HC-16 allocation, never a grant of native inventory.
+class HCTradeOfferPolicy
+{
+    static bool HCEligible(string leftCamp, string rightCamp, int relation, int leftSupply, int rightSupply, int reserve)
+    {
+        return leftCamp != "" && rightCamp != "" && leftCamp != rightCamp && relation > 0 && leftSupply > reserve && rightSupply > reserve;
+    }
+    static bool HCDue(int now, int previous, int interval)
+    {
+        return now > 0 && now >= previous && (previous == 0 || now - previous >= interval);
+    }
+}
+
+class HCTradeLossRow
+{
+    string Key;
+    string Phase = "new";
+    string LeftCamp;
+    string RightCamp;
+    int Debit;
+}
+class HCTradeLossData
+{
+    int Version = 1;
+    ref array<ref HCTradeLossRow> Rows = new array<ref HCTradeLossRow>;
+}
+// A synchronous intent is durable BEFORE the single two-camp save. A crash
+// between stores leaves intent UNKNOWN, never replayed or silently accepted.
+// No distributed atomicity/Hive claim. Completed rows also remember the damaged
+// camp relationship; the producer does not immediately offer the same pair.
+class HCTradeLossBarrier
+{
+    ref HCTradeLossRow m_Row;
+    ref HCTradeLossData m_Data;
+    ref HCEncounterStore<HCTradeLossData> m_Store;
+    bool m_Ready;
+    bool HCDebit(HCTradeLossRow row)
+    {
+        HCHoldouts homes = HCHoldouts.Get();
+        return homes && homes.HCTradeDebit(row.LeftCamp, row.RightCamp, row.Debit);
+    }
+    bool HCApply()
+    {
+        if (!m_Ready || !m_Row || !m_Store) { return false; }
+        if (m_Row.Phase == "complete") { return true; }
+        if (m_Row.Phase != "new") { return false; }
+        m_Row.Phase = "intent";
+        if (!m_Store.Save(m_Data)) { m_Ready = false; return false; }
+        if (!HCDebit(m_Row)) { m_Ready = false; return false; }
+        m_Row.Phase = "complete";
+        if (!m_Store.Save(m_Data)) { m_Ready = false; return false; }
+        return true;
+    }
+}
+
+// Native 1_Core/proto/EnMath.c:566 Max.
+// Narrow HC-16 mutation seam implemented in this area's file. One owner save
+// changes BOTH already-funded allocations; no direct world-ledger alias escapes.
+modded class HCHoldouts
+{
+    bool HCTradeDebit(string leftHome, string rightHome, int debit)
+    {
+        if (!m_Ready || !m_State || leftHome == rightHome || debit < 1) { return false; }
+        HCHoldoutRow leftRow;
+        HCHoldoutRow rightRow;
+        array<ref HCHoldoutRow> homes = m_State.Rows;
+        foreach (HCHoldoutRow candidate : homes)
+        {
+            if (candidate.Ledger.Id == leftHome) { leftRow = candidate; }
+            if (candidate.Ledger.Id == rightHome) { rightRow = candidate; }
+        }
+        if (!leftRow || !rightRow || !leftRow.Camp.Allocated || !rightRow.Camp.Allocated) { return false; }
+        // Never underflow after intervening upkeep/raid; an empty allocation
+        // loses its remaining stock, not newly invented debt or population.
+        leftRow.Camp.Supply = Math.Max(0, leftRow.Camp.Supply - debit);
+        rightRow.Camp.Supply = Math.Max(0, rightRow.Camp.Supply - debit);
+        m_Dirty = true;
+        return SaveChanged();
     }
 }
