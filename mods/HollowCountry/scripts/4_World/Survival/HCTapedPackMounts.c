@@ -173,6 +173,64 @@ class HCTapedPackMounts : HCModule
         return parsed;
     }
 
+    // True when every "Checked" key in the text is followed by a true or false
+    // literal. JsonFileLoader may coerce or zero-fill a wrongly typed bool, so
+    // the raw text is checked first. Escaped quotes inside a Note never match.
+    static bool ReceiptCheckedTyped(string text)
+    {
+        string needle = "\"Checked\"";
+        int total = text.Length();
+        int at = text.IndexOf(needle);
+        while (at >= 0)
+        {
+            int cursor = at + needle.Length();
+            while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
+            if (cursor >= total || text.Get(cursor) != ":") { return false; }
+            cursor = cursor + 1;
+            while (cursor < total && (text.Get(cursor) == " " || text.Get(cursor) == "\n" || text.Get(cursor) == "\r" || text.Get(cursor) == "\t")) { cursor = cursor + 1; }
+            string trueText = "";
+            if (cursor + 4 <= total) { trueText = text.Substring(cursor, 4); }
+            string falseText = "";
+            if (cursor + 5 <= total) { falseText = text.Substring(cursor, 5); }
+            if (trueText != "true" && falseText != "false") { return false; }
+            at = text.IndexOfFrom(cursor, needle);
+        }
+        return true;
+    }
+
+    // ISO date YYYY-MM-DD: digits and dashes, month 01-12, day 01-31 (calendar
+    // length per month is not checked; the date is operator prose, never evidence).
+    static bool ValidCheckDate(string date)
+    {
+        if (date.Length() != 10) { return false; }
+        string digits = "0123456789";
+        int index = 0;
+        while (index < 10)
+        {
+            string letter = date.Get(index);
+            if (index == 4 || index == 7)
+            {
+                if (letter != "-") { return false; }
+            }
+            else
+            {
+                if (digits.IndexOf(letter) < 0) { return false; }
+            }
+            index = index + 1;
+        }
+        string monthTens = date.Get(5);
+        string monthOnes = date.Get(6);
+        string dayTens = date.Get(8);
+        string dayOnes = date.Get(9);
+        if (monthTens == "0" && monthOnes == "0") { return false; }
+        if (monthTens == "1" && monthOnes != "0" && monthOnes != "1" && monthOnes != "2") { return false; }
+        if (monthTens != "0" && monthTens != "1") { return false; }
+        if (dayTens == "0" && dayOnes == "0") { return false; }
+        if (dayTens == "3" && dayOnes != "0" && dayOnes != "1") { return false; }
+        if (dayTens != "0" && dayTens != "1" && dayTens != "2" && dayTens != "3") { return false; }
+        return true;
+    }
+
     // Returns "" and records the checked pair ids, else a refusal reason with
     // nothing recorded. Unknown or duplicate ids and half-filled rows refuse the
     // whole file: a receipt file is all-or-nothing, never partially trusted.
@@ -183,6 +241,7 @@ class HCTapedPackMounts : HCModule
         if (!HCJsonFields.Has(text, "SchemaVersion") || !HCJsonFields.Has(text, "Receipts")) { return "receipts_fields_missing"; }
         if (!HCJsonFields.Every(text, "PairId", 3) || !HCJsonFields.Every(text, "Checked", 3)) { return "receipts_fields_missing"; }
         if (!HCJsonFields.Every(text, "CheckDate", 3) || !HCJsonFields.Every(text, "Note", 3)) { return "receipts_fields_missing"; }
+        if (!ReceiptCheckedTyped(text)) { return "receipt_checked_type"; }
         HCTapedPairReceipts parsed = ParseReceipts(text);
         if (!parsed || !parsed.Receipts) { return "receipts_invalid"; }
         if (parsed.SchemaVersion != 1) { return "receipts_schema"; }
@@ -194,6 +253,7 @@ class HCTapedPackMounts : HCModule
             if (refusal == "" && (!row || !HCTapedPackCatalog.KnownPair(row.PairId))) { refusal = "receipt_unknown_pair"; }
             if (refusal == "" && seen.Find(row.PairId) >= 0) { refusal = "receipt_duplicate_pair"; }
             if (refusal == "" && row.Checked && (row.CheckDate == "" || row.Note == "")) { refusal = "receipt_check_incomplete"; }
+            if (refusal == "" && row.CheckDate != "" && !ValidCheckDate(row.CheckDate)) { refusal = "receipt_check_incomplete"; }
             if (refusal == "")
             {
                 seen.Insert(row.PairId);
@@ -238,7 +298,7 @@ class HCTapedPackMounts : HCModule
         if (text == "") { return "mount_manifest_unreadable"; }
         if (!HCJsonFields.Has(text, "SchemaVersion") || !HCJsonFields.Has(text, "Qualified") || !HCJsonFields.Has(text, "SettingsContract")) { return "mount_manifest_fields_missing"; }
         if (!HCJsonFields.Check(text, "DefaultCrossSlotLights", 2, false) || !HCJsonFields.Check(text, "DefaultPermittedPairIds", 2, false) || !HCJsonFields.Check(text, "MaxPermittedPairIds", 2, false)) { return "mount_manifest_fields_missing"; }
-        if (!HCJsonFields.Check(text, "MaxReceiptBytes", 2, false)) { return "mount_manifest_fields_missing"; }
+        if (!HCJsonFields.Check(text, "MaxReceiptBytes", 2, false) || !HCJsonFields.Check(text, "MaxReceiptBytesCeiling", 2, false)) { return "mount_manifest_fields_missing"; }
         HCTapedPackManifest manifest = ParseManifest(text);
         if (!manifest || !manifest.SettingsContract || !manifest.SettingsContract.DefaultPermittedPairIds) { return "mount_manifest_invalid"; }
         if (manifest.SchemaVersion != 1) { return "mount_manifest_schema"; }
@@ -247,6 +307,8 @@ class HCTapedPackMounts : HCModule
         TStringArray ids = contract.DefaultPermittedPairIds;
         if (contract.MaxPermittedPairIds != 2 || ids.Count() > contract.MaxPermittedPairIds) { return "pack_mount_settings_refused"; }
         if (contract.MaxReceiptBytes <= 0) { return "pack_mount_settings_refused"; }
+        // The ceiling is a named manifest field, never a bare number here.
+        if (contract.MaxReceiptBytesCeiling <= 0 || contract.MaxReceiptBytes > contract.MaxReceiptBytesCeiling) { return "mount_manifest_receipt_limit"; }
         HCTapedLightMountSettings preferences = new HCTapedLightMountSettings;
         preferences.crossSlotLights = contract.DefaultCrossSlotLights;
         foreach (string pairId : ids) { preferences.permittedPairIds.Insert(pairId); }

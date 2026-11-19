@@ -61,6 +61,8 @@ class HCTapedPackSettingsContract
     int MaxPermittedPairIds;
     // Read cap for lights/pair-receipts.json; 0 (missing) is refused.
     int MaxReceiptBytes;
+    // Upper bound the manifest accepts for MaxReceiptBytes; 0 (missing) is refused.
+    int MaxReceiptBytesCeiling;
 }
 
 class HCTapedPackManifest

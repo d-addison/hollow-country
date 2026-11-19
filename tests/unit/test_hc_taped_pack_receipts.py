@@ -11,10 +11,11 @@ JSON codec, the native slot arrays and the catalogue verdict used to exercise th
 import json
 from pathlib import Path
 import re
+from types import SimpleNamespace as NS
 import unittest
 
 from tests.unit.test_group_server import EArray
-from tests.unit.test_hc_taped_pack_loader import MANIFEST, PACKS, build, start
+from tests.unit.test_hc_taped_pack_loader import MANIFEST, PACKS, build, member, start
 from tools.validate import settings_consistency
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +83,12 @@ class ShippedFilesTests(unittest.TestCase):
     def test_manifest_names_the_receipt_read_limit_as_a_config_field(self):
         contract = json.loads(MANIFEST.read_text())["SettingsContract"]
         self.assertGreater(contract["MaxReceiptBytes"], 0)
+
+    def test_manifest_names_the_receipt_read_ceiling_as_a_config_field(self):
+        contract = json.loads(MANIFEST.read_text())["SettingsContract"]
+        self.assertGreater(contract["MaxReceiptBytesCeiling"], 0)
+        self.assertLessEqual(contract["MaxReceiptBytes"], contract["MaxReceiptBytesCeiling"])
+        self.assertLessEqual(contract["MaxReceiptBytesCeiling"], 1048576)
 
     def test_source_reads_mission_receipts_never_profile(self):
         source = PACKS.read_text()
@@ -179,6 +186,50 @@ class AdmissionTests(unittest.TestCase):
         self.assertFalse(gate.BindingAllowed(binding))
 
 
+class ReceiptLimitCeilingTests(unittest.TestCase):
+    def manifest(self, **fields):
+        data = json.loads(MANIFEST.read_text())
+        data["SettingsContract"].update(fields)
+        return json.dumps(data)
+
+    def test_limit_above_the_named_ceiling_refuses_and_stays_unconfigured(self):
+        ceiling = json.loads(MANIFEST.read_text())["SettingsContract"]["MaxReceiptBytesCeiling"]
+        for limit in (ceiling + 1, 1048576, 2000000000):
+            text = self.manifest(MaxReceiptBytes=limit)
+            gate = build(text)
+            self.assertEqual("mount_manifest_receipt_limit", gate.ApplyManifest(text), limit)
+            self.assertFalse(gate.mHCConfigured)
+            self.assertEqual(0, gate.mHCReceiptMaxBytes)
+
+    def test_limit_at_the_ceiling_is_accepted(self):
+        ceiling = json.loads(MANIFEST.read_text())["SettingsContract"]["MaxReceiptBytesCeiling"]
+        text = self.manifest(MaxReceiptBytes=ceiling)
+        gate = build(text)
+        self.assertEqual("", gate.ApplyManifest(text))
+        self.assertEqual(ceiling, gate.mHCReceiptMaxBytes)
+
+    def test_missing_or_non_positive_ceiling_refuses(self):
+        data = json.loads(MANIFEST.read_text())
+        del data["SettingsContract"]["MaxReceiptBytesCeiling"]
+        text = json.dumps(data)
+        gate = build(text)
+        self.assertEqual("mount_manifest_fields_missing", gate.ApplyManifest(text))
+        self.assertFalse(gate.mHCConfigured)
+        for ceiling in (0, -5):
+            text = self.manifest(MaxReceiptBytesCeiling=ceiling)
+            gate = build(text)
+            self.assertEqual("mount_manifest_receipt_limit", gate.ApplyManifest(text), ceiling)
+            self.assertFalse(gate.mHCConfigured)
+
+    def test_boot_line_degrades_with_the_limit_reason(self):
+        text = self.manifest(MaxReceiptBytes=1048576)
+        gate = build(text, receipts=receipts(receipt(MOUNT)))
+        _, published = start(gate, setting=True)
+        self.assertIn(("degraded", "mount_manifest_receipt_limit"), published)
+        self.assertFalse(gate.mHCConfigured)
+        self.assertIn("admitted=0", boot_line(gate))
+
+
 class ReceiptValidationTests(unittest.TestCase):
     def apply(self, text, setting=True):
         gate = build(MANIFEST.read_text(), receipts=text)
@@ -222,6 +273,73 @@ class ReceiptValidationTests(unittest.TestCase):
             gate, got = self.apply(text)
             self.assertEqual(reason, got, text)
             self.assertEqual([], gate.mHCChecked, text)
+
+    def test_wrongly_typed_checked_refuses_with_a_named_reason_and_grants_nothing(self):
+        for bad in ("true", "false", 1, 0, None, "yes"):
+            for rows in ((receipt(MOUNT, checked=bad),),
+                         (receipt(MOUNT), receipt(CROSS, checked=bad))):
+                gate, reason = self.apply(receipts(*rows))
+                self.assertEqual("receipt_checked_type", reason, (bad, rows))
+                self.assertEqual([], gate.mHCChecked, (bad, rows))
+
+    def test_wrongly_typed_checked_degrades_the_boot_line_with_the_reason(self):
+        gate = build(MANIFEST.read_text(), receipts=receipts(receipt(MOUNT, checked="true")))
+        synthetic_catalogue_admits(gate, (MOUNT, CROSS))
+        _, published = start(gate, setting=True)
+        line = boot_line(gate)
+        for field in ("receipts_checked=0", "admitted=0", "reason=receipt_checked_type"):
+            self.assertIn(field, line)
+        self.assertIn(("refused", "receipt_checked_type"), published)
+
+    def test_note_text_quoting_the_checked_key_is_not_a_typed_field(self):
+        note = 'the "Checked": 1 wording is only prose'
+        text = receipts(receipt(MOUNT, note=note))
+        self.assertIn('\\"Checked\\": 1', text)
+        gate, reason = self.apply(text)
+        self.assertEqual("", reason)
+        self.assertEqual([MOUNT], gate.mHCChecked)
+
+    def test_check_date_must_be_an_iso_date(self):
+        for date in ("2026-13-01", "2026-00-10", "2026-11-32", "2026-11-00", "2026-11-40",
+                     "20261119", "2026/11/19", "2026-1-19", "2026-11-1", "today",
+                     "2026-11-1x", "2026-11-19 ", "2026-11-19T00", "26-11-19", " 026-11-19"):
+            for checked in (True, False):
+                gate, reason = self.apply(receipts(receipt(MOUNT, checked=checked, date=date)))
+                self.assertEqual("receipt_check_incomplete", reason, (date, checked))
+                self.assertEqual([], gate.mHCChecked, date)
+        for date in ("2026-11-19", "2026-01-31", "2026-12-01", "2027-02-09", "2026-10-30"):
+            gate, reason = self.apply(receipts(receipt(MOUNT, date=date)))
+            self.assertEqual("", reason, date)
+            self.assertEqual([MOUNT], gate.mHCChecked, date)
+
+    def test_unchecked_receipt_may_leave_the_date_empty_but_checked_may_not(self):
+        gate, reason = self.apply(receipts(receipt(MOUNT, checked=False, date="")))
+        self.assertEqual("", reason)
+        gate, reason = self.apply(receipts(receipt(MOUNT, checked=True, date="")))
+        self.assertEqual("receipt_check_incomplete", reason)
+
+    def test_oversize_receipt_file_is_refused_by_the_read_limit_with_a_named_reason(self):
+        limit = json.loads(MANIFEST.read_text())["SettingsContract"]["MaxReceiptBytes"]
+        padded = receipts(receipt(MOUNT, note="x" * (limit + 1)))
+        self.assertGreater(len(padded), limit)
+        asked = []
+
+        def bounded_read(path, bound, out):
+            asked.append((path, bound))
+            return len(padded) <= bound  # SYNTHETIC stand-in for HCGroupIO.HCReadRaw
+        gate = build(MANIFEST.read_text(), receipts=padded)
+        gate.env["HCGroupIO"] = NS(Read=bounded_read)
+        gate.ReadReceipts = lambda: member(PACKS, "HCTapedPackMounts", "ReadReceipts",
+                                           gate, gate.env)
+        synthetic_catalogue_admits(gate, (MOUNT, CROSS))
+        _, published = start(gate, setting=True)
+        self.assertEqual([(RECEIPT_PATH, limit)], asked)
+        line = boot_line(gate)
+        for field in ("receipts_checked=0", "admitted=0", "reason=receipts_unreadable",
+                      "receipts=receipts_unreadable"):
+            self.assertIn(field, line)
+        self.assertIn(("refused", "receipts_unreadable"), published)
+        self.assertEqual([], gate.mHCChecked)
 
     def test_unconfigured_manifest_never_reads_receipts(self):
         gate = build("", receipts=receipts(receipt(MOUNT)))
