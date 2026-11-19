@@ -1,149 +1,135 @@
-// #116. Native evidence: scripts-1.30.164289/
-// 3_Game/Global/Game.c:703,705,945 (create/delete/players),
-// 3_Game/Entities/Object.c:287 (GetPosition),
-// 1_Core/proto/EnMath.c:38 (RandomInt),
-// 1_Core/proto/EnScript.c:877,902,906 (maps),
-// 3_Game/Global/Game.c:612 (ConfigIsExisting),
-// 3_Game/Entities/EntityAI.c:885 (GetHierarchyParent).
-// 3_Game/Entities/Object.c:517 (IsAlive), Man.c:21 (GetIdentity).
-// StaticObj_Dead_pile1 is a vanilla corpse prop in structures_specific.pbo
-// (installed config census 2026-11-17); no survivor AI, loadout or third-party
-// assets. Its scene's single Paper remains beside the prop, with no other loot.
-// HCObserverTransitionGate.CanTransition(pos, 500) (Infected/HCObserverTransitionGate.c:266)
-// is consulted before a body is placed or removed, so no player sees it appear.
+// HC-44: real deceased AI keeps its native body, inventory and CE lifetime.
+// No survivor clone, loadout, reward, cargo/cache grant, teleport or respawn.
+// Inspected scripts-1.30.164289 native evidence:
+// 3_Game/Global/Game.c:1120 IsServer; Entities/Object.c:215 IsPendingDeletion,
+// :287 GetPosition, :517 IsAlive, :523 IsMan; Entities/EntityAI.c:1104 EEKilled.
+// 3_Game/Entities/Man.c:21 GetIdentity; 1_Core/proto/EnScript.c:94 Cast,
+// :380,394,407,470 Count/Find/Insert/RemoveOrdered; EnDebug.c:96 Print.
+// HCUnitBudget/HCWorkBudget provide bounded maintenance. Native bodies are
+// NEVER created, deleted, moved, re-equipped or given a new lifetime here.
 class HCBodyStories : HCModule
 {
     protected static HCBodyStories s_Instance;
     protected ref HCLeadStore m_Store;
-    protected ref map<string, Object> m_Props = new map<string, Object>();
+    protected ref array<Object> m_Observed = new array<Object>();
+    protected ref array<string> m_ObservedIds = new array<string>();
+    protected ref HCUnitBudget m_Units = new HCUnitBudget;
+    protected ref HCWorkBudget m_Work = new HCWorkBudget;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
     protected float m_Elapsed;
     protected int m_Cursor;
+    protected bool m_Ready;
     protected bool m_AdmissionPrinted;
+    protected bool m_StaticRefused;
 
     static HCBodyStories Get() { return s_Instance; }
     override string GetName() { return "BodyStories"; }
-    override bool IsEnabled(HCSettings settings) { return settings && settings.EnableLeads; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    override bool IsEnabled(HCSettings settings)
+    {
+        bool enabled = settings && settings.EnableLeads;
+        if (!enabled) { m_Status.HCPublish("off", "operator_preference"); }
+        return enabled;
+    }
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || s_Instance) { return; }
+        if (!GetGame().IsServer()) { m_Status.HCPublish("refused", "SERVER_AUTHORITY_REQUIRED"); return; }
         if (!m_AdmissionPrinted)
         {
             Print(HCV2Admission.Line("BodyStories", true, "EXP-S3", HCV2Gates.Qualified("EXP-S3")));
             m_AdmissionPrinted = true;
         }
         m_Store = HCLeadStore.Get();
-        if (!m_Store || !m_Store.Healthy()) { return; }
+        if (!m_Store || !m_Store.Healthy()) { m_Status.HCPublish("refused", "LEAD_STORE_UNAVAILABLE"); return; }
+        m_Ready = true;
         s_Instance = this;
-        LogCount();
+        m_Status.HCPublish("ready", "real_corpse_binding_only_producer_pending");
+        m_Store.HCPlan("ready", "BODY_RECEIPT_PRODUCER_BINDING_PENDING");
     }
 
-    void LogCount()
-    {
-        Print("[HollowCountry] V2 body stories placed=" + m_Props.Count().ToString() + "/3");
-    }
-
-    // Only call with a reviewed scene/shelter anchor, never an NPC/player
-    // position. The existing note is the entire story inventory.
+    // Legacy call signature remains safe. A scene note is not evidence of a
+    // death. Explicit authored static scenery needs separate provenance; it
+    // cannot impersonate a live party's casualty. No random death props remain.
     void Consider(string sceneId, vector position, HCWorldLead lead)
     {
-        if (!m_Store || !m_Store.Healthy() || m_Store.Data.Bodies.Count() >= 3 || !HCWorldLimits.Position(position) || !HCLeadPolicy.Valid(lead)) { return; }
-        HCWorldModule world = HCWorldModule.Get();
-        HCNoteLedger notes = HCNoteLedger.Get();
-        if (!world || !notes || !notes.Scene(sceneId)) { return; }
-        foreach (HCBodyStoryRow existing : m_Store.Data.Bodies)
-        {
-            if (existing.SceneId == sceneId) { return; }
-        }
-        // One rare attempt per newly created scene note; no retry loop/alerts.
-        if (Math.RandomInt(0, 10) != 0) { return; }
-        string place = world.NearestPlace(position);
-        HCWorldData catalog = HCWorldData.Fresh(1);
-        HCWorldPlace anchor = catalog.Place(place);
-        if (!anchor) { return; }
+        if (!m_Ready || m_StaticRefused || !m_Store) { return; }
+        m_StaticRefused = true;
+        m_Store.HCTraceRefuse("STATIC_DEATH_UNOBSERVED");
+    }
+
+    // Trusted server death producer only, with the SAME delayed shared fact
+    // identity used by notes/radio. Not an RPC/config assertion. Lead must bind
+    // the actual cause and reviewed scene; no live coordinates enter clue text.
+    // Existing human bodies only: AI has no player identity. Native death and
+    // body ownership/lifetime remain with the original provider and vanilla CE.
+    bool HCObserveBody(string sceneId, HCWorldLead lead, Object corpse)
+    {
+        if (!m_Ready || !m_Store || !m_Store.Healthy() || !GetGame().IsServer()) { return false; }
+        if (!corpse || corpse.IsPendingDeletion() || !corpse.IsMan() || corpse.IsAlive()) { return false; }
+        Man deceased = Man.Cast(corpse);
+        if (!deceased || deceased.GetIdentity()) { return false; }
+        if (!HCWorldLimits.Token(sceneId) || !m_Store.HCResolveFact(lead)) { return false; }
+        HCTraceReceipt receipt = m_Store.HCTrace(lead.Id);
+        if (receipt && (receipt.BodyId != "" || receipt.SceneId != sceneId)) { return m_Store.HCTraceRefuse("DUPLICATE_FACT"); }
+        int activeTraces = m_Store.Data.Notes.Count() + m_Store.Data.Bodies.Count();
+        if (activeTraces >= 10 || m_Store.HCSceneTraces(m_Store.Data, sceneId) >= 3) { return false; }
+        if (m_Store.Data.Bodies.Count() >= 3 || m_Observed.Find(corpse) >= 0) { return false; }
+        if (!receipt) { receipt = m_Store.HCReserveTrace(lead, sceneId); }
+        if (!receipt) { return false; }
         HCBodyStoryRow story = new HCBodyStoryRow;
         story.Id = m_Store.NextId("body");
         story.SceneId = sceneId;
-        story.PlaceId = anchor.Id;
-        story.Position = position;
+        story.FactId = lead.Id;
+        story.PlaceId = lead.TargetPlaceId;
+        story.Position = corpse.GetPosition(); // already dead; never a live target
         story.CreatedAt = HCWorldClock.UTC();
         story.Expires = lead.Expires;
-        if (story.Expires <= story.CreatedAt) { return; }
+        story.Phase = 2; // actual corpse already exists; never replay on restart
+        receipt.BodyId = story.Id;
         m_Store.Data.Bodies.Insert(story);
-        m_Store.Save();
-    }
-
-    void Place(HCBodyStoryRow story)
-    {
-        if (!HCObserverTransitionGate.CanTransition(story.Position, 500)) { return; }
-        HCNoteLedger notes = HCNoteLedger.Get();
-        if (!notes) { return; }
-        HCLeadNote entry = notes.Scene(story.SceneId);
-        if (!entry) { return; }
-        Paper paper = HCNoteEntities.Find(entry.Row.Id);
-        // Never attach a corpse to a scene after its note has been carried away.
-        if (!paper || paper.GetHierarchyParent()) { return; }
-        vector notePos = paper.GetPosition();
-        float dx = notePos[0] - story.Position[0];
-        float dz = notePos[2] - story.Position[2];
-        if (dx * dx + dz * dz > 4) { return; }
-        if (!GetGame().ConfigIsExisting("CfgVehicles StaticObj_Dead_pile1")) { return; }
-        // Reserve the attempt before creating a static prop. Uncertain attempts
-        // are not replayed on restart, and count toward the three-body cap.
-        story.Phase = 1;
-        if (!m_Store.Save()) { return; }
-        Object prop = GetGame().CreateObjectEx("StaticObj_Dead_pile1", story.Position, ECE_PLACE_ON_SURFACE);
-        if (prop) { m_Props.Set(story.Id, prop); }
-        LogCount();
-    }
-
-    void Approach(HCBodyStoryRow story, Object prop)
-    {
-        HCWorldModule world = HCWorldModule.Get();
-        if (!prop || !world || story.Phase != 1) { return; }
-        array<Man> players = new array<Man>();
-        GetGame().GetPlayers(players);
-        if (players.Count() > 32) { return; }
-        foreach (Man observer : players)
-        {
-            if (!observer || !observer.IsAlive() || !observer.GetIdentity()) { continue; }
-            vector position = observer.GetPosition();
-            float dx = position[0] - story.Position[0];
-            float dz = position[2] - story.Position[2];
-            if (dx * dx + dz * dz > 900) { continue; }
-            // At-most-once fact publication: a crash after this save may lose
-            // the fact, but never republishes it or creates another prop/note.
-            story.Phase = 2;
-            if (m_Store.Save()) { world.AddFact("BODY_FOUND", story.PlaceId, 1); }
-            return;
-        }
+        if (!m_Store.Save()) { return false; }
+        m_Observed.Insert(corpse);
+        m_ObservedIds.Insert(story.Id);
+        m_Store.HCPlan("ready", "real_body_observed_inventory_untouched");
+        return true;
     }
 
     override void OnTick(float deltaTime)
     {
-        if (!m_Store || !m_Store.Healthy() || deltaTime <= 0) { return; }
+        if (!m_Ready || !m_Store || !(deltaTime > 0)) { return; }
+        if (!m_Store.Healthy()) { m_Status.HCPublish("refused", "LEAD_STORE_UNCERTAIN"); return; }
         m_Elapsed += deltaTime;
         if (m_Elapsed < 20) { return; }
         m_Elapsed = 0;
         if (m_Store.Data.Bodies.Count() == 0) { return; }
+        m_Units.HCReset(1);
+        m_Work.HCReset(1);
+        if (!m_Units.HCTake(1) || !m_Work.HCContinue()) { return; }
         if (m_Cursor >= m_Store.Data.Bodies.Count()) { m_Cursor = 0; }
-        HCBodyStoryRow story = m_Store.Data.Bodies[m_Cursor++];
-        Object prop;
-        m_Props.Find(story.Id, prop);
-        if (story.Expires <= HCWorldClock.UTC())
+        int bodyIndex = m_Cursor;
+        m_Cursor++;
+        HCBodyStoryRow story = m_Store.Data.Bodies[bodyIndex];
+        // Legacy unbound static intents are quarantined until expiry too.
+        // No native object lookup, recreation, deletion or inventory scan.
+        if (story.Expires > HCWorldClock.UTC()) { return; }
+        int observedIndex = m_ObservedIds.Find(story.Id);
+        if (observedIndex >= 0)
         {
-            // Review P2: a placed row whose non-persistent prop is gone (restart or failed
-            // create) is released too, so expired rows never hold the three slots forever.
-            if (story.Phase == 0 || !prop || HCObserverTransitionGate.CanTransition(story.Position, 500))
-            {
-                if (prop) { GetGame().ObjectDelete(prop); m_Props.Remove(story.Id); }
-                m_Store.Data.Bodies.RemoveItem(story);
-                if (m_Store.Save()) { LogCount(); }
-            }
-            return;
+            m_Observed.RemoveOrdered(observedIndex);
+            m_ObservedIds.RemoveOrdered(observedIndex);
         }
-        if (story.Phase == 0) { Place(story); }
-        else { Approach(story, prop); }
+        m_Store.Data.Bodies.RemoveOrdered(bodyIndex);
+        m_Store.HCRequestCheckpoint();
     }
 
-    override void OnStop() { s_Instance = null; }
+    override void OnStop()
+    {
+        m_Ready = false;
+        m_Observed.Clear();
+        m_ObservedIds.Clear();
+        m_Store = null;
+        s_Instance = null;
+        m_Status.HCPublish("off", "stopped");
+    }
 }
