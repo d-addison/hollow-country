@@ -132,7 +132,10 @@ def _roster(events, templates):
     if set(owners) != expected:
         raise ValueError('HC-32 incomplete native travel roster')
     for event in events:
-        if {n.get('type') for n in event.findall('children/child')} != set(NATIVE_FAMILIES[event.get('name')]):
+        family = NATIVE_FAMILIES.get(event.get('name'))
+        if family is None:
+            raise ValueError('HC-32 native travel roster has an unreviewed event: ' + str(event.get('name')))
+        if {n.get('type') for n in event.findall('children/child')} != set(family):
             raise ValueError('HC-32 native vehicle family mismatch')
     rows = {n.get('name', '').casefold(): n for n in templates.findall('type')}
     if set(rows) & {n.casefold() for n in NATIVE_FAMILIES['VehicleTruck01']}:
