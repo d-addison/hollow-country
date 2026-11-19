@@ -12,6 +12,50 @@ from tests.unit.test_expansion_ai_adapter import Authored
 
 
 class EmotesWave41(unittest.TestCase):
+    def test_stance_never_passes_new_as_an_argument(self):
+        text = (HCX / 'HCXStance.c').read_text()
+        self.assertNotRegex(text, r'\(\s*new\s+',
+                            'construct an owned local before passing an argument')
+
+    def test_startup_status_reflects_failed_store_or_provider_before_any_tick(self):
+        from tests.unit.test_hc_module_readiness_wave16 import FakeStatus, derive
+        text = (HCX / 'HCXStance.c').read_text().split('class HCXLivingModule', 1)[1]
+        # Declaration syntax only; the lifecycle/status bodies remain authored.
+        for typename in ('HCXNativeSignalProvider', 'HCXCheckpointProps'):
+            text = text.replace(typename + ' ', 'Object ')
+        for store_failed, provider_failed, expected in (
+                (True, False, 'degraded'), (False, True, 'degraded'),
+                (False, False, 'ready')):
+            with self.subTest(store_failed=store_failed, provider_failed=provider_failed):
+                fixture = signals.Signals()
+                observer = fixture.observation()
+                store = fixture.store()
+                fixture.disk.blocked = store_failed  # Explicit synthetic IO failure.
+                fixture.provider_ready = not provider_failed
+                observer.m_Store = store
+                observer.Start = lambda:store.Open(100)
+                observer.Install = lambda provider:setattr(observer, 'm_Provider', provider)
+                provider = observer.m_Provider
+                logs = []
+                owner = N(m_Checkpoints=None, m_Refusal='', m_Started=False,
+                          m_Operational=FakeStatus())
+                api = Authored(text, dict(
+                    Print=logs.append, HCV2Admission=N(Line=lambda *a:''),
+                    HCV2Gates=N(Qualified=lambda *a:False),
+                    HCXAIQualification=N(SetEncountersEnabled=lambda *a:None),
+                    HCAskForNews=N(Configure=lambda *a:None),
+                    HCXEmoteObservation=observer,
+                    HCXNativeSignalProvider=lambda:provider,
+                    HCXCheckpointProps=lambda:N(Start=lambda:None),
+                    HCModuleReadiness=N(HCDerive=derive())))
+                api.call('OnStart', owner, N())
+                self.assertEqual(not store_failed, store.Healthy())
+                status = api.call('HCGetOperationalStatus', owner)
+                self.assertEqual(expected, status.state,
+                                 'startup status must reflect store/provider failure before OnTick')
+                if expected == 'degraded':
+                    self.assertEqual('emote_provider_or_betrayal_store_unavailable', status.reason)
+
     def test_greeting_serial_ignores_other_callbacks_and_keeps_generic_api(self):
         text = (HCX / 'HCXEmoteObservation.c').read_text()
         text = text.split('modded class EmoteManager', 1)[1].split('class HCXSignalProvider', 1)[0]
