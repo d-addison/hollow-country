@@ -3,6 +3,10 @@
 // 'Bad type HCGroupJson' from Groups/HCDeathPin.c compiled before HCGroupStore.c).
 class HCGroupIO
 {
+    // The one cap for every bounded raw profile read/write here (1 MiB). Read it qualified
+    // (HCGroupIO.HC_RAW_READ_CAP) inside static methods.
+    static const int HC_RAW_READ_CAP = 1048576;
+
     static bool Read(string path, int limit, out string text)
     {
         if (!HCRecoveryGate.HCAllowRead(path)) { return false; }
@@ -13,7 +17,7 @@ class HCGroupIO
     // Verification-only port: bounded raw bytes, no DTO/gameplay admission.
     static bool HCReadRaw(string path, int limit, out string text)
     {
-        if (limit < 1 || limit > 1048576) { return false; }
+        if (limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }
         FileHandle handle = OpenFile(path, FileMode.READ);
         if (!handle) return false;
         int count = ReadFile(handle, text, limit + 1);
@@ -24,7 +28,7 @@ class HCGroupIO
     static bool WriteNew(string path, string text, int limit)
     {
         if (!HCRecoveryGate.HCAllowWrite(path)) { return false; }
-        if (limit < 1 || limit > 1048576) { return false; }
+        if (limit < 1 || limit > HCGroupIO.HC_RAW_READ_CAP) { return false; }
         if (FileExist(path)) return false;
         if (text.Length() < 1 || text.Length() > limit) return false;
         FileHandle handle = OpenFile(path, FileMode.WRITE);
