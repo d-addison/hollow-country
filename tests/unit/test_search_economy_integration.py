@@ -18,6 +18,7 @@ from types import SimpleNamespace as N
 from tests.unit.test_group_server import EArray, body, execute_member
 from tests.unit import test_search_economy as economy_tests
 from tests.unit.build_identity_support import translate as build_identity
+from tests.unit import tick_budget_fixture as tick_fixture
 
 
 SOURCE = Path(__file__).resolve().parents[2] / 'mods/HollowCountry/scripts/4_World/Interiors/HCInteriorModule.c'
@@ -122,7 +123,7 @@ class SearchIntegrationTests(unittest.TestCase):
                    Build='1.30.164289', Epoch=1), m_Manifest=self.layout,
                    m_Store=N(Healthy=lambda:True), m_Economy=self.economy,
                    m_Sites=EArray([self.site]), m_SearchSessions=EArray([self.lease]),
-                   m_SearchBound=False, m_Objects=EArray([]), s_Instance=None)
+                   m_SearchBound=False, m_Objects=EArray([]), s_Instance=None, m_LockCursor=0)
         self.env = {'HCBuildIdentity':build_identity(),
                     'GetGame':lambda:N(IsServer=lambda:self.server, GetTickTime=lambda:self.now,
                         GetCallQueue=lambda category:N(Remove=lambda callback:None),
@@ -143,6 +144,8 @@ class SearchIntegrationTests(unittest.TestCase):
                     's_Instance':None}
         from tests.unit.test_refusal_report import install_refusal
         install_refusal(self.env)
+        # Wave 13 (#138): no core tick runs here, so the shared budget is the idle (never refusing) one.
+        tick_fixture.install(self.env)
         for name in ('SearchGate','CanStart','CanContinue','SearchSession','SessionValid',
                      'SearchBindingValid','PreserveLegacyManifest','SetSession'):
             setattr(self.t,name,lambda *a,n=name:self.call(n,*a))

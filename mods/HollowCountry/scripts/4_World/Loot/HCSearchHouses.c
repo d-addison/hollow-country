@@ -373,6 +373,9 @@ class HCSearchHouses
         int limit = m_Settings.MaxBindQueriesPerTick;
         if (limit > m_Settings.MaxTickWorkItems) limit = m_Settings.MaxTickWorkItems;
         if (m_Queries >= limit) return false;
+        // Wave 13 (#138): a scan also takes one unit of the shared core-tick budget. Outside a core
+        // tick (a player action) HCServer.HCTickWork() is the idle budget and never refuses.
+        if (!HCServer.HCTickWork().HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_BIND, 1)) return false;
         m_Queries++;
         return true;
     }
@@ -504,9 +507,13 @@ class HCSearchHouses
         if (activeLimit < 1) { activeLimit = 1; }
         if (activeLimit > m_Slots.Count()) { activeLimit = m_Slots.Count(); }
         int inspected = 0;
+        // Wave 13 (#138): each inspected slot takes one shared core-tick unit; the cursors
+        // m_RecycleActiveNext / m_RecycleDetachedNext resume at the refused slot next maintenance.
+        HCUnitBudget sharedWork = HCServer.HCTickWork();
         while (inspected < activeLimit && m_Slots.Count() > 0)
         {
             if (m_RecycleActiveNext >= m_Slots.Count()) { m_RecycleActiveNext = 0; }
+            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_MAINT, 1)) { break; }
             if (SpentOutsideRange(m_Slots[m_RecycleActiveNext], players)) { ReleaseAt(m_RecycleActiveNext); }
             else { m_RecycleActiveNext++; }
             inspected++;
@@ -517,6 +524,7 @@ class HCSearchHouses
         while (inspected < detachedLimit && m_DetachedSlots.Count() > 0)
         {
             if (m_RecycleDetachedNext >= m_DetachedSlots.Count()) { m_RecycleDetachedNext = 0; }
+            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_SEARCH_MAINT, 1)) { break; }
             HCSearchHouseSlot detached = m_DetachedSlots[m_RecycleDetachedNext];
             if (SpentOutsideRange(detached, players))
             {

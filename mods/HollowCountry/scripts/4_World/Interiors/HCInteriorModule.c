@@ -33,6 +33,7 @@ class HCInteriorsModule : HCModule
     protected ref HCInteriorManifest m_Manifest;
     protected ref array<Object> m_Objects = new array<Object>;
     protected ref array<ref HCInteriorSite> m_Sites = new array<ref HCInteriorSite>;
+    protected int m_LockCursor;
     protected int m_NextCandidate;
     protected bool m_Ready;
     protected bool m_PlacementProof;
@@ -450,9 +451,20 @@ class HCInteriorsModule : HCModule
             return;
         }
         // <=12 locks; no per-frame/world enumeration, writes or reactivation.
-        foreach (HCInteriorSite site : m_Sites)
+        // Wave 13 (#138): each site visit takes one unit of the shared core-tick budget. The lock
+        // cursor resumes at the first unvisited site next tick, one lap at most per tick, so a
+        // refused request never skips or repeats a site (the shared budget forces one per tick).
+        HCUnitBudget sharedWork = HCServer.HCTickWork();
+        int siteCount = m_Sites.Count();
+        int visited = 0;
+        while (visited < siteCount)
         {
-            if (site.Owner && GetGame().GetTickTime() > site.Deadline) site.Owner = null;
+            if (m_LockCursor >= siteCount) m_LockCursor = 0;
+            if (!sharedWork.HCTakeFor(HCUnitBudget.HC_WORK_INTERIORS, 1)) break;
+            HCInteriorSite lockSite = m_Sites[m_LockCursor];
+            m_LockCursor++;
+            visited++;
+            if (lockSite.Owner && GetGame().GetTickTime() > lockSite.Deadline) lockSite.Owner = null;
         }
     }
 
@@ -685,6 +697,7 @@ class HCInteriorsModule : HCModule
         HCInteriorMeasuredCatalog.MeasuredClear();
         foreach (HCInteriorSite site : m_Sites) site.Owner = null;
         m_Sites.Clear();
+        m_LockCursor = 0;
         // Owned nonpersistent decorations only. Never remove generated/player items.
         foreach (Object object : m_Objects)
         {

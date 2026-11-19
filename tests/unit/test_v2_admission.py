@@ -17,6 +17,7 @@ from pathlib import Path
 from types import SimpleNamespace as N
 
 from tests.unit import test_core_lifecycle as core
+from tests.unit import tick_budget_fixture as tick_fixture
 from tests.unit.test_event_runtime import translate
 from tools.validate.runtime import V2_FLAGS as RUNTIME_FLAGS
 
@@ -116,6 +117,7 @@ class StartPrintTests(unittest.TestCase):
                   m_Operational=N(HCReset=lambda: None, HCStopAll=lambda: None,
                                   HCCapture=lambda name, requested, reported: None),
                   m_LastTick=0, Tick=lambda: None, Stop=lambda: None,
+                  m_TickWork=tick_fixture.new_budget(), m_TickActive=False,
                   m_Perf=N(Start=lambda seconds: None, RegisterModule=lambda name: None))
         core.actual_method('Start', context)(state)
         summary = [i for i, l in enumerate(logs) if l.startswith('[HollowCountry] V2 preferences ')]

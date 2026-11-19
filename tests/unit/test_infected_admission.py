@@ -11,9 +11,11 @@ import unittest
 if __package__:
     from .test_infected_contract import SOURCE, policy_functions
     from .test_horde_stimulus import stimulus_api
+    from . import tick_budget_fixture as tick_fixture
 else:
     from test_infected_contract import SOURCE, policy_functions
     from test_horde_stimulus import stimulus_api
+    import tick_budget_fixture as tick_fixture
 
 PATHS = ("CEAdoption", "NativePackRoutes", "Investigation",
          "SupplementaryChains", "MemberRecovery", "HordeStimulusRoutes")
@@ -131,6 +133,9 @@ def bind_heard_admitted(context):
 def module_call(signature, context, *args, **namespace):
     if not hasattr(context, "HeardAdmitted"):
         bind_heard_admitted(context)
+    if "HCUnitBudget" not in namespace:
+        # No core tick in this harness: the idle (never refusing) shared budget, like HCServer outside Tick().
+        tick_fixture.install(namespace)
     fn = translate("HCInfectedModule.c", signature, MODULE_METHODS, **namespace)
     return fn(context, *args)
 
@@ -683,6 +688,8 @@ class StartedModule:
 
     def __init__(self, work=32, flags=None, hordes=True, journal=(), **overrides):
         self.events = []
+        self.tick_klass = tick_fixture.budget_class()
+        self.tick_work = tick_fixture.tick_work_accessor(None, self.tick_klass)
         self.saves = []
         self.store_calls = []
         self.released = []
@@ -760,6 +767,9 @@ class StartedModule:
             DayZInfectedConstants=NS(MINDSTATE_CHASE=3, MINDSTATE_FIGHT=4),
             vector=NS(Zero=(0.0, 0.0, 0.0), DistanceSq=lambda a, b: sum((x - y) ** 2 for x, y in zip(a, b))),
             Print=self.events.append)
+        # Wave 13 (#138): the shared core-tick budget; with no core tick it is the idle (never refusing)
+        # budget unless a test installs the accessor of a running synthetic HCServer.
+        namespace.update(HCUnitBudget=self.tick_klass, HCServer=NS(HCTickWork=self.tick_work))
         namespace.update(extra)
         return namespace
 
