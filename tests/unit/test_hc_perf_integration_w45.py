@@ -60,7 +60,7 @@ class ScopedSettings(unittest.TestCase):
     def test_performance_scope_registered_and_mutations_detected(self):
         rows = settings.load_registry(include_scoped=True)
         perf = [r for r in rows if r['key'].startswith('Performance.')]
-        self.assertEqual(6, len(perf))
+        self.assertEqual(10, len(perf))
         self.assertEqual([], settings.check_consistency())
         self.assertFalse(any(r['key'].startswith('Performance.') for r in settings.load_registry()),
                          'main settings validation must not accept profile-scoped keys')

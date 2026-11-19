@@ -716,7 +716,7 @@
     "key": "Performance.InteriorPackUnitsPerTick",
     "type": "int",
     "default": 4096,
-    "min": 1,
+    "min": 2,
     "max": 65536,
     "owner": "HCPerfConfig"
   },
