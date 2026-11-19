@@ -237,7 +237,7 @@ class GroupPersistenceTests(unittest.TestCase):
                     return ok
                 game=N(IsServer=lambda:True,GetWorld=lambda:N(GetWorldSize=lambda:15360.),
                        GetPlayers=lambda players:calls.append('GetPlayers'))
-                env=dict(self.h.rules,GetGame=lambda:game,HCGroupClock=N(Utc=lambda:now),
+                env=dict(self.h.rules,HCStartBlock=lambda config:'',HCRefuse=lambda reason:False,GetGame=lambda:game,HCGroupClock=N(Utc=lambda:now),
                          HCGroupStore=lambda:store,open_state=open_state,runtime=runtime,
                          HCGroupPlaces=N(Load=lambda:N(Places=EArray())),
                          Math=N(RandomIntInclusive=lambda a,b:123),EArray=EArray,str=str,

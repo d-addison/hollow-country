@@ -33,6 +33,7 @@ class HCEventModule : HCModule
     protected int m_QuarantineTicks = 0;
     protected float m_StartedAt;
     protected string m_Session;
+    protected string m_StartRefusal;
     protected ref array<string> m_AnnouncedMissions;
     // Same provider the runtime owns; read-only here so the roster offers the
     // AI encounter family only while that provider reports ready.
@@ -204,11 +205,20 @@ class HCEventModule : HCModule
     {
         return m_Runtime;
     }
+    // OnStart runs once per module start, so each reason is one boot line.
+    // The independent HC-38 situation director keeps its own status receipts.
+    string HCStartRefusal() { return m_StartRefusal; }
+    void HCStartRefused(string reason)
+    {
+        m_StartRefusal = reason;
+        Print("[HC Events] legacy events not started reason=" + reason);
+    }
     override void OnStart(HCSettings settings)
     {
         // Repeated starts must revoke the old callback/session before replacing
         // its runtime, even when the new configuration no longer admits Events.
         OnStop();
+        m_StartRefusal = "";
         if (s_CleanupOwner && s_CleanupOwner != this)
         {
             s_CleanupOwner.OnStop();
@@ -222,9 +232,14 @@ class HCEventModule : HCModule
         HCStartSituations(settings);
         if (!m_Config || !m_Config.Enabled)
         {
+            HCStartRefused("operator_off");
             return;
         }
-        if (!HCEventQualification.Admitted()) { return; }
+        if (!HCEventQualification.Admitted())
+        {
+            HCStartRefused("local_acceptance_opt_out");
+            return;
+        }
         m_RosterCursor = 0;
         m_RosterElapsed = 0;
         m_AnnouncedMissions = new array<string>();
@@ -239,7 +254,7 @@ class HCEventModule : HCModule
         m_Runtime = new HCEventRuntime;
         if (!m_Runtime.Start(m_Config, context, journal, observer, ai))
         {
-            Print("[HC Events] inactive: context/configuration/journal admission failed");
+            Print("[HC Events] inactive: context/configuration/journal admission failed reason=" + m_Runtime.Refusal());
             OnStop();
             return;
         }
@@ -290,7 +305,7 @@ class HCEventModule : HCModule
         m_EventRPC = new HCEventRPC;
         if (!m_EventRPC.Start(this))
         {
-            Print("[HC Events] opt-in transport unavailable; stopping runtime");
+            Print("[HC Events] opt-in transport unavailable; stopping runtime reason=" + m_EventRPC.Refusal());
             OnStop();
             return;
         }

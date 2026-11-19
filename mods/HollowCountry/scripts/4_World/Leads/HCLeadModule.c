@@ -204,6 +204,7 @@ class HCLeadModule : HCModule
     protected float m_LogElapsed = 600;
     protected string m_LastSummary;
     protected bool m_AdmissionPrinted;
+    protected ref HCOperationalStatus m_Status = new HCOperationalStatus;
 
     static HCLeadModule Get()
     {
@@ -213,6 +214,13 @@ class HCLeadModule : HCModule
 
     override string GetName() { return "Leads"; }
     override bool IsEnabled(HCSettings settings) { return settings && settings.EnableLeads; }
+    override HCOperationalStatus HCGetOperationalStatus() { return m_Status; }
+    // HC-1 reads this status; the store's own Fault() already names the failing step once.
+    void HCStartRefused(string reason)
+    {
+        m_Status.HCPublish("refused", reason);
+        Print("[HC Leads] start refused reason=" + reason);
+    }
     override void OnStart(HCSettings settings)
     {
         if (!IsEnabled(settings) || s_Instance) { return; }
@@ -222,8 +230,13 @@ class HCLeadModule : HCModule
             m_AdmissionPrinted = true;
         }
         m_Store = new HCLeadStore;
-        if (!m_Store.Open()) { return; }
+        if (!m_Store.Open())
+        {
+            HCStartRefused("lead_store_unavailable");
+            return;
+        }
         s_Instance = this;
+        m_Status.HCPublish("ready", "lead_store_open");
     }
 
     override void OnTick(float deltaTime)
@@ -294,7 +307,11 @@ class HCLeadModule : HCModule
         }
     }
 
-    override void OnStop() { s_Instance = null; }
+    override void OnStop()
+    {
+        s_Instance = null;
+        m_Status.HCStop();
+    }
 
     HCWorldLead Select()
     {

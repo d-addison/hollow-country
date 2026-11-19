@@ -583,10 +583,11 @@ class SituationBehavior(unittest.TestCase):
                        HCOperationalContributors=N(HCRegisterOwner=lambda name:
                            N(HCObserve=lambda requested, status, now: published.append((name, requested, status.HCState())))))
             names = ('HCStartSituations', 'HCStepSituations', 'HCPublishSituations',
-                     'HCCloseSituations', 'HCGetOperationalStatus', 'OnStart', 'OnTick', 'OnStop')
+                     'HCCloseSituations', 'HCGetOperationalStatus', 'HCStartRefused', 'OnStart', 'OnTick', 'OnStop')
             translate(source, 'HCEventModule', env, only=names)
             module = N(m_SituationStatus=cached_status(), m_Situations=None, m_Raids=None,
-                       m_Transit=None, m_Runtime=None, m_EventRPC=None, m_Config=N(Enabled=False))
+                       m_Transit=None, m_Runtime=None, m_EventRPC=None, m_Config=N(Enabled=False),
+                       m_StartRefusal='')
             for name in names:
                 setattr(module, name, MethodType(env[name], module))
             module.OnStart(N(EnableEncounters=enabled))

@@ -52,7 +52,7 @@ class EventTransportTests(unittest.TestCase):
         cls = methods(ROOT / "4_World/Events/HCEventRPC.c", self.e)
         self.rpc = cls(); self.rpc.m_Module = SimpleNamespace(Runtime=lambda:self.runtime,Context=lambda:copy.deepcopy(self.context))
         self.rpc.m_Peers = EArray(); self.rpc.m_Serial = 0; self.rpc.m_GlobalWindow = 0.
-        self.rpc.m_GlobalCount = 0; self.rpc.m_Started = True
+        self.rpc.m_GlobalCount = 0; self.rpc.m_Started = True; self.rpc.m_Refusal = ""
         self.rpc.m_Boot = "synthetic-transport"; self.rpc.m_LastTime = 100.
         self.rpc.m_ProjectionState = None
 
