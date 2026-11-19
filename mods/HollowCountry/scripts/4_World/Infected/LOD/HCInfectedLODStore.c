@@ -22,12 +22,12 @@ class HCInfectedLODHerdSeed
 
 class HCInfectedLODConfig
 {
-    int SchemaVersion = 2;
+    int SchemaVersion = 3;
     // Classification and the tiered posed budget: a strict refinement of the
     // shipped behaviour at these defaults (same posed cap, same wake outcome).
     bool EnableLOD = true;
     // Owner default-on preference; explicit false remains the operator opt-out.
-    // HCV2Admission logs W7-135 unverified; configured seeds are still required.
+    // HCV2Admission logs W7-135 unverified; schema 3 supplies inland seeds.
     bool EnableVirtualHerds = true;
     // Provisional design bands, not measured hearing cutoffs. The repo's
     // LOCAL_ACCEPTANCE_V1.md:413 documents the 1000 m visibility/network
@@ -60,6 +60,43 @@ class HCInfectedLODConfig
     ref array<string> MemberTypes = new array<string>;
     ref array<ref HCInfectedLODHerdSeed> Herds = new array<ref HCInfectedLODHerdSeed>;
 
+    // #135 / w48: source-authored chernarusplus seed catalogue, not a native
+    // terrain/path survey. Reuse inland rural barns and woodland stock anchors
+    // already authored in Travel; never borrow the coastal/town pack corridors.
+    // Radius/HeadCount remain the named, operator-editable seed DTO defaults.
+    // Runtime placement and every observer veto remain authoritative.
+    // Native scripts-1.30.164289: 1_Core/proto/EnScript.c:407 Insert,
+    // :380 Count; 1_Core/proto/EnDebug.c:96 Print; EnConvert.c:30 int.ToString.
+    static void HCSeed(HCInfectedLODConfig config, string id, float x, float z)
+    {
+        HCInfectedLODHerdSeed seed = new HCInfectedLODHerdSeed;
+        seed.Id = id;
+        seed.X = x;
+        seed.Z = z;
+        config.Herds.Insert(seed);
+    }
+
+    static void HCSeedDefaults(HCInfectedLODConfig config)
+    {
+        if (!config.Herds || config.Herds.Count() != 0 || config.HerdWorld != "chernarusplus") { return; }
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:107 inland farm approach above coast.
+        HCSeed(config, "bor-farm", 3100.955811, 4238.387207);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:109 northbound farm/woodland edge.
+        HCSeed(config, "sosnovka-woods", 3560.896484, 7004.783203);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:111 farmland between wooded ridges.
+        HCSeed(config, "pulkovo-fields", 5271.449219, 5515.677246);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:113 rural ridge west of Dolina.
+        HCSeed(config, "dolina-ridge", 9710.349609, 6487.099121);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:115 southern farm approach to Polana.
+        HCSeed(config, "polana-farm", 10677.808594, 7923.848633);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:72 northwest woodland stock anchor.
+        HCSeed(config, "sinystok-woods", 1987.282837, 12965.870117);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:73 northern woodland stock anchor.
+        HCSeed(config, "kamensk-woods", 7428.081543, 12732.728516);
+        // mods/HollowCountry/scripts/4_World/Travel/HCShelterCatalog.c:74 northeast woodland stock anchor.
+        HCSeed(config, "northeast-woods", 12818.673828, 13117.182617);
+    }
+
     // Stock civilian infected classes; used when MemberTypes is empty.
     static string DefaultMemberType(int index)
     {
@@ -74,7 +111,7 @@ class HCInfectedLODConfig
 
     bool IsValid()
     {
-        if (SchemaVersion != 2 || !MemberTypes || !Herds) { return false; }
+        if (SchemaVersion != 3 || !MemberTypes || !Herds) { return false; }
         if (!HCLODPolicy.ValidRanges(FullRange, IdleRange, MinSpawnDistance, MaterializeRange, FoldRange, VisibilityRange)) { return false; }
         if (IdleRange > VisibilityRange || MaterializeRange < FullRange || FoldRange < IdleRange) { return false; }
         if (!HCLODPolicy.ValidCaps(ClassifyPerTick, MaxMaterialized, MaxPerHerd, PosedBudget, PosedFullBudget, PosedIdleBudget, Herds.Count())) { return false; }
@@ -176,6 +213,7 @@ class HCInfectedLODConfig
         string content;
         string error;
         bool migrate = false;
+        bool migratedPreference = false;
         reason = "";
         MakeDirectory(HCInfectedStore.ROOT);
         MakeDirectory(HCInfectedStore.DIRECTORY);
@@ -191,12 +229,15 @@ class HCInfectedLODConfig
                 reason = "unreadable lod.json; preserving file";
                 return null;
             }
-            // Only EnableVirtualHerds, HerdWorld and VarietyNonCalmHoldSeconds
-            // may be absent; HCRestoreMissingDefaults names their defaults.
+            // Only the named compatibility keys may be absent. Schema 1/2
+            // additionally permits absent Herds: those older empty templates
+            // had no operational herd set. Schema 3 still requires Herds.
+            bool legacyHerds = config.SchemaVersion == 1 || config.SchemaVersion == 2;
             bool baselinePresent = true;
             if (!HCJsonFields.Has(content, "SchemaVersion") || !HCJsonFields.Has(content, "EnableLOD") || !HCJsonFields.Has(content, "FullRange") || !HCJsonFields.Has(content, "IdleRange") || !HCJsonFields.Has(content, "MinSpawnDistance") || !HCJsonFields.Has(content, "MaterializeRange") || !HCJsonFields.Has(content, "FoldRange")) { baselinePresent = false; }
             if (!HCJsonFields.Has(content, "VisibilityRange") || !HCJsonFields.Has(content, "ClassifyPerTick") || !HCJsonFields.Has(content, "MaxMaterialized") || !HCJsonFields.Has(content, "MaxPerHerd") || !HCJsonFields.Has(content, "MaxObservers") || !HCJsonFields.Has(content, "RegrowSeconds")) { baselinePresent = false; }
-            if (!HCJsonFields.Has(content, "PosedBudget") || !HCJsonFields.Has(content, "PosedFullBudget") || !HCJsonFields.Has(content, "PosedIdleBudget") || !HCJsonFields.Has(content, "MemberTypes") || !HCJsonFields.Has(content, "Herds")) { baselinePresent = false; }
+            if (!HCJsonFields.Has(content, "PosedBudget") || !HCJsonFields.Has(content, "PosedFullBudget") || !HCJsonFields.Has(content, "PosedIdleBudget") || !HCJsonFields.Has(content, "MemberTypes")) { baselinePresent = false; }
+            if (!legacyHerds && !HCJsonFields.Has(content, "Herds")) { baselinePresent = false; }
             if (!baselinePresent)
             {
                 reason = "settings_missing_baseline_fields; preserving lod.json";
@@ -207,13 +248,25 @@ class HCInfectedLODConfig
             {
                 config.SchemaVersion = 2;
                 config.EnableVirtualHerds = true;
+                migratedPreference = true;
+            }
+            if (config && config.SchemaVersion == 2)
+            {
+                // Do not convert explicit null/invalid arrays into defaults.
+                if (!HCJsonFields.Has(content, "Herds")) { config.Herds = new array<ref HCInfectedLODHerdSeed>; }
+                HCInfectedLODConfig.HCSeedDefaults(config);
+                config.SchemaVersion = 3;
                 migrate = true;
             }
         }
-        else if (!JsonFileLoader<HCInfectedLODConfig>.SaveFile(path, config, error))
+        else
         {
-            reason = "cannot create lod.json template";
-            return null;
+            HCInfectedLODConfig.HCSeedDefaults(config);
+            if (!JsonFileLoader<HCInfectedLODConfig>.SaveFile(path, config, error))
+            {
+                reason = "cannot create lod.json template";
+                return null;
+            }
         }
         if (!config || !config.IsValid())
         {
@@ -227,7 +280,11 @@ class HCInfectedLODConfig
                 reason = "cannot migrate lod.json; preserving recovery files";
                 return null;
             }
-            Print("[HC InfectedLOD] settings migrated v1->v2 EnableVirtualHerds=true (owner default-on; set false to opt out)");
+            if (migratedPreference)
+            {
+                Print("[HC InfectedLOD] settings migrated v1->v2 EnableVirtualHerds=true (owner default-on; set false to opt out)");
+            }
+            Print("[HC InfectedLOD] settings migrated v2->v3 herds=" + config.Herds.Count().ToString() + " runtime=PENDING");
         }
         return config;
     }
